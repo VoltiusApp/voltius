@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 pub mod dir;
 pub mod editor;
 #[allow(dead_code)]
-mod local_tar;
+pub(crate) mod local_tar;
 mod ops;
 mod remote_shell;
 #[allow(dead_code)]
@@ -22,12 +22,14 @@ mod stream;
 mod tar;
 #[allow(dead_code)]
 mod tar_failure;
+mod tar_host;
 pub mod transfer;
 
 pub use dir::*;
 pub use ops::*;
-pub use remote_shell::RemoteShell;
 pub use tar::*;
+#[allow(unused_imports)]
+pub use tar_host::{TarHost, TarProbe};
 pub use transfer::*;
 
 pub(super) const CHUNK_SIZE: usize = 256 * 1024; // 256 KB

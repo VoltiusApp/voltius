@@ -1,11 +1,10 @@
 //! The `FileBackend` trait: the filesystem operations every SFTP-id speaks,
 //! regardless of transport (real SFTP over SSH, `docker exec` shim, …).
 //!
-//! Server-to-server transfer and the tar fast paths are inherently SFTP-only;
-//! they reach the raw session through `as_sftp_session()` (None for non-SFTP
-//! backends, which fall back to the per-item `*_batch` methods).
+//! Server-to-server per-file transfer needs a raw SFTP session (`as_sftp_session`);
+//! tar streaming needs a host that runs commands (`tar_probe`).
 
-use crate::commands::sftp::RemoteFile;
+use crate::commands::sftp::{RemoteFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_via_shell, AttrChange};
 use crate::ssh::exec::Captured;
@@ -202,6 +201,10 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
     /// Raw SFTP session, for server-to-server transfer and tar fast paths.
     /// None for transports that don't speak real SFTP.
     fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
+        None
+    }
+
+    fn tar_probe(&self) -> Option<&TarProbe> {
         None
     }
 }

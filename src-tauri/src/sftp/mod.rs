@@ -5,7 +5,6 @@ pub mod real;
 
 pub use backend::FileBackend;
 
-use crate::commands::sftp::RemoteShell;
 use crate::error::AppError;
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
 use crate::proxy::ProxySpec;
@@ -26,7 +25,7 @@ use std::future::Future;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncReadExt;
-use tokio::sync::{Mutex, OnceCell};
+use tokio::sync::Mutex;
 use tokio::time::Duration;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -66,7 +65,6 @@ struct SftpEntry {
     handle: Option<SessionHandle>,
     cancel: CancellationToken,
     _jump_handles: Vec<Arc<Handle<SshClient>>>,
-    tar_shell: Arc<OnceCell<Option<RemoteShell>>>,
 }
 
 pub struct SftpManager {
@@ -108,7 +106,6 @@ impl SftpManager {
                 handle,
                 cancel,
                 _jump_handles: jump_handles,
-                tar_shell: Arc::default(),
             },
         );
         id
@@ -350,14 +347,6 @@ impl SftpManager {
             .unwrap_or(false)
     }
 
-    /// Per-session cache of the remote shell tar commands are written for.
-    pub(crate) async fn tar_shell_cell(
-        &self,
-        id: &str,
-    ) -> Option<Arc<OnceCell<Option<RemoteShell>>>> {
-        self.with_entry(id, |e| Arc::clone(&e.tar_shell)).await
-    }
-
     pub async fn close(&self, id: &str) {
         let entry = self.sessions.lock().await.remove(id);
         if let Some(e) = entry {
@@ -421,27 +410,6 @@ impl SftpManager {
             "Transfer cancelled".to_string()
         };
         exit_status(&self.exec_until(sftp_id, cmd, stop, after_cancel).await?)
-    }
-
-    /// True only if `cmd` ran and reported exit 0 through its `__TF_EXIT__` marker.
-    pub async fn exec_probe(&self, sftp_id: &str, cmd: &str) -> bool {
-        match self.exec_output(sftp_id, cmd).await {
-            Ok(text) => exit_status(&text).is_ok(),
-            Err(_) => false,
-        }
-    }
-
-    /// Output of a quick probe command, or an error if it hasn't finished in
-    /// `PROBE_TIMEOUT`.
-    pub(crate) async fn exec_output(&self, sftp_id: &str, cmd: &str) -> Result<String, String> {
-        let stop = async {
-            tokio::time::sleep(PROBE_TIMEOUT).await;
-            format!(
-                "Remote command timed out after {}s",
-                PROBE_TIMEOUT.as_secs()
-            )
-        };
-        self.exec_until(sftp_id, cmd, stop, None).await
     }
 
     async fn exec_until(
@@ -529,10 +497,6 @@ async fn drain(channel: &mut Channel<Msg>, session_cancel: &CancellationToken) -
         _ = session_cancel.cancelled() => false,
     }
 }
-
-/// How long a probe (`command -v tar`, `echo %TEMP%`) may take before the host
-/// is treated as unable to run it.
-const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Read the `__TF_EXIT__` marker a finished command printed. Its absence means
 /// the command never got that far — the connection dropped, or the host's shell

@@ -5,7 +5,7 @@
 use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner};
 use crate::commands::sftp::editor::read_capped;
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
-use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile};
+use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_mode, apply_via_shell, AttrChange};
 use crate::sftp::backend::FileBackend;
@@ -121,6 +121,7 @@ pub struct RealSftp {
     /// Live SSH handle — follows the owning terminal session across reconnects.
     handle: SessionHandle,
     opener: SftpOpener,
+    tar: Arc<TarProbe>,
 }
 
 impl RealSftp {
@@ -131,6 +132,7 @@ impl RealSftp {
         let session = open_sftp(&current, &opener).await?;
         Ok(Self {
             session: Arc::new(Mutex::new(session)),
+            tar: Arc::new(TarProbe::new(Arc::clone(&handle), None)),
             handle,
             opener,
         })
@@ -329,6 +331,10 @@ impl FileBackend for RealSftp {
 
     fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
         Some(Arc::clone(&self.session))
+    }
+
+    fn tar_probe(&self) -> Option<&TarProbe> {
+        Some(&self.tar)
     }
 }
 

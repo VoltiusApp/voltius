@@ -1,5 +1,7 @@
 use super::shell_quote;
-use crate::sftp::SftpManager;
+use crate::ssh::exec::{run_captured, run_captured_with_stdin};
+use russh::client::{Handle, Handler};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WinShell {
@@ -18,39 +20,83 @@ pub enum RemoteShell {
     },
 }
 
-const POSIX_PROBE: &str = "command -v tar >/dev/null 2>&1 && test -d /tmp; echo __TF_EXIT__:$?";
+pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
+const POSIX_PROBE: &str = "command -v tar >/dev/null 2>&1; echo __TF_EXIT__:$?";
+const STREAM_PROBE_BYTES: &[u8] = b"voltius\n\r\n\x1a\x00\xff probe\n";
 const TEMP_MARKER: &str = "__TF_TEMP__:";
 // Each prints the marker only under its own shell; the other shells echo it literally or fail.
 const CMD_TEMP_PROBE: &str = "echo __TF_TEMP__:%TEMP%";
 const PS_TEMP_PROBE: &str = "'__TF_TEMP__:' + $env:TEMP";
 const CMD_MAX_LEN: usize = 8191;
 
-/// The host's shell if it can run tar transfers, probed once per session.
-pub async fn remote_shell(manager: &SftpManager, sftp_id: &str) -> Option<RemoteShell> {
-    let cell = manager.tar_shell_cell(sftp_id).await?;
-    cell.get_or_init(|| detect(manager, sftp_id)).await.clone()
+pub fn wrap(container: Option<&str>, cmd: &str) -> String {
+    match container {
+        Some(c) => format!(
+            "docker exec -i {} sh -c {}",
+            shell_quote(c),
+            shell_quote(cmd)
+        ),
+        None => cmd.to_string(),
+    }
 }
 
-async fn detect(manager: &SftpManager, sftp_id: &str) -> Option<RemoteShell> {
-    if manager.exec_probe(sftp_id, POSIX_PROBE).await {
+async fn output<H: Handler>(handle: &Handle<H>, cmd: &str) -> Option<String> {
+    let run = tokio::time::timeout(PROBE_TIMEOUT, run_captured(handle, cmd)).await;
+    Some(run.ok()?.ok()?.stdout_text())
+}
+
+async fn reports_success<H: Handler>(handle: &Handle<H>, cmd: &str) -> bool {
+    output(handle, cmd)
+        .await
+        .is_some_and(|out| out.contains("__TF_EXIT__:0"))
+}
+
+async fn dialect<H: Handler>(handle: &Handle<H>, container: Option<&str>) -> Option<RemoteShell> {
+    if reports_success(handle, &wrap(container, POSIX_PROBE)).await {
         return Some(RemoteShell::Posix);
+    }
+    if container.is_some() {
+        return None;
     }
     for (shell, probe) in [
         (WinShell::Cmd, CMD_TEMP_PROBE),
         (WinShell::PowerShell, PS_TEMP_PROBE),
     ] {
-        let Ok(out) = manager.exec_output(sftp_id, probe).await else {
+        let Some(out) = output(handle, probe).await else {
             continue;
         };
         if let Some(temp) = parse_temp(&out) {
             let found = RemoteShell::Windows { shell, temp };
-            let has_tar = manager
-                .exec_probe(sftp_id, &found.status("tar --version", None))
-                .await;
+            let has_tar = reports_success(handle, &found.status("tar --version", None)).await;
             return has_tar.then_some(found);
         }
     }
     None
+}
+
+async fn streams<H: Handler>(
+    handle: &Handle<H>,
+    shell: &RemoteShell,
+    container: Option<&str>,
+) -> bool {
+    let Ok(archive) = super::local_tar::pack_bytes("probe.bin", STREAM_PROBE_BYTES) else {
+        return false;
+    };
+    let cmd = wrap(container, &shell.stream_probe());
+    let run = run_captured_with_stdin(handle, &cmd, Some(archive.as_slice()));
+    match tokio::time::timeout(PROBE_TIMEOUT, run).await {
+        Ok(Ok(out)) => out.code == Some(0) && out.stdout == STREAM_PROBE_BYTES,
+        _ => false,
+    }
+}
+
+pub async fn detect<H: Handler>(
+    handle: &Handle<H>,
+    container: Option<&str>,
+) -> Option<(RemoteShell, bool)> {
+    let shell = dialect(handle, container).await?;
+    let streams = streams(handle, &shell, container).await;
+    Some((shell, streams))
 }
 
 fn parse_temp(out: &str) -> Option<String> {
@@ -267,12 +313,10 @@ impl RemoteShell {
         self.exits(&self.tar_x(None, dest, strip))
     }
 
-    #[allow(dead_code)]
     pub fn stream_probe(&self) -> String {
         self.exits("tar -xzf - -O")
     }
 
-    #[allow(dead_code)]
     pub fn size_probe(&self, parent: &str, items: &[String]) -> Option<String> {
         match self {
             Self::Posix => {
@@ -304,7 +348,6 @@ impl RemoteShell {
         }
     }
 
-    #[allow(dead_code)]
     pub fn parse_size(&self, out: &str) -> Option<u64> {
         match self {
             Self::Posix => {
@@ -343,6 +386,41 @@ impl RemoteShell {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn container_commands_run_inside_sh() {
+        assert_eq!(wrap(None, "tar -xzf - -O"), "tar -xzf - -O");
+        assert_eq!(
+            wrap(Some("ab c"), "tar -xzf - -O"),
+            "docker exec -i 'ab c' sh -c 'tar -xzf - -O'"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_binary_clean_posix_host_streams() {
+        use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        assert_eq!(
+            detect(&handle, None).await,
+            Some((RemoteShell::Posix, true))
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_host_that_mangles_newlines_keeps_its_dialect_but_never_streams() {
+        use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+        let (handle, _) = proc_server(ProcOptions {
+            crlf: true,
+            ..Default::default()
+        })
+        .await;
+        assert_eq!(
+            detect(&handle, None).await,
+            Some((RemoteShell::Posix, false))
+        );
+    }
 
     fn win(shell: WinShell) -> RemoteShell {
         RemoteShell::Windows {

@@ -1,10 +1,6 @@
 use super::{
-    get_session,
-    remote_shell::{remote_shell, RemoteShell},
-    tar_backend, temp_archive_name,
-    transfer::sftp_download_inner,
-    transfer::sftp_rr_file_inner,
-    transfer::sftp_upload_inner,
+    get_backend, get_session, remote_shell::RemoteShell, tar_backend, temp_archive_name,
+    transfer::sftp_download_inner, transfer::sftp_rr_file_inner, transfer::sftp_upload_inner,
     TarBackend,
 };
 use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
@@ -96,9 +92,11 @@ fn tar_extract_cmd(
 }
 
 async fn shell_of(manager: &SftpManager, sftp_id: &str) -> RemoteShell {
-    remote_shell(manager, sftp_id)
-        .await
-        .unwrap_or(RemoteShell::Posix)
+    let backend = get_backend(manager, sftp_id).await.ok();
+    match backend.as_ref().and_then(|b| b.tar_probe()) {
+        Some(probe) => probe.shell().await.unwrap_or(RemoteShell::Posix),
+        None => RemoteShell::Posix,
+    }
 }
 
 /// Remote path of a transfer's temp archive. The destination end gets a name of
@@ -322,7 +320,11 @@ pub async fn sftp_tar_available(
     sftp_state: State<'_, SftpManager>,
     sftp_id: String,
 ) -> Result<bool, String> {
-    Ok(remote_shell(&sftp_state, &sftp_id).await.is_some())
+    let backend = get_backend(&sftp_state, &sftp_id).await?;
+    Ok(match backend.tar_probe() {
+        Some(probe) => probe.host().await.is_some(),
+        None => false,
+    })
 }
 
 /// Archive `names` (relative to `local_parent`) locally, upload the archive, and

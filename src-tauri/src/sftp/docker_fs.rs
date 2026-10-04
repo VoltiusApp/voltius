@@ -10,8 +10,8 @@
 //! characters (acceptable for a file manager).
 
 use crate::commands::sftp::editor::read_limit;
-use crate::commands::sftp::TransferProgress;
 use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile};
+use crate::commands::sftp::{TarProbe, TransferProgress};
 use crate::error::AppError;
 use crate::sftp::backend::{FileBackend, TransferEvents};
 use crate::ssh::client::SshClient;
@@ -114,11 +114,16 @@ pub struct DockerFs {
     /// the panel was first opened.
     handle: SessionHandle,
     container_id: String,
+    tar: Arc<TarProbe>,
 }
 
 impl DockerFs {
     pub fn new(handle: SessionHandle, container_id: String) -> Self {
         Self {
+            tar: Arc::new(TarProbe::new(
+                Arc::clone(&handle),
+                Some(container_id.clone()),
+            )),
             handle,
             container_id,
         }
@@ -272,6 +277,10 @@ impl DockerFs {
 /// directly; the private helpers above are the shell plumbing they share.
 #[async_trait]
 impl FileBackend for DockerFs {
+    fn tar_probe(&self) -> Option<&TarProbe> {
+        Some(&self.tar)
+    }
+
     // ── Browse ──────────────────────────────────────────────────────────────
 
     async fn run_sh(&self, script: &str, args: &[&str]) -> Result<Captured, String> {
