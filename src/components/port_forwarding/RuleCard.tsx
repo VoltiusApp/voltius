@@ -126,6 +126,7 @@ export function RuleCard({
       className={dimmed ? "opacity-50" : ""}
       onPointerDown={onPointerDown}
       onClick={(e) => onSelect?.(rule.id, e)}
+      onDoubleClick={() => onEdit(rule)}
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >

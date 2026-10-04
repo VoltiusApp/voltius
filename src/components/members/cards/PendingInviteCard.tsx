@@ -71,15 +71,13 @@ export function PendingInviteCard({
 
   return (
     <BaseCard isList>
-      <MiniAvatar name={inv.member_name ?? inv.display_name} size={32} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-(--t-text-bright)">{inv.member_name ?? inv.display_name}</p>
-        {inv.member_name && <p className="text-[10px] truncate text-(--t-text-dim)">{inv.display_name}</p>}
-        <p className="text-[10px] truncate" style={{ color: isExpired ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
-          {expiryLabel}
-          {inv.invited_by_display_name && <> · {t("members.invitedBy")} {inviterLabel(inv.invited_by_display_name, roster)}</>}
-        </p>
-      </div>
+      <MiniAvatar name={inv.member_name ?? inv.display_name} size={28} />
+      <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{inv.member_name ?? inv.display_name}</p>
+      <p className="text-xs truncate flex-1 min-w-0 text-(--t-text-secondary)">
+        {inv.member_name && <><span>{inv.display_name}</span> · </>}
+        <span style={{ color: isExpired ? "var(--t-status-error)" : undefined }}>{expiryLabel}</span>
+        {inv.invited_by_display_name && <> · {t("members.invitedBy")} {inviterLabel(inv.invited_by_display_name, roster)}</>}
+      </p>
 
       <span
         className="text-[10px] px-2 py-0.5 rounded-full shrink-0"

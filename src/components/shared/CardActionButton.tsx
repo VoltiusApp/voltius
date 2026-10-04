@@ -20,6 +20,7 @@ export function CardActionButton({ icon, title, onClick, danger, reveal = true, 
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      onDoubleClick={(e) => e.stopPropagation()}
       className={`flex ${reveal ? REVEAL : ""} items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-text-secondary)`}
       onMouseEnter={(e) => {
         e.currentTarget.style.color = danger ? "var(--t-status-error)" : "var(--t-text-primary)";
@@ -67,6 +68,7 @@ export function CardPinButton({ color, title, onClick, width = 14 }: {
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onDoubleClick={(e) => e.stopPropagation()}
       className="shrink-0 flex items-center transition-colors"
       style={{ color }}
       title={title}

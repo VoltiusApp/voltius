@@ -22,7 +22,7 @@ interface FolderCardProps {
   isDragOver?: boolean;
   /** Faded while the folder sits on the clipboard as a pending cut. */
   dimmed?: boolean;
-  onClick: () => void;
+  onOpen: () => void;
   onRename: (folder: Folder, newName: string) => void;
   onDelete: (folder: Folder) => void;
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
@@ -46,7 +46,7 @@ export function FolderCard({
   isFocused,
   isDragOver,
   dimmed,
-  onClick,
+  onOpen,
   onRename,
   onDelete,
   onSelect,
@@ -126,8 +126,9 @@ export function FolderCard({
             ? { backdropFilter: "blur(12px) saturate(1.5)", WebkitBackdropFilter: "blur(12px) saturate(1.5)" }
             : {}),
         }}
-        onClick={(e) => { e.stopPropagation(); if (!renaming) onClick(); }}
-        onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onSelect?.(folder.id, e); openCtx(e); }}
+        onClick={(e) => { e.stopPropagation(); if (!renaming) onSelect?.(folder.id, e); }}
+        onDoubleClick={() => { if (!renaming) onOpen(); }}
+        onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (!isSelected) onSelect?.(folder.id, e); openCtx(e); }}
         onPointerDown={onPointerDown}
         onMouseEnter={(e) => {
           if (isDragOver) return;
@@ -180,7 +181,7 @@ export function FolderCard({
           )}
           {isList && canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit?.()} />}
           {isList && canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(folder)} danger />}
-          <CardMenuContext.Provider value={(e) => { onSelect?.(folder.id, e as React.MouseEvent<HTMLDivElement>); openCtxAt(e.currentTarget.getBoundingClientRect()); }}>
+          <CardMenuContext.Provider value={(e) => { if (!isSelected) onSelect?.(folder.id, e as React.MouseEvent<HTMLDivElement>); openCtxAt(e.currentTarget.getBoundingClientRect()); }}>
             <CardMenuButton />
           </CardMenuContext.Provider>
         </div>
@@ -192,7 +193,7 @@ export function FolderCard({
           onClose={closeCtx}
           items={activeMenuItems ?? buildFolderMenuItems({
             t,
-            onOpen: onClick,
+            onOpen,
             editItems: canEdit ? [
               { label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => setRenaming(true) },
               { label: t("common.action.edit"), icon: "lucide:settings-2", onClick: () => onEdit?.() },

@@ -46,6 +46,7 @@ import { RuleForm } from "./RuleForm";
 import type { Folder, PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -353,6 +354,10 @@ export function PortForwardingPage() {
     setSelection,
   } = useDragSelection(filteredIds);
 
+  const editRule = (id: string) => { const r = filtered.find((r) => r.id === id); if (r) openEdit(r); };
+  const editFolder = (folder: Folder) => { closeForm(); setEditingFolderId(folder.id); };
+  const panelOpen = showForm || editingFolderId !== null;
+
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
     selectedIdSet,
@@ -360,16 +365,7 @@ export function PortForwardingPage() {
     setSelection,
     itemAreaRef,
     layoutMode: layoutMode as "grid" | "list",
-    onEnter: (id) => {
-      const folder = visibleFolders.find((f) => f.id === id);
-      if (folder) { navigateInto(folder); return; }
-      const r = filtered.find((r) => r.id === id);
-      if (r) openEdit(r);
-    },
-    onEdit: (id) => {
-      const r = filtered.find((r) => r.id === id);
-      if (r) openEdit(r);
-    },
+    ...folderAwareKeys(visibleFolders, { open: navigateInto, edit: editFolder }, { enter: editRule, edit: editRule }),
     onDuplicate: (id) => { void duplicateRule(id); },
     onEscape: () => {
       if (showForm || editingFolderId) { closeForm(); setEditingFolderId(null); }
@@ -623,11 +619,11 @@ export function PortForwardingPage() {
                         isFocused={focusedId === folder.id}
                         isDragOver={dragOverFolderId === folder.id}
                         dimmed={cutIds.has(folder.id)}
-                        onClick={() => navigateInto(folder)}
+                        onOpen={() => navigateInto(folder)}
                         onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: f.vault_id })}
                         onDelete={(f) => setConfirmDeleteFolderId(f.id)}
-                        onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
-                        onEdit={() => { closeForm(); setEditingFolderId(folder.id); }}
+                        onSelect={selectFollowing(handleItemSelect, panelOpen, () => editFolder(folder))}
+                        onEdit={() => editFolder(folder)}
                         onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                         {...(folderCanEdit ? folderDropProps(folder.id) : {})}
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
@@ -691,7 +687,7 @@ export function PortForwardingPage() {
                         webUrl={webUrl}
                         canEdit={canEdit(rule.vault_id, rule.id)}
                         vaults={vaultOptions.filter((v) => v.id !== (rule.vault_id ?? "personal"))}
-                        onSelect={(id, e) => handleItemSelect(id, e)}
+                        onSelect={selectFollowing(handleItemSelect, panelOpen, () => openEdit(rule))}
                         onEdit={openEdit}
                         onDuplicate={(id) => void duplicateRule(id)}
                         onDelete={handleDeleteRule}

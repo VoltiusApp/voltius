@@ -128,7 +128,7 @@ test("pinning a snippet folder goes through the snippet folder store", () => {
 test("a snippet folder's panel and card agree on cloud sync", () => {
   isObjectSynced.mockImplementation((_id, type) => type !== "snippet");
   const snippetFolder = makeFolder("s1", "Snips", { object_type: "snippet" });
-  const { container } = render(<FolderCard folder={snippetFolder} canEdit itemCount={0} layout="list" onClick={vi.fn()} onRename={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} />);
+  const { container } = render(<FolderCard folder={snippetFolder} canEdit itemCount={0} layout="list" onOpen={vi.fn()} onRename={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} />);
   fireEvent.contextMenu(container.querySelector("[data-folder-card]")!);
   expect(screen.getByText("folders.card.disableCloudSync")).toBeTruthy();
   cleanup();
@@ -145,7 +145,7 @@ test("the panel's … menu is the card's right-click menu minus Rename/Edit", ()
   };
   const menuLabels = () => Array.from(document.querySelectorAll(".surface-float span.flex-1")).map((el) => el.textContent);
 
-  const { container } = render(<FolderCard {...shared} itemCount={0} layout="list" onClick={vi.fn()} onRename={vi.fn()} onEdit={vi.fn()} />);
+  const { container } = render(<FolderCard {...shared} itemCount={0} layout="list" onOpen={vi.fn()} onRename={vi.fn()} onEdit={vi.fn()} />);
   fireEvent.contextMenu(container.querySelector("[data-folder-card]")!);
   const card = menuLabels();
   cleanup();

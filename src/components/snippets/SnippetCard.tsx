@@ -5,6 +5,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { CardActionButton, CardMenuButton, CardPinButton } from "@/components/shared/CardActionButton";
 import { TagBadge } from "@/components/shared/TagBadge";
+import { OverflowTagList } from "@/components/shared/OverflowTagList";
 import { SessionPickerPanel } from "@/components/shared/SessionPickerPanel";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
@@ -146,26 +147,24 @@ export function SnippetCard({
     { label: t("common.action.delete"), icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
   ];
 
+  const cardProps = {
+    isEditing,
+    isSelected,
+    isFocused,
+    "data-selectable-id": snippet.id,
+    "data-card": snippet.id,
+    onPointerDown,
+    onClick: (e: React.MouseEvent<HTMLDivElement>) => { if (onSelect) onSelect(snippet.id, e); else onEdit(); },
+    onDoubleClick: onEdit,
+    contextMenuItems,
+    bulkContextMenuItems,
+    style: { opacity: dimmed ? 0.45 : 1 },
+  };
+
   if (!isList) {
     return (
       <>
-        <BaseCard
-          isList={false}
-          glass
-          isEditing={isEditing}
-          isSelected={isSelected}
-          isFocused={isFocused}
-          data-selectable-id={snippet.id}
-          data-card={snippet.id}
-          onPointerDown={onPointerDown}
-          onClick={(e) => {
-            if (onSelect) onSelect(snippet.id, e);
-            else onEdit();
-          }}
-          contextMenuItems={contextMenuItems}
-          bulkContextMenuItems={bulkContextMenuItems}
-          style={{ opacity: dimmed ? 0.45 : 1 }}
-        >
+        <BaseCard isList={false} glass {...cardProps}>
           {/* self-start overrides BaseCard's items-center so content is top-left aligned */}
           <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
             {/* Header: avatar + name/fav/tags + description */}
@@ -253,54 +252,20 @@ export function SnippetCard({
 
   return (
     <>
-      <BaseCard
-        isList
-        isEditing={isEditing}
-        isSelected={isSelected}
-        isFocused={isFocused}
-        data-selectable-id={snippet.id}
-        data-card={snippet.id}
-        onPointerDown={onPointerDown}
-        onClick={(e) => {
-          if (onSelect) onSelect(snippet.id, e);
-          else onEdit();
-        }}
-        contextMenuItems={contextMenuItems}
-        bulkContextMenuItems={bulkContextMenuItems}
-        style={{ opacity: dimmed ? 0.45 : 1 }}
-      >
-        {/* Icon */}
-        <AvatarTile icon="lucide:braces" iconSize={14} className="w-8 h-8 rounded-lg" />
+      <BaseCard isList {...cardProps}>
+        <AvatarTile icon="lucide:braces" iconSize={14} className="w-7 h-7 rounded-lg" />
+        <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{snippet.name}</p>
+        <p className={`text-xs truncate flex-1 min-w-0 text-(--t-text-secondary) ${snippet.description ? "" : "font-mono"}`}>
+          {snippet.description || snippetSearchText(snippet)}
+        </p>
+        {folder && (
+          <span className="flex items-center gap-1 text-xs text-(--t-text-dim) shrink-0">
+            <Icon icon="lucide:folder" width={10} />
+            {folder.name}
+          </span>
+        )}
+        {snippet.tags.length > 0 && <OverflowTagList tags={snippet.tags} className="max-w-32 flex-1" />}
 
-        {/* Body */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-semibold text-(--t-text-bright) truncate flex-1 min-w-0">
-              {snippet.name}
-            </span>
-            {folder && (
-              <span className="flex items-center gap-1 text-xs text-(--t-text-dim) shrink-0">
-                <Icon icon="lucide:folder" width={10} />
-                {folder.name}
-              </span>
-            )}
-          </div>
-          {snippet.description ? (
-            <p className="mt-0.5 text-xs text-(--t-text-muted) truncate">{snippet.description}</p>
-          ) : (
-            <p className="mt-0.5 text-xs font-mono text-(--t-text-muted) truncate">{snippetSearchText(snippet)}</p>
-          )}
-          {snippet.tags.length > 0 && (
-            <div className="flex items-center gap-1 mt-1 flex-wrap">
-              {snippet.tags.slice(0, 5).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
-              {snippet.tags.length > 5 && (
-                <span className="text-xs text-(--t-text-dim)">+{snippet.tags.length - 5}</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
         <div className="flex items-center gap-0.5 shrink-0">
           {pinAlwaysVisible && <span className="px-1.5 flex"><CardPinButton color={pinColor} title={pinLabel} onClick={handlePinClick} width={16} /></span>}
           {runButtons(16)}

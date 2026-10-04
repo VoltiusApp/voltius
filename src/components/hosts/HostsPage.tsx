@@ -65,6 +65,7 @@ import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
 import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -230,15 +231,16 @@ export default function HostsPage() {
       .sort((a, b) => compareConnections(a, b, sortMode));
   }, [connections, searchQuery, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds]);
 
-  const filteredIds = useMemo(
-    () => [...visibleFolders.map((f) => f.id), ...filtered.map((c) => c.id)],
-    [visibleFolders, filtered],
-  );
-
   const isPinnedFn = useEffectivePinnedPredicate();
   const pinnedHosts = useMemo(
     () => (!searchQuery && !activeFolderId) ? filtered.filter((c) => isPinnedFn(c, "connection")) : [],
     [filtered, searchQuery, activeFolderId, isPinnedFn],
+  );
+  const mainHosts = useMemo(() => exceptItems(filtered, pinnedHosts), [filtered, pinnedHosts]);
+
+  const filteredIds = useMemo(
+    () => [...visibleFolders, ...pinnedHosts, ...mainHosts].map((x) => x.id),
+    [visibleFolders, pinnedHosts, mainHosts],
   );
   const activeConnectionIds = useMemo(
     () => new Set(sessions.map((s) => s.connectionId)),
@@ -266,6 +268,11 @@ export default function HostsPage() {
     [visibleFolders, selectedIdSet],
   );
 
+  const editFolder = (folder: Folder) => {
+    setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(folder.id);
+  };
+  const panelOpen = showForm || showSerialForm || editingFolderId !== null;
+
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
     selectedIdSet,
@@ -273,16 +280,10 @@ export default function HostsPage() {
     setSelection,
     itemAreaRef,
     layoutMode,
-    onEnter: (id) => {
-      const folder = visibleFolders.find((f) => f.id === id);
-      if (folder) { navigateInto(folder); return; }
-      const conn = connections.find((c) => c.id === id);
-      if (conn) void handleConnect(conn);
-    },
-    onEdit: (id) => {
-      const conn = connections.find((c) => c.id === id);
-      if (conn) { selectSingle(conn.id); openEdit(conn); }
-    },
+    ...folderAwareKeys(visibleFolders, { open: navigateInto, edit: editFolder }, {
+      enter: (id) => { const conn = connections.find((c) => c.id === id); if (conn) void handleConnect(conn); },
+      edit: (id) => { const conn = connections.find((c) => c.id === id); if (conn) { selectSingle(conn.id); openEdit(conn); } },
+    }),
     onDuplicate: (id) => {
       const conn = connections.find((c) => c.id === id);
       if (conn) void handleDuplicate(conn);
@@ -877,13 +878,7 @@ export default function HostsPage() {
         dimmed={cutIds.has(conn.id)}
         canEdit={can("EDIT_CONNECTIONS", connVaultId, conn.id)}
         vaults={vaultOptions.filter((v) => v.id !== connVaultId)}
-        onSelect={(id, e) => {
-          handleItemSelect(id, e);
-          if (showForm) {
-            const c = connections.find((c) => c.id === id);
-            if (c) setEditingId(c.id);
-          }
-        }}
+        onSelect={selectFollowing(handleItemSelect, panelOpen, () => openEdit(conn))}
         onConnect={handleConnect}
         onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
         onDuplicate={handleDuplicate}
@@ -1058,11 +1053,11 @@ export default function HostsPage() {
                           isFocused={focusedId === folder.id}
                           isDragOver={dragOverFolderId === folder.id}
                           dimmed={cutIds.has(folder.id)}
-                          onClick={() => navigateInto(folder)}
+                          onOpen={() => navigateInto(folder)}
                           onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: f.vault_id })}
                           onDelete={(f) => setConfirmDeleteFolderId(f.id)}
-                          onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
-                          onEdit={() => { setShowForm(false); setEditingId(null); setEditingFolderId(folder.id); }}
+                          onSelect={selectFollowing(handleItemSelect, panelOpen, () => editFolder(folder))}
+                          onEdit={() => editFolder(folder)}
                           onExport={() => useUIStore.getState().openImportExport("export", { bulk: { connections: connections.filter((c) => c.folder_id === folder.id).map((c) => c.id) } })}
                           onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                           {...(canEditFolder ? folderDropProps(folder.id) : {})}
@@ -1103,11 +1098,11 @@ export default function HostsPage() {
               )}
 
               {/* ── Hosts section ── */}
-              {(filtered.length > 0 || showForm || showSerialForm) && (
+              {(mainHosts.length > 0 || showForm || showSerialForm) && (
                 <div>
                   <SectionHeader
                     label={t("common.entity.hosts")}
-                    count={filtered.length}
+                    count={mainHosts.length}
                     aside={activeFolderId && canCreate && <SectionAddButton label={t("hosts.page.new")} onClick={() => openNew()} />}
                   />
                   <div
@@ -1115,7 +1110,7 @@ export default function HostsPage() {
                     {...cardGridProps(layoutMode, "wide")}
                   >
                     {(showForm || showSerialForm) && !editing && <DraftHostCard layout={layoutMode} serial={showSerialForm} />}
-                    {filtered.map(renderHost)}
+                    {mainHosts.map(renderHost)}
                   </div>
                 </div>
               )}

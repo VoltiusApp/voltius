@@ -34,6 +34,18 @@ export function memberOpenAction(t: TFunction, editable: boolean) {
     : { icon: "lucide:panel-right-open", label: t("members.contextMenu.viewDetails") };
 }
 
+export function YouBadge({ grid }: { grid?: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <span
+      className={grid ? "text-[9px] px-1 py-0.5 rounded-sm shrink-0" : "text-[10px] px-1.5 py-0.5 rounded-sm shrink-0"}
+      style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}
+    >
+      {t("members.youBadge")}
+    </span>
+  );
+}
+
 export function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
   return <PresenceAvatar handle={memberAvatarLabel(member)} size={size} online={member.is_online} animate />;
 }
@@ -77,9 +89,7 @@ export function MemberCard({
         <div className="w-full min-w-0 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1 justify-center">
             <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{memberLabel(member)}</p>
-            {isMe && (
-              <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
-            )}
+            {isMe && <YouBadge grid />}
           </div>
           {secondaryHandle(member) && (
             <p className="text-[10px] truncate max-w-[120px] text-(--t-text-secondary)">{secondaryHandle(member)}</p>
@@ -102,19 +112,13 @@ export function MemberCard({
       contextMenuItems={contextMenuItems}
       bulkContextMenuItems={bulkContextMenuItems}
     >
-      <MemberAvatar member={member} size={32} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate text-(--t-text-bright)">{memberLabel(member)}</p>
-          {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
-          {isMe && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>{t("members.youBadge")}</span>
-          )}
-        </div>
-        {secondaryHandle(member) && (
-          <p className="text-[11px] truncate text-(--t-text-secondary)">{secondaryHandle(member)}</p>
-        )}
+      <MemberAvatar member={member} size={28} />
+      <div className="flex items-center gap-1.5 w-52 shrink-0 min-w-0">
+        <p className="text-sm font-medium-bold truncate text-(--t-text-bright)">{memberLabel(member)}</p>
+        {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
+        {isMe && <YouBadge />}
       </div>
+      <p className="text-xs truncate flex-1 min-w-0 text-(--t-text-secondary)">{secondaryHandle(member)}</p>
       <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
       {actions(18)}
     </BaseCard>

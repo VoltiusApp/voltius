@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { SectionHeader } from "@/components/shared/SectionHeader";
+import { selectFollowing } from "@/utils/cardInteraction";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -671,11 +672,7 @@ const vaultTabs = selectedVaultIds.length > 1
                     canManage={canActOn(m)}
                     editable={canEditMember(m)}
                     onAddRole={() => openDetail(m.user_id)}
-                    onSelect={(id, e) => {
-                      e.stopPropagation();
-                      handleItemSelect(id, e);
-                      if (showDetailPanel && !e.ctrlKey && !e.metaKey && !e.shiftKey) setDetailMemberId(id);
-                    }}
+                    onSelect={selectFollowing(handleItemSelect, showDetailPanel, () => setDetailMemberId(m.user_id))}
                     onOpen={() => openDetail(m.user_id)}
                     contextMenuItems={buildContextMenuItems(m)}
                     bulkContextMenuItems={selectedIdSet.has(m.user_id) ? bulkContextMenuItems : undefined}
