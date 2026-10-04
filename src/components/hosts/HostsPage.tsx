@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { SectionAddButton, SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
-import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { duplicateConnection, duplicateFormData, copyConnectionSecrets, moveConnectionToVault } from "@/services/connectionDuplicate";
@@ -63,7 +64,7 @@ import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/t
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -137,14 +138,23 @@ export default function HostsPage() {
     }
   };
 
+  const openNew = (serial = false) => {
+    hostFormSessionKeyRef.current = `new-${Date.now()}`;
+    setEditingId(null);
+    setShowForm(!serial);
+    setShowSerialForm(serial);
+    setEditingFolderId(null);
+  };
+
+  const createFolder = () =>
+    void saveFolder(newFolderData("connection", activeFolderId, defaultVaultId)).then((f) => {
+      setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id);
+    });
+
   useEffect(() => {
     if (!homePendingAction) return;
     if (homePendingAction.action === "create") {
-      hostFormSessionKeyRef.current = `new-${Date.now()}`;
-      setEditingId(null);
-      setShowForm(true);
-      setShowSerialForm(false);
-      setEditingFolderId(null);
+      openNew();
     } else if (homePendingAction.action === "edit") {
       const conn = connections.find((c) => c.id === homePendingAction.id);
       if (conn) openEdit(conn);
@@ -853,6 +863,40 @@ export default function HostsPage() {
     return counts;
   }, [connections]);
 
+  const renderHost = (conn: Connection) => {
+    const connVaultId = conn.vault_id ?? "personal";
+    return (
+      <HostCard
+        key={conn.id}
+        connection={conn}
+        layout={layoutMode}
+        isActive={activeConnectionIds.has(conn.id)}
+        isSelected={selectedIdSet.has(conn.id)}
+        isFocused={focusedId === conn.id}
+        isEditing={editing?.id === conn.id}
+        dimmed={cutIds.has(conn.id)}
+        canEdit={can("EDIT_CONNECTIONS", connVaultId, conn.id)}
+        vaults={vaultOptions.filter((v) => v.id !== connVaultId)}
+        onSelect={(id, e) => {
+          handleItemSelect(id, e);
+          if (showForm) {
+            const c = connections.find((c) => c.id === id);
+            if (c) setEditingId(c.id);
+          }
+        }}
+        onConnect={handleConnect}
+        onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
+        onDuplicate={handleDuplicate}
+        onExecuteSnippet={(c) => openSnippetPicker([c.id])}
+        onDelete={handleDeleteConnection}
+        onMoveToVault={handleMoveConnectionToVault}
+        onCopyToVault={handleCopyConnectionToVault}
+        bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
+        onPointerDown={(e) => handleDragStart(e, conn.id)}
+      />
+    );
+  };
+
   return (
     <>
     <SidePanelLayout
@@ -919,24 +963,11 @@ export default function HostsPage() {
           <HomeToolbar
             search={search}
             onSearchChange={setSearch}
-            onCreateHost={() => {
-              if (!canCreate) return;
-              hostFormSessionKeyRef.current = `new-${Date.now()}`;
-              setEditingId(null);
-              setShowForm(true);
-              setShowSerialForm(false);
-              setEditingFolderId(null);
-            }}
+            onCreateHost={() => { if (canCreate) openNew(); }}
             canCreate={canCreate}
             canCreateFolder={canCreateFolder}
-            onCreateFolder={() => void saveFolder({ name: "New Folder" /* persisted English default; menu label is localized */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
-            onCreateSerial={canCreate ? () => {
-              hostFormSessionKeyRef.current = `new-${Date.now()}`;
-              setEditingId(null);
-              setShowSerialForm(true);
-              setShowForm(false);
-              setEditingFolderId(null);
-            } : undefined}
+            onCreateFolder={createFolder}
+            onCreateSerial={canCreate ? () => openNew(true) : undefined}
             onOpenLocalTerminal={() => connectLocal().catch((e) => setError(describeError(e, t)))}
             onOpenSerial={() => connectSerialEphemeral().catch((e) => setError(describeError(e, t)))}
             onOpenImportExport={(mode, opts) => useUIStore.getState().openImportExport(mode, opts)}
@@ -980,7 +1011,12 @@ export default function HostsPage() {
           }}
         >
           {scopedConnections.length === 0 && scopedFolders.length === 0 && !showForm && !showSerialForm ? (
-            <EmptyState onAdd={canCreate ? () => { setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } : undefined} />
+            <EmptyState
+              icon="lucide:monitor"
+              title={t("hosts.page.emptyState.title")}
+              body={t("hosts.page.emptyState.subtitle")}
+              action={canCreate ? { label: t("hosts.page.addHost"), onClick: () => openNew() } : undefined}
+            />
           ) : (
             <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6">
 
@@ -1001,33 +1037,14 @@ export default function HostsPage() {
               {/* ── Folders section ── */}
               {visibleFolders.length > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                      {t("hosts.page.folders")}
-                    </p>
-                    {canCreateFolder && <button
-                      className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "var(--t-text-primary)";
-                        e.currentTarget.style.background = "var(--t-bg-elevated)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "var(--t-text-dim)";
-                        e.currentTarget.style.background = "transparent";
-                      }}
-                      onClick={() =>
-                        saveFolder({ name: "New Folder" /* persisted English default */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => {
-                          setShowForm(false); setEditingId(null); setEditingFolderId(f.id);
-                        })
-                      }
-                    >
-                      <Icon icon="lucide:plus" width={12} />
-                      {t("hosts.page.new")}
-                    </button>}
-                  </div>
+                  <SectionHeader
+                    label={t("hosts.page.folders")}
+                    count={visibleFolders.length}
+                    aside={canCreateFolder && <SectionAddButton label={t("hosts.page.new")} onClick={createFolder} />}
+                  />
                   <div
                     data-drag-surface="true"
-                    {...cardGridProps(layoutMode, "18rem")}
+                    {...cardGridProps(layoutMode, "card")}
                   >
                     {visibleFolders.map((folder) => {
                       const canEditFolder = can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id);
@@ -1075,46 +1092,12 @@ export default function HostsPage() {
 
               {/* ── Pinned section ── */}
               {pinnedHosts.length > 0 && (
-                <div className="mb-6">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">{t("hosts.page.pinned")}</p>
+                <div>
+                  <SectionHeader label={t("hosts.page.pinned")} count={pinnedHosts.length} />
                   <div
-                    {...cardGridProps(layoutMode, "18rem")}
+                    {...cardGridProps(layoutMode, "wide")}
                   >
-                    {pinnedHosts.map((conn) => {
-                      const connVaultId = conn.vault_id ?? "personal";
-                      const canEdit = can("EDIT_CONNECTIONS", connVaultId, conn.id);
-                      const otherVaults = vaultOptions.filter((v) => v.id !== connVaultId);
-                      return (
-                        <HostCard
-                          key={conn.id}
-                          connection={conn}
-                          layout={layoutMode}
-                          isActive={activeConnectionIds.has(conn.id)}
-                          isSelected={selectedIdSet.has(conn.id)}
-                          isFocused={focusedId === conn.id}
-                          isEditing={editing?.id === conn.id}
-                          dimmed={cutIds.has(conn.id)}
-                          canEdit={canEdit}
-                          vaults={otherVaults}
-                          onSelect={(id, e) => {
-                            handleItemSelect(id, e);
-                            if (showForm) {
-                              const c = connections.find((c) => c.id === id);
-                              if (c) setEditingId(c.id);
-                            }
-                          }}
-                          onConnect={handleConnect}
-                          onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
-                          onDuplicate={handleDuplicate}
-                          onExecuteSnippet={(c) => openSnippetPicker([c.id])}
-                          onDelete={handleDeleteConnection}
-                          onMoveToVault={handleMoveConnectionToVault}
-                          onCopyToVault={handleCopyConnectionToVault}
-                          bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
-                          onPointerDown={(e) => handleDragStart(e, conn.id)}
-                        />
-                      );
-                    })}
+                    {pinnedHosts.map(renderHost)}
                   </div>
                 </div>
               )}
@@ -1122,87 +1105,29 @@ export default function HostsPage() {
               {/* ── Hosts section ── */}
               {(filtered.length > 0 || showForm || showSerialForm) && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                      {t("common.entity.hosts")}
-                    </p>
-                    {activeFolderId && (
-                      <button
-                        className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = "var(--t-text-primary)";
-                          e.currentTarget.style.background = "var(--t-bg-elevated)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = "var(--t-text-dim)";
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                        onClick={() => { if (canCreate) { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } }}
-                        disabled={!canCreate}
-                        style={{ opacity: !canCreate ? 0.35 : undefined }}
-                      >
-                        <Icon icon="lucide:plus" width={12} />
-                        {t("hosts.page.new")}
-                      </button>
-                    )}
-                  </div>
+                  <SectionHeader
+                    label={t("common.entity.hosts")}
+                    count={filtered.length}
+                    aside={activeFolderId && canCreate && <SectionAddButton label={t("hosts.page.new")} onClick={() => openNew()} />}
+                  />
                   <div
                     data-drag-surface="true"
-                    {...cardGridProps(layoutMode, "18rem")}
+                    {...cardGridProps(layoutMode, "wide")}
                   >
                     {(showForm || showSerialForm) && !editing && <DraftHostCard layout={layoutMode} serial={showSerialForm} />}
-                    {filtered.map((conn) => {
-                      const connVaultId = conn.vault_id ?? "personal";
-                      const canEdit = can("EDIT_CONNECTIONS", connVaultId, conn.id);
-                      const otherVaults = vaultOptions.filter((v) => v.id !== connVaultId);
-                      return (
-                        <HostCard
-                          key={conn.id}
-                          connection={conn}
-                          layout={layoutMode}
-                          isActive={activeConnectionIds.has(conn.id)}
-                          isSelected={selectedIdSet.has(conn.id)}
-                          isFocused={focusedId === conn.id}
-                          isEditing={editing?.id === conn.id}
-                          dimmed={cutIds.has(conn.id)}
-                          canEdit={canEdit}
-                          vaults={otherVaults}
-                          onSelect={(id, e) => {
-                            handleItemSelect(id, e);
-                            if (showForm) {
-                              const c = connections.find((c) => c.id === id);
-                              if (c) setEditingId(c.id);
-                            }
-                          }}
-                          onConnect={handleConnect}
-                          onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
-                          onDuplicate={handleDuplicate}
-                          onExecuteSnippet={(c) => openSnippetPicker([c.id])}
-                          onDelete={handleDeleteConnection}
-                          onMoveToVault={handleMoveConnectionToVault}
-                          onCopyToVault={handleCopyConnectionToVault}
-                          bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
-                          onPointerDown={(e) => handleDragStart(e, conn.id)}
-                        />
-                      );
-                    })}
+                    {filtered.map(renderHost)}
                   </div>
                 </div>
               )}
 
               {/* Empty inside folder */}
               {activeFolderId && filtered.length === 0 && !showForm && !showSerialForm && (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Icon icon="lucide:folder-open" width={32} className="text-(--t-text-dim)" />
-                  <p className="text-sm text-(--t-text-dim)">{t("hosts.page.folderEmpty")}</p>
-                  <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-                    onClick={() => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
-                  >
-                    <Icon icon="lucide:plus" width={12} />
-                    {t("hosts.page.addHost")}
-                  </button>
-                </div>
+                <EmptyState
+                  size="section"
+                  icon="lucide:folder-open"
+                  title={t("hosts.page.folderEmpty")}
+                  action={canCreate ? { label: t("hosts.page.addHost"), onClick: () => openNew() } : undefined}
+                />
               )}
 
               {/* No search results */}
@@ -1220,9 +1145,9 @@ export default function HostsPage() {
           pos={bgMenuPos}
           onClose={closeBgMenu}
           items={[
-            ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
+            ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => openNew() } as const] : []),
+            ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => openNew(true) } as const] : []),
+            ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder } as const] : []),
             ...(useVaultClipboardStore.getState().clipboard?.tab === "hosts"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),
@@ -1310,32 +1235,6 @@ function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; se
         <p className="text-base font-medium-bold text-(--t-text-dim)">{label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("hosts.page.draft.unsaved")}</p>
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ onAdd }: { onAdd?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[320px] gap-5">
-      <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center bg-(--t-bg-toolbar) border border-(--t-border)"
-      >
-        <Icon icon="lucide:monitor" width={28} className="text-(--t-text-dim)" />
-      </div>
-      <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">{t("hosts.page.emptyState.title")}</p>
-        <p className="text-xs text-(--t-text-dim)">{t("hosts.page.emptyState.subtitle")}</p>
-      </div>
-      {onAdd && <button
-        onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-border-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-      >
-        <Icon icon="lucide:plus" width={14} />
-        {t("hosts.page.addHost")}
-      </button>}
     </div>
   );
 }

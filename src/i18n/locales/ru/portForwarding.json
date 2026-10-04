@@ -18,7 +18,6 @@
       "addRule": "Добавить правило",
       "ejectMoveTo": "Переместить в {{name}}",
       "ejectRemoveFromFolder": "Убрать из папки",
-      "total": "Всего: {{count}}",
       "activeCount": "{{count}} активно",
       "errorCount": "{{count}} с ошибкой",
       "contextMenu": {
@@ -91,10 +90,6 @@
     },
     "activeTunnels": {
       "sectionTitle": "Активные проброски сессии",
-      "hostCount_one": "{{count}} хост",
-      "hostCount_few": "{{count}} хоста",
-      "hostCount_many": "{{count}} хостов",
-      "hostCount_other": "{{count}} хостов",
       "tunnelCount_one": "{{count}} туннель",
       "tunnelCount_few": "{{count}} туннеля",
       "tunnelCount_many": "{{count}} туннелей",

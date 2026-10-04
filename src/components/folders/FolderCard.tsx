@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/components/shared/BaseCard";
 import { CardActionButton, CardMenuButton, CardMenuContext, CardPinButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -65,17 +66,26 @@ export function FolderCard({
   const avatarSize = isList ? 28 : 48;
   const iconSize = isList ? 14 : 22;
   const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(folder.name);
   const { pos: ctxPos, open: openCtx, openAt: openCtxAt, close: closeCtx } = useContextMenu();
   const sync = useFolderSync(folder);
   const { pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
-  const handleRenameCommit = () => {
-    const trimmed = renameValue.trim();
+  const commitRename = (name: string) => {
+    const trimmed = name.trim();
     if (trimmed && trimmed !== folder.name) onRename(folder, trimmed);
     setRenaming(false);
   };
+  const nameClass = isList
+    ? "text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)"
+    : "text-base font-medium-bold truncate leading-tight text-(--t-text-bright)";
+  const name = (
+    <p className={nameClass}>
+      {renaming
+        ? <InlineNameEditor value={folder.name} onCommit={commitRename} onCancel={() => setRenaming(false)} maxLength={255} className="w-full bg-transparent outline-hidden" />
+        : folder.name}
+    </p>
+  );
 
   const dragBorder = isDragOver
     ? "2px dashed var(--t-accent)"
@@ -147,50 +157,14 @@ export function FolderCard({
 
         {isList ? (
           <>
-            {renaming ? (
-              <input
-                autoFocus
-                className="font-medium text-sm bg-transparent outline-hidden flex-1 min-w-0 text-(--t-text-bright)"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={handleRenameCommit}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRenameCommit();
-                  if (e.key === "Escape") { setRenaming(false); setRenameValue(folder.name); }
-                  e.stopPropagation();
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
-                {folder.name}
-              </p>
-            )}
+            {name}
             <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
               {t("folders.card.itemCount", { count: itemCount })}
             </p>
           </>
         ) : (
           <div className="flex-1 min-w-0">
-            {renaming ? (
-              <input
-                autoFocus
-                className="text-base font-medium-bold bg-transparent outline-hidden w-full text-(--t-text-bright)"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={handleRenameCommit}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRenameCommit();
-                  if (e.key === "Escape") { setRenaming(false); setRenameValue(folder.name); }
-                  e.stopPropagation();
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <p className="text-base font-medium-bold truncate leading-tight text-(--t-text-bright)">
-                {folder.name}
-              </p>
-            )}
+            {name}
             <p className="text-xs mt-0.5 truncate text-(--t-text-secondary)">
               {t("folders.card.itemCount", { count: itemCount })}
             </p>
@@ -220,7 +194,7 @@ export function FolderCard({
             t,
             onOpen: onClick,
             editItems: canEdit ? [
-              { label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => { setRenameValue(folder.name); setRenaming(true); } },
+              { label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => setRenaming(true) },
               { label: t("common.action.edit"), icon: "lucide:settings-2", onClick: () => onEdit?.() },
             ] : [],
             pinItem,

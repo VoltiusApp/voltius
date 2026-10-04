@@ -4,6 +4,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
+import { cardGridProps } from "@/components/shared/cardGrid";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import type { Connection } from "@/types";
 
@@ -63,10 +64,7 @@ export function AllHostsView({ onBack }: Props) {
             {t("home.allHosts.empty")}
           </p>
         ) : (
-          <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(7.5rem, 1fr))" }}
-          >
+          <div {...cardGridProps("grid", "compact")}>
             {hosts.map((conn) => (
               <DashboardHostCard
                 key={conn.id}

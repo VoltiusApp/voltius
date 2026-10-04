@@ -101,12 +101,12 @@ export function CommunityBrowser({ search, layout, onInstalled }: {
         ) : (
           <>
             <Section label={t("snippets.community.packs")} count={packs.length}>
-              <div {...cardGridProps(layout, "220px")}>
+              <div {...cardGridProps(layout, "card")}>
                 {packs.map(e => <EntryCard key={e.id} entry={e} layout={layout} onOpen={() => setOpenId(e.id)} />)}
               </div>
             </Section>
             <Section label={t("snippets.community.snippets")} count={singles.length}>
-              <div {...cardGridProps(layout, "220px")}>
+              <div {...cardGridProps(layout, "card")}>
                 {singles.map(e => <EntryCard key={e.id} entry={e} layout={layout} onOpen={() => setOpenId(e.id)} />)}
               </div>
             </Section>

@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
-import { formatSize, formatPermissions, formatModified, type FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { formatSize, formatPermissions, formatModifiedFull, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
 import { PermissionsDialog } from "@/components/filetransfer/PermissionsDialog";
 import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
@@ -241,7 +241,7 @@ export default function MobileSftpPane({
             <DetailRow label={t("mobile.sftp.detail.type")} value={detailFor.isDir ? t("common.entity.folder") : detailFor.isSymlink ? t("mobile.sftp.typeSymlink") : t("mobile.sftp.typeFile")} />
             {!detailFor.isDir && <DetailRow label={t("mobile.sftp.detail.size")} value={formatSize(detailFor.size)} />}
             {detailFor.permissions != null && <DetailRow label={t("mobile.sftp.detail.permissions")} value={`${formatPermissions(detailFor.permissions)} (0o${detailFor.permissions.toString(8)})`} />}
-            {detailFor.modified != null && <DetailRow label={t("mobile.sftp.detail.modified")} value={formatModified(detailFor.modified)} />}
+            {detailFor.modified != null && <DetailRow label={t("mobile.sftp.detail.modified")} value={formatModifiedFull(detailFor.modified)} />}
           </div>
         </BottomSheet>
       )}

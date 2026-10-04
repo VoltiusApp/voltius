@@ -20,7 +20,6 @@
       "addRule": "Kural ekle",
       "ejectMoveTo": "{{name}} klasörüne taşı",
       "ejectRemoveFromFolder": "Klasörden çıkar",
-      "total": "Toplam {{count}}",
       "activeCount": "{{count}} etkin",
       "errorCount": "{{count}} hata",
       "contextMenu": {
@@ -74,8 +73,6 @@
     },
     "activeTunnels": {
       "sectionTitle": "Etkin oturum yönlendirmeleri",
-      "hostCount_one": "{{count}} sunucu",
-      "hostCount_other": "{{count}} sunucu",
       "tunnelCount_one": "{{count}} tünel",
       "tunnelCount_other": "{{count}} tünel",
       "forwardCount_one": "{{count}} yönlendirme",

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -506,9 +507,9 @@ const vaultTabs = selectedVaultIds.length > 1
           {toolbar}
           <div className="flex-1 overflow-y-auto px-9 pt-5 pb-9">
           <div className="mb-6">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">{t("members.heading.members")}</p>
+            <SectionHeader label={t("members.heading.members")} count={1} />
             <div
-              {...cardGridProps(layoutMode, "160px")}
+              {...cardGridProps(layoutMode, "compact")}
             >
               <SelfCard handle={myHandle} layoutMode={layoutMode} />
             </div>
@@ -640,17 +641,11 @@ const vaultTabs = selectedVaultIds.length > 1
 
             {/* Members section */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                  {t("members.heading.members")}
-                </p>
-                <span className="text-xs text-(--t-text-dim)">
-                  {t("members.count", { count: members.length })}
-                  {myMember && (
-                    <> · <RoleBadges member={myMember} roles={teamRoles} /></>
-                  )}
-                </span>
-              </div>
+              <SectionHeader
+                label={t("members.heading.members")}
+                count={sortedMembers.length}
+                aside={myMember && <RoleBadges member={myMember} roles={teamRoles} />}
+              />
 
               {sortedMembers.length === 0 && members.length === 0 && (
                 <p className="text-xs py-3 text-(--t-text-dim)">{t("members.loading")}</p>
@@ -660,7 +655,7 @@ const vaultTabs = selectedVaultIds.length > 1
               )}
 
               <div
-                {...cardGridProps(layoutMode, "160px")}
+                {...cardGridProps(layoutMode, "compact")}
               >
                 {sortedMembers.map((m) => (
                   <MemberCard
@@ -692,9 +687,7 @@ const vaultTabs = selectedVaultIds.length > 1
             {/* Pending invitations */}
             {pendingInvites.length > 0 && (
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
-                  {t("members.heading.pendingInvitations")}
-                </p>
+                <SectionHeader label={t("members.heading.pendingInvitations")} count={pendingInvites.length} />
                 <div className="flex flex-col gap-1.5">
                   {pendingInvites.map((inv) => (
                     <PendingInviteCard

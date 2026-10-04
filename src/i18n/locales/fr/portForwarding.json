@@ -18,7 +18,6 @@
       "addRule": "Ajouter une règle",
       "ejectMoveTo": "Déplacer vers {{name}}",
       "ejectRemoveFromFolder": "Retirer du dossier",
-      "total": "{{count}} au total",
       "activeCount": "{{count}} active",
       "errorCount": "{{count}} erreur",
       "contextMenu": {
@@ -77,9 +76,6 @@
     },
     "activeTunnels": {
       "sectionTitle": "Redirections actives de session",
-      "hostCount_one": "{{count}} hôte",
-      "hostCount_many": "{{count}} hôtes",
-      "hostCount_other": "{{count}} hôtes",
       "tunnelCount_one": "{{count}} tunnel",
       "tunnelCount_many": "{{count}} tunnels",
       "tunnelCount_other": "{{count}} tunnels",

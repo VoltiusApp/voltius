@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -29,23 +31,6 @@ import { formatDate, SHORT_DATE } from "@/utils/localeFormat";
 // Small shared display components
 // ─────────────────────────────────────────────────────────────────
 
-export function SectionHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-        {label}
-      </p>
-      {count > 0 && (
-        <span
-          className="text-xs px-1.5 py-0.5 rounded-md bg-(--t-bg-elevated) text-(--t-text-dim)"
-        >
-          {count}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export function DraftCard({ icon, label }: { icon: string; label: string }) {
   return (
     <div
@@ -53,39 +38,6 @@ export function DraftCard({ icon, label }: { icon: string; label: string }) {
     >
       <AvatarTile icon={icon} iconSize={24} className="rounded-lg w-[3.2rem] h-[3.2rem]" iconClassName="text-(--t-text-dim)" />
       <p className="text-sm font-medium text-(--t-text-dim)">{label}</p>
-    </div>
-  );
-}
-
-export function EmptySection({
-  icon, title, description, buttonLabel, onAdd,
-}: {
-  icon: string;
-  title: string;
-  description: string;
-  buttonLabel: string;
-  onAdd?: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center bg-(--t-bg-toolbar) border border-(--t-border)"
-      >
-        <Icon icon={icon} width={20} className="text-(--t-text-dim)" />
-      </div>
-      <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">{title}</p>
-        <p className="text-xs text-(--t-text-dim)">{description}</p>
-      </div>
-      {onAdd && <button
-        onClick={onAdd}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-border-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-      >
-        <Icon icon="lucide:plus" width={13} />
-        {buttonLabel}
-      </button>}
     </div>
   );
 }
@@ -350,12 +302,12 @@ export function KeySection({
 
   if (keys.length === 0 && !showDraft) {
     return (
-      <EmptySection
+      <EmptyState
+        size="section"
         icon="lucide:key-round"
         title={t("keychain.cards.keySection.emptyTitle")}
-        description={t("keychain.cards.keySection.emptyDescription")}
-        buttonLabel={t("keychain.cards.keySection.addButton")}
-        onAdd={onAdd}
+        body={t("keychain.cards.keySection.emptyDescription")}
+        action={onAdd && { label: t("keychain.cards.keySection.addButton"), onClick: onAdd }}
       />
     );
   }
@@ -363,7 +315,7 @@ export function KeySection({
   return (
     <div>
       <SectionHeader label={label ?? t("keychain.cards.sshKeysLabel")} count={keys.length} />
-      <div {...cardGridProps(layoutMode, "240px", "mt-3")}>
+      <div {...cardGridProps(layoutMode, "card")}>
         {showDraft && <DraftCard icon="lucide:key-round" label={t("keychain.toolbar.newKey")} />}
         {keys.map((k) => {
           const vaultId = k.vault_id ?? "personal";
@@ -644,12 +596,12 @@ export function IdentitySection({
 
   if (identities.length === 0 && !showDraft) {
     return (
-      <EmptySection
+      <EmptyState
+        size="section"
         icon="lucide:users"
         title={t("keychain.cards.identitySection.emptyTitle")}
-        description={t("keychain.cards.identitySection.emptyDescription")}
-        buttonLabel={t("keychain.cards.identitySection.addButton")}
-        onAdd={onAdd}
+        body={t("keychain.cards.identitySection.emptyDescription")}
+        action={onAdd && { label: t("keychain.cards.identitySection.addButton"), onClick: onAdd }}
       />
     );
   }
@@ -657,7 +609,7 @@ export function IdentitySection({
   return (
     <div>
       <SectionHeader label={label ?? t("keychain.cards.identitiesLabel")} count={identities.length} />
-      <div {...cardGridProps(layoutMode, "240px", "mt-3")}>
+      <div {...cardGridProps(layoutMode, "card")}>
         {showDraft && <DraftCard icon="lucide:id-card" label={t("keychain.toolbar.newIdentity")} />}
         {identities.map((i) => {
           const vaultId = i.vault_id ?? "personal";

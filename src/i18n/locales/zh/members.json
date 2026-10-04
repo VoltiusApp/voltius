@@ -15,8 +15,6 @@
     "noRole": "无角色",
     "noRoleAddPrompt": "无角色 · 添加 →",
     "ownerRoleLabel": "所有者",
-    "count_one": "{{count}} 名成员",
-    "count_other": "{{count}} 名成员",
     "loading": "正在加载成员…",
     "noMatch": "没有匹配 \"{{search}}\" 的成员",
     "revokeInvitationTitle": "撤销邀请",

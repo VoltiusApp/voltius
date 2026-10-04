@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDragSelection } from "@/hooks/useDragSelection";
+import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import {
@@ -18,7 +19,7 @@ import { canEditPermissions } from "./permissionsModel";
 import {
   type FileEntry, type SortCol, type SortDir, type VisibleCols, type ColumnWidths, type FileColumn,
   DEFAULT_VISIBLE_COLS, COLUMN_MIN_WIDTHS, columnGrid, visibleDataColumns,
-  formatSize, formatPermissions, formatModified,
+  formatSize, formatPermissions, formatModified, formatModifiedFull,
 } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useEditorStore } from "@/stores/editorStore";
@@ -164,10 +165,7 @@ export function FilePane({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [renameVal, setRenameVal] = useState("");
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [creatingFile, setCreatingFile] = useState(false);
-  const [newItemName, setNewItemName] = useState("");
+  const [creating, setCreating] = useState<"folder" | "file" | null>(null);
   const [autoTick, setAutoTick] = useState(0);
   const { entries, loading, error, refreshError } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
   const withPermissions = !isLocal || entries.some((e) => e.permissions != null);
@@ -229,27 +227,18 @@ export function FilePane({
   const parentPath = parentDir(cwd) || null;
   const goUp = () => { if (parentPath) onNavigate(parentPath); };
 
-  const handleMkdir = () => { setNewItemName(""); setCreatingFolder(true); setCreatingFile(false); };
-  const handleNewFile = () => { setNewItemName(""); setCreatingFile(true); setCreatingFolder(false); };
+  const handleMkdir = () => setCreating("folder");
+  const handleNewFile = () => setCreating("file");
 
-  const commitCreateFolder = async () => {
-    setCreatingFolder(false);
-    if (!newItemName.trim()) return;
-    const fullPath = joinPath(cwd, newItemName.trim());
+  const commitCreate = async (name: string) => {
+    const kind = creating;
+    setCreating(null);
+    if (!name.trim()) return;
+    const fullPath = joinPath(cwd, name.trim());
     try {
-      if (isLocal) { await fsMkdir(fullPath); }
-      else if (sftpId) { await sftpMkdir(sftpId, fullPath); }
-      onRefresh();
-    } catch (e) { alert(describeError(e, t)); }
-  };
-
-  const commitCreateFile = async () => {
-    setCreatingFile(false);
-    if (!newItemName.trim()) return;
-    const fullPath = joinPath(cwd, newItemName.trim());
-    try {
-      if (isLocal) { await fsTouch(fullPath); }
-      else if (sftpId) { await sftpTouch(sftpId, fullPath); }
+      if (kind === "folder") { if (isLocal) await fsMkdir(fullPath); else if (sftpId) await sftpMkdir(sftpId, fullPath); }
+      else if (isLocal) await fsTouch(fullPath);
+      else if (sftpId) await sftpTouch(sftpId, fullPath);
       onRefresh();
     } catch (e) { alert(describeError(e, t)); }
   };
@@ -284,11 +273,11 @@ export function FilePane({
     } catch (e) { alert(describeError(e, t)); }
   };
 
-  const startRename = (f: FileEntry) => { setRenaming(f.path); setRenameVal(f.name); };
-  const commitRename = async (f: FileEntry) => {
-    if (!renameVal || renameVal === f.name) { setRenaming(null); return; }
+  const startRename = (f: FileEntry) => setRenaming(f.path);
+  const commitRename = async (f: FileEntry, name: string) => {
+    if (!name || name === f.name) { setRenaming(null); return; }
     if (!isLocal && !sftpId) { setRenaming(null); return; }
-    const newPath = joinPath(parentDir(f.path), renameVal);
+    const newPath = joinPath(parentDir(f.path), name);
     try {
       if (isLocal) { await fsRename(f.path, newPath); }
       else { await sftpRename(sftpId!, f.path, newPath); }
@@ -497,12 +486,9 @@ export function FilePane({
         onContextMenu={(e) => { e.preventDefault(); setSelection([]); setMenuPos({ x: e.clientX, y: e.clientY }); }}>
         <VirtualFileList
           entries={visibleEntries} loading={loading} error={error}
-          renaming={renaming} renameVal={renameVal} onRenameValChange={setRenameVal}
-          creatingFolder={creatingFolder} creatingFile={creatingFile}
-          newItemName={newItemName} onNewItemNameChange={setNewItemName}
-          onCommitCreateFolder={commitCreateFolder}
-          onCommitCreateFile={commitCreateFile}
-          onCancelCreate={() => { setCreatingFolder(false); setCreatingFile(false); }}
+          renaming={renaming} creating={creating}
+          onCommitCreate={commitCreate}
+          onCancelCreate={() => setCreating(null)}
           selectedIdSet={selectedIdSet} dropFolderPath={dropFolderPath}
           focusIndex={focusIndex} itemAreaRef={itemAreaRef} scrollToIndexRef={scrollToIndexRef}
           cutPathSet={cutPathSet}
@@ -976,13 +962,29 @@ function ColumnHeaders({ sortCol, sortDir, withPermissions, colWidths, visibleCo
   );
 }
 
+function InlineFileNameRow({ isDir, value, placeholder, onCommit, onCancel }: {
+  isDir: boolean; value: string; placeholder?: string; onCommit: (name: string) => void; onCancel: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded-sm border border-(--t-accent) text-sm text-(--t-text-primary)">
+      <Icon icon={isDir ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: isDir ? "#f0c050" : "var(--t-text-dim)" }} />
+      <InlineNameEditor
+        value={value}
+        placeholder={placeholder}
+        maxLength={255}
+        onCommit={onCommit}
+        onCancel={onCancel}
+        className="flex-1 min-w-0 bg-transparent outline-hidden placeholder:text-(--t-text-dim)"
+      />
+    </div>
+  );
+}
+
 // ── VirtualFileList ───────────────────────────────────────────────────────────
 
 function VirtualFileList({
   entries, loading, error,
-  renaming, renameVal, onRenameValChange,
-  creatingFolder, creatingFile, newItemName, onNewItemNameChange,
-  onCommitCreateFolder, onCommitCreateFile, onCancelCreate,
+  renaming, creating, onCommitCreate, onCancelCreate,
   selectedIdSet, dropFolderPath,
   focusIndex, itemAreaRef, scrollToIndexRef,
   cutPathSet,
@@ -994,17 +996,15 @@ function VirtualFileList({
   selectionActionsCtx,
 }: {
   entries: FileEntry[]; loading: boolean; error: string | null;
-  renaming: string | null; renameVal: string; onRenameValChange: (v: string) => void;
-  creatingFolder: boolean; creatingFile: boolean;
-  newItemName: string; onNewItemNameChange: (v: string) => void;
-  onCommitCreateFolder: () => void; onCommitCreateFile: () => void; onCancelCreate: () => void;
+  renaming: string | null; creating: "folder" | "file" | null;
+  onCommitCreate: (name: string) => void; onCancelCreate: () => void;
   selectedIdSet: Set<string>; dropFolderPath: string | null;
   focusIndex: React.MutableRefObject<number>; itemAreaRef: React.RefObject<HTMLDivElement | null>;
   scrollToIndexRef: React.MutableRefObject<((index: number) => void) | null>;
   cutPathSet: Set<string> | null;
   side: "left" | "right" | "panel"; withPermissions: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
   onViewport: (v: Viewport) => void;
-  onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
+  onCommitRename: (f: FileEntry, name: string) => void; onCancelRename: () => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
   onNavigate: (p: string) => void; onSetSelection: (ids: string[]) => void;
   onInternalDrop: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
@@ -1034,23 +1034,14 @@ function VirtualFileList({
   // resize can all make the scrollbar appear or disappear.
   useEffect(reportViewport);
 
-  const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
-  const inlineCreateRow = (creatingFolder || creatingFile) && (
-    <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded-sm border border-(--t-accent)">
-      <Icon icon={creatingFolder ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: creatingFolder ? "#f0c050" : "var(--t-text-dim)" }} />
-      <input
-        autoFocus
-        value={newItemName}
-        onChange={(e) => onNewItemNameChange(e.target.value)}
-        onBlur={commitCreate}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitCreate();
-          if (e.key === "Escape") onCancelCreate();
-        }}
-        placeholder={creatingFolder ? t("fileTransfer.pane.placeholder.folderName") : t("fileTransfer.pane.placeholder.fileName")}
-        className="flex-1 text-sm bg-transparent outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
-      />
-    </div>
+  const inlineCreateRow = creating && (
+    <InlineFileNameRow
+      isDir={creating === "folder"}
+      value=""
+      placeholder={creating === "folder" ? t("fileTransfer.pane.placeholder.folderName") : t("fileTransfer.pane.placeholder.fileName")}
+      onCommit={onCommitCreate}
+      onCancel={onCancelCreate}
+    />
   );
 
   if (loading) {
@@ -1071,7 +1062,7 @@ function VirtualFileList({
     return (
       <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto">
         {inlineCreateRow}
-        {!creatingFolder && !creatingFile && (
+        {!creating && (
           <div className="flex items-center justify-center h-16 text-xs text-(--t-text-dim)">{t("fileTransfer.pane.emptyDirectory")}</div>
         )}
       </div>
@@ -1091,17 +1082,7 @@ function VirtualFileList({
           if (renaming === file.path) {
             return (
               <div key={file.path} style={itemStyle}>
-                <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded-sm border border-(--t-accent)">
-                  <Icon icon={file.isDir ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: file.isDir ? "#f0c050" : "var(--t-text-dim)" }} />
-                  <input
-                    autoFocus
-                    value={renameVal}
-                    onChange={(e) => onRenameValChange(e.target.value)}
-                    onBlur={() => onCommitRename(file)}
-                    onKeyDown={(e) => { if (e.key === "Enter") onCommitRename(file); if (e.key === "Escape") onCancelRename(); }}
-                    className="flex-1 text-sm bg-transparent outline-hidden text-(--t-text-primary)"
-                  />
-                </div>
+                <InlineFileNameRow isDir={file.isDir} value={file.name} onCommit={(name) => onCommitRename(file, name)} onCancel={onCancelRename} />
               </div>
             );
           }
@@ -1197,7 +1178,8 @@ function FileRow({ file, isSelected, isCut, isDragHover, withPermissions, colWid
       </span>
       {/* Size reads as a number (right-aligned); date and mode read as text and sit under their header label. */}
       {dataColumns.map((col) => (
-        <span key={col} className={`text-xs truncate font-mono min-w-0 px-2 ${col === "size" ? "text-right" : "text-left"}`} style={{ color: dimColor }}>
+        <span key={col} className={`text-xs truncate font-mono min-w-0 px-2 ${col === "size" ? "text-right" : "text-left"}`} style={{ color: dimColor }}
+          title={col === "modified" && file.modified != null ? formatModifiedFull(file.modified) : undefined}>
           {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatModified(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}
         </span>
       ))}

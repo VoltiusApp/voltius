@@ -18,7 +18,6 @@
       "addRule": "Add Rule",
       "ejectMoveTo": "Move to {{name}}",
       "ejectRemoveFromFolder": "Remove from folder",
-      "total": "{{count}} total",
       "activeCount": "{{count}} active",
       "errorCount": "{{count}} error",
       "contextMenu": {
@@ -72,8 +71,6 @@
     },
     "activeTunnels": {
       "sectionTitle": "Active session forwards",
-      "hostCount_one": "{{count}} host",
-      "hostCount_other": "{{count}} hosts",
       "tunnelCount_one": "{{count}} tunnel",
       "tunnelCount_other": "{{count}} tunnels",
       "forwardCount_one": "{{count}} forward",

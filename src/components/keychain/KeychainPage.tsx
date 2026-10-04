@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { SectionAddButton, SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -31,7 +32,6 @@ import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
-import { Icon } from "@iconify/react";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
@@ -53,7 +53,7 @@ import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -853,6 +853,9 @@ export default function KeychainPage() {
     }
   }, [handleItemSelect]);
 
+  const createFolder = () =>
+    void saveFolder(newFolderData("keychain", activeFolderId, defaultVaultId));
+
   return (
     <>
     <SidePanelLayout
@@ -924,7 +927,7 @@ export default function KeychainPage() {
           onImportKey={canEditKeys ? () => openKeyForm(null) : undefined}
           onGenerateKey={canEditKeys ? openKeyGenForm : undefined}
           onNewIdentity={canEditIdentities ? () => openIdentityForm(null) : undefined}
-          onNewFolder={() => void saveFolder({ name: "New Folder" /* persisted English default; menu label is localized */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
+          onNewFolder={createFolder}
           availableTags={availableTags}
           tagFilter={tagFilter}
           onTagFilterChange={setTagFilter}
@@ -963,28 +966,13 @@ export default function KeychainPage() {
             {/* ── Folders section ── */}
             {visibleFolders.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                    {t("keychain.page.folders")}
-                  </p>
-                  <button
-                    className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = "var(--t-text-primary)";
-                      e.currentTarget.style.background = "var(--t-bg-elevated)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "var(--t-text-dim)";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                    onClick={() => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
-                  >
-                    <Icon icon="lucide:plus" width={12} />
-                    {t("keychain.page.new")}
-                  </button>
-                </div>
+                <SectionHeader
+                  label={t("keychain.page.folders")}
+                  count={visibleFolders.length}
+                  aside={<SectionAddButton label={t("keychain.page.new")} onClick={createFolder} />}
+                />
                 <div
-                  {...cardGridProps(layoutMode, "240px")}
+                  {...cardGridProps(layoutMode, "card")}
                 >
                   {visibleFolders.map((folder) => (
                     <FolderCard
@@ -1129,7 +1117,7 @@ export default function KeychainPage() {
             ...(canEditIdentities ? [
               { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
-            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }) },
+            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "keychain"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),

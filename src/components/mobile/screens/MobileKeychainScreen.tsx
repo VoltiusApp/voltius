@@ -10,6 +10,7 @@ import FolderActionsSheet from "../sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "../folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "../folders/MobileFolderRow";
 import FolderBackTrap from "../folders/FolderBackTrap";
+import { SectionHeader } from "@/components/shared/SectionHeader";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
@@ -32,15 +33,6 @@ function TagChips({ tags }: { tags: string[] }) {
         <span key={t} className="px-1.5 py-0.5 rounded text-[10px] text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{t}</span>
       ))}
     </span>
-  );
-}
-
-function SectionHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="flex items-center gap-2 px-3 pt-4 pb-1">
-      <span className="text-[11px] font-semibold tracking-wide text-(--t-text-dim)">{label}</span>
-      <span className="px-1.5 py-0.5 rounded-full text-[10px] text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{count}</span>
-    </div>
   );
 }
 
@@ -114,7 +106,7 @@ export default function MobileKeychainScreen() {
 
         {scopedKeys.length > 0 && (
           <div className="px-2">
-            <SectionHeader label={t("mobile.keychainScreen.sshKeysHeader")} count={scopedKeys.length} />
+            <SectionHeader compact className="px-3 pt-4 pb-1" label={t("mobile.keychainScreen.sshKeysHeader")} count={scopedKeys.length} />
             {scopedKeys.map((k) => (
               <button key={k.id} data-keychain-key className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "key", item: k })}>
                 <AvatarTile icon="lucide:key-round" className="w-9 h-9 rounded-lg" iconSize={18} />
@@ -130,7 +122,7 @@ export default function MobileKeychainScreen() {
 
         {scopedIdentities.length > 0 && (
           <div className="px-2">
-            <SectionHeader label={t("mobile.keychainScreen.identitiesHeader")} count={scopedIdentities.length} />
+            <SectionHeader compact className="px-3 pt-4 pb-1" label={t("mobile.keychainScreen.identitiesHeader")} count={scopedIdentities.length} />
             {scopedIdentities.map((i) => (
               <button key={i.id} data-keychain-identity className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "identity", item: i })}>
                 <AvatarTile icon="lucide:user" className="w-9 h-9 rounded-lg" iconSize={18} />

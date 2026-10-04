@@ -18,7 +18,6 @@
       "addRule": "添加规则",
       "ejectMoveTo": "移动到 {{name}}",
       "ejectRemoveFromFolder": "从文件夹中移除",
-      "total": "{{count}} 个总计",
       "activeCount": "{{count}} 个活跃",
       "errorCount": "{{count}} 个错误",
       "contextMenu": {
@@ -72,8 +71,6 @@
     },
     "activeTunnels": {
       "sectionTitle": "活跃的会话转发",
-      "hostCount_one": "{{count}} 台主机",
-      "hostCount_other": "{{count}} 台主机",
       "tunnelCount_one": "{{count}} 个隧道",
       "tunnelCount_other": "{{count}} 个隧道",
       "forwardCount_one": "{{count}} 个转发",

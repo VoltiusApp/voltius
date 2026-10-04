@@ -9,6 +9,10 @@ export function folderToFormData(f: Folder): FolderFormData {
 }
 
 /** `folder_update` replaces rather than merges, so fields the caller omits keep their stored value. */
+export function newFolderData(object_type: string, parentId: string | null | undefined, vault_id: string | undefined): FolderFormData {
+  return { name: "New Folder" /* persisted English default; menu label is localized */, object_type, parent_folder_id: parentId ?? undefined, vault_id };
+}
+
 export function overStoredFolder(stored: Folder | undefined, input: FolderFormData): FolderFormData {
   return stored ? { ...folderToFormData(stored), ...input } : input;
 }

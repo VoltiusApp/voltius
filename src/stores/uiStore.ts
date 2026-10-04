@@ -126,6 +126,7 @@ interface UIStore {
   membersLayoutMode: LayoutMode;
   membersSortMode: SortMode;
   snippetsLayoutMode: LayoutMode;
+  knownHostsLayoutMode: LayoutMode;
   prefsUpdatedAt: string;
   portForwardingPendingAction: PortForwardingPendingAction;
   keychainPendingAction: KeychainPendingAction;
@@ -176,6 +177,7 @@ interface UIStore {
   setMembersLayoutMode: (v: LayoutMode) => void;
   setMembersSortMode: (v: SortMode) => void;
   setSnippetsLayoutMode: (v: LayoutMode) => void;
+  setKnownHostsLayoutMode: (v: LayoutMode) => void;
   snippetsPendingAction: SnippetsPendingAction;
   setSnippetsPendingAction: (action: SnippetsPendingAction) => void;
   membersInvitePending: boolean;
@@ -241,6 +243,7 @@ export const useUIStore = create<UIStore>()(
         membersLayoutMode: "list" as LayoutMode,
         membersSortMode: "role-asc" as SortMode,
         snippetsLayoutMode: "list" as LayoutMode,
+        knownHostsLayoutMode: "grid" as LayoutMode,
         snippetsPendingAction: null as SnippetsPendingAction,
         membersInvitePending: false,
         membersRolesPending: false,
@@ -308,6 +311,7 @@ export const useUIStore = create<UIStore>()(
         setMembersLayoutMode: (v) => setPref({ membersLayoutMode: v }),
         setMembersSortMode: (v) => setPref({ membersSortMode: v }),
         setSnippetsLayoutMode: (v) => setPref({ snippetsLayoutMode: v }),
+        setKnownHostsLayoutMode: (v) => setPref({ knownHostsLayoutMode: v }),
         setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
         openMembersInvite: () => set({ activeNav: "members", homeView: false, membersInvitePending: true }),
         clearMembersInvitePending: () => set({ membersInvitePending: false }),
@@ -351,6 +355,7 @@ export const useUIStore = create<UIStore>()(
         membersLayoutMode: state.membersLayoutMode,
         membersSortMode: state.membersSortMode,
         snippetsLayoutMode: state.snippetsLayoutMode,
+        knownHostsLayoutMode: state.knownHostsLayoutMode,
         rightPanelSection: state.rightPanelSection,
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,

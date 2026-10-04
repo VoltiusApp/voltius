@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -59,7 +61,7 @@ import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -223,21 +225,6 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
   );
 }
 
-// ─── Section header ────────────────────────────────────────────────────────────
-
-function SectionHeader({ label, count }: { label: string; count?: number }) {
-  return (
-    <div className="flex items-center justify-between mb-2">
-      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-        {label}
-        {count !== undefined && (
-          <span className="ml-2 font-normal normal-case tracking-normal">{count}</span>
-        )}
-      </p>
-    </div>
-  );
-}
-
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 function SkeletonList() {
@@ -255,41 +242,6 @@ function SkeletonList() {
     </div>
   );
 }
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-16">
-      <div
-        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
-        style={{
-          background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
-          border: "1px solid var(--t-border)",
-        }}
-      >
-        <Icon icon="lucide:braces" width={36} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <span className="text-base font-semibold text-(--t-text-primary)">{t("snippets.page.emptyState.title")}</span>
-        <span className="text-sm text-(--t-text-dim) max-w-[18rem]">
-          {t("snippets.page.emptyState.subtitle")}
-        </span>
-      </div>
-      <button
-        onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-      >
-        <Icon icon="lucide:plus" width={15} />
-        {t("snippets.page.emptyState.cta")}
-      </button>
-    </div>
-  );
-}
-
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -894,12 +846,7 @@ export function SnippetsPage() {
 
   async function handleCreateFolder() {
     ep.closeEdit();
-    const folder = await saveFolder({
-      name: "New Folder" /* persisted English default; menu label is localized */,
-      object_type: "snippet",
-      parent_folder_id: activeFolderId ?? undefined,
-      vault_id: defaultVaultId,
-    });
+    const folder = await saveFolder(newFolderData("snippet", activeFolderId, defaultVaultId));
     folderEp.transitionToExisting(folder);
   }
 
@@ -1026,7 +973,12 @@ export function SnippetsPage() {
           {loading ? (
             <SkeletonList />
           ) : !hasSearch && filtered.length === 0 && scopedFolders.length === 0 ? (
-            <EmptyState onAdd={() => openSnippet("new")} />
+            <EmptyState
+              icon="lucide:braces"
+              title={t("snippets.page.emptyState.title")}
+              body={t("snippets.page.emptyState.subtitle")}
+              action={{ label: t("snippets.page.emptyState.cta"), onClick: () => openSnippet("new") }}
+            />
           ) : (
             <div className="space-y-6">
 
@@ -1059,7 +1011,7 @@ export function SnippetsPage() {
                     </button>
                   </div>
                   <div
-                    {...cardGridProps(layoutMode, "220px")}
+                    {...cardGridProps(layoutMode, "card")}
                   >
                     {(showAllRecent ? scopedRecentEntries : scopedRecentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
                       <RecentCard
@@ -1089,15 +1041,15 @@ export function SnippetsPage() {
               {favorites.length > 0 && (
                 <div>
                   <SectionHeader label={t("snippets.page.pinned")} count={favorites.length} />
-                  <div {...cardGridProps(layoutMode, "220px")}>{favorites.map(renderCard)}</div>
+                  <div {...cardGridProps(layoutMode, "card")}>{favorites.map(renderCard)}</div>
                 </div>
               )}
 
               {/* ── Folders ── */}
               {visibleFolders.length > 0 && (
                 <div>
-                  <SectionHeader label={t("snippets.page.folders")} />
-                  <div {...cardGridProps(layoutMode, "220px")}>
+                  <SectionHeader label={t("snippets.page.folders")} count={visibleFolders.length} />
+                  <div {...cardGridProps(layoutMode, "card")}>
                     {visibleFolders.map((folder) => (
                       <FolderCard
                         key={folder.id}
@@ -1149,34 +1101,22 @@ export function SnippetsPage() {
                       count={viewSnippets.length}
                     />
                   )}
-                  <div {...cardGridProps(layoutMode, "220px")}>{viewSnippets.map(renderCard)}</div>
+                  <div {...cardGridProps(layoutMode, "card")}>{viewSnippets.map(renderCard)}</div>
                 </div>
               ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Icon icon="lucide:folder-open" width={32} className="text-(--t-text-dim)" />
-                  <p className="text-sm text-(--t-text-dim)">{t("snippets.page.folderEmpty")}</p>
-                  <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
-                    onClick={() => openSnippet("new")}
-                  >
-                    <Icon icon="lucide:plus" width={12} />
-                    {t("snippets.page.addSnippet")}
-                  </button>
-                </div>
+                <EmptyState
+                  size="section"
+                  icon="lucide:folder-open"
+                  title={t("snippets.page.folderEmpty")}
+                  action={{ label: t("snippets.page.addSnippet"), onClick: () => openSnippet("new") }}
+                />
               ) : hasSearch && filtered.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-12">
-                  <Icon icon="lucide:search-x" width={28} className="text-(--t-text-dim)" />
-                  <p className="text-sm text-(--t-text-dim)">{t("snippets.page.noSearchResults", { search })}</p>
-                  <button
-                    onClick={() => setSearch("")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border-hover)"
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                  >
-                    <Icon icon="lucide:x" width={11} />
-                    {t("snippets.page.clearSearch")}
-                  </button>
-                </div>
+                <EmptyState
+                  size="section"
+                  icon="lucide:search-x"
+                  title={t("snippets.page.noSearchResults", { search })}
+                  action={{ label: t("snippets.page.clearSearch"), onClick: () => setSearch(""), icon: "lucide:x" }}
+                />
               ) : null}
 
             </div>

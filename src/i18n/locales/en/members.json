@@ -15,8 +15,6 @@
     "noRole": "No role",
     "noRoleAddPrompt": "No role · Add →",
     "ownerRoleLabel": "owner",
-    "count_one": "{{count}} member",
-    "count_other": "{{count}} members",
     "loading": "Loading members…",
     "noMatch": "No members match \"{{search}}\"",
     "revokeInvitationTitle": "Revoke invitation",

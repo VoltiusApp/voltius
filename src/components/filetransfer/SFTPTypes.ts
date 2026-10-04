@@ -1,7 +1,7 @@
 import type { HostChoice } from "@/components/shared/HostPickerPanel";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 import type { BackendErrorCode } from "@/services/backendErrors";
-import { formatDate, formatDateTime, MONTH_DAY_TIME, SHORT_DATE } from "@/utils/localeFormat";
+import { formatDate, formatDateTime, formatTime, HOUR_MINUTE, MONTH_DAY, SHORT_DATE } from "@/utils/localeFormat";
 export type { HostChoice };
 
 export type FileEntry = {
@@ -102,9 +102,10 @@ export function formatPermissions(mode: number): string {
 }
 
 /** A file's mtime (unix seconds), `ls -l` style: time this year, year otherwise. */
-export function formatModified(ts: number): string {
+export function formatModified(ts: number, now = new Date()): string {
   const d = new Date(ts * 1000);
-  return d.getFullYear() === new Date().getFullYear()
-    ? formatDateTime(d, MONTH_DAY_TIME)
-    : formatDate(d, SHORT_DATE);
+  if (d.toDateString() === now.toDateString()) return formatTime(d, HOUR_MINUTE);
+  return formatDate(d, d.getFullYear() === now.getFullYear() ? MONTH_DAY : SHORT_DATE);
 }
+
+export const formatModifiedFull = (ts: number): string => formatDateTime(new Date(ts * 1000));

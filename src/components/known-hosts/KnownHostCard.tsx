@@ -50,6 +50,8 @@ export function KnownHostCard({
     </span>
   );
   const fingerprint = fingerprintLabel(host.fingerprint, t, truncateFingerprint);
+  const address = `${host.host}:${host.port}`;
+  const title = host.name ?? address;
   const contextMenuItems = [
     ...vaultMenuItems(otherVaults, canEdit, onMoveVault, onCopyVault, t),
     ...(canEdit && onDelete
@@ -74,40 +76,25 @@ export function KnownHostCard({
       bulkContextMenuItems={bulkContextMenuItems}
       data-selectable-id={host.id}
     >
-      {/* Fingerprint icon */}
       <AvatarTile icon="lucide:fingerprint-pattern" iconSize={isList ? 14 : 18} className={`rounded-xl ${isList ? "w-7 h-7" : "w-10 h-10"}`} />
 
       <div className="min-w-0 flex-1">
         {isList ? (
-          /* List layout */
           <div className="flex items-center gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-(--t-text-primary) truncate">
-                {host.name ?? `${host.host}:${host.port}`}
-                {tlsBadge}
-              </p>
-              {host.name && (
-                <p className="text-xs text-(--t-text-dim) truncate">
-                  {host.host}:{host.port}
-                </p>
-              )}
-            </div>
-            <p className="text-xs text-(--t-text-dim) font-mono shrink-0 hidden md:block">
-              {fingerprint}
-            </p>
-          </div>
-        ) : (
-          /* Grid layout */
-          <>
-            <p className="text-sm font-medium text-(--t-text-primary) truncate">
-              {host.name ?? `${host.host}:${host.port}`}
+            <p className="text-sm font-medium text-(--t-text-primary) truncate w-52 shrink-0">
+              {title}
               {tlsBadge}
             </p>
-            {host.name && (
-              <p className="text-xs text-(--t-text-dim) truncate mt-0.5">
-                {host.host}:{host.port}
-              </p>
-            )}
+            <p className="text-xs text-(--t-text-dim) truncate flex-1 min-w-0">{host.name && address}</p>
+            <p className="text-xs text-(--t-text-dim) font-mono shrink-0 hidden md:block">{fingerprint}</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-(--t-text-primary) truncate">
+              {title}
+              {tlsBadge}
+            </p>
+            {host.name && <p className="text-xs text-(--t-text-dim) truncate mt-0.5">{address}</p>}
             <p className="text-xs text-(--t-text-dim) font-mono truncate mt-1">
               {fingerprint}
             </p>
