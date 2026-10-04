@@ -246,12 +246,36 @@ fn safe_relative(raw: &str, strip: bool) -> Option<PathBuf> {
     Some(rel)
 }
 
-fn truncated(e: io::Error) -> io::Error {
-    if e.kind() == io::ErrorKind::UnexpectedEof {
-        io::Error::new(e.kind(), "archive truncated")
-    } else {
-        e
+struct Input<R> {
+    inner: R,
+    ended: bool,
+    failed: bool,
+}
+
+impl<R: Read> Read for Input<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let read = self.inner.read(buf);
+        match &read {
+            Ok(0) if !buf.is_empty() => self.ended = true,
+            Err(e) if e.kind() != io::ErrorKind::Interrupted => self.failed = true,
+            _ => {}
+        }
+        read
     }
+}
+
+/// True when `unpack` failed because the stream it was given was cut short or unreadable.
+pub fn is_broken_stream(e: &io::Error) -> bool {
+    e.kind() == io::ErrorKind::UnexpectedEof
+}
+
+fn broken(e: io::Error) -> io::Error {
+    let message = if e.kind() == io::ErrorKind::UnexpectedEof {
+        "archive truncated".to_string()
+    } else {
+        format!("archive unreadable: {e}")
+    };
+    io::Error::new(io::ErrorKind::UnexpectedEof, message)
 }
 
 fn skip(skipped: &mut Vec<String>, raw: &str) {
@@ -274,16 +298,74 @@ fn confined_parent(root: &Path, rel: &Path, create: bool) -> io::Result<bool> {
     Ok(true)
 }
 
+const SPECIAL_MODE_BITS: u32 = 0o7000;
+
 pub fn unpack<R: Read>(
     input: R,
     sink: Sink<'_>,
     strip: bool,
     done: Arc<AtomicU64>,
 ) -> io::Result<Vec<String>> {
-    let mut archive = tar::Archive::new(Counted::new(GzDecoder::new(input), done));
+    let mut archive = tar::Archive::new(Input {
+        inner: Counted::new(GzDecoder::new(input), done),
+        ended: false,
+        failed: false,
+    });
     archive.set_preserve_permissions(cfg!(unix));
+    archive.set_mask(SPECIAL_MODE_BITS);
     archive.set_preserve_mtime(true);
     archive.set_overwrite(true);
+    let extracted = extract(&mut archive, sink, strip);
+    let mut input = archive.into_inner();
+    let checked = extracted.and_then(|skipped| {
+        // tar takes a clean end of stream at a header boundary for the end of the archive.
+        if input.ended {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+        io::copy(&mut input, &mut io::sink())?;
+        Ok(skipped)
+    });
+    checked.map_err(|e| {
+        if input.ended || input.failed || e.kind() == io::ErrorKind::UnexpectedEof {
+            broken(e)
+        } else {
+            e
+        }
+    })
+}
+
+/// The name to report for an entry this side cannot extract faithfully.
+fn unsupported<R: Read>(entry: &mut tar::Entry<'_, R>, raw: &str) -> io::Result<Option<String>> {
+    let kind = entry.header().entry_type();
+    if kind.is_fifo()
+        || kind.is_character_special()
+        || kind.is_block_special()
+        || (kind.is_symlink() && cfg!(windows))
+    {
+        return Ok(Some(raw.to_string()));
+    }
+    let Some(extensions) = entry.pax_extensions()? else {
+        return Ok(None);
+    };
+    let mut sparse = None;
+    for ext in extensions {
+        let ext = ext?;
+        match ext.key() {
+            Ok("GNU.sparse.name") => sparse = Some(ext.value().unwrap_or(raw).to_string()),
+            Ok(key) if key.starts_with("GNU.sparse.") => {
+                sparse.get_or_insert_with(|| raw.to_string());
+            }
+            _ => {}
+        }
+    }
+    Ok(sparse)
+}
+
+fn extract<R: Read>(
+    archive: &mut tar::Archive<R>,
+    sink: Sink<'_>,
+    strip: bool,
+) -> io::Result<Vec<String>> {
     let root = match sink {
         Sink::Dir(dir) => {
             std::fs::create_dir_all(dir)?;
@@ -293,10 +375,10 @@ pub fn unpack<R: Read>(
     };
     let mut skipped: Vec<String> = Vec::new();
     let mut dirs = Vec::new();
-    for entry in archive.entries().map_err(truncated)? {
-        let mut entry = entry.map_err(truncated)?;
+    for entry in archive.entries()? {
+        let mut entry = entry?;
         let Some(root) = &root else {
-            io::copy(&mut entry, &mut io::sink()).map_err(truncated)?;
+            io::copy(&mut entry, &mut io::sink())?;
             continue;
         };
         let raw = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
@@ -310,18 +392,17 @@ pub fn unpack<R: Read>(
         if rel.as_os_str().is_empty() {
             continue;
         }
-        let kind = entry.header().entry_type();
-        if kind.is_symlink() && cfg!(windows) {
-            skip(&mut skipped, &raw);
+        if let Some(name) = unsupported(&mut entry, &raw)? {
+            skip(&mut skipped, &name);
             continue;
         }
+        let kind = entry.header().entry_type();
         let target = root.join(&rel);
-        let is_dir = kind.is_dir();
         if !confined_parent(root, &rel, true)? {
             skip(&mut skipped, &raw);
             continue;
         }
-        if is_dir {
+        if kind.is_dir() {
             match std::fs::symlink_metadata(&target) {
                 Ok(m) if m.is_dir() => {}
                 Ok(_) => {
@@ -356,15 +437,14 @@ pub fn unpack<R: Read>(
             }
             continue;
         }
-        entry.unpack(&target).map_err(truncated)?;
+        entry.unpack(&target)?;
     }
     dirs.sort_by(|a, b| b.0.cmp(&a.0));
     for (target, mut entry) in dirs {
         if std::fs::symlink_metadata(&target).is_ok_and(|m| m.is_dir()) {
-            entry.unpack(&target).map_err(truncated)?;
+            entry.unpack(&target)?;
         }
     }
-    io::copy(&mut archive.into_inner(), &mut io::sink()).map_err(truncated)?;
     Ok(skipped)
 }
 
@@ -394,19 +474,39 @@ pub(crate) mod tests {
         buf
     }
 
-    fn raw_archive(entries: &[(&str, tar::EntryType, &str, &[u8])]) -> Vec<u8> {
-        let mut tar = tar::Builder::new(GzEncoder::new(Vec::new(), Compression::default()));
-        for (name, kind, link, data) in entries {
-            let mut h = tar::Header::new_gnu();
-            h.as_gnu_mut().unwrap().name[..name.len()].copy_from_slice(name.as_bytes());
-            h.as_gnu_mut().unwrap().linkname[..link.len()].copy_from_slice(link.as_bytes());
-            h.set_entry_type(*kind);
-            h.set_size(data.len() as u64);
-            h.set_mode(0o644);
-            h.set_cksum();
-            tar.append(&h, *data).unwrap();
+    type RawEntry<'a> = (&'a str, tar::EntryType, &'a str, &'a [u8]);
+
+    fn header(name: &str, kind: tar::EntryType, link: &str, mode: u32, len: usize) -> tar::Header {
+        let mut h = tar::Header::new_gnu();
+        h.as_gnu_mut().unwrap().name[..name.len()].copy_from_slice(name.as_bytes());
+        h.as_gnu_mut().unwrap().linkname[..link.len()].copy_from_slice(link.as_bytes());
+        h.set_entry_type(kind);
+        h.set_size(len as u64);
+        h.set_mode(mode);
+        h.set_cksum();
+        h
+    }
+
+    fn tar_of(entries: &[(tar::Header, &[u8])]) -> Vec<u8> {
+        let mut tar = tar::Builder::new(Vec::new());
+        for (h, data) in entries {
+            tar.append(h, *data).unwrap();
         }
-        tar.into_inner().unwrap().finish().unwrap()
+        tar.into_inner().unwrap()
+    }
+
+    fn gzip(data: &[u8]) -> Vec<u8> {
+        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+        gz.write_all(data).unwrap();
+        gz.finish().unwrap()
+    }
+
+    fn raw_archive(entries: &[RawEntry]) -> Vec<u8> {
+        let entries: Vec<_> = entries
+            .iter()
+            .map(|(name, kind, link, data)| (header(name, *kind, link, 0o644, data.len()), *data))
+            .collect();
+        gzip(&tar_of(&entries))
     }
 
     #[test]
@@ -535,7 +635,7 @@ pub(crate) mod tests {
     fn unsafe_names_are_skipped_reported_and_never_written() {
         let dst = tempfile::tempdir().unwrap();
         let inner = dst.path().join("inner");
-        let mut entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+        let mut entries: Vec<RawEntry> = vec![
             ("ok.txt", tar::EntryType::Regular, "", b"ok"),
             ("../x", tar::EntryType::Regular, "", b"x"),
             ("a/../../y", tar::EntryType::Regular, "", b"y"),
@@ -565,7 +665,7 @@ pub(crate) mod tests {
     fn a_file_behind_a_planted_symlink_never_leaves_the_destination() {
         let (dst, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         let outside_path = outside.path().to_str().unwrap();
-        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+        let entries: Vec<RawEntry> = vec![
             ("evil", tar::EntryType::Symlink, outside_path, b""),
             ("evil/x", tar::EntryType::Regular, "", b"pwned"),
         ];
@@ -643,7 +743,7 @@ pub(crate) mod tests {
     #[test]
     fn a_planted_symlink_never_gets_directories_created_behind_it() {
         let (dst, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+        let entries: Vec<RawEntry> = vec![
             (
                 "evil",
                 tar::EntryType::Symlink,
@@ -667,7 +767,7 @@ pub(crate) mod tests {
     #[test]
     fn hard_links_round_trip() {
         let dst = tempfile::tempdir().unwrap();
-        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+        let entries: Vec<RawEntry> = vec![
             ("a", tar::EntryType::Regular, "", b"same"),
             ("h", tar::EntryType::Link, "a", b""),
         ];
@@ -687,7 +787,7 @@ pub(crate) mod tests {
     fn hard_links_through_a_planted_symlink_or_to_nothing_are_skipped() {
         let (dst, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         fs::write(outside.path().join("secret"), b"s").unwrap();
-        let entries: Vec<(&str, tar::EntryType, &str, &[u8])> = vec![
+        let entries: Vec<RawEntry> = vec![
             (
                 "evil",
                 tar::EntryType::Symlink,
@@ -767,5 +867,166 @@ pub(crate) mod tests {
         unpack(&buf[..], Sink::Dir(dst.path()), false, counter()).unwrap();
         assert_eq!(fs::read(dst.path().join("top/a")).unwrap(), b"a");
         assert_eq!(fs::read_dir(dst.path().join("top")).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn an_archive_without_its_end_blocks_is_truncated() {
+        let whole = tar_of(&[(
+            header("a.txt", tar::EntryType::Regular, "", 0o644, 5),
+            &b"alpha"[..],
+        )]);
+        let cut = gzip(&whole[..whole.len() - 1024]);
+        let dst = tempfile::tempdir().unwrap();
+        for sink in [Sink::Dir(dst.path()), Sink::Count] {
+            let err = unpack(&cut[..], sink, false, counter()).unwrap_err();
+            assert!(err.to_string().contains("archive truncated"), "{err}");
+        }
+        unpack(&gzip(&whole)[..], Sink::Count, false, counter()).unwrap();
+        unpack(&gzip(&whole)[..], Sink::Dir(dst.path()), false, counter()).unwrap();
+    }
+
+    fn pax(records: &[(&str, &str)]) -> Vec<u8> {
+        let mut out = String::new();
+        for (key, value) in records {
+            let body = format!(" {key}={value}\n");
+            let mut len = body.len();
+            while len != body.len() + len.to_string().len() {
+                len = body.len() + len.to_string().len();
+            }
+            out.push_str(&format!("{len}{body}"));
+        }
+        out.into_bytes()
+    }
+
+    #[test]
+    fn pax_sparse_entries_are_skipped_under_their_real_name() {
+        let dst = tempfile::tempdir().unwrap();
+        let named = pax(&[
+            ("GNU.sparse.major", "1"),
+            ("GNU.sparse.minor", "0"),
+            ("GNU.sparse.name", "big.img"),
+            ("GNU.sparse.realsize", "4096"),
+        ]);
+        let unnamed = pax(&[("GNU.sparse.size", "4096")]);
+        let map = b"1\n0\n512\n";
+        let archive = gzip(&tar_of(&[
+            (
+                header(
+                    "PaxHeaders/big.img",
+                    tar::EntryType::XHeader,
+                    "",
+                    0o644,
+                    named.len(),
+                ),
+                &named,
+            ),
+            (
+                header(
+                    "GNUSparseFile.0/big.img",
+                    tar::EntryType::Regular,
+                    "",
+                    0o644,
+                    map.len(),
+                ),
+                map,
+            ),
+            (
+                header(
+                    "PaxHeaders/old",
+                    tar::EntryType::XHeader,
+                    "",
+                    0o644,
+                    unnamed.len(),
+                ),
+                &unnamed,
+            ),
+            (header("old", tar::EntryType::Regular, "", 0o644, 0), b""),
+            (
+                header("ok.txt", tar::EntryType::Regular, "", 0o644, 2),
+                b"ok",
+            ),
+        ]));
+        let skipped = unpack(&archive[..], Sink::Dir(dst.path()), false, counter()).unwrap();
+        assert_eq!(skipped, ["big.img", "old"]);
+        assert!(!dst.path().join("GNUSparseFile.0").exists());
+        assert!(!dst.path().join("big.img").exists());
+        assert!(!dst.path().join("old").exists());
+        assert_eq!(fs::read(dst.path().join("ok.txt")).unwrap(), b"ok");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifos_and_devices_are_skipped_not_written_as_files() {
+        let dst = tempfile::tempdir().unwrap();
+        let entries: Vec<RawEntry> = vec![
+            ("p", tar::EntryType::Fifo, "", b""),
+            ("c", tar::EntryType::Char, "", b""),
+            ("b", tar::EntryType::Block, "", b""),
+            ("f", tar::EntryType::Regular, "", b"f"),
+        ];
+        let skipped = unpack(
+            &raw_archive(&entries)[..],
+            Sink::Dir(dst.path()),
+            false,
+            counter(),
+        )
+        .unwrap();
+        assert_eq!(skipped, ["p", "c", "b"]);
+        assert_eq!(fs::read_dir(dst.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setuid_setgid_and_sticky_bits_are_dropped() {
+        use std::os::unix::fs::PermissionsExt;
+        let dst = tempfile::tempdir().unwrap();
+        let archive = gzip(&tar_of(&[
+            (
+                header("d/", tar::EntryType::Directory, "", 0o3755, 0),
+                &b""[..],
+            ),
+            (
+                header("d/run", tar::EntryType::Regular, "", 0o4755, 1),
+                b"x",
+            ),
+        ]));
+        unpack(&archive[..], Sink::Dir(dst.path()), false, counter()).unwrap();
+        let mode = |p: &str| {
+            fs::metadata(dst.path().join(p))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o7777
+        };
+        assert_eq!(mode("d/run"), 0o755);
+        assert_eq!(mode("d"), 0o755);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn old_gnu_sparse_entries_still_extract_whole() {
+        use std::io::Seek;
+        let src = tempfile::tempdir().unwrap();
+        let mut f = fs::File::create(src.path().join("holey")).unwrap();
+        f.set_len(1 << 20).unwrap();
+        f.seek(io::SeekFrom::Start(700_000)).unwrap();
+        f.write_all(b"hello").unwrap();
+        drop(f);
+        let mut data = vec![0u8; 1 << 20];
+        data[700_000..700_005].copy_from_slice(b"hello");
+        let buf = archive(src.path(), &["holey"], false);
+        let mut kinds = tar::Archive::new(GzDecoder::new(&buf[..]));
+        let sparse = kinds
+            .entries()
+            .unwrap()
+            .any(|e| e.unwrap().header().entry_type().is_gnu_sparse());
+        let dst = tempfile::tempdir().unwrap();
+        let skipped = unpack(&buf[..], Sink::Dir(dst.path()), false, counter()).unwrap();
+        assert!(skipped.is_empty());
+        assert_eq!(fs::read(dst.path().join("holey")).unwrap(), data);
+        assert!(
+            sparse,
+            "this filesystem reported no holes, so nothing sparse was packed"
+        );
     }
 }

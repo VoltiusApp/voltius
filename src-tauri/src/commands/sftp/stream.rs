@@ -312,12 +312,18 @@ pub async fn download<H: Handler, E: TransferEvents>(
     if job.token.is_cancelled() {
         return Err(CANCELLED.into());
     }
-    if let Ok((code @ Some(c), err)) = &drained {
-        if *c != 0 {
-            return remote_result(End::Remote, from.dir, *code, err);
+    let remote_failure = match &drained {
+        Ok((code @ Some(c), err)) if *c != 0 => {
+            remote_result(End::Remote, from.dir, *code, err).err()
         }
-    }
-    let skipped = unpacked.map_err(|e| explain(End::Local, &local_label, &e.to_string()))?;
+        _ => None,
+    };
+    let skipped = match (unpacked, remote_failure) {
+        (Err(e), Some(remote)) if local_tar::is_broken_stream(&e) => return Err(remote),
+        (Err(e), _) => return Err(explain(End::Local, &local_label, &e.to_string())),
+        (Ok(_), Some(remote)) => return Err(remote),
+        (Ok(skipped), None) => skipped,
+    };
     drained?;
     job.succeed(skipped);
     Ok(())
@@ -606,10 +612,7 @@ mod tests {
         assert!(err.starts_with("tar failed on this device"), "{err}");
     }
 
-    #[tokio::test]
-    async fn a_cut_download_fails_even_with_exit_zero() {
-        let (handle, _) = proc_server(ProcOptions::default()).await;
-        let src = tree();
+    fn archive_of(src: &tempfile::TempDir) -> Vec<u8> {
         let mut whole = Vec::new();
         local_tar::pack(
             &mut whole,
@@ -619,6 +622,37 @@ mod tests {
             Arc::default(),
         )
         .unwrap();
+        whole
+    }
+
+    #[tokio::test]
+    async fn download_reports_a_local_failure_over_an_unrelated_remote_one() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let (src, dst) = (tree(), tempfile::tempdir().unwrap());
+        let archive = src.path().join("whole.tgz");
+        fs::write(&archive, archive_of(&src)).unwrap();
+        let not_a_dir = dst.path().join("file");
+        fs::write(&not_a_dir, b"x").unwrap();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let job = Job::new(&rec, "t20", &token);
+        let from = RemoteEnd {
+            handle: &handle,
+            cmd: format!(
+                "cat '{}'; echo 'tar: x: Cannot open: Permission denied' >&2; exit 2",
+                archive.display()
+            ),
+            dir: "/srv",
+        };
+        let err = download(from, not_a_dir, false, &job).await.unwrap_err();
+        assert!(err.starts_with("tar failed on this device"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn a_cut_download_fails_even_with_exit_zero() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let src = tree();
+        let whole = archive_of(&src);
         let cut = src.path().join("cut.tgz");
         fs::write(&cut, &whole[..whole.len() / 2]).unwrap();
         let dst = tempfile::tempdir().unwrap();
