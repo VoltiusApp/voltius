@@ -301,19 +301,6 @@ pub fn fs_touch(path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// True if a `tar` binary is on PATH locally (the host that runs the archiving
-/// half of tar-accelerated transfers).
-#[tauri::command]
-pub async fn fs_tar_available() -> bool {
-    let mut cmd = tokio::process::Command::new("tar");
-    cmd.arg("--version");
-    crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
-    cmd.output()
-        .await
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
 /// Links to directories could loop back into the tree, and dangling ones have nothing to read.
 /// Windows needs a privilege to create links, so there a link to a file is copied as its file.
 fn is_copied_as_link(src: &Path, meta: &std::fs::Metadata) -> bool {

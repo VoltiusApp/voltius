@@ -13,14 +13,11 @@ use tokio_util::sync::CancellationToken;
 
 pub mod dir;
 pub mod editor;
-#[allow(dead_code)]
 pub(crate) mod local_tar;
 mod ops;
 mod remote_shell;
-#[allow(dead_code)]
 mod stream;
 mod tar;
-#[allow(dead_code)]
 mod tar_failure;
 mod tar_host;
 pub mod transfer;
@@ -28,7 +25,6 @@ pub mod transfer;
 pub use dir::*;
 pub use ops::*;
 pub use tar::*;
-#[allow(unused_imports)]
 pub use tar_host::{TarHost, TarProbe};
 pub use transfer::*;
 
@@ -82,12 +78,23 @@ pub(super) async fn get_backend(
 
 pub(super) use crate::ssh::exec::shell_quote;
 
-pub(super) fn temp_archive_name(transfer_id: &str) -> String {
-    format!("tf_{}.tar.gz", transfer_id)
+/// Register the transfer, run it, and always deregister it.
+pub(super) async fn with_transfer<F, Fut>(
+    manager: &SftpManager,
+    transfer_id: &str,
+    run: F,
+) -> Result<(), String>
+where
+    F: FnOnce(CancellationToken) -> Fut,
+    Fut: Future<Output = Result<(), String>>,
+{
+    let token = manager.register_transfer(transfer_id).await;
+    let result = run(token).await;
+    manager.finish_transfer(transfer_id).await;
+    result
 }
 
-/// Register the transfer, hand the resolved backend to `run`, and always
-/// deregister it — the shape every single-object transfer command has.
+/// `with_transfer` for the shape every single-backend transfer command has.
 pub(super) async fn run_backend_transfer<F, Fut>(
     manager: &SftpManager,
     sftp_id: &str,
@@ -98,13 +105,10 @@ where
     F: FnOnce(Arc<dyn FileBackend>, CancellationToken) -> Fut,
     Fut: Future<Output = Result<(), String>>,
 {
-    let token = manager.register_transfer(transfer_id).await;
-    let result = match get_backend(manager, sftp_id).await {
-        Ok(backend) => run(backend, token).await,
-        Err(e) => Err(e),
-    };
-    manager.finish_transfer(transfer_id).await;
-    result
+    with_transfer(manager, transfer_id, |token| async move {
+        run(get_backend(manager, sftp_id).await?, token).await
+    })
+    .await
 }
 
 /// The four single-object transfer commands differ only in which `FileBackend`
@@ -238,24 +242,6 @@ pub(super) async fn remote_size(sftp: &SftpSession, path: &str) -> u64 {
         .ok()
         .and_then(|m| m.size)
         .unwrap_or(0)
-}
-
-/// What a tar-based command found behind an sftp id: a real SFTP session it can
-/// drive itself, or a backend that has to run its own implementation.
-pub(super) enum TarBackend {
-    Session(Arc<Mutex<SftpSession>>),
-    Other(Arc<dyn FileBackend>),
-}
-
-pub(super) async fn tar_backend(
-    manager: &SftpManager,
-    sftp_id: &str,
-) -> Result<TarBackend, String> {
-    let backend = get_backend(manager, sftp_id).await?;
-    Ok(match backend.as_sftp_session() {
-        Some(session) => TarBackend::Session(session),
-        None => TarBackend::Other(backend),
-    })
 }
 
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, calling `on_chunk` after

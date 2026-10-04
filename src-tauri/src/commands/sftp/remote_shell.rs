@@ -13,11 +13,7 @@ pub enum WinShell {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RemoteShell {
     Posix,
-    /// Win32-OpenSSH; `temp` is the native `%TEMP%` the archives are staged in.
-    Windows {
-        shell: WinShell,
-        temp: String,
-    },
+    Windows { shell: WinShell },
 }
 
 pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
@@ -65,8 +61,8 @@ async fn dialect<H: Handler>(handle: &Handle<H>, container: Option<&str>) -> Opt
         let Some(out) = output(handle, probe).await else {
             continue;
         };
-        if let Some(temp) = parse_temp(&out) {
-            let found = RemoteShell::Windows { shell, temp };
+        if parse_temp(&out).is_some() {
+            let found = RemoteShell::Windows { shell };
             let has_tar = reports_success(handle, &found.status("tar --version", None)).await;
             return has_tar.then_some(found);
         }
@@ -141,21 +137,9 @@ fn cmd_quote(s: &str) -> String {
     out
 }
 
-fn to_sftp(native: &str) -> String {
-    format!("/{}", native.replace('\\', "/"))
-}
-
 impl RemoteShell {
     pub fn is_windows(&self) -> bool {
         matches!(self, Self::Windows { .. })
-    }
-
-    /// SFTP path of a temp file named `name`.
-    pub fn temp_path(&self, name: &str) -> String {
-        match self {
-            Self::Posix => format!("/tmp/{name}"),
-            Self::Windows { temp, .. } => format!("{}/{name}", to_sftp(temp)),
-        }
     }
 
     pub fn quote(&self, s: &str) -> String {
@@ -200,21 +184,6 @@ impl RemoteShell {
                 shell: WinShell::PowerShell,
                 ..
             } => format!("New-Item -ItemType Directory -Force -Path {d} | Out-Null; {cmd}"),
-        }
-    }
-
-    pub fn rm(&self, path: &str) -> String {
-        let p = self.quote_path(path);
-        match self {
-            Self::Posix => format!("rm -f {p}"),
-            Self::Windows {
-                shell: WinShell::Cmd,
-                ..
-            } => format!("del /f /q {p} 2>nul"),
-            Self::Windows {
-                shell: WinShell::PowerShell,
-                ..
-            } => format!("Remove-Item -Force -LiteralPath {p} -ErrorAction SilentlyContinue"),
         }
     }
 
@@ -298,7 +267,6 @@ impl RemoteShell {
         self.status(&self.tar_x(Some(archive), dest, false), None)
     }
 
-    #[allow(dead_code)]
     pub fn create_to_stdout(
         &self,
         parent: &str,
@@ -308,7 +276,6 @@ impl RemoteShell {
         self.checked(self.exits(&self.tar_c(None, parent, items, deref)))
     }
 
-    #[allow(dead_code)]
     pub fn extract_from_stdin(&self, dest: &str, strip: bool) -> String {
         self.exits(&self.tar_x(None, dest, strip))
     }
@@ -423,10 +390,7 @@ mod tests {
     }
 
     fn win(shell: WinShell) -> RemoteShell {
-        RemoteShell::Windows {
-            shell,
-            temp: r"C:\Users\me\AppData\Local\Temp".into(),
-        }
+        RemoteShell::Windows { shell }
     }
 
     #[test]
@@ -446,18 +410,6 @@ mod tests {
         assert_eq!(to_native("/C:/Users/me/"), r"C:\Users\me");
         assert_eq!(to_native("/C:"), r"C:\.");
         assert_eq!(to_native("/D:/"), r"D:\.");
-    }
-
-    #[test]
-    fn windows_archives_are_staged_in_temp() {
-        assert_eq!(
-            win(WinShell::Cmd).temp_path("tf_1.tar.gz"),
-            "/C:/Users/me/AppData/Local/Temp/tf_1.tar.gz"
-        );
-        assert_eq!(
-            RemoteShell::Posix.temp_path("tf_1.tar.gz"),
-            "/tmp/tf_1.tar.gz"
-        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use super::{
     backend_transfer_command, get_session, open_remote_write, pump_chunks,
-    sftp_rr_file_inner_accum, transfer::download_into,
+    sftp_rr_file_inner_accum, transfer::download_into, with_transfer,
 };
 use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::SftpManager;
@@ -148,20 +148,40 @@ pub async fn sftp_transfer_dir(
 ) -> Result<(), String> {
     let src_session = get_session(&sftp_state, &src_sftp_id).await?;
     let dst_session = get_session(&sftp_state, &dst_sftp_id).await?;
-    let token = sftp_state.register_transfer(&transfer_id).await;
+    with_transfer(&sftp_state, &transfer_id.clone(), |token| async move {
+        rr_dir_per_file(
+            &app,
+            src_session,
+            &src_path,
+            dst_session,
+            &dst_path,
+            &transfer_id,
+            &token,
+        )
+        .await
+    })
+    .await
+}
 
-    // Collect structure from source (dirs + files with sizes)
+pub(super) async fn rr_dir_per_file(
+    app: &AppHandle,
+    src_session: Arc<Mutex<SftpSession>>,
+    src_path: &str,
+    dst_session: Arc<Mutex<SftpSession>>,
+    dst_path: &str,
+    transfer_id: &str,
+    token: &CancellationToken,
+) -> Result<(), String> {
     let (dirs, files): (Vec<String>, Vec<(String, String, u64)>) = {
         let sftp = src_session.lock().await;
-        collect_remote_structure(&app, &transfer_id, &sftp, &src_path, &src_path, false).await?
+        collect_remote_structure(app, transfer_id, &sftp, src_path, src_path, false).await?
     };
 
     let total: u64 = files.iter().map(|(_, _, size)| size).sum();
 
-    // Pre-create destination directory structure
     {
         let sftp = dst_session.lock().await;
-        let _ = sftp.create_dir(&dst_path).await; // ignore if already exists
+        let _ = sftp.create_dir(dst_path).await;
         for dir_rel in &dirs {
             let dst_dir = format!("{}/{}", dst_path.trim_end_matches('/'), dir_rel);
             let _ = sftp.create_dir(&dst_dir).await;
@@ -171,29 +191,22 @@ pub async fn sftp_transfer_dir(
     let mut transferred = 0u64;
     for (src_abs, rel, _) in &files {
         if token.is_cancelled() {
-            sftp_state.finish_transfer(&transfer_id).await;
             return Err("Transfer cancelled".into());
         }
         let dst_abs = format!("{}/{}", dst_path.trim_end_matches('/'), rel);
-        let file_total = total; // keep cumulative total for progress bar
-        let result = sftp_rr_file_inner_accum(
-            &app,
+        sftp_rr_file_inner_accum(
+            app,
             Arc::clone(&src_session),
             src_abs,
             Arc::clone(&dst_session),
             &dst_abs,
-            &transfer_id,
-            &token,
+            transfer_id,
+            token,
             &mut transferred,
-            file_total,
+            total,
         )
-        .await;
-        if let Err(e) = result {
-            sftp_state.finish_transfer(&transfer_id).await;
-            return Err(e);
-        }
+        .await?;
     }
-    sftp_state.finish_transfer(&transfer_id).await;
     Ok(())
 }
 

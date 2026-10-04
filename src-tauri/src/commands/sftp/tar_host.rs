@@ -17,12 +17,10 @@ pub struct TarHost {
 }
 
 impl TarHost {
-    #[allow(dead_code)]
     pub fn ssh(&self) -> Arc<Handle<SshClient>> {
         read_cell(&self.handle)
     }
 
-    #[allow(dead_code)]
     pub fn wrap(&self, cmd: &str) -> String {
         wrap(self.container.as_deref(), cmd)
     }
@@ -36,7 +34,6 @@ impl TarHost {
         (out.code == Some(0)).then(|| self.shell.parse_size(&out.stdout_text()))?
     }
 
-    #[allow(dead_code)]
     pub fn spawn_size(
         &self,
         parent: &str,
