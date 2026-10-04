@@ -191,7 +191,6 @@
         "confirmDeleteBody": "Supprimer définitivement {{name}} ? Cette action est irréversible."
       },
       "folderActions": {
-        "renameTitle": "Renommer le dossier",
         "deleteTitle": "Supprimer le dossier ?",
         "deleteBody": "Supprimer {{name}} et tout son contenu ? Cette action est irréversible."
       },

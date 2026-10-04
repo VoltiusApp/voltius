@@ -190,7 +190,6 @@
         "confirmDeleteBody": "永久删除 {{name}}？此操作无法撤销。"
       },
       "folderActions": {
-        "renameTitle": "重命名文件夹",
         "deleteTitle": "删除文件夹？",
         "deleteBody": "删除 {{name}} 及其所有内容？此操作无法撤销。"
       },

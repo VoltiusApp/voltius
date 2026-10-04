@@ -16,7 +16,14 @@ use std::collections::HashSet;
 impl_vault_object!(Folder, "Folder");
 
 /// The fields whose edits are stamped and synced.
-const CLOCK_FIELDS: &[&str] = &["name", "parent_folder_id", "object_type", "vault_id"];
+const CLOCK_FIELDS: &[&str] = &[
+    "name",
+    "parent_folder_id",
+    "object_type",
+    "vault_id",
+    "color",
+    "icon",
+];
 
 // `folder_save` authorized the vault before loading; the macro loads first. Both
 // reads are pure, so only the order of two side-effect-free calls changes.
@@ -41,6 +48,8 @@ fn build_folder(id: String, data: FolderFormData, now: &str, created_at: Option<
         object_type: data.object_type,
         vault_id: requested_vault(&data.vault_id)[0].clone(),
         pinned: data.pinned,
+        color: data.color,
+        icon: data.icon,
         created_at: created_at.unwrap_or_else(|| now.to_string()),
         updated_at: now.to_string(),
         deleted_at: None,
@@ -64,7 +73,16 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, AppErro
         &now,
     );
     folder.vault_id = effective;
-    merge_fields!(folder, data, &now, name, parent_folder_id, pinned);
+    merge_fields!(
+        folder,
+        data,
+        &now,
+        name,
+        parent_folder_id,
+        pinned,
+        color,
+        icon
+    );
     finish_update(folder, &now);
     let updated = folder.clone();
     save_folders(&folders)?;
@@ -176,6 +194,8 @@ mod tests {
             object_type: "connection".to_string(),
             vault_id: "personal".to_string(),
             pinned: None,
+            color: None,
+            icon: None,
             updated_at: "2026-01-01T00:00:00Z".to_string(),
             deleted_at: None,
             clocks: std::collections::HashMap::new(),
@@ -189,6 +209,8 @@ mod tests {
             object_type: "connection".into(),
             vault_id: None,
             pinned: Some(true),
+            color: Some("#ef4444".into()),
+            icon: Some("lucide:flame".into()),
         }
     }
 
@@ -199,7 +221,14 @@ mod tests {
         fields.sort();
         assert_eq!(
             fields,
-            ["name", "object_type", "parent_folder_id", "vault_id"]
+            [
+                "color",
+                "icon",
+                "name",
+                "object_type",
+                "parent_folder_id",
+                "vault_id"
+            ]
         );
         assert!(built.clocks.values().all(|v| v == "2026-01-01T00:00:00Z"));
         // `pinned` is deliberately unstamped: it is not a synced field.

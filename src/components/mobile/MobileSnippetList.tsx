@@ -12,7 +12,7 @@ import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileF
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
-import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
+import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import type { Snippet, Folder } from "@/types";
 import { snippetMatcher, snippetSearchText } from "@/services/snippetSteps";
@@ -52,8 +52,8 @@ export default function MobileSnippetList({
       .sort((a, b) => compareStrings(a.name, b.name));
   }, [foldersEnabled, inVault, nav.activeFolderId, snFolderIds, search]);
 
-  const createFolder = (name: string) =>
-    void saveFolder({ name, object_type: "snippet", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
+  const createFolder = (edit: FolderEdit) =>
+    void saveFolder({ ...edit, object_type: "snippet", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   function runCurrent(sn: Snippet, execute: boolean) {
     if (!currentSessionId) return;
@@ -84,7 +84,7 @@ export default function MobileSnippetList({
         {foldersEnabled && !search && subFolders.map((f) => (
           <MobileFolderRow
             key={f.id}
-            name={f.name}
+            folder={f}
             count={folderItemCount(inVault, f.id)}
             onOpen={() => nav.navigateInto(f)}
             onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
@@ -125,7 +125,7 @@ export default function MobileSnippetList({
       {foldersEnabled && folderSheet && (
         <FolderActionsSheet
           folder={folderSheet}
-          onRename={(name) => void updateFolder(folderSheet.id, { name, object_type: "snippet", parent_folder_id: folderSheet.parent_folder_id, vault_id: folderSheet.vault_id })}
+          onSave={(edit) => void updateFolder(folderSheet.id, { ...edit, object_type: "snippet" })}
           onDelete={() => { nav.onFolderDeleted(folderSheet.id); void deleteFolder(folderSheet.id); }}
           onClose={() => setFolderSheet(null)}
         />

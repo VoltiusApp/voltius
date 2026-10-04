@@ -5,7 +5,7 @@ import MobilePanelHeader from "../panels/MobilePanelHeader";
 import MobileFilterBar from "../MobileFilterBar";
 import KeychainItemActionsSheet from "../sheets/KeychainItemActionsSheet";
 import AddChoiceSheet from "../sheets/AddChoiceSheet";
-import FolderFormSheet from "../sheets/FolderFormSheet";
+import FolderFormSheet, { type FolderEdit } from "../sheets/FolderFormSheet";
 import FolderActionsSheet from "../sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "../folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "../folders/MobileFolderRow";
@@ -86,8 +86,8 @@ export default function MobileKeychainScreen() {
 
   const canCreateKey = can("EDIT_KEYS", targetVaultId);
   const canCreateIdentity = can("EDIT_IDENTITIES", targetVaultId);
-  const createFolder = (name: string) =>
-    void saveFolder({ name, object_type: "keychain", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
+  const createFolder = (edit: FolderEdit) =>
+    void saveFolder({ ...edit, object_type: "keychain", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
@@ -107,7 +107,7 @@ export default function MobileKeychainScreen() {
         {!search && subFolders.length > 0 && (
           <div className="px-2 pt-1">
             {subFolders.map((f) => (
-              <MobileFolderRow key={f.id} name={f.name} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
+              <MobileFolderRow key={f.id} folder={f} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
             ))}
           </div>
         )}
@@ -175,7 +175,7 @@ export default function MobileKeychainScreen() {
       {folderSheet && (
         <FolderActionsSheet
           folder={folderSheet}
-          onRename={(name) => void updateFolder(folderSheet.id, { name, object_type: "keychain", parent_folder_id: folderSheet.parent_folder_id, vault_id: folderSheet.vault_id })}
+          onSave={(edit) => void updateFolder(folderSheet.id, { ...edit, object_type: "keychain" })}
           onDelete={() => { nav.onFolderDeleted(folderSheet.id); void deleteFolder(folderSheet.id); }}
           onClose={() => setFolderSheet(null)}
         />

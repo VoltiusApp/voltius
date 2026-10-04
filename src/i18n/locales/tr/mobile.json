@@ -190,7 +190,6 @@
         "confirmDeleteBody": "{{name}} kalıcı olarak silinsin mi? Bu işlem geri alınamaz."
       },
       "folderActions": {
-        "renameTitle": "Klasörü yeniden adlandır",
         "deleteTitle": "Klasör silinsin mi?",
         "deleteBody": "{{name}} ve içindeki her şey silinsin mi? Bu işlem geri alınamaz."
       },

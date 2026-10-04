@@ -2,6 +2,7 @@ import { readClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { FolderGlyph } from "@/components/folders/folderAppearance";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -579,8 +580,7 @@ export function SnippetsPanel() {
                   onClick={() => toggleFolderCollapse(folder.id)}>
                   <Icon icon={isCollapsed ? "lucide:chevron-right" : "lucide:chevron-down"}
                     width={11} style={{ color: "var(--t-text-muted)" }} />
-                  <Icon icon="lucide:folder" width={13}
-                    style={{ color: folder.color ?? "var(--t-text-muted)" }} />
+                  <FolderGlyph folder={folder} width={13} />
                   <span className="text-[11px] font-medium" style={{ color: "var(--t-text-primary)" }}>
                     {folder.name}
                   </span>

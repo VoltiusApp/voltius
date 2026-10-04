@@ -7,6 +7,7 @@ import { CardActionButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
+import { folderIcon } from "./folderAppearance";
 import { useFolderPin } from "./useFolderPin";
 import { useFolderSync } from "./useFolderSync";
 import type { Folder, VaultOption } from "@/types";
@@ -131,7 +132,8 @@ export function FolderCard({
       >
         {/* Folder avatar */}
         <AvatarTile
-          icon={isDragOver ? "lucide:folder-open" : "lucide:folder"}
+          icon={isDragOver ? "lucide:folder-open" : folderIcon(folder)}
+          base={folder.color}
           iconSize={iconSize}
           className="rounded-lg text-white"
           style={{

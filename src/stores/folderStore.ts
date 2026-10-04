@@ -12,23 +12,13 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { folderSubtreeIds } from "@/utils/folderTree";
+import { folderSubtreeIds, folderToFormData, overStoredFolder } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
-
-/** Rebuilds a full FolderFormData from a stored folder: `folder_update`
- *  replaces rather than merges, so a partial payload must spread this. */
-function folderToFormData(f: Folder): FolderFormData {
-  return {
-    name: f.name, object_type: f.object_type,
-    parent_folder_id: f.parent_folder_id, vault_id: f.vault_id,
-    color: f.color, icon: f.icon,
-  };
-}
 
 interface FolderStore {
   folders: Folder[];
@@ -113,8 +103,9 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     return folder;
   },
 
-  updateFolder: async (id, data) => {
+  updateFolder: async (id, input) => {
     const teamEntry = findTeamEntry(get().teamFolders, id);
+    const data = overStoredFolder(teamEntry?.item ?? get().folders.find((f) => f.id === id), input);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
       const payload = withPin(data, prev);

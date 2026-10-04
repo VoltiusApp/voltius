@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
-import { ColorPicker } from "@/components/theme-creator/ColorPicker";
+import { ColorSwatches } from "@/components/shared/ColorSwatches";
 import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
@@ -94,13 +94,6 @@ function PermissionGrid({
 }
 
 // ─── Role modal (create / edit) ───────────────────────────────────────────────
-
-const PRESET_COLORS = [
-  "#6366f1", "#8b5cf6", "#a78bfa",
-  "#3b82f6", "#60a5fa", "#14b8a6",
-  "#10b981", "#34d399", "#f59e0b",
-  "#ef4444", "#f87171", "#ec4899",
-];
 
 export function RoleModal({
   teamId,
@@ -193,34 +186,7 @@ export function RoleModal({
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
               {t("settings.vaults.rolesPanel.colorLabel")}
             </label>
-            <div className="flex flex-wrap gap-2 items-center">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setColor(color === c ? "" : c)}
-                  className="w-6 h-6 rounded-full transition-all shrink-0"
-                  style={{
-                    background: c,
-                    outline: color === c ? `2px solid ${c}` : "2px solid transparent",
-                    outlineOffset: 2,
-                    opacity: color && color !== c ? 0.5 : 1,
-                  }}
-                  title={c}
-                />
-              ))}
-              <div className="flex items-center gap-1.5 ml-1">
-                <ColorPicker value={color || "#6366f1"} onChange={setColor} />
-                {color && (
-                  <button
-                    onClick={() => setColor("")}
-                    className="text-xs px-1.5 py-0.5 rounded-sm"
-                    style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}
-                  >
-                    {t("settings.vaults.rolesPanel.clearColor")}
-                  </button>
-                )}
-              </div>
-            </div>
+            <ColorSwatches value={color} onChange={setColor} clearLabel={t("settings.vaults.rolesPanel.clearColor")} />
             {color && (
               <div className="mt-2 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full capitalize" style={{ color, background: `${color}1a` }}>

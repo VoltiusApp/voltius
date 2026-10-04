@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { FolderGlyph } from "@/components/folders/folderAppearance";
 import { useTranslation } from "react-i18next";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -199,7 +200,7 @@ function PickerTreeRow({ row, selectedHostId, onToggleFolder, onPickHost }: {
           className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-left text-(--t-text-secondary) hover:bg-(--t-bg-elevated)"
         >
           <Icon icon="lucide:chevron-right" width={13} className="shrink-0 text-(--t-text-dim)" style={chevronRotateStyle(!row.collapsed, 90)} />
-          <Icon icon="lucide:folder" width={14} className="shrink-0 text-(--t-text-dim)" />
+          <FolderGlyph folder={row.folder} width={14} />
           <span className="flex-1 min-w-0 text-xs font-medium truncate">{row.folder.name}</span>
           <span className="text-xs shrink-0 text-(--t-text-dim)">{row.count}</span>
         </button>

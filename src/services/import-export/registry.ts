@@ -73,6 +73,8 @@ function toFolderExports(all: Folder[], eidMap: Map<string, string>): FolderExpo
       name: f.name,
       object_type: f.object_type,
       parent_folder_eid: f.parent_folder_id ? eidMap.get(f.parent_folder_id) : undefined,
+      color: f.color,
+      icon: f.icon,
     }));
 }
 
@@ -259,7 +261,7 @@ export async function runImport(
             continue;
           }
           const saveFn = isSnippet ? ctx.stores.saveSnippetFolder : ctx.stores.saveFolder;
-          const saved = await saveFn({ name: folder.name, object_type: folder.object_type, parent_folder_id: parentId, vault_id: ctx.vault_id });
+          const saved = await saveFn({ name: folder.name, object_type: folder.object_type, parent_folder_id: parentId, vault_id: ctx.vault_id, color: folder.color, icon: folder.icon });
           parentMap.set(folder._eid, saved.id);
           imported++;
         } catch { errors++; }

@@ -17,6 +17,8 @@ export interface FolderExport {
   name: string;
   object_type: string;
   parent_folder_eid?: string;
+  color?: string;
+  icon?: string;
 }
 
 export interface KeyExport {

@@ -23,6 +23,13 @@
       "general": "常规",
       "nameLabel": "名称",
       "parentLabel": "父文件夹"
+    },
+    "appearance": {
+      "title": "文件夹外观",
+      "change": "更改图标和颜色",
+      "color": "颜色",
+      "icon": "图标",
+      "clear": "清除"
     }
   }
 }

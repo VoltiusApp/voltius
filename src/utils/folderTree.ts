@@ -1,4 +1,17 @@
-import type { Folder } from "@/types";
+import type { Folder, FolderFormData } from "@/types";
+
+export function folderToFormData(f: Folder): FolderFormData {
+  return {
+    name: f.name, object_type: f.object_type,
+    parent_folder_id: f.parent_folder_id, vault_id: f.vault_id,
+    color: f.color, icon: f.icon,
+  };
+}
+
+/** `folder_update` replaces rather than merges, so fields the caller omits keep their stored value. */
+export function overStoredFolder(stored: Folder | undefined, input: FolderFormData): FolderFormData {
+  return stored ? { ...folderToFormData(stored), ...input } : input;
+}
 
 /**
  * The folders a form may file its object into. `useFolderStore` holds every
