@@ -185,7 +185,11 @@ export function startInternalDragGesture(opts: StartOpts) {
     window.removeEventListener("click", onClickCapture, true);
   };
 
+  // The row's pointerdown is not default-prevented, so the browser would otherwise select text under the drag.
+  const onSelectStart = (ev: Event) => ev.preventDefault();
+
   function cleanup() {
+    window.removeEventListener("selectstart", onSelectStart, true);
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onUp);
@@ -195,6 +199,7 @@ export function startInternalDragGesture(opts: StartOpts) {
     setTimeout(() => window.removeEventListener("click", onClickCapture, true), 0);
   }
 
+  window.addEventListener("selectstart", onSelectStart, true);
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
   window.addEventListener("pointercancel", onUp);
