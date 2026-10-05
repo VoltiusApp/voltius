@@ -460,3 +460,153 @@ pub(crate) mod tests {
         assert!(at.elapsed() < Duration::from_secs(2));
     }
 }
+
+#[cfg(all(test, unix))]
+mod live {
+    use crate::commands::sftp::resume::copy_one;
+    use crate::commands::sftp::resume::endpoint::LocalFs;
+    use crate::known_hosts::KnownHostsStore;
+    use crate::sftp::backend::test_tree::Recorder;
+    use crate::sftp::real::{RealSftp, SftpOpener};
+    use crate::ssh::client::{connect_authenticated, SshClient};
+    use crate::ssh::live_cells::{own_cell, read_cell};
+    use crate::ssh::session::SessionHandle;
+    use crate::ssh::test_docker::{docker, Container};
+    use russh::client::Handle;
+    use std::process::Command;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use tokio_util::sync::CancellationToken;
+
+    const IMAGE: &str = "lscr.io/linuxserver/openssh-server:latest";
+    const BLOB: u64 = 200_000_000;
+
+    fn host() -> Container {
+        Container::run(
+            format!("resume-{}", std::process::id()),
+            &[
+                "-p",
+                "127.0.0.1::2222",
+                "-e",
+                "USER_NAME=t",
+                "-e",
+                "USER_PASSWORD=t",
+                "-e",
+                "PASSWORD_ACCESS=true",
+                IMAGE,
+            ],
+        )
+    }
+
+    async fn ssh(c: &Container) -> Handle<SshClient> {
+        let mapped = String::from_utf8(docker(&["port", &c.0, "2222"]).stdout).unwrap();
+        let port: u16 = mapped.trim().rsplit(':').next().unwrap().parse().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(60);
+        loop {
+            let known_hosts = Arc::new(KnownHostsStore::new());
+            let attempt = connect_authenticated(
+                known_hosts,
+                "127.0.0.1",
+                port,
+                "t",
+                Some("t"),
+                None,
+                None,
+                false,
+                None,
+            );
+            match attempt.await {
+                Ok(h) => return h,
+                Err(e) => assert!(Instant::now() < deadline, "{e}"),
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    }
+
+    fn sha256(cmd: &mut Command) -> String {
+        let out = cmd.output().unwrap();
+        assert!(out.status.success(), "{cmd:?}");
+        String::from_utf8_lossy(&out.stdout)
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .to_string()
+    }
+
+    fn transferred(rec: &Recorder, tid: &str) -> u64 {
+        rec.last(&format!("sftp-progress-{tid}"))
+            .and_then(|p| p["transferred"].as_u64())
+            .unwrap_or(0)
+    }
+
+    /// Kills the SSH connection a third of the way in, then reconnects into the
+    /// same cell once the old link stops answering, as a relink does.
+    async fn cut_then_relink(c: &Container, rec: &Recorder, tid: &str, cell: SessionHandle) {
+        while transferred(rec, tid) < BLOB / 3 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        docker(&["exec", &c.0, "pkill", "-f", "sshd.*: t"]);
+        loop {
+            let h = read_cell(&cell);
+            let probe = tokio::time::timeout(Duration::from_secs(1), h.channel_open_session());
+            if h.is_closed() || !matches!(probe.await, Ok(Ok(_))) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        *cell.write().unwrap() = Arc::new(ssh(c).await);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs docker"]
+    async fn a_200mb_upload_and_download_survive_a_killed_connection() {
+        let c = host();
+        let cell = own_cell(Arc::new(ssh(&c).await));
+        let backend = RealSftp::open(
+            Arc::clone(&cell),
+            SftpOpener::Subsystem,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let fs = backend.fs();
+        let local = tempfile::tempdir().unwrap();
+        let src = local.path().join("blob");
+        let status = Command::new("head")
+            .args(["-c", &BLOB.to_string(), "/dev/urandom"])
+            .stdout(std::fs::File::create(&src).unwrap())
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let want = sha256(Command::new("sha256sum").arg(&src));
+        let (rec, token) = (Recorder::default(), CancellationToken::new());
+
+        let src_s = src.to_string_lossy();
+        let up = copy_one(&rec, &LocalFs, &src_s, &fs, "/config/blob", "up", &token);
+        let (r, _) = tokio::join!(up, cut_then_relink(&c, &rec, "up", Arc::clone(&cell)));
+        r.unwrap();
+        assert!(rec.count("sftp-resumed-up") > 0, "the upload resumed");
+        let remote =
+            sha256(Command::new("docker").args(["exec", &c.0, "sha256sum", "/config/blob"]));
+        assert_eq!(remote, want);
+
+        let back = local.path().join("back");
+        let back_str = back.to_string_lossy();
+        let down = copy_one(
+            &rec,
+            &fs,
+            "/config/blob",
+            &LocalFs,
+            &back_str,
+            "down",
+            &token,
+        );
+        let (r, _) = tokio::join!(down, cut_then_relink(&c, &rec, "down", Arc::clone(&cell)));
+        r.unwrap();
+        assert!(rec.count("sftp-resumed-down") > 0, "the download resumed");
+        assert_eq!(sha256(Command::new("sha256sum").arg(&back)), want);
+        eprintln!(
+            "live resume: upload and download of {BLOB} bytes each survived a killed connection; sha256 {want}"
+        );
+    }
+}
