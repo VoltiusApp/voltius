@@ -4,6 +4,7 @@ use super::{
     resume::{
         copy_one, copy_tree, emit,
         endpoint::Endpoint,
+        is_resume,
         large::{has_large_local, has_large_remote},
         mark_resume, revive,
         sftp_fs::SftpFs,
@@ -282,11 +283,13 @@ async fn relay_or_per_file(
         Ok(())
     };
     if let (Some(s), Some(d)) = tokio::join!(host_of(&src), host_of(&dst)) {
-        let large = match &src_fs {
-            Some(fs) => has_large_remote(&s, fs, &parent, &items, LARGE_FILE).await,
-            None => false,
+        let large = async {
+            match &src_fs {
+                Some(fs) => has_large_remote(&s, fs, &parent, &items, LARGE_FILE).await,
+                None => false,
+            }
         };
-        if !large {
+        if tar_fits(transfer_id, large).await {
             let relayed = relay_via(
                 app,
                 &s,
@@ -306,6 +309,11 @@ async fn relay_or_per_file(
         per_file_accel(app, transfer_id);
     }
     per_file().await
+}
+
+/// Tar only on a first run with no big file: a retry or a big file goes per file, resumable.
+async fn tar_fits(transfer_id: &str, large: impl Future<Output = bool>) -> bool {
+    !is_resume(transfer_id) && !large.await
 }
 
 fn endpoints<'a>(fs: &[&'a Option<SftpFs>]) -> Vec<&'a dyn Endpoint> {
@@ -380,11 +388,13 @@ where
             return fallback(backend, token).await;
         };
         let fs = backend.sftp_fs();
-        if let Some(fs) = &fs {
-            if large(host.clone(), fs.clone()).await {
-                per_file_accel(events, transfer_id);
-                return fallback(backend, token).await;
-            }
+        let fits = match &fs {
+            Some(fs) => tar_fits(transfer_id, large(host.clone(), fs.clone())).await,
+            None => !is_resume(transfer_id),
+        };
+        if !fits {
+            per_file_accel(events, transfer_id);
+            return fallback(backend, token).await;
         }
         let streamed = stream(host, token.clone()).await.map_err(Into::into);
         let ends = endpoints(&[&fs]);
@@ -670,6 +680,17 @@ mod tests {
         assert!(r.is_ok());
         assert!(ran.load(Ordering::SeqCst), "fallback ran as a resume");
         assert_eq!(rec.last("sftp-accel-tt").unwrap()["accel"], "perFile");
+    }
+
+    #[tokio::test]
+    async fn a_retry_never_takes_the_tar_stream() {
+        use crate::commands::sftp::resume::{clear_resume, mark_resume};
+        mark_resume("tr");
+        let retried = tar_fits("tr", async { panic!("no size probe on a retry") }).await;
+        clear_resume("tr");
+        assert!(!retried);
+        assert!(tar_fits("tf", async { false }).await);
+        assert!(!tar_fits("tl", async { true }).await);
     }
 
     #[tokio::test]

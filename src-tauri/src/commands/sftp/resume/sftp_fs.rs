@@ -1,7 +1,7 @@
 use super::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
 use super::names::parse_sha256;
 use crate::commands::sftp::{SftpFile, TarProbe};
-use crate::error::AppError;
+use crate::error::{AppError, ErrorCode};
 use crate::sftp::link::SftpLink;
 use crate::ssh::client::SshClient;
 use crate::ssh::exec::run_captured;
@@ -70,6 +70,7 @@ fn stat_of(m: &Metadata) -> Stat {
         size: m.size.unwrap_or(0),
         mtime: m.mtime.map_or(0, u64::from),
         is_dir: m.is_dir(),
+        mode: m.permissions,
     }
 }
 
@@ -189,15 +190,58 @@ impl<H: Handler> Endpoint for SftpFs<H> {
             .map_err(|e| failed("setstat", path, &e))
     }
 
-    async fn hash(&self, path: &str, token: &CancellationToken) -> Option<String> {
-        let link = self.link.as_ref().filter(|l| l.host_shell())?;
-        let shell = self.tar.as_ref()?.shell().await?;
-        let (handle, cmd) = (read_cell(&link.handle), shell.sha256(path));
-        let out = tokio::select! {
-            _ = token.cancelled() => return None,
-            r = run_captured(&handle, &cmd) => r.ok()?,
+    async fn set_mode(&self, path: &str, mode: u32) -> Result<(), AppError> {
+        let mut attrs = FileAttributes::empty();
+        attrs.permissions = Some(mode & 0o7777);
+        self.session
+            .lock()
+            .await
+            .set_metadata(path, attrs)
+            .await
+            .map_err(|e| failed("chmod", path, &e))
+    }
+
+    async fn resolve(&self, path: &str) -> Result<String, AppError> {
+        let sftp = self.session.lock().await;
+        match sftp.symlink_metadata(path).await {
+            Ok(m) if m.is_symlink() => Ok(sftp
+                .canonicalize(path)
+                .await
+                .unwrap_or_else(|_| path.to_string())),
+            _ => Ok(path.to_string()),
+        }
+    }
+
+    async fn hash(
+        &self,
+        path: &str,
+        token: &CancellationToken,
+    ) -> Result<Option<String>, AppError> {
+        let (Some(link), Some(tar)) = (self.link.as_ref().filter(|l| l.host_shell()), &self.tar)
+        else {
+            return Ok(None);
         };
-        (out.code == Some(0)).then(|| parse_sha256(&out.stdout_text()))?
+        let shell = tokio::select! {
+            _ = token.cancelled() => return Ok(None),
+            shell = tar.shell() => shell,
+        };
+        let Some(shell) = shell else {
+            return Ok(None);
+        };
+        let (handle, cmd) = (read_cell(&link.handle), shell.sha256(path));
+        let ran = tokio::select! {
+            _ = token.cancelled() => return Ok(None),
+            r = run_captured(&handle, &cmd) => r,
+        };
+        match ran {
+            Ok(out) if out.code == Some(0) => Ok(parse_sha256(&out.stdout_text())),
+            Ok(_) => Ok(None),
+            Err(e) if self.link_dead().await => Err(AppError::coded(
+                ErrorCode::ConnectionLost,
+                format!("Connection lost while verifying {path}: {e}"),
+            )),
+            Err(_) => Ok(None),
+        }
     }
 
     fn link_lost(&self) -> bool {
@@ -291,6 +335,7 @@ pub(crate) mod tests {
         assert_eq!(
             fs.hash(&f.to_string_lossy(), &CancellationToken::new())
                 .await
+                .unwrap()
                 .as_deref(),
             Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
         );
@@ -437,6 +482,36 @@ pub(crate) mod tests {
             .file_name()
             .to_string_lossy()
             .ends_with(".voltius-part")));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cancel_on_a_half_open_link_returns_promptly() {
+        let fs = sftp_fs(ProcOptions {
+            blackhole_after_bytes: Some(3_000_000),
+            ..Default::default()
+        })
+        .await;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), noise(8_000_000)).unwrap();
+        let (rec, token) = (Recorder::default(), CancellationToken::new());
+        let mut ctx = CopyCtx::new(&rec, "t", &token, 8_000_000);
+        ctx.stall = Duration::from_secs(2);
+        let (src, dst) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        let run = resumable_copy(&LocalFs, &src, &fs, &dst, &mut ctx);
+        let cancel = async {
+            while rec.count("sftp-waiting-t") == 0 {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            token.cancel();
+            std::time::Instant::now()
+        };
+        let (r, at) =
+            tokio::time::timeout(Duration::from_secs(60), async { tokio::join!(run, cancel) })
+                .await
+                .expect("the copy never noticed the half-open link");
+        assert!(r.unwrap_err().to_string().contains("cancelled"));
+        assert!(at.elapsed() < Duration::from_secs(2), "{:?}", at.elapsed());
     }
 
     #[tokio::test(flavor = "multi_thread")]

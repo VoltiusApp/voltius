@@ -8,7 +8,7 @@ use crate::error::{AppError, ErrorCode};
 use crate::sftp::backend::skip_unsafe_name;
 use crate::sftp::backend::TransferEvents;
 use crate::sftp::link::LINK_POLL;
-use endpoint::{Endpoint, Listed, Stat};
+use endpoint::{Endpoint, Listed, Reader, Stat, Writer};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -208,7 +208,7 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
 ) -> Result<(), AppError> {
     let base = ctx.transferred;
     let mut part = None;
-    let (mut changed, mut mismatched) = (0, 0);
+    let (mut changed, mut mismatched, mut relost) = (0, 0, 0);
     loop {
         ctx.transferred = base;
         let err = match attempt(src, src_path, dst, dst_path, ctx, base, &mut part).await {
@@ -249,12 +249,16 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
             {
                 Some(Ok(())) => continue,
                 Some(Err(e)) => e,
+                None if err.code() == Some(ErrorCode::ConnectionLost) && relost < RESTARTS => {
+                    relost += 1;
+                    continue;
+                }
                 None => err,
             }
         };
         if ctx.token.is_cancelled() {
             if let Some(p) = &part {
-                let _ = tokio::time::timeout(Duration::from_secs(2), dst.remove(p)).await;
+                let _ = tokio::time::timeout(Duration::from_millis(500), dst.remove(p)).await;
             }
             return Err(cancelled());
         }
@@ -270,7 +274,10 @@ pub(crate) async fn revive<E: TransferEvents>(
     token: &CancellationToken,
     wait: Duration,
 ) -> Option<Result<(), AppError>> {
-    let dead = dead_ends(ends).await;
+    let dead = tokio::select! {
+        dead = dead_ends(ends) => dead,
+        _ = token.cancelled() => return Some(Err(cancelled())),
+    };
     if dead.is_empty() {
         return None;
     }
@@ -301,6 +308,7 @@ async fn unless_lost<T>(
     ends: &[&dyn Endpoint],
     seen: &AtomicU64,
     stall: Duration,
+    token: &CancellationToken,
 ) -> Result<T, AppError> {
     tokio::pin!(work);
     let mut last = (seen.load(Ordering::Relaxed), Instant::now());
@@ -314,7 +322,10 @@ async fn unless_lost<T>(
                     false
                 } else if last.1.elapsed() >= stall {
                     last.1 = Instant::now();
-                    !dead_ends(ends).await.is_empty()
+                    tokio::select! {
+                        dead = dead_ends(ends) => !dead.is_empty(),
+                        _ = token.cancelled() => return Err(cancelled()),
+                    }
                 } else {
                     false
                 };
@@ -355,6 +366,8 @@ async fn attempt<E: TransferEvents>(
     base: u64,
     part: &mut Option<String>,
 ) -> Result<Attempt, AppError> {
+    let resolved = dst.resolve(dst_path).await?;
+    let dst_path = resolved.as_str();
     let (dir, name) = dst.split(dst_path);
     let stat = src.stat(src_path).await?.ok_or_else(|| {
         AppError::coded(ErrorCode::NotFound, format!("{src_path} no longer exists"))
@@ -378,22 +391,14 @@ async fn attempt<E: TransferEvents>(
     }
     ctx.transferred = base + offset;
     ctx.progress();
-    let mut reader = src.open_read(src_path, offset).await?;
-    let mut writer = dst.open_write(&part_path, offset).await?;
-    let (seen, stall) = (AtomicU64::new(ctx.transferred), ctx.stall);
-    let copied = async {
-        pump(&mut reader, &mut writer, ctx.token, |n| {
-            ctx.transferred += n as u64;
-            ctx.progress();
-            seen.store(ctx.transferred, Ordering::Relaxed);
-        })
-        .await?;
-        writer
-            .shutdown()
-            .await
-            .map_err(|e| AppError::from(format!("Flush error: {e}")))
+    let mut writer = match dst.open_write(&part_path, offset).await {
+        Err(e) if offset == 0 && e.code() == Some(ErrorCode::PermissionDenied) => {
+            return copy_in_place(src, src_path, dst, dst_path, stat.mtime, ctx).await;
+        }
+        opened => opened?,
     };
-    unless_lost(copied, &[src, dst], &seen, stall).await?;
+    let mut reader = src.open_read(src_path, offset).await?;
+    copy_bytes(&mut reader, &mut writer, &[src, dst], ctx).await?;
     drop(reader);
     let now = src.stat(src_path).await?.map(|s| (s.size, s.mtime));
     if now != Some((stat.size, stat.mtime)) {
@@ -404,16 +409,68 @@ async fn attempt<E: TransferEvents>(
         let _ = dst.remove(&part_path).await;
         return Ok(Attempt::Mismatch);
     }
-    if offset > 0 && !same_hash(src, src_path, dst, &part_path, ctx.token).await {
+    if offset > 0 && !same_hash(src, src_path, dst, &part_path, ctx.token).await? {
         let _ = dst.remove(&part_path).await;
         return Ok(Attempt::Mismatch);
     }
-    dst.replace(&part_path, dst_path, &old_path).await?;
-    if let Err(e) = dst.set_mtime(dst_path, stat.mtime).await {
-        log::warn!("could not keep the mtime of {dst_path}: {e}");
+    if ctx.token.is_cancelled() {
+        return Err(cancelled());
     }
+    if let Some(mode) = dst.stat(dst_path).await?.and_then(|t| t.mode) {
+        if let Err(e) = dst.set_mode(&part_path, mode).await {
+            log::warn!("could not keep the mode of {dst_path}: {e}");
+        }
+    }
+    dst.replace(&part_path, dst_path, &old_path).await?;
+    keep_mtime(dst, dst_path, stat.mtime).await;
     sweep(dst, &dir, &name, ctx).await;
     Ok(Attempt::Done)
+}
+
+/// Pumps and flushes under the dead-link watchdog.
+async fn copy_bytes<E: TransferEvents>(
+    reader: &mut Reader,
+    writer: &mut Writer,
+    ends: &[&dyn Endpoint],
+    ctx: &mut CopyCtx<'_, E>,
+) -> Result<(), AppError> {
+    let (seen, stall, token) = (AtomicU64::new(ctx.transferred), ctx.stall, ctx.token);
+    let copied = async {
+        pump(reader, writer, token, |n| {
+            ctx.transferred += n as u64;
+            ctx.progress();
+            seen.store(ctx.transferred, Ordering::Relaxed);
+        })
+        .await?;
+        writer
+            .shutdown()
+            .await
+            .map_err(|e| AppError::from(format!("Flush error: {e}")))
+    };
+    unless_lost(copied, ends, &seen, stall, token).await
+}
+
+/// For a folder that lets us rewrite the file but not create a temp next to it: the old way.
+async fn copy_in_place<E: TransferEvents>(
+    src: &dyn Endpoint,
+    src_path: &str,
+    dst: &dyn Endpoint,
+    dst_path: &str,
+    mtime: u64,
+    ctx: &mut CopyCtx<'_, E>,
+) -> Result<Attempt, AppError> {
+    log::info!("no room for a temp file next to {dst_path}; writing it in place");
+    let mut writer = dst.open_write(dst_path, 0).await?;
+    let mut reader = src.open_read(src_path, 0).await?;
+    copy_bytes(&mut reader, &mut writer, &[src, dst], ctx).await?;
+    keep_mtime(dst, dst_path, mtime).await;
+    Ok(Attempt::Done)
+}
+
+async fn keep_mtime(dst: &dyn Endpoint, path: &str, mtime: u64) {
+    if let Err(e) = dst.set_mtime(path, mtime).await {
+        log::warn!("could not keep the mtime of {path}: {e}");
+    }
 }
 
 async fn resume_offset(
@@ -450,12 +507,12 @@ async fn same_hash(
     dst: &dyn Endpoint,
     part: &str,
     token: &CancellationToken,
-) -> bool {
-    match tokio::join!(src.hash(src_path, token), dst.hash(part, token)) {
-        (Some(a), Some(b)) => a.eq_ignore_ascii_case(&b),
+) -> Result<bool, AppError> {
+    match tokio::try_join!(src.hash(src_path, token), dst.hash(part, token))? {
+        (Some(a), Some(b)) => Ok(a.eq_ignore_ascii_case(&b)),
         _ => {
             log::info!("no end-to-end hash for {src_path}; kept the size and overlap checks");
-            true
+            Ok(true)
         }
     }
 }
@@ -824,6 +881,138 @@ pub(crate) mod engine_tests {
         writer.join().unwrap();
         assert_eq!(e.code(), Some(ErrorCode::TransferSourceChanged));
         assert!(!b.path().join("v").exists());
+    }
+
+    async fn seeded(data: &[u8]) -> (tempfile::TempDir, tempfile::TempDir) {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), data).unwrap();
+        seed_part(&a.path().join("v"), b.path(), "v", &data[..data.len() / 2]).await;
+        (a, b)
+    }
+
+    #[tokio::test]
+    async fn cancel_during_the_hash_never_commits() {
+        let data = noise(2_000_000);
+        let (a, b) = seeded(&data).await;
+        std::fs::write(b.path().join("v"), b"original").unwrap();
+        let token = CancellationToken::new();
+        let dst = TestFs {
+            cancel_on_hash: Some(token.clone()),
+            ..Default::default()
+        };
+        let e = copy_local(
+            &Recorder::default(),
+            &a.path().join("v"),
+            &dst,
+            &b.path().join("v"),
+            &token,
+        )
+        .await
+        .unwrap_err();
+        assert!(e.to_string().contains("cancelled"), "{e}");
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"original");
+    }
+
+    #[tokio::test]
+    async fn a_hash_lost_with_the_link_is_retried_not_skipped() {
+        let data = noise(2_000_000);
+        let (a, b) = seeded(&data).await;
+        let dst = TestFs {
+            hash_fails_once: true,
+            dead_until_waited: true,
+            ..Default::default()
+        };
+        let token = CancellationToken::new();
+        copy_local(
+            &Recorder::default(),
+            &a.path().join("v"),
+            &dst,
+            &b.path().join("v"),
+            &token,
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert!(
+            dst.state.lock().unwrap().waited,
+            "waited for the link before verifying again"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_lost_link_that_answers_again_resumes_instead_of_failing() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), noise(500_000)).unwrap();
+        let dst = TestFs {
+            lose_first_write: true,
+            ..Default::default()
+        };
+        let token = CancellationToken::new();
+        copy_local(
+            &Recorder::default(),
+            &a.path().join("v"),
+            &dst,
+            &b.path().join("v"),
+            &token,
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), noise(500_000));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_overwrite_keeps_the_target_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), b"new").unwrap();
+        std::fs::write(b.path().join("v"), b"old").unwrap();
+        std::fs::set_permissions(b.path().join("v"), std::fs::Permissions::from_mode(0o750))
+            .unwrap();
+        copy_ab(&Recorder::default(), &a, &b).await;
+        let mode = std::fs::metadata(b.path().join("v"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o750);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_overwrite_through_a_symlink_updates_what_it_points_at() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), b"new").unwrap();
+        std::fs::write(b.path().join("real.conf"), b"old").unwrap();
+        std::os::unix::fs::symlink("real.conf", b.path().join("v")).unwrap();
+        copy_ab(&Recorder::default(), &a, &b).await;
+        assert!(std::fs::symlink_metadata(b.path().join("v"))
+            .unwrap()
+            .is_symlink());
+        assert_eq!(std::fs::read(b.path().join("real.conf")).unwrap(), b"new");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_folder_without_create_rights_is_written_in_place() {
+        use std::os::unix::fs::PermissionsExt;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), b"new").unwrap();
+        let locked = b.path().join("locked");
+        std::fs::create_dir(&locked).unwrap();
+        std::fs::write(locked.join("v"), b"old").unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let token = CancellationToken::new();
+        let r = copy_local(
+            &Recorder::default(),
+            &a.path().join("v"),
+            &LocalFs,
+            &locked.join("v"),
+            &token,
+        )
+        .await;
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+        r.unwrap();
+        assert_eq!(std::fs::read(locked.join("v")).unwrap(), b"new");
     }
 
     fn tree(root: &std::path::Path) {

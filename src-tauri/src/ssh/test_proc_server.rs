@@ -21,6 +21,8 @@ pub struct ProcOptions {
     pub window: Option<u32>,
     pub refuse_channels: usize,
     pub drop_after_bytes: Option<u64>,
+    /// Like `drop_after_bytes`, but the sockets stay open and swallow everything: a half-open link.
+    pub blackhole_after_bytes: Option<u64>,
 }
 
 impl Default for ProcOptions {
@@ -31,6 +33,7 @@ impl Default for ProcOptions {
             window: None,
             refuse_channels: 0,
             drop_after_bytes: None,
+            blackhole_after_bytes: None,
         }
     }
 }
@@ -206,8 +209,9 @@ impl ProcServer {
     }
 }
 
-/// A loopback hop that forwards both ways and closes both sockets once `limit` bytes have passed.
-async fn cutting_relay(to: u16, limit: u64) -> u16 {
+/// A loopback hop that forwards both ways until `limit` bytes have passed, then closes both
+/// sockets, or with `hold` keeps them open and drops whatever arrives.
+async fn cutting_relay(to: u16, limit: u64, hold: bool) -> u16 {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move {
@@ -217,11 +221,16 @@ async fn cutting_relay(to: u16, limit: u64) -> u16 {
         let pipe = |mut r: OwnedReadHalf, mut w: OwnedWriteHalf, moved: Arc<AtomicU64>| async move {
             let mut buf = vec![0u8; 16 * 1024];
             while let Ok(n @ 1..) = r.read(&mut buf).await {
-                if moved.fetch_add(n as u64, Ordering::SeqCst) + n as u64 >= limit
-                    || w.write_all(&buf[..n]).await.is_err()
-                {
+                let over = moved.fetch_add(n as u64, Ordering::SeqCst) + n as u64 >= limit;
+                if over && hold {
+                    continue;
+                }
+                if over || w.write_all(&buf[..n]).await.is_err() {
                     return;
                 }
+            }
+            if hold {
+                std::future::pending::<()>().await;
             }
         };
         let ((cr, cw), (sr, sw)) = (client.into_split(), server.into_split());
@@ -252,7 +261,9 @@ pub async fn proc_server(
     }
     let mut port = serve_one(config, server).await;
     if let Some(limit) = opts.drop_after_bytes {
-        port = cutting_relay(port, limit).await;
+        port = cutting_relay(port, limit, false).await;
+    } else if let Some(limit) = opts.blackhole_after_bytes {
+        port = cutting_relay(port, limit, true).await;
     }
     let mut handle = russh::client::connect(Default::default(), ("127.0.0.1", port), TestClient)
         .await

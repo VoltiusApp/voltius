@@ -25,6 +25,8 @@ const TEMP_MARKER: &str = "__TF_TEMP__:";
 const CMD_TEMP_PROBE: &str = "echo __TF_TEMP__:%TEMP%";
 const PS_TEMP_PROBE: &str = "'__TF_TEMP__:' + $env:TEMP";
 const CMD_MAX_LEN: usize = 8191;
+// PowerShell ends a single-quoted string at any of these, not just at ASCII `'`.
+const PS_QUOTES: [char; 5] = ['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B}'];
 
 pub fn wrap(container: Option<&str>, cmd: &str) -> String {
     match container {
@@ -164,7 +166,16 @@ impl RemoteShell {
             Self::Windows {
                 shell: WinShell::PowerShell,
                 ..
-            } => format!("'{}'", s.replace('\'', "''")),
+            } => {
+                let quoted: String = s
+                    .chars()
+                    .flat_map(|c| {
+                        let n = if PS_QUOTES.contains(&c) { 2 } else { 1 };
+                        std::iter::repeat_n(c, n)
+                    })
+                    .collect();
+                format!("'{quoted}'")
+            }
         }
     }
 
@@ -454,6 +465,14 @@ mod tests {
         assert_eq!(to_native("/C:/Users/me/"), r"C:\Users\me");
         assert_eq!(to_native("/C:"), r"C:\.");
         assert_eq!(to_native("/D:/"), r"D:\.");
+    }
+
+    #[test]
+    fn powershell_quoting_doubles_every_quote_it_reads_as_one() {
+        assert_eq!(
+            win(WinShell::PowerShell).quote("a’b‘c‚d‛e'f"),
+            "'a’’b‘‘c‚‚d‛‛e''f'"
+        );
     }
 
     #[test]

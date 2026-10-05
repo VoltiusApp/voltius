@@ -13,6 +13,7 @@ pub(crate) struct Stat {
     pub size: u64,
     pub mtime: u64,
     pub is_dir: bool,
+    pub mode: Option<u32>,
 }
 
 pub(crate) struct Listed {
@@ -38,7 +39,16 @@ pub(crate) trait Endpoint: Send + Sync {
     async fn rename(&self, from: &str, to: &str) -> Result<(), AppError>;
     async fn remove(&self, path: &str) -> Result<(), AppError>;
     async fn set_mtime(&self, path: &str, mtime: u64) -> Result<(), AppError>;
-    async fn hash(&self, path: &str, token: &CancellationToken) -> Option<String>;
+    async fn set_mode(&self, _path: &str, _mode: u32) -> Result<(), AppError> {
+        Ok(())
+    }
+    /// The file a write to `path` lands in: a symlink's target, else `path` itself.
+    async fn resolve(&self, path: &str) -> Result<String, AppError> {
+        Ok(path.to_string())
+    }
+    /// None when no hash is to be had; an error only when the link died while hashing.
+    async fn hash(&self, path: &str, token: &CancellationToken)
+        -> Result<Option<String>, AppError>;
     /// Cheap check, polled while bytes flow: SFTP write acks never time out on a dead link.
     fn link_lost(&self) -> bool {
         false
@@ -94,10 +104,15 @@ fn local_stat(m: &std::fs::Metadata) -> Stat {
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map_or(0, |d| d.as_secs());
+    #[cfg(unix)]
+    let mode = Some(std::os::unix::fs::PermissionsExt::mode(&m.permissions()));
+    #[cfg(not(unix))]
+    let mode = None;
     Stat {
         size: m.len(),
         mtime,
         is_dir: m.is_dir(),
+        mode,
     }
 }
 
@@ -195,7 +210,27 @@ impl Endpoint for LocalFs {
         Ok(())
     }
 
-    async fn hash(&self, path: &str, token: &CancellationToken) -> Option<String> {
+    #[cfg(unix)]
+    async fn set_mode(&self, path: &str, mode: u32) -> Result<(), AppError> {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(mode & 0o7777);
+        Ok(tokio::fs::set_permissions(path, perms).await?)
+    }
+
+    async fn resolve(&self, path: &str) -> Result<String, AppError> {
+        match tokio::fs::symlink_metadata(path).await {
+            Ok(m) if m.is_symlink() => Ok(tokio::fs::canonicalize(path)
+                .await
+                .map_or_else(|_| path.to_string(), |p| p.to_string_lossy().into_owned())),
+            _ => Ok(path.to_string()),
+        }
+    }
+
+    async fn hash(
+        &self,
+        path: &str,
+        token: &CancellationToken,
+    ) -> Result<Option<String>, AppError> {
         let (path, token) = (path.to_string(), token.clone());
         tokio::task::spawn_blocking(move || {
             let mut f = std::fs::File::open(&path).ok()?;
@@ -214,7 +249,7 @@ impl Endpoint for LocalFs {
             Some(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
         })
         .await
-        .ok()?
+        .map_or(Ok(None), Ok)
     }
 
     async fn replace(&self, part: &str, target: &str, _old: &str) -> Result<(), AppError> {
@@ -236,6 +271,9 @@ pub(crate) mod tests_support {
     pub(crate) struct TestFs {
         pub fail_renames: Vec<usize>,
         pub lie_hash_once: bool,
+        pub hash_fails_once: bool,
+        pub cancel_on_hash: Option<CancellationToken>,
+        pub lose_first_write: bool,
         pub dead_until_waited: bool,
         pub state: Mutex<TestState>,
     }
@@ -244,7 +282,13 @@ pub(crate) mod tests_support {
     pub(crate) struct TestState {
         pub renames: usize,
         pub lied: bool,
+        pub hash_failed: bool,
+        pub write_lost: bool,
         pub waited: bool,
+    }
+
+    fn once(flag: bool, done: &mut bool) -> bool {
+        flag && !std::mem::replace(done, true)
     }
 
     #[async_trait]
@@ -271,6 +315,15 @@ pub(crate) mod tests_support {
             LocalFs.open_read(p, o).await
         }
         async fn open_write(&self, p: &str, o: u64) -> Result<Writer, AppError> {
+            if once(
+                self.lose_first_write,
+                &mut self.state.lock().unwrap().write_lost,
+            ) {
+                return Err(AppError::coded(
+                    ErrorCode::ConnectionLost,
+                    "Connection lost",
+                ));
+            }
             LocalFs.open_write(p, o).await
         }
         async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
@@ -290,10 +343,22 @@ pub(crate) mod tests_support {
         async fn set_mtime(&self, p: &str, m: u64) -> Result<(), AppError> {
             LocalFs.set_mtime(p, m).await
         }
-        async fn hash(&self, p: &str, t: &CancellationToken) -> Option<String> {
-            if self.lie_hash_once && !std::mem::replace(&mut self.state.lock().unwrap().lied, true)
-            {
-                return Some("0".repeat(64));
+        async fn hash(&self, p: &str, t: &CancellationToken) -> Result<Option<String>, AppError> {
+            if let Some(token) = &self.cancel_on_hash {
+                token.cancel();
+                return Ok(None);
+            }
+            if once(
+                self.hash_fails_once,
+                &mut self.state.lock().unwrap().hash_failed,
+            ) {
+                return Err(AppError::coded(
+                    ErrorCode::ConnectionLost,
+                    "Connection lost",
+                ));
+            }
+            if once(self.lie_hash_once, &mut self.state.lock().unwrap().lied) {
+                return Ok(Some("0".repeat(64)));
             }
             LocalFs.hash(p, t).await
         }
@@ -367,6 +432,7 @@ mod tests {
             LocalFs
                 .hash(&p(&d, "f"), &CancellationToken::new())
                 .await
+                .unwrap()
                 .as_deref(),
             Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
         );

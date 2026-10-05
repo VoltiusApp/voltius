@@ -62,6 +62,11 @@ pub async fn open_sftp<H: Handler>(
         .map_err(|e| format!("SFTP session error: {e}"))
 }
 
+/// The lock and the round trip both count against the caller's timeout.
+async fn answers(session: &Mutex<SftpSession>) -> Result<(), SftpError> {
+    session.lock().await.canonicalize(".").await.map(|_| ())
+}
+
 impl<H: Handler> SftpLink<H> {
     pub async fn open(&self) -> Result<SftpSession, String> {
         let handle = read_cell(&self.handle);
@@ -81,9 +86,8 @@ impl<H: Handler> SftpLink<H> {
         if self.closed_now() {
             return true;
         }
-        let sftp = session.lock().await;
-        match timeout(LINK_PROBE, sftp.canonicalize(".")).await {
-            Ok(Ok(_)) => false,
+        match timeout(LINK_PROBE, answers(session)).await {
+            Ok(Ok(())) => false,
             Ok(Err(e)) => is_transport_dead(&e),
             Err(_) => true,
         }
@@ -93,16 +97,18 @@ impl<H: Handler> SftpLink<H> {
         if self.closed_now() {
             return false;
         }
-        let mut sftp = session.lock().await;
-        if matches!(timeout(LINK_PROBE, sftp.canonicalize(".")).await, Ok(Ok(_))) {
+        if matches!(timeout(LINK_PROBE, answers(session)).await, Ok(Ok(()))) {
             return true;
         }
-        match timeout(LINK_PROBE, self.open()).await {
-            Ok(Ok(fresh)) => {
+        let Ok(Ok(fresh)) = timeout(LINK_PROBE, self.open()).await else {
+            return false;
+        };
+        match timeout(LINK_PROBE, session.lock()).await {
+            Ok(mut sftp) => {
                 *sftp = fresh;
                 true
             }
-            _ => false,
+            Err(_) => false,
         }
     }
 
@@ -113,12 +119,13 @@ impl<H: Handler> SftpLink<H> {
         deadline: Instant,
     ) -> Result<(), AppError> {
         loop {
-            if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
-            }
-            if self.revive(session).await {
-                return Ok(());
-            }
+            let step = async {
+                if self.revive(session).await {
+                    return true;
+                }
+                tokio::time::sleep(LINK_POLL).await;
+                false
+            };
             tokio::select! {
                 biased;
                 _ = token.cancelled() => return Err("Transfer cancelled".into()),
@@ -129,7 +136,9 @@ impl<H: Handler> SftpLink<H> {
                         "Connection lost; the partial copy is kept for Retry",
                     ))
                 }
-                _ = tokio::time::sleep(LINK_POLL) => {}
+                alive = step => if alive {
+                    return Ok(());
+                },
             }
         }
     }
