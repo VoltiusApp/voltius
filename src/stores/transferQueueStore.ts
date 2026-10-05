@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { sftpCancelTransfer, onTransferProgress, onTransferSkipped } from "@/services/sftp";
+import i18n from "@/i18n";
+import { describeError } from "@/services/backendErrors";
+import {
+  sftpCancelTransfer, sftpMarkResume,
+  onTransferProgress, onTransferSkipped, onTransferResumed, onTransferWaiting, onTransferAccel,
+} from "@/services/sftp";
 import { type Transfer, type FileEntry, type ConflictResolution, genId } from "@/components/filetransfer/SFTPTypes";
 import type { Accel } from "@/components/filetransfer/tarSupport";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
@@ -34,6 +39,7 @@ interface TransferQueueStore {
     onDone?: () => void,
     accel?: Accel,
     owner?: McpOwner,
+    opts?: { resume?: boolean },
   ) => Promise<void>;
   /** False when the id is unknown or the row is not currently running. */
   cancelTransfer: (id: string) => boolean;
@@ -76,26 +82,38 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
     if (resolution === "overwrite-all") { finish([...toTransfer, current, ...remaining]); return; }
   },
 
-  runTransfer: async (label, direction, fn, onDone, accel, owner) => {
+  runTransfer: async (label, direction, fn, onDone, accel, owner, opts) => {
     const tid = genId();
     const entry: Transfer = {
       id: tid, label, direction, transferred: 0, total: 0, status: "running",
       accel, owner, rerun: { fn, onDone },
     };
     set((s) => ({ transfers: [entry, ...s.transfers.slice(0, MAX_TRANSFERS - 1)] }));
-    const startTime = Date.now();
     const update = (f: (t: Transfer) => Transfer) =>
       set((s) => ({ transfers: s.transfers.map((t) => (t.id === tid ? f(t) : t)) }));
+    // Speed counts from the first progress after the start, a resume, or a wait.
+    let base: { at: number; bytes: number } | null = null;
     const unlisten = await Promise.all([
       onTransferProgress(tid, (p) => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const speed = elapsed > 0.5 ? p.transferred / elapsed : undefined;
+        base ??= { at: Date.now(), bytes: p.transferred };
+        const elapsed = (Date.now() - base.at) / 1000;
+        const speed = elapsed > 0.5 ? (p.transferred - base.bytes) / elapsed : undefined;
         const eta = speed && p.total > p.transferred ? Math.round((p.total - p.transferred) / speed) : undefined;
         update((t) => ({ ...t, transferred: p.transferred, total: p.total, speed, eta }));
       }),
       onTransferSkipped(tid, (path) => update((t) => ({ ...t, skipped: [...(t.skipped ?? []), path] }))),
+      onTransferResumed(tid, (offset) => {
+        base = null;
+        update((t) => ({ ...t, resumedAt: offset, transferred: offset }));
+      }),
+      onTransferWaiting(tid, (waiting) => {
+        base = null;
+        update((t) => ({ ...t, waiting, speed: undefined, eta: undefined }));
+      }),
+      onTransferAccel(tid, (a) => update((t) => ({ ...t, accel: a }))),
     ]);
     try {
+      if (opts?.resume) await sftpMarkResume(tid).catch(() => {});
       await fn(tid);
       update((t) => ({ ...t, status: "done" }));
       onDone?.();
@@ -104,7 +122,9 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
       const wasCancelled = msg.toLowerCase().includes("cancel");
       update((t) => {
         if (t.status === "cancelled") return t;
-        return wasCancelled ? { ...t, status: "cancelled" } : { ...t, status: "error", error: msg };
+        return wasCancelled
+          ? { ...t, status: "cancelled", waiting: false }
+          : { ...t, status: "error", waiting: false, error: describeError(e, i18n.t) };
       });
     } finally {
       update((t) => ({ ...t, settled: true }));
@@ -146,6 +166,6 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
       const rest = s.transfers.filter((t) => t.id !== id);
       return { transfers: [rest[0], tr, ...rest.slice(1)] };
     });
-    void get().runTransfer(tr.label, tr.direction, tr.rerun!.fn, tr.rerun!.onDone, tr.accel, tr.owner);
+    void get().runTransfer(tr.label, tr.direction, tr.rerun!.fn, tr.rerun!.onDone, tr.accel, tr.owner, { resume: true });
   },
 }));

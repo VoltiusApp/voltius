@@ -1,11 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTransferQueueStore } from "./transferQueueStore";
 
+import { sftpMarkResume } from "@/services/sftp";
+
 const skipListeners = new Map<string, (path: string) => void>();
+const { listeners, listen } = vi.hoisted(() => {
+  const listeners = new Map<string, (v: never) => void>();
+  const listen = (kind: string) => async (id: string, cb: (v: never) => void) => {
+    listeners.set(`${kind}:${id}`, cb);
+    return () => listeners.delete(`${kind}:${id}`);
+  };
+  return { listeners, listen };
+});
+const fire = <T,>(kind: string, id: string, v: T) => (listeners.get(`${kind}:${id}`) as (v: T) => void)(v);
 
 vi.mock("@/services/sftp", () => ({
   sftpCancelTransfer: vi.fn(async () => {}),
-  onTransferProgress: vi.fn(async () => () => {}),
+  sftpMarkResume: vi.fn(async () => {}),
+  onTransferProgress: vi.fn((id: string, cb: (v: never) => void) => listen("progress")(id, cb)),
+  onTransferResumed: vi.fn((id: string, cb: (v: never) => void) => listen("resumed")(id, cb)),
+  onTransferWaiting: vi.fn((id: string, cb: (v: never) => void) => listen("waiting")(id, cb)),
+  onTransferAccel: vi.fn((id: string, cb: (v: never) => void) => listen("accel")(id, cb)),
   onTransferSkipped: vi.fn(async (id: string, cb: (path: string) => void) => {
     skipListeners.set(id, cb);
     return () => skipListeners.delete(id);
@@ -168,5 +183,71 @@ describe("canRetry after a cancel", () => {
     releaseTransfer();
     await done;
     expect(store().canRetry(tr.id)).toBe(true);
+  });
+});
+
+describe("resume", () => {
+  beforeEach(() => vi.mocked(sftpMarkResume).mockClear());
+
+  it("marks a retry as a resume before running it again", async () => {
+    const fn = vi.fn().mockRejectedValueOnce(new Error("link down")).mockResolvedValueOnce(undefined);
+    await store().runTransfer("v.mp4", "→", fn);
+    store().retryTransfer(store().transfers[0].id);
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
+    const retriedId = fn.mock.calls[1][0];
+    expect(sftpMarkResume).toHaveBeenCalledWith(retriedId);
+    expect(vi.mocked(sftpMarkResume).mock.invocationCallOrder[0]).toBeLessThan(fn.mock.invocationCallOrder[1]);
+  });
+
+  it("does not mark a first run as a resume", async () => {
+    await store().runTransfer("v.mp4", "→", async () => {});
+    expect(sftpMarkResume).not.toHaveBeenCalled();
+  });
+
+  it("shows where a transfer resumed and while it waits for the link", async () => {
+    const seen: object[] = [];
+    await store().runTransfer("v.mp4", "→", async (tid) => {
+      fire("waiting", tid, true);
+      seen.push({ ...store().transfers[0] });
+      fire("waiting", tid, false);
+      fire("resumed", tid, 4_000_000_000);
+      seen.push({ ...store().transfers[0] });
+    });
+    expect(store().transfers[0].status).toBe("done");
+    expect(seen[0]).toMatchObject({ waiting: true, status: "running" });
+    expect(seen[1]).toMatchObject({ waiting: false, resumedAt: 4_000_000_000, transferred: 4_000_000_000 });
+  });
+
+  it("measures speed from the resume point, not from zero", async () => {
+    vi.useFakeTimers();
+    let speed: number | undefined;
+    try {
+      await store().runTransfer("v.mp4", "→", async (tid) => {
+        fire("resumed", tid, 4_000_000_000);
+        fire("progress", tid, { transferred: 4_000_000_000, total: 5_000_000_000 });
+        vi.advanceTimersByTime(2000);
+        fire("progress", tid, { transferred: 4_020_000_000, total: 5_000_000_000 });
+        speed = store().transfers[0].speed;
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(store().transfers[0].status).toBe("done");
+    expect(speed).toBeCloseTo(10_000_000, -5);
+  });
+
+  it("switches the accel badge when the backend goes per file", async () => {
+    await store().runTransfer("dir", "→", async (tid) => {
+      fire("accel", tid, "perFile");
+    }, undefined, "tar");
+    expect(store().transfers[0].accel).toBe("perFile");
+  });
+
+  it("clears waiting once a transfer fails", async () => {
+    await store().runTransfer("v.mp4", "→", async (tid) => {
+      fire("waiting", tid, true);
+      throw new Error("connection lost");
+    });
+    expect(store().transfers[0]).toMatchObject({ status: "error", waiting: false, error: "connection lost" });
   });
 });

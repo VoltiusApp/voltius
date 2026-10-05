@@ -34,6 +34,8 @@ export async function sftpConnect(params: {
   keepaliveMax: number;
   legacyAlgorithms?: boolean;
   proxy?: ProxySpec | null;
+  /** A lost session's id to reconnect into, so its transfers resume. */
+  relink?: string;
 }): Promise<string> {
   return invoke("sftp_connect", {
     connectId: params.connectId,
@@ -48,6 +50,7 @@ export async function sftpConnect(params: {
     keepaliveMax: params.keepaliveMax,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
     proxy: params.proxy ?? null,
+    relink: params.relink ?? null,
   });
 }
 
@@ -216,6 +219,11 @@ export async function sftpCancelTransfer(transferId: string): Promise<void> {
   return invoke("sftp_cancel_transfer", { transferId });
 }
 
+/** Tell the backend the transfer about to run under `transferId` is a retry. */
+export async function sftpMarkResume(transferId: string): Promise<void> {
+  return invoke("sftp_mark_resume", { transferId });
+}
+
 /** True if the session can run commands on its host (false for FTP and WebDAV). */
 export async function sftpCanExec(sftpId: string): Promise<boolean> {
   return invoke("sftp_can_exec", { sftpId });
@@ -282,23 +290,25 @@ export async function pickLocalPaths(opts: { title?: string } = {}): Promise<str
   return result ? [result] : [];
 }
 
-export async function onTransferProgress(
-  transferId: string,
-  callback: (progress: TransferProgress) => void,
-): Promise<UnlistenFn> {
-  return listen<TransferProgress>(`sftp-progress-${transferId}`, (e) =>
-    callback(e.payload),
-  );
+function onTransferEvent<T, R = T>(kind: string, pick: (payload: T) => R = (p) => p as unknown as R) {
+  return (transferId: string, callback: (value: R) => void): Promise<UnlistenFn> =>
+    listen<T>(`sftp-${kind}-${transferId}`, (e) => callback(pick(e.payload)));
 }
+
+export const onTransferProgress = onTransferEvent<TransferProgress>("progress");
 
 /** A remote name the local OS can't hold (or a traversal attempt) that the
  *  backend skipped instead of writing; `path` is its full remote path. */
-export async function onTransferSkipped(
-  transferId: string,
-  callback: (path: string) => void,
-): Promise<UnlistenFn> {
-  return listen<string>(`sftp-skipped-${transferId}`, (e) => callback(e.payload));
-}
+export const onTransferSkipped = onTransferEvent<string>("skipped");
+
+/** Bytes already in place when an interrupted transfer picked up again. */
+export const onTransferResumed = onTransferEvent<{ offset: number }, number>("resumed", (p) => p.offset);
+
+/** The link dropped and the backend is waiting for the session to come back. */
+export const onTransferWaiting = onTransferEvent<{ waiting: boolean }, boolean>("waiting", (p) => p.waiting);
+
+/** The backend chose per-file (resumable) over the tar stream the row was started with. */
+export const onTransferAccel = onTransferEvent<{ accel: "tar" | "perFile" }, "tar" | "perFile">("accel", (p) => p.accel);
 
 // ── Local FS ─────────────────────��────────────────────────────────────────────
 

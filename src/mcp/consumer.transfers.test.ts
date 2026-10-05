@@ -8,6 +8,9 @@ vi.mock(import("@/services/sftp"), async (importOriginal) => ({
   sftpCancelTransfer: vi.fn(async () => {}),
   onTransferProgress: vi.fn(async () => () => {}),
   onTransferSkipped: vi.fn(async () => () => {}),
+  onTransferResumed: vi.fn(async () => () => {}),
+  onTransferWaiting: vi.fn(async () => () => {}),
+  onTransferAccel: vi.fn(async () => () => {}),
 }));
 
 const owner = { clientId: "c-1", clientName: "Claude Code", since: 1 };
