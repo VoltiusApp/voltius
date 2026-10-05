@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TransferQueue } from "./TransferQueue";
 import type { Transfer } from "./SFTPTypes";
 
@@ -29,7 +29,8 @@ describe("resumable transfers", () => {
   });
 
   it("shows where a transfer resumed", () => {
-    renderQueue([{ ...running, resumedAt: 4 * 1024 ** 3, transferred: 4 * 1024 ** 3 }]);
+    const { container } = renderQueue([{ ...running, resumedAt: 4 * 1024 ** 3, transferred: 4 * 1024 ** 3 }]);
+    fireEvent.mouseEnter(container.querySelector('button[tabindex="-1"]')!);
     expect(screen.getByText("fileTransfer.queue.resumedAt:4.00 GB")).toBeTruthy();
   });
 

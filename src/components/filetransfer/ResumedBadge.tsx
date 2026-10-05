@@ -1,14 +1,13 @@
 import { useTranslation } from "react-i18next";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { formatSize } from "./SFTPTypes";
 
 export function ResumedBadge({ at }: { at: number }) {
   const { t } = useTranslation();
   return (
-    <span
-      className="shrink-0 text-[10px] leading-none px-1 py-0.5 rounded-sm bg-(--t-bg-hover) text-(--t-text-dim)"
-      title={t("fileTransfer.queue.resumedTooltip")}
-    >
-      {t("fileTransfer.queue.resumedAt", { size: formatSize(at) })}
-    </span>
+    <InfoTooltip icon="lucide:history" iconColor="var(--t-text-dim)" width={11} placement="top">
+      <div className="mb-1 font-medium text-(--t-text-primary)">{t("fileTransfer.queue.resumedAt", { size: formatSize(at) })}</div>
+      <p className="m-0">{t("fileTransfer.queue.resumedTooltip")}</p>
+    </InfoTooltip>
   );
 }
