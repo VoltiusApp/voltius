@@ -310,8 +310,14 @@ pub(crate) mod tests {
     fn relink_after(fs: &SftpFs<TestClient>, delay: Duration) -> tokio::task::JoinHandle<()> {
         let link = Arc::clone(fs.link.as_ref().unwrap());
         tokio::spawn(async move {
-            while !read_cell(&link.handle).is_closed() {
-                tokio::time::sleep(Duration::from_millis(20)).await;
+            loop {
+                let h = read_cell(&link.handle);
+                let probe =
+                    tokio::time::timeout(Duration::from_millis(500), h.channel_open_session());
+                if h.is_closed() || !matches!(probe.await, Ok(Ok(_))) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
             tokio::time::sleep(delay).await;
             let (fresh, _) = proc_server(ProcOptions::default()).await;

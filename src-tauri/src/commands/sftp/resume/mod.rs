@@ -2,7 +2,7 @@ pub(crate) mod endpoint;
 pub(crate) mod names;
 pub(crate) mod sftp_fs;
 
-use crate::commands::sftp::{pump_chunks, TransferProgress};
+use crate::commands::sftp::{pump, TransferProgress};
 use crate::error::{AppError, ErrorCode};
 use crate::sftp::backend::TransferEvents;
 use crate::sftp::link::LINK_POLL;
@@ -10,6 +10,7 @@ use endpoint::{Endpoint, Listed};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex as StdMutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -20,6 +21,7 @@ pub(crate) const OVERLAP: u64 = 64 * 1024;
 pub(crate) const LARGE_FILE: u64 = 64 * 1024 * 1024;
 pub(crate) const LINK_WAIT: Duration = Duration::from_secs(300);
 pub(crate) const RESTARTS: u32 = 3;
+pub(crate) const STALL: Duration = Duration::from_secs(15);
 
 // Keyed by transfer id: the engine has no SftpManager to ask.
 static RESUMING: LazyLock<StdMutex<HashSet<String>>> = LazyLock::new(Default::default);
@@ -43,6 +45,7 @@ pub(crate) struct CopyCtx<'a, E: TransferEvents> {
     pub transferred: u64,
     pub total: u64,
     pub link_wait: Duration,
+    pub stall: Duration,
     listings: HashMap<String, Vec<Listed>>,
 }
 
@@ -60,6 +63,7 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
             transferred: 0,
             total,
             link_wait: LINK_WAIT,
+            stall: STALL,
             listings: HashMap::new(),
         }
     }
@@ -211,21 +215,44 @@ pub(crate) async fn revive<E: TransferEvents>(
     Some(result)
 }
 
+/// Ends `work` once a link is gone: closed outright, or failing a probe after `stall` without progress.
 async fn unless_lost<T>(
     work: impl Future<Output = Result<T, AppError>>,
     ends: &[&dyn Endpoint],
+    seen: &AtomicU64,
+    stall: Duration,
 ) -> Result<T, AppError> {
     tokio::pin!(work);
+    let mut last = (seen.load(Ordering::Relaxed), Instant::now());
     loop {
         tokio::select! {
             r = &mut work => return r,
             _ = tokio::time::sleep(LINK_POLL) => {
-                if ends.iter().any(|e| e.link_lost()) {
+                let now = seen.load(Ordering::Relaxed);
+                let stalled = if now != last.0 {
+                    last = (now, Instant::now());
+                    false
+                } else if last.1.elapsed() >= stall {
+                    last.1 = Instant::now();
+                    any_dead(ends).await
+                } else {
+                    false
+                };
+                if stalled || ends.iter().any(|e| e.link_lost()) {
                     return Err(AppError::coded(ErrorCode::ConnectionLost, "Connection lost"));
                 }
             }
         }
     }
+}
+
+async fn any_dead(ends: &[&dyn Endpoint]) -> bool {
+    for end in ends {
+        if end.link_dead().await {
+            return true;
+        }
+    }
+    false
 }
 
 async fn attempt<E: TransferEvents>(
@@ -256,23 +283,20 @@ async fn attempt<E: TransferEvents>(
     ctx.progress();
     let mut reader = src.open_read(src_path, offset).await?;
     let mut writer = dst.open_write(&part_path, offset).await?;
+    let (seen, stall) = (AtomicU64::new(ctx.transferred), ctx.stall);
     let copied = async {
-        pump_chunks(
-            ctx.events,
-            &mut reader,
-            &mut writer,
-            ctx.transfer_id,
-            ctx.token,
-            &mut ctx.transferred,
-            ctx.total,
-        )
+        pump(&mut reader, &mut writer, ctx.token, |n| {
+            ctx.transferred += n as u64;
+            ctx.progress();
+            seen.store(ctx.transferred, Ordering::Relaxed);
+        })
         .await?;
         writer
             .shutdown()
             .await
             .map_err(|e| AppError::from(format!("Flush error: {e}")))
     };
-    unless_lost(copied, &[src, dst]).await?;
+    unless_lost(copied, &[src, dst], &seen, stall).await?;
     drop(reader);
     let now = src.stat(src_path).await?.map(|s| (s.size, s.mtime));
     if now != Some((stat.size, stat.mtime)) {

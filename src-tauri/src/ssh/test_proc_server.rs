@@ -126,7 +126,7 @@ impl russh::server::Handler for ProcServer {
         &mut self,
         channel: ChannelId,
         data: &[u8],
-        session: &mut Session,
+        _session: &mut Session,
     ) -> Result<(), Self::Error> {
         if let Some(stdin) = self.stdins.lock().await.get_mut(&channel) {
             let _ = stdin.write_all(data).await;
