@@ -1,9 +1,9 @@
 use super::{
-    get_backend, get_session, local_tar,
+    get_backend, get_sftp_fs, local_tar,
     remote_shell::{RemoteShell, Unreachable},
-    rr_dir_per_file, run_backend_transfer,
+    resume::{copy_one, copy_tree},
+    run_backend_transfer,
     stream::{self, Job, LocalSide, RemoteEnd},
-    transfer::sftp_rr_file_inner,
     with_transfer, TarHost,
 };
 use crate::error::AppError;
@@ -248,7 +248,7 @@ async fn relay_or_per_file(
     whole_dir: bool,
     transfer_id: &str,
     token: &CancellationToken,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let (src, dst) = (
         get_backend(manager, src_id).await?,
         get_backend(manager, dst_id).await?,
@@ -266,11 +266,12 @@ async fn relay_or_per_file(
             transfer_id,
             token,
         )
-        .await;
+        .await
+        .map_err(Into::into);
     }
-    let (src_session, dst_session) = (
-        get_session(manager, src_id).await?,
-        get_session(manager, dst_id).await?,
+    let (src_fs, dst_fs) = (
+        get_sftp_fs(manager, src_id).await?,
+        get_sftp_fs(manager, dst_id).await?,
     );
     let base = dest.trim_end_matches('/');
     for (path, name) in paths.iter().zip(&items) {
@@ -279,11 +280,10 @@ async fn relay_or_per_file(
         } else {
             format!("{base}/{name}")
         };
-        let (s, d) = (Arc::clone(&src_session), Arc::clone(&dst_session));
         if src.stat(path).await?.unwrap_or(false) {
-            rr_dir_per_file(app, s, path, d, &to, transfer_id, token).await?;
+            copy_tree(app, &src_fs, path, &dst_fs, &to, transfer_id, token).await?;
         } else {
-            sftp_rr_file_inner(app, s, path, d, &to, transfer_id, token).await?;
+            copy_one(app, &src_fs, path, &dst_fs, &to, transfer_id, token).await?;
         }
     }
     Ok(())

@@ -1,20 +1,18 @@
 //! The `FileBackend` trait: the filesystem operations every SFTP-id speaks,
 //! regardless of transport (real SFTP over SSH, `docker exec` shim, …).
 //!
-//! Server-to-server per-file transfer needs a raw SFTP session (`as_sftp_session`);
+//! Server-to-server per-file transfer needs a raw SFTP session (`sftp_fs`);
 //! tar streaming needs a host that runs commands (`tar_probe`).
 
+use crate::commands::sftp::resume::sftp_fs::SftpFs;
 use crate::commands::sftp::{RemoteFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_via_shell, AttrChange};
 use crate::ssh::exec::Captured;
 use async_trait::async_trait;
-use russh_sftp::client::SftpSession;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
-use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 /// Where a transfer's progress and skipped-name events go: the app, or a test's recorder.
@@ -196,9 +194,9 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         Ok(())
     }
 
-    /// Raw SFTP session, for server-to-server transfer.
+    /// Resumable SFTP endpoint, for server-to-server transfer.
     /// None for transports that don't speak real SFTP.
-    fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
+    fn sftp_fs(&self) -> Option<SftpFs> {
         None
     }
 

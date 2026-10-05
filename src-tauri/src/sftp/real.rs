@@ -1,10 +1,11 @@
 //! `RealSftp`: a `FileBackend` backed by a real SFTP session over SSH.
 //! Simple filesystem ops are implemented here; streaming transfers delegate to
-//! the shared `*_inner` helpers in `crate::commands::sftp`.
+//! the resumable copy engine in `crate::commands::sftp::resume`.
 
-use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner};
 use crate::commands::sftp::editor::read_capped;
-use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
+use crate::commands::sftp::resume::endpoint::LocalFs;
+use crate::commands::sftp::resume::sftp_fs::SftpFs;
+use crate::commands::sftp::resume::{copy_one, copy_tree};
 use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_mode, apply_via_shell, AttrChange};
@@ -95,6 +96,14 @@ impl RealSftp {
             tar: Arc::new(TarProbe::new(Arc::clone(&link.handle), None)),
             link,
         })
+    }
+
+    pub(crate) fn fs(&self) -> SftpFs {
+        SftpFs::new(
+            Arc::clone(&self.session),
+            Arc::clone(&self.link),
+            Arc::clone(&self.tar),
+        )
     }
 }
 
@@ -216,16 +225,16 @@ impl FileBackend for RealSftp {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), AppError> {
-        sftp_upload_inner(
+        copy_one(
             app,
-            Arc::clone(&self.session),
+            &LocalFs,
             local_path,
+            &self.fs(),
             remote_path,
             transfer_id,
             token,
         )
         .await
-        .map_err(Into::into)
     }
 
     async fn download_file(
@@ -236,16 +245,16 @@ impl FileBackend for RealSftp {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), AppError> {
-        sftp_download_inner(
+        copy_one(
             app,
-            Arc::clone(&self.session),
+            &self.fs(),
             remote_path,
+            &LocalFs,
             local_path,
             transfer_id,
             token,
         )
         .await
-        .map_err(Into::into)
     }
 
     async fn upload_dir(
@@ -256,16 +265,16 @@ impl FileBackend for RealSftp {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), AppError> {
-        sftp_upload_dir_inner(
+        copy_tree(
             app,
-            Arc::clone(&self.session),
+            &LocalFs,
             local_path,
+            &self.fs(),
             remote_path,
             transfer_id,
             token,
         )
         .await
-        .map_err(Into::into)
     }
 
     async fn download_dir(
@@ -276,24 +285,23 @@ impl FileBackend for RealSftp {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), AppError> {
-        sftp_download_dir_inner(
+        copy_tree(
             app,
-            Arc::clone(&self.session),
+            &self.fs(),
             remote_path,
+            &LocalFs,
             local_path,
             transfer_id,
             token,
         )
         .await
-        .map_err(Into::into)
     }
 
     // upload_batch / download_batch: the FileBackend per-item defaults, which
-    // real SFTP only reaches if the tar fast path behind `as_sftp_session`
-    // is unavailable.
+    // real SFTP only reaches if the tar fast path is unavailable.
 
-    fn as_sftp_session(&self) -> Option<Arc<Mutex<SftpSession>>> {
-        Some(Arc::clone(&self.session))
+    fn sftp_fs(&self) -> Option<SftpFs> {
+        Some(self.fs())
     }
 
     fn tar_probe(&self) -> Option<&TarProbe> {

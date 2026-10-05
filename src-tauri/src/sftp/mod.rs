@@ -348,8 +348,8 @@ impl SftpManager {
         let entry = self.sessions.lock().await.remove(id);
         if let Some(e) = entry {
             e.cancel.cancel();
-            if let Some(s) = e.backend.as_sftp_session() {
-                let _ = s.lock().await.close().await;
+            if let Some(fs) = e.backend.sftp_fs() {
+                fs.close_session().await;
             }
         }
     }
@@ -374,6 +374,7 @@ impl SftpManager {
     /// Remove a completed/failed transfer token.
     pub async fn finish_transfer(&self, transfer_id: &str) {
         self.transfers.lock().await.remove(transfer_id);
+        crate::commands::sftp::resume::clear_resume(transfer_id);
     }
 
     /// Return a shared mutex keyed by (sftp_id, path); created on first use.

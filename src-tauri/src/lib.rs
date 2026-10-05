@@ -401,6 +401,7 @@ pub fn run() {
             commands::sftp::editor::sftp_read_file,
             commands::sftp::editor::sftp_write_file,
             commands::sftp::sftp_cancel_transfer,
+            commands::sftp::sftp_mark_resume,
             commands::sftp::sftp_stat,
             commands::sftp::sftp_connect,
             commands::sftp::ftp_connect,

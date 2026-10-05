@@ -21,6 +21,13 @@ pub async fn sftp_cancel_transfer(
     Ok(())
 }
 
+/// Mark a transfer about to start as a retry, so folder copies skip files already landed.
+#[tauri::command]
+pub async fn sftp_mark_resume(transfer_id: String) -> Result<(), String> {
+    super::resume::mark_resume(&transfer_id);
+    Ok(())
+}
+
 /// Standalone SFTP connection — no terminal session needed.
 #[tauri::command]
 pub async fn sftp_connect(

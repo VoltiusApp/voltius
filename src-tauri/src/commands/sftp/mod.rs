@@ -1,17 +1,16 @@
 use crate::error::AppError;
 use crate::sftp::backend::TransferEvents;
 use crate::sftp::{FileBackend, SftpManager};
+use resume::sftp_fs::SftpFs;
 use russh_sftp::client::fs::File;
-use russh_sftp::client::SftpSession;
-use russh_sftp::protocol::OpenFlags;
 use serde::Serialize;
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
-use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 pub mod dir;
@@ -59,15 +58,12 @@ pub struct TransferProgress {
     pub total: u64,
 }
 
-pub(super) async fn get_session<'a>(
-    manager: &'a SftpManager,
-    sftp_id: &'a str,
-) -> Result<Arc<Mutex<SftpSession>>, String> {
+pub(super) async fn get_sftp_fs(manager: &SftpManager, sftp_id: &str) -> Result<SftpFs, AppError> {
     manager
         .backend(sftp_id)
         .await
-        .and_then(|b| b.as_sftp_session())
-        .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))
+        .and_then(|b| b.sftp_fs())
+        .ok_or_else(|| format!("SFTP session '{sftp_id}' not found").into())
 }
 
 pub(super) async fn get_backend(
@@ -230,50 +226,12 @@ impl Drop for SftpFile {
         };
         // Outside a runtime there is nothing to await on: `File`'s own drop is the fallback.
         if let Ok(rt) = tokio::runtime::Handle::try_current() {
+            // Bounded: on a dead link the pending write acks never resolve.
             rt.spawn(async move {
-                let _ = file.shutdown().await;
+                let _ = tokio::time::timeout(Duration::from_secs(30), file.shutdown()).await;
             });
         }
     }
-}
-
-/// Open a remote file for writing (create + truncate), holding the session lock
-/// for the open alone.
-pub(super) async fn open_remote_write(
-    session: &Mutex<SftpSession>,
-    path: &str,
-) -> Result<SftpFile, String> {
-    let sftp = session.lock().await;
-    sftp.open_with_flags(
-        path,
-        OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
-    )
-    .await
-    .map(|f| SftpFile::new(f, "Flush error"))
-    .map_err(|e| format!("Cannot create remote file {path}: {e}"))
-}
-
-/// Open a remote file for reading, returning its size alongside the handle.
-/// A missing or unreadable size is reported as 0 — progress only needs a bound.
-pub(super) async fn open_remote_read(
-    session: &Mutex<SftpSession>,
-    path: &str,
-) -> Result<(u64, SftpFile), String> {
-    let sftp = session.lock().await;
-    let total = remote_size(&sftp, path).await;
-    let file = sftp
-        .open(path)
-        .await
-        .map_err(|e| format!("Cannot open remote file {path}: {e}"))?;
-    Ok((total, SftpFile::new(file, "Close error")))
-}
-
-pub(super) async fn remote_size(sftp: &SftpSession, path: &str) -> u64 {
-    sftp.metadata(path)
-        .await
-        .ok()
-        .and_then(|m| m.size)
-        .unwrap_or(0)
 }
 
 /// Copy `reader` into `writer` in `CHUNK_SIZE` chunks, calling `on_chunk` after

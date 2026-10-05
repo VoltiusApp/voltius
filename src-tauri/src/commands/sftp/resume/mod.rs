@@ -4,9 +4,10 @@ pub(crate) mod sftp_fs;
 
 use crate::commands::sftp::{pump, TransferProgress};
 use crate::error::{AppError, ErrorCode};
+use crate::sftp::backend::skip_unsafe_name;
 use crate::sftp::backend::TransferEvents;
 use crate::sftp::link::LINK_POLL;
-use endpoint::{Endpoint, Listed};
+use endpoint::{Endpoint, Listed, Stat};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -83,6 +84,16 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
             .send(&format!("sftp-{kind}-{}", self.transfer_id), payload);
     }
 
+    async fn landed(&mut self, dst: &dyn Endpoint, path: &str, want: Stat) -> bool {
+        let (dir, name) = dst.split(path);
+        self.listing(dst, &dir).await.iter().any(|e| {
+            e.name == name
+                && !e.stat.is_dir
+                && e.stat.size == want.size
+                && e.stat.mtime == want.mtime
+        })
+    }
+
     async fn listing(&mut self, fs: &dyn Endpoint, dir: &str) -> &[Listed] {
         if !self.listings.contains_key(dir) {
             let found = fs.list(dir).await.unwrap_or_default();
@@ -114,6 +125,83 @@ pub(crate) async fn copy_one<E: TransferEvents>(
     let total = src.stat(src_path).await?.map_or(0, |s| s.size);
     let mut ctx = CopyCtx::new(events, transfer_id, token, total);
     resumable_copy(src, src_path, dst, dst_path, &mut ctx).await
+}
+
+pub(crate) struct TreeFile {
+    pub rel: String,
+    pub stat: Stat,
+}
+
+/// Every directory and file under `root`, relative and `/`-joined; `dst_local` as in `skip_unsafe_name`.
+pub(crate) async fn walk<E: TransferEvents>(
+    events: &E,
+    transfer_id: &str,
+    src: &dyn Endpoint,
+    root: &str,
+    dst_local: bool,
+) -> Result<(Vec<String>, Vec<TreeFile>), AppError> {
+    let (mut dirs, mut files, mut stack) = (Vec::new(), Vec::new(), vec![String::new()]);
+    while let Some(rel) = stack.pop() {
+        let dir = if rel.is_empty() {
+            root.to_string()
+        } else {
+            src.join(root, &rel)
+        };
+        for e in src.list(&dir).await? {
+            let child = if rel.is_empty() {
+                e.name.clone()
+            } else {
+                format!("{rel}/{}", e.name)
+            };
+            let path = src.join(&dir, &e.name);
+            if e.is_symlink || skip_unsafe_name(events, transfer_id, &path, &e.name, dst_local) {
+                continue;
+            }
+            if e.stat.is_dir {
+                dirs.push(child.clone());
+                stack.push(child);
+            } else {
+                files.push(TreeFile {
+                    rel: child,
+                    stat: e.stat,
+                });
+            }
+        }
+    }
+    Ok((dirs, files))
+}
+
+pub(crate) async fn copy_tree<E: TransferEvents>(
+    events: &E,
+    src: &dyn Endpoint,
+    src_root: &str,
+    dst: &dyn Endpoint,
+    dst_root: &str,
+    transfer_id: &str,
+    token: &CancellationToken,
+) -> Result<(), AppError> {
+    let (dirs, files) = walk(events, transfer_id, src, src_root, dst.is_local()).await?;
+    dst.mkdir(dst_root).await?;
+    for d in &dirs {
+        dst.mkdir(&dst.join(dst_root, d)).await?;
+    }
+    let total = files.iter().map(|f| f.stat.size).sum();
+    let mut ctx = CopyCtx::new(events, transfer_id, token, total);
+    let resume = is_resume(transfer_id);
+    for f in &files {
+        if token.is_cancelled() {
+            return Err(cancelled());
+        }
+        let to = dst.join(dst_root, &f.rel);
+        if resume && ctx.landed(dst, &to, f.stat).await {
+            ctx.transferred += f.stat.size;
+            ctx.progress();
+            continue;
+        }
+        resumable_copy(src, &src.join(src_root, &f.rel), dst, &to, &mut ctx).await?;
+    }
+    ctx.progress();
+    Ok(())
 }
 
 pub(crate) async fn resumable_copy<E: TransferEvents>(
@@ -829,6 +917,78 @@ pub(crate) mod engine_tests {
         writer.join().unwrap();
         assert_eq!(e.code(), Some(ErrorCode::TransferSourceChanged));
         assert!(!b.path().join("v").exists());
+    }
+
+    fn tree(root: &std::path::Path) {
+        std::fs::create_dir_all(root.join("sub/empty")).unwrap();
+        std::fs::write(root.join("a"), noise(300_000)).unwrap();
+        std::fs::write(root.join("sub/b"), noise(200_000)).unwrap();
+        std::fs::write(root.join("sub/c"), b"").unwrap();
+    }
+
+    async fn copy_dir(rec: &Recorder, from: &std::path::Path, to: &std::path::Path, tid: &str) {
+        let token = CancellationToken::new();
+        copy_tree(rec, &LocalFs, &s(from), &LocalFs, &s(to), tid, &token)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_folder_lands_whole_with_empty_subfolders() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        tree(a.path());
+        let dst = b.path().join("copy");
+        copy_dir(&Recorder::default(), a.path(), &dst, "t").await;
+        assert_eq!(std::fs::read(dst.join("sub/b")).unwrap(), noise(200_000));
+        assert!(dst.join("sub/empty").is_dir());
+        assert_eq!(std::fs::read(dst.join("sub/c")).unwrap(), b"");
+    }
+
+    #[tokio::test]
+    async fn a_resumed_folder_skips_landed_files_and_redoes_the_rest() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        tree(a.path());
+        let dst = b.path().join("copy");
+        copy_dir(&Recorder::default(), a.path(), &dst, "t0").await;
+        std::fs::write(dst.join("sub/b"), b"cut").unwrap();
+        let before = std::fs::metadata(dst.join("a"))
+            .unwrap()
+            .modified()
+            .unwrap();
+        mark_resume("t1");
+        let rec = Recorder::default();
+        copy_dir(&rec, a.path(), &dst, "t1").await;
+        clear_resume("t1");
+        assert_eq!(std::fs::read(dst.join("sub/b")).unwrap(), noise(200_000));
+        let after = std::fs::metadata(dst.join("a"))
+            .unwrap()
+            .modified()
+            .unwrap();
+        assert_eq!(after, before);
+        assert_eq!(
+            rec.last("sftp-progress-t1").unwrap()["transferred"],
+            500_000
+        );
+    }
+
+    #[tokio::test]
+    async fn a_first_run_never_skips_an_identical_looking_file() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("f"), b"new!").unwrap();
+        let dst = b.path().join("copy");
+        std::fs::create_dir(&dst).unwrap();
+        std::fs::write(dst.join("f"), b"old!").unwrap();
+        let st = LocalFs
+            .stat(&s(&a.path().join("f")))
+            .await
+            .unwrap()
+            .unwrap();
+        LocalFs
+            .set_mtime(&s(&dst.join("f")), st.mtime)
+            .await
+            .unwrap();
+        copy_dir(&Recorder::default(), a.path(), &dst, "t2").await;
+        assert_eq!(std::fs::read(dst.join("f")).unwrap(), b"new!");
     }
 }
 

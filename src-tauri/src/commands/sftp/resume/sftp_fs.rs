@@ -48,18 +48,20 @@ impl<H: Handler> SftpFs<H> {
         }
     }
 
+    pub(crate) async fn close_session(&self) {
+        let _ = self.session.lock().await.close().await;
+    }
+}
+
+#[cfg(test)]
+impl SftpFs {
     /// A session with no SSH link behind it: never dead, never hashed.
-    #[cfg(test)]
     pub(crate) fn detached(session: Arc<Mutex<SftpSession>>) -> Self {
         Self {
             session,
             link: None,
             tar: None,
         }
-    }
-
-    pub(crate) async fn close_session(&self) {
-        let _ = self.session.lock().await.close().await;
     }
 }
 

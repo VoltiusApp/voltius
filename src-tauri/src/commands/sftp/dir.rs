@@ -1,140 +1,14 @@
-use super::{
-    backend_transfer_command, get_session, open_remote_write, pump_chunks,
-    sftp_rr_file_inner_accum, transfer::download_into, with_transfer,
-};
+use super::resume::copy_tree;
+use super::{backend_transfer_command, get_sftp_fs, with_transfer};
 use crate::error::AppError;
-use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::SftpManager;
-use russh_sftp::client::SftpSession;
-use std::future::Future;
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::sync::Arc;
 use tauri::{AppHandle, State};
-use tokio::sync::Mutex;
-use tokio_util::sync::CancellationToken;
-
-/// `(absolute_path, relative_path, size_bytes)` for a remote file.
-type RemoteEntry = (String, String, u64);
-
-/// Boxed, `Send` future with a borrowed lifetime. Needed by the recursive
-/// directory-walk helpers below — recursion through `async fn` requires boxing.
-type DirWalkFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
 
 // ── Directory transfer ────────────────────────────────────────────────────────
 
 backend_transfer_command!(sftp_upload_dir, upload_dir, local_path, remote_path);
 
-/// Recursively upload a local directory over a real SFTP session.
-pub(crate) async fn sftp_upload_dir_inner(
-    app: &AppHandle,
-    session: Arc<Mutex<SftpSession>>,
-    local_path: &str,
-    remote_path: &str,
-    transfer_id: &str,
-    token: &CancellationToken,
-) -> Result<(), String> {
-    let local_base = PathBuf::from(local_path);
-
-    // Collect all files and their sizes
-    let (dirs, files) = collect_local_entries(&local_base)?;
-
-    // Calculate total size
-    let total: u64 = files
-        .iter()
-        .map(|rel| {
-            local_base
-                .join(rel)
-                .metadata()
-                .map(|m| m.len())
-                .unwrap_or(0)
-        })
-        .sum();
-
-    // Create remote directory structure
-    {
-        let sftp = session.lock().await;
-        let _ = sftp.create_dir(remote_path).await; // ignore if exists
-        for dir_rel in &dirs {
-            let remote_dir = format!(
-                "{}/{}",
-                remote_path.trim_end_matches('/'),
-                dir_rel.to_string_lossy().replace('\\', "/")
-            );
-            let _ = sftp.create_dir(&remote_dir).await;
-        }
-    }
-
-    // Upload files
-    let mut transferred = 0u64;
-    for file_rel in &files {
-        if token.is_cancelled() {
-            return Err("Transfer cancelled".into());
-        }
-        let local_abs = local_base.join(file_rel);
-        let remote_file_path = format!(
-            "{}/{}",
-            remote_path.trim_end_matches('/'),
-            file_rel.to_string_lossy().replace('\\', "/")
-        );
-
-        let mut local_file = tokio::fs::File::open(&local_abs)
-            .await
-            .map_err(|e| format!("Cannot open {}: {e}", local_abs.display()))?;
-
-        let mut remote_file = open_remote_write(&session, &remote_file_path).await?;
-
-        pump_chunks(
-            app,
-            &mut local_file,
-            &mut *remote_file,
-            transfer_id,
-            token,
-            &mut transferred,
-            total,
-        )
-        .await?;
-        remote_file.close().await?;
-    }
-    Ok(())
-}
-
 backend_transfer_command!(sftp_download_dir, download_dir, remote_path, local_path);
-
-/// Recursively download a remote directory over a real SFTP session.
-pub(crate) async fn sftp_download_dir_inner(
-    app: &impl TransferEvents,
-    session: Arc<Mutex<SftpSession>>,
-    remote_path: &str,
-    local_path: &str,
-    transfer_id: &str,
-    token: &CancellationToken,
-) -> Result<(), String> {
-    // Collect remote files recursively
-    let (_, remote_entries) = {
-        let sftp = session.lock().await;
-        collect_remote_structure(app, transfer_id, &sftp, remote_path, remote_path, true).await?
-    };
-
-    let total: u64 = remote_entries.iter().map(|(_, _, size)| size).sum();
-    let local_base = PathBuf::from(local_path);
-
-    let mut transferred = 0u64;
-    for (remote_abs, rel, _) in &remote_entries {
-        download_into(
-            app,
-            &session,
-            remote_abs,
-            &local_base.join(rel),
-            transfer_id,
-            token,
-            &mut transferred,
-            Some(total),
-        )
-        .await?;
-    }
-    Ok(())
-}
 
 /// Transfer a directory recursively between two remote SFTP sessions.
 #[tauri::command]
@@ -147,160 +21,27 @@ pub async fn sftp_transfer_dir(
     dst_path: String,
     transfer_id: String,
 ) -> Result<(), AppError> {
-    let src_session = get_session(&sftp_state, &src_sftp_id).await?;
-    let dst_session = get_session(&sftp_state, &dst_sftp_id).await?;
+    let src = get_sftp_fs(&sftp_state, &src_sftp_id).await?;
+    let dst = get_sftp_fs(&sftp_state, &dst_sftp_id).await?;
     with_transfer(&sftp_state, &transfer_id.clone(), |token| async move {
-        rr_dir_per_file(
-            &app,
-            src_session,
-            &src_path,
-            dst_session,
-            &dst_path,
-            &transfer_id,
-            &token,
-        )
-        .await
-        .map_err(Into::into)
+        copy_tree(&app, &src, &src_path, &dst, &dst_path, &transfer_id, &token).await
     })
     .await
-}
-
-pub(super) async fn rr_dir_per_file(
-    app: &AppHandle,
-    src_session: Arc<Mutex<SftpSession>>,
-    src_path: &str,
-    dst_session: Arc<Mutex<SftpSession>>,
-    dst_path: &str,
-    transfer_id: &str,
-    token: &CancellationToken,
-) -> Result<(), String> {
-    let (dirs, files): (Vec<String>, Vec<(String, String, u64)>) = {
-        let sftp = src_session.lock().await;
-        collect_remote_structure(app, transfer_id, &sftp, src_path, src_path, false).await?
-    };
-
-    let total: u64 = files.iter().map(|(_, _, size)| size).sum();
-
-    {
-        let sftp = dst_session.lock().await;
-        let _ = sftp.create_dir(dst_path).await;
-        for dir_rel in &dirs {
-            let dst_dir = format!("{}/{}", dst_path.trim_end_matches('/'), dir_rel);
-            let _ = sftp.create_dir(&dst_dir).await;
-        }
-    }
-
-    let mut transferred = 0u64;
-    for (src_abs, rel, _) in &files {
-        if token.is_cancelled() {
-            return Err("Transfer cancelled".into());
-        }
-        let dst_abs = format!("{}/{}", dst_path.trim_end_matches('/'), rel);
-        sftp_rr_file_inner_accum(
-            app,
-            Arc::clone(&src_session),
-            src_abs,
-            Arc::clone(&dst_session),
-            &dst_abs,
-            transfer_id,
-            token,
-            &mut transferred,
-            total,
-        )
-        .await?;
-    }
-    Ok(())
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-fn collect_local_entries(base: &Path) -> Result<(Vec<PathBuf>, Vec<PathBuf>), String> {
-    let mut dirs = Vec::new();
-    let mut files = Vec::new();
-    collect_local_recursive(base, base, &mut dirs, &mut files)?;
-    Ok((dirs, files))
-}
-
-fn collect_local_recursive(
-    base: &Path,
-    current: &Path,
-    dirs: &mut Vec<PathBuf>,
-    files: &mut Vec<PathBuf>,
-) -> Result<(), String> {
-    let entries = std::fs::read_dir(current)
-        .map_err(|e| format!("Cannot read dir {}: {e}", current.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        let rel = path
-            .strip_prefix(base)
-            .map_err(|e| e.to_string())?
-            .to_path_buf();
-        if path.is_dir() {
-            dirs.push(rel);
-            collect_local_recursive(base, &path, dirs, files)?;
-        } else {
-            files.push(rel);
-        }
-    }
-    Ok(())
-}
-
-/// Walk a remote tree, returning its relative directory paths (for pre-creating
-/// dirs) and every file as `(absolute, relative, size)`; `local` as in `skip_unsafe_name`.
-fn collect_remote_structure<'a, E: TransferEvents>(
-    app: &'a E,
-    transfer_id: &'a str,
-    sftp: &'a SftpSession,
-    base: &'a str,
-    current: &'a str,
-    local: bool,
-) -> DirWalkFuture<'a, (Vec<String>, Vec<RemoteEntry>)> {
-    Box::pin(async move {
-        let mut dirs: Vec<String> = Vec::new();
-        let mut files: Vec<(String, String, u64)> = Vec::new();
-        let entries = sftp
-            .read_dir(current)
-            .await
-            .map_err(|e| format!("read_dir failed for {current}: {e}"))?;
-        let cur = current.trim_end_matches('/');
-        for entry in entries {
-            let meta = entry.metadata();
-            let name = entry.file_name();
-            let abs = format!("{cur}/{name}");
-            if skip_unsafe_name(app, transfer_id, &abs, &name, local) {
-                continue;
-            }
-            let rel = abs
-                .strip_prefix(base)
-                .unwrap_or(&abs)
-                .trim_start_matches('/')
-                .to_string();
-            if meta.is_symlink() {
-                continue;
-            }
-            if meta.is_dir() {
-                dirs.push(rel);
-                let (mut child_dirs, mut child_files) =
-                    collect_remote_structure(app, transfer_id, sftp, base, &abs, local).await?;
-                dirs.append(&mut child_dirs);
-                files.append(&mut child_files);
-            } else {
-                files.push((abs, rel, meta.size.unwrap_or(0)));
-            }
-        }
-        Ok((dirs, files))
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::sftp::resume::{endpoint::LocalFs, sftp_fs::SftpFs, walk};
     use crate::sftp::backend::test_tree::{assert_downloaded, children, lookup, Recorder, ROOT};
+    use russh_sftp::client::SftpSession;
     use russh_sftp::protocol::{
         Attrs, Data, File, FileAttributes, Handle, Name, OpenFlags, Status, StatusCode,
     };
     use std::collections::HashSet;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+    use tokio_util::sync::CancellationToken;
 
     /// Serves `test_tree` over SFTP; `listed` ends each directory listing after one batch.
     #[derive(Default)]
@@ -409,10 +150,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dst = tmp.path().join("dst");
 
-        sftp_download_dir_inner(
+        copy_tree(
             &events,
-            session,
+            &SftpFs::detached(session),
             ROOT,
+            &LocalFs,
             &dst.to_string_lossy(),
             "t-sftp",
             &CancellationToken::new(),
@@ -427,13 +169,11 @@ mod tests {
     async fn server_to_server_walk_keeps_names_only_the_local_system_refuses() {
         let session = serve_tree().await;
         let events = Recorder::default();
-        let sftp = session.lock().await;
-
-        let (dirs, files) = collect_remote_structure(&events, "t-rr", &sftp, ROOT, ROOT, false)
+        let (dirs, files) = walk(&events, "t-rr", &SftpFs::detached(session), ROOT, false)
             .await
             .unwrap();
 
-        let mut rels: Vec<&str> = files.iter().map(|(_, rel, _)| rel.as_str()).collect();
+        let mut rels: Vec<&str> = files.iter().map(|f| f.rel.as_str()).collect();
         rels.sort();
         assert_eq!(rels, ["10:30.log", "a\\b", "ok.txt", "sub/inner.txt"]);
         assert_eq!(dirs, ["sub"]);

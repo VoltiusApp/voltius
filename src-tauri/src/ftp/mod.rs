@@ -1,7 +1,7 @@
 //! `FtpBackend`: a `FileBackend` over plain FTP or explicit FTPS (`AUTH TLS`).
 //!
 //! FTP has no shell and no SSH handle, so it never takes the tar/exec or
-//! server-to-server fast paths (`as_sftp_session` stays `None`); the directory
+//! server-to-server fast paths (`sftp_fs` stays `None`); the directory
 //! and batch operations fall back to per-file transfers. Listing leans on
 //! `suppaftp`'s `list::File` parser (POSIX/DOS/MLSx); permissions and symlink
 //! info are best-effort.
