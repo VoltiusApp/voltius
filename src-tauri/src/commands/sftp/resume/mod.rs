@@ -5,12 +5,15 @@ pub(crate) mod sftp_fs;
 use crate::commands::sftp::{pump_chunks, TransferProgress};
 use crate::error::{AppError, ErrorCode};
 use crate::sftp::backend::TransferEvents;
+use crate::sftp::link::LINK_POLL;
 use endpoint::{Endpoint, Listed};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::sync::{LazyLock, Mutex as StdMutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 pub(crate) const OVERLAP: u64 = 64 * 1024;
@@ -145,13 +148,83 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
             }
             Err(e) => e,
         };
+        let err = if ctx.token.is_cancelled() {
+            err
+        } else {
+            match revive(
+                &[src, dst],
+                ctx.events,
+                ctx.transfer_id,
+                ctx.token,
+                ctx.link_wait,
+            )
+            .await
+            {
+                Some(Ok(())) => continue,
+                Some(Err(e)) => e,
+                None => err,
+            }
+        };
         if ctx.token.is_cancelled() {
             if let Some(p) = &part {
-                let _ = dst.remove(p).await;
+                let _ = tokio::time::timeout(Duration::from_secs(2), dst.remove(p)).await;
             }
             return Err(cancelled());
         }
         return Err(err);
+    }
+}
+
+/// Waits (bounded) for every dead link among `ends`; None when none is dead.
+pub(crate) async fn revive<E: TransferEvents>(
+    ends: &[&dyn Endpoint],
+    events: &E,
+    transfer_id: &str,
+    token: &CancellationToken,
+    wait: Duration,
+) -> Option<Result<(), AppError>> {
+    let mut dead = Vec::new();
+    for end in ends {
+        if end.link_dead().await {
+            dead.push(*end);
+        }
+    }
+    if dead.is_empty() {
+        return None;
+    }
+    let waiting = |on: bool| {
+        events.send(
+            &format!("sftp-waiting-{transfer_id}"),
+            serde_json::json!({ "waiting": on }),
+        )
+    };
+    waiting(true);
+    let deadline = Instant::now() + wait;
+    let mut result = Ok(());
+    for end in dead {
+        result = end.wait_for_link(token, deadline).await;
+        if result.is_err() {
+            break;
+        }
+    }
+    waiting(false);
+    Some(result)
+}
+
+async fn unless_lost<T>(
+    work: impl Future<Output = Result<T, AppError>>,
+    ends: &[&dyn Endpoint],
+) -> Result<T, AppError> {
+    tokio::pin!(work);
+    loop {
+        tokio::select! {
+            r = &mut work => return r,
+            _ = tokio::time::sleep(LINK_POLL) => {
+                if ends.iter().any(|e| e.link_lost()) {
+                    return Err(AppError::coded(ErrorCode::ConnectionLost, "Connection lost"));
+                }
+            }
+        }
     }
 }
 
@@ -183,20 +256,23 @@ async fn attempt<E: TransferEvents>(
     ctx.progress();
     let mut reader = src.open_read(src_path, offset).await?;
     let mut writer = dst.open_write(&part_path, offset).await?;
-    pump_chunks(
-        ctx.events,
-        &mut reader,
-        &mut writer,
-        ctx.transfer_id,
-        ctx.token,
-        &mut ctx.transferred,
-        ctx.total,
-    )
-    .await?;
-    writer
-        .shutdown()
-        .await
-        .map_err(|e| AppError::from(format!("Flush error: {e}")))?;
+    let copied = async {
+        pump_chunks(
+            ctx.events,
+            &mut reader,
+            &mut writer,
+            ctx.transfer_id,
+            ctx.token,
+            &mut ctx.transferred,
+            ctx.total,
+        )
+        .await?;
+        writer
+            .shutdown()
+            .await
+            .map_err(|e| AppError::from(format!("Flush error: {e}")))
+    };
+    unless_lost(copied, &[src, dst]).await?;
     drop(reader);
     let now = src.stat(src_path).await?.map(|s| (s.size, s.mtime));
     if now != Some((stat.size, stat.mtime)) {

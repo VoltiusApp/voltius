@@ -75,8 +75,12 @@ impl<H: Handler> SftpLink<H> {
         matches!(self.opener, SftpOpener::Subsystem)
     }
 
+    pub fn closed_now(&self) -> bool {
+        read_cell(&self.handle).is_closed()
+    }
+
     pub async fn dead(&self, session: &Mutex<SftpSession>) -> bool {
-        if read_cell(&self.handle).is_closed() {
+        if self.closed_now() {
             return true;
         }
         let sftp = session.lock().await;
@@ -88,7 +92,7 @@ impl<H: Handler> SftpLink<H> {
     }
 
     async fn revive(&self, session: &Mutex<SftpSession>) -> bool {
-        if read_cell(&self.handle).is_closed() {
+        if self.closed_now() {
             return false;
         }
         let mut sftp = session.lock().await;

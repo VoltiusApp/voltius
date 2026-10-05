@@ -9,6 +9,8 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::net::{TcpListener, TcpStream};
 use tokio::process::ChildStdin;
 use tokio::sync::Mutex;
 
@@ -44,7 +46,6 @@ struct ProcServer {
     refused: usize,
     log: Arc<std::sync::Mutex<ProcLog>>,
     stdins: Arc<Mutex<HashMap<ChannelId, ChildStdin>>>,
-    moved: Arc<AtomicU64>,
 }
 
 pub fn sftp_server_path() -> &'static str {
@@ -56,28 +57,6 @@ pub fn sftp_server_path() -> &'static str {
     .into_iter()
     .find(|p| std::path::Path::new(p).exists())
     .expect("OpenSSH sftp-server missing: apt install openssh-sftp-server")
-}
-
-/// True once the budget is spent; the call that crosses it disconnects the client.
-fn spend(opts: ProcOptions, moved: &AtomicU64, n: usize, handle: &russh::server::Handle) -> bool {
-    let Some(limit) = opts.drop_after_bytes else {
-        return false;
-    };
-    let before = moved.fetch_add(n as u64, Ordering::SeqCst);
-    let after = before + n as u64;
-    if before < limit && after >= limit {
-        let handle = handle.clone();
-        tokio::spawn(async move {
-            let _ = handle
-                .disconnect(
-                    russh::Disconnect::ByApplication,
-                    "test drop".into(),
-                    "en".into(),
-                )
-                .await;
-        });
-    }
-    after >= limit
 }
 
 fn crlf(chunk: &[u8]) -> Vec<u8> {
@@ -149,9 +128,6 @@ impl russh::server::Handler for ProcServer {
         data: &[u8],
         session: &mut Session,
     ) -> Result<(), Self::Error> {
-        if spend(self.opts, &self.moved, data.len(), &session.handle()) {
-            return Ok(());
-        }
         if let Some(stdin) = self.stdins.lock().await.get_mut(&channel) {
             let _ = stdin.write_all(data).await;
         }
@@ -191,12 +167,7 @@ impl ProcServer {
             .await
             .insert(channel, child.stdin.take().unwrap());
         let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
-        let (handle, opts, log, moved) = (
-            session.handle(),
-            self.opts,
-            self.log.clone(),
-            self.moved.clone(),
-        );
+        let (handle, opts, log) = (session.handle(), self.opts, self.log.clone());
         tokio::spawn(async move {
             let errs = handle.clone();
             let err_task = tokio::spawn(async move {
@@ -209,9 +180,6 @@ impl ProcServer {
             });
             let mut b = vec![0u8; 32 * 1024];
             while let Ok(n @ 1..) = out.read(&mut b).await {
-                if spend(opts, &moved, n, &handle) {
-                    break;
-                }
                 let chunk = if opts.crlf {
                     crlf(&b[..n])
                 } else {
@@ -238,6 +206,33 @@ impl ProcServer {
     }
 }
 
+/// A loopback hop that forwards both ways and closes both sockets once `limit` bytes have passed.
+async fn cutting_relay(to: u16, limit: u64) -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        let (client, _) = listener.accept().await.unwrap();
+        let server = TcpStream::connect(("127.0.0.1", to)).await.unwrap();
+        let moved = Arc::new(AtomicU64::new(0));
+        let pipe = |mut r: OwnedReadHalf, mut w: OwnedWriteHalf, moved: Arc<AtomicU64>| async move {
+            let mut buf = vec![0u8; 16 * 1024];
+            while let Ok(n @ 1..) = r.read(&mut buf).await {
+                if moved.fetch_add(n as u64, Ordering::SeqCst) + n as u64 >= limit
+                    || w.write_all(&buf[..n]).await.is_err()
+                {
+                    return;
+                }
+            }
+        };
+        let ((cr, cw), (sr, sw)) = (client.into_split(), server.into_split());
+        tokio::select! {
+            _ = pipe(cr, sw, Arc::clone(&moved)) => {}
+            _ = pipe(sr, cw, moved) => {}
+        }
+    });
+    port
+}
+
 pub async fn proc_server(
     opts: ProcOptions,
 ) -> (
@@ -250,13 +245,15 @@ pub async fn proc_server(
         refused: 0,
         log: log.clone(),
         stdins: Arc::default(),
-        moved: Arc::default(),
     };
     let mut config = russh::server::Config::default();
     if let Some(window) = opts.window {
         config.window_size = window;
     }
-    let port = serve_one(config, server).await;
+    let mut port = serve_one(config, server).await;
+    if let Some(limit) = opts.drop_after_bytes {
+        port = cutting_relay(port, limit).await;
+    }
     let mut handle = russh::client::connect(Default::default(), ("127.0.0.1", port), TestClient)
         .await
         .unwrap();

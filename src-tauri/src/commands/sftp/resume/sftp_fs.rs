@@ -198,6 +198,10 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         (out.code == Some(0)).then(|| parse_sha256(&out.stdout_text()))?
     }
 
+    fn link_lost(&self) -> bool {
+        self.link.as_ref().is_some_and(|l| l.closed_now())
+    }
+
     async fn link_dead(&self) -> bool {
         match &self.link {
             Some(link) => link.dead(&self.session).await,
@@ -220,10 +224,16 @@ impl<H: Handler> Endpoint for SftpFs<H> {
 #[cfg(all(test, unix))]
 pub(crate) mod tests {
     use super::*;
+    use crate::commands::sftp::resume::endpoint::LocalFs;
+    use crate::commands::sftp::resume::engine_tests::{noise, s};
+    use crate::commands::sftp::resume::{copy_one, resumable_copy, CopyCtx};
+    use crate::error::ErrorCode;
     use crate::port_forward::test_ssh::TestClient;
+    use crate::sftp::backend::test_tree::Recorder;
     use crate::sftp::real::SftpOpener;
     use crate::ssh::live_cells::own_cell;
     use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+    use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     pub(crate) async fn sftp_fs(opts: ProcOptions) -> SftpFs<TestClient> {
@@ -295,5 +305,150 @@ pub(crate) mod tests {
             .rename(&a.to_string_lossy(), &b.to_string_lossy())
             .await
             .is_err());
+    }
+
+    fn relink_after(fs: &SftpFs<TestClient>, delay: Duration) -> tokio::task::JoinHandle<()> {
+        let link = Arc::clone(fs.link.as_ref().unwrap());
+        tokio::spawn(async move {
+            while !read_cell(&link.handle).is_closed() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            tokio::time::sleep(delay).await;
+            let (fresh, _) = proc_server(ProcOptions::default()).await;
+            *link.handle.write().unwrap() = fresh;
+        })
+    }
+
+    fn cut_at(bytes: u64) -> ProcOptions {
+        ProcOptions {
+            drop_after_bytes: Some(bytes),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn an_upload_cut_mid_file_resumes_byte_identical() {
+        let fs = sftp_fs(cut_at(3_000_000)).await;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(8_000_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        let relink = relink_after(&fs, Duration::from_millis(200));
+        let rec = Recorder::default();
+        let (src, dst) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        copy_one(
+            &rec,
+            &LocalFs,
+            &src,
+            &fs,
+            &dst,
+            "t",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        relink.await.unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert!(
+            rec.last("sftp-resumed-t").unwrap()["offset"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+        assert_eq!(rec.last("sftp-waiting-t").unwrap()["waiting"], false);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_download_cut_mid_file_resumes_byte_identical() {
+        let fs = sftp_fs(cut_at(3_000_000)).await;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(8_000_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        let relink = relink_after(&fs, Duration::from_millis(200));
+        let (src, dst) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        let rec = Recorder::default();
+        copy_one(
+            &rec,
+            &fs,
+            &src,
+            &LocalFs,
+            &dst,
+            "t",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        relink.await.unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert!(rec.count("sftp-resumed-t") > 0);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_remote_to_remote_copy_cut_on_the_destination_resumes() {
+        let src_fs = sftp_fs(ProcOptions::default()).await;
+        let dst_fs = sftp_fs(cut_at(3_000_000)).await;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(8_000_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        let relink = relink_after(&dst_fs, Duration::from_millis(200));
+        let (src, dst) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        let rec = Recorder::default();
+        copy_one(
+            &rec,
+            &src_fs,
+            &src,
+            &dst_fs,
+            &dst,
+            "t",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        relink.await.unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert!(rec.count("sftp-resumed-t") > 0);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn an_unrelated_target_is_untouched_until_the_verified_swap() {
+        let fs = sftp_fs(cut_at(3_000_000)).await;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), noise(8_000_000)).unwrap();
+        std::fs::write(b.path().join("v"), b"unrelated").unwrap();
+        let rec = Recorder::default();
+        let token = CancellationToken::new();
+        let mut ctx = CopyCtx::new(&rec, "t", &token, 8_000_000);
+        ctx.link_wait = Duration::from_millis(300);
+        let (src, dst) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        let e = resumable_copy(&LocalFs, &src, &fs, &dst, &mut ctx)
+            .await
+            .unwrap_err();
+        assert_eq!(e.code(), Some(ErrorCode::ConnectionLost));
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"unrelated");
+        assert!(std::fs::read_dir(b.path()).unwrap().any(|e| e
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .ends_with(".voltius-part")));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cancel_during_a_dead_link_returns_promptly() {
+        let fs = sftp_fs(cut_at(3_000_000)).await;
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), noise(8_000_000)).unwrap();
+        let token = CancellationToken::new();
+        let rec = Recorder::default();
+        let (src, dst) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        let run = copy_one(&rec, &LocalFs, &src, &fs, &dst, "t", &token);
+        let cancel = async {
+            while rec.count("sftp-waiting-t") == 0 {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            token.cancel();
+            std::time::Instant::now()
+        };
+        let (r, at) = tokio::join!(run, cancel);
+        assert!(r.unwrap_err().to_string().contains("cancelled"));
+        assert!(at.elapsed() < Duration::from_secs(2));
     }
 }

@@ -39,6 +39,10 @@ pub(crate) trait Endpoint: Send + Sync {
     async fn remove(&self, path: &str) -> Result<(), AppError>;
     async fn set_mtime(&self, path: &str, mtime: u64) -> Result<(), AppError>;
     async fn hash(&self, path: &str, token: &CancellationToken) -> Option<String>;
+    /// Cheap check, polled while bytes flow: SFTP write acks never time out on a dead link.
+    fn link_lost(&self) -> bool {
+        false
+    }
     async fn link_dead(&self) -> bool {
         false
     }
