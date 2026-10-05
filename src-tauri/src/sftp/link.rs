@@ -23,10 +23,8 @@ pub struct SftpLink<H: Handler = SshClient> {
     pub closed: CancellationToken,
 }
 
-/// True when the error means the transport under the SFTP session is gone, as
-/// opposed to the server refusing a specific operation. Sleep/hibernate leaves
-/// the session's writer closed ("session closed") or its requests unanswered
-/// (`Timeout`); either way the fix is a new channel, not a different path.
+/// True when the transport under the session is gone (closed writer, unanswered request),
+/// as opposed to the server refusing one operation: the fix is a new channel.
 pub(crate) fn is_transport_dead(e: &SftpError) -> bool {
     match e {
         SftpError::Status(_) | SftpError::Limited(_) => false,

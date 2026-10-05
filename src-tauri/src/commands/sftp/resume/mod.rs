@@ -10,6 +10,7 @@ use crate::sftp::backend::TransferEvents;
 use crate::sftp::link::LINK_POLL;
 use endpoint::{Endpoint, Listed, Stat};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -71,18 +72,11 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
     }
 
     pub fn progress(&self) {
-        self.events.send(
-            &format!("sftp-progress-{}", self.transfer_id),
-            TransferProgress {
-                transferred: self.transferred,
-                total: self.total,
-            },
-        );
-    }
-
-    fn send(&self, kind: &str, payload: serde_json::Value) {
-        self.events
-            .send(&format!("sftp-{kind}-{}", self.transfer_id), payload);
+        let progress = TransferProgress {
+            transferred: self.transferred,
+            total: self.total,
+        };
+        emit(self.events, "progress", self.transfer_id, progress);
     }
 
     async fn landed(&mut self, dst: &dyn Endpoint, path: &str, want: Stat) -> bool {
@@ -276,18 +270,15 @@ pub(crate) async fn revive<E: TransferEvents>(
     token: &CancellationToken,
     wait: Duration,
 ) -> Option<Result<(), AppError>> {
-    let mut dead = Vec::new();
-    for end in ends {
-        if end.link_dead().await {
-            dead.push(*end);
-        }
-    }
+    let dead = dead_ends(ends).await;
     if dead.is_empty() {
         return None;
     }
     let waiting = |on: bool| {
-        events.send(
-            &format!("sftp-waiting-{transfer_id}"),
+        emit(
+            events,
+            "waiting",
+            transfer_id,
             serde_json::json!({ "waiting": on }),
         )
     };
@@ -323,7 +314,7 @@ async fn unless_lost<T>(
                     false
                 } else if last.1.elapsed() >= stall {
                     last.1 = Instant::now();
-                    any_dead(ends).await
+                    !dead_ends(ends).await.is_empty()
                 } else {
                     false
                 };
@@ -335,13 +326,24 @@ async fn unless_lost<T>(
     }
 }
 
-async fn any_dead(ends: &[&dyn Endpoint]) -> bool {
+async fn dead_ends<'a>(ends: &[&'a dyn Endpoint]) -> Vec<&'a dyn Endpoint> {
+    let mut dead = Vec::new();
     for end in ends {
         if end.link_dead().await {
-            return true;
+            dead.push(*end);
         }
     }
-    false
+    dead
+}
+
+/// Sends `sftp-{kind}-{transfer_id}`, the shape every transfer event the queue listens to takes.
+pub(crate) fn emit<E: TransferEvents, S: Serialize + Clone>(
+    events: &E,
+    kind: &str,
+    transfer_id: &str,
+    payload: S,
+) {
+    events.send(&format!("sftp-{kind}-{transfer_id}"), payload);
 }
 
 async fn attempt<E: TransferEvents>(
@@ -366,7 +368,13 @@ async fn attempt<E: TransferEvents>(
     }
     let offset = resume_offset(src, src_path, dst, &part_path, stat.size).await?;
     if offset > 0 {
-        ctx.send("resumed", serde_json::json!({ "offset": base + offset }));
+        let offset = base + offset;
+        emit(
+            ctx.events,
+            "resumed",
+            ctx.transfer_id,
+            serde_json::json!({ "offset": offset }),
+        );
     }
     ctx.transferred = base + offset;
     ctx.progress();

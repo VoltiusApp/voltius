@@ -2,7 +2,7 @@ use super::{
     get_backend, local_tar,
     remote_shell::{RemoteShell, Unreachable},
     resume::{
-        copy_one, copy_tree,
+        copy_one, copy_tree, emit,
         endpoint::Endpoint,
         large::{has_large_local, has_large_remote},
         mark_resume, revive,
@@ -315,8 +315,10 @@ fn endpoints<'a>(fs: &[&'a Option<SftpFs>]) -> Vec<&'a dyn Endpoint> {
 }
 
 fn per_file_accel(events: &impl TransferEvents, transfer_id: &str) {
-    events.send(
-        &format!("sftp-accel-{transfer_id}"),
+    emit(
+        events,
+        "accel",
+        transfer_id,
         serde_json::json!({ "accel": "perFile" }),
     );
 }
