@@ -6,6 +6,7 @@ use russh::server::{Auth, ChannelOpenHandle, Msg as ServerMsg, Session};
 use russh::{Channel, ChannelId};
 use std::collections::HashMap;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::ChildStdin;
@@ -17,6 +18,7 @@ pub struct ProcOptions {
     pub exit_status: bool,
     pub window: Option<u32>,
     pub refuse_channels: usize,
+    pub drop_after_bytes: Option<u64>,
 }
 
 impl Default for ProcOptions {
@@ -26,6 +28,7 @@ impl Default for ProcOptions {
             exit_status: true,
             window: None,
             refuse_channels: 0,
+            drop_after_bytes: None,
         }
     }
 }
@@ -41,6 +44,40 @@ struct ProcServer {
     refused: usize,
     log: Arc<std::sync::Mutex<ProcLog>>,
     stdins: Arc<Mutex<HashMap<ChannelId, ChildStdin>>>,
+    moved: Arc<AtomicU64>,
+}
+
+pub fn sftp_server_path() -> &'static str {
+    [
+        "/usr/lib/openssh/sftp-server",
+        "/usr/libexec/sftp-server",
+        "/usr/libexec/openssh/sftp-server",
+    ]
+    .into_iter()
+    .find(|p| std::path::Path::new(p).exists())
+    .expect("OpenSSH sftp-server missing: apt install openssh-sftp-server")
+}
+
+/// True once the budget is spent; the call that crosses it disconnects the client.
+fn spend(opts: ProcOptions, moved: &AtomicU64, n: usize, handle: &russh::server::Handle) -> bool {
+    let Some(limit) = opts.drop_after_bytes else {
+        return false;
+    };
+    let before = moved.fetch_add(n as u64, Ordering::SeqCst);
+    let after = before + n as u64;
+    if before < limit && after >= limit {
+        let handle = handle.clone();
+        tokio::spawn(async move {
+            let _ = handle
+                .disconnect(
+                    russh::Disconnect::ByApplication,
+                    "test drop".into(),
+                    "en".into(),
+                )
+                .await;
+        });
+    }
+    after >= limit
 }
 
 fn crlf(chunk: &[u8]) -> Vec<u8> {
@@ -87,54 +124,22 @@ impl russh::server::Handler for ProcServer {
         let cmd = String::from_utf8_lossy(data).into_owned();
         self.log.lock().unwrap().ran.push(cmd.clone());
         session.channel_success(channel)?;
-        let mut child = tokio::process::Command::new("sh")
-            .args(["-c", &cmd])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("spawn sh");
-        self.stdins
-            .lock()
-            .await
-            .insert(channel, child.stdin.take().unwrap());
-        let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
-        let (handle, opts, log) = (session.handle(), self.opts, self.log.clone());
-        tokio::spawn(async move {
-            let errs = handle.clone();
-            let err_task = tokio::spawn(async move {
-                let mut b = vec![0u8; 8192];
-                while let Ok(n @ 1..) = err.read(&mut b).await {
-                    let _ = errs
-                        .extended_data(channel, 1, Bytes::copy_from_slice(&b[..n]))
-                        .await;
-                }
-            });
-            let mut b = vec![0u8; 32 * 1024];
-            while let Ok(n @ 1..) = out.read(&mut b).await {
-                let chunk = if opts.crlf {
-                    crlf(&b[..n])
-                } else {
-                    b[..n].to_vec()
-                };
-                if handle.data(channel, Bytes::from(chunk)).await.is_err() {
-                    break;
-                }
-            }
-            let _ = err_task.await;
-            let code = child
-                .wait()
-                .await
-                .ok()
-                .and_then(|s| s.code())
-                .unwrap_or(255);
-            log.lock().unwrap().exited += 1;
-            if opts.exit_status {
-                let _ = handle.exit_status_request(channel, code as u32).await;
-            }
-            let _ = handle.eof(channel).await;
-            let _ = handle.close(channel).await;
-        });
+        self.spawn(channel, &cmd, session).await;
+        Ok(())
+    }
+
+    async fn subsystem_request(
+        &mut self,
+        channel: ChannelId,
+        name: &str,
+        session: &mut Session,
+    ) -> Result<(), Self::Error> {
+        if name != "sftp" {
+            session.channel_failure(channel)?;
+            return Ok(());
+        }
+        session.channel_success(channel)?;
+        self.spawn(channel, sftp_server_path(), session).await;
         Ok(())
     }
 
@@ -142,8 +147,11 @@ impl russh::server::Handler for ProcServer {
         &mut self,
         channel: ChannelId,
         data: &[u8],
-        _session: &mut Session,
+        session: &mut Session,
     ) -> Result<(), Self::Error> {
+        if spend(self.opts, &self.moved, data.len(), &session.handle()) {
+            return Ok(());
+        }
         if let Some(stdin) = self.stdins.lock().await.get_mut(&channel) {
             let _ = stdin.write_all(data).await;
         }
@@ -169,6 +177,67 @@ impl russh::server::Handler for ProcServer {
     }
 }
 
+impl ProcServer {
+    async fn spawn(&mut self, channel: ChannelId, cmd: &str, session: &mut Session) {
+        let mut child = tokio::process::Command::new("sh")
+            .args(["-c", cmd])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("spawn sh");
+        self.stdins
+            .lock()
+            .await
+            .insert(channel, child.stdin.take().unwrap());
+        let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+        let (handle, opts, log, moved) = (
+            session.handle(),
+            self.opts,
+            self.log.clone(),
+            self.moved.clone(),
+        );
+        tokio::spawn(async move {
+            let errs = handle.clone();
+            let err_task = tokio::spawn(async move {
+                let mut b = vec![0u8; 8192];
+                while let Ok(n @ 1..) = err.read(&mut b).await {
+                    let _ = errs
+                        .extended_data(channel, 1, Bytes::copy_from_slice(&b[..n]))
+                        .await;
+                }
+            });
+            let mut b = vec![0u8; 32 * 1024];
+            while let Ok(n @ 1..) = out.read(&mut b).await {
+                if spend(opts, &moved, n, &handle) {
+                    break;
+                }
+                let chunk = if opts.crlf {
+                    crlf(&b[..n])
+                } else {
+                    b[..n].to_vec()
+                };
+                if handle.data(channel, Bytes::from(chunk)).await.is_err() {
+                    break;
+                }
+            }
+            let _ = err_task.await;
+            let code = child
+                .wait()
+                .await
+                .ok()
+                .and_then(|s| s.code())
+                .unwrap_or(255);
+            log.lock().unwrap().exited += 1;
+            if opts.exit_status {
+                let _ = handle.exit_status_request(channel, code as u32).await;
+            }
+            let _ = handle.eof(channel).await;
+            let _ = handle.close(channel).await;
+        });
+    }
+}
+
 pub async fn proc_server(
     opts: ProcOptions,
 ) -> (
@@ -181,6 +250,7 @@ pub async fn proc_server(
         refused: 0,
         log: log.clone(),
         stdins: Arc::default(),
+        moved: Arc::default(),
     };
     let mut config = russh::server::Config::default();
     if let Some(window) = opts.window {
@@ -198,6 +268,38 @@ pub async fn proc_server(
 mod tests {
     use super::*;
     use crate::ssh::exec::{drain_channel, open_exec, run_captured, run_captured_with_stdin};
+
+    #[tokio::test]
+    async fn the_sftp_subsystem_serves_the_local_filesystem() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a");
+        std::fs::write(&file, b"hello").unwrap();
+        let channel = handle.channel_open_session().await.unwrap();
+        channel.request_subsystem(true, "sftp").await.unwrap();
+        let sftp = russh_sftp::client::SftpSession::new(channel.into_stream())
+            .await
+            .unwrap();
+        assert_eq!(sftp.read(file.to_str().unwrap()).await.unwrap(), b"hello");
+    }
+
+    #[tokio::test]
+    async fn the_link_drops_after_the_byte_budget() {
+        let (handle, _) = proc_server(ProcOptions {
+            drop_after_bytes: Some(100_000),
+            ..Default::default()
+        })
+        .await;
+        let out = run_captured(&handle, "head -c 1000000 /dev/zero").await;
+        assert!(out.map_or(true, |o| o.stdout.len() < 1_000_000));
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while !handle.is_closed() {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("connection still open after the budget");
+    }
 
     #[tokio::test]
     async fn runs_the_command_with_its_stdio() {
