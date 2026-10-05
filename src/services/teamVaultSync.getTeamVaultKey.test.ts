@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
 const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), getUserPublicKey: vi.fn(), unwrap: vi.fn() }));

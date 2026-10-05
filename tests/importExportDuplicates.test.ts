@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { existingConnectionsForVault } from "../src/services/import-export/context.ts";
 

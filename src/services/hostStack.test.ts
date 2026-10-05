@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";

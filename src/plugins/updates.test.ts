@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { compareSemver, availableUpdate, availableSeededUpdate, addedPermissions } from "./updates";
 import type { InstalledPluginMeta, MarketplacePlugin } from "@/stores/marketplaceStore";

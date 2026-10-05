@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import { TeamSecretUploadError } from "@/services/secretRouting";
 import type { Connection } from "@/types";

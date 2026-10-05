@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi } from "vitest";
 import { pasteFromClipboard, runPaste, type ClipboardAdapter } from "./vaultClipboard";
 import type { VaultClipboard } from "@/stores/vaultClipboardStore";

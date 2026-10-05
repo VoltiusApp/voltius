@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, beforeEach, vi } from "vitest";
 
 const STORAGE_KEY = "voltius-recent-people";

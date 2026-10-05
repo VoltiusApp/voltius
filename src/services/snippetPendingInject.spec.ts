@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Snippet, TerminalSession } from "@/types";
 import type { SnippetPendingInject } from "./snippetRunCore";

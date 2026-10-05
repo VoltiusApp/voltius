@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { PERM_BITS } from "@/services/permissions";

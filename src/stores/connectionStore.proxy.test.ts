@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import { connectionFromForm, connectionToFormData } from "./connectionStore";
 import type { Connection, ConnectionFormData } from "@/types";

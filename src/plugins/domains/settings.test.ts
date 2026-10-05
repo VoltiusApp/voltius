@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, test } from "vitest";
 import { getSetting, listSettings, setSetting, settingConsequence } from "./settings";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import type { SettingsPage } from "@/plugins/api";
 import { pluginNavChildren, type NavPluginInfo } from "@/components/settings/settingsPluginNav";

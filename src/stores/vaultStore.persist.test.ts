@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi } from "vitest";
 
 vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));

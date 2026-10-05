@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
 import i18n from "@/i18n";
 import { GUARDED, settingDef, settingDefs } from "./settingsManifest";

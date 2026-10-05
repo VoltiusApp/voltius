@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Connection, Snippet } from "@/types";
 import type { SequencePrompt, SequenceRunResult } from "./snippetSequence";

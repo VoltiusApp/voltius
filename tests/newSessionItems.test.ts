@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { selectRecentHosts, partitionLauncherHosts } from "../src/components/layout/newSessionItems.ts";
 import type { Connection } from "../src/types/index.ts";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
 // This file deliberately does NOT mock @/plugins/runtime — installPlugin's

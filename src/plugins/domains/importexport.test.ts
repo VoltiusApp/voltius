@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const conn = { id: "c1", name: "web", host: "h", port: 22, username: "u", vault_id: "personal" };

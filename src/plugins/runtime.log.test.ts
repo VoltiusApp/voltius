@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi } from "vitest";
 
 const appLog = vi.hoisted(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }));

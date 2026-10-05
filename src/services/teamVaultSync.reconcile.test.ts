@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 
 // Reconciliation (issue #41): a key-holder detects team members who have joined

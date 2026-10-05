@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import type { PluginAPI, PluginManifest } from "@/plugins/api";
 

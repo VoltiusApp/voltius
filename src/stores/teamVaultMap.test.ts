@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, beforeEach, describe, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ saveTeamVaultObject: vi.fn(async (_t: string, _k: string, _i: unknown) => {}) }));

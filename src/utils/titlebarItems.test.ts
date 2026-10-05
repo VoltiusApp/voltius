@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { TerminalSession } from "@/types";
 import type { SplitTab } from "@/stores/layoutStore";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { formatPermissions, formatSize, formatModified } from "./SFTPTypes.ts";
 import { test } from "vitest";
 

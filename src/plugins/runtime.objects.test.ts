@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Connection, Folder, Snippet, SshKey } from "@/types";
 import { createHostPluginAPI } from "./runtime";

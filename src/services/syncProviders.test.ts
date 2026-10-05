@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import type { PluginManifest, SettingsPage } from "@/plugins/api";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";

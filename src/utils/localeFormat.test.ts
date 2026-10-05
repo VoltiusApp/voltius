@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, expect, test } from "vitest";
 import i18n from "@/i18n";
 import { compareStrings, formatDate, formatNumber, formatRelative, SHORT_DATE } from "./localeFormat";

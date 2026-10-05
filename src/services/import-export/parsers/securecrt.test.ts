@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@/lib/invoke";
 import { detectFormat, isLocked } from "../formats";

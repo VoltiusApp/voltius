@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, beforeEach } from "vitest";
 import { useSyncPrefsStore, SYNC_SETTING_DOMAINS } from "./syncPrefsStore";
 import { USER_DATA_HANDLERS } from "@/services/user-data/registry";

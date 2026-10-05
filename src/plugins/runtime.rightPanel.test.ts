@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, afterEach, beforeEach } from "vitest";
 import { loadPlugin, unloadPlugin, setPluginActive } from "./runtime";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";

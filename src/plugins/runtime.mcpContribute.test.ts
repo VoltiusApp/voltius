@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createHostPluginAPI, loadPlugin, unloadPlugin, setPluginActive } from "./runtime";
 import { listContributions, clearContributions } from "@/mcp/contributions";

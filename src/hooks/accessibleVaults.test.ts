@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect } from "vitest";
 import { deriveAccessibleVaultIds, deriveScopedVaultId, deriveOrphanVaultIds } from "./accessibleVaults";
 import type { Vault } from "@/stores/vaultStore";

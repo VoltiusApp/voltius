@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import type { Connection, Folder, VaultOption } from "@/types";
 import { hostPickerRows, type HostPickerRow } from "./hostPickerTree";

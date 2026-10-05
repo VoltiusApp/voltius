@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, expect, test } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useUIContributionStore } from "@/stores/uiContributionStore";

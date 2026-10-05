@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { Snippet, SnippetFormData } from "@/types";
 import type { ExportBundle, SnippetExport } from "../formats";

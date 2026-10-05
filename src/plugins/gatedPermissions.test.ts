@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, it, expect } from "vitest";
 import i18n from "@/i18n";
 import {

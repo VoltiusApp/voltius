@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { bundleFromTermius } from "./termius.ts";
 
 // Snapshot fixture shape matches what the Rust extractor returns:

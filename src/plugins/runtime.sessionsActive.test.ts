@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
 
 const state = {

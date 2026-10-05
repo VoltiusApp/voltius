@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { formatTransferProgress } from "./SFTPTypes.ts";
 import type { Transfer } from "./SFTPTypes.ts";
 import { test } from "vitest";

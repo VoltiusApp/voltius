@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
 import i18n from "@/i18n";
 import en from "@/i18n/locales/en/errors.json";
