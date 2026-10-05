@@ -36,6 +36,7 @@ export function visibleDataColumns(withPermissions: boolean, visibleCols: Visibl
  *  clipping the right-hand columns (and their resize handles) out of reach. */
 export function columnGrid(withPermissions: boolean, visibleCols: VisibleCols, colWidths: ColumnWidths): { template: string; minWidth: number } {
   const dataColumns = visibleDataColumns(withPermissions, visibleCols);
+  if (dataColumns.length === 0) return { template: "minmax(0, 1fr)", minWidth: 0 };
   const template = [`minmax(${colWidths.name}px, 1fr)`, ...dataColumns.map((col) => `${colWidths[col]}px`)].join(" ");
   const minWidth = dataColumns.reduce((sum, col) => sum + colWidths[col] + COLUMN_GAP, colWidths.name);
   return { template, minWidth };
