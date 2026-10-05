@@ -5,6 +5,7 @@ import { type Transfer, formatSize, formatTransferProgress } from "./SFTPTypes";
 import { canRetryTransfer } from "@/stores/transferQueueStore";
 import { AcceleratedBadge } from "./AcceleratedBadge";
 import { PerFileBadge } from "./PerFileBadge";
+import { ResumedBadge } from "./ResumedBadge";
 import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 
 export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRetry, collapsible = false }: {
@@ -44,6 +45,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
     if (transfer.status === "done") return t("fileTransfer.queue.status.done");
     if (transfer.status === "error") return t("fileTransfer.queue.status.error");
     if (transfer.status === "cancelled") return t("fileTransfer.queue.status.cancelled");
+    if (transfer.waiting) return t("fileTransfer.queue.waiting");
     return formatTransferProgress(transfer);
   }
 
@@ -149,6 +151,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
                       <Icon icon={icon} width={12} className={`${spin ? "animate-spin" : ""} shrink-0`} style={{ color }} />
                       {tr.accel === "tar" && <AcceleratedBadge />}
                       {tr.accel === "perFile" && <PerFileBadge />}
+                      {tr.resumedAt != null && <ResumedBadge at={tr.resumedAt} />}
                       <span className="text-xs truncate text-(--t-text-primary)">{tr.direction} {tr.label}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
