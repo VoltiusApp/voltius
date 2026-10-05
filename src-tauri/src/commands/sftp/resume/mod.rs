@@ -1,4 +1,6 @@
+pub(crate) mod endpoint;
 pub(crate) mod names;
+pub(crate) mod sftp_fs;
 
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex as StdMutex};

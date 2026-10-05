@@ -7,8 +7,10 @@ use russh_sftp::protocol::OpenFlags;
 use serde::Serialize;
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
 use std::sync::Arc;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -190,6 +192,34 @@ impl Deref for SftpFile {
 impl DerefMut for SftpFile {
     fn deref_mut(&mut self) -> &mut File {
         self.file.as_mut().expect("SftpFile used after close")
+    }
+}
+
+impl AsyncRead for SftpFile {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut **self.get_mut()).poll_read(cx, buf)
+    }
+}
+
+impl AsyncWrite for SftpFile {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Pin::new(&mut **self.get_mut()).poll_write(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut **self.get_mut()).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut **self.get_mut()).poll_shutdown(cx)
     }
 }
 
