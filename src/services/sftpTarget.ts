@@ -27,8 +27,9 @@ export async function resolveSftpIdForTarget(target: RunTarget): Promise<string>
   return connectFileBackend(target.connection, genId());
 }
 
-/** `interactive`: only a caller that renders the host-key conflict overlay for `connectId`. */
-export async function connectFileBackend(conn: Connection, connectId: string, interactive = false): Promise<string> {
+/** `interactive`: only a caller that renders the host-key conflict overlay for `connectId`.
+ *  `relink`: a lost SFTP session to reconnect into (SFTP only). */
+export async function connectFileBackend(conn: Connection, connectId: string, interactive = false, relink?: string): Promise<string> {
   if (conn.connection_type === "ftp") {
     const creds = await resolveConnectionCredentials(conn);
     return ftpConnect({ host: conn.host, port: conn.port, username: creds.username, password: creds.password, secure: !!conn.ftp_secure });
@@ -37,10 +38,10 @@ export async function connectFileBackend(conn: Connection, connectId: string, in
     const [creds, proxy] = await Promise.all([resolveConnectionCredentials(conn), resolveFirstHopProxy(conn)]);
     return webdavConnect({ connectId, url: conn.webdav_url ?? "", username: creds.username, password: creds.password, proxy, interactive });
   }
-  return sftpConnectToConnection(conn, connectId);
+  return sftpConnectToConnection(conn, connectId, relink);
 }
 
-export async function sftpConnectToConnection(conn: Connection, connectId: string): Promise<string> {
+export async function sftpConnectToConnection(conn: Connection, connectId: string, relink?: string): Promise<string> {
   const [creds, jumpHosts, proxy] = await Promise.all([
     resolveConnectionCredentials(conn),
     resolveJumpHosts(conn),
@@ -58,6 +59,7 @@ export async function sftpConnectToConnection(conn: Connection, connectId: strin
     jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
     keepaliveIntervalSecs: ka.intervalSecs,
     keepaliveMax: ka.max,
+    relink,
     legacyAlgorithms: conn.legacy_algorithms,
     proxy,
   });

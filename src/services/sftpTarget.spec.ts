@@ -94,6 +94,19 @@ describe("connectFileBackend", () => {
     });
   });
 
+  it("asks SFTP to reconnect into the lost session id", async () => {
+    sftpConnect.mockResolvedValue("s1");
+    await expect(connectFileBackend(conn({}), "k", true, "s1")).resolves.toBe("s1");
+    expect(sftpConnect.mock.calls[0][0].relink).toBe("s1");
+  });
+
+  it("never relinks FTP or WebDAV", async () => {
+    await connectFileBackend(conn({ connection_type: "ftp", port: 21 }), "k", true, "s1");
+    await connectFileBackend(conn({ connection_type: "webdav", webdav_url: "https://h/" }), "k", true, "s1");
+    expect(ftpConnect.mock.calls[0][0]).not.toHaveProperty("relink");
+    expect(webdavConnect.mock.calls[0][0]).not.toHaveProperty("relink");
+  });
+
   it("is non-interactive unless asked", async () => {
     await connectFileBackend(conn({ connection_type: "webdav", webdav_url: "https://h/dav/" }), "k");
     expect(webdavConnect.mock.calls[0][0].interactive).toBe(false);

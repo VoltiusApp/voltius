@@ -45,7 +45,7 @@ export type SidePhase =
   | { tag: "picking" }
   | { tag: "connecting"; connectId: string; host: HostChoice }
   | { tag: "connected"; sftpId: string | null; cwd: string; selected: FileEntry[] }
-  | { tag: "error"; message: string; errorCode?: BackendErrorCode; final?: boolean; host?: HostChoice };
+  | { tag: "error"; message: string; errorCode?: BackendErrorCode; final?: boolean; host?: HostChoice; lostSftpId?: string };
 
 export type Transfer = {
   id: string; label: string; direction: "→" | "←";

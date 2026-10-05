@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { invoke } from "@/lib/invoke";
@@ -21,6 +21,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { connectFileBackend } from "@/services/sftpTarget";
+import { idToRelease, relinkOf } from "./sideRelink";
 import { cancelKnownHostPrompt } from "@/services/knownHosts";
 import { connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
 import {
@@ -43,6 +44,26 @@ import { EditorDropOverlay } from "./editor/EditorDropOverlay";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
 
 type Side = "left" | "right";
+
+/** Turn a side's `sftp-closed` event into an error phase that remembers the lost
+ *  session, so the reconnect relinks into it and its transfers resume. */
+function useConnectionLoss(
+  phase: SidePhase,
+  setPhase: Dispatch<SetStateAction<SidePhase>>,
+  host: HostChoice | null,
+) {
+  const { t } = useTranslation();
+  const sftpId = phase.tag === "connected" ? phase.sftpId : null;
+  useEffect(() => {
+    if (!sftpId) return;
+    const unlisten = listen(`sftp-closed-${sftpId}`, () => {
+      setPhase((p) => p.tag === "connected" && p.sftpId === sftpId
+        ? { tag: "error", message: t("fileTransfer.page.connectionLost"), host: host ?? undefined, lostSftpId: sftpId }
+        : p);
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [sftpId, host, setPhase, t]);
+}
 
 export default function SFTPPage() {
   const { t } = useTranslation();
@@ -68,13 +89,15 @@ export default function SFTPPage() {
   const shownSftp = useRef<Record<Side, string | null>>({ left: null, right: null });
   const opening = useRef<Record<Side, string | null>>({ left: null, right: null });
 
-  const releaseSide = useCallback((side: Side) => {
+  const releaseSide = useCallback((side: Side, keep?: string) => {
     currentConnect.current[side] = null;
     const openingId = opening.current[side];
     opening.current[side] = null;
-    const sftpId = shownSftp.current[side];
-    shownSftp.current[side] = null;
-    if (sftpId) sftpClose(sftpId).catch(() => {});
+    const sftpId = idToRelease(shownSftp.current[side], keep);
+    if (sftpId) {
+      shownSftp.current[side] = null;
+      sftpClose(sftpId).catch(() => {});
+    }
     // A certificate prompt nobody can answer any more would hold the connect forever.
     if (openingId) cancelKnownHostPrompt(openingId).catch(() => {});
   }, []);
@@ -85,8 +108,8 @@ export default function SFTPPage() {
 
   const setPhaseOf = useCallback((side: Side) => (side === "left" ? setLeftPhase : setRightPhase), []);
 
-  const connectSide = useCallback(async (host: HostChoice, side: Side) => {
-    releaseSide(side);
+  const connectSide = useCallback(async (host: HostChoice, side: Side, relink?: string) => {
+    releaseSide(side, relink);
     const setPhase = setPhaseOf(side);
     const connectId = genId();
     currentConnect.current[side] = connectId;
@@ -100,21 +123,22 @@ export default function SFTPPage() {
       } else {
         opening.current[side] = connectId;
         try {
-          sftpId = await connectFileBackend(host.connection, connectId, true);
+          sftpId = await connectFileBackend(host.connection, connectId, true, relink);
         } finally {
           if (opening.current[side] === connectId) opening.current[side] = null;
         }
         if (isCurrent()) cwd = await sftpCanonicalize(sftpId, ".");
       }
       if (!isCurrent()) {
-        if (sftpId) sftpClose(sftpId).catch(() => {});
+        if (sftpId && sftpId !== relink) sftpClose(sftpId).catch(() => {});
         return;
       }
+      if (relink && sftpId !== relink) sftpClose(relink).catch(() => {});
       shownSftp.current[side] = sftpId;
       setPhase({ tag: "connected", sftpId, cwd, selected: [] });
     } catch (e) {
-      if (sftpId) sftpClose(sftpId).catch(() => {});
-      if (isCurrent()) setPhase({ ...connectErrorPhase(e), host });
+      if (sftpId && sftpId !== relink) sftpClose(sftpId).catch(() => {});
+      if (isCurrent()) setPhase({ ...connectErrorPhase(e), host, lostSftpId: relink });
     }
   }, [setPhaseOf, releaseSide]);
 
@@ -136,34 +160,15 @@ export default function SFTPPage() {
   // ── Auto-reconnect on error ────────────────────────────────────────────────
 
   const reconnectSide = (side: Side, phase: SidePhase) => () => {
-    if (phase.tag === "error" && phase.host) void connectSide(phase.host, side);
+    if (phase.tag === "error" && phase.host) void connectSide(phase.host, side, relinkOf(phase));
   };
   useConnectRetry(leftPhase, reconnectSide("left", leftPhase), leftHost);
   useConnectRetry(rightPhase, reconnectSide("right", rightPhase), rightHost);
 
   // ── Detect remote connection loss via Rust sftp-closed event ──────────────
 
-  useEffect(() => {
-    if (leftPhase.tag !== "connected" || !leftPhase.sftpId) return;
-    const sftpId = leftPhase.sftpId;
-    const unlisten = listen(`sftp-closed-${sftpId}`, () => {
-      setLeftPhase((p) => p.tag === "connected" && p.sftpId === sftpId
-        ? { tag: "error", message: t("fileTransfer.page.connectionLost"), host: leftHost ?? undefined }
-        : p);
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  }, [leftPhase.tag === "connected" ? leftPhase.sftpId : null, leftHost]);
-
-  useEffect(() => {
-    if (rightPhase.tag !== "connected" || !rightPhase.sftpId) return;
-    const sftpId = rightPhase.sftpId;
-    const unlisten = listen(`sftp-closed-${sftpId}`, () => {
-      setRightPhase((p) => p.tag === "connected" && p.sftpId === sftpId
-        ? { tag: "error", message: t("fileTransfer.page.connectionLost"), host: rightHost ?? undefined }
-        : p);
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  }, [rightPhase.tag === "connected" ? rightPhase.sftpId : null, rightHost]);
+  useConnectionLoss(leftPhase, setLeftPhase, leftHost);
+  useConnectionLoss(rightPhase, setRightPhase, rightHost);
 
   // ── Transfers ──────────────────────────────────────────────────────────────
 
