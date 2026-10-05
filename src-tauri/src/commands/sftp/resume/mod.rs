@@ -1,4 +1,5 @@
 pub(crate) mod endpoint;
+pub(crate) mod large;
 pub(crate) mod names;
 pub(crate) mod sftp_fs;
 
@@ -472,12 +473,10 @@ async fn sweep<E: TransferEvents>(
 #[cfg(test)]
 pub(crate) mod engine_tests {
     use super::*;
-    use crate::commands::sftp::resume::endpoint::{
-        Endpoint, Listed, LocalFs, Reader, Stat, Writer,
-    };
+    use crate::commands::sftp::resume::endpoint::tests_support::TestFs;
+    use crate::commands::sftp::resume::endpoint::{Endpoint, LocalFs};
     use crate::error::{AppError, ErrorCode};
     use crate::sftp::backend::test_tree::Recorder;
-    use std::sync::Mutex as StdMutex;
     use tokio_util::sync::CancellationToken;
 
     pub(crate) fn noise(len: usize) -> Vec<u8> {
@@ -613,75 +612,15 @@ pub(crate) mod engine_tests {
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"original");
     }
 
-    /// LocalFs whose `rename` fails on the given call numbers (1-based).
-    pub(crate) struct FailingRename {
-        fail_on: Vec<usize>,
-        calls: StdMutex<usize>,
-    }
-
-    impl FailingRename {
-        pub(crate) fn new(fail_on: Vec<usize>) -> Self {
-            Self {
-                fail_on,
-                calls: StdMutex::new(0),
-            }
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl Endpoint for FailingRename {
-        fn is_local(&self) -> bool {
-            true
-        }
-        fn split(&self, p: &str) -> (String, String) {
-            LocalFs.split(p)
-        }
-        fn join(&self, d: &str, r: &str) -> String {
-            LocalFs.join(d, r)
-        }
-        async fn stat(&self, p: &str) -> Result<Option<Stat>, AppError> {
-            LocalFs.stat(p).await
-        }
-        async fn list(&self, d: &str) -> Result<Vec<Listed>, AppError> {
-            LocalFs.list(d).await
-        }
-        async fn mkdir(&self, p: &str) -> Result<(), AppError> {
-            LocalFs.mkdir(p).await
-        }
-        async fn open_read(&self, p: &str, o: u64) -> Result<Reader, AppError> {
-            LocalFs.open_read(p, o).await
-        }
-        async fn open_write(&self, p: &str, o: u64) -> Result<Writer, AppError> {
-            LocalFs.open_write(p, o).await
-        }
-        async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
-            let n = {
-                let mut c = self.calls.lock().unwrap();
-                *c += 1;
-                *c
-            };
-            if self.fail_on.contains(&n) {
-                return Err("rename refused".into());
-            }
-            LocalFs.rename(from, to).await
-        }
-        async fn remove(&self, p: &str) -> Result<(), AppError> {
-            LocalFs.remove(p).await
-        }
-        async fn set_mtime(&self, p: &str, m: u64) -> Result<(), AppError> {
-            LocalFs.set_mtime(p, m).await
-        }
-        async fn hash(&self, p: &str, t: &CancellationToken) -> Option<String> {
-            LocalFs.hash(p, t).await
-        }
-    }
-
     #[tokio::test]
     async fn a_failed_swap_puts_the_original_back() {
         let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         std::fs::write(a.path().join("v"), b"new").unwrap();
         std::fs::write(b.path().join("v"), b"original").unwrap();
-        let dst = FailingRename::new(vec![2]);
+        let dst = TestFs {
+            fail_renames: vec![2],
+            ..Default::default()
+        };
         let r = copy_local(
             &Recorder::default(),
             &a.path().join("v"),
@@ -706,7 +645,10 @@ pub(crate) mod engine_tests {
         let fp = names::fingerprint(&s(&src), st.size, st.mtime);
         let old = names::temp_name("v", &fp, names::OLD_EXT);
         std::fs::write(b.path().join(old), b"original").unwrap();
-        let dst = FailingRename::new(vec![3]);
+        let dst = TestFs {
+            fail_renames: vec![3],
+            ..Default::default()
+        };
         let _ = copy_local(
             &Recorder::default(),
             &src,
@@ -816,59 +758,16 @@ pub(crate) mod engine_tests {
         assert_eq!(rec.last("sftp-resumed-t").unwrap()["offset"], 500_000);
     }
 
-    /// LocalFs whose `hash` lies once: a splice the overlap check could not see.
-    pub(crate) struct LyingHash(StdMutex<bool>);
-
-    #[async_trait::async_trait]
-    impl Endpoint for LyingHash {
-        fn is_local(&self) -> bool {
-            true
-        }
-        fn split(&self, p: &str) -> (String, String) {
-            LocalFs.split(p)
-        }
-        fn join(&self, d: &str, r: &str) -> String {
-            LocalFs.join(d, r)
-        }
-        async fn stat(&self, p: &str) -> Result<Option<Stat>, AppError> {
-            LocalFs.stat(p).await
-        }
-        async fn list(&self, d: &str) -> Result<Vec<Listed>, AppError> {
-            LocalFs.list(d).await
-        }
-        async fn mkdir(&self, p: &str) -> Result<(), AppError> {
-            LocalFs.mkdir(p).await
-        }
-        async fn open_read(&self, p: &str, o: u64) -> Result<Reader, AppError> {
-            LocalFs.open_read(p, o).await
-        }
-        async fn open_write(&self, p: &str, o: u64) -> Result<Writer, AppError> {
-            LocalFs.open_write(p, o).await
-        }
-        async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
-            LocalFs.rename(from, to).await
-        }
-        async fn remove(&self, p: &str) -> Result<(), AppError> {
-            LocalFs.remove(p).await
-        }
-        async fn set_mtime(&self, p: &str, m: u64) -> Result<(), AppError> {
-            LocalFs.set_mtime(p, m).await
-        }
-        async fn hash(&self, p: &str, t: &CancellationToken) -> Option<String> {
-            if !std::mem::replace(&mut *self.0.lock().unwrap(), true) {
-                return Some("0".repeat(64));
-            }
-            LocalFs.hash(p, t).await
-        }
-    }
-
     #[tokio::test]
     async fn a_hash_mismatch_discards_the_part_and_copies_again_once() {
         let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         let data = noise(2_000_000);
         std::fs::write(a.path().join("v"), &data).unwrap();
         seed_part(&a.path().join("v"), b.path(), "v", &data[..1_000_000]).await;
-        let dst = LyingHash(StdMutex::new(false));
+        let dst = TestFs {
+            lie_hash_once: true,
+            ..Default::default()
+        };
         let rec = Recorder::default();
         copy_local(
             &rec,
@@ -880,7 +779,7 @@ pub(crate) mod engine_tests {
         .await
         .unwrap();
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
-        assert!(*dst.0.lock().unwrap(), "the hash was consulted");
+        assert!(dst.state.lock().unwrap().lied, "the hash was consulted");
     }
 
     #[tokio::test(flavor = "multi_thread")]

@@ -514,17 +514,17 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
         tokio::select! {
             biased;
             early = &mut put => match early {
-                Err(e) => Err(e.into()),
+                Err(e) => Err(e),
                 Ok(_) => pump.await.map_err(Into::into),
             },
             result = &mut pump => match result {
                 Err(e) if token.is_cancelled() => Err(e.into()),
                 // The server's refusal can land just after the broken pipe it causes.
                 Err(e) => match tokio::time::timeout(REFUSAL_GRACE, &mut put).await {
-                    Ok(Err(refused)) => Err(refused.into()),
+                    Ok(Err(refused)) => Err(refused),
                     _ => Err(e.into()),
                 },
-                Ok(()) => put.await.map(|_| ()).map_err(Into::into),
+                Ok(()) => put.await.map(|_| ()),
             },
         }
     }
@@ -872,7 +872,7 @@ mod tests {
         )
         .await
         .expect("upload hung after the server refused it");
-        let err = AppError::from(result.unwrap_err());
+        let err = result.unwrap_err();
         assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
     }
 
@@ -888,8 +888,8 @@ mod tests {
             ])
             .await;
             let b = backend(port).await.unwrap();
-            let err = AppError::from(
-                b.upload_file(
+            let err = b
+                .upload_file(
                     &Recorder::default(),
                     &local.to_string_lossy(),
                     "/big.bin",
@@ -897,8 +897,7 @@ mod tests {
                     &CancellationToken::new(),
                 )
                 .await
-                .unwrap_err(),
-            );
+                .unwrap_err();
             assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
         }
     }

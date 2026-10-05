@@ -226,6 +226,92 @@ impl Endpoint for LocalFs {
 }
 
 #[cfg(test)]
+pub(crate) mod tests_support {
+    use super::*;
+    use std::sync::Mutex;
+
+    /// LocalFs with faults: renames that fail by call number, a hash that lies once,
+    /// a link that reads dead until waited on.
+    #[derive(Default)]
+    pub(crate) struct TestFs {
+        pub fail_renames: Vec<usize>,
+        pub lie_hash_once: bool,
+        pub dead_until_waited: bool,
+        pub state: Mutex<TestState>,
+    }
+
+    #[derive(Default)]
+    pub(crate) struct TestState {
+        pub renames: usize,
+        pub lied: bool,
+        pub waited: bool,
+    }
+
+    #[async_trait]
+    impl Endpoint for TestFs {
+        fn is_local(&self) -> bool {
+            true
+        }
+        fn split(&self, p: &str) -> (String, String) {
+            LocalFs.split(p)
+        }
+        fn join(&self, d: &str, r: &str) -> String {
+            LocalFs.join(d, r)
+        }
+        async fn stat(&self, p: &str) -> Result<Option<Stat>, AppError> {
+            LocalFs.stat(p).await
+        }
+        async fn list(&self, d: &str) -> Result<Vec<Listed>, AppError> {
+            LocalFs.list(d).await
+        }
+        async fn mkdir(&self, p: &str) -> Result<(), AppError> {
+            LocalFs.mkdir(p).await
+        }
+        async fn open_read(&self, p: &str, o: u64) -> Result<Reader, AppError> {
+            LocalFs.open_read(p, o).await
+        }
+        async fn open_write(&self, p: &str, o: u64) -> Result<Writer, AppError> {
+            LocalFs.open_write(p, o).await
+        }
+        async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
+            let n = {
+                let mut st = self.state.lock().unwrap();
+                st.renames += 1;
+                st.renames
+            };
+            if self.fail_renames.contains(&n) {
+                return Err("rename refused".into());
+            }
+            LocalFs.rename(from, to).await
+        }
+        async fn remove(&self, p: &str) -> Result<(), AppError> {
+            LocalFs.remove(p).await
+        }
+        async fn set_mtime(&self, p: &str, m: u64) -> Result<(), AppError> {
+            LocalFs.set_mtime(p, m).await
+        }
+        async fn hash(&self, p: &str, t: &CancellationToken) -> Option<String> {
+            if self.lie_hash_once && !std::mem::replace(&mut self.state.lock().unwrap().lied, true)
+            {
+                return Some("0".repeat(64));
+            }
+            LocalFs.hash(p, t).await
+        }
+        async fn link_dead(&self) -> bool {
+            self.dead_until_waited && !self.state.lock().unwrap().waited
+        }
+        async fn wait_for_link(
+            &self,
+            _token: &CancellationToken,
+            _deadline: Instant,
+        ) -> Result<(), AppError> {
+            self.state.lock().unwrap().waited = true;
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};

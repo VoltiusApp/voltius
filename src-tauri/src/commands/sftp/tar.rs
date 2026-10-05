@@ -1,7 +1,14 @@
 use super::{
-    get_backend, get_sftp_fs, local_tar,
+    get_backend, local_tar,
     remote_shell::{RemoteShell, Unreachable},
-    resume::{copy_one, copy_tree},
+    resume::{
+        copy_one, copy_tree,
+        endpoint::Endpoint,
+        large::{has_large_local, has_large_remote},
+        mark_resume, revive,
+        sftp_fs::SftpFs,
+        LARGE_FILE, LINK_WAIT,
+    },
     run_backend_transfer,
     stream::{self, Job, LocalSide, RemoteEnd},
     with_transfer, TarHost,
@@ -253,61 +260,134 @@ async fn relay_or_per_file(
         get_backend(manager, src_id).await?,
         get_backend(manager, dst_id).await?,
     );
+    let (src_fs, dst_fs) = (src.sftp_fs(), dst.sftp_fs());
     let (parent, items) = remote_items(paths);
-    if let (Some(s), Some(d)) = tokio::join!(host_of(&src), host_of(&dst)) {
-        return relay_via(
-            app,
-            &s,
-            &parent,
-            &items,
-            &d,
-            dest,
-            whole_dir,
-            transfer_id,
-            token,
-        )
-        .await
-        .map_err(Into::into);
-    }
-    let (src_fs, dst_fs) = (
-        get_sftp_fs(manager, src_id).await?,
-        get_sftp_fs(manager, dst_id).await?,
-    );
-    let base = dest.trim_end_matches('/');
-    for (path, name) in paths.iter().zip(&items) {
-        let to = if whole_dir {
-            base.to_string()
-        } else {
-            format!("{base}/{name}")
-        };
-        if src.stat(path).await?.unwrap_or(false) {
-            copy_tree(app, &src_fs, path, &dst_fs, &to, transfer_id, token).await?;
-        } else {
-            copy_one(app, &src_fs, path, &dst_fs, &to, transfer_id, token).await?;
+    let per_file = || async {
+        let missing = |id: &str| AppError::from(format!("SFTP session '{id}' not found"));
+        let src_fs = src_fs.as_ref().ok_or_else(|| missing(src_id))?;
+        let dst_fs = dst_fs.as_ref().ok_or_else(|| missing(dst_id))?;
+        let base = dest.trim_end_matches('/');
+        for (path, name) in paths.iter().zip(&items) {
+            let to = if whole_dir {
+                base.to_string()
+            } else {
+                format!("{base}/{name}")
+            };
+            if src.stat(path).await?.unwrap_or(false) {
+                copy_tree(app, src_fs, path, dst_fs, &to, transfer_id, token).await?;
+            } else {
+                copy_one(app, src_fs, path, dst_fs, &to, transfer_id, token).await?;
+            }
         }
+        Ok(())
+    };
+    if let (Some(s), Some(d)) = tokio::join!(host_of(&src), host_of(&dst)) {
+        let large = match &src_fs {
+            Some(fs) => has_large_remote(&s, fs, &parent, &items, LARGE_FILE).await,
+            None => false,
+        };
+        if !large {
+            let relayed = relay_via(
+                app,
+                &s,
+                &parent,
+                &items,
+                &d,
+                dest,
+                whole_dir,
+                transfer_id,
+                token,
+            )
+            .await
+            .map_err(Into::into);
+            let ends = endpoints(&[&src_fs, &dst_fs]);
+            return after_tar(app, transfer_id, relayed, &ends, token, per_file).await;
+        }
+        per_file_accel(app, transfer_id);
     }
-    Ok(())
+    per_file().await
 }
 
-/// Run `stream` when the backend's host can stream tar, else `fallback` on the backend itself.
-async fn stream_or<S, SF, B, BF>(
+fn endpoints<'a>(fs: &[&'a Option<SftpFs>]) -> Vec<&'a dyn Endpoint> {
+    fs.iter()
+        .filter_map(|f| f.as_ref().map(|f| f as &dyn Endpoint))
+        .collect()
+}
+
+fn per_file_accel(events: &impl TransferEvents, transfer_id: &str) {
+    events.send(
+        &format!("sftp-accel-{transfer_id}"),
+        serde_json::json!({ "accel": "perFile" }),
+    );
+}
+
+/// A tar stream that died with its link resumes per file once the link is back.
+async fn after_tar<E, B, BF>(
+    events: &E,
+    transfer_id: &str,
+    streamed: Result<(), AppError>,
+    ends: &[&dyn Endpoint],
+    token: &CancellationToken,
+    fallback: B,
+) -> Result<(), AppError>
+where
+    E: TransferEvents,
+    B: FnOnce() -> BF,
+    BF: Future<Output = Result<(), AppError>>,
+{
+    let Err(e) = streamed else {
+        return Ok(());
+    };
+    if token.is_cancelled() {
+        return Err(e);
+    }
+    match revive(ends, events, transfer_id, token, LINK_WAIT).await {
+        None => Err(e),
+        Some(Err(waited)) => Err(waited),
+        Some(Ok(())) => {
+            mark_resume(transfer_id);
+            per_file_accel(events, transfer_id);
+            fallback().await
+        }
+    }
+}
+
+/// Run `stream` when the backend's host can stream tar and `large` finds no big file,
+/// else `fallback` on the backend itself (per file, resumable).
+#[allow(clippy::too_many_arguments)]
+async fn stream_or<E, L, LF, S, SF, B, BF>(
+    events: &E,
     manager: &SftpManager,
     sftp_id: &str,
     transfer_id: &str,
+    large: L,
     stream: S,
     fallback: B,
 ) -> Result<(), AppError>
 where
+    E: TransferEvents,
+    L: FnOnce(TarHost, SftpFs) -> LF,
+    LF: Future<Output = bool>,
     S: FnOnce(TarHost, CancellationToken) -> SF,
     SF: Future<Output = Result<(), String>>,
     B: FnOnce(Arc<dyn FileBackend>, CancellationToken) -> BF,
     BF: Future<Output = Result<(), AppError>>,
 {
     run_backend_transfer(manager, sftp_id, transfer_id, |backend, token| async move {
-        match host_of(&backend).await {
-            Some(host) => stream(host, token).await.map_err(Into::into),
-            None => fallback(backend, token).await,
+        let Some(host) = host_of(&backend).await else {
+            return fallback(backend, token).await;
+        };
+        let fs = backend.sftp_fs();
+        if let Some(fs) = &fs {
+            if large(host.clone(), fs.clone()).await {
+                per_file_accel(events, transfer_id);
+                return fallback(backend, token).await;
+            }
         }
+        let streamed = stream(host, token.clone()).await.map_err(Into::into);
+        let ends = endpoints(&[&fs]);
+        let retry = || fallback(Arc::clone(&backend), token.clone());
+        after_tar(events, transfer_id, streamed, &ends, &token, retry).await
     })
     .await
 }
@@ -327,9 +407,11 @@ pub async fn sftp_upload_batch_tar(
     }
     let (app, tid, paths, dir) = (&app, &transfer_id, &local_paths, &remote_dir);
     stream_or(
+        app,
         &sftp_state,
         &sftp_id,
         &transfer_id,
+        |_, _| has_large_local(paths, LARGE_FILE),
         |host, token| async move {
             let (parent, _) = local_split(&paths[0]);
             let names = paths
@@ -358,9 +440,14 @@ pub async fn sftp_download_batch_tar(
     }
     let (app, tid, paths, dir) = (&app, &transfer_id, &remote_paths, &local_dir);
     stream_or(
+        app,
         &sftp_state,
         &sftp_id,
         &transfer_id,
+        |host, fs| async move {
+            let (parent, items) = remote_items(paths);
+            has_large_remote(&host, &fs, &parent, &items, LARGE_FILE).await
+        },
         |host, token| async move {
             let items = local_safe_items(app, tid, paths);
             if items.is_empty() {
@@ -402,7 +489,6 @@ pub async fn sftp_transfer_batch_tar(
             &token,
         )
         .await
-        .map_err(Into::into)
     })
     .await
 }
@@ -419,9 +505,11 @@ pub async fn sftp_upload_dir_tar(
 ) -> Result<(), AppError> {
     let (app, tid, local, remote) = (&app, &transfer_id, &local_path, &remote_path);
     stream_or(
+        app,
         &sftp_state,
         &sftp_id,
         &transfer_id,
+        |_, _| has_large_local(std::slice::from_ref(local), LARGE_FILE),
         |host, token| async move {
             let (parent, base) = local_split(local);
             upload_via(app, &host, parent, vec![base], remote, true, tid, &token).await
@@ -443,9 +531,14 @@ pub async fn sftp_download_dir_tar(
 ) -> Result<(), AppError> {
     let (app, tid, remote, local) = (&app, &transfer_id, &remote_path, &local_path);
     stream_or(
+        app,
         &sftp_state,
         &sftp_id,
         &transfer_id,
+        |host, fs| async move {
+            let (parent, items) = remote_items(std::slice::from_ref(remote));
+            has_large_remote(&host, &fs, &parent, &items, LARGE_FILE).await
+        },
         |host, token| async move {
             let (parent, base) = remote_split(remote);
             let items = [base.to_string()];
@@ -481,7 +574,6 @@ pub async fn sftp_transfer_dir_tar(
             &token,
         )
         .await
-        .map_err(Into::into)
     })
     .await
 }
@@ -545,6 +637,54 @@ mod tests {
             ("/srv/data".to_string(), "logs".to_string())
         );
         assert_eq!(local_split("logs"), (String::new(), "logs".to_string()));
+    }
+
+    #[tokio::test]
+    async fn a_tar_stream_lost_with_its_link_falls_back_to_a_resumed_per_file_run() {
+        use crate::commands::sftp::resume::endpoint::tests_support::TestFs;
+        use crate::commands::sftp::resume::{clear_resume, is_resume};
+        use crate::sftp::backend::test_tree::Recorder;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let rec = Recorder::default();
+        let dead = TestFs {
+            dead_until_waited: true,
+            ..Default::default()
+        };
+        let ran = AtomicBool::new(false);
+        let token = CancellationToken::new();
+        let r = after_tar(
+            &rec,
+            "tt",
+            Err("stream broke".into()),
+            &[&dead],
+            &token,
+            || async {
+                ran.store(is_resume("tt"), Ordering::SeqCst);
+                Ok(())
+            },
+        )
+        .await;
+        clear_resume("tt");
+        assert!(r.is_ok());
+        assert!(ran.load(Ordering::SeqCst), "fallback ran as a resume");
+        assert_eq!(rec.last("sftp-accel-tt").unwrap()["accel"], "perFile");
+    }
+
+    #[tokio::test]
+    async fn a_tar_error_on_a_live_link_is_reported_as_is() {
+        use crate::commands::sftp::resume::endpoint::LocalFs;
+        use crate::sftp::backend::test_tree::Recorder;
+        let token = CancellationToken::new();
+        let r = after_tar(
+            &Recorder::default(),
+            "tu",
+            Err("disk full".into()),
+            &[&LocalFs],
+            &token,
+            || async { panic!("no fallback") },
+        )
+        .await;
+        assert_eq!(r.unwrap_err().to_string(), "disk full");
     }
 
     #[cfg(unix)]
