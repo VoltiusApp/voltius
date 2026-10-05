@@ -311,6 +311,57 @@ impl RemoteShell {
         }
     }
 
+    pub fn sha256(&self, sftp_path: &str) -> String {
+        let p = self.quote_path(sftp_path);
+        match self {
+            Self::Posix => format!("sha256sum -- {p} 2>/dev/null || shasum -a 256 -- {p}"),
+            Self::Windows {
+                shell: WinShell::PowerShell,
+            } => format!("(Get-FileHash -Algorithm SHA256 -LiteralPath {p}).Hash"),
+            Self::Windows {
+                shell: WinShell::Cmd,
+            } => format!("certutil -hashfile {p} SHA256"),
+        }
+    }
+
+    pub fn large_file_probe(
+        &self,
+        parent: &str,
+        items: &[String],
+        min_bytes: u64,
+    ) -> Option<String> {
+        match self {
+            Self::Posix => {
+                let items: Vec<String> = items
+                    .iter()
+                    .map(|i| self.quote(&format!("./{i}")))
+                    .collect();
+                Some(format!(
+                    "cd {} && find {} -type f -size +{}c | head -n 1",
+                    self.quote_path(parent),
+                    items.join(" "),
+                    min_bytes.saturating_sub(1)
+                ))
+            }
+            Self::Windows {
+                shell: WinShell::PowerShell,
+            } => {
+                let base = parent.trim_end_matches('/');
+                let paths: Vec<String> = items
+                    .iter()
+                    .map(|i| self.quote_path(&format!("{base}/{i}")))
+                    .collect();
+                Some(format!(
+                    "Get-ChildItem -LiteralPath {} -Recurse -File -Force | Where-Object {{ $_.Length -ge {min_bytes} }} | Select-Object -First 1 -ExpandProperty FullName",
+                    paths.join(",")
+                ))
+            }
+            Self::Windows {
+                shell: WinShell::Cmd,
+            } => None,
+        }
+    }
+
     pub fn parse_size(&self, out: &str) -> Option<u64> {
         match self {
             Self::Posix => {
@@ -403,6 +454,41 @@ mod tests {
         assert_eq!(to_native("/C:/Users/me/"), r"C:\Users\me");
         assert_eq!(to_native("/C:"), r"C:\.");
         assert_eq!(to_native("/D:/"), r"D:\.");
+    }
+
+    #[test]
+    fn sha256_commands_per_dialect() {
+        assert_eq!(
+            RemoteShell::Posix.sha256("/v/it's.mp4"),
+            r"sha256sum -- '/v/it'\''s.mp4' 2>/dev/null || shasum -a 256 -- '/v/it'\''s.mp4'"
+        );
+        assert_eq!(
+            win(WinShell::PowerShell).sha256("/C:/v/a.mp4"),
+            r"(Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\v\a.mp4').Hash"
+        );
+        assert_eq!(
+            win(WinShell::Cmd).sha256("/C:/v/a.mp4"),
+            r#"certutil -hashfile "C:\v\a.mp4" SHA256"#
+        );
+    }
+
+    #[test]
+    fn large_file_probes_per_dialect() {
+        let items = vec!["-x".to_string(), "b c".to_string()];
+        assert_eq!(
+            RemoteShell::Posix
+                .large_file_probe("/srv", &items, 1024)
+                .as_deref(),
+            Some("cd '/srv' && find './-x' './b c' -type f -size +1023c | head -n 1")
+        );
+        assert!(win(WinShell::PowerShell)
+            .large_file_probe("/C:/srv", &items, 1024)
+            .unwrap()
+            .contains("Where-Object { $_.Length -ge 1024 }"));
+        assert_eq!(
+            win(WinShell::Cmd).large_file_probe("/C:/srv", &items, 1024),
+            None
+        );
     }
 
     #[test]
