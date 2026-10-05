@@ -10,7 +10,7 @@ use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
 use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex as StdMutex};
 use std::time::Duration;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
 pub(crate) const OVERLAP: u64 = 64 * 1024;
@@ -69,6 +69,11 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
                 total: self.total,
             },
         );
+    }
+
+    fn send(&self, kind: &str, payload: serde_json::Value) {
+        self.events
+            .send(&format!("sftp-{kind}-{}", self.transfer_id), payload);
     }
 
     async fn listing(&mut self, fs: &dyn Endpoint, dir: &str) -> &[Listed] {
@@ -170,7 +175,10 @@ async fn attempt<E: TransferEvents>(
     if dst.stat(dst_path).await?.is_none() && dst.stat(&old_path).await?.is_some() {
         dst.rename(&old_path, dst_path).await?;
     }
-    let offset = 0;
+    let offset = resume_offset(src, src_path, dst, &part_path, stat.size).await?;
+    if offset > 0 {
+        ctx.send("resumed", serde_json::json!({ "offset": base + offset }));
+    }
     ctx.transferred = base + offset;
     ctx.progress();
     let mut reader = src.open_read(src_path, offset).await?;
@@ -199,12 +207,60 @@ async fn attempt<E: TransferEvents>(
         let _ = dst.remove(&part_path).await;
         return Ok(Attempt::Mismatch);
     }
+    if offset > 0 && !same_hash(src, src_path, dst, &part_path, ctx.token).await {
+        let _ = dst.remove(&part_path).await;
+        return Ok(Attempt::Mismatch);
+    }
     dst.replace(&part_path, dst_path, &old_path).await?;
     if let Err(e) = dst.set_mtime(dst_path, stat.mtime).await {
         log::warn!("could not keep the mtime of {dst_path}: {e}");
     }
     sweep(dst, &dir, &name, ctx).await;
     Ok(Attempt::Done)
+}
+
+async fn resume_offset(
+    src: &dyn Endpoint,
+    src_path: &str,
+    dst: &dyn Endpoint,
+    part: &str,
+    size: u64,
+) -> Result<u64, AppError> {
+    let Some(have) = dst.stat(part).await?.map(|s| s.size) else {
+        return Ok(0);
+    };
+    if have == 0 || have > size {
+        return Ok(0);
+    }
+    let (a, b) = tokio::try_join!(tail(src, src_path, have), tail(dst, part, have))?;
+    Ok(if a == b { have } else { 0 })
+}
+
+async fn tail(fs: &dyn Endpoint, path: &str, end: u64) -> Result<Vec<u8>, AppError> {
+    let len = end.min(OVERLAP);
+    let mut buf = vec![0u8; len as usize];
+    fs.open_read(path, end - len)
+        .await?
+        .read_exact(&mut buf)
+        .await
+        .map_err(|e| AppError::from(format!("Read error: {e}")))?;
+    Ok(buf)
+}
+
+async fn same_hash(
+    src: &dyn Endpoint,
+    src_path: &str,
+    dst: &dyn Endpoint,
+    part: &str,
+    token: &CancellationToken,
+) -> bool {
+    match tokio::join!(src.hash(src_path, token), dst.hash(part, token)) {
+        (Some(a), Some(b)) => a.eq_ignore_ascii_case(&b),
+        _ => {
+            log::info!("no end-to-end hash for {src_path}; kept the size and overlap checks");
+            true
+        }
+    }
 }
 
 async fn sweep<E: TransferEvents>(
@@ -472,6 +528,207 @@ pub(crate) mod engine_tests {
         )
         .await;
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"original");
+    }
+
+    async fn seed_part(
+        src: &std::path::Path,
+        dst_dir: &std::path::Path,
+        name: &str,
+        bytes: &[u8],
+    ) -> std::path::PathBuf {
+        let st = LocalFs.stat(&s(src)).await.unwrap().unwrap();
+        let fp = names::fingerprint(&s(src), st.size, st.mtime);
+        let part = dst_dir.join(names::temp_name(name, &fp, names::PART_EXT));
+        std::fs::write(&part, bytes).unwrap();
+        part
+    }
+
+    async fn copy_ab(rec: &Recorder, a: &tempfile::TempDir, b: &tempfile::TempDir) {
+        copy_local(
+            rec,
+            &a.path().join("v"),
+            &LocalFs,
+            &b.path().join("v"),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_matching_part_is_resumed_from_its_end() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(3_000_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        seed_part(&a.path().join("v"), b.path(), "v", &data[..1_000_000]).await;
+        let rec = Recorder::default();
+        copy_ab(&rec, &a, &b).await;
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert_eq!(rec.last("sftp-resumed-t").unwrap()["offset"], 1_000_000);
+        assert_eq!(entries(b.path()), ["v"]);
+    }
+
+    #[tokio::test]
+    async fn a_tampered_part_restarts_from_zero() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(3_000_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        let mut bad = data[..1_000_000].to_vec();
+        bad[999_000] ^= 0xff;
+        seed_part(&a.path().join("v"), b.path(), "v", &bad).await;
+        let rec = Recorder::default();
+        copy_ab(&rec, &a, &b).await;
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert_eq!(rec.count("sftp-resumed-t"), 0);
+    }
+
+    #[tokio::test]
+    async fn a_part_longer_than_the_source_restarts_from_zero() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), b"short").unwrap();
+        seed_part(
+            &a.path().join("v"),
+            b.path(),
+            "v",
+            b"much longer than the source",
+        )
+        .await;
+        copy_ab(&Recorder::default(), &a, &b).await;
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"short");
+    }
+
+    #[tokio::test]
+    async fn a_changed_source_never_resumes_an_old_part() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let old = noise(2_000_000);
+        std::fs::write(a.path().join("v"), &old).unwrap();
+        let stale = seed_part(&a.path().join("v"), b.path(), "v", &old[..1_000_000]).await;
+        let new: Vec<u8> = old.iter().map(|b| b.wrapping_add(1)).collect();
+        std::fs::write(a.path().join("v"), &new).unwrap();
+        LocalFs
+            .set_mtime(&s(&a.path().join("v")), 1_800_000_000)
+            .await
+            .unwrap();
+        let rec = Recorder::default();
+        copy_ab(&rec, &a, &b).await;
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), new);
+        assert_eq!(rec.count("sftp-resumed-t"), 0);
+        assert!(!stale.exists(), "the old fingerprint's part is swept");
+    }
+
+    #[tokio::test]
+    async fn a_complete_but_uncommitted_part_is_verified_and_committed() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(500_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        seed_part(&a.path().join("v"), b.path(), "v", &data).await;
+        let rec = Recorder::default();
+        copy_ab(&rec, &a, &b).await;
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert_eq!(rec.last("sftp-resumed-t").unwrap()["offset"], 500_000);
+    }
+
+    /// LocalFs whose `hash` lies once: a splice the overlap check could not see.
+    pub(crate) struct LyingHash(StdMutex<bool>);
+
+    #[async_trait::async_trait]
+    impl Endpoint for LyingHash {
+        fn is_local(&self) -> bool {
+            true
+        }
+        fn split(&self, p: &str) -> (String, String) {
+            LocalFs.split(p)
+        }
+        fn join(&self, d: &str, r: &str) -> String {
+            LocalFs.join(d, r)
+        }
+        async fn stat(&self, p: &str) -> Result<Option<Stat>, AppError> {
+            LocalFs.stat(p).await
+        }
+        async fn list(&self, d: &str) -> Result<Vec<Listed>, AppError> {
+            LocalFs.list(d).await
+        }
+        async fn mkdir(&self, p: &str) -> Result<(), AppError> {
+            LocalFs.mkdir(p).await
+        }
+        async fn open_read(&self, p: &str, o: u64) -> Result<Reader, AppError> {
+            LocalFs.open_read(p, o).await
+        }
+        async fn open_write(&self, p: &str, o: u64) -> Result<Writer, AppError> {
+            LocalFs.open_write(p, o).await
+        }
+        async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
+            LocalFs.rename(from, to).await
+        }
+        async fn remove(&self, p: &str) -> Result<(), AppError> {
+            LocalFs.remove(p).await
+        }
+        async fn set_mtime(&self, p: &str, m: u64) -> Result<(), AppError> {
+            LocalFs.set_mtime(p, m).await
+        }
+        async fn hash(&self, p: &str, t: &CancellationToken) -> Option<String> {
+            if !std::mem::replace(&mut *self.0.lock().unwrap(), true) {
+                return Some("0".repeat(64));
+            }
+            LocalFs.hash(p, t).await
+        }
+    }
+
+    #[tokio::test]
+    async fn a_hash_mismatch_discards_the_part_and_copies_again_once() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let data = noise(2_000_000);
+        std::fs::write(a.path().join("v"), &data).unwrap();
+        seed_part(&a.path().join("v"), b.path(), "v", &data[..1_000_000]).await;
+        let dst = LyingHash(StdMutex::new(false));
+        let rec = Recorder::default();
+        copy_local(
+            &rec,
+            &a.path().join("v"),
+            &dst,
+            &b.path().join("v"),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), data);
+        assert!(*dst.0.lock().unwrap(), "the hash was consulted");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_source_that_keeps_changing_gives_up() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let src = a.path().join("v");
+        std::fs::write(&src, noise(8_000_000)).unwrap();
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let writer = {
+            let (src, stop) = (src.clone(), stop.clone());
+            std::thread::spawn(move || {
+                let mut t = 1_700_000_000u64;
+                while !stop.load(Ordering::Relaxed) {
+                    t += 1;
+                    let mut f = std::fs::File::options().append(true).open(&src).unwrap();
+                    std::io::Write::write_all(&mut f, b"x").unwrap();
+                    f.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(t))
+                        .unwrap();
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+            })
+        };
+        let e = copy_local(
+            &Recorder::default(),
+            &src,
+            &LocalFs,
+            &b.path().join("v"),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+        stop.store(true, Ordering::Relaxed);
+        writer.join().unwrap();
+        assert_eq!(e.code(), Some(ErrorCode::TransferSourceChanged));
+        assert!(!b.path().join("v").exists());
     }
 }
 
