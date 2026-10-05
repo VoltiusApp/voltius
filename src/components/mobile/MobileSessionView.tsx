@@ -6,7 +6,7 @@ import type { TerminalSession } from "@/types";
 /** Mobile-only wrapper: renders the shared terminal compact inside a hard-clipped box. */
 export default function MobileSessionView({ session, active }: { session: TerminalSession; active: boolean }) {
   return (
-    <div className="absolute inset-0" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
+    <div className="absolute inset-0 bg-(--t-bg-terminal)" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
       <SessionConnectionOverlay session={session} />
       <HostAwareTerminalView
         session={session}
