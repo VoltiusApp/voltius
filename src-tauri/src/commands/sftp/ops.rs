@@ -46,6 +46,7 @@ pub async fn sftp_connect(
     keepalive_max: usize,
     legacy_algorithms: Option<bool>,
     proxy: Option<ProxySpec>,
+    relink: Option<String>,
 ) -> Result<String, String> {
     sftp_state
         .connect(
@@ -63,6 +64,7 @@ pub async fn sftp_connect(
             keepalive_max,
             legacy_algorithms.unwrap_or(false),
             proxy,
+            relink.as_deref(),
         )
         .await
 }
