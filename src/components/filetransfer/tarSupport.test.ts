@@ -4,6 +4,7 @@ const m = vi.hoisted(() => ({ toggle: true, avail: {} as Record<string, boolean>
 vi.mock("@/stores/toggleSettingsStore", () => ({ getToggle: () => m.toggle }));
 vi.mock("@/services/sftp", () => ({ sftpTarAvailable: vi.fn(async (id: string) => m.avail[id] ?? false) }));
 
+import { sftpTarAvailable } from "@/services/sftp";
 import { accelFor, tarMode, tarModeForPair } from "./tarSupport";
 
 describe("tarMode", () => {
@@ -29,6 +30,13 @@ describe("tarMode", () => {
     m.avail = { e: true };
     expect(await tarModeForPair({ isLocal: true }, { isLocal: false, sftpId: "e" })).toBe("tar");
     expect(await tarModeForPair({ isLocal: true }, { isLocal: true })).toBe("off");
+  });
+
+  it("asks again after the host could not be asked", async () => {
+    vi.mocked(sftpTarAvailable).mockRejectedValueOnce("unreachable");
+    expect(await tarMode(["f"])).toBe("perFile");
+    m.avail = { f: true };
+    expect(await tarMode(["f"])).toBe("tar");
   });
 });
 

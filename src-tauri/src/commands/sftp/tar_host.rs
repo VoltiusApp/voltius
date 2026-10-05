@@ -1,13 +1,16 @@
-use super::remote_shell::{detect, wrap, RemoteShell, PROBE_TIMEOUT};
+use super::remote_shell::{answer, detect, wrap, RemoteShell, Unreachable};
 use super::stream::Progress;
 use crate::ssh::client::SshClient;
 use crate::ssh::exec::run_captured;
-use crate::ssh::live_cells::read_cell;
+use crate::ssh::live_cells::{read_cell, Cell};
 use crate::ssh::session::SessionHandle;
-use russh::client::Handle;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
+use russh::client::{Handle, Handler};
+use std::sync::{Arc, Weak};
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 use tokio_util::task::AbortOnDropHandle;
+
+const RETRY_AFTER: Duration = Duration::from_secs(30);
 
 #[derive(Clone)]
 pub struct TarHost {
@@ -27,10 +30,7 @@ impl TarHost {
 
     async fn size(&self, parent: &str, items: &[String]) -> Option<u64> {
         let cmd = self.wrap(&self.shell.size_probe(parent, items)?);
-        let out = tokio::time::timeout(PROBE_TIMEOUT, run_captured(&self.ssh(), &cmd))
-            .await
-            .ok()?
-            .ok()?;
+        let out = answer(run_captured(&self.ssh(), &cmd)).await.ok()?;
         (out.code == Some(0)).then(|| self.shell.parse_size(&out.stdout_text()))?
     }
 
@@ -49,40 +49,133 @@ impl TarHost {
     }
 }
 
-pub struct TarProbe {
-    handle: SessionHandle,
-    container: Option<String>,
-    found: OnceCell<Option<(RemoteShell, bool)>>,
+type Found = Option<(RemoteShell, bool)>;
+
+struct Probed<H: Handler> {
+    on: Weak<Handle<H>>,
+    found: Result<Found, Instant>,
 }
 
-impl TarProbe {
-    pub fn new(handle: SessionHandle, container: Option<String>) -> Self {
+pub struct TarProbe<H: Handler = SshClient> {
+    handle: Cell<Arc<Handle<H>>>,
+    container: Option<String>,
+    last: Mutex<Option<Probed<H>>>,
+}
+
+impl<H: Handler> TarProbe<H> {
+    pub fn new(handle: Cell<Arc<Handle<H>>>, container: Option<String>) -> Self {
         Self {
             handle,
             container,
-            found: OnceCell::new(),
+            last: Mutex::new(None),
         }
     }
 
-    async fn found(&self) -> Option<(RemoteShell, bool)> {
-        self.found
-            .get_or_init(|| async {
-                detect(&*read_cell(&self.handle), self.container.as_deref()).await
-            })
-            .await
-            .clone()
+    /// Answers are kept until the session reconnects; a probe that got no answer is retried after `RETRY_AFTER`.
+    async fn found(&self) -> Result<Found, Unreachable> {
+        let ssh = read_cell(&self.handle);
+        let mut last = self.last.lock().await;
+        if let Some(p) = last
+            .as_ref()
+            .filter(|p| Weak::ptr_eq(&p.on, &Arc::downgrade(&ssh)))
+        {
+            match &p.found {
+                Ok(found) => return Ok(found.clone()),
+                Err(retry_at) if Instant::now() < *retry_at => return Err(Unreachable),
+                Err(_) => {}
+            }
+        }
+        let found = detect(&ssh, self.container.as_deref()).await;
+        *last = Some(Probed {
+            on: Arc::downgrade(&ssh),
+            found: found.clone().map_err(|_| Instant::now() + RETRY_AFTER),
+        });
+        found
     }
 
     pub async fn shell(&self) -> Option<RemoteShell> {
-        self.found().await.map(|(shell, _)| shell)
+        self.found().await.ok()?.map(|(shell, _)| shell)
+    }
+}
+
+impl TarProbe {
+    pub async fn host(&self) -> Result<Option<TarHost>, Unreachable> {
+        Ok(self.found().await?.and_then(|(shell, streams)| {
+            streams.then(|| TarHost {
+                handle: Arc::clone(&self.handle),
+                container: self.container.clone(),
+                shell,
+            })
+        }))
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::port_forward::test_ssh::TestClient;
+    use crate::ssh::live_cells::own_cell;
+    use crate::ssh::test_proc_server::{proc_server, ProcLog, ProcOptions};
+
+    type Log = Arc<std::sync::Mutex<ProcLog>>;
+
+    async fn probe_of(opts: ProcOptions, container: Option<&str>) -> (TarProbe<TestClient>, Log) {
+        let (handle, log) = proc_server(opts).await;
+        let probe = TarProbe::new(own_cell(handle), container.map(str::to_string));
+        (probe, log)
     }
 
-    pub async fn host(&self) -> Option<TarHost> {
-        let (shell, streams) = self.found().await?;
-        streams.then(|| TarHost {
-            handle: Arc::clone(&self.handle),
-            container: self.container.clone(),
-            shell,
-        })
+    fn runs(log: &Log) -> usize {
+        log.lock().unwrap().ran.len()
+    }
+
+    const CRLF: ProcOptions = ProcOptions {
+        crlf: true,
+        exit_status: true,
+        window: None,
+        refuse_channels: 0,
+    };
+
+    #[tokio::test]
+    async fn a_refused_channel_is_retried_once_the_delay_passes() {
+        let refusing = ProcOptions {
+            refuse_channels: 1,
+            ..Default::default()
+        };
+        let (probe, _) = probe_of(refusing, None).await;
+        assert_eq!(probe.found().await, Err(Unreachable));
+        assert_eq!(probe.found().await, Err(Unreachable), "retried too soon");
+        if let Some(p) = probe.last.lock().await.as_mut() {
+            p.found = Err(Instant::now());
+        }
+        assert_eq!(probe.found().await, Ok(Some((RemoteShell::Posix, true))));
+    }
+
+    #[tokio::test]
+    async fn a_host_that_answers_no_is_asked_once() {
+        let (probe, log) =
+            probe_of(ProcOptions::default(), Some("voltius-no-such-container")).await;
+        assert_eq!(probe.found().await, Ok(None));
+        let asked = runs(&log);
+        assert_eq!(probe.found().await, Ok(None));
+        assert_eq!(runs(&log), asked);
+    }
+
+    #[tokio::test]
+    async fn a_host_that_mangles_binary_is_asked_once() {
+        let (probe, log) = probe_of(CRLF, None).await;
+        assert_eq!(probe.found().await, Ok(Some((RemoteShell::Posix, false))));
+        let asked = runs(&log);
+        assert_eq!(probe.found().await, Ok(Some((RemoteShell::Posix, false))));
+        assert_eq!(runs(&log), asked);
+    }
+
+    #[tokio::test]
+    async fn a_reconnect_probes_again() {
+        let (probe, _) = probe_of(CRLF, None).await;
+        assert_eq!(probe.found().await, Ok(Some((RemoteShell::Posix, false))));
+        let (fresh, _) = proc_server(ProcOptions::default()).await;
+        *probe.handle.write().unwrap() = fresh;
+        assert_eq!(probe.found().await, Ok(Some((RemoteShell::Posix, true))));
     }
 }

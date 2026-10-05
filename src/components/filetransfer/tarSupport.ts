@@ -4,16 +4,8 @@ import { getToggle } from "@/stores/toggleSettingsStore";
 export type TarMode = "tar" | "perFile" | "off";
 export type Accel = Exclude<TarMode, "off">;
 
-const probeCache = new Map<string, Promise<boolean>>();
-
-function probe(sftpId: string): Promise<boolean> {
-  let p = probeCache.get(sftpId);
-  if (!p) {
-    p = sftpTarAvailable(sftpId).catch(() => false);
-    probeCache.set(sftpId, p);
-  }
-  return p;
-}
+// The backend caches each host's answer and re-asks after a failed probe or a reconnect.
+const probe = (sftpId: string) => sftpTarAvailable(sftpId).catch(() => false);
 
 export async function tarMode(sftpIds: Array<string | null | undefined>): Promise<TarMode> {
   const ids = sftpIds.filter((id): id is string => !!id);

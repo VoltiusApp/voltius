@@ -1,6 +1,6 @@
 use super::{
     get_backend, get_session, local_tar,
-    remote_shell::RemoteShell,
+    remote_shell::{RemoteShell, Unreachable},
     rr_dir_per_file, run_backend_transfer,
     stream::{self, Job, LocalSide, RemoteEnd},
     transfer::sftp_rr_file_inner,
@@ -119,14 +119,21 @@ pub async fn sftp_tar_available(
     sftp_id: String,
 ) -> Result<bool, String> {
     let backend = get_backend(&sftp_state, &sftp_id).await?;
-    Ok(host_of(&backend).await.is_some())
+    let host = probed_host(&backend)
+        .await
+        .map_err(|_| "Couldn't ask the host whether it can stream tar".to_string())?;
+    Ok(host.is_some())
+}
+
+async fn probed_host(backend: &Arc<dyn FileBackend>) -> Result<Option<TarHost>, Unreachable> {
+    match backend.tar_probe() {
+        Some(probe) => probe.host().await,
+        None => Ok(None),
+    }
 }
 
 async fn host_of(backend: &Arc<dyn FileBackend>) -> Option<TarHost> {
-    match backend.tar_probe() {
-        Some(probe) => probe.host().await,
-        None => None,
-    }
+    probed_host(backend).await.ok().flatten()
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -16,6 +16,7 @@ pub struct ProcOptions {
     pub crlf: bool,
     pub exit_status: bool,
     pub window: Option<u32>,
+    pub refuse_channels: usize,
 }
 
 impl Default for ProcOptions {
@@ -24,6 +25,7 @@ impl Default for ProcOptions {
             crlf: false,
             exit_status: true,
             window: None,
+            refuse_channels: 0,
         }
     }
 }
@@ -36,6 +38,7 @@ pub struct ProcLog {
 
 struct ProcServer {
     opts: ProcOptions,
+    refused: usize,
     log: Arc<std::sync::Mutex<ProcLog>>,
     stdins: Arc<Mutex<HashMap<ChannelId, ChildStdin>>>,
 }
@@ -64,7 +67,14 @@ impl russh::server::Handler for ProcServer {
         reply: ChannelOpenHandle,
         _session: &mut Session,
     ) -> Result<(), Self::Error> {
-        reply.accept().await;
+        if self.refused < self.opts.refuse_channels {
+            self.refused += 1;
+            reply
+                .reject(russh::ChannelOpenFailure::ResourceShortage)
+                .await;
+        } else {
+            reply.accept().await;
+        }
         Ok(())
     }
 
@@ -168,6 +178,7 @@ pub async fn proc_server(
     let log = Arc::new(std::sync::Mutex::new(ProcLog::default()));
     let server = ProcServer {
         opts,
+        refused: 0,
         log: log.clone(),
         stdins: Arc::default(),
     };
