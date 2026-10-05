@@ -1,6 +1,7 @@
 pub mod attrs;
 pub mod backend;
 pub mod docker_fs;
+pub mod link;
 pub mod real;
 
 pub use backend::FileBackend;
@@ -116,14 +117,10 @@ impl SftpManager {
         handle: SessionHandle,
         opener: SftpOpener,
     ) -> Result<String, String> {
-        let backend = RealSftp::open(Arc::clone(&handle), opener).await?;
+        let cancel = CancellationToken::new();
+        let backend = RealSftp::open(Arc::clone(&handle), opener, cancel.clone()).await?;
         Ok(self
-            .register(
-                Arc::new(backend),
-                Some(handle),
-                CancellationToken::new(),
-                vec![],
-            )
+            .register(Arc::new(backend), Some(handle), cancel, vec![])
             .await)
     }
 
@@ -279,8 +276,9 @@ impl SftpManager {
         // This connection owns its handle outright — nothing else swaps it, but
         // it still travels as a cell so every backend takes the same type.
         let handle = own_cell(Arc::new(final_handle));
-        let backend = RealSftp::open(Arc::clone(&handle), SftpOpener::Subsystem).await?;
         let cancel = CancellationToken::new();
+        let backend =
+            RealSftp::open(Arc::clone(&handle), SftpOpener::Subsystem, cancel.clone()).await?;
         let id = self
             .register(
                 Arc::new(backend),

@@ -9,13 +9,11 @@ use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_mode, apply_via_shell, AttrChange};
 use crate::sftp::backend::FileBackend;
-use crate::ssh::client::SshClient;
+use crate::sftp::link::{is_transport_dead, SftpLink};
 use crate::ssh::exec::{run_captured, sh_c, Captured};
 use crate::ssh::live_cells::read_cell;
 use crate::ssh::session::SessionHandle;
 use async_trait::async_trait;
-use russh::client::Handle;
-use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use std::future::Future;
@@ -57,84 +55,45 @@ macro_rules! retry_sftp {
             Err(e) if !is_transport_dead(&e) => {
                 Err(AppError::caused(format_args!("{} failed", $what), &e))
             }
-            Err(_) => {
-                let handle = read_cell(&this.handle);
-                match open_sftp(&handle, &this.opener).await {
-                    Err(e) => Err(e.into()),
-                    Ok(fresh) => {
-                        *guard = fresh;
-                        let $sftp = &*guard;
-                        $call
-                            .await
-                            .map_err(|e| AppError::caused(format_args!("{} failed", $what), &e))
-                    }
+            Err(_) => match this.link.open().await {
+                Err(e) => Err(e.into()),
+                Ok(fresh) => {
+                    *guard = fresh;
+                    let $sftp = &*guard;
+                    $call
+                        .await
+                        .map_err(|e| AppError::caused(format_args!("{} failed", $what), &e))
                 }
-            }
+            },
         }
     }};
-}
-
-/// True when the error means the transport under the SFTP session is gone, as
-/// opposed to the server refusing a specific operation. Sleep/hibernate leaves
-/// the session's writer closed ("session closed") or its requests unanswered
-/// (`Timeout`); either way the fix is a new channel, not a different path.
-fn is_transport_dead(e: &SftpError) -> bool {
-    match e {
-        SftpError::Status(_) | SftpError::Limited(_) => false,
-        SftpError::IO(_) | SftpError::Timeout | SftpError::UnexpectedPacket => true,
-        SftpError::UnexpectedBehavior(msg) => {
-            msg.contains("session closed")
-                || msg.contains("SendError")
-                || msg.contains("RecvError")
-                || msg.contains("EOF")
-        }
-    }
-}
-
-/// Open a fresh SFTP session on `handle` the same way the original was opened.
-pub async fn open_sftp(
-    handle: &Handle<SshClient>,
-    opener: &SftpOpener,
-) -> Result<SftpSession, String> {
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("Channel error: {e}"))?;
-    match opener {
-        SftpOpener::Subsystem => channel
-            .request_subsystem(true, "sftp")
-            .await
-            .map_err(|e| format!("SFTP subsystem error: {e}"))?,
-        SftpOpener::Exec(cmd) => channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("Exec error: {e}"))?,
-    }
-    SftpSession::new(channel.into_stream())
-        .await
-        .map_err(|e| format!("SFTP session error: {e}"))
 }
 
 #[derive(Clone)]
 pub struct RealSftp {
     session: Arc<Mutex<SftpSession>>,
-    /// Live SSH handle — follows the owning terminal session across reconnects.
-    handle: SessionHandle,
-    opener: SftpOpener,
+    link: Arc<SftpLink>,
     tar: Arc<TarProbe>,
 }
 
 impl RealSftp {
     /// Open an SFTP channel on `handle` and wrap it as a backend that knows how
     /// to open the same kind of channel again after a reconnect.
-    pub async fn open(handle: SessionHandle, opener: SftpOpener) -> Result<Self, String> {
-        let current = read_cell(&handle);
-        let session = open_sftp(&current, &opener).await?;
-        Ok(Self {
-            session: Arc::new(Mutex::new(session)),
-            tar: Arc::new(TarProbe::new(Arc::clone(&handle), None)),
+    pub async fn open(
+        handle: SessionHandle,
+        opener: SftpOpener,
+        closed: CancellationToken,
+    ) -> Result<Self, String> {
+        let link = Arc::new(SftpLink {
             handle,
             opener,
+            closed,
+        });
+        let session = link.open().await?;
+        Ok(Self {
+            session: Arc::new(Mutex::new(session)),
+            tar: Arc::new(TarProbe::new(Arc::clone(&link.handle), None)),
+            link,
         })
     }
 }
@@ -194,7 +153,7 @@ impl FileBackend for RealSftp {
     }
 
     async fn run_sh(&self, script: &str, args: &[&str]) -> Result<Captured, String> {
-        let handle = read_cell(&self.handle);
+        let handle = read_cell(&self.link.handle);
         run_captured(&*handle, &sh_c(script, args)).await
     }
 
@@ -383,38 +342,4 @@ fn remove_recursive(
 
         Ok(())
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{is_transport_dead, SftpError};
-    use russh_sftp::protocol::{Status, StatusCode};
-
-    fn status(code: StatusCode) -> SftpError {
-        SftpError::Status(Status {
-            id: 1,
-            status_code: code,
-            error_message: String::new(),
-            language_tag: String::new(),
-        })
-    }
-
-    #[test]
-    fn a_refused_operation_is_not_a_dead_transport() {
-        assert!(!is_transport_dead(&status(StatusCode::NoSuchFile)));
-        assert!(!is_transport_dead(&status(StatusCode::PermissionDenied)));
-        assert!(!is_transport_dead(&SftpError::Limited("too big".into())));
-    }
-
-    #[test]
-    fn a_closed_or_unanswered_session_is_a_dead_transport() {
-        assert!(is_transport_dead(&SftpError::UnexpectedBehavior(
-            "session closed".into()
-        )));
-        assert!(is_transport_dead(&SftpError::Timeout));
-        assert!(is_transport_dead(&SftpError::IO("broken pipe".into())));
-        assert!(is_transport_dead(&SftpError::UnexpectedBehavior(
-            "SendError: channel closed".into()
-        )));
-    }
 }

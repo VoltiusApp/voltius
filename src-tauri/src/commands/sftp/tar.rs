@@ -656,7 +656,11 @@ mod tests {
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
             };
-            let sftp = RealSftp::open(own_cell(Arc::new(handle)), SftpOpener::Subsystem);
+            let sftp = RealSftp::open(
+                own_cell(Arc::new(handle)),
+                SftpOpener::Subsystem,
+                CancellationToken::new(),
+            );
             Arc::new(sftp.await.unwrap())
         }
 
