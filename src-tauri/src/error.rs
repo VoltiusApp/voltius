@@ -48,6 +48,9 @@ error_codes! {
     HostUnreachable,
     TimedOut,
     ConnectionLost,
+    // File transfers.
+    TransferVerifyFailed,
+    TransferSourceChanged,
     // Port forwarding. Params: `port` and `attempts` for PortInUse.
     PortInUse,
     RemoteForwardDenied,

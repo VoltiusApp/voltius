@@ -486,7 +486,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         let mut local = tokio::fs::File::open(local_path)
             .await
             .map_err(|e| format!("Cannot open local file: {e}"))?;
@@ -515,14 +515,14 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
             biased;
             early = &mut put => match early {
                 Err(e) => Err(e.into()),
-                Ok(_) => pump.await,
+                Ok(_) => pump.await.map_err(Into::into),
             },
             result = &mut pump => match result {
-                Err(e) if token.is_cancelled() => Err(e),
+                Err(e) if token.is_cancelled() => Err(e.into()),
                 // The server's refusal can land just after the broken pipe it causes.
                 Err(e) => match tokio::time::timeout(REFUSAL_GRACE, &mut put).await {
                     Ok(Err(refused)) => Err(refused.into()),
-                    _ => Err(e),
+                    _ => Err(e.into()),
                 },
                 Ok(()) => put.await.map(|_| ()).map_err(Into::into),
             },
@@ -536,7 +536,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
         local_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         if let Some(parent) = Path::new(local_path).parent() {
             tokio::fs::create_dir_all(parent)
                 .await

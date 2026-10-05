@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use crate::sftp::backend::TransferEvents;
 use crate::sftp::{FileBackend, SftpManager};
 use russh_sftp::client::fs::File;
@@ -83,10 +84,10 @@ pub(super) async fn with_transfer<F, Fut>(
     manager: &SftpManager,
     transfer_id: &str,
     run: F,
-) -> Result<(), String>
+) -> Result<(), AppError>
 where
     F: FnOnce(CancellationToken) -> Fut,
-    Fut: Future<Output = Result<(), String>>,
+    Fut: Future<Output = Result<(), AppError>>,
 {
     let token = manager.register_transfer(transfer_id).await;
     let result = run(token).await;
@@ -100,10 +101,10 @@ pub(super) async fn run_backend_transfer<F, Fut>(
     sftp_id: &str,
     transfer_id: &str,
     run: F,
-) -> Result<(), String>
+) -> Result<(), AppError>
 where
     F: FnOnce(Arc<dyn FileBackend>, CancellationToken) -> Fut,
-    Fut: Future<Output = Result<(), String>>,
+    Fut: Future<Output = Result<(), AppError>>,
 {
     with_transfer(manager, transfer_id, |token| async move {
         run(get_backend(manager, sftp_id).await?, token).await
@@ -128,7 +129,7 @@ macro_rules! backend_transfer_command {
             $from: String,
             $to: String,
             transfer_id: String,
-        ) -> Result<(), String> {
+        ) -> Result<(), $crate::error::AppError> {
             let tid = transfer_id.clone();
             $crate::commands::sftp::run_backend_transfer(
                 &sftp_state,
@@ -328,5 +329,23 @@ mod listing_tests {
         sort_listing(&mut files);
         let names: Vec<_> = files.iter().map(|f| f.name.as_str()).collect();
         assert_eq!(names, ["alpha", "Zed", "A.txt", "b.txt"]);
+    }
+}
+
+#[cfg(test)]
+mod transfer_error_tests {
+    use super::with_transfer;
+    use crate::error::{AppError, ErrorCode};
+    use crate::sftp::SftpManager;
+
+    #[tokio::test]
+    async fn a_coded_transfer_error_keeps_its_code() {
+        let manager = SftpManager::new();
+        let err = with_transfer(&manager, "t", |_| async {
+            Err::<(), _>(AppError::coded(ErrorCode::TransferVerifyFailed, "x"))
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::TransferVerifyFailed));
     }
 }

@@ -2,6 +2,7 @@ use super::{
     backend_transfer_command, get_session, open_remote_write, pump_chunks,
     sftp_rr_file_inner_accum, transfer::download_into, with_transfer,
 };
+use crate::error::AppError;
 use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
@@ -145,7 +146,7 @@ pub async fn sftp_transfer_dir(
     dst_sftp_id: String,
     dst_path: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let src_session = get_session(&sftp_state, &src_sftp_id).await?;
     let dst_session = get_session(&sftp_state, &dst_sftp_id).await?;
     with_transfer(&sftp_state, &transfer_id.clone(), |token| async move {
@@ -159,6 +160,7 @@ pub async fn sftp_transfer_dir(
             &token,
         )
         .await
+        .map_err(Into::into)
     })
     .await
 }

@@ -63,7 +63,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String>;
+    ) -> Result<(), AppError>;
     async fn download_file(
         &self,
         app: &E,
@@ -71,7 +71,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         local_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String>;
+    ) -> Result<(), AppError>;
     /// Per-item fallback: create the tree, then upload each file on its own.
     async fn upload_dir(
         &self,
@@ -80,7 +80,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         let local_base = PathBuf::from(local_path);
         let mut dirs: Vec<PathBuf> = Vec::new();
         let mut files: Vec<PathBuf> = Vec::new();
@@ -111,7 +111,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         local_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         let mut stack = vec![(remote_path.to_string(), PathBuf::from(local_path))];
         while let Some((rdir, ldir)) = stack.pop() {
             tokio::fs::create_dir_all(&ldir)
@@ -144,7 +144,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         remote_dir: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         let base = remote_dir.trim_end_matches('/');
         let _ = self.mkdir(base).await;
         for p in local_paths {
@@ -172,7 +172,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         local_dir: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         for p in remote_paths {
             if token.is_cancelled() {
                 return Err("Transfer cancelled".into());
@@ -410,9 +410,9 @@ mod tests {
             local_path: &str,
             _: &str,
             _: &CancellationToken,
-        ) -> Result<(), String> {
+        ) -> Result<(), AppError> {
             let content = lookup(remote_path).flatten().ok_or("not a file")?;
-            std::fs::write(local_path, content).map_err(|e| e.to_string())
+            Ok(std::fs::write(local_path, content).map_err(|e| e.to_string())?)
         }
         async fn canonicalize(&self, _: &str) -> Result<String, AppError> {
             unimplemented!()
@@ -446,7 +446,7 @@ mod tests {
             remote_path: &str,
             _: &str,
             _: &CancellationToken,
-        ) -> Result<(), String> {
+        ) -> Result<(), AppError> {
             self.log.lock().unwrap().push(format!("put {remote_path}"));
             Ok(())
         }

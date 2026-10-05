@@ -256,7 +256,7 @@ impl FileBackend for RealSftp {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         sftp_upload_inner(
             app,
             Arc::clone(&self.session),
@@ -266,6 +266,7 @@ impl FileBackend for RealSftp {
             token,
         )
         .await
+        .map_err(Into::into)
     }
 
     async fn download_file(
@@ -275,7 +276,7 @@ impl FileBackend for RealSftp {
         local_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         sftp_download_inner(
             app,
             Arc::clone(&self.session),
@@ -285,6 +286,7 @@ impl FileBackend for RealSftp {
             token,
         )
         .await
+        .map_err(Into::into)
     }
 
     async fn upload_dir(
@@ -294,7 +296,7 @@ impl FileBackend for RealSftp {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         sftp_upload_dir_inner(
             app,
             Arc::clone(&self.session),
@@ -304,6 +306,7 @@ impl FileBackend for RealSftp {
             token,
         )
         .await
+        .map_err(Into::into)
     }
 
     async fn download_dir(
@@ -313,7 +316,7 @@ impl FileBackend for RealSftp {
         local_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         sftp_download_dir_inner(
             app,
             Arc::clone(&self.session),
@@ -323,6 +326,7 @@ impl FileBackend for RealSftp {
             token,
         )
         .await
+        .map_err(Into::into)
     }
 
     // upload_batch / download_batch: the FileBackend per-item defaults, which

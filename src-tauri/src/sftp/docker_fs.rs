@@ -270,7 +270,7 @@ impl FileBackend for DockerFs {
         remote_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         let mut local = tokio::fs::File::open(local_path)
             .await
             .map_err(|e| format!("Cannot open local file: {e}"))?;
@@ -294,7 +294,7 @@ impl FileBackend for DockerFs {
         writer.flush().await.ok();
         drop(writer);
         channel.eof().await.ok();
-        self.drain_exit(&mut channel, "upload").await
+        Ok(self.drain_exit(&mut channel, "upload").await?)
     }
 
     async fn download_file(
@@ -304,7 +304,7 @@ impl FileBackend for DockerFs {
         local_path: &str,
         transfer_id: &str,
         token: &CancellationToken,
-    ) -> Result<(), String> {
+    ) -> Result<(), AppError> {
         let total = self.file_size(remote_path).await;
         if let Some(parent) = Path::new(local_path).parent() {
             tokio::fs::create_dir_all(parent)
@@ -329,6 +329,10 @@ impl FileBackend for DockerFs {
         let (code, err) =
             drain_channel(&mut channel, &mut local, Some(&mut on_data), Some(token)).await?;
         local.flush().await.ok();
-        exit_error("download failed", code, &String::from_utf8_lossy(&err))
+        Ok(exit_error(
+            "download failed",
+            code,
+            &String::from_utf8_lossy(&err),
+        )?)
     }
 }

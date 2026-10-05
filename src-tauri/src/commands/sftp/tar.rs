@@ -6,6 +6,7 @@ use super::{
     transfer::sftp_rr_file_inner,
     with_transfer, TarHost,
 };
+use crate::error::AppError;
 use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::{FileBackend, SftpManager};
 use std::future::Future;
@@ -295,16 +296,16 @@ async fn stream_or<S, SF, B, BF>(
     transfer_id: &str,
     stream: S,
     fallback: B,
-) -> Result<(), String>
+) -> Result<(), AppError>
 where
     S: FnOnce(TarHost, CancellationToken) -> SF,
     SF: Future<Output = Result<(), String>>,
     B: FnOnce(Arc<dyn FileBackend>, CancellationToken) -> BF,
-    BF: Future<Output = Result<(), String>>,
+    BF: Future<Output = Result<(), AppError>>,
 {
     run_backend_transfer(manager, sftp_id, transfer_id, |backend, token| async move {
         match host_of(&backend).await {
-            Some(host) => stream(host, token).await,
+            Some(host) => stream(host, token).await.map_err(Into::into),
             None => fallback(backend, token).await,
         }
     })
@@ -320,7 +321,7 @@ pub async fn sftp_upload_batch_tar(
     local_paths: Vec<String>,
     remote_dir: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if local_paths.is_empty() {
         return Ok(());
     }
@@ -351,7 +352,7 @@ pub async fn sftp_download_batch_tar(
     remote_paths: Vec<String>,
     local_dir: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if remote_paths.is_empty() {
         return Ok(());
     }
@@ -383,7 +384,7 @@ pub async fn sftp_transfer_batch_tar(
     dst_sftp_id: String,
     dst_dir: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if src_paths.is_empty() {
         return Ok(());
     }
@@ -401,6 +402,7 @@ pub async fn sftp_transfer_batch_tar(
             &token,
         )
         .await
+        .map_err(Into::into)
     })
     .await
 }
@@ -414,7 +416,7 @@ pub async fn sftp_upload_dir_tar(
     local_path: String,
     remote_path: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let (app, tid, local, remote) = (&app, &transfer_id, &local_path, &remote_path);
     stream_or(
         &sftp_state,
@@ -438,7 +440,7 @@ pub async fn sftp_download_dir_tar(
     remote_path: String,
     local_path: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let (app, tid, remote, local) = (&app, &transfer_id, &remote_path, &local_path);
     stream_or(
         &sftp_state,
@@ -464,7 +466,7 @@ pub async fn sftp_transfer_dir_tar(
     dst_sftp_id: String,
     dst_path: String,
     transfer_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let manager: &SftpManager = &sftp_state;
     with_transfer(manager, &transfer_id.clone(), |token| async move {
         relay_or_per_file(
@@ -479,6 +481,7 @@ pub async fn sftp_transfer_dir_tar(
             &token,
         )
         .await
+        .map_err(Into::into)
     })
     .await
 }

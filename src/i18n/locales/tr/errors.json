@@ -9,6 +9,8 @@
     "host-unreachable": "Sunucuya ulaşılamıyor — adresi ve ağ bağlantınızı kontrol edin",
     "timed-out": "İşlem zaman aşımına uğradı",
     "connection-lost": "Bağlantı koptu",
+    "transfer-verify-failed": "Kopya orijinalle eşleşmediği için silindi — yeniden kopyalamak için tekrar deneyin",
+    "transfer-source-changed": "Dosya kopyalanırken değişmeye devam etti — yazılması bittiğinde tekrar deneyin",
     "port-in-use": "{{port}} portu ve sonrakiler zaten kullanımda ({{attempts}} port denendi)",
     "remote-forward-denied": "Sunucu uzak yönlendirmeyi reddetti — port orada zaten kullanımda olabilir ya da yönlendirmeye izin verilmiyor olabilir",
     "ssh-key-rejected": "Açık anahtar kimlik doğrulaması reddedildi",
