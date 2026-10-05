@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, test } from "vitest";
 import { createHostPluginAPI } from "./runtime";
 

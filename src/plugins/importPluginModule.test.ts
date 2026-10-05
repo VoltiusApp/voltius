@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, afterEach } from "vitest";
 import { pluginRegisterOf, injectPluginStyle, removePluginStyle } from "./importPluginModule";
 

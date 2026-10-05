@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, afterEach, beforeEach } from "vitest";
 import { loadPlugin, unloadPlugin, setPluginActive, getExposedApi } from "./runtime";
 import { usePluginStateStore } from "@/stores/pluginStateStore";

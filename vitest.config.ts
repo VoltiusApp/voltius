@@ -20,13 +20,19 @@ export default defineConfig({
     // tests mock module singletons (teamVaultSync `_teamKeyCache`, zustand stores/persist,
     // `navigator.onLine`) and rely on a fresh module registry + globals per file. Do not
     // disable isolation without giving those tests explicit cross-file resets.
-    environment: "jsdom",
     // Node 25+'s own `localStorage` global shadows jsdom's and is unusable without --localstorage-file.
     execArgv: ["--no-experimental-webstorage"],
     setupFiles: ["./vitest.setup.ts"],
-    include: [
-      "src/**/*.{test,spec}.{ts,tsx}",
-      "tests/**/*.{test,spec}.ts",
+    // jsdom setup dominates suite time; a .ts test that needs a DOM opts in with `// @vitest-environment jsdom`.
+    projects: [
+      {
+        extends: true,
+        test: { name: "dom", environment: "jsdom", include: ["src/**/*.{test,spec}.tsx"] },
+      },
+      {
+        extends: true,
+        test: { name: "node", environment: "node", include: ["src/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.ts"] },
+      },
     ],
   },
 });

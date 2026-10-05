@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { Team } from "@/services/teamService";

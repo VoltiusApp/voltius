@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, beforeEach } from "vitest";
 
 // The reader accesses the module-private terminalCache; we drive it by mocking

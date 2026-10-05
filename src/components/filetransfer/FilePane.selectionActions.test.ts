@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import type { TFunction } from "i18next";
 import { buildSelectionActions } from "./FilePane";

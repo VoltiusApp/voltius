@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi, afterEach } from "vitest";
 import { renderHook, waitFor, cleanup } from "@testing-library/react";
 import { useIsProxmoxHost } from "./useIsProxmoxHost";

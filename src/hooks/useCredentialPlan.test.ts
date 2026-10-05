@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, test, expect, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import type { Connection } from "@/types";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, beforeEach, vi } from "vitest";
 import { handleDeepLink } from "./deepLink";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
 
 // vi.mock factories are hoisted above top-level consts; vi.hoisted() hoists

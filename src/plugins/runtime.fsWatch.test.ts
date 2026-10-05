@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn());

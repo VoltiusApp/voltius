@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import type { Connection, Folder, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
 import { createObjectsAPI, objectPermissionsFor, type MoveInput, type ObjectPorts } from "./objects";

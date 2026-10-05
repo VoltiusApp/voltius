@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect } from "vitest";
 import { lastWriteWins } from "./handler";
 import { USER_DATA_HANDLERS } from "./registry";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect } from "vitest";
 import { SETTING_KEYS, settingKey, domainOf, relPath, keysForDomain, isDeviceScopedDefault } from "./settingKeys";
 import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";

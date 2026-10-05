@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, beforeEach } from "vitest";
 import { auditContextForVaultId } from "./auditContextResolver.ts";
 import { useTeamStore } from "@/stores/teamStore";

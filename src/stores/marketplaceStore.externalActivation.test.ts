@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Uses the REAL plugin runtime and the REAL pluginRegistryStore: the bug being

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { applyUserDataBundle } from "./registry";
 import type { UserDataBundle } from "./formats";

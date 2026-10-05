@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test } from "vitest";
 import { runIntraPaneMove } from "./moveService.ts";
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";

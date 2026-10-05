@@ -65,6 +65,22 @@ jobs:
           }
           Write-Host "all six plugin bundles present"
 
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - run: pnpm install
+
+      - run: pnpm test
+
   build:
     runs-on: ubuntu-24.04
     steps:
@@ -98,9 +114,6 @@ jobs:
 
       # Build the frontend first so `dist/` exists for the Tauri build script.
       - run: pnpm build
-
-      - name: Frontend tests
-        run: pnpm test
 
       - name: Rustfmt
         run: cargo fmt --all --check

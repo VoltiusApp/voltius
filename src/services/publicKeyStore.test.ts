@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { TeamSecretUploadError } from "@/services/secretRouting";
 import { ensurePublicKey } from "./publicKeyStore";

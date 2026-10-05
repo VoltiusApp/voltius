@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { appSettingsHandler } from "./appSettings";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { buildMcpTools, listToolDescriptors, callTool, MCP_TEXT } from "./consumer";

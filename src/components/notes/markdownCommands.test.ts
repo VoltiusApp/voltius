@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeAll, describe, expect, test } from "vitest";
 import { EditorSelection, EditorState, type StateCommand } from "@codemirror/state";
 import { CompletionContext, type Completion, type CompletionResult } from "@codemirror/autocomplete";

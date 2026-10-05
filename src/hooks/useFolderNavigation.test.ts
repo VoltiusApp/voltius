@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useFolderNavigation } from "./useFolderNavigation";

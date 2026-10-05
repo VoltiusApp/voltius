@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { executePaste, buildPasteDeps, type PasteDeps } from "./pasteService";
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";

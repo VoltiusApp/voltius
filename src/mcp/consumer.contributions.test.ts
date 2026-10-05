@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buildMcpTools, callTool } from "./consumer";
 import { registerContributions, clearContributions } from "./contributions";

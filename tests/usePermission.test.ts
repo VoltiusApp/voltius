@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "../src/hooks/usePermission.ts";
 import type { TeamMember, TeamRole } from "../src/services/teamService.ts";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import { appSettingsHandler } from "./appSettings";
 import { useLocaleStore } from "@/stores/localeStore";

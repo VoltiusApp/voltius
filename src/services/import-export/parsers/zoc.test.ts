@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { invoke } from "@/lib/invoke";
 import { detectFormat } from "../formats";

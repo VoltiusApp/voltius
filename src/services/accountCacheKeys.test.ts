@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import accountSource from "./account.ts?raw";
 import vaultSource from "./vault.ts?raw";

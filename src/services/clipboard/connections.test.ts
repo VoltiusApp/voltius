@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Connection, SshKey } from "@/types";
 import { connectionsClipboardHalf, type ConnectionsClipboardDeps } from "./connections";

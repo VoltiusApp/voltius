@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const listeners = new Map<string, (e: { payload: unknown }) => void>();

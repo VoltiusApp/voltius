@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, expect, test, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useCopiedFlash } from "./useCopiedFlash";

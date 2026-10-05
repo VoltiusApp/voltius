@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, test, expect, beforeEach } from "vitest";
 import { readTerminalSelection, __setTerminalCacheForTest } from "./useTerminal";
 

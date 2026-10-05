@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleBridgePayload, resetClientTools } from "./register";
 import { registerContributions, clearContributions } from "./contributions";

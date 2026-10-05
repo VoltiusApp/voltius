@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Connection } from "@/types";
 import type { CredentialSnapshot } from "@/services/credentialScope";

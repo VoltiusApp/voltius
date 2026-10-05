@@ -451,6 +451,10 @@
     background-clip: padding-box;
   }
 
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   ::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--color-border-hover) 160%, white);
   }

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import { PERM_BITS } from "./permissions.ts";
 

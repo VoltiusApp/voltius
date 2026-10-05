@@ -941,7 +941,7 @@ function ColumnHeaders({ sortCol, sortDir, withPermissions, colWidths, visibleCo
       >
         <span className="truncate" style={labelStyle}>{label}</span>
         {chevron(col as SortCol)}
-        <ResizeHandle column={col} onWidth={(w) => onResize(col, w)} />
+        {dataColumns.length > 0 && <ResizeHandle column={col} onWidth={(w) => onResize(col, w)} />}
       </button>
     );
   };

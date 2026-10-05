@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { clampMaxUses, clampTtlSecs, expiresIn, usesRemaining, TTL_PRESETS, USES_PRESETS } from "./joinLinkModel";
 

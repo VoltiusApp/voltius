@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import { useSnippetStore } from "./snippetStore";
 import type { SequencePrompt } from "@/services/snippetSequence";

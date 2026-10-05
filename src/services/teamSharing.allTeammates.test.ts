@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Team, TeamMember } from "@/services/teamService";
 

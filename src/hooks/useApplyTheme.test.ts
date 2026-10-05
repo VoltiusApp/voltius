@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import { applyThemeToDom } from "./useApplyTheme";
 import { BUILT_IN_THEMES } from "@/themes/presets";

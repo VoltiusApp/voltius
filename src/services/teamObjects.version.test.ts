@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({ requests: [] as { headers: Record<string, string> }[], status: 204 }));

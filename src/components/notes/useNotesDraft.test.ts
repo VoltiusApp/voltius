@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { NOTES_SAVE_DELAY_MS, useNotesDraft } from "./useNotesDraft";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, vi } from "vitest";
 import { folderDragHandlers } from "./folderDragHandlers";
 import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";

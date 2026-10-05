@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useVaultStore } from "@/stores/vaultStore";

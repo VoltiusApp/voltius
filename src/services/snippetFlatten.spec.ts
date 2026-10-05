@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import { flattenSnippetSteps } from "./snippetFlatten";
 import i18n from "@/i18n";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { encryptText, decryptText } from "../src/services/import-export/formats.ts";
 

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, test, vi } from "vitest";
 import type { MultiplayerConnection } from "@/services/multiplayerService";
 import {
