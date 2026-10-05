@@ -158,3 +158,16 @@ test("the panel's … menu is the card's right-click menu minus Rename/Edit", ()
   expect(card).toContain("common.action.moveTo");
   expect(panel).toEqual(card.filter((l) => l !== "common.action.rename" && l !== "common.action.edit"));
 });
+
+test("using the custom color popover keeps the appearance picker open", async () => {
+  const onUpdate = vi.fn();
+  render(<FolderEditPanel folder={makeFolder("f1", "Prod", { color: "#123456" })} onUpdate={onUpdate} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "folders.appearance.change" }));
+  fireEvent.click(screen.getByTitle("#123456"));
+  const hexInput = screen.getByDisplayValue("#123456");
+  fireEvent.mouseDown(hexInput);
+  fireEvent.change(hexInput, { target: { value: "#abcdef" } });
+  await new Promise((r) => setTimeout(r, 200));
+  expect(screen.getByText("folders.appearance.color")).toBeTruthy();
+  expect(screen.getByDisplayValue("#abcdef")).toBeTruthy();
+});
