@@ -4,6 +4,8 @@ import type { InboxAction, InboxEntry, InboxKind } from "@/stores/notificationSt
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUIStore } from "@/stores/uiStore";
+import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
@@ -230,7 +232,20 @@ function peerLabel(userId: string, fallbackHandle: string | undefined): string |
   return peer.name ?? (peer.handle ? `@${peer.handle}` : null);
 }
 
+// The session's MultiplayerBar is on screen and already says what a toast would, under it.
+function sessionOnScreen(localSessionId: string): boolean {
+  const { activeNav, sftpPanelOpen } = useUIStore.getState();
+  if (activeNav !== "terminal" || sftpPanelOpen) return false;
+  const layout = useLayoutStore.getState();
+  if (!layout.splitTabActive) return useSessionStore.getState().activeSessionId === localSessionId;
+  const shown = layout.maximizedPaneId
+    ? [findLeaf(layout.root, layout.maximizedPaneId)?.sessionId]
+    : getPaneSessionIds(layout.root);
+  return shown.includes(localSessionId);
+}
+
 export function reconcileControlRequests(connections: Record<string, MultiplayerSessionState>): void {
+  const onScreenIds = new Set<string>();
   const derived = Object.entries(connections)
     .filter(
       ([, c]) => !c.ended && c.role === "host" && c.controlRequester !== null && c.controlRequester !== c.myUserId,
@@ -238,6 +253,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
     .map(([localSessionId, c]) => {
       const requesterId = c.controlRequester as string;
       const id = `control:${localSessionId}:${requesterId}`;
+      if (sessionOnScreen(localSessionId)) onScreenIds.add(id);
       const requester =
         peerLabel(requesterId, c.participants.find((p) => p.user_id === requesterId)?.handle) ??
         i18n.t("notifications.inbox.someone");
@@ -272,7 +288,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
     useNotificationStore.getState().inbox.filter((e) => e.kind === "controlRequest").map((e) => e.id),
   );
   for (const e of entries) {
-    if (!known.has(e.id)) toast(e.message, 8000, e.id);
+    if (!known.has(e.id) && !onScreenIds.has(e.id)) toast(e.message, 8000, e.id);
   }
 
   reconcile(["controlRequest"], entries);
@@ -289,7 +305,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
       controlHeldSessions.delete(localSessionId);
     } else if (!controlHeldSessions.has(localSessionId)) {
       controlHeldSessions.add(localSessionId);
-      toast(i18n.t("notifications.inbox.control.granted"), 4000);
+      if (!sessionOnScreen(localSessionId)) toast(i18n.t("notifications.inbox.control.granted"), 4000);
     }
   }
 }

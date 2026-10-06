@@ -7,7 +7,7 @@ const h = vi.hoisted(() => {
     setState: (patch: unknown) =>
       Object.assign(sessionState, typeof patch === "function" ? (patch as (s: typeof sessionState) => unknown)(sessionState) : patch),
   };
-  const uiState = { setActiveNav: vi.fn() };
+  const uiState = { setActiveNav: vi.fn(), activeNav: "hosts", sftpPanelOpen: false };
   const useUIStore = { getState: () => uiState };
   const joinSession = vi.fn(async () => "local-99");
   const grantControl = vi.fn();
@@ -56,6 +56,7 @@ vi.mock("@/i18n", () => ({
 
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import {
   reconcileInvites,
   reconcileSessions,
@@ -91,6 +92,9 @@ beforeEach(() => {
   h.fetchActiveSessions.mockClear().mockResolvedValue(undefined);
   h.teamSessionState.activeSessions = [];
   h.uiState.setActiveNav.mockClear();
+  h.uiState.activeNav = "hosts";
+  h.uiState.sftpPanelOpen = false;
+  useLayoutStore.setState({ splitTabActive: false, root: null, maximizedPaneId: null });
   h.sessionState.sessions = [];
   h.sessionState.activeSessionId = null;
   useTeamStore.setState({ teams: [] });
@@ -527,6 +531,41 @@ test("a guest handed control gets one confirmation toast per grant", () => {
   reconcileControlRequests({ local1: guest() });
   reconcileControlRequests({ local1: guest({ controlHolder: "guest1" }) });
   expect(get().toasts).toHaveLength(2);
+});
+
+function showSession(localSessionId: string) {
+  h.uiState.activeNav = "terminal";
+  h.sessionState.activeSessionId = localSessionId;
+}
+
+test("a control request on the terminal in view is not toasted: its bar shows Grant/Deny", () => {
+  showSession("local1");
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().inbox.filter((x) => x.kind === "controlRequest")).toHaveLength(1);
+  expect(get().toasts).toHaveLength(0);
+});
+
+test("a control request on a terminal in an unshown pane of the split tab still toasts", () => {
+  h.uiState.activeNav = "terminal";
+  useLayoutStore.setState({ splitTabActive: true, root: { type: "leaf", id: "p1", sessionId: "local2" } as never });
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().toasts).toHaveLength(1);
+});
+
+test("a control request while the SFTP page covers the terminal still toasts", () => {
+  showSession("local1");
+  h.uiState.sftpPanelOpen = true;
+  reconcileControlRequests({ local1: conn({ controlRequester: "guest1" }) });
+  expect(get().toasts).toHaveLength(1);
+});
+
+test("a guest handed control on the terminal in view is not toasted, and not later either", () => {
+  showSession("local1");
+  const guest = conn({ role: "guest", myUserId: "guest1", controlHolder: "guest1" });
+  reconcileControlRequests({ local1: guest });
+  h.uiState.activeNav = "hosts";
+  reconcileControlRequests({ local1: guest });
+  expect(get().toasts).toHaveLength(0);
 });
 
 test("the host holding control on their own session is not toasted", () => {
