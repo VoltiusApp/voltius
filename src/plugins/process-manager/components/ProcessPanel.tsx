@@ -25,6 +25,9 @@ function fmtMem(kb: number): string {
 
 // ─── Column header ────────────────────────────────────────────────────────────
 
+// The name column takes what is left of the fixed-width side panel; these never shrink.
+const COL = { user: 48, cpu: 36, mem: 36, kill: 19 };
+
 function ColHeader({
   label,
   col,
@@ -84,7 +87,7 @@ function ProcessRow({
 
   return (
     <div
-      className="group flex items-center px-3 gap-2 border-b border-b-(--t-border)"
+      className="group flex items-center px-3 gap-1.5 border-b border-b-(--t-border)"
       style={{
         height: ROW_H,
         background: isConfirming ? "color-mix(in srgb, var(--t-status-error) 12%, transparent)" : "transparent",
@@ -95,9 +98,9 @@ function ProcessRow({
       <span
         className="text-[11px] font-mono truncate"
         style={{
-          width: 100,
+          flex: 1,
+          minWidth: 0,
           color: isConfirming ? "var(--t-status-error)" : "var(--t-text-primary)",
-          flexShrink: 0,
         }}
       >
         {displayName}
@@ -106,7 +109,7 @@ function ProcessRow({
       {/* User */}
       <span
         className="text-[10px] truncate"
-        style={{ width: 60, color: "var(--t-text-muted)", flexShrink: 0 }}
+        style={{ width: COL.user, color: "var(--t-text-muted)", flexShrink: 0 }}
       >
         {entry.user}
       </span>
@@ -115,7 +118,7 @@ function ProcessRow({
       <span
         className="text-[10px] font-mono text-right tabular-nums"
         style={{
-          width: 36,
+          width: COL.cpu,
           flexShrink: 0,
           color: entry.cpu_percent > 50 ? "var(--t-status-warning)" : entry.cpu_percent > 10 ? "var(--t-text-primary)" : "var(--t-text-muted)",
         }}
@@ -126,7 +129,7 @@ function ProcessRow({
       {/* MEM */}
       <span
         className="text-[10px] font-mono text-right tabular-nums"
-        style={{ width: 36, color: "var(--t-text-muted)", flexShrink: 0 }}
+        style={{ width: COL.mem, color: "var(--t-text-muted)", flexShrink: 0 }}
       >
         {fmtMem(entry.mem_kb)}
       </span>
@@ -240,8 +243,8 @@ export function createProcessPanel(api: PluginAPI): FC {
 
         {/* Column headers */}
         <div
-          className="grid px-3 py-1 border-b border-(--t-border) shrink-0"
-          style={{ gridTemplateColumns: "100px 60px 36px 36px 1fr" }}
+          className="grid gap-1.5 px-3 py-1 border-b border-(--t-border) shrink-0"
+          style={{ gridTemplateColumns: `minmax(0, 1fr) ${COL.user}px ${COL.cpu}px ${COL.mem}px ${COL.kill}px` }}
         >
           <ColHeader label={t("sortName")} col="name" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
           <ColHeader label={t("colUser")} col="user" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
