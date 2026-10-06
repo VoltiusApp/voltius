@@ -28,4 +28,8 @@ describe("sessionStatusLine", () => {
   it("says connected without a time when the start is unknown", () => {
     expect(sessionStatusLine({ ...base, status: "connected" } as never, null, 0, t)).toBe(`${P}connected:{"time":"0m"}`);
   });
+
+  it("never shows a negative time for a session that connected after the last tick", () => {
+    expect(sessionStatusLine({ ...base, status: "connected" } as never, 90_000, 30_000, t)).toBe(`${P}connected:{"time":"0m"}`);
+  });
 });

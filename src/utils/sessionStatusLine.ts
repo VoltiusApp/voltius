@@ -12,7 +12,8 @@ export function formatSince(ms: number): string {
 export function sessionStatusLine(session: TerminalSession, since: number | null, now: number, t: TFunction): string {
   const key = "layout.titleBar.stack.status.";
   switch (session.status) {
-    case "connected": return t(`${key}connected`, { time: formatSince(since === null ? 0 : now - since) });
+    // `now` ticks once a minute, so a session that connected after the last tick starts ahead of it.
+    case "connected": return t(`${key}connected`, { time: formatSince(since === null ? 0 : Math.max(0, now - since)) });
     case "connecting":
       if (session.reconnectWait === "offline") return t(`${key}offline`);
       if (session.reconnectWait === "slow") return t(`${key}reconnecting`);
