@@ -49,15 +49,15 @@ export function ImportExportModal() {
         className="flex flex-col animate-fadeIn overflow-hidden"
         style={{ width: "min(680px, 94vw)", height: "min(580px, 90vh)" }}
       >
-        <div className="grid grid-cols-3 items-center px-6 py-4 shrink-0 border-b border-b-(--t-border)">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-6 py-4 shrink-0 border-b border-b-(--t-border)">
           <div className="flex items-center gap-3">
             <Icon icon="lucide:database" width={18} className="text-(--t-accent)" />
-            <span className="text-base font-semibold text-(--t-text-bright)">{t("importExport.modal.title")}</span>
+            <span className="text-base font-semibold whitespace-nowrap text-(--t-text-bright)">{t("importExport.modal.title")}</span>
           </div>
           <div className="flex items-center justify-center gap-1">
             {SECTIONS.map(s => (
               <button key={s.id} onClick={() => setActiveSection(s.id)}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors"
                 style={{
                   background: activeSection === s.id ? "var(--t-bg-input)" : "transparent",
                   color: activeSection === s.id ? "var(--t-text-bright)" : "var(--t-text-muted)",
