@@ -96,14 +96,18 @@ pub async fn container_action(
     vmid: u32,
     action: &LxcAction,
 ) -> Result<(), String> {
+    exec_command_timeout(handle, &action_command(vmid, action), LONG_EXEC_TIMEOUT).await?;
+    Ok(())
+}
+
+// `pct` has no `restart`: Proxmox VE calls it `reboot`.
+fn action_command(vmid: u32, action: &LxcAction) -> String {
     let verb = match action {
         LxcAction::Start => "start",
         LxcAction::Stop => "stop",
-        LxcAction::Restart => "restart",
+        LxcAction::Restart => "reboot",
     };
-    let cmd = format!("pct {verb} {vmid}");
-    exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await?;
-    Ok(())
+    format!("pct {verb} {vmid}")
 }
 
 pub async fn list_snapshots(handle: &SshHandle, vmid: u32) -> Result<Vec<LxcSnapshot>, String> {
@@ -144,7 +148,14 @@ pub async fn snapshot_delete(handle: &SshHandle, vmid: u32, snapname: &str) -> R
 
 #[cfg(test)]
 mod tests {
-    use super::exec_result;
+    use super::{action_command, exec_result, LxcAction};
+
+    #[test]
+    fn restart_reboots_the_container() {
+        assert_eq!(action_command(101, &LxcAction::Restart), "pct reboot 101");
+        assert_eq!(action_command(101, &LxcAction::Start), "pct start 101");
+        assert_eq!(action_command(101, &LxcAction::Stop), "pct stop 101");
+    }
 
     #[test]
     fn a_zero_exit_returns_stdout() {
