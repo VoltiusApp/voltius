@@ -125,8 +125,8 @@ impl<H: Handler> TarProbe<H> {
         let Some(shell) = shell else {
             return Ok(None);
         };
-        let cmd = self.wrap(&shell.sha256(path));
-        remote_hash(&read_cell(&self.handle), &cmd, path, token, dead).await
+        let (ssh, cmd) = (read_cell(&self.handle), self.wrap(&shell.sha256(path)));
+        remote_hash(&*ssh, &cmd, path, token, dead).await
     }
 }
 
