@@ -74,7 +74,7 @@ function LxcRow({
         <StatusDot tone={lxcStatusTone(container.status)} size="sm" />
         <span className="font-mono text-[10px] text-(--t-text-muted) shrink-0">{container.vmid}</span>
         <span className="text-[11px] text-(--t-text) font-medium truncate flex-1">{container.name}</span>
-        <span className="text-[10px] text-(--t-text-muted) shrink-0">{container.mem_mb}M</span>
+        {container.mem_mb > 0 && <span className="text-[10px] text-(--t-text-muted) shrink-0">{container.mem_mb}M</span>}
       </div>
       <div className="flex items-center gap-0.5 mt-0.5">
         {!running && (

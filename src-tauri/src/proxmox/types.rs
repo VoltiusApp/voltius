@@ -62,6 +62,39 @@ pub fn parse_lxc_list(output: &str) -> Vec<LxcContainer> {
     result
 }
 
+/// Parse `pvesh get /nodes/<node>/lxc --output-format json`, which unlike
+/// `pct list` carries memory, disk and pid. None when it isn't that JSON.
+pub fn parse_pvesh_lxc(output: &str) -> Option<Vec<LxcContainer>> {
+    let rows: Vec<serde_json::Value> = serde_json::from_str(output.trim()).ok()?;
+    let num = |row: &serde_json::Value, key: &str| -> Option<u64> {
+        match &row[key] {
+            serde_json::Value::String(s) => s.parse().ok(),
+            v => v.as_u64(),
+        }
+    };
+    let mut result: Vec<LxcContainer> = rows
+        .iter()
+        .filter_map(|row| {
+            let vmid = u32::try_from(num(row, "vmid")?).ok()?;
+            Some(LxcContainer {
+                vmid,
+                name: row["name"]
+                    .as_str()
+                    .map_or_else(|| vmid.to_string(), str::to_string),
+                status: row["status"].as_str()?.to_string(),
+                mem_mb: u32::try_from(num(row, "mem").unwrap_or(0) / (1024 * 1024))
+                    .unwrap_or(u32::MAX),
+                disk_gb: num(row, "disk").unwrap_or(0) as f64 / (1024.0 * 1024.0 * 1024.0),
+                pid: num(row, "pid")
+                    .and_then(|p| u32::try_from(p).ok())
+                    .unwrap_or(0),
+            })
+        })
+        .collect();
+    result.sort_by_key(|c| c.vmid);
+    Some(result)
+}
+
 /// Strip `pct listsnapshot`'s tree decoration from the start of a line.
 ///
 /// PVE has emitted two shapes; both must land on the bare name, because the parsed
@@ -134,6 +167,44 @@ pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // The shape of PVE's /nodes/{node}/lxc list: numbers are JSON numbers, a stopped
+    // container reports mem 0 and no pid.
+    const PVESH: &str = r#"[{"cpu":0.0021,"cpus":1,"disk":1162825728,"maxdisk":8350298112,"maxmem":536870912,"mem":42450944,"name":"pihole","pid":4242,"status":"running","type":"lxc","uptime":3600,"vmid":101},
+{"cpu":0,"cpus":2,"disk":0,"maxdisk":17179869184,"maxmem":2147483648,"mem":0,"name":"test-debian","status":"stopped","type":"lxc","uptime":0,"vmid":"105"},
+{"cpu":0.01,"cpus":1,"disk":0,"maxmem":1073741824,"mem":268435456,"status":"running","type":"lxc","vmid":100}]"#;
+
+    #[test]
+    fn parses_pvesh_lxc_memory_disk_pid_sorted_by_vmid() {
+        let containers = parse_pvesh_lxc(PVESH).unwrap();
+        assert_eq!(
+            containers.iter().map(|c| c.vmid).collect::<Vec<_>>(),
+            [100, 101, 105]
+        );
+        let pihole = &containers[1];
+        assert_eq!(
+            (
+                pihole.name.as_str(),
+                pihole.status.as_str(),
+                pihole.mem_mb,
+                pihole.pid
+            ),
+            ("pihole", "running", 40, 4242)
+        );
+        assert!((pihole.disk_gb - 1.083).abs() < 0.001);
+        assert_eq!((containers[2].mem_mb, containers[2].pid), (0, 0));
+        assert_eq!(
+            (containers[0].name.as_str(), containers[0].mem_mb),
+            ("100", 256)
+        );
+    }
+
+    #[test]
+    fn pvesh_output_that_is_not_its_json_is_none() {
+        assert!(parse_pvesh_lxc("sh: 1: pvesh: not found").is_none());
+        assert!(parse_pvesh_lxc("").is_none());
+        assert_eq!(parse_pvesh_lxc("[]").unwrap().len(), 0);
+    }
 
     #[test]
     fn parses_pct_list_running_and_stopped() {

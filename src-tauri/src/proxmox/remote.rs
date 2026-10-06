@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use tokio::time::{timeout, Duration};
 
-use super::types::{parse_lxc_list, parse_lxc_snapshots, LxcAction, LxcContainer, LxcSnapshot};
+use super::types::{
+    parse_lxc_list, parse_lxc_snapshots, parse_pvesh_lxc, LxcAction, LxcContainer, LxcSnapshot,
+};
 use crate::ssh::client::SshClient;
 use crate::ssh::exec::shell_quote;
 
@@ -86,7 +88,17 @@ async fn exec_command_timeout(
     exec_result(cmd, code, stdout, stderr)
 }
 
+// `pct list` has no memory column; pvesh has it, and needs the same root as pct.
+const PVESH_LXC: &str = "pvesh get /nodes/\"$(hostname)\"/lxc --output-format json";
+
 pub async fn list_containers(handle: &SshHandle) -> Result<Vec<LxcContainer>, String> {
+    if let Some(list) = exec_command(handle, PVESH_LXC)
+        .await
+        .ok()
+        .and_then(|out| parse_pvesh_lxc(&out))
+    {
+        return Ok(list);
+    }
     let output = exec_command(handle, "pct list").await?;
     Ok(parse_lxc_list(&output))
 }
