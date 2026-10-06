@@ -8,6 +8,7 @@ use crate::ssh::live_cells::{read_cell, Cell};
 use russh::client::{Handle, Handler};
 use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -118,28 +119,57 @@ impl<H: Handler> SftpLink<H> {
         token: &CancellationToken,
         deadline: Instant,
     ) -> Result<(), AppError> {
-        loop {
-            let step = async {
-                if self.revive(session).await {
-                    return true;
-                }
-                tokio::time::sleep(LINK_POLL).await;
-                false
-            };
-            tokio::select! {
-                biased;
-                _ = token.cancelled() => return Err("Transfer cancelled".into()),
-                _ = self.closed.cancelled() => return Err("SFTP session closed".into()),
-                _ = tokio::time::sleep_until(deadline) => {
-                    return Err(AppError::coded(
-                        ErrorCode::ConnectionLost,
-                        "Connection lost; the partial copy is kept for Retry",
-                    ))
-                }
-                alive = step => if alive {
-                    return Ok(());
-                },
+        wait_for_link(|| self.revive(session), token, &self.closed, deadline).await
+    }
+}
+
+/// Whether `handle` still opens channels, within `LINK_PROBE`.
+pub(crate) async fn ssh_answers<H: Handler>(handle: &Handle<H>) -> bool {
+    if handle.is_closed() {
+        return false;
+    }
+    match timeout(LINK_PROBE, handle.channel_open_session()).await {
+        Ok(Ok(ch)) => {
+            let _ = ch.close().await;
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Polls `revive` until it brings the link back, the transfer is cancelled,
+/// the session is `closed`, or `deadline` passes.
+pub(crate) async fn wait_for_link<F, Fut>(
+    revive: F,
+    token: &CancellationToken,
+    closed: &CancellationToken,
+    deadline: Instant,
+) -> Result<(), AppError>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = bool>,
+{
+    loop {
+        let step = async {
+            if revive().await {
+                return true;
             }
+            tokio::time::sleep(LINK_POLL).await;
+            false
+        };
+        tokio::select! {
+            biased;
+            _ = token.cancelled() => return Err("Transfer cancelled".into()),
+            _ = closed.cancelled() => return Err("SFTP session closed".into()),
+            _ = tokio::time::sleep_until(deadline) => {
+                return Err(AppError::coded(
+                    ErrorCode::ConnectionLost,
+                    "Connection lost; the partial copy is kept for Retry",
+                ))
+            }
+            alive = step => if alive {
+                return Ok(());
+            },
         }
     }
 }

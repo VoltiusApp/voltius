@@ -6,9 +6,7 @@ use super::{
         endpoint::Endpoint,
         is_resume,
         large::{has_large_local, has_large_remote},
-        mark_resume, revive,
-        sftp_fs::SftpFs,
-        LARGE_FILE, LINK_WAIT,
+        mark_resume, revive, LARGE_FILE, LINK_WAIT,
     },
     run_backend_transfer,
     stream::{self, Job, LocalSide, RemoteEnd},
@@ -261,12 +259,10 @@ async fn relay_or_per_file(
         get_backend(manager, src_id).await?,
         get_backend(manager, dst_id).await?,
     );
-    let (src_fs, dst_fs) = (src.sftp_fs(), dst.sftp_fs());
+    let (src_fs, dst_fs) = (src.endpoint(), dst.endpoint());
+    let (src_fs, dst_fs) = (&*src_fs, &*dst_fs);
     let (parent, items) = remote_items(paths);
     let per_file = || async {
-        let missing = |id: &str| AppError::from(format!("SFTP session '{id}' not found"));
-        let src_fs = src_fs.as_ref().ok_or_else(|| missing(src_id))?;
-        let dst_fs = dst_fs.as_ref().ok_or_else(|| missing(dst_id))?;
         let base = dest.trim_end_matches('/');
         for (path, name) in paths.iter().zip(&items) {
             let to = if whole_dir {
@@ -283,12 +279,7 @@ async fn relay_or_per_file(
         Ok(())
     };
     if let (Some(s), Some(d)) = tokio::join!(host_of(&src), host_of(&dst)) {
-        let large = async {
-            match &src_fs {
-                Some(fs) => has_large_remote(&s, fs, &parent, &items, LARGE_FILE).await,
-                None => false,
-            }
-        };
+        let large = has_large_remote(&s, src_fs, &parent, &items, LARGE_FILE);
         if tar_fits(transfer_id, large).await {
             let relayed = relay_via(
                 app,
@@ -303,8 +294,15 @@ async fn relay_or_per_file(
             )
             .await
             .map_err(Into::into);
-            let ends = endpoints(&[&src_fs, &dst_fs]);
-            return after_tar(app, transfer_id, relayed, &ends, token, per_file).await;
+            return after_tar(
+                app,
+                transfer_id,
+                relayed,
+                &[src_fs, dst_fs],
+                token,
+                per_file,
+            )
+            .await;
         }
         per_file_accel(app, transfer_id);
     }
@@ -314,12 +312,6 @@ async fn relay_or_per_file(
 /// Tar only on a first run with no big file: a retry or a big file goes per file, resumable.
 async fn tar_fits(transfer_id: &str, large: impl Future<Output = bool>) -> bool {
     !is_resume(transfer_id) && !large.await
-}
-
-fn endpoints<'a>(fs: &[&'a Option<SftpFs>]) -> Vec<&'a dyn Endpoint> {
-    fs.iter()
-        .filter_map(|f| f.as_ref().map(|f| f as &dyn Endpoint))
-        .collect()
 }
 
 fn per_file_accel(events: &impl TransferEvents, transfer_id: &str) {
@@ -376,7 +368,7 @@ async fn stream_or<E, L, LF, S, SF, B, BF>(
 ) -> Result<(), AppError>
 where
     E: TransferEvents,
-    L: FnOnce(TarHost, SftpFs) -> LF,
+    L: FnOnce(TarHost, Arc<dyn Endpoint>) -> LF,
     LF: Future<Output = bool>,
     S: FnOnce(TarHost, CancellationToken) -> SF,
     SF: Future<Output = Result<(), String>>,
@@ -387,19 +379,14 @@ where
         let Some(host) = host_of(&backend).await else {
             return fallback(backend, token).await;
         };
-        let fs = backend.sftp_fs();
-        let fits = match &fs {
-            Some(fs) => tar_fits(transfer_id, large(host.clone(), fs.clone())).await,
-            None => !is_resume(transfer_id),
-        };
-        if !fits {
+        let fs = backend.endpoint();
+        if !tar_fits(transfer_id, large(host.clone(), Arc::clone(&fs))).await {
             per_file_accel(events, transfer_id);
             return fallback(backend, token).await;
         }
         let streamed = stream(host, token.clone()).await.map_err(Into::into);
-        let ends = endpoints(&[&fs]);
         let retry = || fallback(Arc::clone(&backend), token.clone());
-        after_tar(events, transfer_id, streamed, &ends, &token, retry).await
+        after_tar(events, transfer_id, streamed, &[&*fs], &token, retry).await
     })
     .await
 }
@@ -458,7 +445,7 @@ pub async fn sftp_download_batch_tar(
         &transfer_id,
         |host, fs| async move {
             let (parent, items) = remote_items(paths);
-            has_large_remote(&host, &fs, &parent, &items, LARGE_FILE).await
+            has_large_remote(&host, &*fs, &parent, &items, LARGE_FILE).await
         },
         |host, token| async move {
             let items = local_safe_items(app, tid, paths);
@@ -549,7 +536,7 @@ pub async fn sftp_download_dir_tar(
         &transfer_id,
         |host, fs| async move {
             let (parent, items) = remote_items(std::slice::from_ref(remote));
-            has_large_remote(&host, &fs, &parent, &items, LARGE_FILE).await
+            has_large_remote(&host, &*fs, &parent, &items, LARGE_FILE).await
         },
         |host, token| async move {
             let (parent, base) = remote_split(remote);

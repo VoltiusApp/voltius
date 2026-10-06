@@ -1,6 +1,9 @@
 pub(crate) mod endpoint;
 pub(crate) mod large;
+#[cfg(all(test, unix))]
+pub(crate) mod live;
 pub(crate) mod names;
+pub(crate) mod pipe;
 pub(crate) mod sftp_fs;
 
 use crate::commands::sftp::{pump, TransferProgress};
@@ -403,9 +406,9 @@ async fn attempt<E: TransferEvents>(
     }
     ctx.transferred = base + offset;
     ctx.progress();
-    let mut writer = match dst.open_write(&part_path, offset).await {
+    let mut writer = match dst.open_write(&part_path, offset, stat.size - offset).await {
         Err(e) if offset == 0 && e.code() == Some(ErrorCode::PermissionDenied) => {
-            return copy_in_place(src, src_path, dst, dst_path, stat.mtime, ctx).await;
+            return copy_in_place(src, src_path, dst, dst_path, stat, ctx).await;
         }
         opened => opened?,
     };
@@ -457,7 +460,7 @@ async fn copy_bytes<E: TransferEvents>(
         writer
             .shutdown()
             .await
-            .map_err(|e| AppError::from(format!("Flush error: {e}")))
+            .map_err(|e| AppError::caused("Flush error", &e))
     };
     unless_lost(copied, ends, &seen, stall, token).await
 }
@@ -468,14 +471,14 @@ async fn copy_in_place<E: TransferEvents>(
     src_path: &str,
     dst: &dyn Endpoint,
     dst_path: &str,
-    mtime: u64,
+    stat: Stat,
     ctx: &mut CopyCtx<'_, E>,
 ) -> Result<Attempt, AppError> {
     log::info!("no room for a temp file next to {dst_path}; writing it in place");
-    let mut writer = dst.open_write(dst_path, 0).await?;
+    let mut writer = dst.open_write(dst_path, 0, stat.size).await?;
     let mut reader = src.open_read(src_path, 0).await?;
     copy_bytes(&mut reader, &mut writer, &[src, dst], ctx).await?;
-    keep_mtime(dst, dst_path, mtime).await;
+    keep_mtime(dst, dst_path, stat.mtime).await;
     Ok(Attempt::Done)
 }
 
@@ -495,7 +498,7 @@ async fn resume_offset(
     let Some(have) = dst.stat(part).await?.map(|s| s.size) else {
         return Ok(0);
     };
-    if have == 0 || have > size {
+    if have == 0 || have > size || !dst.appends(part, have).await {
         return Ok(0);
     }
     let (a, b) = tokio::try_join!(tail(src, src_path, have), tail(dst, part, have))?;
@@ -509,7 +512,7 @@ async fn tail(fs: &dyn Endpoint, path: &str, end: u64) -> Result<Vec<u8>, AppErr
         .await?
         .read_exact(&mut buf)
         .await
-        .map_err(|e| AppError::from(format!("Read error: {e}")))?;
+        .map_err(|e| AppError::caused("Read error", &e))?;
     Ok(buf)
 }
 

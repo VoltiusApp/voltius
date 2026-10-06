@@ -109,9 +109,13 @@ impl Classify for ErrorKind {
     }
 }
 
+/// An `AppError` carried inside an io error keeps its own code.
 impl Classify for std::io::Error {
     fn error_code(&self) -> Option<ErrorCode> {
-        self.kind().error_code()
+        match self.get_ref().and_then(|e| e.downcast_ref::<AppError>()) {
+            Some(inner) => inner.code(),
+            None => self.kind().error_code(),
+        }
     }
 }
 

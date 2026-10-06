@@ -1,3 +1,4 @@
+use crate::commands::sftp::RemoteFile;
 use crate::error::{AppError, ErrorCode};
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
@@ -23,20 +24,49 @@ pub(crate) struct Listed {
     pub is_symlink: bool,
 }
 
+impl From<RemoteFile> for Listed {
+    fn from(f: RemoteFile) -> Self {
+        Listed {
+            stat: Some(Stat {
+                size: f.size,
+                mtime: f.modified.unwrap_or(0),
+                is_dir: f.is_dir,
+                mode: f.permissions,
+            }),
+            is_symlink: f.is_symlink,
+            name: f.name,
+        }
+    }
+}
+
 pub(crate) type Reader = Box<dyn AsyncRead + Send + Unpin>;
 pub(crate) type Writer = Box<dyn AsyncWrite + Send + Unpin>;
 
-/// One side of a copy: this machine's disk or an SFTP session.
+/// One side of a copy: this machine's disk or a remote file backend.
 #[async_trait]
 pub(crate) trait Endpoint: Send + Sync {
     fn is_local(&self) -> bool;
-    fn split(&self, path: &str) -> (String, String);
-    fn join(&self, dir: &str, rel: &str) -> String;
+    fn split(&self, path: &str) -> (String, String) {
+        let trimmed = path.trim_end_matches('/');
+        match trimmed.rfind('/') {
+            Some(0) => ("/".into(), trimmed[1..].into()),
+            Some(i) => (trimmed[..i].into(), trimmed[i + 1..].into()),
+            None => (".".into(), trimmed.into()),
+        }
+    }
+    fn join(&self, dir: &str, rel: &str) -> String {
+        format!("{}/{rel}", dir.trim_end_matches('/'))
+    }
     async fn stat(&self, path: &str) -> Result<Option<Stat>, AppError>;
     async fn list(&self, dir: &str) -> Result<Vec<Listed>, AppError>;
     async fn mkdir(&self, path: &str) -> Result<(), AppError>;
     async fn open_read(&self, path: &str, offset: u64) -> Result<Reader, AppError>;
-    async fn open_write(&self, path: &str, offset: u64) -> Result<Writer, AppError>;
+    /// `offset` is 0 (truncate) or the file's current size; `len` bytes follow.
+    async fn open_write(&self, path: &str, offset: u64, len: u64) -> Result<Writer, AppError>;
+    /// Whether a write can carry on from the `have` bytes `path` already holds.
+    async fn appends(&self, _path: &str, _have: u64) -> bool {
+        true
+    }
     async fn rename(&self, from: &str, to: &str) -> Result<(), AppError>;
     async fn remove(&self, path: &str) -> Result<(), AppError>;
     async fn set_mtime(&self, path: &str, mtime: u64) -> Result<(), AppError>;
@@ -181,7 +211,7 @@ impl Endpoint for LocalFs {
         Ok(Box::new(f))
     }
 
-    async fn open_write(&self, path: &str, offset: u64) -> Result<Writer, AppError> {
+    async fn open_write(&self, path: &str, offset: u64, _len: u64) -> Result<Writer, AppError> {
         if let Some(parent) = Path::new(path).parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
@@ -330,14 +360,14 @@ pub(crate) mod tests_support {
         async fn open_read(&self, p: &str, o: u64) -> Result<Reader, AppError> {
             LocalFs.open_read(p, o).await
         }
-        async fn open_write(&self, p: &str, o: u64) -> Result<Writer, AppError> {
+        async fn open_write(&self, p: &str, o: u64, n: u64) -> Result<Writer, AppError> {
             if once(
                 self.lose_first_write,
                 &mut self.state.lock().unwrap().write_lost,
             ) {
                 return Err(connection_lost());
             }
-            LocalFs.open_write(p, o).await
+            LocalFs.open_write(p, o, n).await
         }
         async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
             let n = {
@@ -401,10 +431,10 @@ mod tests {
     async fn local_writes_at_an_offset_and_reads_from_one() {
         let d = tempfile::tempdir().unwrap();
         let f = p(&d, "sub/x");
-        let mut w = LocalFs.open_write(&f, 0).await.unwrap();
+        let mut w = LocalFs.open_write(&f, 0, 5).await.unwrap();
         w.write_all(b"hello").await.unwrap();
         w.shutdown().await.unwrap();
-        let mut w = LocalFs.open_write(&f, 3).await.unwrap();
+        let mut w = LocalFs.open_write(&f, 3, 3).await.unwrap();
         w.write_all(b"LO!").await.unwrap();
         w.shutdown().await.unwrap();
         let mut s = String::new();

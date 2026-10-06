@@ -1,10 +1,9 @@
 use super::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
-use super::names::parse_sha256;
+use super::names::remote_hash;
 use crate::commands::sftp::{SftpFile, TarProbe};
-use crate::error::{AppError, ErrorCode};
+use crate::error::AppError;
 use crate::sftp::link::SftpLink;
 use crate::ssh::client::SshClient;
-use crate::ssh::exec::run_captured;
 use crate::ssh::live_cells::read_cell;
 use async_trait::async_trait;
 use russh::client::Handler;
@@ -84,19 +83,6 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         false
     }
 
-    fn split(&self, path: &str) -> (String, String) {
-        let trimmed = path.trim_end_matches('/');
-        match trimmed.rfind('/') {
-            Some(0) => ("/".into(), trimmed[1..].into()),
-            Some(i) => (trimmed[..i].into(), trimmed[i + 1..].into()),
-            None => (".".into(), trimmed.into()),
-        }
-    }
-
-    fn join(&self, dir: &str, rel: &str) -> String {
-        format!("{}/{rel}", dir.trim_end_matches('/'))
-    }
-
     async fn stat(&self, path: &str) -> Result<Option<Stat>, AppError> {
         let sftp = self.session.lock().await;
         match sftp.metadata(path).await {
@@ -151,7 +137,7 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         Ok(Box::new(file))
     }
 
-    async fn open_write(&self, path: &str, offset: u64) -> Result<Writer, AppError> {
+    async fn open_write(&self, path: &str, offset: u64, _len: u64) -> Result<Writer, AppError> {
         let mut flags = OpenFlags::CREATE | OpenFlags::WRITE;
         if offset == 0 {
             flags |= OpenFlags::TRUNCATE;
@@ -236,20 +222,8 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         let Some(shell) = shell else {
             return Ok(None);
         };
-        let (handle, cmd) = (read_cell(&link.handle), shell.sha256(path));
-        let ran = tokio::select! {
-            _ = token.cancelled() => return Ok(None),
-            r = run_captured(&handle, &cmd) => r,
-        };
-        match ran {
-            Ok(out) if out.code == Some(0) => Ok(parse_sha256(&out.stdout_text())),
-            Ok(_) => Ok(None),
-            Err(e) if self.link_dead().await => Err(AppError::coded(
-                ErrorCode::ConnectionLost,
-                format!("Connection lost while verifying {path}: {e}"),
-            )),
-            Err(_) => Ok(None),
-        }
+        let handle = read_cell(&link.handle);
+        remote_hash(&handle, &shell.sha256(path), path, token, self.link_dead()).await
     }
 
     fn link_lost(&self) -> bool {
@@ -307,10 +281,10 @@ pub(crate) mod tests {
         let fs = sftp_fs(ProcOptions::default()).await;
         let d = tempfile::tempdir().unwrap();
         let f = format!("{}/x", d.path().display());
-        let mut w = fs.open_write(&f, 0).await.unwrap();
+        let mut w = fs.open_write(&f, 0, 5).await.unwrap();
         w.write_all(b"hello").await.unwrap();
         w.shutdown().await.unwrap();
-        let mut w = fs.open_write(&f, 3).await.unwrap();
+        let mut w = fs.open_write(&f, 3, 3).await.unwrap();
         w.write_all(b"LO!").await.unwrap();
         w.shutdown().await.unwrap();
         let mut s = String::new();

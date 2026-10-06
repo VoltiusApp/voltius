@@ -2,7 +2,6 @@
 //! rather than as one tar stream that a drop would restart.
 
 use super::endpoint::Endpoint;
-use super::sftp_fs::SftpFs;
 use crate::commands::sftp::remote_shell::{answer, RemoteShell};
 use crate::commands::sftp::TarHost;
 use crate::ssh::exec::run_captured;
@@ -47,7 +46,7 @@ pub(crate) async fn large_by_exec<H: Handler>(
 
 pub(crate) async fn has_large_remote(
     host: &TarHost,
-    fs: &SftpFs,
+    fs: &dyn Endpoint,
     parent: &str,
     items: &[String],
     min: u64,

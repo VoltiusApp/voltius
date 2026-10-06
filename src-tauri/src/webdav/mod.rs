@@ -1,9 +1,11 @@
 pub mod connector;
+mod endpoint;
 pub mod multistatus;
 pub mod paths;
 
 use crate::commands::sftp::editor::read_capped;
-use crate::commands::sftp::{pump_chunks, sort_listing, RemoteFile};
+use crate::commands::sftp::resume::endpoint::Endpoint;
+use crate::commands::sftp::{sort_listing, RemoteFile};
 use crate::error::{AppError, ErrorCode};
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
 use crate::proxy::{ProxyError, ProxySpec};
@@ -15,35 +17,36 @@ use bytes::Bytes;
 use connector::{DavConnector, RESPONSE_TIMEOUT, SLOW_RESPONSE_TIMEOUT};
 use futures_util::TryStreamExt;
 use http_body_util::combinators::BoxBody;
-use http_body_util::{BodyExt, BodyStream, Empty, Full, StreamBody};
-use hyper::body::{Frame, Incoming};
+use http_body_util::{BodyExt, BodyStream, Empty, Full};
+use hyper::body::Incoming;
 use hyper::header::{self, HeaderName, HeaderValue};
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 use multistatus::DavEntry;
 use paths::{normalize, same_origin_join, DavBase};
-use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
-use tokio::io::{AsyncRead, AsyncWriteExt};
-use tokio_util::io::{ReaderStream, StreamReader};
+use tokio::io::AsyncRead;
+use tokio_util::io::StreamReader;
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
 type Body = BoxBody<Bytes, std::io::Error>;
 
 const PROPFIND_BODY: &str = r#"<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>"#;
-const UPLOAD_PIPE: usize = 256 * 1024;
-const REFUSAL_GRACE: Duration = Duration::from_secs(1);
 // Below Apache's 5 s keep-alive, so a pooled connection is dropped before the server closes it.
 const POOL_IDLE: Duration = Duration::from_secs(4);
 
+#[derive(Clone)]
 pub struct WebDavBackend {
     client: Client<DavConnector, Body>,
     connector: DavConnector,
     base: DavBase,
     auth: HeaderValue,
+    /// Whether the server honours `Content-Range` on PUT, once a resume has asked.
+    ranged_puts: Arc<OnceLock<bool>>,
+    closed: CancellationToken,
 }
 
 fn method(name: &'static str) -> Method {
@@ -120,10 +123,11 @@ fn transport_error(op: &str, err: &(dyn std::error::Error + 'static)) -> AppErro
     }
 }
 
+/// A body that breaks off mid-stream is a lost connection, whatever hyper calls it.
 fn body_reader(resp: Response<Incoming>) -> impl AsyncRead + Unpin + Send {
     let frames = BodyStream::new(resp.into_body())
         .try_filter_map(|frame| futures_util::future::ready(Ok(frame.into_data().ok())))
-        .map_err(std::io::Error::other);
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::ConnectionAborted, e));
     StreamReader::new(Box::pin(frames))
 }
 
@@ -295,6 +299,49 @@ impl WebDavBackend {
         })
     }
 
+    async fn list_files(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
+        let entries = self
+            .propfind(&self.base.dir_url_for(path), "1")
+            .await?
+            .ok_or_else(|| status_error("List", StatusCode::NOT_FOUND))?;
+        self.to_remote_files(path, entries)
+    }
+
+    async fn make_dir(&self, path: &str) -> Result<(), AppError> {
+        let already_exists =
+            |status| status_error_with("Create folder", status, Some(ErrorCode::AlreadyExists));
+        // rclone answers 201 to MKCOL on an existing folder.
+        if self.stat_entry(path).await?.is_some() {
+            return Err(already_exists(StatusCode::METHOD_NOT_ALLOWED));
+        }
+        let url = self.base.dir_url_for(path);
+        let resp = self
+            .send("Create folder", method("MKCOL"), &url, &[], empty())
+            .await?;
+        let status = resp.status();
+        match status {
+            StatusCode::METHOD_NOT_ALLOWED => Err(already_exists(status)),
+            status if status.is_success() => Ok(()),
+            status => Err(status_error("Create folder", status)),
+        }
+    }
+
+    async fn move_to(&self, from: &str, to: &str) -> Result<(), AppError> {
+        let src = self.target_url(from).await?;
+        let dst = if src.path().ends_with('/') {
+            self.base.dir_url_for(to)
+        } else {
+            self.base.url_for(to)
+        };
+        let headers = [
+            (HeaderName::from_static("destination"), dst.to_string()),
+            (HeaderName::from_static("overwrite"), "F".to_string()),
+        ];
+        self.expect_ok("Rename", method("MOVE"), &src, &headers, empty())
+            .await
+            .map(|_| ())
+    }
+
     fn to_remote_files(
         &self,
         dir: &str,
@@ -345,6 +392,8 @@ pub async fn connect(
         connector,
         base: DavBase::parse(url)?,
         auth: basic_auth(username, password),
+        ranged_puts: Arc::default(),
+        closed: CancellationToken::new(),
     };
     let mut resp = backend
         .send_propfind("Connect", backend.base.url(), "0")
@@ -378,11 +427,7 @@ pub async fn connect(
 #[async_trait]
 impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
     async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
-        let entries = self
-            .propfind(&self.base.dir_url_for(path), "1")
-            .await?
-            .ok_or_else(|| status_error("List", StatusCode::NOT_FOUND))?;
-        self.to_remote_files(path, entries)
+        self.list_files(path).await
     }
 
     async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
@@ -394,22 +439,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
     }
 
     async fn mkdir(&self, path: &str) -> Result<(), AppError> {
-        let already_exists =
-            |status| status_error_with("Create folder", status, Some(ErrorCode::AlreadyExists));
-        // rclone answers 201 to MKCOL on an existing folder.
-        if self.stat_entry(path).await?.is_some() {
-            return Err(already_exists(StatusCode::METHOD_NOT_ALLOWED));
-        }
-        let url = self.base.dir_url_for(path);
-        let resp = self
-            .send("Create folder", method("MKCOL"), &url, &[], empty())
-            .await?;
-        let status = resp.status();
-        match status {
-            StatusCode::METHOD_NOT_ALLOWED => Err(already_exists(status)),
-            status if status.is_success() => Ok(()),
-            status => Err(status_error("Create folder", status)),
-        }
+        self.make_dir(path).await
     }
 
     async fn touch(&self, path: &str) -> Result<(), AppError> {
@@ -425,19 +455,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
     }
 
     async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
-        let src = self.target_url(from).await?;
-        let dst = if src.path().ends_with('/') {
-            self.base.dir_url_for(to)
-        } else {
-            self.base.url_for(to)
-        };
-        let headers = [
-            (HeaderName::from_static("destination"), dst.to_string()),
-            (HeaderName::from_static("overwrite"), "F".to_string()),
-        ];
-        self.expect_ok("Rename", method("MOVE"), &src, &headers, empty())
-            .await
-            .map(|_| ())
+        self.move_to(from, to).await
     }
 
     async fn delete(&self, path: &str) -> Result<(), AppError> {
@@ -479,100 +497,12 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
         .map_err(Into::into)
     }
 
-    async fn upload_file(
-        &self,
-        app: &E,
-        local_path: &str,
-        remote_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), AppError> {
-        let mut local = tokio::fs::File::open(local_path)
-            .await
-            .map_err(|e| format!("Cannot open local file: {e}"))?;
-        let total = local.metadata().await.map(|m| m.len()).unwrap_or(0);
-        let (mut tx, rx) = tokio::io::duplex(UPLOAD_PIPE);
-        let body = StreamBody::new(ReaderStream::new(rx).map_ok(Frame::data)).boxed();
-        // nginx's dav module answers 411 to a chunked PUT, so the length is always sent.
-        let headers = [(header::CONTENT_LENGTH, total.to_string())];
-        let url = self.base.url_for(remote_path);
-        let put = self.expect_ok("Upload", Method::PUT, &url, &headers, body);
-        let pump = async move {
-            let mut transferred = 0u64;
-            pump_chunks(
-                app,
-                &mut local,
-                &mut tx,
-                transfer_id,
-                token,
-                &mut transferred,
-                total,
-            )
-            .await
-        };
-        tokio::pin!(put, pump);
-        tokio::select! {
-            biased;
-            early = &mut put => match early {
-                Err(e) => Err(e),
-                Ok(_) => pump.await.map_err(Into::into),
-            },
-            result = &mut pump => match result {
-                Err(e) if token.is_cancelled() => Err(e.into()),
-                // The server's refusal can land just after the broken pipe it causes.
-                Err(e) => match tokio::time::timeout(REFUSAL_GRACE, &mut put).await {
-                    Ok(Err(refused)) => Err(refused),
-                    _ => Err(e.into()),
-                },
-                Ok(()) => put.await.map(|_| ()),
-            },
-        }
+    fn endpoint(&self) -> Arc<dyn Endpoint> {
+        Arc::new(self.clone())
     }
 
-    async fn download_file(
-        &self,
-        app: &E,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), AppError> {
-        if let Some(parent) = Path::new(local_path).parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|e| format!("Cannot create local dir: {e}"))?;
-        }
-        let resp = self
-            .expect_ok(
-                "Download",
-                Method::GET,
-                &self.base.url_for(remote_path),
-                &[],
-                empty(),
-            )
-            .await?;
-        let total = resp
-            .headers()
-            .get(header::CONTENT_LENGTH)
-            .and_then(|v| v.to_str().ok()?.parse().ok())
-            .unwrap_or(0);
-        let mut local = tokio::fs::File::create(local_path)
-            .await
-            .map_err(|e| format!("Cannot create local file: {e}"))?;
-        let mut reader = body_reader(resp);
-        let mut transferred = 0u64;
-        pump_chunks(
-            app,
-            &mut reader,
-            &mut local,
-            transfer_id,
-            token,
-            &mut transferred,
-            total,
-        )
-        .await?;
-        local.flush().await.ok();
-        Ok(())
+    async fn close(&self) {
+        self.closed.cancel();
     }
 }
 
@@ -585,6 +515,7 @@ mod tests {
     use super::*;
     use crate::error::ErrorCode;
     use crate::sftp::backend::test_tree::Recorder;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     const ROOT: &str = r#"<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response></d:multistatus>"#;
     const LISTING: &str = r#"<d:multistatus xmlns:d="DAV:">
@@ -790,51 +721,6 @@ mod tests {
         assert!(head.contains("overwrite: f"));
     }
 
-    #[tokio::test]
-    async fn upload_streams_the_file_with_its_length_and_reports_progress() {
-        let (port, seen) = canned(vec![multistatus(ROOT), reply("201 Created", "", "")]).await;
-        let b = backend(port).await.unwrap();
-        let tmp = tempfile::tempdir().unwrap();
-        let local = tmp.path().join("up.bin");
-        std::fs::write(&local, b"hello webdav").unwrap();
-        let events = Recorder::default();
-        b.upload_file(
-            &events,
-            &local.to_string_lossy(),
-            "/up.bin",
-            "t1",
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap();
-        let seen = seen.lock().unwrap();
-        assert!(seen[1].head.starts_with("PUT /dav/up.bin HTTP/1.1"));
-        assert!(seen[1]
-            .head
-            .to_ascii_lowercase()
-            .contains("content-length: 12"));
-        assert_eq!(seen[1].body, b"hello webdav");
-        assert!(events.count("sftp-progress-t1") >= 1);
-    }
-
-    #[tokio::test]
-    async fn download_writes_the_body() {
-        let (port, _) = canned(vec![multistatus(ROOT), reply("200 OK", "", "remote bytes")]).await;
-        let b = backend(port).await.unwrap();
-        let tmp = tempfile::tempdir().unwrap();
-        let local = tmp.path().join("d/out.txt");
-        b.download_file(
-            &Recorder::default(),
-            "/x.txt",
-            &local.to_string_lossy(),
-            "t2",
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap();
-        assert_eq!(std::fs::read_to_string(local).unwrap(), "remote bytes");
-    }
-
     #[test]
     fn statuses_map_to_error_codes() {
         let code = |s: u16| status_error("Op", StatusCode::from_u16(s).unwrap()).code();
@@ -849,6 +735,101 @@ mod tests {
         assert_eq!(code(500), None);
     }
 
+    async fn put(b: &WebDavBackend, path: &str, offset: u64, data: &[u8]) -> Result<(), AppError> {
+        let mut w = b.open_write(path, offset, data.len() as u64).await?;
+        let wrote = w.write_all(data).await;
+        let shut = w.shutdown().await;
+        Ok(wrote.and(shut)?)
+    }
+
+    async fn get(b: &WebDavBackend, path: &str, offset: u64) -> String {
+        let mut got = String::new();
+        let mut r = b.open_read(path, offset).await.unwrap();
+        r.read_to_string(&mut got).await.unwrap();
+        got
+    }
+
+    fn sized(size: u64) -> String {
+        multistatus(&format!(
+            r#"<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/p</d:href><d:propstat><d:prop><d:resourcetype/><d:getcontentlength>{size}</d:getcontentlength></d:prop></d:propstat></d:response></d:multistatus>"#
+        ))
+    }
+
+    fn probe_answers(honoured: bool) -> Vec<String> {
+        vec![
+            reply("201 Created", "", ""),
+            reply("204 No Content", "", ""),
+            sized(if honoured { 2 } else { 1 }),
+            reply("204 No Content", "", ""),
+        ]
+    }
+
+    #[tokio::test]
+    async fn uploads_send_their_length_and_resumed_ones_their_range() {
+        let mut answers = vec![multistatus(ROOT)];
+        answers.extend(probe_answers(true));
+        answers.extend([
+            reply("201 Created", "", ""),
+            reply("204 No Content", "", ""),
+        ]);
+        let (port, seen) = canned(answers).await;
+        let b = backend(port).await.unwrap();
+        put(&b, "/up.bin", 0, b"hello webdav").await.unwrap();
+        put(&b, "/up.bin", 6, b"WEBDAV").await.unwrap();
+        let seen = seen.lock().unwrap();
+        assert!(seen[1]
+            .head
+            .starts_with("PUT /dav/.voltius-range-probe HTTP/1.1"));
+        assert!(seen[4]
+            .head
+            .starts_with("DELETE /dav/.voltius-range-probe HTTP/1.1"));
+        let head = seen[5].head.to_ascii_lowercase();
+        assert!(head.starts_with("put /dav/up.bin http/1.1"), "{head}");
+        assert!(head.contains("content-length: 12"), "{head}");
+        assert!(!head.contains("content-range"), "{head}");
+        assert_eq!(seen[5].body, b"hello webdav");
+        let head = seen[6].head.to_ascii_lowercase();
+        assert!(head.contains("content-range: bytes 6-11/*"), "{head}");
+        assert!(head.contains("content-length: 6"), "{head}");
+        assert_eq!(seen[6].body, b"WEBDAV");
+    }
+
+    #[tokio::test]
+    async fn a_resumed_download_asks_for_the_rest_and_skips_it_when_ignored() {
+        let (port, seen) = canned(vec![
+            multistatus(ROOT),
+            reply("200 OK", "", "remote bytes"),
+            reply("206 Partial Content", "", "bytes"),
+            reply("200 OK", "", "remote bytes"),
+        ])
+        .await;
+        let b = backend(port).await.unwrap();
+        assert_eq!(get(&b, "/x.txt", 0).await, "remote bytes");
+        assert_eq!(get(&b, "/x.txt", 7).await, "bytes");
+        assert_eq!(get(&b, "/x.txt", 7).await, "bytes");
+        let seen = seen.lock().unwrap();
+        assert!(!seen[1].head.to_ascii_lowercase().contains("range:"));
+        assert!(seen[2]
+            .head
+            .to_ascii_lowercase()
+            .contains("range: bytes=7-"));
+    }
+
+    #[tokio::test]
+    async fn uploads_resume_only_where_a_probe_found_ranged_puts_kept() {
+        for honoured in [true, false] {
+            let mut answers = vec![multistatus(ROOT)];
+            answers.extend(probe_answers(honoured));
+            answers.push(reply("201 Created", "", ""));
+            let (port, seen) = canned(answers).await;
+            let b = backend(port).await.unwrap();
+            assert!(!b.appends("/p", 5).await, "no resume before the probe");
+            put(&b, "/p", 0, b"x").await.unwrap();
+            assert_eq!(b.appends("/p", 5).await, honoured);
+            assert_eq!(seen.lock().unwrap().len(), 6);
+        }
+    }
+
     #[tokio::test]
     async fn upload_stops_when_the_server_refuses_early() {
         let (port, _) = canned_early(vec![
@@ -857,30 +838,18 @@ mod tests {
         ])
         .await;
         let b = backend(port).await.unwrap();
-        let tmp = tempfile::tempdir().unwrap();
-        let local = tmp.path().join("big.bin");
-        std::fs::write(&local, vec![7u8; 32 * 1024 * 1024]).unwrap();
-        let result = tokio::time::timeout(
-            Duration::from_secs(10),
-            b.upload_file(
-                &Recorder::default(),
-                &local.to_string_lossy(),
-                "/big.bin",
-                "t3",
-                &CancellationToken::new(),
-            ),
-        )
-        .await
-        .expect("upload hung after the server refused it");
+        b.ranged_puts.set(false).unwrap();
+        let big = vec![7u8; 32 * 1024 * 1024];
+        let result = tokio::time::timeout(Duration::from_secs(10), put(&b, "/big.bin", 0, &big))
+            .await
+            .expect("upload hung after the server refused it");
         let err = result.unwrap_err();
         assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn the_servers_refusal_wins_over_the_broken_pipe_it_causes() {
-        let tmp = tempfile::tempdir().unwrap();
-        let local = tmp.path().join("big.bin");
-        std::fs::write(&local, vec![7u8; 8 * 1024 * 1024]).unwrap();
+        let big = vec![7u8; 8 * 1024 * 1024];
         for _ in 0..20 {
             let (port, _) = canned_then_close(vec![
                 multistatus(ROOT),
@@ -888,16 +857,8 @@ mod tests {
             ])
             .await;
             let b = backend(port).await.unwrap();
-            let err = b
-                .upload_file(
-                    &Recorder::default(),
-                    &local.to_string_lossy(),
-                    "/big.bin",
-                    "t4",
-                    &CancellationToken::new(),
-                )
-                .await
-                .unwrap_err();
+            b.ranged_puts.set(false).unwrap();
+            let err = put(&b, "/big.bin", 0, &big).await.unwrap_err();
             assert!(err.to_string().contains("Upload failed: HTTP 507"), "{err}");
         }
     }

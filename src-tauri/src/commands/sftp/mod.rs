@@ -1,7 +1,6 @@
 use crate::error::AppError;
-use crate::sftp::backend::TransferEvents;
 use crate::sftp::{FileBackend, SftpManager};
-use resume::sftp_fs::SftpFs;
+use resume::endpoint::Endpoint;
 use russh_sftp::client::fs::File;
 use serde::Serialize;
 use std::future::Future;
@@ -31,7 +30,7 @@ pub use tar::*;
 pub use tar_host::{TarHost, TarProbe};
 pub use transfer::*;
 
-pub(super) const CHUNK_SIZE: usize = 256 * 1024; // 256 KB
+pub(crate) const CHUNK_SIZE: usize = 256 * 1024; // 256 KB
 
 #[derive(Serialize, Clone)]
 pub struct RemoteFile {
@@ -58,12 +57,11 @@ pub struct TransferProgress {
     pub total: u64,
 }
 
-pub(super) async fn get_sftp_fs(manager: &SftpManager, sftp_id: &str) -> Result<SftpFs, AppError> {
-    manager
-        .backend(sftp_id)
-        .await
-        .and_then(|b| b.sftp_fs())
-        .ok_or_else(|| format!("SFTP session '{sftp_id}' not found").into())
+pub(super) async fn get_endpoint(
+    manager: &SftpManager,
+    sftp_id: &str,
+) -> Result<Arc<dyn Endpoint>, String> {
+    Ok(get_backend(manager, sftp_id).await?.endpoint())
 }
 
 pub(super) async fn get_backend(
@@ -241,7 +239,7 @@ pub(crate) async fn pump<R, W>(
     writer: &mut W,
     token: &CancellationToken,
     mut on_chunk: impl FnMut(usize),
-) -> Result<(), String>
+) -> Result<(), AppError>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -251,7 +249,7 @@ where
         let n = tokio::select! {
             biased;
             _ = token.cancelled() => return Err("Transfer cancelled".into()),
-            r = reader.read(&mut buf) => r.map_err(|e| format!("Read error: {e}"))?,
+            r = reader.read(&mut buf) => r.map_err(|e| AppError::caused("Read error", &e))?,
         };
         if n == 0 {
             return Ok(());
@@ -259,36 +257,10 @@ where
         tokio::select! {
             biased;
             _ = token.cancelled() => return Err("Transfer cancelled".into()),
-            r = writer.write_all(&buf[..n]) => r.map_err(|e| format!("Write error: {e}"))?,
+            r = writer.write_all(&buf[..n]) => r.map_err(|e| AppError::caused("Write error", &e))?,
         }
         on_chunk(n);
     }
-}
-
-pub(crate) async fn pump_chunks<R, W>(
-    app: &impl TransferEvents,
-    reader: &mut R,
-    writer: &mut W,
-    transfer_id: &str,
-    token: &CancellationToken,
-    transferred: &mut u64,
-    total: u64,
-) -> Result<(), String>
-where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
-{
-    pump(reader, writer, token, |n| {
-        *transferred += n as u64;
-        app.send(
-            &format!("sftp-progress-{}", transfer_id),
-            TransferProgress {
-                transferred: *transferred,
-                total,
-            },
-        );
-    })
-    .await
 }
 
 #[cfg(test)]

@@ -1,11 +1,10 @@
 //! `RealSftp`: a `FileBackend` backed by a real SFTP session over SSH.
-//! Simple filesystem ops are implemented here; streaming transfers delegate to
-//! the resumable copy engine in `crate::commands::sftp::resume`.
+//! Simple filesystem ops are implemented here; transfers go through the
+//! resumable copy engine over `SftpFs`.
 
 use crate::commands::sftp::editor::read_capped;
-use crate::commands::sftp::resume::endpoint::LocalFs;
+use crate::commands::sftp::resume::endpoint::Endpoint;
 use crate::commands::sftp::resume::sftp_fs::SftpFs;
-use crate::commands::sftp::resume::{copy_one, copy_tree};
 use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_mode, apply_via_shell, AttrChange};
@@ -20,7 +19,6 @@ use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use tauri::AppHandle;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -217,91 +215,12 @@ impl FileBackend for RealSftp {
         file.close().await
     }
 
-    async fn upload_file(
-        &self,
-        app: &AppHandle,
-        local_path: &str,
-        remote_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), AppError> {
-        copy_one(
-            app,
-            &LocalFs,
-            local_path,
-            &self.fs(),
-            remote_path,
-            transfer_id,
-            token,
-        )
-        .await
+    fn endpoint(&self) -> Arc<dyn Endpoint> {
+        Arc::new(self.fs())
     }
 
-    async fn download_file(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), AppError> {
-        copy_one(
-            app,
-            &self.fs(),
-            remote_path,
-            &LocalFs,
-            local_path,
-            transfer_id,
-            token,
-        )
-        .await
-    }
-
-    async fn upload_dir(
-        &self,
-        app: &AppHandle,
-        local_path: &str,
-        remote_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), AppError> {
-        copy_tree(
-            app,
-            &LocalFs,
-            local_path,
-            &self.fs(),
-            remote_path,
-            transfer_id,
-            token,
-        )
-        .await
-    }
-
-    async fn download_dir(
-        &self,
-        app: &AppHandle,
-        remote_path: &str,
-        local_path: &str,
-        transfer_id: &str,
-        token: &CancellationToken,
-    ) -> Result<(), AppError> {
-        copy_tree(
-            app,
-            &self.fs(),
-            remote_path,
-            &LocalFs,
-            local_path,
-            transfer_id,
-            token,
-        )
-        .await
-    }
-
-    // upload_batch / download_batch: the FileBackend per-item defaults, which
-    // real SFTP only reaches if the tar fast path is unavailable.
-
-    fn sftp_fs(&self) -> Option<SftpFs> {
-        Some(self.fs())
+    async fn close(&self) {
+        self.fs().close_session().await;
     }
 
     fn tar_probe(&self) -> Option<&TarProbe> {

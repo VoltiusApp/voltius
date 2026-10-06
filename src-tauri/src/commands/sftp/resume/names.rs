@@ -1,4 +1,9 @@
+use crate::error::{AppError, ErrorCode};
+use crate::ssh::exec::run_captured;
+use russh::client::{Handle, Handler};
 use sha2::{Digest, Sha256};
+use std::future::Future;
+use tokio_util::sync::CancellationToken;
 
 pub(crate) const PART_EXT: &str = ".voltius-part";
 pub(crate) const OLD_EXT: &str = ".voltius-old";
@@ -35,6 +40,30 @@ pub(crate) fn is_temp_of(entry: &str, name: &str) -> bool {
                     && temp_name(name, fp, ext) == entry
             })
     })
+}
+
+/// Runs a hash command for `path`. Failing to run it is an error only when the
+/// link died; a command that ran and printed no hash just means there is none.
+pub(crate) async fn remote_hash<H: Handler>(
+    handle: &Handle<H>,
+    cmd: &str,
+    path: &str,
+    token: &CancellationToken,
+    dead: impl Future<Output = bool>,
+) -> Result<Option<String>, AppError> {
+    let ran = tokio::select! {
+        _ = token.cancelled() => return Ok(None),
+        r = run_captured(handle, cmd) => r,
+    };
+    match ran {
+        Ok(out) if out.code == Some(0) => Ok(parse_sha256(&out.stdout_text())),
+        Ok(_) => Ok(None),
+        Err(e) if dead.await => Err(AppError::coded(
+            ErrorCode::ConnectionLost,
+            format!("Connection lost while verifying {path}: {e}"),
+        )),
+        Err(_) => Ok(None),
+    }
 }
 
 pub(crate) fn parse_sha256(out: &str) -> Option<String> {

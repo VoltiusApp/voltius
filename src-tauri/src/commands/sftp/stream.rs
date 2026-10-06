@@ -257,7 +257,7 @@ pub async fn upload<H: Handler, E: TransferEvents>(
     let packed = joined(packer.await);
 
     if let Err(e) = sent {
-        return Err(fail_remote(&tx, job.token, End::Remote, to.dir, &mut remote, e).await);
+        return Err(fail_remote(&tx, job.token, End::Remote, to.dir, &mut remote, e.into()).await);
     }
     let skipped = match packed {
         Ok(skipped) => skipped,

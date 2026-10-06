@@ -1,5 +1,5 @@
 use super::resume::copy_tree;
-use super::{backend_transfer_command, get_sftp_fs, with_transfer};
+use super::{backend_transfer_command, get_endpoint, with_transfer};
 use crate::error::AppError;
 use crate::sftp::SftpManager;
 use tauri::{AppHandle, State};
@@ -10,7 +10,7 @@ backend_transfer_command!(sftp_upload_dir, upload_dir, local_path, remote_path);
 
 backend_transfer_command!(sftp_download_dir, download_dir, remote_path, local_path);
 
-/// Transfer a directory recursively between two remote SFTP sessions.
+/// Transfer a directory recursively between two remote sessions.
 #[tauri::command]
 pub async fn sftp_transfer_dir(
     app: AppHandle,
@@ -21,10 +21,19 @@ pub async fn sftp_transfer_dir(
     dst_path: String,
     transfer_id: String,
 ) -> Result<(), AppError> {
-    let src = get_sftp_fs(&sftp_state, &src_sftp_id).await?;
-    let dst = get_sftp_fs(&sftp_state, &dst_sftp_id).await?;
+    let src = get_endpoint(&sftp_state, &src_sftp_id).await?;
+    let dst = get_endpoint(&sftp_state, &dst_sftp_id).await?;
     with_transfer(&sftp_state, &transfer_id.clone(), |token| async move {
-        copy_tree(&app, &src, &src_path, &dst, &dst_path, &transfer_id, &token).await
+        copy_tree(
+            &app,
+            &*src,
+            &src_path,
+            &*dst,
+            &dst_path,
+            &transfer_id,
+            &token,
+        )
+        .await
     })
     .await
 }
