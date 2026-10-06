@@ -41,7 +41,9 @@ pub(crate) fn parse_sha256(out: &str) -> Option<String> {
     let is_hash = |s: &str| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit());
     out.lines().find_map(|line| {
         let compact: String = line.chars().filter(|c| !c.is_whitespace()).collect();
+        // GNU sha256sum prefixes the line with `\` when it had to escape the path.
         let first = line.split_whitespace().next().unwrap_or("");
+        let first = first.strip_prefix('\\').unwrap_or(first);
         let found = [compact.as_str(), first]
             .into_iter()
             .find(|s| is_hash(s))
@@ -97,6 +99,13 @@ mod tests {
     fn sha256_output_parses_in_every_dialect() {
         let h = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         assert_eq!(parse_sha256(&format!("{h}  /x/a b\n")).as_deref(), Some(h));
+        // GNU escapes a path holding `\` or a newline and flags the line with a leading `\`.
+        for escaped in ["/x/a\\\\b", "/x/a\\nb"] {
+            assert_eq!(
+                parse_sha256(&format!("\\{h}  {escaped}\n")).as_deref(),
+                Some(h)
+            );
+        }
         assert_eq!(parse_sha256(&h.to_uppercase()).as_deref(), Some(h));
         let certutil = "SHA256 hash of C:\\a:\ne3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4 64 9b 93 4c a4 95 99 1b 78 52 b8 55\nCertUtil: -hashfile command completed successfully.\n";
         assert_eq!(parse_sha256(certutil).as_deref(), Some(h));
