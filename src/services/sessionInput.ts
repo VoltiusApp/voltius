@@ -4,6 +4,9 @@ import { onSerialOutput, serialWrite } from "@/services/serial";
 import { onSshOutput, sshResize, sshSendInput } from "@/services/ssh";
 import type { TerminalSession } from "@/types";
 
+// Concurrent invokes run as separate backend tasks and land in any order under load.
+const inputTails = new Map<string, Promise<void>>();
+
 /**
  * Write raw bytes to a session's transport. The single fan-out: the terminal's
  * keystroke path, PluginAPI's sendCommand and PluginAPI's sendInput all come
@@ -16,15 +19,24 @@ import type { TerminalSession } from "@/types";
  * A `multiplayer` tab holds no transport of its own — its keystrokes travel the
  * relay — so it is a no-op here rather than a misrouted SSH write.
  */
-export async function sendSessionInput(
+export function sendSessionInput(
   sessionId: string,
   sessionType: TerminalSession["type"],
   data: Uint8Array,
 ): Promise<void> {
-  if (sessionType === "local") return localSendInput(sessionId, data);
-  if (sessionType === "serial") return serialWrite(sessionId, data);
-  if (sessionType === "multiplayer") return;
-  return sshSendInput(sessionId, data);
+  if (sessionType === "multiplayer") return Promise.resolve();
+  const write = () => {
+    if (sessionType === "local") return localSendInput(sessionId, data);
+    if (sessionType === "serial") return serialWrite(sessionId, data);
+    return sshSendInput(sessionId, data);
+  };
+  const next = (inputTails.get(sessionId) ?? Promise.resolve()).then(write, write);
+  inputTails.set(sessionId, next);
+  const settle = () => {
+    if (inputTails.get(sessionId) === next) inputTails.delete(sessionId);
+  };
+  next.then(settle, settle);
+  return next;
 }
 
 /**

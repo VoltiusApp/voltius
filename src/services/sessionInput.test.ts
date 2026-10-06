@@ -48,6 +48,29 @@ describe("sendSessionInput", () => {
     vi.mocked(sshSendInput).mockRejectedValueOnce(new Error("channel closed"));
     await expect(sendSessionInput("s3", "ssh", bytes)).rejects.toThrow("channel closed");
   });
+
+  it("starts a session's next write only once the previous one has landed", async () => {
+    let land!: () => void;
+    vi.mocked(sshSendInput).mockImplementationOnce(() => new Promise<void>((r) => (land = r)));
+    const first = sendSessionInput("s4", "ssh", new Uint8Array([1]));
+    const second = sendSessionInput("s4", "ssh", new Uint8Array([2]));
+    const other = sendSessionInput("s5", "ssh", new Uint8Array([3]));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(vi.mocked(sshSendInput).mock.calls.map(([id, d]) => [id, d[0]])).toEqual([["s4", 1], ["s5", 3]]);
+    land();
+    await Promise.all([first, second, other]);
+    expect(vi.mocked(sshSendInput).mock.calls.map(([id, d]) => [id, d[0]])).toEqual([["s4", 1], ["s5", 3], ["s4", 2]]);
+  });
+
+  it("keeps writing after a failed write", async () => {
+    vi.mocked(sshSendInput).mockRejectedValueOnce(new Error("busy"));
+    const failed = sendSessionInput("s6", "ssh", new Uint8Array([1]));
+    const next = sendSessionInput("s6", "ssh", new Uint8Array([2]));
+    await expect(failed).rejects.toThrow("busy");
+    await expect(next).resolves.toBeUndefined();
+    expect(sshSendInput).toHaveBeenLastCalledWith("s6", new Uint8Array([2]));
+  });
 });
 
 describe("onSessionOutput", () => {
