@@ -11,6 +11,7 @@ import { syncStatusColor } from "@/services/syncStatus";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { holdsControl } from "@/utils/multiplayerControl";
 import { ShareMenu } from "@/components/terminal/ShareMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { usePfToastBridge } from "@/hooks/usePfToastBridge";
@@ -138,8 +139,9 @@ export default function TitleBar() {
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const isActiveSessionMultiplayer = activeSession?.type === "multiplayer";
-  const isActiveSessionSharing = activeSessionId ? !!mpConnections[activeSessionId] && !mpConnections[activeSessionId]?.ended : false;
-  const isActiveSessionEnded = activeSessionId ? !!mpConnections[activeSessionId]?.ended : false;
+  const activeMp = activeSessionId ? mpConnections[activeSessionId] : undefined;
+  const isActiveSessionSharing = !!activeMp && !activeMp.ended;
+  const isActiveSessionEnded = !!activeMp?.ended;
 
   const lastActiveByHost = useLastActiveByHost(activeSession, sessions);
   const pinnedHost = hostPanelPinned && activeNav === "terminal" && !sftpPanelOpen && activeSession ? stackGroupKey(activeSession) : null;
@@ -542,7 +544,7 @@ export default function TitleBar() {
               }}
             >
               <StatusDot tone="accent" size="sm" motion="pulse" />
-              {t("layout.titleBar.watching")}
+              {activeMp && holdsControl(activeMp) ? t("terminal.multiplayerBar.youHaveControl") : t("layout.titleBar.watching")}
             </span>
           )}
         </div>

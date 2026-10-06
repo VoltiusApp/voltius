@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { holdsControl } from "@/utils/multiplayerControl";
 import { useSessionStore } from "@/stores/sessionStore";
 import { AvatarOverflow } from "@/components/shared/AvatarStack";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
@@ -28,7 +29,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
 
   const isHost = mpState.role === "host";
   const myUserId = mpState.myUserId;
-  const iControlHolder = myUserId !== "" && mpState.controlHolder === myUserId;
+  const iControlHolder = holdsControl(mpState);
   const hasPendingRequest = mpState.controlRequester !== null && mpState.controlRequester !== myUserId;
 
   const handleStopOrLeave = async () => {
@@ -62,7 +63,11 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           <>
             <StatusDot tone="accent" motion="pulse" />
             <span className="text-xs font-semibold" style={{ color: "var(--t-accent)" }}>
-              {isHost ? t("terminal.multiplayerBar.sharing") : t("terminal.multiplayerBar.watching")}
+              {isHost
+                ? t("terminal.multiplayerBar.sharing")
+                : iControlHolder
+                  ? t("terminal.multiplayerBar.youHaveControl")
+                  : t("terminal.multiplayerBar.watching")}
             </span>
           </>
         )}
@@ -114,20 +119,6 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
         >
           <Icon icon="lucide:hourglass" width={12} />
           {t("terminal.multiplayerBar.requestPending")}
-        </span>
-      )}
-
-      {!mpState.ended && iControlHolder && !isHost && (
-        <span
-          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
-          style={{
-            background: "color-mix(in srgb, var(--t-accent) 12%, transparent)",
-            color: "var(--t-accent)",
-            border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
-          }}
-        >
-          <Icon icon="lucide:pencil" width={12} />
-          {t("terminal.multiplayerBar.youHaveControl")}
         </span>
       )}
 

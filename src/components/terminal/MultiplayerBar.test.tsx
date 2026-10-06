@@ -121,10 +121,11 @@ test("host in the same state -> request-control button absent (gate on !isHost)"
   expect(screen.queryByText("terminal.multiplayerBar.requestControl")).toBeNull();
 });
 
-test("participant holds control -> youHaveControl shown, request button absent", () => {
+test("participant holds control -> status reads youHaveControl, not watching; request button absent", () => {
   state.connections[LOCAL_ID] = mk({ role: "guest", myUserId: "me", controlHolder: "me" });
   render(<MultiplayerBar localSessionId={LOCAL_ID} />);
   expect(screen.getByText("terminal.multiplayerBar.youHaveControl")).toBeTruthy();
+  expect(screen.queryByText("terminal.multiplayerBar.watching")).toBeNull();
   expect(screen.queryByText("terminal.multiplayerBar.requestControl")).toBeNull();
 });
 
