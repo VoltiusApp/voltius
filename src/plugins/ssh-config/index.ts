@@ -113,10 +113,36 @@ function normalizePath(p: string): string {
   return `~/.ssh/${p}`;
 }
 
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+// Successes are gated on the notifications setting by the caller; failures always show, and stay longer.
+function toast(api: PluginAPI, severity: "success" | "error", key: string, vars: Record<string, string>) {
+  api.notifications.toast(api.i18n.t(key, vars), { severity, duration: severity === "error" ? 8000 : 3000 });
+}
+
+/**
+ * The host refuses a public half whose comment carries shell metacharacters
+ * (`me@pc->vm`), since that line may later be written to a remote file. The
+ * comment plays no part in authentication, so on refusal retry with the bare
+ * "type base64" instead of losing the whole key.
+ */
+async function createKey(api: PluginAPI, name: string, privateKey: string, publicKey?: string) {
+  const create = (pub?: string) => api.keys.create({ name, tags: [SSH_CONFIG_TAG] }, privateKey, pub);
+  try {
+    return await create(publicKey);
+  } catch (e) {
+    const bare = publicKey?.trim().split(/[ \t]+/).slice(0, 2).join(" ");
+    if (!bare || bare === publicKey?.trim()) throw e;
+    api.log.warn(`key "${name}": public key refused (${errorMessage(e)}), retrying without its comment`);
+    return create(bare);
+  }
+}
+
 /**
  * Ensure a key entry exists for the given identity file path.
  * Reads the private key (and .pub if present), creates the key once and reuses it.
- * Returns the key id, or null if the file can't be read.
+ * Returns the key id, or null if the file can't be read. Throws, naming the
+ * path, when the host refuses the key.
  */
 async function ensureKey(
   api: PluginAPI,
@@ -159,22 +185,27 @@ async function ensureKey(
     }
   } catch { /* optional */ }
 
-  const key = await api.keys.create({ name, tags: [SSH_CONFIG_TAG] }, privateKey, publicKey);
+  const key = await createKey(api, name, privateKey, publicKey).catch((e) => {
+    throw new Error(`${keyPath}: ${errorMessage(e)}`);
+  });
   keyMap[keyPath] = key.id;
-  if (notifyEnabled) api.notifications.toast(api.i18n.t("keyImported", { name }), { severity: "success", duration: 3000 });
+  if (notifyEnabled) toast(api, "success", "keyImported", { name });
   return key.id;
 }
 
 export type SyncTrigger = "initial" | "watch" | "manual" | "mcp" | "queued";
 
-let inFlight: Promise<void> | null = null;
+/** Hosts the last run skipped, as "alias: reason". */
+type SyncFailures = string[];
+
+let inFlight: Promise<SyncFailures> | null = null;
 let rerunRequested = false;
 let runSeq = 0;
 let liveWatchers = 0;
 
 // Overlapping runs each snapshot the alias map up front and each write it back,
 // so the later run strands whatever the earlier one created. Serialise them.
-export async function sync(api: PluginAPI, trigger: SyncTrigger = "manual"): Promise<void> {
+export async function sync(api: PluginAPI, trigger: SyncTrigger = "manual"): Promise<SyncFailures> {
   if (inFlight) {
     rerunRequested = true;
     api.log.info(`sync requested by ${trigger} while a run is in flight, queued`);
@@ -183,11 +214,13 @@ export async function sync(api: PluginAPI, trigger: SyncTrigger = "manual"): Pro
   inFlight = (async () => {
     try {
       let current = trigger;
+      let failures: SyncFailures;
       do {
         rerunRequested = false;
-        await syncOnce(api, current);
+        failures = await syncOnce(api, current);
         current = "queued";
       } while (rerunRequested);
+      return failures;
     } finally {
       inFlight = null;
     }
@@ -195,14 +228,14 @@ export async function sync(api: PluginAPI, trigger: SyncTrigger = "manual"): Pro
   return inFlight;
 }
 
-async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
+async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<SyncFailures> {
   const run = ++runSeq;
   const say = (msg: string) => api.log.info(`sync #${run} ${msg}`);
 
   const exists = await api.fs.exists(SSH_CONFIG_PATH);
   if (!exists) {
     say(`trigger=${trigger}: no ~/.ssh/config, nothing to do`);
-    return;
+    return [];
   }
 
   const content = await api.fs.readText(SSH_CONFIG_PATH);
@@ -275,7 +308,9 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
   }
 
   // ── Add/update connections for each host in the config ──────────────────
-  for (const host of hosts) {
+  // One host failing (a key the host refuses, a rejected write) must not stop
+  // the rest; it is skipped this run and named in a toast so it is not silent.
+  const syncHost = async (host: SshHost) => {
     // Resolve the existing connection first — an adopted (untagged) match skips
     // key/identity work and preserves the user's fields, so the decision comes
     // before any key/identity creation.
@@ -332,7 +367,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
           username: host.user,
         });
       }
-      continue;
+      return;
     }
 
     // Plugin-managed: ensure key/identity, then create or fully update.
@@ -366,7 +401,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
             identityId = identity.id;
             identityMap[host.alias] = identityId;
             say(`create identity ${identityId} for alias "${host.alias}"`);
-            if (notifyEnabled) api.notifications.toast(api.i18n.t("identityCreated", { name: host.alias }), { severity: "success", duration: 3000 });
+            if (notifyEnabled) toast(api, "success", "identityCreated", { name: host.alias });
           }
         }
       }
@@ -387,7 +422,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
       aliasMap[host.alias] = conn.id;
       owner.set(conn.id, host.alias);
       say(`create conn ${conn.id} for alias "${host.alias}"`);
-      if (notifyEnabled) api.notifications.toast(api.i18n.t("hostAdded", { name: host.alias }), { severity: "success", duration: 3000 });
+      if (notifyEnabled) toast(api, "success", "hostAdded", { name: host.alias });
     } else {
       const changed =
         existing.host !== data.host ||
@@ -402,6 +437,15 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
         await api.connections.update(existing.id, data);
       }
     }
+  };
+  const failures: SyncFailures = [];
+  for (const host of hosts) {
+    await syncHost(host).catch((e) => {
+      const error = errorMessage(e);
+      failures.push(`${host.alias}: ${error}`);
+      api.log.error(`sync #${run} alias "${host.alias}" failed, skipping it`, e);
+      toast(api, "error", "hostFailed", { name: host.alias, error });
+    });
   }
 
   await api.storage.set(ALIAS_MAP_KEY, aliasMap);
@@ -455,6 +499,7 @@ async function syncOnce(api: PluginAPI, trigger: SyncTrigger): Promise<void> {
   }
 
   say(`end: ${hosts.length} host(s), alias_map after ${JSON.stringify(aliasMap)}`);
+  return failures;
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -672,7 +717,10 @@ export const register: PluginRegisterFn = (api) => {
   let disposed = false;
 
   const runSync = (trigger: SyncTrigger) =>
-    sync(api, trigger).catch((e) => api.log.error(`ssh-config ${trigger} sync failed`, e));
+    sync(api, trigger).catch((e) => {
+      api.log.error(`ssh-config ${trigger} sync failed`, e);
+      toast(api, "error", "syncFailed", { error: errorMessage(e) });
+    });
 
   const stopWatcher = () => {
     if (!stopWatch) return;
@@ -723,11 +771,11 @@ export const register: PluginRegisterFn = (api) => {
         "Read the user's ~/.ssh/config and mirror it into saved connections: hosts are created and " +
         "updated, private keys referenced by IdentityFile are imported into the vault, and connections " +
         "this plugin previously created for hosts that have since disappeared from the config are " +
-        "deleted. Returns how many hosts were seen.",
+        "deleted. Reports any host it had to skip and why.",
       inputSchema: { type: "object", properties: {} },
       execute: async () => {
-        await sync(api, "mcp");
-        return "synced";
+        const failures = await sync(api, "mcp");
+        return failures.length ? `synced, skipped ${failures.length} host(s):\n${failures.join("\n")}` : "synced";
       },
     },
   ]);
