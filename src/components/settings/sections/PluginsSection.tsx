@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
+import { FormSelect } from "@/components/shared/FormSelect";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -132,16 +133,13 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                 />
               )}
               {field.type === "select" && (
-                <select
+                <FormSelect
                   value={String(value ?? "")}
-                  onChange={(e) => void save(key, e.target.value)}
-                  className="form-input px-2 py-1 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-                  style={{ minWidth: "8rem" }}
-                >
-                  {(field.options ?? []).map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                  onChange={(v) => void save(key, v)}
+                  options={(field.options ?? []).map((opt) => ({ value: opt, label: opt }))}
+                  ariaLabel={field.label ?? humanizeKey(key)}
+                  className="min-w-32"
+                />
               )}
           </SettingRow>
         );

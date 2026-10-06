@@ -22,23 +22,25 @@ function renderModal(onInject = vi.fn()) {
       onClose={vi.fn()}
     />,
   );
-  return { onInject, select: screen.getByRole("combobox") as HTMLSelectElement };
+  return { onInject, trigger: screen.getByRole("button", { name: "environment" }) };
 }
 
 afterEach(cleanup);
 
 describe("SnippetVariableModal choice variables", () => {
   it("offers every option with the first one pre-selected", () => {
-    const { select } = renderModal();
-    expect([...select.options].map((o) => o.value)).toEqual([
-      "development", "staging", "production",
-    ]);
-    expect(select.value).toBe("development");
+    const { trigger } = renderModal();
+    expect(trigger.textContent).toBe("development");
+    fireEvent.click(trigger);
+    for (const option of ["development", "staging", "production"]) {
+      expect(screen.getAllByText(option).length).toBeGreaterThan(0);
+    }
   });
 
   it("substitutes the picked option", () => {
-    const { onInject, select } = renderModal();
-    fireEvent.change(select, { target: { value: "staging" } });
+    const { onInject, trigger } = renderModal();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText("staging"));
     fireEvent.click(screen.getByText("terminal.snippetVariableModal.execute"));
     expect(onInject).toHaveBeenCalledWith("echo staging", true);
   });

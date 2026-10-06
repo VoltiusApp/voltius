@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { FormSelect } from "@/components/shared/FormSelect";
 import {
   resolveTemplate,
   type ParsedVariable,
@@ -47,18 +48,12 @@ function VarInput({ variable, value, onChange }: VarInputProps) {
 
     case "choice":
       return (
-        <select
+        <FormSelect
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputClass}
-          style={base}
-        >
-          {(variable.choices ?? []).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+          onChange={onChange}
+          options={(variable.choices ?? []).map((c) => ({ value: c, label: c }))}
+          ariaLabel={variable.label ?? variable.name}
+        />
       );
 
     case "number":
@@ -132,7 +127,7 @@ export function SnippetVariableModal({
 
   const firstInputRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const input = firstInputRef.current?.querySelector("input, select, button");
+    const input = firstInputRef.current?.querySelector("input, button");
     if (input) (input as HTMLElement).focus();
   }, []);
 
