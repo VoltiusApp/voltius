@@ -32,7 +32,7 @@ export function MenuItemList({
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }) {
-  const [activeSub, setActiveSub] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [activeSub, setActiveSub] = useState<{ idx: number; row: SubmenuRow } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = () => {
@@ -46,14 +46,8 @@ export function MenuItemList({
 
   const openSub = (idx: number, rowEl: HTMLButtonElement) => {
     clearTimer();
-    const rect = rowEl.getBoundingClientRect();
-    const subWidth = 192;
-    const flipLeft = rect.right + subWidth > window.innerWidth;
-    setActiveSub({
-      idx,
-      x: flipLeft ? rect.left - subWidth - 4 : rect.right + 4,
-      y: rect.top,
-    });
+    const { left, right } = (rowEl.closest("[data-menu-portal]") ?? rowEl).getBoundingClientRect();
+    setActiveSub({ idx, row: { left, right, top: rowEl.getBoundingClientRect().top } });
   };
 
   return (
@@ -104,7 +98,7 @@ export function MenuItemList({
 
       {activeSub !== null && items[activeSub.idx]?.children &&
         createPortal(
-          <SubmenuPanel x={activeSub.x} y={activeSub.y} onMouseEnter={clearTimer} onMouseLeave={scheduleClose}>
+          <SubmenuPanel row={activeSub.row} onMouseEnter={clearTimer} onMouseLeave={scheduleClose}>
             <MenuItemList
               items={items[activeSub.idx].children!}
               onClose={onClose}
@@ -125,47 +119,64 @@ export function fitWithin(start: number, size: number, limit: number): number {
   return Math.min(start, Math.max(VIEWPORT_MARGIN, limit - size - VIEWPORT_MARGIN));
 }
 
+function useMeasuredSize(
+  ref: React.RefObject<HTMLElement | null>,
+  axis: "width" | "height",
+  deps: unknown[],
+): number | null {
+  const [size, setSize] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setSize(el.getBoundingClientRect()[axis]);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [axis, ref, ...deps]);
+  return size;
+}
+
 function useFittedStart(
   ref: React.RefObject<HTMLElement | null>,
   start: number,
   axis: "width" | "height",
   deps: unknown[],
 ): number {
-  const [fitted, setFitted] = useState(start);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => setFitted(fitWithin(
-      start,
-      el.getBoundingClientRect()[axis],
-      axis === "width" ? window.innerWidth : window.innerHeight,
-    ));
-    fit();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(fit);
-    observer.observe(el);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, axis, ref, ...deps]);
-  return fitted;
+  const size = useMeasuredSize(ref, axis, deps);
+  if (size === null) return start;
+  return fitWithin(start, size, axis === "width" ? window.innerWidth : window.innerHeight);
 }
 
-function SubmenuPanel({ x, y, onMouseEnter, onMouseLeave, children }: {
-  x: number;
-  y: number;
+type SubmenuRow = { left: number; right: number; top: number };
+const SUBMENU_GAP = 4;
+
+/** Right of the parent row when the submenu fits there, else left of it, never overlapping the row. */
+export function submenuLeft(row: SubmenuRow, width: number, viewport: number): number {
+  const right = row.right + SUBMENU_GAP;
+  if (right + width <= viewport - VIEWPORT_MARGIN) return right;
+  return Math.max(VIEWPORT_MARGIN, row.left - SUBMENU_GAP - width);
+}
+
+function SubmenuPanel({ row, onMouseEnter, onMouseLeave, children }: {
+  row: SubmenuRow;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const top = useFittedStart(ref, y, "height", []);
+  const top = useFittedStart(ref, row.top, "height", []);
+  const width = useMeasuredSize(ref, "width", []);
+  const left = width === null ? row.right + SUBMENU_GAP : submenuLeft(row, width, window.innerWidth);
   return (
     <div
       ref={ref}
       // PickerSurface treats this marker as inside-click; z-index keeps a flipped submenu above its parent.
       data-menu-portal=""
       className="surface-float fixed z-10000 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
-      style={{ left: x, top, maxHeight: window.innerHeight - 2 * VIEWPORT_MARGIN }}
+      style={{ left, top, maxHeight: window.innerHeight - 2 * VIEWPORT_MARGIN }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >

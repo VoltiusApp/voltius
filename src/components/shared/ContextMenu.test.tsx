@@ -2,7 +2,7 @@ import { useState } from "react";
 import { test, expect, afterEach, vi } from "vitest";
 import { act } from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { ContextMenu, fitWithin, useContextMenu } from "./ContextMenu";
+import { ContextMenu, fitWithin, submenuLeft, useContextMenu } from "./ContextMenu";
 
 // vitest.config.ts sets no `globals: true`, so testing-library's automatic
 // cleanup never registers; unmount explicitly between tests.
@@ -129,5 +129,31 @@ test("a submenu opened low in the window is shifted up to stay inside it", () =>
     expect(sub.style.top).toBe("292px");
   } finally {
     window.innerHeight = height;
+  }
+});
+
+test("submenuLeft opens right when there is room and flips left of the row otherwise", () => {
+  const row = { left: 1000, right: 1200, top: 0 };
+  expect(submenuLeft(row, 200, 1440)).toBe(1204);
+  expect(submenuLeft(row, 228, 1440)).toBe(1204);
+  expect(submenuLeft(row, 260, 1440)).toBe(1000 - 4 - 260);
+  expect(submenuLeft({ left: 100, right: 300, top: 0 }, 400, 600)).toBe(8);
+});
+
+test("a flipped submenu wider than its old fixed estimate does not cover its parent row", () => {
+  const width = window.innerWidth;
+  window.innerWidth = 1440;
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    return (this.hasAttribute("data-menu-portal")
+      ? { left: 1150, right: 1400, top: 10, bottom: 130, width: 240, height: 120 }
+      : { left: 1156, right: 1394, top: 300, bottom: 330, width: 238, height: 30 }) as DOMRect;
+  });
+  try {
+    render(<ContextMenu items={[{ label: "Parent", children: [{ label: "My identity for Acme Ops…", onClick: () => {} }] }]} pos={{ x: 1150, y: 10 }} onClose={() => {}} />);
+    fireEvent.mouseEnter(screen.getByText("Parent").closest("button") as HTMLElement);
+    const sub = screen.getByText("My identity for Acme Ops…").closest("[data-menu-portal]") as HTMLElement;
+    expect(sub.style.left).toBe(`${1150 - 4 - 240}px`);
+  } finally {
+    window.innerWidth = width;
   }
 });
