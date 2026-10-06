@@ -35,7 +35,7 @@ export default function SFTPSection() {
   };
 
   return (
-    <div className="p-6 max-w-lg space-y-6">
+    <div className="p-6 space-y-6">
       {isAndroid && (
         <SettingsGroup title={t("settings.sftp.downloads.title")}>
           <SettingRow

@@ -216,7 +216,7 @@ export default function SyncSection() {
   const installer = usePluginInstaller();
 
   return (
-    <div className="p-6 max-w-lg space-y-6">
+    <div className="p-6 space-y-6">
       <SettingsGroup title={t("settings.sync.voltiusCloud")}>
         {voltiusProvider && <VoltiusSyncGroup provider={voltiusProvider} />}
       </SettingsGroup>

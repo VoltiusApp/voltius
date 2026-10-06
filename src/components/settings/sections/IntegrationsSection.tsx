@@ -130,7 +130,7 @@ export default function IntegrationsSection() {
   }, [mcpServer]);
 
   return (
-    <div className="p-6 max-w-lg space-y-6">
+    <div className="p-6 space-y-6">
       <div>
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.integrations.mcp.title")}

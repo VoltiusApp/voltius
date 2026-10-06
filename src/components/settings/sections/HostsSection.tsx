@@ -111,7 +111,7 @@ export default function HostsSection() {
   };
 
   return (
-    <div className="p-6 max-w-lg space-y-6">
+    <div className="p-6 space-y-6">
       <SettingsGroup title={t("settings.hosts.connectivityTitle")} divided>
         <SettingRow
           syncKey="appSettings.toggles.reachability"

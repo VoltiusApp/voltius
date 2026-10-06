@@ -9,7 +9,7 @@ export default function PortForwardingSection() {
   const [autoForwardNotificationsEnabled, setAutoForwardNotificationsEnabled] = useToggle("forwarding-notifications");
 
   return (
-    <div className="p-6 max-w-lg space-y-6">
+    <div className="p-6 space-y-6">
       <SettingsGroup title={t("settings.portForwarding.automationTitle")} divided>
         <SettingRow
           syncKey="appSettings.toggles.auto-forward"

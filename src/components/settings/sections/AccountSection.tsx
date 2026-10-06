@@ -216,7 +216,7 @@ export default function AccountSection() {
   const timeoutSelectValue = sessionTimeoutValue(sessionTimeoutMinutes);
 
   return (
-    <div className="p-6 max-w-lg space-y-4">
+    <div className="p-6 space-y-4">
       <div>
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.account.modeTitle")}

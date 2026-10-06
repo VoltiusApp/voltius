@@ -52,7 +52,7 @@ export default function DiagnosticsSection() {
     : t("settings.diagnostics.createButton");
 
   return (
-    <div className="p-6 max-w-lg space-y-6">
+    <div className="p-6 space-y-6">
       <p className="text-sm text-(--t-text-dim)">{t("settings.diagnostics.intro")}</p>
 
       {/* Troubleshooting */}
