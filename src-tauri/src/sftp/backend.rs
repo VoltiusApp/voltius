@@ -367,7 +367,7 @@ mod tests {
     fn stat_of(content: Option<&str>) -> Stat {
         Stat {
             size: content.map_or(0, |c| c.len() as u64),
-            mtime: 0,
+            mtime: None,
             is_dir: content.is_none(),
             mode: None,
         }

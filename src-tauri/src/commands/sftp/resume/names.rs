@@ -10,11 +10,11 @@ pub(crate) const OLD_EXT: &str = ".voltius-old";
 const FP_LEN: usize = 16;
 const MAX_NAME: usize = 255;
 
-pub(crate) fn fingerprint(src_path: &str, size: u64, mtime: u64) -> String {
+pub(crate) fn fingerprint(src_path: &str, size: u64, mtime: Option<u64>) -> String {
     let mut h = Sha256::new();
     h.update(src_path.as_bytes());
     h.update(size.to_le_bytes());
-    h.update(mtime.to_le_bytes());
+    h.update(mtime.unwrap_or(0).to_le_bytes());
     h.finalize()[..FP_LEN / 2]
         .iter()
         .map(|b| format!("{b:02x}"))
@@ -87,15 +87,15 @@ mod tests {
 
     #[test]
     fn the_fingerprint_follows_path_size_and_mtime() {
-        let fp = fingerprint("/v/a.mp4", 10, 20);
+        let fp = fingerprint("/v/a.mp4", 10, Some(20));
         assert_eq!(fp.len(), 16);
         assert!(fp
             .bytes()
             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
-        assert_eq!(fp, fingerprint("/v/a.mp4", 10, 20));
-        assert_ne!(fp, fingerprint("/v/a.mp4", 11, 20));
-        assert_ne!(fp, fingerprint("/v/a.mp4", 10, 21));
-        assert_ne!(fp, fingerprint("/v/b.mp4", 10, 20));
+        assert_eq!(fp, fingerprint("/v/a.mp4", 10, Some(20)));
+        assert_ne!(fp, fingerprint("/v/a.mp4", 11, Some(20)));
+        assert_ne!(fp, fingerprint("/v/a.mp4", 10, Some(21)));
+        assert_ne!(fp, fingerprint("/v/b.mp4", 10, Some(20)));
     }
 
     #[test]

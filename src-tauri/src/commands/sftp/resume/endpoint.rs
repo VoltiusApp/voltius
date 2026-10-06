@@ -12,7 +12,8 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Stat {
     pub size: u64,
-    pub mtime: u64,
+    /// None when the server reports none: never stamped on a copy, never matched.
+    pub mtime: Option<u64>,
     pub is_dir: bool,
     pub mode: Option<u32>,
 }
@@ -29,7 +30,7 @@ impl From<RemoteFile> for Listed {
         Listed {
             stat: Some(Stat {
                 size: f.size,
-                mtime: f.modified.unwrap_or(0),
+                mtime: f.modified,
                 is_dir: f.is_dir,
                 mode: f.permissions,
             }),
@@ -133,11 +134,11 @@ pub(crate) async fn swap_aside<E: Endpoint + ?Sized>(
 }
 
 fn local_stat(m: &std::fs::Metadata) -> Stat {
+    // Unknown only when unreadable; a date before 1970 clamps to 0, as it always has.
     let mtime = m
         .modified()
         .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_secs());
+        .map(|t| t.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()));
     #[cfg(unix)]
     let mode = Some(std::os::unix::fs::PermissionsExt::mode(&m.permissions()));
     #[cfg(not(unix))]
@@ -303,11 +304,13 @@ pub(crate) mod tests_support {
     use std::sync::Mutex;
 
     /// LocalFs with faults: renames that fail by call number or never overwrite (as on SFTP),
-    /// a hash that lies once, a link that reads dead until waited on.
+    /// a hash that lies once, a link that reads dead until waited on, a server that reports
+    /// no mtimes.
     #[derive(Default)]
     pub(crate) struct TestFs {
         pub fail_renames: Vec<usize>,
         pub sftp_rename: bool,
+        pub no_mtime: bool,
         pub lie_hash_once: bool,
         pub hash_fails_once: bool,
         pub cancel_on_hash: Option<CancellationToken>,
@@ -331,6 +334,15 @@ pub(crate) mod tests_support {
         flag && !std::mem::replace(done, true)
     }
 
+    impl TestFs {
+        fn shown(&self, mut s: Stat) -> Stat {
+            if self.no_mtime {
+                s.mtime = None;
+            }
+            s
+        }
+    }
+
     #[async_trait]
     impl Endpoint for TestFs {
         fn is_local(&self) -> bool {
@@ -343,10 +355,14 @@ pub(crate) mod tests_support {
             LocalFs.join(d, r)
         }
         async fn stat(&self, p: &str) -> Result<Option<Stat>, AppError> {
-            LocalFs.stat(p).await
+            Ok(LocalFs.stat(p).await?.map(|s| self.shown(s)))
         }
         async fn list(&self, d: &str) -> Result<Vec<Listed>, AppError> {
-            LocalFs.list(d).await
+            let mut listed = LocalFs.list(d).await?;
+            for e in &mut listed {
+                e.stat = e.stat.map(|s| self.shown(s));
+            }
+            Ok(listed)
         }
         async fn mkdir(&self, p: &str) -> Result<(), AppError> {
             if once(
@@ -455,7 +471,7 @@ mod tests {
         std::fs::write(d.path().join("f"), b"abc").unwrap();
         LocalFs.set_mtime(&p(&d, "f"), 1_000_000).await.unwrap();
         let s = LocalFs.stat(&p(&d, "f")).await.unwrap().unwrap();
-        assert_eq!((s.size, s.mtime, s.is_dir), (3, 1_000_000, false));
+        assert_eq!((s.size, s.mtime, s.is_dir), (3, Some(1_000_000), false));
         assert!(
             LocalFs
                 .stat(&d.path().to_string_lossy())
@@ -464,6 +480,16 @@ mod tests {
                 .unwrap()
                 .is_dir
         );
+    }
+
+    #[tokio::test]
+    async fn local_stat_clamps_a_date_before_1970_to_0() {
+        let d = tempfile::tempdir().unwrap();
+        let f = std::fs::File::create(d.path().join("f")).unwrap();
+        f.set_modified(UNIX_EPOCH - Duration::from_secs(86_400))
+            .unwrap();
+        let s = LocalFs.stat(&p(&d, "f")).await.unwrap().unwrap();
+        assert_eq!(s.mtime, Some(0));
     }
 
     #[tokio::test]

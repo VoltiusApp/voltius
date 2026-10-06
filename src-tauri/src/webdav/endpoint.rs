@@ -146,7 +146,7 @@ impl Endpoint for WebDavBackend {
     async fn stat(&self, path: &str) -> Result<Option<Stat>, AppError> {
         Ok(self.stat_entry(path).await?.map(|e| Stat {
             size: e.size.unwrap_or(0),
-            mtime: e.modified.unwrap_or(0),
+            mtime: e.modified,
             is_dir: e.is_dir,
             mode: None,
         }))

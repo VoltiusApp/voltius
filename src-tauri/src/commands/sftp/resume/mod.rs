@@ -85,8 +85,9 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
         let (dir, name) = dst.split(path);
         self.listing(dst, &dir).await.iter().any(|e| {
             e.name == name
-                && e.stat
-                    .is_some_and(|s| !s.is_dir && s.size == want.size && s.mtime == want.mtime)
+                && e.stat.is_some_and(|s| {
+                    !s.is_dir && s.size == want.size && s.mtime.is_some() && s.mtime == want.mtime
+                })
         })
     }
 
@@ -482,7 +483,8 @@ async fn copy_in_place<E: TransferEvents>(
     Ok(Attempt::Done)
 }
 
-async fn keep_mtime(dst: &dyn Endpoint, path: &str, mtime: u64) {
+async fn keep_mtime(dst: &dyn Endpoint, path: &str, mtime: Option<u64>) {
+    let Some(mtime) = mtime else { return };
     if let Err(e) = dst.set_mtime(path, mtime).await {
         log::warn!("could not keep the mtime of {path}: {e}");
     }
@@ -607,13 +609,31 @@ pub(crate) mod engine_tests {
         .unwrap();
         assert_eq!(std::fs::read(b.path().join("v.mp4")).unwrap(), data);
         let landed = LocalFs.stat(&s(&b.path().join("v.mp4"))).await.unwrap();
-        assert_eq!(landed.unwrap().mtime, 1_700_000_000);
+        assert_eq!(landed.unwrap().mtime, Some(1_700_000_000));
         assert_eq!(entries(b.path()), ["v.mp4"]);
         assert_eq!(
             rec.last("sftp-progress-t").unwrap()["transferred"],
             1_000_000
         );
         assert_eq!(rec.count("sftp-resumed-t"), 0);
+    }
+
+    #[tokio::test]
+    async fn a_source_without_an_mtime_never_dates_the_copy_1970() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), b"data").unwrap();
+        let src = TestFs {
+            no_mtime: true,
+            ..Default::default()
+        };
+        let (from, to) = (s(&a.path().join("v")), s(&b.path().join("v")));
+        let (rec, token) = (Recorder::default(), CancellationToken::new());
+        copy_one(&rec, &src, &from, &LocalFs, &to, "t", &token)
+            .await
+            .unwrap();
+        let landed = std::fs::metadata(&to).unwrap().modified().unwrap();
+        let a_day = std::time::Duration::from_secs(86_400);
+        assert!(landed > std::time::UNIX_EPOCH + a_day);
     }
 
     #[tokio::test]
@@ -1175,6 +1195,26 @@ pub(crate) mod engine_tests {
     }
 
     #[tokio::test]
+    async fn a_resumed_folder_never_skips_a_file_whose_mtime_is_unknown() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("f"), b"new!").unwrap();
+        let dst = b.path().join("copy");
+        std::fs::create_dir(&dst).unwrap();
+        std::fs::write(dst.join("f"), b"old!").unwrap();
+        let blind = TestFs {
+            no_mtime: true,
+            ..Default::default()
+        };
+        let (rec, token) = (Recorder::default(), CancellationToken::new());
+        mark_resume("t3");
+        let (from, to) = (s(a.path()), s(&dst));
+        let copied = copy_tree(&rec, &blind, &from, &blind, &to, "t3", &token).await;
+        clear_resume("t3");
+        copied.unwrap();
+        assert_eq!(std::fs::read(dst.join("f")).unwrap(), b"new!");
+    }
+
+    #[tokio::test]
     async fn a_first_run_never_skips_an_identical_looking_file() {
         let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         std::fs::write(a.path().join("f"), b"new!").unwrap();
@@ -1187,7 +1227,7 @@ pub(crate) mod engine_tests {
             .unwrap()
             .unwrap();
         LocalFs
-            .set_mtime(&s(&dst.join("f")), st.mtime)
+            .set_mtime(&s(&dst.join("f")), st.mtime.unwrap())
             .await
             .unwrap();
         copy_dir(&Recorder::default(), a.path(), &dst, "t2").await;

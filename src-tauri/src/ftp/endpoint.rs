@@ -20,10 +20,17 @@ use tokio_util::sync::CancellationToken;
 /// A data connection that moves nothing for this long is taken for lost.
 const DATA_IDLE: Duration = Duration::from_secs(60);
 
+/// suppaftp dates every listed entry (the epoch when the server sent none), so a listing
+/// can't tell unknown from 1970. `mtime_of` is None only before 1970: that clamps to 0, as
+/// MDTM's does.
+fn listed_mtime(mtime: Option<u64>) -> Option<u64> {
+    Some(mtime.unwrap_or(0))
+}
+
 fn stat_of(f: &FtpFile) -> Stat {
     Stat {
         size: f.size() as u64,
-        mtime: mtime_of(f).unwrap_or(0),
+        mtime: listed_mtime(mtime_of(f)),
         is_dir: f.is_directory(),
         mode: None,
     }
@@ -104,7 +111,7 @@ impl Endpoint for FtpBackend {
                 let dir = self.is_dir(&mut s, path).await?;
                 return Ok(dir.then_some(Stat {
                     size: 0,
-                    mtime: 0,
+                    mtime: None,
                     is_dir: true,
                     mode: None,
                 }));
@@ -112,8 +119,8 @@ impl Endpoint for FtpBackend {
             Err(e) => return Err(failed("stat", e)),
         };
         let mtime = match call!(*s, |ftp| ftp.mdtm(path)) {
-            Ok(t) => t.and_utc().timestamp().max(0) as u64,
-            Err(e) if refused(&e) => 0,
+            Ok(t) => Some(t.and_utc().timestamp().max(0) as u64),
+            Err(e) if refused(&e) => None,
             Err(e) => return Err(failed("stat", e)),
         };
         Ok(Some(Stat {
@@ -126,7 +133,11 @@ impl Endpoint for FtpBackend {
 
     async fn list(&self, dir: &str) -> Result<Vec<Listed>, AppError> {
         let files = FileBackend::list_dir(self, dir).await?;
-        Ok(files.into_iter().map(Listed::from).collect())
+        let mut listed: Vec<Listed> = files.into_iter().map(Listed::from).collect();
+        for s in listed.iter_mut().filter_map(|l| l.stat.as_mut()) {
+            s.mtime = listed_mtime(s.mtime);
+        }
+        Ok(listed)
     }
 
     async fn mkdir(&self, path: &str) -> Result<(), AppError> {
@@ -267,6 +278,12 @@ mod tests {
         assert!(refused(&refusal(Status::FileUnavailable)));
         assert!(is_transport(&refusal(Status::NotAvailable)));
         assert!(is_transport(&lost(io::ErrorKind::TimedOut)));
+    }
+
+    #[test]
+    fn a_listed_date_before_1970_clamps_to_0_and_others_are_kept() {
+        assert_eq!(listed_mtime(None), Some(0));
+        assert_eq!(listed_mtime(Some(1_700_000_000)), Some(1_700_000_000));
     }
 }
 

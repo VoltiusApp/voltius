@@ -65,7 +65,7 @@ impl SftpFs {
 fn stat_of(m: &Metadata) -> Stat {
     Stat {
         size: m.size.unwrap_or(0),
-        mtime: m.mtime.map_or(0, u64::from),
+        mtime: m.mtime.map(u64::from),
         is_dir: m.is_dir(),
         mode: m.permissions,
     }
@@ -293,7 +293,7 @@ pub(crate) mod tests {
             .unwrap();
         assert_eq!(s, "lLO!");
         fs.set_mtime(&f, 1_000_000).await.unwrap();
-        assert_eq!(fs.stat(&f).await.unwrap().unwrap().mtime, 1_000_000);
+        assert_eq!(fs.stat(&f).await.unwrap().unwrap().mtime, Some(1_000_000));
         let names: Vec<_> = fs
             .list(&d.path().to_string_lossy())
             .await

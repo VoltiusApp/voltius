@@ -101,6 +101,7 @@ impl<H: Handler> DockerFs<H> {
 
     async fn listing(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
         // For each entry emit: is_symlink \t is_dir \t size \t mtime \t mode \t name
+        // (mtime `-` when stat can't read it, so a 0 is always a real date).
         // `./$e` everywhere so filenames beginning with '-' aren't parsed as test flags.
         let script = "cd \"$1\" || exit 3; \
              for e in * .*; do \
@@ -110,7 +111,7 @@ impl<H: Handler> DockerFs<H> {
                if [ -L \"./$e\" ]; then L=1; else L=0; fi; \
                if [ -d \"./$e\" ]; then D=1; else D=0; fi; \
                S=$(stat -c %s \"./$e\" 2>/dev/null || echo 0); \
-               M=$(stat -c %Y \"./$e\" 2>/dev/null || echo 0); \
+               M=$(stat -c %Y \"./$e\" 2>/dev/null || echo -); \
                P=$(stat -c %a \"./$e\" 2>/dev/null || echo 0); \
                printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$L\" \"$D\" \"$S\" \"$M\" \"$P\" \"$e\"; \
              done";
@@ -154,7 +155,7 @@ impl<H: Handler> DockerFs<H> {
                 size: s.parse().unwrap_or(0),
                 is_dir: d == "1",
                 is_symlink: l == "1",
-                modified: m.parse::<u64>().ok().filter(|&t| t > 0),
+                modified: m.parse::<u64>().ok(),
                 permissions: u32::from_str_radix(p.trim(), 8).ok(),
             });
         }
@@ -194,9 +195,7 @@ impl FileBackend for DockerFs {
     }
 
     async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
-        let mut files = self.listing(path).await?;
-        sort_listing(&mut files);
-        Ok(files)
+        Ok(for_the_panel(self.listing(path).await?))
     }
 
     /// Returns Some(is_dir) if path exists, None if it doesn't.
@@ -268,11 +267,20 @@ impl FileBackend for DockerFs {
     }
 }
 
+/// The panel has always shown an epoch-0 date as blank; the engine wants it exact.
+fn for_the_panel(mut files: Vec<RemoteFile>) -> Vec<RemoteFile> {
+    for f in &mut files {
+        f.modified = f.modified.filter(|&t| t > 0);
+    }
+    sort_listing(&mut files);
+    files
+}
+
 fn parse_stat(out: &str) -> Option<Stat> {
     let mut f = out.split_whitespace();
     let is_dir = f.next()? == "d";
     let size = f.next()?.parse().ok()?;
-    let mtime = f.next()?.parse().ok()?;
+    let mtime = f.next()?.parse().ok();
     let mode = f.next().and_then(|m| u32::from_str_radix(m, 8).ok());
     Some(Stat {
         size,
@@ -468,7 +476,7 @@ mod tests {
         let st = Endpoint::stat(&fs, &f).await.unwrap().unwrap();
         assert_eq!(
             (st.size, st.mtime, st.is_dir, st.mode),
-            (8, 1_000_000, false, Some(0o640))
+            (8, Some(1_000_000), false, Some(0o640))
         );
         assert!(
             Endpoint::stat(&fs, &d.path().to_string_lossy())
@@ -501,6 +509,26 @@ mod tests {
         let mut r = fs.open_read("/no/such/file", 0).await.unwrap();
         let e = r.read_to_end(&mut Vec::new()).await.unwrap_err();
         assert!(e.to_string().contains("read failed"), "{e}");
+    }
+
+    #[test]
+    fn a_stat_keeps_a_real_0_mtime_and_reads_an_unreadable_one_as_unknown() {
+        assert_eq!(parse_stat("f 3 0 644").unwrap().mtime, Some(0));
+        let unreadable = parse_stat("f 3 ? 644").unwrap();
+        assert_eq!((unreadable.size, unreadable.mtime), (3, None));
+    }
+
+    #[tokio::test]
+    async fn an_epoch_0_file_lists_as_0_to_the_engine_and_blank_in_the_panel() {
+        let fs = docker_fs(ProcOptions::default()).await;
+        let d = tempfile::tempdir().unwrap();
+        let f = std::fs::File::create(d.path().join("old")).unwrap();
+        f.set_modified(std::time::UNIX_EPOCH).unwrap();
+        let dir = d.path().to_string_lossy().into_owned();
+        let listed = Endpoint::list(&fs, &dir).await.unwrap();
+        assert_eq!(listed[0].stat.unwrap().mtime, Some(0));
+        let shown = for_the_panel(fs.listing(&dir).await.unwrap());
+        assert_eq!(shown[0].modified, None);
     }
 
     fn relink_after(fs: &DockerFs<TestClient>, delay: Duration) -> tokio::task::JoinHandle<()> {
