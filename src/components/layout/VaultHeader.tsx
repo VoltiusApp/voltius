@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutHint } from "@/stores/shortcutStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useTeamStore } from "@/stores/teamStore";
@@ -181,6 +182,7 @@ export default function VaultHeader() {
   const vaults = useVaultStore((s) => s.vaults);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
+  const omniHint = useShortcutHint("omni");
   const { teams, membersByTeam, loadMembers } = useTeamStore();
 
   const [syncState, setSyncState] = useState(getSyncState);
@@ -331,17 +333,18 @@ export default function VaultHeader() {
       >
         <Icon icon="lucide:search" width={14} className="shrink-0" />
         <span className="text-sm flex-1 text-left">{t("layout.vaultHeader.jumpTo")}</span>
-        <kbd
-          className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md"
-          style={{
-            background: "color-mix(in srgb, #000000 22%, transparent)",
-            color: "var(--t-text-secondary)",
-            border: "1px solid color-mix(in srgb, #ffffff 7%, transparent)",
-          }}
-        >
-          <span>⌘</span>
-          <span>K</span>
-        </kbd>
+        {omniHint && (
+          <kbd
+            className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md"
+            style={{
+              background: "color-mix(in srgb, #000000 22%, transparent)",
+              color: "var(--t-text-secondary)",
+              border: "1px solid color-mix(in srgb, #ffffff 7%, transparent)",
+            }}
+          >
+            {omniHint}
+          </kbd>
+        )}
       </button>
 
       {/* Right zone: online members */}

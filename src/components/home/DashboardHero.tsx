@@ -6,7 +6,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
+import { useShortcutHint } from "@/stores/shortcutStore";
 import { useActiveTunnelCount } from "@/hooks/useActiveTunnelCount";
 
 function greetingKey(): string {
@@ -49,8 +49,7 @@ export function DashboardHero() {
   const activeTunnelCount = useActiveTunnelCount();
   const portForwardCount = activeTunnelCount > 0 ? activeTunnelCount : savedRulesCount;
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
-  const shortcuts = useShortcutStore((s) => s.shortcuts);
-  const omniShortcut = shortcuts.find((s) => s.id === "omni");
+  const omniHint = useShortcutHint("omni");
 
   useEffect(() => { loadRules().catch(() => {}); }, [loadRules]);
 
@@ -79,12 +78,12 @@ export function DashboardHero() {
       >
         <Icon icon="lucide:search" width={15} className="shrink-0" />
         <span className="text-sm flex-1">{t("home.search.placeholder")}</span>
-        {omniShortcut && (
+        {omniHint && (
           <kbd
             className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-sm shrink-0"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
           >
-            {formatShortcut(omniShortcut)}
+            {omniHint}
           </kbd>
         )}
       </button>

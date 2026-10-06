@@ -161,6 +161,11 @@ export function getShortcutHint(id: string): string | undefined {
   return sc ? formatShortcut(sc) : undefined;
 }
 
+export function useShortcutHint(id: string): string | undefined {
+  const sc = useShortcutStore((s) => s.shortcuts.find((x) => x.id === id));
+  return sc ? formatShortcut(sc) : undefined;
+}
+
 export function formatShortcut(sc: Shortcut): string {
   const parts: string[] = [];
   if (sc.ctrl) parts.push("Ctrl");
