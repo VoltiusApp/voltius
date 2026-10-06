@@ -52,9 +52,8 @@ pub async fn proxmox_lxc_sftp_open(
     vmid: u32,
 ) -> Result<String, String> {
     let handle = session_manager.get_session_handle(&session_id).await?;
-    let cmd = format!(
-        "pct exec {} -- sh -c 'for p in /usr/lib/openssh/sftp-server /usr/lib/ssh/sftp-server /usr/libexec/openssh/sftp-server /usr/sbin/sftp-server; do [ -x \"$p\" ] && exec \"$p\"; done; exit 127'",
-        vmid
-    );
-    sftp_state.open_exec(handle, &cmd).await
+    let server = "sh -c 'for p in /usr/lib/openssh/sftp-server /usr/lib/ssh/sftp-server /usr/libexec/openssh/sftp-server /usr/sbin/sftp-server; do [ -x \"$p\" ] && exec \"$p\"; done; exit 127'";
+    sftp_state
+        .open_exec(handle, format!("pct exec {vmid} --"), server.to_string())
+        .await
 }

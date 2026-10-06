@@ -71,12 +71,24 @@ fn remote_items(paths: &[String]) -> (String, Vec<String>) {
     (parent.to_string(), items)
 }
 
-async fn shell_of(manager: &SftpManager, sftp_id: &str) -> RemoteShell {
+/// Run the command `build` writes in the session's dialect where the session's files are
+/// (inside its container, if it has one), waiting for its `__TF_EXIT__` report.
+async fn run_archive_cmd(
+    manager: &SftpManager,
+    sftp_id: &str,
+    build: impl FnOnce(&RemoteShell) -> Result<String, String>,
+) -> Result<(), String> {
     let backend = get_backend(manager, sftp_id).await.ok();
-    match backend.as_ref().and_then(|b| b.tar_probe()) {
+    let probe = backend.as_ref().and_then(|b| b.tar_probe());
+    let shell = match probe {
         Some(probe) => probe.shell().await.unwrap_or(RemoteShell::Posix),
         None => RemoteShell::Posix,
-    }
+    };
+    let cmd = match (build(&shell)?, probe) {
+        (cmd, Some(probe)) => probe.wrap(&cmd),
+        (cmd, None) => cmd,
+    };
+    manager.exec_command(sftp_id, &cmd, None).await
 }
 
 // ── Compress / Extract ────────────────────────────────────────────────────────
@@ -90,9 +102,10 @@ pub async fn sftp_compress(
     archive_path: String,
 ) -> Result<(), String> {
     let (parent, basename) = remote_split(&source_path);
-    let shell = shell_of(&sftp_state, &sftp_id).await;
-    let cmd = shell.compress(&archive_path, parent, &[basename.to_string()])?;
-    sftp_state.exec_command(&sftp_id, &cmd, None).await
+    run_archive_cmd(&sftp_state, &sftp_id, |shell| {
+        shell.compress(&archive_path, parent, &[basename.to_string()])
+    })
+    .await
 }
 
 /// Extract a remote .tar.gz archive into a destination directory via SSH exec.
@@ -103,9 +116,10 @@ pub async fn sftp_extract(
     archive_path: String,
     dest_dir: String,
 ) -> Result<(), String> {
-    let shell = shell_of(&sftp_state, &sftp_id).await;
-    let cmd = shell.extract(&archive_path, &dest_dir);
-    sftp_state.exec_command(&sftp_id, &cmd, None).await
+    run_archive_cmd(&sftp_state, &sftp_id, |shell| {
+        Ok(shell.extract(&archive_path, &dest_dir))
+    })
+    .await
 }
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────

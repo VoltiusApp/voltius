@@ -27,6 +27,11 @@ pub fn sh_c(script: &str, args: &[&str]) -> String {
     cmd
 }
 
+/// The prefix that runs a host command line inside `container`, stdin attached.
+pub fn docker_exec(container: &str) -> String {
+    format!("docker exec -i {}", shell_quote(container))
+}
+
 /// Open a session channel on `handle` and start `cmd` on it.
 pub async fn open_exec<H: russh::client::Handler>(
     handle: &Handle<H>,

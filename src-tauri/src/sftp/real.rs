@@ -29,9 +29,19 @@ use tokio_util::sync::CancellationToken;
 pub enum SftpOpener {
     /// `request_subsystem("sftp")` on a fresh channel.
     Subsystem,
-    /// `exec` of a command that speaks the SFTP protocol on stdio
-    /// (e.g. `docker exec -i <id> sftp-server`).
-    Exec(String),
+    /// `exec` of `server`, a command that speaks the SFTP protocol on stdio, behind
+    /// `inside`: the prefix (e.g. `docker exec -i <id>`) that runs any command where it runs.
+    Exec { inside: String, server: String },
+}
+
+impl SftpOpener {
+    /// Where shell commands must run to see the session's paths; None for the host itself.
+    pub fn inside(&self) -> Option<String> {
+        match self {
+            Self::Subsystem => None,
+            Self::Exec { inside, .. } => Some(inside.clone()),
+        }
+    }
 }
 
 /// Run an SFTP call, re-opening the channel once and retrying if the cached
@@ -83,6 +93,7 @@ impl RealSftp {
         opener: SftpOpener,
         closed: CancellationToken,
     ) -> Result<Self, String> {
+        let tar = Arc::new(TarProbe::new(Arc::clone(&handle), opener.inside()));
         let link = Arc::new(SftpLink {
             handle,
             opener,
@@ -91,7 +102,7 @@ impl RealSftp {
         let session = link.open().await?;
         Ok(Self {
             session: Arc::new(Mutex::new(session)),
-            tar: Arc::new(TarProbe::new(Arc::clone(&link.handle), None)),
+            tar,
             link,
         })
     }
@@ -161,7 +172,7 @@ impl FileBackend for RealSftp {
 
     async fn run_sh(&self, script: &str, args: &[&str]) -> Result<Captured, String> {
         let handle = read_cell(&self.link.handle);
-        run_captured(&*handle, &sh_c(script, args)).await
+        run_captured(&*handle, &self.tar.run_in(&sh_c(script, args))).await
     }
 
     async fn set_attrs(&self, change: &AttrChange) -> Result<(), AppError> {

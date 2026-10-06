@@ -62,6 +62,24 @@ pub fn sftp_server_path() -> &'static str {
     .expect("OpenSSH sftp-server missing: apt install openssh-sftp-server")
 }
 
+/// An `env PATH=…` prefix whose PATH holds only `sh` and `sha256sum`: somewhere with no tar.
+pub fn no_tar() -> (tempfile::TempDir, String) {
+    let bin = tempfile::tempdir().unwrap();
+    let path = std::env::var_os("PATH").unwrap();
+    for tool in ["sh", "sha256sum"] {
+        let found = std::env::split_paths(&path)
+            .map(|d| d.join(tool))
+            .find(|p| p.exists())
+            .unwrap_or_else(|| panic!("{tool} missing"));
+        std::os::unix::fs::symlink(found, bin.path().join(tool)).unwrap();
+    }
+    let prefix = format!(
+        "env PATH={}",
+        crate::ssh::exec::shell_quote(&bin.path().to_string_lossy())
+    );
+    (bin, prefix)
+}
+
 fn crlf(chunk: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(chunk.len());
     for &b in chunk {

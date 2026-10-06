@@ -190,9 +190,14 @@ impl SftpManager {
             .await)
     }
 
-    /// Open SFTP by exec-ing an sftp-server command on the remote host (e.g. `docker exec -i <id> sftp-server`).
-    pub async fn open_exec(&self, handle: SessionHandle, cmd: &str) -> Result<String, String> {
-        self.register_real(handle, SftpOpener::Exec(cmd.to_string()))
+    /// Open SFTP by exec-ing `server` behind `inside` (e.g. `docker exec -i <id>` + `sftp-server`).
+    pub async fn open_exec(
+        &self,
+        handle: SessionHandle,
+        inside: String,
+        server: String,
+    ) -> Result<String, String> {
+        self.register_real(handle, SftpOpener::Exec { inside, server })
             .await
     }
 

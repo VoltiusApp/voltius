@@ -1,13 +1,17 @@
-use super::remote_shell::{answer, detect, wrap, RemoteShell, Unreachable};
+use super::remote_shell::{answer, detect, run_in, wrap, RemoteShell, Unreachable};
+use super::resume::names::remote_hash;
 use super::stream::Progress;
+use crate::error::AppError;
 use crate::ssh::client::SshClient;
 use crate::ssh::exec::run_captured;
 use crate::ssh::live_cells::{read_cell, Cell};
 use crate::ssh::session::SessionHandle;
 use russh::client::{Handle, Handler};
+use std::future::Future;
 use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
 const RETRY_AFTER: Duration = Duration::from_secs(30);
@@ -15,7 +19,7 @@ const RETRY_AFTER: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 pub struct TarHost {
     handle: SessionHandle,
-    container: Option<String>,
+    inside: Option<String>,
     pub shell: RemoteShell,
 }
 
@@ -25,7 +29,7 @@ impl TarHost {
     }
 
     pub fn wrap(&self, cmd: &str) -> String {
-        wrap(self.container.as_deref(), cmd)
+        wrap(self.inside.as_deref(), cmd)
     }
 
     async fn size(&self, parent: &str, items: &[String]) -> Option<u64> {
@@ -58,15 +62,15 @@ struct Probed<H: Handler> {
 
 pub struct TarProbe<H: Handler = SshClient> {
     handle: Cell<Arc<Handle<H>>>,
-    container: Option<String>,
+    inside: Option<String>,
     last: Mutex<Option<Probed<H>>>,
 }
 
 impl<H: Handler> TarProbe<H> {
-    pub fn new(handle: Cell<Arc<Handle<H>>>, container: Option<String>) -> Self {
+    pub fn new(handle: Cell<Arc<Handle<H>>>, inside: Option<String>) -> Self {
         Self {
             handle,
-            container,
+            inside,
             last: Mutex::new(None),
         }
     }
@@ -85,7 +89,7 @@ impl<H: Handler> TarProbe<H> {
                 Err(_) => {}
             }
         }
-        let found = detect(&ssh, self.container.as_deref()).await;
+        let found = detect(&ssh, self.inside.as_deref()).await;
         *last = Some(Probed {
             on: Arc::downgrade(&ssh),
             found: found.clone().map_err(|_| Instant::now() + RETRY_AFTER),
@@ -96,6 +100,34 @@ impl<H: Handler> TarProbe<H> {
     pub async fn shell(&self) -> Option<RemoteShell> {
         self.found().await.ok()?.map(|(shell, _)| shell)
     }
+
+    /// A command in the session's dialect, run where the session's files are.
+    pub fn wrap(&self, cmd: &str) -> String {
+        wrap(self.inside.as_deref(), cmd)
+    }
+
+    /// A host command line (such as `sh_c`'s), run where the session's files are.
+    pub fn run_in(&self, argv: &str) -> String {
+        run_in(self.inside.as_deref(), argv)
+    }
+
+    /// `path`'s sha256, computed where the session's files are; None when no shell answers.
+    pub async fn hash(
+        &self,
+        path: &str,
+        token: &CancellationToken,
+        dead: impl Future<Output = bool>,
+    ) -> Result<Option<String>, AppError> {
+        let shell = tokio::select! {
+            _ = token.cancelled() => return Ok(None),
+            shell = self.shell() => shell,
+        };
+        let Some(shell) = shell else {
+            return Ok(None);
+        };
+        let cmd = self.wrap(&shell.sha256(path));
+        remote_hash(&read_cell(&self.handle), &cmd, path, token, dead).await
+    }
 }
 
 impl TarProbe {
@@ -103,7 +135,7 @@ impl TarProbe {
         Ok(self.found().await?.and_then(|(shell, streams)| {
             streams.then(|| TarHost {
                 handle: Arc::clone(&self.handle),
-                container: self.container.clone(),
+                inside: self.inside.clone(),
                 shell,
             })
         }))
@@ -114,14 +146,15 @@ impl TarProbe {
 mod tests {
     use super::*;
     use crate::port_forward::test_ssh::TestClient;
+    use crate::ssh::exec::docker_exec;
     use crate::ssh::live_cells::own_cell;
     use crate::ssh::test_proc_server::{proc_server, ProcLog, ProcOptions};
 
     type Log = Arc<std::sync::Mutex<ProcLog>>;
 
-    async fn probe_of(opts: ProcOptions, container: Option<&str>) -> (TarProbe<TestClient>, Log) {
+    async fn probe_of(opts: ProcOptions, inside: Option<&str>) -> (TarProbe<TestClient>, Log) {
         let (handle, log) = proc_server(opts).await;
-        let probe = TarProbe::new(own_cell(handle), container.map(str::to_string));
+        let probe = TarProbe::new(own_cell(handle), inside.map(str::to_string));
         (probe, log)
     }
 
@@ -155,8 +188,11 @@ mod tests {
 
     #[tokio::test]
     async fn a_host_that_answers_no_is_asked_once() {
-        let (probe, log) =
-            probe_of(ProcOptions::default(), Some("voltius-no-such-container")).await;
+        let (probe, log) = probe_of(
+            ProcOptions::default(),
+            Some(&docker_exec("voltius-no-such-container")),
+        )
+        .await;
         assert_eq!(probe.found().await, Ok(None));
         let asked = runs(&log);
         assert_eq!(probe.found().await, Ok(None));

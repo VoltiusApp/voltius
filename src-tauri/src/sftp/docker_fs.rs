@@ -11,7 +11,6 @@
 
 use crate::commands::sftp::editor::read_limit;
 use crate::commands::sftp::resume::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
-use crate::commands::sftp::resume::names::remote_hash;
 use crate::commands::sftp::resume::pipe::piped;
 use crate::commands::sftp::TarProbe;
 use crate::commands::sftp::{sort_listing, RemoteFile};
@@ -20,7 +19,7 @@ use crate::sftp::backend::FileBackend;
 use crate::sftp::link::{ssh_answers, wait_for_link};
 use crate::ssh::client::SshClient;
 use crate::ssh::exec::{
-    drain_channel, exit_error, open_exec, run_captured, sh_c, shell_quote, Captured,
+    docker_exec, drain_channel, exit_error, open_exec, run_captured, sh_c, Captured,
 };
 use crate::ssh::live_cells::{read_cell, Cell};
 use async_trait::async_trait;
@@ -35,8 +34,7 @@ pub struct DockerFs<H: Handler = SshClient> {
     /// connection the terminal currently has rather than the one present when
     /// the panel was first opened.
     handle: Cell<Arc<Handle<H>>>,
-    /// `docker exec -i <id>`, which every command runs under.
-    exec: String,
+    /// Knows the container's `docker exec -i <id>` prefix, which every command runs under.
     tar: Arc<TarProbe<H>>,
     /// The connection the latest transfer stream was opened on.
     streaming_on: Arc<StdMutex<Weak<Handle<H>>>>,
@@ -47,7 +45,6 @@ impl<H: Handler> Clone for DockerFs<H> {
     fn clone(&self) -> Self {
         Self {
             handle: Arc::clone(&self.handle),
-            exec: self.exec.clone(),
             tar: Arc::clone(&self.tar),
             streaming_on: Arc::clone(&self.streaming_on),
             closed: self.closed.clone(),
@@ -58,8 +55,10 @@ impl<H: Handler> Clone for DockerFs<H> {
 impl DockerFs {
     pub fn new(handle: Cell<Arc<Handle<SshClient>>>, container_id: String) -> Self {
         Self {
-            exec: format!("docker exec -i {}", shell_quote(&container_id)),
-            tar: Arc::new(TarProbe::new(Arc::clone(&handle), Some(container_id))),
+            tar: Arc::new(TarProbe::new(
+                Arc::clone(&handle),
+                Some(docker_exec(&container_id)),
+            )),
             handle,
             streaming_on: Arc::default(),
             closed: CancellationToken::new(),
@@ -80,7 +79,7 @@ impl<H: Handler> DockerFs<H> {
 
     /// Build a `docker exec -i <cid> sh -c '<script>' x <arg…>` command string.
     fn dexec(&self, script: &str, args: &[&str]) -> String {
-        format!("{} {}", self.exec, sh_c(script, args))
+        self.tar.run_in(&sh_c(script, args))
     }
 
     /// Run a command on the host, capturing raw stdout, stderr, and exit status.
@@ -397,9 +396,7 @@ impl<H: Handler + 'static> Endpoint for DockerFs<H> {
         path: &str,
         token: &CancellationToken,
     ) -> Result<Option<String>, AppError> {
-        let script = "sha256sum -- \"$1\" 2>/dev/null || shasum -a 256 -- \"$1\"";
-        let cmd = self.dexec(script, &[path]);
-        remote_hash(&self.ssh(), &cmd, path, token, self.link_dead()).await
+        self.tar.hash(path, token, self.link_dead()).await
     }
 
     /// A stream on a connection the terminal has since replaced is as good as cut.
@@ -443,8 +440,7 @@ mod tests {
         let (handle, _) = proc_server(opts).await;
         let handle = own_cell(handle);
         DockerFs {
-            tar: Arc::new(TarProbe::new(Arc::clone(&handle), None)),
-            exec: "env".into(),
+            tar: Arc::new(TarProbe::new(Arc::clone(&handle), Some("env".into()))),
             handle,
             streaming_on: Arc::default(),
             closed: CancellationToken::new(),

@@ -53,8 +53,8 @@ pub async fn open_sftp<H: Handler>(
             .request_subsystem(true, "sftp")
             .await
             .map_err(|e| format!("SFTP subsystem error: {e}"))?,
-        SftpOpener::Exec(cmd) => channel
-            .exec(true, cmd.as_str())
+        SftpOpener::Exec { inside, server } => channel
+            .exec(true, format!("exec {inside} {server}"))
             .await
             .map_err(|e| format!("Exec error: {e}"))?,
     }
@@ -72,11 +72,6 @@ impl<H: Handler> SftpLink<H> {
     pub async fn open(&self) -> Result<SftpSession, String> {
         let handle = read_cell(&self.handle);
         open_sftp(&handle, &self.opener).await
-    }
-
-    /// False for an exec'd sftp-server (a container): the host shell sees other paths.
-    pub fn host_shell(&self) -> bool {
-        matches!(self.opener, SftpOpener::Subsystem)
     }
 
     pub fn closed_now(&self) -> bool {

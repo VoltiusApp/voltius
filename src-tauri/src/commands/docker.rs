@@ -16,7 +16,11 @@ use crate::{
         },
     },
     sftp::SftpManager,
-    ssh::{channel_io::open_exec_session, session::SessionManager},
+    ssh::{
+        channel_io::open_exec_session,
+        exec::{docker_exec, shell_quote},
+        session::SessionManager,
+    },
 };
 
 host_command!(docker_list_containers, Vec<DockerContainer>, remote::list_containers, local::list_containers, all: bool => all);
@@ -275,19 +279,14 @@ pub async fn docker_sftp_open(
     };
 
     // Run the confirmed method directly (no fallback loop needed — we already know what works).
-    let cmd = if nsenter_ok {
+    // Shell commands (tar, hashes, chmod) enter the container the same way.
+    let inside = if nsenter_ok {
         format!(
-            "CPID=$(docker inspect --format '{{{{.State.Pid}}}}' {cid} 2>/dev/null); \
-             exec nsenter --target \"$CPID\" --mount -- {path}",
-            cid = container_id,
-            path = sftp_path,
+            "nsenter --target \"$(docker inspect --format '{{{{.State.Pid}}}}' {cid} 2>/dev/null)\" --mount --",
+            cid = shell_quote(&container_id),
         )
     } else {
-        format!(
-            "exec docker exec -i {cid} {path}",
-            cid = container_id,
-            path = sftp_path
-        )
+        docker_exec(&container_id)
     };
-    sftp_state.open_exec(live_handle, &cmd).await
+    sftp_state.open_exec(live_handle, inside, sftp_path).await
 }

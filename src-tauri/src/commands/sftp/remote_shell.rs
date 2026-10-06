@@ -18,6 +18,7 @@ pub enum RemoteShell {
 }
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
+const EXIT_MARKER: &str = "__TF_EXIT__:";
 const POSIX_PROBE: &str = "command -v tar >/dev/null 2>&1; echo __TF_EXIT__:$?";
 const STREAM_PROBE_BYTES: &[u8] = b"voltius\n\r\n\x1a\x00\xff probe\n";
 const TEMP_MARKER: &str = "__TF_TEMP__:";
@@ -28,13 +29,19 @@ const CMD_MAX_LEN: usize = 8191;
 // PowerShell ends a single-quoted string at any of these, not just at ASCII `'`.
 const PS_QUOTES: [char; 5] = ['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B}'];
 
-pub fn wrap(container: Option<&str>, cmd: &str) -> String {
-    match container {
-        Some(c) => format!(
-            "docker exec -i {} sh -c {}",
-            shell_quote(c),
-            shell_quote(cmd)
-        ),
+/// `argv`, a host command line, run where `inside` puts it: behind a prefix such as
+/// `docker exec -i <id>` or `pct exec <vmid> --`, or on the host itself.
+pub fn run_in(inside: Option<&str>, argv: &str) -> String {
+    match inside {
+        Some(prefix) => format!("{prefix} {argv}"),
+        None => argv.to_string(),
+    }
+}
+
+/// `cmd`, written in the session's dialect, run where `inside` puts it; a container runs it through its `sh`.
+pub fn wrap(inside: Option<&str>, cmd: &str) -> String {
+    match inside {
+        Some(_) => run_in(inside, &format!("sh -c {}", shell_quote(cmd))),
         None => cmd.to_string(),
     }
 }
@@ -56,17 +63,29 @@ async fn output<H: Handler>(handle: &Handle<H>, cmd: &str) -> Result<String, Unr
 }
 
 async fn reports_success<H: Handler>(handle: &Handle<H>, cmd: &str) -> Result<bool, Unreachable> {
-    Ok(output(handle, cmd).await?.contains("__TF_EXIT__:0"))
+    Ok(output(handle, cmd)
+        .await?
+        .contains(&format!("{EXIT_MARKER}0")))
 }
 
+/// `Some(has_tar)` when a POSIX shell ran `POSIX_PROBE`: cmd.exe echoes `$?` as is, PowerShell as `True`/`False`.
+fn posix_has_tar(out: &str) -> Option<bool> {
+    let code = out
+        .lines()
+        .find_map(|l| l.trim().strip_prefix(EXIT_MARKER))?;
+    Some(code.parse::<u8>().ok()? == 0)
+}
+
+/// The shell commands run through where `inside` points, and whether tar is there:
+/// the dialect is known (for hashes, sizes) even where tar is not.
 async fn dialect<H: Handler>(
     handle: &Handle<H>,
-    container: Option<&str>,
-) -> Result<Option<RemoteShell>, Unreachable> {
-    if reports_success(handle, &wrap(container, POSIX_PROBE)).await? {
-        return Ok(Some(RemoteShell::Posix));
+    inside: Option<&str>,
+) -> Result<Option<(RemoteShell, bool)>, Unreachable> {
+    if let Some(has_tar) = posix_has_tar(&output(handle, &wrap(inside, POSIX_PROBE)).await?) {
+        return Ok(Some((RemoteShell::Posix, has_tar)));
     }
-    if container.is_some() {
+    if inside.is_some() {
         return Ok(None);
     }
     for (shell, probe) in [
@@ -76,7 +95,7 @@ async fn dialect<H: Handler>(
         if is_expanded_temp(&output(handle, probe).await?) {
             let found = RemoteShell::Windows { shell };
             let has_tar = reports_success(handle, &found.status("tar --version")).await?;
-            return Ok(has_tar.then_some(found));
+            return Ok(Some((found, has_tar)));
         }
     }
     Ok(None)
@@ -85,12 +104,12 @@ async fn dialect<H: Handler>(
 async fn streams<H: Handler>(
     handle: &Handle<H>,
     shell: &RemoteShell,
-    container: Option<&str>,
+    inside: Option<&str>,
 ) -> Result<bool, Unreachable> {
     let Ok(archive) = super::local_tar::pack_bytes("probe.bin", STREAM_PROBE_BYTES) else {
         return Ok(false);
     };
-    let cmd = wrap(container, &shell.stream_probe());
+    let cmd = wrap(inside, &shell.stream_probe());
     let out = answer(run_captured_with_stdin(
         handle,
         &cmd,
@@ -100,14 +119,15 @@ async fn streams<H: Handler>(
     Ok(out.code == Some(0) && out.stdout == STREAM_PROBE_BYTES)
 }
 
+/// The dialect, and whether tar streams binary-clean through it (never, without tar).
 pub async fn detect<H: Handler>(
     handle: &Handle<H>,
-    container: Option<&str>,
+    inside: Option<&str>,
 ) -> Result<Option<(RemoteShell, bool)>, Unreachable> {
-    let Some(shell) = dialect(handle, container).await? else {
+    let Some((shell, has_tar)) = dialect(handle, inside).await? else {
         return Ok(None);
     };
-    let streams = streams(handle, &shell, container).await?;
+    let streams = has_tar && streams(handle, &shell, inside).await?;
     Ok(Some((shell, streams)))
 }
 
@@ -411,13 +431,30 @@ impl RemoteShell {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ssh::exec::docker_exec;
 
     #[test]
     fn container_commands_run_inside_sh() {
         assert_eq!(wrap(None, "tar -xzf - -O"), "tar -xzf - -O");
         assert_eq!(
-            wrap(Some("ab c"), "tar -xzf - -O"),
+            wrap(Some(&docker_exec("ab c")), "tar -xzf - -O"),
             "docker exec -i 'ab c' sh -c 'tar -xzf - -O'"
+        );
+        assert_eq!(
+            wrap(Some("pct exec 7 --"), "tar -xzf - -O"),
+            "pct exec 7 -- sh -c 'tar -xzf - -O'"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_shell_without_tar_still_reports_its_dialect() {
+        use crate::ssh::test_proc_server::{no_tar, proc_server, ProcOptions};
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let (_bin, inside) = no_tar();
+        assert_eq!(
+            detect(&handle, Some(&inside)).await,
+            Ok(Some((RemoteShell::Posix, false)))
         );
     }
 
@@ -449,6 +486,15 @@ mod tests {
 
     fn win(shell: WinShell) -> RemoteShell {
         RemoteShell::Windows { shell }
+    }
+
+    #[test]
+    fn only_a_posix_shell_answers_the_tar_probe_with_a_number() {
+        assert_eq!(posix_has_tar("__TF_EXIT__:0\n"), Some(true));
+        assert_eq!(posix_has_tar("__TF_EXIT__:1\n"), Some(false));
+        assert_eq!(posix_has_tar("__TF_EXIT__:$?\r\n"), None);
+        assert_eq!(posix_has_tar("__TF_EXIT__:False\r\n"), None);
+        assert_eq!(posix_has_tar(""), None);
     }
 
     #[test]

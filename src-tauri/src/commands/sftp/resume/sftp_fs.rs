@@ -1,10 +1,8 @@
 use super::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
-use super::names::remote_hash;
 use crate::commands::sftp::{SftpFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::link::SftpLink;
 use crate::ssh::client::SshClient;
-use crate::ssh::live_cells::read_cell;
 use async_trait::async_trait;
 use russh::client::Handler;
 use russh_sftp::client::error::Error as SftpError;
@@ -211,19 +209,10 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         path: &str,
         token: &CancellationToken,
     ) -> Result<Option<String>, AppError> {
-        let (Some(link), Some(tar)) = (self.link.as_ref().filter(|l| l.host_shell()), &self.tar)
-        else {
-            return Ok(None);
-        };
-        let shell = tokio::select! {
-            _ = token.cancelled() => return Ok(None),
-            shell = tar.shell() => shell,
-        };
-        let Some(shell) = shell else {
-            return Ok(None);
-        };
-        let handle = read_cell(&link.handle);
-        remote_hash(&handle, &shell.sha256(path), path, token, self.link_dead()).await
+        match &self.tar {
+            Some(tar) => tar.hash(path, token, self.link_dead()).await,
+            None => Ok(None),
+        }
     }
 
     fn link_lost(&self) -> bool {
@@ -259,20 +248,28 @@ pub(crate) mod tests {
     use crate::port_forward::test_ssh::TestClient;
     use crate::sftp::backend::test_tree::Recorder;
     use crate::sftp::real::SftpOpener;
-    use crate::ssh::live_cells::own_cell;
-    use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+    use crate::ssh::exec::shell_quote;
+    use crate::ssh::live_cells::{own_cell, read_cell};
+    use crate::ssh::test_proc_server::{no_tar, proc_server, sftp_server_path, ProcOptions};
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     pub(crate) async fn sftp_fs(opts: ProcOptions) -> SftpFs<TestClient> {
+        sftp_fs_via(opts, SftpOpener::Subsystem).await
+    }
+
+    async fn sftp_fs_via(opts: ProcOptions, opener: SftpOpener) -> SftpFs<TestClient> {
         let (handle, _) = proc_server(opts).await;
         let link = Arc::new(SftpLink {
             handle: own_cell(handle),
-            opener: SftpOpener::Subsystem,
+            opener,
             closed: CancellationToken::new(),
         });
         let session = Arc::new(Mutex::new(link.open().await.unwrap()));
-        let tar = Arc::new(TarProbe::new(Arc::clone(&link.handle), None));
+        let tar = Arc::new(TarProbe::new(
+            Arc::clone(&link.handle),
+            link.opener.inside(),
+        ));
         SftpFs::new(session, link, tar)
     }
 
@@ -336,6 +333,30 @@ pub(crate) mod tests {
         std::fs::write(&f, b"").unwrap();
         assert_eq!(
             fs.hash(&f.to_string_lossy(), &CancellationToken::new())
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        );
+    }
+
+    #[tokio::test]
+    async fn an_exec_session_without_tar_hashes_inside_its_container() {
+        let (_bin, no_tar) = no_tar();
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("f"), b"").unwrap();
+        // Only inside `root` does the relative path name the file.
+        let inside = format!(
+            r#"{no_tar} sh -c 'cd "$1" && shift && exec "$@"' x {}"#,
+            shell_quote(&root.path().to_string_lossy())
+        );
+        let opener = SftpOpener::Exec {
+            inside,
+            server: sftp_server_path().to_string(),
+        };
+        let fs = sftp_fs_via(ProcOptions::default(), opener).await;
+        assert_eq!(
+            fs.hash("f", &CancellationToken::new())
                 .await
                 .unwrap()
                 .as_deref(),
