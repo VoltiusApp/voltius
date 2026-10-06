@@ -10,11 +10,14 @@ interface HarnessOpts {
   config: string;
   connections?: PluginConnection[];
   storage?: Record<string, unknown>;
+  /** Other files under ~/.ssh (keys), by the path the plugin asks for. */
+  files?: Record<string, string>;
 }
 
 // Stateful mock: a mutable connection list backed by create/update/delete, a
 // Map-backed storage, and a swappable ~/.ssh/config for multi-sync tests.
 function makeSyncApi(opts: HarnessOpts) {
+  const files = opts.files ?? {};
   const connections: PluginConnection[] = (opts.connections ?? []).map((c) => ({ ...c }));
   const store = new Map<string, unknown>(Object.entries(opts.storage ?? {}));
   let config = opts.config;
@@ -47,8 +50,8 @@ function makeSyncApi(opts: HarnessOpts) {
   const api = {
     isActive: () => true,
     fs: {
-      exists: vi.fn(async (p: string) => p === "~/.ssh/config"),
-      readText: vi.fn(async () => config),
+      exists: vi.fn(async (p: string) => p === "~/.ssh/config" || p in files),
+      readText: vi.fn(async (p: string) => files[p] ?? config),
       writeText: vi.fn(async () => {}),
       watch: vi.fn(() => () => {}),
     },
@@ -467,5 +470,70 @@ describe("ssh-config sync — identity follows the stanza's IdentityFile", () =>
 
     expect(h.connections.find((c) => c.id === "T")!.identity_id).toBe("I-good");
     expect((h.store.get("identity_map") as Record<string, string>).TradingSim).toBe("I-good");
+  });
+});
+
+describe("ssh-config sync — a key the host refuses", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const PUB_BODY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+  const BROKEN_KEY = { "~/.ssh/broken": "PRIVATE", "~/.ssh/broken.pub": "not a public key" };
+
+  // Stand-in for the host: keys.create refuses a public half whose comment it
+  // would not write to a remote file, and anything that is not a key at all.
+  function makeKeyApi(opts: HarnessOpts) {
+    const h = makeSyncApi(opts);
+    let keySeq = 0;
+    (h.api.keys.create as ReturnType<typeof vi.fn>).mockImplementation(async (data: { name: string }, _priv: string, pub?: string) => {
+      if (pub && !/^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [^<>]*)?$/.test(pub.trim())) {
+        throw new Error("publicKey is not a valid SSH public key");
+      }
+      return { id: `K-${keySeq++}`, name: data.name, tags: [TAG] };
+    });
+    (h.api.identities.create as ReturnType<typeof vi.fn>).mockImplementation(async (data: { name: string }) => ({ id: `I-${data.name}`, ...data }));
+    return h;
+  }
+
+  test("a .pub comment the host rejects is dropped, and the host still imports with its key", async () => {
+    const h = makeKeyApi({
+      config: cfg("test", "127.0.0.1", "me", 22, "  IdentityFile ~/.ssh/test_key\n"),
+      files: { "~/.ssh/test_key": "PRIVATE", "~/.ssh/test_key.pub": `${PUB_BODY} me@pc->vm\r\n` },
+    });
+
+    await sync(h.api);
+
+    expect(h.api.keys.create).toHaveBeenLastCalledWith(expect.anything(), "PRIVATE", PUB_BODY);
+    expect(h.connections).toHaveLength(1);
+    expect(h.connections[0]).toMatchObject({ host: "127.0.0.1", auth_type: "key", identity_id: "I-test" });
+  });
+
+  test("a host whose key cannot be imported is skipped with a visible error, the rest still sync", async () => {
+    const h = makeKeyApi({
+      config:
+        cfg("broken", "10.0.0.1", "me", 22, "  IdentityFile ~/.ssh/broken\n") +
+        cfg("fine", "10.0.0.2", "me"),
+      files: BROKEN_KEY,
+    });
+
+    const skipped = await sync(h.api);
+
+    expect(h.connections.map((c) => c.host)).toEqual(["10.0.0.2"]);
+    expect(skipped).toEqual(["broken: ~/.ssh/broken: publicKey is not a valid SSH public key"]);
+    expect(h.api.notifications.toast).toHaveBeenCalledWith(
+      expect.stringMatching(/broken.*~\/\.ssh\/broken.*not a valid SSH public key/),
+      expect.objectContaining({ severity: "error" }),
+    );
+  });
+
+  test("the failure is shown even with success notifications turned off", async () => {
+    const h = makeKeyApi({
+      config: cfg("broken", "10.0.0.1", "me", 22, "  IdentityFile ~/.ssh/broken\n"),
+      storage: { notifications_enabled: false },
+      files: BROKEN_KEY,
+    });
+
+    await sync(h.api);
+
+    expect(h.api.notifications.toast).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ severity: "error" }));
   });
 });

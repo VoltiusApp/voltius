@@ -114,3 +114,22 @@ describe("ssh-config cleanup before the deferred starts resolve", () => {
     expect(api.fs.exists).not.toHaveBeenCalled();
   });
 });
+
+describe("ssh-config sync failures are visible", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("a sync that throws outright raises an error toast, not just a log line", async () => {
+    const { api } = makeApi(true);
+    const toast = vi.fn();
+    (api as unknown as { notifications: unknown }).notifications = { toast };
+    (api.fs.exists as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("disk on fire"));
+
+    const cleanup = register(api);
+    await flush();
+    await flush();
+
+    expect(toast).toHaveBeenCalledWith(expect.stringContaining("disk on fire"), expect.objectContaining({ severity: "error" }));
+
+    if (typeof cleanup === "function") cleanup();
+  });
+});

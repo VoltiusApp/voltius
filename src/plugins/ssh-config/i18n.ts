@@ -14,6 +14,8 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "keyImported": "SSH key imported: {{name}}",
     "identityCreated": "SSH identity created: {{name}}",
     "hostAdded": "SSH host added: {{name}}",
+    "hostFailed": "Couldn't sync SSH host {{name}}: {{error}}",
+    "syncFailed": "SSH config sync failed: {{error}}",
   },
   fr: {
     "settingsLabel": "Synchronisation de la config SSH",
@@ -30,6 +32,8 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "keyImported": "Clé SSH importée : {{name}}",
     "identityCreated": "Identité SSH créée : {{name}}",
     "hostAdded": "Hôte SSH ajouté : {{name}}",
+    "hostFailed": "Impossible de synchroniser l'hôte SSH {{name}} : {{error}}",
+    "syncFailed": "Échec de la synchronisation de la config SSH : {{error}}",
   },
   ru: {
     "settingsLabel": "Синхронизация конфигурации SSH",
@@ -46,6 +50,8 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "keyImported": "SSH-ключ импортирован: {{name}}",
     "identityCreated": "Учётные данные SSH созданы: {{name}}",
     "hostAdded": "SSH-хост добавлен: {{name}}",
+    "hostFailed": "Не удалось синхронизировать SSH-хост {{name}}: {{error}}",
+    "syncFailed": "Ошибка синхронизации конфигурации SSH: {{error}}",
   },
   zh: {
     "settingsLabel": "SSH 配置同步",
@@ -62,6 +68,8 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "keyImported": "已导入 SSH 密钥：{{name}}",
     "identityCreated": "已创建 SSH 身份：{{name}}",
     "hostAdded": "已添加 SSH 主机：{{name}}",
+    "hostFailed": "无法同步 SSH 主机 {{name}}：{{error}}",
+    "syncFailed": "SSH 配置同步失败：{{error}}",
   },
   tr: {
     "settingsLabel": "SSH yapılandırma eşitlemesi",
@@ -78,5 +86,7 @@ export const messages: Record<"en"|"fr"|"ru"|"zh"|"tr", Record<string,string>> =
     "keyImported": "SSH anahtarı içe aktarıldı: {{name}}",
     "identityCreated": "SSH kimliği oluşturuldu: {{name}}",
     "hostAdded": "SSH sunucusu eklendi: {{name}}",
+    "hostFailed": "SSH sunucusu {{name}} eşitlenemedi: {{error}}",
+    "syncFailed": "SSH yapılandırma eşitlemesi başarısız: {{error}}",
   },
 };
