@@ -118,7 +118,7 @@ impl<H: Handler> Endpoint for SftpFs<H> {
                 let m = e.metadata();
                 Listed {
                     name: e.file_name(),
-                    stat: stat_of(&m),
+                    stat: Some(stat_of(&m)),
                     is_symlink: m.is_symlink(),
                 }
             })

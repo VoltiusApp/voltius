@@ -1,7 +1,7 @@
 use super::local_tar::{self, Sink};
 use super::tar_failure::{explain, End};
 use super::{pump, TransferProgress, CHUNK_SIZE};
-use crate::sftp::backend::TransferEvents;
+use crate::sftp::backend::{report_skipped, TransferEvents};
 use crate::ssh::exec::{drain_channel, open_exec};
 use russh::client::{Handle, Handler, Msg};
 use russh::{ChannelReadHalf, ChannelWriteHalf};
@@ -80,8 +80,7 @@ impl<'a, E: TransferEvents> Job<'a, E> {
 
     fn succeed(&self, skipped: Vec<String>) {
         for path in skipped {
-            self.events
-                .send(&format!("sftp-skipped-{}", self.transfer_id), path);
+            report_skipped(self.events, self.transfer_id, &path);
         }
         self.finish();
     }

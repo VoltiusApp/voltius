@@ -5,8 +5,7 @@ pub(crate) mod sftp_fs;
 
 use crate::commands::sftp::{pump, TransferProgress};
 use crate::error::{AppError, ErrorCode};
-use crate::sftp::backend::skip_unsafe_name;
-use crate::sftp::backend::TransferEvents;
+use crate::sftp::backend::{report_skipped, skip_unsafe_name, TransferEvents};
 use crate::sftp::link::LINK_POLL;
 use endpoint::{Endpoint, Listed, Reader, Stat, Writer};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
@@ -83,9 +82,8 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
         let (dir, name) = dst.split(path);
         self.listing(dst, &dir).await.iter().any(|e| {
             e.name == name
-                && !e.stat.is_dir
-                && e.stat.size == want.size
-                && e.stat.mtime == want.mtime
+                && e.stat
+                    .is_some_and(|s| !s.is_dir && s.size == want.size && s.mtime == want.mtime)
         })
     }
 
@@ -152,14 +150,15 @@ pub(crate) async fn walk<E: TransferEvents>(
             if e.is_symlink || skip_unsafe_name(events, transfer_id, &path, &e.name, dst_local) {
                 continue;
             }
-            if e.stat.is_dir {
+            let Some(stat) = e.stat else {
+                report_skipped(events, transfer_id, &path);
+                continue;
+            };
+            if stat.is_dir {
                 dirs.push(child.clone());
                 stack.push(child);
             } else {
-                files.push(TreeFile {
-                    rel: child,
-                    stat: e.stat,
-                });
+                files.push(TreeFile { rel: child, stat });
             }
         }
     }
@@ -1038,6 +1037,20 @@ pub(crate) mod engine_tests {
         assert_eq!(std::fs::read(dst.join("sub/b")).unwrap(), noise(200_000));
         assert!(dst.join("sub/empty").is_dir());
         assert_eq!(std::fs::read(dst.join("sub/c")).unwrap(), b"");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_entry_without_metadata_is_skipped_and_reported() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        tree(a.path());
+        let dangling = a.path().join("sub/dangling");
+        std::os::unix::fs::symlink("missing", &dangling).unwrap();
+        let dst = b.path().join("copy");
+        let rec = Recorder::default();
+        copy_dir(&rec, a.path(), &dst, "t3").await;
+        assert_eq!(rec.skipped("t3"), [s(&dangling)]);
+        assert_eq!(std::fs::read(dst.join("sub/b")).unwrap(), noise(200_000));
     }
 
     #[tokio::test]

@@ -216,9 +216,13 @@ pub fn skip_unsafe_name(
 ) -> bool {
     let skip = !is_plain_name(name, local && cfg!(windows));
     if skip {
-        app.send(&format!("sftp-skipped-{transfer_id}"), path);
+        report_skipped(app, transfer_id, path);
     }
     skip
+}
+
+pub fn report_skipped(app: &impl TransferEvents, transfer_id: &str, path: &str) {
+    app.send(&format!("sftp-skipped-{transfer_id}"), path);
 }
 
 /// `windows` adds what Windows reads into a name: `\` separates, `C:` is a

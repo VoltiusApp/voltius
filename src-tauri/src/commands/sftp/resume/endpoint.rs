@@ -18,7 +18,8 @@ pub(crate) struct Stat {
 
 pub(crate) struct Listed {
     pub name: String,
-    pub stat: Stat,
+    /// None when the entry's metadata can't be read, e.g. a dangling symlink.
+    pub stat: Option<Stat>,
     pub is_symlink: bool,
 }
 
@@ -154,13 +155,15 @@ impl Endpoint for LocalFs {
         let mut rd = tokio::fs::read_dir(dir).await?;
         let mut out = Vec::new();
         while let Some(e) = rd.next_entry().await? {
-            if let Ok(m) = tokio::fs::metadata(e.path()).await {
-                out.push(Listed {
-                    name: e.file_name().to_string_lossy().into_owned(),
-                    stat: local_stat(&m),
-                    is_symlink: false,
-                });
-            }
+            out.push(Listed {
+                name: e.file_name().to_string_lossy().into_owned(),
+                stat: tokio::fs::metadata(e.path())
+                    .await
+                    .ok()
+                    .as_ref()
+                    .map(local_stat),
+                is_symlink: false,
+            });
         }
         Ok(out)
     }
