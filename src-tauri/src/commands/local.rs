@@ -138,41 +138,73 @@ pub async fn local_list_shells() -> Vec<ShellOption> {
 
     #[cfg(not(windows))]
     {
-        use crate::local::flatpak;
+        use crate::local::{flatpak, ShellPath};
 
-        const COMMON: [&str; 5] = [
-            "/bin/zsh",
-            "/bin/bash",
-            "/bin/fish",
-            "/usr/bin/fish",
-            "/usr/local/bin/fish",
-        ];
+        let candidates = unix_shell_candidates();
         let (login, installed) = if flatpak::spawns_on_host() {
-            let host = flatpak::probe_host_shells(&COMMON);
+            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
+            let host = flatpak::probe_host_shells(&refs);
             (host.login, host.installed)
         } else {
-            let installed = COMMON
-                .iter()
+            let resolve = |path: String| {
+                let target = std::fs::canonicalize(&path)
+                    .map(|t| t.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                ShellPath::new(&path, &target)
+            };
+            let installed = candidates
+                .into_iter()
                 .filter(|p| std::path::Path::new(p).exists())
-                .map(|p| p.to_string())
+                .map(resolve)
                 .collect();
-            (std::env::var("SHELL").ok(), installed)
+            (std::env::var("SHELL").ok().map(resolve), installed)
         };
-
-        let mut seen = std::collections::HashSet::new();
-        for path in login.into_iter().chain(installed) {
-            if seen.insert(path.clone()) {
-                let name = std::path::Path::new(&path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("shell")
-                    .to_string();
-                shells.push(ShellOption { name, path });
-            }
-        }
+        shells.extend(unique_shells(login.into_iter().chain(installed)));
     }
 
     shells
+}
+
+#[cfg(not(windows))]
+const UNIX_SHELLS: [&str; 4] = ["zsh", "bash", "fish", "pwsh"];
+#[cfg(not(windows))]
+const UNIX_SHELL_DIRS: [&str; 4] = ["/bin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"];
+
+#[cfg(not(windows))]
+fn unix_shell_candidates() -> Vec<String> {
+    UNIX_SHELLS
+        .iter()
+        .flat_map(|name| {
+            UNIX_SHELL_DIRS
+                .iter()
+                .map(move |dir| format!("{dir}/{name}"))
+        })
+        .chain([
+            "/opt/microsoft/powershell/7/pwsh".into(),
+            "/snap/bin/pwsh".into(),
+        ])
+        .collect()
+}
+
+// Spawn by the path found, not the resolved target: a busybox-style link needs its own name.
+#[cfg(not(windows))]
+fn unique_shells(found: impl IntoIterator<Item = crate::local::ShellPath>) -> Vec<ShellOption> {
+    let mut seen = std::collections::HashSet::new();
+    found
+        .into_iter()
+        .filter(|s| seen.insert(s.target.clone()))
+        .map(|s| {
+            let file = std::path::Path::new(&s.path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("shell");
+            let name = if file == "pwsh" { "PowerShell" } else { file };
+            ShellOption {
+                name: name.to_string(),
+                path: s.path,
+            }
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -237,4 +269,49 @@ pub async fn local_resize(
     rows: u16,
 ) -> Result<(), String> {
     state.resize(&session_id, cols, rows).await
+}
+
+#[cfg(all(test, not(windows)))]
+mod tests {
+    use super::*;
+    use crate::local::ShellPath;
+
+    #[test]
+    fn unique_shells_keeps_one_entry_per_resolved_file() {
+        let shells = unique_shells([
+            ShellPath::new("/bin/bash", "/usr/bin/bash"),
+            ShellPath::new("/bin/fish", "/usr/bin/fish"),
+            ShellPath::new("/usr/bin/fish", "/usr/bin/fish"),
+            ShellPath::new("/usr/bin/bash", "/usr/bin/bash"),
+            ShellPath::new(
+                "/opt/homebrew/bin/bash",
+                "/opt/homebrew/Cellar/bash/5.2/bin/bash",
+            ),
+        ]);
+        let paths: Vec<_> = shells.iter().map(|s| s.path.as_str()).collect();
+        assert_eq!(paths, ["/bin/bash", "/bin/fish", "/opt/homebrew/bin/bash"]);
+    }
+
+    #[test]
+    fn unique_shells_names_pwsh_powershell() {
+        let shells = unique_shells([ShellPath::new(
+            "/usr/bin/pwsh",
+            "/opt/microsoft/powershell/7/pwsh",
+        )]);
+        assert_eq!(shells[0].name, "PowerShell");
+        assert_eq!(shells[0].path, "/usr/bin/pwsh");
+    }
+
+    #[test]
+    fn candidates_cover_pwsh_and_homebrew() {
+        let candidates = unix_shell_candidates();
+        for p in [
+            "/usr/bin/pwsh",
+            "/opt/homebrew/bin/fish",
+            "/bin/zsh",
+            "/opt/microsoft/powershell/7/pwsh",
+        ] {
+            assert!(candidates.iter().any(|c| c == p), "{p} missing");
+        }
+    }
 }
