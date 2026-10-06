@@ -12,7 +12,7 @@ describe("columnGrid", () => {
 
   it("keeps the name width as a floor when data columns sit to its right", () => {
     const { template, minWidth } = columnGrid(true, all, DEFAULT_COLUMN_WIDTHS);
-    expect(template).toBe("minmax(260px, 1fr) 72px 128px 88px");
-    expect(minWidth).toBe(260 + 72 + 128 + 88 + 3 * 8);
+    expect(template).toBe("minmax(260px, 1fr) 88px 128px 88px");
+    expect(minWidth).toBe(260 + 88 + 128 + 88 + 3 * 8);
   });
 });

@@ -19,7 +19,9 @@ export const DEFAULT_VISIBLE_COLS: VisibleCols = { size: true, modified: true, p
 export type ColumnWidths = { name: number; size: number; modified: number; permissions: number };
 export type FileColumn = keyof ColumnWidths;
 
-export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { name: 260, size: 72, modified: 128, permissions: 88 };
+export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { name: 260, size: 88, modified: 128, permissions: 88 };
+/** The size default before it fitted "1023.9 KB"; a persisted width still equal to it was never resized. */
+export const LEGACY_DEFAULT_SIZE_WIDTH = 72;
 export const COLUMN_MIN_WIDTHS: ColumnWidths = { name: 120, size: 56, modified: 96, permissions: 72 };
 
 /** Gap between columns, in px — must match the `gap-2` on the header and row grids. */

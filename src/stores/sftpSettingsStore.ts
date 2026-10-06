@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { touchAppSetting } from "./appSettingsTimestampStore";
 import {
-  DEFAULT_COLUMN_WIDTHS, DEFAULT_VISIBLE_COLS,
+  DEFAULT_COLUMN_WIDTHS, DEFAULT_VISIBLE_COLS, LEGACY_DEFAULT_SIZE_WIDTH,
   type ColumnWidths, type VisibleCols,
 } from "@/components/filetransfer/SFTPTypes";
 
@@ -36,6 +36,14 @@ const applyUpdate = <T,>(update: Updater<T>, prev: T): T =>
 // Every setter reports its leaf; the settings registry decides whether it syncs.
 const touchSftp = (key: keyof SftpSettingsStore) => touchAppSetting(`appSettings.sftp.${key}`);
 
+export function migrateSftpSettings(persisted: unknown, version: number): unknown {
+  const state = (persisted ?? {}) as { columnWidths?: ColumnWidths };
+  if (version < 1 && state.columnWidths?.size === LEGACY_DEFAULT_SIZE_WIDTH) {
+    state.columnWidths = { ...state.columnWidths, size: DEFAULT_COLUMN_WIDTHS.size };
+  }
+  return state;
+}
+
 export const useSftpSettingsStore = create<SftpSettingsStore>()(
   persist(
     (set) => ({
@@ -52,6 +60,10 @@ export const useSftpSettingsStore = create<SftpSettingsStore>()(
       visibleColumns: DEFAULT_VISIBLE_COLS,
       setVisibleColumns: (update) => { set((s) => ({ visibleColumns: applyUpdate(update, s.visibleColumns) })); touchSftp("visibleColumns"); },
     }),
-    { name: "voltius-sftp-settings" },
+    {
+      name: "voltius-sftp-settings",
+      version: 1,
+      migrate: (persisted, version) => migrateSftpSettings(persisted, version) as SftpSettingsStore,
+    },
   ),
 );
