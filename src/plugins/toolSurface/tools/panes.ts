@@ -10,6 +10,26 @@ export const PANE_PERMISSIONS = ["panes:read", "panes:write"] as const;
 const position = z.enum(["left", "right", "top", "bottom"]);
 const pair = z.object({ sessionId: z.string(), targetSessionId: z.string(), position });
 
+/** Shared by both rename verbs: what an agent reads before it renames, and why the escape fallback fails. */
+const RENAME_NOTES =
+  "An empty title clears the name. Long names are cut; the returned tab shows what was stored. "
+  + "A title escape written to the terminal (OSC 0/2) never changes a Voltius label, so use this "
+  + "verb rather than printf-ing one.";
+
+/** The text both rename verbs give the model, ending in the consumer's own approval sentence. */
+export function renameDescriptions(approval: string): { pane_rename: string; tab_rename: string } {
+  return {
+    pane_rename:
+      "Name a session you opened: the label on its tab and its pane header, shown in place of the "
+      + "connection name. A session the user opened is refused — its name is the user's, and it is "
+      + `how they tell their shells apart. ${RENAME_NOTES} ${approval}`,
+    tab_rename:
+      "Name a split tab whose every pane is a session you opened. `tabId` is a split tab's id from "
+      + "pane_list. Unnamed, a split tab is labelled after its focused pane. A standalone tab is "
+      + `labelled with its session's name; use pane_rename for it. ${RENAME_NOTES} ${approval}`,
+  };
+}
+
 /** The `{ sessionId, targetSessionId, position }` args both pair verbs project onto their API call. */
 const pairArgs = (args: Record<string, unknown>) => ({
   sessionId: String(args.sessionId),
@@ -19,29 +39,49 @@ const pairArgs = (args: Record<string, unknown>) => ({
 
 export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
+  const descriptions = renameDescriptions("Prompts the user.");
 
-  const notOwned = () =>
-    refusal(ports.text?.notOwnedError
-      ?? "that session was not opened by you; only pane_focus and pane_list accept another session");
+  /** A refusal when the caller may not act on these args, else null. */
+  type Guard = (args: Record<string, unknown>) => unknown;
+
+  const sessionOwned: Guard = (args) =>
+    mayAct(ports, String(args.sessionId))
+      ? null
+      : refusal(ports.text?.notOwnedError
+        ?? "that session was not opened by you; only pane_focus and pane_list accept another session");
 
   /**
-   * Approve, then run a layout write and translate the domain's refusal.
+   * A tab's label sits over every pane in it, so every one must be the caller's.
+   * An unknown tab holds nothing to own and passes, leaving the API to refuse
+   * it — as pane_focus does for an unknown session.
+   */
+  const tabOwned: Guard = (args) => {
+    const tab = ports.api.panes.list().find((t) => t.tabId === String(args.tabId));
+    const mine = (tab?.panes ?? []).every((pane) => mayAct(ports, pane.sessionId));
+    return mine ? null : refusal("that tab holds a session you did not open; tab_rename needs every pane in it to be yours");
+  };
+
+  /**
+   * Approve, then run a pane write and translate the domain's refusal.
    *
-   * No audit row, deliberately: a layout change reads nothing and destroys
-   * nothing, and everything done inside those panes is already audited by its
-   * own verb. `owned` is checked before the gate so an unowned session is
-   * refused rather than raising an approval card for a doomed call.
+   * No audit row, deliberately: a layout change or a label reads nothing and
+   * destroys nothing, and everything done inside those panes is already
+   * audited by its own verb. `guard` runs before the gate so an unowned target
+   * is refused rather than raising an approval card for a doomed call, and
+   * again on the approved args.
    */
   const write = async (
     tool: string,
     raw: Record<string, unknown>,
     run: (args: Record<string, unknown>) => PluginPaneResult,
-    requireOwned = true,
+    guard: Guard | null = sessionOwned,
   ): Promise<unknown> => {
-    if (requireOwned && !mayAct(ports, String(raw.sessionId))) return notOwned();
+    const before = guard?.(raw);
+    if (before) return before;
     const g = await gate(tool, raw);
     if (!g.ok) return g.result;
-    if (requireOwned && !mayAct(ports, String(g.args.sessionId))) return notOwned();
+    const after = guard?.(g.args);
+    if (after) return after;
     const result = run(g.args);
     return result.ok ? { ok: true, result: result.tab } : refusal(result.error);
   };
@@ -52,7 +92,9 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
       description:
         "List the terminal tabs and the panes inside them: which session sits in which pane, which "
         + "is focused, and which is maximized. A tab that is not split is reported as a single-pane "
-        + "tab, so the whole tab strip reads as one list.",
+        + "tab, so the whole tab strip reads as one list. `title` is a name given by the user or "
+        + "with pane_rename / tab_rename; null means the label is the connection name (on a split "
+        + "tab, the focused pane's label).",
       risk: "auto",
       schema: z.object({}),
       execute: async () => ({
@@ -107,8 +149,24 @@ export function buildPaneTools(ports: ToolSurfacePorts): Tool[] {
           "pane_focus",
           raw,
           (args) => ports.api.panes.focus(String(args.sessionId), args.maximize as boolean | undefined),
-          false,
+          null,
         ),
+    },
+    {
+      name: "pane_rename",
+      description: descriptions.pane_rename,
+      risk: "prompt",
+      schema: z.object({ sessionId: z.string(), title: z.string() }),
+      execute: async (raw) =>
+        write("pane_rename", raw, (args) => ports.api.panes.rename(String(args.sessionId), String(args.title))),
+    },
+    {
+      name: "tab_rename",
+      description: descriptions.tab_rename,
+      risk: "prompt",
+      schema: z.object({ tabId: z.string(), title: z.string() }),
+      execute: async (raw) =>
+        write("tab_rename", raw, (args) => ports.api.panes.renameTab(String(args.tabId), String(args.title)), tabOwned),
     },
   ];
 }

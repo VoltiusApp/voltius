@@ -18,6 +18,8 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}) {
     move: vi.fn(() => ({ ok: true as const, tab: TAB })),
     detach: vi.fn(() => ({ ok: true as const, tab: null })),
     focus: vi.fn(() => ({ ok: true as const, tab: TAB })),
+    rename: vi.fn(() => ({ ok: true as const, tab: TAB })),
+    renameTab: vi.fn(() => ({ ok: true as const, tab: TAB })),
   };
   const ports = {
     api: { panes } as unknown as ToolSurfacePorts["api"],
@@ -36,10 +38,11 @@ const tool = (ports: ToolSurfacePorts, name: string) => {
 };
 
 describe("pane tools", () => {
-  it("exposes exactly the five pane verbs", () => {
+  it("exposes exactly the seven pane verbs", () => {
     const { ports } = makePorts();
     expect(buildPaneTools(ports).map((t) => t.name)).toEqual([
       "pane_list", "pane_split", "session_move_to_pane", "pane_detach", "pane_focus",
+      "pane_rename", "tab_rename",
     ]);
   });
 
@@ -102,6 +105,7 @@ describe("pane tools", () => {
     const { ports } = makePorts();
     await tool(ports, "pane_split").execute({ sessionId: "sess-a", targetSessionId: "sess-b", position: "right" });
     await tool(ports, "pane_detach").execute({ sessionId: "sess-a" });
+    await tool(ports, "pane_rename").execute({ sessionId: "sess-a", title: "x" });
     expect(ports.audit).not.toHaveBeenCalled();
   });
 
@@ -132,5 +136,58 @@ describe("pane tools", () => {
     const withAcquire = { ...ports, owned: { ...ports.owned, acquire } } as ToolSurfacePorts;
     await tool(withAcquire, "pane_list").execute({});
     expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it("pane_rename names a session the caller opened, through the gate", async () => {
+    const { ports, panes } = makePorts();
+    const result = await tool(ports, "pane_rename").execute({ sessionId: "sess-a", title: "issue 528" });
+    expect(ports.approve).toHaveBeenCalled();
+    expect(panes.rename).toHaveBeenCalledWith("sess-a", "issue 528");
+    expect(result).toEqual({ ok: true, result: TAB });
+  });
+
+  it("pane_rename refuses one of the user's own sessions, before the gate", async () => {
+    const { ports, panes } = makePorts();
+    expect(await tool(ports, "pane_rename").execute({ sessionId: "sess-b", title: "staging" }))
+      .toMatchObject({ refused: true });
+    expect(ports.approve).not.toHaveBeenCalled();
+    expect(panes.rename).not.toHaveBeenCalled();
+  });
+
+  it("tab_rename refuses a tab holding a session the caller did not open, before the gate", async () => {
+    const { ports, panes } = makePorts();
+    const result = await tool(ports, "tab_rename").execute({ tabId: "tab-1", title: "triage" });
+    expect(result).toMatchObject({ refused: true, error: expect.stringMatching(/every pane/) });
+    expect(ports.approve).not.toHaveBeenCalled();
+    expect(panes.renameTab).not.toHaveBeenCalled();
+  });
+
+  it("tab_rename names a tab whose every pane the caller opened", async () => {
+    const { ports, panes } = makePorts();
+    ports.owned.add("sess-b");
+    const result = await tool(ports, "tab_rename").execute({ tabId: "tab-1", title: "triage" });
+    expect(panes.renameTab).toHaveBeenCalledWith("tab-1", "triage");
+    expect(result).toEqual({ ok: true, result: TAB });
+  });
+
+  it("tab_rename leaves an unknown tab id to the API, which refuses it", async () => {
+    const { ports, panes } = makePorts();
+    panes.renameTab.mockReturnValueOnce({ ok: false, error: "no such split tab" } as never);
+    const result = await tool(ports, "tab_rename").execute({ tabId: "tab-404", title: "x" });
+    expect(result).toMatchObject({ refused: true, error: "no such split tab" });
+  });
+
+  it("the rename verbs tell the model that a title escape written to the terminal changes no label", () => {
+    const { ports } = makePorts();
+    for (const name of ["pane_rename", "tab_rename"]) {
+      expect(tool(ports, name).description).toMatch(/OSC/);
+    }
+  });
+
+  it("the rename verbs require a title, and tab_rename a tab id", () => {
+    const { ports } = makePorts();
+    expect(tool(ports, "pane_rename").schema.safeParse({ sessionId: "a" }).success).toBe(false);
+    expect(tool(ports, "tab_rename").schema.safeParse({ title: "x" }).success).toBe(false);
+    expect(tool(ports, "tab_rename").schema.safeParse({ tabId: "t", title: "" }).success).toBe(true);
   });
 });

@@ -8,6 +8,7 @@ import {
   type SplitPosition,
   type SplitTab,
 } from "@/stores/layoutStore";
+import { normalizeTabTitle } from "@/utils/sessionLabel";
 import type { PluginPane, PluginPaneResult, PluginPaneTab } from "../api";
 
 /**
@@ -24,7 +25,7 @@ export interface PanePorts {
   splitTabs(): SplitTab[];
   activeSplitTabId(): string | null;
   splitTabActive(): boolean;
-  sessions(): { id: string; connectionName: string }[];
+  sessions(): PaneSession[];
   activeSessionId(): string | null;
   activateSplitTab(tabId: string): void;
   createSplitTab(targetSessionId: string, incomingSessionId: string, position: SplitPosition): void;
@@ -36,7 +37,17 @@ export interface PanePorts {
   toggleBroadcast(): void;
   focusStandaloneTab(sessionId: string): void;
   revealActiveTab(sessionId: string): void;
+  /** The store setters behind the UI's own rename fields; both normalize, and a blank name clears. */
+  renameSession(sessionId: string, title: string | null): void;
+  renameSplitTab(tabId: string, name: string | null): void;
   isMobile(): boolean;
+}
+
+/** `title` is the user-given name (`sessionStore.renameSession`); unset, the label is the connection name. */
+export interface PaneSession {
+  id: string;
+  connectionName: string;
+  title?: string;
 }
 
 export type PaneResult = PluginPaneResult;
@@ -50,6 +61,8 @@ export const PANE_ERRORS = {
   broadcastActive: "the target tab has broadcast typing enabled; turn broadcast off before placing a pane there",
   broadcastActiveSameTab: "that tab has broadcast typing enabled; turn broadcast off before moving panes inside it",
   noPaneToMaximize: "that session is not in a split tab; there is no pane to maximize",
+  noTab: "no such split tab; call pane_list for the current tab ids",
+  sessionTab: "that tab holds a single session and its label is that session's name; use pane_rename on the session",
   // Every layout store method returns {} rather than throwing when it cannot
   // find its target, so a write is only known to have happened by re-reading.
   unchanged: "the layout did not change as requested; call pane_list and try again",
@@ -63,37 +76,48 @@ function leaves(root: PaneNode | null): LeafNode[] {
   return root.type === "leaf" ? [root] : [...leaves(root.first), ...leaves(root.second)];
 }
 
-function nameOf(ports: PanePorts, sessionId: string): string {
-  return ports.sessions().find((s) => s.id === sessionId)?.connectionName ?? "";
+/** A standalone session's tab and pane id: the titlebar has no tab object for it. */
+const SESSION_TAB_PREFIX = "session:";
+
+function sessionOf(ports: PanePorts, sessionId: string): PaneSession | undefined {
+  return ports.sessions().find((s) => s.id === sessionId);
 }
 
 function projectSplitTab(ports: PanePorts, tab: SplitTab): PluginPaneTab {
   return {
     tabId: tab.id,
     kind: "split",
+    title: tab.name ?? null,
     active: ports.splitTabActive() && ports.activeSplitTabId() === tab.id,
-    panes: leaves(tab.root).map((leaf): PluginPane => ({
-      paneId: leaf.id,
-      sessionId: leaf.sessionId,
-      connectionName: nameOf(ports, leaf.sessionId),
-      active: tab.activePaneId === leaf.id,
-      maximized: tab.maximizedPaneId === leaf.id,
-    })),
+    panes: leaves(tab.root).map((leaf): PluginPane => {
+      const session = sessionOf(ports, leaf.sessionId);
+      return {
+        paneId: leaf.id,
+        sessionId: leaf.sessionId,
+        connectionName: session?.connectionName ?? "",
+        title: session?.title ?? null,
+        active: tab.activePaneId === leaf.id,
+        maximized: tab.maximizedPaneId === leaf.id,
+      };
+    }),
     broadcastActive: tab.broadcastActive,
     layout: tab.root,
   };
 }
 
-function projectSessionTab(ports: PanePorts, session: { id: string; connectionName: string }): PluginPaneTab {
+function projectSessionTab(ports: PanePorts, session: PaneSession): PluginPaneTab {
   const active = !ports.splitTabActive() && ports.activeSessionId() === session.id;
+  const title = session.title ?? null;
   return {
-    tabId: `session:${session.id}`,
+    tabId: `${SESSION_TAB_PREFIX}${session.id}`,
     kind: "session",
+    title,
     active,
     panes: [{
-      paneId: `session:${session.id}`,
+      paneId: `${SESSION_TAB_PREFIX}${session.id}`,
       sessionId: session.id,
       connectionName: session.connectionName,
+      title,
       active,
       maximized: false,
     }],
@@ -315,5 +339,36 @@ export function focus(ports: PanePorts, sessionId: string, maximize?: boolean): 
   if (maximize === false && after.maximizedPaneId !== null) {
     return { ok: false, error: PANE_ERRORS.unchanged };
   }
+  return { ok: true, tab: projectSplitTab(ports, after) };
+}
+
+/** The tab a session sits in: its split tab, else its own standalone tab. */
+function projectTabOf(ports: PanePorts, session: PaneSession): PluginPaneTab {
+  const found = locate(ports, session.id);
+  return found ? projectSplitTab(ports, found.tab) : projectSessionTab(ports, session);
+}
+
+/**
+ * Name a session: the label on its tab, its pane header, and the mobile top
+ * bar. Not a layout write, so it is not refused on mobile. The name is
+ * compared after normalizing because the store trims and truncates, and the
+ * returned tab carries what was stored, so a caller sees a cut name.
+ */
+export function renamePane(ports: PanePorts, sessionId: string, title: string | null): PaneResult {
+  if (!exists(ports, sessionId)) return { ok: false, error: PANE_ERRORS.noSession };
+  ports.renameSession(sessionId, title);
+  const after = sessionOf(ports, sessionId);
+  if (!after || after.title !== normalizeTabTitle(title)) return { ok: false, error: PANE_ERRORS.unchanged };
+  return { ok: true, tab: projectTabOf(ports, after) };
+}
+
+/** Name a split tab. Unnamed, its label derives from the active pane (`splitTabLabel`). */
+export function renameTab(ports: PanePorts, tabId: string, title: string | null): PaneResult {
+  if (ports.isMobile()) return { ok: false, error: PANE_ERRORS.mobile };
+  if (tabId.startsWith(SESSION_TAB_PREFIX)) return { ok: false, error: PANE_ERRORS.sessionTab };
+  if (!ports.splitTabs().some((tab) => tab.id === tabId)) return { ok: false, error: PANE_ERRORS.noTab };
+  ports.renameSplitTab(tabId, title);
+  const after = ports.splitTabs().find((tab) => tab.id === tabId);
+  if (!after || after.name !== normalizeTabTitle(title)) return { ok: false, error: PANE_ERRORS.unchanged };
   return { ok: true, tab: projectSplitTab(ports, after) };
 }

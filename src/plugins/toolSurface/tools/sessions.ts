@@ -36,6 +36,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
           connectionId: s.connectionId,
           connectionName: s.connectionName,
           localShell: s.localShell,
+          title: s.title ?? null,
           ownedByCaller: ports.owned.has(s.id),
         })),
     },

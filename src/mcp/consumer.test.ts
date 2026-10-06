@@ -38,7 +38,7 @@ const ALL_TOOLS = [
   "marketplace_search", "marketplace_source_add", "marketplace_source_list", "marketplace_source_remove",
   "member_invite", "member_list", "member_remove", "member_set_role",
   "object_copy", "object_move", "open_session",
-  "pane_detach", "pane_focus", "pane_list", "pane_split",
+  "pane_detach", "pane_focus", "pane_list", "pane_rename", "pane_split",
   "plugin_configure", "plugin_disable", "plugin_enable", "plugin_install", "plugin_list",
   "plugin_uninstall", "plugin_update",
   "port_forward_create", "port_forward_delete", "port_forward_list", "port_forward_start",
@@ -48,7 +48,7 @@ const ALL_TOOLS = [
   "setting_get", "setting_list", "setting_set", "share_session",
   "snippet_create", "snippet_delete", "snippet_list", "snippet_run", "snippet_update",
   "stat_file", "subscription_status", "sync_status",
-  "team_list",
+  "tab_rename", "team_list",
   "transfer_cancel", "transfer_file", "transfer_list", "transfer_retry",
   "unshare_session",
   "vault_create", "vault_delete", "vault_key_status", "vault_list", "vault_rename",
@@ -255,8 +255,9 @@ describe("MCP consumer", () => {
   });
 
   it("describes the pane verbs without naming an approval that MCP does not do", () => {
-    const paneTools = buildMcpTools(api(), new Set()).filter((t) => t.name.startsWith("pane_") || t.name === "session_move_to_pane");
-    expect(paneTools).toHaveLength(5);
+    const paneTools = buildMcpTools(api(), new Set())
+      .filter((t) => t.name.startsWith("pane_") || t.name === "session_move_to_pane" || t.name === "tab_rename");
+    expect(paneTools).toHaveLength(7);
     for (const t of paneTools) {
       expect(t.description.toLowerCase()).not.toContain("prompt");
       expect(t.description).not.toBe("");

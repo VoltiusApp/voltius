@@ -19,3 +19,4 @@ export type { ToolSurfacePorts } from "./coreTools";
 export { refusal } from "./refusal";
 export type { Refusal } from "./refusal";
 export { ALL_PERMISSIONS } from "./groups";
+export { renameDescriptions } from "./tools/panes";

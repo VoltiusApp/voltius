@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PanePorts } from "./panes";
-import { detach, focus, listTabs, moveToPane, PANE_ERRORS, splitWith } from "./panes";
+import { detach, focus, listTabs, moveToPane, PANE_ERRORS, renamePane, renameTab, splitWith } from "./panes";
 import type { SplitTab, SplitPosition } from "@/stores/layoutStore";
 import { splitGeometry } from "@/stores/layoutStore";
+import { normalizeTabTitle, TAB_TITLE_MAX } from "@/utils/sessionLabel";
 
 export const splitTab = (over: Partial<SplitTab> = {}): SplitTab => ({
   id: "tab-1",
@@ -38,6 +39,8 @@ export function makePorts(over: Partial<PanePorts> = {}): PanePorts {
     toggleBroadcast: vi.fn(),
     focusStandaloneTab: vi.fn(),
     revealActiveTab: vi.fn(),
+    renameSession: vi.fn(),
+    renameSplitTab: vi.fn(),
     isMobile: vi.fn(() => false),
     ...over,
   };
@@ -49,12 +52,13 @@ describe("listTabs", () => {
     expect(tab).toEqual({
       tabId: "tab-1",
       kind: "split",
+      title: null,
       active: true,
       broadcastActive: false,
       layout: splitTab().root,
       panes: [
-        { paneId: "p-1", sessionId: "sess-a", connectionName: "web-01", active: true, maximized: false },
-        { paneId: "p-2", sessionId: "sess-b", connectionName: "db-01", active: false, maximized: false },
+        { paneId: "p-1", sessionId: "sess-a", connectionName: "web-01", title: null, active: true, maximized: false },
+        { paneId: "p-2", sessionId: "sess-b", connectionName: "db-01", title: null, active: false, maximized: false },
       ],
     });
   });
@@ -65,11 +69,12 @@ describe("listTabs", () => {
     expect(tabs[1]).toEqual({
       tabId: "session:sess-c",
       kind: "session",
+      title: null,
       active: false,
       broadcastActive: false,
       layout: null,
       panes: [
-        { paneId: "session:sess-c", sessionId: "sess-c", connectionName: "lonely", active: false, maximized: false },
+        { paneId: "session:sess-c", sessionId: "sess-c", connectionName: "lonely", title: null, active: false, maximized: false },
       ],
     });
   });
@@ -106,6 +111,134 @@ describe("listTabs", () => {
 const soloTab = (id: string, paneId: string, sessionId: string): SplitTab => ({
   id, root: { type: "leaf", id: paneId, sessionId },
   activePaneId: paneId, maximizedPaneId: null, broadcastActive: false,
+});
+
+/** Ports whose renames land in state the domain re-reads, normalized the way
+ *  the real stores normalize (`sessionStore.renameSession`, `layoutStore.renameSplitTab`). */
+function renamablePorts(over: Partial<PanePorts> = {}) {
+  const sessions: { id: string; connectionName: string; title?: string }[] = [
+    { id: "sess-a", connectionName: "web-01" },
+    { id: "sess-b", connectionName: "db-01" },
+    { id: "sess-c", connectionName: "lonely" },
+  ];
+  let tabs = [splitTab()];
+  const ports = makePorts({
+    sessions: vi.fn(() => sessions),
+    splitTabs: vi.fn(() => tabs),
+    renameSession: vi.fn((id: string, title: string | null) => {
+      const session = sessions.find((s) => s.id === id);
+      if (session) session.title = normalizeTabTitle(title);
+    }),
+    renameSplitTab: vi.fn((id: string, name: string | null) => {
+      tabs = tabs.map((t) => (t.id === id ? { ...t, name: normalizeTabTitle(name) } : t));
+    }),
+    ...over,
+  });
+  return { ports, sessions };
+}
+
+describe("titles in listTabs", () => {
+  it("reports the user-given names on each pane and on the split tab", () => {
+    const { ports, sessions } = renamablePorts();
+    sessions[0].title = "issue 528";
+    ports.renameSplitTab("tab-1", "triage");
+    const [tab] = listTabs(ports);
+    expect(tab.title).toBe("triage");
+    expect(tab.panes.map((p) => p.title)).toEqual(["issue 528", null]);
+  });
+
+  it("reports a standalone tab's title as its session's name, the label the titlebar shows", () => {
+    const { ports, sessions } = renamablePorts();
+    sessions[2].title = "scratch";
+    const standalone = listTabs(ports).find((t) => t.kind === "session");
+    expect(standalone?.title).toBe("scratch");
+    expect(standalone?.panes[0].title).toBe("scratch");
+  });
+});
+
+describe("renamePane", () => {
+  it("names a session and returns its tab with the new name on the pane", () => {
+    const { ports } = renamablePorts();
+    const result = renamePane(ports, "sess-b", "issue 497");
+    expect(ports.renameSession).toHaveBeenCalledWith("sess-b", "issue 497");
+    expect(result).toMatchObject({ ok: true, tab: { tabId: "tab-1" } });
+    const pane = result.ok ? result.tab?.panes.find((p) => p.sessionId === "sess-b") : undefined;
+    expect(pane?.title).toBe("issue 497");
+  });
+
+  it("names a session no split tab holds and returns its standalone tab", () => {
+    const { ports } = renamablePorts();
+    const result = renamePane(ports, "sess-c", "scratch");
+    expect(result).toMatchObject({ ok: true, tab: { tabId: "session:sess-c", kind: "session", title: "scratch" } });
+  });
+
+  it("clears the name with an empty title, so the label falls back to the connection", () => {
+    const { ports } = renamablePorts();
+    renamePane(ports, "sess-a", "issue 528");
+    const result = renamePane(ports, "sess-a", "  ");
+    const pane = result.ok ? result.tab?.panes.find((p) => p.sessionId === "sess-a") : undefined;
+    expect(result.ok).toBe(true);
+    expect(pane?.title).toBeNull();
+  });
+
+  it("returns the name as stored, so a caller sees that a long one was cut", () => {
+    const { ports } = renamablePorts();
+    const result = renamePane(ports, "sess-c", "x".repeat(TAB_TITLE_MAX + 20));
+    expect(result.ok && result.tab?.title).toBe("x".repeat(TAB_TITLE_MAX));
+  });
+
+  it("refuses an unknown session without touching the store", () => {
+    const { ports } = renamablePorts();
+    expect(renamePane(ports, "ghost", "x")).toEqual({ ok: false, error: PANE_ERRORS.noSession });
+    expect(ports.renameSession).not.toHaveBeenCalled();
+  });
+
+  it("works on mobile, where the session name is what the top bar shows", () => {
+    const { ports } = renamablePorts({ isMobile: vi.fn(() => true) });
+    expect(renamePane(ports, "sess-c", "scratch").ok).toBe(true);
+  });
+
+  it("reports unchanged when the store did not take the name", () => {
+    const { ports } = renamablePorts({ renameSession: vi.fn() });
+    expect(renamePane(ports, "sess-a", "x")).toEqual({ ok: false, error: PANE_ERRORS.unchanged });
+  });
+});
+
+describe("renameTab", () => {
+  it("names a split tab and returns it with the new title", () => {
+    const { ports } = renamablePorts();
+    const result = renameTab(ports, "tab-1", "triage");
+    expect(ports.renameSplitTab).toHaveBeenCalledWith("tab-1", "triage");
+    expect(result).toMatchObject({ ok: true, tab: { tabId: "tab-1", title: "triage" } });
+  });
+
+  it("clears the name with an empty title, so the label derives from the active pane again", () => {
+    const { ports } = renamablePorts();
+    renameTab(ports, "tab-1", "triage");
+    expect(renameTab(ports, "tab-1", "")).toMatchObject({ ok: true, tab: { title: null } });
+  });
+
+  it("sends a standalone tab to pane_rename: its label is its session's name", () => {
+    const { ports } = renamablePorts();
+    expect(renameTab(ports, "session:sess-c", "x")).toEqual({ ok: false, error: PANE_ERRORS.sessionTab });
+    expect(ports.renameSplitTab).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unknown tab id without touching the store", () => {
+    const { ports } = renamablePorts();
+    expect(renameTab(ports, "tab-404", "x")).toEqual({ ok: false, error: PANE_ERRORS.noTab });
+    expect(ports.renameSplitTab).not.toHaveBeenCalled();
+  });
+
+  it("refuses on mobile, which has no split tabs", () => {
+    const { ports } = renamablePorts({ isMobile: vi.fn(() => true) });
+    expect(renameTab(ports, "tab-1", "x")).toEqual({ ok: false, error: PANE_ERRORS.mobile });
+  });
+
+  it("reports unchanged when the store did not take the name", () => {
+    const { ports } = renamablePorts({ renameSplitTab: vi.fn() });
+    expect(renameTab(ports, "tab-1", "x")).toEqual({ ok: false, error: PANE_ERRORS.unchanged });
+  });
 });
 
 describe("splitWith", () => {

@@ -49,7 +49,7 @@ import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
 import { addKeyToHost } from "@/services/keyExport";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
-import type { Connection } from "@/types";
+import type { Connection, TerminalSession } from "@/types";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteLocalSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { appFetch } from "@/services/http";
@@ -110,6 +110,8 @@ import {
   focus as focusPaneOf,
   listTabs,
   moveToPane,
+  renamePane,
+  renameTab,
   splitWith,
   type PanePorts,
 } from "./domains/panes";
@@ -681,6 +683,19 @@ const historyPorts: HistoryPorts = {
   list: () => useCommandHistoryStore.getState().entries,
 };
 
+/** The session shape plugins see; `list` and `getActive` must not drift apart. */
+function toPluginSession(s: TerminalSession): PluginSession {
+  return {
+    id: s.id,
+    connectionId: s.connectionId,
+    connectionName: s.connectionName,
+    status: s.status,
+    type: s.type,
+    localShell: s.localShell,
+    title: s.title,
+  };
+}
+
 // Mirrors the titlebar's own click handlers (TitleBar.tsx:130 and :162): a
 // focused pane that leaves the SFTP panel open or the nav on Vaults is focused
 // in the store and invisible on screen.
@@ -688,7 +703,7 @@ const panePorts: PanePorts = {
   splitTabs: () => useLayoutStore.getState().splitTabs,
   activeSplitTabId: () => useLayoutStore.getState().activeSplitTabId,
   splitTabActive: () => useLayoutStore.getState().splitTabActive,
-  sessions: () => useSessionStore.getState().sessions.map((s) => ({ id: s.id, connectionName: s.connectionName })),
+  sessions: () => useSessionStore.getState().sessions.map(toPluginSession),
   activeSessionId: () => useSessionStore.getState().activeSessionId,
   activateSplitTab: (tabId) => useLayoutStore.getState().activateSplitTab(tabId),
   createSplitTab: (target, incoming, position) => useLayoutStore.getState().createSplitTab(target, incoming, position),
@@ -709,6 +724,8 @@ const panePorts: PanePorts = {
     useSessionStore.getState().setActive(sessionId);
     useUIStore.getState().setActiveNav("terminal");
   },
+  renameSession: (sessionId, title) => useSessionStore.getState().renameSession(sessionId, title),
+  renameSplitTab: (tabId, name) => useLayoutStore.getState().renameSplitTab(tabId, name),
   isMobile: () => isMobileShell(),
 };
 
@@ -1277,6 +1294,14 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "panes:write");
         return focusPaneOf(panePorts, sessionId, maximize);
       },
+      rename(sessionId, title) {
+        requirePerm(manifest, "panes:write");
+        return renamePane(panePorts, sessionId, title);
+      },
+      renameTab(tabId, title) {
+        requirePerm(manifest, "panes:write");
+        return renameTab(panePorts, tabId, title);
+      },
     },
 
     team: {
@@ -1796,29 +1821,14 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     sessions: {
       list() {
         requirePerm(manifest, "sessions:read");
-        return useSessionStore.getState().sessions.map((s) => ({
-          id: s.id,
-          connectionId: s.connectionId,
-          connectionName: s.connectionName,
-          status: s.status,
-          type: s.type,
-          localShell: s.localShell,
-        }));
+        return useSessionStore.getState().sessions.map(toPluginSession);
       },
       getActive() {
         requirePerm(manifest, "sessions:read");
         const { sessions, activeSessionId } = useSessionStore.getState();
         if (!activeSessionId) return null;
         const s = sessions.find((x) => x.id === activeSessionId);
-        if (!s) return null;
-        return {
-          id: s.id,
-          connectionId: s.connectionId,
-          connectionName: s.connectionName,
-          status: s.status,
-          type: s.type,
-          localShell: s.localShell,
-        };
+        return s ? toPluginSession(s) : null;
       },
       onConnected(cb) {
         requirePerm(manifest, "sessions:read");

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PluginAPI } from "@/plugins/api";
-import { buildCoreTools, deriveScope, type ToolSurfacePorts, type OwnedSessions } from "@voltius/tools";
+import { buildCoreTools, deriveScope, renameDescriptions, type ToolSurfacePorts, type OwnedSessions } from "@voltius/tools";
 import { listContributions } from "./contributions";
 import { isPluginExposed } from "@/stores/mcpContributionStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
@@ -148,6 +148,7 @@ export const MCP_TEXT = {
       "Bring a session's pane to the front so the user sees it, optionally maximizing it within its "
       + "tab. Works on any open session and changes only what is visible. Runs immediately; your "
       + "own client is responsible for approval.",
+    ...renameDescriptions("Runs immediately; your own client is responsible for approval."),
     member_invite:
       "Invite someone to a team by email, or add an existing user by id — exactly one of the two. "
       + "Requires your team role to allow it. Runs immediately; your own client is responsible for "

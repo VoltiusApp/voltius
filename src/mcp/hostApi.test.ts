@@ -3,14 +3,16 @@ import { describe, it, expect } from "vitest";
 import { createHostPluginAPI } from "@/plugins/runtime";
 import { buildMcpTools } from "./consumer";
 import { PERMISSIONS } from "./hostApi";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 
 /** Mirrors requirePerm/requireGated's thrown message in plugins/runtime.ts. */
 const isPermissionError = (err: unknown) => err instanceof Error && /requires permission/.test(err.message);
 
 describe("MCP host API surface", () => {
-  it("builds all 91 MCP tools over the real createHostPluginAPI", () => {
+  it("builds all 93 MCP tools over the real createHostPluginAPI", () => {
     const api = createHostPluginAPI("__mcp_hostapi_test__", PERMISSIONS);
-    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(91);
+    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(93);
   });
 
   // Each gated PluginAPI call the tools reach into must clear its permission
@@ -126,5 +128,41 @@ describe("MCP host API surface", () => {
           : undefined;
       if (errMsg !== undefined) expect(isPermissionError(new Error(errMsg))).toBe(false);
     }
+  });
+
+  // The domain tests drive fakes; this is the only check that the rename
+  // ports reach the stores the titlebar and pane headers actually read.
+  it("pane_rename and tab_rename land in the real stores, and the read verbs report them", async () => {
+    const api = createHostPluginAPI("__mcp_rename_test__", PERMISSIONS);
+    const base = { connectionId: "c1", connectionName: "debian", status: "connected", type: "ssh" } as const;
+    useSessionStore.setState({ sessions: [{ ...base, id: "s1" }, { ...base, id: "s2" }], activeSessionId: "s1" });
+    useLayoutStore.setState({
+      splitTabs: [{
+        id: "t1",
+        root: {
+          type: "split", id: "n1", direction: "h", ratio: 0.5,
+          first: { type: "leaf", id: "p1", sessionId: "s1" },
+          second: { type: "leaf", id: "p2", sessionId: "s2" },
+        },
+        activePaneId: "p1", maximizedPaneId: null, broadcastActive: false,
+      }],
+      activeSplitTabId: "t1",
+      splitTabActive: true,
+    });
+    const tools = buildMcpTools(api, new Set(["s1", "s2"]));
+    const run = (name: string, args: Record<string, unknown>) => tools.find((t) => t.name === name)!.execute(args);
+
+    expect(await run("pane_rename", { sessionId: "s1", title: "issue 528" })).toMatchObject({ ok: true });
+    expect(await run("tab_rename", { tabId: "t1", title: "triage" })).toMatchObject({ ok: true });
+
+    expect(useSessionStore.getState().sessions.map((s) => s.title)).toEqual(["issue 528", undefined]);
+    expect(useLayoutStore.getState().splitTabs[0].name).toBe("triage");
+    expect(await run("list_sessions", {})).toEqual([
+      expect.objectContaining({ id: "s1", title: "issue 528" }),
+      expect.objectContaining({ id: "s2", title: null }),
+    ]);
+    expect(await run("pane_list", {})).toMatchObject({
+      tabs: [{ tabId: "t1", title: "triage", panes: [{ title: "issue 528" }, { title: null }] }],
+    });
   });
 });

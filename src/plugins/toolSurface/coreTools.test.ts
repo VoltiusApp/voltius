@@ -62,10 +62,10 @@ function makePorts(over: Partial<ToolSurfacePorts> = {}): ToolSurfacePorts {
 }
 
 describe("core tool surface", () => {
-  test("exposes 91 tools and no planning tool", () => {
+  test("exposes 93 tools and no planning tool", () => {
     const ports = makePorts();
     const names = buildCoreTools(ports).map((t) => t.name);
-    expect(names).toHaveLength(91);
+    expect(names).toHaveLength(93);
     expect(names).not.toContain("propose_plan");
   });
 });
@@ -284,7 +284,7 @@ describe("session-type routing", () => {
   function serialPorts(): ToolSurfacePorts {
     const live = [
       { id: "ser-1", type: "serial", status: "connected", connectionId: "conn-S", connectionName: "dev" },
-      { id: "ssh-1", type: "ssh", status: "connected", connectionId: "conn-A", connectionName: "srv" },
+      { id: "ssh-1", type: "ssh", status: "connected", connectionId: "conn-A", connectionName: "srv", title: "issue 528" },
       { id: "loc-1", type: "local", status: "connected", connectionId: "local", connectionName: "bash" },
     ];
     return {
@@ -306,6 +306,13 @@ describe("session-type routing", () => {
     }>;
     expect(res.map((s) => s.type).sort()).toEqual(["local", "serial", "ssh"]);
     expect(res.every((s) => s.ownedByCaller === false)).toBe(true);
+  });
+
+  test("list_sessions reports each session's user-given name, null when it has none", async () => {
+    const res = (await buildCoreTools(serialPorts()).find((t) => t.name === "list_sessions")!.execute({})) as Array<{
+      id: string; title: string | null;
+    }>;
+    expect(Object.fromEntries(res.map((s) => [s.id, s.title]))).toEqual({ "ser-1": null, "ssh-1": "issue 528", "loc-1": null });
   });
 
   test("run_command sends verbatim on a serial session — no shell markers reach the device", async () => {

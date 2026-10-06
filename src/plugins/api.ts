@@ -224,6 +224,8 @@ export interface PluginPane {
   paneId: string;
   sessionId: string;
   connectionName: string;
+  /** The session's user-given name, or null when its label is the connection name. */
+  title: string | null;
   active: boolean;
   maximized: boolean;
 }
@@ -233,6 +235,8 @@ export interface PluginPane {
 export interface PluginPaneTab {
   tabId: string;
   kind: "split" | "session";
+  /** A split tab's own name (null: the label follows the active pane); a standalone tab's session name. */
+  title: string | null;
   active: boolean;
   panes: PluginPane[];
   broadcastActive: boolean;
@@ -448,6 +452,8 @@ export interface PluginSession {
   type: string;
   /** Local sessions only: the shell path/name to use for a spawned exec PTY. */
   localShell?: string;
+  /** The user-given name its tab shows; unset, the tab shows `connectionName`. */
+  title?: string;
 }
 
 // ─── Files (SFTP / FTP / local) ────────────────────────────────────────────
@@ -955,6 +961,10 @@ export interface PluginAPI {
    * strictly less than the ungated sessions:write, and detaching a pane leaves
    * the session open. Writes never throw — they return a PluginPaneResult whose
    * `error` says why, because every underlying store method fails silently.
+   *
+   * `rename` names a session, `renameTab` a split tab; a blank title clears the
+   * name. A title escape the remote program writes (OSC 0/2) never reaches
+   * either name — Voltius does not read them — so a name set here always holds.
    */
   panes: {
     list(): PluginPaneTab[];
@@ -962,6 +972,8 @@ export interface PluginAPI {
     move(input: { sessionId: string; targetSessionId: string; position: PluginPanePosition }): PluginPaneResult;
     detach(sessionId: string): PluginPaneResult;
     focus(sessionId: string, maximize?: boolean): PluginPaneResult;
+    rename(sessionId: string, title: string | null): PluginPaneResult;
+    renameTab(tabId: string, title: string | null): PluginPaneResult;
   };
 
   /**
