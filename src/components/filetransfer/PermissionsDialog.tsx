@@ -134,7 +134,7 @@ export function PermissionsDialog({ sftpId, files, onClose, onApplied, touch = f
           <h2 className="text-sm font-semibold text-(--t-text-bright) truncate" style={{ flexShrink: 1, minWidth: "3rem" }}>
             {single ? single.name : t("fileTransfer.permissions.items", { count: files.length })}
           </h2>
-          {folder && <span className="text-xs font-mono text-(--t-text-dim) truncate">{folder}</span>}
+          {folder && <span className="text-xs font-mono text-(--t-text-dim) truncate min-w-0 flex-1 basis-0">{folder}</span>}
         </div>
 
         <div className="flex items-start gap-5">
