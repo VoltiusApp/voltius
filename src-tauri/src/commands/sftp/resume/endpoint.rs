@@ -266,6 +266,7 @@ impl Endpoint for LocalFs {
 #[cfg(test)]
 pub(crate) mod tests_support {
     use super::*;
+    use crate::commands::sftp::resume::connection_lost;
     use std::sync::Mutex;
 
     /// LocalFs with faults: renames that fail by call number, a hash that lies once,
@@ -277,6 +278,7 @@ pub(crate) mod tests_support {
         pub hash_fails_once: bool,
         pub cancel_on_hash: Option<CancellationToken>,
         pub lose_first_write: bool,
+        pub lose_first_mkdir: bool,
         pub dead_until_waited: bool,
         pub state: Mutex<TestState>,
     }
@@ -287,6 +289,7 @@ pub(crate) mod tests_support {
         pub lied: bool,
         pub hash_failed: bool,
         pub write_lost: bool,
+        pub mkdir_lost: bool,
         pub waited: bool,
     }
 
@@ -312,6 +315,12 @@ pub(crate) mod tests_support {
             LocalFs.list(d).await
         }
         async fn mkdir(&self, p: &str) -> Result<(), AppError> {
+            if once(
+                self.lose_first_mkdir,
+                &mut self.state.lock().unwrap().mkdir_lost,
+            ) {
+                return Err(connection_lost());
+            }
             LocalFs.mkdir(p).await
         }
         async fn open_read(&self, p: &str, o: u64) -> Result<Reader, AppError> {
@@ -322,10 +331,7 @@ pub(crate) mod tests_support {
                 self.lose_first_write,
                 &mut self.state.lock().unwrap().write_lost,
             ) {
-                return Err(AppError::coded(
-                    ErrorCode::ConnectionLost,
-                    "Connection lost",
-                ));
+                return Err(connection_lost());
             }
             LocalFs.open_write(p, o).await
         }
@@ -355,10 +361,7 @@ pub(crate) mod tests_support {
                 self.hash_fails_once,
                 &mut self.state.lock().unwrap().hash_failed,
             ) {
-                return Err(AppError::coded(
-                    ErrorCode::ConnectionLost,
-                    "Connection lost",
-                ));
+                return Err(connection_lost());
             }
             if once(self.lie_hash_once, &mut self.state.lock().unwrap().lied) {
                 return Ok(Some("0".repeat(64)));

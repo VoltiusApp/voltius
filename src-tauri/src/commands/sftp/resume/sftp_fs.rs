@@ -126,8 +126,16 @@ impl<H: Handler> Endpoint for SftpFs<H> {
     }
 
     async fn mkdir(&self, path: &str) -> Result<(), AppError> {
-        let _ = self.session.lock().await.create_dir(path).await;
-        Ok(())
+        let sftp = self.session.lock().await;
+        match sftp.create_dir(path).await {
+            Ok(()) => Ok(()),
+            // Servers answer an existing directory with Failure or FileAlreadyExists.
+            Err(e @ SftpError::Status(_)) => match sftp.metadata(path).await {
+                Ok(m) if m.is_dir() => Ok(()),
+                _ => Err(failed("mkdir", path, &e)),
+            },
+            Err(e) => Err(failed("mkdir", path, &e)),
+        }
     }
 
     async fn open_read(&self, path: &str, offset: u64) -> Result<Reader, AppError> {
@@ -324,6 +332,26 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(names, ["x"]);
         assert_eq!(fs.stat(&format!("{f}.nope")).await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn mkdir_accepts_an_existing_folder_and_nothing_else() {
+        let fs = sftp_fs(ProcOptions::default()).await;
+        let d = tempfile::tempdir().unwrap();
+        let dir = d.path().join("sub");
+        let dir = dir.to_string_lossy();
+        fs.mkdir(&dir).await.unwrap();
+        fs.mkdir(&dir).await.unwrap();
+        assert!(fs.stat(&dir).await.unwrap().unwrap().is_dir);
+        std::fs::write(d.path().join("f"), b"").unwrap();
+        assert!(fs
+            .mkdir(&format!("{}/f", d.path().display()))
+            .await
+            .is_err());
+        assert!(fs
+            .mkdir(&format!("{}/nope/sub", d.path().display()))
+            .await
+            .is_err());
     }
 
     #[tokio::test]

@@ -87,6 +87,17 @@ impl<'a, E: TransferEvents> CopyCtx<'a, E> {
         })
     }
 
+    async fn revive(&self, ends: &[&dyn Endpoint]) -> Option<Result<(), AppError>> {
+        revive(
+            ends,
+            self.events,
+            self.transfer_id,
+            self.token,
+            self.link_wait,
+        )
+        .await
+    }
+
     async fn listing(&mut self, fs: &dyn Endpoint, dir: &str) -> &[Listed] {
         if !self.listings.contains_key(dir) {
             let found = fs.list(dir).await.unwrap_or_default();
@@ -104,6 +115,10 @@ enum Attempt {
 
 fn cancelled() -> AppError {
     "Transfer cancelled".into()
+}
+
+pub(crate) fn connection_lost() -> AppError {
+    AppError::coded(ErrorCode::ConnectionLost, "Connection lost")
 }
 
 pub(crate) async fn copy_one<E: TransferEvents>(
@@ -175,12 +190,18 @@ pub(crate) async fn copy_tree<E: TransferEvents>(
     token: &CancellationToken,
 ) -> Result<(), AppError> {
     let (dirs, files) = walk(events, transfer_id, src, src_root, dst.is_local()).await?;
-    dst.mkdir(dst_root).await?;
-    for d in &dirs {
-        dst.mkdir(&dst.join(dst_root, d)).await?;
-    }
     let total = files.iter().map(|f| f.stat.size).sum();
     let mut ctx = CopyCtx::new(events, transfer_id, token, total);
+    let roots = std::iter::once(dst_root.to_string());
+    for d in roots.chain(dirs.iter().map(|d| dst.join(dst_root, d))) {
+        while let Err(e) = dst.mkdir(&d).await {
+            match ctx.revive(&[dst]).await {
+                Some(Ok(())) => continue,
+                Some(Err(waited)) => return Err(waited),
+                None => return Err(e),
+            }
+        }
+    }
     let resume = is_resume(transfer_id);
     for f in &files {
         if token.is_cancelled() {
@@ -237,15 +258,7 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
         let err = if ctx.token.is_cancelled() {
             err
         } else {
-            match revive(
-                &[src, dst],
-                ctx.events,
-                ctx.transfer_id,
-                ctx.token,
-                ctx.link_wait,
-            )
-            .await
-            {
+            match ctx.revive(&[src, dst]).await {
                 Some(Ok(())) => continue,
                 Some(Err(e)) => e,
                 None if err.code() == Some(ErrorCode::ConnectionLost) && relost < RESTARTS => {
@@ -329,7 +342,7 @@ async fn unless_lost<T>(
                     false
                 };
                 if stalled || ends.iter().any(|e| e.link_lost()) {
-                    return Err(AppError::coded(ErrorCode::ConnectionLost, "Connection lost"));
+                    return Err(connection_lost());
                 }
             }
         }
@@ -1051,6 +1064,54 @@ pub(crate) mod engine_tests {
         copy_dir(&rec, a.path(), &dst, "t3").await;
         assert_eq!(rec.skipped("t3"), [s(&dangling)]);
         assert_eq!(std::fs::read(dst.join("sub/b")).unwrap(), noise(200_000));
+    }
+
+    async fn copy_dir_to(
+        dst: &TestFs,
+        from: &std::path::Path,
+        to: &std::path::Path,
+    ) -> Result<(), AppError> {
+        let token = CancellationToken::new();
+        copy_tree(
+            &Recorder::default(),
+            &LocalFs,
+            &s(from),
+            dst,
+            &s(to),
+            "t",
+            &token,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn a_folder_mkdir_lost_with_the_link_waits_and_carries_on() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        tree(a.path());
+        let dst = TestFs {
+            lose_first_mkdir: true,
+            dead_until_waited: true,
+            ..Default::default()
+        };
+        let to = b.path().join("copy");
+        copy_dir_to(&dst, a.path(), &to).await.unwrap();
+        assert!(dst.state.lock().unwrap().waited);
+        assert_eq!(std::fs::read(to.join("sub/b")).unwrap(), noise(200_000));
+        assert!(to.join("sub/empty").is_dir());
+    }
+
+    #[tokio::test]
+    async fn a_folder_mkdir_failing_on_a_live_link_fails_the_copy() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        tree(a.path());
+        let dst = TestFs {
+            lose_first_mkdir: true,
+            ..Default::default()
+        };
+        let e = copy_dir_to(&dst, a.path(), &b.path().join("copy"))
+            .await
+            .unwrap_err();
+        assert_eq!(e.code(), Some(ErrorCode::ConnectionLost));
     }
 
     #[tokio::test]
