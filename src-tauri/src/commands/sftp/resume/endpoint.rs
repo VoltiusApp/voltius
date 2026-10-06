@@ -88,6 +88,9 @@ pub(crate) async fn swap_aside<E: Endpoint + ?Sized>(
         Some(s) if s.is_dir => return Err(in_the_way(target)),
         Some(_) => {}
     }
+    if fs.stat(old).await?.is_some() {
+        fs.remove(old).await?;
+    }
     fs.rename(target, old).await?;
     if let Err(e) = fs.rename(part, target).await {
         let _ = fs.rename(old, target).await;
@@ -268,11 +271,12 @@ pub(crate) mod tests_support {
     use super::*;
     use std::sync::Mutex;
 
-    /// LocalFs with faults: renames that fail by call number, a hash that lies once,
-    /// a link that reads dead until waited on.
+    /// LocalFs with faults: renames that fail by call number or never overwrite (as on SFTP),
+    /// a hash that lies once, a link that reads dead until waited on.
     #[derive(Default)]
     pub(crate) struct TestFs {
         pub fail_renames: Vec<usize>,
+        pub sftp_rename: bool,
         pub lie_hash_once: bool,
         pub hash_fails_once: bool,
         pub cancel_on_hash: Option<CancellationToken>,
@@ -335,7 +339,9 @@ pub(crate) mod tests_support {
                 st.renames += 1;
                 st.renames
             };
-            if self.fail_renames.contains(&n) {
+            if self.fail_renames.contains(&n)
+                || (self.sftp_rename && LocalFs.stat(to).await?.is_some())
+            {
                 return Err("rename refused".into());
             }
             LocalFs.rename(from, to).await

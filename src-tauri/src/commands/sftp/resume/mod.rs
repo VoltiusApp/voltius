@@ -724,6 +724,36 @@ pub(crate) mod engine_tests {
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"original");
     }
 
+    #[tokio::test]
+    async fn an_old_file_left_beside_the_target_does_not_block_the_overwrite() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let src = a.path().join("v");
+        std::fs::write(&src, b"new").unwrap();
+        let st = LocalFs.stat(&s(&src)).await.unwrap().unwrap();
+        let fp = names::fingerprint(&s(&src), st.size, st.mtime);
+        std::fs::write(b.path().join("v"), b"current").unwrap();
+        std::fs::write(
+            b.path().join(names::temp_name("v", &fp, names::OLD_EXT)),
+            b"superseded",
+        )
+        .unwrap();
+        let dst = TestFs {
+            sftp_rename: true,
+            ..Default::default()
+        };
+        copy_local(
+            &Recorder::default(),
+            &src,
+            &dst,
+            &b.path().join("v"),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"new");
+        assert_eq!(entries(b.path()), ["v"]);
+    }
+
     async fn seed_part(
         src: &std::path::Path,
         dst_dir: &std::path::Path,
