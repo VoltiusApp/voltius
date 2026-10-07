@@ -387,6 +387,7 @@ mod tests {
                     name: name.into(),
                     stat: Some(stat_of(content)),
                     is_symlink: false,
+                    complete: true,
                 })
                 .collect())
         }

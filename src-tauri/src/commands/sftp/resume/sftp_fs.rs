@@ -71,6 +71,11 @@ fn stat_of(m: &Metadata) -> Stat {
     }
 }
 
+/// Whether a listing's attributes say what the entry is and, for a non-directory, how big.
+fn listed_completely(m: &Metadata) -> bool {
+    m.permissions.is_some() && (m.is_dir() || m.size.is_some())
+}
+
 fn failed(what: &str, path: &str, e: &SftpError) -> AppError {
     AppError::caused(format_args!("{what} {path}"), e)
 }
@@ -104,6 +109,7 @@ impl<H: Handler> Endpoint for SftpFs<H> {
                     name: e.file_name(),
                     stat: Some(stat_of(&m)),
                     is_symlink: m.is_symlink(),
+                    complete: listed_completely(&m),
                 }
             })
             .collect())
@@ -271,6 +277,21 @@ pub(crate) mod tests {
             link.opener.inside(),
         ));
         SftpFs::new(session, link, tar)
+    }
+
+    #[test]
+    fn a_listing_is_complete_only_with_the_type_and_a_file_s_size() {
+        let attrs = |size, permissions| FileAttributes {
+            size,
+            permissions,
+            ..FileAttributes::empty()
+        };
+        let (file, dir) = (Some(0o100644), Some(0o040755));
+        assert!(listed_completely(&attrs(Some(9), file)));
+        assert!(listed_completely(&attrs(None, dir)));
+        assert!(!listed_completely(&attrs(None, file)));
+        assert!(!listed_completely(&attrs(Some(9), None)));
+        assert!(!listed_completely(&FileAttributes::empty()));
     }
 
     #[tokio::test]

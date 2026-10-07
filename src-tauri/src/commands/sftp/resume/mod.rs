@@ -144,6 +144,51 @@ pub(crate) struct TreeFile {
     pub stat: Stat,
 }
 
+/// What a [`visit`] callback wants next.
+pub(crate) enum Step {
+    /// Carry on, entering the entry if it is a directory.
+    Go,
+    /// Leave the entry out, and everything under it.
+    Prune,
+    /// End the walk here.
+    Stop,
+}
+
+/// Depth-first over `root` from its listings alone, never following a symlink:
+/// `f` gets each entry's `/`-joined path relative to `root`, its full path and
+/// its listing.
+pub(crate) async fn visit(
+    src: &dyn Endpoint,
+    root: &str,
+    mut f: impl FnMut(String, &str, &Listed) -> Step,
+) -> Result<(), AppError> {
+    let mut stack = vec![String::new()];
+    while let Some(rel) = stack.pop() {
+        let dir = if rel.is_empty() {
+            root.to_string()
+        } else {
+            src.join(root, &rel)
+        };
+        for e in src.list(&dir).await? {
+            if e.is_symlink {
+                continue;
+            }
+            let child = if rel.is_empty() {
+                e.name.clone()
+            } else {
+                format!("{rel}/{}", e.name)
+            };
+            let sub = e.stat.is_some_and(|s| s.is_dir).then(|| child.clone());
+            match (f(child, &src.join(&dir, &e.name), &e), sub) {
+                (Step::Go, Some(sub)) => stack.push(sub),
+                (Step::Stop, _) => return Ok(()),
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Every directory and file under `root`, relative and `/`-joined; `dst_local` as in `skip_unsafe_name`.
 pub(crate) async fn walk<E: TransferEvents>(
     events: &E,
@@ -152,35 +197,23 @@ pub(crate) async fn walk<E: TransferEvents>(
     root: &str,
     dst_local: bool,
 ) -> Result<(Vec<String>, Vec<TreeFile>), AppError> {
-    let (mut dirs, mut files, mut stack) = (Vec::new(), Vec::new(), vec![String::new()]);
-    while let Some(rel) = stack.pop() {
-        let dir = if rel.is_empty() {
-            root.to_string()
-        } else {
-            src.join(root, &rel)
-        };
-        for e in src.list(&dir).await? {
-            let child = if rel.is_empty() {
-                e.name.clone()
-            } else {
-                format!("{rel}/{}", e.name)
-            };
-            let path = src.join(&dir, &e.name);
-            if e.is_symlink || skip_unsafe_name(events, transfer_id, &path, &e.name, dst_local) {
-                continue;
-            }
-            let Some(stat) = e.stat else {
-                report_skipped(events, transfer_id, &path);
-                continue;
-            };
-            if stat.is_dir {
-                dirs.push(child.clone());
-                stack.push(child);
-            } else {
-                files.push(TreeFile { rel: child, stat });
-            }
+    let (mut dirs, mut files) = (Vec::new(), Vec::new());
+    visit(src, root, |rel, path, e| {
+        if skip_unsafe_name(events, transfer_id, path, &e.name, dst_local) {
+            return Step::Prune;
         }
-    }
+        let Some(stat) = e.stat else {
+            report_skipped(events, transfer_id, path);
+            return Step::Prune;
+        };
+        if stat.is_dir {
+            dirs.push(rel);
+        } else {
+            files.push(TreeFile { rel, stat });
+        }
+        Step::Go
+    })
+    .await?;
     Ok((dirs, files))
 }
 

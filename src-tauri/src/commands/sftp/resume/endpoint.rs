@@ -23,6 +23,9 @@ pub(crate) struct Listed {
     /// None when the entry's metadata can't be read, e.g. a dangling symlink.
     pub stat: Option<Stat>,
     pub is_symlink: bool,
+    /// Whether the listing vouches for the entry's type and size; when it
+    /// doesn't, a caller that needs them asks `stat`.
+    pub complete: bool,
 }
 
 impl From<RemoteFile> for Listed {
@@ -36,6 +39,9 @@ impl From<RemoteFile> for Listed {
             }),
             is_symlink: f.is_symlink,
             name: f.name,
+            // A listing that can't tell an unknown size from 0 (docker's
+            // `stat || echo 0`) doesn't vouch for it.
+            complete: false,
         }
     }
 }
@@ -197,6 +203,7 @@ impl Endpoint for LocalFs {
                     .as_ref()
                     .map(local_stat),
                 is_symlink: false,
+                complete: true,
             });
         }
         Ok(out)
@@ -317,6 +324,8 @@ pub(crate) mod tests_support {
         pub lose_first_write: bool,
         pub lose_first_mkdir: bool,
         pub dead_until_waited: bool,
+        /// Listings that don't vouch for type or size, as a bare SFTP server sends them.
+        pub bare_listing: bool,
         pub state: Mutex<TestState>,
     }
 
@@ -328,6 +337,8 @@ pub(crate) mod tests_support {
         pub write_lost: bool,
         pub mkdir_lost: bool,
         pub waited: bool,
+        pub stats: usize,
+        pub lists: usize,
     }
 
     fn once(flag: bool, done: &mut bool) -> bool {
@@ -355,12 +366,23 @@ pub(crate) mod tests_support {
             LocalFs.join(d, r)
         }
         async fn stat(&self, p: &str) -> Result<Option<Stat>, AppError> {
+            self.state.lock().unwrap().stats += 1;
             Ok(LocalFs.stat(p).await?.map(|s| self.shown(s)))
         }
         async fn list(&self, d: &str) -> Result<Vec<Listed>, AppError> {
+            self.state.lock().unwrap().lists += 1;
             let mut listed = LocalFs.list(d).await?;
             for e in &mut listed {
                 e.stat = e.stat.map(|s| self.shown(s));
+                if self.bare_listing {
+                    e.stat = Some(Stat {
+                        size: 0,
+                        mtime: None,
+                        is_dir: false,
+                        mode: None,
+                    });
+                    e.complete = false;
+                }
             }
             Ok(listed)
         }
