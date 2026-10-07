@@ -83,6 +83,7 @@ object VoltiusBiometric {
 
     @Volatile private var locked = false
     @Volatile private var hideInRecents = false
+    @Volatile private var foreground = false
 
     @JvmStatic
     fun setSecure(on: Boolean) {
@@ -101,10 +102,16 @@ object VoltiusBiometric {
         activity.runOnUiThread { applyWindowFlags(activity) }
     }
 
+    // Lifecycle reports RESUMED only after onResume returns, so the activity tells us instead.
+    @JvmStatic
+    fun setForeground(activity: MainActivity, on: Boolean) {
+        foreground = on
+        applyWindowFlags(activity)
+    }
+
     // Recents is snapshotted on the way out, before the webview hears it was hidden, so this can't wait for the lock.
     @JvmStatic
     fun applyWindowFlags(activity: MainActivity) {
-        val foreground = activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
         val recentsApi = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
         if (recentsApi) activity.setRecentsScreenshotEnabled(!hideInRecents)
         if (locked || (hideInRecents && !foreground && !recentsApi)) {

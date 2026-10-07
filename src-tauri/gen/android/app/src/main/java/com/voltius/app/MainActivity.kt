@@ -42,12 +42,12 @@ class MainActivity : TauriActivity() {
 
   override fun onPause() {
     super.onPause()
-    VoltiusBiometric.applyWindowFlags(this)
+    VoltiusBiometric.setForeground(this, false)
   }
 
   override fun onResume() {
     super.onResume()
-    VoltiusBiometric.applyWindowFlags(this)
+    VoltiusBiometric.setForeground(this, true)
   }
 
   // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34).
