@@ -80,7 +80,10 @@ pub fn app_lock_set(lock: tauri::State<'_, AppLock>, kind: Option<String>) -> Re
         Some(s) => Some(LockKind::parse(s).ok_or_else(|| format!("unknown lock kind: {s}"))?),
     };
     lock.set(kind)
-        .map_err(|e| format!("could not persist the app lock: {e}"))
+        .map_err(|e| format!("could not persist the app lock: {e}"))?;
+    #[cfg(target_os = "android")]
+    crate::system_auth::android::set_secure(kind == Some(LockKind::Screen));
+    Ok(())
 }
 
 #[cfg(test)]

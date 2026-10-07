@@ -89,6 +89,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
     // Hardware-backed secret storage for the OS keychain (see VoltiusKeychain.kt).
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.biometric:biometric:1.1.0")
     // SAF tree writes for the SFTP download directory (see VoltiusDownloads.kt).
     implementation("androidx.documentfile:documentfile:1.0.1")
     testImplementation("junit:junit:4.13.2")
