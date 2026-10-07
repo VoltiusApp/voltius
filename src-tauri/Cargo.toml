@@ -98,6 +98,8 @@ libc = "0.2"
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
 windows-registry = "0.6"
 windows-native-keyring-store = "1"
+windows = { version = "0.61", features = ["Security_Credentials_UI", "Win32_System_WinRT"] }
+windows-future = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Persistent credential store: the Secret Service (gnome-keyring/KWallet) over
@@ -118,6 +120,10 @@ gio = "0.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSError"] }
+objc2-local-authentication = { version = "0.3", features = ["LAContext", "LAError", "block2"] }
+block2 = "0.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
