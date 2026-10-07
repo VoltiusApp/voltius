@@ -89,12 +89,16 @@ impl<H: Handler> SftpLink<H> {
         }
     }
 
+    pub async fn open_bounded(&self) -> Result<SftpSession, String> {
+        timeout(LINK_PROBE, self.open())
+            .await
+            .map_err(|_| "Timed out reopening the SFTP channel".to_string())?
+    }
+
     /// Open a fresh channel and swap it into the shared session in place, so every
     /// holder of the same `Arc` heals. The open and the lock are each bounded.
     pub async fn reopen(&self, session: &Mutex<SftpSession>) -> Result<(), String> {
-        let fresh = timeout(LINK_PROBE, self.open())
-            .await
-            .map_err(|_| "Timed out reopening the SFTP channel".to_string())??;
+        let fresh = self.open_bounded().await?;
         let mut sftp = timeout(LINK_PROBE, session.lock())
             .await
             .map_err(|_| "Timed out waiting for the SFTP session".to_string())?;

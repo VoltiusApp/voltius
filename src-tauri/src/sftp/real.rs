@@ -44,8 +44,8 @@ impl SftpOpener {
     }
 }
 
-/// Run an SFTP call, re-opening the channel once (`SftpLink::reopen`) and retrying
-/// if the cached session turns out to be dead.
+/// Run an SFTP call, re-opening the channel once and retrying if the cached session is
+/// dead. The guard stays held so concurrent callers queue behind one reopen.
 ///
 /// A macro rather than a function taking a closure: the call borrows both the
 /// session guard and the operation's arguments, which no single closure
@@ -53,8 +53,8 @@ impl SftpOpener {
 macro_rules! retry_sftp {
     ($self:expr, $what:expr, |$sftp:ident| $call:expr) => {{
         let this = $self;
+        let mut guard = this.session.lock().await;
         let first = {
-            let guard = this.session.lock().await;
             let $sftp = &*guard;
             $call.await
         };
@@ -63,10 +63,10 @@ macro_rules! retry_sftp {
             Err(e) if !is_transport_dead(&e) => {
                 Err(AppError::caused(format_args!("{} failed", $what), &e))
             }
-            Err(_) => match this.link.reopen(&this.session).await {
+            Err(_) => match this.link.open_bounded().await {
                 Err(e) => Err(e.into()),
-                Ok(()) => {
-                    let guard = this.session.lock().await;
+                Ok(fresh) => {
+                    *guard = fresh;
                     let $sftp = &*guard;
                     $call
                         .await
@@ -279,4 +279,54 @@ fn remove_recursive(
 
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::port_forward::test_ssh::TestClient;
+    use crate::ssh::live_cells::own_cell;
+    use crate::ssh::test_proc_server::{proc_server, sftp_server_path, ProcOptions};
+
+    struct Shared {
+        session: Mutex<SftpSession>,
+        link: SftpLink<TestClient>,
+    }
+
+    async fn canonicalize(shared: &Shared) -> Result<String, AppError> {
+        retry_sftp!(shared, "canonicalize", |s| s.canonicalize("."))
+    }
+
+    #[tokio::test]
+    async fn concurrent_calls_on_a_dead_session_share_one_reopen() {
+        let (handle, log) = proc_server(ProcOptions::default()).await;
+        let link = SftpLink {
+            handle: own_cell(handle),
+            opener: SftpOpener::Exec {
+                inside: String::new(),
+                server: sftp_server_path().to_string(),
+            },
+            closed: CancellationToken::new(),
+        };
+        let shared = Shared {
+            session: Mutex::new(link.open().await.unwrap()),
+            link,
+        };
+        {
+            let dead = shared.session.lock().await;
+            dead.set_timeout(1);
+            dead.close().await.unwrap();
+        }
+
+        let (a, b, c, d) = tokio::join!(
+            canonicalize(&shared),
+            canonicalize(&shared),
+            canonicalize(&shared),
+            canonicalize(&shared)
+        );
+        for r in [a, b, c, d] {
+            r.unwrap();
+        }
+        assert_eq!(log.lock().unwrap().ran.len(), 2);
+    }
 }
