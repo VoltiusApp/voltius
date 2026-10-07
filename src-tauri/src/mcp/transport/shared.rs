@@ -61,6 +61,10 @@ pub async fn dispatch_line(
             let Some((app, state)) = ctx else {
                 return Some(protocol::error(Some(id), -32603, "app unavailable"));
             };
+            if let Some(refusal) = locked_refusal(&req.method, crate::app_lock::is_locked(app), &id)
+            {
+                return Some(refusal);
+            }
             let name = client_name.clone().unwrap_or_default();
             let payload = if req.method == "tools/list" {
                 json!({ "op": "tools/list", "clientId": client_id, "clientName": name })
@@ -80,6 +84,16 @@ pub async fn dispatch_line(
         }
         _ => Some(protocol::error(Some(id), -32601, "method not found")),
     }
+}
+
+fn locked_refusal(method: &str, locked: bool, id: &Value) -> Option<Value> {
+    (locked && method == "tools/call").then(|| {
+        protocol::error(
+            Some(id.clone()),
+            -32001,
+            "locked: Voltius is locked; unlock the app to continue",
+        )
+    })
 }
 
 /// `tools/call` results are MCP content blocks; `tools/list` passes through.
@@ -372,6 +386,19 @@ mod tests {
         )
         .await;
         assert_eq!(out.unwrap()["error"]["code"], serde_json::json!(-32603));
+    }
+
+    #[test]
+    fn a_locked_app_refuses_tool_calls_but_not_tool_listing() {
+        let id = json!(7);
+        assert!(locked_refusal("tools/list", true, &id).is_none());
+        assert!(locked_refusal("tools/call", false, &id).is_none());
+        let err = locked_refusal("tools/call", true, &id).unwrap();
+        assert_eq!(err["error"]["code"], json!(-32001));
+        assert!(err["error"]["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("locked:"));
     }
 
     #[test]
