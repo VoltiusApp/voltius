@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SectionLabel } from "./formShared";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerDivider, PickerOption, PickerTrigger } from "@/components/shared/pickerParts";
 
@@ -60,9 +61,7 @@ export default function EncodingSelector({ value, onChange }: Props) {
         {ENCODING_GROUPS.map((group) => (
           <div key={group.groupKey}>
             <PickerDivider />
-            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)">
-              {t(`connections.encodingSelector.groups.${group.groupKey}`)}
-            </p>
+            <SectionLabel className="px-3 py-1">{t(`connections.encodingSelector.groups.${group.groupKey}`)}</SectionLabel>
             {group.options.map((opt) => (
               <PickerOption
                 key={opt}

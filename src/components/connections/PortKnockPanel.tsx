@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PortKnockSettings, ProxyMode } from "@/types";
 import { KNOCK_DEFAULTS, MAX_KNOCK_STEPS, type KnockProtocol, type KnockStep } from "@/services/portKnock";
@@ -11,7 +10,7 @@ import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
-import { SettingRow } from "./formShared";
+import { SettingRow, SectionLabel, FormHint } from "./formShared";
 
 export type KnockPanelIssue = "empty" | "port" | "udp-proxy" | "udp-system";
 export type KnockStepRow = KnockStep & { id: string };
@@ -41,11 +40,6 @@ const PROTOCOLS = [
 ];
 
 const digits = (raw: string) => raw.replace(/\D/g, "");
-const hint = "text-xs text-(--t-text-dim)";
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)">{children}</p>;
-}
 
 interface Props {
   settings: PortKnockSettings;
@@ -74,13 +68,13 @@ export default function PortKnockPanel({ settings, steps, sequenceState, onSetti
         <SettingRow icon="lucide:power" label={t("connections.knock.enable")}>
           <Toggle checked={settings.enabled} onChange={(enabled) => onSettingsChange({ ...settings, enabled })} />
         </SettingRow>
-        <p className={hint}>{t("connections.knock.hint")}</p>
-        {bastionName && <p className={hint}>{t("connections.knock.viaBastion", { name: bastionName })}</p>}
+        <FormHint>{t("connections.knock.hint")}</FormHint>
+        {bastionName && <FormHint>{t("connections.knock.viaBastion", { name: bastionName })}</FormHint>}
 
         {sequenceShown ? (
           <>
-            <SectionLabel>{t("connections.knock.sequence")}</SectionLabel>
-            <p className={hint}>{t("connections.knock.reorderHint")}</p>
+            <SectionLabel className="pt-2">{t("connections.knock.sequence")}</SectionLabel>
+            <FormHint>{t("connections.knock.reorderHint")}</FormHint>
             {steps.map((step, idx) => (
               <ReorderableRow
                 key={step.id}
@@ -120,7 +114,7 @@ export default function PortKnockPanel({ settings, steps, sequenceState, onSetti
           <StoredSecretsNote state={sequenceState} />
         )}
 
-        <SectionLabel>{t("connections.knock.timing")}</SectionLabel>
+        <SectionLabel className="pt-2">{t("connections.knock.timing")}</SectionLabel>
         {TIMING.map(({ key, icon, label, unit, maxLength, placeholder }) => (
           <SettingRow key={key} icon={icon} label={t(label)}>
             <span className="flex items-center gap-1.5">
@@ -141,7 +135,7 @@ export default function PortKnockPanel({ settings, steps, sequenceState, onSetti
             </span>
           </SettingRow>
         ))}
-        <p className={hint}>{t("connections.knock.windowHint")}</p>
+        <FormHint>{t("connections.knock.windowHint")}</FormHint>
 
         {issues.map((issue) => (
           <p

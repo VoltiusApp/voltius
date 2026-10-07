@@ -151,6 +151,14 @@ export function hostCommandFieldsSet(f: HostCommandFieldsState): boolean {
   return !!(f.preCommand || f.postCommand || f.preSnippetId || f.postSnippetId || f.terminalEncoding);
 }
 
+export function SectionLabel({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <p className={`${className} text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)`.trim()}>{children}</p>;
+}
+
+export function FormHint({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <p className={`${className} text-xs text-(--t-text-dim)`.trim()}>{children}</p>;
+}
+
 interface HostCommandFieldsProps {
   connectionId?: string;
   fields: HostCommandFieldsState;
@@ -162,7 +170,7 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
   const { t } = useTranslation();
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-(--t-text-dim) pt-1">{t("connections.common.sessionCommands")}</p>
+      <SectionLabel className="pt-1">{t("connections.common.sessionCommands")}</SectionLabel>
       <HostCommandField
         slot="pre"
         text={fields.preCommand}
@@ -177,7 +185,7 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
         onChangeText={(v) => { markDirty(); fields.setPostCommand(v); }}
         onChangeSnippetId={(v) => { markDirty(); fields.setPostSnippetId(v); }}
       />
-      <p className="text-xs text-(--t-text-dim)">{t("connections.common.sessionCommandsHint")}</p>
+      <FormHint>{t("connections.common.sessionCommandsHint")}</FormHint>
       {(fields.preSnippetId || fields.postSnippetId) && (
         <label className="flex items-center gap-2 text-xs text-(--t-text-dim)">
           <input
