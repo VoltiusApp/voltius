@@ -34,6 +34,7 @@ mod sftp;
 mod shell_integration;
 mod ssh;
 mod storage;
+mod system_auth;
 mod terminal_kbd;
 mod tls;
 mod updater;
@@ -272,6 +273,8 @@ pub fn run() {
             commands::get_platform,
             app_lock::app_lock_get,
             app_lock::app_lock_set,
+            system_auth::system_auth_available,
+            system_auth::system_auth_verify,
             terminal_kbd::terminal_show_keyboard,
             terminal_kbd::terminal_hide_keyboard,
             commands::diagnostics::set_verbose_logging,

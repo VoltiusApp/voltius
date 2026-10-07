@@ -58,12 +58,18 @@
       "deb": {
         "depends": [
           "libsecret-1-0"
-        ]
+        ],
+        "files": {
+          "/usr/share/polkit-1/actions/com.voltius.app.policy": "packaging/linux/com.voltius.app.policy"
+        }
       },
       "rpm": {
         "depends": [
           "libsecret"
-        ]
+        ],
+        "files": {
+          "/usr/share/polkit-1/actions/com.voltius.app.policy": "packaging/linux/com.voltius.app.policy"
+        }
       }
     }
   },
