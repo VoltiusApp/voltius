@@ -1,7 +1,7 @@
 use crate::proxy::{self, ProxySpec};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use tokio::net::UdpSocket;
 
@@ -42,10 +42,24 @@ impl std::fmt::Display for KnockError {
     }
 }
 
-static LEDGER: LazyLock<Mutex<HashMap<(String, u16), Instant>>> = LazyLock::new(Default::default);
+type HostKey = (String, u16);
+type HostTurn = Arc<tokio::sync::Mutex<()>>;
 
-fn ledger_key(host: &str, port: u16) -> (String, u16) {
+static LEDGER: LazyLock<Mutex<HashMap<HostKey, Instant>>> = LazyLock::new(Default::default);
+static IN_FLIGHT: LazyLock<Mutex<HashMap<HostKey, HostTurn>>> = LazyLock::new(Default::default);
+
+fn ledger_key(host: &str, port: u16) -> HostKey {
     (host.to_ascii_lowercase(), port)
+}
+
+fn host_turn(host: &str, port: u16) -> HostTurn {
+    Arc::clone(
+        IN_FLIGHT
+            .lock()
+            .unwrap()
+            .entry(ledger_key(host, port))
+            .or_default(),
+    )
 }
 
 fn record(host: &str, port: u16) {
@@ -76,6 +90,8 @@ pub async fn knock(
     host: &str,
     ssh_port: u16,
 ) -> Result<(), KnockError> {
+    let turn = host_turn(host, ssh_port);
+    let _turn = turn.lock().await;
     let effective = proxy::resolve_spec(proxy, host, ssh_port).await;
     let proxied = matches!(
         effective,
@@ -124,8 +140,8 @@ pub async fn knock(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Instant;
-    use tokio::net::{TcpListener, UdpSocket};
+    use tokio::net::TcpListener;
+    use tokio::task::JoinHandle;
 
     fn tcp(port: u16) -> KnockStep {
         KnockStep {
@@ -147,27 +163,54 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn tcp_steps_arrive_in_order_on_the_cadence() {
+    async fn listen(n: usize, start: Instant) -> (Vec<u16>, JoinHandle<Vec<Duration>>) {
         let ls: Vec<TcpListener> =
-            futures_util::future::join_all((0..3).map(|_| TcpListener::bind("127.0.0.1:0")))
+            futures_util::future::join_all((0..n).map(|_| TcpListener::bind("127.0.0.1:0")))
                 .await
                 .into_iter()
                 .map(Result::unwrap)
                 .collect();
-        let ports: Vec<u16> = ls.iter().map(|l| l.local_addr().unwrap().port()).collect();
-        let start = Instant::now();
-        let accepts = ls.into_iter().map(|l| async move {
+        let ports = ls.iter().map(|l| l.local_addr().unwrap().port()).collect();
+        let accepts = ls.into_iter().map(move |l| async move {
             l.accept().await.unwrap();
             start.elapsed()
         });
-        let sequence = spec(ports.iter().map(|p| tcp(*p)).collect());
-        let (_, times) = tokio::join!(
-            knock(&sequence, None, "127.0.0.1", 22),
-            futures_util::future::join_all(accepts),
-        );
+        (ports, tokio::spawn(futures_util::future::join_all(accepts)))
+    }
+
+    #[tokio::test]
+    async fn tcp_steps_arrive_in_order_on_the_cadence() {
+        let (ports, arrivals) = listen(3, Instant::now()).await;
+        knock(
+            &spec(ports.iter().map(|p| tcp(*p)).collect()),
+            None,
+            "127.0.0.1",
+            22,
+        )
+        .await
+        .unwrap();
+        let times = arrivals.await.unwrap();
         assert!(times[0] < times[1] && times[1] < times[2], "{times:?}");
         assert!(times[2] >= Duration::from_millis(90), "{times:?}");
+    }
+
+    #[tokio::test]
+    async fn concurrent_knocks_to_one_host_do_not_interleave() {
+        let start = Instant::now();
+        let (a, a_arrivals) = listen(2, start).await;
+        let (b, b_arrivals) = listen(2, start).await;
+        let (sa, sb) = (
+            spec(a.iter().map(|p| tcp(*p)).collect()),
+            spec(b.iter().map(|p| tcp(*p)).collect()),
+        );
+        let (ra, rb) = tokio::join!(
+            knock(&sa, None, "127.0.0.1", 2299),
+            knock(&sb, None, "127.0.0.1", 2299)
+        );
+        ra.unwrap();
+        rb.unwrap();
+        let (a, b) = (a_arrivals.await.unwrap(), b_arrivals.await.unwrap());
+        assert!(a[1] < b[0] || b[1] < a[0], "a={a:?} b={b:?}");
     }
 
     #[tokio::test]
