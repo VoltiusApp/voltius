@@ -62,6 +62,17 @@ pub struct ProxyOverride {
     pub username: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PortKnock {
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settle_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_secs: Option<u64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JumpHost {
     pub id: String,
@@ -193,6 +204,9 @@ pub struct Connection {
     pub persist_session: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy: Option<ProxyOverride>,
+    /// Plain knock settings; the port sequence lives in the secret store.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port_knock: Option<PortKnock>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -280,6 +294,8 @@ pub struct ConnectionFormData {
     pub persist_session: Option<bool>,
     #[serde(default)]
     pub proxy: Option<ProxyOverride>,
+    #[serde(default)]
+    pub port_knock: Option<PortKnock>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -1078,6 +1094,7 @@ mod tests {
             keepalive_preset: None,
             persist_session: None,
             proxy: None,
+            port_knock: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
@@ -1093,6 +1110,14 @@ mod tests {
             deleted_at: None,
             clocks: clocks(),
         }
+    }
+
+    #[test]
+    fn connection_row_without_port_knock_loads_as_none() {
+        let mut row = serde_json::to_value(sample_connection()).unwrap();
+        assert!(row.as_object_mut().unwrap().remove("port_knock").is_none());
+        let loaded: Connection = serde_json::from_value(row).unwrap();
+        assert_eq!(loaded.port_knock, None);
     }
 
     fn sample_identity() -> Identity {

@@ -54,6 +54,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         keepalive_preset: data.keepalive_preset,
         persist_session: data.persist_session,
         proxy: data.proxy,
+        port_knock: data.port_knock,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -122,7 +123,7 @@ connection_clocks! {
         folder_id, vault_id, agent_forwarding, legacy_algorithms, pre_command, post_command,
         pre_snippet_id, post_snippet_id, ask_vars_each_time,
         terminal_encoding, distro, icon, ping_disabled,
-        shell_integration, keepalive_preset, persist_session, proxy, connection_type, serial_port, serial_baud,
+        shell_integration, keepalive_preset, persist_session, proxy, port_knock, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
         serial_auto_reconnect, ftp_secure, webdav_url,
         notes,
@@ -187,6 +188,7 @@ fn build_connection(
         keepalive_preset: data.keepalive_preset,
         persist_session: data.persist_session,
         proxy: data.proxy,
+        port_knock: data.port_knock,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -294,8 +296,8 @@ vault_delete_command!(connection_delete, load_connections, save_connections);
 mod tests {
     use super::*;
     use crate::storage::config::{
-        AuthType, Connection, ConnectionFormData, ConnectionType, EnvVar, JumpHost, ProxyMode,
-        ProxyOverride,
+        AuthType, Connection, ConnectionFormData, ConnectionType, EnvVar, JumpHost, PortKnock,
+        ProxyMode, ProxyOverride,
     };
     use std::collections::HashMap;
 
@@ -345,6 +347,7 @@ mod tests {
             keepalive_preset: None,
             persist_session: None,
             proxy: None,
+            port_knock: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
@@ -409,6 +412,12 @@ mod tests {
                 port: Some(1080),
                 username: None,
             }),
+            port_knock: Some(PortKnock {
+                enabled: true,
+                delay_ms: Some(200),
+                settle_ms: None,
+                window_secs: Some(60),
+            }),
             connection_type: ConnectionType::Serial,
             serial_port: Some("/dev/ttyU1".into()),
             serial_baud: Some(115200),
@@ -421,6 +430,20 @@ mod tests {
             webdav_url: Some("https://dav.example.com/".into()),
             notes: Some("new note".into()),
         }
+    }
+
+    #[test]
+    fn port_knock_round_trips_and_bumps_its_clock() {
+        let existing = sample_connection();
+        let merged = merge_form_into_connection(&existing, sample_form());
+        assert_eq!(merged.port_knock, sample_form().port_knock);
+
+        let mut changed = sample_form();
+        changed.port_knock.as_mut().unwrap().window_secs = Some(30);
+        let mut next = merge_form_into_connection(&merged, changed);
+        bump_changed_clocks(&merged, &mut next, "2026-03-03T00:00:00Z");
+        assert_eq!(next.port_knock.as_ref().unwrap().window_secs, Some(30));
+        assert_eq!(next.clocks["port_knock"], "2026-03-03T00:00:00Z");
     }
 
     // ── merge_form_into_connection ──────────────────────────────────────────
@@ -603,8 +626,8 @@ mod tests {
     }
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes (38 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
-    /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`;
+    /// changes (39 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
+    /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`, `port_knock`;
     /// `pinned` is excluded as device-local).
     /// Since Phase 1, create-time init and update-time bump both derive from the
     /// single `connection_clocks!` list, so this set equals the one seeded by
@@ -643,6 +666,7 @@ mod tests {
             "post_snippet_id",
             "pre_command",
             "pre_snippet_id",
+            "port_knock",
             "proxy",
             "serial_auto_reconnect",
             "serial_baud",
@@ -660,7 +684,7 @@ mod tests {
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 38);
+        assert_eq!(keys.len(), 39);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -680,6 +704,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 38);
+        assert_eq!(seeded.len(), 39);
     }
 }
