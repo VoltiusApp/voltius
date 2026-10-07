@@ -21,6 +21,7 @@ const secrets: Record<string, string> = {
   "key:c1": "pk",
   "passphrase:c1": "pp",
   "proxy_password:c1": PROXY_PASSWORD,
+  "knock_sequence:c1": "666/tcp",
 };
 
 describe("connection secrets round-trip", () => {
@@ -30,7 +31,14 @@ describe("connection secrets round-trip", () => {
       private_key: "pk",
       passphrase: "pp",
       proxy_password: PROXY_PASSWORD,
+      knock_sequence: "666/tcp",
     });
+  });
+
+  it("stores the knock sequence under the new connection id", async () => {
+    const out: Record<string, string> = {};
+    await storeConnectionSecrets({ knock_sequence: "666/tcp" }, "c2", async (k, v) => { out[k] = v; });
+    expect(out).toEqual({ "knock_sequence:c2": "666/tcp" });
   });
 
   it("stores the proxy password under the new connection id", async () => {

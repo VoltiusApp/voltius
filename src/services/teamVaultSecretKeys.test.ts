@@ -14,6 +14,7 @@ const SHAPES: [localKey: string, objectId: string, secretType: TeamSecretType][]
   ["key:conn1", "conn1", "connection_key"],
   ["passphrase:conn1", "conn1", "connection_passphrase"],
   ["proxy_password:conn1", "conn1", "connection_proxy_password"],
+  ["knock_sequence:conn1", "conn1", "connection_knock_sequence"],
   ["identity:id1:password", "id1", "identity_password"],
   ["key:key1:private", "key1", "key_private"],
   ["key:key1:public", "key1", "key_public"],
@@ -57,10 +58,6 @@ it("never maps a team-written __global__ object id back onto this device's globa
   expect(localSecretKeyFromTeamSecret("__global__", "connection_proxy_password")).toBeNull();
 });
 
-it("secretKeysFor covers every per-connection secret", () => {
-  expect(secretKeysFor("connection", "c")).toEqual(["password:c", "key:c", "passphrase:c", "proxy_password:c"]);
-});
-
 test("every kind's secret keys parse back to that kind and object", () => {
   expect(secretKeysFor("key", "k1")).toEqual(["key:k1:private", "key:k1:public", "key:k1:passphrase"]);
   expect(secretKeysFor("identity", "i1")).toEqual(["identity:i1:password"]);
@@ -71,4 +68,8 @@ test("every kind's secret keys parse back to that kind and object", () => {
       expect(secretObjectKindOf(parts!.secretType)).toBe(kind);
     }
   }
+});
+
+test("every connection secret key cascades with the connection", () => {
+  expect(secretKeysFor("connection", "c")).toEqual(["password:c", "key:c", "passphrase:c", "proxy_password:c", "knock_sequence:c"]);
 });

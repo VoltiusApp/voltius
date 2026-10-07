@@ -64,7 +64,7 @@ import { saveHostFromForm } from "./hostForm";
 import { saveKeyFromForm, saveIdentityFromForm } from "./keychainForm";
 
 const TEAM = "team-1";
-const none = { password: null, privateKey: null, passphrase: null, proxyPassword: null };
+const none = { password: null, private_key: null, passphrase: null, proxy_password: null, knock_sequence: null };
 
 const editors = [
   {

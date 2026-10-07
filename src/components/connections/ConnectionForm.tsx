@@ -211,9 +211,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         } as ConnectionFormData,
         secrets: {
           password: passwordDirty.current ? password : null,
-          privateKey: null,
+          private_key: null,
           passphrase: null,
-          proxyPassword: isWebdav && proxyPasswordDirty.current ? proxyPassword : null,
+          proxy_password: isWebdav && proxyPasswordDirty.current ? proxyPassword : null,
+          knock_sequence: null,
         },
       };
     }
@@ -256,9 +257,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
       } as ConnectionFormData,
       secrets: {
         password: passwordDirty.current ? password : null,
-        privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
+        private_key: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
         passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
-        proxyPassword: proxyPasswordDirty.current ? proxyPassword : null,
+        proxy_password: proxyPasswordDirty.current ? proxyPassword : null,
+        knock_sequence: null,
       },
     };
   };

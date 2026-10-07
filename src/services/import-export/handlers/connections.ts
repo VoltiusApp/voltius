@@ -5,7 +5,7 @@ import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats"
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
 import { dupesOf, selectionMethods, skipItem } from "../context";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
-import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
+import { omitSecrets, fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
 export const connectionsHandler: DataTypeHandler = {
   key: "connections",
@@ -79,7 +79,8 @@ export const connectionsHandler: DataTypeHandler = {
       if (skipItem(ctx, conn, dupesOf(ctx).connection(conn), ctx.connectionEidMap)) return;
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _eid, password, private_key, passphrase, proxy_password, _identity_eid, _key_eid, _folder_eid, _pre_snippet_eid, _post_snippet_eid, tags, jump_hosts, ...passthrough } = conn;
+        const { _eid, _identity_eid, _key_eid, _folder_eid, _pre_snippet_eid, _post_snippet_eid, tags, jump_hosts, ...rest } = conn;
+        const passthrough = omitSecrets(rest);
         const resolvedJumpHosts: JumpHost[] | undefined = jump_hosts?.map(jh => ({
           id: crypto.randomUUID(),
           connection_id: jh._connection_eid ? (ctx.connectionEidMap.get(jh._connection_eid) ?? "") : "",

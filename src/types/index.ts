@@ -100,6 +100,13 @@ export interface EnvVar {
 export type CustomProxyMode = "socks5" | "http" | "https";
 export type ProxyMode = "direct" | "system" | CustomProxyMode;
 
+export interface PortKnockSettings {
+  enabled: boolean;
+  delay_ms?: number;
+  settle_ms?: number;
+  window_secs?: number;
+}
+
 export interface ProxyOverride {
   mode: ProxyMode;
   host?: string;
@@ -144,6 +151,7 @@ export interface Connection {
   connection_type?: ConnectionType;
   ftp_secure?: boolean;
   webdav_url?: string;
+  port_knock?: PortKnockSettings;
   notes?: string;
   serial_port?: string;
   serial_baud?: number;
@@ -189,6 +197,7 @@ export interface ConnectionFormData {
   connection_type?: ConnectionType;
   ftp_secure?: boolean;
   webdav_url?: string;
+  port_knock?: PortKnockSettings;
   notes?: string;
   serial_port?: string;
   serial_baud?: number;

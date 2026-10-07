@@ -1,30 +1,23 @@
 // Pure vault key mapping for export/import credential round-trips.
 // No Tauri dependencies — accepts fetchSecret / storeSecret as parameters.
 
-import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
+import { CONNECTION_SECRET_FIELDS, CONNECTION_SECRET_KEYS, type ConnectionSecretField } from "@/services/teamVaultSecretKeys";
 
 type FetchSecret = (key: string) => Promise<string | null>;
 type StoreSecret = (key: string, value: string) => Promise<void>;
 
 // ─── Connection ───────────────────────────────────────────────────────────────
 
-export interface ConnectionSecrets {
-  password?: string;
-  private_key?: string;
-  passphrase?: string;
-  proxy_password?: string;
-}
+export type ConnectionSecrets = Partial<Record<ConnectionSecretField, string>>;
 
 export async function fetchConnectionSecrets(
   connId: string,
   fetchSecret: FetchSecret,
 ): Promise<ConnectionSecrets> {
-  return {
-    password: (await fetchSecret(`password:${connId}`)) ?? undefined,
-    private_key: (await fetchSecret(`key:${connId}`)) ?? undefined,
-    passphrase: (await fetchSecret(`passphrase:${connId}`)) ?? undefined,
-    proxy_password: (await fetchSecret(proxyPasswordKey(connId))) ?? undefined,
-  };
+  const entries = await Promise.all(
+    CONNECTION_SECRET_FIELDS.map(async (f) => [f, (await fetchSecret(CONNECTION_SECRET_KEYS[f](connId))) ?? undefined] as const),
+  );
+  return Object.fromEntries(entries);
 }
 
 export async function storeConnectionSecrets(
@@ -32,10 +25,16 @@ export async function storeConnectionSecrets(
   newId: string,
   storeSecret: StoreSecret,
 ): Promise<void> {
-  if (record.password) await storeSecret(`password:${newId}`, record.password);
-  if (record.private_key) await storeSecret(`key:${newId}`, record.private_key);
-  if (record.passphrase) await storeSecret(`passphrase:${newId}`, record.passphrase);
-  if (record.proxy_password) await storeSecret(proxyPasswordKey(newId), record.proxy_password);
+  for (const f of CONNECTION_SECRET_FIELDS) {
+    const value = record[f];
+    if (value) await storeSecret(CONNECTION_SECRET_KEYS[f](newId), value);
+  }
+}
+
+export function omitSecrets<T extends object>(record: T): Omit<T, ConnectionSecretField> {
+  const copy: Partial<T> = { ...record };
+  for (const f of CONNECTION_SECRET_FIELDS) delete (copy as Record<string, unknown>)[f];
+  return copy as Omit<T, ConnectionSecretField>;
 }
 
 // ─── Identity ─────────────────────────────────────────────────────────────────

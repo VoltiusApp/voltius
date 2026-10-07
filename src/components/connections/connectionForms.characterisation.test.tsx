@@ -356,12 +356,12 @@ test("ssh form submits its proxy override and only a typed proxy password", asyn
     ref.current!.flush();
   });
   expect(onSubmit.mock.calls[0][0]).toMatchObject({ proxy: { mode: "socks5", host: "p.example", port: 1081 } });
-  expect(onSubmit.mock.calls[0][1].proxyPassword).toBeNull();
+  expect(onSubmit.mock.calls[0][1].proxy_password).toBeNull();
   fireEvent.change(screen.getByLabelText("connections.form.proxy.password"), { target: { value: "pw" } });
   await act(async () => {
     ref.current!.flush();
   });
-  expect(onSubmit.mock.calls[1][1].proxyPassword).toBe("pw");
+  expect(onSubmit.mock.calls[1][1].proxy_password).toBe("pw");
 });
 
 test.each([

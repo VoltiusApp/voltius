@@ -123,7 +123,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return keepSavedOnCancel(onSubmit(data, { password: pwd, privateKey: pk, passphrase: null, proxyPassword: null }));
+      return keepSavedOnCancel(onSubmit(data, { password: pwd, private_key: pk, passphrase: null, proxy_password: null, knock_sequence: null }));
     },
     canSave: () => !!serialPort.trim(),
     readOnly,

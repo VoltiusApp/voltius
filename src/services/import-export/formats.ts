@@ -2,6 +2,8 @@
 // Format-specific parsers live in parsers/*.ts — one file per format.
 
 import type { ConnectionFormData } from "@/types";
+import type { ConnectionSecrets } from "./secretsLogic";
+import { CONNECTION_SECRET_FIELDS } from "@/services/teamVaultSecretKeys";
 import type { SnippetStepExport } from "./snippetRefs";
 import i18n from "@/i18n";
 import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
@@ -69,12 +71,8 @@ export interface JumpHostExport {
 type ConnectionPassthrough = Omit<ConnectionFormData,
   "identity_id" | "key_id" | "folder_id" | "vault_id" | "jump_hosts" | "pre_snippet_id" | "post_snippet_id">;
 
-export interface ConnectionExport extends ConnectionPassthrough {
+export interface ConnectionExport extends ConnectionPassthrough, ConnectionSecrets {
   _eid?: string;        // → referenced by PortForwardingRuleExport._connection_eids
-  password?: string;
-  private_key?: string;
-  passphrase?: string;
-  proxy_password?: string;
   _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
@@ -85,7 +83,7 @@ export interface ConnectionExport extends ConnectionPassthrough {
 
 export function secretBearingTypes(bundle: ExportBundle): string[] {
   const out: string[] = [];
-  if (bundle.connections.some((c) => c.password || c.private_key || c.passphrase || c.proxy_password || c.notes)) out.push("connections");
+  if (bundle.connections.some((c) => CONNECTION_SECRET_FIELDS.some((f) => c[f]) || c.notes)) out.push("connections");
   if (bundle.identities.some((i) => i.password)) out.push("identities");
   if (bundle.keys.some((k) => k.private_key || k.passphrase)) out.push("keys");
   return out;

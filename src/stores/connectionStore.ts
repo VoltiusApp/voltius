@@ -37,6 +37,7 @@ export function connectionToFormData(c: Connection): ConnectionFormData {
     serial_flow_control: c.serial_flow_control, serial_auto_reconnect: c.serial_auto_reconnect, ftp_secure: c.ftp_secure,
     webdav_url: c.webdav_url,
     notes: c.notes,
+    port_knock: c.port_knock,
   };
 }
 

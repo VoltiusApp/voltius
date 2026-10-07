@@ -24,7 +24,7 @@ vi.mock("@/services/vaultObjectSecrets", async (importOriginal) => {
 import { saveHostFromForm } from "./hostForm";
 
 const editing = { id: "c1", vault_id: "team-1" } as never;
-const none = { password: null, privateKey: null, passphrase: null, proxyPassword: null };
+const none = { password: null, private_key: null, passphrase: null, proxy_password: null, knock_sequence: null };
 
 describe("saveHostFromForm", () => {
   beforeEach(() => {
@@ -42,19 +42,24 @@ describe("saveHostFromForm", () => {
     await saveHostFromForm(personal, { tags: [], vault_id: "v-other" }, { ...none, password: "new" }, "personal");
 
     expect(moveWithSecrets).toHaveBeenCalledWith("connection", personal, "v-other", expect.any(Function), [
-      ["password:c1", "new"], ["key:c1", null], ["passphrase:c1", null], ["proxy_password:c1", null],
+      ["password:c1", "new"], ["key:c1", null], ["passphrase:c1", null], ["proxy_password:c1", null], ["knock_sequence:c1", null],
     ]);
     expect(updateConnection).toHaveBeenCalledWith("c1", { tags: [], vault_id: "v-other" });
     expect(calls).toEqual(["move", "update", "store password:c1"]);
   });
 
   it("stores the proxy password locally", async () => {
-    await saveHostFromForm(editing, { tags: [] }, { ...none, proxyPassword: "pp" }, "personal");
+    await saveHostFromForm(editing, { tags: [] }, { ...none, proxy_password: "pp" }, "personal");
     expect(storeSecret).toHaveBeenCalledWith("proxy_password:c1", "pp");
   });
 
+  it("stores the knock sequence locally", async () => {
+    await saveHostFromForm(editing, { tags: [] }, { ...none, knock_sequence: "666/tcp" }, "personal");
+    expect(storeSecret).toHaveBeenCalledWith("knock_sequence:c1", "666/tcp");
+  });
+
   it("clears the proxy password when emptied", async () => {
-    await saveHostFromForm(editing, { tags: [] }, { ...none, proxyPassword: "" }, "personal");
+    await saveHostFromForm(editing, { tags: [] }, { ...none, proxy_password: "" }, "personal");
     expect(deleteSecret).toHaveBeenCalledWith("proxy_password:c1");
   });
 
@@ -68,7 +73,7 @@ describe("saveHostFromForm", () => {
   it("an upload failure while saving a host form reaches the caller", async () => {
     storeSecret.mockRejectedValue(new TeamSecretUploadError("password:c1", new Error("403")));
     await expect(
-      saveHostFromForm(editing, { tags: [] }, { password: "pw", privateKey: null, passphrase: null, proxyPassword: null }, "v1"),
+      saveHostFromForm(editing, { tags: [] }, { ...none, password: "pw" }, "v1"),
     ).rejects.toBeInstanceOf(TeamSecretUploadError);
   });
 });
