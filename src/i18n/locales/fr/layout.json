@@ -109,7 +109,7 @@
       "modeCloud": "Compte cloud",
       "modeLocalPassword": "Local · protégé par mot de passe",
       "modeLocal": "Compte local",
-      "lockVault": "Verrouiller le coffre",
+      "lockVault": "Verrouiller maintenant",
       "reportBug": "Signaler un bug…",
       "appearance": "Apparence",
       "toggleTheme": "Basculer clair / sombre",
@@ -126,7 +126,8 @@
       "autoLock": "Réglages du verrouillage auto…",
       "autoLockOff": "Verrouillage auto désactivé",
       "autoLockAfter": "Verrouillage auto après {{duration}}",
-      "addAccount": "Ajouter un autre compte…"
+      "addAccount": "Ajouter un autre compte…",
+      "autoLockImmediately": "Se verrouille quand vous quittez l'app"
     },
     "splash": {
       "steps": {
@@ -282,6 +283,17 @@
       "updateAvailable": "Mise à jour v{{version}} disponible — cliquez pour voir et télécharger",
       "settings": "Paramètres",
       "addVault": "Ajouter un coffre"
+    },
+    "appLock": {
+      "title": "Voltius est verrouillé",
+      "subtitle": "Vos sessions continuent de tourner.",
+      "unlockWith": "Déverrouiller avec {{method}}",
+      "tryAgain": "Réessayer",
+      "systemAuthFailed": "Échec de l'authentification.",
+      "wrongPassword": "Mot de passe principal incorrect.",
+      "keychainEmpty": "La clé du coffre n'est plus dans le trousseau système. Saisissez votre mot de passe principal.",
+      "logOut": "Se déconnecter",
+      "promptReason": "Déverrouiller Voltius"
     }
   }
 }

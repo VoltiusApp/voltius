@@ -109,7 +109,7 @@
       "modeCloud": "Bulut hesabı",
       "modeLocalPassword": "Yerel · parola korumalı",
       "modeLocal": "Yerel hesap",
-      "lockVault": "Kasayı kilitle",
+      "lockVault": "Şimdi kilitle",
       "reportBug": "Hata bildir…",
       "appearance": "Görünüm",
       "toggleTheme": "Açık / koyu tema",
@@ -126,7 +126,8 @@
       "autoLock": "Otomatik kilit ayarları…",
       "autoLockOff": "Otomatik kilit kapalı",
       "autoLockAfter": "{{duration}} sonra otomatik kilitlenir",
-      "addAccount": "Başka bir hesap ekle…"
+      "addAccount": "Başka bir hesap ekle…",
+      "autoLockImmediately": "Uygulamadan ayrılınca kilitlenir"
     },
     "splash": {
       "steps": {
@@ -278,6 +279,17 @@
       "updateAvailable": "v{{version}} güncellemesi mevcut — görüntülemek ve indirmek için tıklayın",
       "settings": "Ayarlar",
       "addVault": "Kasa ekle"
+    },
+    "appLock": {
+      "title": "Voltius kilitli",
+      "subtitle": "Oturumlarınız çalışmaya devam ediyor.",
+      "unlockWith": "{{method}} ile kilidi aç",
+      "tryAgain": "Tekrar dene",
+      "systemAuthFailed": "Kimlik doğrulama başarısız.",
+      "wrongPassword": "Ana parola yanlış.",
+      "keychainEmpty": "Kasa anahtarınız artık sistem anahtarlığında değil. Ana parolanızı girin.",
+      "logOut": "Çıkış yap",
+      "promptReason": "Voltius'un kilidini aç"
     }
   }
 }

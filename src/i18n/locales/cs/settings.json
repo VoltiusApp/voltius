@@ -236,16 +236,37 @@
       },
       "sessionSecurity": {
         "title": "Zabezpečení relace",
-        "autoLockLabel": "Automaticky zamknout trezor po nečinnosti",
-        "autoLockDesc": "Po vypršení relace zamkne trezor a vyžádá si hlavní heslo.",
-        "noPasswordHint": "Pro automatické zamykání a časový limit relace zapněte hlavní heslo.",
+        "autoLockLabel": "Automaticky zamknout po nečinnosti",
+        "autoLockDesc": "Zamkne Voltius po této době nečinnosti, nebo hned, jak aplikaci opustíte.",
         "timeout": {
           "never": "Nikdy",
           "5min": "5 minut",
           "15min": "15 minut",
           "30min": "30 minut",
           "1h": "1 hodina",
-          "4h": "4 hodiny"
+          "4h": "4 hodiny",
+          "immediately": "Okamžitě"
+        },
+        "needsSystemAuth": "Pro zamykání účtu bez hlavního hesla zapněte systémové ověření.",
+        "immediateVaultWarning": "Se zámkem trezoru i krátké opuštění Voltiusu zavře otevřené relace. Zámek obrazovky je nechá běžet.",
+        "lockAction": {
+          "label": "Při zamknutí",
+          "vault": "Zamknout trezor (zavřít relace)",
+          "screen": "Zamknout obrazovku (relace běží dál)",
+          "vaultDesc": "Odstraní klíč trezoru z paměti. Otevřené relace se zavřou a Voltius se znovu načte.",
+          "screenDesc": "Zakryje Voltius, zatímco relace, přesměrování portů a přenosy běží dál."
+        },
+        "systemAuth": {
+          "toggle": "Odemykat systémovým ověřením",
+          "desc": "Použijte {{method}} místo zadávání hlavního hesla.",
+          "unavailable": "Na tomto zařízení není k dispozici.",
+          "disclosure": "Během zamknutí zůstává klíč trezoru v systémové klíčence, chráněný přihlášením k zařízení.",
+          "method": {
+            "windows": "Windows Hello",
+            "macos": "Touch ID nebo heslo k Macu",
+            "linux": "systémové heslo",
+            "android": "otisk prstu nebo zámek obrazovky"
+          }
         }
       },
       "email": "E-mail",
@@ -308,8 +329,8 @@
         "sub": "Chraňte trezor lokálně bez synchronizace s cloudem"
       },
       "lockVault": {
-        "label": "Zamknout trezor",
-        "sub": "Zamknout nyní a vyžadovat hlavní heslo"
+        "label": "Zamknout nyní",
+        "sub": "Zamkne Voltius akcí zvolenou výše"
       },
       "signOut": {
         "label": "Odhlásit se z cloudového účtu",
@@ -460,7 +481,9 @@
       "consequence": {
         "autoUpdate": "Vypne automatické stahování aktualizací, takže bezpečnostní opravy přestanou přicházet samy.",
         "pluginInstallReview": "Vypne obrazovku se souhlasem před instalací pluginu. Plugin žádající o citlivé oprávnění ji stále zobrazí.",
-        "sessionTimeout": "Vypne automatické zamčení trezoru po době nečinnosti."
+        "sessionTimeout": "Vypne nebo prodlouží automatické zamykání.",
+        "lockAction": "Přepne zamykání na zámek obrazovky, který nechává klíč trezoru v paměti.",
+        "systemAuthUnlock": "Umožní odemknout Voltius přihlášením k zařízení; klíč trezoru během zamknutí zůstává v systémové klíčence."
       }
     },
     "about": {

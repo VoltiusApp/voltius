@@ -237,15 +237,36 @@
       "sessionSecurity": {
         "title": "Sécurité de session",
         "autoLockLabel": "Verrouillage automatique après inactivité",
-        "autoLockDesc": "Verrouille votre coffre-fort et demande votre mot de passe maître à l'expiration de la session.",
-        "noPasswordHint": "Activez un mot de passe maître pour utiliser le verrouillage automatique et le délai de session.",
+        "autoLockDesc": "Verrouille Voltius après cette durée d'inactivité, ou dès que vous quittez l'application.",
         "timeout": {
           "never": "Jamais",
           "5min": "5 minutes",
           "15min": "15 minutes",
           "30min": "30 minutes",
           "1h": "1 heure",
-          "4h": "4 heures"
+          "4h": "4 heures",
+          "immediately": "Immédiatement"
+        },
+        "needsSystemAuth": "Activez l'authentification système pour verrouiller un compte sans mot de passe principal.",
+        "immediateVaultWarning": "Avec « Verrouiller le coffre », quitter Voltius même un instant ferme vos sessions ouvertes. « Verrouiller l'écran » les garde actives.",
+        "lockAction": {
+          "label": "Au verrouillage",
+          "vault": "Verrouiller le coffre (fermer les sessions)",
+          "screen": "Verrouiller l'écran (garder les sessions)",
+          "vaultDesc": "Retire la clé du coffre de la mémoire. Les sessions ouvertes se ferment et Voltius se recharge.",
+          "screenDesc": "Masque Voltius pendant que les sessions, redirections de ports et transferts continuent."
+        },
+        "systemAuth": {
+          "toggle": "Déverrouiller avec l'authentification système",
+          "desc": "Utilisez {{method}} au lieu de saisir votre mot de passe principal.",
+          "unavailable": "Non disponible sur cet appareil.",
+          "disclosure": "Pendant le verrouillage, la clé du coffre reste dans le trousseau système, protégée par la connexion de l'appareil.",
+          "method": {
+            "windows": "Windows Hello",
+            "macos": "Touch ID ou le mot de passe de votre Mac",
+            "linux": "votre mot de passe système",
+            "android": "votre empreinte ou le verrouillage de l'écran"
+          }
         }
       },
       "email": "E-mail",
@@ -308,8 +329,8 @@
         "sub": "Protégez votre coffre-fort localement sans synchronisation cloud"
       },
       "lockVault": {
-        "label": "Verrouiller le coffre-fort",
-        "sub": "Verrouiller maintenant et exiger votre mot de passe maître"
+        "label": "Verrouiller maintenant",
+        "sub": "Verrouille Voltius avec l'action choisie ci-dessus"
       },
       "signOut": {
         "label": "Se déconnecter du compte cloud",
@@ -457,7 +478,9 @@
       "consequence": {
         "autoUpdate": "Désactive le téléchargement automatique des mises à jour : les correctifs de sécurité n'arrivent plus d'eux-mêmes.",
         "pluginInstallReview": "Désactive l'écran de consentement affiché avant l'installation d'un plugin. Un plugin qui demande une permission sensible l'affiche quand même.",
-        "sessionTimeout": "Désactive le verrouillage automatique du coffre après une période d'inactivité."
+        "sessionTimeout": "Désactive ou allonge le verrouillage automatique.",
+        "lockAction": "Passe à un verrouillage d'écran qui garde la clé du coffre en mémoire.",
+        "systemAuthUnlock": "Permet à la connexion de l'appareil de déverrouiller Voltius, la clé du coffre restant dans le trousseau système pendant le verrouillage."
       }
     },
     "about": {

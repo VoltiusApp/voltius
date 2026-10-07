@@ -109,7 +109,7 @@
       "modeCloud": "Cloudový účet",
       "modeLocalPassword": "Lokální · chráněno heslem",
       "modeLocal": "Lokální účet",
-      "lockVault": "Zamknout trezor",
+      "lockVault": "Zamknout nyní",
       "reportBug": "Nahlásit chybu…",
       "appearance": "Vzhled",
       "toggleTheme": "Přepnout světlý / tmavý",
@@ -126,7 +126,8 @@
       "autoLock": "Nastavení automatického zamykání…",
       "autoLockOff": "Automatické zamykání vypnuto",
       "autoLockAfter": "Automaticky zamkne po {{duration}}",
-      "addAccount": "Přidat další účet…"
+      "addAccount": "Přidat další účet…",
+      "autoLockImmediately": "Zamkne se při opuštění aplikace"
     },
     "splash": {
       "steps": {
@@ -286,6 +287,17 @@
       "updateAvailable": "K dispozici je aktualizace v{{version}} — kliknutím zobrazíte a stáhnete",
       "settings": "Nastavení",
       "addVault": "Přidat trezor"
+    },
+    "appLock": {
+      "title": "Voltius je zamčený",
+      "subtitle": "Relace stále běží.",
+      "unlockWith": "Odemknout pomocí: {{method}}",
+      "tryAgain": "Zkusit znovu",
+      "systemAuthFailed": "Ověření selhalo.",
+      "wrongPassword": "Nesprávné hlavní heslo.",
+      "keychainEmpty": "Klíč trezoru už v systémové klíčence není. Zadejte hlavní heslo.",
+      "logOut": "Odhlásit se",
+      "promptReason": "Odemknout Voltius"
     }
   }
 }

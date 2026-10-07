@@ -130,16 +130,37 @@
       },
       "sessionSecurity": {
         "title": "会话安全",
-        "autoLockLabel": "不活动后自动锁定保险库",
-        "autoLockDesc": "在会话过期时锁定保险库并要求输入主密码。",
-        "noPasswordHint": "启用主密码以使用自动锁定和会话超时。",
+        "autoLockLabel": "闲置后自动锁定",
+        "autoLockDesc": "闲置达到此时长后锁定 Voltius，或在你离开应用时立即锁定。",
         "timeout": {
           "never": "从不",
           "5min": "5 分钟",
           "15min": "15 分钟",
           "30min": "30 分钟",
           "1h": "1 小时",
-          "4h": "4 小时"
+          "4h": "4 小时",
+          "immediately": "立即"
+        },
+        "needsSystemAuth": "开启系统身份验证后，才能锁定没有主密码的账户。",
+        "immediateVaultWarning": "选择“锁定保险库”时，即使短暂离开 Voltius 也会关闭已打开的会话。“锁定屏幕”会让它们继续运行。",
+        "lockAction": {
+          "label": "锁定方式",
+          "vault": "锁定保险库（关闭会话）",
+          "screen": "锁定屏幕（会话继续运行）",
+          "vaultDesc": "从内存中移除保险库密钥。已打开的会话会关闭，Voltius 会重新加载。",
+          "screenDesc": "遮挡 Voltius，会话、端口转发和传输继续运行。"
+        },
+        "systemAuth": {
+          "toggle": "使用系统身份验证解锁",
+          "desc": "使用{{method}}代替输入主密码。",
+          "unavailable": "此设备不支持。",
+          "disclosure": "锁定期间，保险库密钥保存在系统钥匙串中，受设备登录保护。",
+          "method": {
+            "windows": "Windows Hello",
+            "macos": "触控 ID 或 Mac 密码",
+            "linux": "系统密码",
+            "android": "指纹或屏幕锁"
+          }
         }
       },
       "email": "邮箱",
@@ -202,8 +223,8 @@
         "sub": "在本地保护保险库，无需云同步"
       },
       "lockVault": {
-        "label": "锁定保险库",
-        "sub": "立即锁定并要求输入主密码"
+        "label": "立即锁定",
+        "sub": "按上方选择的方式锁定 Voltius"
       },
       "signOut": {
         "label": "登出云账户",
@@ -348,7 +369,9 @@
       "consequence": {
         "autoUpdate": "关闭更新的自动下载，安全修复将不再自动送达。",
         "pluginInstallReview": "关闭安装插件前显示的授权确认界面。请求敏感权限的插件仍会显示该界面。",
-        "sessionTimeout": "关闭闲置一段时间后自动锁定保险库的功能。"
+        "sessionTimeout": "关闭或延长自动锁定。",
+        "lockAction": "将锁定方式切换为屏幕锁定，保险库密钥会保留在内存中。",
+        "systemAuthUnlock": "允许通过设备登录解锁 Voltius，锁定期间保险库密钥保留在系统钥匙串中。"
       }
     },
     "about": {

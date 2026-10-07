@@ -109,7 +109,7 @@
       "modeCloud": "Cloud account",
       "modeLocalPassword": "Local · password protected",
       "modeLocal": "Local account",
-      "lockVault": "Lock vault",
+      "lockVault": "Lock now",
       "reportBug": "Report a bug…",
       "appearance": "Appearance",
       "toggleTheme": "Toggle light / dark",
@@ -126,7 +126,8 @@
       "autoLock": "Auto-lock settings…",
       "autoLockOff": "Auto-lock off",
       "autoLockAfter": "Auto-locks after {{duration}}",
-      "addAccount": "Add another account…"
+      "addAccount": "Add another account…",
+      "autoLockImmediately": "Locks when you leave the app"
     },
     "splash": {
       "steps": {
@@ -278,6 +279,17 @@
       "updateAvailable": "Update v{{version}} available — click to view & download",
       "settings": "Settings",
       "addVault": "Add vault"
+    },
+    "appLock": {
+      "title": "Voltius is locked",
+      "subtitle": "Your sessions are still running.",
+      "unlockWith": "Unlock with {{method}}",
+      "tryAgain": "Try again",
+      "systemAuthFailed": "Authentication failed.",
+      "wrongPassword": "Wrong master password.",
+      "keychainEmpty": "Your vault key is no longer in the system keychain. Enter your master password.",
+      "logOut": "Log out",
+      "promptReason": "Unlock Voltius"
     }
   }
 }

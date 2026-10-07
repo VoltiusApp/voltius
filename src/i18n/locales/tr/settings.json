@@ -242,16 +242,37 @@
       },
       "sessionSecurity": {
         "title": "Oturum Güvenliği",
-        "autoLockLabel": "Etkinlik olmadığında kasayı otomatik kilitle",
-        "autoLockDesc": "Oturumunuzun süresi dolduğunda kasanızı kilitler ve ana parolanızı ister.",
-        "noPasswordHint": "Otomatik kilit ve oturum zaman aşımını kullanmak için bir ana parola etkinleştirin.",
+        "autoLockLabel": "Hareketsizlikten sonra otomatik kilitle",
+        "autoLockDesc": "Voltius'u bu kadar hareketsizlikten sonra ya da uygulamadan ayrıldığınız anda kilitler.",
         "timeout": {
           "never": "Hiçbir zaman",
           "5min": "5 dakika",
           "15min": "15 dakika",
           "30min": "30 dakika",
           "1h": "1 saat",
-          "4h": "4 saat"
+          "4h": "4 saat",
+          "immediately": "Hemen"
+        },
+        "needsSystemAuth": "Ana parolası olmayan bir hesabı kilitlemek için sistem kimlik doğrulamasını açın.",
+        "immediateVaultWarning": "Kasayı kilitle seçiliyken Voltius'tan kısa süre ayrılmak bile açık oturumlarınızı kapatır. Ekranı kilitle onları çalışır tutar.",
+        "lockAction": {
+          "label": "Kilitlerken",
+          "vault": "Kasayı kilitle (oturumları kapat)",
+          "screen": "Ekranı kilitle (oturumlar çalışmaya devam eder)",
+          "vaultDesc": "Kasa anahtarını bellekten siler. Açık oturumlar kapanır ve Voltius yeniden yüklenir.",
+          "screenDesc": "Oturumlar, port yönlendirmeleri ve aktarımlar çalışırken Voltius'u gizler."
+        },
+        "systemAuth": {
+          "toggle": "Sistem kimlik doğrulamasıyla kilidi aç",
+          "desc": "Ana parolanızı yazmak yerine {{method}} kullanın.",
+          "unavailable": "Bu cihazda kullanılamıyor.",
+          "disclosure": "Kilitliyken kasa anahtarınız, cihaz girişinizle korunan sistem anahtarlığında kalır.",
+          "method": {
+            "windows": "Windows Hello",
+            "macos": "Touch ID veya Mac parolanız",
+            "linux": "sistem parolanız",
+            "android": "parmak iziniz veya ekran kilidiniz"
+          }
         }
       },
       "email": "E-posta",
@@ -314,8 +335,8 @@
         "sub": "Kasanızı bulut eşitleme olmadan yerel olarak koruyun"
       },
       "lockVault": {
-        "label": "Kasayı kilitle",
-        "sub": "Şimdi kilitle ve ana parolayı iste"
+        "label": "Şimdi kilitle",
+        "sub": "Voltius'u yukarıda seçilen eylemle kilitler"
       },
       "signOut": {
         "label": "Bulut hesabında oturumu kapat",
@@ -636,7 +657,9 @@
       "consequence": {
         "autoUpdate": "Güncellemelerin otomatik indirilmesini kapatır; böylece güvenlik düzeltmeleri artık kendiliğinden gelmez.",
         "pluginInstallReview": "Eklenti kurulmadan önce gösterilen onay ekranını kapatır. Hassas bir izin isteyen eklenti yine de bu izni gösterir.",
-        "sessionTimeout": "Belirli bir süre işlem yapılmadığında kasanın otomatik kilitlenmesini kapatır."
+        "sessionTimeout": "Otomatik kilidi kapatır veya uzatır.",
+        "lockAction": "Kilitlemeyi, kasa anahtarını bellekte tutan ekran kilidine çevirir.",
+        "systemAuthUnlock": "Voltius'un cihaz girişiyle açılmasına izin verir; kilitliyken kasa anahtarı sistem anahtarlığında kalır."
       }
     },
     "about": {

@@ -236,9 +236,8 @@
       },
       "sessionSecurity": {
         "title": "Session Security",
-        "autoLockLabel": "Auto-lock vault after inactivity",
-        "autoLockDesc": "Locks your vault and asks for your master password when your session expires.",
-        "noPasswordHint": "Enable a master password to use auto-lock and session timeout.",
+        "autoLockLabel": "Auto-lock after inactivity",
+        "autoLockDesc": "Locks Voltius after this much inactivity, or as soon as you leave the app.",
         "timeout": {
           "never": "Never",
           "5min": "5 minutes",
@@ -249,11 +248,26 @@
           "immediately": "Immediately"
         },
         "lockAction": {
-          "label": "When locking"
+          "label": "When locking",
+          "vault": "Lock vault (close sessions)",
+          "screen": "Lock screen (keep sessions running)",
+          "vaultDesc": "Removes your vault key from memory. Open sessions close and Voltius reloads.",
+          "screenDesc": "Covers Voltius while sessions, port forwards and transfers keep running."
         },
         "systemAuth": {
-          "toggle": "Unlock with system authentication"
-        }
+          "toggle": "Unlock with system authentication",
+          "desc": "Use {{method}} instead of typing your master password.",
+          "unavailable": "Not available on this device.",
+          "disclosure": "Locking keeps your vault key in the system keychain, protected by your device login.",
+          "method": {
+            "windows": "Windows Hello",
+            "macos": "Touch ID or your Mac password",
+            "linux": "your system password",
+            "android": "your fingerprint or screen lock"
+          }
+        },
+        "needsSystemAuth": "Turn on system authentication to lock an account without a master password.",
+        "immediateVaultWarning": "With Lock vault, leaving Voltius even briefly closes your open sessions. Lock screen keeps them running."
       },
       "email": "Email",
       "editEmail": {
@@ -315,8 +329,8 @@
         "sub": "Protect your vault locally without cloud sync"
       },
       "lockVault": {
-        "label": "Lock vault",
-        "sub": "Lock now and require your master password"
+        "label": "Lock now",
+        "sub": "Locks Voltius with the action chosen above"
       },
       "signOut": {
         "label": "Sign out of cloud account",
@@ -461,7 +475,7 @@
       "consequence": {
         "autoUpdate": "Turns off automatic update downloads, so security fixes stop arriving on their own.",
         "pluginInstallReview": "Turns off the consent screen shown before installing a plugin. A plugin that asks for a sensitive permission still shows it.",
-        "sessionTimeout": "Turns off the automatic vault lock after a period of inactivity.",
+        "sessionTimeout": "Turns off or lengthens the automatic lock.",
         "lockAction": "Switches locking to a screen lock that keeps your vault key in memory.",
         "systemAuthUnlock": "Lets the device login unlock Voltius, keeping your vault key in the system keychain while locked."
       }

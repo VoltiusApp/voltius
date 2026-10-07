@@ -109,7 +109,7 @@
       "modeCloud": "云账户",
       "modeLocalPassword": "本地 · 密码保护",
       "modeLocal": "本地账户",
-      "lockVault": "锁定保险库",
+      "lockVault": "立即锁定",
       "reportBug": "报告问题…",
       "appearance": "外观",
       "toggleTheme": "切换亮色/暗色",
@@ -126,7 +126,8 @@
       "autoLock": "自动锁定设置…",
       "autoLockOff": "自动锁定已关闭",
       "autoLockAfter": "{{duration}}后自动锁定",
-      "addAccount": "添加其他账户…"
+      "addAccount": "添加其他账户…",
+      "autoLockImmediately": "离开应用时锁定"
     },
     "splash": {
       "steps": {
@@ -278,6 +279,17 @@
       "updateAvailable": "更新 v{{version}} 可用——点击查看并下载",
       "settings": "设置",
       "addVault": "添加保险库"
+    },
+    "appLock": {
+      "title": "Voltius 已锁定",
+      "subtitle": "你的会话仍在运行。",
+      "unlockWith": "使用{{method}}解锁",
+      "tryAgain": "重试",
+      "systemAuthFailed": "身份验证失败。",
+      "wrongPassword": "主密码错误。",
+      "keychainEmpty": "系统钥匙串中已没有保险库密钥。请输入主密码。",
+      "logOut": "退出登录",
+      "promptReason": "解锁 Voltius"
     }
   }
 }
