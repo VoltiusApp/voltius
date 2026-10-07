@@ -1,0 +1,139 @@
+// @vitest-environment jsdom
+import { test, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, act, cleanup } from "@testing-library/react";
+
+const h = vi.hoisted(() => ({
+  lockApp: vi.fn(async () => undefined),
+  suppressed: false,
+  mode: "local" as string | null,
+  resized: null as null | (() => void),
+  minimized: false,
+}));
+
+vi.mock("@/services/appLock", () => ({
+  lockApp: h.lockApp,
+  isLeaveLockSuppressed: () => h.suppressed,
+}));
+vi.mock("@/services/account", () => ({
+  getAccountMode: async () => h.mode,
+  getAppLock: async () => null,
+  setAppLock: async () => {},
+}));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onResized: async (cb: () => void) => { h.resized = cb; return () => {}; },
+    isMinimized: async () => h.minimized,
+  }),
+}));
+
+import { useSessionExpiration } from "./useSessionExpiration";
+import { useSecurityStore } from "@/stores/securityStore";
+import { useAppLockStore } from "@/stores/appLockStore";
+
+function setVisibility(state: "visible" | "hidden") {
+  Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.clearAllMocks();
+  h.mode = "local";
+  h.minimized = false;
+  h.suppressed = false;
+  h.resized = null;
+  useAppLockStore.setState({ kind: null });
+  useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "vault", systemAuthUnlock: false });
+});
+afterEach(() => {
+  cleanup();
+  setVisibility("visible");
+  vi.useRealTimers();
+});
+
+async function mount() {
+  renderHook(() => useSessionExpiration());
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+}
+
+test("Never does nothing", async () => {
+  await mount();
+  await act(async () => { setVisibility("hidden"); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("Immediately locks when the app is hidden", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).toHaveBeenCalledTimes(1);
+});
+
+test("Immediately locks when the desktop window is minimized", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  h.minimized = true;
+  await act(async () => { h.resized?.(); await vi.advanceTimersByTimeAsync(0); });
+  expect(h.lockApp).toHaveBeenCalledTimes(1);
+});
+
+test("Immediately does not lock on a resize that is not a minimize", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  await act(async () => { h.resized?.(); await vi.advanceTimersByTimeAsync(0); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("plain focus loss never locks", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  await act(async () => { window.dispatchEvent(new Event("blur")); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("an idle timeout locks after the delay", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 5 });
+  await mount();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000 + 5_000); });
+  expect(h.lockApp).toHaveBeenCalledTimes(1);
+});
+
+test("an idle timeout does not lock on hide alone", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 5 });
+  await mount();
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("an already-locked app is not locked again", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  useAppLockStore.setState({ kind: "screen" });
+  await mount();
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("a no-password account without system auth is never auto-locked", async () => {
+  h.mode = "local-nopassword";
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("a no-password account with system auth is auto-locked", async () => {
+  h.mode = "local-nopassword";
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0, systemAuthUnlock: true });
+  await mount();
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).toHaveBeenCalledTimes(1);
+});
+
+test("leaving for a system screen Voltius opened itself does not lock", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  h.suppressed = true;
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
