@@ -61,7 +61,7 @@ import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
 import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -386,13 +386,7 @@ export function SnippetsPage() {
     [recentEntries, filtered],
   );
 
-  const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const s of snippets) {
-      if (s.folder_id) counts[s.folder_id] = (counts[s.folder_id] ?? 0) + 1;
-    }
-    return counts;
-  }, [snippets]);
+  const folderCount = useMemo(() => folderItemCounter(snippets, scopedFolders), [snippets, scopedFolders]);
 
   // ── Drag selection ───────────────────────────────────────────────────────
 
@@ -1050,7 +1044,7 @@ export function SnippetsPage() {
                       <FolderCard
                         key={folder.id}
                         folder={folder}
-                        itemCount={folderCounts[folder.id] ?? 0}
+                        itemCount={folderCount(folder.id)}
                         layout={layoutMode}
                         isSelected={editingFolder?.id === folder.id || selectedIdSet.has(folder.id)}
                         isFocused={focusedId === folder.id}

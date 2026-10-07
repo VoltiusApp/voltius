@@ -64,7 +64,7 @@ import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/t
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
 import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -855,14 +855,7 @@ export default function HostsPage() {
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
-  // Per-folder item counts
-  const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of connections) {
-      if (c.folder_id) counts[c.folder_id] = (counts[c.folder_id] ?? 0) + 1;
-    }
-    return counts;
-  }, [connections]);
+  const folderCount = useMemo(() => folderItemCounter(connections, scopedFolders), [connections, scopedFolders]);
 
   const renderHost = (conn: Connection) => {
     const connVaultId = conn.vault_id ?? "personal";
@@ -1047,7 +1040,7 @@ export default function HostsPage() {
                         <FolderCard
                           key={folder.id}
                           folder={folder}
-                          itemCount={folderCounts[folder.id] ?? 0}
+                          itemCount={folderCount(folder.id)}
                           layout={layoutMode}
                           isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                           isFocused={focusedId === folder.id}

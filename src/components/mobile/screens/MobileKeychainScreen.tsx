@@ -18,7 +18,8 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { useFolderStore } from "@/stores/folderStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useMobileFolderScope } from "../folders/useMobileFolderScope";
-import { scopeItems, folderItemCount } from "../folders/mobileFolderCore";
+import { scopeItems } from "../folders/mobileFolderCore";
+import { folderItemCounter } from "@/utils/folderTree";
 import type { SshKey, Identity, Folder } from "@/types";
 import { compareStrings, formatDate } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
@@ -39,7 +40,7 @@ function TagChips({ tags }: { tags: string[] }) {
 export default function MobileKeychainScreen() {
   const { t } = useTranslation();
   const allFolders = useAllFolders();
-  const { inScope, can, nav, folderIds: kcFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "keychain");
+  const { inScope, can, nav, folders: kcFolders, folderIds: kcFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "keychain");
   const allKeys = useAllKeys();
   const allIdentities = useAllIdentities();
   const keys = useMemo(() => allKeys.filter(inScope), [allKeys, inScope]);
@@ -74,7 +75,7 @@ export default function MobileKeychainScreen() {
   );
 
   const isEmpty = subFolders.length === 0 && scopedKeys.length === 0 && scopedIdentities.length === 0;
-  const folderCount = (id: string) => folderItemCount(keys, id) + folderItemCount(identities, id);
+  const folderCount = useMemo(() => folderItemCounter([...keys, ...identities], kcFolders), [keys, identities, kcFolders]);
 
   const canCreateKey = can("EDIT_KEYS", targetVaultId);
   const canCreateIdentity = can("EDIT_IDENTITIES", targetVaultId);

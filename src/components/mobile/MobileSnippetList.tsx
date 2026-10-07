@@ -8,7 +8,8 @@ import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
-import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
+import { scopeItems } from "@/components/mobile/folders/mobileFolderCore";
+import { folderItemCounter } from "@/utils/folderTree";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
@@ -24,7 +25,7 @@ export default function MobileSnippetList({
   const { t } = useTranslation();
   const snippets = useAllSnippets();
   const allSnippetFolders = useAllSnippetFolders();
-  const { inScope, nav, folderIds: snFolderIds, targetVaultId, canEditFolder } = useMobileFolderScope(allSnippetFolders, "snippet");
+  const { inScope, nav, folders: snFolders, folderIds: snFolderIds, targetVaultId, canEditFolder } = useMobileFolderScope(allSnippetFolders, "snippet");
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const setTab = useMobileNavStore((s) => s.setTab);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
@@ -40,6 +41,7 @@ export default function MobileSnippetList({
     () => snippets.filter((s) => !s.deleted_at && inScope(s)),
     [snippets, inScope],
   );
+  const folderCount = useMemo(() => folderItemCounter(inVault, snFolders), [inVault, snFolders]);
 
   const subFolders = useMemo(
     () => (foldersEnabled ? [...nav.visibleFolders].sort((a, b) => compareStrings(a.name, b.name)) : []),
@@ -85,7 +87,7 @@ export default function MobileSnippetList({
           <MobileFolderRow
             key={f.id}
             folder={f}
-            count={folderItemCount(inVault, f.id)}
+            count={folderCount(f.id)}
             onOpen={() => nav.navigateInto(f)}
             onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
           />

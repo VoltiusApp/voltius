@@ -73,6 +73,23 @@ export function itemsInFolderSubtree<T extends { folder_id?: string | null }>(
   return items.filter((i) => i.folder_id != null && ids.has(i.folder_id));
 }
 
+/** Counts items filed anywhere beneath each folder, so a folder holding only populated subfolders is not empty. */
+export function folderItemCounter(
+  items: readonly { folder_id?: string | null }[],
+  folders: readonly Pick<Folder, "id" | "parent_folder_id">[],
+): (folderId: string) => number {
+  const parentOf = new Map(folders.map((f) => [f.id, f.parent_folder_id ?? null]));
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const seen = new Set<string>();
+    for (let id = item.folder_id ?? null; id && !seen.has(id); id = parentOf.get(id) ?? null) {
+      seen.add(id);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  return (folderId) => counts.get(folderId) ?? 0;
+}
+
 export function foldersOutsideSubtree(folders: Folder[], rootId: string): Folder[] {
   const ids = folderSubtreeIds(folders, rootId);
   return folders.filter((f) => !ids.has(f.id));

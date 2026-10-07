@@ -53,7 +53,7 @@ import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
 import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -521,13 +521,10 @@ export default function KeychainPage() {
     setEditingKeyId(null);
   };
 
-  // Per-folder item counts (keys + identities)
-  const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const k of keys) if (k.folder_id) counts[k.folder_id] = (counts[k.folder_id] ?? 0) + 1;
-    for (const i of identities) if (i.folder_id) counts[i.folder_id] = (counts[i.folder_id] ?? 0) + 1;
-    return counts;
-  }, [keys, identities]);
+  const folderCount = useMemo(
+    () => folderItemCounter([...keys, ...identities], scopedFolders),
+    [keys, identities, scopedFolders],
+  );
 
   const openExportPanel = (key: SshKey) => {
     setExportingKey(key);
@@ -974,7 +971,7 @@ export default function KeychainPage() {
                     <FolderCard
                       key={folder.id}
                       folder={folder}
-                      itemCount={folderCounts[folder.id] ?? 0}
+                      itemCount={folderCount(folder.id)}
                       layout={layoutMode}
                       isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                       isFocused={focusedId === folder.id}

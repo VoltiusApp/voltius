@@ -20,6 +20,7 @@ export function useMobileFolderScope(allFolders: Folder[], objectType: Folder["o
     inScope,
     can,
     nav,
+    folders,
     folderIds,
     targetVaultId,
     canCreateFolder: can("EDIT_FOLDERS", targetVaultId),

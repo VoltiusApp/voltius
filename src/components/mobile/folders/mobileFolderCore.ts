@@ -52,7 +52,3 @@ export function buildMoveTargets(
 export function scopeItems<T extends ItemLike>(items: T[], folderId: string | null, knownFolderIds?: ReadonlySet<string>): T[] {
   return items.filter((i) => (knownFolderIds ? rootedParentId(i.folder_id, knownFolderIds) : (i.folder_id ?? null)) === folderId);
 }
-
-export function folderItemCount(items: ItemLike[], folderId: string): number {
-  return items.reduce((n, i) => ((i.folder_id ?? null) === folderId ? n + 1 : n), 0);
-}

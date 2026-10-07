@@ -1,5 +1,5 @@
 // src/components/mobile/folders/mobileFolderCore.test.ts
-import { buildMoveTargets, scopeItems, folderItemCount, type FolderLike } from "./mobileFolderCore.ts";
+import { buildMoveTargets, scopeItems, type FolderLike } from "./mobileFolderCore.ts";
 import { test, expect } from "vitest";
 
 test("mobileFolderCore", async () => {
@@ -37,12 +37,6 @@ const folders: FolderLike[] = [
   ];
   assertEqual(scopeItems(items, null).map((i) => i.id), ["1", "3"], "scopeItems root");
   assertEqual(scopeItems(items, "b").map((i) => i.id), ["2"], "scopeItems folder");
-}
-
-// folderItemCount
-{
-  const items = [{ folder_id: "b" }, { folder_id: "b" }, { folder_id: "a" }];
-  assertEqual(folderItemCount(items, "b"), 2, "folderItemCount");
 }
 });
 

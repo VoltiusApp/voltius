@@ -13,7 +13,8 @@ import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
-import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
+import { scopeItems } from "@/components/mobile/folders/mobileFolderCore";
+import { folderItemCounter } from "@/utils/folderTree";
 import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
@@ -99,7 +100,7 @@ export default function MobileHostsScreen() {
   const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
-  const { inScope, can, nav, folderIds: connFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "connection");
+  const { inScope, can, nav, folders: connFolders, folderIds: connFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "connection");
   const connect = useSessionStore((s) => s.connect);
   const setTab = useMobileNavStore((s) => s.setTab);
   const push = useMobileNavStore((s) => s.push);
@@ -121,6 +122,7 @@ export default function MobileHostsScreen() {
   );
 
   const inVault = useMemo(() => connections.filter(inScope), [connections, inScope]);
+  const folderCount = useMemo(() => folderItemCounter(inVault, connFolders), [inVault, connFolders]);
 
   const visible = useMemo(() => {
     const scoped = scopeItems(inVault, nav.activeFolderId, connFolderIds);
@@ -176,7 +178,7 @@ export default function MobileHostsScreen() {
           <MobileFolderRow
             key={f.id}
             folder={f}
-            count={folderItemCount(inVault, f.id)}
+            count={folderCount(f.id)}
             onOpen={() => nav.navigateInto(f)}
             onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
           />

@@ -45,7 +45,7 @@ import { RuleCard } from "./RuleCard";
 import { RuleForm } from "./RuleForm";
 import type { Folder, PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
 import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -169,11 +169,7 @@ export function PortForwardingPage() {
     [visibleFolders, filtered],
   );
 
-  const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const r of rules) if (r.folder_id) counts[r.folder_id] = (counts[r.folder_id] ?? 0) + 1;
-    return counts;
-  }, [rules]);
+  const folderCount = useMemo(() => folderItemCounter(rules, scopedFolders), [rules, scopedFolders]);
 
   function openNew() {
     ruleDirtyRef.current = false;
@@ -613,7 +609,7 @@ export function PortForwardingPage() {
                       <FolderCard
                         key={folder.id}
                         folder={folder}
-                        itemCount={folderCounts[folder.id] ?? 0}
+                        itemCount={folderCount(folder.id)}
                         layout={layoutMode as "grid" | "list"}
                         isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                         isFocused={focusedId === folder.id}

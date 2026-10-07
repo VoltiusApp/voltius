@@ -19,7 +19,8 @@ import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBrea
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import { RuleForm } from "@/components/port_forwarding/RuleForm";
-import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
+import { scopeItems } from "@/components/mobile/folders/mobileFolderCore";
+import { folderItemCounter } from "@/utils/folderTree";
 import type { PortForwardingRule, Folder } from "@/types";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
@@ -30,9 +31,10 @@ type AddMode = null | "menu" | "new-folder";
 export default function MobilePortForwardingScreen() {
   const { t } = useTranslation();
   const allFolders = useAllFolders();
-  const { inScope, can, nav, folderIds: pfFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "port_forwarding");
+  const { inScope, can, nav, folders: pfFolders, folderIds: pfFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "port_forwarding");
   const everyRule = useAllPortForwardingRules();
   const allRules = useMemo(() => everyRule.filter(inScope), [everyRule, inScope]);
+  const folderCount = useMemo(() => folderItemCounter(allRules, pfFolders), [allRules, pfFolders]);
   const { statusFor, startRule, stopRule } = useRuleTunnels();
   const createRule = usePortForwardingStore((s) => s.createRule);
   const updateRule = usePortForwardingStore((s) => s.updateRule);
@@ -80,7 +82,7 @@ export default function MobilePortForwardingScreen() {
 
       <div className="flex-1 overflow-y-auto pb-4">
         {!search && subfolders.map((f) => (
-          <MobileFolderRow key={f.id} folder={f} count={folderItemCount(allRules, f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
+          <MobileFolderRow key={f.id} folder={f} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
         ))}
 
         {rules.map((rule) => {
