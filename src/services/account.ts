@@ -16,7 +16,6 @@ function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
 }
 
-const FORCE_LOCK_FLAG_KEY = "voltius.force-lock-next-auth";
 
 interface DeriveKeysResult {
   auth_key: string;   // base64 — sent to server
@@ -213,35 +212,27 @@ async function persistServerSession(session: {
   rememberServer(session.serverUrl);
 }
 
-function setForceLockFlag(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(FORCE_LOCK_FLAG_KEY, "1");
-  } catch {
-    // Ignore storage availability errors in hardened runtimes.
-  }
+export type LockKind = "screen" | "vault";
+
+export async function getAppLock(): Promise<LockKind | null> {
+  return invoke<LockKind | null>("app_lock_get").catch(() => null);
 }
 
-export function consumeForceLockFlag(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const forced = window.sessionStorage.getItem(FORCE_LOCK_FLAG_KEY) === "1";
-    if (forced) window.sessionStorage.removeItem(FORCE_LOCK_FLAG_KEY);
-    return forced;
-  } catch {
-    return false;
-  }
+export async function setAppLock(kind: LockKind | null): Promise<void> {
+  await invoke("app_lock_set", { kind });
 }
 
-export async function lockVaultSession(): Promise<void> {
+export async function lockVaultSession({ keepKeychainEntry = false }: { keepKeychainEntry?: boolean } = {}): Promise<void> {
   const mode = await keychainGet("mode");
   await lockVault();
-  setForceLockFlag();
-
-  // Lock should require re-entering the master password on local/server accounts.
-  if (mode === "local" || mode === "server") {
+  await setAppLock("vault");
+  if (!keepKeychainEntry && (mode === "local" || mode === "server")) {
     await keychainDelete("master_password");
   }
+}
+
+export async function isCurrentMasterPassword(password: string): Promise<boolean> {
+  return (await keychainGet("master_password")) === password;
 }
 
 // ─── Account operations ───────────────────────────────────────────────────────

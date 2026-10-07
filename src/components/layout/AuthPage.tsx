@@ -23,6 +23,8 @@ interface Props {
   /** The vault was already found unreadable at startup, before any password was
    *  asked for — an account whose only key lives in the OS keychain. */
   vaultUnreadable?: boolean;
+  /** Offer the OS prompt: the vault key was kept in the keychain when it was locked. */
+  systemAuth?: boolean;
   onReady: () => void;
 }
 

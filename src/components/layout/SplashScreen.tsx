@@ -8,7 +8,10 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { autoLogin, consumeForceLockFlag, isServerMode } from "@/services/account";
+import { autoLogin, getAppLock, isServerMode, setAppLock } from "@/services/account";
+import { systemAuthAvailable } from "@/services/appLock";
+import { useAppLockStore } from "@/stores/appLockStore";
+import { useSecurityStore } from "@/stores/securityStore";
 import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
@@ -46,6 +49,7 @@ export default function SplashScreen({ onReady }: Props) {
   );
   const [phase, setPhase] = useState<Phase>("loading");
   const [exiting, setExiting] = useState(false);
+  const [systemAuth, setSystemAuth] = useState(false);
   const keychainHint = useKeychainPromptHint(steps.find((s) => s.id === "vault")?.status === "running");
 
   const setStep = (id: string, status: StepStatus, label?: string) =>
@@ -60,7 +64,8 @@ export default function SplashScreen({ onReady }: Props) {
       setStep("vault", "running");
       await delay(200);
 
-      if (consumeForceLockFlag()) {
+      if ((await getAppLock()) === "vault") {
+        setSystemAuth(useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable()));
         try {
           const { exists } = await getVaultStatus();
           setStep("vault", "done", exists ? t("layout.splash.vaultLocked") : t("layout.splash.firstLaunch"));
@@ -152,6 +157,7 @@ export default function SplashScreen({ onReady }: Props) {
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
+    await useAppLockStore.getState().hydrate();
     await delay(400);
     setExiting(true);
     await delay(400);
@@ -159,13 +165,14 @@ export default function SplashScreen({ onReady }: Props) {
   };
 
   const handleAuthReady = async () => {
+    await setAppLock(null).catch(() => {});
     setPhase("finishing");
     keepSwitcherFresh();
     await finishLoading();
   };
 
   if (phase === "auth-first-launch") return <AuthPage isLocked={false} onReady={handleAuthReady} />;
-  if (phase === "auth-locked") return <AuthPage isLocked={true} onReady={handleAuthReady} />;
+  if (phase === "auth-locked") return <AuthPage isLocked={true} systemAuth={systemAuth} onReady={handleAuthReady} />;
   if (phase === "auth-unreadable") return <AuthPage isLocked={true} vaultUnreadable onReady={handleAuthReady} />;
 
   return (

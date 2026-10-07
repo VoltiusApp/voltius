@@ -13,7 +13,8 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/utils/platform", () => ({ usePlatform: () => h.platform }));
 vi.mock("@/services/account", () => ({
   autoLogin: vi.fn(() => new Promise((resolve) => { h.finishLogin = resolve; })),
-  consumeForceLockFlag: vi.fn(() => false),
+  getAppLock: vi.fn(async () => null),
+  setAppLock: vi.fn(async () => {}),
   isServerMode: vi.fn(async () => false),
 }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: true })) }));

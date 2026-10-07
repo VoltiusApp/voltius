@@ -31,7 +31,7 @@ vi.mock("@/stores/vaultKeysStore", () => ({
 }));
 
 import {
-  consumeForceLockFlag,
+  isCurrentMasterPassword,
   lockVaultSession,
   createLocalAccountNoPassword,
   createLocalAccount,
@@ -39,8 +39,6 @@ import {
   getCurrentUserEmail,
   isServerMode,
 } from "./account";
-
-const FORCE_LOCK_FLAG_KEY = "voltius.force-lock-next-auth";
 
 // Route the keychain + crypto commands over the single invoke mock.
 function routeInvoke() {
@@ -84,35 +82,25 @@ beforeEach(() => {
   }
 });
 
-// ─── consumeForceLockFlag ────────────────────────────────────────────────────
-
-test("consumeForceLockFlag returns true once then clears the flag", () => {
-  window.sessionStorage.setItem(FORCE_LOCK_FLAG_KEY, "1");
-  expect(consumeForceLockFlag()).toBe(true);
-  expect(window.sessionStorage.getItem(FORCE_LOCK_FLAG_KEY)).toBeNull();
-  // second read is false — the flag is one-shot
-  expect(consumeForceLockFlag()).toBe(false);
-});
-
-test("consumeForceLockFlag returns false when the flag was never set", () => {
-  expect(consumeForceLockFlag()).toBe(false);
-});
-
-test("consumeForceLockFlag swallows sessionStorage failures and returns false", () => {
-  const spy = vi.spyOn(window.sessionStorage.__proto__, "getItem").mockImplementation(() => {
-    throw new Error("storage disabled");
-  });
-  expect(consumeForceLockFlag()).toBe(false);
-  spy.mockRestore();
-});
-
 // ─── lockVaultSession ────────────────────────────────────────────────────────
 
-test("lockVaultSession locks the vault and arms the force-lock flag", async () => {
+test("lockVaultSession locks the vault and persists the vault lock marker", async () => {
   h.store.mode = "local";
   await lockVaultSession();
   expect(h.lockVault).toHaveBeenCalledTimes(1);
-  expect(window.sessionStorage.getItem(FORCE_LOCK_FLAG_KEY)).toBe("1");
+  expect(h.invoke).toHaveBeenCalledWith("app_lock_set", { kind: "vault" });
+});
+
+test("lockVaultSession keeps the master password when system authentication will reopen it", async () => {
+  h.store.mode = "local";
+  await lockVaultSession({ keepKeychainEntry: true });
+  expect(keychainCalls("keychain_delete").map((a) => a.key)).not.toContain("master_password");
+});
+
+test("isCurrentMasterPassword compares against the stored password", async () => {
+  h.store.master_password = "hunter22";
+  expect(await isCurrentMasterPassword("hunter22")).toBe(true);
+  expect(await isCurrentMasterPassword("nope")).toBe(false);
 });
 
 test("lockVaultSession deletes the master password for local accounts", async () => {

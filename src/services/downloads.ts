@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { withLeaveLockSuppressed } from "@/services/appLock";
 
 export interface DownloadDirInfo {
   uri: string;
@@ -12,7 +13,7 @@ export function downloadDirGet(): Promise<DownloadDirInfo | null> {
 
 /** Launch the SAF folder picker; resolves to the chosen folder, or null if cancelled. */
 export function downloadDirPick(): Promise<DownloadDirInfo | null> {
-  return invoke<DownloadDirInfo | null>("download_dir_pick");
+  return withLeaveLockSuppressed(() => invoke<DownloadDirInfo | null>("download_dir_pick"));
 }
 
 export function downloadDirClear(): Promise<void> {
