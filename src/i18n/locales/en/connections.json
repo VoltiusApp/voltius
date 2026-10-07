@@ -229,7 +229,8 @@
         "udp-proxy": "UDP knocks can't go through this host's proxy. Use TCP steps or a direct connection.",
         "udp-system": "UDP knocks fail if the system proxy is in use."
       },
-      "sequenceUnavailable": "The knock sequence for this host isn't available on this device."
+      "sequenceUnavailable": "The knock sequence for this host isn't available on this device.",
+      "sequenceInvalid": "This host's knock sequence is invalid. Fix it in the host's Port Knocking settings."
     }
   }
 }

@@ -229,7 +229,8 @@
         "udp-proxy": "UDP 敲门无法通过此主机的代理。请使用 TCP 步骤或直接连接。",
         "udp-system": "如果使用系统代理，UDP 敲门会失败。"
       },
-      "sequenceUnavailable": "此设备上没有该主机的敲门序列。"
+      "sequenceUnavailable": "此设备上没有该主机的敲门序列。",
+      "sequenceInvalid": "此主机的敲门序列无效。请在该主机的“端口敲门”设置中修正。"
     }
   }
 }

@@ -96,3 +96,10 @@ test("timing inputs store numbers and clear to unset", () => {
   fireEvent.change(screen.getByPlaceholderText("—"), { target: { value: "60" } });
   expect(onSettingsChange).toHaveBeenLastCalledWith({ enabled: true, delay_ms: 300, window_secs: 60 });
 });
+
+test("timing inputs cap their length", () => {
+  renderPanel();
+  expect(screen.getByLabelText("connections.knock.delay").getAttribute("maxlength")).toBe("6");
+  expect(screen.getByLabelText("connections.knock.settle").getAttribute("maxlength")).toBe("6");
+  expect(screen.getByLabelText("connections.knock.window").getAttribute("maxlength")).toBe("5");
+});

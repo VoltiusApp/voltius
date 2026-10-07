@@ -229,7 +229,8 @@
         "udp-proxy": "UDP klepnutí neprojdou proxy tohoto hostitele. Použijte kroky TCP nebo přímé připojení.",
         "udp-system": "Pokud se používá systémová proxy, UDP klepnutí selžou."
       },
-      "sequenceUnavailable": "Sekvence klepání pro tohoto hostitele není na tomto zařízení k dispozici."
+      "sequenceUnavailable": "Sekvence klepání pro tohoto hostitele není na tomto zařízení k dispozici.",
+      "sequenceInvalid": "Sekvence klepání pro tohoto hostitele je neplatná. Opravte ji v nastavení Klepání na porty tohoto hostitele."
     }
   }
 }

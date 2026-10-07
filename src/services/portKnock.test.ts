@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-vi.mock("@/services/vault", () => ({ getSecret: async () => null }));
+const stored = vi.hoisted(() => ({ value: null as string | null }));
+vi.mock("@/services/vault", () => ({ getSecret: async () => stored.value }));
 vi.mock("@/services/credentials", () => ({ findConnection: () => undefined }));
 
-import { formatKnockSequence, parseKnockSequence, toKnockSpec, KnockSequenceError } from "./portKnock";
+import { formatKnockSequence, parseKnockSequence, resolveKnock, toKnockSpec, KnockSequenceError } from "./portKnock";
 
 describe("knock sequence codec", () => {
   it("round-trips ordered steps", () => {
@@ -26,5 +27,13 @@ describe("knock sequence codec", () => {
 
   it("fills timing defaults", () => {
     expect(toKnockSpec({ enabled: true }, "666/tcp")).toEqual({ steps: [{ port: 666, protocol: "tcp" }], delay_ms: 200, settle_ms: 500 });
+  });
+});
+
+describe("resolveKnock", () => {
+  it("names a stored sequence that does not parse as invalid, not as a raw codec error", async () => {
+    stored.value = "0/tcp";
+    await expect(resolveKnock({ id: "c1", port_knock: { enabled: true } })).rejects.toThrow("connections.knock.sequenceInvalid");
+    stored.value = null;
   });
 });

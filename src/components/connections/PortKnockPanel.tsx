@@ -30,9 +30,9 @@ export function knockPanelIssues(settings: PortKnockSettings, steps: KnockStep[]
 }
 
 const TIMING = [
-  { key: "delay_ms", icon: "lucide:timer", label: "connections.knock.delay", unit: "ms", placeholder: String(KNOCK_DEFAULTS.delay_ms) },
-  { key: "settle_ms", icon: "lucide:hourglass", label: "connections.knock.settle", unit: "ms", placeholder: String(KNOCK_DEFAULTS.settle_ms) },
-  { key: "window_secs", icon: "lucide:shield-check", label: "connections.knock.window", unit: "s", placeholder: "—" },
+  { key: "delay_ms", icon: "lucide:timer", label: "connections.knock.delay", unit: "ms", maxLength: 6, placeholder: String(KNOCK_DEFAULTS.delay_ms) },
+  { key: "settle_ms", icon: "lucide:hourglass", label: "connections.knock.settle", unit: "ms", maxLength: 6, placeholder: String(KNOCK_DEFAULTS.settle_ms) },
+  { key: "window_secs", icon: "lucide:shield-check", label: "connections.knock.window", unit: "s", maxLength: 5, placeholder: "—" },
 ] as const;
 
 const PROTOCOLS = [
@@ -121,13 +121,14 @@ export default function PortKnockPanel({ settings, steps, sequenceState, onSetti
         )}
 
         <SectionLabel>{t("connections.knock.timing")}</SectionLabel>
-        {TIMING.map(({ key, icon, label, unit, placeholder }) => (
+        {TIMING.map(({ key, icon, label, unit, maxLength, placeholder }) => (
           <SettingRow key={key} icon={icon} label={t(label)}>
             <span className="flex items-center gap-1.5">
               <input
                 className={formInputClass}
                 style={{ ...formInputStyle, width: "4.5rem" }}
                 inputMode="numeric"
+                maxLength={maxLength}
                 aria-label={t(label)}
                 placeholder={placeholder}
                 value={settings[key] ?? ""}

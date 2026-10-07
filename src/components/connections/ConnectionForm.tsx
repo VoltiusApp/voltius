@@ -8,7 +8,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
-import PortKnockPanel, { type KnockStepRow } from "./PortKnockPanel";
+import PortKnockPanel, { knockPanelIssues, type KnockStepRow } from "./PortKnockPanel";
 import { SlideOver } from "@/components/shared/slideOver";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
@@ -183,7 +183,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
       password: initial ? `password:${initial.id}` : null,
       privateKey: initial && !initial.key_id ? `key:${initial.id}` : null,
       passphrase: initial && !initial.key_id ? `passphrase:${initial.id}` : null,
-      knockSequence: initial ? knockSequenceKey(initial.id) : null,
+      knockSequence: initial && !fileOnly ? knockSequenceKey(initial.id) : null,
     },
     (v) => {
       if (v.password && !passwordDirty.current) setPassword(v.password);
@@ -208,7 +208,12 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
 
-  const editedKnockSequence = () => (knockDirty.current ? formatKnockSequence(knockSteps) : null);
+  const editedKnockSequence = () => {
+    if (!knockDirty.current) return null;
+    const issues = knockPanelIssues({ enabled: true }, knockSteps, "direct");
+    if (issues.includes("port") || (portKnock.enabled && issues.includes("empty"))) return null;
+    return formatKnockSequence(knockSteps);
+  };
 
   const buildSubmit = () => {
     if (fileOnly) {

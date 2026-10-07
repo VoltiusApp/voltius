@@ -61,5 +61,9 @@ export async function resolveKnock(
   if (!conn || !settings?.enabled) return null;
   const sequence = override?.sequence ?? (await getSecret(knockSequenceKey(conn.id)).catch(() => null));
   if (!sequence) throw new Error(i18n.t("connections.knock.sequenceUnavailable"));
-  return toKnockSpec(settings, sequence);
+  try {
+    return toKnockSpec(settings, sequence);
+  } catch {
+    throw new Error(i18n.t("connections.knock.sequenceInvalid"));
+  }
 }

@@ -561,6 +561,26 @@ test("ssh form loads the saved sequence and submits an edited one with the knock
   expect(onSubmit.mock.calls[1][1].knock_sequence).toBe("667/tcp");
 }));
 
+test.each([
+  ["a blank row while enabled", true, () => fireEvent.click(screen.getByText("connections.knock.addPort")), null],
+  ["an out-of-range port while enabled", true, () => fireEvent.change(screen.getByDisplayValue("666"), { target: { value: "99999" } }), null],
+  ["removing every row while enabled", true, () => fireEvent.click(screen.getByLabelText("connections.knock.remove")), null],
+  ["removing every row while disabled", false, () => fireEvent.click(screen.getByLabelText("connections.knock.remove")), ""],
+] as const)("%s saves the expected knock_sequence", (_name, enabled, edit, want) => withStoredKnock(async () => {
+  const { onSubmit, ref } = renderSsh({ initial: conn({ port_knock: { enabled } }) });
+  await act(async () => { await Promise.resolve(); });
+  edit();
+  await act(async () => { ref.current!.flush(); });
+  expect(onSubmit.mock.calls[0][1].knock_sequence).toBe(want);
+}));
+
+test("an ftp host never reads the knock sequence", async () => {
+  const { getSecret } = await import("@/services/vault");
+  renderSsh({ initial: conn({ connection_type: "ftp", port: 21 }) });
+  await act(async () => { await Promise.resolve(); });
+  expect(getSecret).not.toHaveBeenCalledWith("knock_sequence:c1");
+});
+
 test("a host without knocking submits no knock settings", async () => {
   const { onSubmit, ref } = renderSsh();
   fireEvent.change(screen.getByPlaceholderText("connections.form.hostPlaceholder"), { target: { value: "srv" } });

@@ -229,7 +229,8 @@
         "udp-proxy": "Les knocks UDP ne passent pas par le proxy de cet hôte. Utilisez des étapes TCP ou une connexion directe.",
         "udp-system": "Les knocks UDP échouent si le proxy système est utilisé."
       },
-      "sequenceUnavailable": "La séquence de knock de cet hôte n'est pas disponible sur cet appareil."
+      "sequenceUnavailable": "La séquence de knock de cet hôte n'est pas disponible sur cet appareil.",
+      "sequenceInvalid": "La séquence de knock de cet hôte n'est pas valide. Corrigez-la dans les réglages Port knocking de l'hôte."
     }
   }
 }
