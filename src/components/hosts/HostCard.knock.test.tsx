@@ -70,6 +70,13 @@ describe("HostCard knock-protected", () => {
     expect(container.textContent).toContain("41 ms");
   });
 
+  test.each([["down"], [undefined]])("shows no lock for a gated host with status %s", (status) => {
+    useHostPingStore.setState({ statuses: status ? { c1: status as "down" } : {}, latencies: {} });
+    const { container } = renderCard();
+    expect(container.querySelector('[title="hosts.card.knockProtected"]')).toBeNull();
+    expect(container.querySelector('[title="hosts.card.knockWindowOpen"]')).toBeNull();
+  });
+
   test("list view labels the address line instead of showing latency", () => {
     useHostPingStore.setState({ statuses: { c1: "knock" }, latencies: {} });
     const { container } = renderCard("list");

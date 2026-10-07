@@ -128,9 +128,8 @@ export default function HostCard({
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[connection.id]);
   const showPingDot = !isSerial && pingEnabled && !connection.ping_disabled;
-  const knockGated = knocksOnConnect(connection);
   const knockClosed = pingStatus === "knock";
-  const knockIcon = knockGated && showPingDot && (
+  const knockIcon = showPingDot && knocksOnConnect(connection) && (knockClosed || pingStatus === "up") && (
     <span
       title={t(knockClosed ? "hosts.card.knockProtected" : "hosts.card.knockWindowOpen")}
       className="flex items-center text-(--t-text-dim)"
