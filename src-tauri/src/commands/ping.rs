@@ -6,9 +6,35 @@ use russh::client;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PingOutcome {
+    Up(u32),
+    Down,
+    KnockClosed,
+}
+
+impl PingOutcome {
+    fn from_latency(ms: Option<u32>) -> Self {
+        ms.map_or(Self::Down, Self::Up)
+    }
+}
+
 #[tauri::command]
-pub async fn ping_host(host: String, port: u16, proxy: Option<ProxySpec>) -> Option<u32> {
-    let limit = if matches!(proxy, None | Some(ProxySpec::Direct)) {
+pub async fn ping_host(
+    host: String,
+    port: u16,
+    proxy: Option<ProxySpec>,
+    knock_window_secs: Option<u64>,
+) -> PingOutcome {
+    if crate::knock::closed(&host, port, knock_window_secs) {
+        return PingOutcome::KnockClosed;
+    }
+    PingOutcome::from_latency(probe(&host, port, proxy.as_ref()).await)
+}
+
+async fn probe(host: &str, port: u16, proxy: Option<&ProxySpec>) -> Option<u32> {
+    let limit = if matches!(proxy, None | Some(&ProxySpec::Direct)) {
         1500
     } else {
         5000
@@ -16,7 +42,7 @@ pub async fn ping_host(host: String, port: u16, proxy: Option<ProxySpec>) -> Opt
     let start = std::time::Instant::now();
     tokio::time::timeout(
         Duration::from_millis(limit),
-        crate::proxy::dial(proxy.as_ref(), &host, port),
+        crate::proxy::dial(proxy, host, port),
     )
     .await
     .ok()
@@ -31,7 +57,14 @@ pub async fn ping_host_via_jumps(
     jump_hosts: Vec<JumpHostConnect>,
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
     proxy: Option<ProxySpec>,
-) -> Result<Option<u32>, ()> {
+    knock_window_secs: Option<u64>,
+) -> Result<PingOutcome, ()> {
+    let gate = jump_hosts
+        .first()
+        .map_or((host.as_str(), port), |j| (j.host.as_str(), j.port));
+    if crate::knock::closed(gate.0, gate.1, knock_window_secs) {
+        return Ok(PingOutcome::KnockClosed);
+    }
     let kh = Arc::clone(&*known_hosts);
     let start = std::time::Instant::now();
     let reachable = tokio::time::timeout(
@@ -40,7 +73,9 @@ pub async fn ping_host_via_jumps(
     )
     .await
     .unwrap_or(false);
-    Ok(reachable.then(|| start.elapsed().as_millis() as u32))
+    Ok(PingOutcome::from_latency(
+        reachable.then(|| start.elapsed().as_millis() as u32),
+    ))
 }
 
 async fn ping_via_chain(
@@ -88,4 +123,60 @@ pub async fn ping_session(
     sessions: tauri::State<'_, SessionManager>,
 ) -> Result<Option<u32>, ()> {
     Ok(sessions.ping(&session_id).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::knock::KnockSpec;
+    use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn gated_host_outside_its_window_is_not_dialed() {
+        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = l.local_addr().unwrap().port();
+        let out = ping_host("localhost".into(), port, None, Some(60)).await;
+        assert!(matches!(out, PingOutcome::KnockClosed));
+        assert!(tokio::time::timeout(Duration::from_millis(100), l.accept())
+            .await
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn gated_host_inside_its_window_is_probed() {
+        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = l.local_addr().unwrap().port();
+        let spec = KnockSpec {
+            steps: vec![],
+            delay_ms: 0,
+            settle_ms: 0,
+        };
+        crate::knock::knock(&spec, None, "127.0.0.1", port)
+            .await
+            .unwrap();
+        let out = ping_host("127.0.0.1".into(), port, None, Some(60)).await;
+        assert!(matches!(out, PingOutcome::Up(_)));
+    }
+
+    #[tokio::test]
+    async fn ungated_host_probes_as_before() {
+        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = l.local_addr().unwrap().port();
+        assert!(matches!(
+            ping_host("127.0.0.1".into(), port, None, None).await,
+            PingOutcome::Up(_)
+        ));
+    }
+
+    #[test]
+    fn outcome_wire_shape() {
+        assert_eq!(
+            serde_json::to_string(&PingOutcome::Up(12)).unwrap(),
+            r#"{"up":12}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&PingOutcome::KnockClosed).unwrap(),
+            r#""knock_closed""#
+        );
+    }
 }
