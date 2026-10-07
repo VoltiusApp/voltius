@@ -31,3 +31,14 @@ export function DashedAddButton({ onClick, children, disabled }: { onClick: () =
     </button>
   );
 }
+
+export function SlideOver({ open, className = "", children }: { open: boolean; className?: string; children: ReactNode }) {
+  return (
+    <div
+      className={`absolute inset-0 transition-transform duration-200 ease-out ${className}`}
+      style={{ transform: open ? "translateX(0)" : "translateX(100%)" }}
+    >
+      {children}
+    </div>
+  );
+}

@@ -5,6 +5,9 @@ import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/va
 
 export type HostFormSecrets = Record<ConnectionSecretField, string | null>;
 
+export const emptyHostSecrets = (): HostFormSecrets =>
+  Object.fromEntries(CONNECTION_SECRET_FIELDS.map((f) => [f, null])) as HostFormSecrets;
+
 const secretEdits = (id: string, secrets: HostFormSecrets): SecretEdit[] =>
   CONNECTION_SECRET_FIELDS.map((f): SecretEdit => [CONNECTION_SECRET_KEYS[f](id), secrets[f]]);
 

@@ -14,6 +14,7 @@ import {
 } from "@/components/shared/Panel";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
+import { SlideOver } from "@/components/shared/slideOver";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { KeyCardContent } from "./KeyCards";
@@ -206,18 +207,14 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
         </div>
       </PanelShell>
 
-      {/* Select Host slide-over */}
-      <div
-        className="absolute inset-0 transition-transform duration-200 ease-out border-l border-l-(--t-bg-terminal) border-t border-t-(--t-bg-card-hover)"
-        style={{ transform: showHostSelect ? "translateX(0)" : "translateX(100%)" }}
-      >
+      <SlideOver open={showHostSelect} className="border-l border-l-(--t-bg-terminal) border-t border-t-(--t-bg-card-hover)">
         <HostPickerPanel
           selectedHostId={selectedHostId}
           onPick={(h) => { if (h.kind === "remote") setSelectedHostId(h.connection.id); setShowHostSelect(false); }}
           onBack={() => setShowHostSelect(false)}
           vaultId={sshKey.vault_id ?? "personal"}
         />
-      </div>
+      </SlideOver>
     </div>
   );
 }

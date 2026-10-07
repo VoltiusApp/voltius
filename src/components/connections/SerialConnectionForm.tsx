@@ -4,6 +4,7 @@ import type { ConnectionFormData } from "@/types";
 import { useAutosave } from "@/hooks/useAutosave";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { serialListPorts } from "@/services/serial";
+import { emptyHostSecrets } from "@/services/hostForm";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { VaultPicker } from "@/components/shared/VaultPicker";
@@ -123,7 +124,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return keepSavedOnCancel(onSubmit(data, { password: pwd, private_key: pk, passphrase: null, proxy_password: null, knock_sequence: null }));
+      return keepSavedOnCancel(onSubmit(data, { ...emptyHostSecrets(), password: pwd, private_key: pk }));
     },
     canSave: () => !!serialPort.trim(),
     readOnly,

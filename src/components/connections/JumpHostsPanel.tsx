@@ -7,7 +7,7 @@ import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { HostPickerPanel, type HostChoice } from "@/components/shared/HostPickerPanel";
 import { useListReorder } from "@/hooks/useListReorder";
 import { ReorderableRow } from "@/components/shared/reorder";
-import { SlideOverHeader, DashedAddButton } from "@/components/shared/slideOver";
+import { SlideOverHeader, DashedAddButton, SlideOver } from "@/components/shared/slideOver";
 
 interface Props {
   jumpHosts: JumpHost[];
@@ -102,16 +102,12 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
         </div>
       </div>
 
-      {/* Host picker slide-over */}
-      <div
-        className="absolute inset-0 transition-transform duration-200 ease-out"
-        style={{ transform: showPicker ? "translateX(0)" : "translateX(100%)" }}
-      >
+      <SlideOver open={showPicker}>
         <HostPickerPanel
           onPick={handlePick}
           onBack={() => setShowPicker(false)}
         />
-      </div>
+      </SlideOver>
     </div>
   );
 }

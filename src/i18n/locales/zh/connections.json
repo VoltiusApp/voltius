@@ -208,6 +208,27 @@
       "footnote": "有共享凭据的主机保持不变。可用“以…身份连接”为单个主机覆盖。"
     },
     "knock": {
+      "title": "端口敲门",
+      "enable": "连接前先敲门",
+      "hint": "在每次 SSH、SFTP 和端口转发连接之前，从本设备经由此主机的代理发送。",
+      "viaBastion": "此主机通过 {{name}} 连接，因此 Voltius 会按 {{name}} 自己的敲门设置对其敲门。",
+      "sequence": "序列",
+      "reorderHint": "按住并拖动以重新排序 · 按此顺序发送",
+      "port": "端口",
+      "dragToReorder": "拖动以重新排序",
+      "remove": "移除端口",
+      "addPort": "添加端口",
+      "timing": "时间",
+      "delay": "敲门间隔",
+      "settle": "最后一次敲门后等待",
+      "window": "防火墙窗口",
+      "windowHint": "敲门后防火墙保持 SSH 开放的时长。可达性指示点只在此窗口内探测，因此主机卡片绝不会自行敲门。未知时请留空。",
+      "issue": {
+        "empty": "请至少添加一个端口。",
+        "port": "端口必须介于 1 到 65535 之间。",
+        "udp-proxy": "UDP 敲门无法通过此主机的代理。请使用 TCP 步骤或直接连接。",
+        "udp-system": "如果使用系统代理，UDP 敲门会失败。"
+      },
       "sequenceUnavailable": "此设备上没有该主机的敲门序列。"
     }
   }

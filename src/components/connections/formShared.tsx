@@ -113,6 +113,25 @@ export function SettingRow({
   );
 }
 
+export function DrillInRow({ icon, label, count, onClick }: { icon: string; label: string; count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1"
+    >
+      <Icon icon={icon} width={13} />
+      <span>{label}</span>
+      {count > 0 && (
+        <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold leading-none">
+          {count}
+        </span>
+      )}
+      <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
+    </button>
+  );
+}
+
 /** The pre/post command state both forms keep and submit. */
 export function useHostCommandFields(initial?: Connection): HostCommandFieldsState {
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");

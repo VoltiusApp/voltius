@@ -208,6 +208,27 @@
       "footnote": "Hostitelé se sdílenými přihlašovacími údaji je zachovají. Pro jednoho hostitele to změníte volbou Připojit jako."
     },
     "knock": {
+      "title": "Klepání na porty",
+      "enable": "Před připojením zaklepat",
+      "hint": "Odesílá se z tohoto zařízení přes proxy tohoto hostitele před každým připojením SSH, SFTP a přesměrováním portů.",
+      "viaBastion": "Tento hostitel se připojuje přes {{name}}, takže Voltius klepe na {{name}} s jeho vlastním nastavením klepání.",
+      "sequence": "Sekvence",
+      "reorderHint": "Podržením a přetažením změníte pořadí · Odesílá se v tomto pořadí",
+      "port": "Port",
+      "dragToReorder": "Přetažením změníte pořadí",
+      "remove": "Odebrat port",
+      "addPort": "Přidat port",
+      "timing": "Časování",
+      "delay": "Prodleva mezi klepnutími",
+      "settle": "Čekání po posledním klepnutí",
+      "window": "Okno firewallu",
+      "windowHint": "Jak dlouho firewall po klepnutí nechává SSH otevřené. Indikátor dostupnosti testuje jen v tomto okně, takže karta hostitele nikdy neklepe sama. Pokud to nevíte, nechte prázdné.",
+      "issue": {
+        "empty": "Přidejte alespoň jeden port.",
+        "port": "Porty musí být v rozsahu 1 až 65535.",
+        "udp-proxy": "UDP klepnutí neprojdou proxy tohoto hostitele. Použijte kroky TCP nebo přímé připojení.",
+        "udp-system": "Pokud se používá systémová proxy, UDP klepnutí selžou."
+      },
       "sequenceUnavailable": "Sekvence klepání pro tohoto hostitele není na tomto zařízení k dispozici."
     }
   }

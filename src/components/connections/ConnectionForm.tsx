@@ -1,13 +1,15 @@
 import { forwardRef, type RefAttributes, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType } from "@/types";
+import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType, PortKnockSettings } from "@/types";
 import { parseWebdavUrl } from "@/utils/connectionType";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
+import PortKnockPanel, { type KnockStepRow } from "./PortKnockPanel";
+import { SlideOver } from "@/components/shared/slideOver";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
@@ -24,7 +26,10 @@ import IdentitySelector from "./IdentitySelector";
 import KeySelector from "./KeySelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { findAnyConnection, useConnectionStore } from "@/stores/connectionStore";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { formatKnockSequence, parseKnockSequence, type KnockOverride } from "@/services/portKnock";
+import { emptyHostSecrets } from "@/services/hostForm";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useCanConnect } from "@/hooks/useCanConnect";
 import { useConnectAsMenuItem } from "@/hooks/useConnectAsMenuItem";
@@ -34,7 +39,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
-import { proxyPasswordKey } from "@/services/teamVaultSecretKeys";
+import { knockSequenceKey, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "./ProxyFields";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
 import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
@@ -57,6 +62,7 @@ import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjec
 import { normalizeNotes } from "@/components/notes/notesText";
 import {
   AdvancedDisclosure,
+  DrillInRow,
   SettingRow,
   HostCommandFields,
   NotesSection,
@@ -104,6 +110,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [showChaining, setShowChaining] = useState(false);
   const [envVars, setEnvVars] = useState<EnvVar[]>(initial?.env_vars ?? []);
   const [showEnvVars, setShowEnvVars] = useState(false);
+  const [portKnock, setPortKnock] = useState<PortKnockSettings>(initial?.port_knock ?? { enabled: false });
+  const [knockSteps, setKnockSteps] = useState<KnockStepRow[]>([]);
+  const [showKnock, setShowKnock] = useState(false);
   const [agentForwarding, setAgentForwarding] = useState(initial?.agent_forwarding ?? false);
   const [legacyAlgorithms, setLegacyAlgorithms] = useState(initial?.legacy_algorithms ?? false);
   const [pingDisabled, setPingDisabled] = useState(initial?.ping_disabled ?? false);
@@ -128,7 +137,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy || initial?.port_knock?.enabled);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const shell = useConnectionFormShell(initial);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
@@ -138,6 +147,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const privateKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
   const proxyPasswordDirty = useRef(false);
+  const knockDirty = useRef(false);
   // Anchor the icon picker to the whole tile+label row so the desktop float matches the
   // row width (as the old inline picker did) instead of overflowing from the 40px tile.
   const iconRowRef = useRef<HTMLDivElement>(null);
@@ -173,11 +183,17 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
       password: initial ? `password:${initial.id}` : null,
       privateKey: initial && !initial.key_id ? `key:${initial.id}` : null,
       passphrase: initial && !initial.key_id ? `passphrase:${initial.id}` : null,
+      knockSequence: initial ? knockSequenceKey(initial.id) : null,
     },
     (v) => {
       if (v.password && !passwordDirty.current) setPassword(v.password);
       if (v.privateKey && !privateKeyDirty.current) setPrivateKey(v.privateKey);
       if (v.passphrase && !passphraseDirty.current) setPassphrase(v.passphrase);
+      if (v.knockSequence && !knockDirty.current) {
+        try {
+          setKnockSteps(parseKnockSequence(v.knockSequence).map((step) => ({ ...step, id: crypto.randomUUID() })));
+        } catch { /* an unparseable stored sequence loads as empty */ }
+      }
     },
   );
 
@@ -191,6 +207,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   }, [initialId, initialProxyHasPassword]);
 
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
+
+  const editedKnockSequence = () => (knockDirty.current ? formatKnockSequence(knockSteps) : null);
 
   const buildSubmit = () => {
     if (fileOnly) {
@@ -210,11 +228,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           notes: normalizeNotes(notes),
         } as ConnectionFormData,
         secrets: {
+          ...emptyHostSecrets(),
           password: passwordDirty.current ? password : null,
-          private_key: null,
-          passphrase: null,
           proxy_password: isWebdav && proxyPasswordDirty.current ? proxyPassword : null,
-          knock_sequence: null,
         },
       };
     }
@@ -253,14 +269,16 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         keepalive_preset: keepalivePreset || undefined,
         persist_session: persistSession === "" ? undefined : persistSession === "on",
         proxy: proxyOverride ?? undefined,
+        port_knock: initial?.port_knock || portKnock.enabled || knockSteps.length ? portKnock : undefined,
         notes: normalizeNotes(notes),
       } as ConnectionFormData,
       secrets: {
+        ...emptyHostSecrets(),
         password: passwordDirty.current ? password : null,
         private_key: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
         passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
         proxy_password: proxyPasswordDirty.current ? proxyPassword : null,
-        knock_sequence: null,
+        knock_sequence: editedKnockSequence(),
       },
     };
   };
@@ -274,11 +292,17 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, portKnock, knockSteps, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
   const handleClose = () => flushAndClose(onClose);
+
+  const knockOverride = (): KnockOverride => ({
+    settings: portKnock,
+    sequence: editedKnockSequence() ?? undefined,
+  });
+  const bastionName = jumpHosts[0] ? connectionDisplayName(findAnyConnection(jumpHosts[0].connection_id) ?? jumpHosts[0]) : null;
 
   const handleTogglePassword = useCallback(() => {
     if (!showPassword && initial && password) {
@@ -375,7 +399,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
         ...(await resolveDirectHop(
           { id: initial?.id ?? "", proxy: initial?.proxy, port_knock: initial?.port_knock },
-          { proxy: proxyOverride, password: proxyPasswordDirty.current ? proxyPassword || undefined : undefined, knock: undefined },
+          { proxy: proxyOverride, password: proxyPasswordDirty.current ? proxyPassword || undefined : undefined, knock: knockOverride() },
         )),
       });
       const lines = stdout.split(/\r?\n/);
@@ -390,7 +414,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, proxyOverride, proxyPassword, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, keyId, initial, legacyAlgorithms, passphrase, password, port, privateKey, proxyOverride, proxyPassword, selectedIdentity, username, portKnock, knockSteps]);
 
   const canConnect = useCanConnect({ id: initial?.id ?? "", vault_id: initial?.vault_id ?? "" });
   const credential = useCredentialPlan(initial ?? NO_CONNECTION);
@@ -567,36 +591,16 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             <AdvancedDisclosure
               open={showAdvanced}
               onToggle={() => setShowAdvanced((v) => !v)}
-              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession || proxyOverride)}
+              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession || proxyOverride || portKnock.enabled)}
             >
-                <button
-                  type="button"
-                  onClick={() => setShowChaining(true)}
-                  className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1"
-                >
-                  <Icon icon="lucide:waypoints" width={13} />
-                  <span>{t("connections.common.hostsChaining")}</span>
-                  {jumpHosts.length > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold leading-none">
-                      {jumpHosts.length}
-                    </span>
-                  )}
-                  <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEnvVars(true)}
-                  className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1"
-                >
-                  <Icon icon="lucide:file-terminal" width={13} />
-                  <span>{t("connections.common.environmentVariables")}</span>
-                  {envVars.length > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold leading-none">
-                      {envVars.length}
-                    </span>
-                  )}
-                  <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
-                </button>
+                <DrillInRow icon="lucide:waypoints" label={t("connections.common.hostsChaining")} count={jumpHosts.length} onClick={() => setShowChaining(true)} />
+                <DrillInRow
+                  icon="lucide:door-closed-locked"
+                  label={t("connections.knock.title")}
+                  count={portKnock.enabled ? knockSteps.length : 0}
+                  onClick={() => setShowKnock(true)}
+                />
+                <DrillInRow icon="lucide:file-terminal" label={t("connections.common.environmentVariables")} count={envVars.length} onClick={() => setShowEnvVars(true)} />
                 <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
                 <SettingRow icon="lucide:key-round" label={t("connections.form.agentForwarding")}>
                   <Toggle checked={agentForwarding} onChange={(v) => { markDirty(); setAgentForwarding(v); }} />
@@ -768,29 +772,34 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
       </div>
     </PanelShell>
 
-      {/* Jump hosts slide-over */}
-      <div
-        className="absolute inset-0 transition-transform duration-200 ease-out"
-        style={{ transform: showChaining ? "translateX(0)" : "translateX(100%)" }}
-      >
+      <SlideOver open={showChaining}>
         <JumpHostsPanel
           jumpHosts={jumpHosts}
           onChange={(updated) => { markDirty(); setJumpHosts(updated); }}
           onBack={() => setShowChaining(false)}
         />
-      </div>
+      </SlideOver>
 
-      {/* Environment variables slide-over */}
-      <div
-        className="absolute inset-0 transition-transform duration-200 ease-out"
-        style={{ transform: showEnvVars ? "translateX(0)" : "translateX(100%)" }}
-      >
+      <SlideOver open={showKnock}>
+        <PortKnockPanel
+          settings={portKnock}
+          steps={knockSteps}
+          sequenceState={storedSecrets}
+          onSettingsChange={(next) => { markDirty(); setPortKnock(next); }}
+          onStepsChange={(next) => { markDirty(); knockDirty.current = true; setKnockSteps(next); }}
+          effectiveProxyMode={proxyOverride?.mode ?? globalProxy.mode}
+          bastionName={bastionName}
+          onBack={() => setShowKnock(false)}
+        />
+      </SlideOver>
+
+      <SlideOver open={showEnvVars}>
         <EnvVarsPanel
           envVars={envVars}
           onChange={(updated) => { markDirty(); setEnvVars(updated); }}
           onBack={() => setShowEnvVars(false)}
         />
-      </div>
+      </SlideOver>
     </div>
   );
 });

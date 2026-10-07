@@ -208,6 +208,27 @@
       "footnote": "Les hôtes avec un identifiant partagé le conservent. Changez-le pour un hôte avec « Se connecter en tant que »."
     },
     "knock": {
+      "title": "Port knocking",
+      "enable": "Envoyer un knock avant la connexion",
+      "hint": "Envoyé depuis cet appareil, via le proxy de cet hôte, avant chaque connexion SSH, SFTP et redirection de port.",
+      "viaBastion": "Cet hôte se connecte via {{name}} : Voltius envoie donc le knock à {{name}} avec les réglages de knock de cet hôte-là.",
+      "sequence": "Séquence",
+      "reorderHint": "Maintenez et glissez pour réordonner · Envoyés dans cet ordre",
+      "port": "Port",
+      "dragToReorder": "Glisser pour réordonner",
+      "remove": "Retirer le port",
+      "addPort": "Ajouter un port",
+      "timing": "Délais",
+      "delay": "Délai entre les knocks",
+      "settle": "Attente après le dernier knock",
+      "window": "Fenêtre du pare-feu",
+      "windowHint": "Durée pendant laquelle le pare-feu laisse SSH ouvert après un knock. Le voyant d'accessibilité ne sonde que dans cette fenêtre : la carte de l'hôte n'envoie donc jamais de knock d'elle-même. Laissez vide si vous ne savez pas.",
+      "issue": {
+        "empty": "Ajoutez au moins un port.",
+        "port": "Les ports doivent être compris entre 1 et 65535.",
+        "udp-proxy": "Les knocks UDP ne passent pas par le proxy de cet hôte. Utilisez des étapes TCP ou une connexion directe.",
+        "udp-system": "Les knocks UDP échouent si le proxy système est utilisé."
+      },
       "sequenceUnavailable": "La séquence de knock de cet hôte n'est pas disponible sur cet appareil."
     }
   }

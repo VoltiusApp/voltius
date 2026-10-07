@@ -35,6 +35,7 @@ import { parseVariables } from "@/services/snippetParser";
 import { snippetScriptText } from "@/services/snippetSteps";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
+import { SlideOver } from "@/components/shared/slideOver";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
 import { searchMatcher } from "@/utils/search";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
@@ -333,10 +334,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
       </div>
     </PanelShell>
 
-      <div
-        className="absolute inset-0 transition-transform duration-200 ease-out border-l border-l-(--t-bg-terminal)"
-        style={{ transform: remotePick ? "translateX(0)" : "translateX(100%)" }}
-      >
+      <SlideOver open={!!remotePick} className="border-l border-l-(--t-bg-terminal)">
         {remotePick && (
           <RemotePathPickerPanel
             isDir={remotePick.isDir}
@@ -351,7 +349,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
             }}
           />
         )}
-      </div>
+      </SlideOver>
     </div>
   );
 }

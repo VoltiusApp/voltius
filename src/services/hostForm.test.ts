@@ -21,10 +21,10 @@ vi.mock("@/services/vaultObjectSecrets", async (importOriginal) => {
   return { ...actual, moveWithSecrets: (...a: Parameters<typeof actual.moveWithSecrets>) => moveWithSecrets(...a) };
 });
 
-import { saveHostFromForm } from "./hostForm";
+import { emptyHostSecrets, saveHostFromForm } from "./hostForm";
 
 const editing = { id: "c1", vault_id: "team-1" } as never;
-const none = { password: null, private_key: null, passphrase: null, proxy_password: null, knock_sequence: null };
+const none = emptyHostSecrets();
 
 describe("saveHostFromForm", () => {
   beforeEach(() => {

@@ -208,6 +208,27 @@
       "footnote": "Paylaşılan kimlik bilgisi olan sunucular onu korur. Tek bir sunucu için Farklı kimlikle bağlan'ı kullanın."
     },
     "knock": {
+      "title": "Port vuruşu",
+      "enable": "Bağlanmadan önce vuruş yap",
+      "hint": "Her SSH, SFTP ve port yönlendirme bağlantısından önce bu cihazdan, bu sunucunun proxy'si üzerinden gönderilir.",
+      "viaBastion": "Bu sunucu {{name}} üzerinden bağlanır, bu yüzden Voltius {{name}} sunucusuna onun kendi vuruş ayarlarıyla vuruş yapar.",
+      "sequence": "Dizi",
+      "reorderHint": "Sıralamak için basılı tutup sürükleyin · Bu sırayla gönderilir",
+      "port": "Port",
+      "dragToReorder": "Sıralamak için sürükleyin",
+      "remove": "Portu kaldır",
+      "addPort": "Port ekle",
+      "timing": "Zamanlama",
+      "delay": "Vuruşlar arası gecikme",
+      "settle": "Son vuruştan sonra bekleme",
+      "window": "Güvenlik duvarı penceresi",
+      "windowHint": "Güvenlik duvarının bir vuruştan sonra SSH'yi ne kadar süre açık tuttuğu. Erişilebilirlik noktası yalnızca bu pencere içinde yoklar, böylece sunucu kartı asla kendi başına vuruş yapmaz. Bilinmiyorsa boş bırakın.",
+      "issue": {
+        "empty": "En az bir port ekleyin.",
+        "port": "Portlar 1 ile 65535 arasında olmalıdır.",
+        "udp-proxy": "UDP vuruşları bu sunucunun proxy'sinden geçemez. TCP adımları ya da doğrudan bağlantı kullanın.",
+        "udp-system": "Sistem proxy'si kullanılıyorsa UDP vuruşları başarısız olur."
+      },
       "sequenceUnavailable": "Bu sunucunun vuruş dizisi bu cihazda kullanılamıyor."
     }
   }
