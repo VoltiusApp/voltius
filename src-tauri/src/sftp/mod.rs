@@ -11,7 +11,7 @@ use crate::known_hosts::{ConflictPrompt, KnownHostsStore};
 use crate::proxy::ProxySpec;
 use crate::ssh::client::{
     authenticate_handle, chain_jumps, client_config, connect_first_hop_plain, hop_detail,
-    tunnel_hop, JumpHostConnect, SshClient,
+    tunnel_hop, HopRoute, JumpHostConnect, SshClient,
 };
 use crate::ssh::exec::open_exec;
 use crate::ssh::live_cells::{own_cell, read_cell, Cell};
@@ -261,7 +261,7 @@ impl SftpManager {
         keepalive_interval_secs: u64,
         keepalive_max: usize,
         legacy_algorithms: bool,
-        proxy: Option<ProxySpec>,
+        route: HopRoute,
         relink: Option<&str>,
     ) -> Result<String, String> {
         let config = Arc::new(client_config(
@@ -273,10 +273,9 @@ impl SftpManager {
         let mut jump_handles: Vec<Arc<Handle<SshClient>>> = Vec::new();
 
         let mut final_handle: Handle<SshClient> = if jump_hosts.is_empty() {
-            let (h, via) =
-                connect_first_hop_plain(&config, proxy.as_ref(), &known_hosts, host, port, 1)
-                    .await
-                    .map_err(|e| e.describe("SSH connection failed"))?;
+            let (h, via) = connect_first_hop_plain(&config, &route, &known_hosts, host, port, 1)
+                .await
+                .map_err(|e| e.describe("SSH connection failed"))?;
             emit_step(
                 app,
                 connect_id,
@@ -287,7 +286,7 @@ impl SftpManager {
         } else {
             let first = &jump_hosts[0];
             let (mut current_handle, via) = first
-                .connect_first(&config, proxy.as_ref(), &known_hosts, 1)
+                .connect_first(&config, &route, &known_hosts, 1)
                 .await?;
             emit_step(
                 app,

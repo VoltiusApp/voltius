@@ -190,6 +190,8 @@ impl Classify for crate::ssh::client::HopError {
     fn error_code(&self) -> Option<ErrorCode> {
         use crate::ssh::client::HopError as H;
         match self {
+            H::Knock(e) => e.error_code(),
+            H::AfterKnock(e) => e.error_code(),
             H::Proxy(e) => e.error_code(),
             H::Ssh(e) => e.error_code(),
             H::HostKey(_) => None,
@@ -199,8 +201,9 @@ impl Classify for crate::ssh::client::HopError {
     fn error_params(&self) -> Vec<(&'static str, String)> {
         use crate::ssh::client::HopError as H;
         match self {
+            H::AfterKnock(e) => e.error_params(),
             H::Proxy(e) => e.error_params(),
-            H::Ssh(_) | H::HostKey(_) => Vec::new(),
+            H::Knock(_) | H::Ssh(_) | H::HostKey(_) => Vec::new(),
         }
     }
 }

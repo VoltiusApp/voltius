@@ -376,13 +376,118 @@ fn debug_redacts_password() {
 }
 
 #[tokio::test]
+async fn first_hop_knocks_before_dialing_ssh() {
+    use crate::knock::{KnockProtocol, KnockSpec, KnockStep};
+    use crate::ssh::client::HopRoute;
+    let knock_l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let knock_port = knock_l.local_addr().unwrap().port();
+    let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
+    let knocked = tokio::spawn(async move { knock_l.accept().await.is_ok() });
+    let route = HopRoute {
+        proxy: None,
+        knock: Some(KnockSpec {
+            steps: vec![KnockStep {
+                port: knock_port,
+                protocol: KnockProtocol::Tcp,
+            }],
+            delay_ms: 0,
+            settle_ms: 20,
+        }),
+    };
+    crate::ssh::client::connect_first_hop(
+        Arc::new(russh::client::Config::default()),
+        &route,
+        "127.0.0.1",
+        ssh,
+        TestClient,
+    )
+    .await
+    .map_err(|e| e.to_string())
+    .unwrap();
+    assert!(tokio::time::timeout(Duration::from_secs(1), knocked)
+        .await
+        .unwrap()
+        .unwrap());
+    assert!(!crate::knock::closed("127.0.0.1", ssh, Some(60)));
+}
+
+#[tokio::test]
+async fn tcp_knock_goes_through_the_socks_proxy() {
+    use crate::knock::{knock, KnockProtocol, KnockSpec, KnockStep};
+    let target = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target_port = target.local_addr().unwrap().port();
+    let (proxy, requested) = fake_socks5(target_port, None).await;
+    let accepted = tokio::spawn(async move { target.accept().await.is_ok() });
+    let spec = KnockSpec {
+        steps: vec![KnockStep {
+            port: 666,
+            protocol: KnockProtocol::Tcp,
+        }],
+        delay_ms: 0,
+        settle_ms: 200,
+    };
+    knock(
+        &spec,
+        Some(&ProxySpec::Socks5(endpoint(proxy, None))),
+        "router.test.invalid",
+        22,
+    )
+    .await
+    .unwrap();
+    assert!(tokio::time::timeout(Duration::from_secs(1), accepted)
+        .await
+        .unwrap()
+        .unwrap());
+    assert!(
+        requested.lock().unwrap().contains("666"),
+        "{}",
+        requested.lock().unwrap()
+    );
+}
+
+#[tokio::test]
+async fn a_failed_dial_after_a_knock_says_so() {
+    use crate::knock::{KnockProtocol, KnockSpec, KnockStep};
+    use crate::ssh::client::HopRoute;
+    let closed_port = {
+        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        l.local_addr().unwrap().port()
+    };
+    let route = HopRoute {
+        proxy: None,
+        knock: Some(KnockSpec {
+            steps: vec![KnockStep {
+                port: 9,
+                protocol: KnockProtocol::Udp,
+            }],
+            delay_ms: 0,
+            settle_ms: 0,
+        }),
+    };
+    let err = crate::ssh::client::connect_first_hop(
+        Arc::new(russh::client::Config::default()),
+        &route,
+        "127.0.0.1",
+        closed_port,
+        TestClient,
+    )
+    .await
+    .err()
+    .unwrap();
+    assert!(err.to_string().ends_with(" (after port knock)"), "{err}");
+}
+
+#[tokio::test]
 async fn first_hop_helper_goes_through_proxy_and_reports_via() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
     let (proxy, _) = fake_socks5(ssh, None).await;
     let spec = ProxySpec::Socks5(endpoint(proxy, None));
     let (_handle, via) = crate::ssh::client::connect_first_hop(
         Arc::new(russh::client::Config::default()),
-        Some(&spec),
+        &crate::ssh::client::HopRoute {
+            proxy: Some(spec),
+            knock: None,
+        },
         "ssh.test.invalid",
         22,
         TestClient,

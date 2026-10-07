@@ -1,6 +1,6 @@
 use crate::known_hosts::KnownHostsStore;
 use crate::proxy::ProxySpec;
-use crate::ssh::client::{chain_jumps, JumpHostConnect};
+use crate::ssh::client::{chain_jumps, HopRoute, JumpHostConnect};
 use crate::ssh::session::SessionManager;
 use russh::client;
 use std::sync::Arc;
@@ -61,7 +61,7 @@ async fn ping_via_chain(
 
     let first = &jump_hosts[0];
     let Ok((mut current, _)) = first
-        .connect_first(&config, proxy.as_ref(), &known_hosts, 1)
+        .connect_first(&config, &HopRoute { proxy, knock: None }, &known_hosts, 1)
         .await
     else {
         return false;

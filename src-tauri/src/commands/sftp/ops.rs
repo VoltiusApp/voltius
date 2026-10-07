@@ -1,9 +1,11 @@
 use super::{get_backend, RemoteFile};
 use crate::error::AppError;
+use crate::knock::KnockSpec;
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore, PendingConflicts};
 use crate::proxy::ProxySpec;
 use crate::sftp::attrs::{owners, AttrChange, OwnerInfo};
 use crate::sftp::SftpManager;
+use crate::ssh::client::HopRoute;
 use crate::ssh::client::JumpHostConnect;
 use crate::ssh::session::SessionManager;
 use std::sync::Arc;
@@ -47,6 +49,7 @@ pub async fn sftp_connect(
     legacy_algorithms: Option<bool>,
     proxy: Option<ProxySpec>,
     relink: Option<String>,
+    knock: Option<KnockSpec>,
 ) -> Result<String, String> {
     sftp_state
         .connect(
@@ -63,7 +66,7 @@ pub async fn sftp_connect(
             keepalive_interval_secs,
             keepalive_max,
             legacy_algorithms.unwrap_or(false),
-            proxy,
+            HopRoute { proxy, knock },
             relink.as_deref(),
         )
         .await

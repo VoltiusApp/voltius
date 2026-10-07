@@ -975,7 +975,7 @@ mod tests {
         use crate::known_hosts::KnownHostsStore;
         use crate::sftp::backend::test_tree::Recorder;
         use crate::sftp::real::{RealSftp, SftpOpener};
-        use crate::ssh::client::{connect_authenticated, SshClient};
+        use crate::ssh::client::{connect_authenticated, HopRoute, SshClient};
         use crate::ssh::live_cells::own_cell;
         use crate::ssh::session::SessionHandle;
         use crate::ssh::test_docker::{docker, Container};
@@ -1072,6 +1072,7 @@ mod tests {
             let deadline = Instant::now() + Duration::from_secs(60);
             let handle = loop {
                 let known_hosts = Arc::new(KnownHostsStore::new());
+                let route = HopRoute::default();
                 let attempt = connect_authenticated(
                     known_hosts,
                     "127.0.0.1",
@@ -1081,7 +1082,7 @@ mod tests {
                     None,
                     None,
                     false,
-                    None,
+                    &route,
                 );
                 match attempt.await {
                     Ok(h) => break h,

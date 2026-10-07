@@ -1,4 +1,5 @@
 use crate::error::{AppError, ErrorCode};
+use crate::knock::{self, KnockError, KnockSpec};
 use crate::known_hosts::{ConflictPrompt, KnownHostsStore, PendingConflicts};
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
 use crate::proxy::{self, ProxyError, ProxySpec};
@@ -29,6 +30,7 @@ pub struct JumpHostConnect {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SshStep {
+    Knocking,
     TcpConnected,
     Handshake,
     Authenticating,
@@ -612,8 +614,16 @@ fn is_transient_connect_error(e: &russh::Error) -> bool {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct HopRoute {
+    pub proxy: Option<ProxySpec>,
+    pub knock: Option<KnockSpec>,
+}
+
 #[derive(Debug)]
 pub enum HopError {
+    Knock(KnockError),
+    AfterKnock(Box<HopError>),
     Proxy(ProxyError),
     Ssh(russh::Error),
     /// Shown verbatim and never retried; the frontend matches on its text.
@@ -629,6 +639,8 @@ impl From<russh::Error> for HopError {
 impl std::fmt::Display for HopError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Knock(e) => write!(f, "{e}"),
+            Self::AfterKnock(e) => write!(f, "{e} (after port knock)"),
             Self::Proxy(e) => write!(f, "{e}"),
             Self::Ssh(e) => write!(f, "{e}"),
             Self::HostKey(reason) => f.write_str(reason),
@@ -639,6 +651,8 @@ impl std::fmt::Display for HopError {
 impl HopError {
     fn is_transient(&self) -> bool {
         match self {
+            Self::Knock(_) => false,
+            Self::AfterKnock(e) => e.is_transient(),
             Self::Proxy(e) => e.is_transient(),
             Self::Ssh(e) => is_transient_connect_error(e),
             Self::HostKey(_) => false,
@@ -650,6 +664,9 @@ impl HopError {
     pub(crate) fn describe(self, context: &str) -> AppError {
         match self {
             Self::HostKey(reason) => AppError::Msg(reason),
+            Self::AfterKnock(inner) if matches!(*inner, Self::HostKey(_)) => {
+                inner.describe(context)
+            }
             e => AppError::caused(context, &e),
         }
     }
@@ -658,7 +675,7 @@ impl HopError {
 /// The returned `Option<String>` is the proxy's `via` label.
 pub(crate) async fn connect_first_hop<H>(
     config: Arc<client::Config>,
-    proxy: Option<&ProxySpec>,
+    route: &HopRoute,
     host: &str,
     port: u16,
     handler: H,
@@ -667,12 +684,24 @@ where
     H: client::Handler + Send + 'static,
     H::Error: Into<HopError>,
 {
-    let dialed = proxy::dial(proxy, host, port)
+    if let Some(spec) = &route.knock {
+        knock::knock(spec, route.proxy.as_ref(), host, port)
+            .await
+            .map_err(HopError::Knock)?;
+    }
+    let after = |e: HopError| {
+        if route.knock.is_some() {
+            HopError::AfterKnock(Box::new(e))
+        } else {
+            e
+        }
+    };
+    let dialed = proxy::dial(route.proxy.as_ref(), host, port)
         .await
-        .map_err(HopError::Proxy)?;
+        .map_err(|e| after(HopError::Proxy(e)))?;
     let handle = client::connect_stream(config, dialed.stream, handler)
         .await
-        .map_err(Into::into)?;
+        .map_err(|e| after(e.into()))?;
     Ok((handle, dialed.via))
 }
 
@@ -686,7 +715,7 @@ pub(crate) fn hop_detail(host: &str, port: u16, suffix: &str, via: Option<&str>)
 /// The handler is rebuilt each attempt because `connect_stream` consumes it.
 pub(crate) async fn connect_first_hop_retrying<H, T>(
     config: &Arc<client::Config>,
-    proxy: Option<&ProxySpec>,
+    route: &HopRoute,
     host: &str,
     port: u16,
     max_attempts: u32,
@@ -699,7 +728,7 @@ where
     let mut attempt = 1;
     loop {
         let (handler, extra) = make();
-        match connect_first_hop(Arc::clone(config), proxy, host, port, handler).await {
+        match connect_first_hop(Arc::clone(config), route, host, port, handler).await {
             Ok((h, via)) => return Ok((h, via, extra)),
             Err(e) if attempt < max_attempts && e.is_transient() => {
                 tokio::time::sleep(std::time::Duration::from_millis(
@@ -715,13 +744,13 @@ where
 
 pub(crate) async fn connect_first_hop_plain(
     config: &Arc<client::Config>,
-    proxy: Option<&ProxySpec>,
+    route: &HopRoute,
     known_hosts: &Arc<KnownHostsStore>,
     host: &str,
     port: u16,
     max_attempts: u32,
 ) -> Result<(client::Handle<SshClient>, Option<String>), HopError> {
-    let (h, via, ()) = connect_first_hop_retrying(config, proxy, host, port, max_attempts, || {
+    let (h, via, ()) = connect_first_hop_retrying(config, route, host, port, max_attempts, || {
         (
             SshClient::new(host.into(), port, Arc::clone(known_hosts)),
             (),
@@ -776,13 +805,13 @@ impl JumpHostConnect {
     pub(crate) async fn connect_first(
         &self,
         config: &Arc<client::Config>,
-        proxy: Option<&ProxySpec>,
+        route: &HopRoute,
         known_hosts: &Arc<KnownHostsStore>,
         max_attempts: u32,
     ) -> Result<(client::Handle<SshClient>, Option<String>), AppError> {
         connect_first_hop_plain(
             config,
-            proxy,
+            route,
             known_hosts,
             &self.host,
             self.port,
@@ -852,7 +881,7 @@ pub async fn connect(
     pty_rows: u32,
     legacy_algorithms: bool,
     initial_cwd: Option<String>,
-    proxy: Option<ProxySpec>,
+    route: HopRoute,
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
 ) -> Result<ConnectedSession, AppError> {
     let terminal_colors =
@@ -872,14 +901,18 @@ pub async fn connect(
     #[allow(unused_assignments)]
     let mut final_sshid: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
+    if let Some(spec) = &route.knock {
+        emit_step(
+            &app,
+            &session_id,
+            SshStep::Knocking,
+            spec.steps.len().to_string(),
+        );
+    }
+
     let mut final_handle: client::Handle<SshClient> = if jump_hosts.is_empty() {
-        let (h, via, (routes, sshid)) = connect_first_hop_retrying(
-            &config,
-            proxy.as_ref(),
-            host,
-            port,
-            CONNECT_MAX_ATTEMPTS,
-            || {
+        let (h, via, (routes, sshid)) =
+            connect_first_hop_retrying(&config, &route, host, port, CONNECT_MAX_ATTEMPTS, || {
                 let (c, routes, sshid) = SshClient::new_interactive(
                     host.to_string(),
                     port,
@@ -890,10 +923,9 @@ pub async fn connect(
                     agent_forwarding,
                 );
                 (c, (routes, sshid))
-            },
-        )
-        .await
-        .map_err(|e| e.describe("Connection failed"))?;
+            })
+            .await
+            .map_err(|e| e.describe("Connection failed"))?;
         final_routes = routes;
         final_sshid = sshid;
         emit_step(
@@ -906,7 +938,7 @@ pub async fn connect(
     } else {
         let first = &jump_hosts[0];
         let (mut current_handle, via) = first
-            .connect_first(&config, proxy.as_ref(), &known_hosts, CONNECT_MAX_ATTEMPTS)
+            .connect_first(&config, &route, &known_hosts, CONNECT_MAX_ATTEMPTS)
             .await?;
         emit_step(
             &app,
@@ -1276,14 +1308,14 @@ pub async fn connect_authenticated(
     private_key: Option<&str>,
     passphrase: Option<&str>,
     legacy_algorithms: bool,
-    proxy: Option<&ProxySpec>,
+    route: &HopRoute,
 ) -> Result<client::Handle<SshClient>, String> {
     let config = Arc::new(client_config(
         0,
         client::Config::default().keepalive_max,
         legacy_algorithms,
     ));
-    let (mut handle, _via) = connect_first_hop_plain(&config, proxy, &known_hosts, host, port, 1)
+    let (mut handle, _via) = connect_first_hop_plain(&config, route, &known_hosts, host, port, 1)
         .await
         .map_err(|e| e.describe("Connection failed"))?;
     authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
@@ -1335,7 +1367,7 @@ mod tests {
     use super::{
         answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
         connect_first_hop_retrying, is_windows_sshid, legacy_preferred, open_agent_channel, Arc,
-        SshClient, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED,
+        HopRoute, SshClient, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED,
         PASSWORD_REJECTED,
     };
     use crate::error::{AppError, ErrorCode};
@@ -1737,7 +1769,7 @@ mod tests {
             passphrase: None,
         };
         let (mut via, _) = jump
-            .connect_first(&config, None, &known_hosts, 1)
+            .connect_first(&config, &HopRoute::default(), &known_hosts, 1)
             .await
             .unwrap();
         jump.authenticate(&mut via).await.unwrap();
@@ -1764,7 +1796,7 @@ mod tests {
         let calls2 = Arc::clone(&calls);
         let result = connect_first_hop_retrying(
             &Arc::new(client::Config::default()),
-            None,
+            &HopRoute::default(),
             "127.0.0.1",
             port,
             max_attempts,
