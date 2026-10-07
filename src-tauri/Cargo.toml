@@ -132,4 +132,6 @@ webpki-roots = "1"
 # Issues throwaway certificates for the TLS proxy tests, so no private key is committed.
 rcgen = { version = "0.13", default-features = false, features = ["crypto", "ring"] }
 tempfile = "3"
+# Paused clock, so stall-watchdog tests skip the real 15 s wait.
+tokio = { version = "1", features = ["test-util"] }
 vt100 = "0.16"

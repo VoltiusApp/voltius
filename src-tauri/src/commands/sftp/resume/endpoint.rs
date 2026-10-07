@@ -368,6 +368,8 @@ pub(crate) mod tests_support {
         pub dead_until_waited: bool,
         /// Listings that don't vouch for type or size, as a bare SFTP server sends them.
         pub bare_listing: bool,
+        /// Fails this many link probes, then answers without being waited for.
+        pub dead_probes: usize,
         pub state: Mutex<TestState>,
     }
 
@@ -382,6 +384,7 @@ pub(crate) mod tests_support {
         pub waited: bool,
         pub stats: usize,
         pub lists: usize,
+        pub probes: usize,
     }
 
     fn once(flag: bool, done: &mut bool) -> bool {
@@ -498,7 +501,9 @@ pub(crate) mod tests_support {
             LocalFs.hash(p, t).await
         }
         async fn link_dead(&self) -> bool {
-            self.dead_until_waited && !self.state.lock().unwrap().waited
+            let mut state = self.state.lock().unwrap();
+            state.probes += 1;
+            state.probes <= self.dead_probes || (self.dead_until_waited && !state.waited)
         }
         async fn wait_for_link(
             &self,

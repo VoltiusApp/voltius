@@ -61,12 +61,23 @@ pub struct Job<'a, E> {
 }
 
 impl<'a, E: TransferEvents> Job<'a, E> {
+    #[cfg(test)]
     pub fn new(events: &'a E, transfer_id: &'a str, token: &'a CancellationToken) -> Self {
+        Self::with_progress(events, transfer_id, token, Progress::default())
+    }
+
+    /// A job counting into `progress`, which someone else (a stall watchdog) also reads.
+    pub fn with_progress(
+        events: &'a E,
+        transfer_id: &'a str,
+        token: &'a CancellationToken,
+        progress: Progress,
+    ) -> Self {
         Self {
             events,
             transfer_id,
             token,
-            progress: Progress::default(),
+            progress,
         }
     }
 

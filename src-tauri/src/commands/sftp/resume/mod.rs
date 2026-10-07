@@ -10,6 +10,7 @@ use crate::commands::sftp::{pump, TransferProgress};
 use crate::error::{AppError, ErrorCode};
 use crate::sftp::backend::{report_skipped, skip_unsafe_name, TransferEvents};
 use crate::sftp::link::LINK_POLL;
+use async_trait::async_trait;
 use endpoint::{Endpoint, Listed, Reader, Stat, Writer};
 use names::{fingerprint, is_temp_of, temp_name, OLD_EXT, PART_EXT};
 use serde::Serialize;
@@ -388,12 +389,28 @@ pub(crate) async fn revive<E: TransferEvents>(
     Some(result)
 }
 
-/// Ends `work` once a link is gone: closed outright, or failing a probe after `stall` without progress.
-async fn unless_lost<T>(
+/// Says a stalled transfer can never move again, whatever a link probe finds.
+#[async_trait]
+pub(crate) trait Stuck: Sync {
+    async fn stuck(&self) -> bool;
+}
+
+/// A fixed answer: per-file copies pass `false` and rely on the probe alone.
+#[async_trait]
+impl Stuck for bool {
+    async fn stuck(&self) -> bool {
+        *self
+    }
+}
+
+/// Ends `work` once a link is gone: closed outright, or `stuck` or failing a probe after
+/// `stall` without progress.
+pub(crate) async fn unless_lost<T>(
     work: impl Future<Output = Result<T, AppError>>,
     ends: &[&dyn Endpoint],
     seen: &AtomicU64,
     stall: Duration,
+    stuck: &dyn Stuck,
     token: &CancellationToken,
 ) -> Result<T, AppError> {
     tokio::pin!(work);
@@ -409,7 +426,7 @@ async fn unless_lost<T>(
                 } else if last.1.elapsed() >= stall {
                     last.1 = Instant::now();
                     tokio::select! {
-                        dead = dead_ends(ends) => !dead.is_empty(),
+                        dead = async { stuck.stuck().await || !dead_ends(ends).await.is_empty() } => dead,
                         _ = token.cancelled() => return Err(cancelled()),
                     }
                 } else {
@@ -576,7 +593,7 @@ async fn copy_bytes<E: TransferEvents>(
             .await
             .map_err(|e| AppError::caused("Flush error", &e))
     };
-    unless_lost(copied, ends, &seen, stall, token).await
+    unless_lost(copied, ends, &seen, stall, &false, token).await
 }
 
 async fn keep_mtime(dst: &dyn Endpoint, path: &str, mtime: Option<u64>) {
