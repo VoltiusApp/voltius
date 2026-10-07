@@ -89,6 +89,10 @@ pub(crate) trait Endpoint: Send + Sync {
     async fn resolve(&self, path: &str) -> Result<String, AppError> {
         Ok(path.to_string())
     }
+    /// A directory's canonical path, where listings follow symlinks; None where they never do.
+    async fn real_dir(&self, _path: &str) -> Option<String> {
+        None
+    }
     /// None when no hash is to be had; an error only when the link died while hashing.
     async fn hash(&self, path: &str, token: &CancellationToken)
         -> Result<Option<String>, AppError>;
@@ -273,6 +277,11 @@ impl Endpoint for LocalFs {
                 .map_or_else(|_| path.to_string(), |p| p.to_string_lossy().into_owned())),
             _ => Ok(path.to_string()),
         }
+    }
+
+    async fn real_dir(&self, path: &str) -> Option<String> {
+        let real = tokio::fs::canonicalize(path).await.ok()?;
+        Some(real.to_string_lossy().into_owned())
     }
 
     async fn hash(

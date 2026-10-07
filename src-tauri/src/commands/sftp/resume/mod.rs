@@ -175,16 +175,17 @@ pub(crate) enum Step {
     Stop,
 }
 
-/// Depth-first over `root` from its listings alone, never following a symlink:
-/// `f` gets each entry's `/`-joined path relative to `root`, its full path and
-/// its listing.
+/// Depth-first over `root` from its listings, skipping entries listed as symlinks: `f` gets each
+/// entry's `/`-joined path under `root`, its full path and its listing. Returns the
+/// directories left out because they lead back to one of their own ancestors.
 pub(crate) async fn visit(
     src: &dyn Endpoint,
     root: &str,
     mut f: impl FnMut(String, &str, &Listed) -> Step,
-) -> Result<(), AppError> {
-    let mut stack = vec![String::new()];
-    while let Some(rel) = stack.pop() {
+) -> Result<Vec<String>, AppError> {
+    let mut looped = Vec::new();
+    let mut stack = vec![(String::new(), Vec::from_iter(src.real_dir(root).await))];
+    while let Some((rel, ancestors)) = stack.pop() {
         let dir = if rel.is_empty() {
             root.to_string()
         } else {
@@ -194,20 +195,33 @@ pub(crate) async fn visit(
             if e.is_symlink {
                 continue;
             }
+            let path = src.join(&dir, &e.name);
+            let is_dir = e.stat.is_some_and(|s| s.is_dir);
+            let mut real = None;
+            if is_dir {
+                real = src.real_dir(&path).await;
+                if real.as_ref().is_some_and(|r| ancestors.contains(r)) {
+                    looped.push(path);
+                    continue;
+                }
+            }
             let child = if rel.is_empty() {
                 e.name.clone()
             } else {
                 format!("{rel}/{}", e.name)
             };
-            let sub = e.stat.is_some_and(|s| s.is_dir).then(|| child.clone());
-            match (f(child, &src.join(&dir, &e.name), &e), sub) {
-                (Step::Go, Some(sub)) => stack.push(sub),
-                (Step::Stop, _) => return Ok(()),
+            let sub = is_dir.then(|| child.clone());
+            match (f(child, &path, &e), sub) {
+                (Step::Go, Some(sub)) => {
+                    let inner = ancestors.iter().cloned().chain(real).collect();
+                    stack.push((sub, inner));
+                }
+                (Step::Stop, _) => return Ok(looped),
                 _ => {}
             }
         }
     }
-    Ok(())
+    Ok(looped)
 }
 
 /// Every directory and file under `root`, relative and `/`-joined; `dst_local` as in `skip_unsafe_name`.
@@ -219,7 +233,7 @@ pub(crate) async fn walk<E: TransferEvents>(
     dst_local: bool,
 ) -> Result<(Vec<String>, Vec<TreeFile>), AppError> {
     let (mut dirs, mut files) = (Vec::new(), Vec::new());
-    visit(src, root, |rel, path, e| {
+    let looped = visit(src, root, |rel, path, e| {
         if skip_unsafe_name(events, transfer_id, path, &e.name, dst_local) {
             return Step::Prune;
         }
@@ -235,6 +249,9 @@ pub(crate) async fn walk<E: TransferEvents>(
         Step::Go
     })
     .await?;
+    for path in looped {
+        report_skipped(events, transfer_id, &path);
+    }
     Ok((dirs, files))
 }
 
@@ -1337,6 +1354,28 @@ pub(crate) mod engine_tests {
         copy_dir(&rec, a.path(), &dst, "t3").await;
         assert_eq!(rec.skipped("t3"), [s(&dangling)]);
         assert_eq!(std::fs::read(dst.join("sub/b")).unwrap(), noise(200_000));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_link_back_to_an_ancestor_is_skipped_and_other_links_followed() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        tree(a.path());
+        std::fs::write(b.path().join("x"), b"x").unwrap();
+        let up = a.path().join("sub/up");
+        std::os::unix::fs::symlink("..", &up).unwrap();
+        std::os::unix::fs::symlink(b.path(), a.path().join("sub/ext")).unwrap();
+        std::os::unix::fs::symlink("../a", a.path().join("sub/f")).unwrap();
+        let rec = Recorder::default();
+        let (mut dirs, files) = walk(&rec, "t4", &LocalFs, &s(a.path()), true)
+            .await
+            .unwrap();
+        let mut files: Vec<_> = files.into_iter().map(|f| f.rel).collect();
+        dirs.sort();
+        files.sort();
+        assert_eq!(dirs, ["sub", "sub/empty", "sub/ext"]);
+        assert_eq!(files, ["a", "sub/b", "sub/c", "sub/ext/x", "sub/f"]);
+        assert_eq!(rec.skipped("t4"), [s(&up)]);
     }
 
     async fn copy_dir_to(
