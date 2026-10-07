@@ -14,6 +14,7 @@ vi.mock("@/services/sftp", () => ({
 vi.mock("@/services/credentials", () => ({
   resolveConnectionCredentials: vi.fn(async () => ({ username: "u", password: "p" })),
   resolveJumpHosts: vi.fn(async () => []),
+  findConnection: vi.fn(() => undefined),
 }));
 vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
 
@@ -33,6 +34,7 @@ vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "gen" }));
 
 import { connectFileBackend, resolveSftpIdForTarget, sftpConnectToConnection } from "./sftpTarget";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import { getSecret } from "@/services/vault";
 import type { Connection } from "@/types";
 
 beforeEach(() => {
@@ -118,5 +120,17 @@ describe("connectFileBackend", () => {
     await expect(connectFileBackend(conn({}), "k")).resolves.toBe("sftp-1");
     expect(ftpConnect).not.toHaveBeenCalled();
     expect(webdavConnect).not.toHaveBeenCalled();
+  });
+});
+
+describe("knock", () => {
+  it("sends the resolved knock with the SFTP dial", async () => {
+    vi.mocked(getSecret).mockResolvedValueOnce("7/tcp");
+    sftpConnect.mockResolvedValue("sftp-k");
+    await sftpConnectToConnection(
+      { id: "k1", host: "h", port: 22, username: "u", auth_type: "password", tags: [], port_knock: { enabled: true } } as unknown as Connection,
+      "k",
+    );
+    expect(sftpConnect.mock.calls[0][0].knock).toEqual({ steps: [{ port: 7, protocol: "tcp" }], delay_ms: 200, settle_ms: 500 });
   });
 });

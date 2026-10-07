@@ -1,6 +1,6 @@
 import { sftpOpen, sftpConnect, ftpConnect, webdavConnect } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveFirstHopProxy } from "@/services/proxy";
+import { resolveFirstHop } from "@/services/proxy";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
@@ -35,17 +35,17 @@ export async function connectFileBackend(conn: Connection, connectId: string, in
     return ftpConnect({ host: conn.host, port: conn.port, username: creds.username, password: creds.password, secure: !!conn.ftp_secure });
   }
   if (conn.connection_type === "webdav") {
-    const [creds, proxy] = await Promise.all([resolveConnectionCredentials(conn), resolveFirstHopProxy(conn)]);
+    const [creds, { proxy }] = await Promise.all([resolveConnectionCredentials(conn), resolveFirstHop(conn)]);
     return webdavConnect({ connectId, url: conn.webdav_url ?? "", username: creds.username, password: creds.password, proxy, interactive });
   }
   return sftpConnectToConnection(conn, connectId, relink);
 }
 
 export async function sftpConnectToConnection(conn: Connection, connectId: string, relink?: string): Promise<string> {
-  const [creds, jumpHosts, proxy] = await Promise.all([
+  const [creds, jumpHosts, route] = await Promise.all([
     resolveConnectionCredentials(conn),
     resolveJumpHosts(conn),
-    resolveFirstHopProxy(conn),
+    resolveFirstHop(conn),
   ]);
   const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
   return sftpConnect({
@@ -61,6 +61,6 @@ export async function sftpConnectToConnection(conn: Connection, connectId: strin
     keepaliveMax: ka.max,
     relink,
     legacyAlgorithms: conn.legacy_algorithms,
-    proxy,
+    ...route,
   });
 }

@@ -1,4 +1,8 @@
-import type { PortKnockSettings } from "@/types";
+import i18n from "@/i18n";
+import { getSecret } from "@/services/vault";
+import { findConnection } from "@/services/credentials";
+import { knockSequenceKey } from "@/services/teamVaultSecretKeys";
+import type { Connection, PortKnockSettings } from "@/types";
 
 export type KnockProtocol = "tcp" | "udp";
 export interface KnockStep { port: number; protocol: KnockProtocol }
@@ -34,3 +38,21 @@ export const toKnockSpec = (settings: PortKnockSettings, sequence: string): Knoc
   delay_ms: settings.delay_ms ?? KNOCK_DEFAULTS.delay_ms,
   settle_ms: settings.settle_ms ?? KNOCK_DEFAULTS.settle_ms,
 });
+
+export interface KnockOverride { settings: PortKnockSettings | null; sequence?: string }
+
+export function firstHopConnection(conn: Connection): Connection | undefined {
+  const firstJump = conn.jump_hosts?.[0];
+  return firstJump ? findConnection(firstJump.connection_id) : conn;
+}
+
+export async function resolveKnock(
+  conn: Pick<Connection, "id" | "port_knock"> | undefined,
+  override?: KnockOverride,
+): Promise<KnockSpec | null> {
+  const settings = override ? override.settings : conn?.port_knock;
+  if (!conn || !settings?.enabled) return null;
+  const sequence = override?.sequence ?? (await getSecret(knockSequenceKey(conn.id)).catch(() => null));
+  if (!sequence) throw new Error(i18n.t("connections.knock.sequenceUnavailable"));
+  return toKnockSpec(settings, sequence);
+}

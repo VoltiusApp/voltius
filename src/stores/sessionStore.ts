@@ -10,7 +10,7 @@ import { serialConnect, serialDisconnect, serialSetLine } from "@/services/seria
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { identityCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
 import { connectionAuditMetadata } from "@/services/connectionAuditMetadata";
-import { resolveFirstHopProxy, type ProxySpec } from "@/services/proxy";
+import { resolveFirstHop, type HopRoute } from "@/services/proxy";
 import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/ephemeralCredentials";
 import { storeSecret, getSecret } from "@/services/vault";
 import { identityPickIssueOf, type IdentityPickIssue } from "@/services/credentialPlan";
@@ -137,11 +137,12 @@ async function buildSshConnectOptions(
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
   persist: boolean;
-  proxy: ProxySpec | null;
+  proxy: HopRoute["proxy"];
+  knock: HopRoute["knock"];
   cols?: number;
   rows?: number;
 }> {
-  const [jumpHosts, proxy] = await Promise.all([resolveJumpHosts(connection), resolveFirstHopProxy(connection)]);
+  const [jumpHosts, route] = await Promise.all([resolveJumpHosts(connection), resolveFirstHop(connection)]);
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
   const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
 
@@ -164,7 +165,7 @@ async function buildSshConnectOptions(
     keepaliveIntervalSecs: intervalSecs,
     keepaliveMax: max,
     persist: resolvePersistSession(connection.persist_session),
-    proxy,
+    ...route,
     ...dims,
   };
 }

@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/services/vault", () => ({ getSecret: async () => null }));
+vi.mock("@/services/credentials", () => ({ findConnection: () => undefined }));
+
 import { formatKnockSequence, parseKnockSequence, toKnockSpec, KnockSequenceError } from "./portKnock";
 
 describe("knock sequence codec", () => {

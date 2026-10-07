@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
+import type { KnockSpec } from "@/services/portKnock";
 import { currentTerminalColors, type TerminalColors } from "@/utils/terminalColors";
 
 export interface JumpHostConnect {
@@ -41,6 +42,7 @@ export async function sshConnect(params: {
    * move a session the user has since navigated elsewhere. */
   initialCwd?: string;
   proxy?: ProxySpec | null;
+  knock?: KnockSpec | null;
 }): Promise<void> {
   return invoke("ssh_connect", {
     sessionId: params.sessionId,
@@ -67,6 +69,7 @@ export async function sshConnect(params: {
     rows: params.rows ?? null,
     initialCwd: params.initialCwd ?? null,
     proxy: params.proxy ?? null,
+    knock: params.knock ?? null,
     terminalColors: currentTerminalColors(),
   });
 }
@@ -137,6 +140,7 @@ export async function sshExecCommand(params: {
   command: string;
   legacyAlgorithms?: boolean;
   proxy?: ProxySpec | null;
+  knock?: KnockSpec | null;
 }): Promise<SshExecResult> {
   return invoke("ssh_exec_command", {
     host: params.host,
@@ -148,6 +152,7 @@ export async function sshExecCommand(params: {
     command: params.command,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
     proxy: params.proxy ?? null,
+    knock: params.knock ?? null,
   });
 }
 
@@ -161,6 +166,7 @@ export async function sshKillPersistent(params: {
   sessionId: string;
   legacyAlgorithms?: boolean;
   proxy?: ProxySpec | null;
+  knock?: KnockSpec | null;
 }): Promise<boolean> {
   return invoke("ssh_kill_persistent", {
     host: params.host,
@@ -172,6 +178,7 @@ export async function sshKillPersistent(params: {
     sessionId: params.sessionId,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
     proxy: params.proxy ?? null,
+    knock: params.knock ?? null,
   });
 }
 

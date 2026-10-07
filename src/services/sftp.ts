@@ -2,6 +2,7 @@ import { invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open as dialogOpen } from "@tauri-apps/plugin-dialog";
 import type { ProxySpec } from "@/services/proxy";
+import type { KnockSpec } from "@/services/portKnock";
 
 export interface RemoteFile {
   name: string;
@@ -34,6 +35,7 @@ export async function sftpConnect(params: {
   keepaliveMax: number;
   legacyAlgorithms?: boolean;
   proxy?: ProxySpec | null;
+  knock?: KnockSpec | null;
   /** A lost session's id to reconnect into, so its transfers resume. */
   relink?: string;
 }): Promise<string> {
@@ -50,6 +52,7 @@ export async function sftpConnect(params: {
     keepaliveMax: params.keepaliveMax,
     legacyAlgorithms: params.legacyAlgorithms ?? false,
     proxy: params.proxy ?? null,
+    knock: params.knock ?? null,
     relink: params.relink ?? null,
   });
 }

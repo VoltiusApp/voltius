@@ -11,7 +11,7 @@ import EnvVarsPanel from "./EnvVarsPanel";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
-import { isCustomProxyMode, resolveProxy } from "@/services/proxy";
+import { isCustomProxyMode, resolveDirectHop } from "@/services/proxy";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -373,10 +373,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         passphrase: detectPassphrase,
         legacyAlgorithms,
         command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
-        proxy: await resolveProxy(
-          { id: initial?.id ?? "", proxy: initial?.proxy },
-          { proxy: proxyOverride, password: proxyPasswordDirty.current ? proxyPassword || undefined : undefined },
-        ),
+        ...(await resolveDirectHop(
+          { id: initial?.id ?? "", proxy: initial?.proxy, port_knock: initial?.port_knock },
+          { proxy: proxyOverride, password: proxyPasswordDirty.current ? proxyPassword || undefined : undefined, knock: undefined },
+        )),
       });
       const lines = stdout.split(/\r?\n/);
       const idLine = lines.find((line) => line.startsWith("ID="));

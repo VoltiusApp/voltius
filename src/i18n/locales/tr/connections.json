@@ -206,6 +206,9 @@
       "none": "Varsayılan yok",
       "noneHint": "Kimlik bilgisi olmayan sunucular şimdiki gibi size sorar",
       "footnote": "Paylaşılan kimlik bilgisi olan sunucular onu korur. Tek bir sunucu için Farklı kimlikle bağlan'ı kullanın."
+    },
+    "knock": {
+      "sequenceUnavailable": "Bu sunucunun vuruş dizisi bu cihazda kullanılamıyor."
     }
   }
 }

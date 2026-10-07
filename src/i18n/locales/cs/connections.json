@@ -206,6 +206,9 @@
       "none": "Žádná výchozí",
       "noneHint": "Hostitelé bez přihlašovacích údajů se zeptají jako dosud",
       "footnote": "Hostitelé se sdílenými přihlašovacími údaji je zachovají. Pro jednoho hostitele to změníte volbou Připojit jako."
+    },
+    "knock": {
+      "sequenceUnavailable": "Sekvence klepání pro tohoto hostitele není na tomto zařízení k dispozici."
     }
   }
 }

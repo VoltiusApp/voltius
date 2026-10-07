@@ -206,6 +206,9 @@
       "none": "No default",
       "noneHint": "Hosts without a credential ask you, as today",
       "footnote": "Hosts with a shared credential keep it. Override one host with Connect as."
+    },
+    "knock": {
+      "sequenceUnavailable": "The knock sequence for this host isn't available on this device."
     }
   }
 }

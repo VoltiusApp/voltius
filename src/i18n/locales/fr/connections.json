@@ -206,6 +206,9 @@
       "none": "Aucune par défaut",
       "noneHint": "Les hôtes sans identifiant vous le demandent, comme aujourd'hui",
       "footnote": "Les hôtes avec un identifiant partagé le conservent. Changez-le pour un hôte avec « Se connecter en tant que »."
+    },
+    "knock": {
+      "sequenceUnavailable": "La séquence de knock de cet hôte n'est pas disponible sur cet appareil."
     }
   }
 }
