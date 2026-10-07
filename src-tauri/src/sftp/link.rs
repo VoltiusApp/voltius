@@ -89,6 +89,19 @@ impl<H: Handler> SftpLink<H> {
         }
     }
 
+    /// Open a fresh channel and swap it into the shared session in place, so every
+    /// holder of the same `Arc` heals. The open and the lock are each bounded.
+    pub async fn reopen(&self, session: &Mutex<SftpSession>) -> Result<(), String> {
+        let fresh = timeout(LINK_PROBE, self.open())
+            .await
+            .map_err(|_| "Timed out reopening the SFTP channel".to_string())??;
+        let mut sftp = timeout(LINK_PROBE, session.lock())
+            .await
+            .map_err(|_| "Timed out waiting for the SFTP session".to_string())?;
+        *sftp = fresh;
+        Ok(())
+    }
+
     async fn revive(&self, session: &Mutex<SftpSession>) -> bool {
         if self.closed_now() {
             return false;
@@ -96,16 +109,7 @@ impl<H: Handler> SftpLink<H> {
         if matches!(timeout(LINK_PROBE, answers(session)).await, Ok(Ok(()))) {
             return true;
         }
-        let Ok(Ok(fresh)) = timeout(LINK_PROBE, self.open()).await else {
-            return false;
-        };
-        match timeout(LINK_PROBE, session.lock()).await {
-            Ok(mut sftp) => {
-                *sftp = fresh;
-                true
-            }
-            Err(_) => false,
-        }
+        self.reopen(session).await.is_ok()
     }
 
     pub async fn wait(
@@ -205,6 +209,18 @@ mod tests {
         assert!(!link.dead(&session).await);
         kill(&link).await;
         assert!(link.dead(&session).await);
+    }
+
+    #[tokio::test]
+    async fn reopening_swaps_a_live_channel_into_the_shared_session() {
+        let (link, session) = linked(ProcOptions::default()).await;
+        session.lock().await.close().await.unwrap();
+        assert!(session.lock().await.canonicalize(".").await.is_err());
+        link.reopen(&session).await.unwrap();
+        assert!(session.lock().await.canonicalize(".").await.is_ok());
+
+        kill(&link).await;
+        assert!(link.reopen(&session).await.is_err());
     }
 
     #[tokio::test]

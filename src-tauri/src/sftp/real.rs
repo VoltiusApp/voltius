@@ -44,9 +44,8 @@ impl SftpOpener {
     }
 }
 
-/// Run an SFTP call, re-opening the channel once and retrying if the cached
-/// session turns out to be dead. The re-opened session replaces the shared one
-/// in place, so streaming transfers holding the same `Arc` heal too.
+/// Run an SFTP call, re-opening the channel once (`SftpLink::reopen`) and retrying
+/// if the cached session turns out to be dead.
 ///
 /// A macro rather than a function taking a closure: the call borrows both the
 /// session guard and the operation's arguments, which no single closure
@@ -54,8 +53,8 @@ impl SftpOpener {
 macro_rules! retry_sftp {
     ($self:expr, $what:expr, |$sftp:ident| $call:expr) => {{
         let this = $self;
-        let mut guard = this.session.lock().await;
         let first = {
+            let guard = this.session.lock().await;
             let $sftp = &*guard;
             $call.await
         };
@@ -64,10 +63,10 @@ macro_rules! retry_sftp {
             Err(e) if !is_transport_dead(&e) => {
                 Err(AppError::caused(format_args!("{} failed", $what), &e))
             }
-            Err(_) => match this.link.open().await {
+            Err(_) => match this.link.reopen(&this.session).await {
                 Err(e) => Err(e.into()),
-                Ok(fresh) => {
-                    *guard = fresh;
+                Ok(()) => {
+                    let guard = this.session.lock().await;
                     let $sftp = &*guard;
                     $call
                         .await
