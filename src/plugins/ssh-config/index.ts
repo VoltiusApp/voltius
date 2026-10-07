@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useT } from "@voltius/ui";
-import type { PluginAPI, PluginConnectionInput, PluginManifest, PluginRegisterFn } from "@/plugins/api";
+import type { BannerHandle, PluginAPI, PluginConnectionInput, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import manifestJson from "./manifest.json";
 import { messages } from "./i18n";
 
@@ -467,6 +467,27 @@ const ADOPT_UNTAGGED_ENABLED_KEY = "adopt_untagged_enabled";
 const DEFAULT_ADOPT_UNTAGGED_ENABLED = true;
 const RESTART_EVENT = "ssh-config:restart-watcher";
 const SYNC_NOW_EVENT = "ssh-config:sync-now";
+const IMPORT_CONSENT_KEY = "import_consent";
+const CONSENT_EVENT = "ssh-config:consent";
+
+type ImportConsent = "granted" | "declined";
+
+// Plugin storage is restored per account on sign-in, so each account answers for itself.
+async function readImportConsent(api: PluginAPI): Promise<ImportConsent | null> {
+  const stored = await api.storage.get<ImportConsent>(IMPORT_CONSENT_KEY);
+  if (stored) return stored;
+  const aliasMap = await api.storage.get<AliasMap>(ALIAS_MAP_KEY);
+  if (!aliasMap || Object.keys(aliasMap).length === 0) return null;
+  await api.storage.set(IMPORT_CONSENT_KEY, "granted");
+  return "granted";
+}
+
+export async function setImportConsent(api: PluginAPI, granted: boolean): Promise<void> {
+  await api.storage.set(IMPORT_CONSENT_KEY, granted ? "granted" : "declined");
+  api.events.emit(CONSENT_EVENT, granted);
+}
+
+const importAllowed = async (api: PluginAPI) => (await readImportConsent(api)) === "granted";
 
 function createSettingsComponent(api: PluginAPI): React.FC {
   return function SshConfigSettings() {
@@ -474,6 +495,7 @@ function createSettingsComponent(api: PluginAPI): React.FC {
     const [intervalMs, setIntervalMs] = useState<number>(DEFAULT_POLL_INTERVAL);
     const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(DEFAULT_NOTIFICATIONS_ENABLED);
     const [adoptEnabled, setAdoptEnabled] = useState<boolean>(DEFAULT_ADOPT_UNTAGGED_ENABLED);
+    const [importEnabled, setImportEnabled] = useState(false);
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
@@ -481,11 +503,14 @@ function createSettingsComponent(api: PluginAPI): React.FC {
         api.storage.get<number>(POLL_INTERVAL_KEY),
         api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY),
         api.storage.get<boolean>(ADOPT_UNTAGGED_ENABLED_KEY),
-      ]).then(([interval, notify, adopt]) => {
+        importAllowed(api),
+      ]).then(([interval, notify, adopt, allowed]) => {
         if (interval != null) setIntervalMs(interval);
         if (notify != null) setNotificationsEnabled(notify);
         if (adopt != null) setAdoptEnabled(adopt);
+        setImportEnabled(allowed);
       });
+      return api.events.on(CONSENT_EVENT, (granted) => setImportEnabled(granted === true));
     }, []);
 
     const handleIntervalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -506,6 +531,8 @@ function createSettingsComponent(api: PluginAPI): React.FC {
       setAdoptEnabled(next);
       void api.storage.set(ADOPT_UNTAGGED_ENABLED_KEY, next);
     };
+
+    const handleImportToggle = () => void setImportConsent(api, !importEnabled);
 
     const handleSyncNow = () => {
       setSyncing(true);
@@ -546,14 +573,31 @@ function createSettingsComponent(api: PluginAPI): React.FC {
       background: "white",
       transition: "left 0.15s",
     });
+    const syncDisabled = syncing || !importEnabled;
     const syncBtnStyle = {
       ...inputStyle,
       padding: "4px 12px",
       borderRadius: 8,
       fontSize: 12,
-      cursor: syncing ? "default" : "pointer",
-      opacity: syncing ? 0.6 : 1,
+      cursor: syncDisabled ? "default" : "pointer",
+      opacity: syncDisabled ? 0.6 : 1,
     };
+    const toggleRow = (label: string, desc: string, on: boolean, onToggle: () => void) =>
+      React.createElement(
+        "div",
+        { className: "flex items-center justify-between" },
+        React.createElement(
+          "div",
+          null,
+          React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, label),
+          React.createElement("p", { className: "text-xs mt-0.5", style: dimStyle }, desc)
+        ),
+        React.createElement(
+          "div",
+          { style: toggleTrack(on), onClick: onToggle },
+          React.createElement("div", { style: toggleThumb(on) })
+        )
+      );
 
     return React.createElement(
       "div",
@@ -569,6 +613,8 @@ function createSettingsComponent(api: PluginAPI): React.FC {
         React.createElement(
           "div",
           { className: "rounded-xl p-4", style: cardStyle },
+          toggleRow(t("importFromMachine"), t("importFromMachineDesc"), importEnabled, handleImportToggle),
+          divider,
           React.createElement(
             "div",
             { className: "flex items-center justify-between" },
@@ -597,51 +643,15 @@ function createSettingsComponent(api: PluginAPI): React.FC {
               React.createElement("span", { className: "text-xs", style: dimStyle }, t("seconds")),
               React.createElement(
                 "button",
-                { onClick: handleSyncNow, disabled: syncing, style: syncBtnStyle },
+                { onClick: handleSyncNow, disabled: syncDisabled, style: syncBtnStyle },
                 syncing ? t("syncing") : t("syncNow")
               )
             )
           ),
           divider,
-          React.createElement(
-            "div",
-            { className: "flex items-center justify-between" },
-            React.createElement(
-              "div",
-              null,
-              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, t("notifications")),
-              React.createElement(
-                "p",
-                { className: "text-xs mt-0.5", style: dimStyle },
-                t("notificationsDesc")
-              )
-            ),
-            React.createElement(
-              "div",
-              { style: toggleTrack(notificationsEnabled), onClick: handleNotificationsToggle },
-              React.createElement("div", { style: toggleThumb(notificationsEnabled) })
-            )
-          ),
+          toggleRow(t("notifications"), t("notificationsDesc"), notificationsEnabled, handleNotificationsToggle),
           divider,
-          React.createElement(
-            "div",
-            { className: "flex items-center justify-between" },
-            React.createElement(
-              "div",
-              null,
-              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, t("adopt")),
-              React.createElement(
-                "p",
-                { className: "text-xs mt-0.5", style: dimStyle },
-                t("adoptDesc")
-              )
-            ),
-            React.createElement(
-              "div",
-              { style: toggleTrack(adoptEnabled), onClick: handleAdoptToggle },
-              React.createElement("div", { style: toggleThumb(adoptEnabled) })
-            )
-          )
+          toggleRow(t("adopt"), t("adoptDesc"), adoptEnabled, handleAdoptToggle)
         )
       )
     );
@@ -668,7 +678,8 @@ export const register: PluginRegisterFn = (api) => {
   if (!api.isActive()) return () => {};
 
   let stopWatch: (() => void) | null = null;
-  // Both deferred starts below can resolve after cleanup; they must not revive a disabled plugin.
+  let prompt: BannerHandle | null = null;
+  // The deferred starts below can resolve after cleanup; they must not revive a disabled plugin.
   let disposed = false;
 
   const runSync = (trigger: SyncTrigger) =>
@@ -696,25 +707,56 @@ export const register: PluginRegisterFn = (api) => {
     api.log.info(`watcher started every ${intervalMs}ms (live watchers: ${liveWatchers})`);
   };
 
-  // Defer initial sync until login-time server sync has landed so the dedup
-  // lists (connections/keys/identities) reflect post-merge state. For local
-  // users the promise resolves immediately; for cloud users it waits for
-  // syncOnLogin to finish (vault_reset on logout wipes the config dir).
-  api.lifecycle.waitForLoginSync().then(() => {
-    if (!disposed) void runSync("initial");
+  const withdrawPrompt = () => {
+    prompt?.dismiss();
+    prompt = null;
+  };
+
+  const startImporting = async (trigger: SyncTrigger) => {
+    const interval = (await api.storage.get<number>(POLL_INTERVAL_KEY)) ?? DEFAULT_POLL_INTERVAL;
+    if (disposed) return;
+    startWatcher(interval);
+    void runSync(trigger);
+  };
+
+  const askConsent = async () => {
+    if (!(await api.fs.exists(SSH_CONFIG_PATH))) return;
+    const count = parseSshConfig(await api.fs.readText(SSH_CONFIG_PATH)).length;
+    if (count === 0 || disposed) return;
+    prompt = api.notifications.banner(api.i18n.t("consentPrompt", { count }), {
+      actions: [
+        { label: api.i18n.t("consentImport"), onClick: () => void setImportConsent(api, true) },
+        { label: api.i18n.t("consentSkip"), onClick: () => void setImportConsent(api, false) },
+      ],
+    });
+  };
+
+  // Wait for login-time server sync: it restores this account's consent and the
+  // post-merge connections/keys/identities the dedup reads.
+  api.lifecycle.waitForLoginSync().then(async () => {
+    if (disposed) return;
+    const consent = await readImportConsent(api);
+    if (disposed) return;
+    if (consent === "granted") await startImporting("initial");
+    else if (consent === null) await askConsent();
   });
 
-  api.storage.get<number>(POLL_INTERVAL_KEY).then((stored) => {
-    startWatcher(stored ?? DEFAULT_POLL_INTERVAL);
+  const offConsent = api.events.on(CONSENT_EVENT, (granted) => {
+    withdrawPrompt();
+    if (granted === true) void startImporting("manual");
+    else stopWatcher();
   });
 
   const offEvent = api.events.on(RESTART_EVENT, (data) => {
+    if (!stopWatch) return;
     const newInterval = typeof data === "number" ? data : DEFAULT_POLL_INTERVAL;
     api.log.info(`Poll interval changed to ${newInterval}ms`);
     startWatcher(newInterval);
   });
 
-  const offSyncNow = api.events.on(SYNC_NOW_EVENT, () => void runSync("manual"));
+  const offSyncNow = api.events.on(SYNC_NOW_EVENT, async () => {
+    if (await importAllowed(api)) void runSync("manual");
+  });
 
   const offMcp = api.mcp.registerTools([
     {
@@ -726,6 +768,9 @@ export const register: PluginRegisterFn = (api) => {
         "deleted. Returns how many hosts were seen.",
       inputSchema: { type: "object", properties: {} },
       execute: async () => {
+        if (!(await importAllowed(api))) {
+          return "Importing ~/.ssh/config is turned off for this account. The user can turn it on in SSH Config Sync settings.";
+        }
         await sync(api, "mcp");
         return "synced";
       },
@@ -735,6 +780,8 @@ export const register: PluginRegisterFn = (api) => {
   return () => {
     disposed = true;
     stopWatcher();
+    withdrawPrompt();
+    offConsent();
     offEvent();
     offSyncNow();
     offMcp();
