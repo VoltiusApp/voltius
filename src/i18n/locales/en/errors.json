@@ -27,7 +27,8 @@
     "vault-read-only": "You don't have write access to this vault. Ask a vault manager for a role that can make changes.",
     "vault-role-read-only": "You don't have write access to this vault (your role: {{role}}). Only owners, managers, and editors can make changes.",
     "vault-permissions-unavailable": "Unable to verify vault permissions because the keychain is unavailable. Try again.",
-    "vault-permissions-corrupted": "Vault permission data is corrupted. Sign in again to refresh access."
+    "vault-permissions-corrupted": "Vault permission data is corrupted. Sign in again to refresh access.",
+    "knock-udp-via-proxy": "UDP knocks can't go through a proxy. Use TCP steps or a direct connection for this host."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

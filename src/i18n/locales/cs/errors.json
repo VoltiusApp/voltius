@@ -27,7 +27,8 @@
     "vault-read-only": "Do tohoto trezoru nemáte právo zápisu. Požádejte správce trezoru o roli, která může provádět změny.",
     "vault-role-read-only": "Do tohoto trezoru nemáte právo zápisu (vaše role: {{role}}). Změny mohou provádět jen vlastníci, správci a editoři.",
     "vault-permissions-unavailable": "Oprávnění k trezoru nelze ověřit, protože klíčenka není dostupná. Zkuste to znovu.",
-    "vault-permissions-corrupted": "Data oprávnění trezoru jsou poškozená. Přihlaste se znovu a obnovte přístup."
+    "vault-permissions-corrupted": "Data oprávnění trezoru jsou poškozená. Přihlaste se znovu a obnovte přístup.",
+    "knock-udp-via-proxy": "UDP klepání nelze poslat přes proxy. Pro tohoto hostitele použijte kroky TCP nebo přímé připojení."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

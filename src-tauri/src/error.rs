@@ -73,6 +73,8 @@ error_codes! {
     VaultRoleReadOnly,
     VaultPermissionsUnavailable,
     VaultPermissionsCorrupted,
+    // Port knocking.
+    KnockUdpViaProxy,
 }
 
 /// A lower-level failure whose cause may have an [`ErrorCode`]. The one place
@@ -115,6 +117,15 @@ impl Classify for std::io::Error {
         match self.get_ref().and_then(|e| e.downcast_ref::<AppError>()) {
             Some(inner) => inner.code(),
             None => self.kind().error_code(),
+        }
+    }
+}
+
+impl Classify for crate::knock::KnockError {
+    fn error_code(&self) -> Option<ErrorCode> {
+        match self {
+            crate::knock::KnockError::UdpViaProxy => Some(ErrorCode::KnockUdpViaProxy),
+            crate::knock::KnockError::Io(e) => e.error_code(),
         }
     }
 }

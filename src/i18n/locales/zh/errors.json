@@ -27,7 +27,8 @@
     "vault-read-only": "您没有此保险库的写入权限。请向保险库管理员申请可以进行修改的角色。",
     "vault-role-read-only": "您没有此保险库的写入权限（您的角色：{{role}}）。只有所有者、管理员和编辑者可以进行修改。",
     "vault-permissions-unavailable": "钥匙串不可用，无法验证保险库权限。请重试。",
-    "vault-permissions-corrupted": "保险库权限数据已损坏。请重新登录以刷新访问权限。"
+    "vault-permissions-corrupted": "保险库权限数据已损坏。请重新登录以刷新访问权限。",
+    "knock-udp-via-proxy": "UDP 敲门包无法通过代理发送。请为此主机使用 TCP 步骤或直接连接。"
   },
   "errorAt": {
     "proxy": "代理 {{proxy}}：{{cause}}",

@@ -27,7 +27,8 @@
     "vault-read-only": "Vous n'avez pas le droit d'écriture sur ce coffre. Demandez à un gestionnaire du coffre un rôle qui permet de le modifier.",
     "vault-role-read-only": "Vous n'avez pas le droit d'écriture sur ce coffre (votre rôle : {{role}}). Seuls les propriétaires, gestionnaires et éditeurs peuvent le modifier.",
     "vault-permissions-unavailable": "Impossible de vérifier les permissions du coffre, le trousseau est indisponible. Réessayez.",
-    "vault-permissions-corrupted": "Les données de permissions du coffre sont corrompues. Reconnectez-vous pour actualiser vos accès."
+    "vault-permissions-corrupted": "Les données de permissions du coffre sont corrompues. Reconnectez-vous pour actualiser vos accès.",
+    "knock-udp-via-proxy": "Les knocks UDP ne passent pas par un proxy. Utilisez des étapes TCP ou une connexion directe pour cet hôte."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}} : {{cause}}",

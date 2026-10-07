@@ -34,6 +34,7 @@ export const BACKEND_ERROR_CODES = [
   "vault-role-read-only",
   "vault-permissions-unavailable",
   "vault-permissions-corrupted",
+  "knock-udp-via-proxy",
 ] as const;
 
 export type BackendErrorCode = (typeof BACKEND_ERROR_CODES)[number];

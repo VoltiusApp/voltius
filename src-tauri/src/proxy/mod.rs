@@ -45,28 +45,35 @@ pub async fn dial(spec: Option<&ProxySpec>, host: &str, port: u16) -> Result<Dia
     dial_with_timeout(spec, host, port, PROXY_HANDSHAKE_TIMEOUT).await
 }
 
+pub(crate) async fn resolve_spec(
+    spec: Option<&ProxySpec>,
+    host: &str,
+    port: u16,
+) -> Option<ProxySpec> {
+    match spec {
+        Some(ProxySpec::System) => {
+            let target = host.to_string();
+            tokio::task::spawn_blocking(move || system::detect(&target, port))
+                .await
+                .ok()
+                .flatten()
+        }
+        other => other.cloned(),
+    }
+}
+
 pub(crate) async fn dial_with_timeout(
     spec: Option<&ProxySpec>,
     host: &str,
     port: u16,
     limit: Duration,
 ) -> Result<Dialed, ProxyError> {
-    let detected;
-    let spec = match spec {
-        Some(ProxySpec::System) => {
-            let target = host.to_string();
-            detected = tokio::task::spawn_blocking(move || system::detect(&target, port))
-                .await
-                .ok()
-                .flatten();
-            detected.as_ref()
-        }
-        other => other,
-    };
-    match spec {
+    let resolved = resolve_spec(spec, host, port).await;
+    match resolved.as_ref() {
         None | Some(ProxySpec::Direct) | Some(ProxySpec::System) => {
-            TcpStream::connect((host, port))
+            tokio::time::timeout(limit, TcpStream::connect((host, port)))
                 .await
+                .unwrap_or_else(|_| Err(std::io::ErrorKind::TimedOut.into()))
                 .map(|s| Dialed {
                     stream: ProxiedStream::Tcp(s),
                     via: None,
