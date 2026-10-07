@@ -16,7 +16,8 @@ vi.mock("@/services/account", () => ({
   getAppLock: () => h.invoke("app_lock_get"),
 }));
 
-import { isLeaveLockSuppressed, lockApp, systemAuthVerify, withLeaveLockSuppressed } from "./appLock";
+import { lockApp, systemAuthVerify } from "./appLock";
+import { isLeaveLockSuppressed, withLeaveLockSuppressed } from "./leaveLockSuppression";
 import { useSecurityStore } from "@/stores/securityStore";
 import { useAppLockStore } from "@/stores/appLockStore";
 
@@ -52,6 +53,7 @@ test("lock screen keeps the vault open and raises the overlay", async () => {
 
 test("a no-password account always gets the screen lock, never the vault lock", async () => {
   h.mode = "local-nopassword";
+  h.invoke.mockImplementation(async (cmd: unknown) => (cmd === "system_auth_available" ? true : undefined));
   useSecurityStore.setState({ lockAction: "vault", systemAuthUnlock: true });
   await lockApp();
   expect(h.lockVaultSession).not.toHaveBeenCalled();
@@ -85,4 +87,21 @@ test("leaving the app for the system-auth prompt does not count as leaving", asy
 test("suppression ends even when the wrapped work fails", async () => {
   await expect(withLeaveLockSuppressed(async () => { throw new Error("nope"); })).rejects.toThrow("nope");
   expect(isLeaveLockSuppressed()).toBe(false);
+});
+
+test("a no-password account is not locked once its system authentication is gone", async () => {
+  h.mode = "local-nopassword";
+  h.invoke.mockImplementation(async (cmd: unknown) => (cmd === "system_auth_available" ? false : undefined));
+  useSecurityStore.setState({ lockAction: "screen", systemAuthUnlock: true });
+  await lockApp();
+  expect(useAppLockStore.getState().kind).toBeNull();
+});
+
+test("suppression ends on its own when the wrapped work never settles", async () => {
+  vi.useFakeTimers();
+  void withLeaveLockSuppressed(() => new Promise(() => {}));
+  expect(isLeaveLockSuppressed()).toBe(true);
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  expect(isLeaveLockSuppressed()).toBe(false);
+  vi.useRealTimers();
 });

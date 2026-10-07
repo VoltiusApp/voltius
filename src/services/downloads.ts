@@ -1,5 +1,5 @@
 import { invoke } from "@/lib/invoke";
-import { withLeaveLockSuppressed } from "@/services/appLock";
+import { withLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 
 export interface DownloadDirInfo {
   uri: string;

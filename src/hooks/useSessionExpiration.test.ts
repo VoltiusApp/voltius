@@ -10,10 +10,8 @@ const h = vi.hoisted(() => ({
   minimized: false,
 }));
 
-vi.mock("@/services/appLock", () => ({
-  lockApp: h.lockApp,
-  isLeaveLockSuppressed: () => h.suppressed,
-}));
+vi.mock("@/services/appLock", () => ({ lockApp: h.lockApp }));
+vi.mock("@/services/leaveLockSuppression", () => ({ isLeaveLockSuppressed: () => h.suppressed }));
 vi.mock("@/services/account", () => ({
   getAccountMode: async () => h.mode,
   getAppLock: async () => null,
@@ -51,8 +49,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function mount() {
-  renderHook(() => useSessionExpiration());
+async function mount(ready = true) {
+  renderHook(() => useSessionExpiration(ready));
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
 }
 
@@ -134,6 +132,31 @@ test("leaving for a system screen Voltius opened itself does not lock", async ()
   useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
   await mount();
   h.suppressed = true;
+  await act(async () => { setVisibility("hidden"); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("Immediately also locks after five idle minutes", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await mount();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000 + 5_000); });
+  expect(h.lockApp).toHaveBeenCalledTimes(1);
+});
+
+test("unlocking restarts the idle clock", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 5 });
+  useAppLockStore.setState({ kind: "screen" });
+  await mount();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+  await act(async () => { useAppLockStore.setState({ kind: null }); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+  expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("nothing locks before the app is past the splash and unlock screens", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 5 });
+  await mount(false);
+  await act(async () => { await vi.advanceTimersByTimeAsync(30 * 60_000); });
   await act(async () => { setVisibility("hidden"); });
   expect(h.lockApp).not.toHaveBeenCalled();
 });

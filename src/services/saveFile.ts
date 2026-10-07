@@ -1,5 +1,5 @@
 import { invoke } from "@/lib/invoke";
-import { save } from "@tauri-apps/plugin-dialog";
+import { saveSystemDialog as save } from "@/services/systemDialog";
 import i18n from "@/i18n";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { isMobileShell } from "@/utils/platform";

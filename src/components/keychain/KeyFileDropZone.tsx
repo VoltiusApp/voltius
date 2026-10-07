@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { pickWithFileInput } from "@/services/systemDialog";
 
 // ─────────────────────────────────────────────────────────────────
 // KeyFileDropZone
@@ -88,7 +89,7 @@ export function KeyFileDropZone({
         background: bgColor,
         cursor: "pointer",
       }}
-      onClick={() => inputRef.current?.click()}
+      onClick={() => { if (inputRef.current) pickWithFileInput(inputRef.current); }}
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDragOver={onDragOver}

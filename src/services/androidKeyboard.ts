@@ -15,6 +15,7 @@ import { writeToSession } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import type { SpecialKey } from "@/services/terminalKeyCore";
+import { useAppLockStore } from "@/stores/appLockStore";
 
 /** Session whose terminal currently owns the native keyboard. */
 let activeSession: string | null = null;
@@ -31,7 +32,7 @@ const SPECIAL: Partial<Record<string, SpecialKey>> = {
  *  extra-keys Ctrl/Alt latch (latch Ctrl, type "c" → Ctrl-C). */
 function feedText(text: string): void {
   const id = activeSession;
-  if (!id || !text) return;
+  if (!id || !text || isLocked()) return;
   let data = text;
   if (text.length === 1) {
     const latched = consumeLatchForChar(text);
@@ -44,7 +45,7 @@ function feedText(text: string): void {
  *  the rest defer to sendSpecialKey (which honors application-cursor mode). */
 function feedKey(name: string): void {
   const id = activeSession;
-  if (!id) return;
+  if (!id || isLocked()) return;
   if (name === "Enter") { writeToSession(id, "\r"); return; }
   if (name === "Backspace") { writeToSession(id, "\x7f"); return; }
   if (name === "Delete") { writeToSession(id, "\x1b[3~"); return; }
@@ -52,9 +53,15 @@ function feedKey(name: string): void {
   if (sk) sendSpecialKey(id, sk, { ctrl: false, alt: false });
 }
 
+// The native IME writes through evaluateJavascript, past the lock overlay's DOM guards.
+const isLocked = () => useAppLockStore.getState().kind !== null;
+
 function ensureInstalled(): void {
   if (installed) return;
   installed = true;
+  useAppLockStore.subscribe((s, prev) => {
+    if (s.kind && !prev.kind) hideAndroidKeyboard();
+  });
   const w = window as unknown as Record<string, unknown>;
   w.__voltiusTermInput = feedText;
   w.__voltiusTermKey = feedKey;

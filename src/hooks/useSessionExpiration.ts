@@ -1,23 +1,25 @@
 import { useEffect } from "react";
 import { getAccountMode } from "@/services/account";
-import { isLeaveLockSuppressed, lockApp } from "@/services/appLock";
+import { lockApp } from "@/services/appLock";
+import { isLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { canLockApp } from "@/utils/accountMode";
 import { IMMEDIATELY } from "@/utils/sessionTimeout";
 
 const CHECK_INTERVAL_MS = 5000;
+const IMMEDIATE_IDLE_MINUTES = 5;
 const ACTIVITY_EVENTS = ["pointerdown", "mousemove", "keydown", "touchstart"] as const;
 
-export function useSessionExpiration(): void {
+export function useSessionExpiration(ready = true): void {
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
 
   useEffect(() => {
-    if (sessionTimeoutMinutes === null || sessionTimeoutMinutes < 0) return;
+    if (!ready || sessionTimeoutMinutes === null || sessionTimeoutMinutes < 0) return;
 
     const immediate = sessionTimeoutMinutes === IMMEDIATELY;
-    const timeoutMs = sessionTimeoutMinutes * 60_000;
+    const timeoutMs = (immediate ? IMMEDIATE_IDLE_MINUTES : sessionTimeoutMinutes) * 60_000;
     let lastActivityAt = Date.now();
     let lockable = false;
     let disposed = false;
@@ -44,7 +46,7 @@ export function useSessionExpiration(): void {
     };
 
     const checkIdle = () => {
-      if (!immediate && Date.now() - lastActivityAt >= timeoutMs) lockNow();
+      if (Date.now() - lastActivityAt >= timeoutMs) lockNow();
     };
 
     const recordActivity = () => {
@@ -73,14 +75,18 @@ export function useSessionExpiration(): void {
     window.addEventListener("focus", checkIdle);
     document.addEventListener("visibilitychange", onVisibilityChange);
     const intervalId = window.setInterval(checkIdle, CHECK_INTERVAL_MS);
+    const unsubscribeLock = useAppLockStore.subscribe((s, prev) => {
+      if (prev.kind && !s.kind) lastActivityAt = Date.now();
+    });
 
     return () => {
       disposed = true;
       window.clearInterval(intervalId);
+      unsubscribeLock();
       unlistenResize?.();
       for (const e of ACTIVITY_EVENTS) window.removeEventListener(e, recordActivity);
       window.removeEventListener("focus", checkIdle);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [sessionTimeoutMinutes, systemAuthUnlock]);
+  }, [ready, sessionTimeoutMinutes, systemAuthUnlock]);
 }

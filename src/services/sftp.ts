@@ -1,6 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { open as dialogOpen } from "@tauri-apps/plugin-dialog";
+import { openSystemDialog as dialogOpen } from "@/services/systemDialog";
 import type { ProxySpec } from "@/services/proxy";
 
 export interface RemoteFile {

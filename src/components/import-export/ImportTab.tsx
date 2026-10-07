@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openSystemDialog as openDialog } from "@/services/systemDialog";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import LogoSvg from "/logo.svg?react";

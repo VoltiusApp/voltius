@@ -8,10 +8,8 @@ vi.mock("@/lib/invoke", () => ({
     return null;
   }),
 }));
-vi.mock("@/services/account", () => ({ getAccountMode: vi.fn(), lockVaultSession: vi.fn() }));
-vi.mock("@/stores/appLockStore", () => ({ useAppLockStore: { getState: vi.fn() } }));
 
-import { isLeaveLockSuppressed } from "./appLock";
+import { isLeaveLockSuppressed } from "./leaveLockSuppression";
 import { downloadDirPick } from "./downloads";
 
 test("opening the system folder picker does not count as leaving the app", async () => {
