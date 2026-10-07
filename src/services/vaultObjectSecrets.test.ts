@@ -40,7 +40,7 @@ beforeEach(() => {
 test("personal to team uploads each present secret, then deletes the local copy", async () => {
   h.read.mockImplementation(async (_t: string | null, k: string) => (k === "password:c1" ? "pw" : null));
   await transferSecrets("connection", "c1", "personal", "team1");
-  expect(h.read.mock.calls.map((c) => c[1])).toEqual(["password:c1", "key:c1", "passphrase:c1", "proxy_password:c1"]);
+  expect(h.read.mock.calls.map((c) => c[1])).toEqual(["password:c1", "key:c1", "passphrase:c1", "proxy_password:c1", "knock_sequence:c1"]);
   expect(h.write.mock.calls).toEqual([["team1", "password:c1", "pw"]]);
   expect(h.remove.mock.calls).toEqual([[null, "password:c1"]]);
 });

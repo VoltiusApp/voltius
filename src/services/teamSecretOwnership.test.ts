@@ -88,7 +88,7 @@ test("teamObjectSecretKeys lists every secret of the team's objects, minus local
   expect(teamObjectSecretKeys("t1").sort()).toEqual([
     "identity:i1:password",
     "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
-    "passphrase:c1", "password:c1", "proxy_password:c1",
+    "knock_sequence:c1", "passphrase:c1", "password:c1", "proxy_password:c1",
   ]);
 });
 

@@ -67,7 +67,7 @@ test("reports every key when the purge call rejects", async () => {
 
   expect([...failed].sort()).toEqual([
     "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
-    "passphrase:c1", "password:c1", "proxy_password:c1",
+    "knock_sequence:c1", "passphrase:c1", "password:c1", "proxy_password:c1",
   ]);
   expect(h.deleted).toEqual([]);
 });
@@ -80,7 +80,7 @@ test("clearTeamStoresAndSecrets queues the keys itself when the purge rejects", 
 
   expect(usePendingSecretWipeStore.getState().keysByTeamId["t1"]?.sort()).toEqual([
     "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
-    "passphrase:c1", "password:c1", "proxy_password:c1",
+    "knock_sequence:c1", "passphrase:c1", "password:c1", "proxy_password:c1",
   ]);
 });
 
@@ -91,7 +91,7 @@ test("reports nothing when every delete succeeds", async () => {
   expect(h.purge).toHaveBeenCalledTimes(1);
   expect(h.purge.mock.calls[0][0].sort()).toEqual([
     "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
-    "passphrase:c1", "password:c1", "proxy_password:c1",
+    "knock_sequence:c1", "passphrase:c1", "password:c1", "proxy_password:c1",
   ]);
 });
 
@@ -201,7 +201,7 @@ test("a key stuck pending does not block the team's other secret keys from purgi
 
   expect(h.deleted).toEqual(expect.arrayContaining([
     "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public",
-    "passphrase:c1", "proxy_password:c1",
+    "knock_sequence:c1", "passphrase:c1", "proxy_password:c1",
   ]));
 });
 
@@ -242,7 +242,7 @@ test("a pending key whose local read throws stays queued and is excluded from th
   expect(usePendingTeamSecretUploadStore.getState().keysByTeamId["t1"]).toEqual(["password:c1"]);
   expect(h.deleted).not.toContain("password:c1");
   expect(h.deleted).toEqual(expect.arrayContaining([
-    "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public", "passphrase:c1", "proxy_password:c1",
+    "key:c1", "key:k1:passphrase", "key:k1:private", "key:k1:public", "knock_sequence:c1", "passphrase:c1", "proxy_password:c1",
   ]));
 });
 
