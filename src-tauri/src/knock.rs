@@ -5,8 +5,10 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use tokio::net::UdpSocket;
 
-const KNOCK_DIAL_LIMIT: Duration = Duration::from_secs(1);
+/// Below Linux's 1 s initial SYN RTO, so a dropped knock is never retransmitted out of order.
+const KNOCK_DIAL_LIMIT: Duration = Duration::from_millis(800);
 const KNOCK_PROXIED_DIAL_LIMIT: Duration = Duration::from_secs(5);
+const MIN_KNOCK_DELAY: Duration = Duration::from_millis(10);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -109,7 +111,7 @@ pub async fn knock(
     let mut pending = Vec::new();
     for (i, step) in spec.steps.iter().enumerate() {
         if i > 0 {
-            tokio::time::sleep(Duration::from_millis(spec.delay_ms)).await;
+            tokio::time::sleep(Duration::from_millis(spec.delay_ms).max(MIN_KNOCK_DELAY)).await;
         }
         match step.protocol {
             KnockProtocol::Tcp => {
@@ -200,6 +202,20 @@ mod tests {
         let times = arrivals.await.unwrap();
         assert!(times[0] < times[1] && times[1] < times[2], "{times:?}");
         assert!(times[2] >= Duration::from_millis(90), "{times:?}");
+    }
+
+    #[tokio::test]
+    async fn a_zero_delay_still_spaces_the_steps() {
+        let (ports, arrivals) = listen(4, Instant::now()).await;
+        let mut sequence = spec(ports.iter().map(|p| tcp(*p)).collect());
+        sequence.delay_ms = 0;
+        knock(&sequence, None, "127.0.0.1", 22).await.unwrap();
+        let times = arrivals.await.unwrap();
+        assert!(times.windows(2).all(|w| w[0] < w[1]), "{times:?}");
+        assert!(
+            times[3] - times[0] >= Duration::from_millis(20),
+            "{times:?}"
+        );
     }
 
     #[tokio::test]
