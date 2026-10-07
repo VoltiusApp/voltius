@@ -222,11 +222,9 @@ export async function runBackoff(
  * so the steady overlay never flickers and no second loop spawns. The loop owns
  * the 'reconnecting' (connecting) state, so we don't set it here.
  *
- * `remoteExit` means the far side sent an exit-status/exit-signal before the
- * close: the shell ended on purpose (the user typed `exit`), not a dropped
- * link, so the session is over and reconnecting would resurrect it (#180).
- * Persistent sessions are excluded: their wrapper also exits on a tmux/screen
- * detach, so there the attach probe (SESSION_ENDED) stays the judge.
+ * `remoteExit` means the backend saw the shell end on purpose (the user typed
+ * `exit`), not a dropped link, so reconnecting would resurrect it (#180). For a
+ * persistent session it has already checked that the multiplexer session is gone.
  *
  * Auto-reconnect turned off (serial devices that must release the port, #192):
  * the drop just marks the session disconnected, leaving the port free and the
@@ -238,7 +236,6 @@ export function handleSessionClosed(
   sessionId: string,
   deps: {
     status: (id: string) => SessionStatus;
-    persist: (id: string) => boolean;
     autoReconnect: (id: string) => boolean;
     markDisconnected: (id: string) => void;
     reconnectWithBackoff: (id: string) => void;
@@ -256,7 +253,7 @@ export function handleSessionClosed(
     deps.markDisconnected(sessionId);
     return;
   }
-  if (remoteExit && !deps.persist(sessionId)) {
+  if (remoteExit) {
     deps.endSession(sessionId);
     return;
   }

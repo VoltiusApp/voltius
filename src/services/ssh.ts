@@ -184,8 +184,8 @@ export async function onSshOutput(
   });
 }
 
-/** `remoteExit` is true when the far side sent an exit-status/exit-signal
- * before closing — the remote command ended on its own, it was not a drop. */
+/** `remoteExit` is true when the session ended on the host (the shell exited, and
+ * for a persistent session its multiplexer session is gone) — not a drop or detach. */
 export async function onSshClosed(
   sessionId: string,
   callback: (remoteExit: boolean) => void,

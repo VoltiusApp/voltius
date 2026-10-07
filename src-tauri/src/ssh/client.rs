@@ -270,6 +270,17 @@ pub(crate) async fn exec_collect(
     Some((out, completed))
 }
 
+/// `None` when the probe is inconclusive (channel failure, timeout).
+pub(crate) async fn persistent_session_present(
+    handle: &client::Handle<SshClient>,
+    key: &str,
+) -> Option<bool> {
+    let probe = crate::shell_integration::persistent_probe_command(key);
+    let channel = handle.channel_open_session().await.ok()?;
+    let (out, completed) = exec_collect(channel, &probe, std::time::Duration::from_secs(5)).await?;
+    completed.then(|| String::from_utf8_lossy(&out).contains("VOLTIUS_PRESENT"))
+}
+
 async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: RemoteRoute) {
     let tcp = match TcpStream::connect((route.target_host.as_str(), route.target_port)).await {
         Ok(t) => t,
@@ -981,18 +992,16 @@ pub async fn connect(
     // fast with the stable SESSION_ENDED error the frontend tears down on. An
     // inconclusive probe (timeout, channel failure) falls through to the attach,
     // whose own guard exits if the session is truly gone.
-    if persist && attach_only {
-        let key = crate::shell_integration::tmux_session_key(&session_id);
-        let probe = crate::shell_integration::persistent_probe_command(&key);
-        if let Ok(probe_channel) = final_handle.channel_open_session().await {
-            if let Some((out, completed)) =
-                exec_collect(probe_channel, &probe, std::time::Duration::from_secs(5)).await
-            {
-                if completed && !String::from_utf8_lossy(&out).contains("VOLTIUS_PRESENT") {
-                    return Err("SESSION_ENDED".into());
-                }
-            }
-        }
+    if persist
+        && attach_only
+        && persistent_session_present(
+            &final_handle,
+            &crate::shell_integration::tmux_session_key(&session_id),
+        )
+        .await
+            == Some(false)
+    {
+        return Err("SESSION_ENDED".into());
     }
 
     // Open channel + shell
@@ -1213,6 +1222,12 @@ pub async fn connect(
         read_half,
         write_half,
         control,
+        wrapped.then(|| {
+            (
+                Arc::clone(&handle),
+                crate::shell_integration::tmux_session_key(&session_id),
+            )
+        }),
     );
     if !startup.is_empty() {
         let _ = io

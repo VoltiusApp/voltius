@@ -307,9 +307,8 @@ await (async () => {
 // --- handleSessionClosed: start reconnect only on an unexpected close ---
 (() => {
   const calls: string[] = [];
-  const deps = (status: SessionStatus, persist = false, autoReconnect = true) => ({
+  const deps = (status: SessionStatus, autoReconnect = true) => ({
     status: () => status,
-    persist: () => persist,
     autoReconnect: () => autoReconnect,
     markDisconnected: () => calls.push("disconnect"),
     reconnectWithBackoff: () => calls.push("backoff"),
@@ -350,11 +349,11 @@ await (async () => {
   // the port free — the loop would otherwise reclaim /dev/ttyUSB0 every 10s and
   // fight the flashing tool the user just started.
   calls.length = 0;
-  handleSessionClosed("serial", "s1", deps("connected", false, false));
+  handleSessionClosed("serial", "s1", deps("connected", false));
   assertEqual(calls, ["disconnect"], "serial close with auto-reconnect off marks disconnected without reconnecting");
 
   calls.length = 0;
-  handleSessionClosed("ssh", "s1", deps("connected", false, false));
+  handleSessionClosed("ssh", "s1", deps("connected", false));
   assertEqual(calls, ["disconnect"], "auto-reconnect off suppresses the ssh loop too");
 
   // The remote shell exited on purpose (`exit`): the channel carried an
@@ -363,12 +362,6 @@ await (async () => {
   calls.length = 0;
   handleSessionClosed("ssh", "s1", deps("connected"), true);
   assertEqual(calls, ["end"], "a clean remote exit ends the session instead of reconnecting");
-
-  // Persistent sessions run inside tmux/screen: the wrapper exiting can also
-  // mean a detach, so the attach probe stays the judge of whether it ended.
-  calls.length = 0;
-  handleSessionClosed("ssh", "s1", deps("connected", true), true);
-  assertEqual(calls, ["backoff"], "a persistent session still reconnects on a clean wrapper exit");
 
   // A dropped link carries no exit-status.
   calls.length = 0;

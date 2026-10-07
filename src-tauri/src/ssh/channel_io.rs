@@ -4,7 +4,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::ssh::client::{ConnectedSession, SessionInput, SshClient};
+use crate::ssh::client::{persistent_session_present, ConnectedSession, SessionInput, SshClient};
 use crate::ssh::control_mode::{Action, ControlSession};
 use crate::ssh::session::SessionManager;
 
@@ -14,21 +14,29 @@ pub struct ChannelIo {
     pub shutdown_tx: mpsc::Sender<()>,
 }
 
-/// The far side reported how the remote command ended before closing the
-/// channel. Only a command that ran to completion — the user typing `exit`, a
-/// one-shot command finishing, a signal killing it — gets an exit-status or
-/// exit-signal; a dropped link closes the channel with neither. The frontend
-/// reconnects on a drop and must not on a deliberate exit (#180).
-fn is_remote_exit(msg: &ChannelMsg) -> bool {
-    matches!(
-        msg,
-        ChannelMsg::ExitStatus { .. } | ChannelMsg::ExitSignal { .. }
-    )
+/// A finished command reports exit-status/exit-signal, possibly after EOF but always
+/// before CLOSE; a dropped link never reports one.
+#[derive(Default)]
+struct CloseWatch {
+    remote_exit: bool,
+}
+
+impl CloseWatch {
+    fn observe(&mut self, msg: Option<&ChannelMsg>) -> Option<bool> {
+        match msg {
+            Some(ChannelMsg::Close) | None => Some(self.remote_exit),
+            Some(ChannelMsg::ExitStatus { .. } | ChannelMsg::ExitSignal { .. }) => {
+                self.remote_exit = true;
+                None
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Spawn the I/O loop for an opened channel: forward input and resizes, emit the
 /// channel's output as `ssh-output-<session_id>`, and emit `ssh-closed-<id>` when
-/// the far side ends it, carrying whether the remote command exited on its own.
+/// the far side ends it, carrying whether the session is over for good.
 pub fn spawn_channel_io(
     app: AppHandle,
     session_id: &str,
@@ -41,6 +49,7 @@ pub fn spawn_channel_io(
         read_half,
         write_half,
         ControlSession::raw(),
+        None,
     )
 }
 
@@ -49,13 +58,15 @@ enum Write {
     Resize(u32, u32),
 }
 
-/// `spawn_channel_io` for callers that already split the channel.
+/// `spawn_channel_io` for callers that already split the channel. A clean exit of the
+/// `multiplexer` wrapper may be a detach, so it ends the session only once that is gone.
 pub fn spawn_channel_io_split(
     app: AppHandle,
     session_id: &str,
     mut read_half: russh::ChannelReadHalf,
     write_half: russh::ChannelWriteHalf<russh::client::Msg>,
     mut session: ControlSession,
+    multiplexer: Option<(std::sync::Arc<russh::client::Handle<SshClient>>, String)>,
 ) -> ChannelIo {
     let (input_tx, mut input_rx) = mpsc::channel::<SessionInput>(256);
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
@@ -84,7 +95,7 @@ pub fn spawn_channel_io_split(
     });
 
     tokio::spawn(async move {
-        let mut remote_exit = false;
+        let mut watch = CloseWatch::default();
         let mut paused = false;
         loop {
             tokio::select! {
@@ -107,14 +118,20 @@ pub fn spawn_channel_io_split(
                         Some(ChannelMsg::Data { data }) | Some(ChannelMsg::ExtendedData { data, .. }) => {
                             apply(session.on_output(&data), &writes_tx, &app, &event_name, &mux_event);
                         }
-                        Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => {
-                            let _ = app.emit(&close_event, remote_exit);
+                        other => {
+                            let Some(remote_exit) = watch.observe(other.as_ref()) else {
+                                continue;
+                            };
+                            let ended = remote_exit
+                                && match &multiplexer {
+                                    Some((handle, key)) => {
+                                        persistent_session_present(handle, key).await == Some(false)
+                                    }
+                                    None => true,
+                                };
+                            let _ = app.emit(&close_event, ended);
                             break;
                         }
-                        // Sent just before Eof/Close, so the flag is set by the
-                        // time the close event goes out.
-                        Some(ref m) if is_remote_exit(m) => remote_exit = true,
-                        _ => {}
                     }
                 }
             }
@@ -216,21 +233,51 @@ pub async fn open_exec_session(
 mod tests {
     use super::*;
 
+    fn feed(msgs: &[Option<ChannelMsg>]) -> Vec<Option<bool>> {
+        let mut watch = CloseWatch::default();
+        msgs.iter().map(|m| watch.observe(m.as_ref())).collect()
+    }
+
     #[test]
-    fn only_a_reported_exit_counts_as_a_remote_exit() {
-        // A shell the user quit, or a command that finished, is reported.
-        assert!(is_remote_exit(&ChannelMsg::ExitStatus { exit_status: 0 }));
-        assert!(is_remote_exit(&ChannelMsg::ExitSignal {
-            signal_name: russh::Sig::TERM,
-            core_dumped: false,
-            error_message: String::new(),
-            lang_tag: String::new(),
-        }));
-        // A dropped link only ever produces these, and must stay reconnectable.
-        assert!(!is_remote_exit(&ChannelMsg::Eof));
-        assert!(!is_remote_exit(&ChannelMsg::Close));
-        assert!(!is_remote_exit(&ChannelMsg::WindowAdjusted {
-            new_size: 4096
-        }));
+    fn exit_status_after_eof_still_counts() {
+        // RouterOS sends EOF before the exit-status.
+        assert_eq!(
+            feed(&[
+                Some(ChannelMsg::Eof),
+                Some(ChannelMsg::ExitStatus { exit_status: 0 }),
+                Some(ChannelMsg::Close),
+            ]),
+            [None, None, Some(true)]
+        );
+    }
+
+    #[test]
+    fn exit_status_before_eof_counts() {
+        assert_eq!(
+            feed(&[
+                Some(ChannelMsg::ExitSignal {
+                    signal_name: russh::Sig::TERM,
+                    core_dumped: false,
+                    error_message: String::new(),
+                    lang_tag: String::new(),
+                }),
+                Some(ChannelMsg::Eof),
+                Some(ChannelMsg::Close),
+            ]),
+            [None, None, Some(true)]
+        );
+    }
+
+    #[test]
+    fn a_close_without_an_exit_report_stays_reconnectable() {
+        assert_eq!(
+            feed(&[
+                Some(ChannelMsg::WindowAdjusted { new_size: 4096 }),
+                Some(ChannelMsg::Eof),
+                None,
+            ]),
+            [None, None, Some(false)]
+        );
+        assert_eq!(feed(&[Some(ChannelMsg::Close)]), [Some(false)]);
     }
 }

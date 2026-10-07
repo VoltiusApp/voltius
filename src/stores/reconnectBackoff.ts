@@ -87,7 +87,6 @@ export function sessionClosed(sessionType: string, sessionId: string, remoteExit
     sessionId,
     {
       status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
-      persist: (id) => !!useSessionStore.getState().sessions.find((s) => s.id === id)?.persist,
       autoReconnect: (id) => {
         const sess = useSessionStore.getState().sessions.find((s) => s.id === id);
         return !sess || serialAutoReconnectEnabled(sess, connectionForSession(sess));
@@ -96,7 +95,9 @@ export function sessionClosed(sessionType: string, sessionId: string, remoteExit
       reconnectWithBackoff,
       endSession: (id) => {
         // The shell is already gone; this drops the transport and the tab.
+        const persist = !!useSessionStore.getState().sessions.find((s) => s.id === id)?.persist;
         void import("@/services/closeSession").then(({ closeSession }) => closeSession(id));
+        if (persist) void import("@/services/crossDeviceSessions").then(({ sessionEnded }) => sessionEnded(id));
       },
     },
     remoteExit,
