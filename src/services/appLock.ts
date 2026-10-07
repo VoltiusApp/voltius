@@ -23,9 +23,16 @@ export async function lockApp(): Promise<void> {
   if (!canLockApp(mode, systemAuthUnlock)) return;
   if (!canLockVault(mode) && !(await systemAuthAvailable())) return;
   if (lockAction === "vault" && canLockVault(mode)) {
-    await lockVaultSession({ keepKeychainEntry: systemAuthUnlock });
-    window.location.reload();
+    try {
+      await lockVaultSession({ keepKeychainEntry: systemAuthUnlock });
+    } finally {
+      window.location.reload();
+    }
     return;
   }
   await useAppLockStore.getState().lockScreen();
+}
+
+export function setHideInRecents(on: boolean): Promise<void> {
+  return invoke<void>("app_lock_hide_in_recents", { on }).catch(() => {});
 }

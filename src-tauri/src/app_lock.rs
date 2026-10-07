@@ -36,10 +36,12 @@ impl AppLock {
     }
 
     pub fn load_from(path: PathBuf) -> Self {
-        // A marker that exists but can't be parsed fails closed.
-        let state = std::fs::read_to_string(&path)
-            .ok()
-            .map(|s| LockKind::parse(&s).unwrap_or(LockKind::Screen));
+        // Only a missing marker means unlocked; one that can't be read or parsed fails closed.
+        let state = match std::fs::read_to_string(&path) {
+            Ok(s) => Some(LockKind::parse(&s).unwrap_or(LockKind::Screen)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => Some(LockKind::Screen),
+        };
         Self {
             path,
             state: Mutex::new(state),
@@ -50,16 +52,16 @@ impl AppLock {
         *self.state.lock().unwrap()
     }
 
+    /// The in-memory state always takes `kind`; an error only means the next launch may disagree.
     pub fn set(&self, kind: Option<LockKind>) -> std::io::Result<()> {
+        *self.state.lock().unwrap() = kind;
         match kind {
-            Some(k) => std::fs::write(&self.path, k.as_str())?,
+            Some(k) => std::fs::write(&self.path, k.as_str()),
             None => match std::fs::remove_file(&self.path) {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
-                _ => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                r => r,
             },
         }
-        *self.state.lock().unwrap() = kind;
-        Ok(())
     }
 }
 
@@ -68,9 +70,20 @@ pub fn is_locked(app: &tauri::AppHandle) -> bool {
         .is_some_and(|l| l.get().is_some())
 }
 
+#[cfg(target_os = "android")]
+fn sync_secure_flag(kind: Option<LockKind>) {
+    crate::system_auth::android::set_secure(kind == Some(LockKind::Screen));
+}
+
+#[cfg(not(target_os = "android"))]
+fn sync_secure_flag(_kind: Option<LockKind>) {}
+
 #[tauri::command]
 pub fn app_lock_get(lock: tauri::State<'_, AppLock>) -> Option<String> {
-    lock.get().map(|k| k.as_str().to_string())
+    let kind = lock.get();
+    // The webview reads the lock at startup, which is how a lock restored from disk reaches the activity.
+    sync_secure_flag(kind);
+    kind.map(|k| k.as_str().to_string())
 }
 
 #[tauri::command]
@@ -79,11 +92,17 @@ pub fn app_lock_set(lock: tauri::State<'_, AppLock>, kind: Option<String>) -> Re
         None => None,
         Some(s) => Some(LockKind::parse(s).ok_or_else(|| format!("unknown lock kind: {s}"))?),
     };
-    lock.set(kind)
-        .map_err(|e| format!("could not persist the app lock: {e}"))?;
+    let persisted = lock.set(kind);
+    sync_secure_flag(kind);
+    persisted.map_err(|e| format!("could not persist the app lock: {e}"))
+}
+
+#[tauri::command]
+pub fn app_lock_hide_in_recents(on: bool) {
     #[cfg(target_os = "android")]
-    crate::system_auth::android::set_secure(kind == Some(LockKind::Screen));
-    Ok(())
+    crate::system_auth::android::set_hide_in_recents(on);
+    #[cfg(not(target_os = "android"))]
+    let _ = on;
 }
 
 #[cfg(test)]
@@ -123,5 +142,42 @@ mod tests {
         let path = dir.path().join("app-lock");
         std::fs::write(&path, "garbage").unwrap();
         assert_eq!(AppLock::load_from(path).get(), Some(LockKind::Screen));
+    }
+
+    #[test]
+    fn a_marker_that_is_not_utf8_reads_as_locked_screen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("app-lock");
+        std::fs::write(&path, [0xff, 0xfe, 0x00]).unwrap();
+        assert_eq!(AppLock::load_from(path).get(), Some(LockKind::Screen));
+    }
+
+    #[test]
+    fn a_marker_that_cannot_be_read_reads_as_locked_screen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("app-lock");
+        std::fs::create_dir(&path).unwrap();
+        assert_eq!(AppLock::load_from(path).get(), Some(LockKind::Screen));
+    }
+
+    #[test]
+    fn a_lock_whose_marker_cannot_be_written_still_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = AppLock::load_from(dir.path().join("missing").join("app-lock"));
+        assert!(lock.set(Some(LockKind::Screen)).is_err());
+        assert_eq!(lock.get(), Some(LockKind::Screen));
+    }
+
+    #[test]
+    fn an_unlock_whose_marker_cannot_be_removed_still_unlocks() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("app-lock");
+        let lock = AppLock::load_from(path.clone());
+        lock.set(Some(LockKind::Vault)).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("x"), "").unwrap();
+        assert!(lock.set(None).is_err());
+        assert_eq!(lock.get(), None);
     }
 }

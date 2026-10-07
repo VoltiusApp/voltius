@@ -76,9 +76,14 @@ function LockedScreen() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    if (await isCurrentMasterPassword(password)) await unlock();
-    else setError(t("layout.appLock.wrongPassword"));
-    setLoading(false);
+    try {
+      if (await isCurrentMasterPassword(password)) await unlock();
+      else setError(t("layout.appLock.wrongPassword"));
+    } catch {
+      setError(t("layout.appLock.systemAuthFailed"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return createPortal(

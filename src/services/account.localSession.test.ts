@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   load: vi.fn(async () => undefined),
   keysSet: vi.fn(),
   keysClear: vi.fn(),
+  appLockSet: vi.fn(async () => undefined),
   store: {} as Record<string, string | null>,
 }));
 
@@ -38,6 +39,7 @@ import {
   getAccountMode,
   getCurrentUserEmail,
   isServerMode,
+  setAppLock,
 } from "./account";
 
 // Route the keychain + crypto commands over the single invoke mock.
@@ -54,6 +56,8 @@ function routeInvoke() {
         return undefined;
       case "derive_keys":
         return { auth_key: "AUTH_KEY_B64", enc_key: [10, 20, 30] };
+      case "app_lock_set":
+        return h.appLockSet();
       default:
         return undefined;
     }
@@ -73,6 +77,7 @@ beforeEach(() => {
   h.lockVault.mockReset();
   h.load.mockReset();
   h.keysSet.mockReset();
+  h.appLockSet.mockReset();
   h.store = {};
   routeInvoke();
   try {
@@ -89,6 +94,31 @@ test("lockVaultSession locks the vault and persists the vault lock marker", asyn
   await lockVaultSession();
   expect(h.lockVault).toHaveBeenCalledTimes(1);
   expect(h.invoke).toHaveBeenCalledWith("app_lock_set", { kind: "vault" });
+});
+
+test("lockVaultSession writes the marker before it locks the vault or drops the password", async () => {
+  h.store.mode = "local";
+  await lockVaultSession();
+  const deleteAt = h.invoke.mock.calls.findIndex(([c]) => c === "keychain_delete");
+  const markerOrder = h.appLockSet.mock.invocationCallOrder[0];
+  expect(markerOrder).toBeLessThan(h.lockVault.mock.invocationCallOrder[0]);
+  expect(markerOrder).toBeLessThan(h.invoke.mock.invocationCallOrder[deleteAt]);
+});
+
+test("lockVaultSession still locks when the marker cannot be written", async () => {
+  h.store.mode = "local";
+  h.appLockSet.mockRejectedValueOnce(new Error("disk full"));
+  await lockVaultSession();
+  expect(h.lockVault).toHaveBeenCalledTimes(1);
+  expect(keychainCalls("keychain_delete").map((a) => a.key)).toContain("master_password");
+});
+
+test("a marker that cannot be written is logged, never thrown", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  h.appLockSet.mockRejectedValueOnce(new Error("disk full"));
+  await expect(setAppLock("screen")).resolves.toBeUndefined();
+  expect(warn).toHaveBeenCalled();
+  warn.mockRestore();
 });
 
 test("lockVaultSession keeps the master password when system authentication will reopen it", async () => {

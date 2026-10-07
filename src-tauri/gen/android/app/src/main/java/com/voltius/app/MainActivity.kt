@@ -37,6 +37,17 @@ class MainActivity : TauriActivity() {
       VoltiusDownloads.nativeDirPicked(uri?.toString())
     }
     instance = this
+    VoltiusBiometric.applyWindowFlags(this)
+  }
+
+  override fun onPause() {
+    super.onPause()
+    VoltiusBiometric.applyWindowFlags(this)
+  }
+
+  override fun onResume() {
+    super.onResume()
+    VoltiusBiometric.applyWindowFlags(this)
   }
 
   // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34).

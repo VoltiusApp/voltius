@@ -81,12 +81,36 @@ object VoltiusBiometric {
         else -> FAILED
     }
 
+    @Volatile private var locked = false
+    @Volatile private var hideInRecents = false
+
     @JvmStatic
     fun setSecure(on: Boolean) {
+        locked = on
+        refresh()
+    }
+
+    @JvmStatic
+    fun setHideInRecents(on: Boolean) {
+        hideInRecents = on
+        refresh()
+    }
+
+    private fun refresh() {
         val activity = MainActivity.instance ?: return
-        activity.runOnUiThread {
-            if (on) activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        activity.runOnUiThread { applyWindowFlags(activity) }
+    }
+
+    // Recents is snapshotted on the way out, before the webview hears it was hidden, so this can't wait for the lock.
+    @JvmStatic
+    fun applyWindowFlags(activity: MainActivity) {
+        val foreground = activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        val recentsApi = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        if (recentsApi) activity.setRecentsScreenshotEnabled(!hideInRecents)
+        if (locked || (hideInRecents && !foreground && !recentsApi)) {
+            activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 }

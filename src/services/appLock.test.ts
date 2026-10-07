@@ -68,6 +68,30 @@ test("a no-password account without system auth is never locked", async () => {
   expect(h.invoke).not.toHaveBeenCalledWith("app_lock_set", expect.anything());
 });
 
+const hangMarkerWrites = () =>
+  h.invoke.mockImplementation((cmd: unknown) => (cmd === "app_lock_set" ? new Promise(() => {}) : Promise.resolve(undefined)));
+
+test("the screen lock is up before the marker write finishes", async () => {
+  useSecurityStore.setState({ lockAction: "screen" });
+  hangMarkerWrites();
+  void lockApp();
+  await new Promise((r) => setTimeout(r, 0));
+  expect(useAppLockStore.getState().kind).toBe("screen");
+});
+
+test("lock vault reloads into the lock even when locking the session fails part-way", async () => {
+  h.lockVaultSession.mockRejectedValueOnce(new Error("keychain gone"));
+  await lockApp().catch(() => {});
+  expect(h.reload).toHaveBeenCalled();
+});
+
+test("unlocking clears the overlay before the marker removal finishes", async () => {
+  useAppLockStore.setState({ kind: "screen" });
+  hangMarkerWrites();
+  void useAppLockStore.getState().unlock();
+  expect(useAppLockStore.getState().kind).toBeNull();
+});
+
 test("system auth errors from the backend read as failed, never throw", async () => {
   h.invoke.mockRejectedValueOnce(new Error("boom"));
   expect(await systemAuthVerify("x")).toBe("failed");

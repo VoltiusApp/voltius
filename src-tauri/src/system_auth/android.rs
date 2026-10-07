@@ -52,12 +52,20 @@ pub async fn verify(_app: &tauri::AppHandle, reason: &str) -> VerifyOutcome {
     rx.await.map(map_code).unwrap_or(VerifyOutcome::Failed)
 }
 
-pub fn set_secure(on: bool) {
-    let _ = with_env("biometric secure flag", |env, _ctx| {
+fn call_flag(method: &str, on: bool) {
+    let _ = with_env(method, |env, _ctx| {
         let cls = load_class(env, CLASS)?;
-        env.call_static_method(&cls, "setSecure", "(Z)V", &[JValue::Bool(on.into())])?
+        env.call_static_method(&cls, method, "(Z)V", &[JValue::Bool(on.into())])?
             .v()
     });
+}
+
+pub fn set_secure(on: bool) {
+    call_flag("setSecure", on);
+}
+
+pub fn set_hide_in_recents(on: bool) {
+    call_flag("setHideInRecents", on);
 }
 
 #[no_mangle]

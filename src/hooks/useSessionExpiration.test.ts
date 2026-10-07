@@ -4,13 +4,14 @@ import { renderHook, act, cleanup } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({
   lockApp: vi.fn(async () => undefined),
+  hideInRecents: vi.fn(async (_on: boolean) => undefined),
   suppressed: false,
   mode: "local" as string | null,
   resized: null as null | (() => void),
   minimized: false,
 }));
 
-vi.mock("@/services/appLock", () => ({ lockApp: h.lockApp }));
+vi.mock("@/services/appLock", () => ({ lockApp: h.lockApp, setHideInRecents: h.hideInRecents }));
 vi.mock("@/services/leaveLockSuppression", () => ({ isLeaveLockSuppressed: () => h.suppressed }));
 vi.mock("@/services/account", () => ({
   getAccountMode: async () => h.mode,
@@ -159,4 +160,26 @@ test("nothing locks before the app is past the splash and unlock screens", async
   await act(async () => { await vi.advanceTimersByTimeAsync(30 * 60_000); });
   await act(async () => { setVisibility("hidden"); });
   expect(h.lockApp).not.toHaveBeenCalled();
+});
+
+test("Immediately hides the app from recents while it is on, and only then", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  const { unmount } = renderHook(() => useSessionExpiration(true));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(h.hideInRecents).toHaveBeenCalledWith(true);
+  unmount();
+  expect(h.hideInRecents).toHaveBeenLastCalledWith(false);
+});
+
+test("a timed auto-lock leaves recents alone", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 5 });
+  await mount();
+  expect(h.hideInRecents).not.toHaveBeenCalled();
+});
+
+test("Immediately on an account that cannot lock leaves recents alone", async () => {
+  h.mode = "local-nopassword";
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0, systemAuthUnlock: false });
+  await mount();
+  expect(h.hideInRecents).not.toHaveBeenCalled();
 });

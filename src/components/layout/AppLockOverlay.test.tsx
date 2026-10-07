@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   verify: vi.fn(async (_reason: string) => "ok" as string),
   mode: "local" as string | null,
   correct: "pw",
+  keychainBroken: false,
   resetVault: vi.fn(async () => undefined),
 }));
 
@@ -21,7 +22,10 @@ vi.mock("@/services/appLock", () => ({
 }));
 vi.mock("@/services/account", () => ({
   getAccountMode: async () => h.mode,
-  isCurrentMasterPassword: async (p: string) => p === h.correct,
+  isCurrentMasterPassword: async (p: string) => {
+    if (h.keychainBroken) throw new Error("keychain locked");
+    return p === h.correct;
+  },
   setAppLock: async () => undefined,
   getAppLock: async () => null,
 }));
@@ -39,6 +43,7 @@ beforeEach(() => {
   vi.spyOn(document, "hasFocus").mockReturnValue(true);
   h.available = true;
   h.mode = "local";
+  h.keychainBroken = false;
   h.verify.mockResolvedValue("ok");
   useAppLockStore.setState({ kind: "screen" });
   useSecurityStore.setState({ systemAuthUnlock: true });
@@ -106,6 +111,19 @@ test("a wrong master password shows an error and stays locked", async () => {
   fireEvent.submit(screen.getByPlaceholderText(PASSWORD).closest("form")!);
   await flush();
   expect(screen.getByText("layout.appLock.wrongPassword")).toBeTruthy();
+  expect(useAppLockStore.getState().kind).toBe("screen");
+});
+
+test("a password check that throws shows an error and frees the button", async () => {
+  h.verify.mockResolvedValue("cancelled");
+  h.keychainBroken = true;
+  render(<AppLockOverlay />);
+  await flush();
+  fireEvent.change(await screen.findByPlaceholderText(PASSWORD), { target: { value: "pw" } });
+  fireEvent.submit(screen.getByPlaceholderText(PASSWORD).closest("form")!);
+  await flush();
+  expect(screen.getByText("layout.appLock.systemAuthFailed")).toBeTruthy();
+  expect((screen.getByRole("button", { name: "layout.auth.unlock" }) as HTMLButtonElement).disabled).toBe(false);
   expect(useAppLockStore.getState().kind).toBe("screen");
 });
 

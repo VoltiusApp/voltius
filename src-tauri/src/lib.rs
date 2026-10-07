@@ -274,6 +274,7 @@ pub fn run() {
             commands::get_platform,
             app_lock::app_lock_get,
             app_lock::app_lock_set,
+            app_lock::app_lock_hide_in_recents,
             system_auth::system_auth_available,
             system_auth::system_auth_verify,
             terminal_kbd::terminal_show_keyboard,

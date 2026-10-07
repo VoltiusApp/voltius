@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getAccountMode } from "@/services/account";
-import { lockApp } from "@/services/appLock";
+import { lockApp, setHideInRecents } from "@/services/appLock";
 import { isLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
@@ -25,9 +25,17 @@ export function useSessionExpiration(ready = true): void {
     let disposed = false;
     let lockInProgress = false;
     let unlistenResize: (() => void) | null = null;
+    let hidingFromRecents = false;
 
     getAccountMode()
-      .then((mode) => { lockable = canLockApp(mode, systemAuthUnlock); })
+      .then((mode) => {
+        lockable = canLockApp(mode, systemAuthUnlock);
+        // Android snapshots recents before visibilitychange reaches us, so the lock alone can't cover it.
+        if (immediate && lockable && !disposed) {
+          hidingFromRecents = true;
+          void setHideInRecents(true);
+        }
+      })
       .catch(() => { lockable = false; });
 
     const lockNow = () => {
@@ -81,6 +89,7 @@ export function useSessionExpiration(ready = true): void {
 
     return () => {
       disposed = true;
+      if (hidingFromRecents) void setHideInRecents(false);
       window.clearInterval(intervalId);
       unsubscribeLock();
       unlistenResize?.();

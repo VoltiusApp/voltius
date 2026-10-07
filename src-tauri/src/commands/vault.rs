@@ -1,5 +1,7 @@
+use crate::app_lock::AppLock;
 use crate::storage::vault;
 use sha2::{Digest, Sha256};
+use std::path::Path;
 use tauri::AppHandle;
 
 #[tauri::command]
@@ -12,33 +14,39 @@ pub fn vault_status(app: AppHandle) -> serde_json::Value {
 
 #[tauri::command]
 pub fn vault_reset(app: AppHandle) -> Result<(), String> {
+    // Delete legacy Stronghold vault if still present
+    let vault_hold = vault::vault_file_path(&app);
+    if vault_hold.exists() {
+        std::fs::remove_file(&vault_hold).ok();
+    }
+    wipe_secrets_and_config(&app)
+}
+
+fn wipe_secrets_and_config(app: &AppHandle) -> Result<(), String> {
     use tauri::Manager;
 
     let data_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {e}"))?;
+    wipe(
+        &data_dir.join("secrets.enc"),
+        &crate::storage::config::config_dir(),
+        app.try_state::<AppLock>().as_deref(),
+    )
+}
 
-    let secrets = data_dir.join("secrets.enc");
+fn wipe(secrets: &Path, config: &Path, lock: Option<&AppLock>) -> Result<(), String> {
     if secrets.exists() {
-        std::fs::remove_file(&secrets).map_err(|e| format!("Failed to delete secrets: {e}"))?;
+        std::fs::remove_file(secrets).map_err(|e| format!("Failed to delete secrets: {e}"))?;
     }
-
-    // Delete legacy Stronghold vault if still present
-    let vault_hold = vault::vault_file_path(&app);
-    if vault_hold.exists() {
-        std::fs::remove_file(&vault_hold).ok();
+    if let Some(lock) = lock {
+        let _ = lock.set(None);
     }
-
-    // Delete entire config directory (covers all current and future config files)
-    let config = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("voltius");
     if config.exists() {
-        std::fs::remove_dir_all(&config)
+        std::fs::remove_dir_all(config)
             .map_err(|e| format!("Failed to delete config directory: {e}"))?;
     }
-
     Ok(())
 }
 
@@ -109,28 +117,32 @@ fn android_id() -> Option<String> {
 /// Wipe local config + secrets so a different account can start clean.
 /// Deletes:
 ///   - secrets.enc  (encrypted with the OLD account's key — new key can't open it)
-///   - ~/.config/voltius/  (connections, identities, keys, folders JSON files)
+///   - the config dir  (connections, identities, keys, folders JSON files)
 /// Does NOT touch the OS keychain — caller handles that separately.
 #[tauri::command]
 pub fn config_wipe(app: AppHandle) -> Result<(), String> {
-    use tauri::Manager;
+    wipe_secrets_and_config(&app)
+}
 
-    // Delete secrets store (keyed to old account — new enc_key cannot decrypt it)
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
-    let secrets = data_dir.join("secrets.enc");
-    if secrets.exists() {
-        std::fs::remove_file(&secrets).map_err(|e| format!("Failed to delete secrets.enc: {e}"))?;
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app_lock::LockKind;
 
-    // Delete config directory (covers all JSON entity files)
-    let config = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("voltius");
-    if config.exists() {
-        std::fs::remove_dir_all(&config).map_err(|e| format!("Failed to wipe config: {e}"))?;
+    #[test]
+    fn a_wipe_removes_secrets_config_and_the_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let secrets = dir.path().join("secrets.enc");
+        let config = dir.path().join("voltius");
+        std::fs::create_dir(&config).unwrap();
+        std::fs::write(&secrets, "x").unwrap();
+        let lock = AppLock::load_from(config.join("app-lock"));
+        lock.set(Some(LockKind::Vault)).unwrap();
+
+        wipe(&secrets, &config, Some(&lock)).unwrap();
+
+        assert!(!secrets.exists());
+        assert!(!config.exists());
+        assert_eq!(lock.get(), None);
     }
-    Ok(())
 }

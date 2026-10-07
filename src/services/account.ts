@@ -218,14 +218,15 @@ export async function getAppLock(): Promise<LockKind | null> {
   return invoke<LockKind | null>("app_lock_get").catch(() => null);
 }
 
+// The backend holds the lock in memory before it writes, so a failed write still locks this run.
 export async function setAppLock(kind: LockKind | null): Promise<void> {
-  await invoke("app_lock_set", { kind });
+  await invoke("app_lock_set", { kind }).catch((e) => console.warn("[app-lock] marker not persisted:", e));
 }
 
 export async function lockVaultSession({ keepKeychainEntry = false }: { keepKeychainEntry?: boolean } = {}): Promise<void> {
+  await setAppLock("vault");
   const mode = await keychainGet("mode");
   await lockVault();
-  await setAppLock("vault");
   if (!keepKeychainEntry && (mode === "local" || mode === "server")) {
     await keychainDelete("master_password");
   }

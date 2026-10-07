@@ -165,7 +165,7 @@ export default function SplashScreen({ onReady }: Props) {
   };
 
   const handleAuthReady = async () => {
-    await setAppLock(null).catch(() => {});
+    await setAppLock(null);
     setPhase("finishing");
     keepSwitcherFresh();
     await finishLoading();

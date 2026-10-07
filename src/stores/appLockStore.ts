@@ -8,15 +8,15 @@ interface AppLockStore {
   unlock: () => Promise<void>;
 }
 
-export const useAppLockStore = create<AppLockStore>()((set) => ({
-  kind: null,
-  hydrate: async () => set({ kind: await getAppLock() }),
-  lockScreen: async () => {
-    await setAppLock("screen");
-    set({ kind: "screen" });
-  },
-  unlock: async () => {
-    await setAppLock(null);
-    set({ kind: null });
-  },
-}));
+export const useAppLockStore = create<AppLockStore>()((set) => {
+  const apply = (kind: LockKind | null) => {
+    set({ kind });
+    return setAppLock(kind);
+  };
+  return {
+    kind: null,
+    hydrate: async () => set({ kind: await getAppLock() }),
+    lockScreen: () => apply("screen"),
+    unlock: () => apply(null),
+  };
+});
