@@ -288,7 +288,6 @@
       "systemAuthFailed": "Kimlik doğrulama başarısız.",
       "wrongPassword": "Ana parola yanlış.",
       "keychainEmpty": "Kasa anahtarınız artık sistem anahtarlığında değil. Ana parolanızı girin.",
-      "logOut": "Çıkış yap",
       "promptReason": "Voltius'un kilidini aç"
     }
   }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useAppLockStore } from "@/stores/appLockStore";
 import { ProgressToast } from "./ProgressToast";
 import type { ToastEntry } from "@/stores/notificationStore";
 
@@ -132,6 +133,11 @@ function RegularToast({
 }
 
 export function NotificationToastContainer() {
+  const locked = useAppLockStore((s) => s.kind !== null);
+  return locked ? null : <ToastStack />;
+}
+
+function ToastStack() {
   const { t } = useTranslation();
   const toasts = useNotificationStore((s) => s.toasts);
   const dismissToast = useNotificationStore((s) => s.dismissToast);

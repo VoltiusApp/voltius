@@ -292,7 +292,6 @@
       "systemAuthFailed": "Échec de l'authentification.",
       "wrongPassword": "Mot de passe principal incorrect.",
       "keychainEmpty": "La clé du coffre n'est plus dans le trousseau système. Saisissez votre mot de passe principal.",
-      "logOut": "Se déconnecter",
       "promptReason": "Déverrouiller Voltius"
     }
   }

@@ -6,16 +6,17 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
-import { getAccountMode, getMyHandle, lockVaultSession, logout } from "@/services/account";
+import { getAccountMode, getMyHandle, logout } from "@/services/account";
+import { lockApp } from "@/services/appLock";
 import { getSwitchTargets, saveCurrentAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSecurityStore } from "@/stores/securityStore";
-import { canLockVault } from "@/utils/accountMode";
+import { canLockApp } from "@/utils/accountMode";
 import { instanceLabel } from "@/utils/serverInstance";
-import { sessionTimeoutLabel, sessionTimeoutValue } from "@/utils/sessionTimeout";
+import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutValue } from "@/utils/sessionTimeout";
 
 /**
  * An account on the official cloud keeps the plain user icon; a self-hosted one
@@ -40,6 +41,7 @@ export function SidebarAccountButton() {
   const [pendingSwitch, setPendingSwitch] = useState<SavedAccount | null>(null);
   const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
+  const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
 
   const refreshAccountInfo = async (): Promise<ActiveAccount> => {
     const { invoke: inv } = await import("@/lib/invoke");
@@ -89,8 +91,7 @@ export function SidebarAccountButton() {
 
   const handleLockVault = async () => {
     setOpen(false);
-    await lockVaultSession();
-    window.location.reload();
+    await lockApp();
   };
 
   const handleDisconnect = async () => {
@@ -120,9 +121,10 @@ export function SidebarAccountButton() {
     setPendingSwitch(account);
   };
 
-  const canLock = canLockVault(accountMode);
-  const autoLockSublabel = sessionTimeoutMinutes === null
-    ? t("layout.sidebarAccount.autoLockOff")
+  const canLock = canLockApp(accountMode, systemAuthUnlock);
+  const autoLockSublabel =
+    sessionTimeoutMinutes === null ? t("layout.sidebarAccount.autoLockOff")
+    : sessionTimeoutMinutes === IMMEDIATELY ? t("layout.sidebarAccount.autoLockImmediately")
     : t("layout.sidebarAccount.autoLockAfter", { duration: sessionTimeoutLabel(t, sessionTimeoutValue(sessionTimeoutMinutes)) });
 
   const currentInstance = accountMode === "server" ? instanceLabel(accountServerUrl) : null;

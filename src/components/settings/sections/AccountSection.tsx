@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { Trans, useTranslation } from "react-i18next";
-import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout, lockVaultSession } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout } from "@/services/account";
+import { lockApp } from "@/services/appLock";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
@@ -12,12 +13,11 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
-import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
-import { canLockVault } from "@/utils/accountMode";
-import { sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
+import { canLockApp } from "@/utils/accountMode";
 import EditEmailModal from "./EditEmailModal";
+import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 
@@ -121,8 +121,7 @@ export default function AccountSection() {
   const [allowStrangerInvites, setAllowStrangerInvites] = useState(true);
   const [strangerInvitesError, setStrangerInvitesError] = useState("");
   const [strangerInvitesLoading, setStrangerInvitesLoading] = useState(false);
-  const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
-  const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
+  const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
 
   const handleField = useEditableField(
     async (value) => {
@@ -212,8 +211,7 @@ export default function AccountSection() {
     mode === "local-nopassword" ? "lucide:key-round" :
     mode === "local" ? "lucide:lock" : "lucide:cloud";
 
-  const lockable = canLockVault(mode);
-  const timeoutSelectValue = sessionTimeoutValue(sessionTimeoutMinutes);
+  const lockable = canLockApp(mode, systemAuthUnlock);
 
   return (
     <div className="p-6 space-y-4">
@@ -323,31 +321,7 @@ export default function AccountSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.account.sessionSecurity.title")}
         </h3>
-        {lockable ? (
-          <div
-            className="rounded-lg px-4 py-3 space-y-2 bg-(--t-bg-elevated) border border-(--t-border)"
-          >
-            <p className="text-xs text-(--t-text-dim)">
-              {t("settings.account.sessionSecurity.autoLockLabel")}
-            </p>
-            <FormSelect
-              value={timeoutSelectValue}
-              options={sessionTimeoutOptions(t)}
-              ariaLabel={t("settings.account.sessionSecurity.autoLockLabel")}
-              onChange={(value) => {
-                const next = value === "never" ? null : Number(value);
-                setSessionTimeoutMinutes(Number.isFinite(next) ? next : null);
-              }}
-            />
-            <p className="text-xs text-(--t-text-dim)">
-              {t("settings.account.sessionSecurity.autoLockDesc")}
-            </p>
-          </div>
-        ) : (
-          <p className="text-xs text-(--t-text-muted)">
-            {t("settings.account.sessionSecurity.noPasswordHint")}
-          </p>
-        )}
+        <SessionSecuritySettings mode={mode} />
       </div>
 
       {success && <p className="text-xs px-1 text-(--t-status-connected)">{success}</p>}
@@ -389,9 +363,7 @@ export default function AccountSection() {
               sub={t("settings.account.lockVault.sub")}
               onClick={() => {
                 setError("");
-                lockVaultSession()
-                  .then(() => window.location.reload())
-                  .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+                lockApp().catch((e) => setError(e instanceof Error ? e.message : String(e)));
               }}
             />
           )}

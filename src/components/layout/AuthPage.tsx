@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import LogoBadge from "./LogoBadge";
+import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, SubmitBtn, SystemAuthButton } from "./authParts";
 import {
+  autoLogin,
   createLocalAccountNoPassword,
   createServerAccount,
   login,
@@ -13,6 +13,7 @@ import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { lastServerUrl } from "@/utils/serverInstance";
+import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 
 
 type View = "home" | "cloud";
@@ -31,7 +32,7 @@ interface Props {
 /** Which way the vault turned out to be unreadable — they offer different exits. */
 type Unreadable = "no-password" | "wrong-key";
 
-export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) {
+export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onReady }: Props) {
   const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
   const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
@@ -69,6 +70,12 @@ export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) 
       setLoading(false);
     }
   };
+
+  const auth = useSystemAuthPrompt(isLocked && !!systemAuth, () => {
+    void wrap(async () => {
+      if ((await autoLogin()) !== "ok") throw new Error(t("layout.appLock.keychainEmpty"));
+    });
+  });
 
   // ── Vault present but unreadable ─────────────────────────────────────────
 
@@ -134,9 +141,10 @@ export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) 
         <p className="text-xs mb-4 text-center text-(--t-text-muted)">
           {t("layout.auth.unlockPrompt")}
         </p>
+        <SystemAuthButton auth={auth} loading={loading} />
         <form onSubmit={submit} className="w-full space-y-2">
           <Input type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password}
-            onChange={setPassword} autoFocus />
+            onChange={setPassword} autoFocus={!systemAuth} />
           <ErrorMsg msg={error} />
           <SubmitBtn loading={loading} label={t("layout.auth.unlock")} />
         </form>
@@ -281,100 +289,4 @@ export default function AuthPage({ isLocked, vaultUnreadable, onReady }: Props) 
   }
 
   return null;
-}
-
-// ── Shared sub-components ────────────────────────────────────────────────────
-
-function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="h-full w-full flex flex-col items-center justify-center bg-(--t-bg-terminal)">
-      {onBack && (
-        <button onClick={onBack}
-          className="absolute top-6 left-6 flex items-center gap-1.5 text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary)"
-        >
-          <Icon icon="lucide:arrow-left" width={13} /> {t("layout.auth.back")}
-        </button>
-      )}
-
-      <div className="mb-8 text-center">
-        <LogoBadge size={12} className="mb-3" />
-        <h1 className="text-lg font-bold text-(--t-text-bright)">Voltius</h1>
-      </div>
-
-      <div className="w-72">{children}</div>
-    </div>
-  );
-}
-
-function ActionButton({ icon, label, sub, primary, loading, onClick }: {
-  icon: string; label: string; sub: string;
-  primary?: boolean; loading?: boolean; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 text-left transition-all"
-      style={{
-        background: primary ? "var(--t-accent)" : "var(--t-bg-elevated)",
-        border: `1px solid ${primary ? "var(--t-accent)" : "var(--t-border)"}`,
-        opacity: loading ? 0.7 : 1,
-      }}
-      onMouseEnter={(e) => {
-        if (!primary) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border-hover)";
-      }}
-      onMouseLeave={(e) => {
-        if (!primary) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)";
-      }}
-    >
-      <Icon icon={loading ? "lucide:loader-circle" : icon} width={18}
-        className={`shrink-0 ${loading ? "animate-spin" : ""}`}
-        style={{ color: primary ? "white" : "var(--t-accent)" }} />
-      <div>
-        <p className="text-sm font-medium" style={{ color: primary ? "white" : "var(--t-text-primary)" }}>
-          {label}
-        </p>
-        <p className="text-xs" style={{ color: primary ? "rgba(255,255,255,0.7)" : "var(--t-text-muted)" }}>
-          {sub}
-        </p>
-      </div>
-    </button>
-  );
-}
-
-const INPUT_CLASS =
-  "form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)";
-
-function Input({ type, placeholder, value, onChange, autoFocus }: {
-  type: string; placeholder: string; value: string;
-  onChange: (v: string) => void; autoFocus?: boolean;
-}) {
-  return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      autoFocus={autoFocus}
-      className={INPUT_CLASS}
-    />
-  );
-}
-
-function ErrorMsg({ msg }: { msg: string }) {
-  if (!msg) return null;
-  return <p className="text-xs text-center py-1 text-(--t-status-error)">{msg}</p>;
-}
-
-function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
-  return (
-    <button type="submit" disabled={loading}
-      className="btn btn-primary w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-      style={{ opacity: loading ? 0.7 : 1 }}
-    >
-      {loading && <Icon icon="lucide:loader-circle" width={14} className="animate-spin" />}
-      {label}
-    </button>
-  );
 }

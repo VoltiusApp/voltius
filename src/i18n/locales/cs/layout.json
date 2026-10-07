@@ -296,7 +296,6 @@
       "systemAuthFailed": "Ověření selhalo.",
       "wrongPassword": "Nesprávné hlavní heslo.",
       "keychainEmpty": "Klíč trezoru už v systémové klíčence není. Zadejte hlavní heslo.",
-      "logOut": "Odhlásit se",
       "promptReason": "Odemknout Voltius"
     }
   }

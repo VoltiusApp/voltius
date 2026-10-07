@@ -3,6 +3,7 @@ import DesktopShell from "@/components/layout/DesktopShell";
 import MobileShell from "@/components/mobile/MobileShell";
 import { usePlatform } from "@/utils/platform";
 import SplashScreen from "@/components/layout/SplashScreen";
+import AppLockOverlay from "@/components/layout/AppLockOverlay";
 import SettingsModal from "@/components/settings/SettingsModal";
 import { ImportExportModal } from "@/components/import-export/ImportExportModal";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
@@ -51,7 +52,7 @@ function App() {
   const [ready, setReady] = useState(false);
   useKeyboard();
   useInputUndo();
-  useSessionExpiration();
+  useSessionExpiration(ready);
   useApplyTheme();
   useThemeAutomation();
   useApplyUiScale();
@@ -122,6 +123,7 @@ function App() {
 
       {/* Global snippet sequence variable modal */}
       <PendingSequenceModal />
+      <AppLockOverlay />
     </div>
   );
 }

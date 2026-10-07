@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   switchToAccount: vi.fn(async () => {}),
   removeSavedAccount: vi.fn(async () => {}),
   keychain: {} as Record<string, string | null>,
+  lockApp: vi.fn(async () => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -29,6 +30,7 @@ vi.mock("@/services/account", () => ({
   lockVaultSession: vi.fn(async () => {}),
   logout: vi.fn(async () => {}),
 }));
+vi.mock("@/services/appLock", () => ({ lockApp: h.lockApp }));
 vi.mock("@/services/savedAccounts", () => ({
   getSwitchTargets: h.getSwitchTargets,
   saveCurrentAccount: h.saveCurrentAccount,
@@ -150,6 +152,27 @@ test("the lock row reports the current auto-lock setting", async () => {
   expect(screen.getByText("layout.sidebarAccount.autoLockAfter")).toBeTruthy();
 
   useSecurityStore.getState().setSessionTimeoutMinutes(null);
+});
+
+test("the lock row says Immediately in words, not as a duration", async () => {
+  useSecurityStore.getState().setSessionTimeoutMinutes(0);
+  await openMenu();
+  expect(await screen.findByText("layout.sidebarAccount.autoLockImmediately")).toBeTruthy();
+  useSecurityStore.getState().setSessionTimeoutMinutes(null);
+});
+
+test("a no-password account with system auth is offered the lock", async () => {
+  h.accountMode = "local-nopassword";
+  useSecurityStore.getState().setSystemAuthUnlock(true);
+  await openMenu();
+  expect(await screen.findByText("layout.sidebarAccount.lockVault")).toBeTruthy();
+  useSecurityStore.getState().setSystemAuthUnlock(false);
+});
+
+test("the lock row locks through lockApp", async () => {
+  await openMenu();
+  await userEvent.click(await screen.findByText("layout.sidebarAccount.lockVault"));
+  expect(h.lockApp).toHaveBeenCalled();
 });
 
 test("the auto-lock row opens the account settings section", async () => {

@@ -288,7 +288,6 @@
       "systemAuthFailed": "身份验证失败。",
       "wrongPassword": "主密码错误。",
       "keychainEmpty": "系统钥匙串中已没有保险库密钥。请输入主密码。",
-      "logOut": "退出登录",
       "promptReason": "解锁 Voltius"
     }
   }

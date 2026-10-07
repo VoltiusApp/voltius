@@ -288,7 +288,6 @@
       "systemAuthFailed": "Authentication failed.",
       "wrongPassword": "Wrong master password.",
       "keychainEmpty": "Your vault key is no longer in the system keychain. Enter your master password.",
-      "logOut": "Log out",
       "promptReason": "Unlock Voltius"
     }
   }
