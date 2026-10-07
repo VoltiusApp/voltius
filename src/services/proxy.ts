@@ -59,9 +59,13 @@ export async function resolveDirectHop(
   return { proxy, knock };
 }
 
-export async function resolveFirstHop(conn: Connection): Promise<HopRoute> {
+export function firstHopProxy(conn: Connection): Promise<ProxySpec | null> {
   const dialed = firstHopConnection(conn);
-  const [proxy, knock] = await Promise.all([resolveProxy(dialed?.proxy ? dialed : conn), resolveKnock(dialed)]);
+  return resolveProxy(dialed?.proxy ? dialed : conn);
+}
+
+export async function resolveFirstHop(conn: Connection): Promise<HopRoute> {
+  const [proxy, knock] = await Promise.all([firstHopProxy(conn), resolveKnock(firstHopConnection(conn))]);
   return { proxy, knock };
 }
 

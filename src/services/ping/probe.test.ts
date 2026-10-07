@@ -4,9 +4,9 @@ const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 vi.mock("@/services/credentials", () => ({ resolveJumpHosts: async () => [{ host: "j" }], findConnection: () => undefined }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-vi.mock("@/services/vault", () => ({ getSecret: vi.fn() }));
-const resolveFirstHop = vi.fn(async (..._a: unknown[]) => ({ proxy: null as unknown, knock: null }));
-vi.mock("@/services/proxy", () => ({ resolveFirstHop: (...a: unknown[]) => resolveFirstHop(...a) }));
+const getSecret = vi.fn(async (_k: string): Promise<string | null> => null);
+vi.mock("@/services/vault", () => ({ getSecret: (k: string) => getSecret(k) }));
+vi.mock("@/stores/connectivitySettingsStore", () => ({ getGlobalProxy: () => ({ mode: "none" }) }));
 
 const { probeTarget, PROBE_TIMEOUT_MS } = await import("./probe");
 import type { PingTarget } from "./pingTargets";
@@ -25,8 +25,7 @@ function target(over: Partial<PingTarget> = {}): PingTarget {
 
 beforeEach(() => {
   invoke.mockReset();
-  resolveFirstHop.mockReset();
-  resolveFirstHop.mockResolvedValue({ proxy: null, knock: null });
+  getSecret.mockClear();
 });
 
 describe("probeTarget", () => {
@@ -85,6 +84,13 @@ describe("probeTarget", () => {
     expect(r).toEqual({ status: "knock" });
   });
 
+  test("a gated host with no stored sequence still probes and never reads the sequence", async () => {
+    invoke.mockResolvedValue("knock_closed");
+    const gated = { id: "a", host: "h1", port: 22, port_knock: { enabled: true, window_secs: 60 } } as PingTarget["connection"];
+    expect(await probeTarget(target({ connection: gated }))).toEqual({ status: "knock" });
+    expect(getSecret.mock.calls.filter(([k]) => k.startsWith("knock_sequence:"))).toEqual([]);
+  });
+
   test("maps the up and down outcomes", async () => {
     invoke.mockResolvedValueOnce({ up: 30 });
     expect(await probeTarget(target())).toEqual({ status: "up", latencyMs: 30 });
@@ -99,8 +105,7 @@ describe("probeTarget", () => {
 
   test("sends the host's proxy to ping_host", async () => {
     invoke.mockResolvedValue({ up: 12 });
-    resolveFirstHop.mockResolvedValue({ proxy: { kind: "system" }, knock: null });
-    await probeTarget(target());
+    await probeTarget(target({ connection: { id: "a", host: "h1", port: 22, proxy: { mode: "system" } } as PingTarget["connection"] }));
     expect(invoke).toHaveBeenCalledWith("ping_host", { host: "h1", port: 22, proxy: { kind: "system" }, knockWindowSecs: null });
   });
 

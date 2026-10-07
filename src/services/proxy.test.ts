@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const secrets: Record<string, string> = {};
 vi.mock("@/services/vault", () => ({ getSecret: async (k: string) => secrets[k] ?? null }));
 
-import { DEFAULT_PROXY_PORT, resolveDirectHop, resolveFirstHop, resolveProxy } from "./proxy";
+import { DEFAULT_PROXY_PORT, firstHopProxy, resolveDirectHop, resolveFirstHop, resolveProxy } from "./proxy";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { Connection, JumpHost } from "@/types";
@@ -150,6 +150,11 @@ describe("resolveFirstHop knock", () => {
 
   it("enabled knock without its secret refuses to connect", async () => {
     await expect(resolveFirstHop(conn("t", { port_knock: { enabled: true } }))).rejects.toThrow(/knock/i);
+  });
+
+  it("firstHopProxy resolves the proxy of a gated host whose sequence is missing", async () => {
+    const target = conn("t", { port_knock: { enabled: true }, proxy: { mode: "system" } });
+    expect(await firstHopProxy(target)).toEqual({ kind: "system" });
   });
 
   it("form overrides win: an unsaved sequence and settings are used for detection", async () => {

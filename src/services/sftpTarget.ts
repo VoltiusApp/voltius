@@ -1,6 +1,6 @@
 import { sftpOpen, sftpConnect, ftpConnect, webdavConnect } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { resolveFirstHop } from "@/services/proxy";
+import { firstHopProxy, resolveFirstHop } from "@/services/proxy";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
@@ -35,7 +35,7 @@ export async function connectFileBackend(conn: Connection, connectId: string, in
     return ftpConnect({ host: conn.host, port: conn.port, username: creds.username, password: creds.password, secure: !!conn.ftp_secure });
   }
   if (conn.connection_type === "webdav") {
-    const [creds, { proxy }] = await Promise.all([resolveConnectionCredentials(conn), resolveFirstHop(conn)]);
+    const [creds, proxy] = await Promise.all([resolveConnectionCredentials(conn), firstHopProxy(conn)]);
     return webdavConnect({ connectId, url: conn.webdav_url ?? "", username: creds.username, password: creds.password, proxy, interactive });
   }
   return sftpConnectToConnection(conn, connectId, relink);

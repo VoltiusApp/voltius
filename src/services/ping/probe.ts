@@ -1,6 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { resolveJumpHosts } from "@/services/credentials";
-import { resolveFirstHop } from "@/services/proxy";
+import { firstHopProxy } from "@/services/proxy";
 import { pingKnockWindow } from "@/services/portKnock";
 import type { PingStatus } from "@/stores/hostPingStore";
 import type { PingTarget } from "./pingTargets";
@@ -21,7 +21,7 @@ async function runProbe(target: PingTarget): Promise<{ status: PingStatus; laten
     return { status: "up", latencyMs };
   }
 
-  const { proxy } = await resolveFirstHop(target.connection);
+  const proxy = await firstHopProxy(target.connection);
   const knockWindowSecs = pingKnockWindow(target.connection);
 
   if (target.connection.jump_hosts?.length) {
