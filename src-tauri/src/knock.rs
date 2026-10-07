@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use tokio::net::UdpSocket;
 
 const KNOCK_DIAL_LIMIT: Duration = Duration::from_secs(1);
+const KNOCK_PROXIED_DIAL_LIMIT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -100,6 +101,11 @@ pub async fn knock(
     if proxied && spec.steps.iter().any(|s| s.protocol == KnockProtocol::Udp) {
         return Err(KnockError::UdpViaProxy);
     }
+    let dial_limit = if proxied {
+        KNOCK_PROXIED_DIAL_LIMIT
+    } else {
+        KNOCK_DIAL_LIMIT
+    };
     let mut pending = Vec::new();
     for (i, step) in spec.steps.iter().enumerate() {
         if i > 0 {
@@ -109,8 +115,7 @@ pub async fn knock(
             KnockProtocol::Tcp => {
                 let (via, target, port) = (effective.clone(), host.to_string(), step.port);
                 pending.push(tokio::spawn(async move {
-                    let _ = proxy::dial_with_timeout(via.as_ref(), &target, port, KNOCK_DIAL_LIMIT)
-                        .await;
+                    let _ = proxy::dial_with_timeout(via.as_ref(), &target, port, dial_limit).await;
                 }));
             }
             KnockProtocol::Udp => {
@@ -128,6 +133,9 @@ pub async fn knock(
                 sock.send_to(&[0u8], addr).await.map_err(KnockError::Io)?;
             }
         }
+    }
+    if proxied {
+        futures_util::future::join_all(pending.drain(..)).await;
     }
     tokio::time::sleep(Duration::from_millis(spec.settle_ms)).await;
     for task in pending {

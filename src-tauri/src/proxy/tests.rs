@@ -19,6 +19,7 @@ fn endpoint(port: u16, auth: Option<(&str, &str)>) -> ProxyEndpoint {
 async fn fake_socks5(
     upstream: u16,
     creds: Option<(&'static str, &'static str)>,
+    handshake_delay: Duration,
 ) -> (u16, Arc<Mutex<String>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -26,6 +27,7 @@ async fn fake_socks5(
     let seen = Arc::clone(&requested);
     tokio::spawn(async move {
         let (mut c, _) = listener.accept().await.unwrap();
+        tokio::time::sleep(handshake_delay).await;
         let mut head = [0u8; 2];
         c.read_exact(&mut head).await.unwrap();
         let mut methods = vec![0u8; head[1] as usize];
@@ -189,7 +191,7 @@ async fn ssh_handshake(stream: ProxiedStream) -> Result<(), String> {
 #[tokio::test]
 async fn ssh_through_socks5_without_auth() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
-    let (proxy, requested) = fake_socks5(ssh, None).await;
+    let (proxy, requested) = fake_socks5(ssh, None, Duration::ZERO).await;
     let via = ssh_over(ProxySpec::Socks5(endpoint(proxy, None)))
         .await
         .unwrap();
@@ -200,7 +202,7 @@ async fn ssh_through_socks5_without_auth() {
 #[tokio::test]
 async fn ssh_through_socks5_with_auth() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
-    let (proxy, _) = fake_socks5(ssh, Some(("u", "p"))).await;
+    let (proxy, _) = fake_socks5(ssh, Some(("u", "p")), Duration::ZERO).await;
     ssh_over(ProxySpec::Socks5(endpoint(proxy, Some(("u", "p")))))
         .await
         .unwrap();
@@ -209,7 +211,7 @@ async fn ssh_through_socks5_with_auth() {
 #[tokio::test]
 async fn socks5_wrong_password_is_a_socks_error() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
-    let (proxy, _) = fake_socks5(ssh, Some(("u", "p"))).await;
+    let (proxy, _) = fake_socks5(ssh, Some(("u", "p")), Duration::ZERO).await;
     let err = ssh_over(ProxySpec::Socks5(endpoint(proxy, Some(("u", "wrong")))))
         .await
         .unwrap_err();
@@ -411,12 +413,11 @@ async fn first_hop_knocks_before_dialing_ssh() {
     assert!(!crate::knock::closed("127.0.0.1", ssh, Some(60)));
 }
 
-#[tokio::test]
-async fn tcp_knock_goes_through_the_socks_proxy() {
+async fn knock_through_socks(handshake_delay: Duration) {
     use crate::knock::{knock, KnockProtocol, KnockSpec, KnockStep};
     let target = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let target_port = target.local_addr().unwrap().port();
-    let (proxy, requested) = fake_socks5(target_port, None).await;
+    let (proxy, requested) = fake_socks5(target_port, None, handshake_delay).await;
     let accepted = tokio::spawn(async move { target.accept().await.is_ok() });
     let spec = KnockSpec {
         steps: vec![KnockStep {
@@ -443,6 +444,16 @@ async fn tcp_knock_goes_through_the_socks_proxy() {
         "{}",
         requested.lock().unwrap()
     );
+}
+
+#[tokio::test]
+async fn tcp_knock_goes_through_the_socks_proxy() {
+    knock_through_socks(Duration::ZERO).await;
+}
+
+#[tokio::test]
+async fn a_slow_proxy_still_forwards_the_last_knock() {
+    knock_through_socks(Duration::from_millis(1500)).await;
 }
 
 #[tokio::test]
@@ -480,7 +491,7 @@ async fn a_failed_dial_after_a_knock_says_so() {
 #[tokio::test]
 async fn first_hop_helper_goes_through_proxy_and_reports_via() {
     let ssh = spawn_server(russh::Preferred::default(), Behavior::GreetThenClose).await;
-    let (proxy, _) = fake_socks5(ssh, None).await;
+    let (proxy, _) = fake_socks5(ssh, None, Duration::ZERO).await;
     let spec = ProxySpec::Socks5(endpoint(proxy, None));
     let (_handle, via) = crate::ssh::client::connect_first_hop(
         Arc::new(russh::client::Config::default()),
