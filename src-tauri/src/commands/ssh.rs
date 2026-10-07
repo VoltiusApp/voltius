@@ -3,9 +3,8 @@ use crate::knock::KnockSpec;
 use crate::known_hosts::{KnownHostsStore, PendingConflicts};
 use crate::port_forward::PortForwardManager;
 use crate::proxy::ProxySpec;
-use crate::ssh::client::HopRoute;
 use crate::ssh::{
-    client::{self, JumpHostConnect},
+    client::{self, HopRoute, JumpHostConnect},
     session::SessionManager,
 };
 use std::sync::Arc;
