@@ -6,6 +6,7 @@ import { formInputClass, formInputStyle } from "@/components/shared/Panel";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
 import { useListReorder } from "@/hooks/useListReorder";
+import { ReorderHandle, OrderBadge } from "@/components/shared/reorder";
 import type { SnippetStep, Snippet } from "@/types";
 
 interface Props {
@@ -48,33 +49,17 @@ export function StepListEditor({ value, onChange, snippets, onBrowseRemote }: Pr
   return (
     <div className="flex flex-col gap-2" {...dnd.containerProps}>
       {rows.map(({ id, step, i }) => {
-        const { isDragging, isOver, pos } = dnd.rowState(id);
         return (
           <div
             key={id}
             {...dnd.rowProps(id)}
             className="rounded-lg border bg-(--t-bg-elevated)"
-            style={{
-              borderColor: "var(--t-border)",
-              opacity: isDragging ? 0.4 : 1,
-              cursor: dnd.dragging ? "grabbing" : undefined,
-              userSelect: "none",
-              ...(isOver && pos === "before" ? { borderTopColor: "var(--t-accent)" } : {}),
-              ...(isOver && pos === "after" ? { borderBottomColor: "var(--t-accent)" } : {}),
-            }}
+            style={{ borderColor: "var(--t-border)", ...dnd.rowStyle(id) }}
           >
-            {/* Header */}
+            {/* Card row, not ReorderableRow: it carries a body and a kind header that change independently */}
             <div className="flex items-center gap-2 px-2.5 py-2 border-b border-b-(--t-border)">
-              <div
-                {...dnd.handleProps(id)}
-                className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors shrink-0 cursor-grab active:cursor-grabbing"
-                aria-label={t("snippets.step.dragToReorder")}
-              >
-                <Icon icon="lucide:grip-vertical" width={14} />
-              </div>
-              <span className="w-5 h-5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold flex items-center justify-center shrink-0">
-                {i + 1}
-              </span>
+              <ReorderHandle handleProps={dnd.handleProps(id)} label={t("snippets.step.dragToReorder")} />
+              <OrderBadge n={i + 1} />
               <Icon icon={KIND_META[step.kind].icon} width={14} className="text-(--t-accent) shrink-0" />
               <span className="text-xs font-semibold flex-1 text-(--t-text-primary)">{t(`snippets.step.kind.${step.kind}`)}</span>
               <button

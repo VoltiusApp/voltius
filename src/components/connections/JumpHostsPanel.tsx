@@ -6,6 +6,8 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { HostPickerPanel, type HostChoice } from "@/components/shared/HostPickerPanel";
 import { useListReorder } from "@/hooks/useListReorder";
+import { ReorderableRow } from "@/components/shared/reorder";
+import { SlideOverHeader, DashedAddButton } from "@/components/shared/slideOver";
 
 interface Props {
   jumpHosts: JumpHost[];
@@ -42,19 +44,7 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
   return (
     <div className="relative flex flex-col h-full overflow-hidden bg-(--t-bg-card)">
       <div className="flex flex-col h-full" {...dnd.containerProps}>
-        {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-3 shrink-0 border-b border-b-(--t-bg-terminal)">
-          <button
-            onClick={onBack}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
-          >
-            <span className="[&_path]:stroke-3">
-              <Icon icon="lucide:arrow-left" width={16} />
-            </span>
-          </button>
-          <Icon icon="lucide:waypoints" width={14} className="text-(--t-text-dim)" />
-          <h2 className="text-sm font-semibold flex-1 text-(--t-text-primary)">{t("connections.common.hostsChaining")}</h2>
-        </div>
+        <SlideOverHeader icon="lucide:waypoints" title={t("connections.common.hostsChaining")} onBack={onBack} />
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
           {jumpHosts.length === 0 ? (
@@ -78,33 +68,16 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
             const host = conn?.host ?? jh.host ?? "?";
             const port = conn?.port ?? jh.port ?? 22;
             const username = conn?.username ?? jh.username ?? "?";
-            const { isDragging, isOver, pos } = dnd.rowState(jh.id);
             return (
-              <div
+              <ReorderableRow
                 key={jh.id}
-                {...dnd.rowProps(jh.id)}
-                style={{
-                  opacity: isDragging ? 0.4 : 1,
-                  cursor: dnd.dragging ? "grabbing" : undefined,
-                  userSelect: "none",
-                  ...(isOver && pos === "before" ? { borderTopColor: "var(--t-accent)" } : {}),
-                  ...(isOver && pos === "after" ? { borderBottomColor: "var(--t-accent)" } : {}),
-                }}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-(--t-bg-elevated) border border-(--t-border) transition-colors"
+                dnd={dnd}
+                id={jh.id}
+                index={idx}
+                onRemove={() => removeJumpHost(jh.id)}
+                removeLabel={t("connections.jumpHostsPanel.removeAriaLabel")}
+                dragLabel={t("connections.jumpHostsPanel.dragToReorderAriaLabel")}
               >
-                {/* Drag handle */}
-                <div
-                  {...dnd.handleProps(jh.id)}
-                  className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors shrink-0 cursor-grab active:cursor-grabbing"
-                  aria-label={t("connections.jumpHostsPanel.dragToReorderAriaLabel")}
-                >
-                  <Icon icon="lucide:grip-vertical" width={14} />
-                </div>
-
-                <span className="w-5 h-5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold flex items-center justify-center shrink-0">
-                  {idx + 1}
-                </span>
-
                 {conn ? (
                   <ConnectionAvatar connection={conn} size={24} />
                 ) : (
@@ -121,28 +94,11 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
                     {username}@{host}:{port}
                   </p>
                 </div>
-
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={() => removeJumpHost(jh.id)}
-                  className="text-(--t-text-dim) hover:text-red-400 transition-colors shrink-0"
-                  aria-label={t("connections.jumpHostsPanel.removeAriaLabel")}
-                >
-                  <Icon icon="lucide:x" width={14} />
-                </button>
-              </div>
+              </ReorderableRow>
             );
           })}
 
-          <button
-            type="button"
-            onClick={() => setShowPicker(true)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-(--t-border) text-xs text-(--t-text-dim) hover:text-(--t-text-primary) hover:border-(--t-border-hover) transition-colors"
-          >
-            <Icon icon="lucide:plus" width={13} />
-            {t("connections.jumpHostsPanel.addButton")}
-          </button>
+          <DashedAddButton onClick={() => setShowPicker(true)}>{t("connections.jumpHostsPanel.addButton")}</DashedAddButton>
         </div>
       </div>
 

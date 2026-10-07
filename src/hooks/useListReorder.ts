@@ -4,7 +4,7 @@ import { reorder } from "@/utils/reorderList";
 /** Mouse-drag reorder for an id-keyed list. Extracted from JumpHostsPanel so the
  *  same interaction (grip handle + before/after drop indicator) is reused by the
  *  snippet step list. Wire containerProps to the scroll container, handleProps to
- *  the grip, rowProps to each row, and rowState to each row's style. */
+ *  the grip, rowProps to each row, and rowStyle to each row. */
 export function useListReorder<T extends { id: string }>(
   items: T[],
   onChange: (next: T[]) => void,
@@ -41,10 +41,15 @@ export function useListReorder<T extends { id: string }>(
         setDragOverPos(e.clientY < rect.top + rect.height / 2 ? "before" : "after");
       },
     }),
-    rowState: (id: string) => ({
-      isDragging: draggingId === id,
-      isOver: dragOverId === id && draggingId !== id,
-      pos: dragOverPos,
-    }),
+    rowStyle: (id: string): React.CSSProperties => {
+      const over = dragOverId === id && draggingId !== id;
+      return {
+        opacity: draggingId === id ? 0.4 : 1,
+        cursor: draggingId !== null ? "grabbing" : undefined,
+        userSelect: "none",
+        ...(over && dragOverPos === "before" ? { borderTopColor: "var(--t-accent)" } : {}),
+        ...(over && dragOverPos === "after" ? { borderBottomColor: "var(--t-accent)" } : {}),
+      };
+    },
   };
 }

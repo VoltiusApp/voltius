@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { EnvVar } from "@/types";
+import { SlideOverHeader, DashedAddButton } from "@/components/shared/slideOver";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
 
 interface Props {
@@ -25,19 +26,7 @@ export default function EnvVarsPanel({ envVars, onChange, onBack }: Props) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-(--t-bg-card)">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-3 shrink-0 border-b border-b-(--t-bg-terminal)">
-        <button
-          onClick={onBack}
-          className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
-        >
-          <span className="[&_path]:stroke-3">
-            <Icon icon="lucide:arrow-left" width={16} />
-          </span>
-        </button>
-        <Icon icon="lucide:file-terminal" width={14} className="text-(--t-text-dim)" />
-        <h2 className="text-sm font-semibold flex-1 text-(--t-text-primary)">{t("connections.common.environmentVariables")}</h2>
-      </div>
+      <SlideOverHeader icon="lucide:file-terminal" title={t("connections.common.environmentVariables")} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
         {envVars.length === 0 ? (
@@ -87,14 +76,7 @@ export default function EnvVarsPanel({ envVars, onChange, onBack }: Props) {
           </div>
         ))}
 
-        <button
-          type="button"
-          onClick={addVar}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-(--t-border) text-xs text-(--t-text-dim) hover:text-(--t-text-primary) hover:border-(--t-border-hover) transition-colors"
-        >
-          <Icon icon="lucide:plus" width={13} />
-          {t("connections.envVarsPanel.addButton")}
-        </button>
+        <DashedAddButton onClick={addVar}>{t("connections.envVarsPanel.addButton")}</DashedAddButton>
       </div>
     </div>
   );
