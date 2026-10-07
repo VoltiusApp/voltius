@@ -94,6 +94,10 @@ impl Endpoint for FtpBackend {
         false
     }
 
+    fn overwrites_in_place(&self) -> bool {
+        true
+    }
+
     async fn stat(&self, path: &str) -> Result<Option<Stat>, AppError> {
         let mut s = self.session().await?;
         if self.mlsx {

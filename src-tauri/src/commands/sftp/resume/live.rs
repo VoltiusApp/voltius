@@ -34,8 +34,34 @@ async fn restart_a_third_in(rec: &Recorder, tid: &str, container: &str) {
     docker(&["restart", "-t", "0", container]);
 }
 
-/// Uploads a blob to `remote` and downloads it back, restarting `container`
-/// during each; the download always resumes, the upload when `upload_resumes`.
+/// A fresh random blob at `path`, and its sha256.
+fn random_blob(path: &std::path::Path) -> String {
+    let made = Command::new("head")
+        .args(["-c", &BLOB.to_string(), "/dev/urandom"])
+        .stdout(std::fs::File::create(path).unwrap())
+        .status()
+        .unwrap();
+    assert!(made.success());
+    sha256(path)
+}
+
+/// Copies under transfer id `tid`, restarting `container` a third of the way in; whether it resumed.
+async fn copy_through_restart(
+    rec: &Recorder,
+    (from_fs, from): (&dyn Endpoint, &str),
+    (to_fs, to): (&dyn Endpoint, &str),
+    tid: &str,
+    container: &str,
+) -> bool {
+    let token = CancellationToken::new();
+    let copy = copy_one(rec, from_fs, from, to_fs, to, tid, &token);
+    let (r, _) = tokio::join!(copy, restart_a_third_in(rec, tid, container));
+    r.unwrap();
+    rec.count(&format!("sftp-resumed-{tid}")) > 0
+}
+
+/// Uploads a blob to `remote`, overwrites it with another and downloads that back,
+/// restarting `container` during each; the download always resumes, uploads when `upload_resumes`.
 pub(crate) async fn round_trip_through_restarts(
     fs: &dyn Endpoint,
     remote: &str,
@@ -44,31 +70,21 @@ pub(crate) async fn round_trip_through_restarts(
 ) {
     let local = tempfile::tempdir().unwrap();
     let src = local.path().join("blob");
-    let made = Command::new("head")
-        .args(["-c", &BLOB.to_string(), "/dev/urandom"])
-        .stdout(std::fs::File::create(&src).unwrap())
-        .status()
-        .unwrap();
-    assert!(made.success());
-    let want = sha256(&src);
-    let (rec, token) = (Recorder::default(), CancellationToken::new());
+    let src_s = src.to_string_lossy().into_owned();
+    let rec = Recorder::default();
 
-    let src_s = src.to_string_lossy();
-    let up = copy_one(&rec, &LocalFs, &src_s, fs, remote, "up", &token);
-    let (r, _) = tokio::join!(up, restart_a_third_in(&rec, "up", container));
-    r.unwrap();
-    assert_eq!(
-        rec.count("sftp-resumed-up") > 0,
-        upload_resumes,
-        "upload resumed"
-    );
+    random_blob(&src);
+    let up = copy_through_restart(&rec, (&LocalFs, &src_s), (fs, remote), "up", container);
+    assert_eq!(up.await, upload_resumes, "upload resumed");
+
+    let want = random_blob(&src);
+    let over = copy_through_restart(&rec, (&LocalFs, &src_s), (fs, remote), "over", container);
+    assert_eq!(over.await, upload_resumes, "overwrite resumed");
 
     let back = local.path().join("back");
-    let back_s = back.to_string_lossy();
-    let down = copy_one(&rec, fs, remote, &LocalFs, &back_s, "down", &token);
-    let (r, _) = tokio::join!(down, restart_a_third_in(&rec, "down", container));
-    r.unwrap();
-    assert!(rec.count("sftp-resumed-down") > 0, "the download resumed");
+    let back_s = back.to_string_lossy().into_owned();
+    let down = copy_through_restart(&rec, (fs, remote), (&LocalFs, &back_s), "down", container);
+    assert!(down.await, "the download resumed");
     assert_eq!(sha256(&back), want);
-    eprintln!("{container}: {BLOB} bytes up and down through two restarts; sha256 {want}");
+    eprintln!("{container}: {BLOB} bytes up, over and down through three restarts; sha256 {want}");
 }

@@ -68,6 +68,11 @@ pub(crate) trait Endpoint: Send + Sync {
     async fn appends(&self, _path: &str, _have: u64) -> bool {
         true
     }
+    /// Rewrite an existing file rather than swap a temp in: the server keeps per-file state
+    /// (mode, versions, shares) that a swap would lose.
+    fn overwrites_in_place(&self) -> bool {
+        false
+    }
     async fn rename(&self, from: &str, to: &str) -> Result<(), AppError>;
     async fn remove(&self, path: &str) -> Result<(), AppError>;
     async fn set_mtime(&self, path: &str, mtime: u64) -> Result<(), AppError>;
@@ -301,7 +306,42 @@ impl Endpoint for LocalFs {
 pub(crate) mod tests_support {
     use super::*;
     use crate::commands::sftp::resume::connection_lost;
+    use std::pin::Pin;
     use std::sync::Mutex;
+    use std::task::{ready, Context, Poll};
+
+    /// Passes `left` bytes through, flushed, then fails.
+    struct CutAfter {
+        inner: Writer,
+        left: u64,
+    }
+
+    impl AsyncWrite for CutAfter {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            let this = &mut *self;
+            if this.left == 0 {
+                ready!(Pin::new(&mut this.inner).poll_flush(cx))?;
+                return Poll::Ready(Err(std::io::Error::other("cut")));
+            }
+            let n = buf.len().min(this.left as usize);
+            let written = ready!(Pin::new(&mut this.inner).poll_write(cx, &buf[..n]))?;
+            this.left -= written as u64;
+            Poll::Ready(Ok(written))
+        }
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_flush(cx)
+        }
+        fn poll_shutdown(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_shutdown(cx)
+        }
+    }
 
     /// LocalFs with faults: renames that fail by call number or never overwrite (as on SFTP),
     /// a hash that lies once, a link that reads dead until waited on, a server that reports
@@ -311,10 +351,12 @@ pub(crate) mod tests_support {
         pub fail_renames: Vec<usize>,
         pub sftp_rename: bool,
         pub no_mtime: bool,
+        pub in_place: bool,
         pub lie_hash_once: bool,
         pub hash_fails_once: bool,
         pub cancel_on_hash: Option<CancellationToken>,
         pub lose_first_write: bool,
+        pub cut_first_write_after: Option<u64>,
         pub lose_first_mkdir: bool,
         pub dead_until_waited: bool,
         pub state: Mutex<TestState>,
@@ -326,6 +368,7 @@ pub(crate) mod tests_support {
         pub lied: bool,
         pub hash_failed: bool,
         pub write_lost: bool,
+        pub write_cut: bool,
         pub mkdir_lost: bool,
         pub waited: bool,
     }
@@ -383,7 +426,19 @@ pub(crate) mod tests_support {
             ) {
                 return Err(connection_lost());
             }
-            LocalFs.open_write(p, o, n).await
+            let writer = LocalFs.open_write(p, o, n).await?;
+            match self.cut_first_write_after {
+                Some(left) if once(true, &mut self.state.lock().unwrap().write_cut) => {
+                    Ok(Box::new(CutAfter {
+                        inner: writer,
+                        left,
+                    }))
+                }
+                _ => Ok(writer),
+            }
+        }
+        fn overwrites_in_place(&self) -> bool {
+            self.in_place
         }
         async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
             let n = {
