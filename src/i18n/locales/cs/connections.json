@@ -25,8 +25,10 @@
       "manageInKeychain": "Spravovat v Klíčence",
       "hostsChaining": "Řetězení hostitelů",
       "environmentVariables": "Proměnné prostředí",
-      "preCommandPlaceholder": "Příkaz před připojením",
-      "postCommandPlaceholder": "Příkaz po připojení",
+      "preCommandPlaceholder": "Příkaz relace před",
+      "postCommandPlaceholder": "Příkaz relace po",
+      "sessionCommands": "Příkazy relace",
+      "sessionCommandsHint": "Spustí se v relaci po jejím otevření a při zavření karty.",
       "hostCommand": {
         "useSnippet": "Použít snippet",
         "useInline": "Použít přímý příkaz",

@@ -25,8 +25,10 @@
       "manageInKeychain": "Manage in Keychain",
       "hostsChaining": "Hosts Chaining",
       "environmentVariables": "Environment Variables",
-      "preCommandPlaceholder": "Pre Command",
-      "postCommandPlaceholder": "Post Command",
+      "preCommandPlaceholder": "Session pre-command",
+      "postCommandPlaceholder": "Session post-command",
+      "sessionCommands": "Session commands",
+      "sessionCommandsHint": "Run in the session after it opens, and when the tab closes.",
       "hostCommand": {
         "useSnippet": "Use a snippet",
         "useInline": "Use inline command",

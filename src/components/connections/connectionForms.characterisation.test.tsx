@@ -686,3 +686,12 @@ test("switching protocol keeps a typed username", () => {
   pickProtocol("protocolSsh", "protocolFtp");
   expect(usernameField().value).toBe("alice");
 });
+
+test.each([
+  ["ssh", renderSsh],
+  ["serial", renderSerial],
+])("%s form labels the pre/post commands as session commands", (_kind, mount) => {
+  mount();
+  expect(screen.getByText("connections.common.sessionCommands")).toBeTruthy();
+  expect(screen.getByText("connections.common.sessionCommandsHint")).toBeTruthy();
+});

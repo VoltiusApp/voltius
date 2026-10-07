@@ -162,6 +162,7 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
   const { t } = useTranslation();
   return (
     <>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-(--t-text-dim) pt-1">{t("connections.common.sessionCommands")}</p>
       <HostCommandField
         slot="pre"
         text={fields.preCommand}
@@ -176,6 +177,7 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
         onChangeText={(v) => { markDirty(); fields.setPostCommand(v); }}
         onChangeSnippetId={(v) => { markDirty(); fields.setPostSnippetId(v); }}
       />
+      <p className="text-xs text-(--t-text-dim)">{t("connections.common.sessionCommandsHint")}</p>
       {(fields.preSnippetId || fields.postSnippetId) && (
         <label className="flex items-center gap-2 text-xs text-(--t-text-dim)">
           <input
