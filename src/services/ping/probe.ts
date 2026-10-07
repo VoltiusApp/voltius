@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { resolveJumpHosts } from "@/services/credentials";
 import { resolveFirstHop } from "@/services/proxy";
+import { pingKnockWindow } from "@/services/portKnock";
 import type { PingStatus } from "@/stores/hostPingStore";
 import type { PingTarget } from "./pingTargets";
 
@@ -8,31 +9,28 @@ import type { PingTarget } from "./pingTargets";
 /// so a stalled keychain read can't freeze a target in `inFlight` forever.
 export const PROBE_TIMEOUT_MS = 15_000;
 
-async function runProbe(target: PingTarget): Promise<{ status: PingStatus; latencyMs?: number }> {
-  let latencyMs: number | null | undefined;
+type PingOutcome = { up: number } | "down" | "knock_closed";
 
+const fromOutcome = (o: PingOutcome): { status: PingStatus; latencyMs?: number } =>
+  o === "knock_closed" ? { status: "knock" } : o === "down" ? { status: "down" } : { status: "up", latencyMs: o.up };
+
+async function runProbe(target: PingTarget): Promise<{ status: PingStatus; latencyMs?: number }> {
   if (target.sessionId) {
-    latencyMs = await invoke<number | null>("ping_session", { sessionId: target.sessionId });
+    const latencyMs = await invoke<number | null>("ping_session", { sessionId: target.sessionId });
     if (latencyMs === null || latencyMs === undefined) return { status: "unknown" };
     return { status: "up", latencyMs };
   }
 
   const { proxy } = await resolveFirstHop(target.connection);
+  const knockWindowSecs = pingKnockWindow(target.connection);
 
   if (target.connection.jump_hosts?.length) {
     const jumpHosts = await resolveJumpHosts(target.connection);
-    latencyMs = await invoke<number | null>("ping_host_via_jumps", {
-      host: target.host,
-      port: target.port,
-      jumpHosts,
-      proxy,
-    });
-  } else {
-    latencyMs = await invoke<number | null>("ping_host", { host: target.host, port: target.port, proxy });
+    return fromOutcome(
+      await invoke<PingOutcome>("ping_host_via_jumps", { host: target.host, port: target.port, jumpHosts, proxy, knockWindowSecs }),
+    );
   }
-
-  if (latencyMs === null || latencyMs === undefined) return { status: "down" };
-  return { status: "up", latencyMs };
+  return fromOutcome(await invoke<PingOutcome>("ping_host", { host: target.host, port: target.port, proxy, knockWindowSecs }));
 }
 
 export async function probeTarget(

@@ -46,6 +46,13 @@ export function firstHopConnection(conn: Connection): Connection | undefined {
   return firstJump ? findConnection(firstJump.connection_id) : conn;
 }
 
+export function pingKnockWindow(conn: Connection): number | null {
+  const knock = firstHopConnection(conn)?.port_knock;
+  return knock?.enabled ? (knock.window_secs ?? 0) : null;
+}
+
+export const knocksOnConnect = (conn: Connection): boolean => pingKnockWindow(conn) !== null;
+
 export async function resolveKnock(
   conn: Pick<Connection, "id" | "port_knock"> | undefined,
   override?: KnockOverride,

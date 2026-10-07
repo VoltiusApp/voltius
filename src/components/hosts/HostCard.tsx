@@ -33,6 +33,7 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
+import { knocksOnConnect } from "@/services/portKnock";
 import { memberLabel } from "@/services/memberLabel";
 
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
@@ -127,6 +128,16 @@ export default function HostCard({
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[connection.id]);
   const showPingDot = !isSerial && pingEnabled && !connection.ping_disabled;
+  const knockGated = knocksOnConnect(connection);
+  const knockClosed = pingStatus === "knock";
+  const knockIcon = knockGated && showPingDot && (
+    <span
+      title={t(knockClosed ? "hosts.card.knockProtected" : "hosts.card.knockWindowOpen")}
+      className="flex items-center text-(--t-text-dim)"
+    >
+      <Icon icon={knockClosed ? "lucide:lock-keyhole" : "lucide:lock-keyhole-open"} width={13} />
+    </span>
+  );
   const presence = useConnectionPresence(connection);
   const presenceTitle = presence
     ? presence.overflow > 0
@@ -261,7 +272,7 @@ export default function HostCard({
           <div className="relative shrink-0">
             <ConnectionAvatar connection={connection} size={28} />
             {showPingDot && (
-              <StatusDot tone={pingTone} motion={pingMotion} halo="var(--t-bg-card)" corner />
+              <StatusDot tone={pingTone} motion={pingMotion} hollow={knockClosed} halo="var(--t-bg-card)" corner />
             )}
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
@@ -270,7 +281,7 @@ export default function HostCard({
           <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
             {isSerial
               ? `${t("home.hostCard.serial")} · ${t("home.hostCard.baud", { rate: connection.serial_baud ?? 115200 })}`
-              : `${shownUsername}@${connection.host}:${connection.port}${showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
+              : `${shownUsername}@${connection.host}:${connection.port}${showPingDot && knockClosed ? ` · ${t("hosts.card.knockProtectedShort")}` : showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
             }
           </p>
           {connection.tags.length > 0 && (
@@ -314,13 +325,14 @@ export default function HostCard({
                       {presenceAvatar}
                       {showPingDot && (
                         <>
+                          {knockIcon}
                           {pingStatus === "up" && pingLatency !== undefined && (
                             <span className="text-xs font-medium" style={{ color: STATUS_TONE_COLOR[pingTone] }}>
                               {pingLatency} ms
                             </span>
                           )}
                           <span className="flex items-center justify-center w-6 h-6 -my-1.5 shrink-0">
-                            <StatusDot tone={pingTone} motion={pingMotion} />
+                            <StatusDot tone={pingTone} motion={pingMotion} hollow={knockClosed} />
                           </span>
                         </>
                       )}

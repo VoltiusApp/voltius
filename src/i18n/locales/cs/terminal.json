@@ -246,7 +246,8 @@
         "openingShell": "Otevírání shellu",
         "sftpSubsystem": "Subsystém SFTP",
         "openingPort": "Otevírání portu",
-        "ready": "Připraveno"
+        "ready": "Připraveno",
+        "portKnock": "Klepání na porty"
       },
       "reconnectWait": {
         "offline": {

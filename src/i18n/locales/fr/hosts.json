@@ -42,7 +42,10 @@
       "inUseByOverflow_one": "Utilisé par {{name}} + {{count}} autre",
       "inUseByOverflow_many": "Utilisé par {{name}} + {{count}} autres",
       "inUseByOverflow_other": "Utilisé par {{name}} + {{count}} autres",
-      "filesSuffix": "fichiers"
+      "filesSuffix": "fichiers",
+      "knockProtected": "Protégé par knock. Sondé uniquement après un knock de Voltius.",
+      "knockWindowOpen": "Fenêtre de knock ouverte",
+      "knockProtectedShort": "protégé par knock"
     },
     "page": {
       "all": "Tous",

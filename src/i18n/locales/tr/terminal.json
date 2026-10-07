@@ -232,7 +232,8 @@
         "openingShell": "Kabuk açılıyor",
         "sftpSubsystem": "SFTP alt sistemi",
         "openingPort": "Port açılıyor",
-        "ready": "Hazır"
+        "ready": "Hazır",
+        "portKnock": "Port vuruşu"
       },
       "reconnectWait": {
         "offline": {

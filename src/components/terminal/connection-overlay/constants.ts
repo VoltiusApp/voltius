@@ -4,8 +4,9 @@ import type { StepConfig } from "./types";
 // Labels are resolved at call time (not module load) so they reflect the
 // active language; the `id`s are matched by value elsewhere (hooks.ts,
 // utils.ts) and must stay untranslated.
-export function getSshSteps(): StepConfig[] {
+export function getSshSteps(knocks = false): StepConfig[] {
   return [
+    ...(knocks ? [{ id: "knocking", label: i18n.t("terminal.overlay.steps.portKnock") }] : []),
     { id: "tcp_connected", label: i18n.t("terminal.overlay.steps.tcpConnection") },
     { id: "handshake", label: i18n.t("terminal.overlay.steps.sshHandshake") },
     { id: "authenticating", label: i18n.t("terminal.overlay.steps.authenticating") },

@@ -41,7 +41,10 @@
       "inUseBy": "In use by {{name}}",
       "inUseByOverflow_one": "In use by {{name}} + {{count}} other",
       "inUseByOverflow_other": "In use by {{name}} + {{count}} others",
-      "filesSuffix": "files"
+      "filesSuffix": "files",
+      "knockProtected": "Knock-protected. Probed only after Voltius knocks.",
+      "knockWindowOpen": "Knock window open",
+      "knockProtectedShort": "knock-protected"
     },
     "page": {
       "all": "All",

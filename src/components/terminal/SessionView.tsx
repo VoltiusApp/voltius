@@ -15,6 +15,7 @@ import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { getConnectionIcon } from "@/utils/icons";
 import type { ConnectRetryOverride, TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
+import { knocksOnConnect } from "@/services/portKnock";
 import { needsConnectionOverlay, sshOverlaySubtitle } from "./sessionOverlay";
 
 export function HostAwareTerminalView({
@@ -153,7 +154,7 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
       icon={icon}
       vaultId={connection?.vault_id}
       connectionId={connection?.id}
-      steps={getSshSteps()}
+      steps={getSshSteps(!!connection && knocksOnConnect(connection))}
       stepEventName={`ssh-step-${session.id}`}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}

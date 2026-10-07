@@ -82,6 +82,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
           <StatusDot
             tone={pingStatusTone(pingStatus)}
             motion={pingStatusMotion(pingStatus)}
+            hollow={pingStatus === "knock"}
             halo="var(--t-bg-elevated)"
             corner
           />

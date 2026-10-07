@@ -1,4 +1,9 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/services/vault", () => ({ getSecret: vi.fn() }));
+vi.mock("@/services/credentials", () => ({ findConnection: () => undefined }));
+
 import { buildPingTargets } from "./pingTargets";
 import type { Connection, TerminalSession } from "@/types";
 
@@ -24,6 +29,11 @@ describe("buildPingTargets", () => {
   test("does not collapse the same host on different ports", () => {
     const targets = buildPingTargets([conn({ id: "a" }), conn({ id: "b", port: 2222 })], []);
     expect(targets.map((t) => t.key).sort()).toEqual(["h1:22", "h1:2222"]);
+  });
+
+  test("a knock-protected and a plain host on one address get separate probes", () => {
+    const targets = buildPingTargets([conn({ id: "a", port_knock: { enabled: true } }), conn({ id: "b" })], []);
+    expect(targets.map((t) => t.key).sort()).toEqual(["h1:22", "h1:22|k"]);
   });
 
   test("excludes ping_disabled connections", () => {

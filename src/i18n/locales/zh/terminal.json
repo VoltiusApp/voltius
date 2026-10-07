@@ -230,7 +230,8 @@
         "openingShell": "正在打开 Shell",
         "sftpSubsystem": "SFTP 子系统",
         "openingPort": "正在打开端口",
-        "ready": "就绪"
+        "ready": "就绪",
+        "portKnock": "端口敲门"
       },
       "reconnectWait": {
         "offline": {

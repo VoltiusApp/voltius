@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type PingStatus = "up" | "down" | "unknown";
+export type PingStatus = "up" | "down" | "unknown" | "knock";
 
 export const DEFAULT_POLL_INTERVAL_MS = 60_000;
 export const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 5_000;

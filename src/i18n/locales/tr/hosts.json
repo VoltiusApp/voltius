@@ -41,7 +41,10 @@
       "inUseBy": "{{name}} tarafından kullanılıyor",
       "inUseByOverflow_one": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
       "inUseByOverflow_other": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
-      "filesSuffix": "dosyalar"
+      "filesSuffix": "dosyalar",
+      "knockProtected": "Port vuruşuyla korunuyor. Yalnızca Voltius vuruş yaptıktan sonra yoklanır.",
+      "knockWindowOpen": "Vuruş penceresi açık",
+      "knockProtectedShort": "vuruşla korunuyor"
     },
     "page": {
       "all": "Tümü",

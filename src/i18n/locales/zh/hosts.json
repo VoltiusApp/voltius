@@ -41,7 +41,10 @@
       "inUseBy": "正在被 {{name}} 使用",
       "inUseByOverflow_one": "正在被 {{name}} + {{count}} 人使用",
       "inUseByOverflow_other": "正在被 {{name}} + {{count}} 人使用",
-      "filesSuffix": "文件"
+      "filesSuffix": "文件",
+      "knockProtected": "受端口敲门保护。仅在 Voltius 敲门后检测。",
+      "knockWindowOpen": "敲门窗口已打开",
+      "knockProtectedShort": "受敲门保护"
     },
     "page": {
       "all": "全部",

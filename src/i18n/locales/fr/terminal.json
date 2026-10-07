@@ -239,7 +239,8 @@
         "openingShell": "Ouverture du shell",
         "sftpSubsystem": "Sous-système SFTP",
         "openingPort": "Ouverture du port",
-        "ready": "Prêt"
+        "ready": "Prêt",
+        "portKnock": "Port knock"
       },
       "reconnectWait": {
         "offline": {

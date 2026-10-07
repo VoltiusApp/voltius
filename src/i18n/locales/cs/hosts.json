@@ -43,7 +43,10 @@
       "inUseByOverflow_few": "Používá {{name}} a {{count}} další",
       "inUseByOverflow_many": "Používá {{name}} a {{count}} dalšího",
       "inUseByOverflow_other": "Používá {{name}} a {{count}} dalších",
-      "filesSuffix": "soubory"
+      "filesSuffix": "soubory",
+      "knockProtected": "Chráněno klepáním. Kontroluje se jen po klepnutí Voltiusu.",
+      "knockWindowOpen": "Okno po klepnutí je otevřené",
+      "knockProtectedShort": "chráněno klepáním"
     },
     "page": {
       "all": "Vše",

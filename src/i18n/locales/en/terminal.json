@@ -232,7 +232,8 @@
         "openingShell": "Opening shell",
         "sftpSubsystem": "SFTP subsystem",
         "openingPort": "Opening port",
-        "ready": "Ready"
+        "ready": "Ready",
+        "portKnock": "Port knock"
       },
       "reconnectWait": {
         "offline": {

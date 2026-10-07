@@ -43,7 +43,10 @@
       "inUseByOverflow_few": "Используется пользователем {{name}} + ещё {{count}} человека",
       "inUseByOverflow_many": "Используется пользователем {{name}} + ещё {{count}} человек",
       "inUseByOverflow_other": "Используется пользователем {{name}} + ещё {{count}} человек",
-      "filesSuffix": "файлы"
+      "filesSuffix": "файлы",
+      "knockProtected": "Защищён стуком. Проверяется только после стука Voltius.",
+      "knockWindowOpen": "Окно после стука открыто",
+      "knockProtectedShort": "защищён стуком"
     },
     "page": {
       "all": "Все",

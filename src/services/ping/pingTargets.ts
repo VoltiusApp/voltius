@@ -1,3 +1,4 @@
+import { knocksOnConnect } from "@/services/portKnock";
 import type { Connection, TerminalSession } from "@/types";
 
 export interface PingTarget {
@@ -22,7 +23,7 @@ export function buildPingTargets(
   const byKey = new Map<string, PingTarget>();
   for (const c of connections) {
     if (c.ping_disabled || !c.host || !c.port) continue;
-    const key = `${c.host}:${c.port}`;
+    const key = `${c.host}:${c.port}${knocksOnConnect(c) ? "|k" : ""}`;
     let target = byKey.get(key);
     if (!target) {
       target = { key, host: c.host, port: c.port, connectionIds: [], sessionId: null, connection: c };

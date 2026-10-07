@@ -246,7 +246,8 @@
         "openingShell": "Открытие оболочки",
         "sftpSubsystem": "Подсистема SFTP",
         "openingPort": "Открытие порта",
-        "ready": "Готово"
+        "ready": "Готово",
+        "portKnock": "Стук в порты"
       },
       "reconnectWait": {
         "offline": {
