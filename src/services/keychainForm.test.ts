@@ -115,6 +115,17 @@ describe("unlinkIdentityFromHost", () => {
     expect(h.storeSecret.mock.calls).toEqual([["password:c1", "pw"], ["key:c1", "pem"]]);
   });
 
+  test("keeps the host's other settings", async () => {
+    h.getSecret.mockResolvedValue(null);
+    h.storeSecret.mockResolvedValue(undefined);
+    const port_knock = { enabled: true, window_secs: 30 };
+    const proxy = { mode: "socks5" as const, host: "p", port: 1080 };
+    const gated = { id: "c1", name: "web", host: "h", port: 22, tags: [], identity_id: "i1", port_knock, proxy } as never;
+    const updateConnection = vi.fn(async () => {});
+    await unlinkIdentityFromHost(identity, gated, updateConnection);
+    expect(updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ port_knock, proxy, identity_id: undefined }));
+  });
+
   test("any other storage failure still reaches the caller", async () => {
     h.getSecret.mockResolvedValue("pw");
     h.storeSecret.mockRejectedValue(new Error("vault locked"));

@@ -1,5 +1,6 @@
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
+import { connectionToFormData } from "@/stores/connectionStore";
 import { storeSecret, getSecret } from "@/services/vault";
 import { keepCachedOnUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
@@ -73,14 +74,11 @@ export async function unlinkIdentityFromHost(
   const privateKey = identity.key_id ? await getSecret(`key:${identity.key_id}:private`).catch(() => null) : null;
   const authType: AuthType = privateKey ? "key" : "password";
   await updateConnection(conn.id, {
-    name: conn.name,
-    host: conn.host,
-    port: conn.port,
+    ...connectionToFormData(conn),
     username: identity.username,
     auth_type: authType,
-    tags: conn.tags,
     identity_id: undefined,
-    folder_id: conn.folder_id,
+    key_id: undefined,
   });
   const keepCached = keepCachedOnUploadFailure("IdentityForm unlink");
   if (password) await storeSecret(`password:${conn.id}`, password).catch(keepCached);
