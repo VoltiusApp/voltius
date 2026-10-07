@@ -245,7 +245,14 @@
           "15min": "15 minutes",
           "30min": "30 minutes",
           "1h": "1 hour",
-          "4h": "4 hours"
+          "4h": "4 hours",
+          "immediately": "Immediately"
+        },
+        "lockAction": {
+          "label": "When locking"
+        },
+        "systemAuth": {
+          "toggle": "Unlock with system authentication"
         }
       },
       "email": "Email",
@@ -454,7 +461,9 @@
       "consequence": {
         "autoUpdate": "Turns off automatic update downloads, so security fixes stop arriving on their own.",
         "pluginInstallReview": "Turns off the consent screen shown before installing a plugin. A plugin that asks for a sensitive permission still shows it.",
-        "sessionTimeout": "Turns off the automatic vault lock after a period of inactivity."
+        "sessionTimeout": "Turns off the automatic vault lock after a period of inactivity.",
+        "lockAction": "Switches locking to a screen lock that keeps your vault key in memory.",
+        "systemAuthUnlock": "Lets the device login unlock Voltius, keeping your vault key in the system keychain while locked."
       }
     },
     "about": {

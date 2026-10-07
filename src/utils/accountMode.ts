@@ -6,3 +6,8 @@
 export function canLockVault(mode: string | null): boolean {
   return mode === "local" || mode === "server";
 }
+
+/** Whether any lock is leavable for this account: by password, or by system authentication. */
+export function canLockApp(mode: string | null, systemAuthUnlock: boolean): boolean {
+  return canLockVault(mode) || (mode === "local-nopassword" && systemAuthUnlock);
+}

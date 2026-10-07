@@ -18,7 +18,7 @@ import { KEEPALIVE_PRESETS, DEFAULT_KEEPALIVE_PRESET } from "@/utils/keepalive";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
-import { useSecurityStore } from "@/stores/securityStore";
+import { useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 
@@ -68,6 +68,14 @@ export const GUARDED: Record<string, SettingConsequence> = {
     weakens: (next, current) =>
       next === null
       || (typeof next === "number" && typeof current === "number" && next > current),
+  },
+  "security.lockAction": {
+    key: "settings.mcp.consequence.lockAction",
+    weakens: (next) => next === "screen",
+  },
+  "security.systemAuthUnlock": {
+    key: "settings.mcp.consequence.systemAuthUnlock",
+    weakens: (next) => next === true,
   },
 };
 
@@ -232,11 +240,27 @@ function explicitDefs(): SettingDef[] {
     },
     {
       key: "security.sessionTimeoutMinutes",
-      type: "number", min: 1, max: 1440, default: null,
+      type: "number", min: 0, max: 1440, default: null,
       section: "account", labelKey: "settings.account.sessionSecurity.autoLockLabel", writable: true,
       consequence: GUARDED["security.sessionTimeoutMinutes"],
       get: () => useSecurityStore.getState().sessionTimeoutMinutes,
       set: (v) => useSecurityStore.getState().setSessionTimeoutMinutes(v === null ? null : (v as number)),
+    },
+    {
+      key: "security.lockAction",
+      type: "enum", values: ["vault", "screen"], default: "vault",
+      section: "account", labelKey: "settings.account.sessionSecurity.lockAction.label", writable: true,
+      consequence: GUARDED["security.lockAction"],
+      get: () => useSecurityStore.getState().lockAction,
+      set: (v) => useSecurityStore.getState().setLockAction(v as LockAction),
+    },
+    {
+      key: "security.systemAuthUnlock",
+      type: "boolean", default: false,
+      section: "account", labelKey: "settings.account.sessionSecurity.systemAuth.toggle", writable: true,
+      consequence: GUARDED["security.systemAuthUnlock"],
+      get: () => useSecurityStore.getState().systemAuthUnlock,
+      set: (v) => useSecurityStore.getState().setSystemAuthUnlock(v as boolean),
     },
     {
       key: "updater.autoUpdate",

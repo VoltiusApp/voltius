@@ -54,7 +54,9 @@ describe("settingsManifest", () => {
   test("aucune autre clé ne porte de conséquence", () => {
     const guarded = settingDefs().filter((d) => d.consequence).map((d) => d.key);
     expect(guarded.sort()).toEqual([
+      "security.lockAction",
       "security.sessionTimeoutMinutes",
+      "security.systemAuthUnlock",
       "toggles.plugin-install-review",
       "updater.autoUpdate",
     ]);
@@ -75,6 +77,27 @@ describe("settingsManifest", () => {
     expect(c.weakens(5, 15)).toBe(false);
     expect(c.weakens(15, 15)).toBe(false);
     expect(c.weakens(30, null)).toBe(false);
+  });
+
+  test("passer de « Immédiatement » à un délai affaiblit le verrouillage", () => {
+    const c = settingDef("security.sessionTimeoutMinutes")!.consequence!;
+    expect(c.weakens(5, 0)).toBe(true);
+    expect(c.weakens(0, 5)).toBe(false);
+    expect(settingDef("security.sessionTimeoutMinutes")!.min).toBe(0);
+  });
+
+  test("un verrouillage qui garde la clé en mémoire affaiblit le verrouillage", () => {
+    const c = settingDef("security.lockAction")!.consequence!;
+    expect(c.key).toBe("settings.mcp.consequence.lockAction");
+    expect(c.weakens("screen", "vault")).toBe(true);
+    expect(c.weakens("vault", "screen")).toBe(false);
+  });
+
+  test("activer le déverrouillage système affaiblit le verrouillage", () => {
+    const c = settingDef("security.systemAuthUnlock")!.consequence!;
+    expect(c.key).toBe("settings.mcp.consequence.systemAuthUnlock");
+    expect(c.weakens(true, false)).toBe(true);
+    expect(c.weakens(false, true)).toBe(false);
   });
 
   test("chaque conséquence déclarée résout une phrase, pas une clé", () => {
