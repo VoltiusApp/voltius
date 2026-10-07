@@ -1268,7 +1268,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("health:read");
         const { statuses, latencies } = useHostPingStore.getState();
         return Object.entries(statuses).map(([connectionId, status]) => ({
-          connectionId, status, latencyMs: latencies[connectionId],
+          connectionId, status: status === "knock" ? "unknown" : status, latencyMs: latencies[connectionId],
         }));
       },
     },
