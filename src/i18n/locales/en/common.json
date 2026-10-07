@@ -175,6 +175,7 @@
       "cannotInviteWithoutSessionKey": "Cannot invite a teammate to this session — it has no per-user key.",
       "failedToCreateInviteLinkSession": "Failed to create invite link session: {{status}}",
       "failedToGetSessionKey": "Failed to get session key: {{status}}",
+      "hostDidNotShareKey": "The host didn't share the session key. Ask them to share again.",
       "invalidJson": "Invalid JSON",
       "notVoltiusExportBundle": "Not a Voltius export bundle (expected { version: 1, ... })",
       "invalidEncryptedFile": "Invalid encrypted file",

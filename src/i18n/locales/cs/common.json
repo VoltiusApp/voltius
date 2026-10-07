@@ -175,6 +175,7 @@
       "cannotInviteWithoutSessionKey": "Do této relace nelze pozvat kolegu — nemá klíč pro jednotlivé uživatele.",
       "failedToCreateInviteLinkSession": "Relaci s odkazem pozvánky se nepodařilo vytvořit: {{status}}",
       "failedToGetSessionKey": "Klíč relace se nepodařilo získat: {{status}}",
+      "hostDidNotShareKey": "Hostitel nesdílel klíč relace. Požádejte ho o nové sdílení.",
       "invalidJson": "Neplatný JSON",
       "notVoltiusExportBundle": "Nejde o exportní balíček Voltius (očekáváno { version: 1, ... })",
       "invalidEncryptedFile": "Neplatný šifrovaný soubor",

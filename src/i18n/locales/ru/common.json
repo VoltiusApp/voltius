@@ -175,6 +175,7 @@
       "cannotInviteWithoutSessionKey": "Невозможно пригласить участника в эту сессию — у неё нет пользовательского ключа.",
       "failedToCreateInviteLinkSession": "Не удалось создать сессию по ссылке-приглашению: {{status}}",
       "failedToGetSessionKey": "Не удалось получить ключ сессии: {{status}}",
+      "hostDidNotShareKey": "Хост не передал ключ сеанса. Попросите его поделиться снова.",
       "invalidJson": "Некорректный JSON",
       "notVoltiusExportBundle": "Это не пакет экспорта Voltius (ожидается { version: 1, ... })",
       "invalidEncryptedFile": "Некорректный зашифрованный файл",

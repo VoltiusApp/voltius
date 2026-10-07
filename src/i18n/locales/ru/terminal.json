@@ -30,7 +30,9 @@
       "stopSharingTitle": "Остановить совместный доступ",
       "leaveSessionTitle": "Покинуть сессию",
       "stop": "Остановить",
-      "leave": "Покинуть"
+      "leave": "Покинуть",
+      "waitingForKey": "Ожидание хоста…",
+      "keyFailed": "Хост не передал ключ"
     },
     "sftp": {
       "hostLabel": {

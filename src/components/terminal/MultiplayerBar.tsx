@@ -56,7 +56,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           <>
             <StatusDot tone="error" />
             <span className="text-xs font-semibold" style={{ color: "var(--t-status-error)" }}>
-              {t("terminal.multiplayerBar.ended")}
+              {mpState.keyWait === "failed" ? t("terminal.multiplayerBar.keyFailed") : t("terminal.multiplayerBar.ended")}
             </span>
           </>
         ) : (
@@ -65,9 +65,11 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
             <span className="text-xs font-semibold" style={{ color: "var(--t-accent)" }}>
               {isHost
                 ? t("terminal.multiplayerBar.sharing")
-                : iControlHolder
-                  ? t("terminal.multiplayerBar.youHaveControl")
-                  : t("terminal.multiplayerBar.watching")}
+                : mpState.keyWait === "waiting"
+                  ? t("terminal.multiplayerBar.waitingForKey")
+                  : iControlHolder
+                    ? t("terminal.multiplayerBar.youHaveControl")
+                    : t("terminal.multiplayerBar.watching")}
             </span>
           </>
         )}

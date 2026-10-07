@@ -30,7 +30,9 @@
       "stopSharingTitle": "Ukončit sdílení",
       "leaveSessionTitle": "Opustit relaci",
       "stop": "Ukončit",
-      "leave": "Opustit"
+      "leave": "Opustit",
+      "waitingForKey": "Čeká se na hostitele…",
+      "keyFailed": "Hostitel nesdílel klíč"
     },
     "sftp": {
       "hostLabel": {

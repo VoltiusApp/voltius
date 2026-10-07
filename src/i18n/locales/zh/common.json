@@ -175,6 +175,7 @@
       "cannotInviteWithoutSessionKey": "无法邀请成员加入此会话——该会话没有按用户密钥。",
       "failedToCreateInviteLinkSession": "创建邀请链接会话失败：{{status}}",
       "failedToGetSessionKey": "获取会话密钥失败：{{status}}",
+      "hostDidNotShareKey": "主持人未共享会话密钥。请让对方重新共享。",
       "invalidJson": "JSON 无效",
       "notVoltiusExportBundle": "不是 Voltius 导出包（需要 { version: 1, ... }）",
       "invalidEncryptedFile": "加密文件无效",

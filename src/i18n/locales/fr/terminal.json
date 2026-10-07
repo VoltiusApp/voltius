@@ -30,7 +30,9 @@
       "stopSharingTitle": "Arrêter le partage",
       "leaveSessionTitle": "Quitter la session",
       "stop": "Arrêter",
-      "leave": "Quitter"
+      "leave": "Quitter",
+      "waitingForKey": "En attente de l'hôte…",
+      "keyFailed": "L'hôte n'a pas partagé la clé"
     },
     "sftp": {
       "hostLabel": {

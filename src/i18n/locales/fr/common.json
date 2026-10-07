@@ -175,6 +175,7 @@
       "cannotInviteWithoutSessionKey": "Impossible d'inviter un coéquipier à cette session — elle n'a pas de clé par utilisateur.",
       "failedToCreateInviteLinkSession": "Échec de la création du lien d'invitation de session : {{status}}",
       "failedToGetSessionKey": "Échec de la récupération de la clé de session : {{status}}",
+      "hostDidNotShareKey": "L'hôte n'a pas partagé la clé de session. Demandez-lui de partager à nouveau.",
       "invalidJson": "JSON invalide",
       "notVoltiusExportBundle": "Ce n'est pas un fichier d'export Voltius (attendu : { version: 1, ... })",
       "invalidEncryptedFile": "Fichier chiffré invalide",

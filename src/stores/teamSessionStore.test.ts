@@ -6,6 +6,7 @@ const mp = vi.hoisted(() => ({
   openWebSocket: vi.fn(),
   endMultiplayerSession: vi.fn(async () => {}),
   createVaultSession: vi.fn(), createInviteLinkSession: vi.fn(), drainSessionOutputBuffer: vi.fn(() => undefined),
+  waitForWrappedSessionKey: vi.fn(), inviteUserToSession: vi.fn(async () => {}),
 }));
 const svc = vi.hoisted(() => ({
   getServerUrlValue: vi.fn(async () => "https://s"),
@@ -286,4 +287,69 @@ test("leaving a guest session drops the output held for it", async () => {
   const write = vi.fn();
   attachGuestOutput(localId, write);
   expect(write).not.toHaveBeenCalled();
+});
+
+function captureCallbacks(conn = connStub()): { cb: () => any; conn: ReturnType<typeof connStub> } {
+  let cb: any;
+  mp.openWebSocket.mockImplementation((...args: any[]) => {
+    cb = args.find((a) => a && typeof a === "object" && "onParticipantList" in a);
+    return conn;
+  });
+  return { cb: () => cb, conn };
+}
+
+test("a link host answers key_request by wrapping its retained key for that guest, once", async () => {
+  const { cb } = captureCallbacks();
+  const sessionKeyBytes = new Uint8Array(32).fill(9);
+  mp.createInviteLinkSession.mockResolvedValueOnce({ sessionId: "m2", sessionKey: sessionKeyBytes, sessionKeyBytes, inviteToken: "tok" });
+  await get().startSharingInviteLink("L2", "conn");
+
+  cb().onKeyRequest("guest-1");
+
+  await vi.waitFor(() => expect(mp.inviteUserToSession).toHaveBeenCalledOnce());
+  expect(mp.inviteUserToSession).toHaveBeenCalledWith("m2", "guest-1", sessionKeyBytes);
+});
+
+test("a pending guest joins at once, waits for key_ready, then the socket gets the wrapped key", async () => {
+  const { cb } = captureCallbacks();
+  const sessionKey = new Uint8Array([4]);
+  mp.getMySessionKey.mockResolvedValueOnce("pending" as never);
+  mp.waitForWrappedSessionKey.mockImplementationOnce(async (_id: string, _tok: string, ready: Promise<void>) => {
+    await ready;
+    return { sessionKey, hostPublicKey: "HP" };
+  });
+
+  const localId = await get().joinSession("m1", () => {}, "tok");
+  expect(get().connections[localId].keyWait).toBe("waiting");
+  const keyArg = mp.openWebSocket.mock.calls[0][3];
+  expect(keyArg).toBeInstanceOf(Promise);
+
+  cb().onKeyReady();
+
+  await expect(keyArg).resolves.toBe(sessionKey);
+  await vi.waitFor(() => expect(get().connections[localId].keyWait).toBeUndefined());
+});
+
+test("a guest whose host never shares the key is told so and disconnected", async () => {
+  const { conn } = captureCallbacks();
+  mp.getMySessionKey.mockResolvedValueOnce("pending" as never);
+  mp.waitForWrappedSessionKey.mockRejectedValueOnce(new Error("common.error.hostDidNotShareKey"));
+  vi.spyOn(console, "error").mockImplementationOnce(() => {});
+
+  const localId = await get().joinSession("m1", () => {}, "tok");
+
+  await vi.waitFor(() => expect(get().connections[localId]).toMatchObject({ keyWait: "failed", ended: true }));
+  expect(conn.close).toHaveBeenCalledOnce();
+});
+
+
+test("a guest never writes relayed input into a local session, even from the control holder", async () => {
+  const { cb } = captureCallbacks();
+  const localId = await get().joinSession("m1", () => {});
+  cb().onControlUpdate("u2", null);
+
+  cb().onInput(new Uint8Array([0x6c, 0x73]), "u2");
+
+  expect(get().connections[localId].controlHolder).toBe("u2");
+  expect(io.sendSessionInput).not.toHaveBeenCalled();
 });

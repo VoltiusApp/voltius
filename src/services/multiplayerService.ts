@@ -46,6 +46,10 @@ export interface SessionCallbacks {
   onParticipantLeft: (userId: string) => void;
   onParticipantList: (participants: Participant[]) => void;
   onSessionEnded: () => void;
+  /** Host: the server admitted `userId` through the link and wants the key wrapped for them. */
+  onKeyRequest?: (userId: string) => void;
+  /** Guest: the host has wrapped the key for me; `my-key` now returns it. */
+  onKeyReady?: () => void;
 }
 
 // ─── XChaCha20-Poly1305 helpers ───────────────────────────────────────────────
@@ -295,13 +299,13 @@ export async function createDirectSession(
 /** Grant anyone — teammate or stranger — access to a live session by wrapping the session key for them (#66). */
 export async function inviteUserToSession(
   sessionId: string,
-  target: InviteTarget,
+  userId: string,
   sessionKeyBytes: Uint8Array,
 ): Promise<void> {
   // By user id, not by team roster: a stranger is in none of my teams, so
   // freshPublicKeys has nothing to read. Still a fresh read at wrap time —
   // wrapping to a cached key fails with aead::Error on the recipient (#66).
-  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, await resolveStrangerPublicKey(target.user_id));
+  const wrappedKey = await wrapSessionKeyForUser(sessionKeyBytes, await resolveStrangerPublicKey(userId));
 
   const { serverUrl, jwt } = await requireServer();
 
@@ -311,23 +315,21 @@ export async function inviteUserToSession(
       Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user_id: target.user_id, wrapped_key: wrappedKey }),
+    body: JSON.stringify({ user_id: userId, wrapped_key: wrappedKey }),
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToInvite", { status: res.status }));
 }
 
 /**
- * Create an invite-link session — raw session key stored server-side (no E2EE per-user wrapping).
- * Anyone with the invite token can join, regardless of vault membership.
+ * Create an invite-link session. The link only admits: the host wraps the key for
+ * each admitted guest when the server sends `key_request`.
  */
 export async function createInviteLinkSession(
   connectionName: string,
-): Promise<{ sessionId: string; sessionKey: SessionKey; inviteToken: string }> {
-  const { serverUrl, jwt } = await requireServer();
+): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array; inviteToken: string }> {
+  const { sessionKey, sessionKeyBytes } = await prepareWrappedSessionKey([]);
 
-  const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-  const sessionKey = await importSessionKey(sessionKeyBytes);
-  const sessionKeyB64 = bytesToBase64(sessionKeyBytes);
+  const { serverUrl, jwt } = await requireServer();
 
   const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
@@ -338,13 +340,12 @@ export async function createInviteLinkSession(
     body: JSON.stringify({
       connection_name: connectionName,
       visibility: "invite_link",
-      session_key_bytes: sessionKeyB64,
     }),
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateInviteLinkSession", { status: res.status }));
   const { session_id, invite_token } = await res.json();
 
-  return { sessionId: session_id, sessionKey, inviteToken: invite_token as string };
+  return { sessionId: session_id, sessionKey, sessionKeyBytes, inviteToken: invite_token as string };
 }
 
 /**
@@ -397,10 +398,16 @@ export async function redeemSessionCode(
   return { sessionId: session_id as string, inviteToken: invite_token as string };
 }
 
+export interface MySessionKey {
+  sessionKey: SessionKey;
+  hostPublicKey: string;
+}
+
+/** `"pending"`: admitted, but the host has not wrapped the key for me yet. */
 export async function getMySessionKey(
   sessionId: string,
   inviteToken?: string,
-): Promise<{ sessionKey: SessionKey; hostPublicKey: string }> {
+): Promise<MySessionKey | "pending"> {
   const { serverUrl, jwt } = await requireServer();
 
   const url = inviteToken
@@ -411,6 +418,11 @@ export async function getMySessionKey(
     headers: { Authorization: `Bearer ${jwt}` },
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToGetSessionKey", { status: res.status }));
+  if (res.status === 202) {
+    // Before the socket admits me: the host wraps to whatever key is published then.
+    await publishMyPublicKey();
+    return "pending";
+  }
   const { wrapped_key, raw_key, host_public_key } = await res.json();
 
   if (raw_key) {
@@ -423,6 +435,29 @@ export async function getMySessionKey(
   const sessionKeyBytes = await unwrapSessionKey(wrapped_key as string, host_public_key as string);
   const sessionKey = await importSessionKey(sessionKeyBytes);
   return { sessionKey, hostPublicKey: host_public_key as string };
+}
+
+export const KEY_WAIT_MS = 30_000;
+
+/** Waits for `keyReady` (the socket's `key_ready`), then fetches the key the host wrapped. */
+export async function waitForWrappedSessionKey(
+  sessionId: string,
+  inviteToken: string | undefined,
+  keyReady: Promise<void>,
+  timeoutMs = KEY_WAIT_MS,
+): Promise<MySessionKey> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(i18n.t("common.error.hostDidNotShareKey"))), timeoutMs);
+  });
+  try {
+    await Promise.race([keyReady, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+  const key = await getMySessionKey(sessionId, inviteToken);
+  if (key === "pending") throw new Error(i18n.t("common.error.hostDidNotShareKey"));
+  return key;
 }
 
 export async function endMultiplayerSession(sessionId: string): Promise<void> {
@@ -462,11 +497,14 @@ export function openWebSocket(
   serverUrl: string,
   sessionId: string,
   jwt: string,
-  sessionKey: SessionKey,
+  sessionKey: SessionKey | Promise<SessionKey>,
   callbacks: SessionCallbacks,
   inviteToken?: string,
   initialSnapshot?: Uint8Array,
 ): MultiplayerConnection {
+  // Frames that arrive before a pending key resolves wait on it in arrival order.
+  const key = Promise.resolve(sessionKey);
+
   let wsUrl = serverUrl
     .replace(/^https?/, (m) => (m === "https" ? "wss" : "ws"))
     + `/v1/terminal-sessions/${sessionId}/ws`
@@ -482,7 +520,7 @@ export function openWebSocket(
   // server stores it in history and late joiners see it from the beginning.
   ws.onopen = async () => {
     if (initialSnapshot && initialSnapshot.length > 0) {
-      const encrypted = await encryptData(sessionKey, initialSnapshot);
+      const encrypted = await encryptData(await key, initialSnapshot);
       ws.send(JSON.stringify({ type: "output", data: encrypted }));
     }
   };
@@ -492,12 +530,12 @@ export function openWebSocket(
       const msg = JSON.parse(event.data as string);
       switch (msg.type) {
         case "output": {
-          const decrypted = await decryptData(sessionKey, msg.data as string);
+          const decrypted = await decryptData(await key, msg.data as string);
           callbacks.onOutput(decrypted);
           break;
         }
         case "input": {
-          const decrypted = await decryptData(sessionKey, msg.data as string);
+          const decrypted = await decryptData(await key, msg.data as string);
           callbacks.onInput(decrypted, msg.from as string);
           break;
         }
@@ -516,6 +554,12 @@ export function openWebSocket(
         case "session_ended":
           callbacks.onSessionEnded();
           break;
+        case "key_request":
+          callbacks.onKeyRequest?.(msg.user_id as string);
+          break;
+        case "key_ready":
+          callbacks.onKeyReady?.();
+          break;
       }
     } catch {
       // Ignore parse errors
@@ -530,11 +574,11 @@ export function openWebSocket(
 
   return {
     sendOutput: async (data) => {
-      const encrypted = await encryptData(sessionKey, data);
+      const encrypted = await encryptData(await key, data);
       send({ type: "output", data: encrypted });
     },
     sendInput: async (data) => {
-      const encrypted = await encryptData(sessionKey, data);
+      const encrypted = await encryptData(await key, data);
       send({ type: "input", data: encrypted });
     },
     requestControl: () => send({ type: "request_control" }),

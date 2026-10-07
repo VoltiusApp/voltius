@@ -30,7 +30,9 @@
       "stopSharingTitle": "Paylaşımı durdur",
       "leaveSessionTitle": "Oturumdan ayrıl",
       "stop": "Durdur",
-      "leave": "Ayrıl"
+      "leave": "Ayrıl",
+      "waitingForKey": "Ana bilgisayar bekleniyor…",
+      "keyFailed": "Ana bilgisayar anahtarı paylaşmadı"
     },
     "sftp": {
       "hostLabel": {

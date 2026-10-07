@@ -40,7 +40,7 @@ test("keeps the session key so a later invite can wrap it", async () => {
 test("wraps the retained key when inviting into a live session", async () => {
   await useTeamSessionStore.getState().startSharingDirect("local-1", "web-prod", [member("u1")]);
   await useTeamSessionStore.getState().inviteToActiveSession("local-1", member("u2"));
-  expect(mp.inviteUserToSession).toHaveBeenCalledWith("sess-1", expect.objectContaining({ user_id: "u2" }), expect.any(Uint8Array));
+  expect(mp.inviteUserToSession).toHaveBeenCalledWith("sess-1", "u2", expect.any(Uint8Array));
 });
 
 test("throws when inviting into a session without a retained key (e.g. invite-link)", async () => {

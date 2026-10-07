@@ -175,6 +175,7 @@
       "cannotInviteWithoutSessionKey": "Bu oturuma ekip arkadaşı davet edilemez — oturumun kullanıcıya özel anahtarı yok.",
       "failedToCreateInviteLinkSession": "Davet bağlantısı oturumu oluşturulamadı: {{status}}",
       "failedToGetSessionKey": "Oturum anahtarı alınamadı: {{status}}",
+      "hostDidNotShareKey": "Ana bilgisayar oturum anahtarını paylaşmadı. Yeniden paylaşmasını isteyin.",
       "invalidJson": "Geçersiz JSON",
       "notVoltiusExportBundle": "Voltius dışa aktarma paketi değil ({ version: 1, ... } bekleniyordu)",
       "invalidEncryptedFile": "Geçersiz şifreli dosya",

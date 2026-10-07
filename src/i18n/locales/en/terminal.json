@@ -30,7 +30,9 @@
       "stopSharingTitle": "Stop sharing",
       "leaveSessionTitle": "Leave session",
       "stop": "Stop",
-      "leave": "Leave"
+      "leave": "Leave",
+      "waitingForKey": "Waiting for the host…",
+      "keyFailed": "Host didn't share the key"
     },
     "sftp": {
       "hostLabel": {

@@ -30,7 +30,7 @@ interface TeamSessionStore {
   ) => Promise<string>; // returns multiplayerSessionId
 
   /**
-   * Host: create an invite-link session (raw key, no E2EE).
+   * Host: create an invite-link session. The key is wrapped per admitted guest.
    * Returns the sessionId and the invite token to share.
    */
   startSharingInviteLink: (
@@ -78,6 +78,8 @@ export interface MultiplayerSessionState {
   connection: MultiplayerConnection;
   ended?: boolean;
   vaultOwnerTier?: string;
+  /** Guest only: set while the host has not wrapped the key for me, or after that wait failed. */
+  keyWait?: "waiting" | "failed";
   // Raw session key bytes, retained so a live E2EE session can invite more members later (#66).
   sessionKeyBytes?: Uint8Array;
   // Invite-link sessions only. Retained because the server returns it once, at
@@ -141,6 +143,9 @@ function makeCallbacks(localSessionId: string, set: any, get: any) {
     onParticipantList: (participants: Participant[]) => {
       set((s: TeamSessionStore) => ({ connections: { ...s.connections, [localSessionId]: { ...s.connections[localSessionId]!, participants } } }));
     },
+    onKeyRequest: (userId: string) => {
+      wrapKeyForUser(get, localSessionId, userId).catch(console.error);
+    },
     onSessionEnded: () => {
       set((s: TeamSessionStore) => {
         const existing = s.connections[localSessionId];
@@ -157,6 +162,22 @@ function makeCallbacks(localSessionId: string, set: any, get: any) {
 
 type SetState = StoreApi<TeamSessionStore>["setState"];
 type GetState = StoreApi<TeamSessionStore>["getState"];
+
+/** Grants `userId` a live session by wrapping its retained key for them. */
+async function wrapKeyForUser(get: GetState, localSessionId: string, userId: string): Promise<void> {
+  const state = get().connections[localSessionId];
+  if (!state?.sessionKeyBytes) throw new Error(i18n.t("common.error.cannotInviteWithoutSessionKey"));
+  await mp.inviteUserToSession(state.multiplayerSessionId, userId, state.sessionKeyBytes);
+  get().fetchActiveSessions().catch(() => {});
+}
+
+function patchConnection(set: SetState, localSessionId: string, patch: Partial<MultiplayerSessionState>) {
+  set((s) => {
+    const existing = s.connections[localSessionId];
+    if (!existing) return s;
+    return { connections: { ...s.connections, [localSessionId]: { ...existing, ...patch } } };
+  });
+}
 
 async function teamConnectionIdOf(localSessionId: string, vaultIds: string[]): Promise<string | null> {
   const { useSessionStore } = await import("@/stores/sessionStore");
@@ -220,8 +241,8 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   },
 
   startSharingInviteLink: async (localSessionId, connectionName) => {
-    const { sessionId, sessionKey, inviteToken } = await mp.createInviteLinkSession(connectionName);
-    await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { inviteToken });
+    const { sessionId, sessionKey, sessionKeyBytes, inviteToken } = await mp.createInviteLinkSession(connectionName);
+    await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { inviteToken, sessionKeyBytes });
     return { multiplayerSessionId: sessionId, inviteToken };
   },
 
@@ -231,15 +252,15 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     return sessionId;
   },
 
-  inviteToActiveSession: async (localSessionId, target) => {
-    const state = get().connections[localSessionId];
-    if (!state?.sessionKeyBytes) throw new Error(i18n.t("common.error.cannotInviteWithoutSessionKey"));
-    await mp.inviteUserToSession(state.multiplayerSessionId, target, state.sessionKeyBytes);
-    get().fetchActiveSessions().catch(() => {});
-  },
+  inviteToActiveSession: (localSessionId, target) => wrapKeyForUser(get, localSessionId, target.user_id),
 
   joinSession: async (multiplayerSessionId, onControlUpdate, inviteToken) => {
-    const { sessionKey } = await mp.getMySessionKey(multiplayerSessionId, inviteToken);
+    const myKey = await mp.getMySessionKey(multiplayerSessionId, inviteToken);
+    let keyReady = () => {};
+    const sessionKey = myKey === "pending"
+      ? mp.waitForWrappedSessionKey(multiplayerSessionId, inviteToken, new Promise<void>((r) => { keyReady = r; }))
+          .then((k) => k.sessionKey)
+      : myKey.sessionKey;
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
     const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
@@ -248,52 +269,40 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     const localSessionId = crypto.randomUUID();
     const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
 
+    const base = makeCallbacks(localSessionId, set, get);
     const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, sessionKey, {
+      ...base,
       onOutput: (data) => {
         if (get().connections[localSessionId]) deliverGuestOutput(localSessionId, data);
       },
       onInput: () => {},
       onControlUpdate: (holderId, requesterId) => {
         onControlUpdate(holderId, requesterId);
-        set((s) => ({
-          connections: {
-            ...s.connections,
-            [localSessionId]: { ...s.connections[localSessionId]!, controlHolder: holderId, controlRequester: requesterId },
-          },
-        }));
+        base.onControlUpdate(holderId, requesterId);
       },
-      onParticipantJoined: (p) => {
-        set((s) => {
-          const existing = s.connections[localSessionId];
-          if (!existing) return s;
-          return { connections: { ...s.connections, [localSessionId]: { ...existing, participants: [...existing.participants.filter((x) => x.user_id !== p.user_id), p] } } };
-        });
-      },
-      onParticipantLeft: (userId) => {
-        set((s) => {
-          const existing = s.connections[localSessionId];
-          if (!existing) return s;
-          return { connections: { ...s.connections, [localSessionId]: { ...existing, participants: existing.participants.filter((p) => p.user_id !== userId) } } };
-        });
-      },
-      onParticipantList: (participants) => {
-        set((s) => ({ connections: { ...s.connections, [localSessionId]: { ...s.connections[localSessionId]!, participants } } }));
-      },
-      onSessionEnded: () => {
-        set((s) => {
-          const existing = s.connections[localSessionId];
-          if (!existing) return s;
-          return { connections: { ...s.connections, [localSessionId]: { ...existing, ended: true } } };
-        });
-      },
+      onKeyReady: () => keyReady(),
     }, inviteToken);
 
     set((s) => ({
       connections: {
         ...s.connections,
-        [localSessionId]: { multiplayerSessionId, role: "guest", myUserId, participants: [], controlHolder: "", controlRequester: null, connection: conn },
+        [localSessionId]: {
+          multiplayerSessionId, role: "guest", myUserId, participants: [], controlHolder: "", controlRequester: null, connection: conn,
+          keyWait: myKey === "pending" ? "waiting" : undefined,
+        },
       },
     }));
+
+    if (sessionKey instanceof Promise) {
+      sessionKey.then(
+        () => patchConnection(set, localSessionId, { keyWait: undefined }),
+        (e) => {
+          console.error(e);
+          conn.close();
+          patchConnection(set, localSessionId, { keyWait: "failed", ended: true });
+        },
+      );
+    }
 
     return localSessionId;
   },

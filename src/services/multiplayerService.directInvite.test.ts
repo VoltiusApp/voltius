@@ -70,7 +70,7 @@ test("posts a direct session with one wrapped key per invitee and no vaults", as
 
 test("posts one invitee to the live session endpoint", async () => {
   const fetchMock = mockAppFetch(null, 204);
-  await inviteUserToSession("sess-1", member("u3"), new Uint8Array(32));
+  await inviteUserToSession("sess-1", "u3", new Uint8Array(32));
   expect(fetchMock.mock.calls[0][0]).toContain("/v1/terminal-sessions/sess-1/invitees");
   expect(JSON.parse(fetchMock.mock.calls[0][1].body).user_id).toBe("u3");
 });
@@ -90,11 +90,7 @@ test("wraps the direct-session key to the server's current public key, not the c
 test("wraps a live-session invite to the server's current public key, not the caller's cached one", async () => {
   mockAppFetch(null, 204);
   h.getUserPublicKey.mockResolvedValue({ user_id: "u3", handle: "u3", public_key: "fresh-key" });
-  await inviteUserToSession(
-    "sess-1",
-    { user_id: "u3", team_id: "t1", public_key: "stale-key" } as any,
-    new Uint8Array(32),
-  );
+  await inviteUserToSession("sess-1", "u3", new Uint8Array(32));
   expect(h.invoke).toHaveBeenCalledWith(
     "x25519_wrap_key",
     expect.objectContaining({ recipientPublicKeyB64: "fresh-key" }),
@@ -104,7 +100,7 @@ test("wraps a live-session invite to the server's current public key, not the ca
 test("invite to a user with no public account (404) throws instead of wrapping to nothing", async () => {
   h.getUserPublicKey.mockResolvedValue(null);
   await expect(
-    inviteUserToSession("sess-1", { user_id: "ghost", handle: "ghost-wren-4004" }, new Uint8Array(32)),
+    inviteUserToSession("sess-1", "ghost", new Uint8Array(32)),
   ).rejects.toThrow("common.error.userNoLongerAvailable");
   expect(h.appFetch).not.toHaveBeenCalled();
 });
