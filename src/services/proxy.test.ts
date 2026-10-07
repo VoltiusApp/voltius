@@ -71,11 +71,11 @@ describe("resolveProxy", () => {
   });
 });
 
-describe("resolveFirstHop", () => {
-  const conn = (id: string, over: Partial<Connection> = {}) =>
-    ({ id, host: `${id}.example`, port: 22, username: "root", auth_type: "password", tags: [], ...over }) as Connection;
-  const via = (connection_id: string, over: Partial<JumpHost> = {}): JumpHost => ({ id: `j-${connection_id}`, connection_id, ...over });
+const conn = (id: string, over: Partial<Connection> = {}) =>
+  ({ id, host: `${id}.example`, port: 22, username: "root", auth_type: "password", tags: [], ...over }) as Connection;
+const via = (connection_id: string, over: Partial<JumpHost> = {}): JumpHost => ({ id: `j-${connection_id}`, connection_id, ...over });
 
+describe("resolveFirstHop", () => {
   beforeEach(() => {
     for (const k of Object.keys(secrets)) delete secrets[k];
     setGlobal({ mode: "http", host: "global", port: 3128 });
@@ -118,10 +118,6 @@ describe("resolveFirstHop", () => {
 });
 
 describe("resolveFirstHop knock", () => {
-  const conn = (id: string, over: Partial<Connection> = {}) =>
-    ({ id, host: `${id}.example`, port: 22, username: "root", auth_type: "password", tags: [], ...over }) as Connection;
-  const via = (connection_id: string): JumpHost => ({ id: `j-${connection_id}`, connection_id });
-
   beforeEach(() => {
     for (const k of Object.keys(secrets)) delete secrets[k];
     setGlobal({ mode: "none" });
