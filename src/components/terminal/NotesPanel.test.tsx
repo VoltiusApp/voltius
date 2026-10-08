@@ -39,8 +39,8 @@ vi.mock("@/stores/teamVaultMap", () => ({
     return null;
   },
 }));
-vi.mock("@/components/notes/NotesEditor", () => ({
-  NotesEditor: (p: { value: string; onChange: (v: string) => void; readOnly?: boolean; onRunCode?: (c: string) => void }) => (
+vi.mock("@/components/notes/LazyNotesEditor", () => ({
+  LazyNotesEditor: (p: { value: string; onChange: (v: string) => void; readOnly?: boolean; onRunCode?: (c: string) => void }) => (
     <div>
       <textarea data-notes value={p.value} readOnly={p.readOnly} onChange={(e) => p.onChange(e.target.value)} />
       {p.onRunCode && <button onClick={() => p.onRunCode!(h.code)}>run</button>}
