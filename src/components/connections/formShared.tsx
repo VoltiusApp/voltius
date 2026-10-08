@@ -11,7 +11,8 @@ import {
 } from "@/components/shared/vaultObjectForm";
 import { FormSection } from "@/components/shared/Panel";
 import { NotesFrame } from "@/components/notes/NotesChrome";
-import { NotesEditor, type NotesMode } from "@/components/notes/NotesEditor";
+import type { NotesMode } from "@/components/notes/NotesEditor";
+import { LazyNotesEditor as NotesEditor } from "@/components/notes/LazyNotesEditor";
 import EncodingSelector from "./EncodingSelector";
 import { HostCommandField } from "./HostCommandField";
 

@@ -1,24 +1,46 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { useLocaleStore } from "@/stores/localeStore";
-import { localeBundles } from "./bundles";
+import { englishBundle, loadLocaleBundle } from "./bundles";
 
-// Bundled resources (no async backend), so i18n.changeLanguage() mutates
-// i18n.language synchronously. Non-component callers (e.g. getSettingsNav())
-// rely on that. Do NOT add an async/HTTP backend here.
+// No async backend: i18n.changeLanguage() mutates i18n.language synchronously, which
+// non-component callers (e.g. getSettingsNav()) rely on. Load a locale before switching to it.
 i18n.use(initReactI18next).init({
-  resources: Object.fromEntries(
-    Object.entries(localeBundles).map(([locale, translation]) => [locale, { translation }]),
-  ),
+  resources: { en: { translation: englishBundle } },
   lng: useLocaleStore.getState().locale,
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   returnNull: false,
 });
 
+const loaded = new Map<string, Promise<void>>([["en", Promise.resolve()]]);
+
+/** Adds a locale's strings to i18n; English ships in the main bundle, the rest load on demand. */
+export function ensureLocale(locale: string): Promise<void> {
+  let pending = loaded.get(locale);
+  if (!pending) {
+    pending = loadLocaleBundle(locale).then(
+      (bundle) => {
+        if (bundle) i18n.addResourceBundle(locale, "translation", bundle, true, false);
+      },
+      () => {
+        loaded.delete(locale);
+      },
+    );
+    loaded.set(locale, pending);
+  }
+  return pending;
+}
+
+/** Resolves once the persisted locale's strings are in, so the first render is already translated. */
+export const i18nReady = ensureLocale(useLocaleStore.getState().locale);
+
 useLocaleStore.subscribe((state) => {
-  if (i18n.language !== state.locale) i18n.changeLanguage(state.locale);
-  document.documentElement.lang = state.locale;
+  void ensureLocale(state.locale).then(() => {
+    if (useLocaleStore.getState().locale !== state.locale) return;
+    if (i18n.language !== state.locale) i18n.changeLanguage(state.locale);
+    document.documentElement.lang = state.locale;
+  });
 });
 document.documentElement.lang = useLocaleStore.getState().locale;
 

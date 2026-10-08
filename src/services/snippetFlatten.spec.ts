@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import { flattenSnippetSteps } from "./snippetFlatten";
-import i18n from "@/i18n";
+import i18n, { ensureLocale } from "@/i18n";
 import type { Snippet } from "@/types";
 
 function snip(id: string, steps: Snippet["steps"]): Snippet {
@@ -9,6 +9,8 @@ function snip(id: string, steps: Snippet["steps"]): Snippet {
 }
 
 describe("flattenSnippetSteps — localization", () => {
+  beforeAll(() => ensureLocale("fr"));
+
   it("localizes the cycle error under the fr locale", () => {
     i18n.changeLanguage("fr");
     try {

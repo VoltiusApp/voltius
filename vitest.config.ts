@@ -1,10 +1,10 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
-import { lucideSubset } from "./vite-plugin-lucide-subset";
+import { iconSubsets } from "./vite-plugin-icon-subsets";
 
 export default defineConfig({
-  // Resolve virtual:lucide-subset module imported by ui.ts transitively via src/utils/icons.ts
-  plugins: [lucideSubset()],
+  // Resolve the virtual icon subsets imported by ui.ts transitively via src/utils/icons.ts
+  plugins: [iconSubsets()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

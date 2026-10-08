@@ -38,10 +38,12 @@ import { useUIStore } from "@/stores/uiStore";
 import { findAnyConnection } from "@/stores/connectionStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { EditorTabStrip } from "./editor/EditorTabStrip";
-import { EditorTab } from "./editor/EditorTab";
-import { DiffTab } from "./editor/DiffTab";
+import { lazyNamed } from "@/utils/lazyNamed";
 import { EditorDropOverlay } from "./editor/EditorDropOverlay";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
+
+const EditorTab = lazyNamed(() => import("./editor/EditorTab"), "EditorTab");
+const DiffTab = lazyNamed(() => import("./editor/DiffTab"), "DiffTab");
 
 type Side = "left" | "right";
 

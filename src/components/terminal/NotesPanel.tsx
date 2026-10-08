@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NotesEmptyState, NotesFrame } from "@/components/notes/NotesChrome";
-import { NotesEditor, type NotesMode } from "@/components/notes/NotesEditor";
+import type { NotesMode } from "@/components/notes/NotesEditor";
+import { LazyNotesEditor as NotesEditor } from "@/components/notes/LazyNotesEditor";
 import { useNotesDraft } from "@/components/notes/useNotesDraft";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
 import { usePermissions } from "@/hooks/usePermission";

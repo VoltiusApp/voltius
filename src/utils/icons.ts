@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 import { addCollection as addIconifyCollection } from "@iconify/react";
 import { recordHostIconPrefix } from "./hostIconPrefixes";
 import lucideSubset from "virtual:lucide-subset";
-import { icons as deviconPlainIcons } from "@iconify-json/devicon-plain";
+import deviconPlainSubset from "virtual:devicon-plain-subset";
 
 let loaded = false;
 
@@ -19,28 +19,11 @@ export function preloadIcons() {
   if (loaded) return;
   loaded = true;
 
-  // Lucide — subset auto-generated at build time by vite-plugin-lucide-subset
+  // Lucide — subset auto-generated at build time by vite-plugin-icon-subsets
   addCollection(lucideSubset as any);
 
   // Devicon plain subset — white icon on brand color background
-  const DISTRO_PLAIN = [
-    "ubuntu", "debian", "fedora", "centos", "archlinux", "redhat",
-    "opensuse", "linux", "kalilinux", "linuxmint", "nixos", "gentoo",
-    "raspberrypi", "docker", "nginx", "postgresql", "mysql", "redis",
-    "nodejs", "python", "git", "kubernetes", "mongodb", "apache",
-    "prometheus", "grafana",
-  ];
-  const distroPlainSubset: any = {
-    prefix: "devicon-plain",
-    icons: {} as Record<string, unknown>,
-    width: deviconPlainIcons.width ?? 128,
-    height: deviconPlainIcons.height ?? 128,
-  };
-  for (const name of DISTRO_PLAIN) {
-    const icon = (deviconPlainIcons.icons as Record<string, unknown>)[name];
-    if (icon) distroPlainSubset.icons[name] = icon;
-  }
-  addCollection(distroPlainSubset);
+  addCollection(deviconPlainSubset as any);
 
   addCollection({
     prefix: "simple-icons",

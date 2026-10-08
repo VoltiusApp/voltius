@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import i18n from "./index";
+import i18n, { ensureLocale } from "./index";
 
 describe("i18n instance", () => {
   it("returns the English string by default", () => {
@@ -11,6 +11,14 @@ describe("i18n instance", () => {
     await i18n.changeLanguage("fr");
     expect(i18n.t("settings.appearance.interface")).toBe("Interface");
     await i18n.changeLanguage("en");
+  });
+
+  it("loads a non-English locale only when asked for", async () => {
+    expect(i18n.hasResourceBundle("ru", "translation")).toBe(false);
+    await ensureLocale("ru");
+    expect(i18n.hasResourceBundle("ru", "translation")).toBe(true);
+    await ensureLocale("fr");
+    expect(i18n.getFixedT("fr")("settings.terminal.heading")).toBe("Comportement du terminal");
   });
 
   it("returns the key itself for an unknown key", () => {

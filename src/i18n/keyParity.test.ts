@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { baseKey } from "./baseKey";
 import { SUPPORTED_LOCALES } from "@/stores/localeStore";
-import { localeBundles } from "./bundles";
+import { assembleLocales } from "./bundles";
 
 // Covers only host-owned locale files (src/i18n/locales/*). Plugin-owned strings
 // (registered via api.i18n.register — see the four moved mobile screens under
@@ -19,6 +19,9 @@ function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
   });
 }
 
+const localeBundles = assembleLocales(
+  import.meta.glob("./locales/*/*.json", { eager: true }) as Record<string, { default: Record<string, unknown> }>,
+);
 const en = localeBundles.en;
 const translations: Record<string, Record<string, unknown>> = Object.fromEntries(
   SUPPORTED_LOCALES.filter((l) => l.value !== "en").map((l) => [l.label, localeBundles[l.value] ?? {}]),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import DesktopShell from "@/components/layout/DesktopShell";
-import MobileShell from "@/components/mobile/MobileShell";
+import { lazyNamed } from "@/utils/lazyNamed";
 import { usePlatform } from "@/utils/platform";
 import SplashScreen from "@/components/layout/SplashScreen";
 import AppLockOverlay from "@/components/layout/AppLockOverlay";
@@ -45,6 +45,8 @@ import { RuleSetPromptHost } from "@/components/permissions/RuleSetPromptHost";
 import { VaultIdentityDialogHost } from "@/components/connections/VaultIdentityDialog";
 import { setRuleSetMoveConfirmer } from "@/services/teamObjectPersistence";
 import { confirmRuleSetMove } from "@/services/ruleSetMoveGuard";
+
+const MobileShell = lazyNamed(() => import("@/components/mobile/MobileShell"), "default");
 
 setRuleSetMoveConfirmer(confirmRuleSetMove);
 

@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
 import App from "./App";
 import "@/styles/globals.css";
-import "@/i18n";
+import { i18nReady } from "@/i18n";
 import { preloadIcons } from "@/utils/icons";
 import { installGlobalErrorLogging } from "@/lib/logger";
 import { registerMcpConsumer } from "@/mcp/register";
@@ -19,8 +19,10 @@ installGlobalErrorLogging();
 
 registerMcpConsumer();
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+void i18nReady.then(() =>
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  ),
 );
