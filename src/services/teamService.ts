@@ -6,6 +6,11 @@ import { getJwt, getServerUrl } from "@/services/authTokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface TeamLockPolicy {
+  max_minutes: number;
+  force_vault: boolean;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -15,6 +20,7 @@ export interface Team {
   role_ids: string[];
   permission_allow?: number;
   permission_deny?: number;
+  lock_policy?: TeamLockPolicy | null;
 }
 
 export type CreatedTeam = Pick<Team, "id" | "name" | "owner_id" | "created_at">;
