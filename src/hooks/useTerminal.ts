@@ -1,4 +1,4 @@
-import { activateTerminal, disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { activateTerminal, disposeClosedTerminals, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferRange, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -1204,5 +1204,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     sendResize(sessionId, sessionType, term.cols, term.rows);
   }, [sessionId, sessionType]);
 
-  return { attach, activate, fit };
+  const setVisible = useCallback((visible: boolean) => {
+    const entry = terminalCache.get(sessionId);
+    if (entry) setTerminalVisible(entry, visible);
+  }, [sessionId]);
+
+  return { attach, activate, fit, setVisible };
 }

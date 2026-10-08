@@ -25,9 +25,12 @@ export function HostAwareTerminalView({
   compact,
   statusBar = true,
   statusBarVisible = true,
+  visible = true,
 }: {
   session: TerminalSession;
   active: boolean;
+  /** False while mounted off screen (a background tab, a hidden split workspace). */
+  visible?: boolean;
   onClosed: (remoteExit: boolean) => void;
   /** Mobile: render the terminal compact (no minimap) and suppress the status-bar footer. */
   compact?: boolean;
@@ -57,6 +60,7 @@ export function HostAwareTerminalView({
           sessionId={session.id}
           sessionType={terminalType as "ssh" | "local" | "serial"}
           active={active}
+          visible={visible}
           onClosed={onClosed}
           inputGate={inputGateRef}
           encoding={session.encoding}

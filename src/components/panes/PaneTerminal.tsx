@@ -6,11 +6,11 @@ import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/te
 import { sessionClosed } from "@/stores/reconnectBackoff";
 import type { TerminalSession } from "@/types";
 
-export function PaneTerminal({ session, active }: { session: TerminalSession; active: boolean }) {
+export function PaneTerminal({ session, active, visible }: { session: TerminalSession; active: boolean; visible: boolean }) {
   if (session.type === "multiplayer") {
     return (
       <div className="absolute inset-0 flex flex-col">
-        <MultiplayerTerminalView localSessionId={session.id} active={active} />
+        <MultiplayerTerminalView localSessionId={session.id} active={active} visible={visible} />
         <MultiplayerBar localSessionId={session.id} />
       </div>
     );
@@ -22,6 +22,7 @@ export function PaneTerminal({ session, active }: { session: TerminalSession; ac
       <HostAwareTerminalView
         session={session}
         active={active && session.status === "connected"}
+        visible={visible}
         statusBar={false}
         onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
       />

@@ -11,6 +11,8 @@ interface Props {
   sessionType: "ssh" | "local" | "serial";
   onClosed?: (remoteExit: boolean) => void;
   active?: boolean;
+  /** False while the view is mounted but off screen (a background tab). */
+  visible?: boolean;
   inputGate?: React.RefObject<() => boolean>;
   encoding?: string;
   onResize?: (cols: number, rows: number) => void;
@@ -18,10 +20,12 @@ interface Props {
   compact?: boolean;
 }
 
-export default function TerminalView({ sessionId, sessionType, onClosed, active, inputGate, encoding, onResize, compact }: Props) {
-  const { attach, activate, fit } = useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize });
+export default function TerminalView({ sessionId, sessionType, onClosed, active, visible = true, inputGate, encoding, onResize, compact }: Props) {
+  const { attach, activate, fit, setVisible } = useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize });
   const [scrollMinimapEnabled] = useToggle("scroll-minimap");
   const showMinimap = scrollMinimapEnabled && !compact;
+
+  useEffect(() => setVisible(visible), [visible, setVisible]);
 
   useEffect(() => {
     if (active) {

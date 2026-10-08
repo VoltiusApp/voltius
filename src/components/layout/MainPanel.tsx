@@ -121,7 +121,7 @@ export default function MainPanel() {
             <div className="flex-1 relative">
               {splitRoot && (
                 <div className={`absolute inset-0 flex overflow-hidden${showSplitWorkspace ? "" : " invisible pointer-events-none"}`}>
-                  <PaneView node={splitRoot} />
+                  <PaneView node={splitRoot} visible={showSplitWorkspace} />
                 </div>
               )}
               {showSplitWorkspace && !splitRoot && (
@@ -144,6 +144,7 @@ export default function MainPanel() {
                         <MultiplayerTerminalView
                           localSessionId={session.id}
                           active={session.id === activeSessionId && !overlayContent}
+                          visible={!showSplitWorkspace && session.id === activeSessionId}
                         />
                         <MultiplayerBar localSessionId={session.id} />
                       </div>
@@ -151,6 +152,7 @@ export default function MainPanel() {
                       <HostAwareTerminalView
                         session={session}
                         active={session.id === activeSessionId && session.status === "connected" && !overlayContent}
+                        visible={!showSplitWorkspace && session.id === activeSessionId}
                         statusBarVisible={isStatusBarVisible({
                           sessionId: session.id,
                           activeSessionId,

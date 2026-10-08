@@ -7,7 +7,7 @@ import { containsPane, useLayoutStore, type PaneNode } from "@/stores/layoutStor
 import { useSessionStore } from "@/stores/sessionStore";
 import { useDragStore } from "@/stores/dragStore";
 
-export function PaneView({ node }: { node: PaneNode }) {
+export function PaneView({ node, visible }: { node: PaneNode; visible: boolean }) {
   const activePaneId = useLayoutStore((s) => s.activePaneId);
   const maximizedPaneId = useLayoutStore((s) => s.maximizedPaneId);
   const setActivePane = useLayoutStore((s) => s.setActivePane);
@@ -24,11 +24,11 @@ export function PaneView({ node }: { node: PaneNode }) {
     return (
       <div ref={containerRef} className={`flex flex-1 min-h-0 min-w-0 gap-1.5 ${node.direction === "h" ? "flex-row" : "flex-col"}`}>
         <div className={`flex min-h-0 min-w-0 ${firstVisible ? "" : "hidden"}`} style={{ flex: maximizedPaneId ? "1 1 0" : `${node.ratio} 1 0` }}>
-          <PaneView node={node.first} />
+          <PaneView node={node.first} visible={visible && firstVisible} />
         </div>
         {!maximizedPaneId && <ResizeHandle splitNodeId={node.id} direction={node.direction} containerRef={containerRef} />}
         <div className={`flex min-h-0 min-w-0 ${secondVisible ? "" : "hidden"}`} style={{ flex: maximizedPaneId ? "1 1 0" : `${1 - node.ratio} 1 0` }}>
-          <PaneView node={node.second} />
+          <PaneView node={node.second} visible={visible && secondVisible} />
         </div>
       </div>
     );
@@ -58,7 +58,7 @@ export function PaneView({ node }: { node: PaneNode }) {
     >
       <PaneHeader paneId={node.id} session={session} active={active} />
       <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-        <PaneTerminal session={session} active={active} />
+        <PaneTerminal session={session} active={active} visible={visible && !hiddenByMaximize} />
       </div>
       <DropZones target={{ type: "pane", paneId: node.id }} />
     </div>
