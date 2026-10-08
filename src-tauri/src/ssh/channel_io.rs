@@ -4,7 +4,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::ssh::client::{persistent_session_present, ConnectedSession, SessionInput, SshClient};
+use crate::ssh::client::{persistent_session_state, ConnectedSession, SessionInput, SshClient};
 use crate::ssh::control_mode::{Action, ControlSession};
 use crate::ssh::session::SessionManager;
 use crate::terminal_output::{emit_closed, emit_output};
@@ -125,7 +125,9 @@ pub fn spawn_channel_io_split(
                             let ended = remote_exit
                                 && match &multiplexer {
                                     Some((handle, key)) => {
-                                        persistent_session_present(handle, key).await == Some(false)
+                                        persistent_session_state(handle, key)
+                                            .await
+                                            .is_some_and(|s| s.ended())
                                     }
                                     None => true,
                                 };

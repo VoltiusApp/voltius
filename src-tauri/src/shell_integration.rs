@@ -509,8 +509,8 @@ exit 97
 }
 
 /// One-shot existence probe mirroring the wrapper's tmux-first order. Prints
-/// VOLTIUS_PRESENT when the session is alive; `screen -wipe` first so a dead
-/// entry left by a crash doesn't read as present.
+/// VOLTIUS_PRESENT when the session is alive, VOLTIUS_NOMUX when the host has
+/// neither multiplexer; `screen -wipe` first so a dead entry doesn't read as present.
 pub fn persistent_probe_command(session_key: &str) -> String {
     let script = format!(
         r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
@@ -518,6 +518,8 @@ pub fn persistent_probe_command(session_key: &str) -> String {
 elif command -v screen >/dev/null 2>&1; then
   screen -wipe >/dev/null 2>&1
   screen -ls 2>/dev/null | grep -qF .{key} && printf VOLTIUS_PRESENT
+elif ! command -v tmux >/dev/null 2>&1; then
+  printf VOLTIUS_NOMUX
 fi
 true"#,
         socket = TMUX_SOCKET,
@@ -1002,6 +1004,7 @@ mod tests {
         assert!(script.contains("screen -wipe"));
         assert!(script.contains("grep -qF .voltius_s1"));
         assert!(script.contains("VOLTIUS_PRESENT"));
+        assert!(script.contains("VOLTIUS_NOMUX"));
         assert!(script.trim_end().ends_with("true"));
     }
 

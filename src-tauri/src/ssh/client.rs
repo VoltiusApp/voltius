@@ -272,15 +272,40 @@ pub(crate) async fn exec_collect(
     Some((out, completed))
 }
 
+#[derive(Debug, PartialEq)]
+pub(crate) enum PersistentSession {
+    Present,
+    Gone,
+    /// Neither tmux nor screen on the host: the session ran as a plain shell.
+    NoMultiplexer,
+}
+
+impl PersistentSession {
+    fn from_probe(out: &str) -> Self {
+        if out.contains("VOLTIUS_PRESENT") {
+            Self::Present
+        } else if out.contains("VOLTIUS_NOMUX") {
+            Self::NoMultiplexer
+        } else {
+            Self::Gone
+        }
+    }
+
+    /// Nothing left on the host to attach back to.
+    pub(crate) fn ended(&self) -> bool {
+        *self != Self::Present
+    }
+}
+
 /// `None` when the probe is inconclusive (channel failure, timeout).
-pub(crate) async fn persistent_session_present(
+pub(crate) async fn persistent_session_state(
     handle: &client::Handle<SshClient>,
     key: &str,
-) -> Option<bool> {
+) -> Option<PersistentSession> {
     let probe = crate::shell_integration::persistent_probe_command(key);
     let channel = handle.channel_open_session().await.ok()?;
     let (out, completed) = exec_collect(channel, &probe, std::time::Duration::from_secs(5)).await?;
-    completed.then(|| String::from_utf8_lossy(&out).contains("VOLTIUS_PRESENT"))
+    completed.then(|| PersistentSession::from_probe(&String::from_utf8_lossy(&out)))
 }
 
 async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: RemoteRoute) {
@@ -1024,16 +1049,16 @@ pub async fn connect(
     // fast with the stable SESSION_ENDED error the frontend tears down on. An
     // inconclusive probe (timeout, channel failure) falls through to the attach,
     // whose own guard exits if the session is truly gone.
-    if persist
-        && attach_only
-        && persistent_session_present(
-            &final_handle,
-            &crate::shell_integration::tmux_session_key(&session_id),
-        )
-        .await
-            == Some(false)
-    {
-        return Err("SESSION_ENDED".into());
+    let mut attach_only = attach_only;
+    if persist && attach_only {
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        match persistent_session_state(&final_handle, &key).await {
+            Some(PersistentSession::Gone) => return Err("SESSION_ENDED".into()),
+            // A host without tmux/screen never had anything to attach to: reconnect
+            // with a fresh shell, as a non-persistent session does.
+            Some(PersistentSession::NoMultiplexer) => attach_only = false,
+            _ => {}
+        }
     }
 
     // Open channel + shell
@@ -1367,9 +1392,25 @@ mod tests {
     use super::{
         answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
         connect_first_hop_retrying, is_windows_sshid, legacy_preferred, open_agent_channel, Arc,
-        HopRoute, SshClient, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED,
-        PASSWORD_REJECTED,
+        HopRoute, PersistentSession, SshClient, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED,
+        PASSWORD_EXPIRED, PASSWORD_REJECTED,
     };
+
+    #[test]
+    fn a_host_without_a_multiplexer_is_not_a_gone_session() {
+        assert_eq!(
+            PersistentSession::from_probe("VOLTIUS_PRESENT"),
+            PersistentSession::Present
+        );
+        assert_eq!(PersistentSession::from_probe(""), PersistentSession::Gone);
+        assert_eq!(
+            PersistentSession::from_probe("VOLTIUS_NOMUX"),
+            PersistentSession::NoMultiplexer
+        );
+        assert!(!PersistentSession::Present.ended());
+        assert!(PersistentSession::Gone.ended());
+        assert!(PersistentSession::NoMultiplexer.ended());
+    }
     use crate::error::{AppError, ErrorCode};
     use crate::known_hosts::KnownHostsStore;
     use russh::client::Prompt;
