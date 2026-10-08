@@ -321,6 +321,21 @@
       "editor": "Editor",
       "member": "Člen",
       "connect-only": "Jen připojení"
+    },
+    "security": {
+      "button": "Zabezpečení",
+      "title": "Zásady zabezpečení",
+      "enforce": "Vynutit automatické zamčení",
+      "enforceDesc": "Členové si mohou zvolit kratší dobu, nikdy delší.",
+      "maxLabel": "Zamknout nejpozději po",
+      "forceVault": "Vyžadovat „Zamknout trezor“",
+      "forceVaultDesc": "Členové nemohou zvolit zamčení obrazovky, takže zamčení vždy odstraní klíč trezoru z paměti.",
+      "appliesToAll": "Platí pro všechny členy včetně vás. Starší verze Voltius ji nevynucují.",
+      "lockBody": "Zásady zamykání vyžadují tarif Business týmu.",
+      "lapsed": "Tarif Business vypršel: tato zásada stále platí. Můžete ji odebrat.",
+      "remove": "Odebrat zásadu",
+      "saving": "Ukládání zásady…",
+      "saved": "Zásada uložena"
     }
   }
 }

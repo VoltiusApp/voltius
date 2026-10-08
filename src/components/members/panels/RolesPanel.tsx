@@ -8,7 +8,7 @@ import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePer
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
-import { UpgradeAction } from "@/components/shared/BusinessLockBanner";
+import { BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
@@ -475,16 +475,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           )}
         </div>
 
-        {locked && (
-          <div className="rounded-xl p-4 mb-2 flex flex-col items-center gap-3 text-center border border-(--t-border) bg-(--t-bg-card)">
-            <Icon icon="lucide:lock" width={20} className="text-(--t-text-dim)" />
-            <div>
-              <p className="text-sm font-medium text-(--t-text-primary)">{t("shared.businessLock.title")}</p>
-              <p className="text-xs mt-1 max-w-[220px] text-(--t-text-dim)">{t("shared.businessLock.rolesBody")}</p>
-            </div>
-            <UpgradeAction teamId={teamId} look="button" />
-          </div>
-        )}
+        {locked && <BusinessLockCard teamId={teamId} body={t("shared.businessLock.rolesBody")} />}
         {!locked && customRoles.length === 0 && (
           <div
             className="rounded-xl p-4 text-center"

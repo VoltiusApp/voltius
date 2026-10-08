@@ -305,6 +305,21 @@
       "editor": "Düzenleyici",
       "member": "Üye",
       "connect-only": "Yalnızca bağlantı"
+    },
+    "security": {
+      "button": "Güvenlik",
+      "title": "Güvenlik politikası",
+      "enforce": "Otomatik kilidi zorunlu kıl",
+      "enforceDesc": "Üyeler daha kısa bir süre seçebilir, asla daha uzun değil.",
+      "maxLabel": "En geç şu süre sonra kilitle",
+      "forceVault": "\"Kasayı kilitle\" zorunlu olsun",
+      "forceVaultDesc": "Üyeler ekran kilidini seçemez, bu yüzden kilitleme kasa anahtarını her zaman bellekten siler.",
+      "appliesToAll": "Siz dahil her üyeye uygulanır. Eski Voltius sürümleri bunu uygulamaz.",
+      "lockBody": "Kilit politikaları ekibin Business planını gerektirir.",
+      "lapsed": "Business planı sona erdi: bu politika uygulanmaya devam ediyor. Kaldırabilirsiniz.",
+      "remove": "Politikayı kaldır",
+      "saving": "Politika kaydediliyor…",
+      "saved": "Politika kaydedildi"
     }
   }
 }

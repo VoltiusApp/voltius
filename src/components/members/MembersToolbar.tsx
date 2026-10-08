@@ -16,6 +16,7 @@ export interface MembersToolbarProps {
   onTogglePanel: (panel: MembersPanel) => void;
   pendingCount?: number;
   canManageRoles?: boolean;
+  canManageVault?: boolean;
   selectedCount: number;
   vaultTabs?: { id: string; name: string }[];
   primaryVaultId: string | null;
@@ -28,7 +29,7 @@ export function MembersToolbar({
   sortMode, onSortModeChange,
   canInvite, activePanel, onTogglePanel,
   pendingCount,
-  canManageRoles,
+  canManageRoles, canManageVault,
   selectedCount,
   vaultTabs, primaryVaultId, onSelectVault,
 }: MembersToolbarProps) {
@@ -78,19 +79,11 @@ export function MembersToolbar({
           </span>
         )}
 
+        {canManageVault && (
+          <PanelButton active={activePanel === "security"} icon="lucide:shield-check" label={t("members.security.button")} onClick={() => onTogglePanel("security")} />
+        )}
         {canManageRoles && (
-          <button
-            onClick={() => onTogglePanel("roles")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
-            style={{
-              background: activePanel === "roles" ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
-              color: activePanel === "roles" ? "var(--t-accent)" : "var(--t-text-primary)",
-              border: `1px solid ${activePanel === "roles" ? "var(--t-accent)" : "var(--t-border)"}`,
-            }}
-          >
-            <Icon icon="lucide:shield" width={13} />
-            {t("members.roles")}
-          </button>
+          <PanelButton active={activePanel === "roles"} icon="lucide:shield" label={t("members.roles")} onClick={() => onTogglePanel("roles")} />
         )}
 
         {canInvite && (
@@ -122,5 +115,22 @@ export function MembersToolbar({
         )}
       </div>
     </div>
+  );
+}
+
+function PanelButton({ active, icon, label, onClick }: { active: boolean; icon: string; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
+      style={{
+        background: active ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
+        color: active ? "var(--t-accent)" : "var(--t-text-primary)",
+        border: `1px solid ${active ? "var(--t-accent)" : "var(--t-border)"}`,
+      }}
+    >
+      <Icon icon={icon} width={13} />
+      {label}
+    </button>
   );
 }

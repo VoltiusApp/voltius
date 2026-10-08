@@ -71,3 +71,17 @@ export function BusinessLockLine({ teamId, label }: { teamId: string; label: str
     </p>
   );
 }
+
+export function BusinessLockCard({ teamId, body }: { teamId: string; body: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-xl p-4 mb-2 flex flex-col items-center gap-3 text-center border border-(--t-border) bg-(--t-bg-card)">
+      <Icon icon="lucide:lock" width={20} className="text-(--t-text-dim)" />
+      <div>
+        <p className="text-sm font-medium text-(--t-text-primary)">{t("shared.businessLock.title")}</p>
+        <p className="text-xs mt-1 max-w-[220px] text-(--t-text-dim)">{body}</p>
+      </div>
+      <UpgradeAction teamId={teamId} look="button" />
+    </div>
+  );
+}

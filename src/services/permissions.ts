@@ -50,6 +50,9 @@ export const PERM_BITS: Record<Permission, number> = {
   ADMINISTRATOR:          1 << 18,  // 262144
 };
 
+// Same check as the server's `require_vault_manager`.
+export const VAULT_MANAGER_BITS = PERM_BITS.MANAGE_VAULT | PERM_BITS.ADMINISTRATOR;
+
 export const ALL_PERMISSION_BITS = Object.values(PERM_BITS).reduce((a, b) => a | b, 0);
 
 export const OBJECT_RULE_BITS = PERM_BITS.VIEW | PERM_BITS.CONNECT | PERM_BITS.VIEW_SECRETS

@@ -38,6 +38,7 @@ test("a team vault owner gets the full menu, destructive last", () => {
     "layout.vaultMenu.share",
     "layout.vaultMenu.members",
     "layout.vaultMenu.roles",
+    "layout.vaultMenu.security",
     "layout.vaultMenu.rename",
     "layout.vaultMenu.makePrivate",
     "layout.vaultMenu.delete",
@@ -97,4 +98,10 @@ test("a team member can leave the vault, as the last and destructive entry", () 
 
 test("an owner is never offered leave", () => {
   expect(labels(ownerCaps, 4)).not.toContain("layout.vaultMenu.leave");
+});
+
+test("only vault managers of a team get Security policy", () => {
+  expect(labels(ownerCaps, 2)).toContain("layout.vaultMenu.security");
+  expect(labels(cloudCaps, 2)).not.toContain("layout.vaultMenu.security");
+  expect(labels(privateCaps)).not.toContain("layout.vaultMenu.security");
 });

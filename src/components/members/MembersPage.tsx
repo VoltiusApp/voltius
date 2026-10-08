@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { selectFollowing } from "@/utils/cardInteraction";
@@ -24,6 +24,8 @@ import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePerm
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
+import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
+import { VAULT_MANAGER_BITS } from "@/services/permissions";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
@@ -110,6 +112,7 @@ export default function MembersPage() {
   const canManageMembers = (myEffectivePerms & PERM_BITS.MANAGE_MEMBERS) !== 0;
   const canNameMembers = canManageMembers && memberNamingSupported(members);
   const canManageRoles = (myEffectivePerms & PERM_BITS.MANAGE_ROLES) !== 0;
+  const canManageVault = (myEffectivePerms & VAULT_MANAGER_BITS) !== 0;
   const canInvite = (myEffectivePerms & PERM_BITS.INVITE_MEMBERS) !== 0;
 
   const isOwnerMember = (member: TeamMember) =>
@@ -520,6 +523,12 @@ const vaultTabs = selectedVaultIds.length > 1
 
   // ── Team vault ─────────────────────────────────────────────────────────────
   const panelOpen = panel !== null;
+  const toolbarPanel = (title: string, icon: string, body: ReactNode) => (
+    <PanelShell>
+      <PanelHeader title={title} icon={icon} onClose={() => setPanel(null)} />
+      <div className="flex-1 overflow-y-auto p-4">{body}</div>
+    </PanelShell>
+  );
 
   return (
     <>
@@ -555,19 +564,10 @@ const vaultTabs = selectedVaultIds.length > 1
               />
             )
             : panel === "roles" && myUserId
-              ? (
-                <PanelShell>
-                  <PanelHeader
-                    title={t("members.roles")}
-                    icon="lucide:shield"
-                    onClose={() => setPanel(null)}
-                  />
-                  <div className="flex-1 overflow-y-auto p-4">
-                    <TeamRolesPanel teamId={teamId} myUserId={myUserId} />
-                  </div>
-                </PanelShell>
-              )
-              : null
+              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} myUserId={myUserId} />)
+              : panel === "security"
+                ? toolbarPanel(t("members.security.title"), "lucide:shield-check", <SecurityPolicyPanel teamId={teamId} />)
+                : null
       }
       className="bg-(--t-bg-base)"
     >
@@ -584,6 +584,7 @@ const vaultTabs = selectedVaultIds.length > 1
           onTogglePanel={togglePanel}
           pendingCount={pendingInvites.length || undefined}
           canManageRoles={canManageRoles}
+          canManageVault={canManageVault}
           selectedCount={selectedIdSet.size}
           vaultTabs={vaultTabs}
           primaryVaultId={primaryVaultId}

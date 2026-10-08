@@ -301,6 +301,21 @@
       "editor": "编辑者",
       "member": "成员",
       "connect-only": "仅连接"
+    },
+    "security": {
+      "button": "安全",
+      "title": "安全策略",
+      "enforce": "强制自动锁定",
+      "enforceDesc": "成员可以选择更短的时间，但不能更长。",
+      "maxLabel": "最长锁定时间",
+      "forceVault": "要求“锁定保险库”",
+      "forceVaultDesc": "成员无法选择锁定屏幕，因此锁定时总会从内存中移除保险库密钥。",
+      "appliesToAll": "适用于所有成员，包括你。旧版 Voltius 不会执行此策略。",
+      "lockBody": "锁定策略需要团队的 Business 方案。",
+      "lapsed": "Business 方案已失效：此策略仍然生效，你可以将其移除。",
+      "remove": "移除策略",
+      "saving": "正在保存锁定策略…",
+      "saved": "锁定策略已保存"
     }
   }
 }

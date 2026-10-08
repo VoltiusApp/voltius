@@ -38,7 +38,8 @@ export function useVaultAdmin(
           switch (action) {
             case "share": opts?.onShare ? opts.onShare() : setShareOpen(true); return;
             case "members": opts?.onActivate?.(); openMembersNav(); return;
-            case "roles": opts?.onActivate?.(); openMembersPanel(action); return;
+            case "roles":
+            case "security": opts?.onActivate?.(); openMembersPanel(action); return;
             case "rename":
             case "makePrivate":
             case "delete":

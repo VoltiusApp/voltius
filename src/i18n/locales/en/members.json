@@ -301,6 +301,21 @@
       "editor": "Editor",
       "member": "Member",
       "connect-only": "Connect-only"
+    },
+    "security": {
+      "button": "Security",
+      "title": "Security policy",
+      "enforce": "Enforce auto-lock",
+      "enforceDesc": "Members can choose a shorter time, never a longer one.",
+      "maxLabel": "Lock after at most",
+      "forceVault": "Require Lock vault",
+      "forceVaultDesc": "Members can't pick Lock screen, so locking always removes the vault key from memory.",
+      "appliesToAll": "Applies to every member, you included. Older Voltius versions don't enforce it.",
+      "lockBody": "Lock policies need the team's Business plan.",
+      "lapsed": "Business plan lapsed: this policy stays enforced. You can remove it.",
+      "remove": "Remove policy",
+      "saving": "Saving lock policy…",
+      "saved": "Lock policy saved"
     }
   }
 }

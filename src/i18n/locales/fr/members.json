@@ -309,6 +309,21 @@
       "editor": "Éditeur",
       "member": "Membre",
       "connect-only": "Connexion seule"
+    },
+    "security": {
+      "button": "Sécurité",
+      "title": "Règle de sécurité",
+      "enforce": "Imposer le verrouillage automatique",
+      "enforceDesc": "Les membres peuvent choisir un délai plus court, jamais plus long.",
+      "maxLabel": "Verrouiller au plus tard après",
+      "forceVault": "Imposer « Verrouiller le coffre »",
+      "forceVaultDesc": "Les membres ne peuvent pas choisir « Verrouiller l'écran » : le verrouillage retire toujours la clé du coffre de la mémoire.",
+      "appliesToAll": "S'applique à tous les membres, vous compris. Les anciennes versions de Voltius ne l'appliquent pas.",
+      "lockBody": "Les règles de verrouillage nécessitent l'offre Business de l'équipe.",
+      "lapsed": "Offre Business expirée : cette règle reste appliquée. Vous pouvez la supprimer.",
+      "remove": "Supprimer la règle",
+      "saving": "Enregistrement de la règle…",
+      "saved": "Règle enregistrée"
     }
   }
 }
