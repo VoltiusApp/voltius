@@ -398,6 +398,7 @@
           "teamVaults": "Coffres-forts d'équipe partagés",
           "teamSharing": "Partage d'équipe (5 sessions · 10 invités)",
           "seats": "Sièges (selon l'abonnement)",
+          "lockPolicy": "Règle de verrouillage d'équipe (délai maximal, verrouillage du coffre)",
           "granularPermissions": "Rôles personnalisés, permissions par membre et par objet"
         }
       },

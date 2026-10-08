@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   loadRoles: vi.fn(),
   loadPendingInvitations: vi.fn(),
   clearMembersPanelPending: vi.fn(),
+  pending: "roles" as string,
+  perms: 7,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -41,10 +43,13 @@ vi.mock("@/components/members/panels/RolesPanel", () => ({
   PERM_META: {},
   TeamRolesPanel: ({ teamId }: { teamId: string }) => <div data-testid="team-roles-panel">{teamId}</div>,
 }));
+vi.mock("@/components/members/panels/SecurityPolicyPanel", () => ({
+  SecurityPolicyPanel: () => <div data-testid="security-policy-panel" />,
+}));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: () => {} }) }));
 vi.mock("@/hooks/usePermission", () => ({
   PERM_BITS: { MANAGE_MEMBERS: 1, MANAGE_ROLES: 2, INVITE_MEMBERS: 4 },
-  effectivePermissions: () => 7,
+  effectivePermissions: () => h.perms,
   hasBuiltinRole: () => false,
 }));
 vi.mock("@/services/teamService", () => ({
@@ -107,15 +112,15 @@ vi.mock("@/stores/subscriptionStore", () => {
   );
   return { useSubscriptionStore };
 });
-// membersPanelPending starts at "roles", as if the vault menu's Roles action had
-// just run openMembersPanel("roles") before this page mounted.
+// membersPanelPending starts at h.pending, as if a vault-menu action had just
+// run openMembersPanel(h.pending) before this page mounted.
 vi.mock("@/stores/uiStore", () => {
   const state = {
     membersLayoutMode: "list",
     membersSortMode: "name-asc",
     setMembersLayoutMode: vi.fn(),
     setMembersSortMode: vi.fn(),
-    membersPanelPending: "roles",
+    get membersPanelPending() { return h.pending; },
     clearMembersPanelPending: h.clearMembersPanelPending,
     openSettings: vi.fn(),
     openCloudAuth: vi.fn(),
@@ -139,6 +144,7 @@ vi.mock("@/stores/historyStore", () => ({
 }));
 
 import MembersPage from "./MembersPage";
+import { VAULT_MANAGER_BITS } from "@/services/permissions";
 
 beforeEach(() => {
   h.getMyUserId.mockReset().mockResolvedValue("me");
@@ -148,7 +154,11 @@ beforeEach(() => {
   h.loadRoles.mockReset().mockResolvedValue(undefined);
   h.loadPendingInvitations.mockReset().mockResolvedValue(undefined);
   h.clearMembersPanelPending.mockReset();
+  h.pending = "roles";
+  h.perms = 7;
 });
+
+const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
 afterEach(() => cleanup());
 
 // The uncleared-flag case is the one that actually bites users: if the
@@ -157,9 +167,26 @@ afterEach(() => cleanup());
 // whatever the user had open.
 test("a pending roles request opens the roles panel and clears the flag", async () => {
   render(<MembersPage />);
-  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  await settle();
 
   expect(await screen.findByTestId("team-roles-panel")).toBeTruthy();
   expect(screen.getByTestId("team-roles-panel").textContent).toBe("t1");
   expect(h.clearMembersPanelPending).toHaveBeenCalledTimes(1);
+});
+
+test("a pending security request opens the security panel for a vault manager", async () => {
+  h.pending = "security";
+  h.perms = 7 | VAULT_MANAGER_BITS;
+  render(<MembersPage />);
+  await settle();
+
+  expect(await screen.findByTestId("security-policy-panel")).toBeTruthy();
+});
+
+test("the security panel stays hidden on a team the viewer does not manage", async () => {
+  h.pending = "security";
+  render(<MembersPage />);
+  await settle();
+
+  expect(screen.queryByTestId("security-policy-panel")).toBeNull();
 });

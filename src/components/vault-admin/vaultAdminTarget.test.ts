@@ -7,6 +7,7 @@ const memberRole = { id: "r-mem", name: "member", is_builtin: true };
 const teamsAsOwner = [{ id: "t1", owner_id: "me", role_ids: ["r-own"] }];
 const teamsAsMember = [{ id: "t1", owner_id: "boss", role_ids: ["r-mem"] }];
 const roles = { t1: [ownerRole, memberRole] };
+const managers = { t1: [{ id: "r-mem", name: "manager", is_builtin: false, permissions: PERM_BITS.MANAGE_VAULT }] };
 
 const privateVault: VaultAdminTarget =
   { kind: "local", vaultId: "v1", teamId: null, name: "Personal stuff" };
@@ -19,7 +20,7 @@ const standaloneTeam: VaultAdminTarget =
 
 test("a private local vault can be renamed and deleted, nothing else", () => {
   expect(vaultAdminCapabilities(privateVault, [], {}, "me")).toEqual({
-    isTeam: false, isOwner: false, canRename: true, canDelete: true, canMakePrivate: false, canLeave: false,
+    isTeam: false, isOwner: false, canRename: true, canSetLockPolicy: false, canDelete: true, canMakePrivate: false, canLeave: false,
   });
 });
 
@@ -30,7 +31,7 @@ test("the built-in personal vault can be renamed but never deleted", () => {
 
 test("a team vault owner can make it private again or delete it", () => {
   expect(vaultAdminCapabilities(teamVault, teamsAsOwner, roles, "me")).toEqual({
-    isTeam: true, isOwner: true, canRename: true, canDelete: true, canMakePrivate: true, canLeave: false,
+    isTeam: true, isOwner: true, canRename: true, canSetLockPolicy: true, canDelete: true, canMakePrivate: true, canLeave: false,
   });
 });
 
@@ -47,15 +48,19 @@ test("a team vault member is not offered make-private", () => {
 
 test("a standalone team vault's owner can rename and delete the team", () => {
   expect(vaultAdminCapabilities(standaloneTeam, teamsAsOwner, roles, "me")).toEqual({
-    isTeam: true, isOwner: true, canRename: true, canDelete: true, canMakePrivate: false, canLeave: false,
+    isTeam: true, isOwner: true, canRename: true, canSetLockPolicy: true, canDelete: true, canMakePrivate: false, canLeave: false,
   });
 });
 
 test("renaming a team vault renames the team, so it needs Manage vault", () => {
   expect(vaultAdminCapabilities(teamVault, teamsAsMember, roles, "me").canRename).toBe(false);
-  const managers = { t1: [{ id: "r-mem", name: "manager", is_builtin: false, permissions: PERM_BITS.MANAGE_VAULT }] };
   expect(vaultAdminCapabilities(teamVault, teamsAsMember, managers, "me").canRename).toBe(true);
   expect(vaultAdminCapabilities(standaloneTeam, teamsAsMember, managers, "me").canRename).toBe(true);
+});
+
+test("a team lock policy needs Manage vault, as the server enforces", () => {
+  expect(vaultAdminCapabilities(teamVault, teamsAsMember, roles, "me").canSetLockPolicy).toBe(false);
+  expect(vaultAdminCapabilities(standaloneTeam, teamsAsMember, managers, "me").canSetLockPolicy).toBe(true);
 });
 
 test("ownership is the team's owner_id, as the server decides it, not a role name", () => {

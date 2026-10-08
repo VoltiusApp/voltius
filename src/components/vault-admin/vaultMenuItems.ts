@@ -31,7 +31,7 @@ export function vaultMenuItems({
       onClick: () => on("members"),
     });
     items.push({ label: t("layout.vaultMenu.roles"), icon: "lucide:shield", onClick: () => on("roles") });
-    if (caps.canRename) {
+    if (caps.canSetLockPolicy) {
       items.push({ label: t("layout.vaultMenu.security"), icon: "lucide:shield-check", onClick: () => on("security") });
     }
   }

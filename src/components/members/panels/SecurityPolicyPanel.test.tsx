@@ -70,3 +70,13 @@ test("below Business with a policy the controls are frozen and removal is offere
   expect((screen.getByRole("switch", { name: "members.security.enforce" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText("members.security.remove")).toBeTruthy();
 });
+
+test("Immediately with Lock vault warns that members' sessions close on every leave", () => {
+  setTeam({ max_minutes: 0, force_vault: true });
+  render(<SecurityPolicyPanel teamId="t" />);
+  expect(screen.getByText("members.security.immediateVaultWarning")).toBeTruthy();
+  cleanup();
+  setTeam({ max_minutes: 5, force_vault: true });
+  render(<SecurityPolicyPanel teamId="t" />);
+  expect(screen.queryByText("members.security.immediateVaultWarning")).toBeNull();
+});

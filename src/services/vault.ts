@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { backendErrorCode } from "./backendErrors";
@@ -158,6 +159,8 @@ export async function readLocalSecrets(keys: string[]): Promise<Record<string, s
 export async function resetVault(): Promise<void> {
   pendingKey = null;
   unlocked = false;
+  // Before the storage wipe: the store writes itself back to localStorage on set.
+  useOrgLockPolicyStore.getState().setPolicy(null);
   clearPersistedAccountUiState();
   await invoke("secrets_lock");
   await invoke("vault_reset"); // deletes secrets.enc + connections.json + legacy vault.hold

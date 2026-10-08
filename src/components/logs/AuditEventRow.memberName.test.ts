@@ -31,3 +31,11 @@ test("rename label reads differently when the name was cleared", () => {
   expect(rename({ old: null, new: "Jan" })).toBe('logs.eventLabels.memberRenamed:{"name":"bob","to":"Jan"}');
   expect(rename({ old: "Jan", new: null })).toBe('logs.eventLabels.memberNameRemoved:{"name":"bob"}');
 });
+
+test("lock policy label names the timeout and whether Lock vault is required", () => {
+  const set = (metadata: Record<string, unknown>) => ACTION_META["team.lock_policy_set"].label(log({ action: "team.lock_policy_set", metadata }));
+  expect(set({ max_minutes: 15, force_vault: false }))
+    .toBe('logs.eventLabels.lockPolicySet:{"timeout":"settings.account.sessionSecurity.timeout.15min"}');
+  expect(set({ max_minutes: 0, force_vault: true }))
+    .toBe('logs.eventLabels.lockPolicySetVault:{"timeout":"settings.account.sessionSecurity.timeout.immediately"}');
+});

@@ -16,11 +16,13 @@ import {
   getLocalSecret,
   purgeLocalSecrets,
   quarantineVault,
+  resetVault,
   unlockVaultIfNeeded,
   verifyVaultKey,
   wipeLocalConfig,
 } from "./vault";
 import { VaultLockedError, VaultUnreadableError, vaultErrorCode } from "./vaultErrors";
+import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 
 const KEY = [1, 2, 3];
 // What secrets.rs sends over IPC (its `a_wrong_key_sends_…`/`a_locked_store_sends_…` tests).
@@ -157,4 +159,10 @@ test("a wipe with nothing to carry leaves the keychain alone", async () => {
   await wipeLocalConfig();
   expect(invoked("keychain_set")).toBe(false);
   expect(invoked("config_wipe")).toBe(true);
+});
+
+test("resetVault drops the team lock policy held in memory", async () => {
+  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: true } });
+  await resetVault();
+  expect(useOrgLockPolicyStore.getState().policy).toBeNull();
 });

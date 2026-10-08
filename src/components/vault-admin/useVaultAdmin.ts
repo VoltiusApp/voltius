@@ -25,7 +25,7 @@ export function useVaultAdmin(
 
   const caps = target
     ? vaultAdminCapabilities(target, teams, rolesByTeam, myUserId)
-    : { isTeam: false, isOwner: false, canRename: false, canDelete: false, canMakePrivate: false, canLeave: false };
+    : { isTeam: false, isOwner: false, canRename: false, canSetLockPolicy: false, canDelete: false, canMakePrivate: false, canLeave: false };
   const memberCount = target?.teamId ? (membersByTeam[target.teamId]?.length ?? null) : null;
   // Mirrors MembersStack's render gate in VaultHeader: a private vault only has
   // someone to share with once cloud sync is on, but a team vault always does.

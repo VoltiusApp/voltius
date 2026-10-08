@@ -7,7 +7,7 @@ import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import type { TeamLockPolicy } from "@/services/teamService";
 import { useTeamStore } from "@/stores/teamStore";
-import { sessionTimeoutOptions } from "@/utils/sessionTimeout";
+import { IMMEDIATELY, sessionTimeoutOptions } from "@/utils/sessionTimeout";
 
 const DEFAULT_MAX_MINUTES = 15;
 
@@ -80,6 +80,9 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
               aria-label={t("members.security.forceVault")}
             />
           </div>
+          {policy.max_minutes === IMMEDIATELY && policy.force_vault && (
+            <p className="text-xs text-(--t-status-warning)">{t("members.security.immediateVaultWarning")}</p>
+          )}
         </>
       )}
       <p className="text-xs text-(--t-text-muted)">{t("members.security.appliesToAll")}</p>

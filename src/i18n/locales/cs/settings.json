@@ -398,6 +398,7 @@
           "teamVaults": "Sdílené týmové trezory",
           "teamSharing": "Týmové sdílení (5 relací · 10 hostů)",
           "seats": "Místa (dle nákupu)",
+          "lockPolicy": "Týmové zásady zamykání (limit automatického zamčení, zámek trezoru)",
           "granularPermissions": "Vlastní role, oprávnění pro jednotlivé členy a objekty"
         }
       },

@@ -330,6 +330,7 @@
       "maxLabel": "Zamknout nejpozději po",
       "forceVault": "Vyžadovat „Zamknout trezor“",
       "forceVaultDesc": "Členové nemohou zvolit zamčení obrazovky, takže zamčení vždy odstraní klíč trezoru z paměti.",
+      "immediateVaultWarning": "Při volbě „Okamžitě“ se zámkem trezoru se otevřené relace členů zavřou pokaždé, když opustí Voltius, i jen na chvíli.",
       "appliesToAll": "Platí pro všechny členy včetně vás. Starší verze Voltius ji nevynucují.",
       "lockBody": "Zásady zamykání vyžadují tarif Business týmu.",
       "lapsed": "Tarif Business vypršel: tato zásada stále platí. Můžete ji odebrat.",

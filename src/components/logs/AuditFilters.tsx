@@ -8,44 +8,22 @@ import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { Pills } from "@/components/shared/Pills";
 import { getAuditTimeRange, type AuditTimeRange } from "./auditLogToolbarUtils";
+import { actionOptionKey } from "./AuditEventRow";
+
+const FILTER_ACTIONS = [
+  "member.invited", "member.joined", "member.removed", "member.role_changed", "member.permissions_changed",
+  "connection.created", "connection.updated", "connection.deleted", "identity.created", "identity.updated",
+  "identity.deleted", "key.created", "key.updated", "key.deleted", "snippet.created", "snippet.updated",
+  "snippet.deleted", "folder.created", "folder.updated", "folder.deleted", "port_forward.created",
+  "port_forward.updated", "port_forward.deleted", "vault.renamed", "vault.key_rotated", "role.created",
+  "role.updated", "role.deleted", "connection.started", "connection.ended", "secret.viewed",
+  "session.started", "session.ended", "session.joined", "team.lock_policy_set", "team.lock_policy_removed",
+];
 
 function getActionOptions(t: TFunction) {
   return [
     { value: "", label: t("logs.filters.actionOptions.all") },
-    { value: "member.invited",                label: t("logs.filters.actionOptions.memberInvited") },
-    { value: "member.joined",                 label: t("logs.filters.actionOptions.memberJoined") },
-    { value: "member.removed",                label: t("logs.filters.actionOptions.memberRemoved") },
-    { value: "member.role_changed",           label: t("logs.filters.actionOptions.memberRoleChanged") },
-    { value: "member.permissions_changed",    label: t("logs.filters.actionOptions.memberPermissionsChanged") },
-    { value: "connection.created",            label: t("logs.filters.actionOptions.connectionCreated") },
-    { value: "connection.updated",  label: t("logs.filters.actionOptions.connectionUpdated") },
-    { value: "connection.deleted",  label: t("logs.filters.actionOptions.connectionDeleted") },
-    { value: "identity.created",    label: t("logs.filters.actionOptions.identityCreated") },
-    { value: "identity.updated",    label: t("logs.filters.actionOptions.identityUpdated") },
-    { value: "identity.deleted",    label: t("logs.filters.actionOptions.identityDeleted") },
-    { value: "key.created",         label: t("logs.filters.actionOptions.keyCreated") },
-    { value: "key.updated",         label: t("logs.filters.actionOptions.keyUpdated") },
-    { value: "key.deleted",         label: t("logs.filters.actionOptions.keyDeleted") },
-    { value: "snippet.created",     label: t("logs.filters.actionOptions.snippetCreated") },
-    { value: "snippet.updated",     label: t("logs.filters.actionOptions.snippetUpdated") },
-    { value: "snippet.deleted",     label: t("logs.filters.actionOptions.snippetDeleted") },
-    { value: "folder.created",      label: t("logs.filters.actionOptions.folderCreated") },
-    { value: "folder.updated",      label: t("logs.filters.actionOptions.folderUpdated") },
-    { value: "folder.deleted",      label: t("logs.filters.actionOptions.folderDeleted") },
-    { value: "port_forward.created",label: t("logs.filters.actionOptions.portForwardCreated") },
-    { value: "port_forward.updated",label: t("logs.filters.actionOptions.portForwardUpdated") },
-    { value: "port_forward.deleted",label: t("logs.filters.actionOptions.portForwardDeleted") },
-    { value: "vault.renamed",       label: t("logs.filters.actionOptions.vaultRenamed") },
-    { value: "vault.key_rotated",   label: t("logs.filters.actionOptions.vaultKeyRotated") },
-    { value: "role.created",        label: t("logs.filters.actionOptions.roleCreated") },
-    { value: "role.updated",        label: t("logs.filters.actionOptions.roleUpdated") },
-    { value: "role.deleted",        label: t("logs.filters.actionOptions.roleDeleted") },
-    { value: "connection.started",  label: t("logs.filters.actionOptions.connectionStarted") },
-    { value: "connection.ended",    label: t("logs.filters.actionOptions.connectionEnded") },
-    { value: "secret.viewed",       label: t("logs.filters.actionOptions.secretViewed") },
-    { value: "session.started",     label: t("logs.filters.actionOptions.sessionStarted") },
-    { value: "session.ended",       label: t("logs.filters.actionOptions.sessionEnded") },
-    { value: "session.joined",      label: t("logs.filters.actionOptions.sessionJoined") },
+    ...FILTER_ACTIONS.map((value) => ({ value, label: t(actionOptionKey(value)) })),
   ];
 }
 

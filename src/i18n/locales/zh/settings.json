@@ -292,6 +292,7 @@
           "teamVaults": "共享团队保险库",
           "teamSharing": "团队共享（5 个会话 · 10 名访客）",
           "seats": "席位（按订阅数量）",
+          "lockPolicy": "团队锁定策略（自动锁定上限、锁定保险库）",
           "granularPermissions": "自定义角色、按成员和按对象的权限"
         }
       },

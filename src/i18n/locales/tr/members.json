@@ -314,6 +314,7 @@
       "maxLabel": "En geç şu süre sonra kilitle",
       "forceVault": "\"Kasayı kilitle\" zorunlu olsun",
       "forceVaultDesc": "Üyeler ekran kilidini seçemez, bu yüzden kilitleme kasa anahtarını her zaman bellekten siler.",
+      "immediateVaultWarning": "Hemen ve Kasayı kilitle birlikteyken, üyelerin açık oturumları Voltius'tan her ayrıldıklarında, kısa süreliğine bile olsa kapanır.",
       "appliesToAll": "Siz dahil her üyeye uygulanır. Eski Voltius sürümleri bunu uygulamaz.",
       "lockBody": "Kilit politikaları ekibin Business planını gerektirir.",
       "lapsed": "Business planı sona erdi: bu politika uygulanmaya devam ediyor. Kaldırabilirsiniz.",

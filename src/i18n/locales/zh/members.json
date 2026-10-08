@@ -310,6 +310,7 @@
       "maxLabel": "最长锁定时间",
       "forceVault": "要求“锁定保险库”",
       "forceVaultDesc": "成员无法选择锁定屏幕，因此锁定时总会从内存中移除保险库密钥。",
+      "immediateVaultWarning": "同时选择“立即”和“锁定保险库”时，成员每次离开 Voltius（即使很短暂）都会关闭已打开的会话。",
       "appliesToAll": "适用于所有成员，包括你。旧版 Voltius 不会执行此策略。",
       "lockBody": "锁定策略需要团队的 Business 方案。",
       "lapsed": "Business 方案已失效：此策略仍然生效，你可以将其移除。",

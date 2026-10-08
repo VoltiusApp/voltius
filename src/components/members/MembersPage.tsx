@@ -522,7 +522,9 @@ const vaultTabs = selectedVaultIds.length > 1
   }
 
   // ── Team vault ─────────────────────────────────────────────────────────────
-  const panelOpen = panel !== null;
+  // Hidden, not cleared: a deep link opens it before this team's members (and so our permissions) load.
+  const shownPanel = panel === "security" && !canManageVault ? null : panel;
+  const panelOpen = shownPanel !== null;
   const toolbarPanel = (title: string, icon: string, body: ReactNode) => (
     <PanelShell>
       <PanelHeader title={title} icon={icon} onClose={() => setPanel(null)} />
@@ -536,7 +538,7 @@ const vaultTabs = selectedVaultIds.length > 1
       panelOpen={panelOpen}
       panelWidth={320}
       panel={
-        panel === "detail" && detailMember
+        shownPanel === "detail" && detailMember
           ? (
             <MemberDetailPanel
               key={detailMember.user_id}
@@ -552,7 +554,7 @@ const vaultTabs = selectedVaultIds.length > 1
               onUpdated={reload}
             />
           )
-          : panel === "invite"
+          : shownPanel === "invite"
             ? (
               <InvitePanel
                 teamId={teamId}
@@ -563,9 +565,9 @@ const vaultTabs = selectedVaultIds.length > 1
                 onMemberAdded={reload}
               />
             )
-            : panel === "roles" && myUserId
+            : shownPanel === "roles" && myUserId
               ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} myUserId={myUserId} />)
-              : panel === "security"
+              : shownPanel === "security"
                 ? toolbarPanel(t("members.security.title"), "lucide:shield-check", <SecurityPolicyPanel teamId={teamId} />)
                 : null
       }
@@ -580,7 +582,7 @@ const vaultTabs = selectedVaultIds.length > 1
           sortMode={sortMode}
           onSortModeChange={setSortMode}
           canInvite={canInvite}
-          activePanel={panel}
+          activePanel={shownPanel}
           onTogglePanel={togglePanel}
           pendingCount={pendingInvites.length || undefined}
           canManageRoles={canManageRoles}

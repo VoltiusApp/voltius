@@ -7,13 +7,13 @@ const labels = (caps: VaultAdminCapabilities, memberCount: number | null = null,
   vaultMenuItems({ caps, memberCount, canShare, t, on: vi.fn() }).map((i) => i.label);
 
 const privateCaps: VaultAdminCapabilities =
-  { isTeam: false, isOwner: false, canRename: true, canDelete: true, canMakePrivate: false, canLeave: false };
+  { isTeam: false, isOwner: false, canRename: true, canSetLockPolicy: false, canDelete: true, canMakePrivate: false, canLeave: false };
 const ownerCaps: VaultAdminCapabilities =
-  { isTeam: true, isOwner: true, canRename: true, canDelete: true, canMakePrivate: true, canLeave: false };
+  { isTeam: true, isOwner: true, canRename: true, canSetLockPolicy: true, canDelete: true, canMakePrivate: true, canLeave: false };
 const memberCaps: VaultAdminCapabilities =
-  { isTeam: true, isOwner: false, canRename: true, canDelete: false, canMakePrivate: false, canLeave: true };
+  { isTeam: true, isOwner: false, canRename: true, canSetLockPolicy: true, canDelete: false, canMakePrivate: false, canLeave: true };
 const cloudCaps: VaultAdminCapabilities =
-  { isTeam: true, isOwner: true, canRename: false, canDelete: false, canMakePrivate: false, canLeave: false };
+  { isTeam: true, isOwner: true, canRename: false, canSetLockPolicy: false, canDelete: false, canMakePrivate: false, canLeave: false };
 
 test("a private vault gets no members, roles or make-private entries", () => {
   expect(labels(privateCaps)).toEqual([
@@ -104,4 +104,6 @@ test("only vault managers of a team get Security policy", () => {
   expect(labels(ownerCaps, 2)).toContain("layout.vaultMenu.security");
   expect(labels(cloudCaps, 2)).not.toContain("layout.vaultMenu.security");
   expect(labels(privateCaps)).not.toContain("layout.vaultMenu.security");
+  expect(labels({ ...ownerCaps, canSetLockPolicy: false })).not.toContain("layout.vaultMenu.security");
+  expect(labels({ ...cloudCaps, canSetLockPolicy: true })).toContain("layout.vaultMenu.security");
 });

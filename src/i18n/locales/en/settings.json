@@ -398,6 +398,7 @@
           "teamVaults": "Shared team vaults",
           "teamSharing": "Team sharing (5 sessions · 10 guests)",
           "seats": "Seats (as purchased)",
+          "lockPolicy": "Team lock policy (auto-lock limit, Lock vault)",
           "granularPermissions": "Custom roles, per-member & per-object permissions"
         }
       },

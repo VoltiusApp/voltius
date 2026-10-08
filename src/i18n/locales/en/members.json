@@ -310,6 +310,7 @@
       "maxLabel": "Lock after at most",
       "forceVault": "Require Lock vault",
       "forceVaultDesc": "Members can't pick Lock screen, so locking always removes the vault key from memory.",
+      "immediateVaultWarning": "With Immediately and Lock vault, members' open sessions close every time they leave Voltius, even briefly.",
       "appliesToAll": "Applies to every member, you included. Older Voltius versions don't enforce it.",
       "lockBody": "Lock policies need the team's Business plan.",
       "lapsed": "Business plan lapsed: this policy stays enforced. You can remove it.",

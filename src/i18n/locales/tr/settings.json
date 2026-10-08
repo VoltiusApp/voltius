@@ -404,6 +404,7 @@
           "teamVaults": "Paylaşılan ekip kasaları",
           "teamSharing": "Ekip paylaşımı (5 oturum · 10 konuk)",
           "seats": "Lisanslar (satın alınan kadar)",
+          "lockPolicy": "Ekip kilit politikası (otomatik kilit sınırı, Kasayı kilitle)",
           "granularPermissions": "Özel roller, üye ve nesne bazlı izinler"
         }
       },

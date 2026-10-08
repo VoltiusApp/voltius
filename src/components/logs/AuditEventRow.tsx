@@ -7,6 +7,7 @@ import { LOCAL_ACTOR_ID } from "@/services/localAuditService";
 import { useIdentityStore } from "@/stores/identityStore";
 import { findIdentityIn } from "@/services/credentialScope";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
+import { sessionTimeoutLabel, sessionTimeoutValue } from "@/utils/sessionTimeout";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
 
@@ -78,6 +79,11 @@ export const ACTION_META: Record<string, ActionMeta> = {
   "session.ended":       { icon: "lucide:monitor",     color: "#6b7280", label: () => i18n.t("logs.eventLabels.sessionEnded") },
   "session.joined":      { icon: "lucide:monitor",     color: "#06b6d4", label: () => i18n.t("logs.eventLabels.sessionJoined") },
   "session.left":        { icon: "lucide:monitor",     color: "#6b7280", label: () => i18n.t("logs.eventLabels.sessionLeft") },
+  "team.lock_policy_set":     { icon: "lucide:shield-check", color: "#f59e0b", label: (l) => {
+    const timeout = sessionTimeoutLabel((k) => i18n.t(k), sessionTimeoutValue((l.metadata?.max_minutes as number | undefined) ?? null));
+    return i18n.t(l.metadata?.force_vault ? "logs.eventLabels.lockPolicySetVault" : "logs.eventLabels.lockPolicySet", { timeout });
+  } },
+  "team.lock_policy_removed": { icon: "lucide:shield-off",   color: "#f59e0b", label: () => i18n.t("logs.eventLabels.lockPolicyRemoved") },
 };
 
 export const FALLBACK_META: ActionMeta = {
@@ -104,8 +110,12 @@ function AuditBadge({ accent, title, children }: { accent?: boolean; title?: str
   );
 }
 
+export function actionOptionKey(action: string): string {
+  return `logs.filters.actionOptions.${action.replace(/[._](\w)/g, (_, c: string) => c.toUpperCase())}`;
+}
+
 export function actionName(action: string): string {
-  const key = `logs.filters.actionOptions.${action.replace(/[._](\w)/g, (_, c: string) => c.toUpperCase())}`;
+  const key = actionOptionKey(action);
   return i18n.exists(key) ? i18n.t(key) : action;
 }
 

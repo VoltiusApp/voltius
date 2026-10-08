@@ -318,6 +318,7 @@
       "maxLabel": "Verrouiller au plus tard après",
       "forceVault": "Imposer « Verrouiller le coffre »",
       "forceVaultDesc": "Les membres ne peuvent pas choisir « Verrouiller l'écran » : le verrouillage retire toujours la clé du coffre de la mémoire.",
+      "immediateVaultWarning": "Avec « Immédiatement » et « Verrouiller le coffre », les sessions ouvertes des membres se ferment chaque fois qu'ils quittent Voltius, même un instant.",
       "appliesToAll": "S'applique à tous les membres, vous compris. Les anciennes versions de Voltius ne l'appliquent pas.",
       "lockBody": "Les règles de verrouillage nécessitent l'offre Business de l'équipe.",
       "lapsed": "Offre Business expirée : cette règle reste appliquée. Vous pouvez la supprimer.",
