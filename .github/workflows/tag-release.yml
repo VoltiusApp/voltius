@@ -144,3 +144,31 @@ jobs:
     if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
     uses: ./.github/workflows/publish-repo.yml
     secrets: inherit
+
+  # Merges to dev reference issues as "(#N)", which GitHub never closes; the "fixed on dev"
+  # label marks them. Issues labelled after the release commit wait for the next release.
+  close-fixed-issues:
+    needs: [tag, release-published]
+    if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+          LABEL: fixed on dev
+        run: |
+          cutoff=$(gh api "repos/$REPO/commits/$TAG" -q .commit.committer.date)
+          url=$(gh release view "$TAG" -R "$REPO" --json url -q .url)
+          for n in $(gh issue list -R "$REPO" --label "$LABEL" --state open --limit 500 --json number -q '.[].number'); do
+            labeled=$(gh api --paginate "repos/$REPO/issues/$n/events" \
+              --jq ".[] | select(.event == \"labeled\" and .label.name == \"$LABEL\") | .created_at" | tail -1)
+            if [[ -z "$labeled" || "$labeled" > "$cutoff" ]]; then
+              echo "#$n labelled at '${labeled:-?}', after $TAG ($cutoff): left open"
+              continue
+            fi
+            gh issue close "$n" -R "$REPO" --reason completed --comment "Released in [$TAG]($url)."
+          done
