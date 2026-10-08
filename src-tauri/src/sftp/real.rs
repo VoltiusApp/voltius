@@ -14,6 +14,8 @@ use crate::ssh::exec::{run_captured, sh_c, Captured};
 use crate::ssh::live_cells::read_cell;
 use crate::ssh::session::SessionHandle;
 use async_trait::async_trait;
+use futures_util::future::join_all;
+use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use std::future::Future;
@@ -118,26 +120,7 @@ impl RealSftp {
 #[async_trait]
 impl FileBackend for RealSftp {
     async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, AppError> {
-        let entries = retry_sftp!(self, "read_dir", |s| s.read_dir(path))?;
-        let base = path.trim_end_matches('/');
-        let mut files: Vec<RemoteFile> = entries
-            .map(|e| {
-                let meta = e.metadata();
-                let name = e.file_name();
-                let entry_path = format!("{}/{}", base, name);
-                RemoteFile {
-                    path: entry_path,
-                    name,
-                    size: meta.size.unwrap_or(0),
-                    is_dir: meta.is_dir(),
-                    is_symlink: meta.is_symlink(),
-                    modified: meta.mtime.map(|t| t as u64),
-                    permissions: meta.permissions,
-                }
-            })
-            .collect();
-        sort_listing(&mut files);
-        Ok(files)
+        retry_sftp!(self, "read_dir", |s| listing(s, path))
     }
 
     async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
@@ -238,6 +221,36 @@ impl FileBackend for RealSftp {
     }
 }
 
+/// Directory entries come back lstat'ed, so links are stat'ed again to tell folders from files.
+async fn listing(sftp: &SftpSession, path: &str) -> Result<Vec<RemoteFile>, SftpError> {
+    let base = path.trim_end_matches('/');
+    let entries = sftp.read_dir(path).await?.map(|e| {
+        let meta = e.metadata();
+        let name = e.file_name();
+        RemoteFile {
+            path: format!("{base}/{name}"),
+            name,
+            size: meta.size.unwrap_or(0),
+            is_dir: meta.is_dir(),
+            is_symlink: meta.is_symlink(),
+            modified: meta.mtime.map(|t| t as u64),
+            permissions: meta.permissions,
+        }
+    });
+    let mut files = join_all(entries.map(|mut f| async move {
+        if f.is_symlink {
+            f.is_dir = sftp
+                .metadata(f.path.as_str())
+                .await
+                .is_ok_and(|m| m.is_dir());
+        }
+        f
+    }))
+    .await;
+    sort_listing(&mut files);
+    Ok(files)
+}
+
 /// Recursively remove a file or directory tree over SFTP. `symlink_metadata`
 /// ensures symlinks to directories are deleted as files (not followed).
 fn remove_recursive(
@@ -286,7 +299,7 @@ mod tests {
     use super::*;
     use crate::port_forward::test_ssh::TestClient;
     use crate::ssh::live_cells::own_cell;
-    use crate::ssh::test_proc_server::{proc_server, sftp_server_path, ProcOptions};
+    use crate::ssh::test_proc_server::{proc_server, sftp_server_path, ProcLog, ProcOptions};
 
     struct Shared {
         session: Mutex<SftpSession>,
@@ -297,8 +310,7 @@ mod tests {
         retry_sftp!(shared, "canonicalize", |s| s.canonicalize("."))
     }
 
-    #[tokio::test]
-    async fn concurrent_calls_on_a_dead_session_share_one_reopen() {
+    async fn link() -> (SftpLink<TestClient>, Arc<std::sync::Mutex<ProcLog>>) {
         let (handle, log) = proc_server(ProcOptions::default()).await;
         let link = SftpLink {
             handle: own_cell(handle),
@@ -308,6 +320,45 @@ mod tests {
             },
             closed: CancellationToken::new(),
         };
+        (link, log)
+    }
+
+    #[tokio::test]
+    async fn links_list_as_what_they_point_at() {
+        let dir = tempfile::tempdir().unwrap();
+        let at = |name: &str| dir.path().join(name);
+        std::fs::create_dir(at("folder")).unwrap();
+        std::fs::write(at("file"), "x").unwrap();
+        for (target, name) in [
+            ("folder", "folder_link"),
+            ("file", "file_link"),
+            ("gone", "dangling"),
+        ] {
+            std::os::unix::fs::symlink(target, at(name)).unwrap();
+        }
+        let sftp = link().await.0.open().await.unwrap();
+
+        let files = listing(&sftp, &dir.path().to_string_lossy()).await.unwrap();
+
+        let kinds: Vec<_> = files
+            .iter()
+            .map(|f| (f.name.as_str(), f.is_dir, f.is_symlink))
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                ("folder", true, false),
+                ("folder_link", true, true),
+                ("dangling", false, true),
+                ("file", false, false),
+                ("file_link", false, true),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn concurrent_calls_on_a_dead_session_share_one_reopen() {
+        let (link, log) = link().await;
         let shared = Shared {
             session: Mutex::new(link.open().await.unwrap()),
             link,
