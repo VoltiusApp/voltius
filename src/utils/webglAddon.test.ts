@@ -22,15 +22,15 @@ function fakeTerminal() {
 }
 
 describe("claimWebglRenderer", () => {
-  it("keeps at most 8 WebGL terminals, evicting the least recently claimed", () => {
-    const terms = Array.from({ length: 9 }, fakeTerminal);
-    terms.slice(0, 8).forEach((t) => claimWebglRenderer(t.term));
+  it("keeps at most 14 WebGL terminals, evicting the least recently claimed", () => {
+    const terms = Array.from({ length: 15 }, fakeTerminal);
+    terms.slice(0, 14).forEach((t) => claimWebglRenderer(t.term));
     claimWebglRenderer(terms[0].term);
-    claimWebglRenderer(terms[8].term);
+    claimWebglRenderer(terms[14].term);
 
     expect(terms[0].live()).toHaveLength(1);
     expect(terms[1].live()).toHaveLength(0);
-    expect(terms[8].live()).toHaveLength(1);
+    expect(terms[14].live()).toHaveLength(1);
     expect(terms[0].addons).toHaveLength(1);
 
     terms.forEach((t) => t.live().forEach((a) => a.dispose()));
@@ -53,7 +53,7 @@ describe("claimWebglRenderer", () => {
     claimWebglRenderer(first.term);
     first.addons[0].dispose();
 
-    const others = Array.from({ length: 8 }, fakeTerminal);
+    const others = Array.from({ length: 14 }, fakeTerminal);
     others.forEach((t) => claimWebglRenderer(t.term));
     expect(others.every((t) => t.live().length === 1)).toBe(true);
     others.forEach((t) => t.live().forEach((a) => a.dispose()));

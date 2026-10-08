@@ -3,11 +3,12 @@ import { WebglAddon } from "@xterm/addon-webgl";
 
 // WebKitGTK presents a WebGL canvas one draw behind unless the buffer is preserved,
 // so terminal echo only appears on the next redraw (cursor blink, ~600 ms). #224
-const PRESERVE_DRAWING_BUFFER =
-  typeof navigator !== "undefined" && /Linux/.test(navigator.userAgent) && !/Android/i.test(navigator.userAgent);
+const USER_AGENT = typeof navigator !== "undefined" ? navigator.userAgent : "";
+const ANDROID = /Android/i.test(USER_AGENT);
+const PRESERVE_DRAWING_BUFFER = /Linux/.test(USER_AGENT) && !ANDROID;
 
 // Engines kill the oldest WebGL context past 16 per page (8 on Android), leaving a dead canvas.
-const MAX_WEBGL_TERMINALS = 8;
+const MAX_WEBGL_TERMINALS = ANDROID ? 8 : 14;
 
 const pool = new Map<Terminal, PooledWebglAddon>();
 
