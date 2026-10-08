@@ -28,6 +28,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 import { useSessionExpiration } from "./useSessionExpiration";
 import { useSecurityStore } from "@/stores/securityStore";
 import { useAppLockStore } from "@/stores/appLockStore";
+import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 
 function setVisibility(state: "visible" | "hidden") {
   Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
@@ -43,6 +44,7 @@ beforeEach(() => {
   h.resized = null;
   useAppLockStore.setState({ kind: null });
   useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "vault", systemAuthUnlock: false });
+  useOrgLockPolicyStore.setState({ policy: null });
 });
 afterEach(() => {
   cleanup();
@@ -182,4 +184,11 @@ test("Immediately on an account that cannot lock leaves recents alone", async ()
   useSecurityStore.setState({ sessionTimeoutMinutes: 0, systemAuthUnlock: false });
   await mount();
   expect(h.hideInRecents).not.toHaveBeenCalled();
+});
+
+test("a policy timeout applies when the member chose Never", async () => {
+  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: false } });
+  await mount();
+  await act(async () => { await vi.advanceTimersByTimeAsync(15 * 60_000 + 5_000); });
+  expect(h.lockApp).toHaveBeenCalled();
 });

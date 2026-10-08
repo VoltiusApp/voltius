@@ -14,6 +14,7 @@ import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSecurityStore } from "@/stores/securityStore";
+import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { canLockApp } from "@/utils/accountMode";
 import { instanceLabel } from "@/utils/serverInstance";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutValue } from "@/utils/sessionTimeout";
@@ -40,7 +41,7 @@ export function SidebarAccountButton() {
   const [accountServerUrl, setAccountServerUrl] = useState<string | null>(null);
   const [pendingSwitch, setPendingSwitch] = useState<SavedAccount | null>(null);
   const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
-  const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
+  const { sessionTimeoutMinutes } = useEffectiveLockSettings();
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
 
   const refreshAccountInfo = async (): Promise<ActiveAccount> => {

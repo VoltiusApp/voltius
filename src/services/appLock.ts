@@ -1,5 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { getAccountMode, lockVaultSession } from "@/services/account";
+import { getEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { canLockApp, canLockVault } from "@/utils/accountMode";
@@ -18,7 +19,8 @@ export function systemAuthVerify(reason: string): Promise<VerifyOutcome> {
 }
 
 export async function lockApp(): Promise<void> {
-  const { lockAction, systemAuthUnlock } = useSecurityStore.getState();
+  const { systemAuthUnlock } = useSecurityStore.getState();
+  const { lockAction } = getEffectiveLockSettings();
   const mode = await getAccountMode().catch(() => null);
   if (!canLockApp(mode, systemAuthUnlock)) return;
   if (!canLockVault(mode) && !(await systemAuthAvailable())) return;

@@ -3,6 +3,7 @@ import { getAccountMode } from "@/services/account";
 import { lockApp, setHideInRecents } from "@/services/appLock";
 import { isLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 import { useAppLockStore } from "@/stores/appLockStore";
+import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { useSecurityStore } from "@/stores/securityStore";
 import { canLockApp } from "@/utils/accountMode";
 import { IMMEDIATELY } from "@/utils/sessionTimeout";
@@ -12,7 +13,7 @@ const IMMEDIATE_IDLE_MINUTES = 5;
 const ACTIVITY_EVENTS = ["pointerdown", "mousemove", "keydown", "touchstart"] as const;
 
 export function useSessionExpiration(ready = true): void {
-  const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
+  const { sessionTimeoutMinutes } = useEffectiveLockSettings();
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
 
   useEffect(() => {

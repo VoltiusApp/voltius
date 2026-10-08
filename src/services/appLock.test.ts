@@ -20,6 +20,7 @@ import { lockApp, systemAuthVerify } from "./appLock";
 import { isLeaveLockSuppressed, withLeaveLockSuppressed } from "./leaveLockSuppression";
 import { useSecurityStore } from "@/stores/securityStore";
 import { useAppLockStore } from "@/stores/appLockStore";
+import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -27,6 +28,7 @@ beforeEach(() => {
   h.mode = "local";
   useSecurityStore.setState({ lockAction: "vault", systemAuthUnlock: false });
   useAppLockStore.setState({ kind: null });
+  useOrgLockPolicyStore.setState({ policy: null });
   Object.defineProperty(window, "location", { value: { reload: h.reload }, writable: true, configurable: true });
 });
 
@@ -128,4 +130,12 @@ test("suppression ends on its own when the wrapped work never settles", async ()
   await vi.advanceTimersByTimeAsync(10 * 60_000);
   expect(isLeaveLockSuppressed()).toBe(false);
   vi.useRealTimers();
+});
+
+test("a forced Lock vault policy locks the vault even when the member chose Lock screen", async () => {
+  useSecurityStore.setState({ lockAction: "screen" });
+  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: true } });
+  await lockApp();
+  expect(h.lockVaultSession).toHaveBeenCalled();
+  expect(useAppLockStore.getState().kind).toBeNull();
 });
