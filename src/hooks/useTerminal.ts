@@ -1066,10 +1066,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }),
         ];
         unlistenPromises.push(...localListeners);
-        // A PTY writes its banner and first prompt before these listeners are
-        // registered — Tauri drops an emit with no listener, which left the
-        // terminal blank behind a live shell. The backend holds that output
-        // until this ack, then replays it.
+        // The backend holds the shell's banner and first prompt until this ack.
         void Promise.all(localListeners)
           .then(() => localReady(sessionId))
           .catch((err) => log.debug(`local session ${sessionId} readiness ack failed`, err));

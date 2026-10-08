@@ -1,5 +1,6 @@
 import { invoke } from "@/lib/invoke";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
 import type { SerialConnectParams, SerialLine, SerialLines } from "@/types";
 
 export async function serialConnect(params: SerialConnectParams): Promise<SerialLines> {
@@ -38,16 +39,12 @@ export async function onSerialOutput(
   sessionId: string,
   callback: (data: Uint8Array) => void,
 ): Promise<UnlistenFn> {
-  return listen<number[]>(`serial-output-${sessionId}`, (event) => {
-    callback(new Uint8Array(event.payload));
-  });
+  return onTerminalOutput(sessionId, false, callback);
 }
 
 export async function onSerialClosed(
   sessionId: string,
   callback: () => void,
 ): Promise<UnlistenFn> {
-  return listen(`serial-closed-${sessionId}`, () => {
-    callback();
-  });
+  return onTerminalClosed(sessionId, false, () => callback());
 }

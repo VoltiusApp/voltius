@@ -1,5 +1,6 @@
 import { invoke } from "@/lib/invoke";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
 
 export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<void> {
   return invoke("local_connect", {
@@ -10,9 +11,9 @@ export async function localConnect(sessionId: string, cols: number, rows: number
   });
 }
 
-/** Acknowledge that this session's output listeners are registered. Releases
- *  the backend's startup gate, which replays what the shell wrote before the
- *  listeners existed. */
+/** Acknowledge that the terminal has subscribed to this session's output.
+ *  Releases the backend's startup gate, which replays what the shell wrote
+ *  before that. */
 export async function localReady(sessionId: string): Promise<void> {
   return invoke("local_ready", { sessionId });
 }
@@ -33,14 +34,12 @@ export async function onLocalOutput(
   sessionId: string,
   callback: (data: Uint8Array) => void,
 ): Promise<UnlistenFn> {
-  return listen<number[]>(`local-output-${sessionId}`, (event) => {
-    callback(new Uint8Array(event.payload));
-  });
+  return onTerminalOutput(sessionId, true, callback);
 }
 
 export async function onLocalClosed(
   sessionId: string,
   callback: (cleanExit: boolean) => void,
 ): Promise<UnlistenFn> {
-  return listen<boolean>(`local-closed-${sessionId}`, (event) => callback(event.payload === true));
+  return onTerminalClosed(sessionId, true, callback);
 }

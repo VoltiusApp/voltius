@@ -1,5 +1,4 @@
 pub mod flatpak;
-pub mod gate;
 pub mod session;
 
 /// A shell as found on disk, and the file it resolves to once symlinks are followed.

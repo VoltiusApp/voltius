@@ -37,6 +37,7 @@ mod ssh;
 mod storage;
 mod system_auth;
 mod terminal_kbd;
+mod terminal_output;
 mod tls;
 mod updater;
 mod vault_auth;
@@ -262,6 +263,7 @@ pub fn run() {
         .manage(ProcessStreamManager::new())
         .manage(SessionManager::new())
         .manage(LocalSessionManager::new())
+        .manage(terminal_output::TerminalOutputs::default())
         .manage(SecretsStore::new())
         .manage(SftpManager::new())
         .manage(SerialSessionManager::new())
@@ -374,6 +376,8 @@ pub fn run() {
             commands::local::local_list_shells,
             commands::local::local_connect,
             commands::local::local_ready,
+            terminal_output::terminal_output_attach,
+            terminal_output::terminal_output_detach,
             commands::local::local_disconnect,
             commands::local::local_send_input,
             commands::local::local_resize,

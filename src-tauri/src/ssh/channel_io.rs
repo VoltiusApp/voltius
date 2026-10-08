@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::ssh::client::{persistent_session_present, ConnectedSession, SessionInput, SshClient};
 use crate::ssh::control_mode::{Action, ControlSession};
 use crate::ssh::session::SessionManager;
+use crate::terminal_output::{emit_closed, emit_output};
 
 /// Channels the frontend drives a session's channel with.
 pub struct ChannelIo {
@@ -34,9 +35,9 @@ impl CloseWatch {
     }
 }
 
-/// Spawn the I/O loop for an opened channel: forward input and resizes, emit the
-/// channel's output as `ssh-output-<session_id>`, and emit `ssh-closed-<id>` when
-/// the far side ends it, carrying whether the session is over for good.
+/// Spawn the I/O loop for an opened channel: forward input and resizes, stream the
+/// channel's output to the session's terminal, and close that stream when the far
+/// side ends it, carrying whether the session is over for good.
 pub fn spawn_channel_io(
     app: AppHandle,
     session_id: &str,
@@ -72,8 +73,7 @@ pub fn spawn_channel_io_split(
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
     let (writes_tx, mut writes_rx) = mpsc::unbounded_channel::<Write>();
 
-    let event_name = format!("ssh-output-{}", session_id);
-    let close_event = format!("ssh-closed-{}", session_id);
+    let session_id = session_id.to_string();
     let mux_event = format!("ssh-mux-mode-{}", session_id);
 
     // Writes wait on russh's session loop, which waits on this read loop while
@@ -111,12 +111,12 @@ pub fn spawn_channel_io_split(
                             Vec::new()
                         }
                     };
-                    apply(actions, &writes_tx, &app, &event_name, &mux_event);
+                    apply(actions, &writes_tx, &app, &session_id, &mux_event);
                 }
                 msg = read_half.wait(), if !paused => {
                     match msg {
                         Some(ChannelMsg::Data { data }) | Some(ChannelMsg::ExtendedData { data, .. }) => {
-                            apply(session.on_output(&data), &writes_tx, &app, &event_name, &mux_event);
+                            apply(session.on_output(&data), &writes_tx, &app, &session_id, &mux_event);
                         }
                         other => {
                             let Some(remote_exit) = watch.observe(other.as_ref()) else {
@@ -129,7 +129,7 @@ pub fn spawn_channel_io_split(
                                     }
                                     None => true,
                                 };
-                            let _ = app.emit(&close_event, ended);
+                            emit_closed(&app, &session_id, ended);
                             break;
                         }
                     }
@@ -154,14 +154,12 @@ fn apply(
     actions: Vec<Action>,
     writes: &mpsc::UnboundedSender<Write>,
     app: &AppHandle,
-    output_event: &str,
+    session_id: &str,
     mux_event: &str,
 ) {
     for action in actions {
         match action {
-            Action::Emit(data) => {
-                let _ = app.emit(output_event, data.as_slice());
-            }
+            Action::Emit(data) => emit_output(app, session_id, &data),
             Action::Send(data) => {
                 let _ = writes.send(Write::Data(data));
             }

@@ -1,3 +1,4 @@
+use crate::terminal_output::{emit_closed, emit_output};
 use serialport;
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -139,7 +140,7 @@ pub(super) fn send_break(
 /// A read thread keeps its own cloned descriptor, so closing and reopening the
 /// port leaves the previous thread running. Without this check both threads read
 /// the same device and split its output between them, and the older one's
-/// `serial-closed` would tear down the session that replaced it.
+/// close would tear down the session that replaced it.
 pub(super) fn generation_is_current(
     sessions: &Mutex<SessionMap>,
     session_id: &str,
@@ -264,10 +265,7 @@ pub fn serial_connect(
         loop {
             match port.read(&mut buf) {
                 Ok(0) => break,
-                Ok(n) => {
-                    let data: Vec<u8> = buf[..n].to_vec();
-                    let _ = app_clone.emit(&format!("serial-output-{}", sid), data);
-                }
+                Ok(n) => emit_output(&app_clone, &sid, &buf[..n]),
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
                     // Bail once this open is no longer the session's: it was
                     // disconnected, or reopened by a newer generation.
@@ -280,7 +278,7 @@ pub fn serial_connect(
             }
         }
         if generation_is_current(&sessions_arc, &sid, generation) {
-            let _ = app_clone.emit(&format!("serial-closed-{}", sid), ());
+            emit_closed(&app_clone, &sid, false);
         }
     });
 

@@ -775,7 +775,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   closeSerialPort: async (sessionId) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || session.type !== "serial") return;
-    // Ordering matters: the backend emits serial-closed as soon as the port
+    // Ordering matters: the backend reports the close as soon as the port
     // drops, and handleSessionClosed only starts the backoff loop for a session
     // that still reads 'connected'.
     markSessionDisconnected(set, sessionId);

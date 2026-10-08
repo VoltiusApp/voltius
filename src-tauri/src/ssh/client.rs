@@ -1088,7 +1088,7 @@ pub async fn connect(
                     for _ in 0..pty_rows {
                         out.extend_from_slice(b"\r\n");
                     }
-                    let _ = app.emit(&format!("ssh-output-{}", session_id), out.as_slice());
+                    crate::terminal_output::emit_output(&app, &session_id, &out);
                 }
             }
         }

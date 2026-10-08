@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
+import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
 import type { KnockSpec } from "@/services/portKnock";
 import { currentTerminalColors, type TerminalColors } from "@/utils/terminalColors";
 
@@ -186,9 +187,7 @@ export async function onSshOutput(
   sessionId: string,
   callback: (data: Uint8Array) => void,
 ): Promise<UnlistenFn> {
-  return listen<number[]>(`ssh-output-${sessionId}`, (event) => {
-    callback(new Uint8Array(event.payload));
-  });
+  return onTerminalOutput(sessionId, false, callback);
 }
 
 /** `remoteExit` is true when the session ended on the host (the shell exited, and
@@ -197,9 +196,7 @@ export async function onSshClosed(
   sessionId: string,
   callback: (remoteExit: boolean) => void,
 ): Promise<UnlistenFn> {
-  return listen<boolean>(`ssh-closed-${sessionId}`, (event) => {
-    callback(event.payload === true);
-  });
+  return onTerminalClosed(sessionId, false, callback);
 }
 
 export async function sshSetOutputPaused(sessionId: string, paused: boolean): Promise<void> {
