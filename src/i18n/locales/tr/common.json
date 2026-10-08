@@ -123,6 +123,8 @@
       "failedToCreateTeam": "Ekip oluşturulamadı: {{status}}",
       "failedToRenameTeam": "Ekip yeniden adlandırılamadı: {{status}}",
       "failedToListTeams": "Ekipler listelenemedi: {{status}}",
+      "failedToSaveLockPolicy": "Kilit politikası kaydedilemedi: {{status}}",
+      "lockPolicyServerTooOld": "Kilit politikalarını kullanmak için Voltius sunucunuzu güncelleyin.",
       "failedToDeleteTeam": "Ekip silinemedi: {{status}}",
       "failedToListMembers": "Üyeler listelenemedi: {{status}}",
       "failedToListVaultKeyHolders": "Kasa anahtarına sahip üyeler listelenemedi: {{status}}",

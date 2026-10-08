@@ -123,6 +123,8 @@
       "failedToCreateTeam": "Échec de la création de l'équipe : {{status}}",
       "failedToRenameTeam": "Échec du renommage de l'équipe : {{status}}",
       "failedToListTeams": "Échec du chargement des équipes : {{status}}",
+      "failedToSaveLockPolicy": "Échec de l'enregistrement de la règle de verrouillage : {{status}}",
+      "lockPolicyServerTooOld": "Mettez à jour votre serveur Voltius pour utiliser les règles de verrouillage.",
       "failedToDeleteTeam": "Échec de la suppression de l'équipe : {{status}}",
       "failedToListMembers": "Échec du chargement des membres : {{status}}",
       "failedToListVaultKeyHolders": "Échec du chargement des détenteurs de clé de coffre : {{status}}",

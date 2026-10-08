@@ -83,6 +83,18 @@ export async function renameTeam(teamId: string, name: string): Promise<void> {
   if (!res.ok) throw new Error(i18n.t("common.error.failedToRenameTeam", { status: res.status }));
 }
 
+export async function setTeamLockPolicy(teamId: string, policy: TeamLockPolicy | null): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(
+    `${serverUrl}/v1/teams/${teamId}/lock-policy`,
+    policy ? { method: "PUT", body: JSON.stringify(policy) } : { method: "DELETE" },
+  );
+  refuseIfPlanRequired(res);
+  if (res.status === 404) throw new Error(i18n.t("common.error.lockPolicyServerTooOld"));
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveLockPolicy", { status: res.status }));
+}
+
 export async function listTeams(): Promise<Team[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];

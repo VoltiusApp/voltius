@@ -123,6 +123,8 @@
       "failedToCreateTeam": "Failed to create team: {{status}}",
       "failedToRenameTeam": "Failed to rename team: {{status}}",
       "failedToListTeams": "Failed to list teams: {{status}}",
+      "failedToSaveLockPolicy": "Failed to save the lock policy: {{status}}",
+      "lockPolicyServerTooOld": "Update your Voltius server to use lock policies.",
       "failedToDeleteTeam": "Failed to delete team: {{status}}",
       "failedToListMembers": "Failed to list members: {{status}}",
       "failedToListVaultKeyHolders": "Failed to list vault key holders: {{status}}",

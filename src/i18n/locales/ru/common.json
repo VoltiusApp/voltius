@@ -123,6 +123,8 @@
       "failedToCreateTeam": "Не удалось создать команду: {{status}}",
       "failedToRenameTeam": "Не удалось переименовать команду: {{status}}",
       "failedToListTeams": "Не удалось загрузить список команд: {{status}}",
+      "failedToSaveLockPolicy": "Не удалось сохранить политику блокировки: {{status}}",
+      "lockPolicyServerTooOld": "Обновите сервер Voltius, чтобы использовать политики блокировки.",
       "failedToDeleteTeam": "Не удалось удалить команду: {{status}}",
       "failedToListMembers": "Не удалось получить список участников: {{status}}",
       "failedToListVaultKeyHolders": "Не удалось получить список владельцев ключа хранилища: {{status}}",

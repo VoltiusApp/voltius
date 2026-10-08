@@ -6,7 +6,7 @@ import { effectivePermissions } from "@/services/permissions";
 import { combineLockPolicies } from "@/services/lockPolicy";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
-import type { CreatedTeam, Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
+import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
 interface TeamStore {
@@ -22,6 +22,7 @@ interface TeamStore {
   self: { userId: string; online: boolean } | null;
 
   loadTeams: () => Promise<void>;
+  setLockPolicy: (teamId: string, policy: TeamLockPolicy | null) => Promise<void>;
   createTeam: (name: string) => Promise<CreatedTeam>;
   loadMembers: (teamId: string) => Promise<void>;
   addMember: (teamId: string, email: string, role?: string) => Promise<void>;
@@ -128,6 +129,11 @@ export const useTeamStore = create<TeamStore>()(
       logFailure("loadTeams")(e);
       set({ loading: false });
     }
+  },
+
+  setLockPolicy: async (teamId, policy) => {
+    await api.setTeamLockPolicy(teamId, policy);
+    await get().loadTeams();
   },
 
   createTeam: async (name) => {

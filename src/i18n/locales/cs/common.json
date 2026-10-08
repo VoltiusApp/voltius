@@ -123,6 +123,8 @@
       "failedToCreateTeam": "Tým se nepodařilo vytvořit: {{status}}",
       "failedToRenameTeam": "Tým se nepodařilo přejmenovat: {{status}}",
       "failedToListTeams": "Týmy se nepodařilo načíst: {{status}}",
+      "failedToSaveLockPolicy": "Zásadu zamykání se nepodařilo uložit: {{status}}",
+      "lockPolicyServerTooOld": "Pro zásady zamykání aktualizujte svůj server Voltius.",
       "failedToDeleteTeam": "Tým se nepodařilo smazat: {{status}}",
       "failedToListMembers": "Seznam členů se nepodařilo načíst: {{status}}",
       "failedToListVaultKeyHolders": "Seznam držitelů klíče trezoru se nepodařilo načíst: {{status}}",
