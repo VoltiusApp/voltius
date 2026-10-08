@@ -1,10 +1,10 @@
 import type { Terminal } from "@xterm/xterm";
 import { WebglAddon } from "@xterm/addon-webgl";
 
-// WebKitGTK presents a WebGL canvas one draw behind unless the buffer is preserved,
-// so terminal echo only appears on the next redraw (cursor blink, ~600 ms). #224
 const USER_AGENT = typeof navigator !== "undefined" ? navigator.userAgent : "";
 const ANDROID = /Android/i.test(USER_AGENT);
+// WebKitGTK presents a WebGL canvas one draw behind unless the buffer is preserved,
+// so terminal echo only appears on the next redraw (cursor blink, ~600 ms). #224
 const PRESERVE_DRAWING_BUFFER = /Linux/.test(USER_AGENT) && !ANDROID;
 
 // Engines kill the oldest WebGL context past 16 per page (8 on Android), leaving a dead canvas.
