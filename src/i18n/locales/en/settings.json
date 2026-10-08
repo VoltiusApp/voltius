@@ -267,7 +267,13 @@
           }
         },
         "needsSystemAuth": "Turn on system authentication to lock an account without a master password.",
-        "immediateVaultWarning": "With Lock vault, leaving Voltius even briefly closes your open sessions. Lock screen keeps them running."
+        "immediateVaultWarning": "With Lock vault, leaving Voltius even briefly closes your open sessions. Lock screen keeps them running.",
+        "policy": {
+          "timeout": "Set by {{teams}}: at most {{duration}}.",
+          "timeoutImmediately": "Set by {{teams}}: lock as soon as you leave Voltius.",
+          "vault": "Set by {{teams}}: Lock vault is required.",
+          "yourTeam": "your team"
+        }
       },
       "email": "Email",
       "editEmail": {

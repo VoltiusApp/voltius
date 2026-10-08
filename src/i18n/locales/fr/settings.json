@@ -249,6 +249,12 @@
         },
         "needsSystemAuth": "Activez l'authentification système pour verrouiller un compte sans mot de passe principal.",
         "immediateVaultWarning": "Avec « Verrouiller le coffre », quitter Voltius même un instant ferme vos sessions ouvertes. « Verrouiller l'écran » les garde actives.",
+        "policy": {
+          "timeout": "Imposé par {{teams}} : au plus {{duration}}.",
+          "timeoutImmediately": "Imposé par {{teams}} : verrouillage dès que vous quittez Voltius.",
+          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire.",
+          "yourTeam": "votre équipe"
+        },
         "lockAction": {
           "label": "Au verrouillage",
           "vault": "Verrouiller le coffre (fermer les sessions)",

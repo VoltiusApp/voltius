@@ -7,14 +7,17 @@ import { systemAuthMethodKey } from "@/hooks/useSystemAuthPrompt";
 import { useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { canLockApp, canLockVault } from "@/utils/accountMode";
 import { usePlatform } from "@/utils/platform";
-import { IMMEDIATELY, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
+import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
+import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
+import { policyTeamNames, timeoutAllowed } from "@/services/lockPolicy";
+import { useTeamStore } from "@/stores/teamStore";
 
 export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
+  const { sessionTimeoutMinutes, lockAction, policy } = useEffectiveLockSettings();
+  const teams = useTeamStore((s) => s.teams);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
-  const lockAction = useSecurityStore((s) => s.lockAction);
   const setLockAction = useSecurityStore((s) => s.setLockAction);
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
   const setSystemAuthUnlock = useSecurityStore((s) => s.setSystemAuthUnlock);
@@ -27,8 +30,12 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const effectiveAction: LockAction = vaultLockable ? lockAction : "screen";
   const actionOptions = [
     ...(vaultLockable ? [{ value: "vault", label: t("settings.account.sessionSecurity.lockAction.vault") }] : []),
-    { value: "screen", label: t("settings.account.sessionSecurity.lockAction.screen") },
+    ...(policy?.forceVault && vaultLockable ? [] : [{ value: "screen", label: t("settings.account.sessionSecurity.lockAction.screen") }]),
   ];
+  const timeoutOptions = sessionTimeoutOptions(t).filter((o) =>
+    timeoutAllowed(o.value === "never" ? null : Number(o.value), policy));
+  const names = policy ? policyTeamNames(teams, policy) : null;
+  const who = (list: string[]) => (list.length ? list.join(", ") : t("settings.account.sessionSecurity.policy.yourTeam"));
 
   return (
     <div className="rounded-lg px-4 py-3 space-y-3 bg-(--t-bg-elevated) border border-(--t-border)">
@@ -36,7 +43,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
         <p className="text-xs text-(--t-text-dim)">{t("settings.account.sessionSecurity.autoLockLabel")}</p>
         <FormSelect
           value={sessionTimeoutValue(sessionTimeoutMinutes)}
-          options={sessionTimeoutOptions(t)}
+          options={timeoutOptions}
           ariaLabel={t("settings.account.sessionSecurity.autoLockLabel")}
           disabled={!lockable}
           onChange={(value) => {
@@ -45,6 +52,16 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
           }}
         />
         <p className="text-xs text-(--t-text-dim)">{t("settings.account.sessionSecurity.autoLockDesc")}</p>
+        {policy && names && (
+          <p className="text-xs text-(--t-text-muted)">
+            {policy.maxMinutes === IMMEDIATELY
+              ? t("settings.account.sessionSecurity.policy.timeoutImmediately", { teams: who(names.timeout) })
+              : t("settings.account.sessionSecurity.policy.timeout", {
+                  teams: who(names.timeout),
+                  duration: sessionTimeoutLabel(t, sessionTimeoutValue(policy.maxMinutes)),
+                })}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -61,6 +78,11 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             ? "settings.account.sessionSecurity.lockAction.screenDesc"
             : "settings.account.sessionSecurity.lockAction.vaultDesc")}
         </p>
+        {policy?.forceVault && names && (
+          <p className="text-xs text-(--t-text-muted)">
+            {t("settings.account.sessionSecurity.policy.vault", { teams: who(names.vault) })}
+          </p>
+        )}
         {sessionTimeoutMinutes === IMMEDIATELY && effectiveAction === "vault" && (
           <p className="text-xs text-(--t-status-warning)">
             {t("settings.account.sessionSecurity.immediateVaultWarning")}

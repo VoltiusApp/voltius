@@ -255,6 +255,12 @@
         },
         "needsSystemAuth": "Ana parolası olmayan bir hesabı kilitlemek için sistem kimlik doğrulamasını açın.",
         "immediateVaultWarning": "Kasayı kilitle seçiliyken Voltius'tan kısa süre ayrılmak bile açık oturumlarınızı kapatır. Ekranı kilitle onları çalışır tutar.",
+        "policy": {
+          "timeout": "{{teams}} ilkesi: en fazla {{duration}}.",
+          "timeoutImmediately": "{{teams}} ilkesi: Voltius'tan çıkınca hemen kilitle.",
+          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu.",
+          "yourTeam": "Ekibinizin"
+        },
         "lockAction": {
           "label": "Kilitlerken",
           "vault": "Kasayı kilitle (oturumları kapat)",

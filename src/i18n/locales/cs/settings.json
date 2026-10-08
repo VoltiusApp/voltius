@@ -249,6 +249,12 @@
         },
         "needsSystemAuth": "Pro zamykání účtu bez hlavního hesla zapněte systémové ověření.",
         "immediateVaultWarning": "Se zámkem trezoru i krátké opuštění Voltiusu zavře otevřené relace. Zámek obrazovky je nechá běžet.",
+        "policy": {
+          "timeout": "Určuje {{teams}}: nejvýše {{duration}}.",
+          "timeoutImmediately": "Určuje {{teams}}: zamknout ihned po opuštění Voltius.",
+          "vault": "Určuje {{teams}}: je vyžadováno „Zamknout trezor“.",
+          "yourTeam": "váš tým"
+        },
         "lockAction": {
           "label": "Při zamknutí",
           "vault": "Zamknout trezor (zavřít relace)",
