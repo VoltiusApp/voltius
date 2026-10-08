@@ -54,14 +54,14 @@ impl HttpSseStreamManager {
     }
 }
 
-/// reqwest client builder with a platform-appropriate TLS stack.
+/// reqwest client builder with a platform-appropriate TLS stack. reqwest carries no crypto
+/// provider of its own, so ring is installed as the process default first.
 ///
-/// On Android, reqwest's default rustls path (aws-lc-rs provider + an *uninitialised*
-/// rustls-platform-verifier trust store) hangs the TLS handshake forever — every HTTPS
-/// request, including cloud login, never completes. We hand reqwest a preconfigured
-/// rustls config using the `ring` provider and bundled webpki roots instead. Desktop
-/// keeps reqwest's working default.
-fn client_builder() -> reqwest::ClientBuilder {
+/// On Android, reqwest's rustls-platform-verifier trust store is *uninitialised* and hangs
+/// the TLS handshake forever — every HTTPS request, including cloud login, never completes.
+/// We hand reqwest a preconfigured rustls config with bundled webpki roots instead.
+pub(crate) fn client_builder() -> reqwest::ClientBuilder {
+    crate::tls::install_ring_provider();
     let builder = reqwest::Client::builder().user_agent("Voltius");
     #[cfg(target_os = "android")]
     let builder = builder.use_preconfigured_tls(android_tls_config());

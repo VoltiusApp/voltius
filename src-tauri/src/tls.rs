@@ -13,6 +13,10 @@ use tokio_rustls::rustls::{
 };
 
 pub const TLS_PIN_PREFIX: &str = "tls-sha256:";
+
+pub fn install_ring_provider() {
+    let _ = ring::default_provider().install_default();
+}
 /// Known-hosts entry for a host whose certificate a CA vouched for; never a pin.
 pub const TLS_WEBPKI_MARKER: &str = "tls-webpki";
 

@@ -1,5 +1,4 @@
 use crate::storage::config::config_dir;
-use reqwest;
 use std::path::PathBuf;
 
 include!(concat!(env!("OUT_DIR"), "/seeded_plugins.rs"));
@@ -95,8 +94,7 @@ pub fn plugin_delete(id: String) -> Result<(), String> {
 /// Fetch a URL from the Rust backend (bypasses webview CORS restrictions)
 #[tauri::command]
 pub async fn plugin_fetch_url(url: String) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .user_agent("Voltius")
+    let client = crate::commands::http::client_builder()
         .build()
         .map_err(|e| e.to_string())?;
     let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;

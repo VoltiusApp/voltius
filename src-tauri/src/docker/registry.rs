@@ -68,7 +68,7 @@ pub async fn manifest_digest(image: &str) -> Result<String, String> {
     let host = registry_host(&registry);
     let url = format!("https://{host}/v2/{repo}/manifests/{reference}");
 
-    let client = reqwest::Client::builder()
+    let client = crate::commands::http::client_builder()
         .user_agent("voltius-docker-plugin")
         .timeout(Duration::from_secs(15))
         .build()
