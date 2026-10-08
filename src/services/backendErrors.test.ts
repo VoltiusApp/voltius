@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
-import i18n from "@/i18n";
+import { describe, it, expect, afterEach, beforeAll } from "vitest";
+import i18n, { ensureLocale } from "@/i18n";
 import en from "@/i18n/locales/en/errors.json";
 import {
   BACKEND_ERROR_CODES,
@@ -12,6 +12,7 @@ import {
 } from "./backendErrors";
 import { VaultLockedError } from "./vaultErrors";
 
+beforeAll(() => Promise.all([ensureLocale("fr"), ensureLocale("tr")]));
 afterEach(() => i18n.changeLanguage("en"));
 
 describe("describeError", () => {

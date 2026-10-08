@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import type { SettingsPage } from "@/plugins/api";
 import { getLoadedPlugins } from "@/plugins/runtime";
-import { useLocaleStore } from "@/stores/localeStore";
+import { useUiLanguage } from "@/i18n";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
@@ -17,7 +17,7 @@ export function usePluginNavChildren(): NavChild[] {
   const overrides = usePluginRegistryStore((s) => s.overrides);
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
   // A function label resolves against the live locale, so the list must rebuild on switch.
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useUiLanguage();
 
   return useMemo(() => {
     const plugins = getLoadedPlugins().map((m) => ({

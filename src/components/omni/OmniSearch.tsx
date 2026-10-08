@@ -30,7 +30,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, sessionMatchesQuery } from "@/utils/sessionLabel";
 import { getSettingsNav } from "@/components/settings/settingsNav";
-import { useLocaleStore } from "@/stores/localeStore";
+import { useUiLanguage } from "@/i18n";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
@@ -121,7 +121,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const pluginCommands = useMemo(() => [...omniCommandsMap.values()], [omniCommandsMap]);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
   const settingsPagesMap = usePluginStore((s) => s.settingsPages);
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useUiLanguage();
   const nav = useMemo(() => getSettingsNav(), [locale]);
   const categoryBadges = useMemo(() => getCategoryBadges(t), [locale, t]);
 

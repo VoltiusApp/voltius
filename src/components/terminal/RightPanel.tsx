@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { useUIStore, type RightPanelSection } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { resolveLabel } from "@/plugins/resolveLabel";
-import { useLocaleStore } from "@/stores/localeStore";
+import { useUiLanguage } from "@/i18n";
 import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
@@ -186,7 +186,7 @@ function PanelContent() {
   const rightPanelSection = useUIStore((s) => s.rightPanelSection);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const pluginSections = usePluginStore((s) => s.rightPanelSections);
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useUiLanguage();
   const tunnelCount = useCurrentSessionTunnelCount();
   const hasNotes = !!useActiveHostConnection().connection?.notes?.trim();
 

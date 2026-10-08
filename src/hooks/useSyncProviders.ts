@@ -3,7 +3,7 @@ import { loadedPluginSource } from "@/plugins/runtime";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { readSyncProviderInputs } from "@/services/syncProviderInputs";
 import { aggregateSyncStatus, buildSyncProviders, type EffectiveSync, type SyncProviderView } from "@/services/syncProviders";
-import { useLocaleStore } from "@/stores/localeStore";
+import { useUiLanguage } from "@/i18n";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
@@ -19,7 +19,7 @@ export function useSyncProviders(): { providers: SyncProviderView[]; effective: 
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const overrides = usePluginRegistryStore((s) => s.overrides);
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useUiLanguage();
 
   return useMemo(() => {
     const providers = buildSyncProviders(readSyncProviderInputs(loadedPluginSource));

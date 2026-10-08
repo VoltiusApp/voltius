@@ -6,7 +6,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
 import { mobileSettingsNav, MOBILE_HIDDEN_SECTIONS } from "@/components/settings/settingsMobileCore";
-import { useLocaleStore } from "@/stores/localeStore";
+import { useUiLanguage } from "@/i18n";
 import { usePluginNavChildren, useResolvedPluginPage } from "@/components/settings/usePluginNavChildren";
 
 export default function MobileSettings() {
@@ -16,7 +16,7 @@ export default function MobileSettings() {
   // Hardware back drives this via the store; hidden sections fall back to the list.
   const subPage = rawSubPage && !MOBILE_HIDDEN_SECTIONS.has(rawSubPage) ? rawSubPage : null;
   const { t } = useTranslation();
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useUiLanguage();
   const nav = useMemo(() => mobileSettingsNav(getSettingsNav()), [locale]);
   const current = nav.find((n) => n.id === subPage);
   const pluginChildren = usePluginNavChildren();

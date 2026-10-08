@@ -7,7 +7,7 @@ import { Modal } from "@/components/shared/Modal";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
 import { useIsAndroid } from "@/utils/platform";
-import { useLocaleStore } from "@/stores/localeStore";
+import { useUiLanguage } from "@/i18n";
 import MobileSettings from "@/components/settings/MobileSettings";
 import { usePluginNavChildren, useResolvedPluginPage } from "@/components/settings/usePluginNavChildren";
 
@@ -18,7 +18,7 @@ export default function SettingsModal() {
   const setSection = useUIStore((s) => s.setSettingsSection);
   const isAndroid = useIsAndroid();
   const { t } = useTranslation();
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useUiLanguage();
   const nav = useMemo(() => getSettingsNav(), [locale]);
   const pluginChildren = usePluginNavChildren();
   const activePluginPage = useResolvedPluginPage();

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { afterEach, expect, test } from "vitest";
-import i18n from "@/i18n";
+import { afterEach, beforeAll, expect, test } from "vitest";
+import i18n, { ensureLocale } from "@/i18n";
 import { compareStrings, formatDate, formatNumber, formatRelative, SHORT_DATE } from "./localeFormat";
 
+beforeAll(() => Promise.all([ensureLocale("fr"), ensureLocale("tr")]));
 afterEach(() => i18n.changeLanguage("en"));
 
 const day = new Date(2026, 0, 15);
