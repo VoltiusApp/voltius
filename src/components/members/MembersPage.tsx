@@ -8,7 +8,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, type MembersPanel } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
@@ -57,10 +57,8 @@ export default function MembersPage() {
   const sortMode = useUIStore((s) => s.membersSortMode);
   const setLayoutMode = useUIStore((s) => s.setMembersLayoutMode);
   const setSortMode = useUIStore((s) => s.setMembersSortMode);
-  const membersInvitePending = useUIStore((s) => s.membersInvitePending);
-  const clearMembersInvitePending = useUIStore((s) => s.clearMembersInvitePending);
-  const membersRolesPending = useUIStore((s) => s.membersRolesPending);
-  const clearMembersRolesPending = useUIStore((s) => s.clearMembersRolesPending);
+  const membersPanelPending = useUIStore((s) => s.membersPanelPending);
+  const clearMembersPanelPending = useUIStore((s) => s.clearMembersPanelPending);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const myUserId = useMyUserId();
@@ -68,27 +66,16 @@ export default function MembersPage() {
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
-  const [showInvitePanel, setShowInvitePanel] = useState(false);
-  const [showDetailPanel, setShowDetailPanel] = useState(false);
-  const [showRolesPanel, setShowRolesPanel] = useState(false);
+  const [panel, setPanel] = useState<MembersPanel | "detail" | null>(null);
+  const togglePanel = (next: MembersPanel) => setPanel((cur) => (cur === next ? null : next));
+  const closeTransientPanel = () => setPanel((cur) => (cur === "detail" || cur === "invite" ? null : cur));
   const [offboardingMembers, setOffboardingMembers] = useState<TeamMember[] | null>(null);
 
   useEffect(() => {
-    if (membersInvitePending) {
-      setShowInvitePanel(true);
-      setShowDetailPanel(false);
-      clearMembersInvitePending();
-    }
-  }, [membersInvitePending, clearMembersInvitePending]);
-
-  useEffect(() => {
-    if (membersRolesPending) {
-      setShowRolesPanel(true);
-      setShowDetailPanel(false);
-      setShowInvitePanel(false);
-      clearMembersRolesPending();
-    }
-  }, [membersRolesPending, clearMembersRolesPending]);
+    if (!membersPanelPending) return;
+    setPanel(membersPanelPending);
+    clearMembersPanelPending();
+  }, [membersPanelPending, clearMembersPanelPending]);
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -188,7 +175,7 @@ export default function MembersPage() {
   } = useDragSelection(orderedIds);
 
   const detailMember = detailMemberId ? members.find((m) => m.user_id === detailMemberId) ?? null : null;
-  const openDetail = (id: string) => { setDetailMemberId(id); setShowDetailPanel(true); setShowInvitePanel(false); };
+  const openDetail = (id: string) => { setDetailMemberId(id); setPanel("detail"); };
 
   const { focusedId } = useListKeyNav({
     orderedIds,
@@ -199,7 +186,7 @@ export default function MembersPage() {
     layoutMode,
     onEnter: openDetail,
     onEdit: openDetail,
-    onEscape: () => { setShowDetailPanel(false); setShowInvitePanel(false); },
+    onEscape: closeTransientPanel,
   });
 
   // Sessions this client hosts with the session key still in memory — the only
@@ -456,8 +443,8 @@ const vaultTabs = selectedVaultIds.length > 1
         sortMode={sortMode}
         onSortModeChange={setSortMode}
         canInvite={canPrivateInvite}
-        showInvitePanel={showInvitePanel}
-        onToggleInvite={() => { setShowInvitePanel((p) => !p); }}
+        activePanel={panel}
+        onTogglePanel={togglePanel}
         selectedCount={0}
         vaultTabs={vaultTabs}
         primaryVaultId={primaryVaultId}
@@ -496,11 +483,11 @@ const vaultTabs = selectedVaultIds.length > 1
 
     return (
       <>
-        {showInvitePanel && (
+        {panel === "invite" && (
           <ConvertToTeamGate
             vaultId={primaryVaultId}
             vaultName={localVault.name}
-            onCancel={() => setShowInvitePanel(false)}
+            onCancel={() => setPanel(null)}
             onConverted={() => {}}
           />
         )}
@@ -532,7 +519,7 @@ const vaultTabs = selectedVaultIds.length > 1
   }
 
   // ── Team vault ─────────────────────────────────────────────────────────────
-  const panelOpen = showDetailPanel || showInvitePanel || showRolesPanel;
+  const panelOpen = panel !== null;
 
   return (
     <>
@@ -540,7 +527,7 @@ const vaultTabs = selectedVaultIds.length > 1
       panelOpen={panelOpen}
       panelWidth={320}
       panel={
-        showDetailPanel && detailMember
+        panel === "detail" && detailMember
           ? (
             <MemberDetailPanel
               key={detailMember.user_id}
@@ -552,28 +539,28 @@ const vaultTabs = selectedVaultIds.length > 1
               canNameMembers={canNameMembers}
               isTargetOwner={isOwnerMember(detailMember)}
               viewer={myMember}
-              onClose={() => setShowDetailPanel(false)}
+              onClose={() => setPanel(null)}
               onUpdated={reload}
             />
           )
-          : showInvitePanel
+          : panel === "invite"
             ? (
               <InvitePanel
                 teamId={teamId}
                 existingIds={existingMemberIds}
                 teamRoles={teamRoles}
                 canNameMembers={canNameMembers}
-                onClose={() => setShowInvitePanel(false)}
+                onClose={() => setPanel(null)}
                 onMemberAdded={reload}
               />
             )
-            : showRolesPanel && myUserId
+            : panel === "roles" && myUserId
               ? (
                 <PanelShell>
                   <PanelHeader
                     title={t("members.roles")}
                     icon="lucide:shield"
-                    onClose={() => setShowRolesPanel(false)}
+                    onClose={() => setPanel(null)}
                   />
                   <div className="flex-1 overflow-y-auto p-4">
                     <TeamRolesPanel teamId={teamId} myUserId={myUserId} />
@@ -593,12 +580,10 @@ const vaultTabs = selectedVaultIds.length > 1
           sortMode={sortMode}
           onSortModeChange={setSortMode}
           canInvite={canInvite}
-          showInvitePanel={showInvitePanel}
-          onToggleInvite={() => { setShowInvitePanel((p) => !p); setShowDetailPanel(false); setShowRolesPanel(false); }}
+          activePanel={panel}
+          onTogglePanel={togglePanel}
           pendingCount={pendingInvites.length || undefined}
           canManageRoles={canManageRoles}
-          showRolesPanel={showRolesPanel}
-          onToggleRoles={() => { setShowRolesPanel((p) => !p); setShowDetailPanel(false); setShowInvitePanel(false); }}
           selectedCount={selectedIdSet.size}
           vaultTabs={vaultTabs}
           primaryVaultId={primaryVaultId}
@@ -609,7 +594,7 @@ const vaultTabs = selectedVaultIds.length > 1
           selectionAreaRef={selectionAreaRef}
           onMouseDown={handleSelectionAreaMouseDown}
           dragBox={dragBox}
-          onClick={() => { setShowDetailPanel(false); setShowInvitePanel(false); }}
+          onClick={closeTransientPanel}
           className="flex-1 overflow-y-auto px-9 pt-5 pb-9"
         >
           <div ref={itemAreaRef} className="space-y-6">
@@ -667,12 +652,12 @@ const vaultTabs = selectedVaultIds.length > 1
                     isOwner={isOwnerMember(m)}
                     isSelected={selectedIdSet.has(m.user_id)}
                     isFocused={focusedId === m.user_id}
-                    isEditing={showDetailPanel && detailMemberId === m.user_id}
+                    isEditing={panel === "detail" && detailMemberId === m.user_id}
                     layoutMode={layoutMode}
                     canManage={canActOn(m)}
                     editable={canEditMember(m)}
                     onAddRole={() => openDetail(m.user_id)}
-                    onSelect={selectFollowing(handleItemSelect, showDetailPanel, () => setDetailMemberId(m.user_id))}
+                    onSelect={selectFollowing(handleItemSelect, panel === "detail", () => setDetailMemberId(m.user_id))}
                     onOpen={() => openDetail(m.user_id)}
                     contextMenuItems={buildContextMenuItems(m)}
                     bulkContextMenuItems={selectedIdSet.has(m.user_id) ? bulkContextMenuItems : undefined}

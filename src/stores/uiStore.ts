@@ -80,6 +80,8 @@ export type CloudAuthMode = "signin" | "register";
 /** `link` moves the current local account to the cloud; `add` signs in to another one beside it. */
 export type CloudAuthPurpose = "link" | "add";
 
+export type MembersPanel = "invite" | "roles" | "security";
+
 interface UIStore {
   sidebarOpen: boolean;
   homeView: boolean;
@@ -180,12 +182,9 @@ interface UIStore {
   setKnownHostsLayoutMode: (v: LayoutMode) => void;
   snippetsPendingAction: SnippetsPendingAction;
   setSnippetsPendingAction: (action: SnippetsPendingAction) => void;
-  membersInvitePending: boolean;
-  openMembersInvite: () => void;
-  clearMembersInvitePending: () => void;
-  membersRolesPending: boolean;
-  openMembersRoles: () => void;
-  clearMembersRolesPending: () => void;
+  membersPanelPending: MembersPanel | null;
+  openMembersPanel: (panel: MembersPanel) => void;
+  clearMembersPanelPending: () => void;
   openMembersNav: () => void;
   vaultSharePending: boolean;
   openVaultSharePending: () => void;
@@ -245,8 +244,7 @@ export const useUIStore = create<UIStore>()(
         snippetsLayoutMode: "list" as LayoutMode,
         knownHostsLayoutMode: "grid" as LayoutMode,
         snippetsPendingAction: null as SnippetsPendingAction,
-        membersInvitePending: false,
-        membersRolesPending: false,
+        membersPanelPending: null,
         vaultSharePending: false,
         whatsNewOpen: false,
         lastSeenChangelogVersion: null as string | null,
@@ -313,10 +311,8 @@ export const useUIStore = create<UIStore>()(
         setSnippetsLayoutMode: (v) => setPref({ snippetsLayoutMode: v }),
         setKnownHostsLayoutMode: (v) => setPref({ knownHostsLayoutMode: v }),
         setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
-        openMembersInvite: () => set({ activeNav: "members", homeView: false, membersInvitePending: true }),
-        clearMembersInvitePending: () => set({ membersInvitePending: false }),
-        openMembersRoles: () => set({ activeNav: "members", homeView: false, membersRolesPending: true }),
-        clearMembersRolesPending: () => set({ membersRolesPending: false }),
+        openMembersPanel: (panel) => set({ activeNav: "members", homeView: false, membersPanelPending: panel }),
+        clearMembersPanelPending: () => set({ membersPanelPending: null }),
         openMembersNav: () => set({ activeNav: "members", homeView: false }),
         openVaultSharePending: () => set({ vaultSharePending: true }),
         clearVaultSharePending: () => set({ vaultSharePending: false }),

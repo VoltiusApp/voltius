@@ -116,5 +116,5 @@ test("right-clicking a second vault while a different one is active and choosing
 
   expect(useVaultStore.getState().selectedVaultIds[0]).toBe("v2");
   expect(useUIStore.getState().activeNav).toBe("members");
-  expect(useUIStore.getState().membersRolesPending).toBe(true);
+  expect(useUIStore.getState().membersPanelPending).toBe("roles");
 });

@@ -38,7 +38,7 @@ beforeEach(() => {
     teams: [], membersByTeam: {}, rolesByTeam: {},
     loadMembers: vi.fn(async () => {}),
   });
-  useUIStore.setState({ activeNav: "hosts", homeView: true, membersRolesPending: false, vaultSharePending: false });
+  useUIStore.setState({ activeNav: "hosts", homeView: true, membersPanelPending: null, vaultSharePending: false });
   useSubscriptionStore.setState({ accountMode: "server" });
 });
 afterEach(cleanup);
@@ -79,7 +79,7 @@ test("choosing Members navigates to the Members page without marking roles pendi
   const state = useUIStore.getState();
   expect(state.activeNav).toBe("members");
   expect(state.homeView).toBe(false);
-  expect(state.membersRolesPending).toBe(false);
+  expect(state.membersPanelPending).toBeNull();
 });
 
 test("choosing Roles navigates to the Members page and marks the roles panel pending", () => {
@@ -96,7 +96,7 @@ test("choosing Roles navigates to the Members page and marks the roles panel pen
   const state = useUIStore.getState();
   expect(state.activeNav).toBe("members");
   expect(state.homeView).toBe(false);
-  expect(state.membersRolesPending).toBe(true);
+  expect(state.membersPanelPending).toBe("roles");
 });
 
 // The rail's Share… action has no share sheet of its own — it switches to the

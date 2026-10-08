@@ -168,8 +168,8 @@ vi.mock("@/stores/uiStore", () => {
     membersSortMode: "name-asc",
     setMembersLayoutMode: vi.fn(),
     setMembersSortMode: vi.fn(),
-    membersInvitePending: false,
-    clearMembersInvitePending: vi.fn(),
+    membersPanelPending: null,
+    clearMembersPanelPending: vi.fn(),
     openSettings: vi.fn(),
     openCloudAuth: vi.fn(),
   };

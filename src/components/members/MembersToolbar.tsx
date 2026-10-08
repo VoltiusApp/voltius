@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { ToolbarViewControls } from "@/components/shared/ToolbarViewControls";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
+import type { MembersPanel } from "@/stores/uiStore";
 
 export interface MembersToolbarProps {
   search: string;
@@ -11,12 +12,10 @@ export interface MembersToolbarProps {
   sortMode: SortMode;
   onSortModeChange: (v: SortMode) => void;
   canInvite: boolean;
-  showInvitePanel: boolean;
-  onToggleInvite: () => void;
+  activePanel: MembersPanel | "detail" | null;
+  onTogglePanel: (panel: MembersPanel) => void;
   pendingCount?: number;
   canManageRoles?: boolean;
-  showRolesPanel?: boolean;
-  onToggleRoles?: () => void;
   selectedCount: number;
   vaultTabs?: { id: string; name: string }[];
   primaryVaultId: string | null;
@@ -27,9 +26,9 @@ export function MembersToolbar({
   search, onSearchChange,
   layoutMode, onLayoutModeChange,
   sortMode, onSortModeChange,
-  canInvite, showInvitePanel, onToggleInvite,
+  canInvite, activePanel, onTogglePanel,
   pendingCount,
-  canManageRoles, showRolesPanel, onToggleRoles,
+  canManageRoles,
   selectedCount,
   vaultTabs, primaryVaultId, onSelectVault,
 }: MembersToolbarProps) {
@@ -79,14 +78,14 @@ export function MembersToolbar({
           </span>
         )}
 
-        {canManageRoles && onToggleRoles && (
+        {canManageRoles && (
           <button
-            onClick={onToggleRoles}
+            onClick={() => onTogglePanel("roles")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
             style={{
-              background: showRolesPanel ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
-              color: showRolesPanel ? "var(--t-accent)" : "var(--t-text-primary)",
-              border: `1px solid ${showRolesPanel ? "var(--t-accent)" : "var(--t-border)"}`,
+              background: activePanel === "roles" ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
+              color: activePanel === "roles" ? "var(--t-accent)" : "var(--t-text-primary)",
+              border: `1px solid ${activePanel === "roles" ? "var(--t-accent)" : "var(--t-border)"}`,
             }}
           >
             <Icon icon="lucide:shield" width={13} />
@@ -98,15 +97,15 @@ export function MembersToolbar({
           <>
             <div className="w-px h-5 self-center bg-(--t-border-hover)" />
             <button
-              onClick={onToggleInvite}
+              onClick={() => onTogglePanel("invite")}
               className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
               style={{
-                background: showInvitePanel ? "var(--t-accent-hover)" : "var(--t-accent)",
+                background: activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)",
                 color: "var(--t-on-accent, #fff)",
                 border: "1px solid var(--t-accent-hover)",
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = showInvitePanel ? "var(--t-accent-hover)" : "var(--t-accent)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)")}
             >
               <Icon icon="lucide:user-plus" width={13} />
               {t("members.toolbar.inviteBtn")}

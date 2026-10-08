@@ -44,7 +44,7 @@ export function MembersStack({
   hasTeam?: boolean;
 }) {
   const { t } = useTranslation();
-  const openMembersInvite = useUIStore((s) => s.openMembersInvite);
+  const openMembersPanel = useUIStore((s) => s.openMembersPanel);
   const [invHovered, setInvHovered] = useState(false);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = openProp ?? uncontrolledOpen;
@@ -168,7 +168,7 @@ export function MembersStack({
         glass
       >
         <div onMouseEnter={openPopover} onMouseLeave={closePopover}>
-          <VaultShareSheet vaultId={vaultId} variant="popover" onRequestFull={openMembersInvite} />
+          <VaultShareSheet vaultId={vaultId} variant="popover" onRequestFull={() => openMembersPanel("invite")} />
         </div>
       </PickerSurface>
     </div>

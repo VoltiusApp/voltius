@@ -16,7 +16,7 @@ export function useVaultAdmin(
   const { t } = useTranslation();
   const { teams, rolesByTeam, membersByTeam } = useTeamStore();
   const openMembersNav = useUIStore((s) => s.openMembersNav);
-  const openMembersRoles = useUIStore((s) => s.openMembersRoles);
+  const openMembersPanel = useUIStore((s) => s.openMembersPanel);
   const { pos, open: openAtPointer, openAt, close: closeMenu } = useContextMenu();
   const [dialog, setDialog] = useState<VaultDialog>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -38,7 +38,7 @@ export function useVaultAdmin(
           switch (action) {
             case "share": opts?.onShare ? opts.onShare() : setShareOpen(true); return;
             case "members": opts?.onActivate?.(); openMembersNav(); return;
-            case "roles": opts?.onActivate?.(); openMembersRoles(); return;
+            case "roles": opts?.onActivate?.(); openMembersPanel(action); return;
             case "rename":
             case "makePrivate":
             case "delete":

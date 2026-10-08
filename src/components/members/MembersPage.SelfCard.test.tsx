@@ -100,7 +100,7 @@ vi.mock("@/stores/uiStore", () => {
   const state = {
     membersLayoutMode: "list", membersSortMode: "name-asc",
     setMembersLayoutMode: vi.fn(), setMembersSortMode: vi.fn(),
-    membersInvitePending: false, clearMembersInvitePending: vi.fn(),
+    membersPanelPending: null, clearMembersPanelPending: vi.fn(),
     openSettings: vi.fn(), openCloudAuth: vi.fn(),
   };
   const useUIStore = Object.assign(

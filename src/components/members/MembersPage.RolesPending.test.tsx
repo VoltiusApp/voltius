@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
   loadMembers: vi.fn(),
   loadRoles: vi.fn(),
   loadPendingInvitations: vi.fn(),
-  clearMembersRolesPending: vi.fn(),
+  clearMembersPanelPending: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -107,18 +107,16 @@ vi.mock("@/stores/subscriptionStore", () => {
   );
   return { useSubscriptionStore };
 });
-// membersRolesPending starts true, as if the vault menu's Roles action had
-// just run openMembersRoles() before this page mounted.
+// membersPanelPending starts at "roles", as if the vault menu's Roles action had
+// just run openMembersPanel("roles") before this page mounted.
 vi.mock("@/stores/uiStore", () => {
   const state = {
     membersLayoutMode: "list",
     membersSortMode: "name-asc",
     setMembersLayoutMode: vi.fn(),
     setMembersSortMode: vi.fn(),
-    membersInvitePending: false,
-    clearMembersInvitePending: vi.fn(),
-    membersRolesPending: true,
-    clearMembersRolesPending: h.clearMembersRolesPending,
+    membersPanelPending: "roles",
+    clearMembersPanelPending: h.clearMembersPanelPending,
     openSettings: vi.fn(),
     openCloudAuth: vi.fn(),
   };
@@ -149,12 +147,12 @@ beforeEach(() => {
   h.loadMembers.mockReset().mockResolvedValue(undefined);
   h.loadRoles.mockReset().mockResolvedValue(undefined);
   h.loadPendingInvitations.mockReset().mockResolvedValue(undefined);
-  h.clearMembersRolesPending.mockReset();
+  h.clearMembersPanelPending.mockReset();
 });
 afterEach(() => cleanup());
 
 // The uncleared-flag case is the one that actually bites users: if the
-// membersRolesPending effect fires without clearing the flag, the roles
+// membersPanelPending effect fires without clearing the flag, the roles
 // panel re-opens on every later visit to the Members page, overriding
 // whatever the user had open.
 test("a pending roles request opens the roles panel and clears the flag", async () => {
@@ -163,5 +161,5 @@ test("a pending roles request opens the roles panel and clears the flag", async 
 
   expect(await screen.findByTestId("team-roles-panel")).toBeTruthy();
   expect(screen.getByTestId("team-roles-panel").textContent).toBe("t1");
-  expect(h.clearMembersRolesPending).toHaveBeenCalledTimes(1);
+  expect(h.clearMembersPanelPending).toHaveBeenCalledTimes(1);
 });
