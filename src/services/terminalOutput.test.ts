@@ -5,8 +5,8 @@ const { invoke, channels } = vi.hoisted(() => ({
   channels: [] as { id: number; onmessage: (m: unknown) => void }[],
 }));
 
-vi.mock("@/lib/invoke", () => ({ invoke }));
-vi.mock("@tauri-apps/api/core", () => ({
+vi.mock("@/lib/invoke", () => ({
+  invoke,
   Channel: class {
     id = channels.length + 1;
     onmessage: (m: unknown) => void = () => {};

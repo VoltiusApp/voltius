@@ -1,6 +1,8 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { fromInvokeRejection } from "@/services/backendErrors";
 
+export { Channel } from "@tauri-apps/api/core";
+
 /**
  * `invoke` from @tauri-apps/api/core, rejecting a coded backend error as a
  * `BackendError` rather than a plain object. The app's only way to call a

@@ -1,6 +1,5 @@
-import { Channel } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { invoke } from "@/lib/invoke";
+import { Channel, invoke } from "@/lib/invoke";
 import { logFailure } from "@/lib/logger";
 
 type OutputHandler = (data: Uint8Array) => void;
