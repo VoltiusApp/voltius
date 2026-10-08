@@ -19,16 +19,16 @@ interface Props {
 }
 
 export default function TerminalView({ sessionId, sessionType, onClosed, active, inputGate, encoding, onResize, compact }: Props) {
-  const { attach, focus, fit } = useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize });
+  const { attach, activate, fit } = useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize });
   const [scrollMinimapEnabled] = useToggle("scroll-minimap");
   const showMinimap = scrollMinimapEnabled && !compact;
 
   useEffect(() => {
     if (active) {
-      focus();
+      activate();
       fit();
     }
-  }, [active, focus, fit]);
+  }, [active, activate, fit]);
 
   return (
     <div className={`relative h-full w-full pl-3.5 pr-2.5${compact ? " terminal-compact" : ""}`}>

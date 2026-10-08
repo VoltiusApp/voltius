@@ -6,6 +6,7 @@ import {
   type TerminalClipboardHandle,
   type TerminalClipboardOptions,
 } from "@/components/terminal/terminalClipboard";
+import { claimWebglRenderer } from "@/utils/webglAddon";
 
 /** A terminal that outlives the views it is mounted in. */
 export interface CachedTerminal {
@@ -28,7 +29,14 @@ export function disposeClosedTerminals(cache: Map<string, { dispose(): void }>, 
 /** Move a cached terminal's element into a new view's container. */
 export function reattachTerminal(entry: CachedTerminal, container: HTMLDivElement): void {
   if (entry.terminal.element) container.appendChild(entry.terminal.element);
+  claimWebglRenderer(entry.terminal);
   entry.fitAddon.fit();
+}
+
+/** Bring a cached terminal to the front: keyboard focus and a WebGL renderer. */
+export function activateTerminal(entry: CachedTerminal): void {
+  claimWebglRenderer(entry.terminal);
+  entry.terminal.focus();
 }
 
 function bindTerminalContainer(entry: CachedTerminal, container: HTMLDivElement, clipOptions?: TerminalClipboardOptions): () => void {

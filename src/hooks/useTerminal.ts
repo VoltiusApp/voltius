@@ -1,8 +1,8 @@
-import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { activateTerminal, disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferRange, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { createWebglAddon } from "@/utils/webglAddon";
+import { claimWebglRenderer } from "@/utils/webglAddon";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -995,11 +995,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         ta.spellcheck = false;
       });
 
-      try {
-        term.loadAddon(createWebglAddon());
-      } catch {
-        // WebGL not available, use default canvas renderer
-      }
+      claimWebglRenderer(term);
 
       // OSC 7 — shell-reported cwd (file://host/path). Used by the right-panel
       // SFTP tab's "follow cwd" feature. Silently no-ops for shells that don't
@@ -1194,8 +1190,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     return () => window.removeEventListener("theme-preview", handler);
   }, [sessionId]);
 
-  const focus = useCallback(() => {
-    terminalCache.get(sessionId)?.terminal.focus();
+  const activate = useCallback(() => {
+    const entry = terminalCache.get(sessionId);
+    if (entry) activateTerminal(entry);
   }, [sessionId]);
 
   const fit = useCallback(() => {
@@ -1210,5 +1207,5 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     sendResize(sessionId, sessionType, term.cols, term.rows);
   }, [sessionId, sessionType]);
 
-  return { attach, focus, fit };
+  return { attach, activate, fit };
 }

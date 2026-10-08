@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { createWebglAddon } from "@/utils/webglAddon";
+import { claimWebglRenderer } from "@/utils/webglAddon";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
-import { disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { activateTerminal, disposeClosedTerminals, reattachTerminal, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
@@ -53,11 +53,7 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
   term.open(container);
   const queryGuard = suppressTerminalQueries(term);
 
-  try {
-    term.loadAddon(createWebglAddon());
-  } catch {
-    // fallback to canvas
-  }
+  claimWebglRenderer(term);
 
   const entry: GuestTerminal = { terminal: term, fitAddon, clip: null, dispose: () => {} };
   term.attachCustomKeyEventHandler((e) => entry.clip?.handleKeyEvent(e) ?? true);
@@ -93,8 +89,9 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
   useEffect(() => {
     if (!active) return;
     const entry = guestTerminals.get(localSessionId);
-    entry?.terminal.focus();
-    entry?.fitAddon.fit();
+    if (!entry) return;
+    activateTerminal(entry);
+    entry.fitAddon.fit();
   }, [active, localSessionId]);
 
   // Live theme updates
