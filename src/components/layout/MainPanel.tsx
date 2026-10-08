@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { sessionClosed } from "@/stores/reconnectBackoff";
@@ -27,6 +28,7 @@ import { DropZones } from "@/components/panes/DropZones";
 import { DragGhost } from "@/components/panes/DragGhost";
 import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { isStatusBarVisible } from "@/utils/sessionVisibility";
+import type { TerminalSession } from "@/types";
 
 function NoVaultSelected() {
   const { t } = useTranslation();
@@ -55,8 +57,55 @@ function NoVaultSelected() {
 
 const PLACEHOLDER_PAGES: Record<string, { icon: string; title: string; description: string }> = {};
 
+const SessionTab = memo(function SessionTab({
+  session,
+  selected,
+  showSplitWorkspace,
+  covered,
+  sftpPanelOpen,
+}: {
+  session: TerminalSession;
+  selected: boolean;
+  showSplitWorkspace: boolean;
+  covered: boolean;
+  sftpPanelOpen: boolean;
+}) {
+  const visible = !showSplitWorkspace && selected;
+  const onClosed = useCallback(
+    (remoteExit: boolean) => sessionClosed(session.type, session.id, remoteExit),
+    [session.type, session.id],
+  );
+  return (
+    <div className={`absolute inset-0 ${visible ? "z-10" : "z-0 invisible"}`}>
+      <SessionConnectionOverlay session={session} />
+      {session.type === "multiplayer" ? (
+        <div className="absolute inset-0 flex flex-col">
+          <MultiplayerTerminalView localSessionId={session.id} active={selected && !covered} visible={visible} />
+          <MultiplayerBar localSessionId={session.id} />
+        </div>
+      ) : (
+        <HostAwareTerminalView
+          session={session}
+          active={selected && session.status === "connected" && !covered}
+          visible={visible}
+          statusBarVisible={isStatusBarVisible({
+            sessionId: session.id,
+            activeSessionId: selected ? session.id : null,
+            showSplitWorkspace,
+            overlayContent: covered,
+            sftpPanelOpen,
+          })}
+          onClosed={onClosed}
+        />
+      )}
+      {selected && !covered && <DropZones target={{ type: "session", sessionId: session.id }} />}
+    </div>
+  );
+});
+
 export default function MainPanel() {
-  const { sessions, activeSessionId } = useSessionStore();
+  const sessions = useSessionStore((s) => s.sessions);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
@@ -132,41 +181,14 @@ export default function MainPanel() {
               {sessions
                 .filter((session) => !splitSessionIds.includes(session.id))
                 .map((session) => (
-                  <div
+                  <SessionTab
                     key={session.id}
-                    className={`absolute inset-0 ${
-                      !showSplitWorkspace && session.id === activeSessionId ? "z-10" : "z-0 invisible"
-                    }`}
-                  >
-                    <SessionConnectionOverlay session={session} />
-                    {session.type === "multiplayer" ? (
-                      <div className="absolute inset-0 flex flex-col">
-                        <MultiplayerTerminalView
-                          localSessionId={session.id}
-                          active={session.id === activeSessionId && !overlayContent}
-                          visible={!showSplitWorkspace && session.id === activeSessionId}
-                        />
-                        <MultiplayerBar localSessionId={session.id} />
-                      </div>
-                    ) : (
-                      <HostAwareTerminalView
-                        session={session}
-                        active={session.id === activeSessionId && session.status === "connected" && !overlayContent}
-                        visible={!showSplitWorkspace && session.id === activeSessionId}
-                        statusBarVisible={isStatusBarVisible({
-                          sessionId: session.id,
-                          activeSessionId,
-                          showSplitWorkspace,
-                          overlayContent: !!overlayContent,
-                          sftpPanelOpen,
-                        })}
-                        onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
-                      />
-                    )}
-                    {session.id === activeSessionId && !overlayContent && (
-                      <DropZones target={{ type: "session", sessionId: session.id }} />
-                    )}
-                  </div>
+                    session={session}
+                    selected={session.id === activeSessionId}
+                    showSplitWorkspace={showSplitWorkspace}
+                    covered={!!overlayContent}
+                    sftpPanelOpen={sftpPanelOpen}
+                  />
                 ))}
             </div>
           </div>

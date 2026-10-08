@@ -11,9 +11,13 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("@/hooks/useAllConnections", () => ({
-  useAllConnections: () => [{ id: "c1", username: "root", host: "web-01", port: 22 }],
-}));
+vi.mock("@/hooks/useAllConnections", () => {
+  const connections = [{ id: "c1", username: "root", host: "web-01", port: 22 }];
+  return {
+    useAllConnections: () => connections,
+    useConnection: (id: string) => connections.find((c) => c.id === id),
+  };
+});
 
 afterEach(() => {
   cleanup();

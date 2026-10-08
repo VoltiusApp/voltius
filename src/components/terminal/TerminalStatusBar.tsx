@@ -11,7 +11,7 @@ import { useStatusBarStore } from "@/stores/statusBarStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
-import { useAllConnections } from "@/hooks/useAllConnections";
+import { useConnection } from "@/hooks/useAllConnections";
 import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
@@ -211,8 +211,7 @@ function SerialLineControls({
 
 export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions, visible = true }: Props) {
   const { t } = useTranslation();
-  const connections = useAllConnections();
-  const connection = useMemo(() => connections.find((c) => c.id === connectionId), [connections, connectionId]);
+  const connection = useConnection(connectionId);
   const pingStatus = useHostPingStore((s) => s.statuses[connectionId]);
   const latencyMs = useHostPingStore((s) => s.latencies[connectionId]);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
@@ -343,11 +342,12 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   useEffect(() => {
     if (connectedAt === null) { setUptime(null); return; }
+    if (!visible) return;
     const tick = () => setUptime(fmtUptime(Math.floor((Date.now() - connectedAt) / 1000)));
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [connectedAt]);
+  }, [connectedAt, visible]);
 
   useEffect(() => {
     const count = tunnels.length;

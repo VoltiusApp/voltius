@@ -12,7 +12,7 @@ export function PaneView({ node, visible }: { node: PaneNode; visible: boolean }
   const maximizedPaneId = useLayoutStore((s) => s.maximizedPaneId);
   const setActivePane = useLayoutStore((s) => s.setActivePane);
   const broadcastActive = useLayoutStore((s) => s.broadcastActive);
-  const sessions = useSessionStore((s) => s.sessions);
+  const session = useSessionStore((s) => (node.type === "leaf" ? s.sessions.find((x) => x.id === node.sessionId) : undefined));
   const setActive = useSessionStore((s) => s.setActive);
   const isDragging = useDragStore((s) => s.isDragging);
   const sourcePaneId = useDragStore((s) => s.sourcePaneId);
@@ -34,7 +34,6 @@ export function PaneView({ node, visible }: { node: PaneNode; visible: boolean }
     );
   }
 
-  const session = sessions.find((s) => s.id === node.sessionId);
   if (!session) return null;
 
   const active = activePaneId === node.id;

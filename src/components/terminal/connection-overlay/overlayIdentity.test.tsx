@@ -31,7 +31,10 @@ vi.mock("@/stores/identityStore", () => ({
 }));
 vi.mock("@/stores/identityPickStore", () => ({ useIdentityPickStore: h.fromState(() => ({ status: h.status, byObject: {}, byTeam: {} })) }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => (_p: string, _v: string, o?: string) => !h.denied.has(o ?? "") }));
-vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => h.connections }));
+vi.mock("@/hooks/useAllConnections", () => ({
+  useAllConnections: () => h.connections,
+  useConnection: (id: string) => (h.connections as { id: string }[]).find((c) => c.id === id),
+}));
 vi.mock("@/components/shared/Pills", () => ({
   Pills: ({ options }: { options: { value: string; label: string }[] }) => <div>{options.map((o) => <span key={o.value}>{o.label}</span>)}</div>,
 }));

@@ -20,3 +20,16 @@ export function useAllConnections(): Connection[] {
     return [...map.values()];
   }, [personal, teamMap, teamIds]);
 }
+
+/** One entry of `useAllConnections()` by id, re-rendering only when that entry changes. */
+export function useConnection(id: string | undefined): Connection | undefined {
+  const teamIds = useTeamStore(useShallow((s) => s.teams.map((t) => t.id)));
+  return useConnectionStore((s) => {
+    if (!id) return undefined;
+    for (let i = teamIds.length - 1; i >= 0; i--) {
+      const team = s.teamConnections[teamIds[i]]?.find((c) => c.id === id);
+      if (team) return team;
+    }
+    return s.connections.find((c) => c.id === id);
+  });
+}

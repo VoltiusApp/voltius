@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useIdentityStore } from "@/stores/identityStore";
 import { usePermissions } from "@/hooks/usePermission";
-import { useAllConnections } from "@/hooks/useAllConnections";
+import { useConnection } from "@/hooks/useAllConnections";
 import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { useTeamName } from "@/hooks/useTeamName";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
@@ -35,7 +35,7 @@ export function OverlayIdentityField({
   const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const can = usePermissions();
-  const connection = useAllConnections().find((c) => c.id === connectionId);
+  const connection = useConnection(connectionId);
   const { teamId, groups, picksOffered, isOwn } = useCredentialPlan(connection ?? NO_CONNECTION);
 
   useEffect(() => {

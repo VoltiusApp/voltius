@@ -15,7 +15,7 @@ import { findLeaf, findSessionPane, useLayoutStore, type SplitPosition } from "@
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
+import { useConnection } from "@/hooks/useAllConnections";
 import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { closeSession } from "@/services/closeSession";
@@ -91,8 +91,7 @@ const tooltipStyle: React.CSSProperties = {
 
 export function PaneHeader({ paneId, session, active }: { paneId: string; session: TerminalSession; active: boolean }) {
   const { t } = useTranslation();
-  const connections = useAllConnections();
-  const connection = connections.find((c) => c.id === session.connectionId);
+  const connection = useConnection(session.connectionId);
   const latencyMs = useHostPingStore((s) => s.latencies[session.connectionId]);
   const pingStatus = useHostPingStore((s) => s.statuses[session.connectionId]);
   const [pingEnabled] = useToggle("reachability");
