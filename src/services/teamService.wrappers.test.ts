@@ -101,6 +101,11 @@ describe("request shaping", () => {
 });
 
 describe("error mapping", () => {
+  test("listTeams rejects on a server error instead of reporting no teams", async () => {
+    connected();
+    h.appFetch.mockResolvedValueOnce(err(500));
+    await expect(listTeams()).rejects.toThrow("common.error.failedToListTeams");
+  });
   test("addMember 404 → userNotFoundVoltiusAccount, other → generic", async () => {
     connected();
     h.appFetch.mockResolvedValueOnce(err(404));

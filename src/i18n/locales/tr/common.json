@@ -122,6 +122,7 @@
       "handleManaged": "Bu sunucuda kullanıcı adlarını kuruluşunuz yönetiyor.",
       "failedToCreateTeam": "Ekip oluşturulamadı: {{status}}",
       "failedToRenameTeam": "Ekip yeniden adlandırılamadı: {{status}}",
+      "failedToListTeams": "Ekipler listelenemedi: {{status}}",
       "failedToDeleteTeam": "Ekip silinemedi: {{status}}",
       "failedToListMembers": "Üyeler listelenemedi: {{status}}",
       "failedToListVaultKeyHolders": "Kasa anahtarına sahip üyeler listelenemedi: {{status}}",

@@ -122,6 +122,7 @@
       "handleManaged": "На этом сервере псевдонимами управляет ваша организация.",
       "failedToCreateTeam": "Не удалось создать команду: {{status}}",
       "failedToRenameTeam": "Не удалось переименовать команду: {{status}}",
+      "failedToListTeams": "Не удалось загрузить список команд: {{status}}",
       "failedToDeleteTeam": "Не удалось удалить команду: {{status}}",
       "failedToListMembers": "Не удалось получить список участников: {{status}}",
       "failedToListVaultKeyHolders": "Не удалось получить список владельцев ключа хранилища: {{status}}",

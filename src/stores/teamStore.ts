@@ -3,6 +3,8 @@ import { invoke } from "@/lib/invoke";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
+import { combineLockPolicies } from "@/services/lockPolicy";
+import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import type { CreatedTeam, Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
@@ -109,9 +111,11 @@ export const useTeamStore = create<TeamStore>()(
           t.owner_tier === prev[i].owner_tier &&
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
+          JSON.stringify(t.lock_policy ?? null) === JSON.stringify(prev[i].lock_policy ?? null) &&
           JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
+      useOrgLockPolicyStore.getState().setPolicy(combineLockPolicies(teams));
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
       }

@@ -122,6 +122,7 @@
       "handleManaged": "此服务器上的用户名由你的组织管理。",
       "failedToCreateTeam": "创建团队失败：{{status}}",
       "failedToRenameTeam": "重命名团队失败：{{status}}",
+      "failedToListTeams": "加载团队列表失败：{{status}}",
       "failedToDeleteTeam": "删除团队失败：{{status}}",
       "failedToListMembers": "获取成员列表失败：{{status}}",
       "failedToListVaultKeyHolders": "获取保险库密钥持有者列表失败：{{status}}",

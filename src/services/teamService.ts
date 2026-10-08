@@ -87,7 +87,7 @@ export async function listTeams(): Promise<Team[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
   const res = await fetchAuth(`${serverUrl}/v1/teams`);
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeams", { status: res.status }));
   return res.json();
 }
 

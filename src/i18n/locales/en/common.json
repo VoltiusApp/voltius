@@ -122,6 +122,7 @@
       "handleManaged": "Your organization manages handles on this server.",
       "failedToCreateTeam": "Failed to create team: {{status}}",
       "failedToRenameTeam": "Failed to rename team: {{status}}",
+      "failedToListTeams": "Failed to list teams: {{status}}",
       "failedToDeleteTeam": "Failed to delete team: {{status}}",
       "failedToListMembers": "Failed to list members: {{status}}",
       "failedToListVaultKeyHolders": "Failed to list vault key holders: {{status}}",
