@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   autoLogin: vi.fn(async () => "ok"),
   systemAuthUnlock: false,
   available: true,
+  exists: true,
+  serverMode: false,
   authProps: null as null | { isLocked: boolean; systemAuth?: boolean },
 }));
 
@@ -18,13 +20,13 @@ vi.mock("@/services/account", () => ({
   autoLogin: h.autoLogin,
   getAppLock: vi.fn(async () => h.lock),
   setAppLock: vi.fn(async () => {}),
-  isServerMode: vi.fn(async () => false),
+  isServerMode: vi.fn(async () => h.serverMode),
 }));
 vi.mock("@/services/appLock", () => ({ systemAuthAvailable: vi.fn(async () => h.available) }));
 vi.mock("@/stores/securityStore", () => ({
   useSecurityStore: { getState: () => ({ systemAuthUnlock: h.systemAuthUnlock }) },
 }));
-vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: true })) }));
+vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: h.exists })) }));
 vi.mock("./AuthPage", () => ({
   default: (p: { isLocked: boolean; systemAuth?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
@@ -36,6 +38,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   h.lock = null;
   h.systemAuthUnlock = false;
+  h.exists = true;
+  h.serverMode = false;
   h.authProps = null;
   h.autoLogin.mockClear();
 });
@@ -73,4 +77,21 @@ test("a screen lock that survived a restart is up before the shell shows", async
   await advance(10_000);
   expect(h.autoLogin).toHaveBeenCalled();
   expect(lockedAtReady).toBe("screen");
+});
+
+test("a vault-locked cloud account with no vault file yet still gets the unlock page", async () => {
+  h.lock = "vault";
+  h.exists = false;
+  h.serverMode = true;
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true });
+});
+
+test("a vault lock with no vault file and no cloud account is a first launch", async () => {
+  h.lock = "vault";
+  h.exists = false;
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: false });
 });

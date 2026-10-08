@@ -67,9 +67,10 @@ export default function SplashScreen({ onReady }: Props) {
       if ((await getAppLock()) === "vault") {
         setSystemAuth(useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable()));
         try {
-          const { exists } = await getVaultStatus();
-          setStep("vault", "done", exists ? t("layout.splash.vaultLocked") : t("layout.splash.firstLaunch"));
-          setPhase(exists ? "auth-locked" : "auth-first-launch");
+          // A cloud account has nothing on disk until its first secret; login() re-derives from the server.
+          const locked = (await getVaultStatus()).exists || (await isServerMode());
+          setStep("vault", "done", locked ? t("layout.splash.vaultLocked") : t("layout.splash.firstLaunch"));
+          setPhase(locked ? "auth-locked" : "auth-first-launch");
         } catch {
           setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
           setPhase("auth-first-launch");
