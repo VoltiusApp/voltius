@@ -28,14 +28,14 @@ jobs:
 
       - run: node scripts/check-plugin-versions.mjs
 
-  # `pnpm build` runs scripts/build-plugins.mjs, which spawns a child process per
-  # plugin. That spawn is platform-sensitive — on Windows `pnpm` is a .cmd shim —
-  # and until v0.14.0 nothing here ever ran the frontend build on Windows. The
-  # release job was the only place it executed on that platform, so a Windows-only
-  # break stayed invisible until release time and shipped v0.14.0 with NO Windows
-  # installers at all. Frontend-only and no Rust, so it stays cheap.
-  frontend-build-windows:
-    runs-on: windows-latest
+  # Release builds on these OSes compile cfg(target_os) code that the Linux jobs never see,
+  # and `pnpm build` spawns plugin builds differently on Windows; break here, not after the tag.
+  platform-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
@@ -50,8 +50,7 @@ jobs:
 
       - run: pnpm build
 
-      # `pnpm build` exits 0 having built nothing if the plugin loop silently
-      # skips, so assert the artifacts actually landed rather than trusting it.
+      # `pnpm build` exits 0 having built nothing if the plugin loop silently skips.
       - name: Assert all six plugin bundles were produced
         shell: pwsh
         run: |
@@ -64,6 +63,16 @@ jobs:
             }
           }
           Write-Host "all six plugin bundles present"
+
+      - name: Install Rust (pinned by rust-toolchain.toml)
+        run: rustup show
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: Cargo check
+        run: cargo check --workspace
 
   frontend-tests:
     runs-on: ubuntu-latest
