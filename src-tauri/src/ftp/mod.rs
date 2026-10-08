@@ -247,6 +247,20 @@ impl FtpBackend {
             .collect())
     }
 
+    /// Whether its parent folder lists `path` as a symlink.
+    async fn is_link(&self, path: &str) -> Result<bool, AppError> {
+        let path = path.trim_end_matches('/');
+        let Some((parent, name)) = path.rsplit_once('/') else {
+            return Ok(false);
+        };
+        let parent = if parent.is_empty() { "/" } else { parent };
+        Ok(self
+            .entries(parent)
+            .await?
+            .iter()
+            .any(|f| f.name() == name && f.is_symlink()))
+    }
+
     /// Whether `path` is a folder: one the server lets us change into.
     async fn is_dir(&self, s: &mut Session, path: &str) -> Result<bool, AppError> {
         let prev = call!(**s, |ftp| ftp.pwd()).ok();
@@ -292,6 +306,12 @@ impl FileBackend for FtpBackend {
                 permissions: None,
             })
             .collect();
+        if files.iter().any(|f| f.is_symlink) {
+            let mut s = self.session().await?;
+            for f in files.iter_mut().filter(|f| f.is_symlink) {
+                f.is_dir = self.is_dir(&mut s, &f.path).await?;
+            }
+        }
         sort_listing(&mut files);
         Ok(files)
     }
@@ -334,7 +354,8 @@ impl FileBackend for FtpBackend {
         // Files (and symlinks) delete directly; directories need their contents
         // removed first. Gather the tree breadth-first, then delete files, then
         // dirs deepest-first.
-        if !matches!(FileBackend::stat(self, path).await?, Some(true)) {
+        if self.is_link(path).await? || !matches!(FileBackend::stat(self, path).await?, Some(true))
+        {
             return Endpoint::remove(self, path).await;
         }
         let mut dirs = vec![path.to_string()];
@@ -344,7 +365,7 @@ impl FileBackend for FtpBackend {
             let dir = dirs[i].clone();
             i += 1;
             for e in self.list_dir(&dir).await? {
-                if e.is_dir {
+                if e.is_dir && !e.is_symlink {
                     dirs.push(e.path);
                 } else {
                     files.push(e.path);

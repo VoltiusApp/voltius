@@ -296,6 +296,7 @@ mod live {
     use super::super::connect;
     use super::FtpBackend;
     use crate::commands::sftp::resume::live::round_trip_through_restarts;
+    use crate::sftp::FileBackend;
     use crate::ssh::test_docker::Container;
     use std::time::{Duration, Instant};
 
@@ -310,27 +311,84 @@ mod live {
         }
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "needs docker and network; takes host port 2120"]
-    async fn vsftpd_resumes_with_rest_and_appe_without_mlst() {
-        let c = Container::run(
-            format!("ftp-resume-{}", std::process::id()),
+    /// vsftpd on `port` (no MLSD), with `setup` run in the container as root first.
+    fn vsftpd(name: &str, port: u16, setup: &str) -> Container {
+        let script = format!(
+            "apk add -q vsftpd >/dev/null; adduser -D -h /home/u u; echo u:p | chpasswd; {setup} \
+             exec vsftpd /etc/vsftpd/vsftpd.conf -olisten=YES -olisten_ipv6=NO \
+             -olisten_port={port} -obackground=NO -oanonymous_enable=NO -olocal_enable=YES \
+             -owrite_enable=YES -oseccomp_sandbox=NO -opasv_address=127.0.0.1 \
+             -opasv_min_port=30000 -opasv_max_port=30009"
+        );
+        Container::run(
+            format!("{name}-{}", std::process::id()),
             &[
                 "--network=host",
                 "--restart=on-failure",
                 "alpine:3",
                 "sh",
                 "-c",
-                "apk add -q vsftpd >/dev/null; adduser -D -h /home/u u; echo u:p | chpasswd; \
-                 exec vsftpd /etc/vsftpd/vsftpd.conf -olisten=YES -olisten_ipv6=NO \
-                 -olisten_port=2120 -obackground=NO -oanonymous_enable=NO -olocal_enable=YES \
-                 -owrite_enable=YES -oseccomp_sandbox=NO -opasv_address=127.0.0.1 \
-                 -opasv_min_port=30000 -opasv_max_port=30009",
+                &script,
             ],
-        );
+        )
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs docker and network; takes host port 2120"]
+    async fn vsftpd_resumes_with_rest_and_appe_without_mlst() {
+        let c = vsftpd("ftp-resume", 2120, "");
         let fs = connected(2120).await;
         assert!(!fs.mlsx && !fs.mfmt);
         round_trip_through_restarts(&fs, "/home/u/blob", &c.0, true).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs docker and network; takes host port 2122"]
+    async fn links_list_as_their_target_and_delete_as_links() {
+        let _c = vsftpd(
+            "ftp-links",
+            2122,
+            "cd /home/u && mkdir folder tree && touch file folder/keep && \
+             ln -s folder folder_link && ln -s file file_link && ln -s gone dangling && \
+             ln -s /home/u/folder tree/out && chown -hR u /home/u;",
+        );
+        let fs = connected(2122).await;
+
+        let kinds: Vec<_> = fs
+            .list_dir("/home/u")
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|f| (f.name, f.is_dir, f.is_symlink))
+            .collect();
+        let kinds: Vec<_> = kinds.iter().map(|(n, d, l)| (n.as_str(), *d, *l)).collect();
+        assert_eq!(
+            kinds,
+            [
+                ("folder", true, false),
+                ("folder_link", true, true),
+                ("tree", true, false),
+                ("dangling", false, true),
+                ("file", false, false),
+                ("file_link", false, true),
+            ]
+        );
+
+        fs.delete("/home/u/tree").await.unwrap();
+        fs.delete("/home/u/folder_link").await.unwrap();
+        let left: Vec<_> = fs
+            .list_dir("/home/u/folder")
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(left, ["keep"]);
+        assert_eq!(FileBackend::stat(&fs, "/home/u/tree").await.unwrap(), None);
+        assert_eq!(
+            FileBackend::stat(&fs, "/home/u/folder_link").await.unwrap(),
+            None
+        );
     }
 
     const PROFTPD: &str = "ServerName t\nServerType standalone\nPort 2121\n\
