@@ -6,7 +6,9 @@
 
 use serde::Serialize;
 
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub const ANDROID: u8 = 1;
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub const WINDOWS: u8 = 2;
 const MAGIC: &[u8; 3] = b"VS1";
 
