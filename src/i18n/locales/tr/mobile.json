@@ -122,8 +122,7 @@
       "filterPlaceholder": "Kuralları filtrele…",
       "summary": "{{total}} toplam · {{active}} etkin",
       "noSearchMatches": "Aramanızla eşleşen kural yok",
-      "empty": "Henüz port yönlendirme kuralı yok",
-      "newRuleLabel": "Yeni kural"
+      "empty": "Henüz port yönlendirme kuralı yok"
     },
     "snippetEdit": {
       "editTitle": "Kod parçacığını düzenle",

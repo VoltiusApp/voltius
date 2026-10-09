@@ -15,6 +15,7 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 
 interface Props {
   rule?: PortForwardingRule | null;
+  initialTunnelType?: TunnelType;
   onSave: (data: PortForwardingRuleFormData) => void | Promise<void>;
   onClose: () => void;
   isDirtyRef?: React.MutableRefObject<boolean>;
@@ -97,7 +98,7 @@ function FieldHelp({ children }: { children: React.ReactNode }) {
 
 export const RuleForm = withEditAccess("port_forwarding_rule", (p: Props) => p.rule ?? undefined, RuleFormEditor);
 
-function RuleFormEditor({ rule, onSave, onClose, isDirtyRef, readOnly }: Props & EditAccessProps) {
+function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, readOnly }: Props & EditAccessProps) {
   const { t } = useTranslation();
   const TUNNEL_TYPES = useMemo(() => buildTunnelTypes(t), [t]);
   const userEditedRef = useRef(false);
@@ -106,7 +107,7 @@ function RuleFormEditor({ rule, onSave, onClose, isDirtyRef, readOnly }: Props &
   const { connections: personalConnections, teamConnections } = useConnectionStore();
 
   const [name, setName] = useState(rule?.name ?? "");
-  const [tunnelType, setTunnelType] = useState<TunnelType>(rule?.tunnel_type ?? "local");
+  const [tunnelType, setTunnelType] = useState<TunnelType>(rule?.tunnel_type ?? initialTunnelType ?? "local");
   const [localPort, setLocalPort] = useState(String(rule?.local_port ?? ""));
   const [remotePort, setRemotePort] = useState(String(rule?.remote_port ?? ""));
   const [remoteHost, setRemoteHost] = useState(rule?.remote_host ?? "127.0.0.1");

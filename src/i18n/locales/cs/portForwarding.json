@@ -22,9 +22,6 @@
       "ejectRemoveFromFolder": "Odebrat ze složky",
       "activeCount": "aktivní: {{count}}",
       "errorCount": "chyby: {{count}}",
-      "contextMenu": {
-        "newRule": "Nové pravidlo"
-      },
       "confirmDelete": {
         "title": "Smazat pravidlo",
         "message": "Toto pravidlo bude trvale smazáno."

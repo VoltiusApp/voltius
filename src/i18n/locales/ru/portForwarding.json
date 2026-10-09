@@ -20,9 +20,6 @@
       "ejectRemoveFromFolder": "Убрать из папки",
       "activeCount": "{{count}} активно",
       "errorCount": "{{count}} с ошибкой",
-      "contextMenu": {
-        "newRule": "Новое правило"
-      },
       "confirmDelete": {
         "title": "Удалить правило",
         "message": "Правило будет удалено безвозвратно."

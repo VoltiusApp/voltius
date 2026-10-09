@@ -20,9 +20,6 @@
       "ejectRemoveFromFolder": "Remove from folder",
       "activeCount": "{{count}} active",
       "errorCount": "{{count}} error",
-      "contextMenu": {
-        "newRule": "New Rule"
-      },
       "confirmDelete": {
         "title": "Delete rule",
         "message": "This rule will be permanently deleted."

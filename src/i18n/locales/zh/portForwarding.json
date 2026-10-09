@@ -20,9 +20,6 @@
       "ejectRemoveFromFolder": "从文件夹中移除",
       "activeCount": "{{count}} 个活跃",
       "errorCount": "{{count}} 个错误",
-      "contextMenu": {
-        "newRule": "新建规则"
-      },
       "confirmDelete": {
         "title": "删除规则",
         "message": "此规则将被永久删除。"

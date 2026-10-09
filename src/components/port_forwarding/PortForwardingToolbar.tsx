@@ -3,6 +3,8 @@ import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
+import type { TunnelType } from "@/types";
+import { tunnelTypeChoices } from "./tunnelTypeChoices";
 
 interface Props {
   search: string;
@@ -11,7 +13,7 @@ interface Props {
   onLayoutModeChange: (v: LayoutMode) => void;
   sortMode: SortMode;
   onSortModeChange: (v: SortMode) => void;
-  onNewRule?: () => void;
+  onNewRule?: (type?: TunnelType) => void;
   onNewFolder?: () => void;
   selectedCount?: number;
   onDeleteSelected?: () => void;
@@ -65,12 +67,16 @@ export function PortForwardingToolbar({
           <ToolbarDropdown
             icon="lucide:plus"
             label={compact ? undefined : t("portForwarding.toolbar.newRule")}
-            onAction={onNewRule ?? (() => {})}
-            items={onNewFolder ? [{ label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onNewFolder }] : []}
+            onAction={() => onNewRule?.()}
+            items={[
+              ...(onNewRule ? tunnelTypeChoices(t).map((c) => ({ label: c.label, icon: c.icon, onClick: () => onNewRule(c.type) })) : []),
+              ...(onNewRule && onNewFolder ? [{ separator: true } as const] : []),
+              ...(onNewFolder ? [{ label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onNewFolder }] : []),
+            ]}
             disabled={!onNewRule}
             variant="accent"
             align="right"
-            menuWidth={160}
+            menuWidth={200}
           />
         </div>
       </div>

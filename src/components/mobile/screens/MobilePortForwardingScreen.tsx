@@ -19,13 +19,14 @@ import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBrea
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import { RuleForm } from "@/components/port_forwarding/RuleForm";
+import { tunnelTypeChoices } from "@/components/port_forwarding/tunnelTypeChoices";
 import { scopeItems } from "@/components/mobile/folders/mobileFolderCore";
 import { folderItemCounter } from "@/utils/folderTree";
-import type { PortForwardingRule, Folder } from "@/types";
+import type { PortForwardingRule, Folder, TunnelType } from "@/types";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 
-type FormRule = PortForwardingRule | null | "new" | undefined;
+type FormRule = PortForwardingRule | TunnelType | null | undefined;
 type AddMode = null | "menu" | "new-folder";
 
 export default function MobilePortForwardingScreen() {
@@ -60,7 +61,9 @@ export default function MobilePortForwardingScreen() {
 
   const canCreateRule = can("EDIT_CONNECTIONS", targetVaultId);
   const closeForm = () => { setFormRule(undefined); dirtyRef.current = false; };
-  const shownRuleId = formRule && formRule !== "new" ? formRule.id : null;
+  const newRuleType = typeof formRule === "string" ? formRule : undefined;
+  const editedRule = typeof formRule === "object" ? formRule : null;
+  const shownRuleId = editedRule?.id ?? null;
   useCloseWhenGone(shownRuleId, allRules.some((r) => r.id === shownRuleId), closeForm);
   const createFolder = (edit: FolderEdit) =>
     void saveFolder({ ...edit, object_type: "port_forwarding", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
@@ -117,10 +120,11 @@ export default function MobilePortForwardingScreen() {
         <div className="absolute inset-0 z-40 flex flex-col bg-(--t-bg-base)">
           <div className="flex-1 overflow-y-auto">
             <RuleForm
-              rule={formRule === "new" ? null : formRule}
+              rule={editedRule}
+              initialTunnelType={newRuleType}
               isDirtyRef={dirtyRef}
               onClose={closeForm}
-              onSave={async (data) => { if (formRule === "new") await createRule(data); else await updateRule(formRule.id, data); closeForm(); }}
+              onSave={async (data) => { if (editedRule) await updateRule(editedRule.id, data); else await createRule(data); closeForm(); }}
             />
           </div>
         </div>
@@ -128,7 +132,7 @@ export default function MobilePortForwardingScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          items={canCreateRule ? [{ slug: "item", icon: "lucide:arrow-left-right", label: t("mobile.portForwardingScreen.newRuleLabel"), onTap: () => { setAddMode(null); setFormRule("new"); } }] : []}
+          items={canCreateRule ? tunnelTypeChoices(t).map((c) => ({ slug: c.type, icon: c.icon, label: c.label, onTap: () => { setAddMode(null); setFormRule(c.type); } })) : []}
           onNewFolder={canCreateFolder ? () => setAddMode("new-folder") : undefined}
           onClose={() => setAddMode(null)}
         />

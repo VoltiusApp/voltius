@@ -20,9 +20,6 @@
       "ejectRemoveFromFolder": "Retirer du dossier",
       "activeCount": "{{count}} active",
       "errorCount": "{{count}} erreur",
-      "contextMenu": {
-        "newRule": "Nouvelle règle"
-      },
       "confirmDelete": {
         "title": "Supprimer la règle",
         "message": "Cette règle sera définitivement supprimée."

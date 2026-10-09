@@ -122,8 +122,7 @@
       "filterPlaceholder": "筛选规则…",
       "summary": "{{total}} 个总计 · {{active}} 个活跃",
       "noSearchMatches": "没有匹配搜索的规则",
-      "empty": "暂无端口转发规则",
-      "newRuleLabel": "新建规则"
+      "empty": "暂无端口转发规则"
     },
     "snippetEdit": {
       "editTitle": "编辑代码片段",

@@ -122,8 +122,7 @@
       "filterPlaceholder": "Filtrovat pravidla…",
       "summary": "celkem {{total}} · aktivní {{active}}",
       "noSearchMatches": "Hledání neodpovídá žádné pravidlo",
-      "empty": "Zatím žádná pravidla přesměrování portů",
-      "newRuleLabel": "Nové pravidlo"
+      "empty": "Zatím žádná pravidla přesměrování portů"
     },
     "snippetEdit": {
       "editTitle": "Upravit snippet",

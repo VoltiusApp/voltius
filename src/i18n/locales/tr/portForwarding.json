@@ -22,9 +22,6 @@
       "ejectRemoveFromFolder": "Klasörden çıkar",
       "activeCount": "{{count}} etkin",
       "errorCount": "{{count}} hata",
-      "contextMenu": {
-        "newRule": "Yeni kural"
-      },
       "confirmDelete": {
         "title": "Kuralı sil",
         "message": "Bu kural kalıcı olarak silinecek."

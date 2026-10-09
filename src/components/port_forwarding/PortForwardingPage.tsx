@@ -43,7 +43,8 @@ import { PortForwardingToolbar } from "./PortForwardingToolbar";
 import { ActiveTunnelsSection } from "./ActiveTunnelsSection";
 import { RuleCard } from "./RuleCard";
 import { RuleForm } from "./RuleForm";
-import type { Folder, PortForwardingRule, PortForwardingRuleFormData } from "@/types";
+import type { Folder, PortForwardingRule, PortForwardingRuleFormData, TunnelType } from "@/types";
+import { tunnelTypeChoices } from "./tunnelTypeChoices";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
 import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
@@ -100,6 +101,7 @@ export function PortForwardingPage() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const editingRule = editingRuleId ? (rules.find((r) => r.id === editingRuleId) ?? null) : null;
   const [showForm, setShowForm] = useState(false);
+  const [newRuleType, setNewRuleType] = useState<TunnelType>("local");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteIds, setConfirmDeleteIds] = useState<string[] | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -117,9 +119,7 @@ export function PortForwardingPage() {
 
   useEffect(() => {
     if (pendingAction?.action === "create") {
-      ruleFormSessionKeyRef.current = `new-rule-${Date.now()}`;
-      setEditingRuleId(null);
-      setShowForm(true);
+      openNew();
       setPendingAction(null);
     } else if (pendingAction?.action === "edit") {
       const rule = rules.find((r) => r.id === pendingAction.id) ?? null;
@@ -171,7 +171,8 @@ export function PortForwardingPage() {
 
   const folderCount = useMemo(() => folderItemCounter(rules, scopedFolders), [rules, scopedFolders]);
 
-  function openNew() {
+  function openNew(type: TunnelType = "local") {
+    setNewRuleType(type);
     ruleDirtyRef.current = false;
     ruleFormSessionKeyRef.current = `new-rule-${Date.now()}`;
     setEditingRuleId(null);
@@ -542,6 +543,7 @@ export function PortForwardingPage() {
             <RuleForm
               key={`${ruleFormSessionKeyRef.current}-${ruleFormVersion}`}
               rule={editingRule}
+              initialTunnelType={newRuleType}
               onSave={handleSave}
               onClose={closeForm}
               isDirtyRef={ruleDirtyRef}
@@ -653,7 +655,7 @@ export function PortForwardingPage() {
                 size={activeFolderId || q ? "section" : "page"}
                 icon={q ? "lucide:search-x" : activeFolderId ? "lucide:folder-open" : "lucide:arrow-right-left"}
                 title={q ? t("portForwarding.page.noRulesMatchSearch") : activeFolderId ? t("portForwarding.page.folderEmpty") : t("portForwarding.page.noRulesYet")}
-                action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: openNew }}
+                action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: () => openNew() }}
               />
             ) : filtered.length > 0 && (
               <div>
@@ -709,7 +711,7 @@ export function PortForwardingPage() {
           pos={bgMenuPos}
           onClose={closeBgMenu}
           items={[
-            { label: t("portForwarding.page.contextMenu.newRule"), icon: "lucide:network", onClick: openNew },
+            ...tunnelTypeChoices(t).map((c) => ({ label: c.label, icon: c.icon, onClick: () => openNew(c.type) })),
             { label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "port-forwarding"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]

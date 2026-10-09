@@ -122,8 +122,7 @@
       "filterPlaceholder": "Filtrer les règles…",
       "summary": "{{total}} au total · {{active}} active(s)",
       "noSearchMatches": "Aucune règle ne correspond à votre recherche",
-      "empty": "Aucune règle de redirection de ports pour l'instant",
-      "newRuleLabel": "Nouvelle règle"
+      "empty": "Aucune règle de redirection de ports pour l'instant"
     },
     "snippetEdit": {
       "editTitle": "Modifier le snippet",

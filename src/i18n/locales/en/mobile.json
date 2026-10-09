@@ -122,8 +122,7 @@
       "filterPlaceholder": "Filter rules…",
       "summary": "{{total}} total · {{active}} active",
       "noSearchMatches": "No rules match your search",
-      "empty": "No port-forwarding rules yet",
-      "newRuleLabel": "New rule"
+      "empty": "No port-forwarding rules yet"
     },
     "snippetEdit": {
       "editTitle": "Edit snippet",
