@@ -8,6 +8,7 @@ mod linux;
 mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
+pub mod seal;
 
 #[cfg(target_os = "android")]
 use android as backend;

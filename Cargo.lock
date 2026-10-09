@@ -7761,6 +7761,7 @@ dependencies = [
  "rand 0.8.6",
  "rcgen",
  "reqwest",
+ "ring",
  "rsa 0.9.10",
  "rusqlite",
  "russh",
@@ -7806,6 +7807,7 @@ dependencies = [
  "windows-registry 0.6.1",
  "windows-sys 0.59.0",
  "x25519-dalek",
+ "zeroize",
 ]
 
 [[package]]
