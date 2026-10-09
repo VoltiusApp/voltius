@@ -1,3 +1,9 @@
+// Only the Android and Windows backends seal; elsewhere the stub never builds an outcome.
+#![cfg_attr(
+    not(any(target_os = "android", target_os = "windows")),
+    allow(dead_code)
+)]
+
 use serde::Serialize;
 
 pub const ANDROID: u8 = 1;

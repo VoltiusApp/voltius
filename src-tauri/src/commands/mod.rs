@@ -37,6 +37,7 @@ pub mod team_crypto;
 pub mod termius;
 pub mod vault;
 pub mod vault_object;
+pub mod vault_secret;
 pub mod win_proc;
 pub mod wsl;
 pub mod zoc;
