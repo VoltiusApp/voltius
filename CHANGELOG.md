@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.1] - 2026-10-09
+
+### Fixed
+
+- Windows: the app no longer freezes when WSL stops responding. WSL detection now gives up after a few seconds, and the rest of the app (vaults, SSH, SFTP) keeps working without the WSL shell (#605)
+
 ## [0.52.0] - 2026-10-09
 
 ### Added
