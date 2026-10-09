@@ -39,7 +39,7 @@ export function vaultMenuItems({
   if (caps.canRename) {
     items.push({
       label: t("layout.vaultMenu.rename"),
-      icon: "lucide:pencil",
+      icon: "lucide:text-cursor-input",
       divider: true,
       onClick: () => on("rename"),
     });

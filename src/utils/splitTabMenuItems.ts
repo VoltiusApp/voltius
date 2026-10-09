@@ -38,7 +38,7 @@ export function splitTabMenuItems({
   return [
     {
       label: t("layout.titleBar.splitMenu.rename"),
-      icon: "lucide:pencil",
+      icon: "lucide:text-cursor-input",
       onClick: onRename,
     },
     {

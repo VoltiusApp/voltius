@@ -25,7 +25,7 @@ export function sessionMenuItems({
   extras?: ContextMenuItem[];
 }): ContextMenuItem[] {
   const items: ContextMenuItem[] = [
-    { label: t("panes.header.rename"), icon: "lucide:pencil", onClick: onRename },
+    { label: t("panes.header.rename"), icon: "lucide:text-cursor-input", onClick: onRename },
   ];
 
   if (canDuplicateSession(session)) {

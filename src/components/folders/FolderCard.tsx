@@ -195,8 +195,8 @@ export function FolderCard({
             t,
             onOpen,
             editItems: canEdit ? [
-              { label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => setRenaming(true) },
-              { label: t("common.action.edit"), icon: "lucide:settings-2", onClick: () => onEdit?.() },
+              { label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => setRenaming(true) },
+              { label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit?.() },
             ] : [],
             pinItem,
             pinTeamItem,

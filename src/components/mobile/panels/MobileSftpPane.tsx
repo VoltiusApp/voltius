@@ -201,7 +201,7 @@ export default function MobileSftpPane({
           {otherConnected && <SheetItem icon="lucide:arrow-right-left" label={t("mobile.sftp.copyToOtherPane")} onTap={() => { const f = sheetFor; setSheetFor(null); onCopyToOther(f); }} />}
           <SheetItem icon="lucide:download" label={t("mobile.sftp.download")} onTap={() => { const f = sheetFor; setSheetFor(null); void download(f); }} />
           <SheetItem icon="lucide:info" label={t("mobile.sftp.details")} onTap={() => { setDetailFor(sheetFor); setSheetFor(null); }} />
-          <SheetItem icon="lucide:pencil" label={t("common.action.rename")} onTap={() => { setRenaming(sheetFor); setRenameVal(sheetFor.name); setSheetFor(null); }} />
+          <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} onTap={() => { setRenaming(sheetFor); setRenameVal(sheetFor.name); setSheetFor(null); }} />
           {sftpId && canEditPermissions([sheetFor]) && (
             <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} onTap={() => { setPermissionsFor([sheetFor]); setSheetFor(null); }} />
           )}

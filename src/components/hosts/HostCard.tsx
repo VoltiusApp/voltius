@@ -155,7 +155,7 @@ export default function HostCard({
   );
 
   const contextMenuItems: ContextMenuItem[] = [
-    ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
+    ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(connection), shortcut: "E" }] : []),
     ...(!isSerial ? [{ label: t("hosts.card.openInSftp"), icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
     ...(connection.host ? [{
       label: t("hosts.card.copyHostnameIp"),
@@ -289,7 +289,7 @@ export default function HostCard({
           <div className="flex items-center gap-1 shrink-0">
             {presenceAvatar}
             {syncIcon}
-            {canEdit && <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} onClick={() => onEdit(connection)} />}
+            {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit(connection)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(connection.id)} danger />}
             {canConnect && !isSerial && !fileOnly && <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
@@ -350,7 +350,7 @@ export default function HostCard({
             <div className="flex items-end">
               <div className="flex items-center gap-1 flex-1 -mb-1.5">
                 {canEdit && (
-                  <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
+                  <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
                 )}
                 {canConnect && !isSerial && !fileOnly && (
                   <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />

@@ -622,7 +622,7 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
   if (single && !single.isDir && (ctx.isLocal || ctx.sftpId)) {
     items.push({
       label: t("common.action.edit"),
-      icon: "lucide:file-pen",
+      icon: "lucide:pencil",
       onClick: () => { openFileForEdit(single, ctx); },
     });
   }
@@ -638,7 +638,7 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
   }
 
   // Rename / Delete
-  if (single) items.push({ label: t("common.action.rename"), icon: "lucide:pencil", onClick: () => ctx.onStartRename(single) });
+  if (single) items.push({ label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => ctx.onStartRename(single) });
   if (ctx.onPermissions && canEditPermissions(files)) {
     items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files) });
   }
