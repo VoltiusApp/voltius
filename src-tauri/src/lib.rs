@@ -247,6 +247,7 @@ pub fn run() {
             app.manage(updater::UpdaterState::default());
             app.manage(KnownHostsStore::load());
             app.manage(app_lock::AppLock::load());
+            app.manage(app_lock::LastActive::load());
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
             app.manage(Arc::new(mcp::McpState::new()));
@@ -277,6 +278,8 @@ pub fn run() {
             app_lock::app_lock_get,
             app_lock::app_lock_set,
             app_lock::app_lock_hide_in_recents,
+            app_lock::app_lock_last_active,
+            app_lock::app_lock_touch,
             system_auth::system_auth_available,
             system_auth::system_auth_verify,
             terminal_kbd::terminal_show_keyboard,

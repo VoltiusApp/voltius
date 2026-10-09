@@ -65,6 +65,30 @@ impl AppLock {
     }
 }
 
+pub struct LastActive {
+    path: PathBuf,
+}
+
+impl LastActive {
+    pub fn load() -> Self {
+        Self {
+            path: crate::storage::config::config_dir().join("last-active"),
+        }
+    }
+
+    pub fn get(&self) -> Option<u64> {
+        std::fs::read_to_string(&self.path)
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    }
+
+    pub fn set(&self, at_ms: u64) -> std::io::Result<()> {
+        std::fs::write(&self.path, at_ms.to_string())
+    }
+}
+
 pub fn is_locked(app: &tauri::AppHandle) -> bool {
     app.try_state::<AppLock>()
         .is_some_and(|l| l.get().is_some())
@@ -98,6 +122,17 @@ pub fn app_lock_set(lock: tauri::State<'_, AppLock>, kind: Option<String>) -> Re
 }
 
 #[tauri::command]
+pub fn app_lock_last_active(last: tauri::State<'_, LastActive>) -> Option<u64> {
+    last.get()
+}
+
+#[tauri::command]
+pub fn app_lock_touch(last: tauri::State<'_, LastActive>, at: u64) -> Result<(), String> {
+    last.set(at)
+        .map_err(|e| format!("could not persist the last activity: {e}"))
+}
+
+#[tauri::command]
 pub fn app_lock_hide_in_recents(on: bool) {
     #[cfg(target_os = "android")]
     crate::system_auth::android::set_hide_in_recents(on);
@@ -108,6 +143,25 @@ pub fn app_lock_hide_in_recents(on: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn last_activity_survives_a_reload_from_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("last-active");
+        assert_eq!(LastActive { path: path.clone() }.get(), None);
+        LastActive { path: path.clone() }
+            .set(1_700_000_000_000)
+            .unwrap();
+        assert_eq!(LastActive { path }.get(), Some(1_700_000_000_000));
+    }
+
+    #[test]
+    fn unreadable_last_activity_reads_as_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("last-active");
+        std::fs::write(&path, "garbage").unwrap();
+        assert_eq!(LastActive { path }.get(), None);
+    }
 
     #[test]
     fn a_fresh_store_is_unlocked() {

@@ -60,18 +60,26 @@ impl SecretsStore {
     }
 
     pub fn unlock(&self, path: PathBuf, enc_key: [u8; 32]) -> Result<(), AppError> {
-        let data = if path.exists() {
+        let existed = path.exists();
+        let data = if existed {
             let bytes = std::fs::read(&path).map_err(read_failed)?;
             decrypt(&enc_key, &bytes)?
         } else {
             SecretsData::default()
         };
-        *self.inner.lock().unwrap() = Some(StoreInner {
+        let inner = StoreInner {
             enc_key,
             secrets: data.secrets,
             clocks: data.clocks,
             path,
-        });
+        };
+        // Without a file, the next unlock has nothing to check a password against.
+        if !existed {
+            if let Err(e) = save(&inner) {
+                log::warn!("could not write the empty vault: {e}");
+            }
+        }
+        *self.inner.lock().unwrap() = Some(inner);
         Ok(())
     }
 
@@ -1114,6 +1122,15 @@ mod tests {
     }
 
     #[test]
+    fn unlocking_without_a_file_writes_one_only_that_key_opens() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, path) = unlocked_store(&dir);
+        assert!(path.exists());
+        assert!(SecretsStore::new().unlock(path.clone(), [8u8; 32]).is_err());
+        assert!(SecretsStore::new().unlock(path, [7u8; 32]).is_ok());
+    }
+
+    #[test]
     fn purge_removes_only_present_keys_and_tombstones_them() {
         let dir = tempfile::tempdir().unwrap();
         let (store, _) = unlocked_store(&dir);
@@ -1136,8 +1153,9 @@ mod tests {
     fn purge_with_nothing_present_does_not_write() {
         let dir = tempfile::tempdir().unwrap();
         let (store, path) = unlocked_store(&dir);
+        let before = std::fs::read(&path).unwrap();
         assert!(store.purge(&["password:x".to_string()]).unwrap().is_empty());
-        assert!(!path.exists());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
     }
 
     #[test]

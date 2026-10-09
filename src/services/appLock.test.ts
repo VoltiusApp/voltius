@@ -16,7 +16,7 @@ vi.mock("@/services/account", () => ({
   getAppLock: () => h.invoke("app_lock_get"),
 }));
 
-import { lockApp, systemAuthVerify } from "./appLock";
+import { lockApp, lockOnLaunchIfIdle, systemAuthVerify } from "./appLock";
 import { isLeaveLockSuppressed, withLeaveLockSuppressed } from "./leaveLockSuppression";
 import { useSecurityStore } from "@/stores/securityStore";
 import { useAppLockStore } from "@/stores/appLockStore";
@@ -26,7 +26,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.invoke.mockImplementation(async () => undefined);
   h.mode = "local";
-  useSecurityStore.setState({ lockAction: "vault", systemAuthUnlock: false });
+  useSecurityStore.setState({ lockAction: "vault", systemAuthUnlock: false, sessionTimeoutMinutes: null });
+  sessionStorage.clear();
   useAppLockStore.setState({ kind: null });
   useOrgLockPolicyStore.setState({ policy: null });
   Object.defineProperty(window, "location", { value: { reload: h.reload }, writable: true, configurable: true });
@@ -138,4 +139,63 @@ test("a forced Lock vault policy locks the vault even when the member chose Lock
   await lockApp();
   expect(h.lockVaultSession).toHaveBeenCalled();
   expect(useAppLockStore.getState().kind).toBeNull();
+});
+
+const MINUTE = 60_000;
+const lastActiveAgo = (ms: number | null) =>
+  h.invoke.mockImplementation(async (cmd: unknown) =>
+    cmd === "app_lock_last_active" ? (ms === null ? null : Date.now() - ms) : undefined);
+
+test("a launch past the timeout locks the vault without reloading", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 15 });
+  lastActiveAgo(16 * MINUTE);
+  expect(await lockOnLaunchIfIdle()).toBe("vault");
+  expect(h.lockVaultSession).toHaveBeenCalledWith({ keepKeychainEntry: false });
+  expect(h.reload).not.toHaveBeenCalled();
+});
+
+test("a launch within the timeout does not lock", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 15 });
+  lastActiveAgo(14 * MINUTE);
+  expect(await lockOnLaunchIfIdle()).toBeNull();
+  expect(h.lockVaultSession).not.toHaveBeenCalled();
+});
+
+test("a launch past the timeout with Lock screen raises the overlay", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 5, lockAction: "screen" });
+  lastActiveAgo(6 * MINUTE);
+  expect(await lockOnLaunchIfIdle()).toBe("screen");
+  expect(useAppLockStore.getState().kind).toBe("screen");
+});
+
+test("a launch with no recorded activity fails closed", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 240 });
+  lastActiveAgo(null);
+  expect(await lockOnLaunchIfIdle()).toBe("vault");
+});
+
+test("a launch with Immediately always locks", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  lastActiveAgo(1000);
+  expect(await lockOnLaunchIfIdle()).toBe("vault");
+});
+
+test("a launch with Never does not lock", async () => {
+  lastActiveAgo(null);
+  expect(await lockOnLaunchIfIdle()).toBeNull();
+});
+
+test("an org maximum timeout applies at launch too", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: null });
+  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: false } });
+  lastActiveAgo(16 * MINUTE);
+  expect(await lockOnLaunchIfIdle()).toBe("vault");
+});
+
+test("a reload of the running app is not a launch", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 0 });
+  await lockOnLaunchIfIdle();
+  h.lockVaultSession.mockClear();
+  expect(await lockOnLaunchIfIdle()).toBeNull();
+  expect(h.lockVaultSession).not.toHaveBeenCalled();
 });

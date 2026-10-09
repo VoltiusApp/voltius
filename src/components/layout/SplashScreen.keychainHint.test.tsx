@@ -16,7 +16,9 @@ vi.mock("@/services/account", () => ({
   getAppLock: vi.fn(async () => null),
   setAppLock: vi.fn(async () => {}),
   isServerMode: vi.fn(async () => false),
+  getAccountMode: vi.fn(async () => "local"),
 }));
+vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => false, lockOnLaunchIfIdle: async () => null }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: true })) }));
 vi.mock("./AuthPage", () => ({ default: () => <div>auth-page</div> }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));

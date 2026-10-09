@@ -5,13 +5,16 @@ import { renderHook, act, cleanup } from "@testing-library/react";
 const h = vi.hoisted(() => ({
   lockApp: vi.fn(async () => undefined),
   hideInRecents: vi.fn(async (_on: boolean) => undefined),
+  recordLastActive: vi.fn(async (_at: number) => undefined),
   suppressed: false,
   mode: "local" as string | null,
   resized: null as null | (() => void),
   minimized: false,
 }));
 
-vi.mock("@/services/appLock", () => ({ lockApp: h.lockApp, setHideInRecents: h.hideInRecents }));
+vi.mock("@/services/appLock", () => ({
+  lockApp: h.lockApp, setHideInRecents: h.hideInRecents, recordLastActive: h.recordLastActive,
+}));
 vi.mock("@/services/leaveLockSuppression", () => ({ isLeaveLockSuppressed: () => h.suppressed }));
 vi.mock("@/services/account", () => ({
   getAccountMode: async () => h.mode,
@@ -191,4 +194,27 @@ test("a policy timeout applies when the member chose Never", async () => {
   await mount();
   await act(async () => { await vi.advanceTimersByTimeAsync(15 * 60_000 + 5_000); });
   expect(h.lockApp).toHaveBeenCalled();
+});
+
+test("the last activity is written down for the next launch, once per change", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 15 });
+  await mount();
+  expect(h.recordLastActive).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(h.recordLastActive).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    window.dispatchEvent(new Event("keydown"));
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+  expect(h.recordLastActive).toHaveBeenCalledTimes(2);
+  expect(h.recordLastActive).toHaveBeenLastCalledWith(Date.now() - 5_000);
+});
+
+test("leaving the app writes down the last activity before it can be killed", async () => {
+  useSecurityStore.setState({ sessionTimeoutMinutes: 15 });
+  await mount();
+  await act(async () => { window.dispatchEvent(new Event("keydown")); });
+  const at = Date.now();
+  setVisibility("hidden");
+  expect(h.recordLastActive).toHaveBeenLastCalledWith(at);
 });

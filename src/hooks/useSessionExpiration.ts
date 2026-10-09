@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getAccountMode } from "@/services/account";
-import { lockApp, setHideInRecents } from "@/services/appLock";
+import { lockApp, recordLastActive, setHideInRecents } from "@/services/appLock";
 import { isLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
@@ -22,6 +22,7 @@ export function useSessionExpiration(ready = true): void {
     const immediate = sessionTimeoutMinutes === IMMEDIATELY;
     const timeoutMs = (immediate ? IMMEDIATE_IDLE_MINUTES : sessionTimeoutMinutes) * 60_000;
     let lastActivityAt = Date.now();
+    let recordedAt = 0;
     let lockable = false;
     let disposed = false;
     let lockInProgress = false;
@@ -54,8 +55,15 @@ export function useSessionExpiration(ready = true): void {
       if (immediate && !isLeaveLockSuppressed()) lockNow();
     };
 
+    const persistActivity = () => {
+      if (recordedAt === lastActivityAt) return;
+      recordedAt = lastActivityAt;
+      void recordLastActive(lastActivityAt);
+    };
+
     const checkIdle = () => {
       if (Date.now() - lastActivityAt >= timeoutMs) lockNow();
+      else persistActivity();
     };
 
     const recordActivity = () => {
@@ -63,8 +71,10 @@ export function useSessionExpiration(ready = true): void {
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") lockOnLeave();
-      else checkIdle();
+      if (document.visibilityState === "hidden") {
+        persistActivity();
+        lockOnLeave();
+      } else checkIdle();
     };
 
     if (immediate) {
@@ -83,6 +93,7 @@ export function useSessionExpiration(ready = true): void {
     for (const e of ACTIVITY_EVENTS) window.addEventListener(e, recordActivity, { passive: true });
     window.addEventListener("focus", checkIdle);
     document.addEventListener("visibilitychange", onVisibilityChange);
+    persistActivity();
     const intervalId = window.setInterval(checkIdle, CHECK_INTERVAL_MS);
     const unsubscribeLock = useAppLockStore.subscribe((s, prev) => {
       if (prev.kind && !s.kind) lastActivityAt = Date.now();
