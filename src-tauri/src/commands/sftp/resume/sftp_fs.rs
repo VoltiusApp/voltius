@@ -255,8 +255,9 @@ pub(crate) mod tests {
     use crate::sftp::backend::test_tree::Recorder;
     use crate::sftp::real::SftpOpener;
     use crate::ssh::exec::shell_quote;
-    use crate::ssh::live_cells::{own_cell, read_cell};
+    use crate::ssh::live_cells::{own_cell, read_cell, Cell};
     use crate::ssh::test_proc_server::{no_tar, proc_server, sftp_server_path, ProcOptions};
+    use russh::client::Handle;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -398,18 +399,21 @@ pub(crate) mod tests {
             .is_err());
     }
 
+    pub(crate) async fn wait_until_link_gone<H: Handler>(cell: &Cell<Arc<Handle<H>>>) {
+        loop {
+            let h = read_cell(cell);
+            let probe = tokio::time::timeout(Duration::from_secs(1), h.channel_open_session());
+            if h.is_closed() || !matches!(probe.await, Ok(Ok(_))) {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+
     fn relink_after(fs: &SftpFs<TestClient>, delay: Duration) -> tokio::task::JoinHandle<()> {
         let link = Arc::clone(fs.link.as_ref().unwrap());
         tokio::spawn(async move {
-            loop {
-                let h = read_cell(&link.handle);
-                let probe =
-                    tokio::time::timeout(Duration::from_millis(500), h.channel_open_session());
-                if h.is_closed() || !matches!(probe.await, Ok(Ok(_))) {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
+            wait_until_link_gone(&link.handle).await;
             tokio::time::sleep(delay).await;
             let (fresh, _) = proc_server(ProcOptions::default()).await;
             *link.handle.write().unwrap() = fresh;
@@ -582,13 +586,14 @@ pub(crate) mod tests {
 
 #[cfg(all(test, unix))]
 mod live {
+    use super::tests::wait_until_link_gone;
     use crate::commands::sftp::resume::copy_one;
     use crate::commands::sftp::resume::endpoint::LocalFs;
     use crate::known_hosts::KnownHostsStore;
     use crate::sftp::backend::test_tree::Recorder;
     use crate::sftp::real::{RealSftp, SftpOpener};
     use crate::ssh::client::{connect_authenticated, HopRoute, SshClient};
-    use crate::ssh::live_cells::{own_cell, read_cell};
+    use crate::ssh::live_cells::own_cell;
     use crate::ssh::session::SessionHandle;
     use crate::ssh::test_docker::{docker, Container};
     use russh::client::Handle;
@@ -666,14 +671,7 @@ mod live {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         docker(&["exec", &c.0, "pkill", "-f", "sshd.*: t"]);
-        loop {
-            let h = read_cell(&cell);
-            let probe = tokio::time::timeout(Duration::from_secs(1), h.channel_open_session());
-            if h.is_closed() || !matches!(probe.await, Ok(Ok(_))) {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
+        wait_until_link_gone(&cell).await;
         *cell.write().unwrap() = Arc::new(ssh(c).await);
     }
 
