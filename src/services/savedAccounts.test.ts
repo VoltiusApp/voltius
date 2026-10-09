@@ -1,4 +1,5 @@
 import { test, expect, vi, beforeEach } from "vitest";
+import { routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -73,6 +74,11 @@ beforeEach(() => {
   h.valueCap = 0;
   h.readFails = false;
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+    const vs = routeVaultSecret(h.store, cmd, args);
+    if (vs.handled) {
+      if (h.readFails && cmd !== "vault_secret_clear") throw new Error("Keychain read error");
+      return vs.value;
+    }
     switch (cmd) {
       case "keychain_get":
         if (h.readFails) throw new Error("Keychain read error");
@@ -104,7 +110,7 @@ function seed(...accounts: SavedAccount[]) {
 test("saveCurrentAccount snapshots the active session and upserts by account_id", async () => {
   activate(CLOUD_A);
   await saveCurrentAccount();
-  expect(await getSavedAccounts()).toEqual([CLOUD_A]);
+  expect(await getSavedAccounts()).toEqual([{ ...CLOUD_A, master_password_sealed: null }]);
 
   h.store.jwt = fake("jwt", "a2");
   await saveCurrentAccount();
@@ -381,4 +387,34 @@ test("the same email on another instance is a different account", async () => {
   const targets = await getSwitchTargets({ account_id: "a", email: CLOUD_A.email, server_url: CLOUD_A.server_url });
 
   expect(targets.map((a) => a.account_id)).toEqual(["a-self-hosted"]);
+});
+
+test("a bound account is saved and restored in its sealed form", async () => {
+  h.store = { account_id: "a1", mode: "server", master_password_sealed: "S:pw" };
+  await saveCurrentAccount();
+  const saved = JSON.parse(h.store[entryKey("a1")]);
+  expect(saved.master_password_sealed).toBe("S:pw");
+  expect(saved.master_password ?? null).toBeNull();
+  h.store = { [INDEX_KEY]: h.store[INDEX_KEY], [entryKey("a1")]: h.store[entryKey("a1")], master_password: "other" };
+  await switchToAccount(saved);
+  expect(h.store.master_password_sealed).toBe("S:pw");
+  expect(h.store.master_password).toBeUndefined();
+});
+
+test("binding an already saved account drops its plaintext copy", async () => {
+  h.store = { account_id: "a1", mode: "server", master_password: "pw" };
+  await saveCurrentAccount();
+  delete h.store.master_password;
+  h.store.master_password_sealed = "S:pw";
+  await saveCurrentAccount();
+  const saved = JSON.parse(h.store[entryKey("a1")]);
+  expect(saved.master_password).toBeNull();
+  expect(saved.master_password_sealed).toBe("S:pw");
+});
+
+test("switching away clears the outgoing account's secret in either form", async () => {
+  h.store = { account_id: "a1", mode: "server", master_password_sealed: "S:pw" };
+  await switchToAccount(CLOUD_B);
+  expect(h.store.master_password_sealed).toBeUndefined();
+  expect(h.store.master_password).toBe(CLOUD_B.master_password);
 });

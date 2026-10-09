@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   available: true,
   exists: true,
   serverMode: false,
+  secret: "plain",
   authProps: null as null | { isLocked: boolean; systemAuth?: boolean },
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@/services/account", () => ({
   isServerMode: vi.fn(async () => h.serverMode),
 }));
 vi.mock("@/services/appLock", () => ({ systemAuthAvailable: vi.fn(async () => h.available) }));
+vi.mock("@/services/vaultSecret", () => ({ secretState: vi.fn(async () => h.secret) }));
 vi.mock("@/stores/securityStore", () => ({
   useSecurityStore: { getState: () => ({ systemAuthUnlock: h.systemAuthUnlock }) },
 }));
@@ -40,6 +42,7 @@ beforeEach(() => {
   h.systemAuthUnlock = false;
   h.exists = true;
   h.serverMode = false;
+  h.secret = "plain";
   h.authProps = null;
   h.autoLogin.mockClear();
 });
@@ -94,4 +97,20 @@ test("a vault lock with no vault file and no cloud account is a first launch", a
   render(<SplashScreen onReady={() => {}} />);
   await advance(2000);
   expect(h.authProps).toMatchObject({ isLocked: false });
+});
+
+test("sealed launch goes to the locked screen without a vault file", async () => {
+  h.autoLogin.mockResolvedValueOnce("sealed");
+  h.exists = false;
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: true });
+});
+
+test("a vault lock over a sealed secret offers system auth even with the setting off", async () => {
+  h.lock = "vault";
+  h.secret = "sealed";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: true });
 });

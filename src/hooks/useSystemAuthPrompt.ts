@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { systemAuthAvailable, systemAuthVerify, type VerifyOutcome } from "@/services/appLock";
+import { systemAuthAvailable } from "@/services/appLock";
+import type { UnlockOutcome } from "@/services/vaultBinding";
 
 export function systemAuthMethodKey(platform: string | null): string {
   switch (platform) {
@@ -12,12 +13,16 @@ export function systemAuthMethodKey(platform: string | null): string {
 }
 
 /** Shows the OS prompt once when the lock surface mounts; later attempts are the user's. */
-export function useSystemAuthPrompt(enabled: boolean, onOk: () => void) {
+export function useSystemAuthPrompt(
+  enabled: boolean,
+  run: (reason: string) => Promise<UnlockOutcome>,
+  onOk: () => void,
+) {
   const { t } = useTranslation();
   const [available, setAvailable] = useState(false);
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<VerifyOutcome | null>(null);
+  const [outcome, setOutcome] = useState<UnlockOutcome | null>(null);
   const autoPrompted = useRef(false);
   const busyRef = useRef(false);
 
@@ -25,7 +30,7 @@ export function useSystemAuthPrompt(enabled: boolean, onOk: () => void) {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    void systemAuthVerify(t("layout.appLock.promptReason")).then((r) => {
+    void run(t("layout.appLock.promptReason")).then((r) => {
       busyRef.current = false;
       setBusy(false);
       setOutcome(r);

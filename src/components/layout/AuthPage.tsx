@@ -3,7 +3,6 @@ import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, SubmitBtn, SystemAuthButton } from "./authParts";
 import {
-  autoLogin,
   createLocalAccountNoPassword,
   createServerAccount,
   login,
@@ -14,6 +13,7 @@ import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { lastServerUrl } from "@/utils/serverInstance";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
+import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
 
 
 type View = "home" | "cloud";
@@ -71,11 +71,12 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     }
   };
 
-  const auth = useSystemAuthPrompt(isLocked && !!systemAuth, () => {
-    void wrap(async () => {
-      if ((await autoLogin()) !== "ok") throw new Error(t("layout.appLock.keychainEmpty"));
-    });
-  });
+  const [bindingLost, setBindingLost] = useState(false);
+  const auth = useSystemAuthPrompt(isLocked && !!systemAuth, async (reason) => {
+    const r = await unlockWithSystemAuth(reason);
+    if (r === "invalidated") setBindingLost(true);
+    return r;
+  }, onReady);
 
   // ── Vault present but unreadable ─────────────────────────────────────────
 
@@ -134,7 +135,10 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   if (isLocked) {
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await wrap(() => login(password));
+      await wrap(async () => {
+        await login(password);
+        if (bindingLost) await rebindAfterPassword(password, t("layout.appLock.sealReason"));
+      });
     };
     return (
       <Layout>

@@ -297,7 +297,9 @@
       "systemAuthFailed": "Ověření selhalo.",
       "wrongPassword": "Nesprávné hlavní heslo.",
       "keychainEmpty": "Klíč trezoru už v systémové klíčence není. Zadejte hlavní heslo.",
-      "promptReason": "Odemknout Voltius"
+      "promptReason": "Odemknout Voltius",
+      "sealReason": "Potvrďte uložení klíče trezoru v tomto zařízení",
+      "bindingLost": "Přihlášení k zařízení se změnilo. Zadejte hlavní heslo."
     }
   }
 }

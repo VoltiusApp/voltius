@@ -11,16 +11,16 @@ import { instanceLabel } from "@/utils/serverInstance";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { lockVault, readLocalSecrets, wipeLocalConfig } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
+import { clearSecret, exportSecret, importSecret } from "./vaultSecret";
 
 /**
  * The keychain entries that make up an account session. A SavedAccount is a
- * snapshot of exactly these, so the reader (saveCurrentAccount) and the writer
- * (switchToAccount) stay in step.
+ * snapshot of exactly these plus the master password in its stored form, so the
+ * reader (saveCurrentAccount) and the writer (switchToAccount) stay in step.
  */
 export const SESSION_KEYS = [
   "account_id",
   "mode",
-  "master_password",
   "email",
   "server_url",
   "jwt",
@@ -34,7 +34,8 @@ type SessionKey = (typeof SESSION_KEYS)[number];
 export type SavedAccount = Record<SessionKey, string | null> & {
   account_id: string;
   mode: string;
-  master_password: string;
+  master_password?: string | null;
+  master_password_sealed?: string | null;
 };
 
 /** Pre-0.29 shape: every account, and its UI state, inside one keychain value. */
@@ -200,10 +201,17 @@ export async function saveCurrentAccount(): Promise<void> {
     SESSION_KEYS.map((key, i) => [key, values[i]]),
   ) as Record<SessionKey, string | null>;
 
-  const { account_id, mode, master_password } = session;
-  if (!account_id || !mode || !master_password) return;
+  const secret = await exportSecret();
+  const { account_id, mode } = session;
+  if (!account_id || !mode || !secret) return;
 
-  const entry: SavedAccount = { ...session, account_id, mode, master_password };
+  const entry: SavedAccount = {
+    ...session,
+    account_id,
+    mode,
+    master_password: secret.kind === "plain" ? secret.value : null,
+    master_password_sealed: secret.kind === "sealed" ? secret.value : null,
+  };
   if (!isSwitchable(entry)) return;
 
   await upsertSavedAccount(entry);
@@ -222,7 +230,13 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
     Object.entries(entry).filter(([, value]) => value !== null && value !== undefined),
   );
   const existing = accounts.find((a) => a.account_id === entry.account_id);
-  await keychainSet(entryKey(entry.account_id), JSON.stringify({ ...existing, ...supplied }));
+  const merged: SavedAccount = { ...existing, ...supplied } as SavedAccount;
+  // The secret is held in one form at a time; the other form from an older snapshot must not outlive it.
+  if (entry.master_password || entry.master_password_sealed) {
+    merged.master_password = entry.master_password ?? null;
+    merged.master_password_sealed = entry.master_password_sealed ?? null;
+  }
+  await keychainSet(entryKey(entry.account_id), JSON.stringify(merged));
   if (existing) return;
   await keychainSet(
     INDEX_KEY,
@@ -290,6 +304,7 @@ async function tearDownSession(): Promise<void> {
   for (const key of ACCOUNT_CACHE_KEYS) {
     await keychainDelete(key).catch(() => {});
   }
+  await clearSecret().catch(() => {});
 
   // Tell SplashScreen to use replace-mode sync after reload so the old
   // account's local state is never merged into the next account's cloud data.
@@ -307,6 +322,8 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
     const value = account[key];
     if (value) await keychainSet(key, value);
   }
+  if (account.master_password_sealed) await importSecret({ kind: "sealed", value: account.master_password_sealed });
+  else if (account.master_password) await importSecret({ kind: "plain", value: account.master_password });
   restoreAccountUiState(account.account_id);
   window.location.reload();
 }

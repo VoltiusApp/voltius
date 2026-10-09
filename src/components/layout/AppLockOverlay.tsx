@@ -5,6 +5,7 @@ import { ErrorMsg, Input, Layout, SubmitBtn, SystemAuthButton } from "./authPart
 import { getAccountMode, isCurrentMasterPassword } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
+import { verifyForLockScreen } from "@/services/vaultBinding";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { canLockVault } from "@/utils/accountMode";
@@ -47,7 +48,7 @@ function LockedScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const auth = useSystemAuthPrompt(systemAuthUnlock, () => void unlock());
+  const auth = useSystemAuthPrompt(systemAuthUnlock, verifyForLockScreen, () => void unlock());
 
   useEffect(() => { void getAccountMode().then(setMode).catch(() => setMode(null)); }, []);
 

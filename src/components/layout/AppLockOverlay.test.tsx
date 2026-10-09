@@ -18,8 +18,8 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
 vi.mock("@/services/appLock", () => ({
   systemAuthAvailable: async () => h.available,
-  systemAuthVerify: h.verify,
 }));
+vi.mock("@/services/vaultBinding", () => ({ verifyForLockScreen: h.verify }));
 vi.mock("@/services/account", () => ({
   getAccountMode: async () => h.mode,
   isCurrentMasterPassword: async (p: string) => {

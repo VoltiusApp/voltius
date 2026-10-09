@@ -10,6 +10,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { autoLogin, getAppLock, isServerMode, setAppLock } from "@/services/account";
 import { systemAuthAvailable } from "@/services/appLock";
+import { secretState } from "@/services/vaultSecret";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { saveCurrentAccount } from "@/services/savedAccounts";
@@ -65,7 +66,8 @@ export default function SplashScreen({ onReady }: Props) {
       await delay(200);
 
       if ((await getAppLock()) === "vault") {
-        setSystemAuth(useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable()));
+        const sealed = (await secretState().catch(() => "none")) === "sealed";
+        setSystemAuth(sealed || (useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
         try {
           // A cloud account has nothing on disk until its first secret; login() re-derives from the server.
           const locked = (await getVaultStatus()).exists || (await isServerMode());
@@ -79,6 +81,12 @@ export default function SplashScreen({ onReady }: Props) {
       }
 
       const outcome = await autoLogin();
+      if (outcome === "sealed") {
+        setSystemAuth(true);
+        setStep("vault", "done", t("layout.splash.vaultLocked"));
+        setPhase("auth-locked");
+        return;
+      }
       if (outcome === "ok") {
         setStep("vault", "done", t("layout.splash.sessionRestored"));
         setPhase("finishing");

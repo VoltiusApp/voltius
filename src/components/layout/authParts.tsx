@@ -116,6 +116,8 @@ export function SystemAuthButton({ auth, loading }: { auth: SystemAuthPrompt; lo
         onClick={auth.prompt}
       />
       {auth.outcome === "failed" && <ErrorMsg msg={t("layout.appLock.systemAuthFailed")} />}
+      {auth.outcome === "invalidated" && <ErrorMsg msg={t("layout.appLock.bindingLost")} />}
+      {auth.outcome === "declined" && <ErrorMsg msg={t("layout.appLock.keychainEmpty")} />}
     </>
   );
 }

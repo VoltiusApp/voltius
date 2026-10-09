@@ -289,7 +289,9 @@
       "systemAuthFailed": "Authentication failed.",
       "wrongPassword": "Wrong master password.",
       "keychainEmpty": "Your vault key is no longer in the system keychain. Enter your master password.",
-      "promptReason": "Unlock Voltius"
+      "promptReason": "Unlock Voltius",
+      "sealReason": "Confirm to keep your vault key on this device",
+      "bindingLost": "Your device sign-in changed. Enter your master password."
     }
   }
 }
