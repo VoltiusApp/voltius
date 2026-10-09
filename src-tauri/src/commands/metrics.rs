@@ -1,10 +1,14 @@
 use tauri::{AppHandle, Emitter, State};
+use tokio::time::Duration;
 use uuid::Uuid;
 
 use crate::{
     metrics::{local::LocalMetrics, remote::RemoteMetricsState, stream::MetricsStreamManager},
     ssh::session::SessionManager,
 };
+
+const SAMPLE_INTERVAL: Duration = Duration::from_secs(1);
+const PRIME_INTERVAL: Duration = Duration::from_millis(250);
 
 #[tauri::command]
 pub async fn metrics_start(
@@ -22,19 +26,23 @@ pub async fn metrics_start(
         let app = app.clone();
         tokio::spawn(async move {
             let mut state = RemoteMetricsState::new();
-            // The first sample's cpu/net deltas run from boot, so it only primes the counters.
+            // The first sample's deltas run from boot; a short prime gets the first reading on screen fast.
             let mut primed = false;
             loop {
                 match state.snapshot(&handle).await {
-                    Ok(snap) => {
-                        if primed {
-                            let _ = app.emit(&event, &snap);
-                        }
-                        primed = true;
+                    Ok(snap) if primed => {
+                        let _ = app.emit(&event, &snap);
                     }
+                    Ok(_) => {}
                     Err(_) => break,
                 }
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                let pause = if primed {
+                    SAMPLE_INTERVAL
+                } else {
+                    PRIME_INTERVAL
+                };
+                primed = true;
+                tokio::time::sleep(pause).await;
             }
         })
     } else {

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
-use tokio::time::{timeout, Duration};
+use tokio::time::{timeout, Duration, Instant};
 
 use super::{DiskInfo, MetricsSnapshot};
 use crate::clock::now_ms;
@@ -15,6 +15,7 @@ pub struct RemoteMetricsState {
     prev_cpu_total: u64,
     prev_net_rx: u64,
     prev_net_tx: u64,
+    prev_at: Option<Instant>,
 }
 
 impl RemoteMetricsState {
@@ -24,6 +25,7 @@ impl RemoteMetricsState {
             prev_cpu_total: 0,
             prev_net_rx: 0,
             prev_net_tx: 0,
+            prev_at: None,
         }
     }
 
@@ -55,11 +57,18 @@ impl RemoteMetricsState {
         })
         .await;
 
+        let now = Instant::now();
+        let elapsed = self
+            .prev_at
+            .replace(now)
+            .map_or(Duration::from_secs(1), |at| now - at);
         let text = String::from_utf8_lossy(&output);
-        self.parse(&text)
+        self.parse(&text, elapsed)
     }
 
-    fn parse(&mut self, text: &str) -> Result<MetricsSnapshot, String> {
+    fn parse(&mut self, text: &str, elapsed: Duration) -> Result<MetricsSnapshot, String> {
+        let elapsed_ms = elapsed.as_millis().max(1) as u64;
+        let per_sec = |delta: u64| delta.saturating_mul(1000) / elapsed_ms;
         let mut cpu_percent = 0.0f32;
         let mut mem_total_kb = 0u64;
         let mut mem_avail_kb = 0u64;
@@ -105,8 +114,8 @@ impl RemoteMetricsState {
                     .filter_map(|s| s.parse().ok())
                     .collect();
                 if parts.len() >= 2 {
-                    net_rx_per_sec = parts[0].saturating_sub(self.prev_net_rx);
-                    net_tx_per_sec = parts[1].saturating_sub(self.prev_net_tx);
+                    net_rx_per_sec = per_sec(parts[0].saturating_sub(self.prev_net_rx));
+                    net_tx_per_sec = per_sec(parts[1].saturating_sub(self.prev_net_tx));
                     self.prev_net_rx = parts[0];
                     self.prev_net_tx = parts[1];
                 }
@@ -152,12 +161,31 @@ mod tests {
         let mut state = RemoteMetricsState::new();
         let text = "cpu  10 0 10 80 0 0 0 0\nNET 100 200\nDISK 1000 250 /\n";
         for _ in 0..2 {
-            let disks = state.parse(text).unwrap().disks.unwrap();
+            let disks = state
+                .parse(text, Duration::from_secs(1))
+                .unwrap()
+                .disks
+                .unwrap();
             assert_eq!(disks.len(), 1);
             assert_eq!(
                 (disks[0].mount.as_str(), disks[0].used_kb, disks[0].total_kb),
                 ("/", 250, 1000)
             );
         }
+    }
+
+    #[test]
+    fn net_rates_scale_to_the_time_between_samples() {
+        let mut state = RemoteMetricsState::new();
+        state
+            .parse("NET 1000 2000\n", Duration::from_secs(1))
+            .unwrap();
+        let snap = state
+            .parse("NET 1100 2400\n", Duration::from_millis(250))
+            .unwrap();
+        assert_eq!(
+            (snap.net_rx_bytes_per_sec, snap.net_tx_bytes_per_sec),
+            (400, 1600)
+        );
     }
 }

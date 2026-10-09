@@ -377,6 +377,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
       setMetrics(null);
       return;
     }
+    if (!visible) return;
 
     let cancelled = false;
     (async () => {
@@ -397,7 +398,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
       stopStream();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, sessionType, sessionStatus, monitoringActive]);
+  }, [sessionId, sessionType, sessionStatus, monitoringActive, visible]);
 
   // ── Context menu items ────────────────────────────────────────────────────
 
@@ -849,7 +850,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
               title={t("terminal.statusBar.systemMetricsTitle")}
             >
               <span
-                className={highCpu ? "cpu-alert-pulse" : undefined}
+                className={highCpu && visible ? "cpu-alert-pulse" : undefined}
                 style={{ color: cpuColor(metrics.cpu_percent), fontVariantNumeric: "tabular-nums" }}
               >
                 {t("terminal.statusBar.cpu", { pct: metrics.cpu_percent.toFixed(0) })}
