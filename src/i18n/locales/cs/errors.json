@@ -5,8 +5,8 @@
     "already-exists": "Soubor nebo složka s tímto názvem už existuje",
     "storage-full": "Nedostatek místa na disku nebo vyčerpaná kvóta",
     "read-only-filesystem": "Souborový systém je jen pro čtení",
-    "connection-refused": "Hostitel odmítl připojení — zkontrolujte adresu a port a zda služba běží",
-    "host-unreachable": "Hostitel je nedostupný — zkontrolujte adresu a připojení k síti",
+    "connection-refused": "Host odmítl připojení — zkontrolujte adresu, port a to, zda služba běží",
+    "host-unreachable": "Host je nedostupný — zkontrolujte adresu a připojení k síti",
     "timed-out": "Časový limit operace vypršel",
     "connection-lost": "Spojení bylo ztraceno",
     "connection-lost-resumable": "Spojení bylo ztraceno — zopakujte přenos a bude pokračovat tam, kde se zastavil",
@@ -19,7 +19,7 @@
     "ssh-password-expired": "Server vyžaduje nové heslo — přihlaste se jednou z terminálu a změňte ho tam",
     "ssh-prompt-unanswerable": "Server se zeptal „{{prompt}}“, na což nelze odpovědět automaticky",
     "ssh-no-usable-auth-method": "Žádná použitelná metoda ověření — server přijímá jen: {{methods}}",
-    "ssh-auth-timeout": "Ověření vypršelo po {{seconds}} s — server připojení přijal, ale nikdy neodpověděl. Některé starší SSH servery se tu zaseknou; zkuste u hostitele volbu „Starší algoritmy“ nebo jinou metodu ověření.",
+    "ssh-auth-timeout": "Časový limit ověření vypršel po {{seconds}} s — server připojení přijal, ale neodpověděl. Některé starší SSH servery se v tomto kroku zaseknou; zkuste u hostu volbu „Starší algoritmy“ nebo jinou metodu ověření.",
     "login-rejected": "Server odmítl uživatelské jméno nebo heslo",
     "resource-locked": "Soubor je na serveru zamčený — možná ho má otevřený někdo jiný",
     "vault-locked": "$t(common.error.vaultLocked)",
@@ -29,7 +29,7 @@
     "vault-role-read-only": "Do tohoto trezoru nemáte právo zápisu (vaše role: {{role}}). Změny mohou provádět jen vlastníci, správci a editoři.",
     "vault-permissions-unavailable": "Oprávnění k trezoru nelze ověřit, protože klíčenka není dostupná. Zkuste to znovu.",
     "vault-permissions-corrupted": "Data oprávnění trezoru jsou poškozená. Přihlaste se znovu a obnovte přístup.",
-    "knock-udp-via-proxy": "UDP klepání nelze poslat přes proxy. Pro tohoto hostitele použijte kroky TCP nebo přímé připojení."
+    "knock-udp-via-proxy": "Klepnutí přes UDP nelze odeslat přes proxy. Pro tento host použijte kroky TCP nebo přímé připojení."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

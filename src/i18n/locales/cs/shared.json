@@ -13,7 +13,7 @@
     },
     "createVaultModal": {
       "title": "Nový trezor",
-      "subtitle": "Trezory udržují vaše přihlašovací údaje v pořádku",
+      "subtitle": "Trezory pomáhají uspořádat přihlašovací údaje",
       "nameLabel": "Název trezoru",
       "namePlaceholder": "např. Práce, Osobní, Staging…",
       "createButton": "Vytvořit trezor"
@@ -76,23 +76,23 @@
       "insertConfirm_other": "Vložit do {{count}} cílů",
       "executeConfirm_one": "Spustit v {{count}} cíli",
       "executeConfirm_few": "Spustit ve {{count}} cílech",
-      "executeConfirm_many": "Spustit v {{count}} cíle",
+      "executeConfirm_many": "Spustit v cílech ({{count}})",
       "executeConfirm_other": "Spustit v {{count}} cílech",
       "noActiveSessions": "Žádné aktivní relace",
       "activeSessionsHeader": "Aktivní relace",
       "openNewConnectionHeader": "Otevřít nové připojení",
       "localShellFallbackName": "Lokální shell",
       "sshSessionSub": "SSH relace",
-      "noRemoteHostsFound": "Nenalezeni žádní vzdálení hostitelé",
-      "noHostsFound": "Nenalezeni žádní hostitelé"
+      "noRemoteHostsFound": "Nenalezeny žádné vzdálené hosty",
+      "noHostsFound": "Nenalezeny žádné hosty"
     },
     "hostPicker": {
-      "selectHostTitle": "Vybrat hostitele",
-      "filterPlaceholder": "Filtrovat hostitele...",
+      "selectHostTitle": "Vybrat host",
+      "filterPlaceholder": "Filtrovat hosty...",
       "localMachineName": "Lokální počítač",
       "wslSub": "WSL",
-      "noHostsConfigured": "Nejsou nastaveni žádní hostitelé",
-      "noHostsMatch": "Žádný hostitel neodpovídá",
+      "noHostsConfigured": "Nejsou nastavené žádné hosty",
+      "noHostsMatch": "Žádný host neodpovídá",
       "allVaults": "Všechny trezory"
     },
     "sort": {
@@ -104,15 +104,15 @@
     "tagFilter": {
       "filterByTag": "Filtrovat podle štítku",
       "emptyTitle": "Přidat štítky",
-      "emptyDescription": "Štítky vám pomohou filtrovat hostitele. Štítek můžete přidat při úpravě hostitele.",
+      "emptyDescription": "Štítky vám pomohou filtrovat hosty. Štítek můžete přidat při úpravě hostu.",
       "searchPlaceholder": "Filtrovat štítky...",
       "clearSelection": "Zrušit výběr ({{count}})",
       "noTagsMatch": "Výrazu „{{search}}“ neodpovídá žádný štítek",
       "deleteTagTitle": "Smazat štítek „{{tag}}“?",
-      "deleteTagBody_one": "Štítek bude odebrán z {{count}} hostitele. Samotní hostitelé smazáni nebudou.",
-      "deleteTagBody_few": "Štítek bude odebrán ze {{count}} hostitelů. Samotní hostitelé smazáni nebudou.",
-      "deleteTagBody_many": "Štítek bude odebrán z {{count}} hostitele. Samotní hostitelé smazáni nebudou.",
-      "deleteTagBody_other": "Štítek bude odebrán z {{count}} hostitelů. Samotní hostitelé smazáni nebudou.",
+      "deleteTagBody_one": "Štítek bude odebrán z {{count}} hostu. Samotné hosty smazány nebudou.",
+      "deleteTagBody_few": "Štítek bude odebrán ze {{count}} hostů. Samotné hosty smazány nebudou.",
+      "deleteTagBody_many": "Štítek bude odebrán z {{count}} hostu. Samotné hosty smazány nebudou.",
+      "deleteTagBody_other": "Štítek bude odebrán z {{count}} hostů. Samotné hosty smazány nebudou.",
       "renameTagTitle": "Přejmenovat štítek",
       "deleteTagButtonTitle": "Smazat štítek"
     },
@@ -120,7 +120,7 @@
       "note": "Trezor se nepodařilo přečíst, uložená tajemství proto nejsou zobrazena. Pokud pole necháte prázdné, uložená hodnota zůstane; zadáním nové hodnoty ji nahradíte."
     },
     "teamCredentials": {
-      "unavailable": "Uložené přihlašovací údaje tohoto týmového trezoru se nepodařilo načíst, takže hostitelé vyžadující uložené heslo, klíč nebo heslovou frázi se nepřipojí. Požádejte správce trezoru, aby vaší roli udělil přístup k tajemstvím trezoru."
+      "unavailable": "Uložené přihlašovací údaje tohoto týmového trezoru se nepodařilo načíst. Připojení k hostům vyžadujícím uložené heslo, klíč nebo heslo ke klíči proto selže. Požádejte správce trezoru, aby vaší roli udělil přístup k tajemstvím trezoru."
     },
     "vaultBackups": {
       "title": "Zálohy trezoru",
@@ -160,7 +160,7 @@
         "useTeams": "Použít týmová",
         "addSubject": "Přidat roli nebo člena",
         "searchSubjects": "Hledat role a členy…",
-        "noSubjectsLeft": "Všechny role a členové už jsou v seznamu",
+        "noSubjectsLeft": "Všechny role i všichni členové už jsou v seznamu",
         "use": "Použít",
         "requiresConnect": "Vyžaduje {{connect}}",
         "roleCount_one": "{{count}} role",

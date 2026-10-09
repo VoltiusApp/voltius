@@ -8,7 +8,7 @@
       "scrollback": {
         "title": "Historie terminálu",
         "desc": "Počet uchovaných řádků na terminálovou relaci. Platí pro nové terminály.",
-        "option": "{{count}} řádků"
+        "option": "Počet řádků: {{count}}"
       },
       "cursorStyle": {
         "title": "Styl kurzoru",
@@ -44,12 +44,12 @@
         "title": "Jazyk"
       },
       "groupTabsByHost": {
-        "title": "Seskupit karty podle hostitele",
-        "desc": "Relace na stejném hostiteli sdílejí jednu kartu. Najetím na ni mezi nimi přepínáte."
+        "title": "Seskupit karty podle hostu",
+        "desc": "Relace na stejném hostu sdílejí jednu kartu. Najetím na ni mezi nimi přepínáte."
       },
       "colorTheme": "Barevný motiv",
       "import": "Importovat",
-      "importTitle": "Importovat motiv(y)",
+      "importTitle": "Importovat motivy",
       "exportAll": "Exportovat vše",
       "exportAllTitle": "Exportovat všechny vlastní motivy",
       "exportTheme": "Exportovat motiv",
@@ -173,7 +173,7 @@
         ]
       },
       "hosts": {
-        "label": "Hostitelé",
+        "label": "Hosty",
         "keywords": [
           "ping",
           "dostupnost",
@@ -237,7 +237,7 @@
       "sessionSecurity": {
         "title": "Zabezpečení relace",
         "autoLockLabel": "Automaticky zamknout po nečinnosti",
-        "autoLockDesc": "Zamkne Voltius po této době nečinnosti, nebo hned, jak aplikaci opustíte.",
+        "autoLockDesc": "Zamkne Voltius po zvolené době nečinnosti nebo ihned při opuštění aplikace.",
         "timeout": {
           "never": "Nikdy",
           "5min": "5 minut",
@@ -248,7 +248,7 @@
           "immediately": "Okamžitě"
         },
         "needsSystemAuth": "Pro zamykání účtu bez hlavního hesla zapněte systémové ověření.",
-        "immediateVaultWarning": "Se zámkem trezoru i krátké opuštění Voltiusu zavře otevřené relace. Zámek obrazovky je nechá běžet.",
+        "immediateVaultWarning": "Při volbě Zamknout trezor se otevřené relace zavřou, i když Voltius opustíte jen na chvíli. Volba Zamknout obrazovku je nechá dál běžet.",
         "policy": {
           "timeout": "Určuje {{teams}}: nejvýše {{duration}}.",
           "timeoutImmediately": "Určuje {{teams}}: zamknout ihned po opuštění Voltius.",
@@ -259,12 +259,12 @@
           "label": "Při zamknutí",
           "vault": "Zamknout trezor (zavřít relace)",
           "screen": "Zamknout obrazovku (relace běží dál)",
-          "vaultDesc": "Odstraní klíč trezoru z paměti. Otevřené relace se zavřou a Voltius se znovu načte.",
-          "screenDesc": "Zakryje Voltius, zatímco relace, přesměrování portů a přenosy běží dál."
+          "vaultDesc": "Odstraní klíč trezoru z paměti, zavře otevřené relace a znovu načte Voltius.",
+          "screenDesc": "Zakryje rozhraní Voltiusu. Relace, přesměrování portů a přenosy souborů dál běží."
         },
         "systemAuth": {
           "toggle": "Odemykat systémovým ověřením",
-          "desc": "Použijte {{method}} místo zadávání hlavního hesla.",
+          "desc": "Místo hlavního hesla použijte systémové ověření: {{method}}.",
           "unavailable": "Na tomto zařízení není k dispozici.",
           "status": {
             "bound": "Vázáno na hardware tohoto zařízení.",
@@ -315,7 +315,7 @@
         "placeholder": "vase-prezdivka",
         "inputLabel": "Přezdívka",
         "save": "Uložit",
-        "errorInvalid": "Přezdívka může obsahovat jen písmena, číslice a pomlčky.",
+        "errorInvalid": "Přezdívka může obsahovat jen písmena, číslice a spojovníky.",
         "errorTaken": "Tato přezdívka je již obsazená.",
         "errorEmailNotVerified": "Nejprve ověřte svůj e-mail, pak si zvolte přezdívku.",
         "errorCooldown": "Přezdívku budete moci brzy změnit znovu.",
@@ -347,7 +347,7 @@
       },
       "lockVault": {
         "label": "Zamknout nyní",
-        "sub": "Zamkne Voltius akcí zvolenou výše"
+        "sub": "Zamkne Voltius způsobem zvoleným výše"
       },
       "signOut": {
         "label": "Odhlásit se z cloudového účtu",
@@ -394,8 +394,8 @@
         },
         "seats": "Místa",
         "seatsUsed": "Využito {{used}} / {{total}}",
-        "upgradeToPro": "Přejděte na vyšší tarif a odemkněte synchronizaci s cloudem a další",
-        "upgrade": "Upgradovat",
+        "upgradeToPro": "Přejděte na vyšší tarif a zpřístupněte si synchronizaci s cloudem a další funkce",
+        "upgrade": "Přejít na vyšší tarif",
         "upgradeToTeams": "Vyzkoušejte Teams zdarma na {{days}} dní: sdílené trezory a role pro váš tým. Vyžaduje kartu.",
         "teamsButton": "Vyzkoušet zdarma →",
         "viewAllPlans": "Zobrazit všechny tarify →",
@@ -436,10 +436,10 @@
       }
     },
     "diagnostics": {
-      "intro": "Máte s Voltius potíže? Vytvořte hlášení a pošlete ho vývojáři — pomůže to dohledat chyby, které se těžko reprodukují.",
+      "intro": "Máte s Voltiusem potíže? Vytvořte hlášení a pošlete ho vývojáři — pomůže to dohledat chyby, které se těžko reprodukují.",
       "troubleshootingTitle": "Řešení potíží",
       "verboseLabel": "Podrobné logování (tato relace)",
-      "verboseSub": "Zaznamenává více podrobností pro diagnostiku potíží. Po restartu Voltius se vrátí do normálu.",
+      "verboseSub": "Zaznamenává více podrobností pro diagnostiku potíží. Po restartu Voltiusu se obnoví běžná úroveň logování.",
       "verboseHint": "Podrobné logování je zapnuté. Pro zachycení problému:\n1. Nyní problém zopakujte\n2. Vraťte se a vytvořte hlášení chyby",
       "reportTitle": "Hlášení chyby",
       "createButton": "Vytvořit hlášení chyby",
@@ -455,7 +455,7 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "Umožní lokálním MCP klientům (například Claude Code) přes soukromý socket spouštět příkazy, číst, zapisovat a mazat soubory na všech hostitelích ve vašem trezoru i na tomto počítači, vytvářet, měnit nebo mazat uložená připojení, klíče a identity, spouštět vaše uložené snippety na těchto hostitelích, schvalovat klíče SSH hostitelů, číst příkazy, které jste napsali, zobrazovat, rušit nebo opakovat vaše přenosy souborů, zjišťovat, kteří z uložených hostitelů jsou dostupní, přeskupovat karty terminálu a rozdělené panely, spravovat členství a pozvánky vašeho týmu, sdílet terminálové relace s týmem nebo předávat jejich ovládání, číst a měnit všechna nastavení této aplikace a číst vaše předplatné. Schválení probíhá v daném klientovi, ne ve Voltius. Ve výchozím stavu vypnuto. Může také instalovat, aktualizovat a odebírat pluginy a exportovat či importovat vaše uložené objekty.",
+        "sub": "Umožní lokálním MCP klientům (například Claude Code) přes soukromý socket spouštět příkazy, číst, zapisovat a mazat soubory na všech hostech ve vašem trezoru i na tomto počítači, vytvářet, měnit nebo mazat uložená připojení, klíče a identity, spouštět vaše uložené úryvky na těchto hostech, schvalovat klíče SSH hostů, číst příkazy, které jste napsali, zobrazovat, rušit nebo opakovat vaše přenosy souborů, zjišťovat, které z uložených hostů jsou dostupné, přeskupovat karty terminálu a rozdělené panely, spravovat členství a pozvánky vašeho týmu, sdílet terminálové relace s týmem nebo předávat jejich ovládání, číst a měnit všechna nastavení této aplikace a číst vaše předplatné. Schválení probíhá v daném klientovi, ne ve Voltius. Ve výchozím stavu vypnuto. Může také instalovat, aktualizovat a odebírat pluginy a exportovat či importovat vaše uložené objekty.",
         "running": "Běží",
         "quickSetup": {
           "title": "Rychlé nastavení",
@@ -499,9 +499,9 @@
       "consequence": {
         "autoUpdate": "Vypne automatické stahování aktualizací, takže bezpečnostní opravy přestanou přicházet samy.",
         "pluginInstallReview": "Vypne obrazovku se souhlasem před instalací pluginu. Plugin žádající o citlivé oprávnění ji stále zobrazí.",
-        "sessionTimeout": "Vypne nebo prodlouží automatické zamykání.",
-        "lockAction": "Přepne zamykání na zámek obrazovky, který nechává klíč trezoru v paměti.",
-        "systemAuthUnlock": "Umožní odemknout Voltius přihlášením k zařízení; klíč trezoru během zamknutí zůstává v systémové klíčence."
+        "sessionTimeout": "Vypne automatické zamykání nebo prodlouží dobu do zamknutí.",
+        "lockAction": "Přepne na zamykání obrazovky, při kterém klíč trezoru zůstává v paměti.",
+        "systemAuthUnlock": "Umožní odemknout Voltius ověřením používaným při přihlášení k zařízení. Klíč trezoru během zamknutí zůstává v systémové klíčence."
       }
     },
     "about": {
@@ -521,7 +521,7 @@
       },
       "autoDownload": {
         "title": "Automaticky stahovat aktualizace",
-        "desc": "Kontrolovat a stahovat nové verze na pozadí"
+        "desc": "Stahovat nové verze na pozadí. Voltius kontroluje aktualizace i při vypnutí této volby."
       },
       "whatsNew": {
         "title": "Po aktualizaci zobrazit novinky",
@@ -551,7 +551,7 @@
       "requiresPro": {
         "title": "Synchronizace s cloudem",
         "sub": "Vyžaduje předplatné Pro",
-        "upgrade": "Upgradovat"
+        "upgrade": "Přejít na vyšší tarif"
       },
       "notConnected": {
         "title": "Cloudový účet není připojen",
@@ -564,7 +564,7 @@
       "quickToggleLabel": "Synchronizovat: {{label}}",
       "objectType": {
         "connection": {
-          "label": "Hostitelé",
+          "label": "Hosty",
           "sub": "SSH připojení"
         },
         "identity": {
@@ -580,7 +580,7 @@
           "sub": "Struktura složek pro organizaci objektů"
         },
         "snippet": {
-          "label": "Snippety",
+          "label": "Úryvky",
           "sub": "Uložené příkazy a skripty"
         },
         "port-forwarding-rule": {
@@ -589,7 +589,7 @@
         }
       },
       "settingsTitle": "Nastavení",
-      "settingsFooter": "Vše vypnuté zůstává na tomto zařízení. Nikdy se nenahrává, ani šifrovaně. Opětovným zapnutím synchronizace se zveřejní hodnoty tohoto zařízení.",
+      "settingsFooter": "Vše vypnuté zůstává na tomto zařízení. Nikdy se nenahrává, ani šifrovaně. Opětovným zapnutím synchronizace se odešlou hodnoty nastavení z tohoto zařízení.",
       "settingDomain": {
         "themes": {
           "label": "Motivy",
@@ -601,7 +601,7 @@
         },
         "shortcuts": {
           "label": "Klávesové zkratky",
-          "sub": "Vlastní úpravy kláves"
+          "sub": "Vlastní klávesové zkratky"
         },
         "appSettings": {
           "label": "Nastavení aplikace",
@@ -672,7 +672,7 @@
           "terminalSessions": "Terminálové relace"
         },
         "perm": {
-          "VIEW": "Vidět objekt vůbec",
+          "VIEW": "Zobrazovat objekt",
           "ADMINISTRATOR": "Všechna oprávnění na všech objektech bez ohledu na jejich pravidla",
           "VIEW_SECRETS": "Zobrazovat hesla a soukromé klíče v čitelné podobě",
           "COPY_SECRETS": "Kopírovat hesla a klíče do schránky",
@@ -680,7 +680,7 @@
           "EDIT_CONNECTIONS": "Vytvářet, upravovat a mazat připojení",
           "EDIT_IDENTITIES": "Vytvářet, upravovat a mazat SSH identity",
           "EDIT_KEYS": "Vytvářet, upravovat a mazat SSH klíče",
-          "EDIT_SNIPPETS": "Vytvářet, upravovat a mazat snippety příkazů",
+          "EDIT_SNIPPETS": "Vytvářet, upravovat a mazat úryvky příkazů",
           "EDIT_FOLDERS": "Spravovat strukturu složek",
           "VIEW_AUDIT_LOG": "Číst auditní log aktivity",
           "INVITE_MEMBERS": "Zvát do trezoru nové členy",
@@ -705,7 +705,7 @@
         "clearColor": "Vymazat",
         "preview": "Náhled",
         "permissionsLabel": "Oprávnění",
-        "objectOverrideNote": "Libovolný hostitel, klíč, identita, snippet nebo složka je může přepsat.",
+        "objectOverrideNote": "Libovolný host, klíč, identita, úryvek nebo složka je může přepsat.",
         "saveChanges": "Uložit změny",
         "createRole": "Vytvořit roli",
         "errorNameRequired": "Název je povinný",
@@ -731,7 +731,7 @@
         "filterPlaceholder": "Filtrovat pluginy…",
         "scanTitle": "Vyhledat lokální pluginy",
         "pluginSettingsTitle": "Nastavení {{name}}",
-        "noConfig": "Žádná nastavitelná nastavení.",
+        "noConfig": "Plugin nemá žádné možnosti nastavení.",
         "bundledBadge": "Přibalený",
         "settingsTitle": "Nastavení pluginu",
         "reloadTitle": "Znovu načíst plugin",
@@ -778,7 +778,7 @@
       },
       "deepLinkInstall": {
         "title": "Nainstalovat tento plugin?",
-        "body": "Tento odkaz instaluje plugin. Plugin spouští kód uvnitř Voltius s oprávněními uvedenými níže.",
+        "body": "Tento odkaz instaluje plugin. Plugin spouští kód uvnitř Voltiusu s oprávněními uvedenými níže.",
         "summary": "{{name}} {{version}} od {{author}}",
         "source": "Z katalogu {{source}}.",
         "action": "Nainstalovat",
@@ -820,7 +820,7 @@
           },
           "metricsRead": {
             "label": "Číst systémové metriky",
-            "description": "Číst statistiky CPU, paměti, disku a sítě z připojených hostitelů."
+            "description": "Číst statistiky CPU, paměti, disku a sítě z připojených hostů."
           },
           "dockerRead": {
             "label": "Číst informace o Dockeru",
@@ -828,11 +828,11 @@
           },
           "processesRead": {
             "label": "Číst informace o procesech",
-            "description": "Vypisovat běžící procesy na připojených hostitelích."
+            "description": "Vypisovat běžící procesy na připojených hostech."
           },
           "processesManage": {
             "label": "Spravovat procesy",
-            "description": "Vypisovat a ukončovat běžící procesy na připojených hostitelích."
+            "description": "Vypisovat a ukončovat běžící procesy na připojených hostech."
           },
           "dockerManage": {
             "label": "Spravovat Docker",
@@ -840,7 +840,7 @@
           },
           "portsForward": {
             "label": "Přesměrovat porty na tento počítač",
-            "description": "Otevírat SSH tunely z připojených hostitelů na lokální porty tohoto počítače a otevírat výslednou adresu v prohlížeči nebo ji kopírovat do schránky."
+            "description": "Otevírat SSH tunely z připojených hostů na lokální porty tohoto počítače a otevírat výslednou adresu v prohlížeči nebo ji kopírovat do schránky."
           },
           "proxmoxRead": {
             "label": "Číst informace o Proxmoxu",
@@ -852,19 +852,19 @@
           },
           "sftpRead": {
             "label": "Číst soubory",
-            "description": "Procházet a číst soubory na uložených SSH/FTP hostitelích a na tomto počítači."
+            "description": "Procházet a číst soubory na uložených SSH/FTP hostech a na tomto počítači."
           },
           "sftpWrite": {
             "label": "Zapisovat a přesouvat soubory",
-            "description": "Vytvářet, přejmenovávat, přepisovat a mazat soubory na uložených SSH/FTP hostitelích a na tomto počítači a kopírovat soubory mezi nimi. Může to trvale zničit data."
+            "description": "Vytvářet, přejmenovávat, přepisovat a mazat soubory na uložených SSH/FTP hostech a na tomto počítači a kopírovat soubory mezi nimi. Může to trvale zničit data."
           },
           "audit": {
             "label": "Zaznamenávat auditní události",
-            "description": "Přidávat do auditního logu záznamy o tom, co udělal. U hostitele v týmovém trezoru se tyto záznamy posílají také na server daného týmu."
+            "description": "Přidávat do auditního logu záznamy o tom, co udělal. U hostu v týmovém trezoru se tyto záznamy posílají také na server daného týmu."
           },
           "auditRead": {
             "label": "Číst log aktivity",
-            "description": "Číst log aktivity tohoto zařízení, včetně toho, ke kterým hostitelům se přistupovalo, se kterými soubory se pracovalo a co dělaly ostatní pluginy. Je-li uveden tým, čte také serverový log tohoto týmu — aktivitu všech členů."
+            "description": "Číst log aktivity tohoto zařízení, včetně toho, ke kterým hostům se přistupovalo, se kterými soubory se pracovalo a co dělaly ostatní pluginy. Je-li uveden tým, čte také serverový log tohoto týmu — aktivitu všech členů."
           },
           "mcpContribute": {
             "label": "Zpřístupnit nástroje externím AI agentům",
@@ -880,7 +880,7 @@
           },
           "foldersRead": {
             "label": "Vidět vaše složky",
-            "description": "Vidět složky, do kterých organizujete hostitele, klíče, přesměrování portů a snippety."
+            "description": "Vidět složky, do kterých organizujete hosty, klíče, přesměrování portů a úryvky."
           },
           "foldersWrite": {
             "label": "Vytvářet a mazat složky",
@@ -904,7 +904,7 @@
           },
           "keysRead": {
             "label": "Číst vaše SSH klíče",
-            "description": "Vypisovat uložené SSH klíče a přidat klíč do authorized_keys uloženého hostitele přes SSH."
+            "description": "Vypisovat uložené SSH klíče a přidat klíč do authorized_keys uloženého hostu přes SSH."
           },
           "keysWrite": {
             "label": "Spravovat vaše SSH klíče",
@@ -919,16 +919,16 @@
             "description": "Vytvářet a mazat identity vaším jménem."
           },
           "snippetsRead": {
-            "label": "Číst vaše snippety",
-            "description": "Vypisovat uložené snippety a příkazy, které spouštějí."
+            "label": "Číst vaše úryvky",
+            "description": "Vypisovat uložené úryvky a příkazy, které spouštějí."
           },
           "snippetsWrite": {
-            "label": "Spravovat vaše snippety",
-            "description": "Vytvářet, upravovat, přesouvat a mazat uložené snippety."
+            "label": "Spravovat vaše úryvky",
+            "description": "Vytvářet, upravovat, přesouvat a mazat uložené úryvky."
           },
           "snippetsRun": {
-            "label": "Spouštět vaše snippety na vašich hostitelích",
-            "description": "Spustit uložený snippet na hostiteli a v případě potřeby se k němu připojit. Jeho příkazy běží s vaším přístupem, přesně jako byste je spustili sami."
+            "label": "Spouštět vaše úryvky na vašich hostech",
+            "description": "Spustit uložený úryvek na hostu a v případě potřeby se k němu připojit. Jeho příkazy běží s vaším přístupem, přesně jako byste je spustili sami."
           },
           "portForwardingRead": {
             "label": "Číst vaše přesměrování portů",
@@ -939,12 +939,12 @@
             "description": "Vytvářet, upravovat, přesouvat a mazat uložená pravidla přesměrování portů."
           },
           "knownHostsRead": {
-            "label": "Číst vaše známé hostitele",
-            "description": "Vypisovat klíče SSH hostitelů, kterým jste důvěřovali, s jejich otisky."
+            "label": "Číst vaše známé hosty",
+            "description": "Vypisovat klíče SSH hostů, kterým jste důvěřovali, s jejich otisky."
           },
           "knownHostsWrite": {
-            "label": "Důvěřovat klíčům hostitelů a odebírat je",
-            "description": "Schválit klíč SSH hostitele nebo smazat klíč, kterému jste důvěřovali. Důvěryhodný klíč znamená, že připojení k danému hostiteli se přijímají bez dotazu."
+            "label": "Důvěřovat klíčům hostů a odebírat je",
+            "description": "Schválit klíč SSH hostu nebo smazat klíč, kterému jste důvěřovali. Důvěryhodný klíč znamená, že připojení k danému hostu se přijímají bez dotazu."
           },
           "historyRead": {
             "label": "Číst historii příkazů",
@@ -959,8 +959,8 @@
             "description": "Zrušit probíhající přenos souboru nebo znovu spustit neúspěšný — včetně přenosů, které jste spustili sami."
           },
           "healthRead": {
-            "label": "Vidět dostupnost hostitelů",
-            "description": "Vidět, kteří z uložených hostitelů naposledy odpověděli na kontrolu dostupnosti a jak rychle."
+            "label": "Vidět dostupnost hostů",
+            "description": "Vidět, které z uložených hostů naposledy odpověděly na kontrolu dostupnosti a jak rychle."
           },
           "vaultRead": {
             "label": "Číst váš trezor",
@@ -1016,15 +1016,15 @@
           },
           "pluginsManage": {
             "label": "Spravovat pluginy",
-            "description": "Instalovat, aktualizovat, odebírat, zapínat a vypínat pluginy a přidávat zdroje marketplace. Nainstalovaný plugin spouští kód uvnitř Voltius s oprávněními, která deklaruje."
+            "description": "Instalovat, aktualizovat, odebírat, zapínat a vypínat pluginy a přidávat zdroje marketplace. Nainstalovaný plugin spouští kód uvnitř Voltiusu s oprávněními, která deklaruje."
           },
           "importExportRead": {
             "label": "Exportovat vaše data",
-            "description": "Exportovat připojení, identity, SSH klíče, snippety a pravidla přesměrování portů. Balíčky s hesly nebo soukromými klíči lze exportovat jen šifrovaně."
+            "description": "Exportovat připojení, identity, SSH klíče, úryvky a pravidla přesměrování portů. Balíčky s hesly nebo soukromými klíči lze exportovat jen šifrovaně."
           },
           "importExportWrite": {
             "label": "Importovat data",
-            "description": "Importovat připojení, identity, SSH klíče, snippety a pravidla přesměrování portů do trezoru. Existující položky se nikdy nepřepisují."
+            "description": "Importovat připojení, identity, SSH klíče, úryvky a pravidla přesměrování portů do trezoru. Existující položky se nikdy nepřepisují."
           },
           "storage": {
             "label": "Ukládat data pluginu",
@@ -1132,11 +1132,11 @@
       "connectivityTitle": "Konektivita",
       "reachability": {
         "title": "Kontrola dostupnosti",
-        "desc": "Testuje SSH port a na kartě každého hostitele zobrazuje stavovou tečku a latenci. U jednotlivých hostitelů ji lze vypnout v jejich nastavení."
+        "desc": "Testuje SSH port a na kartě každého hostu zobrazuje stavovou tečku a latenci. U jednotlivých hostů ji lze vypnout v jejich nastavení."
       },
       "pollInterval": {
         "title": "Interval kontroly",
-        "desc": "Frekvence kontroly na pozadí pro stránku hostitelů."
+        "desc": "Frekvence kontroly na pozadí pro stránku hostů."
       },
       "ms": "ms",
       "activeInterval": {
@@ -1145,7 +1145,7 @@
       },
       "keepalive": {
         "title": "Keepalive",
-        "desc": "Jak rychle se relace prohlásí za ztracenou, když server přestane odpovídat. {{detail}}. Lze přepsat u jednotlivých hostitelů."
+        "desc": "Jak rychle se relace prohlásí za ztracenou, když server přestane odpovídat. {{detail}}. Lze přepsat u jednotlivých hostů."
       },
       "keepalivePresets": {
         "fast": {
@@ -1167,7 +1167,7 @@
       },
       "proxy": {
         "title": "Proxy",
-        "desc": "Směruje SSH, SFTP a kontroly dostupnosti přes proxy. Hostitelé to mohou přepsat.",
+        "desc": "Směruje SSH, SFTP a kontroly dostupnosti přes proxy. Pro jednotlivé hosty lze nastavit jinou volbu.",
         "modes": {
           "none": "Bez proxy",
           "system": "Systémová",
@@ -1181,17 +1181,17 @@
       },
       "persistentSessions": {
         "title": "Trvalé relace",
-        "desc": "Udržet shell a běžící procesy při odpojení tím, že se vzdálený shell obalí do tmux (záložně do screen). Vyžaduje tmux nebo screen na hostiteli. Lze přepsat u jednotlivých hostitelů v sekci Pokročilé v nastavení připojení."
+        "desc": "Zachovat shell a běžící procesy i při odpojení spuštěním vzdáleného shellu v tmux (případně ve screen). Vyžaduje tmux nebo screen na hostu. Pro jednotlivé hosty lze nastavit jinou volbu v sekci Pokročilé v nastavení připojení."
       },
       "terminalTitle": "Terminál",
       "shellIntegration": {
         "title": "Integrace shellu",
-        "desc": "Napojí se na vzdálený/lokální shell, aby hlásil pracovní adresář (OSC 7) pro panely souborů sledující aktuální adresář. Pokud uvítací zpráva nebo výzva hostitele vypadá špatně, vypněte ji u něj. Lze přepsat u jednotlivých hostitelů v sekci Pokročilé v nastavení připojení."
+        "desc": "Napojí se na vzdálený/lokální shell, aby hlásil pracovní adresář (OSC 7) pro panely souborů sledující aktuální adresář. Pokud uvítací zpráva nebo výzva hostu vypadá špatně, vypněte ji u něj. Lze přepsat u jednotlivých hostů v sekci Pokročilé v nastavení připojení."
       },
       "teamPresenceTitle": "Přítomnost v týmu",
       "teamPresence": {
-        "title": "Sdílet, které hostitele z týmového trezoru používáte",
-        "desc": "Pokud je zapnuto, váš avatar se zobrazí na kartě hostitele, dokud k němu máte otevřený terminál. Vidí ho jen kolegové s přístupem k danému hostiteli."
+        "title": "Sdílet, které hosty z týmového trezoru používáte",
+        "desc": "Pokud je zapnuto, váš avatar se zobrazí na kartě hostu, dokud k němu máte otevřený terminál. Vidí ho jen kolegové s přístupem k danému hostu."
       }
     },
     "toggleDefs": {
@@ -1208,7 +1208,7 @@
         "label": "Tažení označuje text"
       },
       "groupTabsByHost": {
-        "label": "Seskupit karty podle hostitele"
+        "label": "Seskupit karty podle hostu"
       },
       "ignoreBracketedPaste": {
         "label": "Prosté vkládání (bez bracketed paste)"
@@ -1292,14 +1292,14 @@
         },
         "newTab": {
           "label": "Nová karta",
-          "desc": "Přejít na zobrazení hostitelů"
+          "desc": "Přejít na zobrazení hostů"
         },
         "duplicateSession": {
           "label": "Duplikovat relaci",
-          "desc": "Otevřít druhý terminál na stejném hostiteli"
+          "desc": "Otevřít druhý terminál na stejném hostu"
         },
         "duplicateSessionSplit": {
-          "label": "Duplikovat do rozdělení",
+          "label": "Duplikovat do vedlejšího panelu",
           "desc": "Otevřít druhý terminál vedle aktuálního"
         },
         "closeTab": {
@@ -1339,7 +1339,7 @@
           "desc": "Vrátit poslední akci"
         },
         "redo": {
-          "label": "Znovu",
+          "label": "Zopakovat",
           "desc": "Zopakovat poslední vrácenou akci"
         },
         "filter": {
@@ -1355,8 +1355,8 @@
           "desc": "Otevřít historii příkazů v pravém panelu"
         },
         "snippets": {
-          "label": "Panel snippetů",
-          "desc": "Otevřít snippety v pravém panelu"
+          "label": "Panel úryvků",
+          "desc": "Otevřít úryvky v pravém panelu"
         },
         "panelThemes": {
           "label": "Panel motivů",
@@ -1364,7 +1364,7 @@
         },
         "panelNotes": {
           "label": "Panel poznámek",
-          "desc": "Otevřít poznámky k hostiteli v pravém panelu"
+          "desc": "Otevřít poznámky k hostu v pravém panelu"
         }
       }
     }

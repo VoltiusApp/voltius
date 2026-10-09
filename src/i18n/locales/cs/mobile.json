@@ -22,9 +22,9 @@
       "title": "Aktivní na jiných zařízeních"
     },
     "snippets": {
-      "searchPlaceholder": "Hledat snippety",
+      "searchPlaceholder": "Hledat úryvky",
       "noMatches": "Žádné shody",
-      "empty": "Zatím žádné snippety",
+      "empty": "Zatím žádné úryvky",
       "insertAriaLabel": "Vložit",
       "executeAriaLabel": "Spustit",
       "moreAriaLabel": "Další",
@@ -49,7 +49,7 @@
     "morePages": {
       "keychain": "Klíčenka",
       "portForwarding": "Přesměrování portů",
-      "knownHosts": "Známí hostitelé",
+      "knownHosts": "Známé hosty",
       "members": "Členové",
       "logs": "Logy"
     },
@@ -87,29 +87,29 @@
       "planLabel": "Tarif {{tier}}"
     },
     "host": {
-      "newTitle": "Nový hostitel",
-      "editTitle": "Upravit hostitele"
+      "newTitle": "Nový host",
+      "editTitle": "Upravit host"
     },
     "hostsScreen": {
-      "searchPlaceholder": "Hledat hostitele",
+      "searchPlaceholder": "Hledat hosty",
       "clearSearchAriaLabel": "Vymazat hledání",
-      "emptyNoHosts": "Zatím žádní hostitelé — přidejte je klepnutím na +"
+      "emptyNoHosts": "Zatím žádné hosty — klepnutím na + přidáte host"
     },
     "keychainScreen": {
       "filterPlaceholder": "Filtrovat klíčenku…",
       "sshKeysHeader": "SSH KLÍČE",
       "identitiesHeader": "IDENTITY",
       "addedOn": "přidáno {{date}}",
-      "noSearchMatches": "Hledání nic neodpovídá",
+      "noSearchMatches": "Vašemu hledání nic neodpovídá",
       "empty": "Klíčenka je prázdná",
       "generateKey": "Vygenerovat SSH klíč",
       "importKey": "Importovat SSH klíč",
       "newIdentity": "Nová identita"
     },
     "knownHostsScreen": {
-      "filterPlaceholder": "Filtrovat hostitele…",
-      "noSearchMatches": "Hledání neodpovídá žádný známý hostitel",
-      "empty": "Zatím žádní známí hostitelé — objeví se, jakmile se připojíte k serveru."
+      "filterPlaceholder": "Filtrovat hosty…",
+      "noSearchMatches": "Hledání neodpovídá žádnému známému hostu",
+      "empty": "Zatím žádné známé hosty — objeví se, jakmile se připojíte k serveru."
     },
     "logsScreen": {
       "filterPlaceholder": "Filtrovat logy…",
@@ -125,22 +125,22 @@
       "empty": "Zatím žádná pravidla přesměrování portů"
     },
     "snippetEdit": {
-      "editTitle": "Upravit snippet",
-      "newTitle": "Nový snippet",
-      "namePlaceholder": "Název snippetu",
+      "editTitle": "Upravit úryvek",
+      "newTitle": "Nový úryvek",
+      "namePlaceholder": "Název úryvku",
       "contentPlaceholder": "echo hello",
-      "delete": "Smazat snippet"
+      "delete": "Smazat úryvek"
     },
     "snippetsScreen": {
-      "newSnippetLabel": "Nový snippet"
+      "newSnippetLabel": "Nový úryvek"
     },
     "terminalScreen": {
       "noActiveSessions": "Žádné aktivní relace",
-      "pickHost": "Vyberte hostitele"
+      "pickHost": "Vyberte host"
     },
     "sftp": {
       "transferFailed": "Přenos se nezdařil",
-      "chooseHost": "Vyberte hostitele",
+      "chooseHost": "Vyberte host",
       "hidden": "Skryté",
       "visible": "Viditelné",
       "connecting": "Připojování…",
@@ -195,7 +195,7 @@
         "deleteBody": "Smazat {{name}} a vše, co obsahuje? Tuto akci nelze vrátit zpět."
       },
       "hostActions": {
-        "deleteTitle": "Smazat hostitele?",
+        "deleteTitle": "Smazat host?",
         "openFiles": "Otevřít soubory",
         "copyAddress": "Kopírovat adresu",
         "copiedAddress": "Zkopírováno: {{host}}",
@@ -215,8 +215,8 @@
         "copiedUsername": "Uživatelské jméno zkopírováno"
       },
       "knownHostActions": {
-        "deleteTitle": "Smazat známého hostitele?",
-        "deleteBody": "Tím odeberete důvěryhodný otisk. Další připojení k tomuto hostiteli bude považováno za nové.",
+        "deleteTitle": "Smazat záznam známého hostu?",
+        "deleteBody": "Tím odeberete důvěryhodný otisk. Další připojení k tomuto hostu bude považováno za nové.",
         "copyFingerprint": "Kopírovat otisk",
         "copiedFingerprint": "Otisk zkopírován"
       },
@@ -226,14 +226,14 @@
         "exportJson": "Exportovat jako JSON"
       },
       "snippetActions": {
-        "deleteTitle": "Smazat snippet?"
+        "deleteTitle": "Smazat úryvek?"
       },
       "snippetTarget": {
         "executeTitle": "Spustit „{{name}}“",
         "insertTitle": "Vložit „{{name}}“",
         "confirmExecute_one": "Spustit v {{count}} cíli",
         "confirmExecute_few": "Spustit ve {{count}} cílech",
-        "confirmExecute_many": "Spustit v {{count}} cíle",
+        "confirmExecute_many": "Spustit v cílech ({{count}})",
         "confirmExecute_other": "Spustit v {{count}} cílech",
         "confirmInsert_one": "Vložit do {{count}} cíle",
         "confirmInsert_few": "Vložit do {{count}} cílů",
@@ -241,13 +241,13 @@
         "confirmInsert_other": "Vložit do {{count}} cílů",
         "activeSessions": "Aktivní relace",
         "openNewConnection": "Otevřít nové připojení",
-        "noHosts": "Žádní hostitelé"
+        "noHosts": "Žádné hosty"
       },
       "ruleActions": {
         "deleteTitle": "Smazat pravidlo?"
       },
       "sftpHostPicker": {
-        "noSshHosts": "Žádní SSH hostitelé"
+        "noSshHosts": "Žádné SSH hosty"
       },
       "vaultSwitcher": {
         "newVault": "Nový trezor",

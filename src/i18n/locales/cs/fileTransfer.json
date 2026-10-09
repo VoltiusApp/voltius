@@ -10,11 +10,11 @@
     },
     "acceleratedBadge": {
       "title": "Zrychlení přes tar",
-      "description": "Zabaleno do jednoho archivu a rozbaleno na druhé straně — mnohem méně výměn než soubor po souboru.",
+      "description": "Soubory se zabalí do jednoho archivu a na druhé straně rozbalí. Oproti přenosu po jednotlivých souborech se výrazně sníží počet požadavků a odpovědí.",
       "howItWorks": "Jak to funguje"
     },
     "perFileBadge": {
-      "reason": "Soubor po souboru: tento hostitel neumí streamovat tar"
+      "reason": "Přenos po jednotlivých souborech: tento host nepodporuje průběžný přenos archivu tar"
     },
     "conflict": {
       "title": "Soubor již existuje",
@@ -35,7 +35,7 @@
         "newFile": "Nový soubor",
         "refresh": "Obnovit"
       },
-      "dropToTransfer": "Pusťte pro přenos",
+      "dropToTransfer": "Puštěním zahájíte přenos",
       "placeholder": {
         "folderName": "Název složky",
         "fileName": "Název souboru"
@@ -44,7 +44,7 @@
       "refreshFailed": "Nepodařilo se obnovit: {{reason}}",
       "selection": {
         "selected": "Vybráno: {{count}}",
-        "clear": "Zrušit"
+        "clear": "Zrušit výběr"
       },
       "confirmDelete": {
         "title": "Potvrdit smazání",
@@ -82,9 +82,9 @@
         "disconnect": "Odpojit",
         "hideHiddenFiles": "Skrýt skryté soubory",
         "showHiddenFiles": "Zobrazit skryté soubory",
-        "sizeColumn": "Sloupec velikost",
-        "dateColumn": "Sloupec datum",
-        "permissionsColumn": "Sloupec oprávnění"
+        "sizeColumn": "Sloupec Velikost",
+        "dateColumn": "Sloupec Datum",
+        "permissionsColumn": "Sloupec Oprávnění"
       },
       "columns": {
         "name": "Název",
@@ -105,12 +105,12 @@
       "owner": "Vlastník",
       "group": "Skupina",
       "others": "Ostatní",
-      "octal": "Osmičkový režim",
+      "octal": "Osmičkový zápis oprávnění",
       "uid": "uid {{id}}",
       "gid": "gid {{id}}",
       "mixed": "smíšené",
-      "noShell": "Změna vlastníka nebo obsahu složky vyžaduje na hostiteli shell POSIX.",
-      "recurse": "Rekurzivně",
+      "noShell": "Změna vlastníka nebo oprávnění položek uvnitř složky vyžaduje na hostu shell POSIX.",
+      "recurse": "Použít i na obsah složek",
       "scopeAll": "Vše",
       "scopeFiles": "Soubory",
       "scopeDirs": "Složky",
@@ -121,7 +121,7 @@
       "applyItems_other": "Použít na {{count}}"
     },
     "side": {
-      "chooseHost": "Vyberte hostitele…",
+      "chooseHost": "Vyberte host…",
       "back": "Zpět",
       "forward": "Vpřed",
       "filterPlaceholder": "Filtrovat…",
@@ -156,7 +156,7 @@
       "selectFilesToUpload": "Vyberte soubory k nahrání",
       "downloadToFolder": "Stáhnout do složky",
       "connectionLost": "Spojení ztraceno",
-      "moveSourceNotDeleted": "Zkopírováno, ale originál {{names}} se nepodařilo odstranit: {{error}}"
+      "moveSourceNotDeleted": "Zkopírováno, ale původní položky se nepodařilo odstranit: {{names}}. Chyba: {{error}}"
     },
     "queue": {
       "title": "Přenosy",
@@ -170,11 +170,11 @@
       "cancelTransfer": "Zrušit přenos",
       "retryTransfer": "Zopakovat přenos",
       "waiting": "Čekání na připojení…",
-      "resumedAt": "Navázáno od {{size}}",
-      "resumedTooltip": "Pokračuje tam, kde se přerušený přenos zastavil",
+      "resumedAt": "Pokračování od {{size}}",
+      "resumedTooltip": "Přenos pokračuje od místa, kde byl přerušen",
       "skipped_one": "Přeskočen {{count}} název, který tento systém neumí uložit:",
       "skipped_few": "Přeskočeny {{count}} názvy, které tento systém neumí uložit:",
-      "skipped_many": "Přeskočeno {{count}} názvu, které tento systém neumí uložit:",
+      "skipped_many": "Přeskočeno {{count}} názvu, který tento systém neumí uložit:",
       "skipped_other": "Přeskočeno {{count}} názvů, které tento systém neumí uložit:",
       "mcpTooltip": "Spuštěno klientem {{client}}",
       "mcpTooltipUnknown": "Spuštěno MCP klientem",
@@ -185,7 +185,7 @@
       },
       "transferCountActive_one": "{{transfers}} · {{count}} aktivní",
       "transferCountActive_few": "{{transfers}} · {{count}} aktivní",
-      "transferCountActive_many": "{{transfers}} · {{count}} aktivních",
+      "transferCountActive_many": "{{transfers}} · {{count}} aktivního",
       "transferCountActive_other": "{{transfers}} · {{count}} aktivních"
     },
     "editor": {
@@ -221,7 +221,7 @@
         "discardTitle": "Zahodit neuložené změny?",
         "discardMessage": "„{{name}}“ obsahuje neuložené změny. Zavřením této karty je zahodíte.",
         "discard": "Zahodit",
-        "diffTitle": "rozdíl: {{name}}"
+        "diffTitle": "porovnání: {{name}}"
       }
     }
   }

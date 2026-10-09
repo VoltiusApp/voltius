@@ -1,7 +1,7 @@
 {
   "hosts": {
     "toolbar": {
-      "filterPlaceholder": "Filtrovat hostitele...",
+      "filterPlaceholder": "Filtrovat hosty…",
       "openSerialConsole": "Otevřít sériovou konzoli",
       "serial": "Sériový port",
       "terminal": "Terminál",
@@ -9,8 +9,8 @@
       "import": "Importovat…",
       "export": "Exportovat…",
       "fromImporter": "Z {{label}}",
-      "newHost": "Nový hostitel",
-      "newSerialHost": "Nový sériový hostitel",
+      "newHost": "Nový host",
+      "newSerialHost": "Nový sériový host",
       "newFolder": "Nová složka"
     },
     "card": {
@@ -28,25 +28,25 @@
       "unpinForTeam": "Odepnout pro tým",
       "pinForTeam": "Připnout pro tým",
       "openInSftp": "Otevřít v SFTP",
-      "copyHostnameIp": "Kopírovat název hostitele/IP",
+      "copyHostnameIp": "Kopírovat název hostu/IP",
       "copiedHost": "Zkopírováno: {{host}}",
-      "executeSnippet": "Spustit snippet",
+      "executeSnippet": "Spustit úryvek",
       "cloudSyncDisabled": "Synchronizace s cloudem vypnuta",
       "enableCloudSync": "Zapnout synchronizaci s cloudem",
       "disableCloudSync": "Vypnout synchronizaci s cloudem",
       "enableReachability": "Zapnout kontrolu dostupnosti",
       "disableReachability": "Vypnout kontrolu dostupnosti",
-      "connectTitle": "Připojit (nebo dvojklik)",
-      "openFilesTitle": "Otevřít soubory (nebo dvojklik)",
+      "connectTitle": "Připojit (také dvojklikem)",
+      "openFilesTitle": "Otevřít soubory (také dvojklikem)",
       "inUseBy": "Používá {{name}}",
       "inUseByOverflow_one": "Používá {{name}} a {{count}} další",
       "inUseByOverflow_few": "Používá {{name}} a {{count}} další",
       "inUseByOverflow_many": "Používá {{name}} a {{count}} dalšího",
       "inUseByOverflow_other": "Používá {{name}} a {{count}} dalších",
       "filesSuffix": "soubory",
-      "knockProtected": "Chráněno klepáním. Kontroluje se jen po klepnutí Voltiusu.",
-      "knockWindowOpen": "Okno po klepnutí je otevřené",
-      "knockProtectedShort": "chráněno klepáním"
+      "knockProtected": "Chráněno klepáním na porty. Dostupnost se ověřuje jen poté, co Voltius odešle sekvenci klepání.",
+      "knockWindowOpen": "Přístup po klepnutí na porty je otevřený",
+      "knockProtectedShort": "chráněno klepáním na porty"
     },
     "page": {
       "all": "Vše",
@@ -54,28 +54,28 @@
       "new": "Nový",
       "pinned": "Připnuté",
       "folderEmpty": "Tato složka je prázdná",
-      "addHost": "Přidat hostitele",
-      "noSearchResults": "Výrazu „{{search}}“ neodpovídá žádný hostitel",
+      "addHost": "Přidat host",
+      "noSearchResults": "Výrazu „{{search}}“ neodpovídá žádný host",
       "ejectMoveTo": "Přesunout do {{name}}",
       "ejectRemoveFromFolder": "Odebrat ze složky",
       "emptyState": {
-        "title": "Zatím žádní hostitelé",
-        "subtitle": "Začněte přidáním prvního SSH hostitele"
+        "title": "Zatím žádné hosty",
+        "subtitle": "Začněte přidáním prvního SSH hostu"
       },
       "draft": {
         "unsaved": "Neuloženo"
       },
       "vaultCascade": {
-        "moveDescription": "Přesunutím „{{folderName}}“ se do {{targetVaultName}} přesunou také tyto položky:",
-        "copyDescription": "Zkopírováním „{{folderName}}“ se do {{targetVaultName}} zkopírují také tyto položky:"
+        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tyto položky:",
+        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tyto položky:"
       },
       "bulk": {
-        "executeSnippetOn_one": "Spustit snippet na {{count}} hostiteli",
-        "executeSnippetOn_few": "Spustit snippet na {{count}} hostitelích",
-        "executeSnippetOn_many": "Spustit snippet na {{count}} hostitele",
-        "executeSnippetOn_other": "Spustit snippet na {{count}} hostitelích",
-        "connectHosts": "Připojit hostitele ({{count}})",
-        "duplicateHosts": "Duplikovat hostitele ({{count}})",
+        "executeSnippetOn_one": "Spustit úryvek na {{count}} hostu",
+        "executeSnippetOn_few": "Spustit úryvek na {{count}} hostech",
+        "executeSnippetOn_many": "Spustit úryvek na {{count}} hostu",
+        "executeSnippetOn_other": "Spustit úryvek na {{count}} hostech",
+        "connectHosts": "Připojit hosty ({{count}})",
+        "duplicateHosts": "Duplikovat hosty ({{count}})",
         "moveItemsTo_one": "Přesunout {{count}} položku do",
         "moveItemsTo_few": "Přesunout {{count}} položky do",
         "moveItemsTo_many": "Přesunout {{count}} položky do",
@@ -88,7 +88,7 @@
         "disableCloudSync": "Vypnout synchronizaci s cloudem ({{count}})",
         "enableReachability": "Zapnout kontrolu dostupnosti ({{count}})",
         "disableReachability": "Vypnout kontrolu dostupnosti ({{count}})",
-        "exportHosts": "Exportovat hostitele ({{count}})",
+        "exportHosts": "Exportovat hosty ({{count}})",
         "deleteItems_one": "Smazat {{count}} položku",
         "deleteItems_few": "Smazat {{count}} položky",
         "deleteItems_many": "Smazat {{count}} položky",
@@ -103,17 +103,17 @@
         "message_few": "Opravdu chcete smazat {{count}} položky? Tuto akci nelze vrátit zpět.",
         "message_many": "Opravdu chcete smazat {{count}} položky? Tuto akci nelze vrátit zpět.",
         "message_other": "Opravdu chcete smazat {{count}} položek? Tuto akci nelze vrátit zpět.",
-        "folderCascade_one": "Smazán bude také {{count}} hostitel zařazený ve vybraných složkách.",
-        "folderCascade_few": "Smazáni budou také {{count}} hostitelé zařazení ve vybraných složkách.",
-        "folderCascade_many": "Smazáno bude také {{count}} hostitele zařazeného ve vybraných složkách.",
-        "folderCascade_other": "Smazáno bude také {{count}} hostitelů zařazených ve vybraných složkách."
+        "folderCascade_one": "Smazán bude také {{count}} host zařazený ve vybraných složkách.",
+        "folderCascade_few": "Smazány budou také {{count}} hosty zařazené ve vybraných složkách.",
+        "folderCascade_many": "Smazáno bude také {{count}} hostu zařazeného ve vybraných složkách.",
+        "folderCascade_other": "Smazáno bude také {{count}} hostů zařazených ve vybraných složkách."
       },
       "confirmDeleteFolder": {
         "title": "Smazat složku",
-        "message_one": "Smaže se složka, její podsložky a {{count}} hostitel uvnitř. Tuto akci nelze vrátit zpět.",
-        "message_few": "Smaže se složka, její podsložky a {{count}} hostitelé uvnitř. Tuto akci nelze vrátit zpět.",
-        "message_many": "Smaže se složka, její podsložky a {{count}} hostitele uvnitř. Tuto akci nelze vrátit zpět.",
-        "message_other": "Smaže se složka, její podsložky a {{count}} hostitelů uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_one": "Smaže se složka, její podsložky a {{count}} host uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_few": "Smaže se složka, její podsložky a {{count}} hosty uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_many": "Smaže se složka, její podsložky a {{count}} hostu uvnitř. Tuto akci nelze vrátit zpět.",
+        "message_other": "Smaže se složka, její podsložky a {{count}} hostů uvnitř. Tuto akci nelze vrátit zpět.",
         "messageEmpty": "Smaže se složka a vše, co obsahuje. Tuto akci nelze vrátit zpět."
       }
     },
@@ -129,7 +129,7 @@
     },
     "teamSessions": {
       "title": "Týmové relace",
-      "joinByCode": "Připojit se kódem",
+      "joinByCode": "Připojit se pomocí kódu",
       "emptyHint": "Zde se zobrazí terminály, které sdílejí vaši kolegové. Máte kód pozvánky? Vložte ho do vyhledávání a připojte se.",
       "live": "ŽIVĚ",
       "pasteInviteCode": "Vložte odkaz nebo kód pozvánky a připojte se k soukromé relaci:",
@@ -141,34 +141,34 @@
       "sharedTerminalFallback": "Sdílený terminál"
     },
     "snippetPicker": {
-      "title": "Spustit snippet",
-      "goToSnippets": "Přejít na snippety",
-      "filterPlaceholder": "Filtrovat snippety...",
-      "newSnippetTitle": "Nový snippet",
+      "title": "Spustit úryvek",
+      "goToSnippets": "Přejít na úryvky",
+      "filterPlaceholder": "Filtrovat úryvky…",
+      "newSnippetTitle": "Nový úryvek",
       "new": "Nový",
-      "noSnippetsYet": "Zatím žádné snippety",
-      "createSnippet": "Vytvořit snippet",
-      "noSnippetsMatch": "Žádný snippet neodpovídá",
+      "noSnippetsYet": "Zatím žádné úryvky",
+      "createSnippet": "Vytvořit úryvek",
+      "noSnippetsMatch": "Žádný úryvek neodpovídá",
       "recent": "Nedávné",
-      "allSnippets": "Všechny snippety",
-      "hostsSelected_one": "Vybrán {{count}} hostitel",
-      "hostsSelected_few": "Vybráni {{count}} hostitelé",
-      "hostsSelected_many": "Vybráno {{count}} hostitele",
-      "hostsSelected_other": "Vybráno {{count}} hostitelů",
+      "allSnippets": "Všechny úryvky",
+      "hostsSelected_one": "Vybrán {{count}} host",
+      "hostsSelected_few": "Vybrány {{count}} hosty",
+      "hostsSelected_many": "Vybráno {{count}} hostu",
+      "hostsSelected_other": "Vybráno {{count}} hostů",
       "insert": "Vložit",
       "execute": "Spustit"
     },
     "hostCommand": {
-      "labelPre": "{{host}} — příkaz před připojením",
-      "labelPost": "{{host}} — příkaz po připojení",
-      "failed": "Příkaz hostitele {{host}} selhal: {{error}}",
-      "missingSnippet": "Chybí snippet příkazu hostitele {{host}}",
-      "postPromptTimedOut": "Příkaz po připojení pro {{host}} byl přeskočen: žádná odpověď do 60 s"
+      "labelPre": "{{host}} — příkaz při otevření relace",
+      "labelPost": "{{host}} — příkaz při zavření karty",
+      "failed": "Příkaz hostu {{host}} selhal: {{error}}",
+      "missingSnippet": "Chybí úryvek příkazu hostu {{host}}",
+      "postPromptTimedOut": "Příkaz při zavření karty pro {{host}} byl přeskočen: odpověď nebyla zadána do 60 s"
     },
     "connectAs": {
       "title": "Připojit jako",
       "yours": "vaše",
-      "hostDefault": "výchozí hostitele",
+      "hostDefault": "výchozí pro host",
       "vaultDefault": "Moje identita pro {{vault}}…",
       "clearPick": "Zrušit moji volbu"
     }

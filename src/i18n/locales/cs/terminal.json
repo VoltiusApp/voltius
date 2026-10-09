@@ -67,7 +67,7 @@
       "copyAddress": "Kopírovat localhost:{{port}}",
       "openUrl": "Otevřít {{url}}",
       "sshRequired": "Přesměrování portů vyžaduje SSH relaci.",
-      "empty": "Žádné přesměrované porty. Porty zjištěné na vzdáleném hostiteli se zde objeví automaticky.",
+      "empty": "Žádné přesměrované porty. Porty zjištěné na vzdáleném hostu se zde objeví automaticky.",
       "sectionSaved": "ULOŽENÉ",
       "sectionActive": "AKTIVNÍ",
       "sectionSuppressed": "POTLAČENÉ",
@@ -79,7 +79,7 @@
       "quickForwardPlaceholder": "Přesměrovat port (např. 3000 nebo 3000:8080)",
       "quickForwardErrors": {
         "emptyInput": "Zadejte port",
-        "tooManyParts": "Použijte port nebo vzdálený:lokální",
+        "tooManyParts": "Použijte port nebo vzdálený_port:lokální_port",
         "invalidRemotePort": "Port musí být 1–65535",
         "invalidLocalPort": "Lokální port musí být 1–65535"
       },
@@ -137,7 +137,7 @@
       "allRoles": "všechny role",
       "startSharingWithVault_one": "Začít sdílet s {{count}} trezorem",
       "startSharingWithVault_few": "Začít sdílet se {{count}} trezory",
-      "startSharingWithVault_many": "Začít sdílet s {{count}} trezoru",
+      "startSharingWithVault_many": "Začít sdílet s trezory ({{count}})",
       "startSharingWithVault_other": "Začít sdílet s {{count}} trezory",
       "selectVaultToShare": "Vyberte trezor ke sdílení",
       "shareCodeDescription": "Sdílejte tento kód — připojit se může kdokoli, kdo ho má:",
@@ -165,8 +165,8 @@
       "inviteSent": "Pozván(a)",
       "inviteCapReached": "Dosažen limit",
       "inviteFailed": "{{name}} se nepodařilo pozvat",
-      "withdrawInvite": "Stáhnout",
-      "uninviteFailed": "Pozvánku se nepodařilo stáhnout",
+      "withdrawInvite": "Zrušit pozvánku",
+      "uninviteFailed": "Pozvánku se nepodařilo zrušit",
       "inviteNoTeammates": "Zatím žádní kolegové",
       "inviteLoadFailed": "Kolegy se nepodařilo načíst",
       "peopleSearchPlaceholder": "Hledat podle @přezdívky nebo e-mailu…",
@@ -175,13 +175,13 @@
       "recentLabel": "Nedávné",
       "recentEmpty": "Zde se zobrazí lidé, které pozvete.",
       "yourTeamsLabel": "Vaše týmy",
-      "elsewhereLabel": "Jinde ve Voltius",
+      "elsewhereLabel": "Jinde ve Voltiusu",
       "notInYourTeams": "Není ve vašich týmech",
       "presenceOnline": "Online",
       "presenceOffline": "Offline",
       "forgetPerson": "Odebrat z nedávných",
       "deepLinkJoinTitle": "Připojit se ke sdílenému terminálu?",
-      "deepLinkJoinBody": "Někdo s vámi sdílí živou terminálovou relaci. Připojením se k ní hned připojíte.",
+      "deepLinkJoinBody": "Někdo s vámi sdílí živou terminálovou relaci. Po potvrzení se k ní ihned připojíte.",
       "deepLinkJoinUnknownHost": "Voltius nedokáže zjistit, kdo relaci sdílí, dokud se nepřipojíte.",
       "deepLinkJoinAction": "Připojit se k relaci",
       "deepLinkJoinFailed": "K relaci se nepodařilo připojit — odkaz mohl vypršet.",
@@ -216,12 +216,12 @@
       "moveToFolder": "Přesunout do složky",
       "back": "Zpět",
       "unfiled": "Nezařazené",
-      "searchPlaceholder": "Hledat snippety…",
-      "newSnippetTitle": "Nový snippet",
+      "searchPlaceholder": "Hledat úryvky…",
+      "newSnippetTitle": "Nový úryvek",
       "favorites": "Oblíbené",
       "recent": "Nedávné",
-      "noSnippetsMatch": "Žádný snippet neodpovídá",
-      "noSnippetsYet": "Zatím žádné snippety.\nVytvořte ho kliknutím na +."
+      "noSnippetsMatch": "Žádný úryvek neodpovídá",
+      "noSnippetsYet": "Zatím žádné úryvky.\nKliknutím na + vytvoříte nový úryvek."
     },
     "search": {
       "placeholder": "Najít",
@@ -252,10 +252,10 @@
       "reconnectWait": {
         "offline": {
           "title": "Jste offline",
-          "subtitle": "Znovu se připojí, až bude síť zpět"
+          "subtitle": "Připojení se obnoví, jakmile bude síť opět dostupná"
         },
         "slow": {
-          "title": "Hostitel je stále nedostupný",
+          "title": "Host je stále nedostupný",
           "subtitle": "Opakuje se každých {{seconds}} s"
         },
         "retryNow": "Zkusit nyní"
@@ -266,7 +266,7 @@
         "dismiss": "Zavřít"
       },
       "hostKeyConflict": {
-        "title": "KLÍČ HOSTITELE SE ZMĚNIL",
+        "title": "KLÍČ HOSTU SE ZMĚNIL",
         "replace": "Nahradit",
         "addAsNew": "Přidat jako nový",
         "abort": "Přerušit",
@@ -275,50 +275,50 @@
         "description": "Otisk pro <host>{{address}}</host> se změnil."
       },
       "passphrasePrompt": {
-        "title": "VYŽADOVÁNA HESLOVÁ FRÁZE KLÍČE",
-        "description": "Tento klíč je šifrovaný. Pro pokračování zadejte heslovou frázi.",
-        "placeholder": "Heslová fráze"
+        "title": "VYŽADOVÁNO HESLO KE KLÍČI",
+        "description": "Tento klíč je šifrovaný. Pro pokračování zadejte heslo ke klíči.",
+        "placeholder": "Heslo ke klíči"
       },
       "usernamePrompt": {
         "title": "VYŽADOVÁNO UŽIVATELSKÉ JMÉNO",
-        "description": "Tento hostitel nemá nastavené uživatelské jméno. Zadejte ho nebo vyberte identitu.",
+        "description": "Tento host nemá nastavené uživatelské jméno. Zadejte ho nebo vyberte identitu.",
         "placeholder": "root"
       },
       "authPrompt": {
         "title": "VYŽADOVÁNO OVĚŘENÍ",
-        "description": "Tento hostitel nemá metodu ověření. Pro pokračování nějakou vyberte.",
+        "description": "Tento host nemá metodu ověření. Pro pokračování nějakou vyberte.",
         "modePassword": "Heslo",
         "modeKey": "Klíč",
         "modeIdentity": "Identita",
         "passwordPlaceholder": "Heslo",
-        "keyPassphrasePlaceholder": "Heslová fráze klíče (volitelné)"
+        "keyPassphrasePlaceholder": "Heslo ke klíči (volitelné)"
       },
       "vaultError": {
         "unreadableTitle": "Trezor nelze přečíst",
-        "unreadableBody": "Přihlašovací údaje tohoto hostitele jsou uložené, ale lokální trezor nelze aktuálním klíčem dešifrovat. Nic nebylo smazáno — pro připojení trezor odemkněte.",
+        "unreadableBody": "Přihlašovací údaje tohoto hostu jsou uložené, ale lokální trezor nelze aktuálním klíčem dešifrovat. Nic nebylo smazáno — pro připojení trezor odemkněte.",
         "lockedTitle": "Trezor je zamčený",
-        "lockedBody": "Přihlašovací údaje tohoto hostitele jsou uložené v trezoru, který je zamčený. Pro připojení ho odemkněte.",
+        "lockedBody": "Přihlašovací údaje tohoto hostu jsou uložené v trezoru, který je zamčený. Pro připojení ho odemkněte.",
         "unlock": "Odemknout trezor",
         "retry": "Zkusit znovu",
         "dismiss": "Zavřít kartu"
       },
       "identityPick": {
         "title": "Vaše identita není k dispozici",
-        "missingBody": "Pro {{host}} jste zvolili identitu, která v tomto zařízení není nebo byla odstraněna. O připojení se nepokoušelo.",
-        "forbiddenBody": "Pro {{host}} jste zvolili {{identity}}, ale už ji nemůžete používat. O připojení se nepokoušelo.",
+        "missingBody": "Pro {{host}} jste zvolili identitu, která v tomto zařízení není nebo byla odstraněna. Pokus o připojení neproběhl.",
+        "forbiddenBody": "Pro {{host}} jste zvolili {{identity}}, ale už ji nemůžete používat. Pokus o připojení neproběhl.",
         "choose": "Zvolit jinou identitu",
-        "useHostNamed": "Tentokrát použít {{name}} (hostitel)",
-        "useHost": "Tentokrát použít přihlašovací údaje hostitele"
+        "useHostNamed": "Tentokrát použít {{name}} (host)",
+        "useHost": "Tentokrát použít přihlašovací údaje hostu"
       },
       "saveTarget": {
         "rememberFor": "Zapamatovat pro",
         "saveFor": "Uložit pro",
-        "thisHost": "Tohoto hostitele",
-        "allVaultHosts": "Všechny hostitele trezoru {{vault}}",
+        "thisHost": "Tento host",
+        "allVaultHosts": "Všechny hosty trezoru {{vault}}",
         "everyone": "Všechny",
         "onlyMe": "Jen mě",
-        "ownNote": "Jen pro vás. Kolegové si ponechají vlastní nastavení hostitele.",
-        "teamNote": "Všechny změní {{host}} pro celý tým. Jen mě ponechá hostitele beze změny."
+        "ownNote": "Jen pro vás. Pro kolegy zůstane v platnosti nastavení uložené u hostu.",
+        "teamNote": "Volba „Všechny“ změní host „{{host}}“ pro celý tým. Volba „Jen mě“ ponechá nastavení hostu beze změny."
       }
     },
     "statusBar": {
@@ -337,11 +337,11 @@
       "reconnectTitle": "Znovu připojit",
       "serialClose": "Zavřít sériový port (karta zůstane)",
       "serialReopen": "Znovu otevřít sériový port",
-      "serialAutoReconnectOn": "Automatické připojení zapnuto — kliknutím přestanete port znovu zabírat",
+      "serialAutoReconnectOn": "Automatické připojení zapnuto — kliknutím vypnete automatické opětovné otevírání portu",
       "serialAutoReconnectOff": "Automatické připojení vypnuto — port po výpadku zůstane volný",
       "serialLineOn": "{{line}} zapnuto — kliknutím vypnete",
       "serialLineOff": "{{line}} vypnuto — kliknutím zapnete",
-      "serialRtsFlowControlled": "RTS je řízen řízením toku RTS/CTS",
+      "serialRtsFlowControlled": "Stav RTS určuje řízení toku RTS/CTS",
       "serialBreak": "Odeslat signál break",
       "systemMetricsTitle": "Systémové metriky",
       "activeTunnels_one": "{{count}} aktivní tunel",

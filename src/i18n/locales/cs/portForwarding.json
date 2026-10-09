@@ -14,7 +14,7 @@
       "all": "Vše",
       "folders": "Složky",
       "new": "Nové",
-      "noRulesMatchSearch": "Hledání neodpovídá žádné pravidlo.",
+      "noRulesMatchSearch": "Hledanému výrazu neodpovídá žádné pravidlo.",
       "folderEmpty": "Tato složka je prázdná.",
       "noRulesYet": "Zatím žádná pravidla. Začněte vytvořením prvního.",
       "addRule": "Přidat pravidlo",
@@ -45,8 +45,8 @@
         "messageEmpty": "Smaže se složka a vše, co obsahuje. Tuto akci nelze vrátit zpět."
       },
       "vaultCascade": {
-        "moveDescription": "Přesunutím „{{folderName}}“ se do {{targetVaultName}} přesunou také tato pravidla:",
-        "copyDescription": "Zkopírováním „{{folderName}}“ se do {{targetVaultName}} zkopírují také tato pravidla:"
+        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tato pravidla:",
+        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tato pravidla:"
       },
       "bulk": {
         "duplicateRules": "Duplikovat pravidla ({{count}})",
@@ -79,7 +79,7 @@
       "connectionsCount_other": "{{count}} připojení"
     },
     "activeTunnels": {
-      "sectionTitle": "Aktivní přesměrování relací",
+      "sectionTitle": "Aktivní přesměrování v relacích",
       "tunnelCount_one": "{{count}} tunel",
       "tunnelCount_few": "{{count}} tunely",
       "tunnelCount_many": "{{count}} tunelu",
@@ -117,7 +117,7 @@
         "local": {
           "label": "Lokální",
           "title": "Lokální tunel",
-          "summary": "Zpřístupní něco ze SSH serveru na vašem počítači.",
+          "summary": "Zpřístupní službu dostupnou ze SSH serveru na vašem počítači.",
           "example": "Přes localhost:3000 na svém počítači se dostanete na 127.0.0.1:3000 na serveru.",
           "diagram": [
             "Váš počítač",
@@ -128,7 +128,7 @@
         "remote": {
           "label": "Vzdálený",
           "title": "Vzdálený tunel",
-          "summary": "Zpřístupní něco z vašeho počítače na SSH serveru.",
+          "summary": "Zpřístupní službu dostupnou z vašeho počítače na SSH serveru.",
           "example": "Server naslouchá na portu a přeposílá provoz zpět na váš počítač.",
           "diagram": [
             "Vzdálení uživatelé",
@@ -140,7 +140,7 @@
           "label": "Dynamický",
           "title": "Dynamická SOCKS proxy",
           "summary": "Vytvoří lokální SOCKS5 proxy, která posílá provoz aplikací přes SSH server.",
-          "example": "Nasměrujte prohlížeč nebo aplikaci na localhost:1080 a provoz půjde přes server.",
+          "example": "Nastavte v prohlížeči nebo aplikaci proxy localhost:1080 a provoz bude směrován přes server.",
           "diagram": [
             "Vaše aplikace",
             "SOCKS proxy",
@@ -152,15 +152,15 @@
       "localPortHelp": "K tomuto portu se připojujete lokálně, obvykle jako localhost:{{port}}.",
       "remotePortOnServer": "Port na SSH serveru",
       "remotePortOnServerHelp": "Port, na kterém služba běží, z pohledu serveru.",
-      "hostOnServer": "Hostitel na SSH serveru",
+      "hostOnServer": "Cílový host z pohledu SSH serveru",
       "hostOnServerHelp": "Použijte 127.0.0.1, pokud služba běží přímo na SSH serveru.",
       "remotePortOpenedOnServer": "Port otevřený na SSH serveru",
       "remotePortOpenedOnServerHelp": "Na tento port se připojují lidé nebo služby na straně serveru.",
-      "localPortReceivingHelp": "Lokální aplikace nebo služba, která má přijímat přesměrovaný provoz.",
+      "localPortReceivingHelp": "Port lokální aplikace nebo služby, která má přijímat přesměrovaný provoz.",
       "bindAddressOnServer": "Adresa pro naslouchání na SSH serveru",
-      "bindAddressOnServerHelp": "127.0.0.1 ponechá port soukromý pro server. 0.0.0.0 ho může zpřístupnit v síti.",
+      "bindAddressOnServerHelp": "Adresa 127.0.0.1 omezí přístup k portu na samotný server. Adresa 0.0.0.0 ho může zpřístupnit v síti.",
       "bindWarning": "0.0.0.0 zpřístupní tento port přes vzdálený server na všech jeho síťových rozhraních.",
-      "hostOnComputer": "Hostitel na vašem počítači",
+      "hostOnComputer": "Cílový host z pohledu vašeho počítače",
       "hostOnComputerHelp": "Použijte 127.0.0.1, pokud cílová aplikace běží na tomto počítači.",
       "socksProxyPort": "Port SOCKS proxy na vašem počítači",
       "socksProxyPortHelp": "Nastavte aplikace, aby jako SOCKS5 proxy používaly localhost:{{port}}.",

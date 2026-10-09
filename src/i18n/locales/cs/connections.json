@@ -23,24 +23,24 @@
       "privateKey": "Soukromý klíč",
       "sshKey": "SSH klíč",
       "manageInKeychain": "Spravovat v Klíčence",
-      "hostsChaining": "Řetězení hostitelů",
+      "hostsChaining": "Řetězení hostů",
       "environmentVariables": "Proměnné prostředí",
-      "preCommandPlaceholder": "Příkaz relace před",
-      "postCommandPlaceholder": "Příkaz relace po",
+      "preCommandPlaceholder": "Příkaz při otevření relace",
+      "postCommandPlaceholder": "Příkaz při zavření karty",
       "sessionCommands": "Příkazy relace",
-      "sessionCommandsHint": "Spustí se v relaci po jejím otevření a při zavření karty.",
+      "sessionCommandsHint": "Příkazy se spustí uvnitř relace: první po jejím otevření, druhý při zavření karty.",
       "hostCommand": {
-        "useSnippet": "Použít snippet",
+        "useSnippet": "Použít úryvek",
         "useInline": "Použít přímý příkaz",
-        "missingSnippet": "Snippet nenalezen",
-        "askEachTime": "Pokaždé se ptát na proměnné",
-        "pickerTitle": "Vyberte snippet",
-        "searchPlaceholder": "Hledat snippety…"
+        "missingSnippet": "Úryvek nenalezen",
+        "askEachTime": "Pokaždé se ptát na hodnoty proměnných",
+        "pickerTitle": "Vyberte úryvek",
+        "searchPlaceholder": "Hledat úryvky…"
       }
     },
     "form": {
-      "titleEdit": "Upravit hostitele",
-      "titleNew": "Nový hostitel",
+      "titleEdit": "Upravit host",
+      "titleNew": "Nový host",
       "changeIcon": "Změnit ikonu",
       "changeIconWithLabel": "Změnit ikonu ({{label}})",
       "changeIconAriaLabel": "Změnit ikonu připojení",
@@ -57,13 +57,13 @@
       "webdavUrlPlaceholder": "https://cloud.example.com/remote.php/dav/files/me/",
       "webdavUrlInvalid": "Zadejte adresu http:// nebo https:// bez uživatelského jména, hesla, ? a #",
       "webdavPlaintextWarning": "Nešifrováno — heslo se odesílá jako prostý text. Pokud to server podporuje, použijte https://.",
-      "hostIp": "Hostitel / IP",
+      "hostIp": "Host / IP",
       "hostPlaceholder": "192.168.1.1",
       "legacyAlgorithms": "Zastaralé algoritmy",
-      "legacyAlgorithmsTooltip": "Povolí slabé zastaralé algoritmy (diffie-hellman-group1-sha1, 3des-cbc, hmac-sha1, …) pro stará zařízení, například starší Cisco IOS. Silné algoritmy mají stále přednost. Zapínejte jen u hostitelů, které to vyžadují.",
+      "legacyAlgorithmsTooltip": "Povolí slabé zastaralé algoritmy (diffie-hellman-group1-sha1, 3des-cbc, hmac-sha1, …) pro stará zařízení, například starší Cisco IOS. Silné algoritmy mají stále přednost. Zapínejte jen u hostů, které to vyžadují.",
       "agentForwarding": "Přeposílání agenta",
       "serialAutoReconnect": "Automatické opětovné připojení",
-      "serialAutoReconnectTooltip": "Po výpadku port automaticky znovu otevře. U desek, které přeflashováváte, tuto volbu vypněte: smyčka opakování by jinak port zabrala, zatímco ho potřebuje nástroj pro flashování.",
+      "serialAutoReconnectTooltip": "Po výpadku automaticky znovu otevře port. Při nahrávání firmwaru do desky tuto volbu vypněte: opakované pokusy o připojení by jinak port zablokovaly nástroji pro nahrávání firmwaru.",
       "shellIntegration": "Integrace shellu",
       "keepalive": "Keepalive",
       "inheritKeepalive": "Zdědit ({{label}})",
@@ -73,9 +73,9 @@
       "ftpsToggle": "Explicitní FTPS (AUTH TLS)",
       "anonymousLogin": "Anonymní přihlášení",
       "keychainIdentity": "Identita z Klíčenky",
-      "passphrase": "Heslová fráze",
+      "passphrase": "Heslo ke klíči",
       "optional": "(volitelné)",
-      "keyPassphrasePlaceholder": "Heslová fráze klíče",
+      "keyPassphrasePlaceholder": "Heslo ke klíči",
       "proxy": {
         "label": "Proxy",
         "inherit": "Zdědit ({{label}})",
@@ -86,21 +86,21 @@
           "http": "HTTP",
           "https": "HTTPS"
         },
-        "host": "Hostitel proxy",
+        "host": "Host proxy",
         "port": "Port proxy",
-        "hostMissing": "Proxy je nastavená na {{kind}}, ale nemá hostitele",
-        "portInvalid": "Port musí být mezi 1 a 65535",
+        "hostMissing": "Proxy je nastavená na {{kind}}, ale chybí adresa hostu",
+        "portInvalid": "Port musí být v rozsahu 1 až 65535",
         "username": "Uživatelské jméno proxy",
         "password": "Heslo proxy",
         "passwordSaved": "••• uloženo"
       },
-      "connectAsHost": "Přihlašovací údaje hostitele",
+      "connectAsHost": "Přihlašovací údaje hostu",
       "sharedWithTeam": "sdíleno s týmem",
       "youConnectAs": "Připojujete se jako",
       "change": "Změnit",
       "connectAsYours": "{{username}} · vaše, jen pro vás",
       "connectAsTeam": "{{username}} · týmová identita",
-      "connectAsAsk": "Zeptáme se vás při připojení",
+      "connectAsAsk": "Přihlašovací údaje zadáte při připojení",
       "connectAsUnavailable": "Vámi zvolená identita není k dispozici"
     },
     "distroIconPicker": {
@@ -161,9 +161,9 @@
     },
     "envVarsPanel": {
       "emptyTitle": "Žádné proměnné prostředí",
-      "emptySubtitle": "Proměnné se nastaví při připojení k tomuto hostiteli",
+      "emptySubtitle": "Proměnné se nastaví při připojení k tomuto hostu",
       "hint": "Proměnné nastavené v prostředí vzdálené relace",
-      "keyPlaceholder": "KLÍČ",
+      "keyPlaceholder": "NÁZEV",
       "valuePlaceholder": "hodnota",
       "removeAriaLabel": "Odebrat proměnnou",
       "addButton": "Přidat proměnnou"
@@ -174,7 +174,7 @@
     },
     "identitySelector": {
       "title": "Identita",
-      "noIdentityInline": "Bez identity — přímé přihlašovací údaje",
+      "noIdentityInline": "Bez identity — přímo zadané přihlašovací údaje",
       "badgeKey": "klíč",
       "badgePwd": "heslo",
       "sharedGroup": "Trezor {{vault}} · sdílené",
@@ -182,19 +182,19 @@
     },
     "jumpHostsPanel": {
       "dragToReorderAriaLabel": "Přetažením změníte pořadí",
-      "emptyTitle": "Nejsou nastaveni žádní jump hostitelé",
-      "emptySubtitle": "Přidejte hostitele, přes které se připojíte před cílovým hostitelem",
-      "hint": "Podržením a přetažením změníte pořadí · Připojují se postupně před cílovým hostitelem",
-      "removeAriaLabel": "Odebrat jump hostitele",
-      "addButton": "Přidat jump hostitele"
+      "emptyTitle": "Nejsou nastavené žádné jump hosty",
+      "emptySubtitle": "Přidejte hosty, přes které povede připojení k cílovému hostu",
+      "hint": "Podržením a přetažením změníte pořadí. Připojení postupuje přes uvedené hosty až k cílovému hostu.",
+      "removeAriaLabel": "Odebrat jump host",
+      "addButton": "Přidat jump host"
     },
     "keySelector": {
       "inlinePrivateKey": "Přímo vložený soukromý klíč",
       "unnamedKey": "Klíč bez názvu"
     },
     "serialForm": {
-      "titleEdit": "Upravit sériového hostitele",
-      "titleNew": "Nový sériový hostitel",
+      "titleEdit": "Upravit sériový host",
+      "titleNew": "Nový sériový host",
       "duplicate": "Duplikovat",
       "namePlaceholder": "Moje zařízení (volitelné)",
       "sectionSerialPort": "Sériový port",
@@ -204,18 +204,18 @@
     "vaultIdentity": {
       "title": "Vaše identita pro {{vault}}",
       "subtitle": "Jen pro vás. Kolegové ji nikdy neuvidí.",
-      "useOn": "Použít na hostitelích trezoru {{vault}} bez sdílených přihlašovacích údajů",
+      "useOn": "Použít na hostech trezoru {{vault}} bez sdílených přihlašovacích údajů",
       "none": "Žádná výchozí",
-      "noneHint": "Hostitelé bez přihlašovacích údajů se zeptají jako dosud",
-      "footnote": "Hostitelé se sdílenými přihlašovacími údaji je zachovají. Pro jednoho hostitele to změníte volbou Připojit jako."
+      "noneHint": "U hostů bez přihlašovacích údajů je při připojení zadáte jako dosud",
+      "footnote": "Hosty se sdílenými přihlašovacími údaji je budou používat i nadále. Pro konkrétní host je můžete změnit volbou Připojit jako."
     },
     "knock": {
       "title": "Klepání na porty",
       "enable": "Před připojením zaklepat",
-      "hint": "Odesílá se z tohoto zařízení přes proxy tohoto hostitele před každým připojením SSH, SFTP a přesměrováním portů.",
-      "viaBastion": "Tento hostitel se připojuje přes {{name}}, takže Voltius klepe na {{name}} s jeho vlastním nastavením klepání.",
+      "hint": "Sekvence se odesílá z tohoto zařízení přes proxy nastavenou pro tento host před každým připojením SSH, SFTP nebo připojením pro přesměrování portů.",
+      "viaBastion": "Připojení k tomuto hostu vede přes {{name}}. Voltius proto klepe na porty hostu {{name}} podle jeho vlastního nastavení.",
       "sequence": "Sekvence",
-      "reorderHint": "Podržením a přetažením změníte pořadí · Odesílá se v tomto pořadí",
+      "reorderHint": "Podržením a přetažením změníte pořadí. Klepnutí se odesílají v uvedeném pořadí.",
       "port": "Port",
       "dragToReorder": "Přetažením změníte pořadí",
       "remove": "Odebrat port",
@@ -223,16 +223,16 @@
       "timing": "Časování",
       "delay": "Prodleva mezi klepnutími",
       "settle": "Čekání po posledním klepnutí",
-      "window": "Okno firewallu",
-      "windowHint": "Jak dlouho firewall po klepnutí nechává SSH otevřené. Indikátor dostupnosti testuje jen v tomto okně, takže karta hostitele nikdy neklepe sama. Pokud to nevíte, nechte prázdné.",
+      "window": "Doba otevření firewallu",
+      "windowHint": "Doba, po kterou firewall po klepnutí povoluje přístup přes SSH. Indikátor dostupnosti ověřuje host jen během této doby a sám klepání nespouští. Pokud dobu neznáte, nechte pole prázdné.",
       "issue": {
         "empty": "Přidejte alespoň jeden port.",
         "port": "Porty musí být v rozsahu 1 až 65535.",
-        "udp-proxy": "UDP klepnutí neprojdou proxy tohoto hostitele. Použijte kroky TCP nebo přímé připojení.",
-        "udp-system": "Pokud se používá systémová proxy, UDP klepnutí selžou."
+        "udp-proxy": "Klepnutí přes UDP nelze odeslat přes proxy nastavenou pro tento host. Použijte kroky TCP nebo přímé připojení.",
+        "udp-system": "Při použití systémové proxy klepnutí přes UDP selžou."
       },
-      "sequenceUnavailable": "Sekvence klepání pro tohoto hostitele není na tomto zařízení k dispozici.",
-      "sequenceInvalid": "Sekvence klepání pro tohoto hostitele je neplatná. Opravte ji v nastavení Klepání na porty tohoto hostitele."
+      "sequenceUnavailable": "Sekvence klepání pro tento host není na tomto zařízení k dispozici.",
+      "sequenceInvalid": "Sekvence klepání pro tento host je neplatná. Opravte ji v nastavení tohoto hostu v části Klepání na porty."
     }
   }
 }

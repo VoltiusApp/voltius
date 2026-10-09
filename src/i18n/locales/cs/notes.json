@@ -7,7 +7,7 @@
       "h3": "Nadpis 3",
       "bold": "Tučně",
       "italic": "Kurzíva",
-      "code": "Vložený kód",
+      "code": "Kód v řádku",
       "link": "Odkaz",
       "bullet": "Odrážkový seznam",
       "ordered": "Číslovaný seznam",
@@ -18,7 +18,7 @@
       "edit": "Upravit"
     },
     "editor": {
-      "placeholder": "Pište poznámky v Markdownu — napište / pro bloky"
+      "placeholder": "Pište poznámky v Markdownu — zadáním / otevřete nabídku bloků"
     },
     "slash": {
       "h1": "Nadpis 1",
@@ -42,7 +42,7 @@
       "sendToTerminal": "Odeslat do terminálu"
     },
     "panel": {
-      "noHost": "Poznámky se připojují k uloženým hostitelům",
+      "noHost": "Poznámky se připojují k uloženým hostům",
       "readOnly": "Jen pro čtení",
       "conflict": "Poznámky byly změněny jinde",
       "reload": "Znovu načíst",

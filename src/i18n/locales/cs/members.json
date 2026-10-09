@@ -10,7 +10,7 @@
     "newRole": "Nová role",
     "you": "Vy",
     "youBadge": "vy",
-    "kick": "Vyhodit",
+    "kick": "Odebrat",
     "morePermissions": "+{{count}} další",
     "noRole": "Bez role",
     "noRoleAddPrompt": "Bez role · Přidat →",
@@ -37,7 +37,7 @@
       "EDIT_CONNECTIONS": "Upravovat připojení",
       "EDIT_IDENTITIES": "Upravovat identity",
       "EDIT_KEYS": "Upravovat klíče",
-      "EDIT_SNIPPETS": "Upravovat snippety",
+      "EDIT_SNIPPETS": "Upravovat úryvky",
       "EDIT_FOLDERS": "Upravovat složky",
       "VIEW_AUDIT_LOG": "Zobrazit auditní log",
       "INVITE_MEMBERS": "Zvát členy",
@@ -53,8 +53,8 @@
     },
     "permissions": {
       "title": "Oprávnění",
-      "inheritedFrom": "Z role {{roles}}",
-      "notGranted": "Žádná role toto neuděluje",
+      "inheritedFrom": "Z rolí: {{roles}}",
+      "notGranted": "Žádná role toto oprávnění neuděluje",
       "effectiveAllowed": "povoleno",
       "effectiveDenied": "zakázáno",
       "state": {
@@ -85,7 +85,7 @@
     "convert": {
       "title": "Sdílet „{{vault}}“ s dalšími lidmi?",
       "body": "Tím se váš soukromý trezor změní na týmový. Vše, co už obsahuje, se přesune, takže to uvidí i lidé, které přidáte.",
-      "offlineWarning": "Otevře se jen tehdy, když Voltius dosáhne na synchronizační server — bez přístupu offline.",
+      "offlineWarning": "Lze ho otevřít jen při připojení Voltiusu k synchronizačnímu serveru — přístup offline není možný.",
       "keyCustody": "Každý, koho přidáte, dostane kopii jeho klíče. Pozdějším odebráním mu ji nevezmete.",
       "change": "Později ho můžete opět nastavit jako soukromý — tím všem odeberete přístup, ale ne kopie, které už mají.",
       "cancel": "Zrušit",
@@ -141,9 +141,9 @@
     },
     "roleBlurb": {
       "manager": "Správci mohou zvát lidi, měnit role a spravovat odkazy.",
-      "editor": "Editoři mohou v tomto trezoru přidávat a měnit hostitele, klíče a snippety.",
+      "editor": "Editoři mohou v tomto trezoru přidávat a měnit hosty, klíče a úryvky.",
       "member": "Členové mohou používat vše v tomto trezoru, ale nemohou nic měnit.",
-      "connect-only": "Lidé s rolí Jen připojení mohou otevírat připojení, ale nikdy neuvidí přihlašovací údaje za nimi."
+      "connect-only": "Lidé s rolí Jen připojení mohou navazovat připojení, ale nikdy neuvidí použité přihlašovací údaje."
     },
     "toast": {
       "removingRoleFrom": "Odebírání role {{role}} uživateli {{name}}...",
@@ -196,13 +196,13 @@
       "viewDetails": "Zobrazit podrobnosti",
       "inviteToSession": "Pozvat do relace",
       "noActiveSessions": "Žádné aktivní relace",
-      "noInvitableSessions": "Tuto pozvánku nemůže přijmout žádná relace",
+      "noInvitableSessions": "Žádná relace neumožňuje odeslat tuto pozvánku",
       "assignRoleBulk": "Přiřadit roli ({{count}})",
       "removeRoleBulk": "Odebrat roli ({{count}})",
-      "kickBulk_one": "Vyhodit {{count}} člena",
-      "kickBulk_few": "Vyhodit {{count}} členy",
-      "kickBulk_many": "Vyhodit {{count}} člena",
-      "kickBulk_other": "Vyhodit {{count}} členů"
+      "kickBulk_one": "Odebrat {{count}} člena",
+      "kickBulk_few": "Odebrat {{count}} členy",
+      "kickBulk_many": "Odebrat {{count}} člena",
+      "kickBulk_other": "Odebrat {{count}} členů"
     },
     "empty": {
       "noVaultTitle": "Není vybrán žádný trezor",
@@ -217,11 +217,11 @@
       "copyInviteLink": "Kopírovat odkaz pozvánky",
       "revoke": "Zrušit pozvánku",
       "remove": "Odebrat z trezoru",
-      "inviteLinkCopied": "Odkaz pozvánky zkopírován — otevře pozvánku ve Voltius."
+      "inviteLinkCopied": "Odkaz pozvánky zkopírován — otevře pozvánku ve Voltiusu."
     },
     "cta": {
       "signInTitle": "Pro týmové funkce se přihlaste",
-      "signInDesc": "Členové, pozvánky a sdílený přístup k trezoru vyžadují cloudový účet, než budete moci přejít na vyšší tarif nebo spravovat tým.",
+      "signInDesc": "Pro zvaní členů a sdílený přístup k trezoru potřebujete cloudový účet. S ním můžete přejít na vyšší tarif a spravovat tým.",
       "signInBtn": "Přihlásit se nebo vytvořit cloudový účet →",
       "upgradeTitle": "Týmové trezory vyžadují Teams",
       "upgradeDesc": "Zvěte členy, přiřazujte role a bezpečně sdílejte přihlašovací údaje se svým týmem.",
@@ -239,7 +239,7 @@
       "copy": "Kopírovat",
       "copied": "Zkopírováno",
       "revoke": "Zrušit odkaz",
-      "shownOnce": "Odkaz se zobrazí jen jednou, při vytvoření. Znovu ho nic nezobrazí.",
+      "shownOnce": "Odkaz se zobrazí jen jednou, při vytvoření. Později ho již nelze zobrazit.",
       "secretNotRecoverable": "Odkaz již nelze zobrazit — zrušte ho a vytvořte nový.",
       "usesLeft_one": "Zbývá {{count}} použití z {{max}}",
       "usesLeft_few": "Zbývají {{count}} použití z {{max}}",
@@ -306,11 +306,11 @@
       "removeConfirm_many": "Odebrat {{count}}",
       "removeConfirm_other": "Odebrat {{count}}",
       "leaveConfirm": "Opustit tým",
-      "pointAccessEnds": "Jejich přístup k hostitelům, klíčům a snippetům tohoto trezoru okamžitě končí na všech zařízeních.",
+      "pointAccessEnds": "Jejich přístup k hostům, klíčům a úryvkům tohoto trezoru okamžitě končí na všech zařízeních.",
       "pointLocalWipe": "Obsah trezoru se z jejich zařízení smaže, včetně uložených hesel a soukromých klíčů.",
       "pointAlreadySeen": "Co už viděli, jim zůstane. Změňte přihlašovací údaje, ke kterým měli přístup.",
       "pointSessions": "Budou odpojeni ze všech sdílených terminálových relací, ke kterým se připojili.",
-      "leavePointAccessEnds": "Ztratíte přístup k hostitelům, klíčům a snippetům tohoto trezoru na všech zařízeních.",
+      "leavePointAccessEnds": "Ztratíte přístup k hostům, klíčům a úryvkům tohoto trezoru na všech zařízeních.",
       "leavePointLocalWipe": "Jeho obsah se z tohoto zařízení smaže, včetně uložených hesel a soukromých klíčů.",
       "leavePointIrreversible": "Bez nové pozvánky se nemůžete znovu připojit."
     },

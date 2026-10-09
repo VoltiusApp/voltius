@@ -73,7 +73,7 @@
         "message": "Čeká se, až vlastník týmu {{team}} udělí přístup k trezoru"
       },
       "membershipEnded": {
-        "message": "Byli jste odebráni z týmu {{team}}. Jeho hostitelé, klíče a snippety byly z tohoto zařízení odstraněny a přihlašovací údaje, které jste tam používali, byste měli změnit.",
+        "message": "Byli jste odebráni z týmu {{team}}. Jeho hosty, klíče a úryvky byly z tohoto zařízení odstraněny a přihlašovací údaje, které jste tam používali, byste měli změnit.",
         "review": "Zkontrolovat přihlašovací údaje"
       },
       "secretsNotWiped": {

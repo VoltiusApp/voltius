@@ -6,17 +6,17 @@
       "evening": "Dobrý večer"
     },
     "search": {
-      "placeholder": "Hledat hostitele, relace, snippety…"
+      "placeholder": "Hledat hosty, relace, úryvky…"
     },
     "stat": {
       "vaults_one": "trezor",
       "vaults_few": "trezory",
       "vaults_many": "trezoru",
       "vaults_other": "trezorů",
-      "hosts_one": "hostitel",
-      "hosts_few": "hostitelé",
-      "hosts_many": "hostitele",
-      "hosts_other": "hostitelů",
+      "hosts_one": "host",
+      "hosts_few": "hosty",
+      "hosts_many": "hostu",
+      "hosts_other": "hostů",
       "activeSessions_one": "aktivní relace",
       "activeSessions_few": "aktivní relace",
       "activeSessions_many": "aktivní relace",
@@ -31,7 +31,7 @@
       "import": "Import"
     },
     "recentHosts": {
-      "title": "Nedávní hostitelé",
+      "title": "Nedávno použité hosty",
       "seeAll": "Zobrazit vše",
       "prevPage": "Předchozí stránka",
       "nextPage": "Další stránka",
@@ -39,8 +39,8 @@
     },
     "allHosts": {
       "back": "Zpět",
-      "title": "Všichni hostitelé",
-      "empty": "Zatím žádní hostitelé."
+      "title": "Všechny hosty",
+      "empty": "Zatím žádné hosty."
     },
     "hostCard": {
       "pin": "Připnout",
@@ -50,12 +50,12 @@
     },
     "serialFallback": "Sériový port",
     "vaultCard": {
-      "hostCount_one": "{{count}} hostitel",
-      "hostCount_few": "{{count}} hostitelé",
-      "hostCount_many": "{{count}} hostitele",
-      "hostCount_other": "{{count}} hostitelů",
-      "empty": "Zatím žádní hostitelé",
-      "more": "+{{count}} další"
+      "hostCount_one": "{{count}} host",
+      "hostCount_few": "{{count}} hosty",
+      "hostCount_many": "{{count}} hostu",
+      "hostCount_other": "{{count}} hostů",
+      "empty": "Zatím žádné hosty",
+      "more": "+{{count}} navíc"
     }
   }
 }

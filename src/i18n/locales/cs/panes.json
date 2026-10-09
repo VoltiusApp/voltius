@@ -25,7 +25,7 @@
       "reconnect": "Znovu připojit",
       "rename": "Přejmenovat…",
       "duplicate": "Duplikovat",
-      "duplicateSplit": "Duplikovat do rozdělení",
+      "duplicateSplit": "Duplikovat do vedlejšího panelu",
       "split": "Rozdělit",
       "splitLeft": "Rozdělit vlevo",
       "splitRight": "Rozdělit vpravo",
@@ -45,7 +45,7 @@
     },
     "dragToast": {
       "alreadyVisible": "Tato relace je v rozdělené ploše už zobrazena.",
-      "invalidDropTarget": "Pro vytvoření rozdělení ji pusťte na aktivní terminál nebo na rozdělený panel.",
+      "invalidDropTarget": "Přetažením karty na aktivní terminál nebo rozdělený panel vytvoříte další panel.",
       "cannotDuplicate": "Tuto relaci nelze duplikovat."
     }
   }

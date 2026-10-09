@@ -7,17 +7,17 @@
       "deleteButton": "SMAZAT"
     },
     "page": {
-      "noSearchResults": "Hledání neodpovídá žádný známý hostitel",
-      "emptyState": "Zatím žádní známí hostitelé — objeví se, jakmile se připojíte k serveru",
+      "noSearchResults": "Hledanému výrazu neodpovídá žádný známý host",
+      "emptyState": "Zatím žádné známé hosty — objeví se, jakmile se připojíte k serveru",
       "confirmDelete": {
-        "title_one": "Smazat známého hostitele?",
-        "title_few": "Smazat {{count}} známé hostitele?",
-        "title_many": "Smazat {{count}} známého hostitele?",
-        "title_other": "Smazat {{count}} známých hostitelů?",
-        "message_one": "Tím odeberete důvěryhodný otisk. Další připojení k tomuto hostiteli bude považováno za nové.",
-        "message_few": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové.",
-        "message_many": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové.",
-        "message_other": "Tím odeberete důvěryhodné otisky. Další připojení k těmto hostitelům bude považováno za nové."
+        "title_one": "Smazat záznam známého hostu?",
+        "title_few": "Smazat {{count}} záznamy známých hostů?",
+        "title_many": "Smazat {{count}} záznamu známých hostů?",
+        "title_other": "Smazat {{count}} záznamů známých hostů?",
+        "message_one": "Tím odeberete uložený důvěryhodný otisk. Při dalším připojení bude tento host považován za nový.",
+        "message_few": "Tím odeberete uložené důvěryhodné otisky. Při dalším připojení budou tyto hosty považovány za nové.",
+        "message_many": "Tím odeberete uložené důvěryhodné otisky. Při dalším připojení budou tyto hosty považovány za nové.",
+        "message_other": "Tím odeberete uložené důvěryhodné otisky. Při dalším připojení budou tyto hosty považovány za nové."
       }
     }
   }
