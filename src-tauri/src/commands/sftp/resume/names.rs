@@ -29,8 +29,8 @@ pub(crate) fn temp_name(name: &str, fp: &str, ext: &str) -> String {
     format!(".{}.{fp}{ext}", &name[..cut])
 }
 
-pub(crate) fn is_temp_of(entry: &str, name: &str) -> bool {
-    [PART_EXT, OLD_EXT].into_iter().any(|ext| {
+pub(crate) fn is_temp_of(entry: &str, name: &str, exts: &[&str]) -> bool {
+    exts.iter().any(|ext| {
         entry
             .strip_suffix(ext)
             .and_then(|stem| stem.rsplit_once('.'))
@@ -116,12 +116,22 @@ mod tests {
 
     #[test]
     fn only_our_own_temp_files_match_a_name() {
+        const BOTH: &[&str] = &[PART_EXT, OLD_EXT];
         let fp = "0123456789abcdef";
-        assert!(is_temp_of(&temp_name("a.mp4", fp, PART_EXT), "a.mp4"));
-        assert!(is_temp_of(&temp_name("a.mp4", fp, OLD_EXT), "a.mp4"));
-        assert!(!is_temp_of(&temp_name("a.mp4", fp, PART_EXT), "a.mp"));
-        assert!(!is_temp_of(".a.mp4.notahexfingerpr.voltius-part", "a.mp4"));
-        assert!(!is_temp_of("a.mp4", "a.mp4"));
+        assert!(is_temp_of(&temp_name("a.mp4", fp, PART_EXT), "a.mp4", BOTH));
+        assert!(is_temp_of(&temp_name("a.mp4", fp, OLD_EXT), "a.mp4", BOTH));
+        assert!(!is_temp_of(&temp_name("a.mp4", fp, PART_EXT), "a.mp", BOTH));
+        assert!(!is_temp_of(
+            ".a.mp4.notahexfingerpr.voltius-part",
+            "a.mp4",
+            BOTH
+        ));
+        assert!(!is_temp_of("a.mp4", "a.mp4", BOTH));
+        assert!(!is_temp_of(
+            &temp_name("a.mp4", fp, OLD_EXT),
+            "a.mp4",
+            &[PART_EXT]
+        ));
     }
 
     #[test]

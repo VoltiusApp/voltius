@@ -126,7 +126,7 @@ enum Attempt {
 
 /// Where a file's bytes go: a temp swapped in at the end, or the target itself.
 enum Landing {
-    /// The temp's path, once known.
+    /// The resolved target the temp sits beside, once known.
     Temp(Option<String>),
     /// `from`: the fingerprint of the source whose bytes the target now starts with.
     InPlace { from: Option<String> },
@@ -353,8 +353,12 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
             }
         };
         if ctx.token.is_cancelled() {
-            if let Landing::Temp(Some(p)) = &landing {
-                let _ = tokio::time::timeout(Duration::from_millis(500), dst.remove(p)).await;
+            if let Landing::Temp(Some(target)) = &landing {
+                let (dir, name) = dst.split(target);
+                ctx.listings.remove(&dir);
+                // An `.old` may be the only copy of the target left; only a landed copy drops it.
+                let parts = sweep(dst, &dir, &name, &[PART_EXT], ctx);
+                let _ = tokio::time::timeout(Duration::from_millis(500), parts).await;
             }
             return Err(cancelled());
         }
@@ -513,7 +517,7 @@ async fn attempt<E: TransferEvents>(
         part_path.as_str()
     };
     if !in_place {
-        *landing = Landing::Temp(Some(part_path.clone()));
+        *landing = Landing::Temp(Some(dst_path.to_string()));
     }
     // In place, carry on only from bytes written from this very source (this transfer or its Retry).
     let offset = match landing {
@@ -586,7 +590,7 @@ async fn attempt<E: TransferEvents>(
         }
     }
     keep_mtime(dst, dst_path, stat.mtime).await;
-    sweep(dst, &dir, &name, ctx).await;
+    sweep(dst, &dir, &name, &[PART_EXT, OLD_EXT], ctx).await;
     Ok(Attempt::Done)
 }
 
@@ -668,13 +672,14 @@ async fn sweep<E: TransferEvents>(
     dst: &dyn Endpoint,
     dir: &str,
     name: &str,
+    exts: &[&str],
     ctx: &mut CopyCtx<'_, E>,
 ) {
     let stale: Vec<String> = ctx
         .listing(dst, dir)
         .await
         .iter()
-        .filter(|e| is_temp_of(&e.name, name))
+        .filter(|e| is_temp_of(&e.name, name, exts))
         .map(|e| dst.join(dir, &e.name))
         .collect();
     for path in stale {
@@ -840,6 +845,31 @@ pub(crate) mod engine_tests {
         assert!(e.to_string().contains("cancelled"));
         assert_eq!(entries(b.path()), ["v"]);
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"original");
+    }
+
+    #[tokio::test]
+    async fn cancel_sweeps_parts_of_earlier_source_versions_but_keeps_old_files() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(a.path().join("v"), noise(4_000_000)).unwrap();
+        std::fs::write(b.path().join("v"), b"original").unwrap();
+        let earlier = names::temp_name("v", "ffffffffffffffff", names::PART_EXT);
+        let old = names::temp_name("v", "ffffffffffffffff", names::OLD_EXT);
+        let other = names::temp_name("w", "ffffffffffffffff", names::PART_EXT);
+        for f in [&earlier, &old, &other] {
+            std::fs::write(b.path().join(f), b"old").unwrap();
+        }
+        let token = CancellationToken::new();
+        token.cancel();
+        copy_local(
+            &Recorder::default(),
+            &a.path().join("v"),
+            &LocalFs,
+            &b.path().join("v"),
+            &token,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(entries(b.path()), [old, other, "v".to_string()]);
     }
 
     #[tokio::test]
