@@ -87,8 +87,8 @@ export function useListKeyNav({
 
   // Check if keyboard input should be blocked
   const isBlocked = useCallback((e: KeyboardEvent): boolean => {
-    const { omniOpen, settingsOpen, importExportModal } = useUIStore.getState();
-    if (omniOpen || settingsOpen || importExportModal?.open) return true;
+    const { omniOpen, settingsOpen, importExportModal, sftpPanelOpen } = useUIStore.getState();
+    if (omniOpen || settingsOpen || importExportModal?.open || sftpPanelOpen) return true;
     // Not every keydown target is an Element — document and text nodes reach here too.
     const target = e.target;
     if (target instanceof Element && target.closest("input, textarea, [contenteditable]")) {

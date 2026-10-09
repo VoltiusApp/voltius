@@ -40,7 +40,7 @@ afterEach(() => cleanup());
 
 beforeEach(() => {
   useVaultClipboardStore.getState().clear();
-  useUIStore.setState({ activeNav: "hosts" });
+  useUIStore.setState({ activeNav: "hosts", sftpPanelOpen: false });
   useNotificationStore.setState({ toasts: [] });
   useHistoryStore.setState({
     past: [], future: [], bypassing: false, suppressing: false, suppressDepth: 0,
@@ -380,4 +380,14 @@ test("a paste that would dangle a reference is refused and named as such", async
   expect(message).toContain("stay in another vault");
   expect(message).toContain("identities");
   expect(a.moveItems).not.toHaveBeenCalled();
+});
+
+test("the SFTP panel's own copy, cut and paste do not reach the page behind it", () => {
+  const adapter = baseAdapter();
+  renderHook(() => usePageClipboard(adapter));
+  useUIStore.setState({ sftpPanelOpen: true });
+  for (const kind of ["copy", "cut", "paste"]) window.dispatchEvent(new CustomEvent(`voltius:clipboard-${kind}`));
+  expect(useVaultClipboardStore.getState().clipboard).toBeNull();
+  expect(adapter.moveItems).not.toHaveBeenCalled();
+  expect(adapter.duplicateItems).not.toHaveBeenCalled();
 });

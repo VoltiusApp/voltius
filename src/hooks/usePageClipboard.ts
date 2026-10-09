@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import i18n from "@/i18n";
-import { useUIStore } from "@/stores/uiStore";
+import { isNavPageVisible } from "@/utils/navPageVisible";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import {
@@ -66,7 +66,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
   const navItem = adapter.navItem;
 
   useEffect(() => {
-    const isActive = () => useUIStore.getState().activeNav === navItem;
+    const isActive = () => isNavPageVisible(navItem);
 
     // The paste chain is shared by every page, so a confirmation whose UI is torn
     // down mid-prompt would wedge Ctrl+V on all of them. Losing this hook declines it.

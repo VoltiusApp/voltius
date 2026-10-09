@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { NavItem } from "@/stores/uiStore";
-import { useUIStore } from "@/stores/uiStore";
+import { isNavPageVisible } from "@/utils/navPageVisible";
 import { requestRename } from "@/hooks/useInlineRename";
 
 interface Options {
@@ -17,19 +17,13 @@ interface Options {
  * page that uses drag selection. The ref pattern means listeners are set up
  * once per navItem and always read the latest state without re-registering.
  */
-// The SFTP panel covers the page without changing activeNav, and its own Delete/F2 must not reach it.
-function isPageActive(navItem: NavItem): boolean {
-  const { activeNav, sftpPanelOpen } = useUIStore.getState();
-  return activeNav === navItem && !sftpPanelOpen;
-}
-
 export function usePageBulkActions({ navItem, filteredIds, selectedIdSet, setSelection, onDelete }: Options) {
   const ref = useRef({ filteredIds, selectedIdSet, setSelection, onDelete });
   ref.current = { filteredIds, selectedIdSet, setSelection, onDelete };
 
   useEffect(() => {
     const handleSelectAll = () => {
-      if (!isPageActive(navItem)) return;
+      if (!isNavPageVisible(navItem)) return;
       ref.current.setSelection(ref.current.filteredIds);
     };
     window.addEventListener("voltius:select-all", handleSelectAll);
@@ -38,7 +32,7 @@ export function usePageBulkActions({ navItem, filteredIds, selectedIdSet, setSel
 
   useEffect(() => {
     const handleDelete = () => {
-      if (!isPageActive(navItem)) return;
+      if (!isNavPageVisible(navItem)) return;
       const { onDelete: cb, selectedIdSet: sel } = ref.current;
       if (!cb) return;
       const ids = [...sel];
@@ -50,7 +44,7 @@ export function usePageBulkActions({ navItem, filteredIds, selectedIdSet, setSel
 
   useEffect(() => {
     const handleRename = () => {
-      if (!isPageActive(navItem)) return;
+      if (!isNavPageVisible(navItem)) return;
       const sel = ref.current.selectedIdSet;
       if (sel.size === 1) requestRename([...sel][0]);
     };
