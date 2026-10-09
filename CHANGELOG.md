@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-10-09
+
+### Added
+
+- Press F2 to rename the selected folder, host, key, identity, snippet, port-forwarding rule or SFTP file in place. The shortcut can be remapped (#600)
+
+### Changed
+
+- Edit uses the pencil icon everywhere, and Rename has its own text-cursor icon in the SFTP, folder, session, split-tab and vault menus (#599)
+
+### Fixed
+
+- New folders get a default name in the app's language (#602)
+- Corrected Czech wording and terminology (#601)
+- Long plugin names in the settings sidebar wrap onto a second line instead of being cut off (#604)
+
 ## [0.51.1] - 2026-10-09
 
 ### Fixed
