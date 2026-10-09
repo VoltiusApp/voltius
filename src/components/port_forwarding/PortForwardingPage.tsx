@@ -515,7 +515,7 @@ export function PortForwardingPage() {
   }, [selectedRules, selectedFolders, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
 
   const createFolder = () =>
-    void saveFolder(newFolderData("port_forwarding", activeFolderId, defaultVaultId)).then((f) => { closeForm(); setEditingFolderId(f.id); });
+    void saveFolder(newFolderData("port_forwarding", activeFolderId, defaultVaultId, t("portForwarding.toolbar.newFolder"))).then((f) => { closeForm(); setEditingFolderId(f.id); });
 
   return (
     <>

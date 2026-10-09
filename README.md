@@ -38,6 +38,7 @@ No account required. Everything below is free, forever.
 - **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
 - **Process Manager** — View and kill processes on connected hosts.
 - **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
+- **Folder Names** — New folders in Hosts, Keychain, Snippets and Port Forwarding use the current interface language for their default name. Existing saved names stay unchanged.
 
 > Full feature list at [docs.voltius.app](https://docs.voltius.app) · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
 

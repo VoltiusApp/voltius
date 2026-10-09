@@ -839,7 +839,7 @@ export function SnippetsPage() {
 
   async function handleCreateFolder() {
     ep.closeEdit();
-    const folder = await saveFolder(newFolderData("snippet", activeFolderId, defaultVaultId));
+    const folder = await saveFolder(newFolderData("snippet", activeFolderId, defaultVaultId, t("snippets.toolbar.newFolder")));
     folderEp.transitionToExisting(folder);
   }
 

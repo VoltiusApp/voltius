@@ -847,7 +847,7 @@ export default function KeychainPage() {
   editFolderRef.current = editFolder;
 
   const createFolder = () =>
-    void saveFolder(newFolderData("keychain", activeFolderId, defaultVaultId));
+    void saveFolder(newFolderData("keychain", activeFolderId, defaultVaultId, t("keychain.toolbar.newFolder")));
 
   return (
     <>

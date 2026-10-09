@@ -148,7 +148,7 @@ export default function HostsPage() {
   };
 
   const createFolder = () =>
-    void saveFolder(newFolderData("connection", activeFolderId, defaultVaultId)).then((f) => {
+    void saveFolder(newFolderData("connection", activeFolderId, defaultVaultId, t("hosts.toolbar.newFolder"))).then((f) => {
       setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id);
     });
 
