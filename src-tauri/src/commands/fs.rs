@@ -109,6 +109,7 @@ pub async fn fs_list_dir(path: String) -> Result<Vec<RemoteFile>, String> {
     // The bare WSL server root can't be read_dir'd; list distros as folders instead.
     if let Some(prefix) = wsl::root_prefix(&path) {
         return Ok(wsl::list_distros()
+            .await
             .into_iter()
             .map(|distro| RemoteFile {
                 path: format!("{prefix}\\{distro}"),

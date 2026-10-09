@@ -91,8 +91,11 @@ pub async fn local_list_shells() -> Vec<ShellOption> {
         // so its presence proves nothing — require an installed distro. The
         // probe spawns wsl.exe, so cache it: every surface listing shells calls
         // this command on mount.
-        static HAS_DISTRO: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-        if *HAS_DISTRO.get_or_init(|| !crate::commands::wsl::list_distros().is_empty()) {
+        static HAS_DISTRO: tokio::sync::OnceCell<bool> = tokio::sync::OnceCell::const_new();
+        let has_distro = HAS_DISTRO
+            .get_or_init(|| async { !crate::commands::wsl::list_distros().await.is_empty() })
+            .await;
+        if *has_distro {
             push_shell(
                 &mut shells,
                 "WSL",

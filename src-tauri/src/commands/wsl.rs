@@ -2,10 +2,13 @@
 //! `\\wsl.localhost\<Distro>`; only the bare root can't be read_dir'd (Windows
 //! returns ERROR_LOGON_FAILURE 1326), so we list distros via `wsl.exe`.
 
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
 const ROOTS: [&str; 2] = [r"\\wsl.localhost", r"\\wsl$"];
+
+#[cfg(target_os = "windows")]
+const LIST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// Long enough for a cold distro VM to boot.
+#[cfg(target_os = "windows")]
+pub const BOOT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 
 /// Canonical UNC prefix if `path` is the bare WSL root (`\\wsl.localhost` or `\\wsl$`), else `None`.
 pub fn root_prefix(path: &str) -> Option<&'static str> {
@@ -39,26 +42,38 @@ pub fn distro_path(path: &str) -> Option<(String, String)> {
     }
 }
 
-/// `program` run directly (no login shell re-parsing its args) inside `distro`.
 #[cfg(target_os = "windows")]
-pub fn exec_command(distro: &str, program: &str) -> tokio::process::Command {
+fn wsl(args: &[&str]) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new("wsl.exe");
-    cmd.args(["-d", distro, "--exec", program])
-        .creation_flags(CREATE_NO_WINDOW);
+    cmd.args(args);
+    super::win_proc::prevent_visible_child_window(&mut cmd);
     cmd
 }
 
-/// Installed WSL distros, excluding Docker's internal ones. Empty if WSL is unavailable.
+/// `cmd`'s output if it exits successfully within `limit`; a child still running then is killed.
+#[cfg(any(target_os = "windows", test))]
+pub async fn output_within(
+    mut cmd: tokio::process::Command,
+    limit: std::time::Duration,
+) -> Option<std::process::Output> {
+    let output = tokio::time::timeout(limit, cmd.kill_on_drop(true).output())
+        .await
+        .ok()?
+        .ok()?;
+    output.status.success().then_some(output)
+}
+
+/// `program` run directly (no login shell re-parsing its args) inside `distro`.
 #[cfg(target_os = "windows")]
-pub fn list_distros() -> Vec<String> {
-    use std::os::windows::process::CommandExt;
-    let output = match std::process::Command::new("wsl.exe")
-        .args(["--list", "--quiet"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-    {
-        Ok(o) if o.status.success() => o,
-        _ => return Vec::new(),
+pub fn exec_command(distro: &str, program: &str) -> tokio::process::Command {
+    wsl(&["-d", distro, "--exec", program])
+}
+
+/// Installed WSL distros, excluding Docker's internal ones. Empty if WSL is unavailable or hangs.
+#[cfg(target_os = "windows")]
+pub async fn list_distros() -> Vec<String> {
+    let Some(output) = output_within(wsl(&["--list", "--quiet"]), LIST_TIMEOUT).await else {
+        return Vec::new();
     };
     // wsl.exe emits UTF-16LE with a BOM.
     let utf16: Vec<u16> = output
@@ -79,23 +94,16 @@ pub fn list_distros() -> Vec<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn list_distros() -> Vec<String> {
+pub async fn list_distros() -> Vec<String> {
     Vec::new()
 }
 
 /// Windows UNC path of the distro's home dir. The bare distro root maps to `/`,
 /// which is root-owned and not writable, so transfers must land in `$HOME`.
 #[cfg(target_os = "windows")]
-pub fn home_dir(distro: &str) -> Option<String> {
-    use std::os::windows::process::CommandExt;
-    let output = std::process::Command::new("wsl.exe")
-        .args(["-d", distro, "--", "sh", "-lc", r#"wslpath -w "$HOME""#])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
+pub async fn home_dir(distro: &str) -> Option<String> {
+    let cmd = wsl(&["-d", distro, "--", "sh", "-lc", r#"wslpath -w "$HOME""#]);
+    let output = output_within(cmd, BOOT_TIMEOUT).await?;
     // Commands run inside the distro emit UTF-8 (unlike `wsl --list`).
     let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if path.is_empty() {
@@ -106,20 +114,22 @@ pub fn home_dir(distro: &str) -> Option<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn home_dir(_distro: &str) -> Option<String> {
+pub async fn home_dir(_distro: &str) -> Option<String> {
     None
 }
 
 #[tauri::command]
-pub fn wsl_list_distros() -> Vec<String> {
-    list_distros()
+pub async fn wsl_list_distros() -> Vec<String> {
+    list_distros().await
 }
 
 /// Home directory of a WSL distro as a Windows path. Falls back to the distro
 /// root if resolution fails.
 #[tauri::command]
-pub fn wsl_home_dir(distro: String) -> String {
-    home_dir(&distro).unwrap_or_else(|| format!(r"\\wsl.localhost\{distro}"))
+pub async fn wsl_home_dir(distro: String) -> String {
+    home_dir(&distro)
+        .await
+        .unwrap_or_else(|| format!(r"\\wsl.localhost\{distro}"))
 }
 
 #[cfg(test)]
@@ -150,5 +160,26 @@ mod tests {
         assert_eq!(root_prefix("//WSL.localhost/"), Some(r"\\wsl.localhost"));
         assert_eq!(root_prefix(r"\\wsl$"), Some(r"\\wsl$"));
         assert_eq!(root_prefix(r"\\wsl$\Ubuntu"), None);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn output_within_kills_a_child_that_never_exits() {
+        use std::time::{Duration, Instant};
+        let sh = |script: &str| {
+            let mut cmd = tokio::process::Command::new("sh");
+            cmd.args(["-c", script]);
+            cmd
+        };
+        let started = Instant::now();
+        assert!(output_within(sh("sleep 30"), Duration::from_millis(300))
+            .await
+            .is_none());
+        assert!(started.elapsed() < Duration::from_secs(10));
+
+        let generous = Duration::from_secs(20);
+        let out = output_within(sh("echo ok"), generous).await.unwrap();
+        assert_eq!(out.stdout, b"ok\n");
+        assert!(output_within(sh("exit 1"), generous).await.is_none());
     }
 }

@@ -58,16 +58,15 @@ pub struct LocalSessionManager {
     sessions: Arc<sync::Mutex<HashMap<String, LocalSession>>>,
 }
 
-/// Boot the default WSL distro synchronously so an interactive session doesn't
-/// race its cold start. Runs hidden (no console window) and ignores failures.
+/// Boot the default WSL distro before attaching so an interactive session doesn't
+/// race its cold start. Runs hidden (no console window) and ignores failures and hangs.
 #[cfg(windows)]
-fn prewarm_wsl(wsl_path: &str) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let _ = std::process::Command::new(wsl_path)
-        .args(["--", "true"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output();
+async fn prewarm_wsl(wsl_path: &str) {
+    use crate::commands::{win_proc, wsl};
+    let mut cmd = tokio::process::Command::new(wsl_path);
+    cmd.args(["--", "true"]);
+    win_proc::prevent_visible_child_window(&mut cmd);
+    wsl::output_within(cmd, wsl::BOOT_TIMEOUT).await;
 }
 
 impl LocalSessionManager {
@@ -126,8 +125,7 @@ impl LocalSessionManager {
                 .map(|s| s.eq_ignore_ascii_case("wsl"))
                 .unwrap_or(false);
             if is_wsl {
-                let wsl = shell.clone();
-                let _ = tokio::task::spawn_blocking(move || prewarm_wsl(&wsl)).await;
+                prewarm_wsl(&shell).await;
             }
         }
 
