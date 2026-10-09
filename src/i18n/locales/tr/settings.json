@@ -272,7 +272,18 @@
           "toggle": "Sistem kimlik doğrulamasıyla kilidi aç",
           "desc": "Ana parolanızı yazmak yerine {{method}} kullanın.",
           "unavailable": "Bu cihazda kullanılamıyor.",
-          "disclosure": "Kilitliyken kasa anahtarınız, cihaz girişinizle korunan sistem anahtarlığında kalır.",
+          "status": {
+            "bound": "Bu cihazın donanımına bağlı.",
+            "unbound": "Henüz bu cihazın donanımına bağlı değil.",
+            "os-login": "Cihaz girişinizle korunuyor.",
+            "no-password": "Cihaz girişinizle korunuyor. Anahtarı bu cihazın donanımına bağlamak için bir ana parola belirleyin."
+          },
+          "bindNow": "Şimdi bağla",
+          "confirm": "Onayla",
+          "enableTitle": "Kasa anahtarını bu cihaza bağla",
+          "enableBody": "Ana parolanızı girin. Bu cihazın girişi değişirse gerekecek.",
+          "disableTitle": "Sistem kimlik doğrulamasını kapat",
+          "disableBody": "Açılışta istem olmadan kilidi açmaya devam etmek için ana parolanızı girin.",
           "method": {
             "windows": "Windows Hello",
             "macos": "Touch ID veya Mac parolanız",

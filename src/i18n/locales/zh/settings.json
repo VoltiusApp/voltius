@@ -160,7 +160,18 @@
           "toggle": "使用系统身份验证解锁",
           "desc": "使用{{method}}代替输入主密码。",
           "unavailable": "此设备不支持。",
-          "disclosure": "锁定期间，保险库密钥保存在系统钥匙串中，受设备登录保护。",
+          "status": {
+            "bound": "已绑定到此设备的硬件。",
+            "unbound": "尚未绑定到此设备的硬件。",
+            "os-login": "受设备登录保护。",
+            "no-password": "受设备登录保护。设置主密码后即可将密钥绑定到此设备的硬件。"
+          },
+          "bindNow": "立即绑定",
+          "confirm": "确认",
+          "enableTitle": "将保险库密钥绑定到此设备",
+          "enableBody": "请输入主密码。如果此设备的登录方式发生变化，您将需要它。",
+          "disableTitle": "关闭系统身份验证",
+          "disableBody": "请输入主密码，以便启动时继续无需提示即可解锁。",
           "method": {
             "windows": "Windows Hello",
             "macos": "触控 ID 或 Mac 密码",

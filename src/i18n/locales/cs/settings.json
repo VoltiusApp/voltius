@@ -266,7 +266,18 @@
           "toggle": "Odemykat systémovým ověřením",
           "desc": "Použijte {{method}} místo zadávání hlavního hesla.",
           "unavailable": "Na tomto zařízení není k dispozici.",
-          "disclosure": "Během zamknutí zůstává klíč trezoru v systémové klíčence, chráněný přihlášením k zařízení.",
+          "status": {
+            "bound": "Vázáno na hardware tohoto zařízení.",
+            "unbound": "Zatím nevázáno na hardware tohoto zařízení.",
+            "os-login": "Chráněno přihlášením k zařízení.",
+            "no-password": "Chráněno přihlášením k zařízení. Nastavte hlavní heslo, abyste klíč mohli vázat na hardware tohoto zařízení."
+          },
+          "bindNow": "Svázat nyní",
+          "confirm": "Potvrdit",
+          "enableTitle": "Svázat klíč trezoru s tímto zařízením",
+          "enableBody": "Zadejte hlavní heslo. Budete ho potřebovat, pokud se přihlášení k zařízení změní.",
+          "disableTitle": "Vypnout systémové ověření",
+          "disableBody": "Zadejte hlavní heslo, aby se Voltius při spuštění dál odemykal bez výzvy.",
           "method": {
             "windows": "Windows Hello",
             "macos": "Touch ID nebo heslo k Macu",

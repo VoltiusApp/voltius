@@ -11,6 +11,10 @@ import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeout
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { policyTeamNames, timeoutAllowed } from "@/services/lockPolicy";
 import { useTeamStore } from "@/stores/teamStore";
+import {
+  bindNow, bindingStatus, disableBinding, disableWithPassword, enableBinding, type BindingStatus,
+} from "@/services/vaultBinding";
+import { BindPasswordDialog } from "./BindPasswordDialog";
 
 export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const { t } = useTranslation();
@@ -23,7 +27,28 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const setSystemAuthUnlock = useSecurityStore((s) => s.setSystemAuthUnlock);
   const [providerAvailable, setProviderAvailable] = useState(false);
 
+  const [status, setStatus] = useState<BindingStatus | null>(null);
+  const [dialog, setDialog] = useState<"enable" | "disable" | null>(null);
+
   useEffect(() => { void systemAuthAvailable().then(setProviderAvailable); }, []);
+  const refreshStatus = () => { void bindingStatus(mode).then(setStatus); };
+  useEffect(refreshStatus, [mode, systemAuthUnlock]);
+
+  const reason = t("layout.appLock.sealReason");
+  const finish = (on: boolean) => {
+    setSystemAuthUnlock(on);
+    setDialog(null);
+    refreshStatus();
+  };
+  const onToggle = async (on: boolean) => {
+    if (on) {
+      if (status === "unbound") setDialog("enable");
+      else setSystemAuthUnlock(true);
+      return;
+    }
+    if ((await disableBinding(reason)) === "ok") finish(false);
+    else setDialog("disable");
+  };
 
   const lockable = canLockApp(mode, systemAuthUnlock);
   const vaultLockable = canLockVault(mode);
@@ -98,17 +123,56 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
               ? t("settings.account.sessionSecurity.systemAuth.desc", { method: t(systemAuthMethodKey(platform)) })
               : t("settings.account.sessionSecurity.systemAuth.unavailable")}
           </p>
-          {systemAuthUnlock && (
-            <p className="text-xs mt-1 text-(--t-text-muted)">{t("settings.account.sessionSecurity.systemAuth.disclosure")}</p>
+          {systemAuthUnlock && status && (
+            <p className="text-xs mt-1 text-(--t-text-muted)">
+              {t(`settings.account.sessionSecurity.systemAuth.status.${status}`)}
+              {status === "unbound" && (
+                <button
+                  type="button"
+                  className="ml-1 underline hover:text-(--t-text-primary)"
+                  onClick={() => void bindNow(reason).then(refreshStatus)}
+                >
+                  {t("settings.account.sessionSecurity.systemAuth.bindNow")}
+                </button>
+              )}
+            </p>
           )}
         </div>
         <Toggle
           checked={systemAuthUnlock}
-          onChange={setSystemAuthUnlock}
+          onChange={(on) => void onToggle(on)}
           disabled={!providerAvailable && !systemAuthUnlock}
           aria-label={t("settings.account.sessionSecurity.systemAuth.toggle")}
         />
       </div>
+
+      {dialog === "enable" && (
+        <BindPasswordDialog
+          title={t("settings.account.sessionSecurity.systemAuth.enableTitle")}
+          body={t("settings.account.sessionSecurity.systemAuth.enableBody")}
+          onClose={() => setDialog(null)}
+          onSubmit={async (password) => {
+            const r = await enableBinding(password, reason);
+            if (r === "wrong-password") return t("layout.appLock.wrongPassword");
+            if (r === "cancelled") return null;
+            if (r !== "ok") return t("layout.appLock.systemAuthFailed");
+            finish(true);
+            return null;
+          }}
+        />
+      )}
+      {dialog === "disable" && (
+        <BindPasswordDialog
+          title={t("settings.account.sessionSecurity.systemAuth.disableTitle")}
+          body={t("settings.account.sessionSecurity.systemAuth.disableBody")}
+          onClose={() => setDialog(null)}
+          onSubmit={async (password) => {
+            if (!(await disableWithPassword(password))) return t("layout.appLock.wrongPassword");
+            finish(false);
+            return null;
+          }}
+        />
+      )}
 
       {!lockable && (
         <p className="text-xs text-(--t-text-muted)">{t("settings.account.sessionSecurity.needsSystemAuth")}</p>

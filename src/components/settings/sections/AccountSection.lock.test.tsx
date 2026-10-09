@@ -95,11 +95,11 @@ test("the system-auth toggle is disabled with a reason when the device has no pr
   expect(screen.getByText("settings.account.sessionSecurity.systemAuth.unavailable")).toBeTruthy();
 });
 
-test("turning system auth on stores it and shows the keychain disclosure", async () => {
+test("turning system auth on where the key can't be bound stores it and names the protection level", async () => {
   await renderSection();
   fireEvent.click(screen.getByRole("switch", { name: TOGGLE }));
   expect(useSecurityStore.getState().systemAuthUnlock).toBe(true);
-  expect(screen.getByText("settings.account.sessionSecurity.systemAuth.disclosure")).toBeTruthy();
+  expect(await screen.findByText("settings.account.sessionSecurity.systemAuth.status.os-login")).toBeTruthy();
 });
 
 test("a no-password account is told why it cannot auto-lock until system auth is on", async () => {

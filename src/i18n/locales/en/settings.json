@@ -258,7 +258,18 @@
           "toggle": "Unlock with system authentication",
           "desc": "Use {{method}} instead of typing your master password.",
           "unavailable": "Not available on this device.",
-          "disclosure": "Locking keeps your vault key in the system keychain, protected by your device login.",
+          "status": {
+            "bound": "Bound to this device's hardware.",
+            "unbound": "Not bound to this device's hardware yet.",
+            "os-login": "Protected by your device login.",
+            "no-password": "Protected by your device login. Set a master password to bind the key to this device's hardware."
+          },
+          "bindNow": "Bind now",
+          "confirm": "Confirm",
+          "enableTitle": "Bind your vault key to this device",
+          "enableBody": "Enter your master password. You'll need it if this device's sign-in changes.",
+          "disableTitle": "Turn off system authentication",
+          "disableBody": "Enter your master password to keep unlocking at launch without a prompt.",
           "method": {
             "windows": "Windows Hello",
             "macos": "Touch ID or your Mac password",

@@ -266,7 +266,18 @@
           "toggle": "Déverrouiller avec l'authentification système",
           "desc": "Utilisez {{method}} au lieu de saisir votre mot de passe principal.",
           "unavailable": "Non disponible sur cet appareil.",
-          "disclosure": "Pendant le verrouillage, la clé du coffre reste dans le trousseau système, protégée par la connexion de l'appareil.",
+          "status": {
+            "bound": "Liée au matériel de cet appareil.",
+            "unbound": "Pas encore liée au matériel de cet appareil.",
+            "os-login": "Protégée par la connexion de votre appareil.",
+            "no-password": "Protégée par la connexion de votre appareil. Définissez un mot de passe principal pour lier la clé au matériel de cet appareil."
+          },
+          "bindNow": "Lier maintenant",
+          "confirm": "Confirmer",
+          "enableTitle": "Lier la clé du coffre à cet appareil",
+          "enableBody": "Saisissez votre mot de passe principal. Il vous sera demandé si la connexion de cet appareil change.",
+          "disableTitle": "Désactiver l'authentification système",
+          "disableBody": "Saisissez votre mot de passe principal pour continuer à déverrouiller au lancement sans invite.",
           "method": {
             "windows": "Windows Hello",
             "macos": "Touch ID ou le mot de passe de votre Mac",
