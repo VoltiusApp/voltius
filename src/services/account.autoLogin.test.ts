@@ -182,7 +182,7 @@ test("autoLogin falls back to kek when the existing vault rejects dek", async ()
 });
 
 // Installing a proven-wrong key only defers the failure to the first secret read.
-test("autoLogin declines the session when no key opens the existing vault", async () => {
+test("autoLogin reports a key that does not open the existing vault", async () => {
   h.store.master_password = "pw";
   h.store.mode = "server";
   h.store.account_id = "acc";
@@ -190,7 +190,7 @@ test("autoLogin declines the session when no key opens the existing vault", asyn
   h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
   h.verifyVaultKey.mockRejectedValue(wrongKey());
 
-  expect(await autoLogin()).toBe("declined");
+  expect(await autoLogin()).toBe("wrong-key");
   expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 

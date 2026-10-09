@@ -114,3 +114,12 @@ test("a vault lock over a sealed secret offers system auth even with the setting
   await advance(2000);
   expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: true });
 });
+
+test("a declined login on a cloud account with no vault file yet still gets the unlock page", async () => {
+  h.autoLogin.mockResolvedValueOnce("declined");
+  h.exists = false;
+  h.serverMode = true;
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true });
+});

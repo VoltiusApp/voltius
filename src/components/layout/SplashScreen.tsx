@@ -43,6 +43,11 @@ function keepSwitcherFresh(): void {
   saveCurrentAccount().catch((e) => console.warn("[splash] could not save this account to the switcher:", e));
 }
 
+// A cloud account has nothing on disk until its first secret; login() re-derives from the server.
+async function hasAccountToUnlock(): Promise<boolean> {
+  return (await getVaultStatus()).exists || (await isServerMode());
+}
+
 export default function SplashScreen({ onReady }: Props) {
   const { t } = useTranslation();
   const [steps, setSteps] = useState<Step[]>(() =>
@@ -69,8 +74,7 @@ export default function SplashScreen({ onReady }: Props) {
         const sealed = (await secretState().catch(() => "none")) === "sealed";
         setSystemAuth(sealed || (useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
         try {
-          // A cloud account has nothing on disk until its first secret; login() re-derives from the server.
-          const locked = (await getVaultStatus()).exists || (await isServerMode());
+          const locked = await hasAccountToUnlock();
           setStep("vault", "done", locked ? t("layout.splash.vaultLocked") : t("layout.splash.firstLaunch"));
           setPhase(locked ? "auth-locked" : "auth-first-launch");
         } catch {
@@ -105,9 +109,9 @@ export default function SplashScreen({ onReady }: Props) {
 
       // autoLogin failed — check if a vault already exists (locked) or first launch
       try {
-        const { exists } = await getVaultStatus();
-        setStep("vault", "done", exists ? t("layout.splash.vaultFound") : t("layout.splash.firstLaunch"));
-        setPhase(exists ? "auth-locked" : "auth-first-launch");
+        const locked = await hasAccountToUnlock();
+        setStep("vault", "done", locked ? t("layout.splash.vaultFound") : t("layout.splash.firstLaunch"));
+        setPhase(locked ? "auth-locked" : "auth-first-launch");
       } catch {
         setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
         setPhase("auth-first-launch");

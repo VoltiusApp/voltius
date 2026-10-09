@@ -36,10 +36,10 @@ fn read(outcome: SealStatus, value: Option<String>) -> Read {
     Read { outcome, value }
 }
 
-pub fn state(store: &impl Store) -> State {
-    let sealed = store.get(SEALED).ok().flatten().is_some();
-    let plain = store.get(PLAIN).ok().flatten().is_some();
-    match (sealed, plain) {
+pub fn state(store: &impl Store) -> Result<State, String> {
+    let sealed = store.get(SEALED)?.is_some();
+    let plain = store.get(PLAIN)?.is_some();
+    Ok(match (sealed, plain) {
         (true, true) => {
             let _ = store.delete(PLAIN);
             State::Sealed
@@ -47,7 +47,7 @@ pub fn state(store: &impl Store) -> State {
         (true, false) => State::Sealed,
         (false, true) => State::Plain,
         (false, false) => State::None,
-    }
+    })
 }
 
 async fn seal_to_string(
@@ -63,18 +63,19 @@ async fn seal_to_string(
 
 pub async fn get(store: &impl Store, sealer: &impl Sealer, reason: &str) -> Read {
     match state(store) {
-        State::None => read(SealStatus::None, None),
-        State::Plain => match store.get(PLAIN) {
+        Err(_) => read(SealStatus::Failed, None),
+        Ok(State::None) => read(SealStatus::None, None),
+        Ok(State::Plain) => match store.get(PLAIN) {
             Ok(v) => read(SealStatus::Ok, v),
             Err(_) => read(SealStatus::Failed, None),
         },
-        State::Sealed => {
-            let blob = store
-                .get(SEALED)
-                .ok()
-                .flatten()
-                .and_then(|b| STANDARD.decode(b).ok());
-            let Some(blob) = blob else {
+        Ok(State::Sealed) => {
+            let raw = match store.get(SEALED) {
+                Ok(Some(raw)) => raw,
+                Ok(None) => return read(SealStatus::None, None),
+                Err(_) => return read(SealStatus::Failed, None),
+            };
+            let Ok(blob) = STANDARD.decode(raw) else {
                 let _ = store.delete(SEALED);
                 return read(SealStatus::Invalidated, None);
             };
@@ -99,20 +100,26 @@ pub async fn set(
     reason: &str,
     value: &str,
 ) -> SealStatus {
-    if state(store) != State::Sealed {
-        return match store.set(PLAIN, value) {
-            Ok(()) => SealStatus::Ok,
-            Err(_) => SealStatus::Failed,
-        };
+    match state(store) {
+        Err(_) => return SealStatus::Failed,
+        Ok(State::Sealed) => {}
+        Ok(_) => {
+            return match store.set(PLAIN, value) {
+                Ok(()) => SealStatus::Ok,
+                Err(_) => SealStatus::Failed,
+            }
+        }
     }
     let status = match seal_to_string(sealer, reason, value).await {
         Ok(blob) if store.set(SEALED, &blob).is_ok() => return SealStatus::Ok,
         Ok(_) => SealStatus::Failed,
         Err(status) => status,
     };
-    // A sealed copy of the old password would unseal into a failed login on every launch.
-    let _ = store.delete(SEALED);
-    status
+    // The sealed copy holds the old password; keep the new one reachable instead.
+    match import(store, State::Plain, value) {
+        Ok(()) => status,
+        Err(_) => SealStatus::Failed,
+    }
 }
 
 pub async fn bind(
@@ -139,34 +146,28 @@ pub async fn bind(
 pub async fn unbind(store: &impl Store, sealer: &impl Sealer, reason: &str) -> SealStatus {
     let r = get(store, sealer, reason).await;
     match (r.outcome, r.value) {
-        (SealStatus::Ok, Some(v)) => {
-            if store.set(PLAIN, &v).is_err() {
-                return SealStatus::Failed;
-            }
-            let _ = store.delete(SEALED);
-            SealStatus::Ok
-        }
+        (SealStatus::Ok, Some(v)) => match import(store, State::Plain, &v) {
+            Ok(()) => SealStatus::Ok,
+            Err(_) => SealStatus::Failed,
+        },
         (outcome, _) => outcome,
     }
 }
 
 pub fn clear(store: &impl Store) -> Result<(), String> {
-    store.delete(PLAIN)?;
-    store.delete(SEALED)
+    let plain = store.delete(PLAIN);
+    let sealed = store.delete(SEALED);
+    plain.and(sealed)
 }
 
-pub fn export(store: &impl Store) -> Option<Exported> {
-    let kind = state(store);
+pub fn export(store: &impl Store) -> Result<Option<Exported>, String> {
+    let kind = state(store)?;
     let key = match kind {
-        State::None => return None,
+        State::None => return Ok(None),
         State::Plain => PLAIN,
         State::Sealed => SEALED,
     };
-    store
-        .get(key)
-        .ok()
-        .flatten()
-        .map(|value| Exported { kind, value })
+    Ok(store.get(key)?.map(|value| Exported { kind, value }))
 }
 
 pub fn import(store: &impl Store, kind: State, value: &str) -> Result<(), String> {
@@ -208,7 +209,7 @@ impl Store for Keychain {
 }
 
 #[tauri::command]
-pub async fn vault_secret_state() -> State {
+pub async fn vault_secret_state() -> Result<State, String> {
     state(&Keychain)
 }
 
@@ -243,7 +244,7 @@ pub async fn vault_secret_clear() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn vault_secret_export() -> Option<Exported> {
+pub async fn vault_secret_export() -> Result<Option<Exported>, String> {
     export(&Keychain)
 }
 
@@ -259,18 +260,40 @@ mod tests {
     use std::collections::HashMap;
 
     #[derive(Default)]
-    struct MemStore(RefCell<HashMap<String, String>>);
+    struct MemStore {
+        map: RefCell<HashMap<String, String>>,
+        failing_get: RefCell<Option<&'static str>>,
+        failing_delete: RefCell<Option<&'static str>>,
+    }
+
+    impl MemStore {
+        fn fail_get(&self, k: &'static str) {
+            *self.failing_get.borrow_mut() = Some(k);
+        }
+        fn fail_delete(&self, k: &'static str) {
+            *self.failing_delete.borrow_mut() = Some(k);
+        }
+        fn raw(&self, k: &str) -> Option<String> {
+            self.map.borrow().get(k).cloned()
+        }
+    }
 
     impl Store for MemStore {
         fn get(&self, k: &str) -> Result<Option<String>, String> {
-            Ok(self.0.borrow().get(k).cloned())
+            if *self.failing_get.borrow() == Some(k) {
+                return Err("keychain busy".into());
+            }
+            Ok(self.map.borrow().get(k).cloned())
         }
         fn set(&self, k: &str, v: &str) -> Result<(), String> {
-            self.0.borrow_mut().insert(k.into(), v.into());
+            self.map.borrow_mut().insert(k.into(), v.into());
             Ok(())
         }
         fn delete(&self, k: &str) -> Result<(), String> {
-            self.0.borrow_mut().remove(k);
+            if *self.failing_delete.borrow() == Some(k) {
+                return Err("keychain busy".into());
+            }
+            self.map.borrow_mut().remove(k);
             Ok(())
         }
     }
@@ -334,7 +357,7 @@ mod tests {
         let s = MemStore::default();
         s.set(PLAIN, "pw").unwrap();
         assert_eq!(run(bind(&s, &W, "r", "pw")), SealStatus::Ok);
-        assert_eq!(state(&s), State::Sealed);
+        assert_eq!(state(&s), Ok(State::Sealed));
         assert_eq!(s.get(PLAIN).unwrap(), None);
         assert_eq!(run(get(&s, &W, "r")).value.as_deref(), Some("pw"));
     }
@@ -344,7 +367,7 @@ mod tests {
         let s = MemStore::default();
         s.set(PLAIN, "pw").unwrap();
         assert_eq!(run(bind(&s, &C, "r", "pw")), SealStatus::Cancelled);
-        assert_eq!(state(&s), State::Plain);
+        assert_eq!(state(&s), Ok(State::Plain));
     }
 
     #[test]
@@ -352,7 +375,7 @@ mod tests {
         let s = MemStore::default();
         run(bind(&s, &W, "r", "pw"));
         assert_eq!(run(get(&s, &I, "r")).outcome, SealStatus::Invalidated);
-        assert_eq!(state(&s), State::None);
+        assert_eq!(state(&s), Ok(State::None));
     }
 
     #[test]
@@ -360,7 +383,7 @@ mod tests {
         let s = MemStore::default();
         s.set(SEALED, "not base64!").unwrap();
         assert_eq!(run(get(&s, &W, "r")).outcome, SealStatus::Invalidated);
-        assert_eq!(state(&s), State::None);
+        assert_eq!(state(&s), Ok(State::None));
     }
 
     #[test]
@@ -368,7 +391,7 @@ mod tests {
         let s = MemStore::default();
         run(bind(&s, &W, "r", "pw"));
         assert_eq!(run(get(&s, &C, "r")).outcome, SealStatus::Cancelled);
-        assert_eq!(state(&s), State::Sealed);
+        assert_eq!(state(&s), Ok(State::Sealed));
     }
 
     #[test]
@@ -383,11 +406,48 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_reseal_drops_the_stale_sealed_entry() {
+    fn a_failed_reseal_keeps_the_new_password_in_plain() {
         let s = MemStore::default();
         run(bind(&s, &W, "r", "a"));
         assert_eq!(run(set(&s, &C, "r", "b")), SealStatus::Cancelled);
-        assert_eq!(state(&s), State::None);
+        assert_eq!(state(&s), Ok(State::Plain));
+        assert_eq!(s.raw(PLAIN).as_deref(), Some("b"));
+    }
+
+    #[test]
+    fn a_keychain_read_error_keeps_the_sealed_entry() {
+        let s = MemStore::default();
+        run(bind(&s, &W, "r", "pw"));
+        s.fail_get(SEALED);
+        assert_eq!(run(get(&s, &W, "r")).outcome, SealStatus::Failed);
+        assert!(s.raw(SEALED).is_some());
+    }
+
+    #[test]
+    fn state_reports_a_keychain_read_error() {
+        let s = MemStore::default();
+        run(bind(&s, &W, "r", "pw"));
+        s.fail_get(SEALED);
+        assert!(state(&s).is_err());
+    }
+
+    #[test]
+    fn set_writes_nothing_when_the_state_cannot_be_read() {
+        let s = MemStore::default();
+        run(bind(&s, &W, "r", "old"));
+        s.fail_get(SEALED);
+        assert_eq!(run(set(&s, &W, "r", "new")), SealStatus::Failed);
+        assert_eq!(s.raw(PLAIN), None);
+    }
+
+    #[test]
+    fn clear_still_removes_the_sealed_entry_when_the_plain_delete_fails() {
+        let s = MemStore::default();
+        s.set(PLAIN, "a").unwrap();
+        s.set(SEALED, "b").unwrap();
+        s.fail_delete(PLAIN);
+        assert!(clear(&s).is_err());
+        assert_eq!(s.raw(SEALED), None);
     }
 
     #[test]
@@ -404,7 +464,7 @@ mod tests {
         let s = MemStore::default();
         run(bind(&s, &W, "r", "pw"));
         s.set(PLAIN, "pw").unwrap();
-        assert_eq!(state(&s), State::Sealed);
+        assert_eq!(state(&s), Ok(State::Sealed));
         assert_eq!(s.get(PLAIN).unwrap(), None);
     }
 
@@ -412,12 +472,12 @@ mod tests {
     fn export_and_import_copy_the_stored_form() {
         let s = MemStore::default();
         run(bind(&s, &W, "r", "pw"));
-        let e = export(&s).unwrap();
+        let e = export(&s).unwrap().unwrap();
         assert_eq!(e.kind, State::Sealed);
         let t = MemStore::default();
         t.set(PLAIN, "old").unwrap();
         import(&t, e.kind, &e.value).unwrap();
-        assert_eq!(state(&t), State::Sealed);
+        assert_eq!(state(&t), Ok(State::Sealed));
         assert_eq!(run(get(&t, &W, "r")).value.as_deref(), Some("pw"));
     }
 
@@ -427,7 +487,7 @@ mod tests {
         s.set(PLAIN, "a").unwrap();
         s.set(SEALED, "b").unwrap();
         clear(&s).unwrap();
-        assert_eq!(state(&s), State::None);
+        assert_eq!(state(&s), Ok(State::None));
     }
 
     #[test]

@@ -218,3 +218,17 @@ test("isServerMode is true only for server mode", async () => {
   delete h.store.mode;
   expect(await isServerMode()).toBe(false);
 });
+
+test("creating an account replaces a sealed secret left by an earlier one", async () => {
+  h.store.master_password_sealed = "S:old-account";
+  await createLocalAccount("hunter2");
+  expect(h.store.master_password).toBe("hunter2");
+  expect(h.store.master_password_sealed).toBeUndefined();
+});
+
+test("a no-password account keeps its key even over a stale sealed secret", async () => {
+  h.store.master_password_sealed = "S:old-account";
+  await createLocalAccountNoPassword();
+  expect(h.store.master_password).toMatch(/^[0-9a-f]{64}$/);
+  expect(h.store.master_password_sealed).toBeUndefined();
+});

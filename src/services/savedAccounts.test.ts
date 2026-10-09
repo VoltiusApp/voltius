@@ -35,7 +35,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   dropAccountUiState: h.dropAccountUiState,
 }));
 
-import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, type SavedAccount } from "./savedAccounts";
+import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, type SavedAccount } from "./savedAccounts";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
@@ -110,7 +110,7 @@ function seed(...accounts: SavedAccount[]) {
 test("saveCurrentAccount snapshots the active session and upserts by account_id", async () => {
   activate(CLOUD_A);
   await saveCurrentAccount();
-  expect(await getSavedAccounts()).toEqual([{ ...CLOUD_A, master_password_sealed: null }]);
+  expect(await getSavedAccounts()).toEqual([CLOUD_A]);
 
   h.store.jwt = fake("jwt", "a2");
   await saveCurrentAccount();
@@ -408,7 +408,7 @@ test("binding an already saved account drops its plaintext copy", async () => {
   h.store.master_password_sealed = "S:pw";
   await saveCurrentAccount();
   const saved = JSON.parse(h.store[entryKey("a1")]);
-  expect(saved.master_password).toBeNull();
+  expect(saved.master_password).toBeUndefined();
   expect(saved.master_password_sealed).toBe("S:pw");
 });
 
@@ -417,4 +417,23 @@ test("switching away clears the outgoing account's secret in either form", async
   await switchToAccount(CLOUD_B);
   expect(h.store.master_password_sealed).toBeUndefined();
   expect(h.store.master_password).toBe(CLOUD_B.master_password);
+});
+
+test("binding one account drops the plaintext passwords the others keep", async () => {
+  seed(CLOUD_A, CLOUD_B);
+  h.store.account_id = "a";
+  await forgetOtherPlainPasswords();
+  expect(JSON.parse(h.store[entryKey("a")]).master_password).toBe(CLOUD_A.master_password);
+  expect(JSON.parse(h.store[entryKey("b")]).master_password).toBeUndefined();
+  expect(JSON.parse(h.store[entryKey("b")]).jwt).toBe(CLOUD_B.jwt);
+});
+
+test("a bound account's entry stores no empty secret field and fits under the Windows cap", async () => {
+  h.valueCap = WINDOWS_BLOB_CAP;
+  const blob = "VS1".padEnd(140, "x");
+  h.store = { ...Object.fromEntries(Object.entries(cloudAccount("a")).filter(([k]) => k !== "master_password")), master_password_sealed: blob };
+  await saveCurrentAccount();
+  const raw = h.store[entryKey("a")];
+  expect(raw).not.toContain("master_password\":null");
+  expect(JSON.parse(raw).master_password_sealed).toBe(blob);
 });

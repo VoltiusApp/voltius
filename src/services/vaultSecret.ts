@@ -22,7 +22,7 @@ export async function readPlainSecret(): Promise<string | null> {
   return r.outcome === "ok" ? r.value : null;
 }
 
-/** For login paths: a sealed secret already holds the password the user just proved. */
+/** For unlocking the same account: a sealed secret already holds the password the user just proved. */
 export async function rememberPassword(value: string): Promise<void> {
   if ((await secretState()) === "sealed") return;
   await invoke("vault_secret_set", { value, reason: "" });
@@ -34,6 +34,9 @@ export const bindSecret = (value: string, reason: string) =>
   prompting<SecretStatus>("vault_secret_bind", { value, reason }, "failed");
 export const unbindSecret = (reason: string) =>
   prompting<SecretStatus>("vault_secret_unbind", { reason }, "failed");
+
+/** For a new account or sign-in: whatever was stored belongs to another password. */
+export const storePassword = (value: string) => invoke<void>("vault_secret_import", { kind: "plain", value });
 
 export const clearSecret = () => invoke<void>("vault_secret_clear");
 export const exportSecret = () => invoke<ExportedSecret | null>("vault_secret_export");

@@ -18,6 +18,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import java.security.KeyStore
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -149,8 +150,14 @@ object VoltiusBiometric {
             if (iv == null) init(mode, key) else init(mode, key, GCMParameterSpec(128, iv))
         }
 
+    // A tag that no longer verifies means the key was replaced since this blob was sealed.
     private fun finish(cipher: Cipher, input: ByteArray, encrypting: Boolean) {
-        val out = cipher.doFinal(input)
+        val out = try {
+            cipher.doFinal(input)
+        } catch (e: AEADBadTagException) {
+            nativeAuthResult(INVALIDATED, null)
+            return
+        }
         nativeAuthResult(OK, if (encrypting) cipher.iv + out else out)
     }
 
@@ -170,9 +177,11 @@ object VoltiusBiometric {
                 timeBound(activity, title, authenticators(), mode, key, iv, input, encrypting, retried = false)
                 return@onResumedUi
             }
+            // A time-bound key from before an upgrade to API 30 refuses per-use init like a dead one.
             val cipher = try {
                 cipherFor(mode, key, iv)
-            } catch (e: KeyPermanentlyInvalidatedException) {
+            } catch (e: Exception) {
+                if (e !is KeyPermanentlyInvalidatedException && e !is UserNotAuthenticatedException) throw e
                 if (!encrypting) {
                     nativeAuthResult(INVALIDATED, null)
                     return@onResumedUi

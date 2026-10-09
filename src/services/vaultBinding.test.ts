@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   openResult: "ok",
   verify: vi.fn(async () => "ok"),
   systemAuthUnlock: true,
+  forgetOthers: vi.fn(async () => undefined),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/account", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/services/account", () => ({
   isCurrentMasterPassword: vi.fn(async (p: string) => p === "pw"),
 }));
 vi.mock("@/services/appLock", () => ({ systemAuthVerify: h.verify }));
+vi.mock("@/services/savedAccounts", () => ({ forgetOtherPlainPasswords: h.forgetOthers }));
 vi.mock("@/stores/securityStore", () => ({
   useSecurityStore: { getState: () => ({ systemAuthUnlock: h.systemAuthUnlock }) },
 }));
@@ -33,6 +35,7 @@ beforeEach(() => {
   h.openResult = "ok";
   h.systemAuthUnlock = true;
   h.verify.mockClear();
+  h.forgetOthers.mockClear();
   h.invoke.mockReset();
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
     if (cmd === "vault_secret_seal_available") return h.sealAvailable;
@@ -79,7 +82,7 @@ test("a sealed secret unlocks after the prompt", async () => {
 
 test("stale blob is dropped and reported as invalidated", async () => {
   h.store.master_password_sealed = "S:old";
-  h.openResult = "declined";
+  h.openResult = "wrong-key";
   expect(await unlockWithSystemAuth("r")).toBe("invalidated");
   expect(h.store.master_password_sealed).toBeUndefined();
 });
@@ -157,4 +160,24 @@ test("status names the protection level", async () => {
   expect(await bindingStatus("local")).toBe("os-login");
   h.sealAvailable = true;
   expect(await bindingStatus("local-nopassword")).toBe("no-password");
+});
+
+test("an unlock that fails for another reason keeps the sealed secret", async () => {
+  h.store.master_password_sealed = "S:pw";
+  h.openResult = "declined";
+  expect(await unlockWithSystemAuth("r")).toBe("failed");
+  expect(h.store.master_password_sealed).toBe("S:pw");
+});
+
+test("binding drops the plaintext copies other saved accounts hold", async () => {
+  h.store.master_password = "pw";
+  await enableBinding("pw", "r");
+  expect(h.forgetOthers).toHaveBeenCalled();
+});
+
+test("a cancelled bind leaves other saved accounts alone", async () => {
+  h.store.master_password = "pw";
+  h.bindResult = "cancelled";
+  await bindNow("r");
+  expect(h.forgetOthers).not.toHaveBeenCalled();
 });

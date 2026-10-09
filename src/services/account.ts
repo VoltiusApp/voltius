@@ -7,7 +7,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
-import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState } from "./vaultSecret";
+import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToBytes, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
@@ -200,7 +200,7 @@ async function persistServerSession(session: {
   jwt?: string;
   refreshToken?: string;
 }): Promise<void> {
-  if (session.password) await rememberPassword(session.password);
+  if (session.password) await storePassword(session.password);
   if (session.accountId) await keychainSet("account_id", session.accountId);
   await keychainSet("mode", "server");
   await keychainSet("email", session.email);
@@ -251,7 +251,7 @@ export async function createLocalAccountNoPassword(): Promise<void> {
 
   setVaultKey(keyBytes);
 
-  await rememberPassword(keyHex); // hex = "password" for this mode
+  await storePassword(keyHex); // hex = "password" for this mode
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local-nopassword");
 }
@@ -263,7 +263,7 @@ export async function createLocalAccount(password: string): Promise<void> {
 
   setVaultKey(enc_key);
 
-  await rememberPassword(password);
+  await storePassword(password);
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local");
 }
@@ -388,7 +388,7 @@ export async function login(password: string, email?: string, serverUrl?: string
  * the account has no master password to retype, so the unlock prompt cannot help
  * and the caller must offer the vault recovery screen instead.
  */
-export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed";
+export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed" | "wrong-key";
 
 /** Auto-login from keychain — instant (no secret access). */
 export async function autoLogin(): Promise<AutoLoginOutcome> {
@@ -444,7 +444,7 @@ export async function openWithStoredSecret(password: string): Promise<AutoLoginO
       const opened = await passwordVaultKey(kek, mode === "server");
       // Decline rather than install a key already proven not to open the file.
       // A password account keeps the unlock prompt: another password may open it.
-      if (!opened) return "declined";
+      if (!opened) return "wrong-key";
       encKey = opened;
 
       if (!mode) {
@@ -607,7 +607,7 @@ export async function setMasterPassword(password: string): Promise<void> {
   await unlockVaultIfNeeded();
   await invoke("secrets_reencrypt", { newEncKey: enc_key });
 
-  await rememberPassword(password);
+  await storePassword(password);
   await keychainSet("mode", "local");
 
   setVaultKey(enc_key);

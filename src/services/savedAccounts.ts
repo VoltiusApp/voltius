@@ -209,8 +209,7 @@ export async function saveCurrentAccount(): Promise<void> {
     ...session,
     account_id,
     mode,
-    master_password: secret.kind === "plain" ? secret.value : null,
-    master_password_sealed: secret.kind === "sealed" ? secret.value : null,
+    ...(secret.kind === "plain" ? { master_password: secret.value } : { master_password_sealed: secret.value }),
   };
   if (!isSwitchable(entry)) return;
 
@@ -232,10 +231,8 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
   const existing = accounts.find((a) => a.account_id === entry.account_id);
   const merged: SavedAccount = { ...existing, ...supplied } as SavedAccount;
   // The secret is held in one form at a time; the other form from an older snapshot must not outlive it.
-  if (entry.master_password || entry.master_password_sealed) {
-    merged.master_password = entry.master_password ?? null;
-    merged.master_password_sealed = entry.master_password_sealed ?? null;
-  }
+  if (entry.master_password) delete merged.master_password_sealed;
+  if (entry.master_password_sealed) delete merged.master_password;
   await keychainSet(entryKey(entry.account_id), JSON.stringify(merged));
   if (existing) return;
   await keychainSet(
@@ -258,6 +255,16 @@ async function stashUiStateForCurrentAccount(): Promise<void> {
   const { accounts } = await loadSavedAccounts();
   if (!accounts.some((a) => a.account_id === account_id)) return;
   parkAccountUiState(account_id);
+}
+
+/** Other accounts' passwords stay readable in plain form unless dropped; switching to one then asks for it. */
+export async function forgetOtherPlainPasswords(): Promise<void> {
+  const [{ ok, accounts }, current] = await Promise.all([loadSavedAccounts(), keychainGet("account_id")]);
+  if (!ok) return;
+  for (const { master_password, ...rest } of accounts) {
+    if (rest.account_id === current || !master_password) continue;
+    await keychainSet(entryKey(rest.account_id), JSON.stringify(rest));
+  }
 }
 
 export async function removeSavedAccount(account_id: string): Promise<void> {
