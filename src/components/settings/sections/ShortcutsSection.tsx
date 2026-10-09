@@ -21,7 +21,7 @@ const GROUPS: Group[] = [
   { id: "global",     ids: ["omni", "shortcuts", "themes"] },
   { id: "tabs",       ids: ["new-tab", "duplicate-session", "duplicate-session-split", "close-tab", "next-tab", "prev-tab"] },
   { id: "navigation", ids: ["sidebar", "filter"] },
-  { id: "editing",    ids: ["delete", "undo", "redo"] },
+  { id: "editing",    ids: ["delete", "rename", "undo", "redo"] },
 ];
 
 function displayLabel(sc: Shortcut, t: TranslateFn): string {

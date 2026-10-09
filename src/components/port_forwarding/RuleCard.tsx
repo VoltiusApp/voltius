@@ -12,6 +12,9 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
+import { ruleToForm } from "@/utils/portForwardingForm";
+import { useInlineRename } from "@/hooks/useInlineRename";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
 
 interface Props {
   rule: PortForwardingRule;
@@ -54,9 +57,12 @@ export function RuleCard({
   const isList = layout === "list";
   const contributions = useUIContributions("portForwardingRule.contextMenu", rule);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(rule.id, "port-forwarding-rule"));
+  const updateRule = usePortForwardingStore((s) => s.updateRule);
+  const rename = useInlineRename(rule.id, canEdit, rule.name, (name) => { void updateRule(rule.id, ruleToForm(rule, { name })); });
 
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(rule), shortcut: "E" }] : []),
+    ...rename.menuItems,
     ...(status === "active" && onStop ? [{ label: t("portForwarding.ruleCard.pause"), icon: "lucide:pause", onClick: () => onStop(rule) }] : []),
     ...(status !== "active" && onStart ? [{ label: t("portForwarding.ruleCard.resume"), icon: "lucide:play", onClick: () => onStart(rule) }] : []),
     ...(webUrl && onOpenWeb ? [{ label: t("portForwarding.ruleCard.openWebLink"), icon: "lucide:globe", onClick: () => onOpenWeb(webUrl) }] : []),
@@ -137,7 +143,7 @@ export function RuleCard({
             {statusDot}
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
-            {rule.name}
+            {rename.editor ?? rule.name}
           </p>
           {typeBadge}
           <p className="text-xs truncate flex-1 text-(--t-text-secondary) font-mono">
@@ -174,7 +180,7 @@ export function RuleCard({
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <p className="text-sm font-bold truncate text-(--t-text-bright)">{rule.name}</p>
+                <p className="text-sm font-bold truncate text-(--t-text-bright)">{rename.editor ?? rule.name}</p>
                 <span className="ml-auto shrink-0">{typeBadge}</span>
               </div>
               <p className="text-xs font-mono text-(--t-text-secondary) truncate">{portLabel}</p>

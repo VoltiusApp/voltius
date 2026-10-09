@@ -15,7 +15,7 @@ import { withPin } from "@/stores/withPin";
 
 /** Rebuilds a full SshKeyFormData from a stored key: `key_update` replaces
  *  rather than merges, so a partial payload must spread this. */
-function keyToFormData(k: SshKey): SshKeyFormData {
+export function keyToFormData(k: SshKey): SshKeyFormData {
   return {
     name: k.name, key_type: k.key_type,
     tags: k.tags,

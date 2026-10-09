@@ -42,3 +42,11 @@ test("a persisted v7 state gains panel-notes on migration", () => {
   ) as { shortcuts: Array<{ id: string }> };
   expect(migrated.shortcuts.map((s) => s.id)).toContain("panel-notes");
 });
+
+test("a persisted v8 state gains rename, bound to F2, on migration", () => {
+  const migrated = useShortcutStore.persist.getOptions().migrate!(
+    { shortcuts: [{ id: "omni", key: "k", ctrl: true, shift: false, alt: false, defaultKey: "k", labelKey: "x", descriptionKey: "y" }] },
+    8,
+  ) as { shortcuts: Array<{ id: string; key: string; ctrl: boolean }> };
+  expect(migrated.shortcuts.find((s) => s.id === "rename")).toMatchObject({ key: "F2", ctrl: false });
+});

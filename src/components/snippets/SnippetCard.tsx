@@ -13,7 +13,8 @@ import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import type { Snippet, Folder, VaultOption } from "@/types";
 import { snippetSearchText } from "@/services/snippetSteps";
-import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetStore, snippetToFormData } from "@/stores/snippetStore";
+import { useInlineRename } from "@/hooks/useInlineRename";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
 import {
@@ -80,6 +81,8 @@ export function SnippetCard({
   const effPinned = useEffectivePinned(snippet, "snippet");
   const pinSource = useEffectivePinSource(snippet, "snippet");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === snippet.vault_id));
+  const updateSnippet = useSnippetStore((s) => s.updateSnippet);
+  const rename = useInlineRename(snippet.id, !!canEdit, snippet.name, (name) => { void updateSnippet(snippet.id, { ...snippetToFormData(snippet), name }); });
   const handlePinClick = () => {
     if (!isTeamVault) {
       pinSnippet(snippet.id, !effPinned).catch(() => {});
@@ -112,6 +115,7 @@ export function SnippetCard({
 
   const contextMenuItems: ContextMenuItem[] = [
     { label: t("common.action.edit"), icon: "lucide:pencil",  onClick: onEdit, shortcut: "E" },
+    ...rename.menuItems,
     { label: t("snippets.card.duplicate"), icon: "lucide:copy",    onClick: onDuplicate, shortcut: "D" },
     {
       label: pinLabel,
@@ -174,7 +178,7 @@ export function SnippetCard({
                 {/* Name + favorite (pin position) + tags */}
                 <div className="flex items-center gap-2 min-w-0">
                   <p className="text-sm font-bold truncate text-(--t-text-bright) flex-1 min-w-0">
-                    {snippet.name}
+                    {rename.editor ?? snippet.name}
                   </p>
                   {pinAlwaysVisible && <CardPinButton color={pinColor} title={pinLabel} onClick={handlePinClick} />}
                   {snippet.tags.slice(0, 2).map((tag) => (
@@ -254,7 +258,7 @@ export function SnippetCard({
     <>
       <BaseCard isList {...cardProps}>
         <AvatarTile icon="lucide:braces" iconSize={14} className="w-7 h-7 rounded-lg" />
-        <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{snippet.name}</p>
+        <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{rename.editor ?? snippet.name}</p>
         <p className={`text-xs truncate flex-1 min-w-0 text-(--t-text-secondary) ${snippet.description ? "" : "font-mono"}`}>
           {snippet.description || snippetSearchText(snippet)}
         </p>

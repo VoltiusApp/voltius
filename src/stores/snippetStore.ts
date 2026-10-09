@@ -29,7 +29,7 @@ let _recentIds: string[] = [];
 
 /** Rebuilds a full SnippetFormData from a stored snippet: `snippet_update`
  *  replaces rather than merges, so a partial payload must spread this. */
-function snippetToFormData(s: Snippet): SnippetFormData {
+export function snippetToFormData(s: Snippet): SnippetFormData {
   return {
     name: s.name, steps: s.steps, description: s.description,
     tags: s.tags, folder_id: s.folder_id, favorite: s.favorite,

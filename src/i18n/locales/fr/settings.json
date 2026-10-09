@@ -1093,6 +1093,10 @@
           "label": "Supprimer la sélection",
           "desc": "Supprimer les éléments sélectionnés"
         },
+        "rename": {
+          "label": "Renommer la sélection",
+          "desc": "Renommer l'élément sélectionné sur place"
+        },
         "copy": { "label": "Copier", "desc": "Copier les éléments sélectionnés dans le presse-papiers" },
         "cut": { "label": "Couper", "desc": "Couper les éléments sélectionnés dans le presse-papiers" },
         "paste": { "label": "Coller", "desc": "Coller les éléments du presse-papiers dans le dossier actuel" },

@@ -125,10 +125,15 @@ export function useKeyboard() {
         return;
       }
 
-      if (matchShortcut("delete", e)) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("voltius:delete"));
-        return;
+      for (const [id, event] of [
+        ["delete", "voltius:delete"],
+        ["rename", "voltius:rename"],
+      ] as const) {
+        if (matchShortcut(id, e)) {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent(event));
+          return;
+        }
       }
 
       const panelSection = matchPanelShortcut(e);

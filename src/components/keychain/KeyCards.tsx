@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SectionHeader } from "@/components/shared/SectionHeader";
@@ -17,8 +17,9 @@ import { usePermissions } from "@/hooks/usePermission";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { useKeyStore } from "@/stores/keyStore";
-import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore, keyToFormData } from "@/stores/keyStore";
+import { useIdentityStore, identityToFormData } from "@/stores/identityStore";
+import { useInlineRename } from "@/hooks/useInlineRename";
 import { useTeamStore } from "@/stores/teamStore";
 import {
   useEffectivePinned,
@@ -46,7 +47,7 @@ export function DraftCard({ icon, label }: { icon: string; label: string }) {
 // SSH Key cards
 // ─────────────────────────────────────────────────────────────────
 
-export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKey: SshKey; avatarSize: number; iconSize: number; isList?: boolean }) {
+export function KeyCardContent({ sshKey, avatarSize, iconSize, isList, name = sshKey.name }: { sshKey: SshKey; avatarSize: number; iconSize: number; isList?: boolean; name?: ReactNode }) {
   const formattedDate = formatDate(sshKey.created_at, SHORT_DATE);
   const avatar = (
     <AvatarTile icon="lucide:key-round" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
@@ -62,7 +63,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKe
       <>
         {avatar}
         <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
-          {sshKey.name}
+          {name}
         </p>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {keyType}
@@ -82,7 +83,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKe
       {avatar}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate text-(--t-text-bright)">
-          {sshKey.name}
+          {name}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
           {keyType}
@@ -132,9 +133,12 @@ function KeyCard({
   const effPinned = useEffectivePinned(sshKey, "key");
   const pinSource = useEffectivePinSource(sshKey, "key");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === sshKey.vault_id));
+  const updateKey = useKeyStore((s) => s.updateKey);
+  const rename = useInlineRename(sshKey.id, canEdit, sshKey.name ?? "", (name) => { void updateKey(sshKey.id, { ...keyToFormData(sshKey), name }); });
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
     ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(sshKey), shortcut: "E" }] : []),
+    ...rename.menuItems,
     { label: t("keychain.common.addToHost"), icon: "lucide:square-arrow-right", onClick: () => onExport(sshKey) },
     {
       label: isTeamVault
@@ -177,7 +181,7 @@ function KeyCard({
     },
     ...clipboardMenuItems(t),
     ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, divider: true, shortcut: getShortcutHint("delete") }] : []),
-  ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, pinKeyForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault, t]);
+  ], [canEdit, rename.menuItems, sshKey, contributions, vaults, isSynced, pinKey, pinKeyForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault, t]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => onSectionPointerDown?.(e, sshKey.id),
@@ -202,7 +206,7 @@ function KeyCard({
     >
       {isList ? (
         <>
-          <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList />
+          <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList name={rename.editor ?? sshKey.name} />
           <div className="flex items-center gap-1 shrink-0">
             {!isSynced && (
               <span title={t("keychain.common.cloudSyncDisabledTitle")} className="text-(--t-text-dim) flex items-center">
@@ -221,7 +225,7 @@ function KeyCard({
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <p className="text-sm font-bold truncate flex-1 min-w-0 text-(--t-text-bright)">
-                  {sshKey.name}
+                  {rename.editor ?? sshKey.name}
                 </p>
                 {sshKey.key_type && (
                   <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-mono bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">
@@ -382,6 +386,9 @@ function IdentityCard({
   const effPinned = useEffectivePinned(identity, "identity");
   const pinSource = useEffectivePinSource(identity, "identity");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === identity.vault_id));
+  const updateIdentity = useIdentityStore((s) => s.updateIdentity);
+  const identityName = identity.name ?? identity.username;
+  const rename = useInlineRename(identity.id, canEdit, identityName, (name) => { void updateIdentity(identity.id, { ...identityToFormData(identity), name }); });
   const formattedDate = formatDate(identity.created_at, SHORT_DATE);
 
   const isList = layoutMode === "list";
@@ -390,6 +397,7 @@ function IdentityCard({
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
     ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(identity), shortcut: "E" }] : []),
+    ...rename.menuItems,
     {
       label: isTeamVault
         ? (pinSource === "personal" || pinSource === "team+personal")
@@ -431,7 +439,7 @@ function IdentityCard({
     },
     ...clipboardMenuItems(t),
     ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, divider: true, shortcut: getShortcutHint("delete") }] : []),
-  ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, pinIdentityForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onMoveToVault, onCopyToVault, t]);
+  ], [canEdit, rename.menuItems, identity, contributions, vaults, isSynced, pinIdentity, pinIdentityForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onMoveToVault, onCopyToVault, t]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => onSectionPointerDown?.(e, identity.id),
@@ -458,7 +466,7 @@ function IdentityCard({
         <>
           <AvatarTile icon="lucide:id-card" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
-            {identity.name ?? identity.username}
+            {rename.editor ?? identityName}
           </p>
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {identity.name && (
@@ -501,7 +509,7 @@ function IdentityCard({
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <p className="text-sm font-bold truncate flex-1 min-w-0 text-(--t-text-bright)">
-                  {identity.name ?? identity.username}
+                  {rename.editor ?? identityName}
                 </p>
                 {linkedKey ? (
                   <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">

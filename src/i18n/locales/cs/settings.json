@@ -1322,6 +1322,10 @@
           "label": "Smazat vybrané",
           "desc": "Smazat vybrané položky"
         },
+        "rename": {
+          "label": "Přejmenovat vybrané",
+          "desc": "Přejmenovat vybranou položku na místě"
+        },
         "copy": {
           "label": "Kopírovat",
           "desc": "Zkopírovat vybrané položky do schránky"

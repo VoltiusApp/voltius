@@ -54,6 +54,7 @@ const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "prev-tab",        labelKey: "settings.shortcuts.items.prevTab.label",         descriptionKey: "settings.shortcuts.items.prevTab.desc",         defaultKey: "Tab",    ctrl: true,  shift: true,  alt: false },
   { id: "sidebar",         labelKey: "settings.shortcuts.items.sidebar.label",         descriptionKey: "settings.shortcuts.items.sidebar.desc",         defaultKey: "b",      ctrl: true,  shift: false, alt: false },
   { id: "delete",          labelKey: "settings.shortcuts.items.delete.label",          descriptionKey: "settings.shortcuts.items.delete.desc",          defaultKey: "Delete", ctrl: false, shift: false, alt: false },
+  { id: "rename",          labelKey: "settings.shortcuts.items.rename.label",          descriptionKey: "settings.shortcuts.items.rename.desc",          defaultKey: "F2",     ctrl: false, shift: false, alt: false },
   { id: "undo",            labelKey: "settings.shortcuts.items.undo.label",            descriptionKey: "settings.shortcuts.items.undo.desc",            defaultKey: "z",      ctrl: true,  shift: false, alt: false },
   { id: "redo",            labelKey: "settings.shortcuts.items.redo.label",            descriptionKey: "settings.shortcuts.items.redo.desc",            defaultKey: "z",      ctrl: true,  shift: true,  alt: false },
   { id: "filter",          labelKey: "settings.shortcuts.items.filter.label",          descriptionKey: "settings.shortcuts.items.filter.desc",          defaultKey: "f",      ctrl: true,  shift: false, alt: false },
@@ -110,7 +111,7 @@ export const useShortcutStore = create<ShortcutStore>()(
     {
       name: "voltius-shortcuts",
       // Bump on every DEFAULTS addition: migrate is what merges new entries into a persisted set.
-      version: 8,
+      version: 9,
       // v5: label/description (literal English strings) → labelKey/descriptionKey
       // (i18n keys resolved at render time). Re-derive keys from `id`; drop the
       // stale literal fields so old English text can't linger in persisted state.

@@ -1,13 +1,12 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
-import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/components/shared/BaseCard";
 import { CardActionButton, CardMenuButton, CardMenuContext, CardPinButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { buildFolderMenuItems } from "@/utils/folderMenuItems";
+import { useInlineRename } from "@/hooks/useInlineRename";
 import { folderIcon } from "./folderAppearance";
 import { useFolderPin } from "./useFolderPin";
 import { useFolderSync } from "./useFolderSync";
@@ -65,25 +64,18 @@ export function FolderCard({
   const isList = layout === "list";
   const avatarSize = isList ? 28 : 48;
   const iconSize = isList ? 14 : 22;
-  const [renaming, setRenaming] = useState(false);
   const { pos: ctxPos, open: openCtx, openAt: openCtxAt, close: closeCtx } = useContextMenu();
   const sync = useFolderSync(folder);
   const { pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
-  const commitRename = (name: string) => {
-    const trimmed = name.trim();
-    if (trimmed && trimmed !== folder.name) onRename(folder, trimmed);
-    setRenaming(false);
-  };
+  const rename = useInlineRename(folder.id, !!canEdit, folder.name, (name) => onRename(folder, name));
   const nameClass = isList
     ? "text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)"
     : "text-base font-medium-bold truncate leading-tight text-(--t-text-bright)";
   const name = (
     <p className={nameClass}>
-      {renaming
-        ? <InlineNameEditor value={folder.name} onCommit={commitRename} onCancel={() => setRenaming(false)} maxLength={255} className="w-full bg-transparent outline-hidden" />
-        : folder.name}
+      {rename.editor ?? folder.name}
     </p>
   );
 
@@ -126,8 +118,8 @@ export function FolderCard({
             ? { backdropFilter: "blur(12px) saturate(1.5)", WebkitBackdropFilter: "blur(12px) saturate(1.5)" }
             : {}),
         }}
-        onClick={(e) => { e.stopPropagation(); if (!renaming) onSelect?.(folder.id, e); }}
-        onDoubleClick={() => { if (!renaming) onOpen(); }}
+        onClick={(e) => { e.stopPropagation(); if (!rename.editor) onSelect?.(folder.id, e); }}
+        onDoubleClick={() => { if (!rename.editor) onOpen(); }}
         onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (!isSelected) onSelect?.(folder.id, e); openCtx(e); }}
         onPointerDown={onPointerDown}
         onMouseEnter={(e) => {
@@ -195,7 +187,7 @@ export function FolderCard({
             t,
             onOpen,
             editItems: canEdit ? [
-              { label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => setRenaming(true) },
+              ...rename.menuItems,
               { label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit?.() },
             ] : [],
             pinItem,

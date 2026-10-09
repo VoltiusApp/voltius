@@ -15,7 +15,7 @@ import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 /** Rebuilds a full IdentityFormData from a stored identity: `identity_update`
  *  replaces rather than merges, so a partial payload must spread this. */
-function identityToFormData(i: Identity): IdentityFormData {
+export function identityToFormData(i: Identity): IdentityFormData {
   return {
     name: i.name, username: i.username, key_id: i.key_id,
     tags: i.tags,

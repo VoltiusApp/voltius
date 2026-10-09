@@ -956,6 +956,10 @@
           "label": "Seçilenleri Sil",
           "desc": "Seçili öğeleri sil"
         },
+        "rename": {
+          "label": "Seçileni Yeniden Adlandır",
+          "desc": "Seçili öğeyi yerinde yeniden adlandır"
+        },
         "copy": {
           "label": "Kopyala",
           "desc": "Seçili öğeleri panoya kopyala"

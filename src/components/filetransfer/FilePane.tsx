@@ -34,6 +34,7 @@ import { useDirListing } from "./useDirListing";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { describeError } from "@/services/backendErrors";
+import { getShortcutHint, matchShortcut } from "@/stores/shortcutStore";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -353,7 +354,7 @@ export function FilePane({
       return;
     }
     if (selectedEntries.length > 0) {
-      if (e.key === "F2" && selectedEntries.length === 1) { startRename(selectedEntries[0]); return; }
+      if (matchShortcut("rename", e.nativeEvent) && selectedEntries.length === 1) { startRename(selectedEntries[0]); return; }
       if (e.key === "Delete") { void handleDelete(selectedEntries); return; }
     }
     // Type-ahead: a single printable char (no modifiers) selects the first entry
@@ -638,7 +639,7 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
   }
 
   // Rename / Delete
-  if (single) items.push({ label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => ctx.onStartRename(single) });
+  if (single) items.push({ label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => ctx.onStartRename(single), shortcut: getShortcutHint("rename") });
   if (ctx.onPermissions && canEditPermissions(files)) {
     items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files) });
   }
