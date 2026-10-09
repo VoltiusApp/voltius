@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { routeVaultSecret } from "@/test/vaultSecretRoute";
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
@@ -80,6 +81,10 @@ const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
 
 function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+    const vs = routeVaultSecret(h.store, cmd, args);
+    if (vs.handled) {
+      return vs.value;
+    }
     h.seq.push(cmd);
     switch (cmd) {
       // Keyed by enc_key so a test can tell which key an identity came from.

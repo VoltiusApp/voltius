@@ -8,7 +8,6 @@
  * the account menu.
  */
 export const ACCOUNT_CACHE_KEYS = [
-  "master_password",
   "account_id",
   "mode",
   "email",

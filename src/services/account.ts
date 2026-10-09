@@ -7,6 +7,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
+import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState } from "./vaultSecret";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToBytes, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
@@ -184,9 +185,6 @@ async function keychainGet(key: string): Promise<string | null> {
 async function keychainSet(key: string, value: string): Promise<void> {
   return invoke("keychain_set", { key, value });
 }
-async function keychainDelete(key: string): Promise<void> {
-  return invoke("keychain_delete", { key });
-}
 
 /**
  * Write the keychain entries that make a server session, for every route into
@@ -202,7 +200,7 @@ async function persistServerSession(session: {
   jwt?: string;
   refreshToken?: string;
 }): Promise<void> {
-  if (session.password) await keychainSet("master_password", session.password);
+  if (session.password) await rememberPassword(session.password);
   if (session.accountId) await keychainSet("account_id", session.accountId);
   await keychainSet("mode", "server");
   await keychainSet("email", session.email);
@@ -228,12 +226,17 @@ export async function lockVaultSession({ keepKeychainEntry = false }: { keepKeyc
   const mode = await keychainGet("mode");
   await lockVault();
   if (!keepKeychainEntry && (mode === "local" || mode === "server")) {
-    await keychainDelete("master_password");
+    await clearSecret();
   }
 }
 
+/** Derives the key rather than reading the keychain, which holds no plaintext once bound. */
 export async function isCurrentMasterPassword(password: string): Promise<boolean> {
-  return (await keychainGet("master_password")) === password;
+  const accountId = await keychainGet("account_id");
+  if (!accountId) return false;
+  const { enc_key: kek } = await deriveKeys(password, accountId);
+  const same = (key: number[] | null) => !!key && key.length === kek.length && key.every((b, i) => b === kek[i]);
+  return same(useVaultKeysStore.getState().kek) || same(getVaultKey());
 }
 
 // ─── Account operations ───────────────────────────────────────────────────────
@@ -248,7 +251,7 @@ export async function createLocalAccountNoPassword(): Promise<void> {
 
   setVaultKey(keyBytes);
 
-  await keychainSet("master_password", keyHex); // hex = "password" for this mode
+  await rememberPassword(keyHex); // hex = "password" for this mode
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local-nopassword");
 }
@@ -260,7 +263,7 @@ export async function createLocalAccount(password: string): Promise<void> {
 
   setVaultKey(enc_key);
 
-  await keychainSet("master_password", password);
+  await rememberPassword(password);
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local");
 }
@@ -340,7 +343,7 @@ export async function login(password: string, email?: string, serverUrl?: string
 
   setVaultKey(encKey);
 
-  await keychainSet("master_password", password);
+  await rememberPassword(password);
   await keychainSet("account_id", accountId);
   if (!mode) {
     // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss).
@@ -385,24 +388,32 @@ export async function login(password: string, email?: string, serverUrl?: string
  * the account has no master password to retype, so the unlock prompt cannot help
  * and the caller must offer the vault recovery screen instead.
  */
-export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable";
+export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed";
 
 /** Auto-login from keychain — instant (no secret access). */
 export async function autoLogin(): Promise<AutoLoginOutcome> {
   // A keychain failure here (e.g. an OS keychain backend unavailable on a platform)
   // must degrade to "no session", never throw — an unhandled rejection would abort the
   // splash init and freeze the app on its loading screen.
-  let password: string | null, accountId: string | null, mode: string | null;
+  let password: string | null;
   try {
-    [password, accountId, mode] = await Promise.all([
-      keychainGet("master_password"),
-      keychainGet("account_id"),
-      keychainGet("mode"),
-    ]);
+    if ((await secretState()) === "sealed") return "sealed";
+    password = await readPlainSecret();
   } catch {
     return "declined";
   }
   if (!password) return "declined";
+  return openWithStoredSecret(password);
+}
+
+/** The launch-time unlock, given the stored secret however it was obtained. */
+export async function openWithStoredSecret(password: string): Promise<AutoLoginOutcome> {
+  let accountId: string | null, mode: string | null;
+  try {
+    [accountId, mode] = await Promise.all([keychainGet("account_id"), keychainGet("mode")]);
+  } catch {
+    return "declined";
+  }
 
   try {
     let encKey: number[];
@@ -596,7 +607,7 @@ export async function setMasterPassword(password: string): Promise<void> {
   await unlockVaultIfNeeded();
   await invoke("secrets_reencrypt", { newEncKey: enc_key });
 
-  await keychainSet("master_password", password);
+  await rememberPassword(password);
   await keychainSet("mode", "local");
 
   setVaultKey(enc_key);
@@ -702,11 +713,10 @@ export async function linkToCloud(
   serverUrl: string,
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
-  const [password, accountId] = await Promise.all([
-    keychainGet("master_password"),
-    keychainGet("account_id"),
-  ]);
+  const accountId = await keychainGet("account_id");
   const mode = await keychainGet("mode");
+  const read = mode === "local-nopassword" ? null : await readSecret(i18n.t("layout.appLock.sealReason"));
+  const password = read?.outcome === "ok" ? read.value : null;
 
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
   if (mode === "local-nopassword") throw new Error(i18n.t("common.error.setMasterPasswordBeforeLinking"));
@@ -826,7 +836,7 @@ export async function changeMasterPassword(
   }
 
   const data = await res.json();
-  await keychainSet("master_password", newPassword);
+  await replacePassword(newPassword, i18n.t("layout.appLock.sealReason"));
   await keychainSet("jwt", data.jwt_token);
   await keychainSet("refresh_token", data.refresh_token);
   await keychainSet("wrapped_user_secrets", new_wrapped_user_secrets);

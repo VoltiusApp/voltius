@@ -169,6 +169,7 @@ export async function resetVault(): Promise<void> {
   for (const key of ACCOUNT_CACHE_KEYS) {
     await invoke("keychain_delete", { key }).catch(() => {});
   }
+  await invoke("vault_secret_clear").catch(() => {});
 }
 
 export async function storeLocalSecret(key: string, value: string): Promise<void> {

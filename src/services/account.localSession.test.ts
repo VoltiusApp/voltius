@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { routeVaultSecret } from "@/test/vaultSecretRoute";
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
@@ -9,6 +10,7 @@ const h = vi.hoisted(() => ({
   keysSet: vi.fn(),
   keysClear: vi.fn(),
   appLockSet: vi.fn(async () => undefined),
+  getVaultKey: vi.fn((): number[] | null => null),
   store: {} as Record<string, string | null>,
 }));
 
@@ -23,12 +25,13 @@ vi.mock("./vault", () => ({
   unlockVaultIfNeeded: vi.fn(async () => undefined),
   wipeLocalConfig: vi.fn(async () => undefined),
   resetVault: vi.fn(async () => undefined),
+  getVaultKey: h.getVaultKey,
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: { getState: () => ({ load: h.load }) },
 }));
 vi.mock("@/stores/vaultKeysStore", () => ({
-  useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: h.keysClear, dek: null, x25519Private: null }) },
+  useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: h.keysClear, dek: null, x25519Private: null, kek: null }) },
 }));
 
 import {
@@ -39,12 +42,17 @@ import {
   getAccountMode,
   getCurrentUserEmail,
   isServerMode,
+  login,
   setAppLock,
 } from "./account";
 
 // Route the keychain + crypto commands over the single invoke mock.
 function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+    const vs = routeVaultSecret(h.store, cmd, args);
+    if (vs.handled) {
+      return vs.value;
+    }
     switch (cmd) {
       case "keychain_get":
         return h.store[args.key as string] ?? null;
@@ -63,6 +71,8 @@ function routeInvoke() {
     }
   });
 }
+
+const cleared = () => h.invoke.mock.calls.some(([c]) => c === "vault_secret_clear");
 
 // Calls to a given keychain command, as [key, value?] tuples.
 function keychainCalls(cmd: string): Array<{ key: string; value?: string }> {
@@ -99,7 +109,7 @@ test("lockVaultSession locks the vault and persists the vault lock marker", asyn
 test("lockVaultSession writes the marker before it locks the vault or drops the password", async () => {
   h.store.mode = "local";
   await lockVaultSession();
-  const deleteAt = h.invoke.mock.calls.findIndex(([c]) => c === "keychain_delete");
+  const deleteAt = h.invoke.mock.calls.findIndex(([c]) => c === "vault_secret_clear");
   const markerOrder = h.appLockSet.mock.invocationCallOrder[0];
   expect(markerOrder).toBeLessThan(h.lockVault.mock.invocationCallOrder[0]);
   expect(markerOrder).toBeLessThan(h.invoke.mock.invocationCallOrder[deleteAt]);
@@ -110,7 +120,7 @@ test("lockVaultSession still locks when the marker cannot be written", async () 
   h.appLockSet.mockRejectedValueOnce(new Error("disk full"));
   await lockVaultSession();
   expect(h.lockVault).toHaveBeenCalledTimes(1);
-  expect(keychainCalls("keychain_delete").map((a) => a.key)).toContain("master_password");
+  expect(cleared()).toBe(true);
 });
 
 test("a marker that cannot be written is logged, never thrown", async () => {
@@ -124,32 +134,44 @@ test("a marker that cannot be written is logged, never thrown", async () => {
 test("lockVaultSession keeps the master password when system authentication will reopen it", async () => {
   h.store.mode = "local";
   await lockVaultSession({ keepKeychainEntry: true });
-  expect(keychainCalls("keychain_delete").map((a) => a.key)).not.toContain("master_password");
+  expect(cleared()).toBe(false);
 });
 
-test("isCurrentMasterPassword compares against the stored password", async () => {
-  h.store.master_password = "hunter22";
-  expect(await isCurrentMasterPassword("hunter22")).toBe(true);
-  expect(await isCurrentMasterPassword("nope")).toBe(false);
+test("isCurrentMasterPassword compares derived keys, not the keychain", async () => {
+  h.store.account_id = "acc";
+  h.getVaultKey.mockReturnValue([10, 20, 30]);
+  expect(await isCurrentMasterPassword("anything")).toBe(true);
+  h.getVaultKey.mockReturnValue([0]);
+  expect(await isCurrentMasterPassword("anything")).toBe(false);
+  expect(keychainCalls("keychain_get").map((a) => a.key)).not.toContain("master_password");
+});
+
+test("login does not reseal when bound", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.store.master_password_sealed = "S:hunter22";
+  await login("hunter22");
+  expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_set", expect.anything());
+  expect(h.store.master_password).toBeUndefined();
 });
 
 test("lockVaultSession deletes the master password for local accounts", async () => {
   h.store.mode = "local";
   await lockVaultSession();
-  expect(keychainCalls("keychain_delete").map((a) => a.key)).toContain("master_password");
+  expect(cleared()).toBe(true);
 });
 
 test("lockVaultSession deletes the master password for server accounts", async () => {
   h.store.mode = "server";
   await lockVaultSession();
-  expect(keychainCalls("keychain_delete").map((a) => a.key)).toContain("master_password");
+  expect(cleared()).toBe(true);
 });
 
 test("lockVaultSession keeps the master password for no-password accounts", async () => {
   h.store.mode = "local-nopassword";
   await lockVaultSession();
   // The OS-keychain key IS the credential here — deleting it would lock the user out.
-  expect(keychainCalls("keychain_delete").map((a) => a.key)).not.toContain("master_password");
+  expect(cleared()).toBe(false);
 });
 
 // ─── createLocalAccountNoPassword ────────────────────────────────────────────

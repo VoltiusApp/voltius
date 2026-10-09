@@ -1,4 +1,5 @@
 import { test, expect, vi, beforeEach } from "vitest";
+import { routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -48,6 +49,10 @@ const LEGACY_X_B64 = btoa(String.fromCharCode(...LEGACY_X));
 
 function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+    const vs = routeVaultSecret(h.store, cmd, args);
+    if (vs.handled) {
+      return vs.value;
+    }
     switch (cmd) {
       case "keychain_get":
         return h.store[args.key as string] ?? null;
