@@ -221,6 +221,10 @@ impl Endpoint for FtpBackend {
         }
     }
 
+    fn known_to_append(&self) -> bool {
+        self.appends.get().copied().unwrap_or(false)
+    }
+
     async fn rename(&self, from: &str, to: &str) -> Result<(), AppError> {
         let mut s = self.session().await?;
         call!(*s, |ftp| ftp.rename(from, to)).map_err(|e| failed("rename", e))

@@ -49,6 +49,7 @@ error_codes! {
     TimedOut,
     ConnectionLost,
     // File transfers.
+    ConnectionLostResumable,
     TransferVerifyFailed,
     TransferSourceChanged,
     // Port forwarding. Params: `port` and `attempts` for PortInUse.

@@ -74,6 +74,10 @@ pub(crate) trait Endpoint: Send + Sync {
     async fn appends(&self, _path: &str, _have: u64) -> bool {
         true
     }
+    /// `appends` as already learned, without asking a server that may be gone.
+    fn known_to_append(&self) -> bool {
+        true
+    }
     /// Rewrite an existing file rather than swap a temp in: the server keeps per-file state
     /// (mode, versions, shares) that a swap would lose.
     fn overwrites_in_place(&self) -> bool {
@@ -375,6 +379,8 @@ pub(crate) mod tests_support {
         pub cut_first_write_after: Option<u64>,
         pub lose_first_mkdir: bool,
         pub dead_until_waited: bool,
+        pub never_back: bool,
+        pub no_appends: bool,
         /// Listings that don't vouch for type or size, as a bare SFTP server sends them.
         pub bare_listing: bool,
         /// Fails this many link probes, then answers without being waited for.
@@ -520,7 +526,13 @@ pub(crate) mod tests_support {
             _deadline: Instant,
         ) -> Result<(), AppError> {
             self.state.lock().unwrap().waited = true;
+            if self.never_back {
+                return Err(connection_lost());
+            }
             Ok(())
+        }
+        fn known_to_append(&self) -> bool {
+            !self.no_appends
         }
     }
 }

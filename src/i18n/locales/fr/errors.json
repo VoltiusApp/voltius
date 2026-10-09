@@ -9,6 +9,7 @@
     "host-unreachable": "Hôte injoignable — vérifiez l'adresse et votre connexion réseau",
     "timed-out": "L'opération a expiré",
     "connection-lost": "La connexion a été perdue",
+    "connection-lost-resumable": "La connexion a été perdue — réessayez le transfert pour reprendre là où il s'est arrêté",
     "transfer-verify-failed": "La copie ne correspondait pas à l'original et a été supprimée — réessayez pour la recopier",
     "transfer-source-changed": "Le fichier a changé pendant la copie — réessayez une fois son écriture terminée",
     "port-in-use": "Le port {{port}} et les suivants sont déjà utilisés ({{attempts}} essayés)",

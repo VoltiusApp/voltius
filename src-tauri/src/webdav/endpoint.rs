@@ -201,6 +201,10 @@ impl Endpoint for WebDavBackend {
     }
 
     async fn appends(&self, _: &str, _: u64) -> bool {
+        self.known_to_append()
+    }
+
+    fn known_to_append(&self) -> bool {
         self.ranged_puts.get().copied().unwrap_or(false)
     }
 

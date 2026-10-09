@@ -519,7 +519,7 @@ pub(crate) mod tests {
         let e = resumable_copy(&LocalFs, &src, &fs, &dst, &mut ctx)
             .await
             .unwrap_err();
-        assert_eq!(e.code(), Some(ErrorCode::ConnectionLost));
+        assert_eq!(e.code(), Some(ErrorCode::ConnectionLostResumable));
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), b"unrelated");
         assert!(std::fs::read_dir(b.path()).unwrap().any(|e| e
             .unwrap()

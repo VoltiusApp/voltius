@@ -344,7 +344,7 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
         } else {
             match ctx.revive(&[src, dst]).await {
                 Some(Ok(())) => continue,
-                Some(Err(e)) => e,
+                Some(Err(e)) => kept_for_retry(e, dst),
                 None if err.code() == Some(ErrorCode::ConnectionLost) && relost < RESTARTS => {
                     relost += 1;
                     continue;
@@ -359,6 +359,16 @@ pub(crate) async fn resumable_copy<E: TransferEvents>(
             return Err(cancelled());
         }
         return Err(err);
+    }
+}
+
+/// A link that never came back; Retry carries the file on only where `dst` appends.
+fn kept_for_retry(e: AppError, dst: &dyn Endpoint) -> AppError {
+    match e.code() {
+        Some(ErrorCode::ConnectionLost) if dst.known_to_append() => {
+            AppError::coded(ErrorCode::ConnectionLostResumable, e.to_string())
+        }
+        _ => e,
     }
 }
 
@@ -1260,6 +1270,34 @@ pub(crate) mod engine_tests {
         .await
         .unwrap();
         assert_eq!(std::fs::read(b.path().join("v")).unwrap(), noise(500_000));
+    }
+
+    #[tokio::test]
+    async fn a_link_that_never_returns_promises_a_resume_only_where_the_target_appends() {
+        for (no_appends, code) in [
+            (false, ErrorCode::ConnectionLostResumable),
+            (true, ErrorCode::ConnectionLost),
+        ] {
+            let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+            std::fs::write(a.path().join("v"), noise(500_000)).unwrap();
+            let dst = TestFs {
+                lose_first_write: true,
+                dead_until_waited: true,
+                never_back: true,
+                no_appends,
+                ..Default::default()
+            };
+            let e = copy_local(
+                &Recorder::default(),
+                &a.path().join("v"),
+                &dst,
+                &b.path().join("v"),
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(e.code(), Some(code));
+        }
     }
 
     #[cfg(unix)]

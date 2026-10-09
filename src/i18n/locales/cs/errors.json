@@ -9,6 +9,7 @@
     "host-unreachable": "Hostitel je nedostupný — zkontrolujte adresu a připojení k síti",
     "timed-out": "Časový limit operace vypršel",
     "connection-lost": "Spojení bylo ztraceno",
+    "connection-lost-resumable": "Spojení bylo ztraceno — zopakujte přenos a bude pokračovat tam, kde se zastavil",
     "transfer-verify-failed": "Kopie neodpovídala originálu, proto byla zahozena — zkuste ji zkopírovat znovu",
     "transfer-source-changed": "Soubor se během kopírování stále měnil — zkuste to znovu, až bude dopsán",
     "port-in-use": "Port {{port}} a porty za ním jsou už obsazené (vyzkoušeno {{attempts}})",

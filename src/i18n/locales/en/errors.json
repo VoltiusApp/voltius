@@ -9,6 +9,7 @@
     "host-unreachable": "The host is unreachable — check the address and your network connection",
     "timed-out": "Operation timed out",
     "connection-lost": "The connection was lost",
+    "connection-lost-resumable": "The connection was lost — retry the transfer to continue where it stopped",
     "transfer-verify-failed": "The copy didn't match the original, so it was discarded — retry to copy it again",
     "transfer-source-changed": "The file kept changing while it was copied — retry once it has finished being written",
     "port-in-use": "Port {{port}} and the ports after it are already in use ({{attempts}} tried)",

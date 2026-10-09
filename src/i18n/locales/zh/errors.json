@@ -9,6 +9,7 @@
     "host-unreachable": "主机无法访问——请检查地址和网络连接",
     "timed-out": "操作超时",
     "connection-lost": "连接已断开",
+    "connection-lost-resumable": "连接已断开——重试传输即可从中断处继续",
     "transfer-verify-failed": "副本与原文件不一致，已丢弃——请重试以重新复制",
     "transfer-source-changed": "文件在复制过程中不断变化——请在写入完成后重试",
     "port-in-use": "端口 {{port}} 及其后续端口均已被占用（已尝试 {{attempts}} 个）",

@@ -9,6 +9,7 @@
     "host-unreachable": "Sunucuya ulaşılamıyor — adresi ve ağ bağlantınızı kontrol edin",
     "timed-out": "İşlem zaman aşımına uğradı",
     "connection-lost": "Bağlantı koptu",
+    "connection-lost-resumable": "Bağlantı koptu — kaldığı yerden devam etmek için aktarımı tekrar deneyin",
     "transfer-verify-failed": "Kopya orijinalle eşleşmediği için silindi — yeniden kopyalamak için tekrar deneyin",
     "transfer-source-changed": "Dosya kopyalanırken değişmeye devam etti — yazılması bittiğinde tekrar deneyin",
     "port-in-use": "{{port}} portu ve sonrakiler zaten kullanımda ({{attempts}} port denendi)",
