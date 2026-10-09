@@ -12,12 +12,13 @@ use tokio::sync;
 
 pub struct LocalSession {
     pub input_tx: std::sync::mpsc::SyncSender<Vec<u8>>,
-    pub master: Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>,
+    pub master: SharedMaster,
     pub child: SharedChild,
     pub tempfiles: Vec<PathBuf>,
 }
 
 type SharedChild = Arc<Mutex<Box<dyn portable_pty::Child + Send + Sync>>>;
+type SharedMaster = Arc<Mutex<Option<Box<dyn portable_pty::MasterPty + Send>>>>;
 
 const EXIT_REAP_WAIT: Duration = Duration::from_secs(2);
 
@@ -33,6 +34,24 @@ pub(crate) fn exited_cleanly(child: &SharedChild, wait: Duration) -> bool {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
+}
+
+// ConPTY keeps the output pipe open after the shell exits, so the reader never
+// sees EOF until the pseudoconsole is closed by dropping the master.
+#[cfg(windows)]
+fn close_console_on_exit(child: &SharedChild, master: SharedMaster) {
+    use std::os::windows::io::{AsRawHandle, BorrowedHandle};
+    use windows_sys::Win32::System::Threading::{WaitForSingleObject, INFINITE};
+    let Some(raw) = child.lock().unwrap().as_raw_handle() else {
+        return;
+    };
+    let Ok(process) = unsafe { BorrowedHandle::borrow_raw(raw) }.try_clone_to_owned() else {
+        return;
+    };
+    std::thread::spawn(move || {
+        unsafe { WaitForSingleObject(process.as_raw_handle() as _, INFINITE) };
+        master.lock().unwrap().take();
+    });
 }
 
 pub struct LocalSessionManager {
@@ -162,8 +181,10 @@ impl LocalSessionManager {
             .take_writer()
             .map_err(|e| format!("Failed to take PTY writer: {e}"))?;
 
-        let master = Arc::new(Mutex::new(pair.master));
+        let master = Arc::new(Mutex::new(Some(pair.master)));
         let child = Arc::new(Mutex::new(child));
+        #[cfg(windows)]
+        close_console_on_exit(&child, Arc::clone(&master));
 
         let (input_tx, input_rx) = std::sync::mpsc::sync_channel::<Vec<u8>>(256);
 
@@ -219,17 +240,17 @@ impl LocalSessionManager {
             let session = sessions.get(id).ok_or("Session not found")?;
             Arc::clone(&session.master)
         };
-        let result = master
-            .lock()
-            .unwrap()
-            .resize(PtySize {
-                rows,
-                cols,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| e.to_string());
-        result
+        let guard = master.lock().unwrap();
+        let Some(pty) = guard.as_ref() else {
+            return Ok(());
+        };
+        pty.resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())
     }
 
     pub async fn disconnect(&self, app: &AppHandle, id: &str) -> Result<(), String> {
