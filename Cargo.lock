@@ -7761,7 +7761,6 @@ dependencies = [
  "rand 0.8.6",
  "rcgen",
  "reqwest",
- "ring",
  "rsa 0.9.10",
  "rusqlite",
  "russh",
