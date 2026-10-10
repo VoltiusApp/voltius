@@ -26,6 +26,7 @@ import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import { teamSecretCache } from "@/services/teamSecretCache";
+import { resetServerCapabilities } from "@/services/serverCapabilities";
 import { logFailure } from "@/lib/logger";
 
 // Statuses that warrant a retry (transient — key not yet distributed)
@@ -187,6 +188,7 @@ export async function refreshAwaitingKeyTeams(): Promise<void> {
 export function onSessionEnd(): void {
   clearTeamKeyCache();
   teamSecretCache.clearAll();
+  resetServerCapabilities();
   useHistoryStore.getState().clear();
   useConnectionStore.getState().clearTeamConnections();
   useIdentityStore.getState().clearTeamIdentities();

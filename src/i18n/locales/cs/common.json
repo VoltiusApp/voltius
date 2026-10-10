@@ -169,6 +169,8 @@
       "secretsLeftInSourceVault": "Přesunuto, ale přihlašovací údaje se nepodařilo odebrat ze zdrojového trezoru a jsou tam stále čitelné: {{error}}",
       "secretsUploadPending": "Přesunuto, ale přihlašovací údaje se zatím nepodařilo nahrát. Zůstávají na tomto zařízení a pokus o nahrání se zopakuje při příštím načtení trezoru: {{error}}",
       "failedToSaveTeamSecret": "Týmové tajemství se nepodařilo uložit: {{status}}",
+      "serverLacksTeamSecretType": "Tento server Voltius je příliš starý na to, aby toto uložil do týmového trezoru. Požádejte jeho správce o aktualizaci serveru a pak uložte znovu.",
+      "failedToLoadServerCapabilities": "Nepodařilo se ověřit, co server podporuje ({{status}})",
       "keyFetchFailed": "Načtení klíče se nezdařilo: {{error}}",
       "failedToUploadVaultKeys": "Klíče trezoru se nepodařilo nahrát: {{status}}",
       "failedToDistributeVaultKey": "Klíč trezoru se nepodařilo distribuovat: {{status}}",

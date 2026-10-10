@@ -15,6 +15,8 @@ import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
 import { isCustomProxyMode, resolveDirectHop } from "@/services/proxy";
 import { useStoredSecrets } from "@/hooks/useStoredSecrets";
+import { useServerLacksSecretType } from "@/services/serverCapabilities";
+import { resolveTeamIdForVaultId } from "@/services/teamVaultSecrets";
 import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
 import { useAutosave } from "@/hooks/useAutosave";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
@@ -208,8 +210,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const selectedIdentity = relevantIdentities.find((i) => i.id === identityId) ?? null;
 
+  const knockServerTooOld = useServerLacksSecretType("connection_knock_sequence") && resolveTeamIdForVaultId(vaultId) !== null;
+
   const editedKnockSequence = () => {
-    if (!knockDirty.current) return null;
+    if (!knockDirty.current || knockServerTooOld) return null;
     const issues = knockPanelIssues({ enabled: true }, knockSteps, "direct");
     if (issues.includes("port") || (portKnock.enabled && issues.includes("empty"))) return null;
     return formatKnockSequence(knockSteps);
@@ -298,6 +302,13 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, portKnock, knockSteps, notes]);
+
+  // Left on, a switch whose sequence the server refused fails every teammate's connect.
+  useEffect(() => {
+    if (!knockServerTooOld || !knockDirty.current) return;
+    markDirty();
+    setPortKnock((current) => (current.enabled ? { ...current, enabled: false } : current));
+  }, [knockServerTooOld, markDirty]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -790,6 +801,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           settings={portKnock}
           steps={knockSteps}
           sequenceState={storedSecrets}
+          serverTooOld={knockServerTooOld}
           onSettingsChange={(next) => { markDirty(); setPortKnock(next); }}
           onStepsChange={(next) => { markDirty(); knockDirty.current = true; setKnockSteps(next); }}
           effectiveProxyMode={proxyOverride?.mode ?? globalProxy.mode}

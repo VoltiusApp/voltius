@@ -169,6 +169,8 @@
       "secretsLeftInSourceVault": "已移动，但无法从源保险库中删除其凭据，凭据在该保险库中仍可读取：{{error}}",
       "secretsUploadPending": "已移动，但其凭据暂时无法上传。它们会保留在此设备上，并在下次加载保险库时重试：{{error}}",
       "failedToSaveTeamSecret": "保存团队密钥失败：{{status}}",
+      "serverLacksTeamSecretType": "此 Voltius 服务器版本过旧，无法在团队保险库中存储此内容。请让管理员更新服务器，然后重新保存。",
+      "failedToLoadServerCapabilities": "无法检查服务器支持的功能（{{status}}）",
       "keyFetchFailed": "获取密钥失败：{{error}}",
       "failedToUploadVaultKeys": "上传保险库密钥失败：{{status}}",
       "failedToDistributeVaultKey": "分发保险库密钥失败：{{status}}",

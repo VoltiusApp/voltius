@@ -169,6 +169,8 @@
       "secretsLeftInSourceVault": "Déplacé, mais ses identifiants n'ont pas pu être retirés du coffre source et y restent lisibles : {{error}}",
       "secretsUploadPending": "Déplacé, mais ses identifiants n'ont pas encore pu être envoyés. Ils restent sur cet appareil et seront renvoyés au prochain chargement du coffre : {{error}}",
       "failedToSaveTeamSecret": "Échec de l'enregistrement du secret d'équipe : {{status}}",
+      "serverLacksTeamSecretType": "Ce serveur Voltius est trop ancien pour stocker cet élément dans un coffre d'équipe. Demandez à son administrateur de mettre le serveur à jour, puis enregistrez à nouveau.",
+      "failedToLoadServerCapabilities": "Impossible de vérifier ce que le serveur prend en charge ({{status}})",
       "keyFetchFailed": "Échec de la récupération de la clé : {{error}}",
       "failedToUploadVaultKeys": "Échec de l'envoi des clés de coffre : {{status}}",
       "failedToDistributeVaultKey": "Échec de la distribution de la clé de coffre : {{status}}",

@@ -231,15 +231,15 @@ export interface IdentityPicksRecord {
   defaults: { team_id: string; identity_id: string; updated_at: string }[];
 }
 
-async function serverOffersIdentityPicks(): Promise<boolean> {
+export async function fetchServerMeta(messageKey: string): Promise<Record<string, unknown>> {
   const res = await appFetch(`${await requireServerUrl()}/v1/meta`, { method: "GET" });
-  await ensureOk(res, "common.error.failedToListIdentityPicks");
-  const meta: { identity_picks?: unknown } = await res.json();
-  return meta.identity_picks === true;
+  await ensureOk(res, messageKey);
+  return res.json();
 }
 
 export async function listIdentityPicks(): Promise<IdentityPicksRecord | null> {
-  if (!(await serverOffersIdentityPicks())) return null;
+  const meta = await fetchServerMeta("common.error.failedToListIdentityPicks");
+  if (meta.identity_picks !== true) return null;
   const res = await fetchTeamApi("/v1/my/identity-picks", { method: "GET" });
   await ensureOk(res, "common.error.failedToListIdentityPicks");
   return res.json();

@@ -103,3 +103,16 @@ test("timing inputs cap their length", () => {
   expect(screen.getByLabelText("connections.knock.settle").getAttribute("maxlength")).toBe("6");
   expect(screen.getByLabelText("connections.knock.window").getAttribute("maxlength")).toBe("5");
 });
+
+test("a server too old for knock sequences shows why and offers nothing to fill in", () => {
+  renderPanel({ settings: { enabled: false }, steps: [s(666)], serverTooOld: true });
+  expect(screen.getByText("connections.knock.serverTooOld")).toBeTruthy();
+  expect(screen.queryByText("connections.knock.addPort")).toBeNull();
+  expect((screen.getByRole("switch") as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("a switch left on against a server too old for knock sequences can still be turned off", () => {
+  const { onSettingsChange } = renderPanel({ settings: { enabled: true }, serverTooOld: true });
+  fireEvent.click(screen.getByRole("switch"));
+  expect(onSettingsChange).toHaveBeenCalledWith({ enabled: false });
+});

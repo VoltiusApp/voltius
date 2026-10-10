@@ -231,6 +231,7 @@
         "udp-proxy": "Klepnutí přes UDP nelze odeslat přes proxy nastavenou pro tento host. Použijte kroky TCP nebo přímé připojení.",
         "udp-system": "Při použití systémové proxy klepnutí přes UDP selžou."
       },
+      "serverTooOld": "Tento server Voltius je příliš starý na to, aby ukládal sekvence klepání pro hosty v týmovém trezoru. Požádejte jeho správce o aktualizaci serveru, abyste zde mohli klepání na porty používat.",
       "sequenceUnavailable": "Sekvence klepání pro tento host není na tomto zařízení k dispozici.",
       "sequenceInvalid": "Sekvence klepání pro tento host je neplatná. Opravte ji v nastavení tohoto hostu v části Klepání na porty."
     }
