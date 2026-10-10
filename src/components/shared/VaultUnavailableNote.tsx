@@ -5,7 +5,7 @@ import type { StoredSecretsState } from "@/hooks/useStoredSecrets";
 import type { TeamCredentialsReason } from "@/hooks/useBlockedTeamVault";
 
 /** One warning row: an icon and a sentence on the shared warning surface. */
-function WarningNote({ icon, text, className }: { icon: string; text: string; className?: string }) {
+export function WarningNote({ icon, text, className }: { icon: string; text: string; className?: string }) {
   return (
     <div
       role="status"

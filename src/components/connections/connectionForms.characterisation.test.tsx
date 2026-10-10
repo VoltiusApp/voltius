@@ -605,6 +605,38 @@ test("without View secrets the knock ports stay hidden and a save leaves the seq
   useTeamObjectAccessStore.getState().clearAll();
 }));
 
+test("a team host on a server too old for knock sequences withholds the sequence and switches knocking back off", async () => {
+  const { noteRefusedSecretType, resetServerCapabilities } = await import("@/services/serverCapabilities");
+  h.teams = [{ id: "team-1" }];
+  grantOnC1(PERM_BITS.VIEW | PERM_BITS.VIEW_SECRETS | PERM_BITS.EDIT_CONNECTIONS);
+  const { onSubmit, ref } = renderSsh({ initial: conn({ vault_id: "team-1", port_knock: { enabled: true } }) });
+  await act(async () => { await Promise.resolve(); });
+  fireEvent.click(screen.getByText("connections.knock.addPort"));
+  fireEvent.change(screen.getByPlaceholderText("connections.knock.port"), { target: { value: "666" } });
+  await act(async () => { ref.current!.flush(); });
+  expect(onSubmit.mock.calls[0][0]).toMatchObject({ port_knock: { enabled: true } });
+  expect(onSubmit.mock.calls[0][1].knock_sequence).toBe("666/tcp");
+
+  act(() => { noteRefusedSecretType("connection_knock_sequence"); });
+
+  expect(screen.getByText("connections.knock.serverTooOld")).toBeTruthy();
+  expect(screen.queryByDisplayValue("666")).toBeNull();
+  await act(async () => { ref.current!.flush(); });
+  expect(onSubmit.mock.calls[1][0]).toMatchObject({ port_knock: { enabled: false } });
+  expect(onSubmit.mock.calls[1][1].knock_sequence).toBeNull();
+  resetServerCapabilities();
+  useTeamObjectAccessStore.getState().clearAll();
+});
+
+test("a personal host keeps its knock ports whatever the server supports", async () => {
+  const { noteRefusedSecretType, resetServerCapabilities } = await import("@/services/serverCapabilities");
+  act(() => { noteRefusedSecretType("connection_knock_sequence"); });
+  renderSsh({ initial: conn({ port_knock: { enabled: true } }) });
+  expect(screen.getByText("connections.knock.addPort")).toBeTruthy();
+  expect(screen.queryByText("connections.knock.serverTooOld")).toBeNull();
+  resetServerCapabilities();
+});
+
 test("a new ssh host keeps its secret fields in a vault whose secrets the caller cannot view", () => {
   h.teams = [{ id: "team-1" }];
   h.defaultVaultId = "team-1";

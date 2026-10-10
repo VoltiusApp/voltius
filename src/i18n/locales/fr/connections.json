@@ -231,6 +231,7 @@
         "udp-proxy": "Les knocks UDP ne passent pas par le proxy de cet hôte. Utilisez des étapes TCP ou une connexion directe.",
         "udp-system": "Les knocks UDP échouent si le proxy système est utilisé."
       },
+      "serverTooOld": "Ce serveur Voltius est trop ancien pour stocker les séquences de port knocking des hôtes d'un coffre d'équipe. Demandez à son administrateur de mettre le serveur à jour pour utiliser le port knocking ici.",
       "sequenceUnavailable": "La séquence de knock de cet hôte n'est pas disponible sur cet appareil.",
       "sequenceInvalid": "La séquence de knock de cet hôte n'est pas valide. Corrigez-la dans les réglages Port knocking de l'hôte."
     }

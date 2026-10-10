@@ -6,7 +6,7 @@ import type { StoredSecretsState } from "@/hooks/useStoredSecrets";
 import { useListReorder } from "@/hooks/useListReorder";
 import { ReorderableRow } from "@/components/shared/reorder";
 import { SlideOverHeader, DashedAddButton } from "@/components/shared/slideOver";
-import { StoredSecretsNote } from "@/components/shared/VaultUnavailableNote";
+import { StoredSecretsNote, WarningNote } from "@/components/shared/VaultUnavailableNote";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
@@ -45,6 +45,7 @@ interface Props {
   settings: PortKnockSettings;
   steps: KnockStepRow[];
   sequenceState: StoredSecretsState;
+  serverTooOld?: boolean;
   onSettingsChange: (next: PortKnockSettings) => void;
   onStepsChange: (next: KnockStepRow[]) => void;
   effectiveProxyMode: KnockProxyMode;
@@ -52,10 +53,10 @@ interface Props {
   onBack: () => void;
 }
 
-export default function PortKnockPanel({ settings, steps, sequenceState, onSettingsChange, onStepsChange, effectiveProxyMode, bastionName, onBack }: Props) {
+export default function PortKnockPanel({ settings, steps, sequenceState, serverTooOld = false, onSettingsChange, onStepsChange, effectiveProxyMode, bastionName, onBack }: Props) {
   const { t } = useTranslation();
   const dnd = useListReorder(steps, onStepsChange);
-  const sequenceShown = sequenceState === "ok";
+  const sequenceShown = sequenceState === "ok" && !serverTooOld;
   const issues = sequenceShown ? knockPanelIssues(settings, steps, effectiveProxyMode) : [];
   const updateStep = (id: string, patch: Partial<KnockStep>) =>
     onStepsChange(steps.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -66,7 +67,11 @@ export default function PortKnockPanel({ settings, steps, sequenceState, onSetti
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" {...dnd.containerProps}>
         <SettingRow icon="lucide:power" label={t("connections.knock.enable")}>
-          <Toggle checked={settings.enabled} onChange={(enabled) => onSettingsChange({ ...settings, enabled })} />
+          <Toggle
+            checked={settings.enabled}
+            disabled={serverTooOld && !settings.enabled}
+            onChange={(enabled) => onSettingsChange({ ...settings, enabled })}
+          />
         </SettingRow>
         <FormHint>{t("connections.knock.hint")}</FormHint>
         {bastionName && <FormHint>{t("connections.knock.viaBastion", { name: bastionName })}</FormHint>}
@@ -110,6 +115,8 @@ export default function PortKnockPanel({ settings, steps, sequenceState, onSetti
               {t("connections.knock.addPort")}
             </DashedAddButton>
           </>
+        ) : serverTooOld ? (
+          <WarningNote icon="lucide:server-off" text={t("connections.knock.serverTooOld")} />
         ) : (
           <StoredSecretsNote state={sequenceState} />
         )}

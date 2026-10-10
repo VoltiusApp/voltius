@@ -231,6 +231,7 @@
         "udp-proxy": "UDP vuruşları bu sunucunun proxy'sinden geçemez. TCP adımları ya da doğrudan bağlantı kullanın.",
         "udp-system": "Sistem proxy'si kullanılıyorsa UDP vuruşları başarısız olur."
       },
+      "serverTooOld": "Bu Voltius sunucusu, ekip kasasındaki sunucuların port vuruşu dizilerini saklamak için çok eski. Burada port vuruşunu kullanmak için yöneticisinden Voltius sunucusunu güncellemesini isteyin.",
       "sequenceUnavailable": "Bu sunucunun vuruş dizisi bu cihazda kullanılamıyor.",
       "sequenceInvalid": "Bu sunucunun vuruş dizisi geçersiz. Sunucunun Port vuruşu ayarlarından düzeltin."
     }

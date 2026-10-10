@@ -231,6 +231,7 @@
         "udp-proxy": "UDP knocks can't go through this host's proxy. Use TCP steps or a direct connection.",
         "udp-system": "UDP knocks fail if the system proxy is in use."
       },
+      "serverTooOld": "This Voltius server is too old to store knock sequences for team vault hosts. Ask its administrator to update the server to use port knocking here.",
       "sequenceUnavailable": "The knock sequence for this host isn't available on this device.",
       "sequenceInvalid": "This host's knock sequence is invalid. Fix it in the host's Port Knocking settings."
     }

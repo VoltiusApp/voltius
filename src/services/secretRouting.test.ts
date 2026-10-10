@@ -7,7 +7,9 @@ const h = vi.hoisted(() => ({
   saveTeamVaultSecret: vi.fn(),
   resolveTeamIdForVaultId: vi.fn(),
   deleteTeamSecret: vi.fn(),
+  fetchServerMeta: vi.fn(),
   logged: vi.fn(),
+  warned: vi.fn(),
 }));
 vi.mock("@/services/vault", () => ({
   getLocalSecret: h.getLocalSecret,
@@ -18,19 +20,24 @@ vi.mock("@/services/teamVaultSecrets", () => ({
   saveTeamVaultSecret: h.saveTeamVaultSecret,
   resolveTeamIdForVaultId: h.resolveTeamIdForVaultId,
 }));
-vi.mock("@/services/teamObjects", () => ({ deleteTeamSecret: h.deleteTeamSecret }));
-vi.mock("@/lib/logger", () => ({ logFailure: () => h.logged }));
+vi.mock("@/services/teamObjects", () => ({ deleteTeamSecret: h.deleteTeamSecret, fetchServerMeta: h.fetchServerMeta }));
+vi.mock("@/lib/logger", () => ({ logFailure: () => h.logged, log: { warn: h.warned } }));
+vi.mock("@/services/clientHeaders", () => ({ clientVersion: async () => "9.9.9" }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import {
-  readSecretAt, writeSecretAt, removeSecretAt, keepCachedOnUploadFailure, TeamSecretUploadError,
+  readSecretAt, writeSecretAt, removeSecretAt, keepCachedOnUploadFailure, TeamSecretUploadError, TeamSecretUnsupportedError,
 } from "./secretRouting";
 import { teamSecretCache } from "./teamSecretCache";
+import { resetServerCapabilities, serverLacksSecretType } from "./serverCapabilities";
 import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
   teamSecretCache.clearAll();
   usePendingTeamSecretUploadStore.getState().clearAll();
+  resetServerCapabilities();
+  h.fetchServerMeta.mockResolvedValue({});
 });
 
 test("a team-owned key is never read from the local store, even when it has a value", async () => {
@@ -128,4 +135,61 @@ test("a failed upload of a key not queued for retry leaves the local store alone
   await expect(writeSecretAt("t1", "password:c1", "newest")).rejects.toBeInstanceOf(TeamSecretUploadError);
 
   expect(h.storeLocalSecret).not.toHaveBeenCalled();
+});
+
+const refused400 = () => Object.assign(new Error("Failed to save team secret: 400"), { status: 400 });
+
+test("a type the server does not advertise is never uploaded, and the cache keeps what the server holds", async () => {
+  h.fetchServerMeta.mockResolvedValue({ team_secret_types: ["connection_password"] });
+  teamSecretCache.set("t1", "knock_sequence:c1", "1/tcp");
+
+  const err = await writeSecretAt("t1", "knock_sequence:c1", "666/tcp").catch((e) => e);
+
+  expect(err).toBeInstanceOf(TeamSecretUnsupportedError);
+  expect(err).toBeInstanceOf(TeamSecretUploadError);
+  expect(err.message).toBe("common.error.serverLacksTeamSecretType");
+  expect(h.saveTeamVaultSecret).not.toHaveBeenCalled();
+  expect(teamSecretCache.get("t1", "knock_sequence:c1")).toBe("1/tcp");
+  expect(h.warned.mock.calls[0].join(" ")).toContain("connection_knock_sequence");
+  expect(h.warned.mock.calls[0].join(" ")).toContain("9.9.9");
+});
+
+test("a 400 from a server too old to advertise its types drops the unsaved value and is remembered", async () => {
+  h.saveTeamVaultSecret.mockRejectedValue(refused400());
+
+  await expect(writeSecretAt("t1", "knock_sequence:c1", "666/tcp")).rejects.toBeInstanceOf(TeamSecretUnsupportedError);
+
+  expect(teamSecretCache.get("t1", "knock_sequence:c1")).toBeUndefined();
+  expect(serverLacksSecretType("connection_knock_sequence")).toBe(true);
+});
+
+test("a 400 for a type every server stores stays an ordinary upload failure", async () => {
+  h.saveTeamVaultSecret.mockRejectedValue(refused400());
+
+  const err = await writeSecretAt("t1", "password:c1", "pw").catch((e) => e);
+
+  expect(err).toBeInstanceOf(TeamSecretUploadError);
+  expect(err).not.toBeInstanceOf(TeamSecretUnsupportedError);
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("pw");
+});
+
+test("an unsupported type queued for retry stays readable here and keeps its local copy current", async () => {
+  usePendingTeamSecretUploadStore.getState().enqueue("t1", ["knock_sequence:c1"]);
+  h.saveTeamVaultSecret.mockRejectedValue(refused400());
+  h.storeLocalSecret.mockResolvedValue(undefined);
+
+  await expect(writeSecretAt("t1", "knock_sequence:c1", "666/tcp")).rejects.toBeInstanceOf(TeamSecretUnsupportedError);
+
+  expect(teamSecretCache.get("t1", "knock_sequence:c1")).toBe("666/tcp");
+  expect(h.storeLocalSecret).toHaveBeenCalledWith("knock_sequence:c1", "666/tcp");
+  expect(pendingIn("t1")).toEqual(["knock_sequence:c1"]);
+});
+
+test("an unreachable meta endpoint never blocks an upload", async () => {
+  h.fetchServerMeta.mockRejectedValue(new Error("offline"));
+  h.saveTeamVaultSecret.mockResolvedValue(undefined);
+
+  await writeSecretAt("t1", "knock_sequence:c1", "666/tcp");
+
+  expect(h.saveTeamVaultSecret).toHaveBeenCalledWith("t1", "knock_sequence:c1", "666/tcp");
 });
