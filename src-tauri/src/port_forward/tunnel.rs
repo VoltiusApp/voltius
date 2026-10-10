@@ -11,12 +11,13 @@ use tokio_util::sync::CancellationToken;
 /// The counter is shared across all connections to this tunnel.
 pub async fn create_tunnel(
     handle: SessionHandle,
+    bind_host: &str,
     local_port: u16,
     remote_port: u16,
     remote_host: &str,
     cancel: CancellationToken,
 ) -> Result<(u16, Arc<AtomicU64>), ForwardError> {
-    let (listener, bound_port) = super::pipe::bind_with_fallback(local_port).await?;
+    let (listener, bound_port) = super::pipe::bind_with_fallback(bind_host, local_port).await?;
     let remote_host = remote_host.to_string();
     let cancel2 = cancel.clone();
     let bytes = Arc::new(AtomicU64::new(0));

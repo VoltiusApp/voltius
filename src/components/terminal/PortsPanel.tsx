@@ -53,7 +53,7 @@ export function PortsPanel() {
         remote_port: tunnel.remote_port,
         remote_host: tunnel.remote_host || "127.0.0.1",
         tunnel_type: "local",
-        bind_host: "127.0.0.1",
+        bind_host: tunnel.bind_host ?? "127.0.0.1",
         target_host: "127.0.0.1",
         connection_ids: activeSession?.connectionId ? [activeSession.connectionId] : [],
         vault_id: resolveVaultIdForSave(defaultVaultId),
@@ -67,6 +67,7 @@ export function PortsPanel() {
         remotePort: tunnel.remote_port,
         remoteHost: tunnel.remote_host,
         tunnelType: "local",
+        bindHost: rule.bind_host,
         ruleId: rule.id,
         ruleName: rule.name,
       });
@@ -251,7 +252,7 @@ export function PortsPanel() {
             bytesTransferred={tunnel?.bytes_transferred}
             localPort={tunnel?.local_port}
             httpUrl={isActive && !isError && tunnel
-              ? getLocalTunnelHttpUrl(rule.tunnel_type ?? "local", rule.remote_port, tunnel.local_port)
+              ? getLocalTunnelHttpUrl(rule.tunnel_type ?? "local", rule.remote_port, tunnel.local_port, tunnel.bind_host)
               : null}
             onToggle={() => isActive ? handleRuleDisable(tunnel!.id, rule.id) : handleRuleEnable(rule)}
             onDelete={() => handleRuleDelete(rule, tunnel)}
@@ -293,7 +294,7 @@ export function PortsPanel() {
                 remoteListening={tunnel.remote_listening}
                 bytesTransferred={tunnel.bytes_transferred}
                 localPort={tunnel.local_port}
-                httpUrl={getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port)}
+                httpUrl={getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port, tunnel.bind_host)}
                 onToggle={() => handleTunnelStop(tunnel.id, key)}
                 onDelete={() => handleTunnelDelete(tunnel.id, tunnel.remote_port, key)}
                 onSaveAsRule={tunnel.tunnel_type === "dynamic" ? undefined : () => handleSaveAsRule(tunnel)}

@@ -165,7 +165,7 @@ export function ActiveTunnelsSection() {
                   const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
                   const errorMsg = isError ? (tunnel.state as { error: string }).error : null;
                   const portLabel = formatActiveTunnelLabel(tunnel);
-                  const webUrl = !isError ? getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port) : null;
+                  const webUrl = !isError ? getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port, tunnel.bind_host) : null;
 
                   return (
                     <div

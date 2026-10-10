@@ -1,34 +1,50 @@
-use tokio::net::{TcpListener, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use tokio::net::{lookup_host, TcpListener, TcpStream};
 use tokio::time::{timeout, Duration};
 
 const PROBE_TIMEOUT: Duration = Duration::from_millis(200);
 
-/// Bind a loopback TCP listener on `port`, refusing to bind when another process
-/// already serves that port on any local address.
-///
-/// A plain `TcpListener::bind("127.0.0.1:PORT")` is not enough on Windows: a bind
-/// to the specific `127.0.0.1` succeeds even when another process holds the
-/// wildcard `0.0.0.0:PORT` (e.g. Docker-published MongoDB), and Windows then
-/// routes loopback traffic to our more-specific socket — silently hijacking the
-/// port (issue #33). A short connect probe to `127.0.0.1:PORT` detects an
-/// existing listener on `0.0.0.0`/`127.0.0.1` so callers fall back to the next
-/// port instead of stealing it. On Linux/macOS the bind alone would already
-/// fail; the probe just makes the behaviour uniform.
-pub async fn bind_loopback(port: u16) -> std::io::Result<TcpListener> {
-    if is_port_serving(port).await {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AddrInUse,
-            format!("127.0.0.1:{port} is already served by another process"),
-        ));
-    }
-    TcpListener::bind(("127.0.0.1", port)).await
+pub const LOOPBACK: &str = "127.0.0.1";
+
+/// Resolve the address a tunnel listens on. Blank means loopback.
+pub async fn resolve(host: &str, port: u16) -> std::io::Result<SocketAddr> {
+    let host = host.trim().trim_start_matches('[').trim_end_matches(']');
+    let host = if host.is_empty() { LOOPBACK } else { host };
+    lookup_host((host, port)).await?.next().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::AddrNotAvailable,
+            format!("{host} did not resolve"),
+        )
+    })
 }
 
-/// True if something answers a TCP connection on `127.0.0.1:port`. A free port
-/// refuses immediately (fast); a filtered one hits the short timeout.
-async fn is_port_serving(port: u16) -> bool {
+/// Bind `addr` unless another process already serves it: on Windows a
+/// specific-address bind succeeds over a wildcard holder and steals its traffic.
+pub async fn bind_local(addr: SocketAddr) -> std::io::Result<TcpListener> {
+    if is_serving(probe_target(addr)).await {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AddrInUse,
+            format!("{addr} is already served by another process"),
+        ));
+    }
+    TcpListener::bind(addr).await
+}
+
+/// A wildcard address cannot be connected to; its loopback answers for it.
+fn probe_target(addr: SocketAddr) -> SocketAddr {
+    let ip = match addr.ip() {
+        IpAddr::V4(ip) if ip.is_unspecified() => IpAddr::V4(Ipv4Addr::LOCALHOST),
+        IpAddr::V6(ip) if ip.is_unspecified() => IpAddr::V6(Ipv6Addr::LOCALHOST),
+        ip => ip,
+    };
+    SocketAddr::new(ip, addr.port())
+}
+
+/// True if something answers a TCP connection on `addr`. A free port refuses
+/// immediately (fast); a filtered one hits the short timeout.
+async fn is_serving(addr: SocketAddr) -> bool {
     matches!(
-        timeout(PROBE_TIMEOUT, TcpStream::connect(("127.0.0.1", port))).await,
+        timeout(PROBE_TIMEOUT, TcpStream::connect(addr)).await,
         Ok(Ok(_))
     )
 }
@@ -44,8 +60,9 @@ mod tests {
         let port = probe.local_addr().unwrap().port();
         drop(probe);
 
-        assert!(!is_port_serving(port).await);
-        assert!(bind_loopback(port).await.is_ok());
+        let addr = resolve(LOOPBACK, port).await.unwrap();
+        assert!(!is_serving(addr).await);
+        assert!(bind_local(addr).await.is_ok());
     }
 
     #[tokio::test]
@@ -53,7 +70,7 @@ mod tests {
         // Reproduces the issue #33 scenario cross-platform: another process holds
         // the wildcard 0.0.0.0:PORT (as Docker does). A specific-address bind can
         // slip past that on Windows, but the connect probe catches it, so
-        // bind_loopback refuses and the caller falls back to the next port.
+        // bind_local refuses and the caller falls back to the next port.
         let docker = TcpListener::bind("0.0.0.0:0").await.unwrap();
         let port = docker.local_addr().unwrap().port();
         // Keep an accept loop alive so connects succeed.
@@ -65,8 +82,36 @@ mod tests {
             }
         });
 
-        assert!(is_port_serving(port).await);
-        let err = bind_loopback(port).await.unwrap_err();
+        let addr = resolve(LOOPBACK, port).await.unwrap();
+        assert!(is_serving(addr).await);
+        let err = bind_local(addr).await.unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse);
+    }
+
+    #[tokio::test]
+    async fn a_wildcard_bind_is_refused_while_loopback_serves_the_port() {
+        let held = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = held.local_addr().unwrap().port();
+        tokio::spawn(async move { while held.accept().await.is_ok() {} });
+
+        let addr = resolve("0.0.0.0", port).await.unwrap();
+        let err = bind_local(addr).await.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse);
+    }
+
+    #[tokio::test]
+    async fn a_wildcard_bind_listens_on_every_interface() {
+        let addr = resolve("0.0.0.0", 0).await.unwrap();
+        let listener = bind_local(addr).await.unwrap();
+        assert!(listener.local_addr().unwrap().ip().is_unspecified());
+    }
+
+    #[tokio::test]
+    async fn blank_and_bracketed_hosts_resolve() {
+        assert!(resolve("  ", 80).await.unwrap().ip().is_loopback());
+        assert_eq!(
+            resolve("[::1]", 80).await.unwrap().ip(),
+            IpAddr::V6(Ipv6Addr::LOCALHOST)
+        );
     }
 }

@@ -12,10 +12,11 @@ use tokio_util::sync::CancellationToken;
 /// Returns `(bound_local_port, bytes_transferred_counter)`.
 pub async fn create_socks_tunnel(
     handle: SessionHandle,
+    bind_host: &str,
     local_port: u16,
     cancel: CancellationToken,
 ) -> Result<(u16, Arc<AtomicU64>), ForwardError> {
-    let (listener, bound_port) = super::pipe::bind_with_fallback(local_port).await?;
+    let (listener, bound_port) = super::pipe::bind_with_fallback(bind_host, local_port).await?;
     let cancel2 = cancel.clone();
     let bytes = Arc::new(AtomicU64::new(0));
     let bytes_accept = Arc::clone(&bytes);

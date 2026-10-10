@@ -77,7 +77,7 @@ export function useRuleTunnels(): {
     const status = tunnel ? (isError ? "error" : "active") : "inactive";
     const errorLabel = tunnel && isError ? (tunnel.state as { error: string }).error : undefined;
     const webUrl = tunnel && !isError
-      ? getLocalTunnelHttpUrl(rule.tunnel_type ?? "local", rule.remote_port, tunnel.local_port)
+      ? getLocalTunnelHttpUrl(rule.tunnel_type ?? "local", rule.remote_port, tunnel.local_port, tunnel.bind_host)
       : null;
     return {
       status,

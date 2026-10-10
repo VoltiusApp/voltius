@@ -12,6 +12,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import type { PortForwardingRule, PortForwardingRuleFormData, TunnelType } from "@/types";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
+import { isLoopbackHost, isWildcardHost } from "@/utils/tunnelFormat";
 
 interface Props {
   rule?: PortForwardingRule | null;
@@ -96,6 +97,24 @@ function FieldHelp({ children }: { children: React.ReactNode }) {
   return <p className="mt-1 text-[10px] leading-relaxed text-(--t-text-dim)">{children}</p>;
 }
 
+function BindAddressField({ label, help, warning, value, onChange }: {
+  label: string;
+  help: string;
+  warning: string | false;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className={formLabelClass} style={formLabelStyle}>{label}</label>
+      <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
+        value={value} onChange={(e) => onChange(e.target.value)} />
+      <FieldHelp>{help}</FieldHelp>
+      {warning && <p className="text-[10px] text-amber-400 mt-1">{warning}</p>}
+    </div>
+  );
+}
+
 export const RuleForm = withEditAccess("port_forwarding_rule", (p: Props) => p.rule ?? undefined, RuleFormEditor);
 
 function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, readOnly }: Props & EditAccessProps) {
@@ -117,7 +136,6 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
   const [vaultId, setVaultId] = useState(rule?.vault_id ?? defaultVaultId ?? "personal");
   const [isGlobal, setIsGlobal] = useState((rule?.connection_ids ?? []).length === 0);
   const [connectionIds, setConnectionIds] = useState<string[]>(rule?.connection_ids ?? []);
-  const [showBindWarning, setShowBindWarning] = useState(false);
   const isNew = !rule;
 
   useEffect(() => {
@@ -161,7 +179,7 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
       remote_port: tunnelType === "dynamic" ? 0 : rp,
       remote_host: tunnelType === "local" ? (remoteHost.trim() || "127.0.0.1") : "127.0.0.1",
       tunnel_type: tunnelType,
-      bind_host: tunnelType === "remote" ? (bindHost.trim() || "127.0.0.1") : "127.0.0.1",
+      bind_host: bindHost.trim() || "127.0.0.1",
       target_host: tunnelType === "remote" ? (targetHost.trim() || "127.0.0.1") : "127.0.0.1",
       description: description.trim() || undefined,
       connection_ids: isGlobal ? [] : connectionIds,
@@ -196,8 +214,17 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
   function handleBindHostChange(v: string) {
     markDirty();
     setBindHost(v);
-    setShowBindWarning(v === "0.0.0.0");
   }
+
+  const localBindField = (
+    <BindAddressField
+      label={t("portForwarding.ruleForm.bindAddressOnComputer")}
+      help={t("portForwarding.ruleForm.bindAddressOnComputerHelp")}
+      warning={!isLoopbackHost(bindHost) && t("portForwarding.ruleForm.bindWarningLocal")}
+      value={bindHost}
+      onChange={handleBindHostChange}
+    />
+  );
 
   function toggleConnection(id: string) {
     markDirty();
@@ -268,11 +295,14 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
                 <FieldHelp>{t("portForwarding.ruleForm.remotePortOnServerHelp")}</FieldHelp>
               </div>
             </div>
-            <div className="mt-3">
-              <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.hostOnServer")}</label>
-              <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
-                value={remoteHost} onChange={(e) => { markDirty(); setRemoteHost(e.target.value); }} />
-              <FieldHelp>{t("portForwarding.ruleForm.hostOnServerHelp")}</FieldHelp>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              {localBindField}
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.hostOnServer")}</label>
+                <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
+                  value={remoteHost} onChange={(e) => { markDirty(); setRemoteHost(e.target.value); }} />
+                <FieldHelp>{t("portForwarding.ruleForm.hostOnServerHelp")}</FieldHelp>
+              </div>
             </div>
           </FormSection>
         )}
@@ -296,17 +326,13 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 mt-3">
-              <div>
-                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.bindAddressOnServer")}</label>
-                <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
-                  value={bindHost} onChange={(e) => handleBindHostChange(e.target.value)} />
-                <FieldHelp>{t("portForwarding.ruleForm.bindAddressOnServerHelp")}</FieldHelp>
-                {showBindWarning && (
-                  <p className="text-[10px] text-amber-400 mt-1">
-                    {t("portForwarding.ruleForm.bindWarning")}
-                  </p>
-                )}
-              </div>
+              <BindAddressField
+                label={t("portForwarding.ruleForm.bindAddressOnServer")}
+                help={t("portForwarding.ruleForm.bindAddressOnServerHelp")}
+                warning={isWildcardHost(bindHost) && t("portForwarding.ruleForm.bindWarning")}
+                value={bindHost}
+                onChange={handleBindHostChange}
+              />
               <div>
                 <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.hostOnComputer")}</label>
                 <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
@@ -319,11 +345,16 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
 
         {tunnelType === "dynamic" && (
           <FormSection label={t("portForwarding.ruleForm.ports")}>
-            <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.socksProxyPort")}</label>
-            <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
-              placeholder="1080" value={localPort}
-              onChange={(e) => { markDirty(); setLocalPort(e.target.value); }} required />
-            <FieldHelp>{t("portForwarding.ruleForm.socksProxyPortHelp", { port: localPort || "1080" })}</FieldHelp>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.socksProxyPort")}</label>
+                <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
+                  placeholder="1080" value={localPort}
+                  onChange={(e) => { markDirty(); setLocalPort(e.target.value); }} required />
+                <FieldHelp>{t("portForwarding.ruleForm.socksProxyPortHelp", { port: localPort || "1080" })}</FieldHelp>
+              </div>
+              {localBindField}
+            </div>
           </FormSection>
         )}
 

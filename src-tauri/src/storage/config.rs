@@ -797,7 +797,7 @@ pub struct PortForwardingRule {
     pub remote_host: String,
     #[serde(default)]
     pub tunnel_type: TunnelType,
-    /// Remote tunnels: server-side bind address (default 127.0.0.1)
+    /// Listener address: on the server for remote tunnels, on this machine otherwise (default 127.0.0.1)
     #[serde(default = "default_localhost")]
     pub bind_host: String,
     /// Remote tunnels: local target host reached from this machine (default 127.0.0.1)

@@ -118,7 +118,7 @@ pub async fn start_poller(
 
                     let cancel_t = CancellationToken::new();
                     #[allow(clippy::single_match)]
-                    match create_tunnel(Arc::clone(&handle), port, port, "127.0.0.1", cancel_t.clone()).await {
+                    match create_tunnel(Arc::clone(&handle), super::bind::LOOPBACK, port, port, "127.0.0.1", cancel_t.clone()).await {
                         Ok((local_port, bytes)) => {
                             let tunnel = ActiveTunnel {
                                 id: uuid::Uuid::new_v4().to_string(),

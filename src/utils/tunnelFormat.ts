@@ -20,6 +20,25 @@ export function formatActiveTunnelLabel(tunnel: ActiveTunnel): string {
   });
 }
 
+const LOOPBACK_HOSTS = new Set(["", "127.0.0.1", "localhost", "::1"]);
+const WILDCARD_HOSTS = new Set(["0.0.0.0", "::"]);
+
+function bareHost(host: string | undefined): string {
+  return (host ?? "").trim().replace(/^\[|\]$/g, "");
+}
+
+export function isLoopbackHost(host: string | undefined): boolean {
+  return LOOPBACK_HOSTS.has(bareHost(host));
+}
+
+export function isWildcardHost(host: string | undefined): boolean {
+  return WILDCARD_HOSTS.has(bareHost(host));
+}
+
+function listenerLabel(bindHost: string, port: number): string {
+  return isLoopbackHost(bindHost) ? String(port) : `${bindHost}:${port}`;
+}
+
 function formatTunnelLabel(
   type: TunnelType,
   opts: { localPort: number; remotePort: number; remoteHost: string; bindHost: string; targetHost: string },
@@ -28,9 +47,9 @@ function formatTunnelLabel(
     case "remote":
       return `${opts.bindHost}:${opts.remotePort} → ${opts.targetHost}:${opts.localPort}`;
     case "dynamic":
-      return `:${opts.localPort} (SOCKS5)`;
+      return isLoopbackHost(opts.bindHost) ? `:${opts.localPort} (SOCKS5)` : `${opts.bindHost}:${opts.localPort} (SOCKS5)`;
     default:
-      return `${opts.localPort} → ${opts.remoteHost}:${opts.remotePort}`;
+      return `${listenerLabel(opts.bindHost, opts.localPort)} → ${opts.remoteHost}:${opts.remotePort}`;
   }
 }
 
@@ -42,9 +61,18 @@ export function getLocalTunnelHttpUrl(
   tunnelType: TunnelType,
   remotePort: number,
   localPort: number,
+  bindHost?: string,
 ): string | null {
   if (tunnelType !== "local") return null;
-  if (HTTP_PORTS.has(remotePort)) return `http://localhost:${localPort}`;
-  if (HTTPS_PORTS.has(remotePort)) return `https://localhost:${localPort}`;
+  const host = browsableHost(bindHost);
+  if (HTTP_PORTS.has(remotePort)) return `http://${host}:${localPort}`;
+  if (HTTPS_PORTS.has(remotePort)) return `https://${host}:${localPort}`;
   return null;
+}
+
+// A listener bound to one address does not answer on localhost.
+function browsableHost(bindHost: string | undefined): string {
+  if (isLoopbackHost(bindHost) || isWildcardHost(bindHost)) return "localhost";
+  const host = bareHost(bindHost);
+  return host.includes(":") ? `[${host}]` : host;
 }

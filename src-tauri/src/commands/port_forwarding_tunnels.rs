@@ -43,11 +43,12 @@ pub async fn pf_tunnel_open(
         None => TunnelOrigin::AdHoc,
     };
 
+    let bh = bind_host.unwrap_or_else(|| "127.0.0.1".to_string());
     match tunnel_type.unwrap_or(TunnelType::Local) {
         TunnelType::Local => {
             let host = remote_host.unwrap_or_else(|| "127.0.0.1".to_string());
             let rport = remote_port.unwrap_or(local_port);
-            pf.open_local_tunnel(&session_id, handle, local_port, rport, host, origin)
+            pf.open_local_tunnel(&session_id, handle, bh, local_port, rport, host, origin)
                 .await
                 .map_err(AppError::from)
         }
@@ -56,7 +57,6 @@ pub async fn pf_tunnel_open(
                 .get_remote_routes(&session_id)
                 .await
                 .map_err(|e| e.to_string())?;
-            let bh = bind_host.unwrap_or_else(|| "127.0.0.1".to_string());
             let th = target_host.unwrap_or_else(|| "127.0.0.1".to_string());
             let rport = remote_port.unwrap_or(local_port);
             pf.open_remote_tunnel(
@@ -73,7 +73,7 @@ pub async fn pf_tunnel_open(
             .map_err(AppError::from)
         }
         TunnelType::Dynamic => pf
-            .open_dynamic_tunnel(&session_id, handle, local_port, origin)
+            .open_dynamic_tunnel(&session_id, handle, bh, local_port, origin)
             .await
             .map_err(AppError::from),
     }

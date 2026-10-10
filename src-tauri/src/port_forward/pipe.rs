@@ -9,13 +9,21 @@ use tokio_util::sync::CancellationToken;
 /// Number of consecutive ports a tunnel tries before giving up.
 pub const PORT_ATTEMPTS: u16 = 5;
 
-/// Bind a loopback listener on `local_port`, walking forward while the port is
+/// Bind a listener on `bind_host:local_port`, walking forward while the port is
 /// taken. Returns the listener and the port it actually got.
-pub async fn bind_with_fallback(local_port: u16) -> Result<(TcpListener, u16), ForwardError> {
+pub async fn bind_with_fallback(
+    bind_host: &str,
+    local_port: u16,
+) -> Result<(TcpListener, u16), ForwardError> {
+    let mut addr = super::bind::resolve(bind_host, local_port).await?;
     for offset in 0..PORT_ATTEMPTS {
         let try_port = local_port.saturating_add(offset);
-        if let Ok(listener) = crate::port_forward::bind::bind_loopback(try_port).await {
-            return Ok((listener, try_port));
+        addr.set_port(try_port);
+        match super::bind::bind_local(addr).await {
+            Ok(listener) => return Ok((listener, try_port)),
+            // No other port fixes an address this machine does not have.
+            Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable => return Err(e.into()),
+            Err(_) => {}
         }
     }
     Err(ForwardError::PortInUse(local_port, PORT_ATTEMPTS as u8))
@@ -97,6 +105,7 @@ pub async fn pump<S>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::port_forward::bind::LOOPBACK;
     use crate::port_forward::test_ssh::{self, Behavior, GREETING, SAW_EOF};
     use std::sync::atomic::AtomicU16;
     use tokio::net::TcpStream;
@@ -174,7 +183,7 @@ mod tests {
         let port = free_window(PORT_ATTEMPTS);
         hold(port).await;
 
-        let (_listener, bound) = bind_with_fallback(port).await.unwrap();
+        let (_listener, bound) = bind_with_fallback(LOOPBACK, port).await.unwrap();
         assert_eq!(bound, port + 1);
     }
 
@@ -184,12 +193,23 @@ mod tests {
         for port in first..first + PORT_ATTEMPTS {
             hold(port).await;
         }
-        match bind_with_fallback(first).await {
+        match bind_with_fallback(LOOPBACK, first).await {
             Err(ForwardError::PortInUse(requested, attempts)) => {
                 assert_eq!(requested, first);
                 assert_eq!(attempts, PORT_ATTEMPTS as u8);
             }
             other => panic!("expected PortInUse, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_address_this_machine_lacks_fails_without_walking_ports() {
+        // TEST-NET-1: never assigned to an interface.
+        match bind_with_fallback("192.0.2.1", free_window(1)).await {
+            Err(ForwardError::Io(e)) => {
+                assert_eq!(e.kind(), std::io::ErrorKind::AddrNotAvailable)
+            }
+            other => panic!("expected AddrNotAvailable, got {other:?}"),
         }
     }
 }

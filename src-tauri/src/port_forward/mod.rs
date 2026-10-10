@@ -40,7 +40,7 @@ pub struct ActiveTunnel {
     pub local_port: u16,
     pub remote_port: u16,
     pub remote_host: String,
-    /// Remote tunnels: server-side bind address
+    /// Listener address: on the server for remote tunnels, on this machine otherwise
     #[serde(default)]
     pub bind_host: Option<String>,
     /// Remote/local tunnels: final target host
@@ -388,6 +388,7 @@ impl PortForwardManager {
         self.open_local_tunnel(
             session_id,
             handle,
+            bind::LOOPBACK.into(),
             port,
             port,
             "127.0.0.1".into(),
@@ -400,6 +401,7 @@ impl PortForwardManager {
         &self,
         session_id: &str,
         handle: SessionHandle,
+        bind_host: String,
         local_port: u16,
         remote_port: u16,
         remote_host: String,
@@ -408,6 +410,7 @@ impl PortForwardManager {
         let cancel = CancellationToken::new();
         let (bound_port, bytes) = tunnel::create_tunnel(
             Arc::clone(&handle),
+            &bind_host,
             local_port,
             remote_port,
             &remote_host,
@@ -421,7 +424,7 @@ impl PortForwardManager {
             local_port: bound_port,
             remote_port,
             remote_host,
-            bind_host: None,
+            bind_host: Some(bind_host),
             target_host: None,
             origin,
             state: TunnelState::Active,
@@ -540,12 +543,14 @@ impl PortForwardManager {
         &self,
         session_id: &str,
         handle: SessionHandle,
+        bind_host: String,
         local_port: u16,
         origin: TunnelOrigin,
     ) -> Result<ActiveTunnel, ForwardError> {
         let cancel = CancellationToken::new();
         let (bound_port, bytes) =
-            socks::create_socks_tunnel(Arc::clone(&handle), local_port, cancel.clone()).await?;
+            socks::create_socks_tunnel(Arc::clone(&handle), &bind_host, local_port, cancel.clone())
+                .await?;
 
         let tunnel = ActiveTunnel {
             id: uuid::Uuid::new_v4().to_string(),
@@ -553,7 +558,7 @@ impl PortForwardManager {
             local_port: bound_port,
             remote_port: 0,
             remote_host: String::new(),
-            bind_host: None,
+            bind_host: Some(bind_host),
             target_host: None,
             origin,
             state: TunnelState::Active,
@@ -733,7 +738,8 @@ impl PortForwardManager {
                 e.tunnel.tunnel_type,
                 TunnelType::Local | TunnelType::Dynamic
             ) {
-                wait_until_port_free(e.tunnel.local_port).await;
+                let bind_host = e.tunnel.bind_host.as_deref().unwrap_or(bind::LOOPBACK);
+                wait_until_port_free(bind_host, e.tunnel.local_port).await;
             }
         }
 
@@ -741,12 +747,14 @@ impl PortForwardManager {
         // translate the key back through `key_of` (an unknown id maps to itself).
         for e in old_tunnels {
             let t = e.tunnel;
+            let bind_host = t.bind_host.unwrap_or_else(|| bind::LOOPBACK.to_string());
             match t.tunnel_type {
                 TunnelType::Local => {
                     let _ = self
                         .open_local_tunnel(
                             key,
                             Arc::clone(&handle),
+                            bind_host,
                             t.local_port,
                             t.remote_port,
                             t.remote_host,
@@ -756,11 +764,16 @@ impl PortForwardManager {
                 }
                 TunnelType::Dynamic => {
                     let _ = self
-                        .open_dynamic_tunnel(key, Arc::clone(&handle), t.local_port, t.origin)
+                        .open_dynamic_tunnel(
+                            key,
+                            Arc::clone(&handle),
+                            bind_host,
+                            t.local_port,
+                            t.origin,
+                        )
                         .await;
                 }
                 TunnelType::Remote => {
-                    let bind_host = t.bind_host.unwrap_or_else(|| "127.0.0.1".to_string());
                     let target_host = t.target_host.unwrap_or_else(|| "127.0.0.1".to_string());
                     let _ = self
                         .open_remote_tunnel(
@@ -916,6 +929,7 @@ impl PortForwardManager {
                     .open_local_tunnel(
                         session_id,
                         Arc::clone(&handle),
+                        rule.bind_host.clone(),
                         rule.local_port,
                         rule.remote_port,
                         rule.remote_host.clone(),
@@ -937,7 +951,13 @@ impl PortForwardManager {
                     .await
                     .map(|_| ()),
                 CfgTunnelType::Dynamic => self
-                    .open_dynamic_tunnel(session_id, Arc::clone(&handle), rule.local_port, origin)
+                    .open_dynamic_tunnel(
+                        session_id,
+                        Arc::clone(&handle),
+                        rule.bind_host.clone(),
+                        rule.local_port,
+                        origin,
+                    )
                     .await
                     .map(|_| ()),
             };
@@ -1029,9 +1049,12 @@ pub(crate) fn cancel_entry(entry: &TunnelEntry) {
 
 /// A cancelled accept loop frees its listener asynchronously; re-opening before
 /// it lands ladders the tunnel onto the next port instead of keeping its own.
-async fn wait_until_port_free(port: u16) {
+async fn wait_until_port_free(bind_host: &str, port: u16) {
+    let Ok(addr) = bind::resolve(bind_host, port).await else {
+        return;
+    };
     for _ in 0..20 {
-        if bind::bind_loopback(port).await.is_ok() {
+        if bind::bind_local(addr).await.is_ok() {
             return;
         }
         tokio::time::sleep(std::time::Duration::from_millis(25)).await;

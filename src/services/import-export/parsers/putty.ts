@@ -199,19 +199,22 @@ function jumpHost(v: Map<string, string>, imported: Map<string, ConnectionExport
 }
 
 function portForwards(s: Session, connectionEid: string): PortForwardingRuleExport[] {
-  const remoteBind = s.values.get("RemotePortAcceptAll") === "1" ? "0.0.0.0" : "127.0.0.1";
+  const acceptAll = (key: string) => (s.values.get(key) === "1" ? "0.0.0.0" : "127.0.0.1");
+  const localBind = acceptAll("LocalPortAcceptAll");
+  const remoteBind = acceptAll("RemotePortAcceptAll");
   return parseMap(s.values.get("PortForwardings")).flatMap(([key, value]) => {
     const m = key.match(/^[46]?([LRD])(?:(.+):)?(\d+)$/);
     if (!m) return [];
     const [, kind, bind, source] = m;
     const port = Number(source);
     const dest = splitEndpoint(value);
-    const base = { name: `${s.name} ${kind}${source}`.trim(), bind_host: "127.0.0.1", _connection_eids: [connectionEid] };
+    const bindHost = bind ? stripBrackets(bind) : kind === "R" ? remoteBind : localBind;
+    const base = { name: `${s.name} ${kind}${source}`.trim(), bind_host: bindHost, _connection_eids: [connectionEid] };
     if (kind === "D") return [{ ...base, tunnel_type: "dynamic", local_port: port, remote_port: 0, remote_host: "", target_host: "" }];
     if (!dest) return [];
     return kind === "L"
       ? [{ ...base, tunnel_type: "local", local_port: port, remote_port: dest.port, remote_host: dest.host, target_host: dest.host }]
-      : [{ ...base, tunnel_type: "remote", bind_host: bind ? stripBrackets(bind) : remoteBind, remote_port: port, local_port: dest.port, remote_host: dest.host, target_host: dest.host }];
+      : [{ ...base, tunnel_type: "remote", remote_port: port, local_port: dest.port, remote_host: dest.host, target_host: dest.host }];
   });
 }
 

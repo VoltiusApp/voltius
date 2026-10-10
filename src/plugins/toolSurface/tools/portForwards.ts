@@ -42,8 +42,10 @@ export function buildPortForwardTools(ports: ToolSurfacePorts): Tool[] {
       name: "port_forward_create",
       description:
         "Save a new port forwarding rule. `tunnel_type` is \"local\" (a port on this machine reaches "
-        + "a remote address), \"remote\" (the reverse) or \"dynamic\" (a SOCKS proxy). Saving does "
-        + "not open anything — use port_forward_start. Returns the new rule.",
+        + "a remote address), \"remote\" (the reverse) or \"dynamic\" (a SOCKS proxy). `bind_host` is "
+        + "the address the listener binds, 127.0.0.1 by default: on the SSH server for \"remote\", on "
+        + "this machine otherwise. Any other address lets other devices on that network use the "
+        + "tunnel. Saving does not open anything — use port_forward_start. Returns the new rule.",
       risk: "prompt",
       schema: z.object(RULE_INPUT),
       execute: async (raw) =>

@@ -114,6 +114,16 @@ describe("bundleFromPutty", () => {
     ]);
   });
 
+  it("keeps the address each tunnel listens on", () => {
+    const fields = { HostName: "h", Protocol: "ssh", PortNumber: 22, LocalPortAcceptAll: 1, PortForwardings: "L8080=db:5432,D192.168.1.2:1080=,L[::1]:9090=db:9090,R9000=127.0.0.1:9000" };
+    expect(bundleFromPutty(sessionFile(fields)).portForwardingRules.map((r) => [r.tunnel_type, r.bind_host])).toEqual([
+      ["local", "0.0.0.0"],
+      ["dynamic", "192.168.1.2"],
+      ["local", "::1"],
+      ["remote", "127.0.0.1"],
+    ]);
+  });
+
   it("reads a single session file, which carries no name", () => {
     expect(bundleFromPutty(sessionFile(unixSessions[3][1])).connections).toEqual([
       ssh({ _eid: "pc0", name: undefined, host: "api.example.com", port: 2222, username: "deploy" }),
