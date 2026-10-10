@@ -15,14 +15,17 @@ pub async fn bind_with_fallback(
     bind_host: &str,
     local_port: u16,
 ) -> Result<(TcpListener, u16), ForwardError> {
-    let mut addr = super::bind::resolve(bind_host, local_port).await?;
+    let unavailable = || ForwardError::BindAddressUnavailable(bind_host.trim().to_string());
+    let mut addr = super::bind::resolve(bind_host, local_port)
+        .await
+        .map_err(|_| unavailable())?;
     for offset in 0..PORT_ATTEMPTS {
         let try_port = local_port.saturating_add(offset);
         addr.set_port(try_port);
         match super::bind::bind_local(addr).await {
             Ok(listener) => return Ok((listener, try_port)),
             // No other port fixes an address this machine does not have.
-            Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable => return Err(e.into()),
+            Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable => return Err(unavailable()),
             Err(_) => {}
         }
     }
@@ -206,10 +209,18 @@ mod tests {
     async fn an_address_this_machine_lacks_fails_without_walking_ports() {
         // TEST-NET-1: never assigned to an interface.
         match bind_with_fallback("192.0.2.1", free_window(1)).await {
-            Err(ForwardError::Io(e)) => {
-                assert_eq!(e.kind(), std::io::ErrorKind::AddrNotAvailable)
+            Err(ForwardError::BindAddressUnavailable(address)) => assert_eq!(address, "192.0.2.1"),
+            other => panic!("expected BindAddressUnavailable, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_name_that_does_not_resolve_is_an_unavailable_address() {
+        match bind_with_fallback("no-such-host.invalid", free_window(1)).await {
+            Err(ForwardError::BindAddressUnavailable(address)) => {
+                assert_eq!(address, "no-such-host.invalid")
             }
-            other => panic!("expected AddrNotAvailable, got {other:?}"),
+            other => panic!("expected BindAddressUnavailable, got {other:?}"),
         }
     }
 }

@@ -13,6 +13,7 @@
     "transfer-verify-failed": "The copy didn't match the original, so it was discarded — retry to copy it again",
     "transfer-source-changed": "The file kept changing while it was copied — retry once it has finished being written",
     "port-in-use": "Port {{port}} and the ports after it are already in use ({{attempts}} tried)",
+    "bind-address-unavailable": "This computer has no address {{address}}",
     "remote-forward-denied": "The server refused the remote forward — the port may already be in use there, or forwarding is not allowed",
     "ssh-key-rejected": "Public key authentication rejected",
     "ssh-password-rejected": "Password authentication rejected — check the username and password",

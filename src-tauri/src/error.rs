@@ -52,8 +52,10 @@ error_codes! {
     ConnectionLostResumable,
     TransferVerifyFailed,
     TransferSourceChanged,
-    // Port forwarding. Params: `port` and `attempts` for PortInUse.
+    // Port forwarding. Params: `port` and `attempts` for PortInUse, `address`
+    // for BindAddressUnavailable.
     PortInUse,
+    BindAddressUnavailable,
     RemoteForwardDenied,
     // SSH authentication. Params: `prompt` / `methods` / `seconds`.
     SshKeyRejected,

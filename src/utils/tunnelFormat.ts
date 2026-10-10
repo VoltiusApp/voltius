@@ -23,7 +23,7 @@ export function formatActiveTunnelLabel(tunnel: ActiveTunnel): string {
 const LOOPBACK_HOSTS = new Set(["", "127.0.0.1", "localhost", "::1"]);
 const WILDCARD_HOSTS = new Set(["0.0.0.0", "::"]);
 
-function bareHost(host: string | undefined): string {
+export function bareHost(host: string | undefined): string {
   return (host ?? "").trim().replace(/^\[|\]$/g, "");
 }
 

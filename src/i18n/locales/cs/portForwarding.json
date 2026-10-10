@@ -111,65 +111,62 @@
       "description": "Popis",
       "descriptionPlaceholder": "Vývojový server, proxy databáze…",
       "type": "Typ",
-      "ports": "Porty",
-      "scope": "Rozsah",
       "tunnelTypes": {
         "local": {
           "label": "Lokální",
           "title": "Lokální tunel",
-          "summary": "Zpřístupní službu dostupnou ze SSH serveru na vašem počítači.",
-          "example": "Přes localhost:3000 na svém počítači se dostanete na 127.0.0.1:3000 na serveru.",
-          "diagram": [
-            "Váš počítač",
-            "SSH server",
-            "Vzdálená služba"
-          ]
+          "summary": "Zpřístupní službu dostupnou ze SSH serveru na vašem počítači."
         },
         "remote": {
           "label": "Vzdálený",
           "title": "Vzdálený tunel",
-          "summary": "Zpřístupní službu dostupnou z vašeho počítače na SSH serveru.",
-          "example": "Server naslouchá na portu a přeposílá provoz zpět na váš počítač.",
-          "diagram": [
-            "Vzdálení uživatelé",
-            "SSH server",
-            "Váš počítač"
-          ]
+          "summary": "Zpřístupní službu dostupnou z vašeho počítače na SSH serveru."
         },
         "dynamic": {
           "label": "Dynamický",
           "title": "Dynamická SOCKS proxy",
-          "summary": "Vytvoří lokální SOCKS5 proxy, která posílá provoz aplikací přes SSH server.",
-          "example": "Nastavte v prohlížeči nebo aplikaci proxy localhost:1080 a provoz bude směrován přes server.",
-          "diagram": [
-            "Vaše aplikace",
-            "SOCKS proxy",
-            "SSH server"
-          ]
+          "summary": "Vytvoří lokální SOCKS5 proxy, která posílá provoz aplikací přes SSH server."
         }
       },
-      "localPortOnComputer": "Port na vašem počítači",
-      "localPortHelp": "K tomuto portu se připojujete lokálně, obvykle jako localhost:{{port}}.",
-      "remotePortOnServer": "Port na SSH serveru",
-      "remotePortOnServerHelp": "Port, na kterém služba běží, z pohledu serveru.",
-      "hostOnServer": "Cílový host z pohledu SSH serveru",
-      "hostOnServerHelp": "Použijte 127.0.0.1, pokud služba běží přímo na SSH serveru.",
-      "remotePortOpenedOnServer": "Port otevřený na SSH serveru",
-      "remotePortOpenedOnServerHelp": "Na tento port se připojují lidé nebo služby na straně serveru.",
-      "localPortReceivingHelp": "Port lokální aplikace nebo služby, která má přijímat přesměrovaný provoz.",
-      "bindAddressOnServer": "Adresa pro naslouchání na SSH serveru",
-      "bindAddressOnServerHelp": "Adresa 127.0.0.1 omezí přístup k portu na samotný server. Adresa 0.0.0.0 ho může zpřístupnit v síti.",
-      "bindWarning": "0.0.0.0 zpřístupní tento port přes vzdálený server na všech jeho síťových rozhraních.",
-      "bindAddressOnComputer": "Adresa pro naslouchání na vašem počítači",
-      "bindAddressOnComputerHelp": "Adresa 127.0.0.1 omezí přístup k portu na tento počítač. Adresa 0.0.0.0 nebo síťová adresa umožní připojení dalším zařízením.",
-      "bindWarningLocal": "Ostatní zařízení ve vaší síti se mohou k tomuto portu připojit a tunel používat.",
-      "hostOnComputer": "Cílový host z pohledu vašeho počítače",
-      "hostOnComputerHelp": "Použijte 127.0.0.1, pokud cílová aplikace běží na tomto počítači.",
-      "socksProxyPort": "Port SOCKS proxy na vašem počítači",
-      "socksProxyPortHelp": "Nastavte aplikace, aby jako SOCKS5 proxy používaly localhost:{{port}}.",
+      "route": "Trasa",
+      "yourComputer": "Váš počítač",
+      "sshServer": "SSH server",
+      "service": "Služba",
+      "anyDestination": "Libovolný cíl",
+      "anyDestinationHelp": "Každá aplikace si cíl volí sama. Provoz odchází z SSH serveru.",
+      "listenPort": "Port pro naslouchání",
+      "socksPort": "Port SOCKS proxy",
+      "whoCanConnect": "Kdo se může připojit",
+      "audience": {
+        "thisComputer": "Tento počítač",
+        "serverOnly": "Jen server",
+        "network": "Síť",
+        "custom": "Vlastní",
+        "customAddress": "Adresa pro naslouchání"
+      },
+      "sharedWarning": {
+        "computer": "Tunel mohou používat i další zařízení, která se na tuto adresu dostanou.",
+        "server": "Tunel může používat kdokoli, kdo se na tuto adresu na serveru dostane."
+      },
+      "host": "Host",
+      "port": "Port",
+      "throughTunnel": "tunelem",
+      "reaches": "vede na",
+      "backThroughTunnel": "zpět tunelem",
+      "summary": {
+        "incomplete": "Vyplňte porty a uvidíte, kam provoz povede.",
+        "local": "Otevřete <b>{{listener}}</b> na tomto počítači a dostanete se na <b>{{target}}</b> z pohledu SSH serveru.",
+        "localShared": "Zařízení v síti otevřou <b>{{listener}}</b> a dostanou se na <b>{{target}}</b> z pohledu SSH serveru.",
+        "remote": "SSH server naslouchá na <b>{{listener}}</b> a každé připojení posílá na <b>{{target}}</b> na tomto počítači.",
+        "dynamic": "Aplikace, které používají <b>{{listener}}</b> jako SOCKS5 proxy, přistupují k síti z SSH serveru.",
+        "dynamicShared": "Zařízení, která používají <b>{{listener}}</b> jako SOCKS5 proxy, přistupují k síti z SSH serveru.",
+        "anyAddress": "<vaše-ip>",
+        "anyHost": "<host>",
+        "copyCommand": "Zkopírovat příkaz"
+      },
       "applyTo": "Použít pro",
       "allConnections": "Všechna připojení",
-      "specificConnections": "Vybraná připojení",
+      "specificConnections": "Vybraná",
       "noSavedConnections": "Žádná uložená připojení."
     }
   }

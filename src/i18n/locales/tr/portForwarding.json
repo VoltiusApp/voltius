@@ -97,65 +97,62 @@
       "description": "Açıklama",
       "descriptionPlaceholder": "Geliştirme sunucusu, veritabanı proxy'si…",
       "type": "Tür",
-      "ports": "Portlar",
-      "scope": "Kapsam",
       "tunnelTypes": {
         "local": {
           "label": "Yerel",
           "title": "Yerel tünel",
-          "summary": "SSH sunucusundaki bir hizmeti kendi bilgisayarınızda açın.",
-          "example": "Sunucudaki 127.0.0.1:3000 adresine ulaşmak için bilgisayarınızda localhost:3000 adresini kullanın.",
-          "diagram": [
-            "Bilgisayarınız",
-            "SSH sunucusu",
-            "Uzak hizmet"
-          ]
+          "summary": "SSH sunucusundaki bir hizmeti kendi bilgisayarınızda açın."
         },
         "remote": {
           "label": "Uzak",
           "title": "Uzak tünel",
-          "summary": "Bilgisayarınızdaki bir hizmeti SSH sunucusunda erişime açın.",
-          "example": "Sunucu bir portu dinler ve gelen trafiği bilgisayarınıza geri yönlendirir.",
-          "diagram": [
-            "Uzak kullanıcılar",
-            "SSH sunucusu",
-            "Bilgisayarınız"
-          ]
+          "summary": "Bilgisayarınızdaki bir hizmeti SSH sunucusunda erişime açın."
         },
         "dynamic": {
           "label": "Dinamik",
           "title": "Dinamik SOCKS proxy'si",
-          "summary": "Uygulama trafiğini SSH sunucusu üzerinden gönderen yerel bir SOCKS5 proxy'si oluşturun.",
-          "example": "Trafiği sunucu üzerinden yönlendirmek için tarayıcıyı veya uygulamayı localhost:1080 adresini kullanacak şekilde ayarlayın.",
-          "diagram": [
-            "Uygulamanız",
-            "SOCKS proxy'si",
-            "SSH sunucusu"
-          ]
+          "summary": "Uygulama trafiğini SSH sunucusu üzerinden gönderen yerel bir SOCKS5 proxy'si oluşturun."
         }
       },
-      "localPortOnComputer": "Bilgisayarınızdaki port",
-      "localPortHelp": "Bu porta yerel olarak, genellikle localhost:{{port}} adresinden bağlanırsınız.",
-      "remotePortOnServer": "SSH sunucusundaki port",
-      "remotePortOnServerHelp": "Hizmetin, sunucu açısından çalıştığı port.",
-      "hostOnServer": "SSH sunucusu tarafındaki ana bilgisayar",
-      "hostOnServerHelp": "Hizmet doğrudan SSH sunucusunun üzerinde çalışıyorsa 127.0.0.1 kullanın.",
-      "remotePortOpenedOnServer": "SSH sunucusunda açılan port",
-      "remotePortOpenedOnServerHelp": "Sunucu tarafındaki kişiler veya hizmetler bu porta bağlanır.",
-      "localPortReceivingHelp": "Yönlendirilen trafiği alacak yerel uygulama veya hizmet.",
-      "bindAddressOnServer": "SSH sunucusundaki dinleme adresi",
-      "bindAddressOnServerHelp": "127.0.0.1 portu yalnızca sunucuya açık tutar. 0.0.0.0 portu ağa açabilir.",
-      "bindWarning": "0.0.0.0, bu portu uzak sunucunun tüm ağ arayüzlerinde erişime açar.",
-      "bindAddressOnComputer": "Bilgisayarınızdaki dinleme adresi",
-      "bindAddressOnComputerHelp": "127.0.0.1 portu yalnızca bu bilgisayara açık tutar. 0.0.0.0 veya bir ağ adresi diğer cihazların bağlanmasına izin verir.",
-      "bindWarningLocal": "Ağınızdaki diğer cihazlar bu porta erişip tüneli kullanabilir.",
-      "hostOnComputer": "Bilgisayarınız tarafındaki ana bilgisayar",
-      "hostOnComputerHelp": "Hedef uygulama bu bilgisayarda çalışıyorsa 127.0.0.1 kullanın.",
-      "socksProxyPort": "Bilgisayarınızdaki SOCKS proxy portu",
-      "socksProxyPortHelp": "Uygulamaları SOCKS5 proxy'si olarak localhost:{{port}} adresini kullanacak şekilde yapılandırın.",
+      "route": "Rota",
+      "yourComputer": "Bilgisayarınız",
+      "sshServer": "SSH sunucusu",
+      "service": "Hizmet",
+      "anyDestination": "Herhangi bir hedef",
+      "anyDestinationHelp": "Her uygulama nereye gideceğini kendisi seçer. Trafik SSH sunucusundan çıkar.",
+      "listenPort": "Dinlenecek port",
+      "socksPort": "SOCKS proxy portu",
+      "whoCanConnect": "Kimler bağlanabilir",
+      "audience": {
+        "thisComputer": "Bu bilgisayar",
+        "serverOnly": "Yalnızca sunucu",
+        "network": "Ağ",
+        "custom": "Özel",
+        "customAddress": "Dinleme adresi"
+      },
+      "sharedWarning": {
+        "computer": "Bu adrese ulaşabilen diğer cihazlar tüneli kullanabilir.",
+        "server": "Sunucuda bu adrese ulaşabilen herkes tüneli kullanabilir."
+      },
+      "host": "Ana bilgisayar",
+      "port": "Port",
+      "throughTunnel": "tünel üzerinden",
+      "reaches": "şuraya ulaşır",
+      "backThroughTunnel": "tünelden geri",
+      "summary": {
+        "incomplete": "Trafiğin nereye gittiğini görmek için portları doldurun.",
+        "local": "SSH sunucusunun gördüğü <b>{{target}}</b> adresine ulaşmak için bu bilgisayarda <b>{{listener}}</b> adresini açın.",
+        "localShared": "Ağdaki cihazlar, SSH sunucusunun gördüğü <b>{{target}}</b> adresine ulaşmak için <b>{{listener}}</b> adresini açar.",
+        "remote": "SSH sunucusu <b>{{listener}}</b> adresini dinler ve her bağlantıyı bu bilgisayardaki <b>{{target}}</b> adresine gönderir.",
+        "dynamic": "<b>{{listener}}</b> adresini SOCKS5 proxy'si olarak kullanan uygulamalar internete SSH sunucusundan çıkar.",
+        "dynamicShared": "<b>{{listener}}</b> adresini SOCKS5 proxy'si olarak kullanan cihazlar internete SSH sunucusundan çıkar.",
+        "anyAddress": "<ip-adresiniz>",
+        "anyHost": "<sunucu>",
+        "copyCommand": "Komutu kopyala"
+      },
       "applyTo": "Uygulama kapsamı",
       "allConnections": "Tüm bağlantılar",
-      "specificConnections": "Belirli bağlantılar",
+      "specificConnections": "Belirli",
       "noSavedConnections": "Kayıtlı bağlantı yok."
     }
   }

@@ -104,6 +104,7 @@ export function RuleCard({
     </span>
   );
   const effectiveStatusLabel = statusLabel ?? (status === "active" ? t("portForwarding.ruleCard.active") : status === "error" ? t("portForwarding.ruleCard.error") : t("portForwarding.ruleCard.stopped"));
+  const statusLabelClass = status === "error" ? "text-red-400" : "text-(--t-text-dim)";
   const actionIcon = isBusy ? "lucide:loader-circle" : status === "active" ? "lucide:pause" : "lucide:play";
   const actionTitle = status === "active" ? t("portForwarding.ruleCard.pauseForwarding") : t("portForwarding.ruleCard.resumeForwarding");
   const handleToggle = () => {
@@ -163,7 +164,7 @@ export function RuleCard({
               {rule.description}
             </p>
           )}
-          <span className="text-xs text-(--t-text-dim) shrink-0 hidden md:inline">{effectiveStatusLabel}</span>
+          <span title={effectiveStatusLabel} className={`text-xs shrink-0 hidden md:inline max-w-72 truncate ${statusLabelClass}`}>{effectiveStatusLabel}</span>
           <div className="flex items-center gap-1 shrink-0">
             {webButton(true)}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(rule.id)} danger />}
@@ -199,7 +200,7 @@ export function RuleCard({
             </span>
           )}
           <div className="flex items-center gap-0.5 -mb-1.5">
-            <span className="flex-1 min-w-0 truncate text-xs font-medium text-(--t-text-dim)">{effectiveStatusLabel}</span>
+            <span title={effectiveStatusLabel} className={`flex-1 min-w-0 truncate text-xs font-medium ${statusLabelClass}`}>{effectiveStatusLabel}</span>
             {webButton(false)}
             {toggleButton}
             <CardMenuButton />

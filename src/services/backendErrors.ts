@@ -19,6 +19,7 @@ export const BACKEND_ERROR_CODES = [
   "transfer-verify-failed",
   "transfer-source-changed",
   "port-in-use",
+  "bind-address-unavailable",
   "remote-forward-denied",
   "ssh-key-rejected",
   "ssh-password-rejected",

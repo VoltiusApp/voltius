@@ -95,53 +95,62 @@
       "description": "Description",
       "descriptionPlaceholder": "Dev server, database proxy…",
       "type": "Type",
-      "ports": "Ports",
-      "scope": "Scope",
       "tunnelTypes": {
         "local": {
           "label": "Local",
           "title": "Local tunnel",
-          "summary": "Open something from the SSH server on your own machine.",
-          "example": "Use localhost:3000 on your computer to reach 127.0.0.1:3000 on the server.",
-          "diagram": ["Your computer", "SSH server", "Remote service"]
+          "summary": "Open something from the SSH server on your own machine."
         },
         "remote": {
           "label": "Remote",
           "title": "Remote tunnel",
-          "summary": "Expose something from your machine on the SSH server.",
-          "example": "The server listens on a port and forwards traffic back to your computer.",
-          "diagram": ["Remote users", "SSH server", "Your computer"]
+          "summary": "Expose something from your machine on the SSH server."
         },
         "dynamic": {
           "label": "Dynamic",
           "title": "Dynamic SOCKS proxy",
-          "summary": "Create a local SOCKS5 proxy that sends app traffic through the SSH server.",
-          "example": "Point a browser or app at localhost:1080 to route traffic through the server.",
-          "diagram": ["Your app", "SOCKS proxy", "SSH server"]
+          "summary": "Create a local SOCKS5 proxy that sends app traffic through the SSH server."
         }
       },
-      "localPortOnComputer": "Port on your computer",
-      "localPortHelp": "You connect to this port locally, usually as localhost:{{port}}.",
-      "remotePortOnServer": "Port on SSH server",
-      "remotePortOnServerHelp": "The port where the service is running from the server's point of view.",
-      "hostOnServer": "Host on SSH server",
-      "hostOnServerHelp": "Use 127.0.0.1 when the service runs on the SSH server itself.",
-      "remotePortOpenedOnServer": "Port opened on SSH server",
-      "remotePortOpenedOnServerHelp": "People or services on the server side connect to this port.",
-      "localPortReceivingHelp": "The local app or service that should receive the forwarded traffic.",
-      "bindAddressOnServer": "Bind address on SSH server",
-      "bindAddressOnServerHelp": "127.0.0.1 keeps it private to the server. 0.0.0.0 may expose it to the network.",
-      "bindWarning": "0.0.0.0 exposes this port through the remote server to all its network interfaces.",
-      "bindAddressOnComputer": "Bind address on your computer",
-      "bindAddressOnComputerHelp": "127.0.0.1 keeps it private to this computer. 0.0.0.0 or a network address lets other devices connect.",
-      "bindWarningLocal": "Other devices on your network can reach this port and use the tunnel.",
-      "hostOnComputer": "Host on your computer",
-      "hostOnComputerHelp": "Use 127.0.0.1 when the target app runs on this computer.",
-      "socksProxyPort": "SOCKS proxy port on your computer",
-      "socksProxyPortHelp": "Configure apps to use localhost:{{port}} as a SOCKS5 proxy.",
+      "route": "Route",
+      "yourComputer": "Your computer",
+      "sshServer": "SSH server",
+      "service": "Service",
+      "anyDestination": "Any destination",
+      "anyDestinationHelp": "Each app picks where it goes. Traffic leaves from the SSH server.",
+      "listenPort": "Listen on port",
+      "socksPort": "SOCKS proxy port",
+      "whoCanConnect": "Who can connect",
+      "audience": {
+        "thisComputer": "This computer",
+        "serverOnly": "Server only",
+        "network": "Network",
+        "custom": "Custom",
+        "customAddress": "Address to listen on"
+      },
+      "sharedWarning": {
+        "computer": "Other devices that reach this address can use the tunnel.",
+        "server": "Anyone who reaches this address on the server can use the tunnel."
+      },
+      "host": "Host",
+      "port": "Port",
+      "throughTunnel": "through the tunnel",
+      "reaches": "reaches",
+      "backThroughTunnel": "back through the tunnel",
+      "summary": {
+        "incomplete": "Fill in the ports to see where traffic goes.",
+        "local": "Open <b>{{listener}}</b> on this computer to reach <b>{{target}}</b> as the SSH server sees it.",
+        "localShared": "Devices on the network open <b>{{listener}}</b> to reach <b>{{target}}</b> as the SSH server sees it.",
+        "remote": "The SSH server listens on <b>{{listener}}</b> and sends each connection to <b>{{target}}</b> on this computer.",
+        "dynamic": "Apps using <b>{{listener}}</b> as a SOCKS5 proxy browse from the SSH server.",
+        "dynamicShared": "Devices using <b>{{listener}}</b> as a SOCKS5 proxy browse from the SSH server.",
+        "anyAddress": "<your-ip>",
+        "anyHost": "<host>",
+        "copyCommand": "Copy command"
+      },
       "applyTo": "Apply to",
       "allConnections": "All connections",
-      "specificConnections": "Specific connections",
+      "specificConnections": "Specific",
       "noSavedConnections": "No saved connections."
     }
   }

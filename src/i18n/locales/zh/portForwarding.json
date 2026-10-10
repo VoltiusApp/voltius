@@ -95,50 +95,59 @@
       "description": "描述",
       "descriptionPlaceholder": "开发服务器、数据库代理…",
       "type": "类型",
-      "ports": "端口",
-      "scope": "范围",
       "tunnelTypes": {
         "local": {
           "label": "本地",
           "title": "本地隧道",
-          "summary": "从 SSH 服务器打开您自己机器上的服务。",
-          "example": "在您的计算机上使用 localhost:3000 访问服务器上的 127.0.0.1:3000。",
-          "diagram": ["您的计算机", "SSH 服务器", "远程服务"]
+          "summary": "从 SSH 服务器打开您自己机器上的服务。"
         },
         "remote": {
           "label": "远程",
           "title": "远程隧道",
-          "summary": "在 SSH 服务器上暴露您机器上的服务。",
-          "example": "服务器监听一个端口并将流量转发回您的计算机。",
-          "diagram": ["远程用户", "SSH 服务器", "您的计算机"]
+          "summary": "在 SSH 服务器上暴露您机器上的服务。"
         },
         "dynamic": {
           "label": "动态",
           "title": "动态 SOCKS 代理",
-          "summary": "创建一个本地 SOCKS5 代理，通过 SSH 服务器发送应用流量。",
-          "example": "将浏览器或应用指向 localhost:1080 以通过服务器路由流量。",
-          "diagram": ["您的应用", "SOCKS 代理", "SSH 服务器"]
+          "summary": "创建一个本地 SOCKS5 代理，通过 SSH 服务器发送应用流量。"
         }
       },
-      "localPortOnComputer": "您计算机上的端口",
-      "localPortHelp": "您在本地连接此端口，通常为 localhost:{{port}}。",
-      "remotePortOnServer": "SSH 服务器上的端口",
-      "remotePortOnServerHelp": "从服务器的视角看，服务运行的端口。",
-      "hostOnServer": "SSH 服务器上的主机",
-      "hostOnServerHelp": "当服务运行在 SSH 服务器本身时使用 127.0.0.1。",
-      "remotePortOpenedOnServer": "SSH 服务器上打开的端口",
-      "remotePortOpenedOnServerHelp": "服务器端的人或服务连接到此端口。",
-      "localPortReceivingHelp": "应接收转发流量的本地应用或服务。",
-      "bindAddressOnServer": "SSH 服务器上的绑定地址",
-      "bindAddressOnServerHelp": "127.0.0.1 保持服务器私有。0.0.0.0 可能将其暴露到网络。",
-      "bindWarning": "0.0.0.0 会通过远程服务器将此端口暴露到所有网络接口。",
-      "bindAddressOnComputer": "您计算机上的绑定地址",
-      "bindAddressOnComputerHelp": "127.0.0.1 仅限本机访问。0.0.0.0 或网络地址允许其他设备连接。",
-      "bindWarningLocal": "您网络中的其他设备可以访问此端口并使用该隧道。",
-      "hostOnComputer": "您计算机上的主机",
-      "hostOnComputerHelp": "当目标应用运行在此计算机时使用 127.0.0.1。",
-      "socksProxyPort": "您计算机上的 SOCKS 代理端口",
-      "socksProxyPortHelp": "将应用配置为使用 localhost:{{port}} 作为 SOCKS5 代理。",
+      "route": "路径",
+      "yourComputer": "您的计算机",
+      "sshServer": "SSH 服务器",
+      "service": "服务",
+      "anyDestination": "任意目标",
+      "anyDestinationHelp": "每个应用自行决定访问的目标。流量从 SSH 服务器发出。",
+      "listenPort": "监听端口",
+      "socksPort": "SOCKS 代理端口",
+      "whoCanConnect": "谁可以连接",
+      "audience": {
+        "thisComputer": "本机",
+        "serverOnly": "仅服务器",
+        "network": "网络",
+        "custom": "自定义",
+        "customAddress": "监听地址"
+      },
+      "sharedWarning": {
+        "computer": "能访问此地址的其他设备都可以使用该隧道。",
+        "server": "任何能访问服务器上此地址的人都可以使用该隧道。"
+      },
+      "host": "主机",
+      "port": "端口",
+      "throughTunnel": "通过隧道",
+      "reaches": "到达",
+      "backThroughTunnel": "经隧道返回",
+      "summary": {
+        "incomplete": "填写端口后即可查看流量去向。",
+        "local": "在本机打开 <b>{{listener}}</b>，即可访问 SSH 服务器所见的 <b>{{target}}</b>。",
+        "localShared": "网络中的设备打开 <b>{{listener}}</b>，即可访问 SSH 服务器所见的 <b>{{target}}</b>。",
+        "remote": "SSH 服务器监听 <b>{{listener}}</b>，并将每个连接转发到本机的 <b>{{target}}</b>。",
+        "dynamic": "将 <b>{{listener}}</b> 用作 SOCKS5 代理的应用，其流量从 SSH 服务器发出。",
+        "dynamicShared": "将 <b>{{listener}}</b> 用作 SOCKS5 代理的设备，其流量从 SSH 服务器发出。",
+        "anyAddress": "<您的IP>",
+        "anyHost": "<主机>",
+        "copyCommand": "复制命令"
+      },
       "applyTo": "应用于",
       "allConnections": "所有连接",
       "specificConnections": "特定连接",

@@ -20,6 +20,7 @@ export function PortRow({
   portInfo,
   isActive,
   isError,
+  error,
   isBusy,
   isDeleting,
   isSaving,
@@ -40,6 +41,7 @@ export function PortRow({
   portInfo: string;
   isActive: boolean;
   isError?: boolean;
+  error?: string;
   isBusy: boolean;
   isDeleting: boolean;
   isSaving?: boolean;
@@ -121,9 +123,13 @@ export function PortRow({
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono text-(--t-text-muted) truncate leading-tight">
-            {portInfo}
-          </span>
+          {error ? (
+            <span title={error} className="text-[10px] text-red-400 truncate leading-tight">{error}</span>
+          ) : (
+            <span className="text-[10px] font-mono text-(--t-text-muted) truncate leading-tight">
+              {portInfo}
+            </span>
+          )}
           {bytes && (
             <span className="text-[10px] text-(--t-text-dim) shrink-0 leading-tight">
               {bytes}

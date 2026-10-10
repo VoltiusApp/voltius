@@ -177,6 +177,7 @@ async fn claim_key(
 #[derive(Debug)]
 pub enum ForwardError {
     PortInUse(u16, u8),
+    BindAddressUnavailable(String),
     Io(std::io::Error),
     Ssh(russh::Error),
 }
@@ -186,6 +187,9 @@ impl std::fmt::Display for ForwardError {
         match self {
             Self::PortInUse(port, attempts) => {
                 write!(f, "Port {port} already in use after {attempts} attempts")
+            }
+            Self::BindAddressUnavailable(address) => {
+                write!(f, "{address} is not an address of this machine")
             }
             Self::Io(e) => write!(f, "IO error: {e}"),
             Self::Ssh(e) => write!(f, "SSH error: {e}"),
@@ -209,6 +213,7 @@ impl Classify for ForwardError {
     fn error_code(&self) -> Option<ErrorCode> {
         match self {
             Self::PortInUse(..) => Some(ErrorCode::PortInUse),
+            Self::BindAddressUnavailable(_) => Some(ErrorCode::BindAddressUnavailable),
             Self::Io(e) => e.error_code(),
             // The only global request a tunnel sends is `tcpip-forward`.
             Self::Ssh(russh::Error::RequestDenied) => Some(ErrorCode::RemoteForwardDenied),
@@ -224,6 +229,7 @@ impl Classify for ForwardError {
                     ("attempts", attempts.to_string()),
                 ]
             }
+            Self::BindAddressUnavailable(address) => vec![("address", address.clone())],
             _ => Vec::new(),
         }
     }

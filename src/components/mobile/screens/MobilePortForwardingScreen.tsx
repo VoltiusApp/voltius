@@ -98,7 +98,7 @@ export default function MobilePortForwardingScreen() {
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{rule.name}</span>
                   <span lang="en" className="shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{rule.tunnel_type}</span>
                 </div>
-                <div className="text-[11px] text-(--t-text-dim) truncate">{st.statusLabel}</div>
+                <div className={`text-[11px] truncate ${st.status === "error" ? "text-red-400" : "text-(--t-text-dim)"}`}>{st.statusLabel}</div>
                 <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>
               </button>
               <button data-pf-toggle className="shrink-0 p-2 text-(--t-text-primary)" onClick={(e) => { e.stopPropagation(); if (st.status === "active") void stopRule(rule); else void startRule(rule); }}>
