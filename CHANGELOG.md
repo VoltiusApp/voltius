@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-10-10
+
+### Added
+
+- Local forwards and SOCKS proxies can be shared with other devices. A rule's new **Who can connect** choice listens on this computer only, on the whole network, or on one address such as `192.168.1.2` (#607)
+- The rule editor shows one line saying where a rule's traffic goes, with the matching `ssh` command to copy
+
+### Changed
+
+- The port forwarding rule editor is laid out as the route traffic takes: your computer, the SSH server, the service. "Apply to" now sits in the SSH server box
+- PuTTY imports keep the address each tunnel listens on
+
+### Fixed
+
+- A port forwarding rule that cannot start says why on its row, in the rules page, the terminal's Ports panel and on mobile, instead of failing silently
+
 ## [0.52.1] - 2026-10-09
 
 ### Fixed
