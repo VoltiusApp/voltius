@@ -47,7 +47,7 @@ beforeEach(() => {
 
 describe("editing hands the edited fields to the move", () => {
   test("a key passes its halves, written after a same-location update", async () => {
-    await saveKeyFromForm(existing, { tags: [], vault_id: "v-other" }, null, null, "pass", "personal");
+    await saveKeyFromForm(existing, { tags: [], vault_id: "v-other" }, null, null, "pass", "personal", () => {});
     expect(h.moveWithSecrets).toHaveBeenCalledWith("key", existing, "v-other", expect.any(Function), [
       ["key:k1:private", null], ["key:k1:public", null], ["key:k1:passphrase", "pass"],
     ]);
@@ -57,7 +57,7 @@ describe("editing hands the edited fields to the move", () => {
 
   test("an identity passes its password, written after a same-location update", async () => {
     const identity = { id: "i1", vault_id: "v-other" } as Identity;
-    await saveIdentityFromForm(identity, { vault_id: "personal" } as never, "pw", undefined, { current: null }, "personal");
+    await saveIdentityFromForm(identity, { vault_id: "personal" } as never, "pw", undefined, { current: null }, "personal", () => {});
     expect(h.moveWithSecrets).toHaveBeenCalledWith("identity", identity, "personal", expect.any(Function), [
       ["identity:i1:password", "pw"],
     ]);
@@ -68,7 +68,7 @@ describe("editing hands the edited fields to the move", () => {
 
 describe("saveKeyFromForm", () => {
   test("creates the key, then stores each half under its own secret name", async () => {
-    await saveKeyFromForm(null, { tags: [] }, "PRIV", "PUB", "pass", "personal");
+    await saveKeyFromForm(null, { tags: [] }, "PRIV", "PUB", "pass", "personal", () => {});
     expect(saveKey).toHaveBeenCalledWith({ tags: [], vault_id: "personal" });
     expect(storeSecret.mock.calls).toEqual([
       ["key:new:private", "PRIV"],
@@ -79,14 +79,14 @@ describe("saveKeyFromForm", () => {
   });
 
   test("a null half is left untouched, an emptied one is deleted on edit", async () => {
-    await saveKeyFromForm(existing, { tags: [] }, null, "", "pass", "personal");
+    await saveKeyFromForm(existing, { tags: [] }, null, "", "pass", "personal", () => {});
     expect(updateKey).toHaveBeenCalledWith("k1", { tags: [] });
     expect(storeSecret.mock.calls).toEqual([["key:k1:passphrase", "pass"]]);
     expect(deleteSecret.mock.calls).toEqual([["key:k1:public"]]);
   });
 
   test("an empty half on create writes nothing rather than deleting", async () => {
-    await saveKeyFromForm(null, { tags: [] }, "PRIV", "", "", "personal");
+    await saveKeyFromForm(null, { tags: [] }, "PRIV", "", "", "personal", () => {});
     expect(storeSecret.mock.calls).toEqual([["key:new:private", "PRIV"]]);
     expect(deleteSecret).not.toHaveBeenCalled();
   });
@@ -95,8 +95,39 @@ describe("saveKeyFromForm", () => {
 describe("saveIdentityFromForm", () => {
   test("an inline key is filed in the identity's vault, not the personal one", async () => {
     h.saveIdentity.mockResolvedValue({ id: "i-new" });
-    await saveIdentityFromForm(null, { username: "root", tags: [] }, null, { privateKey: "PRIV", publicKey: "" }, { current: null }, "team-1");
+    await saveIdentityFromForm(null, { username: "root", tags: [] }, null, { privateKey: "PRIV", publicKey: "" }, { current: null }, "team-1", () => {});
     expect(saveKey).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "team-1" }));
+  });
+});
+
+describe("a new object whose secret save fails", () => {
+  const refused = new TeamSecretUploadError("k", new Error("403"));
+
+  test("a key is announced first, so the next save edits it instead of creating another", async () => {
+    h.storeSecret.mockRejectedValue(refused);
+    const created = vi.fn();
+
+    await expect(saveKeyFromForm(null, { tags: [] }, "PRIV", null, null, "team-1", created)).rejects.toBe(refused);
+
+    expect(created).toHaveBeenCalledWith({ id: "new", vault_id: "personal" });
+  });
+
+  test("an identity is announced first too", async () => {
+    h.saveIdentity.mockResolvedValue({ id: "i-new" });
+    h.storeSecret.mockRejectedValue(refused);
+    const created = vi.fn();
+
+    await expect(
+      saveIdentityFromForm(null, { username: "root", tags: [] }, "pw", undefined, { current: null }, "team-1", created),
+    ).rejects.toBe(refused);
+
+    expect(created).toHaveBeenCalledWith({ id: "i-new" });
+  });
+
+  test("an edit announces nothing", async () => {
+    const created = vi.fn();
+    await saveKeyFromForm(existing, { tags: [] }, null, null, null, "personal", created);
+    expect(created).not.toHaveBeenCalled();
   });
 });
 

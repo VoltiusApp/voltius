@@ -37,12 +37,10 @@ export default function MobileIdentityEditScreen({ identityId }: { identityId?: 
           hideChrome
           initial={editing ?? undefined}
           flushRef={flushRef}
-          onSubmit={async (data, password, inlineKeyMaterial) => {
-            const saved = await saveIdentityFromForm(
-              editing, data, password, inlineKeyMaterial, inlineKeyIdRef, createVaultId,
-            );
-            if (!editing) setEditingId(saved.id);
-          }}
+          onSubmit={(data, password, inlineKeyMaterial) =>
+            saveIdentityFromForm(
+              editing, data, password, inlineKeyMaterial, inlineKeyIdRef, createVaultId, (created) => setEditingId(created.id),
+            )}
           onClose={pop}
         />
       </div>

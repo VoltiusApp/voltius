@@ -3,7 +3,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { storeSecret, getSecret } from "@/services/vault";
 import { reportUploadFailure } from "@/services/secretRouting";
-import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
+import { moveWithSecrets, createWithSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
 import type { AuthType, Connection, ConnectionFormData, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 
 type InlineKeyMaterial = { label?: string; privateKey: string; publicKey: string };
@@ -15,20 +15,16 @@ export async function saveKeyFromForm(
   publicKey: string | null,
   passphrase: string | null,
   fallbackVaultId: string,
-): Promise<SshKey> {
+  onCreated: (created: SshKey) => void,
+): Promise<void> {
   const { saveKey, updateKey } = useKeyStore.getState();
   const edits = (id: string): SecretEdit[] => [
     [`key:${id}:private`, privateKey],
     [`key:${id}:public`, publicKey],
     [`key:${id}:passphrase`, passphrase],
   ];
-  if (editing) {
-    await moveWithSecrets("key", editing, data.vault_id, () => updateKey(editing.id, data), edits(editing.id));
-    return editing;
-  }
-  const key = await saveKey({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-  await storeNewSecrets(edits(key.id));
-  return key;
+  if (editing) return moveWithSecrets("key", editing, data.vault_id, () => updateKey(editing.id, data), edits(editing.id));
+  await createWithSecrets(() => saveKey({ ...data, vault_id: data.vault_id ?? fallbackVaultId }), edits, onCreated);
 }
 
 /** `inlineKeyId` carries the key a previous autosave pass created, so repeated
@@ -40,7 +36,8 @@ export async function saveIdentityFromForm(
   inlineKeyMaterial: InlineKeyMaterial | undefined,
   inlineKeyId: { current: string | null },
   fallbackVaultId: string,
-): Promise<Identity> {
+  onCreated: (created: Identity) => void,
+): Promise<void> {
   const { saveIdentity, updateIdentity } = useIdentityStore.getState();
   let resolvedData = data;
 
@@ -57,12 +54,13 @@ export async function saveIdentityFromForm(
 
   const edits = (id: string): SecretEdit[] => [[`identity:${id}:password`, password]];
   if (editing) {
-    await moveWithSecrets("identity", editing, resolvedData.vault_id, () => updateIdentity(editing.id, resolvedData), edits(editing.id));
-    return editing;
+    return moveWithSecrets("identity", editing, resolvedData.vault_id, () => updateIdentity(editing.id, resolvedData), edits(editing.id));
   }
-  const identity = await saveIdentity({ ...resolvedData, vault_id: resolvedData.vault_id ?? fallbackVaultId });
-  await storeNewSecrets(edits(identity.id));
-  return identity;
+  await createWithSecrets(
+    () => saveIdentity({ ...resolvedData, vault_id: resolvedData.vault_id ?? fallbackVaultId }),
+    edits,
+    onCreated,
+  );
 }
 
 export async function unlinkIdentityFromHost(

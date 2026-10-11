@@ -589,8 +589,7 @@ export default function HostsPage() {
 
   const handleSubmit = async (data: ConnectionFormData, secrets: HostFormSecrets) => {
     try {
-      const saved = await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal");
-      if (!editing && saved) setEditingId(saved.id);
+      await saveHostFromForm(editing, data, secrets, selectedVaultIds[0] ?? "personal", (created) => setEditingId(created.id));
     } catch (err) {
       reportSaveError(err);
     }

@@ -39,7 +39,7 @@ describe("saveHostFromForm", () => {
     storeSecret.mockImplementation(async (k: string) => { calls.push(`store ${k}`); });
     const personal = { id: "c1", vault_id: "personal" } as never;
 
-    await saveHostFromForm(personal, { tags: [], vault_id: "v-other" }, { ...none, password: "new" }, "personal");
+    await saveHostFromForm(personal, { tags: [], vault_id: "v-other" }, { ...none, password: "new" }, "personal", () => {});
 
     expect(moveWithSecrets).toHaveBeenCalledWith("connection", personal, "v-other", expect.any(Function), [
       ["password:c1", "new"], ["key:c1", null], ["passphrase:c1", null], ["proxy_password:c1", null], ["knock_sequence:c1", null],
@@ -49,31 +49,49 @@ describe("saveHostFromForm", () => {
   });
 
   it("stores the proxy password locally", async () => {
-    await saveHostFromForm(editing, { tags: [] }, { ...none, proxy_password: "pp" }, "personal");
+    await saveHostFromForm(editing, { tags: [] }, { ...none, proxy_password: "pp" }, "personal", () => {});
     expect(storeSecret).toHaveBeenCalledWith("proxy_password:c1", "pp");
   });
 
   it("stores the knock sequence locally", async () => {
-    await saveHostFromForm(editing, { tags: [] }, { ...none, knock_sequence: "666/tcp" }, "personal");
+    await saveHostFromForm(editing, { tags: [] }, { ...none, knock_sequence: "666/tcp" }, "personal", () => {});
     expect(storeSecret).toHaveBeenCalledWith("knock_sequence:c1", "666/tcp");
   });
 
   it("clears the proxy password when emptied", async () => {
-    await saveHostFromForm(editing, { tags: [] }, { ...none, proxy_password: "" }, "personal");
+    await saveHostFromForm(editing, { tags: [] }, { ...none, proxy_password: "" }, "personal", () => {});
     expect(deleteSecret).toHaveBeenCalledWith("proxy_password:c1");
   });
 
   it("an edit that clears a password rejects when deleteSecret rejects", async () => {
     deleteSecret.mockRejectedValueOnce(new Error("withdraw failed"));
     await expect(
-      saveHostFromForm(editing, { tags: [] }, { ...none, password: "" }, "personal"),
+      saveHostFromForm(editing, { tags: [] }, { ...none, password: "" }, "personal", () => {}),
     ).rejects.toThrow("withdraw failed");
   });
 
   it("an upload failure while saving a host form reaches the caller", async () => {
     storeSecret.mockRejectedValue(new TeamSecretUploadError("password:c1", new Error("403")));
     await expect(
-      saveHostFromForm(editing, { tags: [] }, { ...none, password: "pw" }, "v1"),
+      saveHostFromForm(editing, { tags: [] }, { ...none, password: "pw" }, "v1", () => {}),
     ).rejects.toBeInstanceOf(TeamSecretUploadError);
+  });
+
+  it("a new host whose secret save fails is announced first, so the next save edits it instead of creating another", async () => {
+    saveConnection.mockResolvedValue({ id: "n1" });
+    storeSecret.mockRejectedValue(new TeamSecretUploadError("password:n1", new Error("403")));
+    const created = vi.fn();
+
+    await expect(
+      saveHostFromForm(null, { tags: [] }, { ...none, password: "pw" }, "team-1", created),
+    ).rejects.toBeInstanceOf(TeamSecretUploadError);
+
+    expect(created).toHaveBeenCalledWith({ id: "n1" });
+  });
+
+  it("an edit announces nothing", async () => {
+    const created = vi.fn();
+    await saveHostFromForm(editing, { tags: [] }, none, "personal", created);
+    expect(created).not.toHaveBeenCalled();
   });
 });

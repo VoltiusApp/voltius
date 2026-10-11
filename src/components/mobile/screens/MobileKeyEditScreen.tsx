@@ -39,10 +39,8 @@ export default function MobileKeyEditScreen({ keyId, mode }: { keyId?: string; m
           initial={editing ?? undefined}
           initialMode={mode}
           flushRef={flushRef}
-          onSubmit={async (data, privateKey, publicKey, passphrase) => {
-            const saved = await saveKeyFromForm(editing, data, privateKey, publicKey, passphrase, createVaultId);
-            if (!editing) setEditingId(saved.id);
-          }}
+          onSubmit={(data, privateKey, publicKey, passphrase) =>
+            saveKeyFromForm(editing, data, privateKey, publicKey, passphrase, createVaultId, (created) => setEditingId(created.id))}
           onClose={pop}
         />
       </div>

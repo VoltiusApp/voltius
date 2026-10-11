@@ -461,8 +461,9 @@ export default function KeychainPage() {
 
   const handleKeySubmit = async (data: SshKeyFormData, privateKey: string | null, publicKey: string | null, passphrase: string | null) => {
     try {
-      const key = await saveKeyFromForm(editingKey, data, privateKey, publicKey, passphrase, selectedVaultIds[0] ?? "personal");
-      if (!editingKey) setEditingKeyId(key.id);
+      await saveKeyFromForm(
+        editingKey, data, privateKey, publicKey, passphrase, selectedVaultIds[0] ?? "personal", (created) => setEditingKeyId(created.id),
+      );
     } catch (err) {
       reportSaveError(err);
     }
@@ -474,10 +475,10 @@ export default function KeychainPage() {
     inlineKeyMaterial?: { label?: string; privateKey: string; publicKey: string },
   ) => {
     try {
-      const identity = await saveIdentityFromForm(
+      await saveIdentityFromForm(
         editingIdentity, data, password, inlineKeyMaterial, inlineKeyIdRef, selectedVaultIds[0] ?? "personal",
+        (created) => setEditingIdentityId(created.id),
       );
-      if (!editingIdentity) setEditingIdentityId(identity.id);
     } catch (err) {
       reportSaveError(err);
     }

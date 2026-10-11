@@ -1,7 +1,7 @@
 import type { Connection, ConnectionFormData } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { CONNECTION_SECRET_FIELDS, CONNECTION_SECRET_KEYS, type ConnectionSecretField } from "@/services/teamVaultSecretKeys";
-import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
+import { moveWithSecrets, createWithSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
 
 export type HostFormSecrets = Record<ConnectionSecretField, string | null>;
 
@@ -17,13 +17,15 @@ export async function saveHostFromForm(
   data: ConnectionFormData,
   secrets: HostFormSecrets,
   fallbackVaultId: string,
-): Promise<Connection | null> {
+  onCreated: (created: Connection) => void,
+): Promise<void> {
   const { updateConnection, saveConnection } = useConnectionStore.getState();
   if (editing) {
-    await moveWithSecrets("connection", editing, data.vault_id, () => updateConnection(editing.id, data), secretEdits(editing.id, secrets));
-    return editing;
+    return moveWithSecrets("connection", editing, data.vault_id, () => updateConnection(editing.id, data), secretEdits(editing.id, secrets));
   }
-  const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? fallbackVaultId });
-  if (conn) await storeNewSecrets(secretEdits(conn.id, secrets));
-  return conn ?? null;
+  await createWithSecrets(
+    () => saveConnection({ ...data, vault_id: data.vault_id ?? fallbackVaultId }),
+    (id) => secretEdits(id, secrets),
+    onCreated,
+  );
 }

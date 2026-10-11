@@ -41,10 +41,7 @@ export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
           ref={formRef}
           hideChrome
           initial={editing ?? undefined}
-          onSubmit={async (data, secrets) => {
-            const saved = await saveHostFromForm(editing, data, secrets, createVaultId);
-            if (!editing && saved) setEditingId(saved.id);
-          }}
+          onSubmit={(data, secrets) => saveHostFromForm(editing, data, secrets, createVaultId, (created) => setEditingId(created.id))}
           onClose={pop}
           vaults={[]}
         />

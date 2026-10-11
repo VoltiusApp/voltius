@@ -96,7 +96,17 @@ async function applyEdits(
   }
 }
 
-export const storeNewSecrets = (edits: readonly SecretEdit[]) => applyEdits(edits, storeSecret, async () => {});
+export async function createWithSecrets<T extends { id: string }>(
+  create: () => Promise<T | null | undefined>,
+  edits: (id: string) => readonly SecretEdit[],
+  onCreated: (created: T) => void,
+): Promise<void> {
+  const created = await create();
+  if (!created) return;
+  // Announced before its secrets: a caller that never learns the id creates the object again on its next save.
+  onCreated(created);
+  await applyEdits(edits(created.id), storeSecret, async () => {});
+}
 
 export async function moveWithSecrets(
   kind: SecretObjectKind,
