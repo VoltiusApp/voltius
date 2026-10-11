@@ -87,6 +87,24 @@ test("a root menu opened near the right edge renders inside the window", () => {
   }
 });
 
+test.each([
+  ["a menu opened low in the window is shifted up instead of squeezed", "down", 560, 292],
+  ["an upward menu ends at the pointer when there is room above", "up", 560, 260],
+  ["an upward menu opened high in the window is pushed down instead of squeezed", "up", 120, 8],
+] as const)("%s", (_label, direction, y, expected) => {
+  const height = window.innerHeight;
+  window.innerHeight = 600;
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 190, height: 300 } as DOMRect);
+  try {
+    render(<ContextMenu items={[{ label: "Edit", onClick: () => {} }]} pos={{ x: 40, y }} onClose={() => {}} direction={direction} />);
+    const menu = screen.getByText("Edit").closest("[data-menu-portal]") as HTMLElement;
+    expect(menu.style.top).toBe(`${expected}px`);
+    expect(menu.style.maxHeight).toBe("584px");
+  } finally {
+    window.innerHeight = height;
+  }
+});
+
 test("labels and hints never wrap, so the measured width is the final width", () => {
   render(<ContextMenu items={[{ label: "A long label", hint: "a hint", onClick: () => {} }]} pos={{ x: 0, y: 0 }} onClose={() => {}} />);
   expect(screen.getByText("A long label").className).toContain("whitespace-nowrap");

@@ -36,6 +36,8 @@ export function ActiveTunnelsSection() {
   const connections = useAllConnections();
   const { sessions: relevantSessions, pfStates: pfStateMap } = useConnectedSshPfStates();
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
+  const collapsed = useUIStore((s) => s.activeTunnelsCollapsed);
+  const toggleCollapsed = useUIStore((s) => s.toggleActiveTunnelsCollapsed);
 
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
@@ -66,6 +68,7 @@ export function ActiveTunnelsSection() {
   }, [hostSessions, connections, pfStateMap, hiddenPorts]);
 
   const totalTunnelCount = sessionCards.reduce((sum, card) => sum + card.tunnels.length + card.suppressedPorts.length, 0);
+  const totalErrorCount = sessionCards.reduce((sum, card) => sum + card.errorCount, 0);
 
   if (totalTunnelCount === 0) return null;
 
@@ -112,10 +115,15 @@ export function ActiveTunnelsSection() {
       <SectionHeader
         label={t("portForwarding.activeTunnels.sectionTitle")}
         count={sessionCards.length}
-        aside={<StatusPill tone="connected">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</StatusPill>}
+        aside={<>
+          {totalErrorCount > 0 && <StatusPill tone="error">{t("portForwarding.activeTunnels.errorCount", { count: totalErrorCount })}</StatusPill>}
+          <StatusPill tone="connected">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</StatusPill>
+        </>}
+        collapsed={collapsed}
+        onToggle={toggleCollapsed}
       />
 
-      <div {...cardGridProps(layoutMode, "wide")}>
+      {!collapsed && <div {...cardGridProps(layoutMode, "wide")}>
         {sessionCards.map(({ session, connection, tunnels, suppressedPorts, errorCount }) => {
           const displayIcon = connection ? (connection.icon || connection.distro) : null;
           const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;
@@ -268,7 +276,7 @@ export function ActiveTunnelsSection() {
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -139,14 +139,20 @@ function useMeasuredSize(
   return size;
 }
 
+function viewportMaxHeight(scale = 1): number {
+  return (window.innerHeight - 2 * VIEWPORT_MARGIN) / scale;
+}
+
 function useFittedStart(
   ref: React.RefObject<HTMLElement | null>,
-  start: number,
+  anchor: number,
   axis: "width" | "height",
   deps: unknown[],
+  endsAtAnchor = false,
 ): number {
   const size = useMeasuredSize(ref, axis, deps);
-  if (size === null) return start;
+  if (size === null) return anchor;
+  const start = endsAtAnchor ? Math.max(VIEWPORT_MARGIN, anchor - size) : anchor;
   return fitWithin(start, size, axis === "width" ? window.innerWidth : window.innerHeight);
 }
 
@@ -176,7 +182,7 @@ function SubmenuPanel({ row, onMouseEnter, onMouseLeave, children }: {
       // PickerSurface treats this marker as inside-click; z-index keeps a flipped submenu above its parent.
       data-menu-portal=""
       className="surface-float fixed z-10000 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
-      style={{ left, top, maxHeight: window.innerHeight - 2 * VIEWPORT_MARGIN }}
+      style={{ left, top, maxHeight: viewportMaxHeight() }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -196,6 +202,7 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
   const uiScale = useUIStore((s) => s.uiScale);
   const menuRef = useRef<HTMLDivElement>(null);
   const left = useFittedStart(menuRef, pos.x, "width", [uiScale, items]);
+  const top = useFittedStart(menuRef, pos.y, "height", [uiScale, items], direction === "up");
 
   // Closing from window capture rather than behind a full-screen backdrop: the
   // backdrop swallowed the next right-click, so with one menu open, right-
@@ -216,12 +223,6 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
     };
   }, [onClose]);
 
-  const maxHeight = direction === "up" ? pos.y - 8 : window.innerHeight - pos.y - 8;
-
-  const placement = direction === "up"
-    ? { bottom: window.innerHeight - pos.y, transformOrigin: "bottom left" }
-    : { top: pos.y, transformOrigin: "top left" };
-
   return createPortal(
     <div
       ref={menuRef}
@@ -229,9 +230,11 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
       className="surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
       style={{
         left,
-        maxHeight,
+        top,
+        maxHeight: viewportMaxHeight(uiScale),
+        // The measured size is the scaled one, so the fitted top only holds from this origin.
         transform: `scale(${uiScale})`,
-        ...placement,
+        transformOrigin: "top left",
       }}
     >
       <MenuItemList items={items} onClose={onClose} />
