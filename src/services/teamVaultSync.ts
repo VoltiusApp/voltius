@@ -486,7 +486,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
           : false;
       }
       stateStore.setCredentialsUnavailable(teamId, !credentialsOk);
-      if (!options.background) await sweepLocalTeamSecrets(teamId);
+      await settleLoadedTeamSecrets(teamId, options);
       stateStore.setStatus(teamId, "loaded");
       return;
     }
@@ -582,7 +582,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   usePortForwardingStore.getState().setTeamRules(teamId, slices.portForwardingRules as PortForwardingRule[]);
 
   teamSecretCache.replaceTeam(teamId, new Map(Object.entries(blobPayload.secrets ?? {})));
-  if (!options.background) await sweepLocalTeamSecrets(teamId);
+  await settleLoadedTeamSecrets(teamId, options);
 
   stateStore.setStatus(teamId, "loaded");
 }
@@ -764,6 +764,12 @@ export async function sweepLocalTeamSecrets(teamId: string): Promise<void> {
   const ownedKeys = await teamOwnedSecretKeys(teamId);
   const stillPending = await retryPendingTeamSecretUploads(teamId, new Set(ownedKeys));
   await purgeTeamObjectSecrets(teamId, stillPending, ownedKeys);
+}
+
+async function settleLoadedTeamSecrets(teamId: string, options: TeamVaultRefreshOptions): Promise<void> {
+  if (!options.background) await sweepLocalTeamSecrets(teamId);
+  const { retryUnsentTeamSecrets } = await import("@/services/secretRouting");
+  await retryUnsentTeamSecrets(teamId);
 }
 
 /** Retries failed local-store purges, keeping queued any key now owned locally or still waiting to upload. */

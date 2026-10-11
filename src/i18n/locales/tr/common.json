@@ -170,6 +170,8 @@
       "secretsUploadPending": "Taşındı, ancak kimlik bilgileri henüz yüklenemedi. Bu cihazda kalıyor ve kasa bir sonraki yüklendiğinde yeniden denenecek: {{error}}",
       "failedToSaveTeamSecret": "Ekibin gizli bilgisi kaydedilemedi: {{status}}",
       "serverLacksTeamSecretType": "Bu Voltius sunucusu, bunu bir ekip kasasında saklamak için çok eski. Yöneticisinden sunucuyu güncellemesini isteyin, ardından yeniden kaydedin.",
+      "teamSecretRefused": "Ekip kasası bunu kabul etmedi, bu yüzden kaydedilmedi: {{error}}",
+      "teamSecretUploadPending": "Henüz ekip kasasına yüklenmedi. Voltius kapanana kadar saklanıyor ve kasa bir sonraki yüklendiğinde yeniden denenecek: {{error}}",
       "failedToLoadServerCapabilities": "Sunucunun neleri desteklediği denetlenemedi ({{status}})",
       "keyFetchFailed": "Anahtar alınamadı: {{error}}",
       "failedToUploadVaultKeys": "Kasa anahtarları yüklenemedi: {{status}}",

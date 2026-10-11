@@ -1,7 +1,7 @@
 import type { Connection, ConnectionFormData } from "@/types";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { getSecret, storeSecret } from "@/services/vault";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets } from "@/services/vaultObjectSecrets";
 import { secretKeysFor } from "@/services/teamVaultSecretKeys";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
@@ -31,7 +31,7 @@ export async function copyConnectionSecrets(
     const pending = getSecret(fromKey);
     const value = opts.swallowFetchErrors ? await pending.catch(() => null) : await pending;
     if (!value) continue;
-    await storeSecret(targets[i], value).catch(keepCachedOnUploadFailure("copyConnectionSecrets"));
+    await storeSecret(targets[i], value).catch(reportUploadFailure("copyConnectionSecrets"));
   }
 }
 

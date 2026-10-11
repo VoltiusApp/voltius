@@ -8,7 +8,9 @@ const h = vi.hoisted(() => ({
   hydrateTeamVaultSecrets: vi.fn(),
   checkAndRotateTeamKey: vi.fn(),
   purge: vi.fn(),
+  retryUnsent: vi.fn(),
 }));
+vi.mock("@/services/secretRouting", () => ({ retryUnsentTeamSecrets: h.retryUnsent }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: h.listTeamObjects }));
@@ -51,6 +53,7 @@ beforeEach(() => {
   h.hydrateTeamVaultSecrets.mockReset().mockResolvedValue(undefined);
   h.checkAndRotateTeamKey.mockReset().mockResolvedValue(undefined);
   h.purge.mockReset().mockImplementation(async (keys: string[]) => keys);
+  h.retryUnsent.mockReset().mockResolvedValue(undefined);
   useTeamVaultStateStore.getState().clearAll();
   teamSecretCache.clearAll();
   usePendingSecretWipeStore.getState().clearAll();
@@ -131,6 +134,11 @@ test("a foreground load sweeps the team's secret keys out of the local store", a
 test("a background refresh never sweeps", async () => {
   await fetchTeamData("t1", { background: true });
   expect(h.purge).not.toHaveBeenCalled();
+});
+
+test.each([{ background: false }, { background: true }])("a load ($background) retries the secrets earlier saves could not upload", async (options) => {
+  await fetchTeamData("t1", options);
+  expect(h.retryUnsent).toHaveBeenCalledWith("t1");
 });
 
 test("a failed sweep is queued for the next login", async () => {

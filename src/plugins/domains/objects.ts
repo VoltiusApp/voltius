@@ -33,7 +33,7 @@ import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { snippetToForm } from "@/utils/snippetForm";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { getSecret, storeSecret } from "@/services/vault";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
@@ -203,7 +203,7 @@ function resolveTab(
 
 const copySecret = async (from: string, to: string): Promise<void> => {
   const value = await getSecret(from).catch(() => null);
-  if (value) await storeSecret(to, value).catch(keepCachedOnUploadFailure("copySecret"));
+  if (value) await storeSecret(to, value).catch(reportUploadFailure("copySecret"));
 };
 
 interface DuplicateOpts {

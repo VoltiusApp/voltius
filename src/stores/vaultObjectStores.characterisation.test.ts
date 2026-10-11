@@ -33,7 +33,7 @@ vi.mock("@/services/teamObjectPersistence", () => ({
 }));
 vi.mock("@/services/secretRouting", () => ({
   writeSecretAt: h.writeSecretAt,
-  keepCachedOnUploadFailure: () => () => {},
+  reportUploadFailure: () => () => {},
 }));
 vi.mock("@/services/auditMutations", () => ({ reportAuditMutation: h.reportAuditMutation }));
 vi.mock("@/services/sync", () => ({ scheduleSync: h.scheduleSync }));

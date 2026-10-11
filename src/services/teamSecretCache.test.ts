@@ -58,3 +58,46 @@ test("a team counts as hydrated from replaceTeam until it is cleared", () => {
   teamSecretCache.clearAll();
   expect(teamSecretCache.isHydrated("t2")).toBe(false);
 });
+
+test("an unsent value shows over the server's and survives a reload of the team", () => {
+  teamSecretCache.set("t1", "password:c1", "served");
+  teamSecretCache.hold("t1", "password:c1", "typed");
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("typed");
+  expect(teamSecretCache.entries("t1").get("password:c1")).toBe("served");
+
+  teamSecretCache.replaceTeam("t1", new Map([["password:c1", "served again"]]));
+
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("typed");
+  expect([...teamSecretCache.unsent("t1")]).toEqual([["password:c1", "typed"]]);
+});
+
+test("releasing an unsent value shows what the server holds again", () => {
+  teamSecretCache.set("t1", "password:c1", "served");
+  teamSecretCache.hold("t1", "password:c1", "typed");
+  teamSecretCache.release("t1", "password:c1", "typed");
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("served");
+  expect(teamSecretCache.unsent("t1").size).toBe(0);
+});
+
+test("settling an older write leaves a newer unsent value showing", () => {
+  teamSecretCache.hold("t1", "password:c1", "newer");
+  teamSecretCache.release("t1", "password:c1", "older");
+  teamSecretCache.set("t1", "password:c1", "older");
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("newer");
+
+  teamSecretCache.set("t1", "password:c1", "newer");
+  expect(teamSecretCache.unsent("t1").size).toBe(0);
+  expect(teamSecretCache.get("t1", "password:c1")).toBe("newer");
+});
+
+test("delete, clearTeam and clearAll drop unsent values too", () => {
+  teamSecretCache.hold("t1", "a", "1");
+  teamSecretCache.delete("t1", "a");
+  expect(teamSecretCache.get("t1", "a")).toBeUndefined();
+  teamSecretCache.hold("t1", "b", "2");
+  teamSecretCache.clearTeam("t1");
+  expect(teamSecretCache.get("t1", "b")).toBeUndefined();
+  teamSecretCache.hold("t2", "c", "3");
+  teamSecretCache.clearAll();
+  expect(teamSecretCache.get("t2", "c")).toBeUndefined();
+});

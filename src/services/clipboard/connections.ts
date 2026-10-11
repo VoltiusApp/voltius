@@ -2,7 +2,7 @@ import type { Connection, ConnectionFormData, Identity, IdentityFormData, SshKey
 import type { VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import type { CascadeEntry } from "@/services/vaultClipboard";
 import { getSecret, storeSecret } from "@/services/vault";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets, moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { nameIsFree } from "@/utils/cloneName";
@@ -171,8 +171,8 @@ export function connectionsClipboardHalf(
           getSecret(`key:${key.id}:private`).catch(() => null),
           getSecret(`key:${key.id}:public`).catch(() => null),
         ]);
-        if (priv) await storeSecret(`key:${created.id}:private`, priv).catch(keepCachedOnUploadFailure("clipboard: paste key"));
-        if (pub) await storeSecret(`key:${created.id}:public`, pub).catch(keepCachedOnUploadFailure("clipboard: paste key"));
+        if (priv) await storeSecret(`key:${created.id}:private`, priv).catch(reportUploadFailure("clipboard: paste key"));
+        if (pub) await storeSecret(`key:${created.id}:public`, pub).catch(reportUploadFailure("clipboard: paste key"));
         cascadeRemap.keys.set(key.id, created.id);
       }
 
@@ -193,7 +193,7 @@ export function connectionsClipboardHalf(
           tags: identity.tags, vault_id: destination,
         }, identity.id));
         const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
-        if (pwd) await storeSecret(`identity:${created.id}:password`, pwd).catch(keepCachedOnUploadFailure("clipboard: paste identity"));
+        if (pwd) await storeSecret(`identity:${created.id}:password`, pwd).catch(reportUploadFailure("clipboard: paste identity"));
         cascadeRemap.identities.set(identity.id, created.id);
       }
     },

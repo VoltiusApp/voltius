@@ -61,7 +61,7 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
 import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
@@ -649,15 +649,15 @@ export default function HostsPage() {
               getSecret(`key:${key.id}:private`),
               getSecret(`key:${key.id}:public`),
             ]);
-            if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(keepCachedOnUploadFailure("HostsPage: copy key to vault"));
-            if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(keepCachedOnUploadFailure("HostsPage: copy key to vault"));
+            if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("HostsPage: copy key to vault"));
+            if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("HostsPage: copy key to vault"));
             newKeyId = newKey.id;
           }
 
           if (identityNeedsCopy) {
             const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
             const pwd = await getSecret(`identity:${identity.id}:password`);
-            if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("HostsPage: copy identity to vault"));
+            if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(reportUploadFailure("HostsPage: copy identity to vault"));
             newIdentityId = newIdentity.id;
           }
 
@@ -772,10 +772,10 @@ export default function HostsPage() {
               getSecret(`key:${key.id}:public`),
             ]);
             if (priv) {
-              await storeSecret(`key:${newKey.id}:private`, priv).catch(keepCachedOnUploadFailure("HostsPage: copy folder key"));
+              await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("HostsPage: copy folder key"));
             }
             if (pub) {
-              await storeSecret(`key:${newKey.id}:public`, pub).catch(keepCachedOnUploadFailure("HostsPage: copy folder key"));
+              await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("HostsPage: copy folder key"));
             }
             keyIdMap.set(key.id, newKey.id);
           }
@@ -787,7 +787,7 @@ export default function HostsPage() {
             const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
             const pwd = await getSecret(`identity:${identity.id}:password`);
             if (pwd) {
-              await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(keepCachedOnUploadFailure("HostsPage: copy folder identity"));
+              await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(reportUploadFailure("HostsPage: copy folder identity"));
             }
             identityIdMap.set(identity.id, newIdentity.id);
           }

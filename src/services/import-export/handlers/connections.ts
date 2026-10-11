@@ -4,7 +4,7 @@ import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
 import { dupesOf, selectionMethods, skipItem } from "../context";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { omitSecrets, fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
 export const connectionsHandler: DataTypeHandler = {
@@ -104,7 +104,7 @@ export const connectionsHandler: DataTypeHandler = {
         });
         if (conn._eid) ctx.connectionEidMap.set(conn._eid, saved.id);
         await storeConnectionSecrets(conn, saved.id, (key, value) =>
-          storeSecret(key, value).catch(keepCachedOnUploadFailure("import")),
+          storeSecret(key, value).catch(reportUploadFailure("import")),
         );
         imported++;
       } catch { errors++; }

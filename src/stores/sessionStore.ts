@@ -15,7 +15,7 @@ import { setEphemeralCredentials, clearEphemeralCredentials } from "@/services/e
 import { storeSecret, getSecret } from "@/services/vault";
 import { identityPickIssueOf, type IdentityPickIssue } from "@/services/credentialPlan";
 import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { findLoadedIdentity, isOwnLoadedIdentity } from "@/services/loadedIdentities";
 import { resolveTeamIdForVaultId } from "@/services/teamVaultSecrets";
@@ -492,15 +492,15 @@ async function persistConnectAuth(connection: Connection, override: ConnectRetry
     data.identity_id = undefined;
     data.key_id = undefined;
     data.auth_type = "key";
-    await storeSecret(`key:${connection.id}`, override.privateKey.trim()).catch(keepCachedOnUploadFailure("persistConnectAuth"));
+    await storeSecret(`key:${connection.id}`, override.privateKey.trim()).catch(reportUploadFailure("persistConnectAuth"));
     if (override.passphrase) {
-      await storeSecret(`passphrase:${connection.id}`, override.passphrase).catch(keepCachedOnUploadFailure("persistConnectAuth"));
+      await storeSecret(`passphrase:${connection.id}`, override.passphrase).catch(reportUploadFailure("persistConnectAuth"));
     }
   } else if (override.password) {
     data.identity_id = undefined;
     data.key_id = undefined;
     data.auth_type = "password";
-    await storeSecret(`password:${connection.id}`, override.password).catch(keepCachedOnUploadFailure("persistConnectAuth"));
+    await storeSecret(`password:${connection.id}`, override.password).catch(reportUploadFailure("persistConnectAuth"));
   }
 
   await useConnectionStore.getState().updateConnection(connection.id, data);
@@ -1049,7 +1049,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         credentials = await resolveSessionCredentials(connection, sessionId);
 
         const target = save ? passphraseSecretKey(connection, credentials) : null;
-        if (target) await storeSecret(target, passphrase).catch(keepCachedOnUploadFailure("reconnectWithPassphrase"));
+        if (target) await storeSecret(target, passphrase).catch(reportUploadFailure("reconnectWithPassphrase"));
 
         const opts = await buildSshConnectOptions(connection, sessionId);
         await sshConnect({

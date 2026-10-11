@@ -2,7 +2,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { connectionToFormData } from "@/stores/connectionStore";
 import { storeSecret, getSecret } from "@/services/vault";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { moveWithSecrets, storeNewSecrets, type SecretEdit } from "@/services/vaultObjectSecrets";
 import type { AuthType, Connection, ConnectionFormData, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 
@@ -80,7 +80,7 @@ export async function unlinkIdentityFromHost(
     identity_id: undefined,
     key_id: undefined,
   });
-  const keepCached = keepCachedOnUploadFailure("IdentityForm unlink");
+  const keepCached = reportUploadFailure("IdentityForm unlink");
   if (password) await storeSecret(`password:${conn.id}`, password).catch(keepCached);
   if (privateKey) await storeSecret(`key:${conn.id}`, privateKey).catch(keepCached);
 }

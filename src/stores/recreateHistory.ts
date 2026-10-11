@@ -70,9 +70,9 @@ export function pushTeamDeleteHistory<T extends PersistableTeamObject>(opts: Tea
       await saveTeamVaultObject(teamId, type, item);
       opts.putBack(item);
       if (secrets.length === 0) return;
-      const { writeSecretAt, keepCachedOnUploadFailure } = await import("@/services/secretRouting");
+      const { writeSecretAt, reportUploadFailure } = await import("@/services/secretRouting");
       for (const [key, value] of secrets) {
-        await writeSecretAt(teamId, key, value).catch(keepCachedOnUploadFailure(`restore team secret ${key}`));
+        await writeSecretAt(teamId, key, value).catch(reportUploadFailure(`restore team secret ${key}`));
       }
     },
     redo: () => opts.remove(item.id),

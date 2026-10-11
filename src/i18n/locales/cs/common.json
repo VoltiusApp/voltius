@@ -170,6 +170,8 @@
       "secretsUploadPending": "Přesunuto, ale přihlašovací údaje se zatím nepodařilo nahrát. Zůstávají na tomto zařízení a pokus o nahrání se zopakuje při příštím načtení trezoru: {{error}}",
       "failedToSaveTeamSecret": "Týmové tajemství se nepodařilo uložit: {{status}}",
       "serverLacksTeamSecretType": "Tento server Voltius je příliš starý na to, aby toto uložil do týmového trezoru. Požádejte jeho správce o aktualizaci serveru a pak uložte znovu.",
+      "teamSecretRefused": "Týmový trezor tuto hodnotu nepřijal, takže nebyla uložena: {{error}}",
+      "teamSecretUploadPending": "Zatím nenahráno do týmového trezoru. Hodnota zůstane uložena do zavření aplikace Voltius a pokus o nahrání se zopakuje při příštím načtení trezoru: {{error}}",
       "failedToLoadServerCapabilities": "Nepodařilo se ověřit, co server podporuje ({{status}})",
       "keyFetchFailed": "Načtení klíče se nezdařilo: {{error}}",
       "failedToUploadVaultKeys": "Klíče trezoru se nepodařilo nahrát: {{status}}",

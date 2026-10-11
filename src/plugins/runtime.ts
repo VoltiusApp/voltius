@@ -51,7 +51,7 @@ import { addKeyToHost } from "@/services/keyExport";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
 import type { Connection, TerminalSession } from "@/types";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteLocalSecret } from "@/services/vault";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
 import { registerLxcExecSession } from "@/services/proxmox";
@@ -1019,8 +1019,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           throw new Error("publicKey is not a valid SSH public key");
         }
         const key = await keyService.saveKey({ name: data.name, key_type: data.key_type, tags: data.tags ?? [] });
-        await storeSecret(`key:${key.id}:private`, privateKey).catch(keepCachedOnUploadFailure("plugin: keys.create"));
-        if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey).catch(keepCachedOnUploadFailure("plugin: keys.create"));
+        await storeSecret(`key:${key.id}:private`, privateKey).catch(reportUploadFailure("plugin: keys.create"));
+        if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey).catch(reportUploadFailure("plugin: keys.create"));
         return key as PluginKey;
       },
       async delete(keyId) {

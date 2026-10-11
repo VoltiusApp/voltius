@@ -1,6 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { getSecret, storeSecret } from "@/services/vault";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
 import type { SshKey } from "@/types";
 
@@ -50,7 +50,7 @@ export async function ensurePublicKey(sshKey: SshKey): Promise<string | null> {
   if ("error" in result) return null;
   if (!isValidSshPublicKey(result.publicKey)) return null;
 
-  await storeSecret(localKey, result.publicKey).catch(keepCachedOnUploadFailure("ensurePublicKey"));
+  await storeSecret(localKey, result.publicKey).catch(reportUploadFailure("ensurePublicKey", { toast: false }));
   return result.publicKey;
 }
 

@@ -1,22 +1,15 @@
 import i18n from "@/i18n";
 import type { SshKey, SshKeyFormData, Identity, IdentityFormData } from "@/types";
-import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 import { storeSecret, deleteSecret } from "@/services/vault";
-import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault, keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { readSecretAt, writeSecretAt, removeSecretAt, teamIdOfVault, reportUploadFailure } from "@/services/secretRouting";
+import { toastSecretFailure } from "@/services/secretFailureToast";
 import { secretKeysFor, type SecretObjectKind } from "@/services/teamVaultSecretKeys";
 import { logFailure } from "@/lib/logger";
 
-function toastSecretError(messageKey: string, error: unknown): void {
-  useNotificationStore.getState().addToast({
-    source: { kind: "plugin", id: "system", name: "Voltius" },
-    type: "toast",
-    message: i18n.t(messageKey, { error: error instanceof Error ? error.message : String(error) }),
-    severity: "error",
-    duration: 10000,
-  });
-}
+const toastSecretError = (messageKey: string, error: unknown): void =>
+  toastSecretFailure(i18n.t(messageKey, { error: error instanceof Error ? error.message : String(error) }));
 
 /** Reports a failed withdrawal instead of throwing: the object has already moved, but the material is still readable where it was. */
 async function withdrawOrWarn(withdrawal: Promise<void>): Promise<void> {
@@ -121,7 +114,7 @@ export async function moveWithSecrets(
   if (editsAtSource) {
     await applyEdits(
       edits,
-      (k, v) => writeSecretAt(from, k, v).catch(keepCachedOnUploadFailure(`secret edit before move ${k}`)),
+      (k, v) => writeSecretAt(from, k, v).catch(reportUploadFailure(`secret edit before move ${k}`)),
       (k) => removeSecretAt(from, k),
     );
   }

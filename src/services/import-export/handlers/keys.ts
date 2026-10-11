@@ -4,7 +4,7 @@ import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport, KeyRefExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
 import { dupesOf, resolveRefs, selectionMethods, skipItem } from "../context";
-import { keepCachedOnUploadFailure } from "@/services/secretRouting";
+import { reportUploadFailure } from "@/services/secretRouting";
 import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
 export const keysHandler: DataTypeHandler = {
@@ -47,7 +47,7 @@ export const keysHandler: DataTypeHandler = {
           vault_id: ctx.vault_id,
         });
         await storeKeySecrets(key, saved.id, (k, value) =>
-          storeSecret(k, value).catch(keepCachedOnUploadFailure("import")),
+          storeSecret(k, value).catch(reportUploadFailure("import")),
         );
         if (key._eid) ctx.keyEidMap.set(key._eid, saved.id);
         imported++;

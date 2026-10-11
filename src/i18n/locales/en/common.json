@@ -170,6 +170,8 @@
       "secretsUploadPending": "Moved, but its credentials could not be uploaded yet. They stay on this device and are retried the next time the vault loads: {{error}}",
       "failedToSaveTeamSecret": "Failed to save team secret: {{status}}",
       "serverLacksTeamSecretType": "This Voltius server is too old to store this in a team vault. Ask its administrator to update the server, then save again.",
+      "teamSecretRefused": "The team vault did not accept this, so it was not saved: {{error}}",
+      "teamSecretUploadPending": "Not uploaded to the team vault yet. It is kept until Voltius closes and retried the next time the vault loads: {{error}}",
       "failedToLoadServerCapabilities": "Couldn't check what the server supports ({{status}})",
       "keyFetchFailed": "Key fetch failed: {{error}}",
       "failedToUploadVaultKeys": "Failed to upload vault keys: {{status}}",
