@@ -11,9 +11,10 @@ const REFRESH_INTERVAL_MS = 5 * 60_000;
 interface ServerCapabilities {
   advertisedSecretTypes: string[] | null;
   refusedSecretTypes: TeamSecretType[];
+  twoFactor: boolean;
 }
 
-const UNKNOWN: ServerCapabilities = { advertisedSecretTypes: null, refusedSecretTypes: [] };
+const UNKNOWN: ServerCapabilities = { advertisedSecretTypes: null, refusedSecretTypes: [], twoFactor: false };
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
 
 let fetchedAt: number | null = null;
@@ -21,13 +22,14 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types } = await fetchServerMeta("common.error.failedToLoadServerCapabilities");
+    const { team_secret_types: types, two_factor } = await fetchServerMeta("common.error.failedToLoadServerCapabilities");
     fetchedAt = Date.now();
-    useServerCapabilities.setState(
-      Array.isArray(types)
+    useServerCapabilities.setState({
+      twoFactor: two_factor === true,
+      ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
-        : { advertisedSecretTypes: null },
-    );
+        : { advertisedSecretTypes: null }),
+    });
   } catch (e) {
     logFailure("server capabilities")(e);
   } finally {
@@ -64,4 +66,10 @@ export function noteRefusedSecretType(type: TeamSecretType): boolean {
 export function useServerLacksSecretType(type: TeamSecretType): boolean {
   useEffect(() => void refreshServerCapabilities(), []);
   return useServerCapabilities((s) => lacks(s, type));
+}
+
+/** Whether this server lets an account enrol a second factor; false until it says so. */
+export function useServerOffersTwoFactor(): boolean {
+  useEffect(() => void refreshServerCapabilities(), []);
+  return useServerCapabilities((s) => s.twoFactor);
 }

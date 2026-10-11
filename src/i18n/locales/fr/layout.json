@@ -60,7 +60,18 @@
       "confirmMasterPasswordPlaceholder": "Confirmer le mot de passe principal",
       "errorPasswordRequired": "Mot de passe requis",
       "errorMinLength4": "Au moins 4 caractères",
-      "pleaseWait": "Veuillez patienter…"
+      "pleaseWait": "Veuillez patienter…",
+      "reauthTitle": "Se reconnecter",
+      "reauthDesc": "Votre session sur cet appareil a pris fin. Saisissez votre mot de passe principal pour vous reconnecter."
+    },
+    "twoFactor": {
+      "prompt": "Saisissez le code à 6 chiffres de votre application d'authentification.",
+      "recoveryPrompt": "Saisissez l'un de vos codes de récupération. Chacun ne fonctionne qu'une fois.",
+      "codePlaceholder": "Code à 6 chiffres",
+      "recoveryPlaceholder": "Code de récupération",
+      "useRecovery": "Utiliser un code de récupération",
+      "useCode": "Utiliser un code d'authentification",
+      "verify": "Vérifier"
     },
     "mainPanel": {
       "noVaultSelectedTitle": "Aucun coffre sélectionné",

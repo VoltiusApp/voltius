@@ -341,6 +341,33 @@
         "changing": "Changing…",
         "changeBtn": "Change password"
       },
+      "twoFactor": {
+        "label": "Two-factor authentication",
+        "subOff": "Ask for a code from an authenticator app when signing in on a new device",
+        "subOn": "On. Signing in on a new device asks for a code",
+        "intro": "After your master password, signing in on a new device will ask for a 6-digit code from an authenticator app.",
+        "introDevices": "Turning this on signs out your other devices. They need a recent version of Voltius to sign back in.",
+        "continue": "Continue",
+        "scan": "Scan this with your authenticator app, or type the key below into it.",
+        "qrLabel": "QR code for your authenticator app",
+        "copyKey": "Copy key",
+        "confirmPrompt": "Then enter the 6-digit code it shows.",
+        "turnOn": "Turn on",
+        "codesTitle": "Save your recovery codes",
+        "codesBody": "Each code signs you in once if you lose your authenticator. They are not shown again.",
+        "copy": "Copy",
+        "copied": "Copied",
+        "save": "Save to file",
+        "saved": "I saved them",
+        "manageBody": "Signing in on a new device asks for a code from your authenticator app.",
+        "newCodes": "New recovery codes",
+        "newCodesSub": "The current ones stop working",
+        "turnOff": "Turn off",
+        "turnOffSub": "Sign in with the master password alone",
+        "generate": "Generate",
+        "regeneratePrompt": "Enter a code to replace your recovery codes.",
+        "disablePrompt": "Enter your master password and a code to turn two-factor authentication off."
+      },
       "setMasterPassword": {
         "label": "Set a master password",
         "sub": "Protect your vault locally without cloud sync"

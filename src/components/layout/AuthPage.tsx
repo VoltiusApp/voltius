@@ -11,6 +11,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
+import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { lastServerUrl } from "@/utils/serverInstance";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
@@ -56,16 +57,29 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     setConfirm("");
   };
 
-  const wrap = async (fn: () => Promise<void>) => {
+  const twoFactor = useTwoFactorChallenge();
+
+  // Not a bad password, so not the password form.
+  const unlessUnreadable = async (work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (e) {
+      if (!(e instanceof VaultUnreadableError)) throw e;
+      twoFactor.cancel();
+      setUnreadable("wrong-key");
+    }
+  };
+
+  const wrap = async (fn: () => Promise<void>, after?: () => Promise<void>) => {
     setLoading(true);
     setError("");
     try {
-      await fn();
-      onReady();
+      await unlessUnreadable(() => twoFactor.run(fn, async () => {
+        await after?.();
+        onReady();
+      }));
     } catch (e) {
-      // Not a bad password, so not the password form.
-      if (e instanceof VaultUnreadableError) setUnreadable("wrong-key");
-      else setError(e instanceof Error ? e.message : String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -130,13 +144,27 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     );
   }
 
+  // ── Second factor (the server accepted the password) ─────────────────────
+
+  if (twoFactor.challenge) {
+    const { methods, resume } = twoFactor.challenge;
+    return (
+      <Layout>
+        <TwoFactorStep
+          challenge={{ methods, resume: (proof) => unlessUnreadable(() => resume(proof)) }}
+          onCancel={twoFactor.cancel}
+          inputClassName={INPUT_CLASS}
+        />
+      </Layout>
+    );
+  }
+
   // ── Locked (vault exists, need password) ─────────────────────────────────
 
   if (isLocked) {
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await wrap(async () => {
-        await login(password);
+      await wrap(() => login(password), async () => {
         if (bindingLost) await rebindAfterPassword(password, t("layout.appLock.sealReason"));
       });
     };

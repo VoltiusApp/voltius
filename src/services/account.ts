@@ -12,6 +12,8 @@ import { rememberServer } from "@/utils/serverInstance";
 import { base64ToBytes, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import type { SavedAccount } from "./savedAccounts";
+import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
+import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -204,10 +206,64 @@ async function persistServerSession(session: {
   if (session.accountId) await keychainSet("account_id", session.accountId);
   await keychainSet("mode", "server");
   await keychainSet("email", session.email);
-  if (session.jwt) await keychainSet("jwt", session.jwt);
-  if (session.refreshToken) await keychainSet("refresh_token", session.refreshToken);
   await keychainSet("server_url", session.serverUrl);
+  if (session.jwt && session.refreshToken) {
+    await adoptSessionTokens({ jwt_token: session.jwt, refresh_token: session.refreshToken });
+  }
   rememberServer(session.serverUrl);
+}
+
+/** Store a token pair the server just issued; it supersedes whatever session was revoked. */
+export async function adoptSessionTokens(tokens: { jwt_token: string; refresh_token: string }): Promise<void> {
+  await keychainSet("jwt", tokens.jwt_token);
+  await keychainSet("refresh_token", tokens.refresh_token);
+  clearSessionRevoked();
+}
+
+interface LoginData {
+  jwt_token: string;
+  refresh_token: string;
+  wrapped_user_secrets?: string | null;
+}
+
+async function postJson(url: string, body: unknown): Promise<Response> {
+  return fetchWithTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Sign in and hand the session to `then`. An account with two-factor on throws
+ * TwoFactorRequiredError instead, whose `complete` runs the same `then` once a
+ * code is accepted, so every caller's follow-up survives the extra step.
+ */
+async function serverLogin<T>(
+  serverUrl: string,
+  accountId: string,
+  authKey: string,
+  refused: (status: number) => Error,
+  then: (data: LoginData) => Promise<T>,
+): Promise<T> {
+  const res = await postJson(`${serverUrl}/v1/auth/login`, { account_id: accountId, auth_key: authKey });
+  if (res.ok) return then(await res.json());
+  if (res.status !== 428) throw refused(res.status);
+
+  const challenge = await res.json().catch(() => null);
+  if (challenge?.error !== "TWO_FACTOR_REQUIRED" || !challenge.pending_token) throw refused(res.status);
+  throw new TwoFactorRequiredError<T>(challenge.methods ?? ["totp"], async (proof: TwoFactorProof) => {
+    const second = await postJson(`${serverUrl}/v1/auth/login/2fa`, {
+      pending_token: challenge.pending_token,
+      ...proofBody(proof),
+    });
+    if (second.ok) return then(await second.json());
+    const refusal = await twoFactorError(second);
+    if (refusal) throw refusal;
+    // A bare 401 here is the pending token: expired, or the account moved on.
+    if (second.status === 401) throw new Error(i18n.t("common.error.twoFactorExpired"));
+    throw refused(second.status);
+  });
 }
 
 export type LockKind = "screen" | "vault";
@@ -329,6 +385,7 @@ export async function login(password: string, email?: string, serverUrl?: string
       : null;
 
   let encKey: number[];
+  let cachedSecretsOpen = false;
   if (mode === "local-nopassword") {
     // password IS the stored hex key — convert back to bytes
     encKey = hexToBytes(password);
@@ -338,48 +395,69 @@ export async function login(password: string, email?: string, serverUrl?: string
     const opened = await passwordVaultKey(kek, false);
     // Without a cached dek only the server can supply a cloud vault's key.
     if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
+    // Only the dek unwrapped from this device's cached secrets proves the password without the server.
+    cachedSecretsOpen = !!opened && opened !== kek;
     encKey = opened ?? kek;
   }
 
-  setVaultKey(encKey);
+  const openLocally = async () => {
+    setVaultKey(encKey);
+    await rememberPassword(password);
+    await keychainSet("account_id", accountId);
+    if (!mode) {
+      // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss).
+      // Server mode is corrected below if server auth succeeds.
+      await keychainSet("mode", isHexEncoded32ByteKey(password) ? "local-nopassword" : "local");
+    }
+  };
 
-  await rememberPassword(password);
-  await keychainSet("account_id", accountId);
-  if (!mode) {
-    // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss).
-    // Server mode is corrected below if server auth succeeds.
-    await keychainSet("mode", isHexEncoded32ByteKey(password) ? "local-nopassword" : "local");
+  if (!reauth) return openLocally();
+
+  // An unlock is not a sign-in: while the server still honours this device's
+  // session, a password that opened the vault has nothing left to prove.
+  if (cachedSecretsOpen && (await sessionStillHonoured())) {
+    await openLocally();
+    await persistServerSession({ serverUrl: reauth.serverUrl, email: reauth.email });
+    reloadSubscription();
+    return;
   }
 
-  if (reauth) {
-    const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
-    const res = await fetchWithTimeout(`${reauth.serverUrl}/v1/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account_id: accountId, auth_key }),
-    });
-    if (!res.ok) throw new Error(i18n.t("common.error.serverLoginFailed"));
-    const data = await res.json();
-    await persistServerSession({
-      serverUrl: reauth.serverUrl, email: reauth.email,
-      jwt: data.jwt_token, refreshToken: data.refresh_token,
-    });
+  const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
+  // The local writes wait for the server: a sign-in left at the code step must not look like a local account.
+  await serverLogin(
+    reauth.serverUrl, accountId, auth_key,
+    () => new Error(i18n.t("common.error.serverLoginFailed")),
+    async (data) => {
+      await openLocally();
+      await persistServerSession({
+        serverUrl: reauth.serverUrl, email: reauth.email,
+        jwt: data.jwt_token, refreshToken: data.refresh_token,
+      });
 
-    if (data.wrapped_user_secrets) {
-      const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
-      useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
-      // This device's secrets.enc may predate the split and still be kek-encrypted.
-      const opens = await keyThatOpensVault(unwrapped.dek, kek);
-      // Server login proved the password, so this is an unreadable file, not a bad one.
-      if (!opens) throw new VaultUnreadableError();
-      setVaultKey(opens);
-      await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
-    } else {
-      // Legacy account — trigger one-time migration
-      await migrateToWrappedUserSecrets(password, accountId, kek, reauth.serverUrl, data.jwt_token);
-    }
+      if (data.wrapped_user_secrets) {
+        const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
+        useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
+        // This device's secrets.enc may predate the split and still be kek-encrypted.
+        const opens = await keyThatOpensVault(unwrapped.dek, kek);
+        // Server login proved the password, so this is an unreadable file, not a bad one.
+        if (!opens) throw new VaultUnreadableError();
+        setVaultKey(opens);
+        await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
+      } else {
+        // Legacy account — trigger one-time migration
+        await migrateToWrappedUserSecrets(password, accountId, kek, reauth.serverUrl, data.jwt_token);
+      }
 
-    reloadSubscription();
+      reloadSubscription();
+    },
+  );
+}
+
+async function sessionStillHonoured(): Promise<boolean> {
+  try {
+    return typeof (await refreshAccessToken({ fetchImpl: fetchWithTimeout, quiet: true })) !== "string";
+  } catch {
+    return false;
   }
 }
 
@@ -497,6 +575,7 @@ export interface MeResponse {
   email_verified?: boolean;
   email_undeliverable?: boolean;
   handle_managed?: boolean;
+  two_factor_enabled?: boolean;
 }
 
 export const EMAIL_CHANGED_EVENT = "voltius:email-changed";
@@ -538,21 +617,9 @@ export async function getMyHandle(): Promise<string> {
 }
 
 async function refreshJwt(): Promise<void> {
-  const [refreshToken, serverUrl] = await Promise.all([
-    keychainGet("refresh_token"),
-    keychainGet("server_url"),
-  ]);
-  if (!refreshToken || !serverUrl) throw new Error(i18n.t("common.error.sessionExpired"));
-
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  if (!res.ok) throw new Error(i18n.t("common.error.sessionRefreshFailed"));
-
-  const { jwt_token } = await res.json();
-  await keychainSet("jwt", jwt_token);
+  const outcome = await refreshAccessToken({ fetchImpl: fetchWithTimeout });
+  if (outcome === "no-session") throw new Error(i18n.t("common.error.sessionExpired"));
+  if (typeof outcome === "string") throw new Error(i18n.t("common.error.sessionRefreshFailed"));
 }
 
 export async function refreshSession(): Promise<void> {
@@ -631,55 +698,63 @@ function authFailure(status: number, expected: string): Error {
   return new Error(i18n.t("common.error.serverError", { status }));
 }
 
-async function signInServerAccount(email: string, password: string, serverUrl: string) {
+interface ServerSignIn {
+  accountId: string;
+  kek: number[];
+  data: LoginData;
+}
+
+async function signInServerAccount<T>(
+  email: string,
+  password: string,
+  serverUrl: string,
+  then: (signedIn: ServerSignIn) => Promise<T>,
+): Promise<T> {
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
   if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
   const { account_id: accountId } = await res.json();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
 
-  const loginRes = await fetchWithTimeout(`${serverUrl}/v1/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account_id: accountId, auth_key }),
-  });
-  if (!loginRes.ok) throw authFailure(loginRes.status, "common.error.invalidEmailOrPassword");
-  const data: { jwt_token: string; refresh_token: string; wrapped_user_secrets?: string | null } = await loginRes.json();
-  return { accountId: accountId as string, kek, data };
+  return serverLogin(
+    serverUrl, accountId, auth_key,
+    (status) => authFailure(status, "common.error.invalidEmailOrPassword"),
+    (data) => then({ accountId, kek, data }),
+  );
 }
 
-/** Sign in to an existing cloud account (any local mode — replaces local identity). */
 export async function signInToCloud(
   email: string,
   password: string,
   serverUrl: string,
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
-  const { accountId, kek, data } = await signInServerAccount(email, password, serverUrl);
-  // Read with the outgoing key, before setVaultKey swaps it.
-  const carried = await readLocalSecrets(deviceScopedSecretKeys());
+  await signInServerAccount(email, password, serverUrl, async ({ accountId, kek, data }) => {
+    // Read with the outgoing key, before setVaultKey swaps it.
+    const carried = await readLocalSecrets(deviceScopedSecretKeys());
 
-  let vaultKey = kek;
-  if (data.wrapped_user_secrets) {
-    const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
-    useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
-    vaultKey = unwrapped.dek;
-    await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
-  }
+    let vaultKey = kek;
+    if (data.wrapped_user_secrets) {
+      const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
+      useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
+      vaultKey = unwrapped.dek;
+      await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
+    }
 
-  setVaultKey(vaultKey);
+    setVaultKey(vaultKey);
 
-  await persistServerSession({
-    serverUrl, email, accountId, password,
-    jwt: data.jwt_token, refreshToken: data.refresh_token,
+    await persistServerSession({
+      serverUrl, email, accountId, password,
+      jwt: data.jwt_token, refreshToken: data.refresh_token,
+    });
+    reloadSubscription();
+
+    // Delete the old secrets.enc (encrypted with the previous account's key — the new
+    // key cannot open it and secrets_unlock would fail with "wrong key or corrupted file").
+    // config_wipe also clears the JSON entity files; clearLocalEntityState will repopulate
+    // them with empty arrays so syncOnLogin starts from a clean slate.
+    await wipeLocalConfig(carried);
   });
-  reloadSubscription();
-
-  // Delete the old secrets.enc (encrypted with the previous account's key — the new
-  // key cannot open it and secrets_unlock would fail with "wrong key or corrupted file").
-  // config_wipe also clears the JSON entity files; clearLocalEntityState will repopulate
-  // them with empty arrays so syncOnLogin starts from a clean slate.
-  await wipeLocalConfig(carried);
 }
 
 /** Sign in to, or register, another cloud account without touching the active session. */
@@ -690,21 +765,24 @@ export async function authenticateServerAccount(
   serverUrl: string,
 ): Promise<Omit<SavedAccount, "mode">> {
   serverUrl = normalizeServerUrl(serverUrl);
-  const { accountId, data, wrapped_user_secrets } = kind === "register"
-    ? await registerServerAccount(email, password, serverUrl)
-    : await signInServerAccount(email, password, serverUrl).then((r) => ({
-      ...r, wrapped_user_secrets: r.data.wrapped_user_secrets ?? null,
-    }));
-  rememberServer(serverUrl);
-  return {
-    account_id: accountId,
-    email,
-    server_url: serverUrl,
-    master_password: password,
-    jwt: data.jwt_token,
-    refresh_token: data.refresh_token,
-    wrapped_user_secrets,
+  const saved = (accountId: string, data: { jwt_token: string; refresh_token: string }, wrapped: string | null) => {
+    rememberServer(serverUrl);
+    return {
+      account_id: accountId,
+      email,
+      server_url: serverUrl,
+      master_password: password,
+      jwt: data.jwt_token,
+      refresh_token: data.refresh_token,
+      wrapped_user_secrets: wrapped,
+    };
   };
+  if (kind === "register") {
+    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl);
+    return saved(accountId, data, wrapped_user_secrets);
+  }
+  return signInServerAccount(email, password, serverUrl, async ({ accountId, data }) =>
+    saved(accountId, data, data.wrapped_user_secrets ?? null));
 }
 
 /** Link an existing local account to a cloud server — registers and enables sync. */
@@ -785,6 +863,7 @@ async function passwordChangeMayHaveLanded(res: Response | null, newWrapped: str
 export async function changeMasterPassword(
   currentPassword: string,
   newPassword: string,
+  proof?: TwoFactorProof | null,
 ): Promise<void> {
   const [accountId, jwt, serverUrl] = await Promise.all([
     keychainGet("account_id"),
@@ -824,37 +903,39 @@ export async function changeMasterPassword(
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/password`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-    body: JSON.stringify({ old_auth_key, new_auth_key, new_wrapped_user_secrets }),
+    body: JSON.stringify({ old_auth_key, new_auth_key, new_wrapped_user_secrets, ...proofBody(proof) }),
   }).catch(async (e) => {
     await undoMoveUnlessLanded(null);
     throw e;
   });
   if (!res.ok) {
     await undoMoveUnlessLanded(res);
+    const refusal = await twoFactorError(res);
+    if (refusal) throw refusal;
     if (res.status === 401) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
     throw new Error(i18n.t("common.error.passwordChangeFailed", { status: res.status }));
   }
 
   const data = await res.json();
   await replacePassword(newPassword, i18n.t("layout.appLock.sealReason"));
-  await keychainSet("jwt", data.jwt_token);
-  await keychainSet("refresh_token", data.refresh_token);
+  await adoptSessionTokens(data);
   await keychainSet("wrapped_user_secrets", new_wrapped_user_secrets);
   useVaultKeysStore.getState().set({ dek: cachedDek, x25519Private: cachedX25519, kek: new_kek });
   if (undoMove) pushUnderNewVaultKey();
   reloadSubscription();
 }
 
-export async function changeEmail(newEmail: string, currentPassword: string): Promise<void> {
-  const [accountId, jwt, serverUrl] = await Promise.all([
-    keychainGet("account_id"),
-    keychainGet("jwt"),
-    keychainGet("server_url"),
-  ]);
+/** The login key for the signed-in account, as the server expects it to re-prove a password. */
+export async function deriveAuthKey(password: string): Promise<string> {
+  const accountId = await keychainGet("account_id");
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
-  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  return (await deriveKeys(password, accountId)).auth_key;
+}
 
-  const { auth_key } = await deriveKeys(currentPassword, accountId);
+export async function changeEmail(newEmail: string, currentPassword: string): Promise<void> {
+  const auth_key = await deriveAuthKey(currentPassword);
+  const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
+  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/email`, {
     method: "PUT",

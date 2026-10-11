@@ -2,17 +2,24 @@ import { useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { changeMasterPassword } from "@/services/account";
+import { INPUT_CLASS } from "@/components/layout/authParts";
+import {
+  EMPTY_TWO_FACTOR_ENTRY, TwoFactorField, entryProof, type TwoFactorEntry,
+} from "@/components/shared/TwoFactorStep";
 import { FormButtons, SettingsDialog, SettingsInput } from "./shared";
 
 interface Props {
+  /** The server asks for a code with the change once the account has a second factor. */
+  twoFactorEnabled?: boolean;
   onClose: () => void;
 }
 
-export default function ChangeMasterPasswordModal({ onClose }: Props) {
+export default function ChangeMasterPasswordModal({ twoFactorEnabled, onClose }: Props) {
   const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [twoFactor, setTwoFactor] = useState<TwoFactorEntry>(EMPTY_TWO_FACTOR_ENTRY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -39,7 +46,7 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
     setLoading(true);
     setError("");
     try {
-      await changeMasterPassword(currentPassword, newPassword);
+      await changeMasterPassword(currentPassword, newPassword, twoFactorEnabled ? entryProof(twoFactor) : null);
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -87,6 +94,9 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
             value={confirmPassword}
             onChange={setConfirmPassword}
           />
+          {twoFactorEnabled && (
+            <TwoFactorField entry={twoFactor} onChange={setTwoFactor} inputClassName={INPUT_CLASS} />
+          )}
           {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
           <FormButtons
             onCancel={onClose}

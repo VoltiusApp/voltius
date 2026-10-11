@@ -77,8 +77,8 @@ export type KeychainPendingAction =
   | { action: "edit-identity"; id: string }
   | null;
 export type CloudAuthMode = "signin" | "register";
-/** `link` moves the current local account to the cloud; `add` signs in to another one beside it. */
-export type CloudAuthPurpose = "link" | "add";
+/** `link` moves the current local account to the cloud; `add` signs in to another one beside it; `reauth` renews the current one after the server ended its session. */
+export type CloudAuthPurpose = "link" | "add" | "reauth";
 
 export type MembersPanel = "invite" | "roles" | "security";
 

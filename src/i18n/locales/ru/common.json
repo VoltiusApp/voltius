@@ -64,7 +64,9 @@
       "undoFailed": "Не удалось отменить действие: {{error}}",
       "redoFailed": "Не удалось повторить действие: {{error}}",
       "fileSaved": "Сохранено в {{path}}",
-      "fileSaveFailed": "Не удалось сохранить файл: {{error}}"
+      "fileSaveFailed": "Не удалось сохранить файл: {{error}}",
+      "sessionRevoked": "На этом устройстве выполнен выход из учётной записи Voltius. Войдите снова, чтобы продолжить синхронизацию.",
+      "signInAgain": "Войти"
     },
     "error": {
       "identityPickUnavailable": "Ваша личность для {{host}} недоступна",
@@ -205,7 +207,14 @@
       "inviteCodeMalformed": "Код указан в неверном формате",
       "inviteCodeNotFound": "Код истёк или указан неверно",
       "inviteCodeTooManyAttempts": "Слишком много попыток — подождите и попробуйте снова",
-      "businessPlanRequired": "Для этого нужен тариф Business команды."
+      "businessPlanRequired": "Для этого нужен тариф Business команды.",
+      "twoFactorRequired": "Введите код из приложения-аутентификатора.",
+      "twoFactorInvalid": "Неверный код. Попробуйте следующий код из приложения.",
+      "twoFactorLocked": "Слишком много неверных кодов. Повторите попытку через 15 минут.",
+      "twoFactorUnavailable": "Этот сервер сейчас не может проверять коды аутентификатора. Используйте резервный код.",
+      "twoFactorAlreadyEnabled": "Двухфакторная аутентификация уже включена.",
+      "twoFactorNotEnabled": "Двухфакторная аутентификация не включена.",
+      "twoFactorExpired": "Вход занял слишком много времени. Начните заново."
     },
     "clipboard": {
       "cut_one": "Вырезан {{count}} элемент",

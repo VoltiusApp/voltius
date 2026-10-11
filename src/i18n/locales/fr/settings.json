@@ -341,6 +341,33 @@
         "changing": "Modification…",
         "changeBtn": "Changer le mot de passe"
       },
+      "twoFactor": {
+        "label": "Authentification à deux facteurs",
+        "subOff": "Demander un code d'une application d'authentification lors de la connexion sur un nouvel appareil",
+        "subOn": "Activée. La connexion sur un nouvel appareil demande un code",
+        "intro": "Après votre mot de passe principal, la connexion sur un nouvel appareil demandera un code à 6 chiffres d'une application d'authentification.",
+        "introDevices": "L'activation déconnecte vos autres appareils. Il leur faut une version récente de Voltius pour se reconnecter.",
+        "continue": "Continuer",
+        "scan": "Scannez ce code avec votre application d'authentification, ou saisissez-y la clé ci-dessous.",
+        "qrLabel": "Code QR pour votre application d'authentification",
+        "copyKey": "Copier la clé",
+        "confirmPrompt": "Saisissez ensuite le code à 6 chiffres qu'elle affiche.",
+        "turnOn": "Activer",
+        "codesTitle": "Enregistrez vos codes de récupération",
+        "codesBody": "Chaque code vous connecte une fois si vous perdez votre application d'authentification. Ils ne seront plus affichés.",
+        "copy": "Copier",
+        "copied": "Copié",
+        "save": "Enregistrer dans un fichier",
+        "saved": "Je les ai enregistrés",
+        "manageBody": "La connexion sur un nouvel appareil demande un code de votre application d'authentification.",
+        "newCodes": "Nouveaux codes de récupération",
+        "newCodesSub": "Les codes actuels cessent de fonctionner",
+        "turnOff": "Désactiver",
+        "turnOffSub": "Se connecter avec le mot de passe principal seul",
+        "generate": "Générer",
+        "regeneratePrompt": "Saisissez un code pour remplacer vos codes de récupération.",
+        "disablePrompt": "Saisissez votre mot de passe principal et un code pour désactiver l'authentification à deux facteurs."
+      },
       "setMasterPassword": {
         "label": "Définir un mot de passe maître",
         "sub": "Protégez votre coffre-fort localement sans synchronisation cloud"

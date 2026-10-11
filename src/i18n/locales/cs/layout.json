@@ -60,7 +60,18 @@
       "confirmMasterPasswordPlaceholder": "Potvrďte hlavní heslo",
       "errorPasswordRequired": "Heslo je povinné",
       "errorMinLength4": "Alespoň 4 znaky",
-      "pleaseWait": "Čekejte prosím…"
+      "pleaseWait": "Čekejte prosím…",
+      "reauthTitle": "Přihlaste se znovu",
+      "reauthDesc": "Relace na tomto zařízení skončila. Zadejte hlavní heslo a připojte se znovu."
+    },
+    "twoFactor": {
+      "prompt": "Zadejte šestimístný kód z ověřovací aplikace.",
+      "recoveryPrompt": "Zadejte jeden ze záložních kódů. Každý funguje jen jednou.",
+      "codePlaceholder": "Šestimístný kód",
+      "recoveryPlaceholder": "Záložní kód",
+      "useRecovery": "Použít záložní kód",
+      "useCode": "Použít kód z ověřovací aplikace",
+      "verify": "Ověřit"
     },
     "mainPanel": {
       "noVaultSelectedTitle": "Nejsou vybrány žádné trezory",

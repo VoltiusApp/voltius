@@ -60,7 +60,18 @@
       "confirmMasterPasswordPlaceholder": "确认主密码",
       "errorPasswordRequired": "需要密码",
       "errorMinLength4": "至少 4 个字符",
-      "pleaseWait": "请稍候…"
+      "pleaseWait": "请稍候…",
+      "reauthTitle": "重新登录",
+      "reauthDesc": "此设备上的会话已结束。请输入主密码以重新连接。"
+    },
+    "twoFactor": {
+      "prompt": "请输入身份验证器应用中的 6 位验证码。",
+      "recoveryPrompt": "请输入一个恢复码。每个恢复码只能使用一次。",
+      "codePlaceholder": "6 位验证码",
+      "recoveryPlaceholder": "恢复码",
+      "useRecovery": "使用恢复码",
+      "useCode": "使用身份验证器验证码",
+      "verify": "验证"
     },
     "mainPanel": {
       "noVaultSelectedTitle": "未选择保险库",

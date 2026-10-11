@@ -64,7 +64,9 @@
       "undoFailed": "Undo failed: {{error}}",
       "redoFailed": "Redo failed: {{error}}",
       "fileSaved": "Saved to {{path}}",
-      "fileSaveFailed": "Couldn't save the file: {{error}}"
+      "fileSaveFailed": "Couldn't save the file: {{error}}",
+      "sessionRevoked": "This device was signed out of your Voltius account. Sign in again to keep syncing.",
+      "signInAgain": "Sign in"
     },
     "error": {
       "identityPickUnavailable": "Your identity for {{host}} isn't available",
@@ -205,7 +207,14 @@
       "inviteCodeMalformed": "That code is not in the right format",
       "inviteCodeNotFound": "That code has expired or is incorrect",
       "inviteCodeTooManyAttempts": "Too many attempts — wait a moment and try again",
-      "businessPlanRequired": "This needs the team's Business plan."
+      "businessPlanRequired": "This needs the team's Business plan.",
+      "twoFactorRequired": "Enter the code from your authenticator app.",
+      "twoFactorInvalid": "Wrong code. Try the next one your app shows.",
+      "twoFactorLocked": "Too many wrong codes. Try again in 15 minutes.",
+      "twoFactorUnavailable": "This server cannot check authenticator codes right now. Use a recovery code.",
+      "twoFactorAlreadyEnabled": "Two-factor authentication is already on.",
+      "twoFactorNotEnabled": "Two-factor authentication is not on.",
+      "twoFactorExpired": "This sign-in took too long. Start again."
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",

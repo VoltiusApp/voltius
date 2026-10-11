@@ -2,7 +2,7 @@ import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { getJwt, getServerUrl, isJwtExpiredOrExpiring } from "@/services/authTokens";
+import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
 import { buildUserDataBundle, mergeUserDataBundle, applyUserDataBundle } from "@/services/user-data/registry";
@@ -28,7 +28,6 @@ import { initTeamVaultKey } from "@/services/teamVaultSync";
 import { onTeamLogin } from "@/services/teamDataManager";
 import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/services/teamMembershipEvents";
 import * as teamService from "@/services/teamService";
-import { appFetch } from "@/services/http";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
@@ -124,21 +123,9 @@ export { getServerUrl };
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
 async function tryRefreshJwt(): Promise<string | null> {
-  const [refreshToken, serverUrl] = await Promise.all([
-    invoke<string | null>("keychain_get", { key: "refresh_token" }),
-    getServerUrl(),
-  ]);
-  if (!refreshToken || !serverUrl) return null;
-
-  const res = await appFetch(`${serverUrl}/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  if (!res.ok) return null;
-
-  const { jwt_token } = await res.json();
-  await invoke("keychain_set", { key: "jwt", value: jwt_token });
+  const outcome = await refreshAccessToken();
+  if (typeof outcome === "string") return null;
+  const jwt_token = outcome.jwt;
 
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;

@@ -64,7 +64,9 @@
       "undoFailed": "Geri alınamadı: {{error}}",
       "redoFailed": "Yinelenemedi: {{error}}",
       "fileSaved": "{{path}} konumuna kaydedildi",
-      "fileSaveFailed": "Dosya kaydedilemedi: {{error}}"
+      "fileSaveFailed": "Dosya kaydedilemedi: {{error}}",
+      "sessionRevoked": "Bu cihazda Voltius hesabınızın oturumu kapatıldı. Eşitlemeye devam etmek için yeniden oturum açın.",
+      "signInAgain": "Oturum aç"
     },
     "error": {
       "identityPickUnavailable": "{{host}} için kimliğiniz kullanılamıyor",
@@ -205,7 +207,14 @@
       "inviteCodeMalformed": "Bu kodun biçimi hatalı",
       "inviteCodeNotFound": "Bu kodun süresi dolmuş veya kod yanlış",
       "inviteCodeTooManyAttempts": "Çok fazla deneme — biraz bekleyip yeniden deneyin",
-      "businessPlanRequired": "Bu, ekibin Business planını gerektirir."
+      "businessPlanRequired": "Bu, ekibin Business planını gerektirir.",
+      "twoFactorRequired": "Kimlik doğrulama uygulamanızdaki kodu girin.",
+      "twoFactorInvalid": "Kod yanlış. Uygulamanızın gösterdiği bir sonraki kodu deneyin.",
+      "twoFactorLocked": "Çok fazla yanlış kod girildi. 15 dakika sonra yeniden deneyin.",
+      "twoFactorUnavailable": "Bu sunucu şu anda kimlik doğrulama kodlarını denetleyemiyor. Bir kurtarma kodu kullanın.",
+      "twoFactorAlreadyEnabled": "İki adımlı doğrulama zaten açık.",
+      "twoFactorNotEnabled": "İki adımlı doğrulama açık değil.",
+      "twoFactorExpired": "Bu oturum açma işlemi çok uzun sürdü. Baştan başlayın."
     },
     "clipboard": {
       "cut_one": "{{count}} öğe kesildi",

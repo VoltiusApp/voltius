@@ -60,7 +60,18 @@
       "confirmMasterPasswordPlaceholder": "Подтвердите мастер-пароль",
       "errorPasswordRequired": "Требуется пароль",
       "errorMinLength4": "Не менее 4 символов",
-      "pleaseWait": "Пожалуйста, подождите…"
+      "pleaseWait": "Пожалуйста, подождите…",
+      "reauthTitle": "Войдите снова",
+      "reauthDesc": "Сессия на этом устройстве завершена. Введите мастер-пароль, чтобы подключиться снова."
+    },
+    "twoFactor": {
+      "prompt": "Введите 6-значный код из приложения-аутентификатора.",
+      "recoveryPrompt": "Введите один из резервных кодов. Каждый действует один раз.",
+      "codePlaceholder": "6-значный код",
+      "recoveryPlaceholder": "Резервный код",
+      "useRecovery": "Использовать резервный код",
+      "useCode": "Использовать код аутентификатора",
+      "verify": "Подтвердить"
     },
     "mainPanel": {
       "noVaultSelectedTitle": "Хранилища не выбраны",

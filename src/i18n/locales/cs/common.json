@@ -64,7 +64,9 @@
       "undoFailed": "Vrácení zpět se nezdařilo: {{error}}",
       "redoFailed": "Opakování se nezdařilo: {{error}}",
       "fileSaved": "Uloženo do {{path}}",
-      "fileSaveFailed": "Soubor se nepodařilo uložit: {{error}}"
+      "fileSaveFailed": "Soubor se nepodařilo uložit: {{error}}",
+      "sessionRevoked": "Toto zařízení bylo odhlášeno z vašeho účtu Voltius. Přihlaste se znovu, aby synchronizace pokračovala.",
+      "signInAgain": "Přihlásit se"
     },
     "error": {
       "identityPickUnavailable": "Vaše identita pro {{host}} není k dispozici",
@@ -205,7 +207,14 @@
       "inviteCodeMalformed": "Tento kód nemá správný formát",
       "inviteCodeNotFound": "Platnost kódu vypršela nebo je nesprávný",
       "inviteCodeTooManyAttempts": "Příliš mnoho pokusů — chvíli počkejte a zkuste to znovu",
-      "businessPlanRequired": "To vyžaduje týmový tarif Business."
+      "businessPlanRequired": "To vyžaduje týmový tarif Business.",
+      "twoFactorRequired": "Zadejte kód z ověřovací aplikace.",
+      "twoFactorInvalid": "Nesprávný kód. Zkuste další, který aplikace zobrazí.",
+      "twoFactorLocked": "Příliš mnoho nesprávných kódů. Zkuste to znovu za 15 minut.",
+      "twoFactorUnavailable": "Tento server teď nemůže ověřovat kódy z ověřovací aplikace. Použijte záložní kód.",
+      "twoFactorAlreadyEnabled": "Dvoufázové ověření je už zapnuté.",
+      "twoFactorNotEnabled": "Dvoufázové ověření není zapnuté.",
+      "twoFactorExpired": "Přihlášení trvalo příliš dlouho. Začněte znovu."
     },
     "clipboard": {
       "cut_one": "Vyjmuta {{count}} položka",

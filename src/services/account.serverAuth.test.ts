@@ -72,6 +72,8 @@ import {
   resendVerificationEmail,
 } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
+import { clearSessionRevoked, tryRefreshJwt } from "./authTokens";
+import { TwoFactorRequiredError } from "./twoFactorProof";
 import { EmailUndeliverableError } from "@/utils/emailVerification";
 import { DEFAULT_SERVER_URL, lastServerUrl } from "@/utils/serverInstance";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
@@ -142,6 +144,7 @@ const ok = (body: unknown = {}) => ({ ok: true, status: 200, body });
 const err = (status: number, body: unknown = {}) => ({ ok: false, status, body });
 
 beforeEach(() => {
+  clearSessionRevoked();
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet]) m.mockReset();
   h.readLocalSecrets.mockReset().mockResolvedValue({});
   h.getVaultStatus.mockReset();
@@ -809,4 +812,200 @@ test("authenticateServerAccount rejects bad credentials and leaves the session a
   await expect(authenticateServerAccount("signin", "b@x.io", PW_CURRENT, S))
     .rejects.toThrow("common.error.invalidEmailOrPassword");
   expect(h.store).toEqual(before);
+});
+
+// ─── two-factor sign-in ──────────────────────────────────────────────────────
+
+const CHALLENGE = err(428, { error: "TWO_FACTOR_REQUIRED", pending_token: "PENDING", methods: ["totp", "recovery"] });
+
+function serverAccount() {
+  h.store.account_id = "acc";
+  h.store.mode = "server";
+  h.store.email = "a@b.co";
+  h.store.server_url = S;
+}
+
+/** Registered longest path first: routeHttp matches by substring, and "/auth/login" is one of "/auth/login/2fa". */
+function secondStep(answer: { ok: boolean; status: number; body?: unknown }) {
+  h.http["/auth/login/2fa"] = answer;
+  h.http["/auth/login"] = CHALLENGE;
+}
+
+async function challengeFrom<T>(work: Promise<T>): Promise<TwoFactorRequiredError<T>> {
+  const error = await work.then(() => null, (e: unknown) => e);
+  expect(error).toBeInstanceOf(TwoFactorRequiredError);
+  return error as TwoFactorRequiredError<T>;
+}
+
+test("login stops at the code step without touching the keychain, then finishes with the code", async () => {
+  h.store.server_url = S;
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(login("pw", "a@b.co", S));
+  expect(challenge.methods).toEqual(["totp", "recovery"]);
+  // A sign-in abandoned here must not leave something that reads as a local account.
+  expect(h.store.mode).toBeUndefined();
+  expect(h.store.account_id).toBeUndefined();
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+
+  await challenge.complete({ code: " 123456 " });
+  expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", code: "123456" });
+  expect(h.store).toMatchObject({ mode: "server", account_id: "acc", jwt: "JWT", refresh_token: "RT" });
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
+});
+
+test("a recovery code is sent under its own name", async () => {
+  serverAccount();
+  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(login("pw"));
+  await challenge.complete({ recoveryCode: "abcd-efgh-jkmn-pqrs" });
+  expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", recovery_code: "abcd-efgh-jkmn-pqrs" });
+});
+
+test.each([
+  [err(401, { error: "TWO_FACTOR_INVALID" }), "common.error.twoFactorInvalid"],
+  [err(429, { error: "TWO_FACTOR_LOCKED" }), "common.error.twoFactorLocked"],
+  [err(503, { error: "TWO_FACTOR_UNAVAILABLE" }), "common.error.twoFactorUnavailable"],
+  [err(401), "common.error.twoFactorExpired"],
+  [err(500), "common.error.serverLoginFailed"],
+])("a refused code says why and can be retried (%#)", async (refusal, message) => {
+  serverAccount();
+  secondStep(refusal);
+
+  const challenge = await challengeFrom(login("pw"));
+  await expect(challenge.complete({ code: "000000" })).rejects.toThrow(message);
+  expect(h.store.jwt).toBeUndefined();
+
+  h.http["/auth/login/2fa"] = ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" });
+  await challenge.complete({ code: "123456" });
+  expect(h.store.jwt).toBe("JWT");
+});
+
+test("a 428 that is not a two-factor challenge is an ordinary failure", async () => {
+  serverAccount();
+  h.http["/auth/login"] = err(428, {});
+  await expect(login("pw")).rejects.toThrow("common.error.serverLoginFailed");
+});
+
+test("signInToCloud wipes nothing until the code is accepted", async () => {
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(signInToCloud("a@b.co", "pw", S));
+  expect(h.wipeLocalConfig).not.toHaveBeenCalled();
+  expect(h.store.jwt).toBeUndefined();
+
+  await challenge.complete({ code: "123456" });
+  expect(h.wipeLocalConfig).toHaveBeenCalled();
+  expect(h.store).toMatchObject({ mode: "server", jwt: "JWT", wrapped_user_secrets: "WRAPPED" });
+});
+
+test("authenticateServerAccount hands back the session once the code is accepted", async () => {
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(authenticateServerAccount("signin", "a@b.co", "pw", S));
+  await expect(challenge.complete({ code: "123456" })).resolves.toMatchObject({
+    account_id: "acc", jwt: "JWT", refresh_token: "RT", wrapped_user_secrets: "WRAPPED", master_password: "pw",
+  });
+  expect(h.store.jwt).toBeUndefined();
+});
+
+// ─── unlock is not a sign-in ─────────────────────────────────────────────────
+
+function lockedCloudVault() {
+  serverAccount();
+  h.store.refresh_token = "RT";
+  h.store.wrapped_user_secrets = "WRAPPED";
+  existingVaultOpenedBy([1, 1, 1]);
+}
+
+test("unlocking a vault whose session the server still honours does not sign in again", async () => {
+  lockedCloudVault();
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  h.http["/auth/login"] = CHALLENGE;
+
+  await login("pw");
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
+  expect(h.store.jwt).toBe("JWT2");
+  expect(h.sent["/auth/login"]).toBeUndefined();
+});
+
+test("unlocking after the session was revoked signs in again, and says nothing about it", async () => {
+  lockedCloudVault();
+  h.http["/auth/refresh"] = err(401);
+  h.http["/auth/login"] = ok({ ...TOKENS, refresh_token: "RT2", wrapped_user_secrets: "WRAPPED" });
+
+  await login("pw");
+  expect(h.store.refresh_token).toBe("RT2");
+  // The fresh pair lifts the revocation: the next refresh reaches the server again.
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT3" });
+  await expect(tryRefreshJwt()).resolves.toBe("JWT3");
+});
+
+test("a password that did not open the cached secrets is still proven by the server", async () => {
+  serverAccount();
+  h.store.refresh_token = "RT";
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  h.http["/auth/login"] = err(401);
+
+  await expect(login("pw")).rejects.toThrow("common.error.serverLoginFailed");
+});
+
+// ─── revoked session ─────────────────────────────────────────────────────────
+
+test("a revoked session is asked about once, then left alone until a new sign-in", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = err(401);
+
+  await expect(tryRefreshJwt()).resolves.toBeNull();
+  await expect(tryRefreshJwt()).resolves.toBeNull();
+  await expect(refreshSession()).rejects.toThrow("common.error.sessionRefreshFailed");
+  expect(h.seq.filter((entry) => entry.includes("/auth/refresh"))).toHaveLength(1);
+});
+
+// The server announces a version bump before it answers the request that caused it,
+// so this device's own sync loop can refresh with the pair it is about to replace.
+test("a 401 for a refresh token replaced mid-flight is retried with the new one", async () => {
+  h.store.refresh_token = "OLD";
+  h.store.server_url = S;
+  h.appFetch.mockImplementation(async (_url: string, init?: { body?: string }) => {
+    const sent = JSON.parse(init!.body!).refresh_token;
+    if (sent === "OLD") {
+      h.store.refresh_token = "NEW";
+      return { ok: false, status: 401, json: async () => ({}) };
+    }
+    return { ok: true, status: 200, json: async () => ({ jwt_token: `JWT_FOR_${sent}` }) };
+  });
+
+  await expect(tryRefreshJwt()).resolves.toBe("JWT_FOR_NEW");
+  await expect(tryRefreshJwt()).resolves.toBe("JWT_FOR_NEW");
+});
+
+test("a refresh the server could not answer is not a revocation", async () => {
+  h.store.refresh_token = "RT";
+  h.store.server_url = S;
+  h.http["/auth/refresh"] = err(503);
+  await expect(tryRefreshJwt()).resolves.toBeNull();
+
+  h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
+  await expect(tryRefreshJwt()).resolves.toBe("JWT2");
+});
+
+test("changeMasterPassword sends the code and names a refused one", async () => {
+  h.store.account_id = "acc";
+  h.store.jwt = "JWT0";
+  h.store.server_url = S;
+  h.dek = [1, 1, 1];
+  h.x25519 = [2, 2, 2];
+  h.http["/auth/password"] = err(401, { error: "TWO_FACTOR_INVALID" });
+
+  await expect(changeMasterPassword("pw", "new", { code: "000000" })).rejects.toThrow("common.error.twoFactorInvalid");
+  expect(h.sent["/auth/password"]).toMatchObject({ code: "000000" });
+
+  h.http["/auth/password"] = err(428, { error: "TWO_FACTOR_REQUIRED" });
+  await expect(changeMasterPassword("pw", "new")).rejects.toThrow("common.error.twoFactorRequired");
 });

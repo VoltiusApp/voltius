@@ -341,6 +341,33 @@
         "changing": "Změna…",
         "changeBtn": "Změnit heslo"
       },
+      "twoFactor": {
+        "label": "Dvoufázové ověření",
+        "subOff": "Při přihlášení na novém zařízení vyžadovat kód z ověřovací aplikace",
+        "subOn": "Zapnuto. Přihlášení na novém zařízení vyžaduje kód",
+        "intro": "Po hlavním hesle bude přihlášení na novém zařízení vyžadovat šestimístný kód z ověřovací aplikace.",
+        "introDevices": "Zapnutím odhlásíte svá ostatní zařízení. K opětovnému přihlášení potřebují aktuální verzi Voltiusu.",
+        "continue": "Pokračovat",
+        "scan": "Naskenujte kód ověřovací aplikací, nebo do ní opište klíč níže.",
+        "qrLabel": "QR kód pro ověřovací aplikaci",
+        "copyKey": "Zkopírovat klíč",
+        "confirmPrompt": "Potom zadejte šestimístný kód, který aplikace zobrazí.",
+        "turnOn": "Zapnout",
+        "codesTitle": "Uložte si záložní kódy",
+        "codesBody": "Každý kód vás jednou přihlásí, pokud přijdete o ověřovací aplikaci. Znovu se už nezobrazí.",
+        "copy": "Kopírovat",
+        "copied": "Zkopírováno",
+        "save": "Uložit do souboru",
+        "saved": "Mám je uložené",
+        "manageBody": "Přihlášení na novém zařízení vyžaduje kód z ověřovací aplikace.",
+        "newCodes": "Nové záložní kódy",
+        "newCodesSub": "Stávající přestanou platit",
+        "turnOff": "Vypnout",
+        "turnOffSub": "Přihlašovat se jen hlavním heslem",
+        "generate": "Vygenerovat",
+        "regeneratePrompt": "Zadejte kód, kterým nahradíte záložní kódy.",
+        "disablePrompt": "Zadejte hlavní heslo a kód, kterým dvoufázové ověření vypnete."
+      },
       "setMasterPassword": {
         "label": "Nastavit hlavní heslo",
         "sub": "Chraňte trezor lokálně bez synchronizace s cloudem"

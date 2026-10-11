@@ -60,7 +60,18 @@
       "confirmMasterPasswordPlaceholder": "Confirm master password",
       "errorPasswordRequired": "Password required",
       "errorMinLength4": "At least 4 characters",
-      "pleaseWait": "Please wait…"
+      "pleaseWait": "Please wait…",
+      "reauthTitle": "Sign in again",
+      "reauthDesc": "Your session on this device has ended. Enter your master password to reconnect."
+    },
+    "twoFactor": {
+      "prompt": "Enter the 6-digit code from your authenticator app.",
+      "recoveryPrompt": "Enter one of your recovery codes. Each one works once.",
+      "codePlaceholder": "6-digit code",
+      "recoveryPlaceholder": "Recovery code",
+      "useRecovery": "Use a recovery code",
+      "useCode": "Use an authenticator code",
+      "verify": "Verify"
     },
     "mainPanel": {
       "noVaultSelectedTitle": "No vaults selected",

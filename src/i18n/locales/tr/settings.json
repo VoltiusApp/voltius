@@ -347,6 +347,33 @@
         "changing": "Değiştiriliyor…",
         "changeBtn": "Parolayı değiştir"
       },
+      "twoFactor": {
+        "label": "İki adımlı doğrulama",
+        "subOff": "Yeni bir cihazda oturum açarken kimlik doğrulama uygulamasından kod iste",
+        "subOn": "Açık. Yeni bir cihazda oturum açarken kod istenir",
+        "intro": "Ana parolanızdan sonra, yeni bir cihazda oturum açarken kimlik doğrulama uygulamasından 6 haneli bir kod istenir.",
+        "introDevices": "Bunu açmak diğer cihazlarınızdaki oturumları kapatır. Yeniden oturum açmaları için güncel bir Voltius sürümü gerekir.",
+        "continue": "Devam",
+        "scan": "Bunu kimlik doğrulama uygulamanızla tarayın veya aşağıdaki anahtarı uygulamaya yazın.",
+        "qrLabel": "Kimlik doğrulama uygulamanız için QR kodu",
+        "copyKey": "Anahtarı kopyala",
+        "confirmPrompt": "Ardından uygulamanın gösterdiği 6 haneli kodu girin.",
+        "turnOn": "Aç",
+        "codesTitle": "Kurtarma kodlarınızı kaydedin",
+        "codesBody": "Kimlik doğrulama uygulamanızı kaybederseniz her kod bir kez oturum açmanızı sağlar. Bir daha gösterilmezler.",
+        "copy": "Kopyala",
+        "copied": "Kopyalandı",
+        "save": "Dosyaya kaydet",
+        "saved": "Kaydettim",
+        "manageBody": "Yeni bir cihazda oturum açarken kimlik doğrulama uygulamanızdan kod istenir.",
+        "newCodes": "Yeni kurtarma kodları",
+        "newCodesSub": "Mevcut kodlar geçersiz olur",
+        "turnOff": "Kapat",
+        "turnOffSub": "Yalnızca ana parolayla oturum aç",
+        "generate": "Oluştur",
+        "regeneratePrompt": "Kurtarma kodlarınızı değiştirmek için bir kod girin.",
+        "disablePrompt": "İki adımlı doğrulamayı kapatmak için ana parolanızı ve bir kod girin."
+      },
       "setMasterPassword": {
         "label": "Ana parola belirle",
         "sub": "Kasanızı bulut eşitleme olmadan yerel olarak koruyun"
