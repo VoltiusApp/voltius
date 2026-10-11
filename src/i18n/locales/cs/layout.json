@@ -71,7 +71,13 @@
       "recoveryPlaceholder": "Záložní kód",
       "useRecovery": "Použít záložní kód",
       "useCode": "Použít kód z ověřovací aplikace",
-      "verify": "Ověřit"
+      "verify": "Ověřit",
+      "usePasskey": "Použít přístupový klíč",
+      "passkeyOrCodePrompt": "Použijte přístupový klíč, nebo zadejte šestimístný kód z ověřovací aplikace.",
+      "passkeyOrRecoveryPrompt": "Použijte přístupový klíč, nebo zadejte jeden ze záložních kódů.",
+      "passkeyWaiting": "Pokračujte v prohlížeči a pak se vraťte sem.",
+      "passkeyDoneTitle": "Hotovo",
+      "passkeyDoneBody": "Vraťte se do Voltiusu. Tuto kartu můžete zavřít."
     },
     "mainPanel": {
       "noVaultSelectedTitle": "Nejsou vybrány žádné trezory",

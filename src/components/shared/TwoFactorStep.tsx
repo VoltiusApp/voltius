@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { PasskeyCancelledError, cancelPasskeyRoundTrip, passkeyRoundTrip } from "@/services/passkeyRoundTrip";
 import { TwoFactorRequiredError, type TwoFactorMethod, type TwoFactorProof } from "@/services/twoFactorProof";
 
 export interface TwoFactorEntry {
@@ -18,19 +19,67 @@ export function entryProof(entry: TwoFactorEntry): TwoFactorProof | null {
 
 const ALL_METHODS: TwoFactorMethod[] = ["totp", "recovery"];
 
-export function TwoFactorField({ entry, onChange, inputClassName, autoFocus, methods = ALL_METHODS }: {
+/** Tracks a passkey ceremony so a form can say the browser has the user, and stay quiet when they give up. */
+export function usePasskeyCeremony() {
+  const [waiting, setWaiting] = useState(false);
+  const track = async <T,>(ceremony: () => Promise<T>): Promise<T> => {
+    setWaiting(true);
+    try {
+      return await ceremony();
+    } finally {
+      setWaiting(false);
+    }
+  };
+  return { waiting, track };
+}
+
+const PROMPTS = {
+  typed: { code: "layout.twoFactor.prompt", recovery: "layout.twoFactor.recoveryPrompt" },
+  passkey: { code: "layout.twoFactor.passkeyOrCodePrompt", recovery: "layout.twoFactor.passkeyOrRecoveryPrompt" },
+} as const;
+
+export const wasCancelled = (err: unknown): boolean => err instanceof PasskeyCancelledError;
+
+export function PasskeyWaiting() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center gap-2 py-2">
+      <p className="flex items-center gap-2 text-xs text-(--t-text-muted)">
+        <Icon icon="lucide:loader-circle" width={14} className="animate-spin shrink-0" />
+        {t("layout.twoFactor.passkeyWaiting")}
+      </p>
+      <button type="button" onClick={cancelPasskeyRoundTrip} className="text-xs text-(--t-accent) hover:underline">
+        {t("common.action.cancel")}
+      </button>
+    </div>
+  );
+}
+
+export function TwoFactorField({ entry, onChange, inputClassName, autoFocus, methods = ALL_METHODS, passkey }: {
   entry: TwoFactorEntry;
   onChange: (entry: TwoFactorEntry) => void;
   inputClassName: string;
   autoFocus?: boolean;
   /** What the server will accept; a server that lost its seed key offers recovery codes only. */
   methods?: TwoFactorMethod[];
+  passkey?: { start: () => void; waiting: boolean };
 }) {
   const { t } = useTranslation();
   const recovery = entry.recovery || !methods.includes("totp");
   const canSwitch = methods.includes("totp") && methods.includes("recovery");
+  if (passkey?.waiting) return <PasskeyWaiting />;
   return (
     <>
+      {passkey && methods.includes("passkey") && (
+        <button
+          type="button"
+          onClick={passkey.start}
+          className="btn btn-secondary w-full py-1.5 rounded-lg text-sm flex items-center justify-center gap-2"
+        >
+          <Icon icon="lucide:fingerprint" width={14} />
+          {t("layout.twoFactor.usePasskey")}
+        </button>
+      )}
       <input
         key={recovery ? "recovery" : "totp"}
         type="text"
@@ -62,6 +111,7 @@ export interface TwoFactorChallenge {
   methods: TwoFactorMethod[];
   /** Rejects with the message to show; resolving means the sign-in went through. */
   resume: (proof: TwoFactorProof) => Promise<void>;
+  passkey: () => Promise<TwoFactorProof>;
 }
 
 /**
@@ -77,7 +127,11 @@ export function useTwoFactorChallenge() {
     } catch (e) {
       if (!(e instanceof TwoFactorRequiredError)) throw e;
       const step = e as TwoFactorRequiredError<T>;
-      setChallenge({ methods: step.methods, resume: (proof) => run(() => step.complete(proof), after) });
+      setChallenge({
+        methods: step.methods,
+        resume: (proof) => run(() => step.complete(proof), after),
+        passkey: async () => ({ passkeyCode: await passkeyRoundTrip(step.openPasskey) }),
+      });
     }
   };
   return { challenge, run, cancel: () => setChallenge(null) };
@@ -94,41 +148,58 @@ export function TwoFactorStep({ challenge, onCancel, inputClassName, buttonClass
   const [entry, setEntry] = useState<TwoFactorEntry>(EMPTY_TWO_FACTOR_ENTRY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { waiting, track } = usePasskeyCeremony();
   const { methods } = challenge;
   const recovery = entry.recovery || !methods.includes("totp");
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const proof = entryProof({ recovery, value: entry.value });
-    if (!proof) return;
+  const attempt = async (getProof: () => Promise<TwoFactorProof | null>) => {
     setLoading(true);
     setError("");
     try {
-      await challenge.resume(proof);
+      const proof = await getProof();
+      if (proof) await challenge.resume(proof);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!wasCancelled(err)) setError(err instanceof Error ? err.message : String(err));
       setEntry({ recovery, value: "" });
     } finally {
       setLoading(false);
     }
   };
 
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void attempt(async () => entryProof({ recovery, value: entry.value }));
+  };
+
   return (
     <form onSubmit={onSubmit} className="w-full space-y-2">
       <p className="text-xs text-center text-(--t-text-muted) leading-relaxed">
-        {recovery ? t("layout.twoFactor.recoveryPrompt") : t("layout.twoFactor.prompt")}
+        {t(PROMPTS[methods.includes("passkey") ? "passkey" : "typed"][recovery ? "recovery" : "code"])}
       </p>
-      <TwoFactorField entry={entry} onChange={setEntry} inputClassName={inputClassName} methods={methods} autoFocus />
+      <TwoFactorField
+        entry={entry}
+        onChange={setEntry}
+        inputClassName={inputClassName}
+        methods={methods}
+        autoFocus
+        passkey={{ start: () => void attempt(() => track(challenge.passkey)), waiting }}
+      />
       {error && <p className="text-xs text-center py-1 text-(--t-status-error)">{error}</p>}
       <button
         type="submit"
+        hidden={waiting}
         disabled={loading || !entry.value.trim()}
         className={`btn btn-primary w-full rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-60 ${buttonClassName}`}
       >
         {loading && <Icon icon="lucide:loader-circle" width={14} className="animate-spin" />}
         {t("layout.twoFactor.verify")}
       </button>
-      <button type="button" onClick={onCancel} className={`btn btn-ghost w-full rounded-lg text-sm ${buttonClassName}`}>
+      <button
+        type="button"
+        hidden={waiting}
+        onClick={onCancel}
+        className={`btn btn-ghost w-full rounded-lg text-sm ${buttonClassName}`}
+      >
         {t("common.action.cancel")}
       </button>
     </form>

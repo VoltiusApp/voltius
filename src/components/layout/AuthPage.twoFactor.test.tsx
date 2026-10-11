@@ -36,7 +36,7 @@ beforeEach(() => {
 const submit = () => userEvent.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
 
 async function reachCodeStep(complete: (proof: TwoFactorProof) => Promise<unknown>, onReady = vi.fn()) {
-  h.login.mockRejectedValue(new TwoFactorRequiredError(["totp", "recovery"], complete));
+  h.login.mockRejectedValue(new TwoFactorRequiredError(["totp", "recovery"], complete, vi.fn()));
   render(<AuthPage isLocked onReady={onReady} />);
   fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: "pw" } });
   await submit();

@@ -1,11 +1,13 @@
 import { handleUnpromptedIntent } from "@/services/deepLinkHandlers";
 import { parseDeepLink } from "@/services/deepLinkUrl";
+import { acceptPasskeyReturn } from "@/services/passkeyRoundTrip";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 
 // Never log the URL: its query string carries a live session credential and
 // the log plugin writes to disk.
 export function handleDeepLink(url: string): void {
+  if (acceptPasskeyReturn(url)) return;
   const intent = parseDeepLink(url);
   if (!intent) {
     console.warn("Ignoring unrecognised deep link");

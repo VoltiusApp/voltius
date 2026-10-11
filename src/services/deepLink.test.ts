@@ -17,6 +17,11 @@ beforeEach(() => {
   useDeepLinkStore.getState().setUnpromptedHandler(null);
 });
 
+test("a passkey return never joins the queue: it answers a ceremony or is dropped", () => {
+  handleDeepLink("voltius://passkey?c=c0de-0123456789abcdef&s=state");
+  expect(useDeepLinkStore.getState().queue).toHaveLength(0);
+});
+
 test("a link arriving before ready is queued, not prompted", () => {
   handleDeepLink(link(SESSION));
   const s = useDeepLinkStore.getState();

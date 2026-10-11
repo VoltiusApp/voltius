@@ -208,13 +208,15 @@
       "inviteCodeNotFound": "该邀请码已过期或不正确",
       "inviteCodeTooManyAttempts": "尝试次数过多 — 请稍后重试",
       "businessPlanRequired": "此操作需要团队的 Business 套餐。",
-      "twoFactorRequired": "请输入身份验证器应用中的验证码。",
+      "twoFactorRequired": "请用第二重验证确认：验证码、通行密钥或恢复码。",
       "twoFactorInvalid": "验证码错误。请尝试应用显示的下一个验证码。",
       "twoFactorLocked": "错误的验证码次数过多。请在 15 分钟后重试。",
       "twoFactorUnavailable": "此服务器目前无法校验身份验证器验证码。请使用恢复码。",
       "twoFactorAlreadyEnabled": "双重验证已开启。",
       "twoFactorNotEnabled": "双重验证未开启。",
-      "twoFactorExpired": "本次登录耗时过长。请重新开始。"
+      "twoFactorExpired": "本次登录耗时过长。请重新开始。",
+      "passkeyIncomplete": "通行密钥步骤未完成。请重试。",
+      "passkeyLimit": "此账户的通行密钥数量已达上限。"
     },
     "clipboard": {
       "cut_one": "已剪切 {{count}} 个项目",

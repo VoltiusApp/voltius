@@ -8,6 +8,9 @@ const h = vi.hoisted(() => ({
   syncNow: vi.fn(async () => {}),
   syncOnLoginReplace: vi.fn(async () => {}),
   startRealtimeSync: vi.fn(),
+  openPasskey: vi.fn(),
+  passkeyRoundTrip: vi.fn(),
+  cancelPasskeyRoundTrip: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -26,6 +29,14 @@ vi.mock("@/services/account", () => ({
   signInToCloud: h.signInToCloud,
 }));
 vi.mock("@/services/savedAccounts", () => ({ addAccount: vi.fn() }));
+vi.mock("@/services/passkeyRoundTrip", () => {
+  class PasskeyCancelledError extends Error {}
+  return {
+    PasskeyCancelledError,
+    passkeyRoundTrip: h.passkeyRoundTrip,
+    cancelPasskeyRoundTrip: h.cancelPasskeyRoundTrip,
+  };
+});
 vi.mock("@/services/sync", () => ({
   startRealtimeSync: h.startRealtimeSync,
   syncNow: h.syncNow,
@@ -52,7 +63,7 @@ const type = (placeholder: string, value: string) =>
 type Complete = (proof: TwoFactorProof) => Promise<unknown>;
 
 function asksForCode(complete: Complete, methods: TwoFactorMethod[] = ["totp", "recovery"]) {
-  return new TwoFactorRequiredError(methods, complete);
+  return new TwoFactorRequiredError(methods, complete, h.openPasskey);
 }
 
 test("a sign-in that needs a code shows the code step and finishes from it", async () => {
@@ -134,4 +145,47 @@ test("signing in again after a revoked session asks only for the password of the
   expect(h.login).toHaveBeenCalledWith("pw");
   expect(h.signInToCloud).not.toHaveBeenCalled();
   expect(h.syncNow).toHaveBeenCalled();
+});
+
+test("a passkey finishes the sign-in through the browser, and the code field is not offered without an authenticator", async () => {
+  const complete = vi.fn<Complete>(async () => {});
+  h.signInToCloud.mockRejectedValue(asksForCode(complete, ["passkey", "recovery"]));
+  let handBack: (code: string) => void = () => {};
+  h.passkeyRoundTrip.mockImplementation(() => new Promise<string>((resolve) => (handBack = resolve)));
+  useUIStore.getState().openCloudAuth("signin", "link");
+  render(<CloudAuthModal />);
+  type("layout.auth.emailPlaceholder", "me@x.io");
+  type("layout.auth.masterPasswordPlaceholder", "pw");
+  await submit();
+
+  expect(await screen.findByText("layout.twoFactor.passkeyOrRecoveryPrompt")).toBeTruthy();
+  expect(screen.queryByPlaceholderText("layout.twoFactor.codePlaceholder")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "layout.twoFactor.usePasskey" }));
+
+  expect(h.passkeyRoundTrip).toHaveBeenCalledWith(h.openPasskey);
+  expect(await screen.findByText("layout.twoFactor.passkeyWaiting")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "common.action.cancel" }));
+  expect(h.cancelPasskeyRoundTrip).toHaveBeenCalled();
+
+  handBack("PASSKEY-CODE");
+  await waitFor(() => expect(complete).toHaveBeenCalledWith({ passkeyCode: "PASSKEY-CODE" }));
+});
+
+test("giving up on the passkey returns to the form without an error", async () => {
+  const { PasskeyCancelledError } = await import("@/services/passkeyRoundTrip");
+  const complete = vi.fn<Complete>(async () => {});
+  h.signInToCloud.mockRejectedValue(asksForCode(complete, ["totp", "passkey", "recovery"]));
+  h.passkeyRoundTrip.mockRejectedValue(new PasskeyCancelledError());
+  useUIStore.getState().openCloudAuth("signin", "link");
+  render(<CloudAuthModal />);
+  type("layout.auth.emailPlaceholder", "me@x.io");
+  type("layout.auth.masterPasswordPlaceholder", "pw");
+  await submit();
+
+  await userEvent.click(await screen.findByRole("button", { name: "layout.twoFactor.usePasskey" }));
+
+  expect(await screen.findByPlaceholderText("layout.twoFactor.codePlaceholder")).toBeTruthy();
+  expect(screen.getByText("layout.twoFactor.passkeyOrCodePrompt")).toBeTruthy();
+  expect(document.querySelector('[class*="t-status-error"]')).toBeNull();
+  expect(complete).not.toHaveBeenCalled();
 });

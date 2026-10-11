@@ -1,18 +1,22 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import qrcode from "qrcode-generator";
 import { INPUT_CLASS } from "@/components/layout/authParts";
 import {
-  EMPTY_TWO_FACTOR_ENTRY, TwoFactorField, entryProof, type TwoFactorEntry,
+  EMPTY_TWO_FACTOR_ENTRY, PasskeyWaiting, TwoFactorField, entryProof, usePasskeyCeremony, wasCancelled,
+  type TwoFactorEntry,
 } from "@/components/shared/TwoFactorStep";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { saveTextFile } from "@/services/saveFile";
-import { useServerOffersTwoFactor } from "@/services/serverCapabilities";
+import { useServerSecondFactors } from "@/services/serverCapabilities";
 import {
-  beginTwoFactorSetup, disableTwoFactor, enableTwoFactor, regenerateRecoveryCodes, type TwoFactorSetup,
+  addPasskey, beginTwoFactorSetup, enableTwoFactor, factorMethods, getFactors, passkeyStepUp, regenerateRecoveryCodes,
+  removeFactor, type FactorTarget, type Factors, type TwoFactorSetup,
 } from "@/services/twoFactor";
+import type { TwoFactorProof } from "@/services/twoFactorProof";
 import { writeClipboard } from "@/utils/clipboard";
+import { SHORT_DATE, formatDate } from "@/utils/localeFormat";
 import { ActionItem, FormButtons, SettingsDialog, SettingsInput } from "./shared";
 
 const QUIET_ZONE = 4;
@@ -42,12 +46,22 @@ function QrCode({ value, label }: { value: string; label: string }) {
 }
 
 type View =
-  | { kind: "intro" }
-  | { kind: "confirm"; setup: TwoFactorSetup }
+  | { kind: "choose" }
+  | { kind: "totp" }
+  | { kind: "totpConfirm"; setup: TwoFactorSetup }
+  | { kind: "passkey" }
   | { kind: "codes"; codes: string[] }
   | { kind: "manage" }
+  | { kind: "passkeys" }
   | { kind: "regenerate" }
-  | { kind: "disable" };
+  | { kind: "remove"; target: FactorTarget };
+
+type Offered = { totp: boolean; passkeys: boolean };
+
+const NO_FACTORS: Factors = { totp: false, passkeys: [], recoveryCodesLeft: null };
+
+const firstView = (enabled: boolean, offered: Offered): View =>
+  enabled ? { kind: "manage" } : offered.totp && offered.passkeys ? { kind: "choose" } : { kind: offered.passkeys ? "passkey" : "totp" };
 
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
   const { t } = useTranslation();
@@ -76,50 +90,100 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
   );
 }
 
-function TwoFactorDialog({ enabled, onChange, onClose }: {
+function TwoFactorDialog({ enabled, offered, onChange, onClose }: {
   enabled: boolean;
+  offered: Offered;
   onChange: (enabled: boolean) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [view, setView] = useState<View>({ kind: enabled ? "manage" : "intro" });
+  const [view, setView] = useState<View>(() => firstView(enabled, offered));
+  const [factors, setFactors] = useState<Factors | null>(enabled ? null : NO_FACTORS);
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [entry, setEntry] = useState<TwoFactorEntry>(EMPTY_TWO_FACTOR_ENTRY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { copied: keyCopied, flash: flashKey } = useCopiedFlash(1500);
+  const passkey = usePasskeyCeremony();
+
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    void getFactors(true)
+      .then((held) => alive && setFactors(held))
+      .catch((err) => alive && setError(err instanceof Error ? err.message : String(err)));
+    return () => {
+      alive = false;
+    };
+  }, [enabled]);
+
+  const held = factors ?? NO_FACTORS;
+  const hasFactor = held.totp || held.passkeys.length > 0;
 
   const go = (next: View) => {
     setView(next);
     setEntry(EMPTY_TWO_FACTOR_ENTRY);
     setError("");
   };
+  const home = () => go(firstView(hasFactor, offered));
+  const leave = hasFactor || (offered.totp && offered.passkeys) ? home : onClose;
 
-  const attempt = (work: () => Promise<void>) => async (e: FormEvent) => {
-    e.preventDefault();
+  /** Where a change lands: recovery codes when the account just got them, else the refreshed list. */
+  const settle = async (stillOn: boolean, next: View, codes: string[] = []) => {
+    onChange(stillOn);
+    if (codes.length) return go({ kind: "codes", codes });
+    if (!stillOn) return onClose();
+    setFactors(await getFactors(true));
+    go(next);
+  };
+
+  const attempt = async (work: () => Promise<void>) => {
     setBusy(true);
     setError("");
     try {
       await work();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!wasCancelled(err)) setError(err instanceof Error ? err.message : String(err));
       setEntry((current) => ({ ...current, value: "" }));
     } finally {
       setBusy(false);
     }
   };
 
-  const withProof = (work: (proof: NonNullable<ReturnType<typeof entryProof>>) => Promise<void>) =>
-    attempt(async () => {
-      const proof = entryProof(entry);
-      if (proof) await work(proof);
-    });
-
-  const form = (onSubmit: (e: FormEvent) => void, submitLabel: string, onCancel: () => void, children: ReactNode) => (
-    <form onSubmit={onSubmit} className="space-y-2">
-      {children}
-      {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
-      <FormButtons onCancel={onCancel} submitting={busy} submitLabel={submitLabel} />
+  /** Submit sends what was typed; with `proof`, the passkey button sends a passkey's answer instead. */
+  const form = (
+    work: (proof: TwoFactorProof | null) => Promise<void>,
+    submitLabel: string,
+    onCancel: () => void,
+    children: ReactNode,
+    proof: "typed" | "any" | "none" = "any",
+  ) => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void attempt(() => work(proof === "none" ? null : entryProof(entry)));
+      }}
+      className="space-y-2"
+    >
+      {passkey.waiting ? (
+        <PasskeyWaiting />
+      ) : (
+        <>
+          {children}
+          {proof !== "none" && (
+            <TwoFactorField
+              entry={entry}
+              onChange={setEntry}
+              inputClassName={INPUT_CLASS}
+              methods={proof === "typed" ? ["totp"] : factorMethods(held)}
+              passkey={{ start: () => void attempt(async () => work(await passkey.track(passkeyStepUp))), waiting: false }}
+            />
+          )}
+          {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
+          <FormButtons onCancel={onCancel} submitting={busy} submitLabel={submitLabel} />
+        </>
+      )}
     </form>
   );
 
@@ -128,28 +192,38 @@ function TwoFactorDialog({ enabled, onChange, onClose }: {
     <SettingsInput type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password}
       onChange={setPassword} autoFocus />
   );
+  const signsOutOthers = !hasFactor && hint(t("settings.account.twoFactor.introDevices"));
+  const existingProof = hasFactor ? "any" : "none";
 
   let body: ReactNode;
   switch (view.kind) {
-    case "intro":
-      body = form(
-        attempt(async () => go({ kind: "confirm", setup: await beginTwoFactorSetup(password) })),
-        t("settings.account.twoFactor.continue"), onClose,
-        <>
+    case "choose":
+      body = (
+        <div className="space-y-2">
           {hint(t("settings.account.twoFactor.intro"))}
-          {hint(t("settings.account.twoFactor.introDevices"))}
-          {passwordInput}
-        </>,
+          <ActionItem icon="lucide:smartphone" label={t("settings.account.twoFactor.authenticator")}
+            sub={t("settings.account.twoFactor.authenticatorSub")} onClick={() => go({ kind: "totp" })} />
+          <ActionItem icon="lucide:fingerprint" label={t("settings.account.twoFactor.passkey")}
+            sub={t("settings.account.twoFactor.passkeySub")} onClick={() => go({ kind: "passkey" })} />
+        </div>
       );
       break;
-    case "confirm":
+    case "totp":
       body = form(
-        attempt(async () => {
-          const codes = await enableTwoFactor(entry.value);
-          onChange(true);
-          go({ kind: "codes", codes });
-        }),
-        t("settings.account.twoFactor.turnOn"), onClose,
+        async (proof) => go({ kind: "totpConfirm", setup: await beginTwoFactorSetup(password, proof) }),
+        t("settings.account.twoFactor.continue"), leave,
+        <>
+          {hint(t("settings.account.twoFactor.authenticatorIntro"))}
+          {signsOutOthers}
+          {passwordInput}
+        </>,
+        existingProof,
+      );
+      break;
+    case "totpConfirm":
+      body = form(
+        async () => settle(true, { kind: "manage" }, await enableTwoFactor(entry.value)),
+        t("settings.account.twoFactor.turnOn"), leave,
         <>
           {hint(t("settings.account.twoFactor.scan"))}
           <QrCode value={view.setup.otpauth_uri} label={t("settings.account.twoFactor.qrLabel")} />
@@ -163,8 +237,22 @@ function TwoFactorDialog({ enabled, onChange, onClose }: {
             <Icon icon={keyCopied ? "lucide:check" : "lucide:copy"} width={11} className="shrink-0" />
           </button>
           {hint(t("settings.account.twoFactor.confirmPrompt"))}
-          <TwoFactorField entry={entry} onChange={setEntry} inputClassName={INPUT_CLASS} methods={["totp"]} autoFocus />
         </>,
+        "typed",
+      );
+      break;
+    case "passkey":
+      body = form(
+        async (proof) =>
+          settle(true, { kind: "passkeys" }, await passkey.track(() => addPasskey(password, proof, name))),
+        t("settings.account.twoFactor.passkeyCreate"), leave,
+        <>
+          {hint(t("settings.account.twoFactor.passkeyIntro"))}
+          {signsOutOthers}
+          <SettingsInput placeholder={t("settings.account.twoFactor.passkeyName")} value={name} onChange={setName} />
+          {passwordInput}
+        </>,
+        existingProof,
       );
       break;
     case "codes":
@@ -174,38 +262,104 @@ function TwoFactorDialog({ enabled, onChange, onClose }: {
       body = (
         <div className="space-y-2">
           {hint(t("settings.account.twoFactor.manageBody"))}
+          {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
+          {(held.totp || offered.totp) && (
+            <ActionItem icon="lucide:smartphone" label={t("settings.account.twoFactor.authenticator")}
+              sub={held.totp ? t("settings.account.twoFactor.authenticatorOn") : t("settings.account.twoFactor.authenticatorSub")}
+              disabled={!factors}
+              onClick={() => go(held.totp ? { kind: "remove", target: { kind: "totp" } } : { kind: "totp" })} />
+          )}
+          {(held.passkeys.length > 0 || offered.passkeys) && (
+            <ActionItem icon="lucide:fingerprint" label={t("settings.account.twoFactor.passkeys")}
+              sub={held.passkeys.map((one) => one.name).join(", ") || t("settings.account.twoFactor.passkeySub")}
+              disabled={!factors}
+              onClick={() => go({ kind: held.passkeys.length ? "passkeys" : "passkey" })} />
+          )}
           <ActionItem icon="lucide:list-restart" label={t("settings.account.twoFactor.newCodes")}
-            sub={t("settings.account.twoFactor.newCodesSub")} onClick={() => go({ kind: "regenerate" })} />
+            sub={held.recoveryCodesLeft === null
+              ? t("settings.account.twoFactor.newCodesSub")
+              : t("settings.account.twoFactor.codesLeft", { count: held.recoveryCodesLeft })}
+            disabled={!factors}
+            onClick={() => go({ kind: "regenerate" })} />
           <ActionItem icon="lucide:shield-off" danger label={t("settings.account.twoFactor.turnOff")}
-            sub={t("settings.account.twoFactor.turnOffSub")} onClick={() => go({ kind: "disable" })} />
+            sub={t("settings.account.twoFactor.turnOffSub")}
+            disabled={!factors}
+            onClick={() => go({ kind: "remove", target: { kind: "all" } })} />
+        </div>
+      );
+      break;
+    case "passkeys":
+      body = (
+        <div className="space-y-2">
+          <ul className="rounded-lg border border-(--t-border) divide-y divide-(--t-border)">
+            {held.passkeys.map((one) => (
+              <li key={one.id} className="flex items-center gap-3 px-3 py-2">
+                <Icon icon="lucide:fingerprint" width={14} className="shrink-0 text-(--t-text-muted)" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-(--t-text-primary) truncate">{one.name}</p>
+                  <p className="text-xs text-(--t-text-dim)">
+                    {t("settings.account.twoFactor.passkeyAdded", { date: formatDate(one.created_at, SHORT_DATE) })}
+                    {one.last_used_at &&
+                      ` · ${t("settings.account.twoFactor.passkeyUsed", { date: formatDate(one.last_used_at, SHORT_DATE) })}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  title={t("settings.account.twoFactor.passkeyRemove", { name: one.name })}
+                  aria-label={t("settings.account.twoFactor.passkeyRemove", { name: one.name })}
+                  onClick={() => go({ kind: "remove", target: { kind: "passkey", id: one.id, name: one.name } })}
+                  className="p-1 rounded text-(--t-text-muted) hover:text-(--t-status-error)"
+                >
+                  <Icon icon="lucide:trash-2" width={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={home} className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm">
+              {t("settings.account.twoFactor.back")}
+            </button>
+            {offered.passkeys && (
+              <button type="button" onClick={() => go({ kind: "passkey" })}
+                className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium">
+                {t("settings.account.twoFactor.passkeyAdd")}
+              </button>
+            )}
+          </div>
         </div>
       );
       break;
     case "regenerate":
       body = form(
-        withProof(async (proof) => go({ kind: "codes", codes: await regenerateRecoveryCodes(proof) })),
-        t("settings.account.twoFactor.generate"), () => go({ kind: "manage" }),
-        <>
-          {hint(t("settings.account.twoFactor.regeneratePrompt"))}
-          <TwoFactorField entry={entry} onChange={setEntry} inputClassName={INPUT_CLASS} autoFocus />
-        </>,
+        async (proof) => go({ kind: "codes", codes: await regenerateRecoveryCodes(proof) }),
+        t("settings.account.twoFactor.generate"), home,
+        hint(t("settings.account.twoFactor.regeneratePrompt")),
       );
       break;
-    case "disable":
+    case "remove": {
+      const { target } = view;
+      const last =
+        (target.kind === "totp" && held.passkeys.length === 0) ||
+        (target.kind === "passkey" && !held.totp && held.passkeys.length === 1);
       body = form(
-        withProof(async (proof) => {
-          await disableTwoFactor(password, proof);
-          onChange(false);
-          onClose();
-        }),
-        t("settings.account.twoFactor.turnOff"), () => go({ kind: "manage" }),
+        async (proof) =>
+          settle(await removeFactor(target, password, proof), { kind: target.kind === "passkey" ? "passkeys" : "manage" }),
+        target.kind === "all" ? t("settings.account.twoFactor.turnOff") : t("settings.account.twoFactor.remove"),
+        home,
         <>
-          {hint(t("settings.account.twoFactor.disablePrompt"))}
+          {hint(
+            target.kind === "all"
+              ? t("settings.account.twoFactor.disablePrompt")
+              : target.kind === "totp"
+                ? t("settings.account.twoFactor.removeAuthenticatorPrompt")
+                : t("settings.account.twoFactor.removePasskeyPrompt", { name: target.name }),
+          )}
+          {last && <p className="text-xs text-(--t-status-warning) leading-relaxed">{t("settings.account.twoFactor.lastFactor")}</p>}
           {passwordInput}
-          <TwoFactorField entry={entry} onChange={setEntry} inputClassName={INPUT_CLASS} />
         </>,
       );
       break;
+    }
   }
 
   return (
@@ -219,16 +373,16 @@ function TwoFactorDialog({ enabled, onChange, onClose }: {
   );
 }
 
-/** Settings row and dialogs for the account's second factor. `enabled` is null until /me answers. */
+/** Settings row and dialogs for the account's second factors. `enabled` is null until /me answers. */
 export function TwoFactorSettings({ enabled, onChange }: {
   enabled: boolean | null;
   onChange: (enabled: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const offered = useServerOffersTwoFactor();
+  const offered = useServerSecondFactors();
   const [open, setOpen] = useState(false);
   // An account already enrolled keeps the row on a server that stopped offering it: turning it off still works.
-  if (enabled === null || (!enabled && !offered)) return null;
+  if (enabled === null || (!enabled && !offered.totp && !offered.passkeys)) return null;
   return (
     <>
       <ActionItem
@@ -237,7 +391,7 @@ export function TwoFactorSettings({ enabled, onChange }: {
         sub={enabled ? t("settings.account.twoFactor.subOn") : t("settings.account.twoFactor.subOff")}
         onClick={() => setOpen(true)}
       />
-      {open && <TwoFactorDialog enabled={enabled} onChange={onChange} onClose={() => setOpen(false)} />}
+      {open && <TwoFactorDialog enabled={enabled} offered={offered} onChange={onChange} onClose={() => setOpen(false)} />}
     </>
   );
 }

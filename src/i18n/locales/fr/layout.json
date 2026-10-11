@@ -71,7 +71,13 @@
       "recoveryPlaceholder": "Code de récupération",
       "useRecovery": "Utiliser un code de récupération",
       "useCode": "Utiliser un code d'authentification",
-      "verify": "Vérifier"
+      "verify": "Vérifier",
+      "usePasskey": "Utiliser une clé d'accès",
+      "passkeyOrCodePrompt": "Utilisez votre clé d'accès, ou saisissez le code à 6 chiffres de votre application d'authentification.",
+      "passkeyOrRecoveryPrompt": "Utilisez votre clé d'accès, ou saisissez l'un de vos codes de récupération.",
+      "passkeyWaiting": "Continuez dans votre navigateur, puis revenez ici.",
+      "passkeyDoneTitle": "Terminé",
+      "passkeyDoneBody": "Revenez à Voltius. Vous pouvez fermer cet onglet."
     },
     "mainPanel": {
       "noVaultSelectedTitle": "Aucun coffre sélectionné",

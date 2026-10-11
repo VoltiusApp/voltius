@@ -252,18 +252,23 @@ async function serverLogin<T>(
 
   const challenge = await res.json().catch(() => null);
   if (challenge?.error !== "TWO_FACTOR_REQUIRED" || !challenge.pending_token) throw refused(res.status);
-  throw new TwoFactorRequiredError<T>(challenge.methods ?? ["totp"], async (proof: TwoFactorProof) => {
-    const second = await postJson(`${serverUrl}/v1/auth/login/2fa`, {
+  const secondStep = async (path: string, body: object) => {
+    const second = await postJson(`${serverUrl}/v1/auth/login/2fa${path}`, {
       pending_token: challenge.pending_token,
-      ...proofBody(proof),
+      ...body,
     });
-    if (second.ok) return then(await second.json());
+    if (second.ok) return second.json();
     const refusal = await twoFactorError(second);
     if (refusal) throw refusal;
     // A bare 401 here is the pending token: expired, or the account moved on.
     if (second.status === 401) throw new Error(i18n.t("common.error.twoFactorExpired"));
     throw refused(second.status);
-  });
+  };
+  throw new TwoFactorRequiredError<T>(
+    challenge.methods ?? ["totp"],
+    async (proof: TwoFactorProof) => then(await secondStep("", proofBody(proof))),
+    (returnTo) => secondStep("/passkey", { return_to: returnTo }),
+  );
 }
 
 export type LockKind = "screen" | "vault";

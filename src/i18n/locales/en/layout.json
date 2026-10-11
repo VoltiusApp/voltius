@@ -71,7 +71,13 @@
       "recoveryPlaceholder": "Recovery code",
       "useRecovery": "Use a recovery code",
       "useCode": "Use an authenticator code",
-      "verify": "Verify"
+      "verify": "Verify",
+      "usePasskey": "Use a passkey",
+      "passkeyOrCodePrompt": "Use your passkey, or enter the 6-digit code from your authenticator app.",
+      "passkeyOrRecoveryPrompt": "Use your passkey, or enter one of your recovery codes.",
+      "passkeyWaiting": "Continue in your browser, then come back here.",
+      "passkeyDoneTitle": "Done",
+      "passkeyDoneBody": "Go back to Voltius. You can close this tab."
     },
     "mainPanel": {
       "noVaultSelectedTitle": "No vaults selected",

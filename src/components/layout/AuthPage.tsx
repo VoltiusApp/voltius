@@ -147,11 +147,11 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   // ── Second factor (the server accepted the password) ─────────────────────
 
   if (twoFactor.challenge) {
-    const { methods, resume } = twoFactor.challenge;
+    const { resume } = twoFactor.challenge;
     return (
       <Layout>
         <TwoFactorStep
-          challenge={{ methods, resume: (proof) => unlessUnreadable(() => resume(proof)) }}
+          challenge={{ ...twoFactor.challenge, resume: (proof) => unlessUnreadable(() => resume(proof)) }}
           onCancel={twoFactor.cancel}
           inputClassName={INPUT_CLASS}
         />

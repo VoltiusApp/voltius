@@ -1,19 +1,29 @@
 import i18n from "@/i18n";
+import type { OpenPasskey } from "@/services/passkeyRoundTrip";
 
-export type TwoFactorMethod = "totp" | "recovery";
+export type TwoFactorMethod = "totp" | "passkey" | "recovery";
 
-export type TwoFactorProof = { code: string } | { recoveryCode: string };
+/** `passkeyCode` is what a finished passkey ceremony handed back, not something the user types. */
+export type TwoFactorProof = { code: string } | { recoveryCode: string } | { passkeyCode: string };
 
-export function proofBody(proof?: TwoFactorProof | null): { code?: string; recovery_code?: string } {
+export function proofBody(
+  proof?: TwoFactorProof | null,
+): { code?: string; recovery_code?: string; passkey_code?: string } {
   if (!proof) return {};
-  return "code" in proof ? { code: proof.code.trim() } : { recovery_code: proof.recoveryCode.trim() };
+  if ("code" in proof) return { code: proof.code.trim() };
+  if ("recoveryCode" in proof) return { recovery_code: proof.recoveryCode.trim() };
+  return { passkey_code: proof.passkeyCode };
 }
 
-/** The server accepted the password and wants a second factor; `complete` finishes the interrupted sign-in. */
+/**
+ * The server accepted the password and wants a second factor; `complete` finishes the
+ * interrupted sign-in, and `openPasskey` starts the browser ceremony for the same one.
+ */
 export class TwoFactorRequiredError<T = unknown> extends Error {
   constructor(
     readonly methods: TwoFactorMethod[],
     readonly complete: (proof: TwoFactorProof) => Promise<T>,
+    readonly openPasskey: OpenPasskey,
   ) {
     super(i18n.t("common.error.twoFactorRequired"));
     this.name = "TwoFactorRequiredError";
@@ -27,6 +37,7 @@ const MESSAGE_KEYS: Record<string, string> = {
   TWO_FACTOR_UNAVAILABLE: "common.error.twoFactorUnavailable",
   TWO_FACTOR_ALREADY_ENABLED: "common.error.twoFactorAlreadyEnabled",
   TWO_FACTOR_NOT_ENABLED: "common.error.twoFactorNotEnabled",
+  PASSKEY_LIMIT: "common.error.passkeyLimit",
 };
 
 export async function twoFactorCode(res: Response): Promise<string | null> {

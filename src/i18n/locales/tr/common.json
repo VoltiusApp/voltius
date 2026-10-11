@@ -208,13 +208,15 @@
       "inviteCodeNotFound": "Bu kodun süresi dolmuş veya kod yanlış",
       "inviteCodeTooManyAttempts": "Çok fazla deneme — biraz bekleyip yeniden deneyin",
       "businessPlanRequired": "Bu, ekibin Business planını gerektirir.",
-      "twoFactorRequired": "Kimlik doğrulama uygulamanızdaki kodu girin.",
+      "twoFactorRequired": "İkinci faktörünüzle onaylayın: kod, geçiş anahtarı veya kurtarma kodu.",
       "twoFactorInvalid": "Kod yanlış. Uygulamanızın gösterdiği bir sonraki kodu deneyin.",
       "twoFactorLocked": "Çok fazla yanlış kod girildi. 15 dakika sonra yeniden deneyin.",
       "twoFactorUnavailable": "Bu sunucu şu anda kimlik doğrulama kodlarını denetleyemiyor. Bir kurtarma kodu kullanın.",
       "twoFactorAlreadyEnabled": "İki adımlı doğrulama zaten açık.",
       "twoFactorNotEnabled": "İki adımlı doğrulama açık değil.",
-      "twoFactorExpired": "Bu oturum açma işlemi çok uzun sürdü. Baştan başlayın."
+      "twoFactorExpired": "Bu oturum açma işlemi çok uzun sürdü. Baştan başlayın.",
+      "passkeyIncomplete": "Geçiş anahtarı adımı tamamlanmadı. Yeniden deneyin.",
+      "passkeyLimit": "Bu hesap zaten en fazla sayıda geçiş anahtarına sahip."
     },
     "clipboard": {
       "cut_one": "{{count}} öğe kesildi",

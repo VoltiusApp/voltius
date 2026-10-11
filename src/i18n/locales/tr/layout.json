@@ -71,7 +71,13 @@
       "recoveryPlaceholder": "Kurtarma kodu",
       "useRecovery": "Kurtarma kodu kullan",
       "useCode": "Kimlik doğrulama kodu kullan",
-      "verify": "Doğrula"
+      "verify": "Doğrula",
+      "usePasskey": "Geçiş anahtarı kullan",
+      "passkeyOrCodePrompt": "Geçiş anahtarınızı kullanın veya kimlik doğrulama uygulamanızdaki 6 haneli kodu girin.",
+      "passkeyOrRecoveryPrompt": "Geçiş anahtarınızı kullanın veya kurtarma kodlarınızdan birini girin.",
+      "passkeyWaiting": "Tarayıcınızda devam edin, sonra buraya dönün.",
+      "passkeyDoneTitle": "Tamam",
+      "passkeyDoneBody": "Voltius'a dönün. Bu sekmeyi kapatabilirsiniz."
     },
     "mainPanel": {
       "noVaultSelectedTitle": "Seçili kasa yok",

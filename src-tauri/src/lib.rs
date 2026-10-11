@@ -25,6 +25,7 @@ mod local;
 pub mod mcp;
 mod metrics;
 mod network_watch;
+mod passkey_loopback;
 mod port_forward;
 mod processes;
 mod proxmox;
@@ -248,6 +249,7 @@ pub fn run() {
             app.manage(KnownHostsStore::load());
             app.manage(app_lock::AppLock::load());
             app.manage(app_lock::LastActive::load());
+            app.manage(passkey_loopback::PasskeyLoopback::default());
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
             app.manage(Arc::new(mcp::McpState::new()));
@@ -280,6 +282,9 @@ pub fn run() {
             app_lock::app_lock_hide_in_recents,
             app_lock::app_lock_last_active,
             app_lock::app_lock_touch,
+            passkey_loopback::passkey_loopback_start,
+            passkey_loopback::passkey_loopback_wait,
+            passkey_loopback::passkey_loopback_stop,
             system_auth::system_auth_available,
             system_auth::system_auth_verify,
             terminal_kbd::terminal_show_keyboard,

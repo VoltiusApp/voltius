@@ -208,13 +208,15 @@
       "inviteCodeNotFound": "That code has expired or is incorrect",
       "inviteCodeTooManyAttempts": "Too many attempts — wait a moment and try again",
       "businessPlanRequired": "This needs the team's Business plan.",
-      "twoFactorRequired": "Enter the code from your authenticator app.",
+      "twoFactorRequired": "Confirm with your second factor: a code, a passkey or a recovery code.",
       "twoFactorInvalid": "Wrong code. Try the next one your app shows.",
       "twoFactorLocked": "Too many wrong codes. Try again in 15 minutes.",
       "twoFactorUnavailable": "This server cannot check authenticator codes right now. Use a recovery code.",
       "twoFactorAlreadyEnabled": "Two-factor authentication is already on.",
       "twoFactorNotEnabled": "Two-factor authentication is not on.",
-      "twoFactorExpired": "This sign-in took too long. Start again."
+      "twoFactorExpired": "This sign-in took too long. Start again.",
+      "passkeyIncomplete": "The passkey step was not finished. Try again.",
+      "passkeyLimit": "This account already has as many passkeys as it can hold."
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",

@@ -864,6 +864,23 @@ test("a recovery code is sent under its own name", async () => {
   expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", recovery_code: "abcd-efgh-jkmn-pqrs" });
 });
 
+test("a passkey ceremony is opened for the same pending sign-in, and its code finishes it", async () => {
+  serverAccount();
+  h.http["/auth/login/2fa/passkey"] = ok({ handle: "H", url: "https://portal/2fa/passkey#h=H" });
+  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(login("pw"));
+  const returnTo = { kind: "loopback", port: 49152, state: "state" } as const;
+  await expect(challenge.openPasskey(returnTo)).resolves.toMatchObject({ url: "https://portal/2fa/passkey#h=H" });
+  expect(h.sent["/auth/login/2fa/passkey"]).toEqual({ pending_token: "PENDING", return_to: returnTo });
+
+  await challenge.complete({ passkeyCode: "PK" });
+  expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", passkey_code: "PK" });
+
+  h.http["/auth/login/2fa/passkey"] = err(401);
+  await expect(challenge.openPasskey(returnTo)).rejects.toThrow("common.error.twoFactorExpired");
+});
+
 test.each([
   [err(401, { error: "TWO_FACTOR_INVALID" }), "common.error.twoFactorInvalid"],
   [err(429, { error: "TWO_FACTOR_LOCKED" }), "common.error.twoFactorLocked"],

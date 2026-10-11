@@ -208,13 +208,15 @@
       "inviteCodeNotFound": "Platnost kódu vypršela nebo je nesprávný",
       "inviteCodeTooManyAttempts": "Příliš mnoho pokusů — chvíli počkejte a zkuste to znovu",
       "businessPlanRequired": "To vyžaduje týmový tarif Business.",
-      "twoFactorRequired": "Zadejte kód z ověřovací aplikace.",
+      "twoFactorRequired": "Potvrďte druhým faktorem: kódem, přístupovým klíčem nebo záložním kódem.",
       "twoFactorInvalid": "Nesprávný kód. Zkuste další, který aplikace zobrazí.",
       "twoFactorLocked": "Příliš mnoho nesprávných kódů. Zkuste to znovu za 15 minut.",
       "twoFactorUnavailable": "Tento server teď nemůže ověřovat kódy z ověřovací aplikace. Použijte záložní kód.",
       "twoFactorAlreadyEnabled": "Dvoufázové ověření je už zapnuté.",
       "twoFactorNotEnabled": "Dvoufázové ověření není zapnuté.",
-      "twoFactorExpired": "Přihlášení trvalo příliš dlouho. Začněte znovu."
+      "twoFactorExpired": "Přihlášení trvalo příliš dlouho. Začněte znovu.",
+      "passkeyIncomplete": "Krok s přístupovým klíčem nebyl dokončen. Zkuste to znovu.",
+      "passkeyLimit": "Tento účet už má nejvyšší možný počet přístupových klíčů."
     },
     "clipboard": {
       "cut_one": "Vyjmuta {{count}} položka",

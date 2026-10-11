@@ -12,9 +12,15 @@ interface ServerCapabilities {
   advertisedSecretTypes: string[] | null;
   refusedSecretTypes: TeamSecretType[];
   twoFactor: boolean;
+  passkeys: boolean;
 }
 
-const UNKNOWN: ServerCapabilities = { advertisedSecretTypes: null, refusedSecretTypes: [], twoFactor: false };
+const UNKNOWN: ServerCapabilities = {
+  advertisedSecretTypes: null,
+  refusedSecretTypes: [],
+  twoFactor: false,
+  passkeys: false,
+};
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
 
 let fetchedAt: number | null = null;
@@ -22,10 +28,13 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types, two_factor } = await fetchServerMeta("common.error.failedToLoadServerCapabilities");
+    const { team_secret_types: types, two_factor, passkeys } = await fetchServerMeta(
+      "common.error.failedToLoadServerCapabilities",
+    );
     fetchedAt = Date.now();
     useServerCapabilities.setState({
       twoFactor: two_factor === true,
+      passkeys: passkeys === true,
       ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
         : { advertisedSecretTypes: null }),
@@ -68,8 +77,10 @@ export function useServerLacksSecretType(type: TeamSecretType): boolean {
   return useServerCapabilities((s) => lacks(s, type));
 }
 
-/** Whether this server lets an account enrol a second factor; false until it says so. */
-export function useServerOffersTwoFactor(): boolean {
+/** Which second factors this server lets an account enrol; none until it says so. */
+export function useServerSecondFactors(): { totp: boolean; passkeys: boolean } {
   useEffect(() => void refreshServerCapabilities(), []);
-  return useServerCapabilities((s) => s.twoFactor);
+  const totp = useServerCapabilities((s) => s.twoFactor);
+  const passkeys = useServerCapabilities((s) => s.passkeys);
+  return { totp, passkeys };
 }

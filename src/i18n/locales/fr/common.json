@@ -208,13 +208,15 @@
       "inviteCodeNotFound": "Ce code a expiré ou est incorrect",
       "inviteCodeTooManyAttempts": "Trop de tentatives — patientez un instant et réessayez",
       "businessPlanRequired": "Cela nécessite le forfait Business de l'équipe.",
-      "twoFactorRequired": "Saisissez le code de votre application d'authentification.",
+      "twoFactorRequired": "Confirmez avec votre second facteur : un code, une clé d'accès ou un code de récupération.",
       "twoFactorInvalid": "Code incorrect. Essayez le suivant affiché par votre application.",
       "twoFactorLocked": "Trop de codes incorrects. Réessayez dans 15 minutes.",
       "twoFactorUnavailable": "Ce serveur ne peut pas vérifier les codes d'authentification pour le moment. Utilisez un code de récupération.",
       "twoFactorAlreadyEnabled": "L'authentification à deux facteurs est déjà activée.",
       "twoFactorNotEnabled": "L'authentification à deux facteurs n'est pas activée.",
-      "twoFactorExpired": "Cette connexion a pris trop de temps. Recommencez."
+      "twoFactorExpired": "Cette connexion a pris trop de temps. Recommencez.",
+      "passkeyIncomplete": "L'étape de la clé d'accès n'a pas abouti. Réessayez.",
+      "passkeyLimit": "Ce compte a déjà le nombre maximal de clés d'accès."
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",
