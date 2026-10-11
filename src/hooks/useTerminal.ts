@@ -9,6 +9,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetOutputPaused, sshSetTerminalColors } from "@/services/ssh";
 import { createOutputFlow, type OutputFlow } from "@/components/terminal/outputFlow";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
+import { createCommandTracker, type CommandRegion, type CommandTracker } from "@/components/terminal/commandMarks";
 import { currentTerminalColors } from "@/utils/terminalColors";
 import { localReady, onLocalOutput, onLocalClosed } from "@/services/local";
 import { onSerialOutput, onSerialClosed } from "@/services/serial";
@@ -169,6 +170,7 @@ type CacheEntry = CachedTerminal & {
   searchAddon: SearchAddon;
   search: SearchState;
   minimap: MinimapState;
+  commands: CommandTracker;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
@@ -574,6 +576,12 @@ export function readTerminalSelection(sessionId: string): string {
 }
 
 /** Test seam: replace the module-private terminal cache. Do not use in app code. */
+/** The session's prompts and commands, oldest first, as reported by OSC 133. Empty
+ *  for shells that send no marks. */
+export function getCommandRegions(sessionId: string): CommandRegion[] {
+  return terminalCache.get(sessionId)?.commands.regions() ?? [];
+}
+
 export function __setTerminalCacheForTest(next: typeof terminalCache): void {
   terminalCache.clear();
   for (const [k, v] of next) terminalCache.set(k, v);
@@ -835,6 +843,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           subscribers: new Set(),
           frame: null,
         },
+        commands: createCommandTracker({
+          mark: () => (term.buffer.active.type === "normal" ? term.registerMarker(0) ?? null : null),
+          col: () => term.buffer.active.cursorX,
+          now: Date.now,
+        }),
         sessionType,
         // Serial is live the moment its port opens (the store marks it
         // connected before the terminal mounts); ssh and local flip in the
@@ -1027,6 +1040,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         return true;
       });
 
+      const oscMarkDispose = term.parser.registerOscHandler(133, (data) => {
+        entry.commands.handle(data);
+        return true;
+      });
+
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
         if (!entry.connectedRef.current) return;
@@ -1123,6 +1141,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         onDataDispose.dispose();
         onResizeDispose.dispose();
         oscCwdDispose.dispose();
+        oscMarkDispose.dispose();
         searchResultsDispose.dispose();
         scrollDispose.dispose();
         bufferChangeDispose.dispose();

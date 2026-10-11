@@ -123,49 +123,126 @@ pub fn cleanup(tempfiles: &[PathBuf]) {
     }
 }
 
-const BASH_RC: &str = "if [ -r /etc/profile ]; then . /etc/profile; fi\n\
-if [ -r \"$HOME/.bash_profile\" ]; then . \"$HOME/.bash_profile\"\n\
-elif [ -r \"$HOME/.bash_login\" ]; then . \"$HOME/.bash_login\"\n\
-elif [ -r \"$HOME/.profile\" ]; then . \"$HOME/.profile\"\n\
-else\n\
-  [ -r /etc/bash.bashrc ] && . /etc/bash.bashrc\n\
-  [ -r \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"\n\
-fi\n\
-__voltius_pwd() { printf '\\e]7;file://%s%s\\a' \"$HOSTNAME\" \"$PWD\"; }\n\
-case \";${PROMPT_COMMAND-};\" in\n\
-  *\";__voltius_pwd;\"*) ;;\n\
-  *) PROMPT_COMMAND=\"__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}\" ;;\n\
-esac\n\
-__voltius_pwd 2>/dev/null\n";
+// D (last exit status) and A (prompt start) ride on the OSC 7 printf, so each
+// prompt is still one write and nothing touches PS1.
+macro_rules! pwd_fn {
+    ($url:literal, $host:literal) => {
+        concat!(
+            r##"__voltius_pwd() { printf '\e]133;D;%s\a\e]133;A\a\e]7;"##,
+            $url,
+            r##"\a' "$?" ""##,
+            $host,
+            r##"" "$PWD"; }
+"##
+        )
+    };
+}
+
+// PS0 is bash's only pre-exec point that needs no DEBUG trap; bash < 4.4
+// ignores it, so those hosts send no C.
+macro_rules! bash_hooks {
+    ($url:literal, $host:literal) => {
+        concat!(
+            pwd_fn!($url, $host),
+            r##"case ";${PROMPT_COMMAND-};" in
+  *";__voltius_pwd;"*) ;;
+  *) PROMPT_COMMAND="__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
+esac
+PS0='\e]133;C\a'"${PS0-}"
+__voltius_pwd 2>/dev/null
+"##
+        )
+    };
+}
+
+// --rcfile skips bash's own startup files, so replay the login chain: PS1 and
+// profile-driven welcome text live there.
+macro_rules! bash_login_chain {
+    () => {
+        r##"if [ -r /etc/profile ]; then . /etc/profile; fi
+if [ -r "$HOME/.bash_profile" ]; then . "$HOME/.bash_profile"
+elif [ -r "$HOME/.bash_login" ]; then . "$HOME/.bash_login"
+elif [ -r "$HOME/.profile" ]; then . "$HOME/.profile"
+else
+  [ -r /etc/bash.bashrc ] && . /etc/bash.bashrc
+  [ -r "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+fi
+"##
+    };
+}
+
+macro_rules! zsh_hooks {
+    ($url:literal, $host:literal) => {
+        concat!(
+            pwd_fn!($url, $host),
+            r##"__voltius_run() { printf '\e]133;C\a'; }
+typeset -ag precmd_functions preexec_functions
+(($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
+(($preexec_functions[(I)__voltius_run])) || preexec_functions+=(__voltius_run)
+__voltius_pwd 2>/dev/null
+"##
+        )
+    };
+}
 
 // .zshenv trampoline (kitty/ghostty technique): restores ZDOTDIR from
 // ZDOTDIR_ORIG then sources the real .zshenv so zsh continues startup with
 // the user's files. Fixes configs like zsh4humans that define functions in
-// ~/.zshenv before .zshrc runs. The hook installs at .zshenv time, so rc
-// files that overwrite precmd_functions (instead of appending) drop cwd
-// tracking — accepted trade-off shared with kitty/ghostty.
-const ZSH_ZSHENV: &str =
-    "if [ -n \"${ZDOTDIR_ORIG-}\" ]; then ZDOTDIR=\"$ZDOTDIR_ORIG\"; else unset ZDOTDIR; fi\n\
-unset ZDOTDIR_ORIG\n\
-[ -f \"${ZDOTDIR:-$HOME}/.zshenv\" ] && source \"${ZDOTDIR:-$HOME}/.zshenv\"\n\
-__voltius_pwd() { printf '\\e]7;file://%s%s\\a' \"${HOST}\" \"$PWD\"; }\n\
-typeset -ag precmd_functions\n\
-(($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)\n\
-__voltius_pwd 2>/dev/null\n";
+// ~/.zshenv before .zshrc runs. The hooks install at .zshenv time, so rc
+// files that overwrite precmd_functions or preexec_functions (instead of
+// appending) drop them — accepted trade-off shared with kitty/ghostty.
+macro_rules! zsh_env {
+    ($url:literal, $host:literal) => {
+        concat!(
+            r##"if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
+unset ZDOTDIR_ORIG
+[ -f "${ZDOTDIR:-$HOME}/.zshenv" ] && source "${ZDOTDIR:-$HOME}/.zshenv"
+"##,
+            zsh_hooks!($url, $host)
+        )
+    };
+}
+
+// POSIX sh has no pre-exec or pre-prompt hook, so it reports the cwd only.
+macro_rules! sh_hooks {
+    () => {
+        r##"__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
+PS1='$(__voltius_pwd)'"${PS1:-$ }"
+"##
+    };
+}
+
+const BASH_RC: &str = concat!(bash_login_chain!(), bash_hooks!("file://%s%s", "$HOSTNAME"));
+
+const ZSH_ZSHENV: &str = zsh_env!("file://%s%s", "${HOST}");
 
 // $E = ESC, $P = path with backslashes, $G = >, $S = space. The $E\\ sequence
 // is ESC + backslash = ST (string terminator), closing the OSC 7. The path
 // uses backslashes; the frontend OSC handler normalizes to forward slashes.
 const CMD_BAT: &str = "@echo off\r\nprompt $E]7;file://localhost/$P$E\\$P$G$S\r\n";
 
-const PWSH_SCRIPT: &str = "if (Test-Path $PROFILE) { . $PROFILE }\n\
-$global:__voltiusOldPrompt = if (Test-Path Function:\\prompt) { $function:prompt } else { $null }\n\
-function global:prompt {\n\
-  $cwd = (Get-Location).Path -replace '\\\\', '/'\n\
-  $hostName = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { 'localhost' }\n\
-  [Console]::Write([char]27 + ']7;file://' + $hostName + '/' + $cwd + [char]7)\n\
-  if ($global:__voltiusOldPrompt) { & $global:__voltiusOldPrompt } else { \"PS $cwd> \" }\n\
-}\n";
+// PSReadLine defines PSConsoleHostReadLine only once it has loaded, so the C
+// wrapper is installed from the first prompt. Every variable is set or tested
+// before it is read: a profile may turn strict mode on.
+const PWSH_SCRIPT: &str = r##"if (Test-Path $PROFILE) { . $PROFILE }
+$global:__voltiusOldPrompt = if (Test-Path Function:\prompt) { $function:prompt } else { $null }
+$global:__voltiusReadLine = $null
+function global:prompt {
+  $code = if ($global:?) { 0 } elseif ((Test-Path Variable:\LASTEXITCODE) -and $global:LASTEXITCODE) { $global:LASTEXITCODE } else { 1 }
+  if (-not $global:__voltiusReadLine -and (Test-Path Function:\PSConsoleHostReadLine)) {
+    $global:__voltiusReadLine = $function:PSConsoleHostReadLine
+    function global:PSConsoleHostReadLine {
+      $line = & $global:__voltiusReadLine
+      if ("$line".Trim()) { [Console]::Write([char]27 + ']133;C' + [char]7) }
+      $line
+    }
+  }
+  $cwd = (Get-Location).Path -replace '\\', '/'
+  $hostName = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { 'localhost' }
+  [Console]::Write([char]27 + ']133;D;' + $code + [char]7 + [char]27 + ']133;A' + [char]7 + [char]27 + ']7;file://' + $hostName + '/' + $cwd + [char]7)
+  if ($global:__voltiusOldPrompt) { & $global:__voltiusOldPrompt } else { "PS $cwd> " }
+}
+"##;
 
 /// POSIX wrapper that detects $SHELL at runtime, writes a per-session rcfile
 /// under /tmp, and execs into a hooked interactive shell. NOT invoked
@@ -190,19 +267,23 @@ function global:prompt {\n\
 ///
 /// The temp file leaks intentionally — /tmp is cleared on reboot, and trying
 /// to rm it from inside the rcfile races with bash/zsh reading it.
-const SSH_WRAPPER: &str = r#"case "$(basename "${SHELL:-/bin/sh}")" in
+///
+/// No bash (busybox/dash-only host): hook a POSIX sh through an `$ENV` file.
+/// Without that branch `exec bash` fails with 127 and the session loops
+/// disconnect/reconnect. A login sh reads `$ENV` only after /etc/profile, which
+/// may repoint it (OpenWrt: /etc/shinit), so the file replays that chain.
+///
+/// Comments stay out of the script itself: every byte counts against
+/// `MAX_EXEC_COMMAND_LEN`.
+const SSH_WRAPPER: &str = concat!(
+    r##"case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
   ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -l -i <&2
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
   cat > "$ZDOTDIR_TMP/.zshenv" <<'EOF'
-if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
-unset ZDOTDIR_ORIG
-[ -f "${ZDOTDIR:-$HOME}/.zshenv" ] && source "${ZDOTDIR:-$HOME}/.zshenv"
-__voltius_pwd() { printf '\e]7;file://%s%s\a' "${HOST}" "$PWD"; }
-typeset -ag precmd_functions
-(($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
-__voltius_pwd 2>/dev/null
-EOF
+"##,
+    zsh_env!("file://%s%s", "${HOST}"),
+    r##"EOF
   ZDOTDIR="$ZDOTDIR_TMP" exec zsh -l -i <&2
   ;;
 fish)
@@ -212,47 +293,28 @@ fish)
   if command -v bash >/dev/null 2>&1; then
   RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -l -i <&2
   cat > "$RCFILE_TMP" <<'EOF'
-# Replicate bash's own startup so the session matches a normal interactive
-# login: --rcfile otherwise skips /etc/profile, /etc/bash.bashrc and the
-# profile chain, which is where PS1 and profile-driven welcome text live.
-if [ -r /etc/profile ]; then . /etc/profile; fi
-if [ -r "$HOME/.bash_profile" ]; then . "$HOME/.bash_profile"
-elif [ -r "$HOME/.bash_login" ]; then . "$HOME/.bash_login"
-elif [ -r "$HOME/.profile" ]; then . "$HOME/.profile"
-else
-  [ -r /etc/bash.bashrc ] && . /etc/bash.bashrc
-  [ -r "$HOME/.bashrc" ] && . "$HOME/.bashrc"
-fi
-__voltius_pwd() { printf '\e]7;file://%s%s\a' "$HOSTNAME" "$PWD"; }
-case ";${PROMPT_COMMAND-};" in
-  *";__voltius_pwd;"*) ;;
-  *) PROMPT_COMMAND="__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
-esac
-__voltius_pwd 2>/dev/null
-EOF
+"##,
+    bash_login_chain!(),
+    bash_hooks!("file://%s%s", "$HOSTNAME"),
+    r##"EOF
   exec bash --rcfile "$RCFILE_TMP" -i <&2
   else
-  # No bash on the remote (busybox/dash-only host). Hooking OSC 7 into a POSIX
-  # sh via an $ENV file keeps integration working; without this branch the
-  # `exec bash` above would fail with 127, the sh would exit, and the session
-  # would loop disconnect/reconnect.
   ENVF=$(mktemp 2>/dev/null) || exec sh -l -i <&2
   cat > "$ENVF" <<'EOF'
-# A login shell would read $ENV only after /etc/profile, which may repoint it
-# (OpenWrt: /etc/shinit), so run that chain here.
 __voltius_env=$ENV
 [ -r /etc/profile ] && . /etc/profile
 [ -r "$HOME/.profile" ] && . "$HOME/.profile"
 [ "${ENV-}" != "$__voltius_env" ] && [ -r "${ENV-}" ] && . "$ENV"
 unset __voltius_env
-__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
-PS1='$(__voltius_pwd)'"${PS1:-$ }"
-EOF
+"##,
+    sh_hooks!(),
+    r##"EOF
   ENV="$ENVF" exec sh -i <&2
   fi
   ;;
 esac
-"#;
+"##
+);
 
 /// sshd emits the MOTD only for an interactive `shell` request, not the `exec`
 /// path integration/persistence use, so reproduce it. Single quote-free line so
@@ -752,28 +814,26 @@ fn printf_escape(script: &str) -> String {
 ///   - No `</dev/tty` is needed: it's run via `eval "$(printf …)"`, so the
 ///     wrapping shell keeps the container TTY on stdin and `exec sh -i`
 ///     inherits it directly (no pipe to escape from).
-const CONTAINER_WRAPPER: &str = r#"if command -v bash >/dev/null 2>&1; then
+const CONTAINER_WRAPPER: &str = concat!(
+    r##"if command -v bash >/dev/null 2>&1; then
   RC=$(mktemp 2>/dev/null || echo /tmp/.voltius_rc)
   cat > "$RC" <<'EOF'
 [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
-__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
-case ";${PROMPT_COMMAND-};" in
-  *";__voltius_pwd;"*) ;;
-  *) PROMPT_COMMAND="__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
-esac
-__voltius_pwd 2>/dev/null
-EOF
+"##,
+    bash_hooks!("file://%s%s", "$HOSTNAME"),
+    r##"EOF
   exec bash --rcfile "$RC" -i
 else
   ENVF=$(mktemp 2>/dev/null || echo /tmp/.voltius_env)
   cat > "$ENVF" <<'EOF'
-__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
 PROMPT_COMMAND="__voltius_pwd"
-PS1='$(__voltius_pwd)'"${PS1:-$ }"
-EOF
+"##,
+    sh_hooks!(),
+    r##"EOF
   ENV="$ENVF" exec sh -i
 fi
-"#;
+"##
+);
 
 /// Build the argument for `sh -c '<…>'` inside a container (the caller prefixes
 /// `docker exec -it <cid>` or `pct exec <vmid> --`). `eval`s the wrapper so the
@@ -788,21 +848,17 @@ pub fn container_exec_payload() -> String {
 /// WSL flavor: same structure as SSH_WRAPPER but the printf format embeds
 /// the distro into the OSC 7 path. The frontend recognizes the
 /// `wsl.localhost` host and constructs a UNC path Windows can read.
-const WSL_WRAPPER: &str = r#"WSL_DISTRO_NAME="${WSL_DISTRO_NAME:-Linux}"
+const WSL_WRAPPER: &str = concat!(
+    r##"WSL_DISTRO_NAME="${WSL_DISTRO_NAME:-Linux}"
 export WSL_DISTRO_NAME
 case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
   ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -i <&2
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
   cat > "$ZDOTDIR_TMP/.zshenv" <<'EOF'
-if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
-unset ZDOTDIR_ORIG
-[ -f "${ZDOTDIR:-$HOME}/.zshenv" ] && source "${ZDOTDIR:-$HOME}/.zshenv"
-__voltius_pwd() { printf '\e]7;file://wsl.localhost/%s%s\a' "$WSL_DISTRO_NAME" "$PWD"; }
-typeset -ag precmd_functions
-(($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
-__voltius_pwd 2>/dev/null
-EOF
+"##,
+    zsh_env!("file://wsl.localhost/%s%s", "$WSL_DISTRO_NAME"),
+    r##"EOF
   ZDOTDIR="$ZDOTDIR_TMP" exec zsh -i <&2
   ;;
 fish)
@@ -812,17 +868,14 @@ fish)
   RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -i <&2
   cat > "$RCFILE_TMP" <<'EOF'
 [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
-__voltius_pwd() { printf '\e]7;file://wsl.localhost/%s%s\a' "$WSL_DISTRO_NAME" "$PWD"; }
-case ";${PROMPT_COMMAND-};" in
-  *";__voltius_pwd;"*) ;;
-  *) PROMPT_COMMAND="__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
-esac
-__voltius_pwd 2>/dev/null
-EOF
+"##,
+    bash_hooks!("file://wsl.localhost/%s%s", "$WSL_DISTRO_NAME"),
+    r##"EOF
   exec bash --rcfile "$RCFILE_TMP" -i <&2
   ;;
 esac
-"#;
+"##
+);
 
 #[cfg(test)]
 #[allow(clippy::disallowed_methods)]
@@ -1403,6 +1456,87 @@ mod tests {
                 "{name} must not reopen the tty by path (`</dev/tty`) — it breaks sudo -i"
             );
         }
+    }
+
+    #[test]
+    fn bash_and_zsh_wrappers_carry_prompt_marks() {
+        let container = unescape_printf(&printf_escape(CONTAINER_WRAPPER));
+        for script in [
+            BASH_RC.to_string(),
+            ZSH_ZSHENV.to_string(),
+            decode_bootstrap(&ssh_exec_command("")),
+            decode_bootstrap(&wsl_exec_command()),
+            container,
+        ] {
+            assert!(script.contains(r"\e]133;D;%s\a\e]133;A\a\e]7;file://"));
+            assert!(script.contains(r"\e]133;C\a"));
+        }
+        assert!(BASH_RC.contains("PS0="));
+        assert!(ZSH_ZSHENV.contains("preexec_functions+=(__voltius_run)"));
+        assert!(!sh_hooks!().contains("133;"));
+        assert!(PWSH_SCRIPT.contains("']133;D;' + $code"));
+        assert!(PWSH_SCRIPT.contains("']133;C'"));
+    }
+
+    #[cfg(target_os = "linux")]
+    fn prompt_marks(shell_command: &str, hooks: &str, rc_name: &str) -> Vec<String> {
+        let dir = std::env::temp_dir().join(format!(
+            "voltius-marks-{}-{}",
+            std::process::id(),
+            rc_name.trim_start_matches('.')
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(rc_name), hooks).unwrap();
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "printf 'true\\nfalse\\n\\n' | {shell_command} 2>&1"
+            ))
+            .env("RC_DIR", &dir)
+            .output()
+            .expect("sh runs");
+        let _ = std::fs::remove_dir_all(&dir);
+        let text = String::from_utf8_lossy(&out.stdout).into_owned();
+        text.split("\x1b]133;")
+            .skip(1)
+            .filter_map(|rest| rest.split('\x07').next().map(str::to_string))
+            .collect()
+    }
+
+    // One D;A pair from the rc's own call, then per line: C when a command
+    // ran, and the D that reports it. The empty line re-reports the last status.
+    #[cfg(target_os = "linux")]
+    const EXPECTED_MARKS: [&str; 12] = [
+        "D;0", "A", "D;0", "A", "C", "D;0", "A", "C", "D;1", "A", "D;1", "A",
+    ];
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn bash_hooks_mark_each_command() {
+        let marks = prompt_marks(
+            r#"bash --rcfile "$RC_DIR/rc" -i"#,
+            bash_hooks!("file://%s%s", "$HOSTNAME"),
+            "rc",
+        );
+        assert_eq!(marks, EXPECTED_MARKS);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn zsh_hooks_mark_each_command() {
+        let has_zsh = std::process::Command::new("sh")
+            .args(["-c", "command -v zsh"])
+            .output()
+            .is_ok_and(|o| o.status.success());
+        if !has_zsh {
+            return;
+        }
+        let marks = prompt_marks(
+            r#"ZDOTDIR="$RC_DIR" zsh -i"#,
+            zsh_hooks!("file://%s%s", "${HOST}"),
+            ".zshenv",
+        );
+        assert_eq!(marks, EXPECTED_MARKS);
     }
 
     #[test]
