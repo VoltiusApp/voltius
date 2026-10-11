@@ -2,6 +2,8 @@ import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vi
 import { render, cleanup, act } from "@testing-library/react";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { __resetPluginStateWarnings } from "@/services/syncStatus";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -80,6 +82,20 @@ describe("TitleBar sync icon across providers", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("TitleBar sync icon while paused", () => {
+  afterEach(() => {
+    useSyncPrefsStore.setState({ paused: false });
+    useSubscriptionStore.setState({ accountMode: null, isPro: false });
+  });
+
+  test("a paused Voltius sync says so instead of reading as not configured", () => {
+    useSubscriptionStore.setState({ accountMode: "server", isPro: true });
+    useSyncPrefsStore.setState({ paused: true });
+    const { container } = render(<TitleBar />);
+    expect(syncButtonTitle(container)).toEqual(["layout.sync.status.paused"]);
   });
 });
 

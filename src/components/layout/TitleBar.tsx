@@ -7,7 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import type { SyncStatus } from "@/services/sync";
-import { syncStatusColor } from "@/services/syncStatus";
+import { SYNC_PAUSED_ICON, syncStatusColor } from "@/services/syncStatus";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -508,6 +508,7 @@ export default function TitleBar() {
         errorSource={sync.errorSource}
         active={syncDropdownOpen}
         configured={sync.configured}
+        paused={sync.paused}
         onClick={() => setSyncDropdownOpen((o) => !o)}
       />
       <SyncDropdown
@@ -785,6 +786,7 @@ function SyncIndicator({
   errorSource,
   active,
   configured,
+  paused,
   onClick,
 }: {
   anchorRef: React.RefObject<HTMLButtonElement | null>;
@@ -794,6 +796,7 @@ function SyncIndicator({
   errorSource: string | null;
   active: boolean;
   configured: boolean;
+  paused: boolean;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
@@ -802,7 +805,7 @@ function SyncIndicator({
   const status = sync.status;
   const color = !configured ? "var(--t-text-dim)" : syncStatusColor(status);
 
-  const title = !configured ? t("layout.sync.status.notConfigured") :
+  const title = !configured ? t(paused ? "layout.sync.status.paused" : "layout.sync.status.notConfigured") :
     status === "syncing" ? t("layout.sync.status.syncing") :
     status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : t("layout.sync.status.synced")) :
     status === "error"   ? (errorSource
@@ -839,7 +842,7 @@ function SyncIndicator({
         }}
       >
         {rippleEls}
-        {configured ? <SyncStatusIcon sync={sync} width={18} /> : <Icon icon="lucide:cloud-off" width={18} />}
+        {configured ? <SyncStatusIcon sync={sync} width={18} /> : <Icon icon={paused ? SYNC_PAUSED_ICON : "lucide:cloud-off"} width={18} />}
       </button>
     </div>
   );

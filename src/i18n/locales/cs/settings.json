@@ -593,7 +593,12 @@
         "lastSync": "Poslední synchronizace: {{time}}",
         "offline": "Offline",
         "idle": "Zatím nesynchronizováno",
+        "paused": "Pozastaveno na tomto zařízení",
         "syncNow": "Synchronizovat nyní"
+      },
+      "pause": {
+        "label": "Pozastavit synchronizaci na tomto zařízení",
+        "sub": "Zastaví synchronizaci se serverem na pozadí. Týmové trezory se přestanou aktualizovat a při spuštění se nenačtou, dokud synchronizaci neobnovíte. „Synchronizovat nyní“ synchronizuje jen vaše vlastní data."
       },
       "requiresPro": {
         "title": "Synchronizace s cloudem",

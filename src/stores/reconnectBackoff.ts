@@ -1,4 +1,4 @@
-import { listen } from "@tauri-apps/api/event";
+import { onForeground, onNetworkBack } from "@/lib/networkSignals";
 import { connectionForSession, useSessionStore } from "./sessionStore";
 import { serialAutoReconnectEnabled } from "./serialAutoReconnect";
 import {
@@ -35,7 +35,7 @@ export function reconnectWithBackoff(
   // now so the tombstone can tear this tab down instead of the loop retrying.
   const s = useSessionStore.getState().sessions.find((x) => x.id === sessionId);
   if (s?.type === "ssh" && s.persist) {
-    void import("@/services/sync").then(({ syncNow }) => syncNow().catch(() => {}));
+    void import("@/services/sync").then(({ syncInBackground }) => syncInBackground().catch(() => {}));
   }
   return runBackoff(sessionId, liveStore(restore), catchUp);
 }
@@ -59,24 +59,15 @@ function wakeAllBackoffs(): void {
   for (const id of sleepingBackoffs()) setTimeout(() => wakeBackoff(id), Math.random() * WAKE_JITTER_MS);
 }
 
-function onNetworkBack(): void {
+function networkBack(): void {
   lastWakeAll = 0;
   wakeAllBackoffs();
   for (const s of useSessionStore.getState().sessions) resumeIfStranded(s.id);
 }
 
-/** The OS reports a new routable address, which webviews do not reliably turn into `online`. */
 export function startNetworkWatch(): () => void {
-  const unlisten = listen("network-changed", onNetworkBack);
-  return () => void unlisten.then((fn) => fn());
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("online", onNetworkBack);
-  window.addEventListener("focus", wakeAllBackoffs);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") wakeAllBackoffs();
-  });
+  const offs = [onNetworkBack(networkBack), onForeground(wakeAllBackoffs)];
+  return () => offs.forEach((off) => off());
 }
 
 /** `handleSessionClosed` bound to the live stores — every terminal view routes

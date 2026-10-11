@@ -15,6 +15,7 @@ vi.mock("@/services/sync", () => ({
   onSyncStateChange: () => () => {},
   syncNow: vi.fn(),
   scheduleSync: vi.fn(),
+  setSyncPaused: vi.fn(),
 }));
 const { view, defaultProviders, useSyncProvidersMock, resetProvidersMock } = vi.hoisted(() => {
   type ProviderOverride = Record<string, unknown>;
@@ -45,7 +46,7 @@ vi.mock("@/components/settings/usePluginInstaller", () => ({
 const { runAction } = vi.hoisted(() => ({ runAction: vi.fn() }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: runAction }));
 
-import { scheduleSync } from "@/services/sync";
+import { scheduleSync, setSyncPaused } from "@/services/sync";
 import SyncSection from "./SyncSection";
 
 const toggleFor = (c: HTMLElement, domain: string) =>
@@ -158,6 +159,40 @@ describe("SyncSection Voltius group", () => {
     const { getByText } = render(<SyncSection />);
     fireEvent.click(getByText("settings.sync.notConnected.signIn"));
     expect(runAction).toHaveBeenCalledWith({ kind: "signIn" });
+  });
+});
+
+describe("SyncSection pause", () => {
+  beforeEach(() => vi.mocked(setSyncPaused).mockClear());
+  afterEach(() => { cleanup(); resetProvidersMock(); });
+
+  const pauseToggle = (c: HTMLElement) => toggleFor(c, "pause");
+  const voltius = (availability: string) => () => ({
+    providers: [view({ id: "voltius", label: "Voltius Sync", availability })],
+    effective: { configured: false, paused: false, status: "idle", lastSync: null, error: null, errorSource: null },
+  });
+
+  test("switching the pause on pauses sync", () => {
+    const { container } = render(<SyncSection />);
+    fireEvent.click(pauseToggle(container)!);
+    expect(setSyncPaused).toHaveBeenCalledWith(true);
+  });
+
+  test("a paused provider reads as paused and can be switched back", () => {
+    useSyncProvidersMock.mockImplementation(voltius("paused"));
+    const { container, getByText } = render(<SyncSection />);
+    expect(getByText("settings.sync.active.paused")).toBeTruthy();
+    expect(pauseToggle(container)!.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(pauseToggle(container)!);
+    expect(setSyncPaused).toHaveBeenCalledWith(false);
+  });
+
+  test("no pause is offered before sync is available", () => {
+    useSyncProvidersMock.mockImplementation(voltius("needs_upgrade"));
+    expect(pauseToggle(render(<SyncSection />).container)).toBeNull();
+    cleanup();
+    useSyncProvidersMock.mockImplementation(voltius("locked"));
+    expect(pauseToggle(render(<SyncSection />).container)).toBeNull();
   });
 });
 

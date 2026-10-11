@@ -178,7 +178,7 @@ export interface PluginTransfer {
 
 export type SyncProviderStatus = "idle" | "syncing" | "success" | "error" | "offline";
 
-export type SyncProviderAvailability = "active" | "not_configured" | "disabled" | "locked" | "needs_upgrade";
+export type SyncProviderAvailability = "active" | "not_configured" | "disabled" | "locked" | "needs_upgrade" | "paused";
 
 /** What a sync provider plugin publishes under `publishState("sync-state", …)`. */
 export interface SyncProviderState {

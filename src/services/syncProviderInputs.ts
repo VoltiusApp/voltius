@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import type { PluginManifest } from "@/plugins/api";
-import { getSyncState, syncNow } from "@/services/sync";
+import { getSyncState, isSyncPaused, syncNow } from "@/services/sync";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -21,6 +21,7 @@ export function readSyncProviderInputs(source: LoadedPluginSource): SyncProvider
       state: getSyncState(),
       accountMode,
       isPro,
+      paused: isSyncPaused(),
       syncNow: () => syncNow(true),
     },
     plugins: source.loaded().map((manifest) => ({

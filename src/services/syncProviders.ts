@@ -17,6 +17,7 @@ const DEFAULT_PROVIDER_ICON = "lucide:refresh-cw";
 export type SyncProviderAction =
   | { kind: "signIn" }
   | { kind: "upgrade" }
+  | { kind: "resume" }
   | { kind: "enable" }
   | { kind: "configure"; pageId: string | null };
 
@@ -42,6 +43,7 @@ export interface VoltiusSyncInput {
   state: { status: SyncStatus; lastSync: Date | null; error: string | null; blobSizeBytes: number | null };
   accountMode: string | null;
   isPro: boolean;
+  paused: boolean;
   syncNow: () => Promise<void>;
 }
 
@@ -53,6 +55,8 @@ export interface SyncProviderInputs {
 
 export interface EffectiveSync {
   configured: boolean;
+  /** Voltius sync is paused on this device and nothing else is syncing. */
+  paused: boolean;
   status: SyncStatus;
   lastSync: Date | null;
   error: string | null;
@@ -61,9 +65,15 @@ export interface EffectiveSync {
 
 const STATUS_RANK: Record<SyncStatus, number> = { idle: 0, success: 1, syncing: 2, offline: 3, error: 4 };
 
+const VOLTIUS_ACTIONS: Partial<Record<SyncProviderAvailability, SyncProviderAction>> = {
+  locked: { kind: "signIn" },
+  needs_upgrade: { kind: "upgrade" },
+  paused: { kind: "resume" },
+};
+
 function voltiusProvider(v: VoltiusSyncInput): SyncProviderView {
   const availability: SyncProviderAvailability =
-    v.accountMode !== "server" ? "locked" : !v.isPro ? "needs_upgrade" : "active";
+    v.accountMode !== "server" ? "locked" : v.paused ? "paused" : !v.isPro ? "needs_upgrade" : "active";
   const active = availability === "active";
   return {
     id: VOLTIUS_PROVIDER_ID,
@@ -71,8 +81,8 @@ function voltiusProvider(v: VoltiusSyncInput): SyncProviderView {
     icon: "lucide:cloud",
     availability,
     state: { ...v.state, configured: active },
-    syncNow: active ? v.syncNow : null,
-    action: availability === "locked" ? { kind: "signIn" } : availability === "needs_upgrade" ? { kind: "upgrade" } : null,
+    syncNow: active || availability === "paused" ? v.syncNow : null,
+    action: VOLTIUS_ACTIONS[availability] ?? null,
   };
 }
 
@@ -115,8 +125,16 @@ export function buildSyncProviders(inputs: SyncProviderInputs): SyncProviderView
 export function aggregateSyncStatus(providers: SyncProviderView[]): EffectiveSync {
   const active = providers.filter((p) => p.availability === "active");
   if (active.length === 0) {
-    const fallback = providers.find((p) => p.id === VOLTIUS_PROVIDER_ID)?.state ?? NOT_CONFIGURED_SYNC_STATE;
-    return { configured: false, status: fallback.status, lastSync: fallback.lastSync, error: fallback.error, errorSource: null };
+    const voltius = providers.find((p) => p.id === VOLTIUS_PROVIDER_ID);
+    const fallback = voltius?.state ?? NOT_CONFIGURED_SYNC_STATE;
+    return {
+      configured: false,
+      paused: voltius?.availability === "paused",
+      status: fallback.status,
+      lastSync: fallback.lastSync,
+      error: fallback.error,
+      errorSource: null,
+    };
   }
   const worst = active.reduce((w, p) => (STATUS_RANK[p.state.status] > STATUS_RANK[w.state.status] ? p : w));
   const lastSync = active.reduce<Date | null>(
@@ -126,6 +144,7 @@ export function aggregateSyncStatus(providers: SyncProviderView[]): EffectiveSyn
   const failing = worst.state.status === "error";
   return {
     configured: true,
+    paused: false,
     status: worst.state.status,
     lastSync,
     error: failing ? worst.state.error : null,

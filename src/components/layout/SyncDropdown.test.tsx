@@ -65,6 +65,20 @@ describe("SyncDropdown", () => {
     expect(syncNow).toHaveBeenCalled();
   });
 
+  test("a paused provider still syncs on demand and resumes from its row", () => {
+    const syncNow = vi.fn(async () => {});
+    const { getByText } = render(
+      <SyncDropdown anchorRef={createRef()} open onClose={() => {}} providers={[
+        view({ id: "voltius", availability: "paused", syncNow, action: { kind: "resume" } }),
+      ]} installer={installer} />,
+    );
+    expect(getByText("layout.sync.paused")).toBeTruthy();
+    fireEvent.click(getByText("layout.sync.syncNow"));
+    expect(syncNow).toHaveBeenCalled();
+    fireEvent.click(getByText("layout.sync.resumeArrow"));
+    expect(runAction).toHaveBeenCalledWith({ kind: "resume" });
+  });
+
   test("lists uninstalled catalogue providers and installs through the shared installer", () => {
     const cloudflare = { id: "plugin-cloudflare-sync", name: "Cloudflare Sync", author: "a", description: "R2", repo: "", version: "0.4.0", tags: [], theme: false, sourceId: "voltius", permissions: ["sync:write"] };
     available.list = [cloudflare];

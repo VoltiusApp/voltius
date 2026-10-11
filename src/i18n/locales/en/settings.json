@@ -587,7 +587,12 @@
         "lastSync": "Last sync: {{time}}",
         "offline": "Offline",
         "idle": "Not synced yet",
+        "paused": "Paused on this device",
         "syncNow": "Sync now"
+      },
+      "pause": {
+        "label": "Pause sync on this device",
+        "sub": "Stops background sync with the server. Team vaults stop updating and do not load at launch until you resume. Sync now only syncs your own data."
       },
       "requiresPro": {
         "title": "Cloud sync",

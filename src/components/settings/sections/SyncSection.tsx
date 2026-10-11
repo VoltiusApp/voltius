@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Toggle } from "@/components/shared/Toggle";
-import type { SyncStatus } from "@/services/sync";
+import { setSyncPaused, type SyncStatus } from "@/services/sync";
 import { runManualSync } from "@/services/syncIntent";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useAvailableSyncProviders } from "@/hooks/useAvailableSyncProviders";
@@ -126,22 +126,37 @@ function VoltiusSyncGroup({ provider }: { provider: SyncProviderView }) {
     );
   }
 
+  const paused = provider.availability === "paused";
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div>
-        <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.sync.active.title")}</p>
-        <p className="text-xs mt-0.5 text-(--t-text-dim)">{syncStateLine(t, provider.state)}</p>
+    <>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.sync.active.title")}</p>
+          <p className="text-xs mt-0.5 text-(--t-text-dim)">
+            {paused ? t("settings.sync.active.paused") : syncStateLine(t, provider.state)}
+          </p>
+        </div>
+        <SyncNowButton provider={provider} />
       </div>
-      <SyncNowButton provider={provider} />
-    </div>
+      <SyncToggleRow
+        domain="pause"
+        label={t("settings.sync.pause.label")}
+        sub={t("settings.sync.pause.sub")}
+        ariaLabel={t("settings.sync.pause.label")}
+        checked={paused}
+        onChange={setSyncPaused}
+      />
+    </>
   );
 }
 
-function SyncToggleRow({ domain, label, sub, checked, onChange }: {
+function SyncToggleRow({ domain, label, sub, ariaLabel, checked, onChange }: {
   /** Stable hook for tests and UI automation; also the handler key for settings rows. */
   domain: string;
   label: string;
   sub: string;
+  /** Defaults to "Sync <label>", which is wrong for a row that does not switch a kind of data. */
+  ariaLabel?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
@@ -152,7 +167,7 @@ function SyncToggleRow({ domain, label, sub, checked, onChange }: {
         <p className="text-sm font-medium text-(--t-text-primary)">{label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
       </div>
-      <Toggle checked={checked} onChange={onChange} aria-label={t("settings.sync.quickToggleLabel", { label })} />
+      <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />
     </div>
   );
 }
@@ -217,7 +232,7 @@ export default function SyncSection() {
 
   return (
     <div className="p-6 space-y-6">
-      <SettingsGroup title={t("settings.sync.voltiusCloud")}>
+      <SettingsGroup title={t("settings.sync.voltiusCloud")} divided>
         {voltiusProvider && <VoltiusSyncGroup provider={voltiusProvider} />}
       </SettingsGroup>
 

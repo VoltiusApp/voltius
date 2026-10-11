@@ -108,6 +108,8 @@ export function sanitizeSyncProviderState(raw: unknown, pluginId: string): SyncP
   }
 }
 
+export const SYNC_PAUSED_ICON = "lucide:circle-pause";
+
 /** Lucide icon for a sync status (matches SyncDropdown). */
 export function syncStatusIcon(status: SyncStatus): string {
   if (status === "syncing") return "lucide:refresh-cw";

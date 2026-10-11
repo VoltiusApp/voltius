@@ -30,6 +30,9 @@ import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/ser
 import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
+import { sseRetryDelay } from "@/services/syncRetry";
+import { createWakeableSleeps } from "@/lib/wakeableSleep";
+import { onForeground, onNetworkBack } from "@/lib/networkSignals";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { parseUsingEvent } from "@/services/presenceEvent";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
@@ -731,17 +734,45 @@ export async function syncOnLogin(): Promise<void> {
   }
 }
 
+// ─── Pause ───────────────────────────────────────────────────────────────────
+
+export function isSyncPaused(): boolean {
+  return useSyncPrefsStore.getState().paused;
+}
+
+/** A sync nobody asked for: skipped while this device is paused. */
+export function syncInBackground(forcePush = false): Promise<void> {
+  return isSyncPaused() ? Promise.resolve() : syncNow(forcePush);
+}
+
+/** Launch sync. A paused device skips it; resuming runs it then. */
+export async function syncOnLaunch(): Promise<void> {
+  if (!isSyncPaused()) await syncOnLogin();
+}
+
+export function setSyncPaused(paused: boolean): void {
+  if (paused === isSyncPaused()) return;
+  useSyncPrefsStore.getState().setPaused(paused);
+  if (paused) {
+    stopRealtimeSync();
+  } else {
+    void syncOnLogin();
+    startRealtimeSync();
+  }
+  _listeners.forEach((fn) => fn());
+}
+
 // ─── Debounced sync on mutations ──────────────────────────────────────────────
 
 let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Schedule a sync 2 s after the last mutation (debounced). */
 export function scheduleSync() {
-  if (!useSubscriptionStore.getState().isPro) return;
+  if (!useSubscriptionStore.getState().isPro || isSyncPaused()) return;
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     _syncTimer = null;
-    syncNow(true).catch(logFailure("forced push after local mutation")); // forcePush: local mutation must be uploaded
+    syncInBackground(true).catch(logFailure("forced push after local mutation")); // forcePush: local mutation must be uploaded
   }, 2000);
 }
 
@@ -756,16 +787,27 @@ export function onTeamSseEvent(fn: (teamId: string) => void): () => void {
 
 let _sseAbort: AbortController | null = null;
 
+const SSE_RETRY = "sse-retry";
+const _sseSleeps = createWakeableSleeps();
+const wakeSseRetry = () => void _sseSleeps.wake(SSE_RETRY);
+
 /**
  * Open a persistent SSE connection to the server. When another device uploads
  * a blob, the server sends its device_id. Team blob pushes from other members
  * arrive as "team:{team_id}" events on the same stream — no per-team SSE needed.
- * Auto-reconnects on disconnect with a 5 s back-off.
+ * Reconnects on its own, backing off while the server stays unreachable.
  */
 export function startRealtimeSync(): void {
   stopRealtimeSync();
-  _sseAbort = new AbortController();
-  void _sseLoop(_sseAbort.signal);
+  if (isSyncPaused()) return;
+  const abort = new AbortController();
+  _sseAbort = abort;
+  const offs = [onNetworkBack(wakeSseRetry), onForeground(wakeSseRetry)];
+  abort.signal.addEventListener("abort", () => {
+    offs.forEach((off) => off());
+    wakeSseRetry();
+  }, { once: true });
+  void _sseLoop(abort.signal);
 }
 
 export function stopRealtimeSync(): void {
@@ -774,15 +816,17 @@ export function stopRealtimeSync(): void {
 }
 
 async function _sseLoop(signal: AbortSignal): Promise<void> {
+  let failures = 0;
   while (!signal.aborted) {
+    let opened = false;
     try {
-      await _sseConnect(signal);
+      await _sseConnect(signal, () => { opened = true; });
     } catch {
       // connection dropped or failed — fall through to reconnect delay
     }
-    if (!signal.aborted) {
-      await new Promise<void>((r) => setTimeout(r, 5_000));
-    }
+    if (signal.aborted) return;
+    failures = opened ? 0 : failures + 1;
+    await _sseSleeps.sleep(SSE_RETRY, sseRetryDelay(failures));
   }
 }
 
@@ -992,7 +1036,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
   }
 }
 
-async function _sseConnect(signal: AbortSignal): Promise<void> {
+async function _sseConnect(signal: AbortSignal, onOpen: () => void): Promise<void> {
   const [serverUrl, storedJwt, myDeviceId] = await Promise.all([
     getServerUrl(),
     getJwt(),
@@ -1008,19 +1052,23 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
   _listeners.forEach((fn) => fn());
   setMyPresence(true);
 
-  // Sync immediately on (re)connect to catch any events missed while offline
-  syncNow().catch(logFailure("syncNow on realtime connect"));
+  // Only once the stream is open: an unreachable server must not cost a full sync per retry.
+  const catchUp = () => {
+    onOpen();
+    // Catches any events missed while offline
+    syncInBackground().catch(logFailure("syncNow on realtime connect"));
 
-  // Seed connection-presence snapshot so we render correct state even before any
-  // SSE event arrives this session.
-  (async () => {
-    const [{ fetchCurrentConnectionUsage }, { useConnectionPresenceStore }] = await Promise.all([
-      import("@/services/connectionPresence"),
-      import("@/stores/connectionPresenceStore"),
-    ]);
-    const entries = await fetchCurrentConnectionUsage();
-    useConnectionPresenceStore.getState().setSnapshot(entries);
-  })().catch(logFailure("connection presence snapshot"));
+    // Seed connection-presence snapshot so we render correct state even before any
+    // SSE event arrives this session.
+    (async () => {
+      const [{ fetchCurrentConnectionUsage }, { useConnectionPresenceStore }] = await Promise.all([
+        import("@/services/connectionPresence"),
+        import("@/stores/connectionPresenceStore"),
+      ]);
+      const entries = await fetchCurrentConnectionUsage();
+      useConnectionPresenceStore.getState().setSnapshot(entries);
+    })().catch(logFailure("connection presence snapshot"));
+  };
 
   const parser = new SseDataLineParser();
   const connect = (token: string) => connectNativeSse(
@@ -1034,6 +1082,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
         handleRealtimeEvent(eventData, myDeviceId).catch(logFailure(`realtime event ${eventData}`));
       }
     },
+    catchUp,
   );
   const connectAndFlush = async (token: string) => {
     await connect(token);

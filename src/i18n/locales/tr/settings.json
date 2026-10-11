@@ -493,7 +493,12 @@
         "lastSync": "Son eşitleme: {{time}}",
         "offline": "Çevrimdışı",
         "idle": "Henüz eşitlenmedi",
+        "paused": "Bu cihazda duraklatıldı",
         "syncNow": "Şimdi eşitle"
+      },
+      "pause": {
+        "label": "Bu cihazda eşitlemeyi duraklat",
+        "sub": "Sunucuyla arka plan eşitlemesini durdurur. Ekip kasaları güncellenmez ve siz sürdürene kadar açılışta yüklenmez. “Şimdi eşitle” yalnızca kendi verilerinizi eşitler."
       },
       "requiresPro": {
         "title": "Bulut eşitleme",

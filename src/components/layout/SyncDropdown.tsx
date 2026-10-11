@@ -5,7 +5,7 @@ import i18n from "@/i18n";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import type { SyncStatus } from "@/services/sync";
-import { syncStatusColor } from "@/services/syncStatus";
+import { SYNC_PAUSED_ICON, syncStatusColor } from "@/services/syncStatus";
 import { runManualSync } from "@/services/syncIntent";
 import { runSyncProviderAction } from "@/services/syncProviderAction";
 import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
@@ -39,6 +39,7 @@ const INACTIVE_ROWS = {
   needs_upgrade: { icon: null, labelKey: "layout.sync.requiresPro", actionKey: "layout.sync.upgradeArrow", tone: "var(--t-text-dim)" },
   disabled: { icon: "lucide:puzzle", labelKey: "layout.sync.pluginDisabled", actionKey: "layout.sync.enableArrow", tone: "var(--t-text-dim)" },
   not_configured: { icon: "lucide:triangle-alert", labelKey: "layout.sync.notConfigured", actionKey: "layout.sync.configureArrow", tone: "var(--t-status-error)" },
+  paused: { icon: SYNC_PAUSED_ICON, labelKey: "layout.sync.paused", actionKey: "layout.sync.resumeArrow", tone: "var(--t-text-dim)" },
 } as const;
 
 function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
@@ -52,7 +53,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
     setPending(engineStatus === "syncing");
   }, [engineStatus]);
 
-  const canSync = isActive && !pending && provider.syncNow !== null;
+  const canSync = !pending && provider.syncNow !== null;
 
   const handleSync = () => {
     if (!canSync || !provider.syncNow) return;
@@ -85,7 +86,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
           style={{
             color: canSync ? "var(--t-text-secondary)" : "var(--t-text-dim)",
             background: "var(--t-bg-elevated)",
-            opacity: !isActive ? 0.4 : 1,
+            opacity: provider.syncNow === null ? 0.4 : 1,
           }}
           onMouseEnter={(e) => {
             if (canSync) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";

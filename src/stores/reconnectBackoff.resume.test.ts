@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   sessions: [] as TerminalSession[],
   networkChanged: undefined as undefined | (() => void),
   reconnectAttempt: vi.fn(async (_id: string, _options?: { restore?: boolean }) => ({ ok: true })),
+  syncNow: vi.fn(async () => {}),
+  syncInBackground: vi.fn(async () => {}),
 }));
 
 vi.mock("./sessionStore", () => ({
@@ -28,7 +30,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 vi.mock("./serialAutoReconnect", () => ({ serialAutoReconnectEnabled: () => true }));
 // Reconnecting a persistent tab fires an unawaited import of sync; the real graph can finish loading after teardown.
-vi.mock("@/services/sync", () => ({ syncNow: vi.fn(async () => {}) }));
+vi.mock("@/services/sync", () => ({ syncNow: h.syncNow, syncInBackground: h.syncInBackground }));
 
 function patch(id: string, fields: Partial<TerminalSession>) {
   h.sessions = h.sessions.map((s) => (s.id === id ? { ...s, ...fields } : s));
@@ -66,6 +68,18 @@ test("a restored tab that failed offline keeps retrying, replaying its history o
   await vi.advanceTimersByTimeAsync(2000);
   expect(h.reconnectAttempt).toHaveBeenCalledWith("s1", { restore: true });
   expect(h.sessions[0].status).toBe("connected");
+});
+
+test("the manifest pull for a dropped persistent tab respects a paused sync", async () => {
+  const { reconnectWithBackoff } = await import("./reconnectBackoff");
+  h.sessions = [restoredTab()];
+  h.syncInBackground.mockClear();
+
+  void reconnectWithBackoff("s1");
+  await vi.advanceTimersByTimeAsync(2000);
+
+  expect(h.syncInBackground).toHaveBeenCalledTimes(1);
+  expect(h.syncNow).not.toHaveBeenCalled();
 });
 
 test("a tab waiting on the user is left on its prompt", async () => {

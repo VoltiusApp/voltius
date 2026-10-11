@@ -6,7 +6,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
-import { syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
+import { SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
@@ -70,9 +70,9 @@ export default function MobileAccountPage() {
         <Row icon="lucide:mail" label={t("mobile.account.email")} value={email ?? (signedIn ? "—" : t("mobile.account.notSignedIn"))} />
         <Row icon="lucide:badge-check" label={t("mobile.account.plan")} value={planValue} valueColor={isPro ? "#f59e0b" : undefined} />
         <Row
-          icon={syncStatusIcon(sync.status)}
+          icon={sync.paused ? SYNC_PAUSED_ICON : syncStatusIcon(sync.status)}
           label={t("mobile.account.cloudSync")}
-          value={sync.configured ? t(`mobile.header.syncStatus.${sync.status}`) : t("mobile.account.off")}
+          value={sync.configured ? t(`mobile.header.syncStatus.${sync.status}`) : t(sync.paused ? "layout.sync.paused" : "mobile.account.off")}
           valueColor={sync.configured ? syncStatusColor(sync.status) : undefined}
         />
 

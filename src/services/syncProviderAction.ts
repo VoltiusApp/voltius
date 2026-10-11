@@ -1,4 +1,5 @@
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { setSyncPaused } from "@/services/sync";
 import { useUIStore } from "@/stores/uiStore";
 import type { SyncProviderAction } from "./syncProviders";
 
@@ -10,6 +11,9 @@ export function runSyncProviderAction(action: SyncProviderAction): void {
       return;
     case "upgrade":
       void openBillingCheckout("pro");
+      return;
+    case "resume":
+      setSyncPaused(false);
       return;
     case "enable":
       ui.openSettings("plugins");

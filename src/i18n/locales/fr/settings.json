@@ -590,7 +590,12 @@
         "lastSync": "Dernière synchro : {{time}}",
         "offline": "Hors ligne",
         "idle": "Pas encore synchronisé",
+        "paused": "En pause sur cet appareil",
         "syncNow": "Synchroniser"
+      },
+      "pause": {
+        "label": "Mettre la synchronisation en pause sur cet appareil",
+        "sub": "Arrête la synchronisation en arrière-plan avec le serveur. Les coffres d'équipe ne sont plus mis à jour et ne se chargent pas au démarrage tant que la synchronisation n'est pas reprise. « Synchroniser » ne synchronise que vos propres données."
       },
       "requiresPro": {
         "title": "Synchronisation cloud",

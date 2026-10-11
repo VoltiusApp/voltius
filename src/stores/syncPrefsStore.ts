@@ -48,6 +48,8 @@ interface SyncPrefsStore {
   // Explicit per-setting choice, keyed by dotted path. Absent = the registry
   // default, so device-scoped keys need no seeding and no store migration.
   settingSyncOverrides: Record<string, boolean>;
+  // No background sync with the server from this device. Never synced itself.
+  paused: boolean;
 
   setSyncType: (typeId: string, v: boolean) => void;
   toggleExcluded: (id: string) => void;
@@ -58,6 +60,7 @@ interface SyncPrefsStore {
   isDomainSynced: (id: string) => boolean;
   setSettingSync: (path: string, v: boolean) => void;
   isSettingSynced: (path: string) => boolean;
+  setPaused: (v: boolean) => void;
 }
 
 export const useSyncPrefsStore = create<SyncPrefsStore>()(
@@ -67,6 +70,7 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
       excludedIds: [],
       syncSettingDomains: {},
       settingSyncOverrides: {},
+      paused: false,
 
       setSyncType: (typeId, v) =>
         set((s) => ({ syncTypes: { ...s.syncTypes, [typeId]: v } })),
@@ -107,6 +111,8 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
         if (!s.isDomainSynced(domainOf(path))) return false;
         return (s.settingSyncOverrides ?? {})[path] ?? !settingKey(path)?.deviceScoped;
       },
+
+      setPaused: (v) => set({ paused: v }),
     }),
     { name: "sync-prefs" },
   ),

@@ -1,4 +1,5 @@
 import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "@/components/terminal/connection-overlay/utils";
+import { createWakeableSleeps } from "@/lib/wakeableSleep";
 import type { BackendErrorCode } from "@/services/backendErrors";
 import type { IdentityPickIssue } from "@/services/credentialPlan";
 import type { TerminalSession } from "@/types";
@@ -124,34 +125,15 @@ export function cancelBackoff(sessionId: string): void {
   wakeBackoff(sessionId);
 }
 
-const wakers = new Map<string, () => void>();
-
-/** Resolves true when woken early by wakeBackoff, false when the delay elapsed. */
-function sleep(sessionId: string, ms: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const wake = () => {
-      clearTimeout(timer);
-      if (wakers.get(sessionId) === wake) wakers.delete(sessionId);
-      resolve(true);
-    };
-    wakers.set(sessionId, wake);
-    timer = setTimeout(() => {
-      if (wakers.get(sessionId) === wake) wakers.delete(sessionId);
-      resolve(false);
-    }, ms);
-  });
-}
+const sleeps = createWakeableSleeps();
 
 /** Cut the current wait of sessionId's loop short and restart its schedule. */
 export function wakeBackoff(sessionId: string): boolean {
-  const wake = wakers.get(sessionId);
-  wake?.();
-  return !!wake;
+  return sleeps.wake(sessionId);
 }
 
 export function sleepingBackoffs(): string[] {
-  return [...wakers.keys()];
+  return sleeps.sleeping();
 }
 
 /** Reconnect a dropped session while holding a single steady "reconnecting"
@@ -174,7 +156,7 @@ export async function runBackoff(
 
   let step = 0;
   for (;;) {
-    const woken = await sleep(sessionId, delay(step));
+    const woken = await sleeps.sleep(sessionId, delay(step));
     if (superseded()) return false;
     if (!store.exists(sessionId)) return false;
     // Recovered through another path (e.g. a manual retry) — nothing to do.
