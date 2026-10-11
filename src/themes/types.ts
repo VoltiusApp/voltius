@@ -3,6 +3,8 @@ export interface TerminalTheme {
   foreground: string;
   cursor: string;
   selectionBackground: string;
+  /** Unset: selected text keeps its own colours. */
+  selectionForeground?: string;
   black: string; red: string; green: string; yellow: string;
   blue: string; magenta: string; cyan: string; white: string;
   brightBlack: string; brightRed: string; brightGreen: string;

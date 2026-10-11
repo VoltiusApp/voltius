@@ -34,7 +34,8 @@
       "sizePx": "Velikost (px)",
       "lineHeight": "Výška řádku",
       "terminalFont": "Písmo terminálu",
-      "highlightUsing": "Zvýraznit prvky používající {{varName}}"
+      "highlightUsing": "Zvýraznit prvky používající {{varName}}",
+      "resetColor": "Obnovit výchozí"
     },
     "groups": {
       "backgrounds": "Pozadí",
@@ -84,6 +85,7 @@
       "foreground": "Popředí",
       "cursor": "Kurzor",
       "selectionBackground": "Výběr",
+      "selectionForeground": "Vybraný text",
       "black": "Černá",
       "red": "Červená",
       "green": "Zelená",

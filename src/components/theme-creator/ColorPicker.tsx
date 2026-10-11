@@ -385,9 +385,11 @@ function Popover({
 export function ColorPicker({
   value,
   onChange,
+  unset = false,
 }: {
   value: string;
   onChange: (hex: string) => void;
+  unset?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [hsva, setHsvaRaw] = useState<[number, number, number, number]>(() => hexToHsva(value));
@@ -444,9 +446,9 @@ export function ColorPicker({
           padding: 0,
           overflow: "hidden"
         }}
-        title={value}
+        title={unset ? undefined : value}
       >
-        <div style={{ width: "100%", height: "100%", background: value }} />
+        {!unset && <div style={{ width: "100%", height: "100%", background: value }} />}
       </button>
       {open && anchorRect && (
         <Popover

@@ -14,7 +14,7 @@ import {
   MAX_TERMINAL_LINE_HEIGHT,
   MIN_TERMINAL_LINE_HEIGHT,
 } from "@/utils/terminalTheme";
-import { getUiGroups, getTerminalGroups, getFieldLabels } from "./colorGroups";
+import { getUiGroups, getTerminalGroups, getFieldLabels, OPTIONAL_TERMINAL_FIELDS } from "./colorGroups";
 import { ColorPicker } from "./ColorPicker";
 import { primaryFamily, toFontStack, useSystemFonts } from "@/utils/systemFonts";
 import { PickerSurface } from "@/components/shared/PickerSurface";
@@ -312,6 +312,65 @@ function VarSearchOverlay({ varName, onClose }: { varName: string; onClose: () =
 
 // ── ColorEditor ───────────────────────────────────────────────────────────────
 
+const ROW_STYLE: React.CSSProperties = { padding: "2px 4px", margin: "0 -4px" };
+const PICKED_ROW_STYLE: React.CSSProperties = {
+  ...ROW_STYLE,
+  borderRadius: 4,
+  boxShadow: "inset 0 0 0 1px var(--t-accent)",
+  background: "color-mix(in srgb, var(--t-accent) 12%, transparent)",
+};
+
+function RowIconButton({ icon, title, active = false, onClick }: {
+  icon: string;
+  title: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 18, height: 18, borderRadius: 4, border: "1px solid",
+        cursor: "pointer", flexShrink: 0,
+        borderColor: active ? "var(--t-accent)" : "transparent",
+        background: active ? "color-mix(in srgb, var(--t-accent) 18%, transparent)" : "transparent",
+        color: active ? "var(--t-accent)" : "var(--t-text-dim)",
+      }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = "var(--t-text-muted)"; }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = "var(--t-text-dim)"; }}
+    >
+      <Icon icon={icon} width={10} />
+    </button>
+  );
+}
+
+function ColorRow({ field, label, picked, color, text, unset, onChange, children }: {
+  field: string;
+  label: string;
+  picked: boolean;
+  color: string;
+  text: string;
+  unset?: boolean;
+  onChange: (hex: string) => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      data-field={field}
+      data-picked={picked ? "true" : undefined}
+      className="flex items-center gap-2 transition-all duration-300"
+      style={picked ? PICKED_ROW_STYLE : ROW_STYLE}
+    >
+      <ColorPicker value={color} unset={unset} onChange={onChange} />
+      <span className="text-xs flex-1 text-(--t-text-secondary)">{label}</span>
+      <code className="text-xs font-mono text-(--t-text-muted)">{text}</code>
+      {children}
+    </div>
+  );
+}
+
 function ColorEditor({
   draft,
   setDraft,
@@ -328,13 +387,11 @@ function ColorEditor({
 
   const setUiColor = (field: keyof UITheme, value: string) =>
     setDraft((d) => ({ ...d, ui: { ...d.ui, [field]: value } }));
-  const setTermColor = (field: keyof TerminalTheme, value: string) =>
+  const setTermColor = (field: keyof TerminalTheme, value: string | undefined) =>
     setDraft((d) => ({ ...d, terminal: { ...d.terminal, [field]: value } }));
 
   const [searchVar, setSearchVar] = useState<string | null>(null);
 
-  const ui = draft.ui as unknown as Record<string, string>;
-  const term = draft.terminal as unknown as Record<string, string>;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to first match when pickedFields changes
@@ -343,17 +400,6 @@ function ColorEditor({
     const first = scrollRef.current.querySelector<HTMLElement>("[data-picked='true']");
     first?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [pickedFields]);
-
-  const rowStyle = (field: string): React.CSSProperties =>
-    pickedFields.has(field)
-      ? {
-          borderRadius: 4,
-          boxShadow: "inset 0 0 0 1px var(--t-accent)",
-          background: "color-mix(in srgb, var(--t-accent) 12%, transparent)",
-          padding: "2px 4px",
-          margin: "0 -4px",
-        }
-      : { padding: "2px 4px", margin: "0 -4px" };
 
   return (
     <>
@@ -397,38 +443,27 @@ function ColorEditor({
       {uiGroups.map((group) => (
         <div key={group.label} className="space-y-1.5">
           <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{group.label}</p>
-          {group.fields.map((field) => (
-            <div
-              key={field}
-              data-field={field}
-              data-picked={pickedFields.has(field as string) ? "true" : undefined}
-              className="flex items-center gap-2 transition-all duration-300"
-              style={rowStyle(field as string)}
-            >
-              <ColorPicker
-                value={ui[field as string]}
+          {group.fields.map((field) => {
+            const varName = fieldToVar(field);
+            return (
+              <ColorRow
+                key={field}
+                field={field}
+                label={fieldLabels[field] ?? field}
+                picked={pickedFields.has(field)}
+                color={draft.ui[field]}
+                text={draft.ui[field]}
                 onChange={(hex) => setUiColor(field, hex)}
-              />
-              <span className="text-xs flex-1 text-(--t-text-secondary)">{fieldLabels[field] ?? field}</span>
-              <code className="text-xs font-mono text-(--t-text-muted)">{ui[field as string]}</code>
-              <button
-                onClick={() => setSearchVar(searchVar === fieldToVar(field as string) ? null : fieldToVar(field as string))}
-                title={t("themeCreator.editor.highlightUsing", { varName: fieldToVar(field as string) })}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 18, height: 18, borderRadius: 4, border: "1px solid",
-                  cursor: "pointer", flexShrink: 0,
-                  borderColor: searchVar === fieldToVar(field as string) ? "var(--t-accent)" : "transparent",
-                  background: searchVar === fieldToVar(field as string) ? "color-mix(in srgb, var(--t-accent) 18%, transparent)" : "transparent",
-                  color: searchVar === fieldToVar(field as string) ? "var(--t-accent)" : "var(--t-text-dim)",
-                }}
-                onMouseEnter={(e) => { if (searchVar !== fieldToVar(field as string)) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-                onMouseLeave={(e) => { if (searchVar !== fieldToVar(field as string)) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
               >
-                <Icon icon="lucide:search" width={10} />
-              </button>
-            </div>
-          ))}
+                <RowIconButton
+                  icon="lucide:search"
+                  title={t("themeCreator.editor.highlightUsing", { varName })}
+                  active={searchVar === varName}
+                  onClick={() => setSearchVar(searchVar === varName ? null : varName)}
+                />
+              </ColorRow>
+            );
+          })}
         </div>
       ))}
 
@@ -475,23 +510,30 @@ function ColorEditor({
       {terminalGroups.map((group) => (
         <div key={group.label} className="space-y-1.5">
           <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{group.label}</p>
-          {group.fields.map((field) => (
-            <div
-              key={field}
-              data-field={field}
-              data-picked={pickedFields.has(field as string) ? "true" : undefined}
-              className="flex items-center gap-2 transition-all duration-300"
-              style={rowStyle(field as string)}
-            >
-              <ColorPicker
-                value={term[field as string].startsWith("#") && term[field as string].length >= 7
-                  ? term[field as string].slice(0, 7) : "#000000"}
-                onChange={(hex) => setTermColor(field, hex)}
-              />
-              <span className="text-xs flex-1 text-(--t-text-secondary)">{fieldLabels[field] ?? field}</span>
-              <code className="text-xs font-mono text-(--t-text-muted)">{term[field as string].slice(0, 7)}</code>
-            </div>
-          ))}
+          {group.fields.map((field) => {
+            const value = draft.terminal[field];
+            const hex = value?.startsWith("#") && value.length >= 7 ? value.slice(0, 7) : undefined;
+            return (
+              <ColorRow
+                key={field}
+                field={field}
+                label={fieldLabels[field] ?? field}
+                picked={pickedFields.has(field)}
+                color={hex ?? (value ? "#000000" : draft.terminal.foreground)}
+                text={value?.slice(0, 7) ?? "—"}
+                unset={!value}
+                onChange={(next) => setTermColor(field, next)}
+              >
+                {value && OPTIONAL_TERMINAL_FIELDS.has(field) && (
+                  <RowIconButton
+                    icon="lucide:x"
+                    title={t("themeCreator.editor.resetColor")}
+                    onClick={() => setTermColor(field, undefined)}
+                  />
+                )}
+              </ColorRow>
+            );
+          })}
         </div>
       ))}
     </div>

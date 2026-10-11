@@ -32,7 +32,8 @@
       "sizePx": "Size (px)",
       "lineHeight": "Line height",
       "terminalFont": "Terminal Font",
-      "highlightUsing": "Highlight elements using {{varName}}"
+      "highlightUsing": "Highlight elements using {{varName}}",
+      "resetColor": "Reset to default"
     },
     "groups": {
       "backgrounds": "Backgrounds",
@@ -82,6 +83,7 @@
       "foreground": "Foreground",
       "cursor": "Cursor",
       "selectionBackground": "Selection",
+      "selectionForeground": "Selected Text",
       "black": "Black",
       "red": "Red",
       "green": "Green",

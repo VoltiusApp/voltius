@@ -22,6 +22,17 @@ describe("terminalColorsFor", () => {
     });
   });
 
+  it("uses the theme's selected-text colour when it sets one", () => {
+    expect(terminalColorsFor(theme({ selectionForeground: "#21b568" }))).toMatchObject({
+      fg: "#e2e8f0",
+      selectionFg: "#21b568",
+    });
+  });
+
+  it("falls back to the foreground when the selected-text colour is unparseable", () => {
+    expect(terminalColorsFor(theme({ selectionForeground: "green" }))).toMatchObject({ selectionFg: "#e2e8f0" });
+  });
+
   it("gives up on colours it cannot parse", () => {
     expect(terminalColorsFor(theme({ background: "rgb(1, 2, 3)" }))).toBeNull();
   });

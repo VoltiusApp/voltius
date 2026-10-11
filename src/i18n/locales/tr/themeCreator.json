@@ -32,7 +32,8 @@
       "sizePx": "Boyut (px)",
       "lineHeight": "Satır yüksekliği",
       "terminalFont": "Terminal yazı tipi",
-      "highlightUsing": "{{varName}} kullanan öğeleri vurgula"
+      "highlightUsing": "{{varName}} kullanan öğeleri vurgula",
+      "resetColor": "Varsayılana sıfırla"
     },
     "groups": {
       "backgrounds": "Arka planlar",
@@ -82,6 +83,7 @@
       "foreground": "Ön plan",
       "cursor": "İmleç",
       "selectionBackground": "Seçim",
+      "selectionForeground": "Seçili Metin",
       "black": "Siyah",
       "red": "Kırmızı",
       "green": "Yeşil",

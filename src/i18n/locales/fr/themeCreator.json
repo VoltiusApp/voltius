@@ -33,7 +33,8 @@
       "sizePx": "Taille (px)",
       "lineHeight": "Hauteur de ligne",
       "terminalFont": "Police du terminal",
-      "highlightUsing": "Mettre en surbrillance les éléments utilisant {{varName}}"
+      "highlightUsing": "Mettre en surbrillance les éléments utilisant {{varName}}",
+      "resetColor": "Réinitialiser"
     },
     "groups": {
       "backgrounds": "Arrière-plans",
@@ -83,6 +84,7 @@
       "foreground": "Premier plan",
       "cursor": "Curseur",
       "selectionBackground": "Sélection",
+      "selectionForeground": "Texte sélectionné",
       "black": "Noir",
       "red": "Rouge",
       "green": "Vert",

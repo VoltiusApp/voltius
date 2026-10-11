@@ -31,11 +31,13 @@ export function getUiGroups(t: TFunction): { label: string; fields: (keyof UIThe
   ];
 }
 
+export const OPTIONAL_TERMINAL_FIELDS: ReadonlySet<keyof TerminalTheme> = new Set(["selectionForeground"]);
+
 export function getTerminalGroups(t: TFunction): { label: string; fields: (keyof TerminalTheme)[] }[] {
   return [
     {
       label: t("themeCreator.groups.terminalBase"),
-      fields: ["background", "foreground", "cursor", "selectionBackground"],
+      fields: ["background", "foreground", "cursor", "selectionBackground", "selectionForeground"],
     },
     {
       label: t("themeCreator.groups.ansiColors"),
@@ -63,6 +65,7 @@ export function getFieldLabels(t: TFunction): Record<string, string> {
     textNotice: t("themeCreator.fields.textNotice"),
     background: t("themeCreator.fields.background"), foreground: t("themeCreator.fields.foreground"), cursor: t("themeCreator.fields.cursor"),
     selectionBackground: t("themeCreator.fields.selectionBackground"),
+    selectionForeground: t("themeCreator.fields.selectionForeground"),
     black: t("themeCreator.fields.black"), red: t("themeCreator.fields.red"), green: t("themeCreator.fields.green"), yellow: t("themeCreator.fields.yellow"),
     blue: t("themeCreator.fields.blue"), magenta: t("themeCreator.fields.magenta"), cyan: t("themeCreator.fields.cyan"), white: t("themeCreator.fields.white"),
     brightBlack: t("themeCreator.fields.brightBlack"), brightRed: t("themeCreator.fields.brightRed"), brightGreen: t("themeCreator.fields.brightGreen"),

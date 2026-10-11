@@ -34,7 +34,8 @@
       "sizePx": "Размер (px)",
       "lineHeight": "Межстрочный интервал",
       "terminalFont": "Шрифт терминала",
-      "highlightUsing": "Подсветить элементы, использующие {{varName}}"
+      "highlightUsing": "Подсветить элементы, использующие {{varName}}",
+      "resetColor": "Сбросить"
     },
     "groups": {
       "backgrounds": "Фоны",
@@ -84,6 +85,7 @@
       "foreground": "Передний план",
       "cursor": "Курсор",
       "selectionBackground": "Выделение",
+      "selectionForeground": "Выделенный текст",
       "black": "Чёрный",
       "red": "Красный",
       "green": "Зелёный",
