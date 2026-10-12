@@ -13,6 +13,7 @@ import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore
 import { useLocaleStore } from "@/stores/localeStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { setVaultKey } from "@/services/vault";
+import { DEFAULT_KEYWORD_RULES } from "@/utils/keywordMatcher";
 
 function jwt(expOffsetSec: number): string {
   const b64 = (o: unknown) => btoa(JSON.stringify(o));
@@ -108,7 +109,7 @@ test("a synced pull takes the remote's newer settings but never this device's he
 
   expect(served.settingsSaves).toHaveLength(1);
   const disk = JSON.parse(served.settingsSaves[0]);
-  expect(disk.sections.appSettings.data.terminal).toEqual({ cursorStyle: "underline" });
+  expect(disk.sections.appSettings.data.terminal).toEqual({ cursorStyle: "underline", keywordRules: DEFAULT_KEYWORD_RULES });
 
   expect(useTerminalSettingsStore.getState()).toMatchObject({ preferredShell: "/usr/bin/fish", cursorStyle: "underline" });
 });
