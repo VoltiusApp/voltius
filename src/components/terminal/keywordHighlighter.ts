@@ -17,7 +17,17 @@ export interface HighlightTarget {
 
 export interface KeywordHighlighter {
   refresh(): void;
+  /** Call before xterm erases lines `[from, to)`: a marker xterm disposes first leaves its decoration behind. */
+  erasing(from: number, to: number): void;
   dispose(): void;
+}
+
+/** Lines whose markers an Erase in Display of `mode` kills, with the viewport starting at `top`. */
+export function eraseRange(mode: number, top: number, cursor: number): [number, number] {
+  if (mode === 1) return [top, cursor];
+  if (mode === 2) return [top, Infinity];
+  if (mode === 3) return [0, top];
+  return [cursor + 1, Infinity];
 }
 
 interface PaintedLine {
@@ -85,7 +95,7 @@ export function createKeywordHighlighter({ term, spans, isVisible }: HighlightTa
         scratch = line.getCell(col, scratch);
         const width = scratch?.getWidth() ?? 0;
         if (!scratch || width === 0) continue;
-        const cell = { row, col, width, plain: scratch.isFgDefault() && !scratch.isInverse() };
+        const cell = { row, col, width, plain: scratch.isFgDefault() && scratch.isBgDefault() && !scratch.isInverse() };
         for (let unit = 0; unit < (scratch.getChars().length || 1); unit++) cells.push(cell);
       }
     }
@@ -205,6 +215,14 @@ export function createKeywordHighlighter({ term, spans, isVisible }: HighlightTa
       request();
     },
     refresh: request,
+    erasing(from: number, to: number) {
+      const kept: PaintedLine[] = [];
+      for (const line of painted) {
+        if (line.markers.some((marker) => marker.line >= from && marker.line < to)) drop(line);
+        else kept.push(line);
+      }
+      painted = kept;
+    },
     dispose() {
       for (const subscription of subscriptions) subscription.dispose();
       if (frame !== null) cancelAnimationFrame(frame);
@@ -239,6 +257,7 @@ export function attachKeywordHighlighter(target: HighlightTarget): KeywordHighli
 
   return {
     refresh: highlighter.refresh,
+    erasing: highlighter.erasing,
     dispose() {
       for (const stop of unsubscribe) stop();
       window.removeEventListener("theme-preview", highlighter.refresh);

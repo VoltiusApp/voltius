@@ -5,9 +5,9 @@ function harness() {
   const state = { line: 0, col: 0, now: 1000, alternate: false };
   const marks: (LineMark & { line: number; isDisposed: boolean })[] = [];
   const tracker = createCommandTracker({
-    mark: () => {
+    mark: (line = state.line) => {
       if (state.alternate) return null;
-      const mark = { line: state.line, isDisposed: false, dispose() { this.isDisposed = true; } };
+      const mark = { line, isDisposed: false, dispose() { this.isDisposed = true; } };
       marks.push(mark);
       return mark;
     },
@@ -27,7 +27,12 @@ function harness() {
       else mark.line -= count;
     }
   };
-  return { state, tracker, at, trim };
+  /** Erase every line from `from` down with the cursor on `cursor`, as ED does: marks die, nothing moves. */
+  const erase = (from: number, cursor = from) => {
+    tracker.erased(cursor);
+    for (const mark of marks) if (mark.line >= from) mark.isDisposed = true;
+  };
+  return { state, tracker, at, trim, erase };
 }
 
 const idle = { input: null, outputLine: null, endLine: null, exitCode: null, startedAt: null, endedAt: null };
@@ -193,5 +198,65 @@ describe("outputSpans", () => {
     at(9, "A");
     expect(tracker.regions()).toMatchObject([{ promptLine: 9 }]);
     expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+});
+
+describe("screen erase", () => {
+  it("keeps the prompt after the screen is cleared, so the next command is tracked", () => {
+    const { tracker, at, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(3, "D;0");
+    at(3, "A");
+    erase(0);
+    at(1, "C");
+    expect(tracker.regions()).toMatchObject([{ promptLine: 0, outputLine: 1 }]);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 1, end: 50, open: true }]);
+  });
+
+  it("ends a command whose end was erased at the prompt that replaced it", () => {
+    const { tracker, at, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(60, "D;0");
+    at(60, "A");
+    erase(23);
+    expect(tracker.outputSpans(0, 100, 62)).toEqual([{ start: 1, end: 23, open: false }]);
+  });
+
+  it("restarts a running command that cleared the screen at the cursor", () => {
+    const { tracker, at, erase } = harness();
+    at(5, "A");
+    at(6, "C");
+    erase(3);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 3, outputLine: 3, endLine: null }]);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 3, end: 50, open: true }]);
+  });
+
+  it("leaves a running command that outlived the scrollback alone when it erases below the cursor", () => {
+    const { tracker, at, trim, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    trim(5);
+    erase(40, 39);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 0, end: 50, open: true }]);
+  });
+
+  it("yields nothing for a command whose output was erased while its prompt survives", () => {
+    const { tracker, at, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(10, "D;0");
+    at(10, "A");
+    erase(1);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+
+  it("uses the cursor line of the last erase before the marks are read", () => {
+    const { tracker, at, erase } = harness();
+    at(40, "A");
+    erase(30);
+    erase(30, 2);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 2 }]);
   });
 });

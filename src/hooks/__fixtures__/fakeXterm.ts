@@ -41,7 +41,7 @@ export class FakeTerminal {
     this.element = document.createElement("div");
     container.appendChild(this.element);
   }
-  parser = { registerOscHandler: () => ({ dispose() {} }) };
+  parser = { registerOscHandler: () => ({ dispose() {} }), registerCsiHandler: () => ({ dispose() {} }) };
   loadAddon() {}
   write() {}
   focus() {}

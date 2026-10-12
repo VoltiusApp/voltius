@@ -6,8 +6,8 @@ export interface LineMark {
 }
 
 export interface CommandMarkSource {
-  /** A mark on the cursor's line, or null where marks make no sense (alternate screen). */
-  mark(): LineMark | null;
+  /** A mark on `line` (the cursor's line when omitted), or null where marks make no sense (alternate screen). */
+  mark(line?: number): LineMark | null;
   col(): number;
   now(): number;
 }
@@ -40,6 +40,8 @@ export interface CommandTracker {
   regions(): CommandRegion[];
   /** Output spans that intersect lines `[top, bottom)`, oldest first. */
   outputSpans(top: number, bottom: number, bufferEnd: number): OutputSpan[];
+  /** Call before the screen is erased with the cursor on `line`: the erase kills marks whose text never scrolled away. */
+  erased(line: number): void;
 }
 
 interface Tracked {
@@ -62,7 +64,20 @@ export function createCommandTracker(source: CommandMarkSource): CommandTracker 
   // A command that outlives the scrollback keeps running after its prompt line is gone.
   const isGone = (t: Tracked) => t.prompt.isDisposed && !isRunning(t);
 
+  let erasure: { line: number; prompt: boolean; output: boolean } | null = null;
+
+  // An erase kills the newest command's marks while its text stays on screen: they come back at the cursor.
+  const restoreErased = () => {
+    const last = tracked[tracked.length - 1];
+    if (erasure && last) {
+      if (erasure.prompt && last.prompt.isDisposed) last.prompt = source.mark(erasure.line) ?? last.prompt;
+      if (erasure.output && last.output?.isDisposed) last.output = source.mark(erasure.line) ?? last.output;
+    }
+    erasure = null;
+  };
+
   const dropTrimmed = () => {
+    restoreErased();
     if (tracked.some(isGone)) tracked = tracked.filter((t) => !isGone(t));
   };
 
@@ -128,12 +143,24 @@ export function createCommandTracker(source: CommandMarkSource): CommandTracker 
           if (t.prompt.line < top) break;
           continue;
         }
-        const start = liveLine(t.output) ?? 0;
+        const outputLine = liveLine(t.output);
         const end = liveLine(t.end) ?? (next ? next.prompt.line : bufferEnd);
         if (end <= top) break;
+        // A lost start under a surviving prompt was erased, not trimmed: that output is gone.
+        if (outputLine === null && !t.prompt.isDisposed) continue;
+        const start = outputLine ?? 0;
         if (start < bottom && end > start) spans.unshift({ start, end, open: !t.end && !next });
       }
       return spans;
+    },
+    erased(line) {
+      const last = tracked[tracked.length - 1];
+      if (!last || last.endedAt !== null) return;
+      erasure = {
+        line,
+        prompt: erasure?.prompt ?? !last.prompt.isDisposed,
+        output: erasure?.output ?? liveLine(last.output) !== null,
+      };
     },
   };
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Terminal } from "@xterm/xterm";
-import { attachKeywordHighlighter, createKeywordHighlighter } from "./keywordHighlighter";
+import { attachKeywordHighlighter, createKeywordHighlighter, eraseRange } from "./keywordHighlighter";
 import type { OutputSpan } from "./commandMarks";
 import { DEFAULT_KEYWORD_RULES, compileKeywordRules } from "@/utils/keywordMatcher";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -15,6 +15,8 @@ interface Row {
   wrapped?: boolean;
   /** Cell columns `[from, to)` that a program coloured itself. */
   colored?: [number, number];
+  /** Cell columns `[from, to)` on a background a program set. */
+  background?: [number, number];
 }
 
 const WIDE = /[ᄀ-ᅟ⺀-꓏가-힣＀-｠]/;
@@ -26,7 +28,7 @@ function fakeTerm(lines: Row[], cols = 20, rows = 6) {
     list.push(fn);
     return { dispose() {} };
   };
-  const decorations: { options: { marker: { line: number }; x: number; width: number; foregroundColor: string }; isDisposed: boolean; dispose(): void }[] = [];
+  const decorations: { options: { marker: { line: number; isDisposed: boolean }; x: number; width: number; foregroundColor: string }; isDisposed: boolean; orphaned: boolean; dispose(): void }[] = [];
   const active = { type: "normal", viewportY: 0, baseY: 0, cursorY: lines.length, length: lines.length + 1, getLine };
   let reads = 0;
 
@@ -53,8 +55,14 @@ function fakeTerm(lines: Row[], cols = 20, rows = 6) {
       getCell: (x: number) => {
         const cell = cells[x];
         if (!cell) return undefined;
-        const plain = !row.colored || x < row.colored[0] || x >= row.colored[1];
-        return { getWidth: () => cell.width, getChars: () => cell.chars, isFgDefault: () => plain, isInverse: () => 0 };
+        const outside = (range?: [number, number]) => !range || x < range[0] || x >= range[1];
+        return {
+          getWidth: () => cell.width,
+          getChars: () => cell.chars,
+          isFgDefault: () => outside(row.colored),
+          isBgDefault: () => outside(row.background),
+          isInverse: () => 0,
+        };
       },
     };
   }
@@ -72,7 +80,7 @@ function fakeTerm(lines: Row[], cols = 20, rows = 6) {
       return marker;
     },
     registerDecoration: (options: (typeof decorations)[number]["options"]) => {
-      const decoration = { options, isDisposed: false, dispose() { this.isDisposed = true; } };
+      const decoration = { options, isDisposed: false, orphaned: false, dispose() { this.isDisposed = true; this.orphaned = options.marker.isDisposed; } };
       decorations.push(decoration);
       return decoration;
     },
@@ -85,6 +93,7 @@ function fakeTerm(lines: Row[], cols = 20, rows = 6) {
     fire: (kind: keyof typeof listeners) => listeners[kind].forEach((fn) => fn()),
     reads: () => reads,
     registered: () => decorations.length,
+    orphans: () => decorations.filter((d) => d.orphaned).length,
     live: () =>
       decorations
         .filter((d) => !d.isDisposed)
@@ -200,6 +209,23 @@ describe("createKeywordHighlighter", () => {
   it("leaves text a program coloured itself", () => {
     const { live } = setup([{ text: "error ok", colored: [0, 5] }]);
     expect(live()).toEqual([[0, 6, 2, "#00ff00"]]);
+  });
+
+  it("leaves text on a background a program set", () => {
+    const { live } = setup([{ text: "error ok", background: [0, 5] }]);
+    expect(live()).toEqual([[0, 6, 2, "#00ff00"]]);
+  });
+
+  it("frees the rows an erase is about to wipe, decoration first, and keeps the rest", () => {
+    const { live, registered, orphans, highlighter, fire } = setup([{ text: "error" }, { text: "ok" }, { text: "fatal" }]);
+    const before = registered();
+    highlighter.erasing(1, 3);
+    expect(live()).toEqual([[0, 0, 5, "#ff0000"]]);
+    expect(orphans()).toBe(0);
+    fire("write");
+    settle();
+    expect(live()).toHaveLength(3);
+    expect(registered()).toBe(before + 2);
   });
 
   it("skips a logical line wrapping over more than 16 rows", () => {
@@ -354,5 +380,14 @@ describe("attachKeywordHighlighter", () => {
     useTerminalSettingsStore.getState().setKeywordRules(DEFAULT_KEYWORD_RULES.slice());
     settle();
     expect(live()).toEqual([]);
+  });
+});
+
+describe("eraseRange", () => {
+  it("maps each erase mode to the lines whose marks it kills", () => {
+    expect(eraseRange(0, 100, 110)).toEqual([111, Infinity]);
+    expect(eraseRange(1, 100, 110)).toEqual([100, 110]);
+    expect(eraseRange(2, 100, 110)).toEqual([100, Infinity]);
+    expect(eraseRange(3, 100, 110)).toEqual([0, 100]);
   });
 });
