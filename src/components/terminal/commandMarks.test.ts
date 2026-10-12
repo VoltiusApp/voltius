@@ -126,3 +126,72 @@ describe("createCommandTracker", () => {
     ]);
   });
 });
+
+describe("outputSpans", () => {
+  it("spans a finished command from C to D", () => {
+    const { tracker, at } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(4, "D;0");
+    at(4, "A");
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 1, end: 4, open: false }]);
+  });
+
+  it("leaves a running last command open to the end of the buffer", () => {
+    const { tracker, at } = harness();
+    at(0, "A");
+    at(1, "C");
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 1, end: 50, open: true }]);
+  });
+
+  it("closes a command that lost its D at the next prompt", () => {
+    const { tracker, at } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(6, "A");
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 1, end: 6, open: false }]);
+  });
+
+  it("yields nothing for a prompt nothing ran from, or a command with no output lines", () => {
+    const { tracker, at } = harness();
+    at(0, "A");
+    at(1, "A");
+    at(2, "C");
+    at(2, "D;0");
+    at(2, "A");
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+
+  it("returns only the spans that intersect the window, oldest first", () => {
+    const { tracker, at } = harness();
+    for (const base of [0, 10, 20, 30]) {
+      at(base, "A");
+      at(base + 1, "C");
+      at(base + 5, "D;0");
+    }
+    expect(tracker.outputSpans(12, 22, 50)).toEqual([
+      { start: 11, end: 15, open: false },
+      { start: 21, end: 25, open: false },
+    ]);
+  });
+
+  it("keeps a running command whose prompt was trimmed", () => {
+    const { tracker, at, trim } = harness();
+    at(0, "A");
+    at(1, "C");
+    trim(5);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 0, outputLine: 0, endLine: null }]);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 0, end: 50, open: true }]);
+  });
+
+  it("drops that command once the next prompt arrives", () => {
+    const { tracker, at, trim } = harness();
+    at(0, "A");
+    at(1, "C");
+    trim(5);
+    at(9, "D;0");
+    at(9, "A");
+    expect(tracker.regions()).toMatchObject([{ promptLine: 9 }]);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+});

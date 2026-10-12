@@ -27,10 +27,19 @@ export interface CommandRegion {
   endedAt: number | null;
 }
 
+/** Lines of command output, end exclusive. `open`: still running, or its end was never reported. */
+export interface OutputSpan {
+  start: number;
+  end: number;
+  open: boolean;
+}
+
 export interface CommandTracker {
   /** Feed one OSC 133 payload (`A`, `B`, `C`, `D;<exit>`, with optional extra parameters). */
   handle(payload: string): void;
   regions(): CommandRegion[];
+  /** Output spans that intersect lines `[top, bottom)`, oldest first. */
+  outputSpans(top: number, bottom: number, bufferEnd: number): OutputSpan[];
 }
 
 interface Tracked {
@@ -48,8 +57,13 @@ const liveLine = (mark: LineMark | null) => (mark && !mark.isDisposed ? mark.lin
 export function createCommandTracker(source: CommandMarkSource): CommandTracker {
   let tracked: Tracked[] = [];
 
+  const isRunning = (t: Tracked) => t === tracked[tracked.length - 1] && !!t.output && t.endedAt === null;
+
+  // A command that outlives the scrollback keeps running after its prompt line is gone.
+  const isGone = (t: Tracked) => t.prompt.isDisposed && !isRunning(t);
+
   const dropTrimmed = () => {
-    if (tracked.some((t) => t.prompt.isDisposed)) tracked = tracked.filter((t) => !t.prompt.isDisposed);
+    if (tracked.some(isGone)) tracked = tracked.filter((t) => !isGone(t));
   };
 
   const handlers = new Map<string, (current: Tracked | undefined, args: string[]) => void>(Object.entries({
@@ -94,15 +108,32 @@ export function createCommandTracker(source: CommandMarkSource): CommandTracker 
       return tracked.map((t) => {
         const inputLine = liveLine(t.input?.mark ?? null);
         return {
-          promptLine: t.prompt.line,
+          promptLine: liveLine(t.prompt) ?? 0,
           input: t.input && inputLine !== null ? { line: inputLine, col: t.input.col } : null,
-          outputLine: liveLine(t.output),
+          outputLine: t.output ? liveLine(t.output) ?? 0 : null,
           endLine: liveLine(t.end),
           exitCode: t.exitCode,
           startedAt: t.startedAt,
           endedAt: t.endedAt,
         };
       });
+    },
+    outputSpans(top, bottom, bufferEnd) {
+      dropTrimmed();
+      const spans: OutputSpan[] = [];
+      for (let i = tracked.length - 1; i >= 0; i--) {
+        const t = tracked[i];
+        const next: Tracked | undefined = tracked[i + 1];
+        if (!t.output) {
+          if (t.prompt.line < top) break;
+          continue;
+        }
+        const start = liveLine(t.output) ?? 0;
+        const end = liveLine(t.end) ?? (next ? next.prompt.line : bufferEnd);
+        if (end <= top) break;
+        if (start < bottom && end > start) spans.unshift({ start, end, open: !t.end && !next });
+      }
+      return spans;
     },
   };
 }
