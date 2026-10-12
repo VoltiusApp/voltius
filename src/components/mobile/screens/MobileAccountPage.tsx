@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
+import { syncStatusLabel } from "@/services/syncStatusText";
 import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
@@ -22,6 +23,7 @@ export default function MobileAccountPage() {
     business: t("mobile.account.tier.business"),
   };
   const pop = useMobileNavStore((s) => s.pop);
+  const openSheet = useMobileNavStore((s) => s.openSheet);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const tier = useSubscriptionStore((s) => s.tier);
   const accountMode = useSubscriptionStore((s) => s.accountMode);
@@ -55,13 +57,21 @@ export default function MobileAccountPage() {
     try { await openBillingCheckout(plan); } finally { setCheckoutBusy(false); }
   };
 
-  const Row = ({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) => (
-    <div className="flex items-center gap-3 px-4 py-3.5 border-b" style={{ borderColor: "var(--t-border)" }}>
-      <Icon icon={icon} width={18} className="text-(--t-text-dim) shrink-0" />
-      <span className="flex-1 text-sm text-(--t-text-primary)">{label}</span>
-      <span className="text-sm truncate max-w-[55%]" style={{ color: valueColor ?? "var(--t-text-dim)" }}>{value}</span>
-    </div>
-  );
+  const Row = ({ icon, label, value, valueColor, onTap }: { icon: string; label: string; value: string; valueColor?: string; onTap?: () => void }) => {
+    const Tag = onTap ? "button" : "div";
+    return (
+      <Tag
+        {...(onTap && { "data-account-sync": "", onClick: onTap })}
+        className="w-full flex items-center gap-3 px-4 py-3.5 border-b text-left"
+        style={{ borderColor: "var(--t-border)" }}
+      >
+        <Icon icon={icon} width={18} className="text-(--t-text-dim) shrink-0" />
+        <span className="flex-1 text-sm text-(--t-text-primary)">{label}</span>
+        <span className="text-sm truncate max-w-[55%]" style={{ color: valueColor ?? "var(--t-text-dim)" }}>{value}</span>
+        {onTap && <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim) shrink-0" />}
+      </Tag>
+    );
+  };
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
@@ -72,8 +82,9 @@ export default function MobileAccountPage() {
         <Row
           icon={sync.paused ? SYNC_PAUSED_ICON : syncStatusIcon(sync.status)}
           label={t("mobile.account.cloudSync")}
-          value={sync.configured ? t(`mobile.header.syncStatus.${sync.status}`) : t(sync.paused ? "layout.sync.paused" : "mobile.account.off")}
+          value={sync.configured ? syncStatusLabel(t, sync.status, sync.lastSync) : t(sync.paused ? "layout.sync.paused" : "mobile.account.off")}
           valueColor={sync.configured ? syncStatusColor(sync.status) : undefined}
+          onTap={() => openSheet({ kind: "sync" })}
         />
 
         {signedIn && (

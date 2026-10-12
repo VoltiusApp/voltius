@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Toggle } from "@/components/shared/Toggle";
 import { setSyncPaused, type SyncStatus } from "@/services/sync";
-import { runManualSync } from "@/services/syncIntent";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
+import { useSyncNow } from "@/hooks/useSyncProviderPanel";
 import { useAvailableSyncProviders } from "@/hooks/useAvailableSyncProviders";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { runSyncProviderAction } from "@/services/syncProviderAction";
@@ -30,20 +30,12 @@ function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | n
 
 function SyncNowButton({ provider }: { provider: SyncProviderView }) {
   const { t } = useTranslation();
-  const [pending, setPending] = useState(false);
-  if (!provider.syncNow) return null;
-  const syncNow = provider.syncNow;
-  const syncing = pending || provider.state.status === "syncing";
-
-  const handleSync = () => {
-    if (syncing) return;
-    setPending(true);
-    runManualSync(syncNow).catch(() => {}).finally(() => setPending(false));
-  };
+  const { available, busy: syncing, run } = useSyncNow(provider);
+  if (!available) return null;
 
   return (
     <button
-      onClick={handleSync}
+      onClick={run}
       disabled={syncing}
       className="flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors shrink-0 bg-(--t-bg-input)"
       style={{

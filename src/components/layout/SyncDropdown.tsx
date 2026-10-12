@@ -1,15 +1,10 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import i18n from "@/i18n";
-import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
-import type { SyncStatus } from "@/services/sync";
-import { SYNC_PAUSED_ICON, syncStatusColor } from "@/services/syncStatus";
-import { runManualSync } from "@/services/syncIntent";
-import { runSyncProviderAction } from "@/services/syncProviderAction";
+import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
 import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
-import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
+import { SyncStatusIcon } from "@/components/shared/SyncStatusIcon";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import type { usePluginInstaller } from "@/components/settings/usePluginInstaller";
@@ -24,23 +19,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-
-function statusLabel(status: SyncStatus, lastSync: Date | null): string {
-  if (status === "syncing") return i18n.t("layout.sync.status.syncing");
-  if (status === "success") return lastSync ? i18n.t("layout.sync.status.syncedAt", { time: formatTime(lastSync, HOUR_MINUTE) }) : i18n.t("layout.sync.status.synced");
-  if (status === "error")   return i18n.t("layout.sync.status.error");
-  if (status === "offline") return i18n.t("layout.sync.status.offline");
-  return i18n.t("layout.sync.status.idle");
-}
-
 // ─── Section ──────────────────────────────────────────────────────────────────
-
-const INACTIVE_ROWS = {
-  needs_upgrade: { icon: null, labelKey: "layout.sync.requiresPro", actionKey: "layout.sync.upgradeArrow", tone: "var(--t-text-dim)" },
-  disabled: { icon: "lucide:puzzle", labelKey: "layout.sync.pluginDisabled", actionKey: "layout.sync.enableArrow", tone: "var(--t-text-dim)" },
-  not_configured: { icon: "lucide:triangle-alert", labelKey: "layout.sync.notConfigured", actionKey: "layout.sync.configureArrow", tone: "var(--t-status-error)" },
-  paused: { icon: SYNC_PAUSED_ICON, labelKey: "layout.sync.paused", actionKey: "layout.sync.resumeArrow", tone: "var(--t-text-dim)" },
-} as const;
 
 function HeaderButton({ onClick, title, disabled = false, faded = false, children }: {
   onClick: () => void;
@@ -71,31 +50,12 @@ function HeaderButton({ onClick, title, disabled = false, faded = false, childre
 
 function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
-  const isActive = provider.availability === "active";
-  const engineStatus: SyncStatus = isActive ? provider.state.status : "idle";
-  const [pending, setPending] = useState(engineStatus === "syncing");
-  const sync = useSyncMotion(engineStatus);
-
-  useEffect(() => {
-    setPending(engineStatus === "syncing");
-  }, [engineStatus]);
-
-  const canSync = !pending && provider.syncNow !== null;
-
-  const handleSync = () => {
-    if (!canSync || !provider.syncNow) return;
-    setPending(true);
-    runManualSync(provider.syncNow).catch(() => {}).finally(() => setPending(false));
-  };
+  const { motion, syncNow, inactive: inactiveRow, status } = useSyncProviderPanel(provider);
 
   const act = () => {
     if (provider.action) onAction(provider.action);
   };
   const toggle = provider.pauseToggle;
-
-  const inactiveRow = provider.availability === "active" || provider.availability === "locked"
-    ? null
-    : INACTIVE_ROWS[provider.availability];
 
   return (
     <div data-sync-provider={provider.id} className="px-3 py-2.5 space-y-2">
@@ -113,7 +73,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
               <Icon icon={toggle.kind === "pause" ? "lucide:pause" : "lucide:play"} width={10} />
             </HeaderButton>
           )}
-          <HeaderButton onClick={handleSync} disabled={!canSync} faded={provider.syncNow === null} title={t("layout.sync.syncNow")}>
+          <HeaderButton onClick={syncNow.run} disabled={syncNow.busy || !syncNow.available} faded={!syncNow.available} title={t("layout.sync.syncNow")}>
             <Icon icon="lucide:refresh-cw" width={10} />
             {t("layout.sync.syncNow")}
           </HeaderButton>
@@ -152,32 +112,25 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
         </div>
       )}
 
-      {isActive && (() => {
-        const { lastSync, error, blobSizeBytes } = provider.state;
-        const { status } = sync;
-        const color = syncStatusColor(status);
-        return (
-          <>
-            <div className="flex items-center gap-1.5">
-              <SyncStatusIcon sync={sync} width={12} style={{ color }} />
-              <span className="text-xs" style={{ color }}>
-                {statusLabel(status, lastSync)}
-              </span>
+      {status && (
+        <>
+          <div className="flex items-center gap-1.5" style={{ color: status.color }}>
+            <SyncStatusIcon sync={motion} width={12} />
+            <span className="text-xs">{status.label}</span>
+          </div>
+          {status.reason && (
+            <p className="text-[10px] leading-relaxed break-words" style={{ color: status.color }}>
+              {status.reason}
+            </p>
+          )}
+          {provider.state.blobSizeBytes !== null && (
+            <div className="flex items-center gap-1" style={{ color: "var(--t-text-muted)" }}>
+              <Icon icon="lucide:lock" width={10} />
+              <span className="text-[10px]">{t("layout.sync.encryptedBlob", { size: formatBytes(provider.state.blobSizeBytes) })}</span>
             </div>
-            {(status === "error" || status === "offline") && error && (
-              <p className="text-[10px] leading-relaxed break-words" style={{ color: status === "error" ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
-                {error}
-              </p>
-            )}
-            {blobSizeBytes !== null && (
-              <div className="flex items-center gap-1" style={{ color: "var(--t-text-muted)" }}>
-                <Icon icon="lucide:lock" width={10} />
-                <span className="text-[10px]">{t("layout.sync.encryptedBlob", { size: formatBytes(blobSizeBytes) })}</span>
-              </div>
-            )}
-          </>
-        );
-      })()}
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -195,8 +148,6 @@ function EntityCounts() {
     />
   );
 }
-
-const STAYS_OPEN: ReadonlySet<SyncProviderAction["kind"]> = new Set(["pause", "resume"]);
 
 type SyncInstaller = Pick<ReturnType<typeof usePluginInstaller>, "busy" | "startInstall">;
 
@@ -240,10 +191,7 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
 
   if (!fade.mounted) return null;
 
-  const onAction = (action: SyncProviderAction) => {
-    if (!STAYS_OPEN.has(action.kind)) onClose();
-    runSyncProviderAction(action);
-  };
+  const onAction = (action: SyncProviderAction) => runSyncMenuAction(action, onClose);
 
   const anchor = anchorRef.current;
   const rect = anchor?.getBoundingClientRect();

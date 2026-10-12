@@ -6,8 +6,8 @@ import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
-import type { SyncStatus } from "@/services/sync";
-import { SYNC_PAUSED_ICON, syncStatusColor } from "@/services/syncStatus";
+import { syncStatusTooltip } from "@/services/syncStatusText";
+import type { EffectiveSync } from "@/services/syncProviders";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -34,7 +34,7 @@ import { pinHostList } from "@/services/hostStack";
 import { sessionMenuItems, pinListExtra } from "@/utils/sessionMenuItems";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
-import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
+import { EffectiveSyncIcon, effectiveSyncColor, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, splitTabLabel } from "@/utils/sessionLabel";
 import { focusSession } from "@/hooks/useTerminal";
@@ -45,7 +45,6 @@ import { StackTab } from "@/components/layout/StackTab";
 import { buildTitlebarItems, stackGroupKey, titlebarKeyGroupOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
-import { formatTime } from "@/utils/localeFormat";
 
 const appWindow = getCurrentWindow();
 
@@ -502,13 +501,8 @@ export default function TitleBar() {
       {/* Sync indicator */}
       <SyncIndicator
         anchorRef={syncButtonRef}
-        status={sync.status}
-        lastSync={sync.lastSync}
-        error={sync.error}
-        errorSource={sync.errorSource}
+        sync={sync}
         active={syncDropdownOpen}
-        configured={sync.configured}
-        paused={sync.paused}
         onClick={() => setSyncDropdownOpen((o) => !o)}
       />
       <SyncDropdown
@@ -778,41 +772,18 @@ function SubscriptionBadge() {
   );
 }
 
-function SyncIndicator({
-  anchorRef,
-  status: engineStatus,
-  lastSync,
-  error,
-  errorSource,
-  active,
-  configured,
-  paused,
-  onClick,
-}: {
+function SyncIndicator({ anchorRef, sync, active, onClick }: {
   anchorRef: React.RefObject<HTMLButtonElement | null>;
-  status: SyncStatus;
-  lastSync: Date | null;
-  error: string | null;
-  errorSource: string | null;
+  sync: EffectiveSync;
   active: boolean;
-  configured: boolean;
-  paused: boolean;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
-  const sync = useSyncMotion(engineStatus);
-  const status = sync.status;
-  const color = !configured ? "var(--t-text-dim)" : syncStatusColor(status);
-
-  const title = !configured ? t(paused ? "layout.sync.status.paused" : "layout.sync.status.notConfigured") :
-    status === "syncing" ? t("layout.sync.status.syncing") :
-    status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : t("layout.sync.status.synced")) :
-    status === "error"   ? (errorSource
-      ? t("layout.sync.status.errorDetailFrom", { source: errorSource, error: error ?? t("layout.sync.status.unknown") })
-      : t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") })) :
-    status === "offline" ? (error ? t("layout.sync.status.offlineDetail", { error }) : t("layout.sync.status.offline")) :
-                           t("layout.sync.status.default");
+  const motion = useSyncMotion(sync.status);
+  const status = motion.status;
+  const color = effectiveSyncColor(sync, motion);
+  const title = syncStatusTooltip(t, sync, status);
 
   return (
     <div className="flex items-center px-1 shrink-0">
@@ -842,7 +813,7 @@ function SyncIndicator({
         }}
       >
         {rippleEls}
-        {configured ? <SyncStatusIcon sync={sync} width={18} /> : <Icon icon={paused ? SYNC_PAUSED_ICON : "lucide:cloud-off"} width={18} />}
+        <EffectiveSyncIcon sync={sync} motion={motion} width={18} />
       </button>
     </div>
   );

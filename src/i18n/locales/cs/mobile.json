@@ -8,16 +8,6 @@
     "filterBar": {
       "placeholder": "Filtrovat…"
     },
-    "header": {
-      "syncTooltip": "Synchronizace: {{status}}",
-      "syncStatus": {
-        "idle": "Nečinná",
-        "syncing": "Probíhá",
-        "success": "Synchronizováno",
-        "error": "Chyba",
-        "offline": "Server je nedostupný"
-      }
-    },
     "remoteSessions": {
       "title": "Aktivní na jiných zařízeních"
     },

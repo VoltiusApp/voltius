@@ -8,16 +8,6 @@
     "filterBar": {
       "placeholder": "Фильтр…"
     },
-    "header": {
-      "syncTooltip": "Синхронизация: {{status}}",
-      "syncStatus": {
-        "idle": "Ожидание",
-        "syncing": "Синхронизация",
-        "success": "Синхронизировано",
-        "error": "Ошибка",
-        "offline": "Сервер недоступен"
-      }
-    },
     "remoteSessions": {
       "title": "Активны на других устройствах"
     },

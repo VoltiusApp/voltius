@@ -6,6 +6,7 @@ export type SheetAction = {
   /** Test/automation handle. Defaults to a slug derived from the label. */
   slug?: string;
   danger?: boolean;
+  disabled?: boolean;
   onTap: () => void;
 };
 
@@ -19,7 +20,8 @@ export function SheetActionRow({ attr, it }: { attr: string; it: SheetAction }) 
   return (
     <button
       {...{ [`data-${attr}`]: slug }}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
+      disabled={it.disabled}
+      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-50"
       style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
       onClick={it.onTap}
     >

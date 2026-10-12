@@ -8,16 +8,6 @@
     "filterBar": {
       "placeholder": "Filter…"
     },
-    "header": {
-      "syncTooltip": "Sync: {{status}}",
-      "syncStatus": {
-        "idle": "Idle",
-        "syncing": "Syncing",
-        "success": "Synced",
-        "error": "Error",
-        "offline": "Can't reach server"
-      }
-    },
     "remoteSessions": {
       "title": "Live on other devices"
     },

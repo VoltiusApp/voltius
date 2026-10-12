@@ -85,9 +85,9 @@ describe("SyncDropdown", () => {
         view({ id: "voltius", state: { ...NOT_CONFIGURED_SYNC_STATE, status: "offline", error: "connection refused", configured: true } }),
       ]} installer={installer} />,
     );
-    expect(getByText("Can't reach server")).toBeTruthy();
+    expect(getByText("layout.sync.status.offline")).toBeTruthy();
     expect(getByText("connection refused")).toBeTruthy();
-    expect(queryByText("Sync error")).toBeNull();
+    expect(queryByText("layout.sync.status.error")).toBeNull();
   });
 
   test("the pause button pauses a syncing provider and leaves the menu open", () => {

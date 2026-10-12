@@ -6,8 +6,8 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
-import { syncStatusColor } from "@/services/syncStatus";
-import { SyncStatusIcon, useSyncMotion } from "@/components/shared/SyncStatusIcon";
+import { syncStatusTooltip } from "@/services/syncStatusText";
+import { EffectiveSyncIcon, effectiveSyncColor, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?: () => void }) {
@@ -42,14 +42,16 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
         <ContentCounts counts={counts} className="flex items-center gap-2.5 mt-0.5" />
       </button>
       <div className="flex items-center gap-1 shrink-0">
-        {sync.configured && (
-          <span
+        {(sync.configured || sync.paused) && (
+          <button
             data-mobile-sync-status
-            title={t("mobile.header.syncTooltip", { status: t(`mobile.header.syncStatus.${syncMotion.status}`) })}
+            aria-label={syncStatusTooltip(t, sync, syncMotion.status)}
             className="p-2 flex items-center"
+            style={{ color: effectiveSyncColor(sync, syncMotion) }}
+            onClick={() => openSheet({ kind: "sync" })}
           >
-            <SyncStatusIcon sync={syncMotion} width={18} style={{ color: syncStatusColor(syncMotion.status) }} />
-          </span>
+            <EffectiveSyncIcon sync={sync} motion={syncMotion} width={18} />
+          </button>
         )}
         <NotificationBell />
         {onAdd && (

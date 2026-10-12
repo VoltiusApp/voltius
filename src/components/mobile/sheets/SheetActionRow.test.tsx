@@ -30,6 +30,17 @@ describe("SheetActionRow", () => {
     expect(container.querySelector("[data-host-action='copy-to-vault']")).not.toBeNull();
   });
 
+  test("a disabled row does not fire", () => {
+    const onTap = vi.fn();
+    const { container } = render(
+      <SheetActionRow attr="a" it={{ icon: "i", label: "Sync now", disabled: true, onTap }} />,
+    );
+    const button = container.querySelector("button")!;
+    fireEvent.click(button);
+    expect(button.disabled).toBe(true);
+    expect(onTap).not.toHaveBeenCalled();
+  });
+
   test("danger rows are tinted, ordinary rows are not", () => {
     const { container: danger } = render(
       <SheetActionRow attr="a" it={{ icon: "i", label: "Delete", danger: true, onTap: () => {} }} />,

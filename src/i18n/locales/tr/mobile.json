@@ -8,16 +8,6 @@
     "filterBar": {
       "placeholder": "Filtrele…"
     },
-    "header": {
-      "syncTooltip": "Eşitleme: {{status}}",
-      "syncStatus": {
-        "idle": "Beklemede",
-        "syncing": "Eşitleniyor",
-        "success": "Eşitlendi",
-        "error": "Hata",
-        "offline": "Sunucuya ulaşılamıyor"
-      }
-    },
     "remoteSessions": {
       "title": "Diğer cihazlarda canlı"
     },

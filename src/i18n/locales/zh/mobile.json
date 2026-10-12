@@ -8,16 +8,6 @@
     "filterBar": {
       "placeholder": "筛选…"
     },
-    "header": {
-      "syncTooltip": "同步：{{status}}",
-      "syncStatus": {
-        "idle": "空闲",
-        "syncing": "同步中",
-        "success": "已同步",
-        "error": "错误",
-        "offline": "无法连接服务器"
-      }
-    },
     "remoteSessions": {
       "title": "其他设备上的实时会话"
     },

@@ -20,6 +20,7 @@ export type MobileScreen =
 
 export type MobileSheet =
   | { kind: "vault-switcher" }
+  | { kind: "sync" }
   | { kind: "host-actions"; hostId: string }
   | { kind: "snippet-target"; snippetId: string; mode: "insert" | "execute"; preselectSessionId?: string }
   | { kind: "snippet-actions"; snippetId: string }

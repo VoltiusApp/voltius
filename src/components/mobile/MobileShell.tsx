@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import BottomTabBar from "./BottomTabBar";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
+import SyncSheet from "./sheets/SyncSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
 import MobileHostEditScreen from "./screens/MobileHostEditScreen";
 import MobileSnippetsScreen from "./screens/MobileSnippetsScreen";
@@ -172,6 +173,7 @@ export default function MobileShell() {
           visible-but-covered under the overlay, and tapping a tab silently clears the stack. */}
       {!immersive && !top && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
+      {sheet?.kind === "sync" && <SyncSheet />}
       {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}
       {sheet?.kind === "snippet-target" && (
         <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />

@@ -8,16 +8,6 @@
     "filterBar": {
       "placeholder": "Filtrer…"
     },
-    "header": {
-      "syncTooltip": "Synchro : {{status}}",
-      "syncStatus": {
-        "idle": "Inactif",
-        "syncing": "Synchronisation",
-        "success": "Synchronisé",
-        "error": "Erreur",
-        "offline": "Serveur injoignable"
-      }
-    },
     "remoteSessions": {
       "title": "En direct sur d'autres appareils"
     },
