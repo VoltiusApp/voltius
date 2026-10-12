@@ -9,7 +9,7 @@ import {
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
-import { lockVault, readLocalSecrets, wipeLocalConfig } from "./vault";
+import { dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { clearSecret, exportSecret, importSecret } from "./vaultSecret";
 
@@ -64,11 +64,8 @@ const ENTRY_PREFIX = "voltius.saved_account.";
 
 const entryKey = (account_id: string) => `${ENTRY_PREFIX}${account_id}`;
 
-/**
- * Only cloud accounts are switchable. Switching wipes the config dir and
- * secrets.enc, which for a local account is the only copy of its data — it could
- * never be switched back into, and offering it would destroy the vault instead.
- */
+// Only cloud accounts are switchable: an account outside the switcher is
+// discarded on the way out, not parked, so it could never be switched back into.
 function isSwitchable(account: SavedAccount): boolean {
   return account.mode === "server";
 }
@@ -175,7 +172,7 @@ function isActiveAccount(account: SavedAccount, active: ActiveAccount): boolean 
 }
 
 // An entry that is this account under an id the session no longer uses is deleted,
-// not hidden: switching into it wipes the config and lands on stale credentials.
+// not hidden: switching into it lands on stale credentials.
 export async function getSwitchTargets(active: ActiveAccount): Promise<SavedAccount[]> {
   const accounts = await getSavedAccounts();
   const targets: SavedAccount[] = [];
@@ -248,13 +245,17 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
  * It stays in localStorage, where it already lives while the account is signed
  * in: it runs to kilobytes — workspace snapshot, command history, snippet
  * variables — which is far past what a keychain value holds.
+ * Resolves to the id it parked under, or null for an account the switcher does not hold.
  */
-async function stashUiStateForCurrentAccount(): Promise<void> {
+async function stashUiStateForCurrentAccount(): Promise<string | null> {
   const account_id = await keychainGet("account_id");
-  if (!account_id) return;
-  const { accounts } = await loadSavedAccounts();
-  if (!accounts.some((a) => a.account_id === account_id)) return;
+  if (!account_id) return null;
+  const { ok, accounts } = await loadSavedAccounts();
+  // "Not saved" discards the outgoing data, so an unreadable list must not pass for an empty one.
+  if (!ok) throw new Error("Saved accounts could not be read");
+  if (!accounts.some((a) => a.account_id === account_id)) return null;
   parkAccountUiState(account_id);
+  return account_id;
 }
 
 /** Other accounts' passwords stay readable in plain form unless dropped; switching to one then asks for it. */
@@ -279,29 +280,47 @@ export async function removeSavedAccount(account_id: string): Promise<void> {
   }
   await keychainDelete(entryKey(account_id)).catch(() => {});
   dropAccountUiState(account_id);
+  await dropAccountProfile(account_id).catch(() => {});
+}
+
+const FINAL_PUSH_TIMEOUT_MS = 5000;
+
+/**
+ * Give the outgoing account one chance to upload unsynced changes. Never an
+ * error: its data is parked with those changes and they go up when it is next active.
+ */
+async function flushPendingChanges(): Promise<void> {
+  const { push, isSyncPaused } = await import("@/services/sync");
+  if (isSyncPaused()) return;
+  const abort = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, FINAL_PUSH_TIMEOUT_MS);
+  });
+  await Promise.race([push({ signal: abort.signal }).catch(() => {}), timeout]);
+  clearTimeout(timer);
+  abort.abort();
 }
 
 /**
- * End the current account's session without touching the saved list: flush its
- * work to the server, park its UI state, and leave the machine with no active
- * account for the switch to fill.
+ * End the current session: park its UI state and local data and bring `restore`'s
+ * data back. Rejects with the session intact when the data cannot be moved.
  */
-async function tearDownSession(): Promise<void> {
-  await stashUiStateForCurrentAccount().catch(() => {});
-  const { stopRealtimeSync, push } = await import("@/services/sync");
-  // Flush any pending local changes before wiping — the debounced sync may not
-  // have fired yet, so we push explicitly to ensure the current account's latest
-  // state is on the server before we tear down the session.
-  await push().catch(() => {});
+async function tearDownSession(restore: string): Promise<void> {
+  const parkAs = await stashUiStateForCurrentAccount();
+  const { stopRealtimeSync, startRealtimeSync } = await import("@/services/sync");
   stopRealtimeSync();
-  const carried = await readLocalSecrets(deviceScopedSecretKeys());
+  await flushPendingChanges();
+  // Read with the outgoing key, before the swap locks the store.
+  const carry = await readLocalSecrets(deviceScopedSecretKeys());
+  let restored: boolean;
+  try {
+    restored = await swapAccountProfile({ parkAs, restore, carry });
+  } catch (e) {
+    startRealtimeSync();
+    throw e;
+  }
   await lockVault();
-  // Wipe secrets.enc and all entity files. The old secrets.enc is encrypted with the
-  // current account's key; the new account's key cannot open it, causing
-  // "Decryption failed — wrong key or corrupted file" in secrets_unlock.
-  // config_wipe removes both secrets.enc and the config dir; syncOnLogin
-  // will repopulate entity files from the cloud pull after reload.
-  await wipeLocalConfig(carried).catch(() => {});
 
   // Clear every account-scoped keychain entry before writing the target's — the
   // same list sign-out clears. A key left behind is served to the incoming
@@ -313,9 +332,8 @@ async function tearDownSession(): Promise<void> {
   }
   await clearSecret().catch(() => {});
 
-  // Tell SplashScreen to use replace-mode sync after reload so the old
-  // account's local state is never merged into the next account's cloud data.
-  sessionStorage.setItem("voltius.replace-sync-on-login", "1");
+  // An account with nothing parked here starts empty and must be rebuilt from the server alone.
+  if (!restored) sessionStorage.setItem("voltius.replace-sync-on-login", "1");
   clearPersistedAccountUiState();
 }
 
@@ -324,7 +342,7 @@ async function tearDownSession(): Promise<void> {
  * keychain entries and UI state, then reload so autoLogin picks it up.
  */
 export async function switchToAccount(account: SavedAccount): Promise<void> {
-  await tearDownSession();
+  await tearDownSession(account.account_id);
   for (const key of SESSION_KEYS) {
     const value = account[key];
     if (value) await keychainSet(key, value);

@@ -4,10 +4,15 @@ import { routeVaultSecret } from "@/test/vaultSecretRoute";
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   lockVault: vi.fn(async () => undefined),
-  wipeLocalConfig: vi.fn(async (_carry?: Record<string, string>) => undefined),
+  swapAccountProfile: vi.fn(
+    async (_args: { parkAs: string | null; restore: string; carry?: Record<string, string> }) => false,
+  ),
+  dropAccountProfile: vi.fn(async (_accountId: string) => undefined),
   readLocalSecrets: vi.fn(async (_keys: string[]) => ({}) as Record<string, string>),
-  push: vi.fn(async () => undefined),
+  push: vi.fn(async (_options?: { signal?: AbortSignal }) => undefined),
   stopRealtimeSync: vi.fn(),
+  startRealtimeSync: vi.fn(),
+  isSyncPaused: vi.fn(() => false),
   clearPersistedAccountUiState: vi.fn(),
   parkAccountUiState: vi.fn(),
   restoreAccountUiState: vi.fn(),
@@ -23,10 +28,16 @@ const h = vi.hoisted(() => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("./vault", () => ({
   lockVault: h.lockVault,
-  wipeLocalConfig: h.wipeLocalConfig,
   readLocalSecrets: h.readLocalSecrets,
+  swapAccountProfile: h.swapAccountProfile,
+  dropAccountProfile: h.dropAccountProfile,
 }));
-vi.mock("@/services/sync", () => ({ push: h.push, stopRealtimeSync: h.stopRealtimeSync }));
+vi.mock("@/services/sync", () => ({
+  push: h.push,
+  stopRealtimeSync: h.stopRealtimeSync,
+  startRealtimeSync: h.startRealtimeSync,
+  isSyncPaused: h.isSyncPaused,
+}));
 vi.mock("@/stores/persistedAccountUiState", () => ({
   clearPersistedAccountUiState: h.clearPersistedAccountUiState,
   parkAccountUiState: h.parkAccountUiState,
@@ -70,6 +81,8 @@ const CLOUD_B = cloudAccount("b");
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.swapAccountProfile.mockResolvedValue(false);
+  h.isSyncPaused.mockReturnValue(false);
   h.store = {};
   h.valueCap = 0;
   h.readFails = false;
@@ -229,19 +242,129 @@ test("switchToAccount tears the old session down before reloading", async () => 
   expect(h.push).toHaveBeenCalled();
   expect(h.stopRealtimeSync).toHaveBeenCalled();
   expect(h.lockVault).toHaveBeenCalled();
-  expect(h.wipeLocalConfig).toHaveBeenCalled();
+  expect(h.swapAccountProfile).toHaveBeenCalledWith({ parkAs: null, restore: "b", carry: {} });
   expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
   expect(sessionStorage.setItem).toHaveBeenCalledWith("voltius.replace-sync-on-login", "1");
   expect(h.reload).toHaveBeenCalled();
 });
 
-test("switchToAccount carries the device-only proxy password, read before the vault locks, through the wipe", async () => {
+test("switchToAccount carries the device-only proxy password, read before the vault locks, through the swap", async () => {
   activate(CLOUD_A);
   h.readLocalSecrets.mockResolvedValueOnce({ [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" });
   await switchToAccount(CLOUD_B);
   expect(h.readLocalSecrets).toHaveBeenCalledWith([GLOBAL_PROXY_PASSWORD_KEY]);
-  expect(h.readLocalSecrets.mock.invocationCallOrder[0]).toBeLessThan(h.lockVault.mock.invocationCallOrder[0]);
-  expect(h.wipeLocalConfig).toHaveBeenCalledWith({ [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" });
+  expect(h.readLocalSecrets.mock.invocationCallOrder[0]).toBeLessThan(h.swapAccountProfile.mock.invocationCallOrder[0]);
+  expect(h.swapAccountProfile).toHaveBeenCalledWith({
+    parkAs: null,
+    restore: "b",
+    carry: { [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" },
+  });
+});
+
+test("a saved account is parked and the target restored, with realtime sync stopped before the push", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+
+  await switchToAccount(CLOUD_B);
+
+  expect(h.stopRealtimeSync.mock.invocationCallOrder[0]).toBeLessThan(h.push.mock.invocationCallOrder[0]);
+  expect(h.swapAccountProfile).toHaveBeenCalledWith({ parkAs: "a", restore: "b", carry: {} });
+  expect(h.swapAccountProfile.mock.invocationCallOrder[0]).toBeLessThan(h.lockVault.mock.invocationCallOrder[0]);
+});
+
+test("a restored profile is left to merge; only an empty one asks for a replacing sync", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  h.swapAccountProfile.mockResolvedValueOnce(true);
+
+  await switchToAccount(CLOUD_B);
+
+  expect(sessionStorage.setItem).not.toHaveBeenCalledWith("voltius.replace-sync-on-login", "1");
+  expect(h.reload).toHaveBeenCalled();
+});
+
+test("a paused device does not push on the way out, and still parks", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  h.isSyncPaused.mockReturnValue(true);
+
+  await switchToAccount(CLOUD_B);
+
+  expect(h.push).not.toHaveBeenCalled();
+  expect(h.swapAccountProfile).toHaveBeenCalledWith({ parkAs: "a", restore: "b", carry: {} });
+});
+
+test("a push that never settles stops holding the switch after five seconds", async () => {
+  vi.useFakeTimers();
+  try {
+    activate(CLOUD_A);
+    seed(CLOUD_A, CLOUD_B);
+    let signal: AbortSignal | undefined;
+    h.push.mockImplementationOnce((options) => {
+      signal = options?.signal;
+      return new Promise<undefined>(() => {});
+    });
+
+    const switching = switchToAccount(CLOUD_B);
+    await vi.waitFor(() => expect(h.push).toHaveBeenCalled());
+    expect(h.swapAccountProfile).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5000);
+    await switching;
+
+    expect(signal?.aborted).toBe(true);
+    expect(h.reload).toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a push that fails at once does not wait out the timer", async () => {
+  vi.useFakeTimers();
+  try {
+    activate(CLOUD_A);
+    seed(CLOUD_A, CLOUD_B);
+    h.push.mockRejectedValueOnce(new Error("402"));
+
+    await switchToAccount(CLOUD_B);
+
+    expect(h.reload).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a swap that fails leaves the session as it was", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  h.swapAccountProfile.mockRejectedValueOnce(new Error("Failed to switch account data"));
+
+  await expect(switchToAccount(CLOUD_B)).rejects.toThrow("Failed to switch account data");
+
+  expect(h.store.account_id).toBe("a");
+  expect(h.store.jwt).toBe(CLOUD_A.jwt);
+  expect(h.lockVault).not.toHaveBeenCalled();
+  expect(h.startRealtimeSync).toHaveBeenCalled();
+  expect(h.clearPersistedAccountUiState).not.toHaveBeenCalled();
+  expect(h.reload).not.toHaveBeenCalled();
+});
+
+test("an unreadable keychain stops the switch before any data moves", async () => {
+  activate(CLOUD_A);
+  h.readFails = true;
+
+  await expect(switchToAccount(CLOUD_B)).rejects.toThrow();
+
+  expect(h.swapAccountProfile).not.toHaveBeenCalled();
+  expect(h.reload).not.toHaveBeenCalled();
+});
+
+test("removing a saved account deletes its parked data", async () => {
+  seed(CLOUD_A, CLOUD_B);
+
+  await removeSavedAccount("b");
+
+  expect(h.dropAccountProfile).toHaveBeenCalledWith("b");
 });
 
 const { mode: _mode, ...SESSION_B } = CLOUD_B;
@@ -271,7 +394,7 @@ test("adding an account leaves the session alone when the current one cannot be 
 
   h.readFails = false;
   expect(h.store.account_id).toBe("a");
-  expect(h.wipeLocalConfig).not.toHaveBeenCalled();
+  expect(h.swapAccountProfile).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });
 
@@ -281,7 +404,7 @@ test("adding the account already signed in does not tear it down", async () => {
 
   await addAccount(sessionA);
 
-  expect(h.wipeLocalConfig).not.toHaveBeenCalled();
+  expect(h.swapAccountProfile).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });
 

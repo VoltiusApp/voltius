@@ -113,8 +113,8 @@ export function SidebarAccountButton() {
   };
 
   /**
-   * Leaving a local account destroys it: the switch wipes secrets.enc and the
-   * config dir, and a local vault has no cloud copy to come back from. Ask first.
+   * Leaving a local account destroys it: it is not in the switcher, so the
+   * switch discards its data instead of parking it. Ask first.
    */
   const requestSwitch = (account: SavedAccount) => {
     setOpen(false);
