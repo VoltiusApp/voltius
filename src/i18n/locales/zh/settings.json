@@ -36,6 +36,16 @@
       "ignoreBracketedPaste": {
         "title": "纯文本粘贴（无括号粘贴）",
         "desc": "不带 \\x1b[200~ / \\x1b[201~ 标记的纯文本粘贴。修复粘贴到 sudo 提示符或不支持括号粘贴的 CLI 应用时的乱码问题。"
+      },
+      "keywordHighlight": {
+        "title": "关键词高亮",
+        "desc": "为命令输出中的“error”“warning”等词语着色。仅在启用 Shell 集成的会话中生效。",
+        "addRule": "添加规则",
+        "deleteRule": "删除规则",
+        "ruleEnabled": "启用规则",
+        "color": "颜色",
+        "wordsPlaceholder": "添加词语…",
+        "removeWord": "移除 {{word}}"
       }
     },
     "appearance": {
@@ -1082,6 +1092,7 @@
       "dragSelectsText": { "label": "拖动即选择文本" },
       "groupTabsByHost": { "label": "按主机分组标签页" },
       "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },
+      "keywordHighlight": { "label": "关键词高亮" },
       "autoForward": { "label": "自动端口转发" },
       "forwardingNotifications": { "label": "端口转发通知" },
       "sftpTar": { "label": "SFTP Tar 加速" },

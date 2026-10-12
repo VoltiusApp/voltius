@@ -36,6 +36,16 @@
       "ignoreBracketedPaste": {
         "title": "Prosté vkládání (bez bracketed paste)",
         "desc": "Vkládat jako prostý text bez značek \\x1b[200~ / \\x1b[201~. Opravuje poškozený vstup (např. „200~“) při vkládání do výzev sudo nebo CLI aplikací, které bracketed paste nepodporují."
+      },
+      "keywordHighlight": {
+        "title": "Zvýrazňování klíčových slov",
+        "desc": "Obarví slova jako „error“ nebo „warning“ ve výstupu příkazů. Funguje v relacích s integrací shellu.",
+        "addRule": "Přidat pravidlo",
+        "deleteRule": "Smazat pravidlo",
+        "ruleEnabled": "Povolit pravidlo",
+        "color": "Barva",
+        "wordsPlaceholder": "Přidat slovo…",
+        "removeWord": "Odebrat {{word}}"
       }
     },
     "appearance": {
@@ -1265,6 +1275,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Prosté vkládání (bez bracketed paste)"
+      },
+      "keywordHighlight": {
+        "label": "Zvýrazňování klíčových slov"
       },
       "autoForward": {
         "label": "Automatické přesměrování portů"

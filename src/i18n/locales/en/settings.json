@@ -36,6 +36,16 @@
       "ignoreBracketedPaste": {
         "title": "Plain paste (no bracketed paste)",
         "desc": "Paste as plain text without the \\x1b[200~ / \\x1b[201~ markers. Fixes garbled input (e.g. \"200~\") when pasting into sudo prompts or CLI apps that don't support bracketed paste."
+      },
+      "keywordHighlight": {
+        "title": "Keyword highlighting",
+        "desc": "Color words such as “error” or “warning” in command output. Works in sessions with shell integration.",
+        "addRule": "Add rule",
+        "deleteRule": "Delete rule",
+        "ruleEnabled": "Enable rule",
+        "color": "Color",
+        "wordsPlaceholder": "Add a word…",
+        "removeWord": "Remove {{word}}"
       }
     },
     "appearance": {
@@ -1031,6 +1041,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Plain Paste (No Bracketed Paste)"
+      },
+      "keywordHighlight": {
+        "label": "Keyword Highlighting"
       },
       "autoForward": {
         "label": "Automatic Port Forwarding"

@@ -36,6 +36,16 @@
       "ignoreBracketedPaste": {
         "title": "Collage simple (sans collage entre crochets)",
         "desc": "Coller en texte brut sans les marqueurs \\x1b[200~ / \\x1b[201~. Corrige un affichage corrompu (ex. « 200~ ») lors d'un collage dans un prompt sudo ou une application CLI qui ne prend pas en charge le collage entre crochets."
+      },
+      "keywordHighlight": {
+        "title": "Mise en évidence de mots-clés",
+        "desc": "Colore des mots comme « error » ou « warning » dans la sortie des commandes. Fonctionne dans les sessions avec l'intégration du shell.",
+        "addRule": "Ajouter une règle",
+        "deleteRule": "Supprimer la règle",
+        "ruleEnabled": "Activer la règle",
+        "color": "Couleur",
+        "wordsPlaceholder": "Ajouter un mot…",
+        "removeWord": "Retirer {{word}}"
       }
     },
     "appearance": {
@@ -1037,6 +1047,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Collage simple (sans crochets)"
+      },
+      "keywordHighlight": {
+        "label": "Mise en évidence de mots-clés"
       },
       "autoForward": {
         "label": "Transfert de ports automatique"

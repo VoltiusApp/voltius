@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { touchAppSetting } from "./appSettingsTimestampStore";
 import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
+import { DEFAULT_KEYWORD_RULES, sanitizeKeywordRules, type KeywordRule } from "@/utils/keywordMatcher";
 
 export const CURSOR_STYLES = ["bar", "block", "underline"] as const;
 export type TerminalCursorStyle = (typeof CURSOR_STYLES)[number];
@@ -11,9 +12,11 @@ interface TerminalSettingsStore {
   preferredShell: string | null;
   scrollbackLines: number;
   cursorStyle: TerminalCursorStyle;
+  keywordRules: KeywordRule[];
   setPreferredShell: (shell: string | null) => void;
   setScrollbackLines: (lines: number) => void;
   setCursorStyle: (style: TerminalCursorStyle) => void;
+  setKeywordRules: (rules: KeywordRule[]) => void;
 }
 
 // Every setter reports its leaf; the settings registry decides whether it syncs.
@@ -25,9 +28,11 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
       preferredShell: null,
       scrollbackLines: DEFAULT_SCROLLBACK_LINES,
       cursorStyle: DEFAULT_CURSOR_STYLE,
+      keywordRules: DEFAULT_KEYWORD_RULES,
       setPreferredShell: (shell) => { set({ preferredShell: shell }); touchTerminal("preferredShell"); },
       setScrollbackLines: (lines) => { set({ scrollbackLines: clampScrollbackLines(lines) }); touchTerminal("scrollbackLines"); },
       setCursorStyle: (style) => { set({ cursorStyle: style }); touchTerminal("cursorStyle"); },
+      setKeywordRules: (rules) => { set({ keywordRules: sanitizeKeywordRules(rules) }); touchTerminal("keywordRules"); },
     }),
     {
       name: "voltius-terminal-settings",
@@ -35,6 +40,7 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
         const state = { ...current, ...(persisted as Partial<TerminalSettingsStore>) };
         state.scrollbackLines = clampScrollbackLines(state.scrollbackLines);
         if (!CURSOR_STYLES.includes(state.cursorStyle)) state.cursorStyle = DEFAULT_CURSOR_STYLE;
+        state.keywordRules = sanitizeKeywordRules(state.keywordRules);
         return state;
       },
     },

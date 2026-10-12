@@ -70,6 +70,13 @@ export const TOGGLE_DEFS = {
     keywords: ["paste", "bracketed", "clipboard", "terminal", "sudo", "garbage", "200~"],
     default: false,
   },
+  "keyword-highlight": {
+    labelKey: "settings.toggleDefs.keywordHighlight.label",
+    icon: "lucide:highlighter",
+    section: "terminal",
+    keywords: ["keyword", "highlight", "color", "colour", "error", "warning", "output", "terminal"],
+    default: true,
+  },
   "auto-forward": {
     labelKey: "settings.toggleDefs.autoForward.label",
     icon: "lucide:arrow-left-right",
