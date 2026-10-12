@@ -1,7 +1,10 @@
 use crate::app_lock::AppLock;
+use crate::storage::config::config_dir;
+use crate::storage::profile::{self, ProfileDirs, SECRETS_FILE};
+use crate::storage::secrets::SecretsStore;
 use crate::storage::vault;
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 #[tauri::command]
@@ -22,16 +25,22 @@ pub fn vault_reset(app: AppHandle) -> Result<(), String> {
     wipe_secrets_and_config(&app)
 }
 
+const PARKED_DIR: &str = "accounts";
+
+fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    use tauri::Manager;
+
+    app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {e}"))
+}
+
 fn wipe_secrets_and_config(app: &AppHandle) -> Result<(), String> {
     use tauri::Manager;
 
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
     wipe(
-        &data_dir.join("secrets.enc"),
-        &crate::storage::config::config_dir(),
+        &data_dir(app)?.join(SECRETS_FILE),
+        &config_dir(),
         app.try_state::<AppLock>().as_deref(),
     )
 }
@@ -122,6 +131,42 @@ fn android_id() -> Option<String> {
 #[tauri::command]
 pub fn config_wipe(app: AppHandle) -> Result<(), String> {
     wipe_secrets_and_config(&app)
+}
+
+/// Park the live account's data under `park_as` (or discard it) and bring back
+/// the data parked under `restore`. Returns whether a profile was restored.
+#[tauri::command]
+pub fn account_profile_swap(
+    app: AppHandle,
+    state: tauri::State<SecretsStore>,
+    park_as: Option<String>,
+    restore: Option<String>,
+) -> Result<bool, String> {
+    use tauri::Manager;
+
+    let data_dir = data_dir(&app)?;
+    let secrets = data_dir.join(SECRETS_FILE);
+    let config = config_dir();
+    let parked = data_dir.join(PARKED_DIR);
+    // Locked first: a later save would recreate secrets.enc under the outgoing key.
+    state.lock();
+    if let Some(lock) = app.try_state::<AppLock>() {
+        let _ = lock.set(None);
+    }
+    profile::swap(
+        &ProfileDirs {
+            secrets: &secrets,
+            config: &config,
+            parked: &parked,
+        },
+        park_as.as_deref(),
+        restore.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn account_profile_drop(app: AppHandle, account_id: String) -> Result<(), String> {
+    profile::drop_parked(&data_dir(&app)?.join(PARKED_DIR), &account_id)
 }
 
 #[cfg(test)]

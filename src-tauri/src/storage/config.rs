@@ -488,6 +488,16 @@ fn default_config_dir() -> PathBuf {
     DIR.with(|d| d.path().to_path_buf())
 }
 
+/// `name` if it is a single path component that cannot leave its directory.
+pub fn plain_leaf(name: &str) -> Option<&str> {
+    let ok = !name.is_empty()
+        && name != "."
+        && name != ".."
+        && !name.contains('/')
+        && !name.contains('\\');
+    ok.then_some(name)
+}
+
 pub fn config_dir() -> PathBuf {
     let dir = match CONFIG_DIR_OVERRIDE.get() {
         Some(base) => base.clone(),

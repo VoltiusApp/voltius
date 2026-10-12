@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-use crate::storage::config::config_dir;
+use crate::storage::config::{config_dir, plain_leaf};
 use crate::storage::secrets::SecretsStore;
 
 // ─── encrypt_payload ──────────────────────────────────────────────────────────
@@ -117,15 +117,6 @@ const PLUGIN_DATA_PREFIX: &str = "plugin-data/";
 /// own key, but it still arrives over the network, so the leaf name is required to
 /// be a plain file — no separators, no `..` — and everything else is refused.
 fn restore_dest(dir: &std::path::Path, filename: &str) -> Option<std::path::PathBuf> {
-    fn plain_leaf(name: &str) -> Option<&str> {
-        let ok = !name.is_empty()
-            && name != "."
-            && name != ".."
-            && !name.contains('/')
-            && !name.contains('\\');
-        ok.then_some(name)
-    }
-
     if let Some(sub) = filename.strip_prefix(PLUGIN_META_PREFIX) {
         return Some(
             dir.join("plugins")

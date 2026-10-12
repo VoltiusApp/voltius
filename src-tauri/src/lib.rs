@@ -322,6 +322,8 @@ pub fn run() {
             commands::vault::vault_status,
             commands::vault::vault_reset,
             commands::vault::config_wipe,
+            commands::vault::account_profile_swap,
+            commands::vault::account_profile_drop,
             commands::vault::get_machine_fingerprint,
             commands::crypto::derive_keys,
             commands::crypto::derive_gist_key,

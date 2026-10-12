@@ -403,6 +403,10 @@ fn copy_tree(
     copy_recursive(&src, dst, &mut 0, token, &|n| emit(n, total))
 }
 
+pub(crate) fn copy_plain(src: &Path, dst: &Path) -> std::io::Result<()> {
+    copy_recursive(src, dst, &mut 0, &CancellationToken::new(), &|_| {})
+}
+
 fn copy_recursive(
     src: &Path,
     dst: &Path,
