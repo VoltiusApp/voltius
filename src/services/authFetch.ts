@@ -11,6 +11,11 @@ interface AuthFetchOptions {
   fetchImpl?: typeof appFetch;
 }
 
+// The native request cannot be cancelled mid-flight; this only stops the next step from starting.
+function assertNotAborted(signal: AbortSignal | null | undefined): void {
+  if (signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
+}
+
 export async function fetchAuth(
   url: string,
   init: RequestInit = {},
@@ -19,6 +24,7 @@ export async function fetchAuth(
   const send = opts.fetchImpl ?? appFetch;
   let jwt = await getJwt();
   if (!jwt || isJwtExpiredOrExpiring(jwt)) {
+    assertNotAborted(init.signal);
     jwt = await tryRefreshJwt(opts.fetchImpl);
     if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
   }
@@ -29,11 +35,16 @@ export async function fetchAuth(
     ...(opts.json ? { "Content-Type": "application/json" } : {}),
     Authorization: `Bearer ${token}`,
   });
-  let res = await send(url, { ...init, headers: makeHeaders(jwt) });
+  const request = (token: string) => {
+    assertNotAborted(init.signal);
+    return send(url, { ...init, headers: makeHeaders(token) });
+  };
+  let res = await request(jwt);
   if (res.status === 401) {
+    assertNotAborted(init.signal);
     const newJwt = await tryRefreshJwt(opts.fetchImpl);
     if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
-    res = await send(url, { ...init, headers: makeHeaders(newJwt) });
+    res = await request(newJwt);
   }
   if (opts.rateLimit && res.status === 429) {
     const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);

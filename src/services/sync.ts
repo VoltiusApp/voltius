@@ -389,7 +389,7 @@ function outgoingSettings(): UserDataBundle {
 }
 
 /** Export local data and upload to server. */
-export async function push(): Promise<void> {
+export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<void> {
   const encKey = await getEncKey();
   const [serverUrl, deviceId, accountId] = await Promise.all([
     getServerUrl(),
@@ -419,6 +419,7 @@ export async function push(): Promise<void> {
       blob: bytesToBase64(blob),
       metadata: { device_id: deviceId, synced_at: new Date().toISOString() },
     }),
+    signal,
   });
 
   if (!res.ok) throw new Error(i18n.t("common.error.serverError", { status: res.status }));
