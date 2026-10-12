@@ -196,6 +196,25 @@ test("a failed swap leaves the key installed, so the next read unlocks again", a
   expect(invoked("secrets_unlock")).toBe(true);
 });
 
+test("a secret read while a swap is running does not reopen the store", async () => {
+  await getLocalSecret("k");
+  h.invoke.mockClear();
+  let finish!: (restored: boolean) => void;
+  h.invoke.mockImplementation(async (cmd: string) => {
+    if (cmd === "account_profile_swap") return new Promise<boolean>((resolve) => { finish = resolve; });
+    if (cmd === "secrets_get") throw LOCKED;
+    return undefined;
+  });
+
+  const swapping = swapAccountProfile({ parkAs: "a", restore: "b" });
+  await expect(getLocalSecret("k")).rejects.toBeInstanceOf(VaultLockedError);
+  await expect(getLocalSecret("k")).rejects.toBeInstanceOf(VaultLockedError);
+  finish(true);
+  await swapping;
+
+  expect(invoked("secrets_unlock")).toBe(false);
+});
+
 test("dropping a profile names the account to the backend", async () => {
   await dropAccountProfile("b");
 

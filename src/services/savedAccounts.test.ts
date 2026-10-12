@@ -12,6 +12,8 @@ const h = vi.hoisted(() => ({
   push: vi.fn(async (_options?: { signal?: AbortSignal }) => undefined),
   stopRealtimeSync: vi.fn(),
   startRealtimeSync: vi.fn(),
+  haltSync: vi.fn(),
+  resumeSync: vi.fn(),
   isSyncPaused: vi.fn(() => false),
   clearPersistedAccountUiState: vi.fn(),
   parkAccountUiState: vi.fn(),
@@ -23,6 +25,8 @@ const h = vi.hoisted(() => ({
   /** UTF-16 bytes a single keychain value may hold; 0 for an unbounded one. */
   valueCap: 0,
   readFails: false,
+  /** Keychain keys whose read fails while every other one still answers. */
+  failKeys: [] as string[],
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -36,6 +40,8 @@ vi.mock("@/services/sync", () => ({
   push: h.push,
   stopRealtimeSync: h.stopRealtimeSync,
   startRealtimeSync: h.startRealtimeSync,
+  haltSync: h.haltSync,
+  resumeSync: h.resumeSync,
   isSyncPaused: h.isSyncPaused,
 }));
 vi.mock("@/stores/persistedAccountUiState", () => ({
@@ -86,6 +92,7 @@ beforeEach(() => {
   h.store = {};
   h.valueCap = 0;
   h.readFails = false;
+  h.failKeys = [];
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
     const vs = routeVaultSecret(h.store, cmd, args);
     if (vs.handled) {
@@ -94,7 +101,7 @@ beforeEach(() => {
     }
     switch (cmd) {
       case "keychain_get":
-        if (h.readFails) throw new Error("Keychain read error");
+        if (h.readFails || h.failKeys.includes(args.key as string)) throw new Error("Keychain read error");
         return h.store[args.key as string] ?? null;
       case "keychain_set": {
         const value = args.value as string;
@@ -344,19 +351,63 @@ test("a swap that fails leaves the session as it was", async () => {
   expect(h.store.account_id).toBe("a");
   expect(h.store.jwt).toBe(CLOUD_A.jwt);
   expect(h.lockVault).not.toHaveBeenCalled();
+  expect(h.resumeSync).toHaveBeenCalled();
   expect(h.startRealtimeSync).toHaveBeenCalled();
   expect(h.clearPersistedAccountUiState).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });
 
-test("an unreadable keychain stops the switch before any data moves", async () => {
+test("an unreadable saved list stops the switch before any data moves", async () => {
   activate(CLOUD_A);
-  h.readFails = true;
+  seed(CLOUD_A, CLOUD_B);
+  h.failKeys = [INDEX_KEY];
 
-  await expect(switchToAccount(CLOUD_B)).rejects.toThrow();
+  await expect(switchToAccount(CLOUD_B)).rejects.toThrow("Saved accounts could not be read");
 
   expect(h.swapAccountProfile).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
+});
+
+test("sync is halted after the last push and before the data moves", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+
+  await switchToAccount(CLOUD_B);
+
+  expect(h.push.mock.invocationCallOrder[0]).toBeLessThan(h.haltSync.mock.invocationCallOrder[0]);
+  expect(h.haltSync.mock.invocationCallOrder[0]).toBeLessThan(h.swapAccountProfile.mock.invocationCallOrder[0]);
+});
+
+test("a failure after the data has moved still reloads", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  h.valueCap = 4; // every session value past "b" is refused
+
+  await expect(switchToAccount(CLOUD_B)).rejects.toThrow("too long");
+
+  expect(h.swapAccountProfile).toHaveBeenCalled();
+  expect(h.reload).toHaveBeenCalled();
+});
+
+test("a second switch while one is running does not move the data twice", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+
+  await Promise.all([switchToAccount(CLOUD_B), switchToAccount(CLOUD_B)]);
+
+  expect(h.swapAccountProfile).toHaveBeenCalledTimes(1);
+  expect(h.reload).toHaveBeenCalledTimes(1);
+});
+
+test("a switch that failed can be tried again", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  h.swapAccountProfile.mockRejectedValueOnce(new Error("Failed to switch account data"));
+  await expect(switchToAccount(CLOUD_B)).rejects.toThrow();
+
+  await switchToAccount(CLOUD_B);
+
+  expect(h.reload).toHaveBeenCalledTimes(1);
 });
 
 test("removing a saved account deletes its parked data", async () => {

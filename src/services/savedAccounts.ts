@@ -153,6 +153,13 @@ export async function getSavedAccounts(): Promise<SavedAccount[]> {
   return (await loadSavedAccounts()).accounts;
 }
 
+// For callers that act on the answer: an unreadable list must not pass for an empty one.
+async function requireSavedAccounts(): Promise<SavedAccount[]> {
+  const { ok, accounts } = await loadSavedAccounts();
+  if (!ok) throw new Error("Saved accounts could not be read");
+  return accounts;
+}
+
 /** The session the switcher must not offer to switch into: the current one. */
 export type ActiveAccount = {
   account_id: string | null;
@@ -219,8 +226,7 @@ export async function saveCurrentAccount(): Promise<void> {
  * of a half-torn-down session costs the account its dek on the next switch.
  */
 async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
-  const { ok, accounts } = await loadSavedAccounts();
-  if (!ok) throw new Error("Saved accounts could not be read");
+  const accounts = await requireSavedAccounts();
 
   const supplied = Object.fromEntries(
     Object.entries(entry).filter(([, value]) => value !== null && value !== undefined),
@@ -250,9 +256,8 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
 async function stashUiStateForCurrentAccount(): Promise<string | null> {
   const account_id = await keychainGet("account_id");
   if (!account_id) return null;
-  const { ok, accounts } = await loadSavedAccounts();
-  // "Not saved" discards the outgoing data, so an unreadable list must not pass for an empty one.
-  if (!ok) throw new Error("Saved accounts could not be read");
+  // "Not saved" means the outgoing data is discarded, so this has to know.
+  const accounts = await requireSavedAccounts();
   if (!accounts.some((a) => a.account_id === account_id)) return null;
   parkAccountUiState(account_id);
   return account_id;
@@ -303,23 +308,27 @@ async function flushPendingChanges(): Promise<void> {
 }
 
 /**
- * End the current session: park its UI state and local data and bring `restore`'s
- * data back. Rejects with the session intact when the data cannot be moved.
+ * Move the current account's data out and `restore`'s in. Rejects with the session
+ * intact; once it resolves the data on disk is no longer this session's.
  */
-async function tearDownSession(restore: string): Promise<void> {
+async function swapOutSession(restore: string): Promise<boolean> {
   const parkAs = await stashUiStateForCurrentAccount();
-  const { stopRealtimeSync, startRealtimeSync } = await import("@/services/sync");
+  const { stopRealtimeSync, startRealtimeSync, haltSync, resumeSync } = await import("@/services/sync");
   stopRealtimeSync();
   await flushPendingChanges();
+  haltSync();
   // Read with the outgoing key, before the swap locks the store.
   const carry = await readLocalSecrets(deviceScopedSecretKeys());
-  let restored: boolean;
   try {
-    restored = await swapAccountProfile({ parkAs, restore, carry });
+    return await swapAccountProfile({ parkAs, restore, carry });
   } catch (e) {
+    resumeSync();
     startRealtimeSync();
     throw e;
   }
+}
+
+async function installSession(account: SavedAccount, restored: boolean): Promise<void> {
   await lockVault();
 
   // Clear every account-scoped keychain entry before writing the target's — the
@@ -335,14 +344,7 @@ async function tearDownSession(restore: string): Promise<void> {
   // An account with nothing parked here starts empty and must be rebuilt from the server alone.
   if (!restored) sessionStorage.setItem("voltius.replace-sync-on-login", "1");
   clearPersistedAccountUiState();
-}
 
-/**
- * Switch to a saved account: end the current session, write the target's
- * keychain entries and UI state, then reload so autoLogin picks it up.
- */
-export async function switchToAccount(account: SavedAccount): Promise<void> {
-  await tearDownSession(account.account_id);
   for (const key of SESSION_KEYS) {
     const value = account[key];
     if (value) await keychainSet(key, value);
@@ -350,7 +352,30 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
   if (account.master_password_sealed) await importSecret({ kind: "sealed", value: account.master_password_sealed });
   else if (account.master_password) await importSecret({ kind: "plain", value: account.master_password });
   restoreAccountUiState(account.account_id);
-  window.location.reload();
+}
+
+async function runSwitch(account: SavedAccount): Promise<void> {
+  const restored = await swapOutSession(account.account_id);
+  try {
+    await installSession(account, restored);
+  } finally {
+    // The running window still holds the outgoing account in memory over the incoming one's files.
+    window.location.reload();
+  }
+}
+
+let switchInFlight: Promise<void> | null = null;
+
+/**
+ * Switch to a saved account: park the current one's data, restore the target's,
+ * write its keychain entries and UI state, then reload so autoLogin picks it up.
+ */
+export function switchToAccount(account: SavedAccount): Promise<void> {
+  // A second run would park the incoming account's data under the outgoing id.
+  switchInFlight ??= runSwitch(account).finally(() => {
+    switchInFlight = null;
+  });
+  return switchInFlight;
 }
 
 /**

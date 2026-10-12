@@ -3,7 +3,6 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::config::plain_leaf;
 use super::secrets::SECRETS_FILE;
 
 /// Config-dir entries that describe the machine: a switch neither moves nor deletes them.
@@ -17,10 +16,13 @@ pub struct ProfileDirs<'a> {
     pub parked: &'a Path,
 }
 
-// A leading dot is refused so no id can name the discard directory.
+// The server issues the id, so it is held to what is one path component on every platform.
 fn profile_id(id: &str) -> Result<&str, String> {
-    plain_leaf(id)
-        .filter(|id| !id.starts_with('.'))
+    let ok = (1..=64).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    ok.then_some(id)
         .ok_or_else(|| format!("Invalid account id: {id}"))
 }
 
@@ -40,12 +42,15 @@ fn copy_then_remove(from: &Path, to: &Path) -> io::Result<()> {
     remove_path(from)
 }
 
-// rename fails across filesystems, and the config and data dirs can sit on different ones.
+// Copies only when rename cannot work at all: the config and data dirs can sit on different filesystems.
 fn move_path(from: &Path, to: &Path) -> io::Result<()> {
     if let Some(parent) = to.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::rename(from, to).or_else(|_| copy_then_remove(from, to))
+    match fs::rename(from, to) {
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => copy_then_remove(from, to),
+        result => result,
+    }
 }
 
 #[derive(Default)]
@@ -53,15 +58,21 @@ struct Moves(Vec<(PathBuf, PathBuf)>);
 
 impl Moves {
     fn run(&mut self, from: PathBuf, to: PathBuf) -> io::Result<()> {
-        move_path(&from, &to)?;
+        // Recorded first: a move that fails half-way still has to be undone.
         self.0.push((from, to));
-        Ok(())
+        let (from, to) = self.0.last().expect("just pushed");
+        move_path(from, to)
     }
 
-    fn undo(self) {
+    /// Whether everything is back where it came from.
+    fn undo(self) -> bool {
+        let mut complete = true;
         for (from, to) in self.0.into_iter().rev() {
-            let _ = move_path(&to, &from);
+            if to.symlink_metadata().is_ok() && move_path(&to, &from).is_err() {
+                complete = false;
+            }
         }
+        complete
     }
 }
 
@@ -155,8 +166,10 @@ pub fn swap(
             Ok(restored)
         }
         Err(e) => {
-            moves.undo();
-            let _ = fs::remove_dir_all(&outgoing);
+            // A park that could not be fully undone still holds the only copy of what stayed behind.
+            if moves.undo() {
+                let _ = fs::remove_dir_all(&outgoing);
+            }
             Err(format!("Failed to switch account data: {e}"))
         }
     }
@@ -352,12 +365,55 @@ mod tests {
         let f = Fixture::new();
         f.live("a");
 
-        for id in ["", ".", "..", "a/b", "a\\b", ".discard"] {
+        let too_long = "a".repeat(65);
+        for id in [
+            "",
+            ".",
+            "..",
+            "a/b",
+            "a\\b",
+            ".discard",
+            "D:x",
+            "a.b",
+            "con.",
+            too_long.as_str(),
+        ] {
             assert!(swap(&f.dirs(), Some(id), None).is_err(), "{id:?}");
             assert!(swap(&f.dirs(), None, Some(id)).is_err(), "{id:?}");
             assert!(drop_parked(&f.parked, id).is_err(), "{id:?}");
         }
         assert_eq!(read(&f.secrets), "a");
+    }
+
+    #[test]
+    fn a_server_issued_uuid_is_an_acceptable_id() {
+        assert!(profile_id("484ddff1-9983-4ca8-90f4-e982a079c840").is_ok());
+    }
+
+    #[test]
+    fn a_rename_that_fails_for_another_reason_does_not_fall_back_to_copying() {
+        let f = Fixture::new();
+        f.live("a");
+        let occupied = f.parked.join("occupied");
+        fs::create_dir_all(occupied.join("keep")).unwrap();
+
+        assert!(move_path(&f.config, &occupied).is_err());
+
+        assert_eq!(read(&f.config.join("connections.json")), "a");
+        assert!(!occupied.join("connections.json").exists());
+    }
+
+    #[test]
+    fn an_undo_that_cannot_put_everything_back_says_so() {
+        let f = Fixture::new();
+        f.live("a");
+        let dest = f.parked.join("a").join("secrets.enc");
+        let mut moves = Moves::default();
+        moves.run(f.secrets.clone(), dest.clone()).unwrap();
+        fs::create_dir_all(f.secrets.join("blocker")).unwrap();
+
+        assert!(!moves.undo());
+        assert_eq!(read(&dest), "a");
     }
 
     #[test]

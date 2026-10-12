@@ -72,6 +72,12 @@ let _syncInFlight = false;
 const SYNC_HOLD_MS = 600;
 let _lastSync: Date | null = null;
 let _error: string | null = null;
+// Set while the session's local data is being swapped out: a late sync step must not write into the next account's files.
+let _halted = false;
+
+function assertNotHalted(): void {
+  if (_halted) throw new Error("Sync is halted");
+}
 let _cloudActive = false;
 let _blobSizeBytes: number | null = null;
 // A local change, or the launch sync, that an unreachable server left undone.
@@ -115,6 +121,7 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     // Live stores, not settings.json: that file lags until the push that follows this pull.
     const { merged, updatedKeys } = mergeUserDataBundle(outgoingSettings(), filterIncoming(remote));
     if (updatedKeys.length === 0) return;
+    assertNotHalted();
     await invoke("settings_save", { state: JSON.stringify(merged) });
     // settings.json keeps the merge result; the stores get this device's
     // held-back values back on top of it. Writing the restored bundle to disk
@@ -380,6 +387,7 @@ export async function writeFilteredSettings(): Promise<void> {
   // this call's outcome, so a hidden failure here would upload the
   // pre-toggle, unfiltered file. A failed sync round is strictly better than
   // uploading held-back data — let this throw and abort the round.
+  assertNotHalted();
   await invoke("settings_save", { state: JSON.stringify(outgoingSettings()) });
 }
 
@@ -390,6 +398,7 @@ function outgoingSettings(): UserDataBundle {
 
 /** Export local data and upload to server. */
 export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<void> {
+  assertNotHalted();
   const encKey = await getEncKey();
   const [serverUrl, deviceId, accountId] = await Promise.all([
     getServerUrl(),
@@ -522,6 +531,7 @@ export function mergeBlobPayload(base: BlobPayload, remote: BlobPayload): { payl
 }
 
 export async function importMergedPayload(merged: BlobPayload): Promise<void> {
+  assertNotHalted();
   await invoke("state_import", { files: merged.files, secrets: merged.secrets, secretClocks: merged.secret_clocks ?? {} });
 }
 
@@ -599,7 +609,7 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
  *                   data actually changed local state, preventing infinite loops.
  */
 export async function syncNow(forcePush = false): Promise<void> {
-  if (_syncInFlight) return;
+  if (_syncInFlight || _halted) return;
 
   // Personal blob sync is a Pro feature — free-tier accounts have no blob quota.
   if (!useSubscriptionStore.getState().isPro) return;
@@ -796,7 +806,7 @@ let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Schedule a sync 2 s after the last mutation (debounced). */
 export function scheduleSync() {
-  if (!useSubscriptionStore.getState().isPro || isSyncPaused()) return;
+  if (!useSubscriptionStore.getState().isPro || isSyncPaused() || _halted) return;
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     _syncTimer = null;
@@ -845,6 +855,18 @@ export function startRealtimeSync(): void {
 export function stopRealtimeSync(): void {
   _sseAbort?.abort();
   _sseAbort = null;
+}
+
+/** Stop the stream and the debounce timer, and refuse every later local write or upload until `resumeSync`. */
+export function haltSync(): void {
+  _halted = true;
+  stopRealtimeSync();
+  if (_syncTimer) clearTimeout(_syncTimer);
+  _syncTimer = null;
+}
+
+export function resumeSync(): void {
+  _halted = false;
 }
 
 async function _sseLoop(signal: AbortSignal): Promise<void> {

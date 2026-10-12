@@ -157,11 +157,15 @@ export async function swapAccountProfile(
   { parkAs, restore, carry = {} }: { parkAs: string | null; restore: string; carry?: Record<string, string> },
 ): Promise<boolean> {
   await carrySecrets(carry);
+  // No key while the files move: a read would reopen the store, or create the incoming one, under the outgoing key.
+  const key = pendingKey;
+  pendingKey = null;
+  unlocked = false;
   try {
     return await invoke<boolean>("account_profile_swap", { parkAs, restore });
-  } finally {
-    // The command locks the store whether or not it then succeeds.
-    unlocked = false;
+  } catch (e) {
+    pendingKey = key;
+    throw e;
   }
 }
 
