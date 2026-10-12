@@ -811,7 +811,7 @@ function SyncIndicator({
     status === "error"   ? (errorSource
       ? t("layout.sync.status.errorDetailFrom", { source: errorSource, error: error ?? t("layout.sync.status.unknown") })
       : t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") })) :
-    status === "offline" ? t("layout.sync.status.offline") :
+    status === "offline" ? (error ? t("layout.sync.status.offlineDetail", { error }) : t("layout.sync.status.offline")) :
                            t("layout.sync.status.default");
 
   return (

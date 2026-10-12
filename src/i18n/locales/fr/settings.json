@@ -588,7 +588,8 @@
         "syncing": "Synchronisation en cours…",
         "error": "Erreur : {{error}}",
         "lastSync": "Dernière synchro : {{time}}",
-        "offline": "Hors ligne",
+        "offline": "Serveur injoignable",
+        "offlineDetail": "Serveur injoignable : {{error}}",
         "idle": "Pas encore synchronisé",
         "paused": "En pause sur cet appareil",
         "syncNow": "Synchroniser"

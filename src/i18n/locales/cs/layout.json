@@ -176,6 +176,8 @@
       "configureArrow": "Nastavit →",
       "paused": "Pozastaveno",
       "resumeArrow": "Pokračovat →",
+      "pause": "Pozastavit synchronizaci",
+      "resume": "Pokračovat v synchronizaci",
       "encryptedBlob": "Šifrovaná data · {{size}}",
       "status": {
         "syncing": "Synchronizace…",
@@ -184,7 +186,8 @@
         "error": "Chyba synchronizace",
         "errorDetail": "Chyba synchronizace: {{error}}",
         "errorDetailFrom": "Chyba synchronizace · {{source}}: {{error}}",
-        "offline": "Offline",
+        "offline": "Server je nedostupný",
+        "offlineDetail": "Server je nedostupný: {{error}}",
         "idle": "Nečinná",
         "notConfigured": "Synchronizace není nastavena",
         "paused": "Synchronizace pozastavena",

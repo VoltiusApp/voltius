@@ -15,7 +15,7 @@
         "syncing": "Syncing",
         "success": "Synced",
         "error": "Error",
-        "offline": "Offline"
+        "offline": "Can't reach server"
       }
     },
     "remoteSessions": {

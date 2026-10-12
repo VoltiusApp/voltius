@@ -42,6 +42,33 @@ const INACTIVE_ROWS = {
   paused: { icon: SYNC_PAUSED_ICON, labelKey: "layout.sync.paused", actionKey: "layout.sync.resumeArrow", tone: "var(--t-text-dim)" },
 } as const;
 
+function HeaderButton({ onClick, title, disabled = false, faded = false, children }: {
+  onClick: () => void;
+  title: string;
+  disabled?: boolean;
+  faded?: boolean;
+  children: React.ReactNode;
+}) {
+  const rest = disabled ? "var(--t-text-dim)" : "var(--t-text-secondary)";
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-all"
+      style={{ color: rest, background: "var(--t-bg-elevated)", opacity: faded ? 0.4 : 1 }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.color = "var(--t-text-primary)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = rest;
+      }}
+      title={title}
+    >
+      {children}
+    </button>
+  );
+}
+
 function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
   const isActive = provider.availability === "active";
@@ -64,6 +91,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
   const act = () => {
     if (provider.action) onAction(provider.action);
   };
+  const toggle = provider.pauseToggle;
 
   const inactiveRow = provider.availability === "active" || provider.availability === "locked"
     ? null
@@ -79,26 +107,17 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
             {provider.label}
           </span>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={!canSync}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-all"
-          style={{
-            color: canSync ? "var(--t-text-secondary)" : "var(--t-text-dim)",
-            background: "var(--t-bg-elevated)",
-            opacity: provider.syncNow === null ? 0.4 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (canSync) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = canSync ? "var(--t-text-secondary)" : "var(--t-text-dim)";
-          }}
-          title={t("layout.sync.syncNow")}
-        >
-          <Icon icon="lucide:refresh-cw" width={10} />
-          {t("layout.sync.syncNow")}
-        </button>
+        <div className="flex items-stretch gap-1">
+          {toggle && (
+            <HeaderButton onClick={() => onAction(toggle)} title={t(`layout.sync.${toggle.kind}`)}>
+              <Icon icon={toggle.kind === "pause" ? "lucide:pause" : "lucide:play"} width={10} />
+            </HeaderButton>
+          )}
+          <HeaderButton onClick={handleSync} disabled={!canSync} faded={provider.syncNow === null} title={t("layout.sync.syncNow")}>
+            <Icon icon="lucide:refresh-cw" width={10} />
+            {t("layout.sync.syncNow")}
+          </HeaderButton>
+        </div>
       </div>
 
       {provider.availability === "locked" && (
@@ -145,8 +164,8 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
                 {statusLabel(status, lastSync)}
               </span>
             </div>
-            {status === "error" && error && (
-              <p className="text-[10px] leading-relaxed" style={{ color: "var(--t-status-error)" }}>
+            {(status === "error" || status === "offline") && error && (
+              <p className="text-[10px] leading-relaxed break-words" style={{ color: status === "error" ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
                 {error}
               </p>
             )}
@@ -176,6 +195,8 @@ function EntityCounts() {
     />
   );
 }
+
+const STAYS_OPEN: ReadonlySet<SyncProviderAction["kind"]> = new Set(["pause", "resume"]);
 
 type SyncInstaller = Pick<ReturnType<typeof usePluginInstaller>, "busy" | "startInstall">;
 
@@ -220,7 +241,7 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
   if (!fade.mounted) return null;
 
   const onAction = (action: SyncProviderAction) => {
-    onClose();
+    if (!STAYS_OPEN.has(action.kind)) onClose();
     runSyncProviderAction(action);
   };
 

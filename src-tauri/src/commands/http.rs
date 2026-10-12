@@ -54,6 +54,21 @@ impl HttpSseStreamManager {
     }
 }
 
+/// reqwest's Display stops at "error sending request"; the cause is in the source chain.
+fn with_causes(e: &dyn std::error::Error) -> String {
+    let mut out = e.to_string();
+    let mut source = e.source();
+    while let Some(cause) = source {
+        let text = cause.to_string();
+        if !out.ends_with(&text) {
+            out.push_str(": ");
+            out.push_str(&text);
+        }
+        source = cause.source();
+    }
+    out
+}
+
 /// reqwest client builder with a platform-appropriate TLS stack. reqwest carries no crypto
 /// provider of its own, so ring is installed as the process default first.
 ///
@@ -125,7 +140,7 @@ pub async fn http_request(
         request = request.body(body);
     }
 
-    let response = request.send().await.map_err(|e| e.to_string())?;
+    let response = request.send().await.map_err(|e| with_causes(&e))?;
     let status = response.status();
     let status_text = status.canonical_reason().unwrap_or("").to_string();
     let headers = response
@@ -138,7 +153,7 @@ pub async fn http_request(
             })
         })
         .collect();
-    let body = response.text().await.map_err(|e| e.to_string())?;
+    let body = response.text().await.map_err(|e| with_causes(&e))?;
 
     Ok(HttpResponse {
         status: status.as_u16(),
@@ -147,6 +162,9 @@ pub async fn http_request(
         body,
     })
 }
+
+/// Without it a black-holed connect waits out the OS limit, minutes on Linux, before the stream reports itself closed.
+const SSE_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 
 #[tauri::command]
 pub async fn http_sse_start(
@@ -171,7 +189,10 @@ pub async fn http_sse_start(
             let _ = app.emit(&closed_event, HttpSseClosedPayload { error });
         };
 
-        let client = match client_builder().build() {
+        let client = match client_builder()
+            .connect_timeout(SSE_CONNECT_TIMEOUT)
+            .build()
+        {
             Ok(client) => client,
             Err(e) => {
                 close(&app, Some(e.to_string()));
@@ -196,7 +217,7 @@ pub async fn http_sse_start(
         let mut response = match request.send().await {
             Ok(response) => response,
             Err(e) => {
-                close(&app, Some(e.to_string()));
+                close(&app, Some(with_causes(&e)));
                 return;
             }
         };
@@ -238,7 +259,7 @@ pub async fn http_sse_start(
                     return;
                 }
                 Err(e) => {
-                    close(&app, Some(e.to_string()));
+                    close(&app, Some(with_causes(&e)));
                     return;
                 }
             }
@@ -261,4 +282,65 @@ pub async fn http_sse_stop(
 ) -> Result<(), String> {
     stream_manager.stop(&stream_id).await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::with_causes;
+    use std::fmt;
+
+    #[derive(Debug)]
+    struct Layer(&'static str, Option<Box<Layer>>);
+
+    impl fmt::Display for Layer {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+
+    impl std::error::Error for Layer {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.1.as_deref().map(|cause| cause as _)
+        }
+    }
+
+    fn chain(texts: &[&'static str]) -> Layer {
+        let mut layers = texts.iter().rev();
+        let mut layer = Layer(layers.next().expect("at least one layer"), None);
+        for text in layers {
+            layer = Layer(text, Some(Box::new(layer)));
+        }
+        layer
+    }
+
+    #[test]
+    fn an_error_is_described_down_to_its_root_cause() {
+        let e = chain(&[
+            "error sending request for url (https://s/x)",
+            "client error (Connect)",
+            "invalid peer certificate: Expired",
+        ]);
+        assert_eq!(
+            with_causes(&e),
+            "error sending request for url (https://s/x): client error (Connect): invalid peer certificate: Expired"
+        );
+    }
+
+    #[test]
+    fn a_cause_the_text_already_ends_with_is_not_repeated() {
+        let e = chain(&[
+            "client error (Connect)",
+            "tcp connect error: Connection refused (os error 111)",
+            "Connection refused (os error 111)",
+        ]);
+        assert_eq!(
+            with_causes(&e),
+            "client error (Connect): tcp connect error: Connection refused (os error 111)"
+        );
+    }
+
+    #[test]
+    fn an_error_with_no_cause_reads_as_itself() {
+        assert_eq!(with_causes(&chain(&["invalid URL"])), "invalid URL");
+    }
 }

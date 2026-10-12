@@ -2,6 +2,7 @@ import {
   sanitizeSyncProviderState,
   __resetPluginStateWarnings,
   NOT_CONFIGURED_SYNC_STATE,
+  syncStatusIcon,
 } from "./syncStatus.ts";
 import { test, describe, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -153,5 +154,11 @@ describe("publishState sync-state typing", () => {
     publish("sync-state", { status: "idle", lastSync: null, error: null, blobSizeBytes: null });
     publish("other-key", { anything: true });
     expect(true).toBe(true);
+  });
+});
+
+describe("syncStatusIcon", () => {
+  test("an unreachable server reads as a cloud that is off, in the cloud family of the other states", () => {
+    expect(syncStatusIcon("offline")).toBe("lucide:cloud-off");
   });
 });

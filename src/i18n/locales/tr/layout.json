@@ -176,6 +176,8 @@
       "configureArrow": "Yapılandır →",
       "paused": "Duraklatıldı",
       "resumeArrow": "Sürdür →",
+      "pause": "Eşitlemeyi duraklat",
+      "resume": "Eşitlemeyi sürdür",
       "encryptedBlob": "Şifreli veri · {{size}}",
       "status": {
         "syncing": "Eşitleniyor…",
@@ -184,7 +186,8 @@
         "error": "Eşitleme hatası",
         "errorDetail": "Eşitleme hatası: {{error}}",
         "errorDetailFrom": "Eşitleme hatası · {{source}}: {{error}}",
-        "offline": "Çevrimdışı",
+        "offline": "Sunucuya ulaşılamıyor",
+        "offlineDetail": "Sunucuya ulaşılamıyor: {{error}}",
         "idle": "Boşta",
         "notConfigured": "Eşitleme yapılandırılmadı",
         "paused": "Eşitleme duraklatıldı",

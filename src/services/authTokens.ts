@@ -90,8 +90,8 @@ export async function refreshAccessToken(
 }
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
-export async function tryRefreshJwt(): Promise<string | null> {
-  const outcome = await refreshAccessToken();
+export async function tryRefreshJwt(fetchImpl?: typeof appFetch): Promise<string | null> {
+  const outcome = await refreshAccessToken({ fetchImpl });
   if (typeof outcome === "string") return null;
   await useSubscriptionStore.getState().load().catch(() => undefined);
   return outcome.jwt;

@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   connects: [] as AbortSignal[],
   connect: undefined as unknown as Connect,
   events: new Map<string, () => void>(),
+  chunk: (() => {}) as (text: string) => void,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -21,8 +22,9 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamDataManager", () => ({ onTeamLogin: vi.fn(async () => {}) }));
 vi.mock("@/services/nativeSseStream", () => ({
-  connectNativeSse: (_url: string, _headers: unknown, signal: AbortSignal, _onChunk: unknown, onOpen: () => void) => {
+  connectNativeSse: (_url: string, _headers: unknown, signal: AbortSignal, onChunk: (text: string) => void, onOpen: () => void) => {
     h.connects.push(signal);
+    h.chunk = onChunk;
     return h.connect(signal, onOpen);
   },
 }));
@@ -41,13 +43,15 @@ import {
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { setVaultKey } from "@/services/vault";
+import { UnreachableError } from "@/services/reachability";
 
 function jwt(): string {
   const b64 = (o: unknown) => btoa(JSON.stringify(o));
   return `${b64({ alg: "none" })}.${b64({ exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
 }
 
-const unreachable: Connect = async () => { throw new Error("error sending request"); };
+const unreachable: Connect = async () => { throw new UnreachableError("error sending request"); };
+const refused: Connect = async () => { throw new Error("HTTP 500: "); };
 const untilAborted = (signal: AbortSignal) =>
   new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
 const staysOpen: Connect = (signal, onOpen) => {
@@ -55,6 +59,17 @@ const staysOpen: Connect = (signal, onOpen) => {
   return untilAborted(signal);
 };
 const opensThenDrops: Connect = async (_signal, onOpen) => { onOpen(); };
+
+const blobPushes = () => h.appFetch.mock.calls.filter(([url, init]) => String(url).endsWith("/v1/sync/blob") && init?.method === "PUT").length;
+const emptyAnswer = (url: string) =>
+  url.endsWith("/v1/sync/devices") ? JSON.stringify({ devices: [] }) : url.includes("/teams") ? "[]" : "{}";
+const serverAnswers = () => h.appFetch.mockImplementation(async (url: string) => new Response(emptyAnswer(String(url)), { status: 200 }));
+
+async function runSync(forcePush = false) {
+  const run = syncNow(forcePush).catch(() => {});
+  await vi.advanceTimersByTimeAsync(1_000);
+  await run;
+}
 
 const deviceListFetches = () => h.appFetch.mock.calls.filter(([url]) => String(url).endsWith("/v1/sync/devices")).length;
 
@@ -69,9 +84,12 @@ beforeEach(() => {
   h.events.clear();
   h.invoke.mockReset();
   h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    if (cmd === "backup_export") return [1, 2, 3];
+    if (cmd.endsWith("_list")) return [];
     if (cmd !== "keychain_get") return null;
     if (args?.key === "server_url") return "https://sync.example.com";
     if (args?.key === "jwt") return jwt();
+    if (args?.key === "account_id") return "account-1";
     return null;
   });
   h.appFetch.mockReset();
@@ -214,9 +232,168 @@ test("a background sync is skipped while paused", async () => {
 test("a sync the user asked for still runs while paused", async () => {
   setSyncPaused(true);
 
-  const run = syncNow(true).catch(() => {});
-  await vi.advanceTimersByTimeAsync(1_000);
-  await run;
+  await runSync(true);
 
   expect(syncRuns).toBe(1);
+});
+
+test("a server that cannot be reached shows as offline with the reason, not as an error", async () => {
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(getSyncState()).toMatchObject({ status: "offline", error: "error sending request" });
+});
+
+test("a server that answers the stream with an error is not offline", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+  stopRealtimeSync();
+  expect(getSyncState()).toMatchObject({ error: null, status: "success" });
+
+  h.connect = refused;
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(getSyncState().status).toBe("success");
+});
+
+test("a sync that gets no answer from the server reports offline", async () => {
+  h.appFetch.mockRejectedValue("error sending request for url (https://sync.example.com/v1/sync/devices)");
+
+  await runSync();
+
+  expect(getSyncState()).toMatchObject({
+    status: "offline",
+    error: "error sending request for url (https://sync.example.com/v1/sync/devices)",
+  });
+});
+
+test("a sync the proxy in front of the server answered reports offline", async () => {
+  h.appFetch.mockImplementation(async () => new Response("", { status: 502 }));
+
+  await runSync();
+
+  expect(getSyncState().status).toBe("offline");
+});
+
+test("a sync the server itself turned down stays an error", async () => {
+  h.appFetch.mockImplementation(async () => new Response("", { status: 429, headers: { "Retry-After": "5" } }));
+
+  await runSync();
+
+  expect(getSyncState().status).toBe("error");
+});
+
+test("an expired token that cannot be refreshed for lack of a server is offline too", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    if (cmd !== "keychain_get") return null;
+    if (args?.key === "server_url") return "https://sync.example.com";
+    if (args?.key === "refresh_token") return "refresh";
+    return null;
+  });
+  h.appFetch.mockRejectedValue("error sending request");
+  h.connect = staysOpen;
+
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(h.connects).toHaveLength(0);
+  expect(getSyncState().status).toBe("offline");
+});
+
+test("an edit made while the server is unreachable sends nothing", async () => {
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+  h.appFetch.mockClear();
+
+  scheduleSync();
+  await vi.advanceTimersByTimeAsync(4_000);
+
+  expect(syncRuns).toBe(0);
+  expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+test("that edit is pushed once the server answers again", async () => {
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+  scheduleSync();
+  await vi.advanceTimersByTimeAsync(3_000);
+  expect(blobPushes()).toBe(0);
+
+  h.connect = staysOpen;
+  serverAnswers();
+  h.events.get("network-changed")?.();
+  await vi.advanceTimersByTimeAsync(1_000);
+
+  expect(blobPushes()).toBe(1);
+  expect(getSyncState().status).toBe("success");
+});
+
+test("a launch sync that found no server runs again once the stream opens", async () => {
+  await syncOnLaunch();
+  expect(getSyncState().status).toBe("offline");
+  expect(blobPushes()).toBe(0);
+
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+
+  expect(blobPushes()).toBe(1);
+  expect(getSyncState().status).toBe("success");
+});
+
+test("a stream that stays silent past the heartbeat is reopened", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(74_000);
+  expect(h.connects).toHaveLength(1);
+
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(h.connects[0].aborted).toBe(true);
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  expect(h.connects).toHaveLength(2);
+});
+
+test("a stream that keeps sending heartbeats is left alone", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+
+  for (let i = 0; i < 6; i++) {
+    await vi.advanceTimersByTimeAsync(30_000);
+    h.chunk(":heartbeat\n\n");
+  }
+
+  expect(h.connects).toHaveLength(1);
+  expect(h.connects[0].aborted).toBe(false);
+});
+
+test("a sync that cannot reach the server drops a stream that still looks open", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(h.connects[0].aborted).toBe(false);
+
+  h.appFetch.mockRejectedValue("error sending request");
+  h.connect = unreachable;
+  await runSync(true);
+
+  expect(h.connects[0].aborted).toBe(true);
+  expect(getSyncState().status).toBe("offline");
+});
+
+test("a stream whose catch-up sync keeps failing is retried at a growing interval", async () => {
+  h.connect = staysOpen;
+  h.appFetch.mockRejectedValue("error sending request");
+
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(34_000);
+
+  expect(h.connects).toHaveLength(3);
 });

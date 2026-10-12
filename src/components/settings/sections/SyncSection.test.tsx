@@ -22,7 +22,7 @@ const { view, defaultProviders, useSyncProvidersMock, resetProvidersMock } = vi.
   const view = (over: ProviderOverride) => ({
     id: "x", label: "X", icon: "lucide:cloud", availability: "active",
     state: { status: "success", lastSync: null, error: null, blobSizeBytes: null, configured: true },
-    syncNow: null, action: null, ...over,
+    syncNow: null, action: null, pauseToggle: null, ...over,
   });
   const defaultProviders = () => [
     view({ id: "voltius", label: "Voltius Sync" }),
@@ -185,6 +185,14 @@ describe("SyncSection pause", () => {
     expect(pauseToggle(container)!.getAttribute("aria-checked")).toBe("true");
     fireEvent.click(pauseToggle(container)!);
     expect(setSyncPaused).toHaveBeenCalledWith(false);
+  });
+
+  test("an unreachable server is named with its reason", () => {
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [view({ id: "voltius", label: "Voltius Sync", state: { status: "offline", lastSync: null, error: "connection refused", blobSizeBytes: null, configured: true } })],
+      effective: { configured: true, paused: false, status: "offline", lastSync: null, error: null, errorSource: null },
+    }));
+    expect(render(<SyncSection />).getByText('settings.sync.active.offlineDetail:{"error":"connection refused"}')).toBeTruthy();
   });
 
   test("no pause is offered before sync is available", () => {

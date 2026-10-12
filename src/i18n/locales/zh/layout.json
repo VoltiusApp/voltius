@@ -176,6 +176,8 @@
       "configureArrow": "配置 →",
       "paused": "已暂停",
       "resumeArrow": "继续 →",
+      "pause": "暂停同步",
+      "resume": "继续同步",
       "encryptedBlob": "加密数据块 · {{size}}",
       "status": {
         "syncing": "正在同步…",
@@ -184,7 +186,8 @@
         "error": "同步错误",
         "errorDetail": "同步错误：{{error}}",
         "errorDetailFrom": "同步错误 · {{source}}：{{error}}",
-        "offline": "离线",
+        "offline": "无法连接服务器",
+        "offlineDetail": "无法连接服务器：{{error}}",
         "idle": "空闲",
         "notConfigured": "同步未配置",
         "paused": "同步已暂停",

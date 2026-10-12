@@ -13,3 +13,9 @@ test("resuming a paused provider lifts the pause", () => {
 
   expect(setSyncPaused).toHaveBeenCalledWith(false);
 });
+
+test("pausing a syncing provider sets the pause", () => {
+  runSyncProviderAction({ kind: "pause" });
+
+  expect(setSyncPaused).toHaveBeenCalledWith(true);
+});

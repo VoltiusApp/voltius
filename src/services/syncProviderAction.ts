@@ -12,8 +12,9 @@ export function runSyncProviderAction(action: SyncProviderAction): void {
     case "upgrade":
       void openBillingCheckout("pro");
       return;
+    case "pause":
     case "resume":
-      setSyncPaused(false);
+      setSyncPaused(action.kind === "pause");
       return;
     case "enable":
       ui.openSettings("plugins");

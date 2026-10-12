@@ -68,6 +68,19 @@ describe("buildSyncProviders", () => {
     expect(pro.state.configured).toBe(true);
   });
 
+  test("only a Voltius provider that is syncing or paused can be switched", () => {
+    const [active] = buildSyncProviders(inputs());
+    expect(active.pauseToggle).toEqual({ kind: "pause" });
+    const [paused] = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, paused: true } }));
+    expect(paused.pauseToggle).toEqual({ kind: "resume" });
+    const [signedOut] = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, accountMode: "local" } }));
+    expect(signedOut.pauseToggle).toBeNull();
+    const [free] = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, isPro: false } }));
+    expect(free.pauseToggle).toBeNull();
+    const [, gist] = buildSyncProviders(inputs({ plugins: [plugin({ manifest: manifest("plugin-gist-sync", "GitHub Gist Sync") })] }));
+    expect(gist.pauseToggle).toBeNull();
+  });
+
   test("a paused Voltius provider keeps Sync now and offers to resume", () => {
     const [paused] = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, paused: true } }));
     expect(paused).toMatchObject({ availability: "paused", action: { kind: "resume" } });
@@ -143,6 +156,11 @@ describe("aggregateSyncStatus", () => {
   test("worst status wins and the error names its provider", () => {
     const effective = aggregateSyncStatus(providersWith({ status: "syncing" }, { status: "error", error: "Sync token is invalid or expired" }, { status: "offline" }));
     expect(effective).toMatchObject({ configured: true, status: "error", error: "Sync token is invalid or expired", errorSource: "P1" });
+  });
+
+  test("an unreachable provider keeps its reason but is not named as a failing source", () => {
+    const effective = aggregateSyncStatus(providersWith({ status: "success" }, { status: "offline", error: "connection refused" }));
+    expect(effective).toMatchObject({ status: "offline", error: "connection refused", errorSource: null });
   });
 
   test("rank order is error > offline > syncing > success > idle", () => {

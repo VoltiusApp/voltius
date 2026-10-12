@@ -15,7 +15,7 @@
         "syncing": "Probíhá",
         "success": "Synchronizováno",
         "error": "Chyba",
-        "offline": "Offline"
+        "offline": "Server je nedostupný"
       }
     },
     "remoteSessions": {

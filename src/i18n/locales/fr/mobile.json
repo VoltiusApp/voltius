@@ -15,7 +15,7 @@
         "syncing": "Synchronisation",
         "success": "Synchronisé",
         "error": "Erreur",
-        "offline": "Hors ligne"
+        "offline": "Serveur injoignable"
       }
     },
     "remoteSessions": {

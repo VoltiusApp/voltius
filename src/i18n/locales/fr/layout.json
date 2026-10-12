@@ -176,6 +176,8 @@
       "configureArrow": "Configurer →",
       "paused": "En pause",
       "resumeArrow": "Reprendre →",
+      "pause": "Mettre la synchronisation en pause",
+      "resume": "Reprendre la synchronisation",
       "encryptedBlob": "Bloc chiffré · {{size}}",
       "status": {
         "syncing": "Synchronisation…",
@@ -184,7 +186,8 @@
         "error": "Erreur de synchronisation",
         "errorDetail": "Erreur de synchronisation : {{error}}",
         "errorDetailFrom": "Erreur de synchronisation · {{source}} : {{error}}",
-        "offline": "Hors ligne",
+        "offline": "Serveur injoignable",
+        "offlineDetail": "Serveur injoignable : {{error}}",
         "idle": "Inactif",
         "notConfigured": "Synchronisation non configurée",
         "paused": "Synchronisation en pause",

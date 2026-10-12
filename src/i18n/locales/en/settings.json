@@ -585,7 +585,8 @@
         "syncing": "Syncing…",
         "error": "Error: {{error}}",
         "lastSync": "Last sync: {{time}}",
-        "offline": "Offline",
+        "offline": "Can't reach server",
+        "offlineDetail": "Can't reach server: {{error}}",
         "idle": "Not synced yet",
         "paused": "Paused on this device",
         "syncNow": "Sync now"

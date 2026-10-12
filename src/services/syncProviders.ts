@@ -17,6 +17,7 @@ const DEFAULT_PROVIDER_ICON = "lucide:refresh-cw";
 export type SyncProviderAction =
   | { kind: "signIn" }
   | { kind: "upgrade" }
+  | { kind: "pause" }
   | { kind: "resume" }
   | { kind: "enable" }
   | { kind: "configure"; pageId: string | null };
@@ -29,6 +30,7 @@ export interface SyncProviderView {
   state: SyncProviderSnapshot;
   syncNow: (() => Promise<void>) | null;
   action: SyncProviderAction | null;
+  pauseToggle: SyncProviderAction | null;
 }
 
 export interface LoadedPluginInfo {
@@ -71,6 +73,11 @@ const VOLTIUS_ACTIONS: Partial<Record<SyncProviderAvailability, SyncProviderActi
   paused: { kind: "resume" },
 };
 
+const VOLTIUS_PAUSE_TOGGLES: Partial<Record<SyncProviderAvailability, SyncProviderAction>> = {
+  active: { kind: "pause" },
+  paused: { kind: "resume" },
+};
+
 function voltiusProvider(v: VoltiusSyncInput): SyncProviderView {
   const availability: SyncProviderAvailability =
     v.accountMode !== "server" ? "locked" : v.paused ? "paused" : !v.isPro ? "needs_upgrade" : "active";
@@ -83,6 +90,7 @@ function voltiusProvider(v: VoltiusSyncInput): SyncProviderView {
     state: { ...v.state, configured: active },
     syncNow: active || availability === "paused" ? v.syncNow : null,
     action: VOLTIUS_ACTIONS[availability] ?? null,
+    pauseToggle: VOLTIUS_PAUSE_TOGGLES[availability] ?? null,
   };
 }
 
@@ -110,6 +118,7 @@ function pluginProvider(p: LoadedPluginInfo, page: SettingsPage | undefined): Sy
     state,
     syncNow: availability === "active" ? exposedSyncNow(id, p.exposed) : null,
     action: availability === "disabled" ? { kind: "enable" } : { kind: "configure", pageId: page?.id ?? null },
+    pauseToggle: null,
   };
 }
 
@@ -147,7 +156,7 @@ export function aggregateSyncStatus(providers: SyncProviderView[]): EffectiveSyn
     paused: false,
     status: worst.state.status,
     lastSync,
-    error: failing ? worst.state.error : null,
+    error: failing || worst.state.status === "offline" ? worst.state.error : null,
     errorSource: failing ? worst.label : null,
   };
 }

@@ -491,7 +491,8 @@
         "syncing": "Eşitleniyor…",
         "error": "Hata: {{error}}",
         "lastSync": "Son eşitleme: {{time}}",
-        "offline": "Çevrimdışı",
+        "offline": "Sunucuya ulaşılamıyor",
+        "offlineDetail": "Sunucuya ulaşılamıyor: {{error}}",
         "idle": "Henüz eşitlenmedi",
         "paused": "Bu cihazda duraklatıldı",
         "syncNow": "Şimdi eşitle"

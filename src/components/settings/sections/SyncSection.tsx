@@ -23,7 +23,7 @@ function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | n
     case "syncing": return t("settings.sync.active.syncing");
     case "error": return t("settings.sync.active.error", { error: s.error ?? "unknown" });
     case "success": return s.lastSync ? t("settings.sync.active.lastSync", { time: formatTime(s.lastSync) }) : "";
-    case "offline": return t("settings.sync.active.offline");
+    case "offline": return s.error ? t("settings.sync.active.offlineDetail", { error: s.error }) : t("settings.sync.active.offline");
     default: return t("settings.sync.active.idle");
   }
 }

@@ -176,6 +176,8 @@
       "configureArrow": "Configure →",
       "paused": "Paused",
       "resumeArrow": "Resume →",
+      "pause": "Pause sync",
+      "resume": "Resume sync",
       "encryptedBlob": "Encrypted blob · {{size}}",
       "status": {
         "syncing": "Syncing…",
@@ -184,7 +186,8 @@
         "error": "Sync error",
         "errorDetail": "Sync error: {{error}}",
         "errorDetailFrom": "Sync error · {{source}}: {{error}}",
-        "offline": "Offline",
+        "offline": "Can't reach server",
+        "offlineDetail": "Can't reach server: {{error}}",
         "idle": "Idle",
         "notConfigured": "Sync not configured",
         "paused": "Sync paused",

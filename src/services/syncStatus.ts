@@ -115,7 +115,7 @@ export function syncStatusIcon(status: SyncStatus): string {
   if (status === "syncing") return "lucide:refresh-cw";
   if (status === "success") return "lucide:cloud-check";
   if (status === "error") return "lucide:cloud-alert";
-  if (status === "offline") return "lucide:wifi-off";
+  if (status === "offline") return "lucide:cloud-off";
   return "lucide:cloud";
 }
 

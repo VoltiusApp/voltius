@@ -479,7 +479,8 @@
         "syncing": "正在同步…",
         "error": "错误：{{error}}",
         "lastSync": "上次同步：{{time}}",
-        "offline": "离线",
+        "offline": "无法连接服务器",
+        "offlineDetail": "无法连接服务器：{{error}}",
         "idle": "尚未同步",
         "paused": "已在此设备上暂停",
         "syncNow": "立即同步"

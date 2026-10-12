@@ -1,5 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { isGatewayStatus, UnreachableError } from "@/services/reachability";
 
 export interface NativeSseEventNames {
   open: string;
@@ -36,6 +37,7 @@ export async function connectNativeSse(
   let unlistenData: UnlistenFn | null = null;
   let unlistenClosed: UnlistenFn | null = null;
   let started = false;
+  let refused = false;
 
   const cleanup = async () => {
     unlistenOpen?.();
@@ -58,11 +60,13 @@ export async function connectNativeSse(
     Promise.all([
       listen<NativeSseOpenPayload>(events.open, ({ payload }) => {
         if (payload.status >= 200 && payload.status < 300) onOpen?.();
+        else refused = !isGatewayStatus(payload.status);
       }),
       listen<string>(events.data, ({ payload }) => onChunk(payload)),
       listen<NativeSseClosedPayload>(events.closed, ({ payload }) => {
         signal.removeEventListener("abort", abort);
-        finish(payload.error ? new Error(payload.error) : undefined);
+        if (!payload.error) finish();
+        else finish(refused ? new Error(payload.error) : new UnreachableError(payload.error));
       }),
     ])
       .then(([openUnlisten, dataUnlisten, closedUnlisten]) => {

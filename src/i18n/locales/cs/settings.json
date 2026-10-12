@@ -591,7 +591,8 @@
         "syncing": "Synchronizace…",
         "error": "Chyba: {{error}}",
         "lastSync": "Poslední synchronizace: {{time}}",
-        "offline": "Offline",
+        "offline": "Server je nedostupný",
+        "offlineDetail": "Server je nedostupný: {{error}}",
         "idle": "Zatím nesynchronizováno",
         "paused": "Pozastaveno na tomto zařízení",
         "syncNow": "Synchronizovat nyní"

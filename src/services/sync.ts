@@ -31,6 +31,7 @@ import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
 import { sseRetryDelay } from "@/services/syncRetry";
+import { isUnreachable, reachableFetch } from "@/services/reachability";
 import { createWakeableSleeps } from "@/lib/wakeableSleep";
 import { onForeground, onNetworkBack } from "@/lib/networkSignals";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
@@ -73,6 +74,9 @@ let _lastSync: Date | null = null;
 let _error: string | null = null;
 let _cloudActive = false;
 let _blobSizeBytes: number | null = null;
+// A local change, or the launch sync, that an unreachable server left undone.
+let _pushOwed = false;
+let _loginSyncOwed = false;
 const _listeners = new Set<() => void>();
 
 export function getSyncState() {
@@ -89,6 +93,17 @@ function setState(status: SyncStatus, error?: string) {
   _error = error ?? null;
   if (status === "success") _lastSync = new Date();
   _listeners.forEach((fn) => fn());
+}
+
+function reportFailure(e: unknown): void {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (!isUnreachable(e)) {
+    setState("error", msg);
+    return;
+  }
+  setState("offline", msg);
+  // The stream cannot be healthy if a request just failed to reach the server.
+  _dropStream?.();
 }
 
 async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
@@ -126,7 +141,7 @@ export { getServerUrl };
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
 async function tryRefreshJwt(): Promise<string | null> {
-  const outcome = await refreshAccessToken();
+  const outcome = await refreshAccessToken({ fetchImpl: reachableFetch });
   if (typeof outcome === "string") return null;
   const jwt_token = outcome.jwt;
 
@@ -189,7 +204,7 @@ async function loadTeamsForCurrentUser(): Promise<boolean> {
  * name; the implementation is the shared one in `authFetch`.
  */
 export function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
-  return fetchAuthRateLimited(url, init);
+  return fetchAuthRateLimited(url, init, reachableFetch);
 }
 
 let _deviceId: string | null = null;
@@ -589,6 +604,7 @@ export async function syncNow(forcePush = false): Promise<void> {
   if (!useSubscriptionStore.getState().isPro) return;
 
   _syncInFlight = true;
+  const mustPush = forcePush || _pushOwed;
   const holdUntil = Date.now() + SYNC_HOLD_MS;
   setState("syncing");
 
@@ -616,10 +632,11 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     // Only push personal blob if forced (local mutation) or remote had new data.
     // Skipping push when nothing changed breaks the push→SSE→pull→push→… loop.
-    if (forcePush || anyPersonalChanged) {
+    if (mustPush || anyPersonalChanged) {
       await push();
     }
 
+    _pushOwed = false;
     setState("success");
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
@@ -627,8 +644,8 @@ export async function syncNow(forcePush = false): Promise<void> {
       setState("success");
       return;
     }
-    const msg = e instanceof Error ? e.message : String(e);
-    setState(navigator.onLine === false ? "offline" : "error", msg);
+    _pushOwed = mustPush;
+    reportFailure(e);
     throw e;
   } finally {
     const wait = holdUntil - Date.now();
@@ -695,13 +712,13 @@ export async function syncOnLoginReplace(): Promise<void> {
       setState("success");
       return;
     }
-    const msg = e instanceof Error ? e.message : String(e);
-    setState("error", msg);
+    reportFailure(e);
   }
 }
 
 /** Pull on login to restore data from server, then push local state. */
 export async function syncOnLogin(): Promise<void> {
+  _loginSyncOwed = false;
   try {
     await unlockVaultIfNeeded();
 
@@ -729,8 +746,8 @@ export async function syncOnLogin(): Promise<void> {
       setState("success");
       return;
     }
-    const msg = e instanceof Error ? e.message : String(e);
-    setState("error", msg);
+    _loginSyncOwed = isUnreachable(e);
+    reportFailure(e);
   }
 }
 
@@ -740,9 +757,19 @@ export function isSyncPaused(): boolean {
   return useSyncPrefsStore.getState().paused;
 }
 
-/** A sync nobody asked for: skipped while this device is paused. */
+/** The realtime loop is retrying an unreachable server; it runs the owed sync once the stream opens. */
+function awaitingServer(): boolean {
+  return _status === "offline" && _sseAbort !== null && _dropStream === null;
+}
+
+/** A sync nobody asked for: skipped while this device is paused, deferred while the server is unreachable. */
 export function syncInBackground(forcePush = false): Promise<void> {
-  return isSyncPaused() ? Promise.resolve() : syncNow(forcePush);
+  if (isSyncPaused()) return Promise.resolve();
+  if (awaitingServer()) {
+    _pushOwed ||= forcePush;
+    return Promise.resolve();
+  }
+  return syncNow(forcePush);
 }
 
 /** Launch sync. A paused device skips it; resuming runs it then. */
@@ -786,6 +813,10 @@ export function onTeamSseEvent(fn: (teamId: string) => void): () => void {
 }
 
 let _sseAbort: AbortController | null = null;
+// Set while a stream is open: ends that one connection so the loop reconnects.
+let _dropStream: (() => void) | null = null;
+// The server sends a heartbeat every 30 s; a stream silent this long is dead.
+const STREAM_QUIET_MS = 75_000;
 
 const SSE_RETRY = "sse-retry";
 const _sseSleeps = createWakeableSleeps();
@@ -818,14 +849,39 @@ export function stopRealtimeSync(): void {
 async function _sseLoop(signal: AbortSignal): Promise<void> {
   let failures = 0;
   while (!signal.aborted) {
-    let opened = false;
+    const attempt = new AbortController();
+    const end = () => attempt.abort();
+    signal.addEventListener("abort", end, { once: true });
+    let healthy = false;
+    let quiet: ReturnType<typeof setTimeout> | undefined;
+    const drop = () => {
+      healthy = false;
+      end();
+    };
+    const heard = () => {
+      clearTimeout(quiet);
+      quiet = setTimeout(drop, STREAM_QUIET_MS);
+    };
+    let failure: unknown;
     try {
-      await _sseConnect(signal, () => { opened = true; });
-    } catch {
-      // connection dropped or failed — fall through to reconnect delay
+      await _sseConnect(attempt.signal, {
+        onOpen: () => {
+          healthy = true;
+          _dropStream = drop;
+          heard();
+        },
+        onData: heard,
+      });
+    } catch (e) {
+      failure = e;
+    } finally {
+      clearTimeout(quiet);
+      signal.removeEventListener("abort", end);
+      _dropStream = null;
     }
     if (signal.aborted) return;
-    failures = opened ? 0 : failures + 1;
+    if (isUnreachable(failure) && !_syncInFlight) setState("offline", failure.message);
+    failures = healthy ? 0 : failures + 1;
     await _sseSleeps.sleep(SSE_RETRY, sseRetryDelay(failures));
   }
 }
@@ -1036,7 +1092,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
   }
 }
 
-async function _sseConnect(signal: AbortSignal, onOpen: () => void): Promise<void> {
+async function _sseConnect(signal: AbortSignal, hooks: { onOpen: () => void; onData: () => void }): Promise<void> {
   const [serverUrl, storedJwt, myDeviceId] = await Promise.all([
     getServerUrl(),
     getJwt(),
@@ -1054,9 +1110,10 @@ async function _sseConnect(signal: AbortSignal, onOpen: () => void): Promise<voi
 
   // Only once the stream is open: an unreachable server must not cost a full sync per retry.
   const catchUp = () => {
-    onOpen();
+    hooks.onOpen();
+    if (_status === "offline") setState("idle");
     // Catches any events missed while offline
-    syncInBackground().catch(logFailure("syncNow on realtime connect"));
+    (_loginSyncOwed ? syncOnLogin() : syncInBackground()).catch(logFailure("syncNow on realtime connect"));
 
     // Seed connection-presence snapshot so we render correct state even before any
     // SSE event arrives this session.
@@ -1076,6 +1133,7 @@ async function _sseConnect(signal: AbortSignal, onOpen: () => void): Promise<voi
     { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
     signal,
     (text) => {
+      hooks.onData();
       // Each SSE data line contains either the pusher's device_id (personal sync)
       // or "team:{team_id}" (team blob pushed by another member).
       for (const eventData of parser.push(text)) {
