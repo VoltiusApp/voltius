@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TerminalTheme } from "@/themes/types";
-import { terminalColorsFor } from "./terminalColors";
+import { opaqueHex, terminalColorsFor } from "./terminalColors";
 
 const theme = (over: Partial<TerminalTheme>) =>
   ({ foreground: "#e2e8f0", background: "#0f172a", selectionBackground: "#6366f133", ...over }) as TerminalTheme;
@@ -35,5 +35,18 @@ describe("terminalColorsFor", () => {
 
   it("gives up on colours it cannot parse", () => {
     expect(terminalColorsFor(theme({ background: "rgb(1, 2, 3)" }))).toBeNull();
+  });
+});
+
+describe("opaqueHex", () => {
+  it("expands short hex and drops alpha", () => {
+    expect(opaqueHex("#F00")).toBe("#ff0000");
+    expect(opaqueHex("#12345680")).toBe("#123456");
+    expect(opaqueHex(" #AbCdEf ")).toBe("#abcdef");
+  });
+
+  it("returns null for anything that is not hex", () => {
+    expect(opaqueHex("rgb(1, 2, 3)")).toBeNull();
+    expect(opaqueHex("red")).toBeNull();
   });
 });
