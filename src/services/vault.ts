@@ -139,11 +139,34 @@ export async function getVaultStatus(): Promise<{ exists: boolean; path: string 
  * incoming key cannot open, is gone before that key is installed.
  */
 export async function wipeLocalConfig(carry: Record<string, string> = {}): Promise<void> {
-  // Carried through the keychain and written back into the next vault on its first unlock.
-  if (Object.keys(carry).length > 0) {
-    await invoke("keychain_set", { key: CARRIED_SECRETS_KEY, value: JSON.stringify(carry) }).catch(() => {});
-  }
+  await carrySecrets(carry);
   await invoke("config_wipe");
+}
+
+// Carried through the keychain and written back into the next vault on its first unlock.
+async function carrySecrets(carry: Record<string, string>): Promise<void> {
+  if (Object.keys(carry).length === 0) return;
+  await invoke("keychain_set", { key: CARRIED_SECRETS_KEY, value: JSON.stringify(carry) }).catch(() => {});
+}
+
+/**
+ * Park the live account's local data under `parkAs` (discard it when null) and
+ * bring back what is parked under `restore`. Resolves to whether anything was restored.
+ */
+export async function swapAccountProfile(
+  { parkAs, restore, carry = {} }: { parkAs: string | null; restore: string; carry?: Record<string, string> },
+): Promise<boolean> {
+  await carrySecrets(carry);
+  try {
+    return await invoke<boolean>("account_profile_swap", { parkAs, restore });
+  } finally {
+    // The command locks the store whether or not it then succeeds.
+    unlocked = false;
+  }
+}
+
+export async function dropAccountProfile(accountId: string): Promise<void> {
+  await invoke("account_profile_drop", { accountId });
 }
 
 /** The present values of `keys`; empty when the vault can't be read. */
