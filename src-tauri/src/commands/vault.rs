@@ -1,7 +1,7 @@
 use crate::app_lock::AppLock;
 use crate::storage::config::config_dir;
-use crate::storage::profile::{self, ProfileDirs, SECRETS_FILE};
-use crate::storage::secrets::SecretsStore;
+use crate::storage::profile::{self, ProfileDirs};
+use crate::storage::secrets::{SecretsStore, SECRETS_FILE};
 use crate::storage::vault;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};

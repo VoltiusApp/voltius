@@ -43,13 +43,15 @@ fn now_ts() -> String {
     chrono::Utc::now().to_rfc3339()
 }
 
+pub const SECRETS_FILE: &str = "secrets.enc";
+
 fn secrets_path(app: &AppHandle) -> PathBuf {
     let dir = app
         .path()
         .app_data_dir()
         .expect("failed to get app data dir");
     std::fs::create_dir_all(&dir).ok();
-    dir.join("secrets.enc")
+    dir.join(SECRETS_FILE)
 }
 
 impl SecretsStore {

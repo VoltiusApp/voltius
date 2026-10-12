@@ -4,10 +4,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use super::config::plain_leaf;
+use super::secrets::SECRETS_FILE;
 
 /// Config-dir entries that describe the machine: a switch neither moves nor deletes them.
 const DEVICE_ENTRIES: &[&str] = &["mcp", "app-lock", "last-active", "updater.json"];
-pub const SECRETS_FILE: &str = "secrets.enc";
 const CONFIG_SUBDIR: &str = "config";
 const DISCARD_DIR: &str = ".discard";
 
