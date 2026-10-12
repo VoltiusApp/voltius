@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { getTagColorStyle } from "@/utils/tagColors";
+import { ChipInput } from "./ChipInput";
 import { PickerSurface } from "./PickerSurface";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
@@ -19,7 +20,6 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const connections = useConnectionStore((s) => s.connections);
   const allTags = useMemo(() => {
@@ -46,78 +46,37 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
 
   const removeTag = (tag: string) => onChange(value.filter((tagName) => tagName !== tag));
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if ((e.key === "Enter" || e.key === ",") && input.trim()) {
-      e.preventDefault();
-      addTag(input.trim().replace(/,$/, ""));
-    } else if (e.key === "Backspace" && !input && value.length > 0) {
-      onChange(value.slice(0, -1));
-    } else if (e.key === "Escape") {
-      setOpen(false);
-      setInput("");
-    }
-  };
-
-  const handleFocus = () => {
-    setOpen(true);
+  const close = () => {
+    setOpen(false);
+    setInput("");
   };
 
   const showDropdown = open && (suggestions.length > 0 || canCreate);
 
   return (
     <div ref={containerRef}>
-      <div
-        className="flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg cursor-text min-h-[38px]"
-        style={{
-          background: "var(--t-bg-base)",
-          border: "1px solid var(--t-border)",
-          transition: "border-color 150ms",
+      <ChipInput
+        value={value}
+        input={input}
+        onInputChange={(text) => {
+          setInput(text);
+          setOpen(true);
         }}
-        onFocus={() => {}}
-        onClick={() => inputRef.current?.focus()}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--t-border-hover)"; }}
-        onMouseLeave={(e) => {
-          if (document.activeElement !== inputRef.current) {
-            (e.currentTarget as HTMLDivElement).style.borderColor = "var(--t-border)";
-          }
-        }}
-      >
-        {value.map((tag) => (
+        onAdd={addTag}
+        onRemove={removeTag}
+        renderChip={(tag, children) => (
           <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium">
-            {tag}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
-              className="opacity-60 hover:opacity-100 transition-opacity leading-none"
-              aria-label={t("shared.tagSelector.removeTag", { tag })}
-            >
-              <Icon icon="lucide:x" width={9} />
-            </button>
+            {children}
           </TagBadge>
-        ))}
-        <div className="flex items-center gap-1 flex-1 min-w-[80px]">
-          {value.length === 0 && !input && (
-            <Icon icon="lucide:tag" width={12} className="text-(--t-text-dim) shrink-0" />
-          )}
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => { setInput(e.target.value); if (!open) { setOpen(true); } }}
-            onFocus={handleFocus}
-            onBlur={(e) => {
-              if (!(e.relatedTarget instanceof Node) || !(containerRef.current?.contains(e.relatedTarget))) {
-                (containerRef.current as HTMLDivElement | null)?.style && ((containerRef.current as HTMLDivElement).style.borderColor = "var(--t-border)");
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder={value.length === 0 ? t("shared.tagSelector.placeholder") : ""}
-            className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
-          />
-        </div>
-      </div>
+        )}
+        removeLabel={(tag) => t("shared.tagSelector.removeTag", { tag })}
+        placeholder={t("shared.tagSelector.placeholder")}
+        emptyIcon="lucide:tag"
+        onFocus={() => setOpen(true)}
+        onEscape={close}
+      />
 
-      <PickerSurface open={showDropdown} onClose={() => { setOpen(false); setInput(""); }} anchorRef={containerRef} title={t("common.entity.tags")}>
+      <PickerSurface open={showDropdown} onClose={close} anchorRef={containerRef} title={t("common.entity.tags")}>
         {canCreate && (
           <button
             type="button"
