@@ -10,6 +10,7 @@ import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetOutputPaused, s
 import { createOutputFlow, type OutputFlow } from "@/components/terminal/outputFlow";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
 import { createCommandTracker, type CommandRegion, type CommandTracker } from "@/components/terminal/commandMarks";
+import { attachKeywordHighlighter, type KeywordHighlighter } from "@/components/terminal/keywordHighlighter";
 import { currentTerminalColors } from "@/utils/terminalColors";
 import { localReady, onLocalOutput, onLocalClosed } from "@/services/local";
 import { onSerialOutput, onSerialClosed } from "@/services/serial";
@@ -171,6 +172,7 @@ type CacheEntry = CachedTerminal & {
   search: SearchState;
   minimap: MinimapState;
   commands: CommandTracker;
+  highlighter: KeywordHighlighter | null;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
@@ -848,6 +850,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           col: () => term.buffer.active.cursorX,
           now: Date.now,
         }),
+        highlighter: null,
         sessionType,
         // Serial is live the moment its port opens (the store marks it
         // connected before the terminal mounts); ssh and local flip in the
@@ -1045,6 +1048,12 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         return true;
       });
 
+      entry.highlighter = attachKeywordHighlighter({
+        term,
+        spans: (top, bottom, bufferEnd) => entry.commands.outputSpans(top, bottom, bufferEnd),
+        isVisible: () => !entry.hidden,
+      });
+
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
         if (!entry.connectedRef.current) return;
@@ -1151,6 +1160,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         hideLinkTooltip();
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
         queryGuard?.dispose();
+        entry.highlighter?.dispose();
         term.dispose();
       };
 
@@ -1225,7 +1235,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
   const setVisible = useCallback((visible: boolean) => {
     const entry = terminalCache.get(sessionId);
-    if (entry) setTerminalVisible(entry, visible);
+    if (!entry) return;
+    setTerminalVisible(entry, visible);
+    if (visible) entry.highlighter?.refresh();
   }, [sessionId]);
 
   return { attach, activate, fit, setVisible };

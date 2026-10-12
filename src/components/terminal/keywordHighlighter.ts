@@ -1,7 +1,10 @@
 import type { IBufferCell, IDecoration, IMarker, ITheme, Terminal } from "@xterm/xterm";
 import type { OutputSpan } from "./commandMarks";
-import { ANSI_SLOTS, type AnsiSlot, type KeywordMatcher } from "@/utils/keywordMatcher";
+import { ANSI_SLOTS, compileKeywordRules, type AnsiSlot, type KeywordMatcher, type KeywordRule } from "@/utils/keywordMatcher";
 import { opaqueHex } from "@/utils/terminalColors";
+import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useThemeStore } from "@/stores/themeStore";
 
 const PAINT_INTERVAL_MS = 50;
 const MAX_LOGICAL_ROWS = 16;
@@ -208,6 +211,38 @@ export function createKeywordHighlighter({ term, spans, isVisible }: HighlightTa
       if (timer !== null) clearTimeout(timer);
       matcher = null;
       clear();
+    },
+  };
+}
+
+export function attachKeywordHighlighter(target: HighlightTarget): KeywordHighlighter {
+  const highlighter = createKeywordHighlighter(target);
+  let enabled: boolean | undefined;
+  let rules: KeywordRule[] | undefined;
+
+  const followSettings = () => {
+    const nextEnabled = getToggle("keyword-highlight");
+    const nextRules = useTerminalSettingsStore.getState().keywordRules;
+    if (nextEnabled === enabled && nextRules === rules) return;
+    enabled = nextEnabled;
+    rules = nextRules;
+    highlighter.setMatcher(enabled ? compileKeywordRules(rules) : null);
+  };
+  followSettings();
+
+  const unsubscribe = [
+    useToggleSettingsStore.subscribe(followSettings),
+    useTerminalSettingsStore.subscribe(followSettings),
+    useThemeStore.subscribe(highlighter.refresh),
+  ];
+  window.addEventListener("theme-preview", highlighter.refresh);
+
+  return {
+    refresh: highlighter.refresh,
+    dispose() {
+      for (const stop of unsubscribe) stop();
+      window.removeEventListener("theme-preview", highlighter.refresh);
+      highlighter.dispose();
     },
   };
 }

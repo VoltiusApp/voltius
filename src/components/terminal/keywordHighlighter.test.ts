@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Terminal } from "@xterm/xterm";
-import { createKeywordHighlighter } from "./keywordHighlighter";
+import { attachKeywordHighlighter, createKeywordHighlighter } from "./keywordHighlighter";
 import type { OutputSpan } from "./commandMarks";
 import { DEFAULT_KEYWORD_RULES, compileKeywordRules } from "@/utils/keywordMatcher";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { useThemeStore } from "@/stores/themeStore";
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
 
 interface Row {
   text: string;
@@ -281,6 +286,73 @@ describe("createKeywordHighlighter", () => {
   it("clears everything on dispose", () => {
     const { live, highlighter } = setup([{ text: "error" }]);
     highlighter.dispose();
+    expect(live()).toEqual([]);
+  });
+});
+
+describe("attachKeywordHighlighter", () => {
+  const attach = (lines: Row[]) => {
+    const fake = fakeTerm(lines);
+    const highlighter = attachKeywordHighlighter({
+      term: fake.term as unknown as Terminal,
+      spans: () => [{ start: 0, end: lines.length, open: false }],
+      isVisible: () => true,
+    });
+    settle();
+    return { ...fake, highlighter };
+  };
+
+  beforeEach(() => {
+    useToggleSettingsStore.setState({ values: {} });
+    useTerminalSettingsStore.setState({ keywordRules: DEFAULT_KEYWORD_RULES });
+  });
+
+  it("highlights with the default rules out of the box", () => {
+    const { live } = attach([{ text: "error" }]);
+    expect(live()).toEqual([[0, 0, 5, "#ff0000"]]);
+  });
+
+  it("follows the switch", () => {
+    const { live } = attach([{ text: "error" }]);
+    useToggleSettingsStore.getState().set("keyword-highlight", false);
+    expect(live()).toEqual([]);
+    useToggleSettingsStore.getState().set("keyword-highlight", true);
+    settle();
+    expect(live()).toEqual([[0, 0, 5, "#ff0000"]]);
+  });
+
+  it("follows rule edits", () => {
+    const { live } = attach([{ text: "error todo" }]);
+    useTerminalSettingsStore.getState().setKeywordRules([{ id: "mine", color: "green", words: ["todo"], enabled: true }]);
+    settle();
+    expect(live()).toEqual([[0, 6, 4, "#00ff00"]]);
+  });
+
+  it("does not recompile when an unrelated toggle changes", () => {
+    const { registered } = attach([{ text: "error" }]);
+    const before = registered();
+    useToggleSettingsStore.getState().set("cursor-blink", false);
+    settle();
+    expect(registered()).toBe(before);
+  });
+
+  it("repaints when the theme store or a theme preview changes", () => {
+    const { live, term } = attach([{ text: "error" }]);
+    term.options.theme = { ...THEME, red: "#aa0000" };
+    useThemeStore.setState({});
+    settle();
+    expect(live()).toEqual([[0, 0, 5, "#aa0000"]]);
+    term.options.theme = { ...THEME, red: "#bb0000" };
+    window.dispatchEvent(new CustomEvent("theme-preview"));
+    settle();
+    expect(live()).toEqual([[0, 0, 5, "#bb0000"]]);
+  });
+
+  it("stops following settings once disposed", () => {
+    const { live, highlighter } = attach([{ text: "error" }]);
+    highlighter.dispose();
+    useTerminalSettingsStore.getState().setKeywordRules(DEFAULT_KEYWORD_RULES.slice());
+    settle();
     expect(live()).toEqual([]);
   });
 });
