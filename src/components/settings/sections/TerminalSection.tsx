@@ -4,7 +4,7 @@ import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
-import { DEFAULT_KEYWORD_RULES } from "@/utils/keywordMatcher";
+import { DEFAULT_KEYWORD_RULES, sameKeywordRules } from "@/utils/keywordMatcher";
 import { KeywordRulesEditor } from "./KeywordRulesEditor";
 import { SettingRow } from "./shared";
 
@@ -23,8 +23,7 @@ export default function TerminalSection() {
   const keywordRules = useTerminalSettingsStore((s) => s.keywordRules);
   const setKeywordRules = useTerminalSettingsStore((s) => s.setKeywordRules);
   const keywordDefault = TOGGLE_DEFS["keyword-highlight"].default;
-  const keywordDirty =
-    keywordHighlight !== keywordDefault || JSON.stringify(keywordRules) !== JSON.stringify(DEFAULT_KEYWORD_RULES);
+  const keywordDirty = keywordHighlight !== keywordDefault || !sameKeywordRules(keywordRules, DEFAULT_KEYWORD_RULES);
 
   const scrollbackOptions = [1_000, 10_000, 50_000, 100_000, 250_000]
     .filter((value) => value >= MIN_SCROLLBACK_LINES && value <= MAX_SCROLLBACK_LINES)

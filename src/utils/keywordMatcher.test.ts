@@ -5,6 +5,7 @@ import {
   MAX_KEYWORD_RULES,
   MAX_KEYWORD_WORDS,
   compileKeywordRules,
+  sameKeywordRules,
   sanitizeKeywordRules,
   type KeywordRule,
 } from "./keywordMatcher";
@@ -85,6 +86,22 @@ describe("compileKeywordRules", () => {
   it("finds a match that overlaps a rejected one", () => {
     const rules = [rule("red", ["a b"]), rule("green", ["b c"])];
     expect(match("xa b c", rules)).toEqual([["b c", "green"]]);
+  });
+});
+
+describe("sameKeywordRules", () => {
+  it("holds for the defaults after sanitising, whatever the key order", () => {
+    expect(sameKeywordRules(sanitizeKeywordRules(JSON.parse(JSON.stringify(DEFAULT_KEYWORD_RULES))), DEFAULT_KEYWORD_RULES)).toBe(true);
+  });
+
+  it("sees a change in any field, the word order and the rule count", () => {
+    const base = [rule("red", ["a", "b"])];
+    expect(sameKeywordRules(base, [{ ...base[0], id: "other" }])).toBe(false);
+    expect(sameKeywordRules(base, [{ ...base[0], color: "blue" }])).toBe(false);
+    expect(sameKeywordRules(base, [{ ...base[0], enabled: false }])).toBe(false);
+    expect(sameKeywordRules(base, [{ ...base[0], words: ["b", "a"] }])).toBe(false);
+    expect(sameKeywordRules(base, [{ ...base[0], words: ["a"] }])).toBe(false);
+    expect(sameKeywordRules(base, [...base, rule("green", ["c"])])).toBe(false);
   });
 });
 

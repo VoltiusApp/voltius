@@ -91,5 +91,12 @@ describe("keyword highlighting settings", () => {
     render(<TerminalSection />);
     fireEvent.click(within(card()).getByRole("button", { name: /reset/i }));
     expect(rules()).toEqual(DEFAULT_KEYWORD_RULES);
+    expect(within(card()).queryByRole("button", { name: /reset/i })).toBeNull();
+  });
+
+  it("does not show the defaults as modified once they went through the store", () => {
+    useTerminalSettingsStore.getState().setKeywordRules(DEFAULT_KEYWORD_RULES);
+    render(<TerminalSection />);
+    expect(within(card()).queryByRole("button", { name: /reset/i })).toBeNull();
   });
 });

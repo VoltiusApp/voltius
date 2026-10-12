@@ -35,6 +35,14 @@ export const DEFAULT_KEYWORD_RULES: KeywordRule[] = [
   { id: "success", color: "green", enabled: true, words: ["success", "successful", "succeeded", "ok", "done", "passed"] },
 ];
 
+export function sameKeywordRules(a: KeywordRule[], b: KeywordRule[]): boolean {
+  return a.length === b.length && a.every((rule, i) => {
+    const other = b[i];
+    return rule.id === other.id && rule.color === other.color && rule.enabled === other.enabled
+      && rule.words.length === other.words.length && rule.words.every((word, w) => word === other.words[w]);
+  });
+}
+
 function normalizeKeywords(words: unknown): string[] {
   if (!Array.isArray(words)) return [];
   const clean = new Set<string>();
