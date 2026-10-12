@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { Trans, useTranslation } from "react-i18next";
-import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, logout } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword } from "@/services/account";
+import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { lockApp } from "@/services/appLock";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
@@ -113,6 +114,7 @@ export default function AccountSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showEditEmail, setShowEditEmail] = useState(false);
+  const { requestSignOut, signOutConfirm } = useSignOutConfirm((e) => setError(e instanceof Error ? e.message : String(e)));
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [handle, setHandle] = useState<string | null>(null);
   const [handleIsCustom, setHandleIsCustom] = useState(false);
@@ -380,9 +382,7 @@ export default function AccountSection() {
               danger
               onClick={() => {
                 setError("");
-                logout()
-                  .then(() => window.location.reload())
-                  .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+                requestSignOut();
               }}
             />
           )}
@@ -407,6 +407,8 @@ export default function AccountSection() {
           <VaultBackups currentReadable />
         </div>
       )}
+
+      {signOutConfirm}
 
       {showEditEmail && currentEmail && (
         <EditEmailModal

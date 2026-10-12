@@ -1,5 +1,11 @@
 {
   "shared": {
+    "signOutConfirm": {
+      "title": "Sign out and erase this device's data?",
+      "noServerCopy": "This account's hosts, keys and snippets are stored only on this device. Signing out erases them and they cannot be recovered.",
+      "unsynced": "Sync is paused or could not reach the server, so recent changes on this device may not be saved there. Signing out erases this device's copy.",
+      "confirm": "Erase and sign out"
+    },
     "errorBanner": {
       "dismiss": "dismiss"
     },

@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   removeSavedAccount: vi.fn(async () => {}),
   keychain: {} as Record<string, string | null>,
   lockApp: vi.fn(async () => {}),
+  requestSignOut: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -31,6 +32,9 @@ vi.mock("@/services/account", () => ({
   logout: vi.fn(async () => {}),
 }));
 vi.mock("@/services/appLock", () => ({ lockApp: h.lockApp }));
+vi.mock("@/hooks/useSignOutConfirm", () => ({
+  useSignOutConfirm: () => ({ requestSignOut: h.requestSignOut, signOutConfirm: null }),
+}));
 vi.mock("@/services/savedAccounts", () => ({
   getSwitchTargets: h.getSwitchTargets,
   saveCurrentAccount: h.saveCurrentAccount,
@@ -97,14 +101,37 @@ test("a saved account other than the current one is offered as a switch target",
   expect(h.switchToAccount).toHaveBeenCalledWith(OTHER);
 });
 
-test("removing a saved account does not switch into it", async () => {
+test("removing a saved account asks first, and does not switch into it", async () => {
   h.getSwitchTargets.mockResolvedValue([OTHER]);
   await openMenu();
 
   await userEvent.click(await screen.findByTitle("layout.sidebarAccount.removeSavedAccount"));
-  expect(h.removeSavedAccount).toHaveBeenCalledWith(OTHER.account_id);
+  await screen.findByText("layout.sidebarAccount.removeTitle");
+  expect(h.removeSavedAccount).not.toHaveBeenCalled();
+
+  await userEvent.click(screen.getByText("layout.sidebarAccount.removeConfirm"));
+  await waitFor(() => expect(h.removeSavedAccount).toHaveBeenCalledWith(OTHER.account_id));
   expect(h.switchToAccount).not.toHaveBeenCalled();
-  await waitFor(() => expect(screen.queryByText(OTHER.email!)).toBeNull());
+  expect(screen.queryByText("layout.sidebarAccount.removeTitle")).toBeNull();
+});
+
+test("backing out of a removal keeps the saved account", async () => {
+  h.getSwitchTargets.mockResolvedValue([OTHER]);
+  await openMenu();
+
+  await userEvent.click(await screen.findByTitle("layout.sidebarAccount.removeSavedAccount"));
+  await userEvent.click(await screen.findByText("common.action.cancel"));
+
+  expect(h.removeSavedAccount).not.toHaveBeenCalled();
+  expect(screen.queryByText("layout.sidebarAccount.removeTitle")).toBeNull();
+});
+
+test("Disconnect goes through the sign-out confirmation", async () => {
+  await openMenu();
+
+  await userEvent.click(screen.getByText("common.action.disconnect"));
+
+  expect(h.requestSignOut).toHaveBeenCalledTimes(1);
 });
 
 test("no switch row nests a button inside a button", async () => {

@@ -1,5 +1,11 @@
 {
   "shared": {
+    "signOutConfirm": {
+      "title": "Odhlásit se a vymazat data tohoto zařízení?",
+      "noServerCopy": "Hosty, klíče a úryvky tohoto účtu jsou uloženy jen v tomto zařízení. Odhlášením je vymažete a nepůjde je obnovit.",
+      "unsynced": "Synchronizace je pozastavena nebo se nepodařilo spojit se serverem, takže nedávné změny z tohoto zařízení na něm nemusí být uloženy. Odhlášením vymažete kopii v tomto zařízení.",
+      "confirm": "Vymazat a odhlásit se"
+    },
     "errorBanner": {
       "dismiss": "zavřít"
     },

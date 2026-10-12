@@ -6,10 +6,11 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
-import { getAccountMode, getMyHandle, logout } from "@/services/account";
+import { getAccountMode, getMyHandle } from "@/services/account";
 import { lockApp } from "@/services/appLock";
 import { getSwitchTargets, saveCurrentAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -40,6 +41,8 @@ export function SidebarAccountButton() {
   const [accountHandle, setAccountHandle] = useState<string | null>(null);
   const [accountServerUrl, setAccountServerUrl] = useState<string | null>(null);
   const [pendingSwitch, setPendingSwitch] = useState<SavedAccount | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<SavedAccount | null>(null);
+  const { requestSignOut, signOutConfirm } = useSignOutConfirm();
   const { copied: handleCopied, copy: copyHandle } = useCopyHandle(accountHandle);
   const { sessionTimeoutMinutes } = useEffectiveLockSettings();
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
@@ -95,10 +98,9 @@ export function SidebarAccountButton() {
     await lockApp();
   };
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = () => {
     setOpen(false);
-    await logout();
-    window.location.reload();
+    requestSignOut();
   };
 
   const handleSwitchAccount = async (account: SavedAccount) => {
@@ -130,8 +132,14 @@ export function SidebarAccountButton() {
 
   const currentInstance = accountMode === "server" ? instanceLabel(accountServerUrl) : null;
 
-  const handleRemoveSavedAccount = async (e: React.MouseEvent, account_id: string) => {
+  const requestRemove = (e: React.MouseEvent, account: SavedAccount) => {
     e.stopPropagation();
+    setOpen(false);
+    setPendingRemove(account);
+  };
+
+  const handleRemoveSavedAccount = async (account_id: string) => {
+    setPendingRemove(null);
     await removeSavedAccount(account_id);
     setSwitchTargets((prev) => prev.filter((a) => a.account_id !== account_id));
   };
@@ -264,7 +272,7 @@ export function SidebarAccountButton() {
             )}
 
             {accountMode === "server" && (
-              <DropdownMenuItem icon="lucide:log-out" label={t("common.action.disconnect")} onClick={() => void handleDisconnect()} />
+              <DropdownMenuItem icon="lucide:log-out" label={t("common.action.disconnect")} onClick={handleDisconnect} />
             )}
 
             {switchTargets.length > 0 && (
@@ -291,7 +299,7 @@ export function SidebarAccountButton() {
                           type="button"
                           title={t("layout.sidebarAccount.removeSavedAccount")}
                           className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity text-(--t-text-dim) hover:text-(--t-status-error)"
-                          onClick={(e) => void handleRemoveSavedAccount(e, account.account_id)}
+                          onClick={(e) => requestRemove(e, account)}
                         >
                           <Icon icon="lucide:x" width={12} />
                         </button>
@@ -317,6 +325,20 @@ export function SidebarAccountButton() {
           onCancel={() => setPendingSwitch(null)}
         />
       )}
+
+      {pendingRemove && (
+        <ConfirmModal
+          title={t("layout.sidebarAccount.removeTitle")}
+          message={t("layout.sidebarAccount.removeMessage", {
+            account: pendingRemove.email ?? t("layout.sidebarAccount.localAccountFallback"),
+          })}
+          confirmLabel={t("layout.sidebarAccount.removeConfirm")}
+          onConfirm={() => void handleRemoveSavedAccount(pendingRemove.account_id)}
+          onCancel={() => setPendingRemove(null)}
+        />
+      )}
+
+      {signOutConfirm}
     </>
   );
 }

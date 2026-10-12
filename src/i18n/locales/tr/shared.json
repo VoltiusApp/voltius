@@ -1,5 +1,11 @@
 {
   "shared": {
+    "signOutConfirm": {
+      "title": "Oturum kapatılıp bu cihazdaki veriler silinsin mi?",
+      "noServerCopy": "Bu hesabın sunucuları, anahtarları ve kod parçacıkları yalnızca bu cihazda saklanır. Oturumu kapatırsanız bunlar silinir ve kurtarılamaz.",
+      "unsynced": "Eşitleme duraklatılmış veya sunucuya ulaşılamamış; bu cihazdaki son değişiklikler sunucuya kaydedilmemiş olabilir. Oturumu kapatırsanız bu cihazdaki kopya silinir.",
+      "confirm": "Sil ve oturumu kapat"
+    },
     "errorBanner": {
       "dismiss": "kapat"
     },

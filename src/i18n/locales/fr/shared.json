@@ -1,5 +1,11 @@
 {
   "shared": {
+    "signOutConfirm": {
+      "title": "Se déconnecter et effacer les données de cet appareil ?",
+      "noServerCopy": "Les hôtes, clés et snippets de ce compte sont stockés uniquement sur cet appareil. La déconnexion les efface définitivement.",
+      "unsynced": "La synchronisation est en pause ou n'a pas pu joindre le serveur : les modifications récentes de cet appareil n'y sont peut-être pas enregistrées. La déconnexion efface la copie de cet appareil.",
+      "confirm": "Effacer et se déconnecter"
+    },
     "errorBanner": {
       "dismiss": "ignorer"
     },
