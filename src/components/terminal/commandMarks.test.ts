@@ -189,15 +189,50 @@ describe("outputSpans", () => {
     expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 0, end: 50, open: true }]);
   });
 
-  it("drops that command once the next prompt arrives", () => {
+  it("keeps that command after it ends, until its output has left the buffer", () => {
     const { tracker, at, trim } = harness();
     at(0, "A");
     at(1, "C");
     trim(5);
     at(9, "D;0");
     at(9, "A");
-    expect(tracker.regions()).toMatchObject([{ promptLine: 9 }]);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 0, outputLine: 0, endLine: 9 }, { promptLine: 9 }]);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 0, end: 9, open: false }]);
+    trim(9);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 0, outputLine: null }]);
     expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+
+  it("keeps the tail of a finished command whose prompt was trimmed later", () => {
+    const { tracker, at, trim } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(30, "D;0");
+    at(30, "A");
+    trim(10);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 0, end: 20, open: false }]);
+    trim(25);
+    expect(tracker.regions()).toHaveLength(0);
+  });
+
+  it("ends a trimmed command that lost its D at the next prompt", () => {
+    const { tracker, at, trim } = harness();
+    at(0, "A");
+    at(1, "C");
+    trim(5);
+    at(9, "A");
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([{ start: 0, end: 9, open: false }]);
+  });
+
+  it("keeps a trimmed command's tail when the screen below it is cleared", () => {
+    const { tracker, at, trim, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    trim(5);
+    at(60, "D;0");
+    at(60, "A");
+    erase(40);
+    expect(tracker.outputSpans(0, 100, 62)).toEqual([{ start: 0, end: 40, open: false }]);
   });
 });
 
@@ -250,6 +285,41 @@ describe("screen erase", () => {
     at(10, "A");
     erase(1);
     expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+
+  it("ends a trimmed command at the first prompt that survived the clear", () => {
+    const { tracker, at, trim, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    trim(5);
+    at(60, "D;0");
+    at(60, "A");
+    at(61, "A");
+    erase(40);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 0, outputLine: 0 }, { promptLine: 40, outputLine: null }]);
+    expect(tracker.outputSpans(0, 100, 62)).toEqual([{ start: 0, end: 40, open: false }]);
+  });
+
+  it("forgets a finished command that was wholly on the cleared screen", () => {
+    const { tracker, at, erase } = harness();
+    at(10, "A");
+    at(11, "C");
+    at(13, "D;0");
+    at(13, "A");
+    erase(5);
+    expect(tracker.regions()).toMatchObject([{ promptLine: 5, outputLine: null }]);
+    expect(tracker.outputSpans(0, 100, 50)).toEqual([]);
+  });
+
+  it("tells a prompt trimmed just before an erase from one the erase wiped", () => {
+    const { tracker, at, trim, erase } = harness();
+    at(0, "A");
+    at(1, "C");
+    at(60, "D;0");
+    at(60, "A");
+    trim(10);
+    erase(30);
+    expect(tracker.outputSpans(0, 100, 62)).toEqual([{ start: 0, end: 30, open: false }]);
   });
 
   it("uses the cursor line of the last erase before the marks are read", () => {
