@@ -250,9 +250,9 @@ impl FileBackend for DockerFs {
         exit_error("read failed", code, &err).map(|()| out)
     }
 
-    async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+    async fn write_file(&self, path: &str, content: &[u8]) -> Result<(), String> {
         let mut w = self.open_write(path, 0, content.len() as u64).await?;
-        w.write_all(content.as_bytes())
+        w.write_all(content)
             .await
             .map_err(|e| format!("Write error: {e}"))?;
         w.shutdown().await.map_err(|e| format!("write failed: {e}"))

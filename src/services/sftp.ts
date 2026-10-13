@@ -507,6 +507,17 @@ export async function sftpWriteFile(
   return invoke("sftp_write_file", { sftpId, path, content });
 }
 
+/** Write binary `content` to `path`, sent as the raw IPC body (see `sftp_write_bytes`). */
+export async function sftpWriteBytes(
+  sftpId: string,
+  path: string,
+  content: Uint8Array,
+): Promise<void> {
+  return invoke("sftp_write_bytes", content, {
+    headers: { "sftp-id": encodeURIComponent(sftpId), path: encodeURIComponent(path) },
+  });
+}
+
 export async function fsReadFile(path: string, maxBytes: number): Promise<EditorFile> {
   return invoke("fs_read_file", { path, maxBytes });
 }

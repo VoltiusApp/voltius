@@ -483,7 +483,7 @@ impl<E: TransferEvents> FileBackend<E> for WebDavBackend {
             .map_err(|e| format!("read failed: {e}"))
     }
 
-    async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+    async fn write_file(&self, path: &str, content: &[u8]) -> Result<(), String> {
         let headers = [(header::CONTENT_LENGTH, content.len().to_string())];
         self.expect_ok(
             "Write",
@@ -999,7 +999,7 @@ mod tests {
             fb.mkdir("/t dir").await.unwrap_err().code(),
             Some(ErrorCode::AlreadyExists)
         );
-        fb.write_file("/t dir/a #1.txt", "hello").await.unwrap();
+        fb.write_file("/t dir/a #1.txt", b"hello").await.unwrap();
         assert_eq!(fb.read_file("/t dir/a #1.txt", 3).await.unwrap(), b"hell");
         assert_eq!(fb.file_size("/t dir/a #1.txt").await, 5);
         let listed = fb.list_dir("/t dir").await.unwrap();
@@ -1048,7 +1048,7 @@ mod tests {
         .unwrap();
         assert_eq!(std::fs::metadata(&out).unwrap().len(), 3 * 1024 * 1024);
 
-        fb.write_file("/t dir/b.txt", "x").await.unwrap();
+        fb.write_file("/t dir/b.txt", b"x").await.unwrap();
         assert_eq!(
             fb.rename("/t dir/a #1.txt", "/t dir/b.txt")
                 .await

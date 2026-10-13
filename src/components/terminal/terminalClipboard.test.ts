@@ -197,3 +197,41 @@ describe("drag-selects-text over an app holding the mouse", () => {
     expect(h.appEvents).toEqual([]);
   });
 });
+
+describe("paste", () => {
+  function pasteHarness(clipboard: string) {
+    readClipboard.mockResolvedValueOnce(clipboard);
+    const pasted: string[] = [];
+    const pasteImage = vi.fn(async () => {});
+    const term = {
+      onSelectionChange: () => ({ dispose() {} }),
+      paste: (text: string) => pasted.push(text),
+      getSelection: () => "",
+    } as unknown as Terminal;
+    const clip = attachTerminalClipboard(term, document.createElement("div"), { pasteImage });
+    return { clip, pasted, pasteImage };
+  }
+  const ctrlV = () => new KeyboardEvent("keydown", { key: "v", ctrlKey: true });
+
+  it("pastes clipboard text", async () => {
+    const h = pasteHarness("ls -la");
+    expect(h.clip.handleKeyEvent(ctrlV())).toBe(false);
+    await vi.waitFor(() => expect(h.pasted).toEqual(["ls -la"]));
+    expect(h.pasteImage).not.toHaveBeenCalled();
+  });
+
+  it("hands a clipboard without text to pasteImage", async () => {
+    const h = pasteHarness("");
+    h.clip.handleKeyEvent(new KeyboardEvent("keydown", { key: "V", ctrlKey: true, shiftKey: true }));
+    await vi.waitFor(() => expect(h.pasteImage).toHaveBeenCalledOnce());
+    expect(h.pasted).toEqual([]);
+  });
+
+  it("treats an unreadable clipboard as one without text", async () => {
+    readClipboard.mockRejectedValueOnce(new Error("denied"));
+    const pasteImage = vi.fn(async () => {});
+    const term = { onSelectionChange: () => ({ dispose() {} }), paste: vi.fn() } as unknown as Terminal;
+    attachTerminalClipboard(term, document.createElement("div"), { pasteImage }).handleKeyEvent(ctrlV());
+    await vi.waitFor(() => expect(pasteImage).toHaveBeenCalledOnce());
+  });
+});

@@ -53,7 +53,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
     /// At most `editor::read_limit(max_bytes)` bytes of `path`: a result longer
     /// than `max_bytes` means the file is too large for the editor.
     async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String>;
-    async fn write_file(&self, path: &str, content: &str) -> Result<(), String>;
+    async fn write_file(&self, path: &str, content: &[u8]) -> Result<(), String>;
 
     // ── Transfers ──────────────────────────────────────────────────────────
     /// This backend as one side of the resumable copy engine.
@@ -448,7 +448,7 @@ mod tests {
         async fn read_file(&self, _: &str, _: u64) -> Result<Vec<u8>, String> {
             unimplemented!()
         }
-        async fn write_file(&self, _: &str, _: &str) -> Result<(), String> {
+        async fn write_file(&self, _: &str, _: &[u8]) -> Result<(), String> {
             unimplemented!()
         }
         fn endpoint(&self) -> Arc<dyn Endpoint> {

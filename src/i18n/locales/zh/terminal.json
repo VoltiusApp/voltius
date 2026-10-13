@@ -341,6 +341,9 @@
       "linkTooltip": "Alt+单击以打开",
       "sessionClosed": "会话已关闭",
       "serialClosed": "串口连接已关闭"
+    },
+    "pasteImage": {
+      "failed": "粘贴图片失败：{{error}}"
     }
   }
 }

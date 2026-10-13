@@ -195,11 +195,11 @@ impl FileBackend for RealSftp {
         Ok(buf)
     }
 
-    async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+    async fn write_file(&self, path: &str, content: &[u8]) -> Result<(), String> {
         let flags = OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE;
         let file = retry_sftp!(self, "open for write", |s| s.open_with_flags(path, flags))?;
         let mut file = SftpFile::new(file, "close failed");
-        file.write_all(content.as_bytes())
+        file.write_all(content)
             .await
             .map_err(|e| format!("write failed: {e}"))?;
         file.flush()

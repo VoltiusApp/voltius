@@ -359,6 +359,9 @@
       "linkTooltip": "Otevřete kliknutím s Alt",
       "sessionClosed": "Relace ukončena",
       "serialClosed": "Sériové spojení ukončeno"
+    },
+    "pasteImage": {
+      "failed": "Vložení obrázku selhalo: {{error}}"
     }
   }
 }

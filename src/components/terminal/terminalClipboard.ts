@@ -14,12 +14,14 @@ export interface TerminalClipboardOptions {
   /** Enable OSC 52: let the remote program write the local clipboard.
    *  Reads (paste-requests) are always refused. Off by default. */
   osc52?: boolean;
+  /** Called by a paste whose clipboard holds no text, e.g. a screenshot. */
+  pasteImage?: () => Promise<void>;
 }
 
 /**
  * Wire the full terminal clipboard behavior onto a terminal + its container:
  * copy-on-select (with feedback badge), smart Ctrl+C / Ctrl+Shift+C, paste
- * (Ctrl+V / Ctrl+Shift+V / right-click), and optionally OSC 52.
+ * (Ctrl+V / Ctrl+Shift+V / right-click, text or `pasteImage`), and optionally OSC 52.
  *
  * Mouse/selection listeners are owned here; key handling is exposed via
  * `handleKeyEvent` so callers can fold it into their own key handler.
@@ -194,9 +196,15 @@ export function attachTerminalClipboard(
   window.addEventListener("mouseup", handleMouseUp);
   window.addEventListener("blur", unpark);
 
+  const pasteClipboard = async () => {
+    const text = await readClipboard().catch(() => "");
+    if (text) term.paste(text);
+    else await opts.pasteImage?.();
+  };
+
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault();
-    readClipboard().then((text) => { if (text) term.paste(text); });
+    void pasteClipboard();
   };
   container.addEventListener("contextmenu", handleContextMenu);
 
@@ -225,9 +233,7 @@ export function attachTerminalClipboard(
     }
     if (e.ctrlKey && e.shiftKey && e.key === "V") {
       e.preventDefault();
-      if (e.type === "keydown") {
-        readClipboard().then((text) => { if (text) term.paste(text); });
-      }
+      if (e.type === "keydown") void pasteClipboard();
       return false;
     }
     if (e.ctrlKey && !e.shiftKey && e.key === "c") {
@@ -240,9 +246,7 @@ export function attachTerminalClipboard(
     }
     if (e.ctrlKey && !e.shiftKey && e.key === "v") {
       e.preventDefault();
-      if (e.type === "keydown") {
-        readClipboard().then((text) => { if (text) term.paste(text); });
-      }
+      if (e.type === "keydown") void pasteClipboard();
       return false;
     }
     return null;

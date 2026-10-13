@@ -1,6 +1,8 @@
 use super::get_backend;
 use crate::sftp::SftpManager;
+use percent_encoding::percent_decode_str;
 use serde::Serialize;
+use tauri::ipc::{InvokeBody, Request};
 use tauri::State;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -102,11 +104,47 @@ pub async fn sftp_write_file(
     path: String,
     content: String,
 ) -> Result<(), String> {
-    let lock = sftp_state.path_lock(&sftp_id, &path).await;
+    write_locked(&sftp_state, &sftp_id, &path, content.as_bytes()).await
+}
+
+/// Write the raw IPC body to `path`, for binary content: a JSON string can't
+/// carry it and a JSON number array is several times its size. `sftp-id` and
+/// `path` ride as percent-encoded headers since the body is the content.
+#[tauri::command]
+pub async fn sftp_write_bytes(
+    sftp_state: State<'_, SftpManager>,
+    request: Request<'_>,
+) -> Result<(), String> {
+    let InvokeBody::Raw(content) = request.body() else {
+        return Err("expected a raw byte body".into());
+    };
+    let header = |name: &str| -> Result<String, String> {
+        let value = request
+            .headers()
+            .get(name)
+            .ok_or_else(|| format!("missing {name} header"))?;
+        let value = value
+            .to_str()
+            .map_err(|e| format!("bad {name} header: {e}"))?;
+        percent_decode_str(value)
+            .decode_utf8()
+            .map(Into::into)
+            .map_err(|e| format!("bad {name} header: {e}"))
+    };
+    write_locked(&sftp_state, &header("sftp-id")?, &header("path")?, content).await
+}
+
+async fn write_locked(
+    sftp_state: &SftpManager,
+    sftp_id: &str,
+    path: &str,
+    content: &[u8],
+) -> Result<(), String> {
+    let lock = sftp_state.path_lock(sftp_id, path).await;
     let _guard = lock.lock().await;
-    get_backend(&sftp_state, &sftp_id)
+    get_backend(sftp_state, sftp_id)
         .await?
-        .write_file(&path, &content)
+        .write_file(path, content)
         .await
 }
 

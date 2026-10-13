@@ -343,6 +343,9 @@
       "linkTooltip": "Açmak için Alt+tıklayın",
       "sessionClosed": "Oturum kapandı",
       "serialClosed": "Seri bağlantı kapandı"
+    },
+    "pasteImage": {
+      "failed": "Görüntü yapıştırılamadı: {{error}}"
     }
   }
 }

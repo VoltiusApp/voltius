@@ -351,6 +351,9 @@
       "linkTooltip": "Alt+clic pour ouvrir",
       "sessionClosed": "Session fermée",
       "serialClosed": "Connexion série fermée"
+    },
+    "pasteImage": {
+      "failed": "Échec du collage de l'image : {{error}}"
     }
   }
 }

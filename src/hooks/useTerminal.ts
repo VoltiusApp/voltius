@@ -39,6 +39,7 @@ import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, s
 import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 import i18n from "@/i18n";
+import { pasteClipboardImage } from "@/services/terminalImagePaste";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -1182,7 +1183,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       return entry;
     },
-    { osc52: true },
+    { osc52: true, pasteImage: sessionType === "ssh" ? () => pasteClipboardImage(sessionId) : undefined },
     [sessionId, sessionType, encoding],
   );
 

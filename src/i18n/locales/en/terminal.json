@@ -343,6 +343,9 @@
       "linkTooltip": "Alt+click to open",
       "sessionClosed": "Session closed",
       "serialClosed": "Serial connection closed"
+    },
+    "pasteImage": {
+      "failed": "Image paste failed: {{error}}"
     }
   }
 }
