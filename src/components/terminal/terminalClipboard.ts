@@ -170,24 +170,24 @@ export function attachTerminalClipboard(
     if (replaying) return;
     const press = pressed;
     pressed = null;
+    // Read the selection now, not later: xterm settles it in its own document
+    // mouseup, which runs before this window listener. Once unpark() hands the
+    // mouse back, the app's next motion report is user input to xterm and
+    // clears it (tmux reports every motion when a pane asks, e.g. Claude Code).
+    const sel = term.getSelection();
     unpark();
     if (press) {
       const moved = Math.abs(e.clientX - press.clientX) + Math.abs(e.clientY - press.clientY) >= 4;
-      if (!moved && !term.getSelection()) replayToApp(press, true);
+      if (!moved && !sel) replayToApp(press, true);
     }
     if (!dragging) return;
     dragging = false;
     // Copy-on-select is opt-out: when the "Select to Copy" toggle is off, a
     // selection must NOT touch the clipboard (#50). Explicit Ctrl+Shift+C still
     // copies regardless.
-    if (!getToggle("select-to-copy")) return;
-    setTimeout(() => {
-      const sel = term.getSelection();
-      if (sel) {
-        writeClipboard(sel);
-        showBadge(e.clientX, e.clientY);
-      }
-    }, 20);
+    if (!getToggle("select-to-copy") || !sel) return;
+    void writeClipboard(sel);
+    showBadge(e.clientX, e.clientY);
   };
   container.addEventListener("mousedown", handleMouseDown, true);
   window.addEventListener("mousemove", handleMouseMove, true);

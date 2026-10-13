@@ -172,6 +172,24 @@ describe("drag-selects-text over an app holding the mouse", () => {
     vi.useRealTimers();
   });
 
+  it("copies a selection the app's next motion report clears right after release", () => {
+    const h = harness();
+    press(h.screen);
+    h.selection.text = "kept";
+    release({ clientX: 90, clientY: 10 });
+    h.selection.text = "";
+    expect(writeClipboard).toHaveBeenCalledWith("kept");
+  });
+
+  it("does not copy when select-to-copy is off", () => {
+    toggles.values = { "select-to-copy": false };
+    const h = harness();
+    press(h.screen);
+    h.selection.text = "private";
+    release({ clientX: 90, clientY: 10 });
+    expect(writeClipboard).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["top", -5],
     ["bottom", 130],
