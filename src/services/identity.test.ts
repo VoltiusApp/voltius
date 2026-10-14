@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   fetch: vi.fn(),
   store: {} as Record<string, string>,
   seq: [] as string[],
+  rosterGate: undefined as Promise<void> | undefined,
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
@@ -17,6 +18,7 @@ vi.mock("@/services/teamService", () => ({
   getMyUserId: async () => h.myUserId,
   getUserPublicKey: async () => {
     h.seq.push("roster");
+    await h.rosterGate;
     return h.published ? { public_key: h.published } : null;
   },
 }));
@@ -42,6 +44,7 @@ beforeEach(() => {
   h.cas = true;
   h.store = { wrapped_user_secrets: "OLD_WRAPPED" };
   h.seq = [];
+  h.rosterGate = undefined;
   h.fetch.mockReset();
   h.fetch.mockImplementation(async (url: string, init: { body: string }) => {
     h.seq.push(`PUT ${url}`);
@@ -102,12 +105,6 @@ test("a linked account's dek device finds the identity its kek published", async
   expect(useVaultKeysStore.getState().identityUnproven).toBe(false);
 });
 
-test("an account with nothing published takes its vault key's identity and stores it", async () => {
-  cloudSession();
-  const id = await ensureIdentity();
-  expect(id).toMatchObject({ publicKey: derivedPub([5, 5, 5]), proven: true, stored: true });
-});
-
 test("no candidate matching the roster leaves the session unproven and writes nothing", async () => {
   cloudSession();
   h.published = "SOMEONE_ELSE";
@@ -163,4 +160,86 @@ test("the lookup runs once per session", async () => {
 test("a locked vault has no identity", async () => {
   h.vaultKey = null;
   await expect(ensureIdentity()).rejects.toThrow("common.error.vaultLocked");
+});
+
+const deferred = () => {
+  let release!: () => void;
+  const promise = new Promise<void>((r) => (release = r));
+  return { promise, release };
+};
+const switchAccount = () => {
+  h.vaultKey = [7, 7, 7];
+  useVaultKeysStore.getState().set({ kek: [8, 8, 8], dek: [4, 4, 4], x25519Private: [3, 3, 3] });
+};
+
+test("an account switch during the roster fetch leaves the new session alone", async () => {
+  cloudSession();
+  h.published = derivedPub(DEK);
+  const gate = deferred();
+  h.rosterGate = gate.promise;
+  const pending = ensureIdentity();
+  await vi.waitFor(() => expect(h.seq).toContain("roster"));
+  switchAccount();
+  gate.release();
+  await expect(pending).resolves.toMatchObject({ proven: false, stored: false });
+  expect(useVaultKeysStore.getState().identityUnproven).toBe(false);
+  expect(h.fetch).not.toHaveBeenCalled();
+  expect(h.store.wrapped_user_secrets).toBe("OLD_WRAPPED");
+});
+
+test("an account switch during the PUT writes nothing locally", async () => {
+  cloudSession();
+  h.published = derivedPub(DEK);
+  h.fetch.mockImplementation(async () => {
+    switchAccount();
+    return { ok: true, status: 204 };
+  });
+  await expect(ensureIdentity()).resolves.toMatchObject({ proven: true, stored: false });
+  expect(h.store.wrapped_user_secrets).toBe("OLD_WRAPPED");
+  expect(useVaultKeysStore.getState().x25519Private).toEqual([3, 3, 3]);
+});
+
+test("a rejected PUT leaves a proven identity unstored and writes nothing", async () => {
+  cloudSession();
+  h.published = derivedPub(DEK);
+  h.fetch.mockRejectedValue(new Error("offline"));
+  await expect(ensureIdentity()).resolves.toMatchObject({ proven: true, stored: false });
+  expect(h.store.wrapped_user_secrets).toBe("OLD_WRAPPED");
+  expect(useVaultKeysStore.getState().x25519Private).toEqual(STORED);
+});
+
+test("no stored wrapped secrets means no write", async () => {
+  cloudSession();
+  h.store = {};
+  h.published = derivedPub(DEK);
+  await expect(ensureIdentity()).resolves.toMatchObject({ proven: true, stored: false });
+  expect(h.fetch).not.toHaveBeenCalled();
+});
+
+test("an unpublished roster keeps the stored identity without a write", async () => {
+  cloudSession();
+  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: `PUB_OF_${STORED}`, proven: true, stored: true });
+  expect(h.fetch).not.toHaveBeenCalled();
+});
+
+test("an unpublished roster and no stored key store the vault key identity", async () => {
+  cloudSession();
+  useVaultKeysStore.setState({ x25519Private: null });
+  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: derivedPub([5, 5, 5]), proven: true, stored: true });
+  expect(sentBody()).toEqual({
+    wrapped_user_secrets: `WRAPPED(${bytes(btoa(`priv-${[5, 5, 5]}`))})`,
+    expected_wrapped_user_secrets: "OLD_WRAPPED",
+  });
+});
+
+test("a wrap failure still resolves a proven identity", async () => {
+  cloudSession();
+  h.published = derivedPub(DEK);
+  const impl = h.invoke.getMockImplementation()!;
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+    if (cmd === "wrap_user_secrets_cmd") throw new Error("wrap");
+    return impl(cmd, args);
+  });
+  await expect(ensureIdentity()).resolves.toMatchObject({ proven: true, stored: false });
+  expect(h.fetch).not.toHaveBeenCalled();
 });

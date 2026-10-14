@@ -1,3 +1,4 @@
+import { deriveX25519Keypair, wrapUserSecrets } from "@/services/crypto/identityKeys";
 import { invoke } from "@/lib/invoke";
 import { featureDisabledError } from "@/services/featureDisabled";
 import i18n from "@/i18n";
@@ -48,17 +49,8 @@ async function generateUserSecrets(): Promise<GeneratedUserSecrets> {
   return invoke<GeneratedUserSecrets>("generate_user_secrets_cmd");
 }
 
-async function wrapUserSecrets(kek: number[], dek: number[], x25519Private: number[]): Promise<string> {
-  return invoke<string>("wrap_user_secrets_cmd", { kek, dek, x25519Private });
-}
-
 async function unwrapUserSecrets(kek: number[], wrappedB64: string): Promise<UnwrappedUserSecrets> {
   return invoke<UnwrappedUserSecrets>("unwrap_user_secrets_cmd", { kek, wrappedB64 });
-}
-
-/** The identity every wrap and unwrap uses; `getMyX25519Keypair` derives the same. */
-async function deriveX25519Keypair(encKey: number[]): Promise<{ public_key: string; private_key: string }> {
-  return invoke<{ public_key: string; private_key: string }>("derive_x25519_keypair", { encKey });
 }
 
 async function registerOnServer(args: {
