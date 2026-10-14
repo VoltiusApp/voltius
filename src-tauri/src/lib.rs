@@ -332,6 +332,7 @@ pub fn run() {
             commands::crypto::unwrap_user_secrets_cmd,
             commands::crypto::generate_user_secrets_cmd,
             commands::team_crypto::derive_x25519_keypair,
+            commands::team_crypto::x25519_public_from_private,
             commands::team_crypto::generate_session_key,
             commands::team_crypto::x25519_wrap_key,
             commands::team_crypto::x25519_unwrap_key,

@@ -36,6 +36,15 @@ pub fn derive_x25519_keypair(enc_key: Vec<u8>) -> Result<X25519KeypairResult, St
     })
 }
 
+#[tauri::command]
+pub fn x25519_public_from_private(private_key: Vec<u8>) -> Result<String, String> {
+    let bytes: [u8; 32] = private_key
+        .as_slice()
+        .try_into()
+        .map_err(|_| "x25519 private key must be 32 bytes".to_string())?;
+    Ok(STANDARD.encode(PublicKey::from(&StaticSecret::from(bytes)).as_bytes()))
+}
+
 // ─── Session key generation ───────────────────────────────────────────────────
 
 const NONCE_LEN: usize = 24;
@@ -140,6 +149,14 @@ mod tests {
     fn keypair(seed: &[u8]) -> (String, String) {
         let kp = derive_x25519_keypair(seed.to_vec()).unwrap();
         (kp.private_key, kp.public_key)
+    }
+
+    #[test]
+    fn public_from_private_matches_the_derived_pair() {
+        let kp = derive_x25519_keypair(b"seed".to_vec()).unwrap();
+        let private = STANDARD.decode(&kp.private_key).unwrap();
+        assert_eq!(x25519_public_from_private(private).unwrap(), kp.public_key);
+        assert!(x25519_public_from_private(vec![1u8; 31]).is_err());
     }
 
     #[test]
