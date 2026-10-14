@@ -49,10 +49,9 @@ import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { usePfToastBridge } from "@/hooks/usePfToastBridge";
+import { openPortForwardingPage } from "@/services/portForwardingNav";
 import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import { refitSession } from "@/hooks/useTerminal";
-
-const openPortForwardingPage = () => useMobileNavStore.getState().push({ kind: "more-page", page: "port-forwarding" });
 
 export default function MobileShell() {
   const { t } = useTranslation();

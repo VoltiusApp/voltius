@@ -8,6 +8,7 @@ export type VerifiedIntent = { route: "verified"; userId: string };
 export type NotificationIntent = { route: "notification"; entryId: string | null };
 export type SettingsIntent = { route: "settings"; section: SettingsSection };
 export type BillingIntent = { route: "billing" };
+export type PortForwardingIntent = { route: "port-forwarding" };
 export type SnippetInstallIntent = { route: "snippet-install"; entryId: string };
 export type PluginInstallIntent = { route: "plugin-install"; pluginId: string; sourceId: string };
 /** Carries a grant id and its secret only — never key material, never
@@ -20,6 +21,7 @@ export type DeepLinkIntent =
   | NotificationIntent
   | SettingsIntent
   | BillingIntent
+  | PortForwardingIntent
   | SnippetInstallIntent
   | PluginInstallIntent
   | VaultJoinIntent;
@@ -81,6 +83,7 @@ const TRUST = {
   notification: "navigate",
   settings: "navigate",
   billing: "navigate",
+  "port-forwarding": "navigate",
   // Writes snippets — shell commands the user will later run — into a vault, so
   // nothing lands until the user accepts.
   "snippet-install": "confirm",
@@ -193,6 +196,10 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
   },
   billing: {
     parse: () => ({ route: "billing" }),
+    params: () => ({}),
+  },
+  "port-forwarding": {
+    parse: () => ({ route: "port-forwarding" }),
     params: () => ({}),
   },
   "snippet-install": {

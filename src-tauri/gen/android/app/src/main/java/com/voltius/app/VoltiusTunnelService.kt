@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -95,7 +96,7 @@ class VoltiusTunnelService : Service() {
       val open = PendingIntent.getActivity(
         ctx,
         0,
-        Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent(Intent.ACTION_VIEW, Uri.parse("voltius://port-forwarding"), ctx, MainActivity::class.java),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
       )
       return NotificationCompat.Builder(ctx, CHANNEL_ID)

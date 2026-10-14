@@ -8,6 +8,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { parseJwtPayload } from "@/utils/emailVerification";
 import type { ToastSeverity } from "@/plugins/api";
+import { openPortForwardingPage } from "@/services/portForwardingNav";
 
 function toast(
   message: string,
@@ -83,6 +84,9 @@ function handleNavigate(intent: NavigateIntent): void {
       return;
     case "billing":
       ui.openSettings("account");
+      return;
+    case "port-forwarding":
+      openPortForwardingPage();
       return;
     default: {
       const _exhaustive: never = intent;

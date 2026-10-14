@@ -195,6 +195,7 @@ test("the navigate routes are not confirm routes", () => {
     "voltius://notification",
     "voltius://settings?section=account",
     "voltius://billing",
+    "voltius://port-forwarding",
   ]) {
     const intent = parseDeepLink(url)!;
     expect(isNavigateIntent(intent)).toBe(true);
@@ -208,6 +209,7 @@ test("builds the navigate routes in both forms and round-trips them", () => {
     { route: "notification", entryId: null },
     { route: "settings", section: "sync" },
     { route: "billing" },
+    { route: "port-forwarding" },
   ] as const;
   for (const intent of intents) {
     for (const form of ["scheme", "https"] as const) {

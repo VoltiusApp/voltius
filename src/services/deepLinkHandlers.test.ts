@@ -141,6 +141,14 @@ test("a billing link opens the account section and starts no checkout", () => {
   expect(addToast).not.toHaveBeenCalled();
 });
 
+test("a port-forwarding link opens the port forwarding page", () => {
+  useUIStore.setState({ activeNav: "hosts", homeView: true });
+  handleUnpromptedIntent({ route: "port-forwarding" });
+  const ui = useUIStore.getState();
+  expect(ui.activeNav).toBe("port-forwarding");
+  expect(ui.homeView).toBe(false);
+});
+
 test("a notification link opens the centre and carries the entry id", () => {
   useUIStore.setState({ notificationCenterOpen: false, notificationFocusId: null });
   handleUnpromptedIntent({ route: "notification", entryId: "invite:42" });
