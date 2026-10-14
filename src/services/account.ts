@@ -423,6 +423,7 @@ export async function login(password: string, email?: string, serverUrl?: string
 
   const readStoredPassword = await passwordStoredBefore();
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
+  const knownHere = await cachedSecretsUnwrapWith(kek);
   // The local writes wait for the server: a sign-in left at the code step must not look like a local account.
   await serverLogin(
     reauth.serverUrl, accountId, auth_key,
@@ -444,6 +445,8 @@ export async function login(password: string, email?: string, serverUrl?: string
         // Server login proved the password, so this is an unreadable file, not a bad one.
         if (!opens) throw new VaultUnreadableError();
         setVaultKey(opens);
+        // After the reopen: it may still need the old sealed password.
+        if (!knownHere) await resealChangedPassword(password);
       } else {
         // Legacy account — trigger one-time migration
         await migrateToWrappedUserSecrets(password, accountId, kek, reauth.serverUrl, data.jwt_token);
@@ -870,6 +873,18 @@ export async function settleVaultOnDek(): Promise<void> {
   if (!identity?.stored) return;
   if (getVaultKey() !== vaultKey || useVaultKeysStore.getState().kek !== kek) return;
   if (await moveVaultToDek(kek, dek)) pushUnderNewVaultKey();
+}
+
+/** Whether this device already knew this password: its cached secrets are wrapped under its kek. */
+async function cachedSecretsUnwrapWith(kek: number[]): Promise<boolean> {
+  const cached = await keychainGet("wrapped_user_secrets");
+  return !!cached && (await unwrapUserSecrets(kek, cached).then(() => true, () => false));
+}
+
+/** `rememberPassword` keeps a sealed secret, so a password changed elsewhere must be sealed anew. */
+async function resealChangedPassword(password: string): Promise<void> {
+  if ((await secretState().catch(() => "none")) !== "sealed") return;
+  await replacePassword(password, i18n.t("layout.appLock.sealReason"));
 }
 
 /** The password stored before a sign-in replaces it; a sealed one is read, with its prompt, only if needed. */

@@ -118,7 +118,9 @@ function routeInvoke() {
         return { dek: [1, 1, 1], x25519_private: [2, 2, 2], x25519_public: "RANDOM_PUB" };
       case "wrap_user_secrets_cmd":
         return "WRAPPED_B64";
+      // "W_OLD" stands for secrets wrapped under the old password's kek.
       case "unwrap_user_secrets_cmd":
+        if (args.wrappedB64 === "W_OLD" && String(args.kek) !== "9,9,9") throw new Error("Decryption failed");
         return { dek: [1, 1, 1], x25519_private: [2, 2, 2] };
       case "get_machine_fingerprint":
         return "FP";
@@ -1212,11 +1214,32 @@ test("the server's wrapped secrets are cached before the lookup compares against
   expect(cachedDuringLookup).toBe("W_NEW");
 });
 
-test("a bound device reads the old sealed password to reopen the vault", async () => {
+test("a bound device reads the old sealed password to reopen the vault, then seals the new one", async () => {
   strandedOnOldKek();
   h.store.master_password_sealed = "S:old";
+  h.store.wrapped_user_secrets = "W_OLD";
   await login("new");
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
+  expect(h.store.master_password_sealed).toBe("S:new");
+});
+
+test("a bound device signing in after a change elsewhere seals the new password", async () => {
+  strandedOnOldKek();
+  existingVaultOpenedBy([1, 1, 1]);
+  h.store.master_password_sealed = "S:old";
+  h.store.wrapped_user_secrets = "W_OLD";
+  await login("new");
+  expect(h.store.master_password_sealed).toBe("S:new");
+});
+
+test("a bound device signing in with the password it already holds is not asked to seal again", async () => {
+  strandedOnOldKek();
+  existingVaultOpenedBy([1, 1, 1]);
+  h.store.master_password_sealed = "S:old";
+  h.store.wrapped_user_secrets = "W_OLD";
+  await login("old");
+  expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_set", expect.anything());
+  expect(h.store.master_password_sealed).toBe("S:old");
 });
 
 test("a cancelled prompt on a bound device leaves today's unreadable vault", async () => {
