@@ -11,7 +11,7 @@ import type { LxcAction } from "./types";
  * never reaches into the active-session global. Polling suppressed unless the
  * host is a proxmox node. Shared by the desktop panel and the mobile screen —
  * `service` is injected so each side can back it with its own transport (see
- * services.ts vs @/services/execSession.ts).
+ * services.ts vs @/services/proxmox.ts).
  */
 export function useProxmox(
   service: ProxmoxService,
