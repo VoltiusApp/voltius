@@ -1,33 +1,26 @@
-use std::sync::Arc;
-use tokio::io::AsyncReadExt;
-use tokio::time::{timeout, Duration};
+use std::time::Duration;
 
 use super::{now_ms, ProcessEntry, ProcessSnapshot};
+use crate::ssh::session::Machine;
 
 // Works on Linux and macOS: awk strips the header row, columns are positional.
 // Fields: pid ppid pcpu rss user stat comm
 const PS_CMD: &str = "ps -eo pid,ppid,pcpu,rss,user,stat,comm 2>/dev/null | awk 'NR>1{print}'";
 
-const KILL_TIMEOUT_SECS: u64 = 5;
+const KILL_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct RemoteProcesses;
 
 impl RemoteProcesses {
-    pub async fn snapshot(
-        handle: &Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
-    ) -> Result<ProcessSnapshot, String> {
-        let output = exec_remote(handle, PS_CMD, 10).await?;
+    pub async fn snapshot(machine: &Machine) -> Result<ProcessSnapshot, String> {
+        let output = machine.stdout(PS_CMD, Duration::from_secs(10)).await?;
         Ok(parse_snapshot(&output))
     }
 
-    pub async fn kill(
-        handle: &Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
-        pid: u32,
-        force: bool,
-    ) -> Result<(), String> {
+    pub async fn kill(machine: &Machine, pid: u32, force: bool) -> Result<(), String> {
         let signal = if force { "-9" } else { "-15" };
         let cmd = format!("kill {signal} {pid} 2>&1; echo \"EXIT:$?\"");
-        let output = exec_remote(handle, &cmd, KILL_TIMEOUT_SECS).await?;
+        let output = machine.stdout(&cmd, KILL_TIMEOUT).await?;
         // Check exit code echoed at the end
         for line in output.lines() {
             if let Some(code) = line.strip_prefix("EXIT:") {
@@ -40,38 +33,6 @@ impl RemoteProcesses {
         }
         Ok(())
     }
-}
-
-async fn exec_remote(
-    handle: &Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
-    cmd: &str,
-    timeout_secs: u64,
-) -> Result<String, String> {
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("channel error: {e}"))?;
-
-    channel
-        .exec(true, cmd)
-        .await
-        .map_err(|e| format!("exec error: {e}"))?;
-
-    let mut stream = channel.into_stream();
-    let mut output = Vec::new();
-
-    let _ = timeout(Duration::from_secs(timeout_secs), async {
-        let mut buf = vec![0u8; 65536];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => output.extend_from_slice(&buf[..n]),
-            }
-        }
-    })
-    .await;
-
-    Ok(String::from_utf8_lossy(&output).to_string())
 }
 
 fn parse_snapshot(text: &str) -> ProcessSnapshot {

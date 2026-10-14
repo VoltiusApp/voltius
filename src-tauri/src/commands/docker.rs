@@ -1,9 +1,6 @@
-use russh::client::Handle;
+use std::time::Duration;
 use tauri::{AppHandle, State};
-use tokio::io::AsyncReadExt;
 use uuid::Uuid;
-
-use crate::ssh::client::SshClient;
 
 use crate::{
     commands::host_command::host_command,
@@ -16,6 +13,7 @@ use crate::{
         },
     },
     sftp::SftpManager,
+    shell_integration::container_shell,
     ssh::{
         channel_io::open_exec_session,
         exec::{docker_exec, shell_quote},
@@ -64,9 +62,9 @@ macro_rules! log_stream_command {
             let sid = stream_id.clone();
 
             let join_handle = if is_remote {
-                let handle = session_manager.get_handle(&session_id).await?;
+                let host = session_manager.get_machine(&session_id).await?;
                 tokio::spawn(async move {
-                    $remote(app, sid, $subject, tail, handle).await;
+                    $remote(app, sid, $subject, tail, host).await;
                 })
             } else {
                 tokio::spawn(async move {
@@ -119,8 +117,8 @@ pub async fn docker_check_image_update(
 ) -> Result<ImageUpdateStatus, String> {
     // Local "current" digest comes from the host the image lives on.
     let local_digest = if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::local_image_digest(&handle, &image).await
+        let host = session_manager.get_machine(&session_id).await?;
+        remote::local_image_digest(&host, &image).await
     } else {
         local::local_image_digest(local_shell.as_deref(), &image).await
     };
@@ -173,14 +171,11 @@ pub async fn docker_open_exec_session(
     source_session_id: String,
     container_id: String,
 ) -> Result<String, String> {
-    let handle = session_manager.get_handle(&source_session_id).await?;
+    let host = session_manager.get_machine(&source_session_id).await?;
     // Launch the container shell with OSC 7 cwd reporting injected, so the
     // SFTP panel's "follow cwd" works inside the container too.
-    let cmd = format!(
-        "docker exec -it {container_id} sh -c '{}'",
-        crate::shell_integration::container_exec_payload()
-    );
-    open_exec_session(app, &session_manager, handle, &cmd).await
+    let cmd = host.run_in(&container_shell(&format!("docker exec -it {container_id}")));
+    open_exec_session(app, &session_manager, host, &cmd).await
 }
 
 host_command!(
@@ -198,32 +193,6 @@ host_command!(
 host_command!(docker_list_stack_services, Vec<DockerStackService>, remote::list_stack_services, local::list_stack_services, stack_name: String => &stack_name);
 host_command!(docker_stack_action, (), remote::stack_action, local::stack_action, stack_name: String => &stack_name, action: StackAction => &action);
 
-/// Run a command on the SSH host and capture its stdout (stderr is dropped unless the
-/// command redirects it). Used to probe the container before opening an SFTP session.
-async fn exec_capture(handle: &Handle<SshClient>, cmd: &str) -> Result<String, String> {
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("channel error: {e}"))?;
-    channel
-        .exec(true, cmd)
-        .await
-        .map_err(|e| format!("exec error: {e}"))?;
-    let mut stream = channel.into_stream();
-    let mut out = Vec::new();
-    let mut buf = vec![0u8; 4096];
-    let _ = tokio::time::timeout(std::time::Duration::from_secs(15), async {
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => out.extend_from_slice(&buf[..n]),
-            }
-        }
-    })
-    .await;
-    Ok(String::from_utf8_lossy(&out).to_string())
-}
-
 /// Open an SFTP session rooted inside a Docker container.
 ///
 /// Uses nsenter to enter the container's mount namespace directly from the host SSH
@@ -236,7 +205,7 @@ pub async fn docker_sftp_open(
     session_id: String,
     container_id: String,
 ) -> Result<String, String> {
-    let handle = session_manager.get_handle(&session_id).await?;
+    let host = session_manager.get_machine(&session_id).await?;
     let live_handle = session_manager.get_session_handle(&session_id).await?;
 
     // A "Timeout" from SftpSession::new means the command we exec'd never spoke the SFTP
@@ -262,7 +231,7 @@ pub async fn docker_sftp_open(
         cid = container_id,
     );
 
-    let report = exec_capture(&handle, &probe).await?;
+    let report = host.stdout(&probe, Duration::from_secs(15)).await?;
     let nsenter_ok = report.lines().any(|l| l.trim() == "NSENTER=ok");
     let sftp_path = report
         .lines()
@@ -274,7 +243,9 @@ pub async fn docker_sftp_open(
             // No sftp-server binary in the container (the common case for slim
             // images). Fall back to the `docker exec` filesystem shim, which needs
             // only docker access — no binary, no nsenter, no root.
-            return sftp_state.open_docker(live_handle, container_id).await;
+            return sftp_state
+                .open_docker(live_handle, host.nest(docker_exec(&container_id)))
+                .await;
         }
     };
 
@@ -288,5 +259,7 @@ pub async fn docker_sftp_open(
     } else {
         docker_exec(&container_id)
     };
-    sftp_state.open_exec(live_handle, inside, sftp_path).await
+    sftp_state
+        .open_exec(live_handle, host.nest(inside), sftp_path)
+        .await
 }

@@ -18,11 +18,11 @@ pub async fn processes_start(
     let event = format!("processes:snapshot:{}", stream_id);
 
     let join_handle = if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
+        let machine = session_manager.get_machine(&session_id).await?;
         let app = app.clone();
         tokio::spawn(async move {
             loop {
-                match RemoteProcesses::snapshot(&handle).await {
+                match RemoteProcesses::snapshot(&machine).await {
                     Ok(snap) => {
                         let _ = app.emit(&event, &snap);
                     }
@@ -70,8 +70,8 @@ pub async fn process_kill(
     force: bool,
 ) -> Result<(), String> {
     if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        RemoteProcesses::kill(&handle, pid, force).await
+        let machine = session_manager.get_machine(&session_id).await?;
+        RemoteProcesses::kill(&machine, pid, force).await
     } else {
         // Spin up a fresh System to locate the process at kill time
         let local = LocalProcesses::new();

@@ -1,8 +1,7 @@
 use crate::ssh::session::SessionManager;
 use sysinfo::System;
 use tauri::State;
-use tokio::io::AsyncReadExt;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 
 #[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct SystemInfo {
@@ -190,32 +189,11 @@ async fn get_remote_system_info(
     session_manager: State<'_, SessionManager>,
     session_id: &str,
 ) -> Result<SystemInfo, String> {
-    let handle = session_manager.get_handle(session_id).await?;
-    let channel: russh::Channel<russh::client::Msg> = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("Channel error: {e}"))?;
-
-    channel
-        .exec(true, REMOTE_SYSTEM_INFO_CMD)
-        .await
-        .map_err(|e| format!("Exec error: {e}"))?;
-
-    let mut stream = channel.into_stream();
-    let mut output = Vec::new();
-
-    let _ = timeout(Duration::from_secs(5), async {
-        let mut buf = [0u8; 4096];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => output.extend_from_slice(&buf[..n]),
-            }
-        }
-    })
-    .await;
-
-    let text = String::from_utf8_lossy(&output);
+    let text = session_manager
+        .get_machine(session_id)
+        .await?
+        .stdout(REMOTE_SYSTEM_INFO_CMD, Duration::from_secs(5))
+        .await?;
     Ok(parse_remote_system_info(&text))
 }
 

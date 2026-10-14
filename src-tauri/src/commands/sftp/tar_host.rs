@@ -1,9 +1,9 @@
-use super::remote_shell::{answer, detect, run_in, wrap, RemoteShell, Unreachable};
+use super::remote_shell::{answer, detect, RemoteShell, Unreachable};
 use super::resume::names::remote_hash;
 use super::stream::Progress;
 use crate::error::AppError;
 use crate::ssh::client::SshClient;
-use crate::ssh::exec::run_captured;
+use crate::ssh::exec::{run_captured, run_in, wrap};
 use crate::ssh::live_cells::{read_cell, Cell};
 use crate::ssh::session::SessionHandle;
 use russh::client::{Handle, Handler};

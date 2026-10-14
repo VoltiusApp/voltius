@@ -1,9 +1,9 @@
 use crate::ssh::client::{ConnectedSession, SessionInput, SshClient};
+use crate::ssh::exec::{nest, run_in, stdout_within, wrap};
 use crate::ssh::live_cells::{Cell, LiveCells};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 
@@ -17,6 +17,31 @@ pub struct SystemInfo {
 
 /// A session's SSH handle, re-pointed in place whenever the session reconnects.
 pub type SessionHandle = Cell<Arc<russh::client::Handle<SshClient>>>;
+
+/// Where a tab's tool commands run: its SSH connection, behind `inside` when its shell is in an LXC.
+#[derive(Clone)]
+pub struct Machine {
+    pub handle: Arc<russh::client::Handle<SshClient>>,
+    pub inside: Option<String>,
+}
+
+impl Machine {
+    pub fn wrap(&self, cmd: &str) -> String {
+        wrap(self.inside.as_deref(), cmd)
+    }
+
+    pub fn run_in(&self, argv: &str) -> String {
+        run_in(self.inside.as_deref(), argv)
+    }
+
+    pub fn nest(&self, prefix: String) -> String {
+        nest(self.inside.as_deref(), prefix)
+    }
+
+    pub async fn stdout(&self, cmd: &str, limit: Duration) -> Result<String, String> {
+        stdout_within(&self.handle, &self.wrap(cmd), limit).await
+    }
+}
 
 pub struct SessionManager {
     sessions: Arc<Mutex<HashMap<String, ConnectedSession>>>,
@@ -51,12 +76,7 @@ impl SessionManager {
     }
 
     async fn input_tx(&self, id: &str) -> Result<tokio::sync::mpsc::Sender<SessionInput>, String> {
-        let sessions = self.sessions.lock().await;
-        Ok(sessions
-            .get(id)
-            .ok_or("Session not found")?
-            .input_tx
-            .clone())
+        self.with_session(id, |s| s.input_tx.clone()).await
     }
 
     async fn send_input(&self, id: &str, input: SessionInput, what: &str) -> Result<(), String> {
@@ -90,11 +110,9 @@ impl SessionManager {
         if !colors.is_valid() {
             return Err("Invalid terminal colors".into());
         }
-        let (persist, handle) = {
-            let sessions = self.sessions.lock().await;
-            let session = sessions.get(id).ok_or("Session not found")?;
-            (session.persist, Arc::clone(&session.handle))
-        };
+        let (persist, handle) = self
+            .with_session(id, |s| (s.persist, Arc::clone(&s.handle)))
+            .await?;
         let style = crate::shell_integration::legacy_mode_style_command(&colors);
         self.send_input(id, SessionInput::Colors(colors), "set colors")
             .await?;
@@ -108,10 +126,7 @@ impl SessionManager {
     /// None when the session is unknown, the peer never replies, or the
     /// connection is gone — callers treat that as "not measurable here".
     pub async fn ping(&self, id: &str) -> Option<u32> {
-        let handle = {
-            let sessions = self.sessions.lock().await;
-            Arc::clone(&sessions.get(id)?.handle)
-        };
+        let handle = self.get_handle(id).await.ok()?;
         let start = std::time::Instant::now();
         timeout(Duration::from_secs(5), handle.send_ping())
             .await
@@ -121,41 +136,11 @@ impl SessionManager {
     }
 
     pub async fn detect_distro(&self, id: &str) -> Result<String, String> {
-        let handle = {
-            let sessions = self.sessions.lock().await;
-            let session = sessions.get(id).ok_or("Session not found")?;
-            Arc::clone(&session.handle)
-        };
-
-        let channel: russh::Channel<russh::client::Msg> = handle
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("Channel error: {}", e))?;
-
-        channel
-            .exec(true, "{ cat /etc/os-release 2>/dev/null || echo 'ID=linux'; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true")
-            .await
-            .map_err(|e| format!("Exec error: {}", e))?;
-
-        let mut stream = channel.into_stream();
-        let mut output = Vec::new();
-
-        let read_result = timeout(Duration::from_secs(5), async {
-            let mut buf = [0u8; 4096];
-            loop {
-                match stream.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => output.extend_from_slice(&buf[..n]),
-                }
-            }
-        })
-        .await;
-
-        if read_result.is_err() {
-            return Ok("linux".to_string());
-        }
-
-        let text = String::from_utf8_lossy(&output);
+        let text = self
+            .get_machine(id)
+            .await?
+            .stdout("{ cat /etc/os-release 2>/dev/null || echo 'ID=linux'; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true", Duration::from_secs(5))
+            .await?;
         let mut id_value = String::new();
         let mut is_proxmox = false;
         let mut is_pbs = false;
@@ -184,37 +169,11 @@ impl SessionManager {
     }
 
     pub async fn get_system_info(&self, id: &str) -> Result<SystemInfo, String> {
-        let handle = {
-            let sessions = self.sessions.lock().await;
-            let session = sessions.get(id).ok_or("Session not found")?;
-            Arc::clone(&session.handle)
-        };
-
-        let channel: russh::Channel<russh::client::Msg> = handle
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("Channel error: {}", e))?;
-
-        channel
-            .exec(true, "grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release 2>/dev/null; uname -srm 2>/dev/null; pveversion 2>/dev/null | head -1; proxmox-backup-manager versions 2>/dev/null | grep '^proxmox-backup-server:' | head -1")
-            .await
-            .map_err(|e| format!("Exec error: {}", e))?;
-
-        let mut stream = channel.into_stream();
-        let mut output = Vec::new();
-
-        let _ = timeout(Duration::from_secs(5), async {
-            let mut buf = [0u8; 4096];
-            loop {
-                match stream.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => output.extend_from_slice(&buf[..n]),
-                }
-            }
-        })
-        .await;
-
-        let text = String::from_utf8_lossy(&output);
+        let text = self
+            .get_machine(id)
+            .await?
+            .stdout("grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release 2>/dev/null; uname -srm 2>/dev/null; pveversion 2>/dev/null | head -1; proxmox-backup-manager versions 2>/dev/null | grep '^proxmox-backup-server:' | head -1", Duration::from_secs(5))
+            .await?;
         let mut info = SystemInfo::default();
         for line in text.lines() {
             if let Some(v) = line.strip_prefix("PRETTY_NAME=") {
@@ -244,26 +203,39 @@ impl SessionManager {
         Ok(info)
     }
 
-    pub async fn get_handle(
+    async fn with_session<T>(
         &self,
         id: &str,
-    ) -> Result<std::sync::Arc<russh::client::Handle<super::client::SshClient>>, String> {
+        f: impl FnOnce(&ConnectedSession) -> T,
+    ) -> Result<T, String> {
         let sessions = self.sessions.lock().await;
         sessions
             .get(id)
-            .map(|s| std::sync::Arc::clone(&s.handle))
+            .map(f)
             .ok_or_else(|| "Session not found".into())
+    }
+
+    pub async fn get_handle(
+        &self,
+        id: &str,
+    ) -> Result<Arc<russh::client::Handle<SshClient>>, String> {
+        self.with_session(id, |s| Arc::clone(&s.handle)).await
+    }
+
+    pub async fn get_machine(&self, id: &str) -> Result<Machine, String> {
+        self.with_session(id, |s| Machine {
+            handle: Arc::clone(&s.handle),
+            inside: s.machine.clone(),
+        })
+        .await
     }
 
     pub async fn get_remote_routes(
         &self,
         id: &str,
     ) -> Result<crate::port_forward::RemoteRouteMap, String> {
-        let sessions = self.sessions.lock().await;
-        sessions
-            .get(id)
-            .map(|s| std::sync::Arc::clone(&s.remote_routes))
-            .ok_or_else(|| "Session not found".into())
+        self.with_session(id, |s| Arc::clone(&s.remote_routes))
+            .await
     }
 
     /// Returns whether the persistent multiplexer session was confirmed killed
@@ -291,24 +263,10 @@ impl SessionManager {
                 // The kill is awaited (3 s cap) because its sentinel decides the
                 // tombstone; the frontend removes the tab optimistically, so this
                 // blocks no UI. Channel teardown stays spawned.
-                let handle = Arc::clone(&session.handle);
-                let _ = timeout(Duration::from_secs(3), async {
-                    if let Ok(channel) = handle.channel_open_session().await {
-                        if channel.exec(true, kill.as_str()).await.is_ok() {
-                            let mut stream = channel.into_stream();
-                            let mut out: Vec<u8> = Vec::new();
-                            let mut buf = [0u8; 256];
-                            while let Ok(n) = stream.read(&mut buf).await {
-                                if n == 0 {
-                                    break;
-                                }
-                                out.extend_from_slice(&buf[..n]);
-                            }
-                            killed = String::from_utf8_lossy(&out).contains("VOLTIUS_KILLED");
-                        }
-                    }
-                })
-                .await;
+                let cap = Duration::from_secs(3);
+                killed = timeout(cap, stdout_within(&session.handle, &kill, cap))
+                    .await
+                    .is_ok_and(|out| out.is_ok_and(|o| o.contains("VOLTIUS_KILLED")));
                 tokio::spawn(async move {
                     if let Some(cmd) = post_command {
                         let data = format!("{}\n", cmd).into_bytes();

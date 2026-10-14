@@ -281,10 +281,12 @@ export interface TerminalSession {
   autoReconnect?: boolean;
   /** Serial only: port typed at quick-connect time, prefilled into the config overlay. */
   initialSerialPort?: string;
-  containerExec?:
-    | { kind: "docker"; containerId: string; parentSessionId: string }
-    | { kind: "lxc"; vmid: number; parentSessionId: string };
+  containerExec?: ContainerExec;
 }
+
+export type ContainerExec =
+  | { kind: "docker"; containerId: string; parentSessionId: string }
+  | { kind: "lxc"; vmid: number; parentSessionId: string };
 
 /** A vault option for context menu move/copy actions. id is the stored team ID or "personal". */
 export interface VaultOption {

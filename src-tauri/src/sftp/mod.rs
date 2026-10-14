@@ -206,13 +206,13 @@ impl SftpManager {
     }
 
     /// Register a `docker exec`-based filesystem backend for a container that has
-    /// no sftp-server binary. `handle` is the host SSH connection.
+    /// no sftp-server binary. `handle` is the host SSH connection, `inside` the prefix entering the container.
     pub async fn open_docker(
         &self,
         handle: SessionHandle,
-        container_id: String,
+        inside: String,
     ) -> Result<String, String> {
-        let fs = DockerFs::new(Arc::clone(&handle), container_id);
+        let fs = DockerFs::new(Arc::clone(&handle), inside);
         Ok(self
             .register_riding(Arc::new(fs), handle, CancellationToken::new())
             .await)

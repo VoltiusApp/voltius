@@ -22,14 +22,14 @@ pub async fn metrics_start(
     let event = format!("metrics:snapshot:{}", stream_id);
 
     let join_handle = if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
+        let machine = session_manager.get_machine(&session_id).await?;
         let app = app.clone();
         tokio::spawn(async move {
             let mut state = RemoteMetricsState::new();
             // The first sample's deltas run from boot; a short prime gets the first reading on screen fast.
             let mut primed = false;
             loop {
-                match state.snapshot(&handle).await {
+                match state.snapshot(&machine).await {
                     Ok(snap) if primed => {
                         let _ = app.emit(&event, &snap);
                     }

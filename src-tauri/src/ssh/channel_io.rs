@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::ssh::client::{persistent_session_state, ConnectedSession, SessionInput, SshClient};
 use crate::ssh::control_mode::{Action, ControlSession};
-use crate::ssh::session::SessionManager;
+use crate::ssh::session::{Machine, SessionManager};
 use crate::terminal_output::{emit_closed, emit_output};
 
 /// Channels the frontend drives a session's channel with.
@@ -181,16 +181,17 @@ fn apply(
     }
 }
 
-/// Open a PTY channel on an existing SSH handle, run `command` in it, and
-/// register the result as a channel-only session (docker exec, `pct exec`).
-/// Returns the new session id.
+/// Open a PTY channel on `machine`'s SSH handle, run `command` in it, and
+/// register the result as a channel-only session (docker exec, `pct exec`)
+/// whose tool commands run on `machine`. Returns the new session id.
 pub async fn open_exec_session(
     app: AppHandle,
     session_manager: &SessionManager,
-    handle: std::sync::Arc<russh::client::Handle<SshClient>>,
+    machine: Machine,
     command: &str,
 ) -> Result<String, String> {
     let new_session_id = Uuid::new_v4().to_string();
+    let Machine { handle, inside } = machine;
 
     let channel = handle
         .channel_open_session()
@@ -222,6 +223,7 @@ pub async fn open_exec_session(
                 remote_routes: std::sync::Arc::new(tokio::sync::Mutex::new(
                     std::collections::HashMap::new(),
                 )),
+                machine: inside,
             },
         )
         .await;

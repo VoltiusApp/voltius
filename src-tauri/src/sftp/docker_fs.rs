@@ -18,9 +18,7 @@ use crate::error::AppError;
 use crate::sftp::backend::FileBackend;
 use crate::sftp::link::{ssh_answers, wait_for_link};
 use crate::ssh::client::SshClient;
-use crate::ssh::exec::{
-    docker_exec, drain_channel, exit_error, open_exec, run_captured, sh_c, Captured,
-};
+use crate::ssh::exec::{drain_channel, exit_error, open_exec, run_captured, sh_c, Captured};
 use crate::ssh::live_cells::{read_cell, Cell};
 use async_trait::async_trait;
 use russh::client::{Handle, Handler};
@@ -53,12 +51,9 @@ impl<H: Handler> Clone for DockerFs<H> {
 }
 
 impl DockerFs {
-    pub fn new(handle: Cell<Arc<Handle<SshClient>>>, container_id: String) -> Self {
+    pub fn new(handle: Cell<Arc<Handle<SshClient>>>, inside: String) -> Self {
         Self {
-            tar: Arc::new(TarProbe::new(
-                Arc::clone(&handle),
-                Some(docker_exec(&container_id)),
-            )),
+            tar: Arc::new(TarProbe::new(Arc::clone(&handle), Some(inside))),
             handle,
             streaming_on: Arc::default(),
             closed: CancellationToken::new(),

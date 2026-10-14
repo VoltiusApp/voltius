@@ -4,7 +4,8 @@
 use russh::client::{Handle, Msg};
 use russh::{Channel, ChannelMsg, ChannelReadHalf};
 use std::future::Future;
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use std::time::Duration;
+use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
 const STDERR_KEEP: usize = 16 * 1024;
@@ -32,6 +33,36 @@ pub fn docker_exec(container: &str) -> String {
     format!("docker exec -i {}", shell_quote(container))
 }
 
+/// The prefix that runs a Proxmox host command line inside LXC `vmid`.
+pub fn pct_exec(vmid: u32) -> String {
+    format!("pct exec {vmid} --")
+}
+
+/// `argv`, a host command line, run where `inside` puts it: behind a prefix such as
+/// `docker exec -i <id>` or `pct exec <vmid> --`, or on the host itself.
+pub fn run_in(inside: Option<&str>, argv: &str) -> String {
+    match inside {
+        Some(prefix) => format!("{prefix} {argv}"),
+        None => argv.to_string(),
+    }
+}
+
+/// `cmd`, written in the session's dialect, run where `inside` puts it; a container runs it through its `sh`.
+pub fn wrap(inside: Option<&str>, cmd: &str) -> String {
+    match inside {
+        Some(_) => run_in(inside, &format!("sh -c {}", shell_quote(cmd))),
+        None => cmd.to_string(),
+    }
+}
+
+/// The prefix `inner` run behind `outer`. `inner` may hold shell syntax, which `outer`'s shell expands.
+pub fn nest(outer: Option<&str>, inner: String) -> String {
+    match outer {
+        Some(_) => run_in(outer, &sh_c(&format!("{inner} \"$@\""), &[])),
+        None => inner,
+    }
+}
+
 /// Open a session channel on `handle` and start `cmd` on it.
 pub async fn open_exec<H: russh::client::Handler>(
     handle: &Handle<H>,
@@ -46,6 +77,34 @@ pub async fn open_exec<H: russh::client::Handler>(
         .await
         .map_err(|e| format!("Exec error: {e}"))?;
     Ok(channel)
+}
+
+/// Stdout of an exec'd `channel` until it ends or `limit` passes, and whether it ended in time.
+pub async fn collect_stdout(channel: Channel<Msg>, limit: Duration) -> (Vec<u8>, bool) {
+    let mut stream = channel.into_stream();
+    let mut out = Vec::new();
+    let completed = tokio::time::timeout(limit, async {
+        let mut buf = [0u8; 16384];
+        loop {
+            match stream.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => out.extend_from_slice(&buf[..n]),
+            }
+        }
+    })
+    .await
+    .is_ok();
+    (out, completed)
+}
+
+/// What `cmd` printed on stdout before it ended or `limit` passed. Its exit status is ignored.
+pub async fn stdout_within<H: russh::client::Handler>(
+    handle: &Handle<H>,
+    cmd: &str,
+    limit: Duration,
+) -> Result<String, String> {
+    let (out, _) = collect_stdout(open_exec(handle, cmd).await?, limit).await;
+    Ok(String::from_utf8_lossy(&out).into_owned())
 }
 
 /// What a finished command printed and how it exited.
@@ -221,6 +280,57 @@ mod tests {
             exit_error("read failed", None, "container is not running\n"),
             Err("read failed: container is not running".to_string())
         );
+    }
+
+    #[test]
+    fn container_commands_run_inside_sh() {
+        assert_eq!(wrap(None, "tar -xzf - -O"), "tar -xzf - -O");
+        assert_eq!(
+            wrap(Some(&docker_exec("ab c")), "tar -xzf - -O"),
+            "docker exec -i 'ab c' sh -c 'tar -xzf - -O'"
+        );
+        assert_eq!(
+            wrap(Some("pct exec 7 --"), "tar -xzf - -O"),
+            "pct exec 7 -- sh -c 'tar -xzf - -O'"
+        );
+    }
+
+    #[test]
+    fn a_nested_prefix_expands_inside_the_outer_one() {
+        assert_eq!(nest(None, docker_exec("c")), "docker exec -i 'c'");
+        let nested = nest(Some("pct exec 7 --"), "x \"$(id -u)\"".into());
+        assert_eq!(nested, r#"pct exec 7 -- sh -c 'x "$(id -u)" "$@"' x"#);
+        assert_eq!(
+            run_in(Some(&nested), "ls -l"),
+            r#"pct exec 7 -- sh -c 'x "$(id -u)" "$@"' x ls -l"#
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_nested_prefix_passes_every_argument_through() {
+        let nested = nest(Some("env"), "printf '[%s]'".into());
+        let cmd = run_in(Some(&nested), &sh_c("printf '%s' \"$1\"", &["a b'c"]));
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cmd)
+            .output()
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout),
+            "[sh][-c][printf '%s' \"$1\"][x][a b'c]"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_command_runs_behind_a_nested_prefix_over_ssh() {
+        use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let inside = nest(Some("env OUTER=1"), "env INNER=2".into());
+        let cmd = wrap(Some(&inside), "echo \"$OUTER$INNER\"");
+        let out = stdout_within(&handle, &cmd, Duration::from_secs(5)).await;
+        assert_eq!(out, Ok("12\n".to_string()));
     }
 
     #[test]

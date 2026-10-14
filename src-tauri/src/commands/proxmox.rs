@@ -7,7 +7,12 @@ use crate::{
         types::{LxcAction, LxcContainer, LxcSnapshot},
     },
     sftp::SftpManager,
-    ssh::{channel_io::open_exec_session, session::SessionManager},
+    shell_integration::container_shell,
+    ssh::{
+        channel_io::open_exec_session,
+        exec::pct_exec,
+        session::{Machine, SessionManager},
+    },
 };
 
 fn local_err() -> String {
@@ -34,13 +39,15 @@ pub async fn proxmox_lxc_open_shell(
     vmid: u32,
 ) -> Result<String, String> {
     let handle = session_manager.get_handle(&session_id).await?;
+    let inside = pct_exec(vmid);
     // Use `pct exec … -- sh -c` (instead of `pct enter`) so we can inject OSC 7
     // cwd reporting into the LXC shell, enabling the SFTP panel's "follow cwd".
-    let cmd = format!(
-        "pct exec {vmid} -- sh -c '{}'",
-        crate::shell_integration::container_exec_payload()
-    );
-    open_exec_session(app, &session_manager, handle, &cmd).await
+    let cmd = container_shell(&inside);
+    let machine = Machine {
+        handle,
+        inside: Some(inside),
+    };
+    open_exec_session(app, &session_manager, machine, &cmd).await
 }
 
 /// Open an SFTP session rooted inside an LXC container by exec-ing sftp-server via pct.
@@ -54,6 +61,6 @@ pub async fn proxmox_lxc_sftp_open(
     let handle = session_manager.get_session_handle(&session_id).await?;
     let server = "sh -c 'for p in /usr/lib/openssh/sftp-server /usr/lib/ssh/sftp-server /usr/libexec/openssh/sftp-server /usr/sbin/sftp-server; do [ -x \"$p\" ] && exec \"$p\"; done; exit 127'";
     sftp_state
-        .open_exec(handle, format!("pct exec {vmid} --"), server.to_string())
+        .open_exec(handle, pct_exec(vmid), server.to_string())
         .await
 }

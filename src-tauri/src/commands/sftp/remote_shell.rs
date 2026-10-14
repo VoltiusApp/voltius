@@ -1,5 +1,5 @@
 use super::shell_quote;
-use crate::ssh::exec::{run_captured, run_captured_with_stdin, Captured};
+use crate::ssh::exec::{run_captured, run_captured_with_stdin, wrap, Captured};
 use russh::client::{Handle, Handler};
 use std::future::Future;
 use std::time::Duration;
@@ -28,23 +28,6 @@ const PS_TEMP_PROBE: &str = "'__TF_TEMP__:' + $env:TEMP";
 const CMD_MAX_LEN: usize = 8191;
 // PowerShell ends a single-quoted string at any of these, not just at ASCII `'`.
 const PS_QUOTES: [char; 5] = ['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B}'];
-
-/// `argv`, a host command line, run where `inside` puts it: behind a prefix such as
-/// `docker exec -i <id>` or `pct exec <vmid> --`, or on the host itself.
-pub fn run_in(inside: Option<&str>, argv: &str) -> String {
-    match inside {
-        Some(prefix) => format!("{prefix} {argv}"),
-        None => argv.to_string(),
-    }
-}
-
-/// `cmd`, written in the session's dialect, run where `inside` puts it; a container runs it through its `sh`.
-pub fn wrap(inside: Option<&str>, cmd: &str) -> String {
-    match inside {
-        Some(_) => run_in(inside, &format!("sh -c {}", shell_quote(cmd))),
-        None => cmd.to_string(),
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Unreachable;
@@ -431,20 +414,6 @@ impl RemoteShell {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ssh::exec::docker_exec;
-
-    #[test]
-    fn container_commands_run_inside_sh() {
-        assert_eq!(wrap(None, "tar -xzf - -O"), "tar -xzf - -O");
-        assert_eq!(
-            wrap(Some(&docker_exec("ab c")), "tar -xzf - -O"),
-            "docker exec -i 'ab c' sh -c 'tar -xzf - -O'"
-        );
-        assert_eq!(
-            wrap(Some("pct exec 7 --"), "tar -xzf - -O"),
-            "pct exec 7 -- sh -c 'tar -xzf - -O'"
-        );
-    }
 
     #[cfg(unix)]
     #[tokio::test]

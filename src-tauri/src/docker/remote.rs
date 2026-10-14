@@ -1,56 +1,21 @@
-use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::io::AsyncReadExt;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 
 use super::cli::{self, CliContainer, CliImage, CliNetwork, CliVolume};
 use super::log_stream::{emit_error, emit_line, log_event};
 use super::recreate::{build_network_connects, build_run_args, build_run_command, parse_inspect};
 use super::types::*;
-use crate::ssh::client::SshClient;
-use crate::ssh::exec::shell_quote;
-
-type SshHandle = Arc<russh::client::Handle<SshClient>>;
+use crate::ssh::exec::{open_exec, shell_quote};
+use crate::ssh::session::Machine;
 
 /// Default timeout for quick docker queries (`ps`, `inspect`, …).
 const DEFAULT_EXEC_TIMEOUT: Duration = Duration::from_secs(10);
 /// Generous timeout for long operations (`pull`, `compose pull/up`, recreate).
 const LONG_EXEC_TIMEOUT: Duration = Duration::from_secs(600);
 
-async fn exec_command(handle: &SshHandle, cmd: &str) -> Result<String, String> {
-    exec_command_timeout(handle, cmd, DEFAULT_EXEC_TIMEOUT).await
-}
-
-async fn exec_command_timeout(
-    handle: &SshHandle,
-    cmd: &str,
-    limit: Duration,
-) -> Result<String, String> {
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("channel error: {e}"))?;
-
-    channel
-        .exec(true, cmd)
-        .await
-        .map_err(|e| format!("exec error: {e}"))?;
-
-    let mut stream = channel.into_stream();
-    let mut output = Vec::new();
-
-    let _ = timeout(limit, async {
-        let mut buf = [0u8; 16384];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => output.extend_from_slice(&buf[..n]),
-            }
-        }
-    })
-    .await;
-
-    Ok(String::from_utf8_lossy(&output).to_string())
+async fn exec_command(host: &Machine, cmd: &str) -> Result<String, String> {
+    host.stdout(cmd, DEFAULT_EXEC_TIMEOUT).await
 }
 
 fn build_stack_logs_cmd(stack_name: &str, tail: u32) -> String {
@@ -67,13 +32,10 @@ fn build_container_logs_cmd(container_id: &str, tail: u32) -> String {
     )
 }
 
-pub async fn list_containers(
-    handle: &SshHandle,
-    all: bool,
-) -> Result<Vec<DockerContainer>, String> {
+pub async fn list_containers(host: &Machine, all: bool) -> Result<Vec<DockerContainer>, String> {
     let all_flag = if all { " -a" } else { "" };
     let cmd = format!("docker ps{all_flag} --format '{}'", cli::JSON_LINE_FORMAT);
-    let output = exec_command(handle, &cmd).await?;
+    let output = exec_command(host, &cmd).await?;
 
     let mut containers = Vec::new();
     for line in output.lines() {
@@ -88,9 +50,9 @@ pub async fn list_containers(
     Ok(containers)
 }
 
-pub async fn list_images(handle: &SshHandle) -> Result<Vec<DockerImage>, String> {
+pub async fn list_images(host: &Machine) -> Result<Vec<DockerImage>, String> {
     let cmd = format!("docker images --format '{}'", cli::JSON_LINE_FORMAT);
-    let output = exec_command(handle, &cmd).await?;
+    let output = exec_command(host, &cmd).await?;
     let mut images = Vec::new();
     for line in output.lines() {
         let line = line.trim();
@@ -104,9 +66,9 @@ pub async fn list_images(handle: &SshHandle) -> Result<Vec<DockerImage>, String>
     Ok(images)
 }
 
-pub async fn list_volumes(handle: &SshHandle) -> Result<Vec<DockerVolume>, String> {
+pub async fn list_volumes(host: &Machine) -> Result<Vec<DockerVolume>, String> {
     let cmd = format!("docker volume ls --format '{}'", cli::JSON_LINE_FORMAT);
-    let output = exec_command(handle, &cmd).await?;
+    let output = exec_command(host, &cmd).await?;
     let mut volumes = Vec::new();
     for line in output.lines() {
         let line = line.trim();
@@ -120,9 +82,9 @@ pub async fn list_volumes(handle: &SshHandle) -> Result<Vec<DockerVolume>, Strin
     Ok(volumes)
 }
 
-pub async fn list_networks(handle: &SshHandle) -> Result<Vec<DockerNetwork>, String> {
+pub async fn list_networks(host: &Machine) -> Result<Vec<DockerNetwork>, String> {
     let cmd = format!("docker network ls --format '{}'", cli::JSON_LINE_FORMAT);
-    let output = exec_command(handle, &cmd).await?;
+    let output = exec_command(host, &cmd).await?;
     let mut networks = Vec::new();
     for line in output.lines() {
         let line = line.trim();
@@ -136,17 +98,17 @@ pub async fn list_networks(handle: &SshHandle) -> Result<Vec<DockerNetwork>, Str
     Ok(networks)
 }
 
-pub async fn list_stacks(handle: &SshHandle) -> Result<Vec<DockerStack>, String> {
-    let output = exec_command(handle, "docker compose ls --all --format json").await?;
+pub async fn list_stacks(host: &Machine) -> Result<Vec<DockerStack>, String> {
+    let output = exec_command(host, "docker compose ls --all --format json").await?;
     parse_compose_stacks(&output)
 }
 
 pub async fn list_stack_services(
-    handle: &SshHandle,
+    host: &Machine,
     stack_name: &str,
 ) -> Result<Vec<DockerStackService>, String> {
     let output = exec_command(
-        handle,
+        host,
         &format!(
             "docker compose -p {} ps --all --format json",
             shell_quote(stack_name)
@@ -157,7 +119,7 @@ pub async fn list_stack_services(
 }
 
 pub async fn container_action(
-    handle: &SshHandle,
+    host: &Machine,
     container_id: &str,
     action: &ContainerAction,
 ) -> Result<(), String> {
@@ -171,16 +133,16 @@ pub async fn container_action(
         ContainerAction::Unpause => format!("docker unpause {id_q}"),
     };
     // stop/restart honor docker's ~10s graceful-shutdown window, so don't cap at 10s.
-    exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await?;
+    host.stdout(&cmd, LONG_EXEC_TIMEOUT).await?;
     Ok(())
 }
 
 pub async fn stack_action(
-    handle: &SshHandle,
+    host: &Machine,
     stack_name: &str,
     action: &StackAction,
 ) -> Result<(), String> {
-    let config_files = list_stacks(handle)
+    let config_files = list_stacks(host)
         .await
         .ok()
         .and_then(|stacks| stacks.into_iter().find(|stack| stack.name == stack_name))
@@ -199,13 +161,13 @@ pub async fn stack_action(
         StackAction::Down => "down",
     };
     let cmd = format!("docker compose{file_args} -p {project} {action_cmd}");
-    exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await?;
+    host.stdout(&cmd, LONG_EXEC_TIMEOUT).await?;
     Ok(())
 }
 
 /// Pull newer images for a remote stack and recreate it: `compose pull` then `up -d`.
-pub async fn stack_update(handle: &SshHandle, stack_name: &str) -> Result<(), String> {
-    let config_files = list_stacks(handle)
+pub async fn stack_update(host: &Machine, stack_name: &str) -> Result<(), String> {
+    let config_files = list_stacks(host)
         .await
         .ok()
         .and_then(|stacks| stacks.into_iter().find(|stack| stack.name == stack_name))
@@ -220,20 +182,20 @@ pub async fn stack_update(handle: &SshHandle, stack_name: &str) -> Result<(), St
     let cmd = format!(
         "docker compose{file_args} -p {project} pull && docker compose{file_args} -p {project} up -d"
     );
-    exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await?;
+    host.stdout(&cmd, LONG_EXEC_TIMEOUT).await?;
     Ok(())
 }
 
-pub async fn remove_image(handle: &SshHandle, image_id: &str) -> Result<(), String> {
-    exec_command(handle, &format!("docker rmi -f {}", shell_quote(image_id))).await?;
+pub async fn remove_image(host: &Machine, image_id: &str) -> Result<(), String> {
+    exec_command(host, &format!("docker rmi -f {}", shell_quote(image_id))).await?;
     Ok(())
 }
 
 /// The digest the image was pulled at on the remote host (its `RepoDigest`).
-pub async fn local_image_digest(handle: &SshHandle, image: &str) -> Option<String> {
+pub async fn local_image_digest(host: &Machine, image: &str) -> Option<String> {
     let q = shell_quote(image);
     exec_command(
-        handle,
+        host,
         &format!("docker image inspect {q} --format '{{{{json .RepoDigests}}}}'"),
     )
     .await
@@ -243,9 +205,8 @@ pub async fn local_image_digest(handle: &SshHandle, image: &str) -> Option<Strin
 }
 
 /// Pull the latest image for a tag on the remote host. Returns the CLI output.
-pub async fn pull_image(handle: &SshHandle, image: &str) -> Result<String, String> {
-    exec_command_timeout(
-        handle,
+pub async fn pull_image(host: &Machine, image: &str) -> Result<String, String> {
+    host.stdout(
         &format!("docker pull {}", shell_quote(image)),
         LONG_EXEC_TIMEOUT,
     )
@@ -254,12 +215,12 @@ pub async fn pull_image(handle: &SshHandle, image: &str) -> Result<String, Strin
 
 /// Reconstruct a pasteable `docker run …` command for a remote container.
 pub async fn container_run_command(
-    handle: &SshHandle,
+    host: &Machine,
     container_id: &str,
     image: &str,
 ) -> Result<String, String> {
     let inspect = exec_command(
-        handle,
+        host,
         &format!("docker inspect {}", shell_quote(container_id)),
     )
     .await?;
@@ -272,13 +233,13 @@ pub async fn container_run_command(
 /// surface exit codes, the whole stop → rename-backup → run → rollback sequence
 /// runs server-side as one script that prints a success sentinel.
 async fn recreate_standalone(
-    handle: &SshHandle,
+    host: &Machine,
     image: &str,
     container_id: &str,
     name: &str,
 ) -> Result<(), String> {
     let inspect = exec_command(
-        handle,
+        host,
         &format!("docker inspect {}", shell_quote(container_id)),
     )
     .await?;
@@ -329,7 +290,7 @@ async fn recreate_standalone(
         connects = connect_cmds,
     );
 
-    let out = exec_command_timeout(handle, &script, LONG_EXEC_TIMEOUT).await?;
+    let out = host.stdout(&script, LONG_EXEC_TIMEOUT).await?;
     if out.contains("__RC_OK__") {
         Ok(())
     } else {
@@ -340,7 +301,7 @@ async fn recreate_standalone(
 /// List running containers using `image` (with compose identity). Must run
 /// *before* the pull — see the local counterpart for why.
 async fn list_image_container_refs(
-    handle: &SshHandle,
+    host: &Machine,
     image: &str,
 ) -> Result<Vec<ContainerComposeRef>, String> {
     let cmd = format!(
@@ -348,13 +309,13 @@ async fn list_image_container_refs(
         shell_quote(image),
         shell_quote(RECREATE_PS_FORMAT),
     );
-    let output = exec_command(handle, &cmd).await?;
+    let output = exec_command(host, &cmd).await?;
     Ok(output.lines().filter_map(parse_recreate_ps_line).collect())
 }
 
 /// Recreate the given remote containers against `image`.
 async fn recreate_refs(
-    handle: &SshHandle,
+    host: &Machine,
     image: &str,
     refs: Vec<ContainerComposeRef>,
 ) -> RecreateResult {
@@ -363,7 +324,7 @@ async fn recreate_refs(
 
     for ctr in refs {
         if !ctr.is_compose() {
-            match recreate_standalone(handle, image, &ctr.id, &ctr.name).await {
+            match recreate_standalone(host, image, &ctr.id, &ctr.name).await {
                 Ok(()) => result.recreated.push(ctr.name),
                 Err(e) => {
                     result.manual.push(ctr.name.clone());
@@ -395,7 +356,7 @@ async fn recreate_refs(
             shell_quote(&ctr.service)
         ));
 
-        match exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await {
+        match host.stdout(&cmd, LONG_EXEC_TIMEOUT).await {
             Ok(_) => result.recreated.push(key),
             Err(e) => result.errors.push(format!("{key}: {e}")),
         }
@@ -406,17 +367,17 @@ async fn recreate_refs(
 
 /// Recreate the containers currently using `image` (no pull).
 pub async fn recreate_image_containers(
-    handle: &SshHandle,
+    host: &Machine,
     image: &str,
 ) -> Result<RecreateResult, String> {
-    let refs = list_image_container_refs(handle, image).await?;
-    Ok(recreate_refs(handle, image, refs).await)
+    let refs = list_image_container_refs(host, image).await?;
+    Ok(recreate_refs(host, image, refs).await)
 }
 
 /// Resolve an image's content id, used to detect whether a pull changed it.
-async fn image_id(handle: &SshHandle, image: &str) -> Option<String> {
+async fn image_id(host: &Machine, image: &str) -> Option<String> {
     exec_command(
-        handle,
+        host,
         &format!(
             "docker image inspect {} --format '{{{{.Id}}}}'",
             shell_quote(image)
@@ -432,26 +393,26 @@ async fn image_id(handle: &SshHandle, image: &str) -> Option<String> {
 /// recreate the containers that were using it (target list captured before the
 /// pull). Remote counterpart of [`super::local::pull_and_recreate`].
 pub async fn pull_and_recreate(
-    handle: &SshHandle,
+    host: &Machine,
     image: &str,
     recreate: bool,
 ) -> Result<RecreateResult, String> {
-    let before = image_id(handle, image).await;
+    let before = image_id(host, image).await;
     let refs = if recreate {
-        list_image_container_refs(handle, image)
+        list_image_container_refs(host, image)
             .await
             .unwrap_or_default()
     } else {
         Vec::new()
     };
 
-    let pull_output = pull_image(handle, image).await?;
+    let pull_output = pull_image(host, image).await?;
 
-    let after = image_id(handle, image).await;
+    let after = image_id(host, image).await;
     let image_updated = after.is_some() && before != after;
 
     let mut result = if recreate && image_updated {
-        recreate_refs(handle, image, refs).await
+        recreate_refs(host, image, refs).await
     } else {
         RecreateResult::default()
     };
@@ -462,33 +423,37 @@ pub async fn pull_and_recreate(
     Ok(result)
 }
 
-pub async fn remove_volume(handle: &SshHandle, name: &str) -> Result<(), String> {
-    exec_command(handle, &format!("docker volume rm {}", shell_quote(name))).await?;
+pub async fn remove_volume(host: &Machine, name: &str) -> Result<(), String> {
+    exec_command(host, &format!("docker volume rm {}", shell_quote(name))).await?;
     Ok(())
 }
 
-pub async fn remove_network(handle: &SshHandle, id: &str) -> Result<(), String> {
-    exec_command(handle, &format!("docker network rm {}", shell_quote(id))).await?;
+pub async fn remove_network(host: &Machine, id: &str) -> Result<(), String> {
+    exec_command(host, &format!("docker network rm {}", shell_quote(id))).await?;
     Ok(())
 }
 
-pub async fn prune_images(handle: &SshHandle) -> Result<String, String> {
-    let out = exec_command_timeout(handle, "docker image prune -f", LONG_EXEC_TIMEOUT).await?;
+pub async fn prune_images(host: &Machine) -> Result<String, String> {
+    let out = host
+        .stdout("docker image prune -f", LONG_EXEC_TIMEOUT)
+        .await?;
     Ok(parse_prune_output(&out))
 }
 
-pub async fn prune_volumes(handle: &SshHandle) -> Result<String, String> {
-    let out = exec_command(handle, "docker volume prune -f").await?;
+pub async fn prune_volumes(host: &Machine) -> Result<String, String> {
+    let out = exec_command(host, "docker volume prune -f").await?;
     Ok(parse_prune_output(&out))
 }
 
-pub async fn prune_networks(handle: &SshHandle) -> Result<String, String> {
-    exec_command(handle, "docker network prune -f").await?;
+pub async fn prune_networks(host: &Machine) -> Result<String, String> {
+    exec_command(host, "docker network prune -f").await?;
     Ok("Networks pruned".to_string())
 }
 
-pub async fn system_prune(handle: &SshHandle) -> Result<String, String> {
-    let out = exec_command_timeout(handle, "docker system prune -af", LONG_EXEC_TIMEOUT).await?;
+pub async fn system_prune(host: &Machine) -> Result<String, String> {
+    let out = host
+        .stdout("docker system prune -af", LONG_EXEC_TIMEOUT)
+        .await?;
     Ok(parse_prune_output(&out))
 }
 
@@ -504,19 +469,13 @@ fn parse_prune_output(out: &str) -> String {
 
 /// Follow a docker log command over SSH, emitting each non-empty line on the
 /// stream's event. The two remote log streams differ only in the command.
-async fn stream_ssh_logs(app: AppHandle, stream_id: String, handle: SshHandle, cmd: String) {
+async fn stream_ssh_logs(app: AppHandle, stream_id: String, host: Machine, cmd: String) {
     let event = log_event(&stream_id);
 
-    let channel = match handle.channel_open_session().await {
-        Ok(c) => c,
-        Err(e) => return emit_error(&app, &event, format!("Error opening channel: {e}")),
+    let mut stream = match open_exec(&host.handle, &host.wrap(&cmd)).await {
+        Ok(c) => c.into_stream(),
+        Err(e) => return emit_error(&app, &event, e),
     };
-
-    if let Err(e) = channel.exec(true, cmd.as_str()).await {
-        return emit_error(&app, &event, format!("Error: {e}"));
-    }
-
-    let mut stream = channel.into_stream();
     let mut buf = [0u8; 4096];
 
     loop {
@@ -540,12 +499,12 @@ pub async fn stream_stack_logs(
     stream_id: String,
     stack_name: String,
     tail: u32,
-    handle: SshHandle,
+    host: Machine,
 ) {
     stream_ssh_logs(
         app,
         stream_id,
-        handle,
+        host,
         build_stack_logs_cmd(&stack_name, tail),
     )
     .await
@@ -556,12 +515,12 @@ pub async fn stream_logs(
     stream_id: String,
     container_id: String,
     tail: u32,
-    handle: SshHandle,
+    host: Machine,
 ) {
     stream_ssh_logs(
         app,
         stream_id,
-        handle,
+        host,
         build_container_logs_cmd(&container_id, tail),
     )
     .await

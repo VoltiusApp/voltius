@@ -1,6 +1,6 @@
 //! The shape every host-scoped tool command shares: take a session id plus an
-//! `is_remote` flag, then either resolve the SSH handle and call the `remote`
-//! implementation or hand the local shell to the `local` one. Docker, Proxmox,
+//! `is_remote` flag, then either resolve what the `remote` implementation runs on
+//! ([`FromSession`]) and call it, or hand the local shell to the `local` one. Docker, Proxmox,
 //! metrics and processes all spell it identically, so it lives here once.
 
 /// Defines a `#[tauri::command]` that dispatches on `is_remote`.
@@ -25,8 +25,8 @@ macro_rules! host_command {
             $($arg: $ty,)*
         ) -> Result<$ret, String> {
             if is_remote {
-                let handle = session_manager.get_handle(&session_id).await?;
-                $remote(&handle $(, $pass)*).await
+                let target = $crate::commands::host_command::resolve(&session_manager, &session_id).await?;
+                $remote(&target $(, $pass)*).await
             } else {
                 Err($err)
             }
@@ -42,8 +42,8 @@ macro_rules! host_command {
             $($arg: $ty,)*
         ) -> Result<$ret, String> {
             if is_remote {
-                let handle = session_manager.get_handle(&session_id).await?;
-                $remote(&handle $(, $pass)*).await
+                let target = $crate::commands::host_command::resolve(&session_manager, &session_id).await?;
+                $remote(&target $(, $pass)*).await
             } else {
                 $local(local_shell.as_deref() $(, $pass)*).await
             }
@@ -52,3 +52,40 @@ macro_rules! host_command {
 }
 
 pub(crate) use host_command;
+
+use crate::ssh::client::SshClient;
+use crate::ssh::session::{Machine, SessionManager};
+use std::future::Future;
+use std::sync::Arc;
+
+/// What a host command's remote half takes, looked up from the session id.
+pub trait FromSession: Sized {
+    fn from_session(
+        sm: &SessionManager,
+        id: &str,
+    ) -> impl Future<Output = Result<Self, String>> + Send;
+}
+
+/// The bare SSH connection: commands that must reach the host itself (`pct`).
+impl FromSession for Arc<russh::client::Handle<SshClient>> {
+    fn from_session(
+        sm: &SessionManager,
+        id: &str,
+    ) -> impl Future<Output = Result<Self, String>> + Send {
+        sm.get_handle(id)
+    }
+}
+
+/// The machine the tab's shell is on: inside the LXC for a `pct exec` tab.
+impl FromSession for Machine {
+    fn from_session(
+        sm: &SessionManager,
+        id: &str,
+    ) -> impl Future<Output = Result<Self, String>> + Send {
+        sm.get_machine(id)
+    }
+}
+
+pub async fn resolve<T: FromSession>(sm: &SessionManager, id: &str) -> Result<T, String> {
+    T::from_session(sm, id).await
+}

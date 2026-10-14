@@ -302,8 +302,8 @@ pub async fn ssh_kill_persistent(
     proxy: Option<ProxySpec>,
     knock: Option<KnockSpec>,
 ) -> Result<bool, String> {
-    use tokio::io::AsyncReadExt;
-    use tokio::time::{timeout, Duration};
+    use crate::ssh::exec::stdout_within;
+    use tokio::time::Duration;
 
     let handle = client::connect_authenticated(
         Arc::clone(&*known_hosts),
@@ -320,31 +320,11 @@ pub async fn ssh_kill_persistent(
 
     let command = crate::shell_integration::force_kill_command(&session_id);
 
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("Channel error: {}", e))?;
-    channel
-        .exec(true, command.as_str())
-        .await
-        .map_err(|e| format!("Exec error: {}", e))?;
-
-    let mut stream = channel.into_stream();
-    let mut output = Vec::new();
-    let _ = timeout(Duration::from_secs(15), async {
-        let mut buf = [0u8; 256];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => output.extend_from_slice(&buf[..n]),
-            }
-        }
-    })
-    .await;
+    let output = stdout_within(&handle, &command, Duration::from_secs(15)).await?;
 
     let _ = handle
         .disconnect(russh::Disconnect::ByApplication, "Done", "en")
         .await;
 
-    Ok(String::from_utf8_lossy(&output).contains("VOLTIUS_KILLED"))
+    Ok(output.contains("VOLTIUS_KILLED"))
 }

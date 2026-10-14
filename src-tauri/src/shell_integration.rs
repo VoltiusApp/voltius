@@ -835,14 +835,18 @@ fi
 "##
 );
 
-/// Build the argument for `sh -c '<…>'` inside a container (the caller prefixes
-/// `docker exec -it <cid>` or `pct exec <vmid> --`). `eval`s the wrapper so the
-/// container TTY stays on stdin. Single-quote-free, so the caller can wrap it.
-pub fn container_exec_payload() -> String {
+/// The argument for `sh -c '<…>'` inside a container. `eval`s the wrapper so the
+/// container TTY stays on stdin. Single-quote-free, so it can be wrapped as is.
+fn container_exec_payload() -> String {
     format!(
         "eval \"$(printf \"{}\")\"",
         printf_escape(CONTAINER_WRAPPER)
     )
+}
+
+/// The interactive shell `prefix` (`docker exec -it <cid>`, `pct exec <vmid> --`) enters.
+pub fn container_shell(prefix: &str) -> String {
+    format!("{prefix} sh -c '{}'", container_exec_payload())
 }
 
 /// WSL flavor: same structure as SSH_WRAPPER but the printf format embeds

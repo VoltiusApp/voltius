@@ -1,9 +1,8 @@
-use std::sync::Arc;
-use tokio::io::AsyncReadExt;
-use tokio::time::{timeout, Duration, Instant};
+use tokio::time::{Duration, Instant};
 
 use super::{DiskInfo, MetricsSnapshot};
 use crate::clock::now_ms;
+use crate::ssh::session::Machine;
 
 const METRICS_CMD: &str = "cat /proc/stat | head -1; \
      awk '/MemTotal|MemAvailable/{print}' /proc/meminfo; \
@@ -29,40 +28,13 @@ impl RemoteMetricsState {
         }
     }
 
-    pub async fn snapshot(
-        &mut self,
-        handle: &Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
-    ) -> Result<MetricsSnapshot, String> {
-        let channel = handle
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-
-        channel
-            .exec(true, METRICS_CMD)
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
-
-        let mut stream = channel.into_stream();
-        let mut output = Vec::new();
-
-        let _ = timeout(Duration::from_secs(3), async {
-            let mut buf = [0u8; 4096];
-            loop {
-                match stream.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => output.extend_from_slice(&buf[..n]),
-                }
-            }
-        })
-        .await;
-
+    pub async fn snapshot(&mut self, machine: &Machine) -> Result<MetricsSnapshot, String> {
+        let text = machine.stdout(METRICS_CMD, Duration::from_secs(3)).await?;
         let now = Instant::now();
         let elapsed = self
             .prev_at
             .replace(now)
             .map_or(Duration::from_secs(1), |at| now - at);
-        let text = String::from_utf8_lossy(&output);
         self.parse(&text, elapsed)
     }
 

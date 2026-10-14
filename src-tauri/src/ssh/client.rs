@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
@@ -234,6 +233,8 @@ pub struct ConnectedSession {
     pub _jump_handles: Vec<Arc<client::Handle<SshClient>>>,
     /// Shared remote-forward route table for this session.
     pub remote_routes: RemoteRouteMap,
+    /// Prefix putting a command on the machine this shell is on (`pct exec <vmid> --` in an LXC tab).
+    pub machine: Option<String>,
 }
 
 pub(crate) fn spawn_exec(
@@ -256,20 +257,7 @@ pub(crate) async fn exec_collect(
     limit: std::time::Duration,
 ) -> Option<(Vec<u8>, bool)> {
     channel.exec(true, cmd).await.ok()?;
-    let mut stream = channel.into_stream();
-    let mut out: Vec<u8> = Vec::new();
-    let completed = tokio::time::timeout(limit, async {
-        let mut buf = [0u8; 8192];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => out.extend_from_slice(&buf[..n]),
-            }
-        }
-    })
-    .await
-    .is_ok();
-    Some((out, completed))
+    Some(crate::ssh::exec::collect_stdout(channel, limit).await)
 }
 
 #[derive(Debug, PartialEq)]
@@ -1301,6 +1289,7 @@ pub async fn connect(
         persist,
         _jump_handles: jump_handles,
         remote_routes: final_routes,
+        machine: None,
     })
 }
 
