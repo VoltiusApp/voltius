@@ -11,7 +11,13 @@ vi.mock("@/stores/toggleSettingsStore", () => ({
   getToggle: (id: string) => toggles.values[id] ?? true,
 }));
 
-import { attachTerminalClipboard } from "./terminalClipboard";
+const copyFailed = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logger", () => ({ logFailure: () => copyFailed }));
+
+import { attachTerminalClipboard, type TerminalClipboardHandle } from "./terminalClipboard";
+
+const MOVE = 32;
+const DOWN = 1;
 
 interface Harness {
   term: Terminal;
@@ -21,6 +27,8 @@ interface Harness {
   cleared: () => number;
   appEvents: string[];
   selection: { text: string };
+  clip: TerminalClipboardHandle;
+  report: (action: number) => void;
 }
 
 function harness(
@@ -42,6 +50,11 @@ function harness(
     disable() { this.cleared++; this._enabled = false; selection.text = ""; },
     enable() { this._enabled = true; },
   };
+  // Mirrors xterm: user input clears the selection, and every mouse report is
+  // sent as user input.
+  const coreService = {
+    triggerDataEvent(_data: string, wasUserInput = false) { if (wasUserInput) selection.text = ""; },
+  };
   // Mirrors xterm: a protocol change enables/disables selection, and disabling
   // it clears whatever was selected.
   const coreMouseService = {
@@ -52,6 +65,7 @@ function harness(
       if (name === "NONE") _selectionService.enable();
       else _selectionService.disable();
     },
+    triggerMouseEvent(_e: { action: number }) { coreService.triggerDataEvent("report", true); return true; },
   };
 
   // Stand-in for xterm's own reporting listener: it forwards to the app only
@@ -76,12 +90,13 @@ function harness(
     onSelectionChange: () => ({ dispose() {} }),
     paste: () => {},
     loadAddon: () => {},
-    _core: { coreMouseService, _selectionService },
+    _core: { coreService, coreMouseService, _selectionService },
   } as unknown as Terminal;
 
-  attachTerminalClipboard(term, container);
+  const clip = attachTerminalClipboard(term, container);
   return {
-    term, container, screen, appEvents, selection,
+    term, container, screen, appEvents, selection, clip,
+    report: (action) => { coreMouseService.triggerMouseEvent({ action }); },
     protocol: () => coreMouseService.activeProtocol,
     cleared: () => _selectionService.cleared,
   };
@@ -105,9 +120,16 @@ function release(init: MouseEventInit = {}) {
   }));
 }
 
+function copyShortcut(h: Harness) {
+  h.clip.handleKeyEvent(new KeyboardEvent("keydown", { key: "C", ctrlKey: true, shiftKey: true }));
+}
+
+const badge = () => document.body.querySelector("div[style*='position: fixed']");
+
 beforeEach(() => {
   toggles.values = {};
-  writeClipboard.mockClear();
+  writeClipboard.mockReset();
+  copyFailed.mockReset();
   document.body.innerHTML = "";
 });
 
@@ -161,33 +183,49 @@ describe("drag-selects-text over an app holding the mouse", () => {
     expect(h.cleared()).toBe(0);
   });
 
-  it("copies the drag selection when select-to-copy is on", async () => {
-    vi.useFakeTimers();
+  it("copies the drag selection and shows the badge when select-to-copy is on", async () => {
     const h = harness();
     press(h.screen);
     h.selection.text = "copied";
     release({ clientX: 90, clientY: 10 });
-    await vi.advanceTimersByTimeAsync(30);
     expect(writeClipboard).toHaveBeenCalledWith("copied");
-    vi.useRealTimers();
+    await Promise.resolve();
+    expect(badge()).not.toBeNull();
   });
 
-  it("copies a selection the app's next motion report clears right after release", () => {
+  it("shows no badge when the clipboard write fails", async () => {
+    writeClipboard.mockRejectedValueOnce(new Error("denied"));
+    const h = harness();
+    press(h.screen);
+    h.selection.text = "copied";
+    release({ clientX: 90, clientY: 10 });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(badge()).toBeNull();
+    expect(copyFailed).toHaveBeenCalled();
+  });
+
+  it("keeps the selection through the app's motion reports until a press", () => {
+    toggles.values = { "select-to-copy": false };
     const h = harness();
     press(h.screen);
     h.selection.text = "kept";
     release({ clientX: 90, clientY: 10 });
-    h.selection.text = "";
+    expect(writeClipboard).not.toHaveBeenCalled();
+    h.report(MOVE);
+    expect(h.selection.text).toBe("kept");
+    copyShortcut(h);
     expect(writeClipboard).toHaveBeenCalledWith("kept");
+    h.report(DOWN);
+    expect(h.selection.text).toBe("");
   });
 
-  it("does not copy when select-to-copy is off", () => {
-    toggles.values = { "select-to-copy": false };
+  it("restores xterm's reporting on dispose", () => {
     const h = harness();
-    press(h.screen);
-    h.selection.text = "private";
-    release({ clientX: 90, clientY: 10 });
-    expect(writeClipboard).not.toHaveBeenCalled();
+    h.clip.dispose();
+    h.selection.text = "kept";
+    h.report(MOVE);
+    expect(h.selection.text).toBe("");
   });
 
   it.each([

@@ -2,6 +2,9 @@ import type { Terminal } from "@xterm/xterm";
 import { ClipboardAddon, type IClipboardProvider } from "@xterm/addon-clipboard";
 import { writeClipboard, readClipboard } from "@/utils/clipboard";
 import { getToggle } from "@/stores/toggleSettingsStore";
+import { logFailure } from "@/lib/logger";
+
+const MOUSE_MOVE = 32;
 
 export interface TerminalClipboardHandle {
   /** Returns false to consume the event, true to let xterm process it,
@@ -90,11 +93,31 @@ export function attachTerminalClipboard(
   // ── drag-selects-text over an app that holds the mouse ───────────────────
   const core = (term as unknown as {
     _core?: {
-      coreMouseService?: { activeProtocol: string };
+      coreService?: { triggerDataEvent(data: string, wasUserInput?: boolean): void };
+      coreMouseService?: { activeProtocol: string; triggerMouseEvent(e: { action: number }): boolean };
       _selectionService?: { disable(): void; _enabled: boolean };
     };
   })._core;
   const mouseService = core?.coreMouseService;
+
+  // xterm clears the selection on any user input, motion reports included, so an
+  // app tracking every motion (tmux, Claude Code) wipes it as soon as the mouse moves.
+  const coreService = core?.coreService;
+  const triggerMouseEvent = mouseService?.triggerMouseEvent;
+  const triggerDataEvent = coreService?.triggerDataEvent;
+  let motionReport = false;
+  if (mouseService && coreService && triggerMouseEvent && triggerDataEvent) {
+    mouseService.triggerMouseEvent = (ev) => {
+      motionReport = ev.action === MOUSE_MOVE;
+      try { return triggerMouseEvent.call(mouseService, ev); } finally { motionReport = false; }
+    };
+    coreService.triggerDataEvent = (data, wasUserInput) =>
+      triggerDataEvent.call(coreService, data, !!wasUserInput && !motionReport);
+  }
+  const restoreReporting = () => {
+    if (mouseService && triggerMouseEvent) mouseService.triggerMouseEvent = triggerMouseEvent;
+    if (coreService && triggerDataEvent) coreService.triggerDataEvent = triggerDataEvent;
+  };
 
   let parkedProtocol: string | null = null;
   let pressed: MouseEvent | null = null;
@@ -170,12 +193,9 @@ export function attachTerminalClipboard(
     if (replaying) return;
     const press = pressed;
     pressed = null;
-    // Read the selection now, not later: xterm settles it in its own document
-    // mouseup, which runs before this window listener. Once unpark() hands the
-    // mouse back, the app's next motion report is user input to xterm and
-    // clears it (tmux reports every motion when a pane asks, e.g. Claude Code).
-    const sel = term.getSelection();
     unpark();
+    if (!press && !dragging) return;
+    const sel = term.getSelection();
     if (press) {
       const moved = Math.abs(e.clientX - press.clientX) + Math.abs(e.clientY - press.clientY) >= 4;
       if (!moved && !sel) replayToApp(press, true);
@@ -186,8 +206,10 @@ export function attachTerminalClipboard(
     // selection must NOT touch the clipboard (#50). Explicit Ctrl+Shift+C still
     // copies regardless.
     if (!getToggle("select-to-copy") || !sel) return;
-    void writeClipboard(sel);
-    showBadge(e.clientX, e.clientY);
+    writeClipboard(sel).then(
+      () => showBadge(e.clientX, e.clientY),
+      logFailure("copy-on-select"),
+    );
   };
   container.addEventListener("mousedown", handleMouseDown, true);
   window.addEventListener("mousemove", handleMouseMove, true);
@@ -252,6 +274,7 @@ export function attachTerminalClipboard(
     handleKeyEvent,
     dispose() {
       unpark();
+      restoreReporting();
       container.removeEventListener("mousedown", handleMouseDown, true);
       window.removeEventListener("mousemove", handleMouseMove, true);
       window.removeEventListener("mouseup", handleMouseUp);
