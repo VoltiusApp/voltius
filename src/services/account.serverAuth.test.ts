@@ -566,6 +566,30 @@ test("changeMasterPassword maps 401 to currentPasswordIncorrect", async () => {
   await expect(changeMasterPassword("old", "new")).rejects.toThrow("common.error.currentPasswordIncorrect");
 });
 
+test("a password change wraps the proven identity under the new key", async () => {
+  cloudSessionOn([1, 1, 1]);
+  h.ensureIdentity.mockResolvedValueOnce({ privateKey: btoa("\x07\x07"), publicKey: "P", proven: true, stored: false });
+  await changeMasterPassword("old", "new");
+  expect(h.invoke).toHaveBeenCalledWith("wrap_user_secrets_cmd", { kek: [8, 8, 8], dek: [1, 1, 1], x25519Private: [7, 7] });
+});
+
+test("an unproven identity keeps the stored key in the new wrap", async () => {
+  cloudSessionOn([1, 1, 1]);
+  h.ensureIdentity.mockResolvedValueOnce({ privateKey: btoa("x"), publicKey: "P", proven: false, stored: false });
+  await changeMasterPassword("old", "new");
+  expect(h.invoke).toHaveBeenCalledWith("wrap_user_secrets_cmd", { kek: [8, 8, 8], dek: [1, 1, 1], x25519Private: [2, 2, 2] });
+});
+
+test("a session without cached keys adopts the server's before resolving the identity", async () => {
+  cloudSessionOn([1, 1, 1]);
+  h.dek = null;
+  h.x25519 = null;
+  h.http["/auth/me"] = ok({ wrapped_user_secrets: "W" });
+  await changeMasterPassword("old", "new");
+  expect(h.keysSet).toHaveBeenCalledWith({ dek: [1, 1, 1], x25519Private: [2, 2, 2], kek: [9, 9, 9] });
+  expect(h.keysSet.mock.invocationCallOrder[0]).toBeLessThan(h.ensureIdentity.mock.invocationCallOrder[0]);
+});
+
 test("changeMasterPassword rotates tokens and password on success", async () => {
   cloudSessionOn([1, 1, 1]);
   await changeMasterPassword("old", "new");

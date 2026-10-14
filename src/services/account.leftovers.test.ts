@@ -35,6 +35,9 @@ vi.mock("@/stores/subscriptionStore", () => ({
 vi.mock("@/stores/vaultKeysStore", () => ({
   useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: vi.fn(), dek: h.dek, x25519Private: h.x25519 }) },
 }));
+vi.mock("@/services/identity", () => ({
+  ensureIdentity: vi.fn(async () => ({ privateKey: "", publicKey: "P", proven: false, stored: false })),
+}));
 vi.mock("@/services/sync", () => ({ push: h.push, stopRealtimeSync: vi.fn() }));
 
 import { setMasterPassword, login, signInToCloud, changeMasterPassword } from "./account";

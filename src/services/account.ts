@@ -900,7 +900,12 @@ export async function changeMasterPassword(
     const unwrapped = await unwrapUserSecrets(old_kek, me.wrapped_user_secrets);
     cachedDek = unwrapped.dek;
     cachedX25519 = unwrapped.x25519_private;
+    useVaultKeysStore.getState().set({ dek: cachedDek, x25519Private: cachedX25519, kek: old_kek });
   }
+
+  const { ensureIdentity } = await import("@/services/identity");
+  const identity = await ensureIdentity();
+  if (identity.proven) cachedX25519 = Array.from(base64ToBytes(identity.privateKey));
 
   const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
