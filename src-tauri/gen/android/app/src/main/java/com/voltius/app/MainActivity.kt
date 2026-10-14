@@ -15,6 +15,7 @@ class MainActivity : TauriActivity() {
   private lateinit var dirPicker: ActivityResultLauncher<Uri?>
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    intent?.let(::withLinkType)
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     // super.onCreate loaded the Rust lib; hand the keychain store the app Context + VM.
@@ -59,9 +60,22 @@ class MainActivity : TauriActivity() {
     TerminalKeyboard.install(this, webView)
   }
 
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(withLinkType(intent))
+  }
+
   override fun onDestroy() {
     if (instance === this) instance = null
     super.onDestroy()
+  }
+
+  // tao 0.35 unwraps getType() on every VIEW intent, so an untyped voltius:// link aborts the app.
+  private fun withLinkType(intent: Intent): Intent {
+    val data = intent.data
+    if (intent.action == Intent.ACTION_VIEW && intent.type == null && data != null) {
+      intent.setDataAndType(data, "application/x-voltius-link")
+    }
+    return intent
   }
 
   fun launchDirPicker() {
