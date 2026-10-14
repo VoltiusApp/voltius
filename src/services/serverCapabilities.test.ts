@@ -6,6 +6,7 @@ vi.mock("@/lib/logger", () => ({ logFailure: () => h.logged }));
 
 import {
   refreshServerCapabilities, resetServerCapabilities, serverLacksSecretType, noteRefusedSecretType,
+  serverSupportsWrappedSecretsCas,
 } from "./serverCapabilities";
 
 beforeEach(() => {
@@ -79,4 +80,17 @@ test("a reset forgets the previous server", async () => {
   expect(serverLacksSecretType("connection_password")).toBe(false);
   await refreshServerCapabilities();
   expect(h.fetchServerMeta).toHaveBeenCalledTimes(2);
+});
+
+test("a server that advertises wrapped-secrets compare-and-swap is trusted with identity repairs", async () => {
+  h.fetchServerMeta.mockResolvedValue({ wrapped_secrets_cas: true });
+  expect(await serverSupportsWrappedSecretsCas()).toBe(true);
+});
+
+test("a server that predates wrapped-secrets compare-and-swap, or cannot be reached, is not", async () => {
+  h.fetchServerMeta.mockResolvedValue({});
+  expect(await serverSupportsWrappedSecretsCas()).toBe(false);
+  resetServerCapabilities();
+  h.fetchServerMeta.mockRejectedValue(new Error("offline"));
+  expect(await serverSupportsWrappedSecretsCas()).toBe(false);
 });

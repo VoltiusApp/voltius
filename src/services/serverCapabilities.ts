@@ -13,6 +13,7 @@ interface ServerCapabilities {
   refusedSecretTypes: TeamSecretType[];
   twoFactor: boolean;
   passkeys: boolean;
+  wrappedSecretsCas: boolean;
 }
 
 const UNKNOWN: ServerCapabilities = {
@@ -20,6 +21,7 @@ const UNKNOWN: ServerCapabilities = {
   refusedSecretTypes: [],
   twoFactor: false,
   passkeys: false,
+  wrappedSecretsCas: false,
 };
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
 
@@ -28,13 +30,14 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types, two_factor, passkeys } = await fetchServerMeta(
+    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas } = await fetchServerMeta(
       "common.error.failedToLoadServerCapabilities",
     );
     fetchedAt = Date.now();
     useServerCapabilities.setState({
       twoFactor: two_factor === true,
       passkeys: passkeys === true,
+      wrappedSecretsCas: wrapped_secrets_cas === true,
       ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
         : { advertisedSecretTypes: null }),
@@ -83,4 +86,9 @@ export function useServerSecondFactors(): { totp: boolean; passkeys: boolean } {
   const totp = useServerCapabilities((s) => s.twoFactor);
   const passkeys = useServerCapabilities((s) => s.passkeys);
   return { totp, passkeys };
+}
+
+export async function serverSupportsWrappedSecretsCas(): Promise<boolean> {
+  await refreshServerCapabilities();
+  return useServerCapabilities.getState().wrappedSecretsCas;
 }
