@@ -225,12 +225,9 @@ mod tests {
 
     const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0";
 
-    fn file(
-        bytes: Vec<u8>,
-    ) -> (
-        impl Fn(u64) -> std::future::Ready<Result<Vec<u8>, String>>,
-        Arc<AtomicUsize>,
-    ) {
+    type Read = std::future::Ready<Result<Vec<u8>, String>>;
+
+    fn file(bytes: Vec<u8>) -> (impl Fn(u64) -> Read, Arc<AtomicUsize>) {
         let reads = Arc::new(AtomicUsize::new(0));
         let counter = reads.clone();
         let read = move |limit: u64| {
