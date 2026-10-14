@@ -466,6 +466,13 @@ async function completeTeamLoginSetup(): Promise<void> {
   // already there when they're added to a team. publishMyPublicKey still
   // refuses on an unproven vault key (#228).
   try {
+    const { settleVaultOnDek } = await import("@/services/account");
+    await settleVaultOnDek();
+  } catch (e) {
+    logFailure("settle vault on dek")(e);
+  }
+
+  try {
     await publishMyPublicKey();
   } catch { /* best-effort */ }
 

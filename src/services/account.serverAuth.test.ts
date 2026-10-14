@@ -26,6 +26,8 @@ const h = vi.hoisted(() => ({
   http: {} as Record<string, { ok: boolean; status: number; body?: unknown }>,
   dek: null as number[] | null,
   x25519: null as number[] | null,
+  kek: null as number[] | null,
+  ensureIdentity: vi.fn(async () => ({ privateKey: btoa("id"), publicKey: "P", proven: true, stored: true })),
   emailVerified: false,
   seq: [] as string[],
   /** Request bodies by endpoint path, so a test can assert what was sent. */
@@ -53,8 +55,9 @@ vi.mock("./vault", () => ({
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: { getState: () => ({ load: h.load, emailVerified: h.emailVerified }) },
 }));
+vi.mock("@/services/identity", () => ({ ensureIdentity: h.ensureIdentity }));
 vi.mock("@/stores/vaultKeysStore", () => ({
-  useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: vi.fn(), dek: h.dek, x25519Private: h.x25519 }) },
+  useVaultKeysStore: { getState: () => ({ set: h.keysSet, clear: vi.fn(), dek: h.dek, kek: h.kek, x25519Private: h.x25519 }) },
 }));
 
 import {
@@ -65,6 +68,7 @@ import {
   signInToCloud,
   linkToCloud,
   changeMasterPassword,
+  settleVaultOnDek,
   changeEmail,
   refreshSession,
   refreshVerificationState,
@@ -145,6 +149,8 @@ const err = (status: number, body: unknown = {}) => ({ ok: false, status, body }
 
 beforeEach(() => {
   clearSessionRevoked();
+  h.kek = null;
+  h.ensureIdentity.mockClear();
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet]) m.mockReset();
   h.readLocalSecrets.mockReset().mockResolvedValue({});
   h.getVaultStatus.mockReset();
@@ -1025,4 +1031,48 @@ test("changeMasterPassword sends the code and names a refused one", async () => 
 
   h.http["/auth/password"] = err(428, { error: "TWO_FACTOR_REQUIRED" });
   await expect(changeMasterPassword("pw", "new")).rejects.toThrow("common.error.twoFactorRequired");
+});
+
+// ─── settleVaultOnDek ────────────────────────────────────────────────────────
+
+function kekVaultWithDek() {
+  cloudSessionOn([9, 9, 9]);
+  h.kek = [9, 9, 9];
+  existingVaultOpenedBy([9, 9, 9]);
+}
+
+test("a kek vault moves to the dek once the identity is stored", async () => {
+  kekVaultWithDek();
+  await settleVaultOnDek();
+  expect(h.invoke).toHaveBeenCalledWith("secrets_rekey", { oldEncKey: [9, 9, 9], newEncKey: [1, 1, 1] });
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
+  await vi.waitFor(() => expect(h.push).toHaveBeenCalled());
+});
+
+test("a vault stays on the kek while the identity is not stored", async () => {
+  kekVaultWithDek();
+  h.ensureIdentity.mockResolvedValueOnce({ privateKey: "", publicKey: "", proven: true, stored: false });
+  await settleVaultOnDek();
+  expect(h.seq).not.toContain("secrets_rekey");
+});
+
+test("an offline device keeps its vault and its unlock", async () => {
+  kekVaultWithDek();
+  h.ensureIdentity.mockRejectedValueOnce(new Error("offline"));
+  await expect(settleVaultOnDek()).resolves.toBeUndefined();
+  expect(h.seq).not.toContain("secrets_rekey");
+});
+
+test("a vault already on the dek is left alone without asking for the identity", async () => {
+  cloudSessionOn([1, 1, 1]);
+  h.kek = [9, 9, 9];
+  await settleVaultOnDek();
+  expect(h.ensureIdentity).not.toHaveBeenCalled();
+});
+
+test("a local account is never settled", async () => {
+  kekVaultWithDek();
+  h.store.mode = "local";
+  await settleVaultOnDek();
+  expect(h.ensureIdentity).not.toHaveBeenCalled();
 });

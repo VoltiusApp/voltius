@@ -37,6 +37,9 @@ interface UnwrappedUserSecrets {
   x25519_private: number[];
 }
 
+const sameKey = (a: number[] | null, b: number[] | null) =>
+  !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
+
 function isHexEncoded32ByteKey(value: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(value);
 }
@@ -288,8 +291,7 @@ export async function isCurrentMasterPassword(password: string): Promise<boolean
   const accountId = await keychainGet("account_id");
   if (!accountId) return false;
   const { enc_key: kek } = await deriveKeys(password, accountId);
-  const same = (key: number[] | null) => !!key && key.length === kek.length && key.every((b, i) => b === kek[i]);
-  return same(useVaultKeysStore.getState().kek) || same(getVaultKey());
+  return sameKey(useVaultKeysStore.getState().kek, kek) || sameKey(getVaultKey(), kek);
 }
 
 // ─── Account operations ───────────────────────────────────────────────────────
@@ -837,7 +839,7 @@ async function moveVaultToDek(kek: number[], dek: number[]): Promise<(() => Prom
   if (rekeyed) {
     await unlockVaultIfNeeded();
     await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
-  } else if (sessionKey?.join(",") === dek.join(",")) {
+  } else if (sameKey(sessionKey, dek)) {
     return null;
   }
   setVaultKey(dek);
@@ -848,6 +850,18 @@ async function moveVaultToDek(kek: number[], dek: number[]): Promise<(() => Prom
     }
     if (sessionKey) setVaultKey(sessionKey);
   };
+}
+
+/** Once the identity no longer rides on the vault key, a kek vault has no reason to stay there. */
+export async function settleVaultOnDek(): Promise<void> {
+  const { kek, dek } = useVaultKeysStore.getState();
+  const vaultKey = getVaultKey();
+  if (!kek || !dek || !vaultKey || sameKey(vaultKey, dek)) return;
+  if ((await keychainGet("mode")) !== "server") return;
+  const { ensureIdentity } = await import("@/services/identity");
+  const identity = await ensureIdentity().catch(() => null);
+  if (!identity?.stored) return;
+  if (await moveVaultToDek(kek, dek)) pushUnderNewVaultKey();
 }
 
 // The server commits before minting tokens, so only a 4xx or its own answer proves a change did not land.
