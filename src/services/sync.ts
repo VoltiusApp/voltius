@@ -461,17 +461,19 @@ async function reloadAllStores(): Promise<void> {
   ]);
 }
 
-async function completeTeamLoginSetup(): Promise<void> {
-  // Register the public key even for users with no linked vaults, so it is
-  // already there when they're added to a team. publishMyPublicKey still
-  // refuses on an unproven vault key (#228).
+async function settleVault(): Promise<void> {
   try {
     const { settleVaultOnDek } = await import("@/services/account");
     await settleVaultOnDek();
   } catch (e) {
     logFailure("settle vault on dek")(e);
   }
+}
 
+async function completeTeamLoginSetup(): Promise<void> {
+  // Register the public key even for users with no linked vaults, so it is
+  // already there when they're added to a team. publishMyPublicKey still
+  // refuses on an unproven vault key (#228).
   try {
     await publishMyPublicKey();
   } catch { /* best-effort */ }
@@ -693,6 +695,7 @@ async function readDeviceSecrets(): Promise<SecretMaps> {
  * For new cloud accounts (linkToCloud), use syncOnLogin instead.
  */
 export async function syncOnLoginReplace(): Promise<void> {
+  await settleVault();
   try {
     await unlockVaultIfNeeded();
 
@@ -737,6 +740,7 @@ export async function syncOnLoginReplace(): Promise<void> {
 /** Pull on login to restore data from server, then push local state. */
 export async function syncOnLogin(): Promise<void> {
   _loginSyncOwed = false;
+  await settleVault();
   try {
     await unlockVaultIfNeeded();
 
@@ -792,7 +796,8 @@ export function syncInBackground(forcePush = false): Promise<void> {
 
 /** Launch sync. A paused device skips it; resuming runs it then. */
 export async function syncOnLaunch(): Promise<void> {
-  if (!isSyncPaused()) await syncOnLogin();
+  if (isSyncPaused()) await settleVault();
+  else await syncOnLogin();
 }
 
 export function setSyncPaused(paused: boolean): void {

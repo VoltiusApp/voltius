@@ -861,6 +861,7 @@ export async function settleVaultOnDek(): Promise<void> {
   const { ensureIdentity } = await import("@/services/identity");
   const identity = await ensureIdentity().catch(() => null);
   if (!identity?.stored) return;
+  if (getVaultKey() !== vaultKey || useVaultKeysStore.getState().kek !== kek) return;
   if (await moveVaultToDek(kek, dek)) pushUnderNewVaultKey();
 }
 

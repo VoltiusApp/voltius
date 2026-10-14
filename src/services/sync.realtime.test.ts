@@ -10,7 +10,9 @@ const h = vi.hoisted(() => ({
   connect: undefined as unknown as Connect,
   events: new Map<string, () => void>(),
   chunk: (() => {}) as (text: string) => void,
+  settle: vi.fn(async () => {}),
 }));
+vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), settleVaultOnDek: h.settle }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({
@@ -39,6 +41,7 @@ import {
   syncInBackground,
   syncNow,
   syncOnLaunch,
+  syncOnLogin,
 } from "./sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -80,6 +83,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(Math, "random").mockReturnValue(0.5);
   h.connects.length = 0;
+  h.settle.mockReset().mockResolvedValue(undefined);
   h.connect = unreachable;
   h.events.clear();
   h.invoke.mockReset();
@@ -396,4 +400,31 @@ test("a stream whose catch-up sync keeps failing is retried at a growing interva
   await vi.advanceTimersByTimeAsync(34_000);
 
   expect(h.connects).toHaveLength(3);
+});
+
+test("a login settles the vault before the Pro and teams branching", async () => {
+  useSubscriptionStore.setState({ isPro: false });
+  await syncOnLogin();
+
+  expect(h.settle).toHaveBeenCalledTimes(1);
+});
+
+test("a paused launch still settles the vault, once", async () => {
+  setSyncPaused(true);
+  await syncOnLaunch();
+
+  expect(h.settle).toHaveBeenCalledTimes(1);
+  expect(deviceListFetches()).toBe(0);
+});
+
+test("a launch that syncs settles the vault once", async () => {
+  await syncOnLaunch();
+
+  expect(h.settle).toHaveBeenCalledTimes(1);
+});
+
+test("a failing settle does not fail the sync", async () => {
+  h.settle.mockRejectedValueOnce(new Error("rekey failed"));
+  await expect(syncOnLogin()).resolves.toBeUndefined();
+  expect(deviceListFetches()).toBe(1);
 });

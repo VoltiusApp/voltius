@@ -1054,6 +1054,7 @@ test("a vault stays on the kek while the identity is not stored", async () => {
   h.ensureIdentity.mockResolvedValueOnce({ privateKey: "", publicKey: "", proven: true, stored: false });
   await settleVaultOnDek();
   expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
 test("an offline device keeps its vault and its unlock", async () => {
@@ -1061,6 +1062,7 @@ test("an offline device keeps its vault and its unlock", async () => {
   h.ensureIdentity.mockRejectedValueOnce(new Error("offline"));
   await expect(settleVaultOnDek()).resolves.toBeUndefined();
   expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
 test("a vault already on the dek is left alone without asking for the identity", async () => {
@@ -1075,4 +1077,16 @@ test("a local account is never settled", async () => {
   h.store.mode = "local";
   await settleVaultOnDek();
   expect(h.ensureIdentity).not.toHaveBeenCalled();
+});
+
+test("an account switch while the identity resolves leaves the new account's vault alone", async () => {
+  kekVaultWithDek();
+  h.ensureIdentity.mockImplementationOnce(async () => {
+    h.sessionKey = [7, 7, 7];
+    h.kek = [7, 7, 7];
+    return { privateKey: btoa("id"), publicKey: "P", proven: true, stored: true };
+  });
+  await settleVaultOnDek();
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.setVaultKey).not.toHaveBeenCalled();
 });
