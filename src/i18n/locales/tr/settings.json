@@ -354,6 +354,7 @@
         "verifiedWithDevice": "Bu cihazda onaylandı",
         "deviceReason": "Ana parolanızı değiştirmek için onaylayın",
         "deviceFailed": "Bu cihaz kimliğinizi doğrulayamadı. Bunun yerine mevcut parolanızı girin.",
+        "deviceSignedOut": "Bu cihazın oturumu kapatıldı, büyük olasılıkla parola başka bir cihazda değiştirildi. Yeni parolayla yeniden oturum açın.",
         "newPlaceholder": "Yeni parola (en az 8 karakter)",
         "confirmPlaceholder": "Yeni parolayı doğrula",
         "errorCurrentRequired": "Mevcut parola gereklidir",

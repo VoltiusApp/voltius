@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { changeMasterPassword } from "@/services/account";
 import { canReadPasswordWithSystemAuth, readPasswordWithSystemAuth } from "@/services/vaultBinding";
+import { refreshAccessToken } from "@/services/authTokens";
 import { systemAuthMethodKey } from "@/hooks/useSystemAuthPrompt";
 import { usePlatform } from "@/utils/platform";
 import { INPUT_CLASS } from "@/components/layout/authParts";
@@ -46,6 +47,12 @@ export default function ChangeMasterPasswordModal({ twoFactorEnabled, onClose }:
   const verifyWithDevice = async () => {
     setVerifying(true);
     setError("");
+    // A password changed elsewhere revokes this session before its access token expires, leaving the stored one stale.
+    if ((await refreshAccessToken().catch(() => "failed" as const)) === "revoked") {
+      setVerifying(false);
+      setError(t("settings.account.changeMasterPassword.deviceSignedOut"));
+      return;
+    }
     const { outcome, password } = await readPasswordWithSystemAuth(t("settings.account.changeMasterPassword.deviceReason"));
     setVerifying(false);
     if (password) {

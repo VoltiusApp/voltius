@@ -242,6 +242,7 @@
         "verifiedWithDevice": "已在此设备上确认",
         "deviceReason": "确认以更改主密码",
         "deviceFailed": "此设备无法确认您的身份。请改为输入当前密码。",
+        "deviceSignedOut": "此设备已退出登录，可能是因为在其他设备上更改了密码。请使用新密码重新登录。",
         "newPlaceholder": "新密码（至少 8 个字符）",
         "confirmPlaceholder": "确认新密码",
         "errorCurrentRequired": "需要当前密码",

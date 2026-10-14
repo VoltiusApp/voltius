@@ -348,6 +348,7 @@
         "verifiedWithDevice": "Potvrzeno na tomto zařízení",
         "deviceReason": "Potvrďte změnu hlavního hesla",
         "deviceFailed": "Toto zařízení nemohlo potvrdit vaši totožnost. Zadejte raději aktuální heslo.",
+        "deviceSignedOut": "Toto zařízení bylo odhlášeno, nejspíš po změně hesla na jiném zařízení. Přihlaste se znovu novým heslem.",
         "newPlaceholder": "Nové heslo (min. 8 znaků)",
         "confirmPlaceholder": "Potvrďte nové heslo",
         "errorCurrentRequired": "Aktuální heslo je povinné",

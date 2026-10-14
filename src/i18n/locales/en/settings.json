@@ -348,6 +348,7 @@
         "verifiedWithDevice": "Confirmed on this device",
         "deviceReason": "Confirm to change your master password",
         "deviceFailed": "This device could not confirm it's you. Type your current password instead.",
+        "deviceSignedOut": "This device was signed out, likely after a password change on another device. Sign in again with the new password.",
         "newPlaceholder": "New password (min 8 chars)",
         "confirmPlaceholder": "Confirm new password",
         "errorCurrentRequired": "Current password is required",

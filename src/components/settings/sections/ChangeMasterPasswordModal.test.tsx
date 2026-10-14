@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   canRead: true,
   read: vi.fn(async (_reason: string) => ({ outcome: "ok", password: "stored-pw" as string | null })),
   change: vi.fn(async (_current: string, _next: string, _proof: unknown) => {}),
+  refresh: vi.fn(async () => ({ jwt: "J" }) as { jwt: string } | "revoked" | "failed"),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/utils/platform", async () => ({
   usePlatform: () => "windows",
 }));
 vi.mock("@/services/account", () => ({ changeMasterPassword: h.change }));
+vi.mock("@/services/authTokens", () => ({ refreshAccessToken: h.refresh }));
 vi.mock("@/services/vaultBinding", () => ({
   canReadPasswordWithSystemAuth: async () => h.canRead,
   readPasswordWithSystemAuth: h.read,
@@ -36,6 +38,8 @@ beforeEach(() => {
   h.read.mockReset();
   h.read.mockResolvedValue({ outcome: "ok", password: "stored-pw" });
   h.change.mockReset();
+  h.refresh.mockReset();
+  h.refresh.mockResolvedValue({ jwt: "J" });
 });
 afterEach(cleanup);
 
@@ -84,4 +88,22 @@ test("no device verification is offered without a prompt to show", async () => {
   h.canRead = false;
   await renderModal();
   expect(screen.queryByText(`${KEY}.verifyWithDevice`)).toBeNull();
+});
+
+test("a session revoked by a password change elsewhere is caught before any prompt", async () => {
+  h.refresh.mockResolvedValue("revoked");
+  await renderModal();
+  await act(async () => fireEvent.click(screen.getByText(`${KEY}.verifyWithDevice`)));
+
+  expect(h.read).not.toHaveBeenCalled();
+  expect(screen.getByText(`${KEY}.deviceSignedOut`)).toBeTruthy();
+  expect(screen.getByPlaceholderText(`${KEY}.currentPlaceholder`)).toBeTruthy();
+});
+
+test("an unreachable server does not block the device check", async () => {
+  h.refresh.mockResolvedValue("failed");
+  await renderModal();
+  await act(async () => fireEvent.click(screen.getByText(`${KEY}.verifyWithDevice`)));
+
+  expect(h.read).toHaveBeenCalled();
 });

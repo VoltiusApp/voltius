@@ -348,6 +348,7 @@
         "verifiedWithDevice": "Confirmé sur cet appareil",
         "deviceReason": "Confirmez pour changer votre mot de passe maître",
         "deviceFailed": "Cet appareil n'a pas pu confirmer votre identité. Saisissez plutôt votre mot de passe actuel.",
+        "deviceSignedOut": "Cet appareil a été déconnecté, sans doute après un changement de mot de passe sur un autre appareil. Reconnectez-vous avec le nouveau mot de passe.",
         "newPlaceholder": "Nouveau mot de passe (min 8 caractères)",
         "confirmPlaceholder": "Confirmer le nouveau mot de passe",
         "errorCurrentRequired": "Le mot de passe actuel est requis",
