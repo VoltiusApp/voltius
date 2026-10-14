@@ -421,6 +421,7 @@ export async function login(password: string, email?: string, serverUrl?: string
     return;
   }
 
+  const readStoredPassword = await passwordStoredBefore();
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
   // The local writes wait for the server: a sign-in left at the code step must not look like a local account.
   await serverLogin(
@@ -436,12 +437,13 @@ export async function login(password: string, email?: string, serverUrl?: string
       if (data.wrapped_user_secrets) {
         const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
         useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
+        await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
         // This device's secrets.enc may predate the split and still be kek-encrypted.
-        const opens = await keyThatOpensVault(unwrapped.dek, kek);
+        const opens = (await keyThatOpensVault(unwrapped.dek, kek))
+          ?? (await reopenWithStoredPassword(readStoredPassword, password, accountId, unwrapped.dek));
         // Server login proved the password, so this is an unreadable file, not a bad one.
         if (!opens) throw new VaultUnreadableError();
         setVaultKey(opens);
-        await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
       } else {
         // Legacy account — trigger one-time migration
         await migrateToWrappedUserSecrets(password, accountId, kek, reauth.serverUrl, data.jwt_token);
@@ -865,6 +867,38 @@ export async function settleVaultOnDek(): Promise<void> {
   if (await moveVaultToDek(kek, dek)) pushUnderNewVaultKey();
 }
 
+/** The password stored before a sign-in replaces it; a sealed one is read, with its prompt, only if needed. */
+async function passwordStoredBefore(): Promise<() => Promise<string | null>> {
+  const state = await secretState().catch(() => "none" as const);
+  if (state === "sealed") {
+    return async () => {
+      const read = await readSecret(i18n.t("layout.appLock.sealReason"));
+      return read.outcome === "ok" ? read.value : null;
+    };
+  }
+  const plain = state === "plain" ? await readPlainSecret().catch(() => null) : null;
+  return async () => plain;
+}
+
+/** A change made elsewhere leaves this vault on the old kek, which the password stored here still reaches. */
+async function reopenWithStoredPassword(
+  readStored: () => Promise<string | null>,
+  typed: string,
+  accountId: string,
+  dek: number[],
+): Promise<number[] | null> {
+  const stored = await readStored();
+  if (!stored || stored === typed) return null;
+  const { enc_key: oldKek } = await deriveKeys(stored, accountId);
+  if (!(await keyThatOpensVault(oldKek))) return null;
+  setVaultKey(oldKek);
+  const { ensureIdentity } = await import("@/services/identity");
+  await ensureIdentity().catch(() => null);
+  await moveVaultToDek(oldKek, dek);
+  pushUnderNewVaultKey();
+  return dek;
+}
+
 // The server commits before minting tokens, so only a 4xx or its own answer proves a change did not land.
 async function passwordChangeMayHaveLanded(res: Response | null, newWrapped: string): Promise<boolean> {
   if (res && res.status >= 400 && res.status < 500) return false;
@@ -911,7 +945,7 @@ export async function changeMasterPassword(
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
 
   const undoMove = await moveVaultToDek(old_kek, cachedDek);
-  // The team identity derives from the vault key, so a change that did not land must not keep the move.
+  // A change that did not land must leave the vault on the key the current password still reaches.
   const undoMoveUnlessLanded = async (res: Response | null) => {
     if (!undoMove || (await passwordChangeMayHaveLanded(res, new_wrapped_user_secrets))) return;
     await undoMove().catch((e) => console.warn("Putting the vault back on its old key failed:", e));
