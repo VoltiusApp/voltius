@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { setVerboseLogging, createBugReport } from "@/services/diagnostics";
 import { getLoggerVerbose } from "@/lib/logger";
 
@@ -31,7 +31,7 @@ export default function DiagnosticsSection() {
       const name = path.split(/[\\/]/).pop() ?? "report.zip";
       setReportState("done");
       addToast({
-        source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast",
+        source: APP_SOURCE, type: "toast",
         message: t("settings.diagnostics.toastSaved", { name }),
         severity: "success", duration: 4000,
       });
@@ -39,7 +39,7 @@ export default function DiagnosticsSection() {
     } catch (e) {
       setReportState("idle");
       addToast({
-        source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast",
+        source: APP_SOURCE, type: "toast",
         message: t("settings.diagnostics.toastError", { reason: String(e) }),
         severity: "error", duration: 6000,
       });

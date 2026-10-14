@@ -4,7 +4,7 @@ import type { NotificationSource } from "./notificationStore";
 
 const get = () => useNotificationStore.getState();
 const PLUGIN: NotificationSource = { kind: "plugin", id: "p1", name: "Plugin One" };
-const APP: NotificationSource = { kind: "app", area: "team" };
+const APP: NotificationSource = { kind: "app" };
 
 beforeEach(() => {
   useNotificationStore.setState({ toasts: [], banners: [], history: [] });

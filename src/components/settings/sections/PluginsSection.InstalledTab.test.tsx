@@ -36,7 +36,7 @@ vi.mock("@/stores/marketplaceStore", () => ({
     selector ? selector(marketplaceState) : marketplaceState,
   FIRST_PARTY_SOURCE,
 }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
 }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ getToggle: () => false, useToggle: () => false }));

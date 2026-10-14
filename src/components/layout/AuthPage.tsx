@@ -7,7 +7,7 @@ import {
   createServerAccount,
   login,
 } from "@/services/account";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
@@ -100,7 +100,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         const { quarantineVault } = await import("@/services/vault");
         const backup = await quarantineVault();
         addToast({
-          source: { kind: "plugin", id: "system", name: "Voltius" },
+          source: APP_SOURCE,
           type: "toast",
           message: t("layout.auth.vaultSetAsideToast", { file: backup }),
           severity: "info",
@@ -244,7 +244,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
           addToast({
-            source: { kind: "plugin", id: "system", name: "Voltius" },
+            source: APP_SOURCE,
             type: "toast",
             message: t("layout.auth.accountCreatedToast"),
             severity: "info",

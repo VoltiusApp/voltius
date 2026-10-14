@@ -56,13 +56,13 @@ export function installGlobalErrorLogging(): void {
     // the notification UI into their module graph (a partial `react-i18next`
     // mock in one panel test broke the moment they did).
     void (async () => {
-      const [{ default: i18n }, { useNotificationStore }, { useUIStore }] = await Promise.all([
+      const [{ default: i18n }, { APP_SOURCE, useNotificationStore }, { useUIStore }] = await Promise.all([
         import("@/i18n"),
         import("@/stores/notificationStore"),
         import("@/stores/uiStore"),
       ]);
       useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "core", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: i18n.t("settings.diagnostics.toastGenericError"),
         severity: "error",

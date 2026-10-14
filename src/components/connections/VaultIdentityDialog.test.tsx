@@ -12,7 +12,7 @@ vi.mock("@/stores/identityPickStore", () => ({
 }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: (sel: (s: unknown) => unknown) => sel({ teams: [{ id: "t1", name: "Ops" }] }) }));
 
-vi.mock("@/stores/notificationStore", () => ({ useNotificationStore: { getState: () => ({ addToast: h.addToast }) } }));
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" }, useNotificationStore: { getState: () => ({ addToast: h.addToast }) } }));
 
 import { VaultIdentityDialog } from "./VaultIdentityDialog";
 

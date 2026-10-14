@@ -3,7 +3,7 @@ import { useNotificationStore } from "./notificationStore";
 import type { NotificationSource } from "./notificationStore";
 
 const get = () => useNotificationStore.getState();
-const APP: NotificationSource = { kind: "app", area: "team" };
+const APP: NotificationSource = { kind: "app" };
 
 function entry(id: string, message = "m", actions: Array<{ label: string; run: () => Promise<void> }> = []) {
   return { id, source: APP, kind: "invite" as const, message, actions };

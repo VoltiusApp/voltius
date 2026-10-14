@@ -9,7 +9,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/account", () => ({ getAppLock: async () => null, setAppLock: async () => {} }));
 
 import { NotificationToastContainer } from "./NotificationToastContainer";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useAppLockStore } from "@/stores/appLockStore";
 
 afterEach(() => {
@@ -21,7 +21,7 @@ afterEach(() => {
 function addToast() {
   act(() => {
     useNotificationStore.getState().addToast({
-      source: { kind: "plugin", id: "system", name: "Voltius" },
+      source: APP_SOURCE,
       type: "toast",
       message: "session to prod-db closed",
       severity: "info",

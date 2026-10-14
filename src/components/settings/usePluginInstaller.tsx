@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { pluginInstallErrorMessage } from "@/plugins/installErrors";
 import { addedPermissions } from "@/plugins/updates";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
@@ -32,7 +32,7 @@ export function usePluginInstaller() {
   const notifyError = (e: unknown) => {
     const { key, params } = pluginInstallErrorMessage(e, "settings.plugins.install.failed");
     useNotificationStore.getState().addToast({
-      source: { kind: "plugin", id: "system", name: "Voltius" },
+      source: APP_SOURCE,
       type: "toast",
       severity: "error",
       message: t(key, params),

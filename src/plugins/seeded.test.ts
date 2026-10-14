@@ -27,7 +27,7 @@ vi.mock("./importPluginModule", () => ({
   pluginRegisterOf: (_mod: unknown) => () => {},
 }));
 vi.mock("./gatedPermissions", () => ({ requiresInstallConsent: consentSpy }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addBanner }) },
 }));
 vi.mock("@/stores/uiStore", () => ({ useUIStore: { getState: () => ({ openSettings: () => {} }) } }));
@@ -165,7 +165,7 @@ describe("loadSeededPlugins", () => {
       expect(addBanner).toHaveBeenCalledOnce();
       expect(addBanner.mock.calls[0][0]).toMatchObject({
         severity: "error",
-        source: { kind: "plugin", id: "core" },
+        source: { kind: "app" },
       });
     });
 

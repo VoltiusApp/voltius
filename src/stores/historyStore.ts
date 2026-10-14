@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { describeError } from "@/services/backendErrors";
 
 export interface HistoryEntry {
@@ -78,7 +78,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
         future: s.future.slice(1),
       }));
       useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "core:history", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: i18n.t("common.toast.undoFailed", { error: describeError(err, i18n.t) }),
         severity: "error",
@@ -108,7 +108,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
         future: [entry, ...s.future],
       }));
       useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "core:history", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: i18n.t("common.toast.redoFailed", { error: describeError(err, i18n.t) }),
         severity: "error",

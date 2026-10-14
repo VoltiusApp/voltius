@@ -19,7 +19,7 @@ vi.mock("@/services/keyExport", () => ({
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: () => ({ connections: h.connections, loadConnections: vi.fn(async () => {}) }),
 }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast: h.addToast }) },
 }));
 vi.mock("./KeyCards", () => ({ KeyCardContent: () => null }));

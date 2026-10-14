@@ -4,7 +4,7 @@ import { importPluginModule, pluginRegisterOf, type PluginModule } from "./impor
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useSeededTombstoneStore } from "@/stores/seededTombstoneStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
 import { log } from "@/lib/logger";
 import i18n from "@/i18n";
@@ -67,7 +67,7 @@ export async function loadSeededPlugins(): Promise<void> {
   if (loaded === 0 && failed > 0) {
     log.error(`[seeded] no built-in plugin loaded (${failed} failed)`, String(firstError));
     useNotificationStore.getState().addBanner({
-      source: { kind: "plugin", id: "core", name: "Voltius" },
+      source: APP_SOURCE,
       message: i18n.t("notifications.seededPluginsFailed.message"),
       severity: "error",
       dismissable: true,

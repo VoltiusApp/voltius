@@ -13,7 +13,7 @@ import { useCanConnect } from "@/hooks/useCanConnect";
 import { isTeamVaultId } from "@/stores/teamVaultMap";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useEffectivePinned } from "@/hooks/useEffectivePinned";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
@@ -100,7 +100,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
     ...(canConnect && !isSerial ? [{ icon: "lucide:folder-open", label: fileOnly ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: fileOnly ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
     ...(conn.host ? [{ icon: "lucide:clipboard-copy", label: t("mobile.sheets.hostActions.copyAddress"), slug: "copy-address", onTap: () => {
       void writeClipboard(conn.host);
-      useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast", message: t("mobile.sheets.hostActions.copiedAddress", { host: conn.host }), severity: "success", duration: 2000 });
+      useNotificationStore.getState().addToast({ source: APP_SOURCE, type: "toast", message: t("mobile.sheets.hostActions.copiedAddress", { host: conn.host }), severity: "success", duration: 2000 });
       closeSheet();
     } }] : []),
     ...(canEdit ? [

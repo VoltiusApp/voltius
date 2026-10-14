@@ -13,7 +13,7 @@ vi.mock("@/services/account", () => ({
   createServerAccount: vi.fn(),
   login: vi.fn(),
 }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: (sel: (s: unknown) => unknown) => sel({ addToast: vi.fn() }),
 }));
 vi.mock("@/components/shared/VaultBackups", () => ({

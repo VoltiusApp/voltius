@@ -49,7 +49,7 @@ test("an entry the link names is scrolled to and the focus is cleared", () => {
         kind: "invite",
         message: "an invitation",
         actions: [],
-        source: { kind: "app", area: "team" },
+        source: { kind: "app" },
         state: "pending",
         createdAt: Date.now(),
       },

@@ -5,7 +5,7 @@ import { useRipple } from "@/hooks/useRipple";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "@/services/keyExport";
 import { ensurePublicKey } from "@/services/publicKeyStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { statusSurface } from "@/components/shared/statusSurface";
 import { chevronRotateStyle } from "@/utils/icons";
 import {
@@ -82,7 +82,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
       await addKeyToHost({ sshKey, connection: selectedHost, location, filename, script });
       // Said where the eye already is rather than in a panel that is closing.
       useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: t("keychain.exportPanel.successMessage"),
         severity: "success",

@@ -12,7 +12,7 @@ import { useMcpOwnershipStore } from "@/stores/mcpOwnershipStore";
 import { McpMark, mcpOwnerTitle, mcpTint } from "@/components/shared/McpMark";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { findLeaf, findSessionPane, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useConnection } from "@/hooks/useAllConnections";
@@ -233,7 +233,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     const candidate = sessions.find((s) => !findSessionPane(splitTabs, s.id));
     if (!candidate) {
       useNotificationStore.getState().addToast({
-        source: { kind: "plugin", id: "core", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: t("panes.header.noSessionToSplit"),
         severity: "info",

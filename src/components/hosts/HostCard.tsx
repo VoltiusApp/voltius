@@ -26,7 +26,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import type { TeamMember } from "@/stores/teamStore";
 import { isFileOnlyProtocol, protocolLabel } from "@/utils/connectionType";
 import {
@@ -169,7 +169,7 @@ export default function HostCard({
       onClick: () => {
         void writeClipboard(connection.host);
         useNotificationStore.getState().addToast({
-          source: { kind: "plugin", id: "core", name: "Voltius" },
+          source: APP_SOURCE,
           type: "toast",
           message: t("hosts.card.copiedHost", { host: connection.host }),
           severity: "success",

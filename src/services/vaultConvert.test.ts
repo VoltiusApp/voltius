@@ -18,7 +18,7 @@ vi.mock("@/services/teamService", () => ({ createTeam: h.createTeam, deleteTeam:
 vi.mock("@/services/teamOffboarding", () => ({ markSelfDeparture: h.markSelfDeparture }));
 vi.mock("@/services/vaultTeamMigration", () => ({ migrateVaultToTeam: h.migrateVaultToTeam }));
 vi.mock("@/services/teamVaultSync", () => ({ initTeamVaultKey: h.initTeamVaultKey }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast: h.addToast, updateToast: h.updateToast }) },
 }));
 

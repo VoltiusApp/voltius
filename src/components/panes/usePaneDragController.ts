@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import i18n from "@/i18n";
 import { shouldSuppressDragClick, useDragStore } from "@/stores/dragStore";
 import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { duplicateSession } from "@/services/duplicateSession";
 import { activateSplitTabPane } from "@/services/tabActivation";
@@ -41,7 +41,7 @@ export function usePaneDragController() {
           const duplicated = duplicateSession(drag.sessionId, drag.dropTarget.position, anchor);
           if (!duplicated) {
             useNotificationStore.getState().addToast({
-              source: { kind: "plugin", id: "core", name: "Voltius" },
+              source: APP_SOURCE,
               type: "toast",
               message: i18n.t("panes.dragToast.cannotDuplicate"),
               severity: "info",
@@ -74,7 +74,7 @@ export function usePaneDragController() {
           if (existing) {
             activateSplitTabPane(existing.tabId, existing.paneId);
             useNotificationStore.getState().addToast({
-              source: { kind: "plugin", id: "core", name: "Voltius" },
+              source: APP_SOURCE,
               type: "toast",
               message: i18n.t("panes.dragToast.alreadyVisible"),
               severity: "info",
@@ -88,7 +88,7 @@ export function usePaneDragController() {
             useSessionStore.getState().setActive(drag.sessionId);
           } else {
             useNotificationStore.getState().addToast({
-              source: { kind: "plugin", id: "core", name: "Voltius" },
+              source: APP_SOURCE,
               type: "toast",
               message: i18n.t("panes.dragToast.invalidDropTarget"),
               severity: "info",

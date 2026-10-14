@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { resendVerificationEmail } from "@/services/account";
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from "@/services/billingCheckout";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 
 export function EmailVerificationRequiredModal() {
   const { t } = useTranslation();
@@ -24,7 +24,7 @@ export function EmailVerificationRequiredModal() {
     try {
       await resendVerificationEmail();
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: t("notifications.emailVerification.toast.sent"),
         severity: "success",
@@ -32,7 +32,7 @@ export function EmailVerificationRequiredModal() {
       });
     } catch (e) {
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: e instanceof Error ? e.message : t("notifications.emailVerification.toast.sendFailed"),
         severity: "error",

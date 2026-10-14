@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useKnownHostStore } from "@/stores/knownHostStore";
 import { useVaultStore } from "@/stores/vaultStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { writeClipboard } from "@/utils/clipboard";
 import type { KnownHost } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
@@ -66,7 +66,7 @@ export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHo
       slug: "copy-fingerprint",
       onTap: () => {
         void writeClipboard(host.fingerprint);
-        useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast", message: t("mobile.sheets.knownHostActions.copiedFingerprint"), severity: "success", duration: 2000 });
+        useNotificationStore.getState().addToast({ source: APP_SOURCE, type: "toast", message: t("mobile.sheets.knownHostActions.copiedFingerprint"), severity: "success", duration: 2000 });
         onClose();
       },
     },

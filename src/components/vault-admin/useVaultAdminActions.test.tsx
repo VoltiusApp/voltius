@@ -74,7 +74,7 @@ vi.mock("@/services/teamVaultSync", () => ({
   fetchTeamData: h.fetchTeamData,
   clearTeamKeyCache: h.clearTeamKeyCache,
 }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast: h.addToast }) },
 }));
 

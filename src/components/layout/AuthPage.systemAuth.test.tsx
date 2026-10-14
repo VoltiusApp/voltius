@@ -23,7 +23,7 @@ vi.mock("@/services/account", () => ({
   createLocalAccountNoPassword: vi.fn(),
   createServerAccount: vi.fn(),
 }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: (sel: (s: unknown) => unknown) => sel({ addToast: vi.fn() }),
 }));
 vi.mock("@/utils/platform", () => ({ usePlatform: () => "windows" }));

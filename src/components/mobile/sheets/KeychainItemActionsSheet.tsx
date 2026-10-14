@@ -4,7 +4,7 @@ import BottomSheet from "./BottomSheet";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useAllFolders } from "@/hooks/useAllFolders";
@@ -25,7 +25,7 @@ type Props =
   | { kind: "identity"; item: Identity; onClose: () => void };
 
 function toast(message: string, severity: "success" | "error") {
-  useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "core", name: "Voltius" }, type: "toast", message, severity, duration: 2000 });
+  useNotificationStore.getState().addToast({ source: APP_SOURCE, type: "toast", message, severity, duration: 2000 });
 }
 
 export default function KeychainItemActionsSheet(props: Props) {

@@ -13,7 +13,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useCopyHandle } from "@/hooks/useCopyHandle";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { canLockApp } from "@/utils/accountMode";
@@ -85,7 +85,7 @@ export function SidebarAccountButton() {
 
   const reportAccountError = (key: "switchFailed" | "saveFailed", e: unknown) => {
     useNotificationStore.getState().addToast({
-      source: { kind: "plugin", id: "system", name: "Voltius" },
+      source: APP_SOURCE,
       type: "toast",
       message: t(`layout.sidebarAccount.${key}`, { error: e instanceof Error ? e.message : String(e) }),
       severity: "error",

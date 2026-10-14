@@ -164,10 +164,10 @@ async function tryRefreshJwt(): Promise<string | null> {
   }
 
   if (wasProBefore && !isProNow) {
-    const { useNotificationStore } = await import("@/stores/notificationStore");
+    const { APP_SOURCE, useNotificationStore } = await import("@/stores/notificationStore");
     const { useUIStore } = await import("@/stores/uiStore");
     useNotificationStore.getState().addToast({
-      source: { kind: "plugin", id: "system", name: "Voltius" },
+      source: APP_SOURCE,
       type: "toast",
       message: i18n.t("common.toast.proSubscriptionEnded"),
       severity: "warning",

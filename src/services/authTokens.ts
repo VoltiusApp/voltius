@@ -32,14 +32,14 @@ export function clearSessionRevoked(): void {
 }
 
 async function announceSessionRevoked(): Promise<void> {
-  const [{ useNotificationStore }, { useUIStore }, { default: i18n }] = await Promise.all([
+  const [{ APP_SOURCE, useNotificationStore }, { useUIStore }, { default: i18n }] = await Promise.all([
     import("@/stores/notificationStore"),
     import("@/stores/uiStore"),
     import("@/i18n"),
   ]);
   if (!revoked || revokedToast) return;
   revokedToast = useNotificationStore.getState().addToast({
-    source: { kind: "plugin", id: "system", name: "Voltius" },
+    source: APP_SOURCE,
     type: "toast",
     message: i18n.t("common.toast.sessionRevoked"),
     severity: "warning",

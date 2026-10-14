@@ -12,7 +12,7 @@ vi.mock("@tauri-apps/plugin-log", () => ({
 const addToast = vi.fn();
 const openSettings = vi.fn();
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast }) },
 }));
 vi.mock("@/stores/uiStore", () => ({

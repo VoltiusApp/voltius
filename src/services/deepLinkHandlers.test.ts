@@ -39,7 +39,7 @@ vi.mock("@/services/savedAccounts", () => ({
 }));
 
 const addToast = vi.fn();
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast }) },
 }));
 

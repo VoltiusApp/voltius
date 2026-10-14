@@ -117,7 +117,7 @@ test("an invite that vanishes from the source is retracted", () => {
 test("reconciling does not touch non-invite entries", () => {
   get().upsertInbox({
     id: "session:s1",
-    source: { kind: "app", area: "team" },
+    source: { kind: "app" },
     kind: "sessionShared",
     message: "m",
     actions: [],

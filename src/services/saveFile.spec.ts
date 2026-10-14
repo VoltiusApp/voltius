@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ invoke: vi.fn(), save: vi.fn(), addToast: vi.fn(), mobile: false }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: h.save }));
-vi.mock("@/stores/notificationStore", () => ({ useNotificationStore: { getState: () => ({ addToast: h.addToast }) } }));
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" }, useNotificationStore: { getState: () => ({ addToast: h.addToast }) } }));
 vi.mock("@/utils/platform", () => ({ isMobileShell: () => h.mobile }));
 
 import { saveTextFile } from "./saveFile";

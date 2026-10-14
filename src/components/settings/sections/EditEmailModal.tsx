@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { changeEmail } from "@/services/account";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { FormButtons, SettingsDialog, SettingsInput } from "./shared";
 
 interface Props {
@@ -39,7 +39,7 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
       await changeEmail(newEmail, password);
       setDone(true);
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: t("settings.account.editEmail.toastVerification", { email: newEmail }),
         severity: "info",

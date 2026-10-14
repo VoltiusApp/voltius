@@ -1,5 +1,5 @@
 import i18n from "@/i18n";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import type { InboxAction, InboxEntry, InboxKind } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -17,8 +17,6 @@ import type { MyPendingInvitation } from "@/services/teamService";
 import type { ActiveSession } from "@/services/multiplayerService";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { resolvePeerName } from "@/services/peerName";
-
-const APP_SOURCE = { kind: "app", area: "team" } as const;
 
 // Deny has no server-side state to delete: the connection still reports the
 // requester, so without this the next reconcile re-derives the entry and

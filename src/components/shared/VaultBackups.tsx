@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { listVaultBackups, restoreVaultBackup, type VaultBackup } from "@/services/vault";
 import { formatSize } from "@/components/filetransfer/SFTPTypes";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { formatDateTime } from "@/utils/localeFormat";
 import { describeError } from "@/services/backendErrors";
 
@@ -43,7 +43,7 @@ export function VaultBackups({ currentReadable, hideWhenEmpty, className }: Prop
     try {
       const setAside = await restoreVaultBackup(file);
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: setAside
           ? t("shared.vaultBackups.restoredToast", { file: setAside })

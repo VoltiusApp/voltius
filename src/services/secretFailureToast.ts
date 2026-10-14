@@ -1,5 +1,5 @@
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 
 export function toastSecretFailure(message: string, severity: "warning" | "error" = "error"): void {
-  useNotificationStore.getState().addToast({ source: { kind: "plugin", id: "system", name: "Voltius" }, type: "toast", message, severity, duration: 10000 });
+  useNotificationStore.getState().addToast({ source: APP_SOURCE, type: "toast", message, severity, duration: 10000 });
 }

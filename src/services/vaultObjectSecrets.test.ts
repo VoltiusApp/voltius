@@ -10,7 +10,7 @@ vi.mock("@/services/secretRouting", () => ({
 }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/lib/logger", () => ({ logFailure: () => h.logged }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast: h.addToast }) },
 }));
 vi.mock("@/stores/teamVaultStateStore", () => ({

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import i18n from "@/i18n";
 import { isNavPageVisible } from "@/utils/navPageVisible";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import {
   pasteFromClipboard,
@@ -29,7 +29,7 @@ export interface PageClipboardAdapter extends ClipboardAdapter {
 
 function toast(message: string, severity: "warning" | "error" = "warning") {
   useNotificationStore.getState().addToast({
-    source: { kind: "plugin", id: "system", name: "Voltius" },
+    source: APP_SOURCE,
     type: "toast",
     message,
     severity,

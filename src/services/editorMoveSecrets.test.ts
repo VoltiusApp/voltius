@@ -56,7 +56,7 @@ vi.mock("@/stores/pendingTeamSecretUploadStore", () => ({
 vi.mock("@/stores/teamVaultStateStore", () => ({
   useTeamVaultStateStore: { getState: () => ({ credentialsUnavailableByTeamId: h.unavailable }) },
 }));
-vi.mock("@/stores/notificationStore", () => ({ useNotificationStore: { getState: () => ({ addToast: h.addToast, toasts: [] }) } }));
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" }, useNotificationStore: { getState: () => ({ addToast: h.addToast, toasts: [] }) } }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/lib/logger", () => ({ logFailure: () => () => {} }));
 

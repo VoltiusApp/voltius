@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { EMAIL_CHANGED_EVENT, getCurrentUserEmail, getMe, refreshVerificationState, resendVerificationEmail } from "@/services/account";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { EmailUndeliverableError } from "@/utils/emailVerification";
@@ -35,7 +35,7 @@ export function EmailVerificationBanner() {
     try {
       await resendVerificationEmail();
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: t("notifications.emailVerification.toast.sent"),
         severity: "success",
@@ -44,7 +44,7 @@ export function EmailVerificationBanner() {
     } catch (e) {
       if (e instanceof EmailUndeliverableError) setUndeliverable(true);
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: e instanceof Error ? e.message : t("notifications.emailVerification.toast.sendFailed"),
         severity: "error",
@@ -61,7 +61,7 @@ export function EmailVerificationBanner() {
       await refreshVerificationState();
     } catch (e) {
       addToast({
-        source: { kind: "plugin", id: "system", name: "Voltius" },
+        source: APP_SOURCE,
         type: "toast",
         message: e instanceof Error ? e.message : t("notifications.emailVerification.toast.refreshFailed"),
         severity: "error",

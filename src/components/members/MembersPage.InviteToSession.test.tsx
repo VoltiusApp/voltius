@@ -114,7 +114,7 @@ vi.mock("@/stores/teamVaultStateStore", () => ({ useTeamVaultStateStore: { getSt
 // Real runTeamAction + a stubbed notification store: exercises the actual
 // toast/error affordance instead of a passthrough mock, so a rejected
 // invite failing to surface an error is a real regression, not a vacuous one.
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: { getState: () => ({ addToast: h.addToast, updateToast: h.updateToast }) },
 }));
 

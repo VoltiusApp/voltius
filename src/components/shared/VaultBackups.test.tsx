@@ -18,7 +18,7 @@ vi.mock("@/services/vault", () => ({
   listVaultBackups: h.list,
   restoreVaultBackup: h.restore,
 }));
-vi.mock("@/stores/notificationStore", () => ({
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: (sel: (s: unknown) => unknown) => sel({ addToast: h.addToast }),
 }));
 

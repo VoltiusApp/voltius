@@ -22,9 +22,9 @@ export function deselectVault(id: string) {
 }
 
 async function vaultToast(message: string, severity: "info" | "error") {
-  const { useNotificationStore } = await import("@/stores/notificationStore");
+  const { APP_SOURCE, useNotificationStore } = await import("@/stores/notificationStore");
   useNotificationStore.getState().addToast({
-    source: { kind: "plugin", id: "system", name: "Voltius" }, type: "toast",
+    source: APP_SOURCE, type: "toast",
     message, severity, duration: severity === "error" ? 6000 : 3000,
   });
 }

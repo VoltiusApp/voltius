@@ -12,7 +12,7 @@ vi.mock("@iconify/react", () => ({
 vi.mock("@/stores/keyStore", () => ({ useKeyStore: Object.assign(() => vi.fn(), { getState: () => ({ loadKeys: vi.fn() }) }) }));
 vi.mock("@/stores/identityStore", () => ({ useIdentityStore: Object.assign(() => vi.fn(), { getState: () => ({ loadIdentities: vi.fn() }) }) }));
 vi.mock("@/stores/folderStore", () => ({ useFolderStore: () => vi.fn() }));
-vi.mock("@/stores/notificationStore", () => ({ useNotificationStore: { getState: () => ({ addToast: vi.fn() }) } }));
+vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" }, useNotificationStore: { getState: () => ({ addToast: vi.fn() }) } }));
 vi.mock("@/hooks/useAllFolders", () => ({ useAllFolders: () => [] }));
 vi.mock("@/services/publicKeyStore", () => ({ ensurePublicKey: vi.fn() }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn() }));

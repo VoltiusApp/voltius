@@ -1,4 +1,4 @@
-import { useNotificationStore } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 
 export interface TeamActionFeedbackOptions<T> {
   pending: string;
@@ -15,7 +15,7 @@ export async function runTeamAction<T>({
 }: TeamActionFeedbackOptions<T>): Promise<T> {
   const store = useNotificationStore.getState();
   const toastId = store.addToast({
-    source: { kind: "plugin", id: "system", name: "Voltius" },
+    source: APP_SOURCE,
     type: "progress",
     message: pending,
     severity: "info",
