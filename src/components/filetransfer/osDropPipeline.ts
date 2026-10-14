@@ -2,7 +2,7 @@ import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import {
   sftpUploadBatchTar, sftpDownloadBatchTar,
-  sftpExists, fsExists,
+  sftpExists, fsExists, pickLocalPath,
 } from "@/services/sftp";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
@@ -64,6 +64,12 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
       transferId: tid,
     }), target.onRefresh, accelFor(mode, file.isDir));
   }
+}
+
+/** Ask for a local folder, then queue the download of `files` into it. */
+export async function downloadToPickedFolder(files: FileEntry[], sftpId: string): Promise<void> {
+  const dstDir = await pickLocalPath({ directory: true, title: i18n.t("terminal.sftp.downloadDialogTitle") });
+  if (dstDir) await downloadToLocal(files, sftpId, dstDir);
 }
 
 export async function downloadToLocal(files: FileEntry[], sftpId: string, localDir: string): Promise<void> {

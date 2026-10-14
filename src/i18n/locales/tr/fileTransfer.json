@@ -184,6 +184,18 @@
           "binary": "İkili dosya — düzenlenemez. Bunun yerine dosyayı indirin."
         }
       },
+      "image": {
+        "fit": "Sığdır",
+        "toggleFit": "Sekmeye sığdır veya gerçek boyutu göster (0 / 1)",
+        "zoomIn": "Yakınlaştır (+)",
+        "zoomOut": "Uzaklaştır (−)",
+        "copy": "Görseli kopyala",
+        "copied": "Görsel panoya kopyalandı",
+        "copyFailed": "Görsel kopyalanamadı: {{error}}",
+        "download": "İndir",
+        "tooLarge": "Bu görsel {{size}}, {{limit}} önizleme sınırının üzerinde.",
+        "previewAnyway": "Yine de önizle"
+      },
       "tabStrip": {
         "filesTab": "Dosyalar",
         "pendingNameFallback": "bu dosya",

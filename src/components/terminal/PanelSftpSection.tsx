@@ -7,17 +7,16 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePanelSftpStore } from "@/stores/panelSftpStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { openEditorFile } from "@/components/filetransfer/editor/openEditorFile";
 import { useUIStore } from "@/stores/uiStore";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import {
-  pickLocalPath, pickLocalPaths,
+  pickLocalPaths,
   sftpRename, sftpDelete, sftpExists, fsRename, fsDelete, fsExists,
 } from "@/services/sftp";
 import { FilePane } from "@/components/filetransfer/FilePane";
 import { TransferQueue } from "@/components/filetransfer/TransferQueue";
 import { runIntraPaneMove } from "@/components/filetransfer/moveService";
-import { triggerOsDrop, triggerUpload, downloadToLocal } from "@/components/filetransfer/osDropPipeline";
+import { triggerOsDrop, triggerUpload, downloadToPickedFolder } from "@/components/filetransfer/osDropPipeline";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "@/components/filetransfer/internalDrag";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "@/components/filetransfer/pasteService";
@@ -167,8 +166,7 @@ export default function PanelSftpSection() {
   const canDownload = panelState?.tag === "connected" && !panelState.isLocal && selected.length > 0;
   const downloadFiles = useCallback(async (files: FileEntry[]) => {
     if (files.length === 0 || panelState?.tag !== "connected" || panelState.isLocal || !panelState.sftpId) return;
-    const dstDir = await pickLocalPath({ directory: true, title: t("terminal.sftp.downloadDialogTitle") });
-    if (dstDir) await downloadToLocal(files, panelState.sftpId, dstDir);
+    await downloadToPickedFolder(files, panelState.sftpId);
   }, [panelState]);
   const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
@@ -205,12 +203,7 @@ export default function PanelSftpSection() {
 
   const handleEdit = useCallback((path: string) => {
     if (panelState?.tag !== "connected") return;
-    useEditorStore.getState().openDoc({
-      sftpId: panelState.isLocal ? null : panelState.sftpId,
-      path,
-      hostLabel: panelHostLabel,
-      autoSave: useSftpSettingsStore.getState().editorAutoSave,
-    });
+    openEditorFile({ sftpId: panelState.isLocal ? null : panelState.sftpId, path, hostLabel: panelHostLabel });
     useUIStore.getState().setSftpPanelOpen(true);
   }, [panelState, panelHostLabel]);
 

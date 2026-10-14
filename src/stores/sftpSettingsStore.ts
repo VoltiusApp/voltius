@@ -6,8 +6,11 @@ import {
   type ColumnWidths, type VisibleCols,
 } from "@/components/filetransfer/SFTPTypes";
 
+import { DEFAULT_EDITOR_MAX_BYTES } from "@/services/editorLimits";
+
+export { DEFAULT_EDITOR_MAX_BYTES };
+
 export const DEFAULT_AUTO_REFRESH_INTERVAL_MS = 2000;
-export const DEFAULT_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
 
 interface SftpSettingsStore {
   autoRefreshIntervalMs: number;

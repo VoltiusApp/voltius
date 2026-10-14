@@ -198,6 +198,18 @@
           "binary": "Fichier binaire — édition impossible. Téléchargez-le à la place."
         }
       },
+      "image": {
+        "fit": "Ajuster",
+        "toggleFit": "Ajuster à l'onglet ou taille réelle (0 / 1)",
+        "zoomIn": "Zoom avant (+)",
+        "zoomOut": "Zoom arrière (−)",
+        "copy": "Copier l'image",
+        "copied": "Image copiée dans le presse-papiers",
+        "copyFailed": "Impossible de copier l'image : {{error}}",
+        "download": "Télécharger",
+        "tooLarge": "Cette image fait {{size}}, au-delà de la limite d'aperçu de {{limit}}.",
+        "previewAnyway": "Afficher quand même"
+      },
       "tabStrip": {
         "filesTab": "Fichiers",
         "pendingNameFallback": "ce fichier",

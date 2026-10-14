@@ -9,6 +9,8 @@ import { shouldHandleSaveKey } from "./editorSaveKey";
 import { useCmTheme } from "./useCmTheme";
 import { IconBtn } from "@/components/filetransfer/FilePane";
 import { Toggle } from "@/components/shared/Toggle";
+import { ImageView } from "./ImageView";
+import { looksLikeImage } from "./tabIcon";
 
 export function createDebouncedSaver(
   save: (content: string) => Promise<void>,
@@ -53,6 +55,7 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
   const [error, setError] = useState<EditorReadError | string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [asImage, setAsImage] = useState(() => doc.image === true || looksLikeImage(doc.path));
   const lastSaved = useRef<string>("");
 
   const themeExt = useCmTheme();
@@ -80,6 +83,7 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
   const saverRef = useRef(createDebouncedSaver(doSave, 1000));
 
   useEffect(() => {
+    if (asImage) return;
     let cancelled = false;
     setError(null);
     setSaveError(null);
@@ -93,7 +97,8 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
       })
       .catch((e: EditorReadError) => {
         if (cancelled) return;
-        setError(e);
+        if (e.kind === "image") setAsImage(true);
+        else setError(e);
         setLoading(false);
       });
     const saver = saverRef.current;
@@ -102,7 +107,7 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
       saver.cancel();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.id]);
+  }, [doc.id, asImage]);
 
   const onChange = (next: string) => {
     setContent(next);
@@ -111,6 +116,8 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
   };
 
   useEffect(() => {
+    // Without loaded text the buffer is empty, and saving it would wipe the file.
+    if (asImage || loading || error) return;
     const onKey = (e: KeyboardEvent) => {
       // Every mounted EditorTab shares the window; only the active tab saves.
       const isActive = useEditorStore.getState().activeTabId === doc.id;
@@ -123,8 +130,9 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+  }, [content, asImage, loading, error]);
 
+  if (asImage) return <ImageView doc={doc} onNotImage={() => setAsImage(false)} />;
   if (error) return <EditorError error={error} sftpId={doc.sftpId} path={doc.path} />;
   if (loading) return <div className="p-4 text-sm" style={{ color: "var(--t-text-dim)" }}>{t("common.state.loading")}</div>;
 

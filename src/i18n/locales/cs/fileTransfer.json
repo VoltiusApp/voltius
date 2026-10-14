@@ -214,6 +214,18 @@
           "binary": "Binární soubor — nelze upravit. Místo toho ho stáhněte."
         }
       },
+      "image": {
+        "fit": "Přizpůsobit",
+        "toggleFit": "Přizpůsobit kartě nebo skutečná velikost (0 / 1)",
+        "zoomIn": "Přiblížit (+)",
+        "zoomOut": "Oddálit (−)",
+        "copy": "Kopírovat obrázek",
+        "copied": "Obrázek zkopírován do schránky",
+        "copyFailed": "Obrázek se nepodařilo zkopírovat: {{error}}",
+        "download": "Stáhnout",
+        "tooLarge": "Tento obrázek má {{size}}, což je nad limitem náhledu {{limit}}.",
+        "previewAnyway": "Přesto zobrazit"
+      },
       "tabStrip": {
         "filesTab": "Soubory",
         "pendingNameFallback": "tento soubor",

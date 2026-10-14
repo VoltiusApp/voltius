@@ -183,6 +183,18 @@
           "binary": "二进制文件——无法编辑。请改为下载。"
         }
       },
+      "image": {
+        "fit": "适应",
+        "toggleFit": "适应标签页或显示实际大小（0 / 1）",
+        "zoomIn": "放大 (+)",
+        "zoomOut": "缩小 (−)",
+        "copy": "复制图片",
+        "copied": "图片已复制到剪贴板",
+        "copyFailed": "无法复制图片：{{error}}",
+        "download": "下载",
+        "tooLarge": "此图片大小为 {{size}}，超过 {{limit}} 的预览上限。",
+        "previewAnyway": "仍然预览"
+      },
       "tabStrip": {
         "filesTab": "文件",
         "pendingNameFallback": "此文件",

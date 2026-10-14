@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tabIcon } from "./tabIcon";
+import { looksLikeImage, tabIcon } from "./tabIcon";
 import type { EditorDoc, DiffDoc } from "@/stores/editorStore";
 
 const file = (path: string): EditorDoc => ({
@@ -22,5 +22,18 @@ describe("tabIcon", () => {
   });
   it("uses git-compare for diff tabs", () => {
     expect(tabIcon(diff)).toBe("lucide:git-compare");
+  });
+});
+
+describe("images", () => {
+  it("shows the image icon only once the bytes said image", () => {
+    expect(tabIcon(file("/x/cpu.png"))).toBe("lucide:file");
+    expect(tabIcon({ ...file("/x/deploy-diagram"), image: true })).toBe("lucide:image");
+  });
+  it("guesses from the name only to choose the first read", () => {
+    expect(looksLikeImage("/x/Shot.PNG")).toBe(true);
+    expect(looksLikeImage("/x/logo.svg")).toBe(true);
+    expect(looksLikeImage("/x/notes.txt")).toBe(false);
+    expect(looksLikeImage("/x/.png")).toBe(false);
   });
 });

@@ -184,6 +184,18 @@
           "binary": "Binary file — can't edit. Download it instead."
         }
       },
+      "image": {
+        "fit": "Fit",
+        "toggleFit": "Fit to the tab or show actual size (0 / 1)",
+        "zoomIn": "Zoom in (+)",
+        "zoomOut": "Zoom out (−)",
+        "copy": "Copy image",
+        "copied": "Image copied to the clipboard",
+        "copyFailed": "Couldn't copy the image: {{error}}",
+        "download": "Download",
+        "tooLarge": "This image is {{size}}, above the {{limit}} preview limit.",
+        "previewAnyway": "Preview anyway"
+      },
       "tabStrip": {
         "filesTab": "Files",
         "pendingNameFallback": "this file",

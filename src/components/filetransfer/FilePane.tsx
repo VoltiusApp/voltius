@@ -22,7 +22,8 @@ import {
   formatSize, formatPermissions, formatModified, formatModifiedFull,
 } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { looksLikeImage } from "./editor/tabIcon";
+import { openEditorFile } from "./editor/openEditorFile";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
 import { resolveTypeAheadIndex, TYPE_AHEAD_RESET_MS } from "./typeAhead";
@@ -577,16 +578,8 @@ export function openFileForEdit(
 ): boolean {
   if (file.isDir) return false;
   if (!ctx.isLocal && !ctx.sftpId) return false;
-  if (ctx.onEdit) {
-    ctx.onEdit(file.path);
-  } else {
-    useEditorStore.getState().openDoc({
-      sftpId: ctx.isLocal ? null : ctx.sftpId,
-      path: file.path,
-      hostLabel: ctx.hostLabel,
-      autoSave: useSftpSettingsStore.getState().editorAutoSave,
-    });
-  }
+  if (ctx.onEdit) ctx.onEdit(file.path);
+  else openEditorFile({ sftpId: ctx.isLocal ? null : ctx.sftpId, path: file.path, hostLabel: ctx.hostLabel });
   return true;
 }
 
@@ -1171,7 +1164,7 @@ function FileRow({ file, isSelected, isCut, isDragHover, withPermissions, colWid
       {/* Icon and name share the name track so the row's grid matches the header's. */}
       <span className="flex items-center gap-2 min-w-0">
         <Icon
-          icon={file.isSymlink ? "lucide:square-arrow-out-up-right" : file.isDir ? "lucide:folder" : "lucide:file"}
+          icon={file.isSymlink ? "lucide:square-arrow-out-up-right" : file.isDir ? "lucide:folder" : looksLikeImage(file.name) ? "lucide:file-image" : "lucide:file"}
           width={15} className="shrink-0"
           style={{ color: file.isDir ? "#f0c050" : file.isSymlink ? "var(--t-accent)" : "var(--t-text-dim)" }}
         />

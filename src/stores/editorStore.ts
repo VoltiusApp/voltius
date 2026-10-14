@@ -9,6 +9,7 @@ export interface EditorDoc {
   hostLabel: string;
   dirty: boolean;
   autoSave: boolean;
+  image?: boolean;
 }
 export interface DiffSide {
   sftpId: string | null;
@@ -35,6 +36,11 @@ interface EditorState {
   setDirty(id: string, dirty: boolean): void;
   setDiffDirty(id: string, dirty: boolean): void;
   setDocAutoSave(id: string, autoSave: boolean): void;
+  markDocImage(id: string): void;
+}
+
+function patchFileTab(tabs: EditorTab[], id: string, patch: Partial<EditorDoc>): EditorTab[] {
+  return tabs.map((t) => (t.id === id && t.kind === "file" ? { ...t, ...patch } : t));
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -78,16 +84,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (from < 0) return s;
       return { tabs: moveItem(s.tabs, from, toIndex) };
     }),
-  setDirty: (id, dirty) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === id && t.kind === "file" ? { ...t, dirty } : t)),
-    })),
+  setDirty: (id, dirty) => set((s) => ({ tabs: patchFileTab(s.tabs, id, { dirty }) })),
   setDiffDirty: (id, dirty) =>
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === id && t.kind === "diff" ? { ...t, dirty } : t)),
     })),
-  setDocAutoSave: (id, autoSave) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === id && t.kind === "file" ? { ...t, autoSave } : t)),
-    })),
+  setDocAutoSave: (id, autoSave) => set((s) => ({ tabs: patchFileTab(s.tabs, id, { autoSave }) })),
+  markDocImage: (id) => set((s) => ({ tabs: patchFileTab(s.tabs, id, { image: true }) })),
 }));

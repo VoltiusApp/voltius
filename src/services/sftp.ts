@@ -487,9 +487,10 @@ export interface EditorFile {
 export type EditorReadError =
   | { kind: "too_large"; size: number; limit: number }
   | { kind: "binary" }
+  | { kind: "image"; mime: string; size: number }
   | { kind: "io"; message: string };
 
-export const DEFAULT_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
+export { DEFAULT_EDITOR_MAX_BYTES } from "@/services/editorLimits";
 
 export async function sftpReadFile(
   sftpId: string,
@@ -522,6 +523,21 @@ export function readEditorFile(
   maxBytes: number,
 ): Promise<EditorFile> {
   return sftpId === null ? fsReadFile(path, maxBytes) : sftpReadFile(sftpId, path, maxBytes);
+}
+
+export interface EditorImage {
+  mime: string;
+  bytes: Uint8Array<ArrayBuffer>;
+}
+
+/** An image for the editor's viewer, its type sniffed by the backend; rejects with an
+ *  `EditorReadError`, `binary` meaning the file is no image after all. */
+export async function readEditorImage(sftpId: string | null, path: string, maxBytes: number): Promise<EditorImage> {
+  const body = new Uint8Array(await (sftpId === null
+    ? invoke<ArrayBuffer>("fs_read_image", { path, maxBytes })
+    : invoke<ArrayBuffer>("sftp_read_image", { sftpId, path, maxBytes })));
+  const split = body.indexOf(0x0a);
+  return { mime: new TextDecoder().decode(body.subarray(0, split)), bytes: body.subarray(split + 1) };
 }
 
 /** Write a file for the editor through the backend matching the connection kind. */

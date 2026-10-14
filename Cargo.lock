@@ -7744,6 +7744,7 @@ dependencies = [
  "httpdate",
  "hyper",
  "hyper-util",
+ "infer",
  "jni 0.21.1",
  "keyring-core",
  "libc",
