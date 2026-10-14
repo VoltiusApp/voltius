@@ -800,23 +800,23 @@ export async function linkToCloud(
   if (!password) throw new Error(i18n.t("common.error.masterPasswordRequired"));
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
-  const secrets = await generateUserSecrets();
-  const wrapped_user_secrets = await wrapUserSecrets(kek, secrets.dek, secrets.x25519_private);
-  // The kek, not the fresh dek: linking does not rekey the vault this account
-  // already has, so the session stays on the kek.
-  const { public_key } = await deriveX25519Keypair(kek);
+  const { dek } = await generateUserSecrets();
+  const identity = await deriveX25519Keypair(dek);
+  const x25519Private = Array.from(base64ToBytes(identity.private_key));
+  const wrapped_user_secrets = await wrapUserSecrets(kek, dek, x25519Private);
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
+    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets,
   });
 
-  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
+  useVaultKeysStore.getState().set({ dek, x25519Private, kek });
 
   await persistServerSession({
     serverUrl, email, jwt: data.jwt_token, refreshToken: data.refresh_token,
   });
   await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
+  await moveVaultToDek(kek, dek).catch((e) => console.warn("Linking kept the vault on the kek:", e));
   reloadSubscription();
 }
 

@@ -238,12 +238,38 @@ test("createServerAccount registers the identity its vault key derives, not the 
   expect(h.sent["/auth/register"].public_key).toBe("DERIVED_FROM_1,1,1"); // the dek
 });
 
-test("linkToCloud registers the identity of the vault it keeps", async () => {
+test("linkToCloud registers the identity a cloud-created account would have", async () => {
   h.store.master_password = "pw";
   h.store.account_id = "acc";
   h.http["/auth/register"] = ok(TOKENS);
   await linkToCloud("a@b.co", S);
-  expect(h.sent["/auth/register"].public_key).toBe("DERIVED_FROM_9,9,9");
+  expect(h.sent["/auth/register"].public_key).toBe("DERIVED_FROM_1,1,1");
+  expect(h.invoke).toHaveBeenCalledWith("wrap_user_secrets_cmd", {
+    kek: [9, 9, 9],
+    dek: [1, 1, 1],
+    x25519Private: Array.from(atob(btoa("legacy-x25519-private")), (c) => c.charCodeAt(0)),
+  });
+});
+
+test("linkToCloud moves the vault it already has to the dek", async () => {
+  h.store.master_password = "pw";
+  h.store.account_id = "acc";
+  h.http["/auth/register"] = ok(TOKENS);
+  existingVaultOpenedBy([9, 9, 9]);
+  await linkToCloud("a@b.co", S);
+  expect(h.invoke).toHaveBeenCalledWith("secrets_rekey", { oldEncKey: [9, 9, 9], newEncKey: [1, 1, 1] });
+  expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
+});
+
+test("a link whose rekey fails keeps the vault on the kek and still links", async () => {
+  h.store.master_password = "pw";
+  h.store.account_id = "acc";
+  h.http["/auth/register"] = ok(TOKENS);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.rekeyError = new Error("disk full");
+  await linkToCloud("a@b.co", S);
+  expect(h.store.mode).toBe("server");
+  expect(h.fileKey).toEqual([9, 9, 9]);
 });
 
 /**
