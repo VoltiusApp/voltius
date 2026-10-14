@@ -16,6 +16,8 @@ vi.mock("@/services/teamService", () => ({
   getUserPublicKey: h.getUserPublicKey,
 }));
 vi.mock("@/services/teamSharing", () => ({ freshPublicKeys: vi.fn() }));
+vi.mock("@/services/serverCapabilities", () => ({ serverSupportsWrappedSecretsCas: async () => false }));
+vi.mock("@/services/authTokens", () => ({ getServerUrl: async () => null }));
 
 import { publishMyPublicKey, clearKeypairCache } from "./multiplayerService";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
@@ -59,4 +61,17 @@ test("refuses when the session already knows its vault key is unproven", async (
   await expect(publishMyPublicKey()).rejects.toThrow("common.error.identityUnproven");
   expect(h.getUserPublicKey).not.toHaveBeenCalled();
   expect(h.updatePublicKey).not.toHaveBeenCalled();
+});
+
+test("publishes the stored identity a dek device resolves, not its vault key's", async () => {
+  useVaultKeysStore.getState().set({ kek: [9], dek: [1], x25519Private: [2] });
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+    if (cmd === "x25519_public_from_private") return "STORED_PUB";
+    if (cmd === "keychain_get") return "W";
+    if (cmd === "derive_x25519_keypair") return { public_key: `D${args.encKey}`, private_key: "P" };
+    return undefined;
+  });
+  h.getUserPublicKey.mockResolvedValue({ public_key: "STORED_PUB" });
+
+  await expect(publishMyPublicKey()).resolves.toBe("STORED_PUB");
 });

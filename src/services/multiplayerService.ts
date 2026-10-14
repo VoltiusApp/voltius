@@ -1,6 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
-import { getVaultKey } from "@/services/vault";
+import { clearIdentityCache, ensureIdentity } from "@/services/identity";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import * as teamService from "@/services/teamService";
 import { freshPublicKeys, type InviteTarget } from "@/services/teamSharing";
@@ -72,29 +72,11 @@ export async function decryptData(key: SessionKey, b64: string): Promise<Uint8Ar
 
 // ─── Private key derivation ───────────────────────────────────────────────────
 
-let _cachedKeypair: { from: number[]; privateKey: string; publicKey: string } | null = null;
+export const clearKeypairCache = clearIdentityCache;
 
-/** Test-only: reset the derived-keypair cache (mirrors teamVaultSync.clearTeamKeyCache). */
-export function clearKeypairCache(): void {
-  _cachedKeypair = null;
-}
-
-/**
- * Deliberately not `useVaultKeysStore.x25519Private`: that stored key opens
- * nothing, and every published roster key is this derived one.
- */
 export async function getMyX25519Keypair(): Promise<{ privateKey: string; publicKey: string }> {
-  const encKey = getVaultKey();
-  if (!encKey) throw new Error(i18n.t("common.error.vaultLocked"));
-  if (_cachedKeypair?.from === encKey) {
-    return { privateKey: _cachedKeypair.privateKey, publicKey: _cachedKeypair.publicKey };
-  }
-  const result = await invoke<{ public_key: string; private_key: string }>(
-    "derive_x25519_keypair",
-    { encKey },
-  );
-  _cachedKeypair = { from: encKey, privateKey: result.private_key, publicKey: result.public_key };
-  return { privateKey: result.private_key, publicKey: result.public_key };
+  const { privateKey, publicKey } = await ensureIdentity();
+  return { privateKey, publicKey };
 }
 
 /**
