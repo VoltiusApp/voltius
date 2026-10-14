@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -863,6 +863,41 @@ pub fn save_port_forwarding_rules(rules: &[PortForwardingRule]) -> Result<(), St
     save_json(port_forwarding_rules_file(), rules)
 }
 
+type SuppressedPorts = BTreeMap<String, BTreeSet<u16>>;
+
+// Device-local on purpose: absent from the sync file lists.
+fn pf_suppressed_ports_file() -> PathBuf {
+    config_dir().join("pf_suppressed_ports.json")
+}
+
+pub fn load_pf_suppressed_ports(connection_id: &str) -> Result<BTreeSet<u16>, String> {
+    let mut all: SuppressedPorts = load_json(pf_suppressed_ports_file())?;
+    Ok(all.remove(connection_id).unwrap_or_default())
+}
+
+pub fn set_pf_port_suppressed(
+    connection_id: &str,
+    port: u16,
+    suppressed: bool,
+) -> Result<(), String> {
+    static WRITE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = WRITE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut all: SuppressedPorts = load_json(pf_suppressed_ports_file())?;
+    let ports = all.entry(connection_id.to_string()).or_default();
+    let changed = if suppressed {
+        ports.insert(port)
+    } else {
+        ports.remove(&port)
+    };
+    if !changed {
+        return Ok(());
+    }
+    if ports.is_empty() {
+        all.remove(connection_id);
+    }
+    save_json(pf_suppressed_ports_file(), &all)
+}
+
 fn snippets_file() -> PathBuf {
     config_dir().join("snippets.json")
 }
@@ -1326,6 +1361,27 @@ mod tests {
         // Pinned current behavior: a bad record is filtered out, not surfaced.
         let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"nope":"b"}]"#).unwrap();
         assert_eq!(got, vec![Mini { id: "a".into() }]);
+    }
+
+    #[test]
+    fn pf_suppressed_ports_are_kept_per_connection() {
+        assert!(load_pf_suppressed_ports("c1").unwrap().is_empty());
+        set_pf_port_suppressed("c1", 5236, true).unwrap();
+        set_pf_port_suppressed("c1", 8080, true).unwrap();
+        set_pf_port_suppressed("c2", 3000, true).unwrap();
+        assert_eq!(
+            load_pf_suppressed_ports("c1").unwrap(),
+            BTreeSet::from([5236, 8080])
+        );
+
+        set_pf_port_suppressed("c1", 8080, false).unwrap();
+        set_pf_port_suppressed("c2", 3000, false).unwrap();
+        assert_eq!(
+            load_pf_suppressed_ports("c1").unwrap(),
+            BTreeSet::from([5236])
+        );
+        let on_disk = std::fs::read_to_string(pf_suppressed_ports_file()).unwrap();
+        assert!(!on_disk.contains("c2"));
     }
 
     // ── End-to-end persistence (golden master for the load/save layer) ───────

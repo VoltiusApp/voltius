@@ -346,6 +346,15 @@ impl PortForwardManager {
         handle: SessionHandle,
     ) -> Result<(), String> {
         let key = self.key_of(session_id).await;
+        let persisted = match saved_connection(&key, session_id).filter(|_| enabled) {
+            Some(cid) => {
+                crate::storage::config::load_pf_suppressed_ports(cid).unwrap_or_else(|e| {
+                    eprintln!("pf_suppressed_ports: {e}");
+                    Default::default()
+                })
+            }
+            None => Default::default(),
+        };
         let mut sessions = self.sessions.lock().await;
         let state = sessions
             .entry(key.clone())
@@ -365,6 +374,7 @@ impl PortForwardManager {
         }
 
         if enabled {
+            state.suppressed_ports.extend(persisted);
             let cancel = CancellationToken::new();
             state.poller_cancel = Some(cancel.clone());
             state.owner_session = Some(session_id.to_string());
@@ -446,16 +456,20 @@ impl PortForwardManager {
         };
 
         let key = self.key_of(session_id).await;
+        let unsuppressed;
         {
             let mut sessions = self.sessions.lock().await;
             let state = sessions
                 .entry(key.clone())
                 .or_insert_with(|| SessionPfState::new(None, false));
-            state.suppressed_ports.remove(&remote_port);
+            unsuppressed = state.suppressed_ports.remove(&remote_port);
             state.tunnels.push(entry);
             state
                 .owner_session
                 .get_or_insert_with(|| session_id.to_string());
+        }
+        if unsuppressed {
+            persist_suppressed(&key, session_id, remote_port, false);
         }
 
         self.emit_state_for_key(&key).await;
@@ -608,18 +622,20 @@ impl PortForwardManager {
             .position(|e| e.tunnel.id == tunnel_id)
             .ok_or_else(|| format!("Tunnel not found: {}", tunnel_id))?;
 
-        if matches!(state.tunnels[pos].tunnel.origin, TunnelOrigin::Auto) {
-            state
-                .suppressed_ports
-                .insert(state.tunnels[pos].tunnel.remote_port);
-        }
-
         let entry = state.tunnels.remove(pos);
+        let suppressed =
+            matches!(entry.tunnel.origin, TunnelOrigin::Auto).then_some(entry.tunnel.remote_port);
+        if let Some(port) = suppressed {
+            state.suppressed_ports.insert(port);
+        }
         // Stop the accept loop + bridges and free the local listener. Removing
         // the entry is not enough: its `_cancel` token is cloned into the loop,
         // and a CancellationToken does NOT cancel on drop.
         cancel_entry(&entry);
         drop(sessions);
+        if let Some(port) = suppressed {
+            persist_suppressed(&key, session_id, port, true);
+        }
 
         // Best-effort remote forward cancellation (after releasing lock).
         if let Some(rc) = entry.remote_cleanup {
@@ -1036,6 +1052,20 @@ fn remote_listening_for(state: &SessionPfState, tunnel: &ActiveTunnel) -> Option
         return None;
     }
     Some(state.detected_ports.as_ref()?.contains(&tunnel.remote_port))
+}
+
+/// A quick-connect's key is its own session id; only saved connections persist.
+fn saved_connection<'a>(key: &'a str, session_id: &str) -> Option<&'a str> {
+    (key != session_id).then_some(key)
+}
+
+fn persist_suppressed(key: &str, session_id: &str, port: u16, suppressed: bool) {
+    let Some(cid) = saved_connection(key, session_id) else {
+        return;
+    };
+    if let Err(e) = crate::storage::config::set_pf_port_suppressed(cid, port, suppressed) {
+        eprintln!("pf_suppressed_ports: {e}");
+    }
 }
 
 fn is_loopback_host(host: &str) -> bool {
