@@ -8,6 +8,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("./MobileRemoteDeviceSessions", () => ({ default: () => null }));
 vi.mock("./MobileHeader", () => ({ default: () => null }));
+vi.mock("./MobileActiveTunnels", () => ({ default: () => null }));
 vi.mock("@/services/teamDataManager", () => ({ onVaultSelect: vi.fn(async () => {}) }));
 vi.mock("@/services/teamService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/teamService")>()),
