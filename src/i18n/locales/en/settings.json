@@ -37,6 +37,10 @@
         "title": "Plain paste (no bracketed paste)",
         "desc": "Paste as plain text without the \\x1b[200~ / \\x1b[201~ markers. Fixes garbled input (e.g. \"200~\") when pasting into sudo prompts or CLI apps that don't support bracketed paste."
       },
+      "pasteImageAsPath": {
+        "title": "Paste images as a file path",
+        "desc": "When the clipboard holds an image, upload it to the SSH host (~/.cache/voltius/pastes, owner-only, pruned after 7 days) and paste its path. Lets tools on the host such as Claude Code attach a screenshot. If you SSH further from there, the path points to this first host."
+      },
       "keywordHighlight": {
         "title": "Keyword highlighting",
         "desc": "Color words such as “error” or “warning” in command output. Works in sessions with shell integration.",
@@ -1041,6 +1045,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Plain Paste (No Bracketed Paste)"
+      },
+      "pasteImageAsPath": {
+        "label": "Paste Images as a File Path"
       },
       "keywordHighlight": {
         "label": "Keyword Highlighting"

@@ -37,6 +37,10 @@
         "title": "Düz metin yapıştırma (köşeli ayraçlı yapıştırma yok)",
         "desc": "Metni \\x1b[200~ / \\x1b[201~ işaretleri olmadan düz metin olarak yapıştırır. Köşeli ayraçlı yapıştırmayı desteklemeyen sudo istemlerine veya CLI uygulamalarına yapıştırırken oluşan bozuk girdileri (örn. \"200~\") düzeltir."
       },
+      "pasteImageAsPath": {
+        "title": "Görüntüleri dosya yolu olarak yapıştır",
+        "desc": "Pano bir görüntü içerdiğinde onu SSH sunucusuna yükler (~/.cache/voltius/pastes, yalnızca sahibi erişebilir, 7 gün sonra silinir) ve yolunu yapıştırır. Claude Code gibi sunucudaki araçların ekran görüntüsü eklemesini sağlar. Oradan başka bir sunucuya SSH ile geçerseniz yol bu ilk sunucuyu gösterir."
+      },
       "keywordHighlight": {
         "title": "Anahtar kelime vurgulama",
         "desc": "Komut çıktısındaki “error” veya “warning” gibi kelimeleri renklendirir. Kabuk entegrasyonu olan oturumlarda çalışır.",
@@ -911,6 +915,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Düz Metin Yapıştırma (Köşeli Ayraçsız)"
+      },
+      "pasteImageAsPath": {
+        "label": "Görüntüleri Dosya Yolu Olarak Yapıştır"
       },
       "keywordHighlight": {
         "label": "Anahtar Kelime Vurgulama"

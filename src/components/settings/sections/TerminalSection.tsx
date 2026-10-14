@@ -15,6 +15,7 @@ export default function TerminalSection() {
   const [selectToCopy, setSelectToCopy] = useToggle("select-to-copy");
   const [dragSelectsText, setDragSelectsText] = useToggle("drag-selects-text");
   const [ignoreBracketedPaste, setIgnoreBracketedPaste] = useToggle("ignore-bracketed-paste");
+  const [pasteImageAsPath, setPasteImageAsPath] = useToggle("paste-image-as-path");
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
   const cursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
@@ -119,6 +120,17 @@ export default function TerminalSection() {
           onReset={() => setIgnoreBracketedPaste(TOGGLE_DEFS["ignore-bracketed-paste"].default)}
         >
           <Toggle checked={ignoreBracketedPaste} onChange={setIgnoreBracketedPaste} />
+        </SettingRow>
+        <SettingRow
+          variant="card"
+          className="mt-4"
+          syncKey="appSettings.toggles.paste-image-as-path"
+          title={t("settings.terminal.pasteImageAsPath.title")}
+          desc={t("settings.terminal.pasteImageAsPath.desc")}
+          dirty={pasteImageAsPath !== TOGGLE_DEFS["paste-image-as-path"].default}
+          onReset={() => setPasteImageAsPath(TOGGLE_DEFS["paste-image-as-path"].default)}
+        >
+          <Toggle checked={pasteImageAsPath} onChange={setPasteImageAsPath} />
         </SettingRow>
         <SettingRow
           variant="card"

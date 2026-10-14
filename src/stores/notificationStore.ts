@@ -21,6 +21,8 @@ export interface ToastEntry {
   action?: { label: string; onClick: () => void };
   // Progress fields
   progress?: number;
+  thumbnail?: string;
+  detail?: string;
   cancellable?: boolean;
   onCancel?: () => void;
   finished?: boolean;

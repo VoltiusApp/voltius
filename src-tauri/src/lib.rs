@@ -434,6 +434,8 @@ pub fn run() {
             commands::fs::fs_set_attrs,
             commands::sftp::editor::sftp_read_file,
             commands::sftp::editor::sftp_read_image,
+            commands::sftp::paste::paste_image_read,
+            commands::sftp::paste::paste_image_upload,
             commands::sftp::editor::sftp_write_file,
             commands::sftp::sftp_cancel_transfer,
             commands::sftp::sftp_mark_resume,

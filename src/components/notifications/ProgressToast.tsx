@@ -71,6 +71,14 @@ export function ProgressToast({ toast, onDismiss, pluginUnloaded }: Props) {
         )}
       </div>
 
+      {(toast.thumbnail || toast.detail) && (
+        <div className="flex items-center gap-2.5 min-w-0">
+          {toast.thumbnail && (
+            <img src={toast.thumbnail} alt="" className="h-9 w-14 rounded-md object-cover shrink-0" style={{ border: "1px solid var(--t-border)" }} />
+          )}
+          {toast.detail && <span className="text-xs truncate min-w-0" style={{ color: "var(--t-text-muted)" }}>{toast.detail}</span>}
+        </div>
+      )}
       {!isFinished && (
         <div className="flex items-center gap-2">
           {toast.progress !== undefined ? (
@@ -107,6 +115,17 @@ export function ProgressToast({ toast, onDismiss, pluginUnloaded }: Props) {
               {t("common.action.cancel")}
             </button>
           )}
+        </div>
+      )}
+      {isFinished && toast.action && (
+        <div className="flex justify-end">
+          <button
+            onClick={toast.action.onClick}
+            className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-medium transition-colors"
+            style={{ background: `color-mix(in srgb, ${borderColor} 15%, transparent)`, color: borderColor }}
+          >
+            {toast.action.label}
+          </button>
         </div>
       )}
     </div>

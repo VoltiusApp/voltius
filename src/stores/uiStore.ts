@@ -196,6 +196,8 @@ interface UIStore {
   openWhatsNew: () => void;
   closeWhatsNew: () => void;
   markChangelogSeen: (version: string) => void;
+  imagePasteNoticeSeen: boolean;
+  markImagePasteNoticeSeen: () => void;
   terminalPanelsRowOpen: boolean;
   toggleTerminalPanelsRow: () => void;
   hostPanelPinned: boolean;
@@ -251,6 +253,7 @@ export const useUIStore = create<UIStore>()(
         vaultSharePending: false,
         whatsNewOpen: false,
         lastSeenChangelogVersion: null as string | null,
+        imagePasteNoticeSeen: false,
         terminalPanelsRowOpen: false,
         hostPanelPinned: false,
         prefsUpdatedAt: new Date(0).toISOString(),
@@ -323,6 +326,7 @@ export const useUIStore = create<UIStore>()(
         openWhatsNew: () => set({ whatsNewOpen: true }),
         closeWhatsNew: () => set({ whatsNewOpen: false }),
         markChangelogSeen: (version) => set({ lastSeenChangelogVersion: version }),
+        markImagePasteNoticeSeen: () => set({ imagePasteNoticeSeen: true }),
         toggleTerminalPanelsRow: () => set((s) => ({ terminalPanelsRowOpen: !s.terminalPanelsRowOpen })),
         setHostPanelPinned: (pinned) => set({ hostPanelPinned: pinned }),
       };
@@ -360,6 +364,7 @@ export const useUIStore = create<UIStore>()(
         rightPanelSection: state.rightPanelSection,
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,
+        imagePasteNoticeSeen: state.imagePasteNoticeSeen,
         terminalPanelsRowOpen: state.terminalPanelsRowOpen,
         hostPanelPinned: state.hostPanelPinned,
       }),

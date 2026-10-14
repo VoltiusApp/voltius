@@ -13,6 +13,8 @@ vi.mock("@/stores/toggleSettingsStore", () => ({
 
 const copyFailed = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/logger", () => ({ logFailure: () => copyFailed }));
+const platform = vi.hoisted(() => ({ os: "linux" }));
+vi.mock("@/utils/platform", () => ({ getPlatformSync: () => platform.os }));
 
 import { attachTerminalClipboard, type TerminalClipboardHandle } from "./terminalClipboard";
 
@@ -131,6 +133,8 @@ const badge = () => document.body.querySelector("div[style*='position: fixed']")
 beforeEach(() => {
   toggles.values = {};
   writeClipboard.mockReset();
+  readClipboard.mockReset();
+  readClipboard.mockImplementation(async () => "");
   copyFailed.mockReset();
   document.body.innerHTML = "";
 });
@@ -283,5 +287,53 @@ describe("against the real xterm", () => {
     clip.dispose();
     report(2, NO_BUTTON, MOVE);
     expect(userInput).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("paste", () => {
+  function pasteHarness(clipboard: string | Error) {
+    if (clipboard instanceof Error) readClipboard.mockRejectedValueOnce(clipboard);
+    else readClipboard.mockResolvedValueOnce(clipboard);
+    const pasted: string[] = [];
+    const pasteImage = vi.fn(async () => {});
+    const term = {
+      onSelectionChange: () => ({ dispose() {} }),
+      paste: (text: string) => pasted.push(text),
+      getSelection: () => "",
+    } as unknown as Terminal;
+    const clip = attachTerminalClipboard(term, document.createElement("div"), { pasteImage });
+    return { clip, pasted, pasteImage };
+  }
+  const ctrlV = () => new KeyboardEvent("keydown", { key: "v", ctrlKey: true });
+
+  it("pastes clipboard text", async () => {
+    const h = pasteHarness("ls -la");
+    expect(h.clip.handleKeyEvent(ctrlV())).toBe(false);
+    await vi.waitFor(() => expect(h.pasted).toEqual(["ls -la"]));
+    expect(h.pasteImage).not.toHaveBeenCalled();
+  });
+
+  it("hands a clipboard without text to pasteImage", async () => {
+    const h = pasteHarness("");
+    h.clip.handleKeyEvent(new KeyboardEvent("keydown", { key: "V", ctrlKey: true, shiftKey: true }));
+    await vi.waitFor(() => expect(h.pasteImage).toHaveBeenCalledOnce());
+    expect(h.pasted).toEqual([]);
+  });
+
+  it("pastes with Cmd+V on macOS only", async () => {
+    const cmdV = () => new KeyboardEvent("keydown", { key: "v", metaKey: true });
+    const linux = pasteHarness("ls");
+    expect(linux.clip.handleKeyEvent(cmdV())).toBeNull();
+    platform.os = "macos";
+    const mac = pasteHarness("ls");
+    expect(mac.clip.handleKeyEvent(cmdV())).toBe(false);
+    await vi.waitFor(() => expect(mac.pasted).toEqual(["ls"]));
+    platform.os = "linux";
+  });
+
+  it("treats an unreadable clipboard as one without text", async () => {
+    const h = pasteHarness(new Error("denied"));
+    h.clip.handleKeyEvent(ctrlV());
+    await vi.waitFor(() => expect(h.pasteImage).toHaveBeenCalledOnce());
   });
 });

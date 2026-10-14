@@ -16,6 +16,7 @@ pub mod dir;
 pub mod editor;
 pub(crate) mod local_tar;
 mod ops;
+pub mod paste;
 mod remote_shell;
 pub(crate) mod resume;
 mod stream;

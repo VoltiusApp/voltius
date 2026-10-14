@@ -39,6 +39,7 @@ import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, s
 import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 import i18n from "@/i18n";
+import { pasteClipboardImage } from "@/services/terminalImagePaste";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -479,11 +480,17 @@ export function refitSession(sessionId: string): void {
  *  Mirrors the onData path: honors the multiplayer input gate, respects connected state,
  *  records history, encodes + sends. Does not replicate the split-pane broadcast branch
  *  (mobile sends to the active session only). */
+/** Whether typed input would reach the session now: connected, and not held by a multiplayer gate. */
+export function sessionAcceptsInput(sessionId: string): boolean {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return false;
+  if (entry.inputGateRef.current && !entry.inputGateRef.current()) return false;
+  return entry.connectedRef.current;
+}
+
 export function writeToSession(sessionId: string, data: string): void {
   const entry = terminalCache.get(sessionId);
-  if (!entry) return;
-  if (entry.inputGateRef.current && !entry.inputGateRef.current()) return;
-  if (!entry.connectedRef.current) return;
+  if (!entry || !sessionAcceptsInput(sessionId)) return;
   const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
   if (sess) {
     useCommandHistoryStore.getState().addInput(sessionId, sess.connectionName, sess.connectionId, data);
@@ -1182,7 +1189,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       return entry;
     },
-    { osc52: true },
+    { osc52: true, pasteImage: sessionType === "ssh" ? () => pasteClipboardImage(sessionId) : undefined },
     [sessionId, sessionType, encoding],
   );
 

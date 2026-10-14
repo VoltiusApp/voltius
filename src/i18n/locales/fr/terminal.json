@@ -351,6 +351,20 @@
       "linkTooltip": "Alt+clic pour ouvrir",
       "sessionClosed": "Session fermée",
       "serialClosed": "Connexion série fermée"
+    },
+    "pasteImage": {
+      "uploading": "Envoi de la capture",
+      "uploadingDetail": "vers {{host}} · {{size}} · {{width}}×{{height}}",
+      "pasted": "Capture collée",
+      "pastedDetail": "{{host}} · {{name}}",
+      "firstUse": "Sur l'hôte pendant 7 jours, lisible par vous seul",
+      "settings": "Réglages du collage d'images",
+      "deleteFromHost": "Supprimer de l'hôte",
+      "deleted": "Capture supprimée de l'hôte",
+      "deleteFailed": "Impossible de supprimer la capture",
+      "failed": "Impossible d'envoyer la capture",
+      "retry": "Réessayer",
+      "broadcast": "Le collage d'images est désactivé pendant la saisie dans plusieurs volets."
     }
   }
 }

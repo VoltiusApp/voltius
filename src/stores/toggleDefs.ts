@@ -70,6 +70,13 @@ export const TOGGLE_DEFS = {
     keywords: ["paste", "bracketed", "clipboard", "terminal", "sudo", "garbage", "200~"],
     default: false,
   },
+  "paste-image-as-path": {
+    labelKey: "settings.toggleDefs.pasteImageAsPath.label",
+    icon: "lucide:image-up",
+    section: "terminal",
+    keywords: ["paste", "image", "screenshot", "clipboard", "upload", "claude", "terminal", "ssh"],
+    default: true,
+  },
   "keyword-highlight": {
     labelKey: "settings.toggleDefs.keywordHighlight.label",
     icon: "lucide:highlighter",

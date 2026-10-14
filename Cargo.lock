@@ -7757,6 +7757,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-local-authentication",
  "percent-encoding",
+ "png 0.17.16",
  "portable-pty",
  "quick-xml",
  "rand 0.8.6",

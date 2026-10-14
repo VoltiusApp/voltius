@@ -227,7 +227,7 @@ function ToastStack() {
     for (const toast of toasts) {
       if (toast.type === "progress" && toast.finished && toast.finishedSeverity !== "error") {
         if (!timers.current.has(toast.id)) {
-          scheduleTimer(toast.id, 2000);
+          scheduleTimer(toast.id, toast.duration > 0 ? toast.duration : 2000);
         }
       }
     }

@@ -343,6 +343,20 @@
       "linkTooltip": "Alt+click to open",
       "sessionClosed": "Session closed",
       "serialClosed": "Serial connection closed"
+    },
+    "pasteImage": {
+      "uploading": "Uploading screenshot",
+      "uploadingDetail": "to {{host}} · {{size}} · {{width}}×{{height}}",
+      "pasted": "Screenshot pasted",
+      "pastedDetail": "{{host}} · {{name}}",
+      "firstUse": "On the host for 7 days, only you can read it",
+      "settings": "Image paste settings",
+      "deleteFromHost": "Delete from host",
+      "deleted": "Screenshot deleted from the host",
+      "deleteFailed": "Couldn't delete the screenshot",
+      "failed": "Couldn't upload the screenshot",
+      "retry": "Retry",
+      "broadcast": "Image paste is off while you type into several panes at once."
     }
   }
 }

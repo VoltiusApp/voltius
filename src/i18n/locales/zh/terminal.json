@@ -341,6 +341,20 @@
       "linkTooltip": "Alt+单击以打开",
       "sessionClosed": "会话已关闭",
       "serialClosed": "串口连接已关闭"
+    },
+    "pasteImage": {
+      "uploading": "正在上传截图",
+      "uploadingDetail": "到 {{host}} · {{size}} · {{width}}×{{height}}",
+      "pasted": "截图已粘贴",
+      "pastedDetail": "{{host}} · {{name}}",
+      "firstUse": "在主机上保留 7 天，仅你可读取",
+      "settings": "图片粘贴设置",
+      "deleteFromHost": "从主机删除",
+      "deleted": "截图已从主机删除",
+      "deleteFailed": "无法删除截图",
+      "failed": "无法上传截图",
+      "retry": "重试",
+      "broadcast": "同时向多个窗格输入时，图片粘贴已关闭。"
     }
   }
 }

@@ -37,6 +37,10 @@
         "title": "Prosté vkládání (bez bracketed paste)",
         "desc": "Vkládat jako prostý text bez značek \\x1b[200~ / \\x1b[201~. Opravuje poškozený vstup (např. „200~“) při vkládání do výzev sudo nebo CLI aplikací, které bracketed paste nepodporují."
       },
+      "pasteImageAsPath": {
+        "title": "Vkládat obrázky jako cestu k souboru",
+        "desc": "Když schránka obsahuje obrázek, nahraje se na SSH hostitele (~/.cache/voltius/pastes, jen pro vlastníka, mazáno po 7 dnech) a vloží se jeho cesta. Nástroje na hostiteli jako Claude Code tak mohou přiložit snímek obrazovky. Pokud se odtud připojíte dál přes SSH, cesta ukazuje na tohoto prvního hostitele."
+      },
       "keywordHighlight": {
         "title": "Zvýrazňování klíčových slov",
         "desc": "Obarví slova jako „error“ nebo „warning“ ve výstupu příkazů. Funguje v relacích s integrací shellu.",
@@ -1275,6 +1279,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Prosté vkládání (bez bracketed paste)"
+      },
+      "pasteImageAsPath": {
+        "label": "Vkládat obrázky jako cestu k souboru"
       },
       "keywordHighlight": {
         "label": "Zvýrazňování klíčových slov"

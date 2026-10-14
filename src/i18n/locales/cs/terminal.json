@@ -359,6 +359,20 @@
       "linkTooltip": "Otevřete kliknutím s Alt",
       "sessionClosed": "Relace ukončena",
       "serialClosed": "Sériové spojení ukončeno"
+    },
+    "pasteImage": {
+      "uploading": "Nahrávání snímku",
+      "uploadingDetail": "na {{host}} · {{size}} · {{width}}×{{height}}",
+      "pasted": "Snímek vložen",
+      "pastedDetail": "{{host}} · {{name}}",
+      "firstUse": "Na hostiteli 7 dní, číst ho můžete jen vy",
+      "settings": "Nastavení vkládání obrázků",
+      "deleteFromHost": "Smazat z hostitele",
+      "deleted": "Snímek byl smazán z hostitele",
+      "deleteFailed": "Snímek se nepodařilo smazat",
+      "failed": "Snímek se nepodařilo nahrát",
+      "retry": "Zkusit znovu",
+      "broadcast": "Vkládání obrázků je vypnuté, když píšete do více panelů najednou."
     }
   }
 }

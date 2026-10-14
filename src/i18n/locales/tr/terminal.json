@@ -343,6 +343,20 @@
       "linkTooltip": "Açmak için Alt+tıklayın",
       "sessionClosed": "Oturum kapandı",
       "serialClosed": "Seri bağlantı kapandı"
+    },
+    "pasteImage": {
+      "uploading": "Ekran görüntüsü yükleniyor",
+      "uploadingDetail": "{{host}} hedefine · {{size}} · {{width}}×{{height}}",
+      "pasted": "Ekran görüntüsü yapıştırıldı",
+      "pastedDetail": "{{host}} · {{name}}",
+      "firstUse": "Sunucuda 7 gün durur, yalnızca siz okuyabilirsiniz",
+      "settings": "Görsel yapıştırma ayarları",
+      "deleteFromHost": "Sunucudan sil",
+      "deleted": "Ekran görüntüsü sunucudan silindi",
+      "deleteFailed": "Ekran görüntüsü silinemedi",
+      "failed": "Ekran görüntüsü yüklenemedi",
+      "retry": "Yeniden dene",
+      "broadcast": "Aynı anda birden fazla bölmeye yazarken görsel yapıştırma kapalıdır."
     }
   }
 }

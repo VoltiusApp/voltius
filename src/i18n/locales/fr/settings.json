@@ -37,6 +37,10 @@
         "title": "Collage simple (sans collage entre crochets)",
         "desc": "Coller en texte brut sans les marqueurs \\x1b[200~ / \\x1b[201~. Corrige un affichage corrompu (ex. « 200~ ») lors d'un collage dans un prompt sudo ou une application CLI qui ne prend pas en charge le collage entre crochets."
       },
+      "pasteImageAsPath": {
+        "title": "Coller les images comme chemin de fichier",
+        "desc": "Quand le presse-papiers contient une image, l'envoyer sur l'hôte SSH (~/.cache/voltius/pastes, accessible au seul propriétaire, supprimée après 7 jours) et coller son chemin. Permet aux outils de l'hôte comme Claude Code de joindre une capture d'écran. Si vous rebondissez en SSH depuis cet hôte, le chemin désigne ce premier hôte."
+      },
       "keywordHighlight": {
         "title": "Mise en évidence de mots-clés",
         "desc": "Colore des mots comme « error » ou « warning » dans la sortie des commandes. Fonctionne dans les sessions avec l'intégration du shell.",
@@ -1047,6 +1051,9 @@
       },
       "ignoreBracketedPaste": {
         "label": "Collage simple (sans crochets)"
+      },
+      "pasteImageAsPath": {
+        "label": "Coller les images comme chemin de fichier"
       },
       "keywordHighlight": {
         "label": "Mise en évidence de mots-clés"

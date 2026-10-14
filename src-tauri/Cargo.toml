@@ -21,6 +21,7 @@ quick-xml = "0.39"
 httpdate = "1"
 percent-encoding = "2"
 infer = "0.19"
+png = "0.17"
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
