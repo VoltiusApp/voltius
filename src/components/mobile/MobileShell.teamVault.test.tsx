@@ -13,6 +13,7 @@ vi.mock("@/services/teamVaultSync", () => ({ fetchTeamData: vi.fn(async () => {}
 // The shell's own chrome and every tab screen are irrelevant here: this asserts
 // which of them the blocked-vault panel replaces, not what they render.
 vi.mock("./MobileSessionLayer", () => ({ default: () => null }));
+vi.mock("@/hooks/usePfToastBridge", () => ({ usePfToastBridge: () => {} }));
 vi.mock("./screens/MobileHostsScreen", () => ({ default: () => <div>hosts-screen</div> }));
 vi.mock("./screens/MobileSnippetsScreen", () => ({ default: () => <div>snippets-screen</div> }));
 vi.mock("./screens/MobileTerminalScreen", () => ({ default: () => <div>terminal-screen</div> }));
