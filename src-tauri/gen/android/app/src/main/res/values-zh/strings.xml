@@ -1,0 +1,7 @@
+<resources>
+    <string name="tunnel_channel_name">端口转发</string>
+    <string name="tunnel_notification_text">点按以管理端口转发</string>
+    <plurals name="tunnel_notification_title">
+        <item quantity="other">已转发 %d 个端口</item>
+    </plurals>
+</resources>

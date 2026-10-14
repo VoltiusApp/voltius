@@ -1,0 +1,10 @@
+<resources>
+    <string name="tunnel_channel_name">Проброс портов</string>
+    <string name="tunnel_notification_text">Нажмите, чтобы управлять пробросом портов</string>
+    <plurals name="tunnel_notification_title">
+        <item quantity="one">%d порт проброшен</item>
+        <item quantity="few">%d порта проброшено</item>
+        <item quantity="many">%d портов проброшено</item>
+        <item quantity="other">%d порта проброшено</item>
+    </plurals>
+</resources>

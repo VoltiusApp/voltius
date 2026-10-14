@@ -18,20 +18,21 @@ interface PfAutoForwardCappedPayload {
 
 const BATCH_DELAY_MS = 800;
 
-export function usePfToastBridge() {
+function openRightPortsPanel() {
+  const { setRightPanelOpen, setRightPanelSection } = useUIStore.getState();
+  setRightPanelSection("ports");
+  setRightPanelOpen(true);
+}
+
+export function usePfToastBridge(openPorts: () => void = openRightPortsPanel) {
   const pendingPorts = useRef<PfPortDetectedPayload[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const openPanel = () => {
-      const { setRightPanelOpen, setRightPanelSection } = useUIStore.getState();
-      setRightPanelSection("ports");
-      setRightPanelOpen(true);
-    };
     // Built per toast so the texts follow the current app language.
     const source = () => ({ kind: "plugin" as const, id: "__pf__", name: i18n.t("layout.nav.port-forwarding") });
-    const viewPorts = () => ({ label: i18n.t("terminal.ports.toast.viewPorts"), onClick: openPanel });
+    const viewPorts = () => ({ label: i18n.t("terminal.ports.toast.viewPorts"), onClick: openPorts });
 
     function flush() {
       const ports = pendingPorts.current;
@@ -93,5 +94,5 @@ export function usePfToastBridge() {
       unlistenPromise.then((f) => f());
       cappedPromise.then((f) => f());
     };
-  }, []);
+  }, [openPorts]);
 }

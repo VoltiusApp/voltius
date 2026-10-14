@@ -1,0 +1,10 @@
+<resources>
+    <string name="tunnel_channel_name">Přesměrování portů</string>
+    <string name="tunnel_notification_text">Klepnutím spravujete přesměrování portů</string>
+    <plurals name="tunnel_notification_title">
+        <item quantity="one">Přesměrován %d port</item>
+        <item quantity="few">Přesměrovány %d porty</item>
+        <item quantity="many">Přesměrováno %d portu</item>
+        <item quantity="other">Přesměrováno %d portů</item>
+    </plurals>
+</resources>

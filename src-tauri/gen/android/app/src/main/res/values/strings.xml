@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">Voltius</string>
     <string name="main_activity_title">Voltius</string>
+    <string name="tunnel_channel_name">Port forwarding</string>
+    <string name="tunnel_notification_text">Tap to manage port forwarding</string>
+    <plurals name="tunnel_notification_title">
+        <item quantity="one">%d port forwarded</item>
+        <item quantity="other">%d ports forwarded</item>
+    </plurals>
 </resources>

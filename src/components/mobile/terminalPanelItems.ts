@@ -28,6 +28,7 @@ export function terminalPanelItems(args: {
     { key: "docker", icon: "lucide:container", label: t("mobile.panelItems.docker"), onTap: () => { if (activeSessionId) nav.push({ kind: "panel-docker", sessionId: activeSessionId }); } },
     { key: "metrics", icon: "lucide:activity", label: t("mobile.panelItems.metrics"), onTap: () => { if (activeSessionId) nav.push({ kind: "panel-metrics", sessionId: activeSessionId }); } },
     { key: "processes", icon: "lucide:cpu", label: t("mobile.panelItems.processes"), onTap: () => { if (activeSessionId) nav.push({ kind: "panel-processes", sessionId: activeSessionId }); } },
+    { key: "ports", icon: "lucide:arrow-left-right", label: t("mobile.morePages.portForwarding"), onTap: () => nav.push({ kind: "more-page", page: "port-forwarding" }) },
     ...(isProxmox ? [{ key: "proxmox", icon: "devicon:proxmox-plain", label: t("mobile.panelItems.proxmox"), onTap: () => { if (activeSessionId) nav.push({ kind: "panel-proxmox", sessionId: activeSessionId }); } }] : []),
   ];
 }

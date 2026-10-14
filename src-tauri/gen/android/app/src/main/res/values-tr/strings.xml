@@ -1,0 +1,8 @@
+<resources>
+    <string name="tunnel_channel_name">Port yönlendirme</string>
+    <string name="tunnel_notification_text">Port yönlendirmeyi yönetmek için dokunun</string>
+    <plurals name="tunnel_notification_title">
+        <item quantity="one">%d port yönlendirildi</item>
+        <item quantity="other">%d port yönlendirildi</item>
+    </plurals>
+</resources>

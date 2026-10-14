@@ -1,0 +1,9 @@
+<resources>
+    <string name="tunnel_channel_name">Redirection de ports</string>
+    <string name="tunnel_notification_text">Touchez pour gérer la redirection de ports</string>
+    <plurals name="tunnel_notification_title">
+        <item quantity="one">%d port redirigé</item>
+        <item quantity="many">%d ports redirigés</item>
+        <item quantity="other">%d ports redirigés</item>
+    </plurals>
+</resources>

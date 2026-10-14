@@ -1,4 +1,5 @@
 mod bind;
+mod keepalive;
 pub(crate) mod pipe;
 pub mod poller;
 pub mod socks;
@@ -136,6 +137,7 @@ pub(crate) async fn emit_state_for(
 ) {
     let (tunnels, suppressed_ports) = {
         let sessions = sessions.lock().await;
+        keepalive::sync(&sessions);
         match sessions.get(key) {
             Some(s) => (
                 snapshot_tunnels(s),
@@ -655,7 +657,9 @@ impl PortForwardManager {
     /// Tear down all port-forward state for a host (its last terminal closed).
     pub async fn teardown_key(&self, key: &str) {
         let mut sessions = self.sessions.lock().await;
-        if let Some(state) = sessions.remove(key) {
+        let removed = sessions.remove(key);
+        keepalive::sync(&sessions);
+        if let Some(state) = removed {
             if let Some(cancel) = state.poller_cancel {
                 cancel.cancel();
             }
@@ -1177,7 +1181,7 @@ mod tests {
         }
     }
 
-    fn entry_of(
+    pub(super) fn entry_of(
         tunnel_type: TunnelType,
         bind_host: Option<&str>,
         target_host: Option<&str>,
@@ -1348,7 +1352,7 @@ mod tests {
         e
     }
 
-    fn state_with(
+    pub(super) fn state_with(
         tunnels: Vec<TunnelEntry>,
         auto_detect: bool,
         detected: Option<&[u16]>,

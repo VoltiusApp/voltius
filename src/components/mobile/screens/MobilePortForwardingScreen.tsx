@@ -10,6 +10,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import MobileFilterBar from "@/components/mobile/MobileFilterBar";
+import MobileActiveTunnels from "@/components/mobile/MobileActiveTunnels";
 import MobilePanelHeader from "@/components/mobile/panels/MobilePanelHeader";
 import RuleActionsSheet from "@/components/mobile/sheets/RuleActionsSheet";
 import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
@@ -84,6 +85,7 @@ export default function MobilePortForwardingScreen() {
       <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: allRules.filter((r) => statusFor(r).status === "active").length })}</div>
 
       <div className="flex-1 overflow-y-auto pb-4">
+        {!search && nav.folderPath.length === 0 && <MobileActiveTunnels />}
         {!search && subfolders.map((f) => (
           <MobileFolderRow key={f.id} folder={f} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
         ))}

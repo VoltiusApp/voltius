@@ -48,14 +48,18 @@ import { resolvePanelScreen } from "./mobilePanelDispatch";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
+import { usePfToastBridge } from "@/hooks/usePfToastBridge";
 import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import { refitSession } from "@/hooks/useTerminal";
+
+const openPortForwardingPage = () => useMobileNavStore.getState().push({ kind: "more-page", page: "port-forwarding" });
 
 export default function MobileShell() {
   const { t } = useTranslation();
   const MORE_PAGE_TITLES = getMorePageTitles(t);
   useAndroidBack();
   useHostPingPolling(); // desktop mounts this in MainPanel; the mobile shell doesn't
+  usePfToastBridge(openPortForwardingPage);
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);

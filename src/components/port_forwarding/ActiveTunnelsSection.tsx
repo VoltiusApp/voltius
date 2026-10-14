@@ -1,11 +1,8 @@
-import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
-import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
-import { useConnectedSshPfStates } from "@/hooks/usePfStates";
-import { closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
+import { useActiveTunnelCards } from "@/hooks/useActiveTunnelCards";
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { sessionLabel } from "@/utils/sessionLabel";
@@ -17,7 +14,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { TunnelStatusDot } from "@/components/shared/TunnelStatusDot";
 import type { ActiveTunnel } from "@/types";
 
-function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
+export function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
   const { t } = useTranslation();
   if ((tunnelType ?? "local") === "local") {
     return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">{t("portForwarding.activeTunnels.local")}</span>;
@@ -33,82 +30,12 @@ function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type
 
 export function ActiveTunnelsSection() {
   const { t } = useTranslation();
-  const connections = useAllConnections();
-  const { sessions: relevantSessions, pfStates: pfStateMap } = useConnectedSshPfStates();
+  const { sessionCards, totalTunnelCount, totalErrorCount, isKeyBusy, pause, resume, deleteActive, deletePaused } = useActiveTunnelCards();
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
   const collapsed = useUIStore((s) => s.activeTunnelsCollapsed);
   const toggleCollapsed = useUIStore((s) => s.toggleActiveTunnelsCollapsed);
 
-  const [busy, setBusy] = useState<Set<string>>(new Set());
-  const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
-
-  // Port forwarding is host-scoped: terminals of the same host share one tunnel
-  // list, so collapse to a single card per host (first session per connection).
-  const hostSessions = useMemo(() => {
-    const seen = new Set<string>();
-    return relevantSessions.filter((s) => {
-      if (seen.has(s.connectionId)) return false;
-      seen.add(s.connectionId);
-      return true;
-    });
-  }, [relevantSessions]);
-
-  const sessionCards = useMemo(() => {
-    return hostSessions
-      .map((session) => {
-        const connection = connections.find((c) => c.id === session.connectionId) ?? null;
-        const state = pfStateMap.get(session.id);
-        const tunnels = (state?.tunnels ?? []).filter((tunnel) => tunnel.origin.type !== "rule" && !hiddenPorts.has(`${session.id}:${tunnel.remote_port}`));
-        const activePorts = new Set(tunnels.map((tunnel) => tunnel.remote_port));
-        const suppressedPorts = (state?.suppressed_ports ?? []).filter((port) => !activePorts.has(port) && !hiddenPorts.has(`${session.id}:${port}`));
-        const errorCount = tunnels.filter((tunnel) => typeof tunnel.state === "object" && "error" in tunnel.state).length;
-        return { session, connection, tunnels, suppressedPorts, errorCount };
-      })
-      .filter(({ tunnels, suppressedPorts }) => tunnels.length > 0 || suppressedPorts.length > 0);
-  }, [hostSessions, connections, pfStateMap, hiddenPorts]);
-
-  const totalTunnelCount = sessionCards.reduce((sum, card) => sum + card.tunnels.length + card.suppressedPorts.length, 0);
-  const totalErrorCount = sessionCards.reduce((sum, card) => sum + card.errorCount, 0);
-
   if (totalTunnelCount === 0) return null;
-
-  function setBusyKey(key: string, on: boolean) {
-    setBusy((prev) => {
-      const s = new Set(prev);
-      on ? s.add(key) : s.delete(key);
-      return s;
-    });
-  }
-
-  async function handlePause(sessionId: string, tunnelId: string) {
-    const key = `${sessionId}-${tunnelId}`;
-    setBusyKey(key, true);
-    try { await closePfTunnel(sessionId, tunnelId); }
-    catch (e) { console.error("pf_tunnel_close failed:", e); }
-    finally { setBusyKey(key, false); }
-  }
-
-  async function handleResume(sessionId: string, port: number) {
-    const key = `${sessionId}-${port}`;
-    setBusyKey(key, true);
-    try { await resumeAutoPort(sessionId, port); }
-    catch (e) { console.error("pf_tunnel_resume_auto failed:", e); }
-    finally { setBusyKey(key, false); }
-  }
-
-  async function handleDeleteActive(sessionId: string, tunnel: ActiveTunnel) {
-    const key = `del-${sessionId}-${tunnel.id}`;
-    setBusyKey(key, true);
-    try {
-      await closePfTunnel(sessionId, tunnel.id);
-      setHiddenPorts((prev) => new Set([...prev, `${sessionId}:${tunnel.remote_port}`]));
-    } catch (e) { console.error("pf_tunnel_close failed:", e); }
-    finally { setBusyKey(key, false); }
-  }
-
-  function handleDeletePaused(sessionId: string, port: number) {
-    setHiddenPorts((prev) => new Set([...prev, `${sessionId}:${port}`]));
-  }
 
   return (
     <div className="mb-4">
@@ -167,8 +94,8 @@ export function ActiveTunnelsSection() {
                 {tunnels.map((tunnel) => {
                   const key = `${session.id}-${tunnel.id}`;
                   const deleteKey = `del-${session.id}-${tunnel.id}`;
-                  const isBusy = busy.has(key);
-                  const isDeleting = busy.has(deleteKey);
+                  const isBusy = isKeyBusy(key);
+                  const isDeleting = isKeyBusy(deleteKey);
                   const isAuto = tunnel.origin.type === "auto";
                   const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
                   const errorMsg = isError ? (tunnel.state as { error: string }).error : null;
@@ -201,7 +128,7 @@ export function ActiveTunnelsSection() {
                         </p>
                       </div>
                       <button
-                        onClick={(e) => { e.stopPropagation(); void handlePause(session.id, tunnel.id); }}
+                        onClick={(e) => { e.stopPropagation(); void pause(session.id, tunnel.id); }}
                         disabled={isBusy}
                         title={t("portForwarding.activeTunnels.pauseForwarding")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-60"
@@ -212,7 +139,7 @@ export function ActiveTunnelsSection() {
                         }
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); void handleDeleteActive(session.id, tunnel); }}
+                        onClick={(e) => { e.stopPropagation(); void deleteActive(session.id, tunnel); }}
                         disabled={isDeleting}
                         title={t("common.action.delete")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
@@ -236,7 +163,7 @@ export function ActiveTunnelsSection() {
                 })}
                 {suppressedPorts.map((port) => {
                   const key = `${session.id}-${port}`;
-                  const isBusy = busy.has(key);
+                  const isBusy = isKeyBusy(key);
 
                   return (
                     <div
@@ -252,7 +179,7 @@ export function ActiveTunnelsSection() {
                         <p className="truncate text-xs font-mono text-(--t-text-secondary)">{port} → 127.0.0.1:{port}</p>
                       </div>
                       <button
-                        onClick={(e) => { e.stopPropagation(); void handleResume(session.id, port); }}
+                        onClick={(e) => { e.stopPropagation(); void resume(session.id, port); }}
                         disabled={isBusy}
                         title={t("portForwarding.activeTunnels.resumeForwarding")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-green-500/10 hover:text-green-400 disabled:opacity-60"
@@ -263,7 +190,7 @@ export function ActiveTunnelsSection() {
                         }
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeletePaused(session.id, port); }}
+                        onClick={(e) => { e.stopPropagation(); deletePaused(session.id, port); }}
                         title={t("common.action.delete")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-red-500/10 hover:text-red-400"
                       >

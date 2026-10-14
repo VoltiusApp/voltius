@@ -1,7 +1,10 @@
 package com.voltius.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
@@ -65,8 +68,16 @@ class MainActivity : TauriActivity() {
     runOnUiThread { dirPicker.launch(null) }
   }
 
+  fun requestNotificationPermission() {
+    if (Build.VERSION.SDK_INT < 33 || notificationPermissionAsked) return
+    if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+    notificationPermissionAsked = true
+    runOnUiThread { requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0) }
+  }
+
   companion object {
     @Volatile
     var instance: MainActivity? = null
+    private var notificationPermissionAsked = false
   }
 }
