@@ -1,5 +1,5 @@
 import { getAccountMode, isCurrentMasterPassword, openWithStoredSecret } from "@/services/account";
-import { systemAuthVerify } from "@/services/appLock";
+import { systemAuthAvailable, systemAuthVerify } from "@/services/appLock";
 import { useSecurityStore } from "@/stores/securityStore";
 import { canLockVault } from "@/utils/accountMode";
 import { forgetOtherPlainPasswords } from "@/services/savedAccounts";
@@ -42,29 +42,47 @@ async function bindPlain(reason: string): Promise<{ status: UnlockOutcome; passw
   return status === "unavailable" ? null : { status, password };
 }
 
-export async function unlockWithSystemAuth(reason: string): Promise<UnlockOutcome> {
+export async function canReadPasswordWithSystemAuth(): Promise<boolean> {
   const state = await secretState().catch(() => "none" as const);
+  return state === "sealed" || (state === "plain" && (await systemAuthAvailable()));
+}
+
+/** The stored master password, given only once the OS confirms the user. */
+export async function readPasswordWithSystemAuth(
+  reason: string,
+): Promise<{ outcome: UnlockOutcome; password: string | null }> {
+  const refused = (outcome: UnlockOutcome) => ({ outcome, password: null });
+  const state = await secretState().catch(() => "none" as const);
+  if (state === "none") return refused("declined");
   if (state === "sealed") {
     const read = await readSecret(reason);
-    if (read.outcome !== "ok" || !read.value) return read.outcome === "none" ? "declined" : (read.outcome as UnlockOutcome);
-    const opened = await open(read.value);
-    if (opened === "wrong-key") {
-      // The blob holds a password this account no longer has (changed on another device).
-      await clearSecret().catch(() => {});
-      return "invalidated";
-    }
-    if (opened !== "ok") return "failed";
-    if (!(await wantsBinding())) await importSecret({ kind: "plain", value: read.value }).catch(() => {});
-    return "ok";
+    if (read.outcome === "ok" && read.value) return { outcome: "ok", password: read.value };
+    return refused(read.outcome === "none" || read.outcome === "ok" ? "declined" : read.outcome);
   }
+  const verified = await systemAuthVerify(reason);
+  if (verified !== "ok") return refused(verified);
+  const password = await readPlainSecret().catch(() => null);
+  return password ? { outcome: "ok", password } : refused("declined");
+}
+
+export async function unlockWithSystemAuth(reason: string): Promise<UnlockOutcome> {
+  const state = await secretState().catch(() => "none" as const);
   if (state === "plain" && (await wantsBinding())) {
     const bound = await bindPlain(reason);
     if (bound) return bound.status === "ok" ? unlocked(bound.password) : bound.status;
   }
-  const verified = await systemAuthVerify(reason);
-  if (verified !== "ok") return verified;
-  const password = await readPlainSecret().catch(() => null);
-  return password ? unlocked(password) : "declined";
+  const { outcome, password } = await readPasswordWithSystemAuth(reason);
+  if (!password) return outcome;
+  if (state !== "sealed") return unlocked(password);
+  const opened = await open(password);
+  if (opened === "wrong-key") {
+    // The blob holds a password this account no longer has (changed on another device).
+    await clearSecret().catch(() => {});
+    return "invalidated";
+  }
+  if (opened !== "ok") return "failed";
+  if (!(await wantsBinding())) await importSecret({ kind: "plain", value: password }).catch(() => {});
+  return "ok";
 }
 
 export async function verifyForLockScreen(reason: string): Promise<UnlockOutcome> {

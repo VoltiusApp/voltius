@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   bindResult: "ok",
   openResult: "ok",
   verify: vi.fn(async () => "ok"),
+  systemAuthAvailable: true,
   systemAuthUnlock: true,
   forgetOthers: vi.fn(async () => undefined),
 }));
@@ -17,15 +18,18 @@ vi.mock("@/services/account", () => ({
   getAccountMode: vi.fn(async () => h.store.mode ?? null),
   isCurrentMasterPassword: vi.fn(async (p: string) => p === "pw"),
 }));
-vi.mock("@/services/appLock", () => ({ systemAuthVerify: h.verify }));
+vi.mock("@/services/appLock", () => ({
+  systemAuthVerify: h.verify,
+  systemAuthAvailable: async () => h.systemAuthAvailable,
+}));
 vi.mock("@/services/savedAccounts", () => ({ forgetOtherPlainPasswords: h.forgetOthers }));
 vi.mock("@/stores/securityStore", () => ({
   useSecurityStore: { getState: () => ({ systemAuthUnlock: h.systemAuthUnlock }) },
 }));
 
 import {
-  bindNow, bindingStatus, disableBinding, disableWithPassword, enableBinding,
-  rebindAfterPassword, unlockWithSystemAuth, verifyForLockScreen,
+  bindNow, bindingStatus, canReadPasswordWithSystemAuth, disableBinding, disableWithPassword, enableBinding,
+  readPasswordWithSystemAuth, rebindAfterPassword, unlockWithSystemAuth, verifyForLockScreen,
 } from "./vaultBinding";
 
 beforeEach(() => {
@@ -34,7 +38,9 @@ beforeEach(() => {
   h.bindResult = "ok";
   h.openResult = "ok";
   h.systemAuthUnlock = true;
-  h.verify.mockClear();
+  h.systemAuthAvailable = true;
+  h.verify.mockReset();
+  h.verify.mockResolvedValue("ok");
   h.forgetOthers.mockClear();
   h.invoke.mockReset();
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
@@ -180,4 +186,37 @@ test("a cancelled bind leaves other saved accounts alone", async () => {
   h.bindResult = "cancelled";
   await bindNow("r");
   expect(h.forgetOthers).not.toHaveBeenCalled();
+});
+
+test("reading the password of a plain secret asks for the presence check first", async () => {
+  h.store.master_password = "pw";
+  expect(await readPasswordWithSystemAuth("r")).toEqual({ outcome: "ok", password: "pw" });
+  expect(h.verify).toHaveBeenCalledWith("r");
+});
+
+test("a declined presence check gives no password", async () => {
+  h.store.master_password = "pw";
+  h.verify.mockResolvedValue("cancelled");
+  expect(await readPasswordWithSystemAuth("r")).toEqual({ outcome: "cancelled", password: null });
+});
+
+test("reading a sealed secret relies on its own prompt", async () => {
+  h.store.master_password_sealed = "S:pw";
+  expect(await readPasswordWithSystemAuth("r")).toEqual({ outcome: "ok", password: "pw" });
+  expect(h.verify).not.toHaveBeenCalled();
+});
+
+test("no stored secret gives no password and no prompt", async () => {
+  expect(await readPasswordWithSystemAuth("r")).toEqual({ outcome: "declined", password: null });
+  expect(h.verify).not.toHaveBeenCalled();
+});
+
+test("the password is readable only behind a prompt the device can show", async () => {
+  expect(await canReadPasswordWithSystemAuth()).toBe(false);
+  h.store.master_password = "pw";
+  expect(await canReadPasswordWithSystemAuth()).toBe(true);
+  h.systemAuthAvailable = false;
+  expect(await canReadPasswordWithSystemAuth()).toBe(false);
+  h.store.master_password_sealed = "S:pw";
+  expect(await canReadPasswordWithSystemAuth()).toBe(true);
 });
