@@ -8,7 +8,7 @@ import * as teamService from "@/services/teamService";
 import { fetchAuthJson } from "@/services/authFetch";
 import { getServerUrl } from "@/services/authTokens";
 import { serverSupportsWrappedSecretsCas } from "@/services/serverCapabilities";
-import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
+import { base64ToByteArray, bytesToBase64 } from "@/utils/base64";
 
 export interface Identity {
   privateKey: string;
@@ -51,7 +51,7 @@ async function store(
   if (!expected || !stillCurrent()) return false;
   const serverUrl = await getServerUrl();
   if (!serverUrl || !(await serverSupportsWrappedSecretsCas())) return false;
-  const x25519Private = Array.from(base64ToBytes(identity.privateKey));
+  const x25519Private = base64ToByteArray(identity.privateKey);
   const next = await wrapUserSecrets(keys.kek, keys.dek, x25519Private);
   const res = await fetchAuthJson(`${serverUrl}/v1/auth/wrapped-user-secrets`, {
     method: "PUT",
@@ -67,7 +67,7 @@ async function store(
   }
   if (!stillCurrent()) return false;
   await invoke("keychain_set", { key: "wrapped_user_secrets", value: next });
-  useVaultKeysStore.getState().set({ ...keys, x25519Private });
+  if (stillCurrent()) useVaultKeysStore.getState().set({ ...keys, x25519Private });
   return true;
 }
 
@@ -89,10 +89,12 @@ async function resolve(
   const published = (await teamService.getUserPublicKey(myUserId))?.public_key ?? null;
   if (!stillCurrent()) return unproven();
 
-  const held = x25519Private ? await fromPrivate(x25519Private) : null;
-  if (held && (!published || held.publicKey === published)) return { ...held, proven: true, stored: true };
+  const held = x25519Private ? await fromPrivate(x25519Private).catch(() => null) : null;
+  if (held && held.publicKey === published) return { ...held, proven: true, stored: true };
   const candidates = await Promise.all([vaultKey, kek, dek].map(derive));
-  const match = published ? candidates.find((c) => c.publicKey === published) : candidates[0];
+  const fromDek = candidates[2];
+  if (!published && held?.privateKey === fromDek.privateKey) return { ...fromDek, proven: true, stored: true };
+  const match = published ? candidates.find((c) => c.publicKey === published) : fromDek;
   if (!match) {
     if (stillCurrent()) useVaultKeysStore.getState().markIdentityUnproven();
     return unproven();

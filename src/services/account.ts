@@ -10,7 +10,7 @@ import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
 import { rememberServer } from "@/utils/serverInstance";
-import { base64ToBytes, hexToBytes } from "@/utils/base64";
+import { base64ToByteArray, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import type { SavedAccount } from "./savedAccounts";
 import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
@@ -804,7 +804,7 @@ export async function linkToCloud(
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
   const { dek } = await generateUserSecrets();
   const identity = await deriveX25519Keypair(dek);
-  const x25519Private = Array.from(base64ToBytes(identity.private_key));
+  const x25519Private = base64ToByteArray(identity.private_key);
   const wrapped_user_secrets = await wrapUserSecrets(kek, dek, x25519Private);
 
   const data = await registerOnServer({
@@ -824,9 +824,15 @@ export async function linkToCloud(
 
 // ─── New account management features ─────────────────────────────────────────
 
-/** Upload this device's blob under the vault key just installed; never throws. */
+/** Upload this device's blob under the vault key just installed; never throws. A paused device pushes on resume. */
 function pushUnderNewVaultKey(): void {
-  import("@/services/sync").then(({ push }) => push()).catch(() => {});
+  import("@/services/sync")
+    .then(({ push, isSyncPaused }) => (isSyncPaused() ? undefined : push()))
+    .catch(() => {});
+}
+
+async function ensureIdentity() {
+  return (await import("@/services/identity")).ensureIdentity();
 }
 
 /**
@@ -860,7 +866,6 @@ export async function settleVaultOnDek(): Promise<void> {
   const vaultKey = getVaultKey();
   if (!kek || !dek || !vaultKey || sameKey(vaultKey, dek)) return;
   if ((await keychainGet("mode")) !== "server") return;
-  const { ensureIdentity } = await import("@/services/identity");
   const identity = await ensureIdentity().catch(() => null);
   if (!identity?.stored) return;
   if (getVaultKey() !== vaultKey || useVaultKeysStore.getState().kek !== kek) return;
@@ -887,16 +892,22 @@ async function reopenWithStoredPassword(
   accountId: string,
   dek: number[],
 ): Promise<number[] | null> {
-  const stored = await readStored();
-  if (!stored || stored === typed) return null;
-  const { enc_key: oldKek } = await deriveKeys(stored, accountId);
-  if (!(await keyThatOpensVault(oldKek))) return null;
-  setVaultKey(oldKek);
-  const { ensureIdentity } = await import("@/services/identity");
-  await ensureIdentity().catch(() => null);
-  await moveVaultToDek(oldKek, dek);
-  pushUnderNewVaultKey();
-  return dek;
+  const sessionKey = getVaultKey();
+  try {
+    const stored = await readStored();
+    if (!stored || stored === typed) return null;
+    const { enc_key: oldKek } = await deriveKeys(stored, accountId);
+    if (!(await keyThatOpensVault(oldKek))) return null;
+    setVaultKey(oldKek);
+    await ensureIdentity().catch(() => null);
+    await moveVaultToDek(oldKek, dek);
+    pushUnderNewVaultKey();
+    return dek;
+  } catch (e) {
+    console.warn("Reopening the vault with the stored password failed:", e);
+    if (sessionKey) setVaultKey(sessionKey);
+    return null;
+  }
 }
 
 // The server commits before minting tokens, so only a 4xx or its own answer proves a change did not land.
@@ -937,9 +948,8 @@ export async function changeMasterPassword(
     useVaultKeysStore.getState().set({ dek: cachedDek, x25519Private: cachedX25519, kek: old_kek });
   }
 
-  const { ensureIdentity } = await import("@/services/identity");
   const identity = await ensureIdentity();
-  if (identity.proven) cachedX25519 = Array.from(base64ToBytes(identity.privateKey));
+  if (identity.proven) cachedX25519 = base64ToByteArray(identity.privateKey);
 
   const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
@@ -1013,7 +1023,7 @@ async function migrateToWrappedUserSecrets(
     // Derive existing deterministic X25519 keypair from legacy enc_key (= kek)
     const { private_key: legacyX25519PrivateB64 } = await deriveX25519Keypair(kek);
 
-    const legacyX25519Private = Array.from(base64ToBytes(legacyX25519PrivateB64));
+    const legacyX25519Private = base64ToByteArray(legacyX25519PrivateB64);
 
     const secrets = await generateUserSecrets();
     const dek = secrets.dek;

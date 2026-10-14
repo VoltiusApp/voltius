@@ -216,20 +216,49 @@ test("no stored wrapped secrets means no write", async () => {
   expect(h.fetch).not.toHaveBeenCalled();
 });
 
-test("an unpublished roster keeps the stored identity without a write", async () => {
-  cloudSession();
-  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: `PUB_OF_${STORED}`, proven: true, stored: true });
+const dekPrivate = () => bytes(btoa(`priv-${DEK}`));
+
+test("an unpublished roster and a stored dek identity need no write", async () => {
+  useVaultKeysStore.getState().set({ kek: KEK, dek: DEK, x25519Private: dekPrivate() });
+  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: derivedPub(DEK), proven: true, stored: true });
   expect(h.fetch).not.toHaveBeenCalled();
 });
 
-test("an unpublished roster and no stored key store the vault key identity", async () => {
-  cloudSession();
-  useVaultKeysStore.setState({ x25519Private: null });
-  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: derivedPub([5, 5, 5]), proven: true, stored: true });
+test.each([
+  ["another stored key", STORED],
+  ["no stored key", null],
+])("an unpublished roster with %s stores the dek identity", async (_name, x25519Private) => {
+  useVaultKeysStore.setState({ kek: KEK, dek: DEK, x25519Private });
+  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: derivedPub(DEK), proven: true, stored: true });
   expect(sentBody()).toEqual({
-    wrapped_user_secrets: `WRAPPED(${bytes(btoa(`priv-${[5, 5, 5]}`))})`,
+    wrapped_user_secrets: `WRAPPED(${dekPrivate()})`,
     expected_wrapped_user_secrets: "OLD_WRAPPED",
   });
+  expect(useVaultKeysStore.getState().x25519Private).toEqual(dekPrivate());
+});
+
+test("a stored key that is not a valid private key is passed over", async () => {
+  cloudSession();
+  h.published = derivedPub(DEK);
+  const impl = h.invoke.getMockImplementation()!;
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+    if (cmd === "x25519_public_from_private") throw new Error("not 32 bytes");
+    return impl(cmd, args);
+  });
+  await expect(ensureIdentity()).resolves.toMatchObject({ publicKey: derivedPub(DEK), proven: true, stored: true });
+});
+
+test("an account switch during the keychain write leaves the new session's keys alone", async () => {
+  cloudSession();
+  h.published = derivedPub(DEK);
+  const impl = h.invoke.getMockImplementation()!;
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+    const r = await impl(cmd, args);
+    if (cmd === "keychain_set") switchAccount();
+    return r;
+  });
+  await expect(ensureIdentity()).resolves.toMatchObject({ proven: true, stored: true });
+  expect(useVaultKeysStore.getState().x25519Private).toEqual([3, 3, 3]);
 });
 
 test("a wrap failure still resolves a proven identity", async () => {

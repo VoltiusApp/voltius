@@ -25,7 +25,7 @@ vi.mock("@/stores/subscriptionStore", () => ({
 vi.mock("@/stores/vaultKeysStore", () => ({
   useVaultKeysStore: { getState: () => ({ set: vi.fn(), clear: vi.fn(), dek: null, x25519Private: null }) },
 }));
-vi.mock("@/services/sync", () => ({ push: vi.fn(async () => undefined), stopRealtimeSync: vi.fn() }));
+vi.mock("@/services/sync", () => ({ push: vi.fn(async () => undefined), isSyncPaused: () => false, stopRealtimeSync: vi.fn() }));
 vi.mock("@/services/teamDataManager", () => ({ onSessionEnd: vi.fn() }));
 vi.mock("@/services/savedAccounts", () => ({ removeSavedAccount: h.removeSavedAccount }));
 

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { routeVaultSecret } from "@/test/vaultSecretRoute";
 import { test, expect, vi, beforeEach } from "vitest";
+import type { Identity } from "./identity";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -27,7 +28,9 @@ const h = vi.hoisted(() => ({
   dek: null as number[] | null,
   x25519: null as number[] | null,
   kek: null as number[] | null,
-  ensureIdentity: vi.fn(async () => ({ privateKey: btoa("id"), publicKey: "P", proven: true, stored: true })),
+  ensureIdentity: vi.fn<() => Promise<Identity>>(),
+  syncPaused: false,
+  isSyncPaused: vi.fn((): boolean => h.syncPaused),
   emailVerified: false,
   seq: [] as string[],
   /** Request bodies by endpoint path, so a test can assert what was sent. */
@@ -37,7 +40,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
-vi.mock("@/services/sync", () => ({ push: h.push }));
+vi.mock("@/services/sync", () => ({ push: h.push, isSyncPaused: h.isSyncPaused }));
 vi.mock("./vault", () => ({
   setVaultKey: (key: number[]) => {
     h.sessionKey = key;
@@ -83,6 +86,7 @@ import { DEFAULT_SERVER_URL, lastServerUrl } from "@/utils/serverInstance";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
 const S = "https://srv";
+const STORED_IDENTITY: Identity = { privateKey: btoa("id"), publicKey: "P", proven: true, stored: true };
 const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
 
 function routeInvoke() {
@@ -151,7 +155,9 @@ beforeEach(() => {
   clearSessionRevoked();
   h.kek = null;
   h.ensureIdentity.mockReset();
-  h.ensureIdentity.mockImplementation(async () => ({ privateKey: btoa("id"), publicKey: "P", proven: true, stored: true }));
+  h.ensureIdentity.mockResolvedValue(STORED_IDENTITY);
+  h.syncPaused = false;
+  h.isSyncPaused.mockClear();
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet]) m.mockReset();
   h.readLocalSecrets.mockReset().mockResolvedValue({});
   h.getVaultStatus.mockReset();
@@ -589,6 +595,16 @@ test("a session without cached keys adopts the server's before resolving the ide
   await changeMasterPassword("old", "new");
   expect(h.keysSet).toHaveBeenCalledWith({ dek: [1, 1, 1], x25519Private: [2, 2, 2], kek: [9, 9, 9] });
   expect(h.keysSet.mock.invocationCallOrder[0]).toBeLessThan(h.ensureIdentity.mock.invocationCallOrder[0]);
+});
+
+test("an identity that cannot be resolved fails the change before anything is touched", async () => {
+  cloudSessionOn([9, 9, 9]);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.ensureIdentity.mockRejectedValueOnce(new Error("offline"));
+  await expect(changeMasterPassword("old", "new")).rejects.toThrow("offline");
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(step("/auth/password")).toBe(-1);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
 });
 
 test("changeMasterPassword rotates tokens and password on success", async () => {
@@ -1100,6 +1116,15 @@ test("a kek vault moves to the dek once the identity is stored", async () => {
   await vi.waitFor(() => expect(h.push).toHaveBeenCalled());
 });
 
+test("a paused device moves its vault to the dek without uploading", async () => {
+  kekVaultWithDek();
+  h.syncPaused = true;
+  await settleVaultOnDek();
+  expect(h.invoke).toHaveBeenCalledWith("secrets_rekey", { oldEncKey: [9, 9, 9], newEncKey: [1, 1, 1] });
+  await vi.waitFor(() => expect(h.isSyncPaused).toHaveBeenCalled());
+  expect(h.push).not.toHaveBeenCalled();
+});
+
 test("a vault stays on the kek while the identity is not stored", async () => {
   kekVaultWithDek();
   h.ensureIdentity.mockResolvedValueOnce({ privateKey: "", publicKey: "", proven: true, stored: false });
@@ -1135,7 +1160,7 @@ test("an account switch while the identity resolves leaves the new account's vau
   h.ensureIdentity.mockImplementationOnce(async () => {
     h.sessionKey = [7, 7, 7];
     h.kek = [7, 7, 7];
-    return { privateKey: btoa("id"), publicKey: "P", proven: true, stored: true };
+    return STORED_IDENTITY;
   });
   await settleVaultOnDek();
   expect(h.seq).not.toContain("secrets_rekey");
@@ -1208,4 +1233,34 @@ test("a device that stored the same password has nothing older to try", async ()
   strandedOnOldKek();
   h.store.master_password = "new";
   await expect(login("new")).rejects.toThrow(VaultUnreadableError);
+});
+
+test.each([
+  ["its rekey fails", () => {
+    h.rekeyError = new Error("disk full");
+  }],
+  ["the file cannot be read", () => {
+    const fits = h.verifyVaultKey.getMockImplementation()!;
+    h.verifyVaultKey.mockImplementation(async (key: number[]) => {
+      if (String(key) === "9,9,9") throw new Error("EBUSY");
+      return fits(key);
+    });
+  }],
+])("a recovery where %s is an unreadable vault, on the key the sign-in installed", async (_name, fail) => {
+  strandedOnOldKek();
+  h.store.master_password = "old";
+  fail();
+  await expect(login("new")).rejects.toThrow(VaultUnreadableError);
+  expect(h.sessionKey).toEqual([8, 8, 8]);
+  expect(h.push).not.toHaveBeenCalled();
+});
+
+test("a stored password that opens nothing either is an unreadable vault", async () => {
+  strandedOnOldKek();
+  // "zzz" derives [9, 9, 9]; this file is on a key neither password reaches.
+  existingVaultOpenedBy([7, 7, 7]);
+  h.store.master_password = "zzz";
+  await expect(login("new")).rejects.toThrow(VaultUnreadableError);
+  expect(h.seq).not.toContain("secrets_rekey");
+  expect(h.sessionKey).toEqual([8, 8, 8]);
 });

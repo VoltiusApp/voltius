@@ -16,6 +16,11 @@ export function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+// Tauri commands take `Vec<u8>` as a JSON number array, which a Uint8Array does not serialize to.
+export function base64ToByteArray(b64: string): number[] {
+  return Array.from(base64ToBytes(b64));
+}
+
 export function hexToBytes(hex: string): number[] {
   const bytes: number[] = [];
   for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.slice(i, i + 2), 16));
