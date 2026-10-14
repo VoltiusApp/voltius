@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { Terminal } from "@xterm/xterm";
+import { Terminal } from "@xterm/xterm";
 
 const writeClipboard = vi.hoisted(() => vi.fn(async () => {}));
 const readClipboard = vi.hoisted(() => vi.fn(async () => ""));
@@ -18,6 +18,8 @@ import { attachTerminalClipboard, type TerminalClipboardHandle } from "./termina
 
 const MOVE = 32;
 const DOWN = 1;
+const LEFT_BUTTON = 0;
+const NO_BUTTON = 3;
 
 interface Harness {
   term: Terminal;
@@ -251,5 +253,35 @@ describe("drag-selects-text over an app holding the mouse", () => {
     move({ clientY: -5 });
     expect(h.protocol()).toBe("NONE");
     expect(h.appEvents).toEqual([]);
+  });
+});
+
+describe("against the real xterm", () => {
+  it("does not count mouse motion reports as user input", async () => {
+    const term = new Terminal({ allowProposedApi: true });
+    const clip = attachTerminalClipboard(term, document.createElement("div"));
+    await new Promise<void>((resolve) => term.write("\x1b[?1003h\x1b[?1006h", resolve));
+    const core = (term as unknown as {
+      _core: {
+        coreService: { onUserInput(listener: () => void): void };
+        coreMouseService: { triggerMouseEvent(e: object): boolean };
+      };
+    })._core;
+    const userInput = vi.fn();
+    core.coreService.onUserInput(userInput);
+    const sent: string[] = [];
+    term.onData((d) => sent.push(d));
+    const report = (col: number, button: number, action: number) =>
+      core.coreMouseService.triggerMouseEvent({ col, row: 0, x: 0, y: 0, button, action, ctrl: false, alt: false, shift: false });
+
+    report(1, NO_BUTTON, MOVE);
+    expect(sent).toHaveLength(1);
+    expect(userInput).not.toHaveBeenCalled();
+    report(1, LEFT_BUTTON, DOWN);
+    expect(userInput).toHaveBeenCalledTimes(1);
+
+    clip.dispose();
+    report(2, NO_BUTTON, MOVE);
+    expect(userInput).toHaveBeenCalledTimes(2);
   });
 });
