@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { test, expect } from "vitest";
 import { vaultOverviewSections } from "./vaultOverviewSections";
 import type { Vault } from "@/stores/vaultStore";

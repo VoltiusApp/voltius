@@ -106,6 +106,7 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
         <HostPickerPanel
           onPick={handlePick}
           onBack={() => setShowPicker(false)}
+          showRecents={false}
         />
       </SlideOver>
     </div>

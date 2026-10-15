@@ -71,7 +71,8 @@
       "memberBadge": "участник"
     },
     "pickers": {
-      "thisComputer": "Этот компьютер"
+      "thisComputer": "Этот компьютер",
+      "recent": "Недавние"
     },
     "sessionPicker": {
       "insertTitle": "Вставить в...",

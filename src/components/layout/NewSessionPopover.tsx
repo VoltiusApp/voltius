@@ -3,15 +3,14 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAllConnections } from "@/hooks/useAllConnections";
-import { useSessionStore } from "@/stores/sessionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { VaultBadge } from "@/components/shared/VaultBadge";
 import { pingStatusTone } from "@/utils/statusTone";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
+import { partitionRecentHosts } from "@/utils/recentHosts";
 import {
-  partitionLauncherHosts,
   shellLabel,
   shellIcon,
   localShellNeedsPath,
@@ -52,7 +51,6 @@ function NewSessionPanel({ popover, anchorRef, onClose }: {
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
   const connections = useAllConnections();
-  const sessions = useSessionStore((s) => s.sessions);
   const shells = useLocalShells();
   // Android sandbox can't spawn a local PTY — hide local-shell launchers there.
   const isAndroid = useIsAndroid();
@@ -73,17 +71,7 @@ function NewSessionPanel({ popover, anchorRef, onClose }: {
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => { setSelected(0); }, [query]);
 
-  const activeConnectionIds = useMemo(
-    () => new Set(
-      sessions.filter((s) => s.status === "connected" || s.status === "connecting").map((s) => s.connectionId),
-    ),
-    [sessions],
-  );
-
-  const { recent, hosts } = useMemo(
-    () => partitionLauncherHosts(connections, activeConnectionIds, query, 5, true),
-    [connections, activeConnectionIds, query],
-  );
+  const { recent, hosts } = useMemo(() => partitionRecentHosts(connections, query), [connections, query]);
 
   // Local shells live in the dedicated Local section, so drop the redundant
   // local Quick Connect row.

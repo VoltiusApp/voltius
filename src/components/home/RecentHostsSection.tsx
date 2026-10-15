@@ -6,20 +6,10 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
+import { pinnedThenRecent } from "@/utils/recentHosts";
 import type { Connection } from "@/types";
 
 const PAGE_SIZE = 6;
-
-function selectHosts(
-  connections: Connection[],
-  isPinned: (c: Connection) => boolean,
-): Connection[] {
-  const pinned = connections.filter((c) => isPinned(c));
-  const used = connections
-    .filter((c) => !isPinned(c) && c.last_used_at)
-    .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? ""));
-  return [...pinned, ...used];
-}
 
 interface Props {
   onSeeAll: () => void;
@@ -38,7 +28,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();
-  const hosts = selectHosts(connections, (c) => isPinnedFn(c, "connection"));
+  const hosts = pinnedThenRecent(connections, (c) => isPinnedFn(c, "connection"), true);
   if (hosts.length === 0) return null;
 
   const totalPages = Math.ceil(hosts.length / PAGE_SIZE);

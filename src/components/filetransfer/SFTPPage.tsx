@@ -35,7 +35,7 @@ import { TabDragGhost } from "./editor/TabDragGhost";
 import { triggerOsDrop as triggerOsDropPipeline } from "./osDropPipeline";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { findAnyConnection } from "@/stores/connectionStore";
+import { findAnyConnection, useConnectionStore } from "@/stores/connectionStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { lazyNamed } from "@/utils/lazyNamed";
@@ -126,6 +126,7 @@ export default function SFTPPage() {
         opening.current[side] = connectId;
         try {
           sftpId = await connectFileBackend(host.connection, connectId, true, relink);
+          useConnectionStore.getState().setLastUsed(host.connection.id).catch(() => {});
         } finally {
           if (opening.current[side] === connectId) opening.current[side] = null;
         }

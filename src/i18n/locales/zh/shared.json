@@ -69,7 +69,8 @@
       "memberBadge": "成员"
     },
     "pickers": {
-      "thisComputer": "此计算机"
+      "thisComputer": "此计算机",
+      "recent": "最近"
     },
     "sessionPicker": {
       "insertTitle": "插入到...",

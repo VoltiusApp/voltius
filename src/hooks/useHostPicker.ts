@@ -4,6 +4,7 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { hostPickerRows, uniqueVaults, vaultIdOf } from "@/utils/hostPickerTree";
+import { RECENT_HOSTS_CAP, recentlyUsed } from "@/utils/recentHosts";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 
 const NONE: ReadonlySet<string> = new Set();
@@ -36,11 +37,18 @@ export function useHostPicker({ query, sortMode, sshOnly, vaultId, excludeId }: 
   const activeVault = vaultFilter && vaults.some((v) => v.id === vaultFilter) ? vaultFilter : null;
   const searching = query.trim() !== "";
 
+  const inVault = useMemo(
+    () => (activeVault ? eligible.filter((c) => vaultIdOf(c) === activeVault) : eligible),
+    [eligible, activeVault],
+  );
+
   const rows = useMemo(() => {
-    const matched = eligible.filter((c) => (!activeVault || vaultIdOf(c) === activeVault) && matchesSearch(c, query));
+    const matched = inVault.filter((c) => matchesSearch(c, query));
     if (sortMode) matched.sort((a, b) => compareConnections(a, b, sortMode));
     return hostPickerRows(matched, folders, vaultOptions, searching ? NONE : collapsed);
-  }, [eligible, activeVault, query, sortMode, folders, vaultOptions, searching, collapsed]);
+  }, [inVault, query, sortMode, folders, vaultOptions, searching, collapsed]);
+
+  const recent = useMemo(() => (searching ? [] : recentlyUsed(inVault, RECENT_HOSTS_CAP)), [inVault, searching]);
 
   const toggleFolder = useCallback((id: string) => setCollapsed((prev) => {
     const next = new Set(prev);
@@ -50,6 +58,7 @@ export function useHostPicker({ query, sortMode, sshOnly, vaultId, excludeId }: 
 
   return {
     rows,
+    recent,
     vaults,
     vaultFilter: activeVault,
     setVaultFilter,

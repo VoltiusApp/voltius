@@ -6,6 +6,7 @@ import {
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
 } from "@/services/sftp";
 import { connectFileBackend } from "@/services/sftpTarget";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
@@ -52,6 +53,7 @@ export function useSftpDir(connection: Connection | undefined) {
     (async () => {
       try {
         const sftpId = await connectFileBackend(connection, genId());
+        useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;
         const home = await sftpCanonicalize(sftpId, ".");

@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
-import { FolderGlyph } from "@/components/folders/folderAppearance";
 import { useHostPicker } from "@/hooks/useHostPicker";
-import { hostPickerRowKey } from "@/utils/hostPickerTree";
-import { chevronRotateStyle } from "@/utils/icons";
+import { HostPickerTree } from "@/components/shared/HostPickerTree";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -48,7 +45,7 @@ export default function SftpHostPickerSheet({
   const { t } = useTranslation();
   const [pingEnabled] = useToggle("reachability");
   const [q, setQ] = useState("");
-  const { rows, vaults, vaultFilter, setVaultFilter, toggleFolder } = useHostPicker({ query: q, sshOnly: true, excludeId });
+  const { rows, recent, vaults, vaultFilter, setVaultFilter, toggleFolder } = useHostPicker({ query: q, sshOnly: true, excludeId });
 
   return (
     <BottomSheet title={t("mobile.sftp.chooseHost")} onClose={onClose}>
@@ -70,26 +67,13 @@ export default function SftpHostPickerSheet({
       )}
       <div className="max-h-[50vh] overflow-y-auto">
         {rows.length === 0 && <div className="px-3 py-6 text-center text-sm text-(--t-text-dim)">{t("mobile.sheets.sftpHostPicker.noSshHosts")}</div>}
-        {rows.map((row) => {
-          if (row.kind === "vault") {
-            return <div key={hostPickerRowKey(row)} className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider truncate text-(--t-text-dim)">{row.name}</div>;
-          }
-          const indent = { paddingLeft: `${row.depth}rem` };
-          if (row.kind === "folder") {
-            return (
-              <div key={hostPickerRowKey(row)} style={indent}>
-                <button data-sftp-host-folder={row.folder.id} aria-expanded={!row.collapsed} onClick={() => toggleFolder(row.folder.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left rounded-xl active:bg-(--t-bg-card)">
-                  <Icon icon="lucide:chevron-right" width={16} className="shrink-0 text-(--t-text-dim)" style={chevronRotateStyle(!row.collapsed, 90)} />
-                  <FolderGlyph folder={row.folder} width={16} />
-                  <span className="flex-1 min-w-0 text-sm font-medium text-(--t-text-primary) truncate">{row.folder.name}</span>
-                  <span className="text-xs text-(--t-text-dim) shrink-0">{row.count}</span>
-                </button>
-              </div>
-            );
-          }
-          return <div key={hostPickerRowKey(row)} style={indent}><PickRow c={row.connection} pingEnabled={pingEnabled} onPick={onPick} /></div>;
-        })}
+        <HostPickerTree
+          rows={rows}
+          recent={recent}
+          onToggleFolder={toggleFolder}
+          renderHost={(c) => <PickRow c={c} pingEnabled={pingEnabled} onPick={onPick} />}
+          density="touch"
+        />
       </div>
     </BottomSheet>
   );

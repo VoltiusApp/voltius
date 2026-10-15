@@ -69,7 +69,8 @@
       "memberBadge": "üye"
     },
     "pickers": {
-      "thisComputer": "Bu bilgisayar"
+      "thisComputer": "Bu bilgisayar",
+      "recent": "Son kullanılanlar"
     },
     "sessionPicker": {
       "insertTitle": "Şuraya ekle...",

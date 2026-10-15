@@ -41,8 +41,8 @@ import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/lau
 import { sessionDisplayName } from "@/services/teamSharing";
 import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { computeSectionBoundaries } from "./omniSections";
+import { recentlyUsed } from "@/utils/recentHosts";
 import {
-  selectRecentHosts,
   selectLocalShellItems,
   localShellNeedsPath,
   shellLabel,
@@ -174,7 +174,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   );
 
   const recentConnections = useMemo(
-    () => selectRecentHosts(connections, activeConnectionIds),
+    () => recentlyUsed(connections.filter((c) => !activeConnectionIds.has(c.id))),
     [activeConnectionIds, connections],
   );
 

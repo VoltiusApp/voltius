@@ -70,7 +70,8 @@
       "memberBadge": "membre"
     },
     "pickers": {
-      "thisComputer": "Cet ordinateur"
+      "thisComputer": "Cet ordinateur",
+      "recent": "Récents"
     },
     "sessionPicker": {
       "insertTitle": "Insérer dans...",

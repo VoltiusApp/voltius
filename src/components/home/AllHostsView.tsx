@@ -6,18 +6,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
+import { pinnedThenRecent } from "@/utils/recentHosts";
 import type { Connection } from "@/types";
-
-function sortHosts(
-  connections: Connection[],
-  isPinned: (c: Connection) => boolean,
-): Connection[] {
-  const pinned = connections.filter((c) => isPinned(c));
-  const remaining = [...connections.filter((c) => !isPinned(c))].sort((a, b) =>
-    (b.last_used_at ?? "").localeCompare(a.last_used_at ?? ""),
-  );
-  return [...pinned, ...remaining];
-}
 
 interface Props {
   onBack: () => void;
@@ -35,7 +25,7 @@ export function AllHostsView({ onBack }: Props) {
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();
-  const hosts = sortHosts(connections, (c) => isPinnedFn(c, "connection"));
+  const hosts = pinnedThenRecent(connections, (c) => isPinnedFn(c, "connection"));
 
   return (
     <div className="h-full overflow-y-auto chrome-canvas">

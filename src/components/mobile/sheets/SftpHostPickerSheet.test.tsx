@@ -43,11 +43,34 @@ test("groups SSH hosts by vault and folder, and the vault chips narrow the list"
   expect(screen.getByText("home-box")).toBeTruthy();
   expect(screen.getByText("team-box")).toBeTruthy();
   expect(screen.queryByText("modem")).toBeNull();
-  expect(container.querySelector('[data-sftp-host-folder="servers"]')?.textContent).toContain("Servers");
+  expect(container.querySelector('[data-host-picker-folder="servers"]')?.textContent).toContain("Servers");
 
   fireEvent.click(container.querySelector('[data-sftp-host-vault="t1"]')!);
   expect(screen.queryByText("home-box")).toBeNull();
   expect(screen.getByText("team-box")).toBeTruthy();
+});
+
+test("recents follow the vault chip and leave out serial hosts and the other pane's host", () => {
+  seed();
+  const used = { last_used_at: "2026-02-01T00:00:00Z" };
+  useConnectionStore.setState({
+    connections: [
+      host("home-box", "personal", used),
+      host("other-pane", "personal", used),
+      host("modem", "personal", { connection_type: "serial", ...used } as Partial<Connection>),
+    ],
+    teamConnections: { t1: [host("team-box", "t1", used)] },
+  });
+  const { container } = render(<SftpHostPickerSheet excludeId="other-pane" onPick={() => {}} onClose={() => {}} />);
+  const recent = () => container.querySelector("[data-host-picker-recent]")?.textContent ?? "";
+  expect(recent()).toContain("home-box");
+  expect(recent()).toContain("team-box");
+  expect(recent()).not.toContain("other-pane");
+  expect(recent()).not.toContain("modem");
+
+  fireEvent.click(container.querySelector('[data-sftp-host-vault="t1"]')!);
+  expect(recent()).toContain("team-box");
+  expect(recent()).not.toContain("home-box");
 });
 
 test("leaves out the host already open in the other pane", () => {

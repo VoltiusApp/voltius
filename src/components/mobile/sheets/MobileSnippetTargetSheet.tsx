@@ -10,8 +10,10 @@ import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
 import type { RunTarget } from "@/services/sftpTarget";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { RecentHostsGroup } from "@/components/shared/HostPickerTree";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { sessionLabel } from "@/utils/sessionLabel";
+import type { Connection } from "@/types";
 
 export default function MobileSnippetTargetSheet(
   { snippetId, mode, preselectSessionId }: { snippetId: string; mode: "insert" | "execute"; preselectSessionId?: string },
@@ -32,6 +34,20 @@ export default function MobileSnippetTargetSheet(
 
   const execute = mode === "execute";
   const confirmLabel = t(execute ? "mobile.sheets.snippetTarget.confirmExecute" : "mobile.sheets.snippetTarget.confirmInsert", { count: p.totalSelected });
+
+  const hostRow = (c: Connection) => {
+    const sel = p.selectedConnectionIds.has(c.id);
+    return (
+      <button key={c.id} data-snippet-target-host={c.id}
+        className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card)"
+        onClick={() => p.toggleConnection(c.id)}>
+        {sel
+          ? <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--t-accent)" }}><Icon icon="lucide:check" width={15} className="text-white" /></span>
+          : <ConnectionAvatar connection={c} size={28} />}
+        <span className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{connectionDisplayName(c)}</span>
+      </button>
+    );
+  };
 
   async function go() {
     const sn = snippet!;
@@ -75,7 +91,7 @@ export default function MobileSnippetTargetSheet(
 
       {p.filteredSessions.length > 0 && (
         <>
-          <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.activeSessions")}</p>
+          <SectionLabel>{t("mobile.sheets.snippetTarget.activeSessions")}</SectionLabel>
           {p.filteredSessions.map((s) => {
             const sel = p.selectedSessionIds.has(s.id);
             return (
@@ -93,21 +109,15 @@ export default function MobileSnippetTargetSheet(
         </>
       )}
 
-      <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.openNewConnection")}</p>
-      {p.filteredHosts.map((c) => {
-        const sel = p.selectedConnectionIds.has(c.id);
-        return (
-          <button key={c.id} data-snippet-target-host={c.id}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card)"
-            onClick={() => p.toggleConnection(c.id)}>
-            {sel
-              ? <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--t-accent)" }}><Icon icon="lucide:check" width={15} className="text-white" /></span>
-              : <ConnectionAvatar connection={c} size={28} />}
-            <span className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{connectionDisplayName(c)}</span>
-          </button>
-        );
-      })}
-      {p.filteredHosts.length === 0 && <p className="px-4 py-3 text-xs text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.noHosts")}</p>}
+      {p.recentHosts.length === 0 && <SectionLabel>{t("mobile.sheets.snippetTarget.openNewConnection")}</SectionLabel>}
+      <RecentHostsGroup
+        recent={p.recentHosts}
+        renderHost={hostRow}
+        heading={(label) => <SectionLabel>{label}</SectionLabel>}
+        restHeading={p.filteredHosts.length > 0}
+      />
+      {p.filteredHosts.map(hostRow)}
+      {!p.hasHosts && <p className="px-4 py-3 text-xs text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.noHosts")}</p>}
 
       {p.totalSelected > 0 && (
         <div className="sticky bottom-0 px-3 pt-2 pb-[env(safe-area-inset-bottom)]" style={{ background: "var(--t-bg-modal)" }}>
@@ -121,4 +131,8 @@ export default function MobileSnippetTargetSheet(
       )}
     </BottomSheet>
   );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">{children}</p>;
 }

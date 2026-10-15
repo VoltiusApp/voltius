@@ -69,7 +69,8 @@
       "memberBadge": "member"
     },
     "pickers": {
-      "thisComputer": "This computer"
+      "thisComputer": "This computer",
+      "recent": "Recent"
     },
     "sessionPicker": {
       "insertTitle": "Insert to...",

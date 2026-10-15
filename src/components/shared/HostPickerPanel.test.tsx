@@ -71,6 +71,32 @@ test("the vault filter narrows the list to one vault", async () => {
   expect(screen.getByText("team-box")).toBeTruthy();
 });
 
+function seedRecent() {
+  h.personal = [
+    { ...host("home-box", "personal", "servers"), last_used_at: "2026-02-01T00:00:00Z" },
+    host("idle-box", "personal"),
+  ];
+  h.folders = [{ id: "servers", name: "Servers", object_type: "connection", vault_id: "personal" } as Folder];
+}
+
+test("recently used hosts head the list until a filter is typed", async () => {
+  seedRecent();
+  const { container } = render(<HostPickerPanel onPick={() => {}} />);
+  await waitFor(() => expect(container.querySelector("[data-host-picker-recent]")?.textContent).toContain("home-box"));
+  expect(container.querySelector("[data-host-picker-recent]")?.textContent).not.toContain("idle-box");
+  expect(screen.getAllByText("home-box")).toHaveLength(2);
+
+  fireEvent.change(screen.getByPlaceholderText("shared.hostPicker.filterPlaceholder"), { target: { value: "box" } });
+  expect(container.querySelector("[data-host-picker-recent]")).toBeNull();
+});
+
+test("showRecents={false} leaves the recents out", async () => {
+  seedRecent();
+  const { container } = render(<HostPickerPanel onPick={() => {}} showRecents={false} />);
+  await waitFor(() => expect(screen.getByText("home-box")).toBeTruthy());
+  expect(container.querySelector("[data-host-picker-recent]")).toBeNull();
+});
+
 test("a caller-locked vault hides the filter", async () => {
   seed();
   render(<HostPickerPanel onPick={() => {}} vaultId="t1" />);

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { FolderGlyph } from "@/components/folders/folderAppearance";
 import { useTranslation } from "react-i18next";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -8,7 +7,7 @@ import { useHostPicker } from "@/hooks/useHostPicker";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { ToolbarDropdown } from "./ToolbarDropdown";
 import { wslListDistros } from "@/services/sftp";
-import { chevronRotateStyle, getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { SORT_MODE_ICONS, useFilterShortcut } from "./ToolbarViewControls";
 import type { SortMode } from "./ToolbarViewControls";
@@ -16,7 +15,7 @@ import { useIsAndroid } from "@/utils/platform";
 import type { Connection } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { searchMatcher } from "@/utils/search";
-import { hostPickerRowKey, type HostPickerRow } from "@/utils/hostPickerTree";
+import { HostPickerTree } from "./HostPickerTree";
 
 export type HostChoice =
   | { kind: "local"; wslDistro?: string }
@@ -28,9 +27,10 @@ interface Props {
   onBack?: () => void;
   sshOnly?: boolean;
   vaultId?: string;
+  showRecents?: boolean;
 }
 
-export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vaultId }: Props) {
+export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vaultId, showRecents = true }: Props) {
   const { t } = useTranslation();
   const loadConnections = useConnectionStore((s) => s.loadConnections);
   const loadFolders = useFolderStore((s) => s.loadFolders);
@@ -45,7 +45,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
 
-  const { rows, vaults, vaultFilter, setVaultFilter, toggleFolder, hasHosts } = useHostPicker({ query: search, sortMode, sshOnly, vaultId });
+  const { rows, recent, vaults, vaultFilter, setVaultFilter, toggleFolder, hasHosts } = useHostPicker({ query: search, sortMode, sshOnly, vaultId });
   const matchesQuery = searchMatcher(search);
 
   return (
@@ -160,66 +160,26 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
           <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">{t("shared.hostPicker.noHostsMatch")}</p>
         )}
 
-        {rows.map((row) => (
-          <PickerTreeRow
-            key={hostPickerRowKey(row)}
-            row={row}
-            selectedHostId={selectedHostId}
-            onToggleFolder={toggleFolder}
-            onPickHost={(c) => onPick({ kind: "remote", connection: c })}
-          />
-        ))}
+        <HostPickerTree
+          rows={rows}
+          recent={showRecents ? recent : []}
+          onToggleFolder={toggleFolder}
+          renderHost={(c) => (
+            <HostRow
+              avatar={<ConnectionAvatar connection={c} size={28} />}
+              name={connectionDisplayName(c)}
+              sub={`${c.username}@${c.host}:${c.port}`}
+              isSelected={c.id === selectedHostId}
+              onClick={() => onPick({ kind: "remote", connection: c })}
+            />
+          )}
+        />
       </div>
     </div>
   );
 }
 
 const ALL_VAULTS = "__all__";
-
-function PickerTreeRow({ row, selectedHostId, onToggleFolder, onPickHost }: {
-  row: HostPickerRow;
-  selectedHostId?: string;
-  onToggleFolder: (id: string) => void;
-  onPickHost: (c: Connection) => void;
-}) {
-  if (row.kind === "vault") {
-    return (
-      <p data-host-picker-vault={row.id} className="px-2.5 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider truncate text-(--t-text-dim)">
-        {row.name}
-      </p>
-    );
-  }
-  const indent = { paddingLeft: `${row.depth * 1.067}rem` };
-  if (row.kind === "folder") {
-    return (
-      <div style={indent}>
-        <button
-          data-host-picker-folder={row.folder.id}
-          aria-expanded={!row.collapsed}
-          onClick={() => onToggleFolder(row.folder.id)}
-          className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-left text-(--t-text-secondary) hover:bg-(--t-bg-elevated)"
-        >
-          <Icon icon="lucide:chevron-right" width={13} className="shrink-0 text-(--t-text-dim)" style={chevronRotateStyle(!row.collapsed, 90)} />
-          <FolderGlyph folder={row.folder} width={14} />
-          <span className="flex-1 min-w-0 text-xs font-medium truncate">{row.folder.name}</span>
-          <span className="text-xs shrink-0 text-(--t-text-dim)">{row.count}</span>
-        </button>
-      </div>
-    );
-  }
-  const c = row.connection;
-  return (
-    <div style={indent}>
-      <HostRow
-        avatar={<ConnectionAvatar connection={c} size={28} />}
-        name={connectionDisplayName(c)}
-        sub={`${c.username}@${c.host}:${c.port}`}
-        isSelected={c.id === selectedHostId}
-        onClick={() => onPickHost(c)}
-      />
-    </div>
-  );
-}
 
 export function HostRow({ avatar, name, sub, isSelected, onClick }: {
   avatar: React.ReactNode;

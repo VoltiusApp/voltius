@@ -3,7 +3,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
-import { matchesSearch } from "@/utils/connectionFilter";
+import { partitionRecentHosts } from "@/utils/recentHosts";
 import { sessionMatchesQuery } from "@/utils/sessionLabel";
 import { useIsAndroid } from "@/utils/platform";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
@@ -31,10 +31,8 @@ export function useSnippetTargetPicker() {
     [activeSessions, search],
   );
 
-  const filteredHosts = useMemo(
-    () => connections
-      .filter((c) => c.connection_type !== "serial")
-      .filter((c) => matchesSearch(c, search)),
+  const { recent: recentHosts, hosts: filteredHosts } = useMemo(
+    () => partitionRecentHosts(connections.filter((c) => c.connection_type !== "serial"), search),
     [connections, search],
   );
 
@@ -102,7 +100,8 @@ export function useSnippetTargetPicker() {
 
   return {
     search, setSearch, isAndroid, shells,
-    activeSessions, filteredSessions, filteredHosts,
+    activeSessions, filteredSessions, recentHosts, filteredHosts,
+    hasHosts: recentHosts.length + filteredHosts.length > 0,
     selectedSessionIds, selectedConnectionIds, selectedConnections, localShell, setLocalShell,
     toggleSession, toggleConnection, totalSelected, confirm,
   };

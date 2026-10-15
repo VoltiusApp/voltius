@@ -71,7 +71,8 @@
       "memberBadge": "člen"
     },
     "pickers": {
-      "thisComputer": "Tento počítač"
+      "thisComputer": "Tento počítač",
+      "recent": "Nedávné"
     },
     "sessionPicker": {
       "insertTitle": "Vložit do...",
