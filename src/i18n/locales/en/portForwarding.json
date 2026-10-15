@@ -151,7 +151,8 @@
       "applyTo": "Apply to",
       "allConnections": "All connections",
       "specificConnections": "Specific",
-      "noSavedConnections": "No saved connections."
+      "noSavedConnections": "No saved connections.",
+      "removeHost": "Remove {{name}}"
     }
   }
 }

@@ -14,6 +14,7 @@ import { PermissionsSection } from "@/components/permissions/PermissionsSection"
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import { describeRoute } from "@/utils/tunnelRoute";
 import { EndpointFields, HopArrow, HopCard, ListenerFields, RouteSummary } from "./RuleRoute";
+import { RuleHosts } from "./RuleHosts";
 
 interface Props {
   rule?: PortForwardingRule | null;
@@ -244,22 +245,7 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
                 </button>
               </div>
               {!isGlobal && (
-                <div className="mt-2 flex flex-col gap-0.5 max-h-40 overflow-y-auto">
-                  {connections.length === 0 ? (
-                    <p className="text-xs text-(--t-text-dim) py-1">{t("portForwarding.ruleForm.noSavedConnections")}</p>
-                  ) : connections.map((conn) => {
-                    const checked = connectionIds.includes(conn.id);
-                    const label = conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`;
-                    return (
-                      <label key={conn.id}
-                        className="flex items-center gap-2 px-2 py-1 rounded-sm cursor-pointer hover:bg-(--t-bg-elevated)">
-                        <input type="checkbox" checked={checked} onChange={() => toggleConnection(conn.id)}
-                          className="accent-(--t-accent)" />
-                        <span className="text-xs text-(--t-text-primary) truncate">{label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <RuleHosts vaultId={saveVaultId} hosts={connections} selected={connectionIds} onToggle={toggleConnection} />
               )}
             </div>
           </HopCard>

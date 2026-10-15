@@ -167,7 +167,8 @@
       "applyTo": "Použít pro",
       "allConnections": "Všechna připojení",
       "specificConnections": "Vybraná",
-      "noSavedConnections": "Žádná uložená připojení."
+      "noSavedConnections": "Žádná uložená připojení.",
+      "removeHost": "Odebrat {{name}}"
     }
   }
 }

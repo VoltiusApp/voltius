@@ -151,7 +151,8 @@
       "applyTo": "应用于",
       "allConnections": "所有连接",
       "specificConnections": "特定连接",
-      "noSavedConnections": "没有保存的连接。"
+      "noSavedConnections": "没有保存的连接。",
+      "removeHost": "移除 {{name}}"
     }
   }
 }

@@ -4,12 +4,10 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { sessionLabel } from "@/utils/sessionLabel";
-import { ConnectionAvatar } from "./ConnectionAvatar";
-import { HostRow } from "./HostPickerPanel";
+import { ConnectionHostRow, HostRow } from "./HostPickerPanel";
 import { PickerSectionLabel } from "./pickerParts";
 import { RecentHostsGroup } from "./HostPickerTree";
 import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
-import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import type { Connection } from "@/types";
 
 interface Props {
@@ -35,27 +33,9 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     ? t("shared.sessionPicker.insertConfirm", { count: picker.totalSelected })
     : t("shared.sessionPicker.executeConfirm", { count: picker.totalSelected });
 
-  const hostRow = (c: Connection) => {
-    const selected = picker.selectedConnectionIds.has(c.id);
-    return (
-      <HostRow
-        key={c.id}
-        avatar={
-          selected
-            ? (
-              <div className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem]" style={{ background: "var(--t-accent)" }}>
-                <Icon icon="lucide:check" width={13} className="text-white" />
-              </div>
-            )
-            : <ConnectionAvatar connection={c} size={28} />
-        }
-        name={connectionDisplayName(c)}
-        sub={`${c.username}@${c.host}:${c.port}`}
-        isSelected={selected}
-        onClick={() => picker.toggleConnection(c.id)}
-      />
-    );
-  };
+  const hostRow = (c: Connection) => (
+    <ConnectionHostRow key={c.id} connection={c} isSelected={picker.selectedConnectionIds.has(c.id)} onClick={() => picker.toggleConnection(c.id)} multiSelect />
+  );
 
   return createPortal(
     <>

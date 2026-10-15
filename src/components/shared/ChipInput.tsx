@@ -10,6 +10,9 @@ interface ChipInputProps {
   onRemove: (item: string) => void;
   renderChip: (item: string, children: ReactNode) => ReactNode;
   removeLabel: (item: string) => string;
+  itemLabel?: (item: string) => ReactNode;
+  removeOnBackspace?: boolean;
+  keepPlaceholder?: boolean;
   placeholder?: string;
   emptyIcon?: string;
   ariaLabel?: string;
@@ -18,7 +21,7 @@ interface ChipInputProps {
 }
 
 export function ChipInput({
-  value, input, onInputChange, onAdd, onRemove, renderChip, removeLabel, placeholder, emptyIcon, ariaLabel, onFocus, onEscape,
+  value, input, onInputChange, onAdd, onRemove, renderChip, removeLabel, itemLabel, removeOnBackspace = true, keepPlaceholder = false, placeholder, emptyIcon, ariaLabel, onFocus, onEscape,
 }: ChipInputProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +41,7 @@ export function ChipInput({
     if (e.key === "Enter" && input.trim()) {
       e.preventDefault();
       onAdd(input.trim());
-    } else if (e.key === "Backspace" && !input && value.length > 0) {
+    } else if (removeOnBackspace && e.key === "Backspace" && !input && value.length > 0) {
       onRemove(value[value.length - 1]);
     } else if (e.key === "Escape") {
       onEscape?.();
@@ -60,7 +63,7 @@ export function ChipInput({
         renderChip(
           item,
           <>
-            {item}
+            {itemLabel ? itemLabel(item) : item}
             <button
               type="button"
               onClick={(e) => {
@@ -88,7 +91,7 @@ export function ChipInput({
           onFocus={onFocus}
           onBlur={() => setBorder("var(--t-border)")}
           onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? placeholder : ""}
+          placeholder={keepPlaceholder || value.length === 0 ? placeholder : ""}
           className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
         />
       </div>

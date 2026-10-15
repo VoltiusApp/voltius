@@ -165,13 +165,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
           recent={showRecents ? recent : []}
           onToggleFolder={toggleFolder}
           renderHost={(c) => (
-            <HostRow
-              avatar={<ConnectionAvatar connection={c} size={28} />}
-              name={connectionDisplayName(c)}
-              sub={`${c.username}@${c.host}:${c.port}`}
-              isSelected={c.id === selectedHostId}
-              onClick={() => onPick({ kind: "remote", connection: c })}
-            />
+            <ConnectionHostRow connection={c} isSelected={c.id === selectedHostId} onClick={() => onPick({ kind: "remote", connection: c })} />
           )}
         />
       </div>
@@ -180,6 +174,30 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
 }
 
 const ALL_VAULTS = "__all__";
+
+/** `multiSelect`: a selected row shows a check tile in place of its avatar. */
+export function ConnectionHostRow({ connection: c, isSelected, onClick, multiSelect }: {
+  connection: Connection;
+  isSelected: boolean;
+  onClick: () => void;
+  multiSelect?: boolean;
+}) {
+  return (
+    <HostRow
+      avatar={multiSelect && isSelected
+        ? (
+          <div className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem]" style={{ background: "var(--t-accent)" }}>
+            <Icon icon="lucide:check" width={13} className="text-white" />
+          </div>
+        )
+        : <ConnectionAvatar connection={c} size={28} />}
+      name={connectionDisplayName(c)}
+      sub={`${c.username}@${c.host}:${c.port}`}
+      isSelected={isSelected}
+      onClick={onClick}
+    />
+  );
+}
 
 export function HostRow({ avatar, name, sub, isSelected, onClick }: {
   avatar: React.ReactNode;

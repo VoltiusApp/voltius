@@ -158,7 +158,8 @@
       "applyTo": "Appliquer à",
       "allConnections": "Toutes les connexions",
       "specificConnections": "Spécifiques",
-      "noSavedConnections": "Aucune connexion enregistrée."
+      "noSavedConnections": "Aucune connexion enregistrée.",
+      "removeHost": "Retirer {{name}}"
     }
   }
 }

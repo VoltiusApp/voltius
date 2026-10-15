@@ -174,7 +174,8 @@
       "applyTo": "Применить к",
       "allConnections": "Все подключения",
       "specificConnections": "Отдельные",
-      "noSavedConnections": "Нет сохранённых подключений."
+      "noSavedConnections": "Нет сохранённых подключений.",
+      "removeHost": "Убрать {{name}}"
     }
   }
 }
