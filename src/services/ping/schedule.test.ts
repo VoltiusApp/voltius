@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { STARTUP_SPREAD_MS, intervalFor, jitterFor, selectDue } from "./schedule";
+import { DOWN_CONFIRM_MS, DOWN_RETRY_MS, STARTUP_SPREAD_MS, confirmDown, intervalFor, jitterFor, selectDue } from "./schedule";
 import type { PingTarget } from "./pingTargets";
 
 const SESSION_MS = 5_000;
@@ -84,5 +84,34 @@ describe("selectDue", () => {
     expect(second.due).toHaveLength(1);
     const third = selectDue([target()], second.dueAt, now, SESSION_MS, IDLE_MS);
     expect(third.due).toHaveLength(0);
+  });
+});
+
+describe("confirmDown", () => {
+  test("a single failed probe is not reported as down", () => {
+    expect(confirmDown(new Map(), "h1:22", 1_000)).toBe(false);
+  });
+
+  test("failures spanning the confirm window are reported as down", () => {
+    const failingSince = new Map<string, number>();
+    expect(confirmDown(failingSince, "h1:22", 0)).toBe(false);
+    expect(confirmDown(failingSince, "h1:22", DOWN_RETRY_MS)).toBe(false);
+    expect(confirmDown(failingSince, "h1:22", DOWN_CONFIRM_MS)).toBe(true);
+  });
+
+  test("once confirmed, later failures stay down", () => {
+    const failingSince = new Map([["h1:22", 0]]);
+    expect(confirmDown(failingSince, "h1:22", DOWN_CONFIRM_MS + IDLE_MS)).toBe(true);
+  });
+
+  test("a success in between restarts the window", () => {
+    const failingSince = new Map<string, number>();
+    confirmDown(failingSince, "h1:22", 0);
+    failingSince.delete("h1:22");
+    expect(confirmDown(failingSince, "h1:22", DOWN_CONFIRM_MS)).toBe(false);
+  });
+
+  test("retries well inside the confirm window", () => {
+    expect(DOWN_RETRY_MS * 2).toBeLessThanOrEqual(DOWN_CONFIRM_MS);
   });
 });

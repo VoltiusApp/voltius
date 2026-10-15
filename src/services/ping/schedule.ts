@@ -2,6 +2,10 @@ import type { PingTarget } from "./pingTargets";
 
 export const TICK_MS = 1_000;
 export const STARTUP_SPREAD_MS = 5_000;
+/// One failed dial (lost SYN, network still waking from sleep) is not proof a
+/// host is down; retries stay under `ufw limit`'s 6 connections per 30s.
+export const DOWN_CONFIRM_MS = 15_000;
+export const DOWN_RETRY_MS = 7_500;
 
 /// FNV-1a over the target key: stable across ticks and app restarts, so a
 /// large host list does not fire on a single tick.
@@ -53,4 +57,10 @@ export function selectDue(
   }
 
   return { due, dueAt: next };
+}
+
+export function confirmDown(failingSince: Map<string, number>, key: string, startedAt: number): boolean {
+  const since = failingSince.get(key) ?? startedAt;
+  failingSince.set(key, since);
+  return startedAt - since >= DOWN_CONFIRM_MS;
 }

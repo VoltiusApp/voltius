@@ -5,7 +5,7 @@ import { allConnections } from "@/stores/connectionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { buildPingTargets } from "@/services/ping/pingTargets";
 import { probeTarget } from "@/services/ping/probe";
-import { TICK_MS, selectDue } from "@/services/ping/schedule";
+import { DOWN_RETRY_MS, TICK_MS, confirmDown, selectDue } from "@/services/ping/schedule";
 
 export function useHostPingPolling() {
   const [enabled] = useToggle("reachability");
@@ -20,6 +20,7 @@ export function useHostPingPolling() {
     let cancelled = false;
     let dueAt: Record<string, number> = {};
     const inFlight = new Set<string>();
+    const failingSince = new Map<string, number>();
 
     // Stores are read through getState() rather than subscribed to: a write to
     // the connection store must not restart the schedule or trigger a probe.
@@ -34,9 +35,16 @@ export function useHostPingPolling() {
       for (const target of selected.due) {
         if (inFlight.has(target.key)) continue;
         inFlight.add(target.key);
+        const startedAt = Date.now();
         void probeTarget(target).then(({ status, latencyMs }) => {
           inFlight.delete(target.key);
           if (cancelled) return;
+          if (status !== "down") {
+            failingSince.delete(target.key);
+          } else if (!confirmDown(failingSince, target.key, startedAt)) {
+            dueAt[target.key] = Date.now() + DOWN_RETRY_MS;
+            return;
+          }
           for (const id of target.connectionIds) setStatus(id, status, latencyMs);
         });
       }
