@@ -254,6 +254,18 @@ function idsByKey<T extends { id: string }>(items: T[], key: (item: T) => string
   return ids;
 }
 
+function uniqueIdsByKey<T extends { id: string }>(items: T[], key: (item: T) => string | undefined): Map<string, string> {
+  const ids = idsByKey(items, key);
+  const seen = new Set<string>();
+  for (const item of items) {
+    const k = key(item);
+    if (k === undefined) continue;
+    if (seen.has(k)) ids.delete(k);
+    seen.add(k);
+  }
+  return ids;
+}
+
 // The existing item each bundle item duplicates, if any: the one definition of a duplicate.
 export function findDupes(existing: ExistingItems, vault_id: string) {
   const connections = idsByKey(existingConnectionsForVault(existing.existingConnections, vault_id), connectionKey);
@@ -261,6 +273,7 @@ export function findDupes(existing: ExistingItems, vault_id: string) {
   const blobOf = (id: string) => publicKeyBlob(existing.existingPublicKeys?.get(id));
   const keysByBlob = idsByKey(liveKeys, k => blobOf(k.id));
   const keysByName = idsByKey(liveKeys, k => k.name || undefined);
+  const keysByUniqueName = uniqueIdsByKey(liveKeys, k => k.name || undefined);
   const identities = idsByKey(liveInVault(existing.existingIdentities, vault_id), identityKey);
   const snippets = idsByKey(liveInVault(existing.existingSnippets, vault_id), s => s.name);
   const pfRules = idsByKey(liveInVault(existing.existingPfRules, vault_id), r => r.name);
@@ -272,9 +285,13 @@ export function findDupes(existing: ExistingItems, vault_id: string) {
       const same = lookup(keysByBlob, blob);
       if (same) return same;
       const named = lookup(keysByName, k.name || undefined);
-      return named && blob && blobOf(named) ? undefined : named;
+      // A vault key with a known public half is that key only; no other key takes its name.
+      return named && blobOf(named) ? undefined : named;
     },
-    keyRef: (r: KeyRefExport) => lookup(keysByBlob, publicKeyBlob(r.public_key)),
+    keyRef: (r: KeyRefExport) => {
+      const blob = publicKeyBlob(r.public_key);
+      return blob ? lookup(keysByBlob, blob) : lookup(keysByUniqueName, r.name || undefined);
+    },
     identity: (i: IdentityExport) => lookup(identities, identityKey(i)),
     snippet: (s: SnippetExport) => lookup(snippets, s.name),
     pfRule: (r: PortForwardingRuleExport) => lookup(pfRules, r.name),

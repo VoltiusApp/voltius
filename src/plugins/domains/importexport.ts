@@ -1,21 +1,11 @@
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useIdentityStore } from "@/stores/identityStore";
-import { useKeyStore } from "@/stores/keyStore";
-import { useFolderStore } from "@/stores/folderStore";
-import { useSnippetStore } from "@/stores/snippetStore";
-import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
-import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { useTeamStore } from "@/stores/teamStore";
-import { HANDLERS, buildBundle, runImport, reloadAll } from "@/services/import-export/registry";
+import { HANDLERS, buildBundle, reloadAll } from "@/services/import-export/registry";
 import { canFromStoresAsync } from "@/services/permissionsFromStores";
 import { toJSON, encryptText, isLocked, secretBearingTypes } from "@/services/import-export/formats";
 import { parseImport } from "@/services/import-export/importers";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
-import type { ImportStores, ReloadFns, SecretGate, StoreSlices } from "@/services/import-export/context";
-import { liveInVault, newImportCtx } from "@/services/import-export/context";
-import { loadPublicKeys } from "@/services/publicKeyStore";
-import type { PortForwardingRule } from "@/types";
+import type { SecretGate } from "@/services/import-export/context";
+import { importIntoVault, noReload, reloadFnsOf, storeSlicesOf } from "@/services/import-export/storeAccess";
 import { failed, type DomainResult } from "./result";
 // Declared in the tool layer: it is the only value toolSurface/tools/importExport.ts
 // needs from this module, and importing it by value there would drag this
@@ -47,67 +37,6 @@ export interface ImportResult {
   dryRun: boolean;
   /** Set when the import itself succeeded but the post-import store reload failed partway. */
   reloadWarning?: string;
-}
-
-/** Same undelete rule as useAllPortForwardingRules: a later update past deleted_at revives the rule. */
-function isAlivePfRule(rule: PortForwardingRule): boolean {
-  return !rule.deleted_at || rule.updated_at > rule.deleted_at;
-}
-
-/** The React hooks' aggregation (useAllConnections and friends), without React. */
-function storeSlices(): StoreSlices {
-  const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-  // Filters before inserting, like every useAllX hook — matters only when the same
-  // id appears in both the personal and a team slice.
-  const merge = <T extends { id: string }>(
-    personal: T[], team: Record<string, T[]>, alive: (x: T) => boolean = () => true,
-  ): T[] => {
-    const map = new Map<string, T>();
-    for (const x of personal) if (alive(x)) map.set(x.id, x);
-    for (const tid of teamIds) for (const x of team[tid] ?? []) if (alive(x)) map.set(x.id, x);
-    return [...map.values()];
-  };
-  const c = useConnectionStore.getState();
-  const i = useIdentityStore.getState();
-  const k = useKeyStore.getState();
-  const f = useFolderStore.getState();
-  const s = useSnippetStore.getState();
-  const sf = useSnippetFolderStore.getState();
-  const pf = usePortForwardingStore.getState();
-  return {
-    connections: merge(c.connections, c.teamConnections ?? {}),
-    identities: merge(i.identities, i.teamIdentities ?? {}),
-    keys: merge(k.keys, k.teamKeys ?? {}),
-    folders: merge(f.folders, f.teamFolders ?? {}),
-    snippets: merge(s.snippets, s.teamSnippets ?? {}),
-    snippetFolders: merge(sf.folders, sf.teamSnippetFolders ?? {}),
-    pfRules: merge(pf.rules, pf.teamRules ?? {}, isAlivePfRule),
-  };
-}
-
-function importStores(): ImportStores {
-  return {
-    saveFolder: useFolderStore.getState().saveFolder,
-    saveSnippetFolder: useSnippetFolderStore.getState().saveFolder,
-    saveKey: useKeyStore.getState().saveKey,
-    saveIdentity: useIdentityStore.getState().saveIdentity,
-    saveConnection: useConnectionStore.getState().saveConnection,
-    createSnippet: useSnippetStore.getState().createSnippet,
-    updateSnippet: useSnippetStore.getState().updateSnippet,
-    createPfRule: usePortForwardingStore.getState().createRule,
-  };
-}
-
-function reloadFns(): ReloadFns {
-  return {
-    loadConnections: useConnectionStore.getState().loadConnections,
-    loadIdentities: useIdentityStore.getState().loadIdentities,
-    loadKeys: useKeyStore.getState().loadKeys,
-    loadFolders: useFolderStore.getState().loadFolders,
-    loadSnippets: useSnippetStore.getState().loadSnippets,
-    loadSnippetFolders: useSnippetFolderStore.getState().loadFolders,
-    loadPfRules: usePortForwardingStore.getState().loadRules,
-  };
 }
 
 function bundleCounts(bundle: ExportBundle): Record<string, number> {
@@ -143,7 +72,7 @@ export async function exportObjects(opts: {
   // the same bug this fixes — so a reload failure fails the export outright
   // rather than degrading, unlike the post-write reload below.
   try {
-    await reloadAll(reloadFns());
+    await reloadAll(reloadFnsOf());
   } catch (e) {
     return failed(`could not refresh stores before export: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -152,7 +81,7 @@ export async function exportObjects(opts: {
   try {
     // An export is a read of every secret it carries, so it obeys the same
     // per-object View and Copy secrets gate the editors do (issue #190).
-    bundle = await buildBundle(enabled, storeSlices(), opts.vaultIds, {}, await mayExportSecretsGate());
+    bundle = await buildBundle(enabled, storeSlicesOf(), opts.vaultIds, {}, await mayExportSecretsGate());
   } catch (e) {
     return failed(e instanceof Error ? e.message : String(e));
   }
@@ -212,28 +141,15 @@ export async function importObjects(opts: {
   // happened yet, so a reload failure here fails outright rather than
   // proceeding on an unknown store state.
   try {
-    await reloadAll(reloadFns());
+    await reloadAll(reloadFnsOf());
   } catch (e) {
     return failed(`could not refresh stores before import: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  const slices = storeSlices();
   let imported: number;
   let errors: number;
   try {
-    ({ imported, errors } = await runImport(bundle, newImportCtx({
-      vault_id: opts.vaultId,
-      tag: "",
-      skipDupes: true,
-      existingConnections: slices.connections,
-      existingKeys: slices.keys,
-      existingPublicKeys: await loadPublicKeys(liveInVault(slices.keys, opts.vaultId)),
-      existingIdentities: slices.identities,
-      existingSnippets: slices.snippets,
-      existingPfRules: slices.pfRules,
-      existingFolders: [...slices.folders, ...slices.snippetFolders],
-      stores: importStores(),
-    })));
+    ({ imported, errors } = await importIntoVault(bundle, opts.vaultId, noReload));
   } catch (e) {
     return failed(e instanceof Error ? e.message : String(e));
   }
@@ -242,7 +158,7 @@ export async function importObjects(opts: {
   // network hiccup re-fetching team data) must not turn a successful import
   // into a reported failure. Surface it as a warning alongside the real counts.
   try {
-    await reloadAll(reloadFns());
+    await reloadAll(reloadFnsOf());
   } catch (e) {
     return {
       ok: true,

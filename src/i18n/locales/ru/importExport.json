@@ -118,7 +118,18 @@
       "resultImportedWithErrors_one": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
       "resultImportedWithErrors_few": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
       "resultImportedWithErrors_many": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
-      "resultImportedWithErrors_other": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}."
+      "resultImportedWithErrors_other": "Импортировано элементов: {{count}}{{vaultNote}}, ошибок: {{errors}}.",
+      "groupNotImported": "Не импортировано",
+      "viaJump": "через {{hosts}}",
+      "teamKeysWarning": "Эти закрытые ключи станут доступны всем участникам команды {{team}}.",
+      "notice": {
+        "pattern": "Шаблон: применяется к подходящим хостам, отдельно не импортируется",
+        "match": "Блок Match: не поддерживается, пропущен",
+        "include": "Не удалось прочитать Include",
+        "includeOutside": "Include вне ~/.ssh: не читается",
+        "key": "Путь IdentityFile содержит нераспознаваемые подстановки",
+        "proxyCommand": "ProxyCommand пока не поддерживается"
+      }
     },
     "fileInput": {
       "openFileDefault": "Открыть файл…",
@@ -186,6 +197,14 @@
       "csv": {
         "sub": "Таблица",
         "placeholder": "Вставьте сюда CSV или перетащите файл…\n\nname,host,port,username,auth_type,tags"
+      },
+      "openssh": {
+        "sub": "~/.ssh/config",
+        "hint": "Читает ~/.ssh/config, его файлы Include и ключи из IdentityFile. Можно также вставить конфигурацию или открыть файл.",
+        "hintMobile": "Вставьте ~/.ssh/config или откройте файл. Ключи сопоставляются по имени файла с ключами, уже имеющимися в хранилище.",
+        "placeholder": "Host my-server\n  HostName 10.0.0.5\n  User alex\n  IdentityFile ~/.ssh/id_ed25519",
+        "notFound": "На этом компьютере не найден ~/.ssh/config.",
+        "unreadable": "Не удалось прочитать ~/.ssh/config ({{reason}})."
       },
       "mobaxterm": {
         "sub": "Локальная установка · авторасшифровка",

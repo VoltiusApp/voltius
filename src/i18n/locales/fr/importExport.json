@@ -107,7 +107,18 @@
       "resultError": "Erreur : {{error}}",
       "resultImportedWithErrors_one": "{{count}} élément importé{{vaultNote}}, échecs : {{errors}}.",
       "resultImportedWithErrors_many": "{{count}} éléments importés{{vaultNote}}, échecs : {{errors}}.",
-      "resultImportedWithErrors_other": "{{count}} éléments importés{{vaultNote}}, échecs : {{errors}}."
+      "resultImportedWithErrors_other": "{{count}} éléments importés{{vaultNote}}, échecs : {{errors}}.",
+      "groupNotImported": "Non importé",
+      "viaJump": "via {{hosts}}",
+      "teamKeysWarning": "Ces clés privées seront partagées avec tous les membres de {{team}}.",
+      "notice": {
+        "pattern": "Motif : appliqué aux hôtes correspondants, pas importé seul",
+        "match": "Bloc Match : non pris en charge, ignoré",
+        "include": "Include illisible",
+        "includeOutside": "Include hors de ~/.ssh : non lu",
+        "key": "Le chemin IdentityFile contient des jetons impossibles à résoudre",
+        "proxyCommand": "ProxyCommand n'est pas encore pris en charge"
+      }
     },
     "fileInput": {
       "openFileDefault": "Ouvrir un fichier…",
@@ -168,6 +179,14 @@
       "csv": {
         "sub": "Tableur",
         "placeholder": "Collez un CSV ici, ou déposez un fichier…\n\nname,host,port,username,auth_type,tags"
+      },
+      "openssh": {
+        "sub": "~/.ssh/config",
+        "hint": "Lit ~/.ssh/config, ses fichiers Include et les clés citées par IdentityFile. Vous pouvez aussi coller une config ou ouvrir un fichier.",
+        "hintMobile": "Collez votre ~/.ssh/config ou ouvrez le fichier. Les clés sont reliées par nom de fichier à celles déjà présentes dans le coffre.",
+        "placeholder": "Host my-server\n  HostName 10.0.0.5\n  User alex\n  IdentityFile ~/.ssh/id_ed25519",
+        "notFound": "Aucun ~/.ssh/config trouvé sur cet ordinateur.",
+        "unreadable": "Impossible de lire ~/.ssh/config ({{reason}})."
       },
       "mobaxterm": {
         "sub": "Installation locale · déchiffrement auto",

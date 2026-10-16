@@ -35,3 +35,6 @@ export function pruneUnusedFolders(folders: FolderExport[], connections: Connect
   }
   return folders.filter((f) => keep.has(f._eid));
 }
+
+export const looksLikePrivateKey = (text: string) =>
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(text) || text.trimStart().startsWith("PuTTY-User-Key-File");

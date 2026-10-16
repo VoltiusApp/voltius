@@ -9,6 +9,7 @@ import i18n from "@/i18n";
 import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
 import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
 import { isPuttyExport } from "./parsers/putty";
+import { isOpensshConfig } from "./parsers/openssh";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // _eid fields are export-scoped IDs used only within a bundle for cross-referencing.
@@ -117,6 +118,11 @@ export interface PortForwardingRuleExport {
   _folder_eid?: string;
 }
 
+export interface ImportNotice {
+  kind: "pattern" | "match" | "include" | "includeOutside" | "key" | "proxyCommand";
+  text: string;
+}
+
 export interface ExportBundle {
   version: 1;
   exported_at: string;
@@ -128,6 +134,7 @@ export interface ExportBundle {
   portForwardingRules: PortForwardingRuleExport[];
   keyRefs?: KeyRefExport[];
   identityRefs?: IdentityRefExport[];
+  notices?: ImportNotice[];
 }
 
 export interface LockedImport {
@@ -231,7 +238,7 @@ export async function decryptText(text: string, password: string): Promise<strin
 
 export const isSecureCrtXml = (text: string) => /^(<\?xml[^>]*>\s*)?<VanDyke\b/.test(text);
 
-export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "putty" | "securecrt" | "voltius-encrypted" | null {
+export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "zoc" | "putty" | "securecrt" | "openssh" | "voltius-encrypted" | null {
   const t = text.trim();
   if (/^ZOC[\d.]+ \/\/ HOST DIRECTORY/.test(t)) return "zoc";
   if (isPuttyExport(t)) return "putty";
@@ -246,6 +253,7 @@ export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "term
   // containing Termius-specific field names like `connection_type` / `user_name`.
   if (t.startsWith("[") && /\\"(?:connection_type|user_name)\\"/.test(t)) return "termius";
   if (t.startsWith("[")) return "json";
+  if (isOpensshConfig(t)) return "openssh";
   const firstLine = t.split("\n")[0].toLowerCase();
   if (firstLine.includes("host") || firstLine.includes("username") || firstLine.includes("user")) return "csv";
   return null;

@@ -2,7 +2,7 @@ import i18n from "@/i18n";
 import { invoke } from "@/lib/invoke";
 import { importedBundle, isSecureCrtXml } from "../formats";
 import type { ConnectionExport, ExportBundle, FolderExport, ImportOutcome, JumpHostExport, KeyExport } from "../formats";
-import { pruneUnusedFolders, serialConnection } from "./common";
+import { looksLikePrivateKey, pruneUnusedFolders, serialConnection } from "./common";
 import type { SerialSettings } from "./common";
 
 type Value = string | number | string[];
@@ -192,7 +192,7 @@ function buildKeys(cfg: Config) {
   const keys: KeyExport[] = [];
   const eidByPath = new Map<string, string>();
   for (const [path, text] of cfg.files) {
-    if (!text.includes("PRIVATE KEY") && !text.startsWith("PuTTY-User-Key-File")) continue;
+    if (!looksLikePrivateKey(text)) continue;
     const eid = `sk${keys.length}`;
     eidByPath.set(path, eid);
     keys.push({ _eid: eid, name: path.split(/[\\/]/).pop() || path, private_key: text, tags: [] });

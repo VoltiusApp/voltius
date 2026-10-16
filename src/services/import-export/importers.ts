@@ -6,6 +6,7 @@ import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/moba
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
 import { bundleFromZoc, extractZocBundle } from "./parsers/zoc";
 import { bundleFromPutty, extractPuttyBundle } from "./parsers/putty";
+import { bundleFromOpenssh, extractOpensshBundle } from "./parsers/openssh";
 import { bundleFromSecureCrt, extractSecureCrtBundle } from "./parsers/securecrt";
 
 export interface Importer {
@@ -16,6 +17,8 @@ export interface Importer {
   subKey: string;
   fileAccept: string;
   hintKey?: string;
+  /** Hint shown on Android, where autoExtract is unavailable. */
+  mobileHintKey?: string;
   placeholderKey: string;
   parse(text: string): ImportOutcome | Promise<ImportOutcome>;
   /** Optional: one-step extraction from a locally-installed source app. */
@@ -41,6 +44,18 @@ export const IMPORTERS: Importer[] = [
     fileAccept: ".csv,.txt",
     placeholderKey: "importExport.importers.csv.placeholder",
     parse: (text) => importedBundle({ connections: connectionsFromCSV(text) }),
+  },
+  {
+    key: "openssh",
+    label: "OpenSSH",
+    icon: "lucide:file-terminal",
+    subKey: "importExport.importers.openssh.sub",
+    fileAccept: "",
+    hintKey: "importExport.importers.openssh.hint",
+    mobileHintKey: "importExport.importers.openssh.hintMobile",
+    placeholderKey: "importExport.importers.openssh.placeholder",
+    parse: (text) => bundleFromOpenssh(text),
+    autoExtract: extractOpensshBundle,
   },
   {
     key: "mobaxterm",

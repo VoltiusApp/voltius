@@ -96,7 +96,18 @@
       "resultVaultNote": " ({{count}} kasaya)",
       "resultError": "Hata: {{error}}",
       "resultImportedWithErrors_one": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu.",
-      "resultImportedWithErrors_other": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu."
+      "resultImportedWithErrors_other": "{{count}} öğe içe aktarıldı{{vaultNote}}, {{errors}} öğe başarısız oldu.",
+      "groupNotImported": "İçe aktarılmadı",
+      "viaJump": "{{hosts}} üzerinden",
+      "teamKeysWarning": "Bu özel anahtarlar {{team}} ekibinin tüm üyeleriyle paylaşılacak.",
+      "notice": {
+        "pattern": "Desen: eşleşen sunuculara uygulanır, tek başına içe aktarılmaz",
+        "match": "Match bloğu: desteklenmiyor, yok sayıldı",
+        "include": "Include okunamadı",
+        "includeOutside": "~/.ssh dışındaki Include: okunmadı",
+        "key": "IdentityFile yolu çözümlenemeyen belirteçler içeriyor",
+        "proxyCommand": "ProxyCommand henüz desteklenmiyor"
+      }
     },
     "fileInput": {
       "openFileDefault": "Dosya aç…",
@@ -162,6 +173,14 @@
       "csv": {
         "sub": "Elektronik tablo",
         "placeholder": "CSV verisini buraya yapıştırın veya bir dosya bırakın…\n\nname,host,port,username,auth_type,tags"
+      },
+      "openssh": {
+        "sub": "~/.ssh/config",
+        "hint": "~/.ssh/config dosyasını, Include dosyalarını ve IdentityFile ile belirtilen anahtarları okur. Bir yapılandırma da yapıştırabilir veya bir dosya açabilirsiniz.",
+        "hintMobile": "~/.ssh/config içeriğini yapıştırın veya dosyayı açın. Anahtarlar dosya adına göre kasadaki mevcut anahtarlarla eşleştirilir.",
+        "placeholder": "Host my-server\n  HostName 10.0.0.5\n  User alex\n  IdentityFile ~/.ssh/id_ed25519",
+        "notFound": "Bu bilgisayarda ~/.ssh/config bulunamadı.",
+        "unreadable": "~/.ssh/config okunamadı ({{reason}})."
       },
       "mobaxterm": {
         "sub": "Yerel kurulum · otomatik şifre çözme",

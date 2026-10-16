@@ -96,7 +96,18 @@
       "resultVaultNote": " across {{count}} vaults",
       "resultError": "Error: {{error}}",
       "resultImportedWithErrors_one": "Imported {{count}} item{{vaultNote}}, {{errors}} failed.",
-      "resultImportedWithErrors_other": "Imported {{count}} items{{vaultNote}}, {{errors}} failed."
+      "resultImportedWithErrors_other": "Imported {{count}} items{{vaultNote}}, {{errors}} failed.",
+      "groupNotImported": "Not imported",
+      "viaJump": "via {{hosts}}",
+      "teamKeysWarning": "These private keys will be shared with every member of {{team}}.",
+      "notice": {
+        "pattern": "Pattern: applied to matching hosts, not imported on its own",
+        "match": "Match block: not supported, ignored",
+        "include": "Include could not be read",
+        "includeOutside": "Include outside ~/.ssh: not read",
+        "key": "IdentityFile path uses tokens that cannot be resolved",
+        "proxyCommand": "ProxyCommand is not supported yet"
+      }
     },
     "fileInput": {
       "openFileDefault": "Open file…",
@@ -150,6 +161,14 @@
       "csv": {
         "sub": "Spreadsheet",
         "placeholder": "Paste CSV here, or drop a file…\n\nname,host,port,username,auth_type,tags"
+      },
+      "openssh": {
+        "sub": "~/.ssh/config",
+        "hint": "Reads ~/.ssh/config, its Include files and the keys named by IdentityFile. You can also paste a config or open a file.",
+        "hintMobile": "Paste your ~/.ssh/config or open the file. Keys are matched by file name with the keys already in the vault.",
+        "placeholder": "Host my-server\n  HostName 10.0.0.5\n  User alex\n  IdentityFile ~/.ssh/id_ed25519",
+        "notFound": "No ~/.ssh/config was found on this computer.",
+        "unreadable": "~/.ssh/config could not be read ({{reason}})."
       },
       "mobaxterm": {
         "sub": "Local install · auto-decrypt",

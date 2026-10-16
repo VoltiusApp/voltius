@@ -162,23 +162,24 @@ pub async fn generate_ssh_keypair(
 }
 
 #[cfg(test)]
+pub(crate) fn ed25519_pem(passphrase: Option<&str>) -> (String, String) {
+    let mut rng = rand::thread_rng();
+    let key = PrivateKey::random(&mut rng, Algorithm::Ed25519).unwrap();
+    let public = key.public_key().to_openssh().unwrap();
+    let pem = match passphrase {
+        Some(p) => key
+            .encrypt(&mut rng, p)
+            .unwrap()
+            .to_openssh(LineEnding::LF)
+            .unwrap(),
+        None => key.to_openssh(LineEnding::LF).unwrap(),
+    };
+    (pem.to_string(), public)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-
-    fn ed25519_pem(passphrase: Option<&str>) -> (String, String) {
-        let mut rng = rand::thread_rng();
-        let key = PrivateKey::random(&mut rng, Algorithm::Ed25519).unwrap();
-        let public = key.public_key().to_openssh().unwrap();
-        let pem = match passphrase {
-            Some(p) => key
-                .encrypt(&mut rng, p)
-                .unwrap()
-                .to_openssh(LineEnding::LF)
-                .unwrap(),
-            None => key.to_openssh(LineEnding::LF).unwrap(),
-        };
-        (pem.to_string(), public)
-    }
 
     #[test]
     fn derives_the_public_half_of_a_plaintext_key() {

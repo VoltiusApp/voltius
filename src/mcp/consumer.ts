@@ -207,7 +207,7 @@ export const MCP_TEXT = {
       "Remove a custom marketplace source. Runs immediately; your own client is responsible for "
       + "approval. Plugins already installed from it stay installed.",
     import_objects:
-      "Import a bundle produced by export_objects, or a Termius, MobaXterm, ZOC, PuTTY, SecureCRT or CSV export, "
+      "Import a bundle produced by export_objects, or a Termius, MobaXterm, ZOC, PuTTY, SecureCRT or CSV export, or an OpenSSH client config, "
       + "into one vault. Runs immediately; your own client is responsible for approval. Give it `content` or "
       + "a `path` — a path must be under the user's home directory. An encrypted bundle, or a SecureCRT "
       + "config with a config passphrase, needs its passphrase. Importing only ever adds — existing items "

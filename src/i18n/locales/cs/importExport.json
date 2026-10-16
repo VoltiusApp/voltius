@@ -118,7 +118,18 @@
       "resultImportedWithErrors_one": "Importována {{count}} položka{{vaultNote}}, selhalo: {{errors}}.",
       "resultImportedWithErrors_few": "Importovány {{count}} položky{{vaultNote}}, selhalo: {{errors}}.",
       "resultImportedWithErrors_many": "Importováno {{count}} položky{{vaultNote}}, selhalo: {{errors}}.",
-      "resultImportedWithErrors_other": "Importováno {{count}} položek{{vaultNote}}, selhalo: {{errors}}."
+      "resultImportedWithErrors_other": "Importováno {{count}} položek{{vaultNote}}, selhalo: {{errors}}.",
+      "groupNotImported": "Neimportováno",
+      "viaJump": "přes {{hosts}}",
+      "teamKeysWarning": "Tyto soukromé klíče budou sdíleny se všemi členy týmu {{team}}.",
+      "notice": {
+        "pattern": "Vzor: použije se na odpovídající hostitele, sám se neimportuje",
+        "match": "Blok Match: nepodporováno, ignorováno",
+        "include": "Include nelze načíst",
+        "includeOutside": "Include mimo ~/.ssh: nenačteno",
+        "key": "Cesta IdentityFile obsahuje tokeny, které nelze přeložit",
+        "proxyCommand": "ProxyCommand zatím není podporován"
+      }
     },
     "fileInput": {
       "openFileDefault": "Otevřít soubor…",
@@ -198,6 +209,14 @@
       "csv": {
         "sub": "Tabulka",
         "placeholder": "Sem vložte CSV, nebo přetáhněte soubor…\n\nname,host,port,username,auth_type,tags"
+      },
+      "openssh": {
+        "sub": "~/.ssh/config",
+        "hint": "Načte ~/.ssh/config, jeho soubory Include a klíče uvedené v IdentityFile. Konfiguraci můžete také vložit nebo otevřít ze souboru.",
+        "hintMobile": "Vložte svůj ~/.ssh/config nebo otevřete soubor. Klíče se přiřadí podle názvu souboru ke klíčům, které už jsou v trezoru.",
+        "placeholder": "Host my-server\n  HostName 10.0.0.5\n  User alex\n  IdentityFile ~/.ssh/id_ed25519",
+        "notFound": "Na tomto počítači nebyl nalezen žádný ~/.ssh/config.",
+        "unreadable": "Soubor ~/.ssh/config nelze přečíst ({{reason}})."
       },
       "mobaxterm": {
         "sub": "Místní instalace · automatické dešifrování",

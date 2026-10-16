@@ -19,7 +19,7 @@ export function identityToFormData(i: Identity): IdentityFormData {
   return {
     name: i.name, username: i.username, key_id: i.key_id,
     tags: i.tags,
-    folder_id: i.folder_id, vault_id: i.vault_id,
+    folder_id: i.folder_id, vault_id: i.vault_id, pinned: i.pinned,
   };
 }
 

@@ -19,7 +19,7 @@ export function keyToFormData(k: SshKey): SshKeyFormData {
   return {
     name: k.name, key_type: k.key_type,
     tags: k.tags,
-    folder_id: k.folder_id, vault_id: k.vault_id,
+    folder_id: k.folder_id, vault_id: k.vault_id, pinned: k.pinned,
   };
 }
 
