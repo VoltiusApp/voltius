@@ -1,7 +1,7 @@
 use crate::commands::crdt::max_clock;
 use crate::commands::vault_object::{
-    adopt_into, created_at_of, effective_vault, find_mut, impl_vault_object, requested_vault,
-    vault_delete_command, vault_list_command,
+    adopt_into, created_at_of, deleted_at, effective_vault, find_mut, impl_vault_object,
+    requested_vault, vault_delete_command, vault_list_command,
 };
 use crate::error::AppError;
 use crate::storage::config::{
@@ -138,6 +138,11 @@ fn initial_clocks(now: &str) -> HashMap<String, String> {
 }
 
 vault_list_command!(connection_list, Connection, load_connections);
+
+#[tauri::command]
+pub fn connection_deleted_at() -> Result<std::collections::BTreeMap<String, String>, String> {
+    Ok(deleted_at(&load_connections()?))
+}
 
 // `connection_save` and `connection_adopt` stay spelled out: `build_connection`
 // takes a fifth argument, and the adopt has to carry the stored `last_used_at`.

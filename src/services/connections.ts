@@ -5,6 +5,10 @@ export async function listConnections(): Promise<Connection[]> {
   return invoke("connection_list");
 }
 
+export async function listDeletedConnections(): Promise<Record<string, string>> {
+  return invoke("connection_deleted_at");
+}
+
 export async function saveConnection(data: ConnectionFormData): Promise<Connection> {
   return invoke("connection_save", { data });
 }

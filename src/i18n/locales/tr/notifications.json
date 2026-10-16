@@ -79,7 +79,31 @@
       "secretsNotWiped": {
         "message": "{{team}} ekibine ait bazı kimlik bilgileri bu cihazdan kaldırılamadı. Silme işlemi başarılı olana kadar burada okunabilir durumda kalacaklar.",
         "retry": "Şimdi kaldır"
+      },
+      "sshConfigMigrated": {
+        "message": "~/.ssh/config sunucularınız artık otomatik olarak eşitlenmiyor. Artık sizindir: değişiklikleriniz korunur.",
+        "turnOnSync": "Sürekli eşitlemeyi aç",
+        "dismiss": "Tamam"
       }
+    },
+    "sshConfigOffer": {
+      "message_one": "~/.ssh/config içinde {{count}} sunucu bulundu. Voltius'a aktarılsın mı? Sonrasında bunları serbestçe düzenleyebilirsiniz.",
+      "message_other": "~/.ssh/config içinde {{count}} sunucu bulundu. Voltius'a aktarılsın mı? Sonrasında bunları serbestçe düzenleyebilirsiniz.",
+      "import": "İçe aktar…",
+      "skip": "İçe aktarma"
+    },
+    "sshConfigSync": {
+      "unreadable": "~/.ssh/config okunamadı. Yönetilen sunucular olduğu gibi korunuyor.",
+      "failed": "~/.ssh/config eşitlemesi başarısız oldu. Günlüklere bakın.",
+      "vaultGone": "~/.ssh/config sunucuları için seçilen kasa artık yok. Ayarlar › Sunucular bölümünden başka bir kasa seçin.",
+      "detachedToTeam_one": "Ekip kasasına taşınan bir sunucu artık ~/.ssh/config dosyasını izlemiyor.",
+      "detachedToTeam_other": "Ekip kasasına taşınan {{count}} sunucu artık ~/.ssh/config dosyasını izlemiyor.",
+      "reviewHere": "~/.ssh/config eşitlemesi hesabınızda açık. Burada başlamadan önce bu bilgisayarın sunucularını ve anahtarlarını gözden geçirin.",
+      "review": "Gözden geçir…",
+      "detachedUnsynced_one": "Eşitlemenin dışında tutulan bir sunucu artık ~/.ssh/config dosyasını izlemiyor; diğer bilgisayarlarınız onu beklemeyi bırakır.",
+      "detachedUnsynced_other": "Eşitlemenin dışında tutulan {{count}} sunucu artık ~/.ssh/config dosyasını izlemiyor; diğer bilgisayarlarınız onları beklemeyi bırakır.",
+      "detachedProxied_one": "~/.ssh/config girdisi artık ProxyCommand kullanan bir sunucu dosyayı izlemiyor.",
+      "detachedProxied_other": "~/.ssh/config girdisi artık ProxyCommand kullanan {{count}} sunucu dosyayı izlemiyor."
     }
   }
 }

@@ -10,9 +10,9 @@ import { useLayoutStore } from "@/stores/layoutStore";
 const isPermissionError = (err: unknown) => err instanceof Error && /requires permission/.test(err.message);
 
 describe("MCP host API surface", () => {
-  it("builds all 93 MCP tools over the real createHostPluginAPI", () => {
+  it("builds all 94 MCP tools over the real createHostPluginAPI", () => {
     const api = createHostPluginAPI("__mcp_hostapi_test__", PERMISSIONS);
-    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(93);
+    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(94);
   });
 
   // Each gated PluginAPI call the tools reach into must clear its permission

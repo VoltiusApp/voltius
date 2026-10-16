@@ -79,7 +79,27 @@
       "secretsNotWiped": {
         "message": "部分 {{team}} 凭据无法从此设备删除。在清除成功之前，它们在此仍可读取。",
         "retry": "立即删除"
+      },
+      "sshConfigMigrated": {
+        "message": "你的 ~/.ssh/config 主机不再自动同步。它们现在归你所有：你的修改会被保留。",
+        "turnOnSync": "开启持续同步",
+        "dismiss": "好的"
       }
+    },
+    "sshConfigOffer": {
+      "message_other": "在 ~/.ssh/config 中找到 {{count}} 个主机。要导入 Voltius 吗？导入后可以自由编辑。",
+      "import": "导入…",
+      "skip": "不导入"
+    },
+    "sshConfigSync": {
+      "unreadable": "无法读取 ~/.ssh/config。受管理的主机保持不变。",
+      "failed": "~/.ssh/config 同步失败。请查看日志。",
+      "vaultGone": "为 ~/.ssh/config 主机选择的保险库已不存在。请在“设置 › 主机”中另选一个。",
+      "detachedToTeam_other": "{{count}} 个移至团队保险库的主机不再跟随 ~/.ssh/config。",
+      "reviewHere": "你的账户已开启 ~/.ssh/config 同步。在此计算机上开始同步前，请先检查这台计算机的主机和密钥。",
+      "review": "检查…",
+      "detachedUnsynced_other": "{{count}} 个被排除在同步之外的主机不再跟随 ~/.ssh/config，你的其他计算机不再等待它们。",
+      "detachedProxied_other": "{{count}} 个主机的 ~/.ssh/config 条目现在使用 ProxyCommand，不再跟随该文件。"
     }
   }
 }

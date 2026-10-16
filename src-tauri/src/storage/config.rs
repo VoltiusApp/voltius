@@ -566,7 +566,7 @@ fn load_json_migrated<T: serde::de::DeserializeOwned>(path: PathBuf) -> Result<V
 /// Pretty-print `value` as JSON and write it to `path`.
 fn save_json<T: Serialize + ?Sized>(path: PathBuf, value: &T) -> Result<(), String> {
     let data = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-    fs::write(path, data).map_err(|e| e.to_string())
+    super::secrets::write_atomic(&path, data.as_bytes()).map_err(String::from)
 }
 
 pub fn load_connections() -> Result<Vec<Connection>, String> {

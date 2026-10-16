@@ -79,7 +79,39 @@
       "secretsNotWiped": {
         "message": "Některé přihlašovací údaje týmu {{team}} se nepodařilo z tohoto zařízení odstranit. Zůstanou zde čitelné, dokud se odstranění nezdaří.",
         "retry": "Odstranit je nyní"
+      },
+      "sshConfigMigrated": {
+        "message": "Hostitelé z ~/.ssh/config se už nesynchronizují automaticky. Teď patří vám: vaše změny zůstanou zachovány.",
+        "turnOnSync": "Zapnout průběžnou synchronizaci",
+        "dismiss": "OK"
       }
+    },
+    "sshConfigOffer": {
+      "message_one": "V ~/.ssh/config byl nalezen {{count}} hostitel. Importovat ho do Voltius? Potom ho můžete libovolně upravovat.",
+      "message_few": "V ~/.ssh/config byli nalezeni {{count}} hostitelé. Importovat je do Voltius? Potom je můžete libovolně upravovat.",
+      "message_many": "V ~/.ssh/config bylo nalezeno {{count}} hostitelů. Importovat je do Voltius? Potom je můžete libovolně upravovat.",
+      "message_other": "V ~/.ssh/config bylo nalezeno {{count}} hostitelů. Importovat je do Voltius? Potom je můžete libovolně upravovat.",
+      "import": "Importovat…",
+      "skip": "Neimportovat"
+    },
+    "sshConfigSync": {
+      "unreadable": "Soubor ~/.ssh/config nelze přečíst. Spravovaní hostitelé zůstávají beze změny.",
+      "failed": "Synchronizace ~/.ssh/config selhala. Podrobnosti najdete v logu.",
+      "vaultGone": "Trezor vybraný pro hostitele z ~/.ssh/config už neexistuje. Vyberte jiný v Nastavení › Hosty.",
+      "detachedToTeam_one": "Hostitel přesunutý do týmového trezoru už nesleduje ~/.ssh/config.",
+      "detachedToTeam_few": "{{count}} hostitelé přesunutí do týmového trezoru už nesledují ~/.ssh/config.",
+      "detachedToTeam_many": "{{count}} hostitelů přesunutých do týmového trezoru už nesleduje ~/.ssh/config.",
+      "detachedToTeam_other": "{{count}} hostitelů přesunutých do týmového trezoru už nesleduje ~/.ssh/config.",
+      "reviewHere": "Synchronizace ~/.ssh/config je pro váš účet zapnutá. Než se spustí tady, zkontrolujte hostitele a klíče tohoto počítače.",
+      "review": "Zkontrolovat…",
+      "detachedUnsynced_one": "Hostitel vyloučený ze synchronizace už nesleduje ~/.ssh/config, takže na něj vaše další počítače přestanou čekat.",
+      "detachedUnsynced_few": "{{count}} hostitelé vyloučení ze synchronizace už nesledují ~/.ssh/config, takže na ně vaše další počítače přestanou čekat.",
+      "detachedUnsynced_many": "{{count}} hostitelů vyloučených ze synchronizace už nesleduje ~/.ssh/config, takže na ně vaše další počítače přestanou čekat.",
+      "detachedUnsynced_other": "{{count}} hostitelů vyloučených ze synchronizace už nesleduje ~/.ssh/config, takže na ně vaše další počítače přestanou čekat.",
+      "detachedProxied_one": "Hostitel, jehož záznam v ~/.ssh/config teď používá ProxyCommand, už soubor nesleduje.",
+      "detachedProxied_few": "{{count}} hostitelé, jejichž záznamy v ~/.ssh/config teď používají ProxyCommand, už soubor nesledují.",
+      "detachedProxied_many": "{{count}} hostitelů, jejichž záznamy v ~/.ssh/config teď používají ProxyCommand, už soubor nesleduje.",
+      "detachedProxied_other": "{{count}} hostitelů, jejichž záznamy v ~/.ssh/config teď používají ProxyCommand, už soubor nesleduje."
     }
   }
 }

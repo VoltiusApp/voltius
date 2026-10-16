@@ -15,6 +15,7 @@ vi.mock("@/services/sync", () => ({
   getSyncState: () => MOCK_SYNC_STATE,
   onSyncStateChange: () => () => {},
   isSyncPaused: () => false,
+  getDeviceId: () => "dev",
   ENTITY_FILES: [],
 }));
 

@@ -49,7 +49,7 @@ import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
 import { addKeyToHost } from "@/services/keyExport";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
-import type { Connection, TerminalSession } from "@/types";
+import type { Connection, ConnectionFormData, TerminalSession } from "@/types";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteLocalSecret } from "@/services/vault";
 import { reportUploadFailure } from "@/services/secretRouting";
 import { appFetch } from "@/services/http";
@@ -69,6 +69,9 @@ import {
   type PluginView, type SourceView,
 } from "./domains/plugins";
 import { exportObjects, importObjects } from "./domains/importexport";
+import { sshConfigSyncNow } from "@/services/sshConfig/sync";
+import { ownedFieldsChanged } from "@/services/sshConfig/hostFields";
+import { managedOwnedOf } from "@/stores/sshConfigStore";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import type { DomainResult } from "./domains/result";
 import type { AuditLog } from "@/services/auditService";
@@ -144,6 +147,7 @@ import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
+import { isRetiredPlugin } from "./retired";
 import { base64ToBytes, bytesToBase64, hexToBytes } from "@/utils/base64";
 import { base64ToByteArray } from "@/services/teamVaultSyncCore";
 
@@ -828,10 +832,16 @@ function busEmit(pluginId: string, event: string, data?: unknown): void {
 
 // ─── Plugin storage (JSON in app data) ───────────────────────────────────
 
+async function storageRead<T>(command: string, pluginId: string, key: string): Promise<T | null> {
+  const raw = await invoke<string | null>(command, { pluginId, key });
+  return raw ? (JSON.parse(raw) as T) : null;
+}
+
+const storageGetStrict = <T>(pluginId: string, key: string) => storageRead<T>("plugin_storage_read_strict", pluginId, key);
+
 async function storageGet<T>(pluginId: string, key: string): Promise<T | null> {
   try {
-    const raw = await invoke<string | null>("plugin_storage_get", { pluginId, key });
-    return raw ? (JSON.parse(raw) as T) : null;
+    return await storageRead<T>("plugin_storage_get", pluginId, key);
   } catch {
     return null;
   }
@@ -1086,6 +1096,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const existing = await connectionService.listConnections();
         const conn = existing.find((c) => c.id === connId);
         if (!conn) throw new Error(`Connection ${connId} not found`);
+        if (ownedFieldsChanged(conn, data as Partial<ConnectionFormData>, managedOwnedOf(connId)).length > 0) {
+          throw new Error("Managed by ~/.ssh/config; detach it first");
+        }
         // connection_update is a near-total replace: every field absent from the
         // payload is wiped, so a partial patch has to ride the full record.
         const base = connectionToFormData(conn);
@@ -2375,6 +2388,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         if (!whileActive("importExport.import")) return { ok: false, error: inactiveError(id) };
         return importObjects(opts);
       },
+      async sshConfigSync() {
+        requireGated("importexport:write");
+        if (!whileActive("importExport.sshConfigSync")) return { ok: false, error: inactiveError(id) };
+        return sshConfigSyncNow();
+      },
     },
 
     mcp: {
@@ -2440,6 +2458,7 @@ export function loadPlugin(
   // keychain prefix, contributed-id prefixes. Every loader wraps this in a
   // try/catch that warns and skips, so a malformed id costs that one plugin.
   assertValidPluginId(manifest.id);
+  if (isRetiredPlugin(manifest.id)) throw new Error(`Plugin "${manifest.id}" is retired`);
   if (_registry.has(manifest.id)) {
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
@@ -2575,6 +2594,12 @@ export function pluginStorageGet<T>(pluginId: string, key: string): Promise<T | 
 /** Write a plugin's storage value — for use by trusted UI code (e.g. auto-generated settings). */
 export function pluginStorageSet<T>(pluginId: string, key: string, value: T): Promise<void> {
   return storageSet<T>(pluginId, key, value);
+}
+
+export const pluginStorageGetStrict = storageGetStrict;
+
+export function pluginStorageClear(pluginId: string): Promise<void> {
+  return invoke("plugin_storage_clear", { pluginId });
 }
 
 /** Read a plugin's exposed public API (via `api.plugins.expose`) — for use by

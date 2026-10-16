@@ -12,6 +12,9 @@ import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjec
 import { rulesSourceOf } from "@/services/ruleSetIntent";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
+import { retagPersonal } from "@/stores/retagPersonal";
+import { managedOwnedOf } from "@/stores/sshConfigStore";
+import { keepOwned } from "@/services/sshConfig/hostFields";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 /**
@@ -150,7 +153,9 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     return conn;
   },
 
-  updateConnection: async (id, data) => {
+  updateConnection: async (id, input) => {
+    const existing = findAnyConnection(id);
+    const data = existing ? keepOwned(existing, input, managedOwnedOf(id)) : input;
     const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
       const now = new Date().toISOString();
@@ -372,10 +377,7 @@ export function findAnyConnection(id: string): Connection | undefined {
 
 // Returns the personal connections as they were before the rewrite.
 async function retagConnections(tag: string, rewrite: (tags: string[]) => string[]): Promise<Connection[]> {
-  const personal = useConnectionStore.getState().connections.filter((c) => c.tags.includes(tag));
-  await Promise.all(
-    personal.map((c) => api.updateConnection(c.id, { ...connectionToFormData(c), tags: rewrite(c.tags) })),
-  );
+  const personal = await retagPersonal(useConnectionStore.getState().connections, connectionToFormData, api.updateConnection, tag, rewrite);
   useConnectionStore.setState({ connections: await api.listConnections() });
   const prefs = useSyncPrefsStore.getState();
   isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });

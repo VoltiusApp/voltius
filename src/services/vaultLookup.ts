@@ -10,3 +10,5 @@ export function vaultById(vaults: Vault[], id: string): Vault | undefined {
 export function withPersonalFirst(vaults: Vault[]): Vault[] {
   return [vaultById(vaults, PERSONAL_VAULT.id)!, ...vaults.filter((v) => v.id !== PERSONAL_VAULT.id)];
 }
+
+export const personalVaults = (vaults: Vault[]): Vault[] => withPersonalFirst(vaults).filter((v) => !v.teamId);

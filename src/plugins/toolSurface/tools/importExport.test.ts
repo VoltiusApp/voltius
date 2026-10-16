@@ -9,6 +9,7 @@ function ports(over: { exportResult?: unknown; importResult?: unknown } = {}) {
   const api = {
     fs: { writeText, readText },
     importExport: {
+      sshConfigSync: vi.fn(async () => ({ ok: true, result: { created: 1, updated: 0, removed: 0, managed: 3, skipped: [] } })) as ReturnType<typeof vi.fn>,
       export: vi.fn(async () => over.exportResult ?? ({ ok: true, result: { content: "{\"a\":1}", encrypted: false, counts: { connections: 1 } } })),
       import: vi.fn(async () => over.importResult ?? ({ ok: true, result: { imported: 1, errors: 0, counts: { connections: 1 }, dryRun: false } })),
     },
@@ -22,10 +23,10 @@ function ports(over: { exportResult?: unknown; importResult?: unknown } = {}) {
 const byName = (p: ToolSurfacePorts, n: string) => buildImportExportTools(p).find((t) => t.name === n)!;
 
 describe("import/export verbs", () => {
-  it("exposes two verbs, both prompt-risk: export reads every secret the user owns", () => {
+  it("exposes three verbs, all prompt-risk: export reads every secret the user owns", () => {
     const tools = buildImportExportTools(ports().p);
-    expect(tools.map((t) => t.name)).toEqual(["export_objects", "import_objects"]);
-    expect(tools.map((t) => t.risk)).toEqual(["prompt", "prompt"]);
+    expect(tools.map((t) => t.name)).toEqual(["export_objects", "import_objects", "ssh_config_sync"]);
+    expect(tools.map((t) => t.risk)).toEqual(["prompt", "prompt", "prompt"]);
   });
 
   it("returns the bundle inline when no path is given", async () => {
@@ -83,5 +84,19 @@ describe("import/export verbs", () => {
     const r = await byName(p, "import_objects").execute({ vault_id: "personal" }) as Record<string, unknown>;
     expect(r.refused).toBe(true);
     expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("ssh_config_sync runs one sync and returns its summary", async () => {
+    const { p } = ports();
+    expect(await byName(p, "ssh_config_sync").execute({})).toEqual({
+      ok: true,
+      result: { created: 1, updated: 0, removed: 0, managed: 3, skipped: [] },
+    });
+  });
+
+  it("ssh_config_sync passes the refusal through when the setting is off", async () => {
+    const { p, api } = ports();
+    api.importExport.sshConfigSync = vi.fn(async () => ({ ok: false, error: "Continuous sync is off; turn it on in Settings › Hosts" }));
+    expect(JSON.stringify(await byName(p, "ssh_config_sync").execute({}))).toContain("Continuous sync is off");
   });
 });

@@ -79,7 +79,35 @@
       "secretsNotWiped": {
         "message": "Certains identifiants de {{team}} n'ont pas pu être supprimés de cet appareil. Ils y restent lisibles tant que l'effacement n'a pas abouti.",
         "retry": "Les supprimer maintenant"
+      },
+      "sshConfigMigrated": {
+        "message": "Vos hôtes ~/.ssh/config ne sont plus synchronisés automatiquement. Ils vous appartiennent désormais : vos modifications sont conservées.",
+        "turnOnSync": "Activer la synchronisation continue",
+        "dismiss": "OK"
       }
+    },
+    "sshConfigOffer": {
+      "message_one": "{{count}} hôte trouvé dans ~/.ssh/config. L'importer dans Voltius ? Vous pourrez le modifier librement ensuite.",
+      "message_many": "{{count}} hôtes trouvés dans ~/.ssh/config. Les importer dans Voltius ? Vous pourrez les modifier librement ensuite.",
+      "message_other": "{{count}} hôtes trouvés dans ~/.ssh/config. Les importer dans Voltius ? Vous pourrez les modifier librement ensuite.",
+      "import": "Importer…",
+      "skip": "Ne pas importer"
+    },
+    "sshConfigSync": {
+      "unreadable": "Impossible de lire ~/.ssh/config. Les hôtes gérés restent tels quels.",
+      "failed": "La synchronisation de ~/.ssh/config a échoué. Voir les journaux.",
+      "vaultGone": "Le coffre choisi pour les hôtes de ~/.ssh/config n'existe plus. Choisissez-en un autre dans Réglages › Hôtes.",
+      "detachedToTeam_one": "Un hôte déplacé vers un coffre d'équipe ne suit plus ~/.ssh/config.",
+      "detachedToTeam_many": "{{count}} hôtes déplacés vers un coffre d'équipe ne suivent plus ~/.ssh/config.",
+      "detachedToTeam_other": "{{count}} hôtes déplacés vers un coffre d'équipe ne suivent plus ~/.ssh/config.",
+      "reviewHere": "La synchronisation de ~/.ssh/config est activée sur votre compte. Vérifiez les hôtes et les clés de cet ordinateur avant qu'elle démarre ici.",
+      "review": "Vérifier…",
+      "detachedUnsynced_one": "Un hôte exclu de la synchronisation ne suit plus ~/.ssh/config : vos autres ordinateurs ne l'attendent plus.",
+      "detachedUnsynced_many": "{{count}} hôtes exclus de la synchronisation ne suivent plus ~/.ssh/config : vos autres ordinateurs ne les attendent plus.",
+      "detachedUnsynced_other": "{{count}} hôtes exclus de la synchronisation ne suivent plus ~/.ssh/config : vos autres ordinateurs ne les attendent plus.",
+      "detachedProxied_one": "Un hôte dont l'entrée ~/.ssh/config utilise désormais ProxyCommand ne suit plus le fichier.",
+      "detachedProxied_many": "{{count}} hôtes dont les entrées ~/.ssh/config utilisent désormais ProxyCommand ne suivent plus le fichier.",
+      "detachedProxied_other": "{{count}} hôtes dont les entrées ~/.ssh/config utilisent désormais ProxyCommand ne suivent plus le fichier."
     }
   }
 }

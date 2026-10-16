@@ -79,7 +79,31 @@
       "secretsNotWiped": {
         "message": "Some {{team}} credentials could not be removed from this device. They stay readable here until the wipe succeeds.",
         "retry": "Remove them now"
+      },
+      "sshConfigMigrated": {
+        "message": "Your ~/.ssh/config hosts are no longer synced automatically. They are yours now: your changes are kept.",
+        "turnOnSync": "Turn on continuous sync",
+        "dismiss": "OK"
       }
+    },
+    "sshConfigOffer": {
+      "message_one": "{{count}} host found in ~/.ssh/config. Import it into Voltius? You can edit it freely afterwards.",
+      "message_other": "{{count}} hosts found in ~/.ssh/config. Import them into Voltius? You can edit them freely afterwards.",
+      "import": "Import…",
+      "skip": "Don't import"
+    },
+    "sshConfigSync": {
+      "unreadable": "~/.ssh/config could not be read. Managed hosts are kept as they are.",
+      "failed": "~/.ssh/config sync failed. See the logs.",
+      "vaultGone": "The vault picked for ~/.ssh/config hosts no longer exists. Pick another one in Settings › Hosts.",
+      "detachedToTeam_one": "A host moved to a team vault no longer follows ~/.ssh/config.",
+      "detachedToTeam_other": "{{count}} hosts moved to a team vault no longer follow ~/.ssh/config.",
+      "reviewHere": "~/.ssh/config sync is on for your account. Review this computer's hosts and keys before it syncs here.",
+      "review": "Review…",
+      "detachedUnsynced_one": "A host excluded from sync no longer follows ~/.ssh/config, so your other computers stop waiting for it.",
+      "detachedUnsynced_other": "{{count}} hosts excluded from sync no longer follow ~/.ssh/config, so your other computers stop waiting for them.",
+      "detachedProxied_one": "A host whose ~/.ssh/config entry now uses ProxyCommand no longer follows the file.",
+      "detachedProxied_other": "{{count}} hosts whose ~/.ssh/config entries now use ProxyCommand no longer follow the file."
     }
   }
 }

@@ -10,7 +10,7 @@
 //! Per-field clock primitives are in [`crate::commands::crdt`].
 
 use crate::commands::crdt::{is_alive, max_clock};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// The vault an object belongs to when the caller names none.
 pub const PERSONAL: &str = "personal";
@@ -72,6 +72,19 @@ pub fn live<T: VaultObject>(items: Vec<T>) -> Vec<T> {
     items
         .into_iter()
         .filter(|i| is_alive(i.deleted_at(), i.updated_at()))
+        .collect()
+}
+
+pub fn deleted_at<T: VaultObject>(items: &[T]) -> BTreeMap<String, String> {
+    items
+        .iter()
+        .filter(|i| !is_alive(i.deleted_at(), i.updated_at()))
+        .map(|i| {
+            (
+                i.id().to_string(),
+                i.deleted_at().clone().unwrap_or_default(),
+            )
+        })
         .collect()
 }
 
@@ -465,6 +478,19 @@ mod tests {
             .map(|t| t.id.clone())
             .collect();
         assert_eq!(ids, ["a", "c"]);
+    }
+
+    #[test]
+    fn deleted_at_lists_only_tombstoned_rows() {
+        let mut deleted = thing("b");
+        deleted.deleted_at = Some("2026-02-01T00:00:00Z".into());
+        let mut revived = thing("c");
+        revived.deleted_at = Some("2026-01-01T00:00:00Z".into());
+        revived.updated_at = "2026-03-01T00:00:00Z".into();
+        assert_eq!(
+            deleted_at(&[thing("a"), deleted, revived]),
+            BTreeMap::from([("b".to_string(), "2026-02-01T00:00:00Z".to_string())])
+        );
     }
 
     #[test]

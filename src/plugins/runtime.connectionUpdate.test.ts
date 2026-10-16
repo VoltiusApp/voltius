@@ -38,6 +38,7 @@ vi.mock("@/services/connections", () => ({
 }));
 
 const { loadPlugin } = await import("./runtime");
+const { useSshConfigStore } = await import("@/stores/sshConfigStore");
 
 function load(id: string): PluginAPI {
   let api!: PluginAPI;
@@ -72,5 +73,17 @@ describe("api.connections.update", () => {
       shell_integration: "on",
       keepalive_preset: "aggressive",
     });
+  });
+
+  test("refuses to change owned fields of a host managed by ~/.ssh/config", async () => {
+    useSshConfigStore.getState().setState({ managed: { c1: { alias: "web", at: 1, devices: {} } } });
+    try {
+      const api = load("agent-managed-guard");
+      await expect(api.connections.update("c1", { host: "elsewhere" })).rejects.toThrow("Managed by ~/.ssh/config; detach it first");
+      await expect(api.connections.update("c1", { name: "Renamed" })).resolves.toBeUndefined();
+      await expect(api.connections.update("c1", { username: "me" })).resolves.toBeUndefined();
+    } finally {
+      useSshConfigStore.getState().setState({});
+    }
   });
 });

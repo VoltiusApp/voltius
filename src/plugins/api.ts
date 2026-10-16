@@ -14,6 +14,7 @@ import type { SubscriptionView } from "./domains/account";
 import type { PluginView, SourceView } from "./domains/plugins";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
+import type { SyncSummary } from "@/services/sshConfig/sync";
 export type { ExportResult, ExportType, ImportResult } from "./domains/importexport";
 
 export type { PluginAuditAction } from "@/services/auditContext";
@@ -1375,6 +1376,7 @@ export interface PluginAPI {
     import(opts: {
       content: string; vaultId: string; passphrase?: string; dryRun: boolean;
     }): Promise<DomainResult<ImportResult>>;
+    sshConfigSync(): Promise<DomainResult<SyncSummary>>;
   };
 
   // MCP tool contributions — GATED (mcp:contribute). Tools run with THIS

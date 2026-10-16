@@ -8,7 +8,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::storage::config::{config_dir, plain_leaf};
-use crate::storage::secrets::SecretsStore;
+use crate::storage::secrets::{write_atomic, SecretsStore};
 
 // ─── encrypt_payload ──────────────────────────────────────────────────────────
 
@@ -315,7 +315,8 @@ pub fn backup_import(
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Cannot create {}: {e}", parent.display()))?;
         }
-        std::fs::write(&dest, content).map_err(|e| format!("Failed to restore {filename}: {e}"))?;
+        write_atomic(&dest, content.as_bytes())
+            .map_err(|e| format!("Failed to restore {filename}: {}", String::from(e)))?;
     }
     state.replace_all(payload.secrets, payload.secret_clocks)?;
 
@@ -379,38 +380,45 @@ pub fn state_import(
     let dir = config_dir();
     for (filename, content) in &files {
         if ENTITY_FILES.contains(&filename.as_str()) {
-            fs::write(dir.join(filename), content)
-                .map_err(|e| format!("Failed to write {filename}: {e}"))?;
+            write_atomic(&dir.join(filename), content.as_bytes())
+                .map_err(|e| format!("Failed to write {filename}: {}", String::from(e)))?;
         }
     }
     state.replace_all(secrets, secret_clocks.unwrap_or_default())?;
     Ok(())
 }
 
+fn load_root(name: &str) -> Option<String> {
+    std::fs::read_to_string(config_dir().join(name)).ok()
+}
+
+fn save_root(name: &str, state: String, command: &str) -> Result<(), String> {
+    write_atomic(&config_dir().join(name), state.as_bytes())
+        .map_err(|e| format!("{command} failed: {}", String::from(e)))
+}
+
 // ─── Theme preferences ────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub fn theme_load() -> Option<String> {
-    std::fs::read_to_string(config_dir().join("theme.json")).ok()
+    load_root("theme.json")
 }
 
 #[tauri::command]
 pub fn theme_save(state: String) -> Result<(), String> {
-    std::fs::write(config_dir().join("theme.json"), state)
-        .map_err(|e| format!("theme_save failed: {e}"))
+    save_root("theme.json", state, "theme_save")
 }
 
 // ─── App settings ─────────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub fn settings_load() -> Option<String> {
-    std::fs::read_to_string(config_dir().join("settings.json")).ok()
+    load_root("settings.json")
 }
 
 #[tauri::command]
 pub fn settings_save(state: String) -> Result<(), String> {
-    std::fs::write(config_dir().join("settings.json"), state)
-        .map_err(|e| format!("settings_save failed: {e}"))
+    save_root("settings.json", state, "settings_save")
 }
 
 // ─── Cross-device live-session manifest ──────────────────────────────────────
@@ -419,13 +427,22 @@ pub fn settings_save(state: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn live_sessions_load() -> Option<String> {
-    std::fs::read_to_string(config_dir().join("live_sessions.json")).ok()
+    load_root("live_sessions.json")
 }
 
 #[tauri::command]
 pub fn live_sessions_save(state: String) -> Result<(), String> {
-    std::fs::write(config_dir().join("live_sessions.json"), state)
-        .map_err(|e| format!("live_sessions_save failed: {e}"))
+    save_root("live_sessions.json", state, "live_sessions_save")
+}
+
+#[tauri::command]
+pub fn ssh_config_state_load() -> Option<String> {
+    load_root("ssh-config.json")
+}
+
+#[tauri::command]
+pub fn ssh_config_state_save(state: String) -> Result<(), String> {
+    save_root("ssh-config.json", state, "ssh_config_state_save")
 }
 
 #[tauri::command]

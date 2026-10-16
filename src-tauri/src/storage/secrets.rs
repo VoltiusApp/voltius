@@ -204,9 +204,11 @@ fn temp_path(path: &std::path::Path) -> Result<PathBuf, AppError> {
 }
 
 /// Write `bytes` to `path` through a staged sibling file, so an interrupted write
-/// leaves the previous vault intact rather than a truncated one that no key opens.
-fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
-    write_atomic_via(path, &temp_path(path)?, bytes)
+/// leaves the previous file intact rather than a truncated one.
+pub(crate) fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
+    // Stage beside a symlink's target, so a file linked into a dotfiles repo stays a link.
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    write_atomic_via(&path, &temp_path(&path)?, bytes)
 }
 
 fn write_atomic_via(
@@ -836,6 +838,22 @@ mod tests {
         assert!(write_atomic_via(&path, &blocked, b"v2").is_err());
 
         assert_eq!(std::fs::read(&path).unwrap(), b"v1");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_write_through_a_symlink_keeps_the_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("dotfiles-settings.json");
+        let link = dir.path().join("settings.json");
+        std::fs::write(&target, b"v1").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        write_atomic(&link, b"v2").expect("write through link");
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&target).unwrap(), b"v2");
     }
 
     #[test]
