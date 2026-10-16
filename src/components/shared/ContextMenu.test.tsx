@@ -2,7 +2,7 @@ import { useState } from "react";
 import { test, expect, afterEach, vi } from "vitest";
 import { act } from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { ContextMenu, fitWithin, submenuLeft, useContextMenu } from "./ContextMenu";
+import { ContextMenu, fitWithin, isInMenuPortal, submenuLeft, useContextMenu } from "./ContextMenu";
 
 // vitest.config.ts sets no `globals: true`, so testing-library's automatic
 // cleanup never registers; unmount explicitly between tests.
@@ -134,6 +134,14 @@ test("a root menu is re-clamped when it grows after the first measurement", () =
   }
 });
 
+test("a click opens a submenu without hovering, for touch and keyboard", () => {
+  const onClick = vi.fn();
+  render(<ContextMenu items={[{ label: "Parent", children: [{ label: "Child", onClick }] }]} pos={{ x: 0, y: 10 }} onClose={() => {}} />);
+  fireEvent.click(screen.getByText("Parent"));
+  fireEvent.click(screen.getByText("Child"));
+  expect(onClick).toHaveBeenCalled();
+});
+
 test("a submenu opened low in the window is shifted up to stay inside it", () => {
   const height = window.innerHeight;
   window.innerHeight = 600;
@@ -174,4 +182,14 @@ test("a flipped submenu wider than its old fixed estimate does not cover its par
   } finally {
     window.innerWidth = width;
   }
+});
+
+test("isInMenuPortal accepts any event target", () => {
+  const portal = document.createElement("div");
+  portal.setAttribute("data-menu-portal", "");
+  const row = portal.appendChild(document.createElement("button"));
+  expect(isInMenuPortal(row)).toBe(true);
+  expect(isInMenuPortal(document.createElement("div"))).toBe(false);
+  expect(isInMenuPortal(window)).toBe(false);
+  expect(isInMenuPortal(null)).toBe(false);
 });

@@ -83,6 +83,12 @@ export default function MobileMoreScreen() {
           </button>
         ))}
         <div className="mx-4 my-2 border-t" style={{ borderColor: "var(--t-border)" }} />
+        <button data-more-page="import-export"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card)"
+          onClick={() => useUIStore.getState().openImportExport("import")}>
+          <Icon icon="lucide:arrow-up-down" width={20} className="text-(--t-text-dim)" />
+          <span className="flex-1 text-sm font-medium text-(--t-text-primary)">{t("hosts.toolbar.importExport")}</span>
+        </button>
         <button data-more-page="settings"
           className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card)"
           onClick={() => openSettings()}>

@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 
+export const isInMenuPortal = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest("[data-menu-portal]") !== null;
+
 export interface ContextMenuItem {
   label: string;
   icon?: string;
@@ -60,7 +63,11 @@ export function MenuItemList({
               <div className="my-1 mx-1 h-px bg-(--t-border)" />
             )}
             <button
-              onClick={item.children ? undefined : () => { item.onClick?.(); onClose(); }}
+              onClick={(e) => {
+                if (item.children) return openSub(i, e.currentTarget);
+                item.onClick?.();
+                onClose();
+              }}
               className="flex items-center gap-2.5 p-3 rounded-lg transition-colors w-full"
               style={{
                 background: isSubActive ? "var(--t-bg-card-hover)" : "transparent",
@@ -211,8 +218,7 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
   // is under the pointer and that target opens its own menu in the same event.
   useEffect(() => {
     const onOutside = (e: MouseEvent) => {
-      const target = e.target;
-      if (target instanceof Element && (menuRef.current?.contains(target) || target.closest("[data-menu-portal]"))) return;
+      if (isInMenuPortal(e.target)) return;
       onClose();
     };
     window.addEventListener("mousedown", onOutside, true);

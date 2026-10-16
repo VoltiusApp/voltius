@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
+import { MenuItemList, isInMenuPortal, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { chevronRotateStyle } from "@/utils/icons";
 import { searchMatcher } from "@/utils/search";
 
@@ -13,7 +14,7 @@ export interface DropdownOption<T extends string> {
 
 export type ActionItem =
   | { separator: true; label?: never; icon?: never; onClick?: never }
-  | { separator?: false; label: string; icon?: string; onClick: () => void };
+  | { separator?: false; label: string; icon?: string; onClick?: () => void; children?: ContextMenuItem[] };
 
 interface BaseProps<T extends string> {
   icon: string;
@@ -72,7 +73,7 @@ export function ToolbarDropdown<T extends string>({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node) && !isInMenuPortal(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -135,19 +136,10 @@ export function ToolbarDropdown<T extends string>({
       )}
       <div className="p-1.5 flex flex-col overflow-y-auto max-h-64">
         {items
-          ? menuItems.map((item, idx) =>
-              item.separator
-                ? <div key={idx} className="my-1 h-px mx-1" style={{ background: "var(--t-border)" }} />
-                : (
-                  <DropdownMenuItem
-                    key={item.label}
-                    icon={item.icon}
-                    label={item.label}
-                    iconSize={15}
-                    onClick={() => { item.onClick(); setOpen(false); }}
-                  />
-                )
-            )
+          ? <MenuItemList
+              items={menuItems.flatMap((item, i) => (item.separator ? [] : [{ ...item, divider: menuItems[i - 1]?.separator === true }]))}
+              onClose={() => setOpen(false)}
+            />
           : filteredOptions.length > 0
             ? filteredOptions.map((opt) => (
                 <DropdownMenuItem

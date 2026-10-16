@@ -135,11 +135,15 @@ export function HomeToolbar({
               { label: t("hosts.toolbar.import"), icon: "lucide:download", onClick: () => onOpenImportExport("import") },
               { label: t("hosts.toolbar.export"), icon: "lucide:upload", onClick: () => onOpenImportExport("export") },
               { separator: true },
-              ...IMPORTERS.map(imp => ({
-                label: t("hosts.toolbar.fromImporter", { label: imp.label }),
-                icon: imp.icon,
-                onClick: () => onOpenImportExport("import", { source: imp.key, autoTrigger: !!imp.autoExtract }),
-              })),
+              {
+                label: t("hosts.toolbar.importFrom"),
+                icon: "lucide:file-input",
+                children: IMPORTERS.map((imp) => ({
+                  label: imp.label,
+                  icon: imp.icon,
+                  onClick: () => onOpenImportExport("import", { source: imp.key, autoTrigger: !!imp.autoExtract }),
+                })),
+              },
             ]}
             align="right"
             menuWidth={190}
