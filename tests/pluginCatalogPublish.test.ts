@@ -30,9 +30,9 @@ function manifestVersion(id: string): string {
 
 // Only these two are built for real (one with a stylesheet, one without) — enough
 // to prove hashes match real bundler output. The rest get a cheap stand-in index.js
-// so buildCatalogFragment can still produce a full six-entry fragment for the
-// cardinality/id-correctness assertions, without paying for six vite builds here
-// (tests/pluginBundleBuild.test.ts already exercises all six as real builds).
+// so buildCatalogFragment can still produce a full five-entry fragment for the
+// cardinality/id-correctness assertions, without paying for five vite builds here
+// (tests/pluginBundleBuild.test.ts already exercises all five as real builds).
 const REAL_BUILDS = ["docker", "monitoring"];
 
 describe("plugin catalogue publish pipeline", () => {
@@ -81,7 +81,7 @@ describe("plugin catalogue publish pipeline", () => {
     }
     expect(ids).not.toContain("docker");
     expect(ids.sort()).toEqual(
-      ["plugin-docker", "plugin-gist-sync", "plugin-monitoring", "plugin-process-manager", "plugin-proxmox", "plugin-ssh-config"].sort(),
+      ["plugin-docker", "plugin-gist-sync", "plugin-monitoring", "plugin-process-manager", "plugin-proxmox"].sort(),
     );
   });
 
@@ -124,7 +124,7 @@ describe("plugin catalogue publish pipeline", () => {
     }
   });
 
-  // All six manifests declare minAppVersion, so the app-version fallback is no
+  // All five manifests declare minAppVersion, so the app-version fallback is no
   // longer reachable through them. Asserting `minAppVersion === APP_VERSION` over
   // the real manifests (as this used to) only passed while the two happened to be
   // the same string, and silently stopped testing the fallback at all — it broke
@@ -294,7 +294,7 @@ describe("CLI entry-point guard", () => {
     expect(isCliEntryPoint("/repo/scripts/build-plugins.mjs", "/repo/node_modules/.bin/vitest")).toBe(false);
   });
 
-  // Importing build-plugins.mjs must NOT trigger main() (which would build all six real
+  // Importing build-plugins.mjs must NOT trigger main() (which would build all five real
   // plugins into src-tauri/resources/plugins/); only the probe, as the entry point, prints true.
   function writeProbe(dir: string): string {
     const probePath = path.join(dir, "probe.mjs");
@@ -345,8 +345,8 @@ describe("hash algorithm parity", () => {
 });
 
 // A partial build used to rmSync the whole resources dir before building only its
-// targets, so `node scripts/build-plugins.mjs docker` wiped the other five plugins —
-// which breaks `cargo test --lib` (the embedding tests assert the six unconditionally)
+// targets, so `node scripts/build-plugins.mjs docker` wiped the other four plugins —
+// which breaks `cargo test --lib` (the embedding tests assert the five unconditionally)
 // and fails a release build outright.
 describe("pruneTargets", () => {
   const RES = "/res";

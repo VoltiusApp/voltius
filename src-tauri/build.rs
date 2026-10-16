@@ -4,13 +4,12 @@ use std::path::Path;
 
 /// Folders that must be embedded in a release build. A mismatch fails the build
 /// rather than silently shipping a binary with missing built-ins.
-const SEEDED_IDS: [&str; 6] = [
+const SEEDED_IDS: [&str; 5] = [
     "docker",
     "gist-sync",
     "monitoring",
     "process-manager",
     "proxmox",
-    "ssh-config",
 ];
 
 /// Only these filenames are embedded; anything else in a plugin folder is ignored.

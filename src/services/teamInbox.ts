@@ -374,18 +374,14 @@ export function startTeamInbox(): () => void {
   };
 }
 
-/**
- * One-shot, unlike the reconcilers above: the team is gone from every source we
- * could re-derive these from, so they are upserted directly and stay until
- * acted on. Keyed by team so two departures raise two entries.
- */
-function notifyOneShot(id: string, kind: InboxKind, message: string, action: InboxAction): void {
+/** Upserts an inbox entry directly and echoes it as a toast; it stays until acted on. */
+export function notifyOneShot(id: string, kind: InboxKind, message: string, actions: InboxAction[]): void {
   useNotificationStore.getState().upsertInbox({
     id,
     kind,
     source: APP_SOURCE,
     message,
-    actions: [action],
+    actions,
   });
 
   toast(message, 10000, id);
@@ -393,13 +389,13 @@ function notifyOneShot(id: string, kind: InboxKind, message: string, action: Inb
 
 export function notifyMembershipEnded(teamName: string): void {
   const id = `membership-ended:${teamName}`;
-  notifyOneShot(id, "membershipEnded", i18n.t("notifications.inbox.membershipEnded.message", { team: teamName }), {
+  notifyOneShot(id, "membershipEnded", i18n.t("notifications.inbox.membershipEnded.message", { team: teamName }), [{
     label: i18n.t("notifications.inbox.membershipEnded.review"),
     run: async () => {
       const { useUIStore } = await import("@/stores/uiStore");
       useUIStore.getState().setActiveNav("keychain");
     },
-  });
+  }]);
 }
 
 /**
@@ -409,7 +405,7 @@ export function notifyMembershipEnded(teamName: string): void {
  */
 export function notifySecretsNotWiped(teamId: string, teamName: string): void {
   const id = `secrets-not-wiped:${teamId}`;
-  notifyOneShot(id, "secretsNotWiped", i18n.t("notifications.inbox.secretsNotWiped.message", { team: teamName }), {
+  notifyOneShot(id, "secretsNotWiped", i18n.t("notifications.inbox.secretsNotWiped.message", { team: teamName }), [{
     label: i18n.t("notifications.inbox.secretsNotWiped.retry"),
     run: async () => {
       const { drainPendingSecretWipes } = await import("@/services/teamVaultSync");
@@ -419,5 +415,5 @@ export function notifySecretsNotWiped(teamId: string, teamName: string): void {
         useNotificationStore.getState().retractInbox(id);
       }
     },
-  });
+  }]);
 }

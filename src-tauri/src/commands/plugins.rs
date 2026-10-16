@@ -13,7 +13,7 @@ include!(concat!(env!("OUT_DIR"), "/seeded_plugins.rs"));
 ///
 /// `\` matters here even though the old guard omitted it: it is a path separator on
 /// Windows, so `a\..\..\evil` escaped the plugins directory there.
-fn validate_id(id: &str) -> Result<(), String> {
+pub(crate) fn validate_id(id: &str) -> Result<(), String> {
     let ok = !id.is_empty()
         && id.len() <= 64
         && id != "."
@@ -202,7 +202,7 @@ mod tests {
     }
 
     #[test]
-    fn embeds_exactly_the_six_first_party_plugin_folders() {
+    fn embeds_exactly_the_five_first_party_plugin_folders() {
         let mut ids: Vec<&str> = SEEDED_PLUGINS.iter().map(|(id, _)| *id).collect();
         ids.sort();
         assert_eq!(
@@ -212,8 +212,7 @@ mod tests {
                 "gist-sync",
                 "monitoring",
                 "process-manager",
-                "proxmox",
-                "ssh-config"
+                "proxmox"
             ]
         );
     }
@@ -227,8 +226,7 @@ mod tests {
                 "gist-sync",
                 "monitoring",
                 "process-manager",
-                "proxmox",
-                "ssh-config"
+                "proxmox"
             ]
         );
     }

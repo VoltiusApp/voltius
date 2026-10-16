@@ -877,7 +877,7 @@ export default function PluginsSection() {
   const isAndroid = useIsAndroid();
   const externalIds = new Set(installedMeta.map((m) => m.id));
   // Filtered through visiblePlugins before anything counts against it — a desktopOnly
-  // seeded plugin (e.g. ssh-config) is still loaded on Android but renders no row and
+  // seeded plugin is still loaded on Android but renders no row and
   // no button there, so an update for it must never be counted either.
   const visibleBundledManifests = visiblePlugins(
     bundledPluginManifests(externalIds).map((manifest) => ({ manifest })),

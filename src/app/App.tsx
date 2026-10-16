@@ -45,6 +45,7 @@ import { RuleSetPromptHost } from "@/components/permissions/RuleSetPromptHost";
 import { VaultIdentityDialogHost } from "@/components/connections/VaultIdentityDialog";
 import { setRuleSetMoveConfirmer } from "@/services/teamObjectPersistence";
 import { confirmRuleSetMove } from "@/services/ruleSetMoveGuard";
+import { startSshConfigOnboarding } from "@/services/sshConfig/onboarding";
 
 const MobileShell = lazyNamed(() => import("@/components/mobile/MobileShell"), "default");
 
@@ -79,6 +80,7 @@ function App() {
       });
     }
   }, [ready]);
+  useEffect(() => (ready ? startSshConfigOnboarding() : undefined), [ready]);
   const platform = usePlatform();
   const globalPendingInject = useSnippetStore((s) => s.globalPendingInject);
   const setGlobalPendingInject = useSnippetStore((s) => s.setGlobalPendingInject);

@@ -51,10 +51,10 @@ jobs:
       - run: pnpm build
 
       # `pnpm build` exits 0 having built nothing if the plugin loop silently skips.
-      - name: Assert all six plugin bundles were produced
+      - name: Assert all five plugin bundles were produced
         shell: pwsh
         run: |
-          $ids = @('ssh-config','gist-sync','monitoring','docker','process-manager','proxmox')
+          $ids = @('gist-sync','monitoring','docker','process-manager','proxmox')
           foreach ($id in $ids) {
             foreach ($f in @('index.js','manifest.json')) {
               $p = "src-tauri/resources/plugins/$id/$f"
@@ -62,7 +62,7 @@ jobs:
               if ((Get-Item $p).Length -eq 0) { throw "empty $p" }
             }
           }
-          Write-Host "all six plugin bundles present"
+          Write-Host "all five plugin bundles present"
 
       - name: Install Rust (pinned by rust-toolchain.toml)
         run: rustup show

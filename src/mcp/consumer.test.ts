@@ -9,9 +9,6 @@ import { buildDockerMcpTools } from "@/plugins/docker/mcpTools";
 import { buildProxmoxMcpTools } from "@/plugins/proxmox/mcpTools";
 import { buildMonitoringMcpTools } from "@/plugins/monitoring/mcpTools";
 import { buildProcessMcpTools } from "@/plugins/process-manager/mcpTools";
-import { register as registerSshConfig, manifest as sshConfigManifest } from "@/plugins/ssh-config";
-import type { PluginAPI } from "@/plugins/api";
-import { createI18nAPI } from "@/plugins/domains/i18n";
 
 const api = () => ({
   connections: { list: vi.fn().mockResolvedValue([{ id: "c1", name: "Prod", host: "h1", team: true }]) },
@@ -47,7 +44,7 @@ const ALL_TOOLS = [
   "send_keys", "session_move_to_pane",
   "setting_get", "setting_list", "setting_set", "share_session",
   "snippet_create", "snippet_delete", "snippet_list", "snippet_run", "snippet_update",
-  "stat_file", "subscription_status", "sync_status",
+  "ssh_config_sync", "stat_file", "subscription_status", "sync_status",
   "tab_rename", "team_list",
   "transfer_cancel", "transfer_file", "transfer_list", "transfer_retry",
   "unshare_session",
@@ -76,36 +73,16 @@ describe("MCP consumer", () => {
     registerContributions("plugin-proxmox", buildProxmoxMcpTools(stub));
     registerContributions("plugin-monitoring", buildMonitoringMcpTools(stub));
     registerContributions("plugin-process-manager", buildProcessMcpTools(stub));
-    // ssh-config registers its MCP tool from inside register() rather than
-    // exporting a buildXMcpTools(api), so it needs the fuller stub its own
-    // register.test.ts uses instead of the minimal `stub` above.
-    const sshConfigApi = {
-      isActive: () => true,
-      fs: { exists: vi.fn(async () => false), readText: vi.fn(async () => ""), writeText: vi.fn(async () => {}), watch: vi.fn(() => () => {}) },
-      connections: { list: vi.fn(async () => []) },
-      keys: { list: vi.fn(async () => []) },
-      identities: { list: vi.fn(async () => []) },
-      storage: { get: vi.fn(async () => null), set: vi.fn(async () => {}), delete: vi.fn(async () => {}) },
-      events: { on: vi.fn(() => () => {}), emit: vi.fn() },
-      ui: { registerSettingsPage: vi.fn(() => () => {}) },
-      lifecycle: { waitForLoginSync: vi.fn(() => Promise.resolve()) },
-      log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      i18n: createI18nAPI(),
-      mcp: { registerTools: (tools: Parameters<typeof registerContributions>[1]) => registerContributions(sshConfigManifest.id, tools) },
-    } as unknown as PluginAPI;
-    const cleanupSshConfig = registerSshConfig(sshConfigApi);
-    await new Promise((r) => setTimeout(r, 0));
     try {
       const contributed = buildMcpTools(stub, new Set()).filter((t) => t.name.includes("__"));
-      expect(contributed).toHaveLength(16);
+      expect(contributed).toHaveLength(15);
       for (const t of contributed) {
         expect(t.description.toLowerCase()).not.toContain("prompt");
         expect(t.description.toLowerCase()).not.toContain("agent");
         expect(t.description.toLowerCase()).not.toContain("workbench");
       }
     } finally {
-      if (typeof cleanupSshConfig === "function") cleanupSshConfig();
-      for (const id of ["plugin-docker", "plugin-proxmox", "plugin-monitoring", "plugin-process-manager", sshConfigManifest.id]) {
+      for (const id of ["plugin-docker", "plugin-proxmox", "plugin-monitoring", "plugin-process-manager"]) {
         clearContributions(id);
       }
     }

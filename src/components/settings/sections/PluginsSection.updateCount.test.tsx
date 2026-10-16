@@ -2,7 +2,7 @@ import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import type { PluginManifest } from "@/plugins/api";
 
-// Reproduces the Task 3 fix: a desktopOnly seeded plugin (e.g. plugin-ssh-config) is
+// Reproduces the Task 3 fix: a desktopOnly seeded plugin is
 // still loaded on Android but hidden from the Installed list by visiblePlugins — an
 // update for it must not be counted in the tab's "N updates" badge either, since
 // there is no row anywhere on Android to offer it through.
@@ -83,10 +83,10 @@ afterEach(() => {
 
 test("a desktopOnly seeded plugin's update is counted and shown on desktop", async () => {
   androidFlag.value = false;
-  loaded.list = [manifest("plugin-ssh-config", { version: "1.0.0", desktopOnly: true })];
-  seeded.entries = new Map([["plugin-ssh-config", { folder: "ssh-config", manifest: loaded.list[0] }]]);
+  loaded.list = [manifest("plugin-gist-sync", { version: "1.0.0", desktopOnly: true })];
+  seeded.entries = new Map([["plugin-gist-sync", { folder: "gist-sync", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
-    { id: "plugin-ssh-config", name: "SSH Config", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    { id: "plugin-gist-sync", name: "GitHub Gist Sync", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
   ];
   render(<PluginsSection />);
   expect(await screen.findByText(/updateCount/)).toBeTruthy();
@@ -94,10 +94,10 @@ test("a desktopOnly seeded plugin's update is counted and shown on desktop", asy
 
 test("a desktopOnly seeded plugin's update is NOT counted or shown on Android (no row exists to act on it)", async () => {
   androidFlag.value = true;
-  loaded.list = [manifest("plugin-ssh-config", { version: "1.0.0", desktopOnly: true })];
-  seeded.entries = new Map([["plugin-ssh-config", { folder: "ssh-config", manifest: loaded.list[0] }]]);
+  loaded.list = [manifest("plugin-gist-sync", { version: "1.0.0", desktopOnly: true })];
+  seeded.entries = new Map([["plugin-gist-sync", { folder: "gist-sync", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
-    { id: "plugin-ssh-config", name: "SSH Config", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    { id: "plugin-gist-sync", name: "GitHub Gist Sync", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
   ];
   render(<PluginsSection />);
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });

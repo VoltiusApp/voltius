@@ -69,7 +69,8 @@ export type InboxKind =
   | "controlRequest"
   | "awaitingKey"
   | "membershipEnded"
-  | "secretsNotWiped";
+  | "secretsNotWiped"
+  | "sshConfigMigrated";
 
 export interface InboxAction {
   label: string;

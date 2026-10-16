@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { log } from "@/lib/logger";
 import i18n from "@/i18n";
 import type { PluginManifest } from "./api";
+import { isRetiredPlugin } from "./retired";
 
 /**
  * Load plugins shipped inside the app bundle. They run through the same external
@@ -39,7 +40,7 @@ export async function loadSeededPlugins(): Promise<void> {
       const manifest = JSON.parse(manifestText) as PluginManifest;
       // The manifest id (e.g. "plugin-docker") is what tombstones and installedMeta
       // key on, not the seeded folder name (e.g. "docker") used to read files above.
-      if (isRemoved(manifest.id) || installedIds.has(manifest.id)) continue;
+      if (isRemoved(manifest.id) || installedIds.has(manifest.id) || isRetiredPlugin(manifest.id)) continue;
       const jsText = await invoke<string>("plugin_seeded_read", { id, filename: "index.js" });
       let css: string | undefined;
       try {

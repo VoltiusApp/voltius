@@ -9,6 +9,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { PluginHashMismatchError, resolveVerifiedHash } from "@/plugins/integrity";
 import { assertValidPluginId } from "@/plugins/pluginId";
+import { isRetiredPlugin } from "@/plugins/retired";
 import { PluginInstallInProgressError } from "@/plugins/installErrors";
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
@@ -384,7 +385,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         // a click into a trusted load. Stripped here alongside the sourceId overwrite,
         // same as `deletable: true` is forced on custom sources in loadSources.
         const plugins = list.map((p) => ({ ...p, sourceId: source.id, builtin: undefined }));
-        results.push(...plugins);
+        results.push(...plugins.filter((p) => !isRetiredPlugin(p.id)));
       } catch (e) {
         console.warn(`[marketplace] Failed to fetch source "${source.id}":`, e);
       }
@@ -424,6 +425,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     // name, so it is checked before any path is built from it. The manifest id is
     // checked separately by loadPlugin, since the two are not required to match.
     assertValidPluginId(plugin.id);
+    if (isRetiredPlugin(plugin.id)) throw new Error(`Plugin "${plugin.id}" is retired`);
     const { installing, installedMeta } = get();
     // Refused, not silently skipped: resolving here told every caller the install
     // succeeded — a deep-link confirm sheet accepted while the Settings tab was
@@ -565,7 +567,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     for (const id of ids) {
       if (id === "__meta__") continue;
-      if (knownIds.has(id)) continue;
+      if (knownIds.has(id) || isRetiredPlugin(id)) continue;
       try {
         const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
         const manifest = JSON.parse(manifestText) as PluginManifest;
@@ -603,7 +605,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 export async function restoreMissingPlugins(): Promise<void> {
   const store = useMarketplaceStore.getState();
   const onDisk = new Set(await invoke<string[]>("plugins_list_installed"));
-  const missing = store.installedMeta.filter((m) => m.sourceId !== "local" && !onDisk.has(m.id));
+  const missing = store.installedMeta.filter((m) => m.sourceId !== "local" && !onDisk.has(m.id) && !isRetiredPlugin(m.id));
   if (missing.length === 0) return;
 
   if (store.catalog.length === 0) {
@@ -754,7 +756,7 @@ export async function loadInstalledPlugins(): Promise<void> {
 
   const ids = await invoke<string[]>("plugins_list_installed");
   for (const id of ids) {
-    if (id === "__meta__") continue;
+    if (id === "__meta__" || isRetiredPlugin(id)) continue;
     try {
       const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
       const manifest = JSON.parse(manifestText) as PluginManifest;

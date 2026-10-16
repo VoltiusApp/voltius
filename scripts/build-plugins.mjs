@@ -15,7 +15,6 @@ const RESOURCES_DIR = path.join(ROOT, "src-tauri/resources/plugins");
 // manifest id (e.g. "plugin-docker") is what the catalogue, tombstones,
 // installedMeta and the runtime registry key on — see buildCatalogFragment below.
 export const FIRST_PARTY_PLUGIN_IDS = [
-  "ssh-config",
   "gist-sync",
   "monitoring",
   "docker",
@@ -29,7 +28,6 @@ export const FIRST_PARTY_PLUGIN_IDS = [
 const GITHUB_REPO = process.env.GITHUB_REPOSITORY || "VoltiusApp/voltius";
 
 const PLUGIN_TAGS = {
-  "ssh-config": ["sync", "ssh"],
   "gist-sync": ["sync", "github"],
   monitoring: ["monitoring", "metrics"],
   docker: ["docker", "containers"],
@@ -50,11 +48,11 @@ function sha256(text) {
  *
  * A FULL build prunes the whole resources dir: nothing else prunes it (it's
  * gitignored), so a folder from a stale branch survives across checkouts and trips
- * build.rs's "exactly six ids" assertion.
+ * build.rs's "exactly five ids" assertion.
  *
  * A PARTIAL build must prune only its own targets. Wiping the parent would delete the
- * plugins it isn't rebuilding, leaving fewer than six on disk — which breaks
- * `cargo test --lib` (its embedding tests assert the six unconditionally) and, in a
+ * plugins it isn't rebuilding, leaving fewer than five on disk — which breaks
+ * `cargo test --lib` (its embedding tests assert the five unconditionally) and, in a
  * release build, fails build.rs outright.
  */
 export function pruneTargets(ids, resourcesDir = RESOURCES_DIR) {

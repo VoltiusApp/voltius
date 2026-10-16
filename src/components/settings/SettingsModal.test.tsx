@@ -43,20 +43,20 @@ const AI_PAGE = {
   icon: "lucide:sparkles",
   component: () => <div data-testid="ai-page">ai page body</div>,
 };
-const SSH_PAGE = {
-  id: "plugin-ssh-config:settings",
-  label: "SSH Config Sync",
-  icon: "lucide:file-code",
-  component: () => <div data-testid="ssh-page">ssh page body</div>,
+const GIST_PAGE = {
+  id: "plugin-gist-sync:gist-sync-settings",
+  label: "GitHub Gist Sync",
+  icon: "lucide:github",
+  component: () => <div data-testid="gist-page">gist page body</div>,
 };
 
 beforeEach(() => {
   localStorage.clear();
-  loaded.list = [manifest("plugin-ai-agent"), manifest("plugin-ssh-config")];
+  loaded.list = [manifest("plugin-ai-agent"), manifest("plugin-gist-sync")];
   usePluginStore.setState({
     settingsPages: new Map([
       [AI_PAGE.id, AI_PAGE],
-      [SSH_PAGE.id, SSH_PAGE],
+      [GIST_PAGE.id, GIST_PAGE],
     ]),
   });
   usePluginRegistryStore.setState({ overrides: {} });
@@ -77,18 +77,18 @@ const childButton = (label: string) =>
 test("renders an enabled plugin's page as a nav child", () => {
   render(<SettingsModal />);
   expect(childButton("AI Agent")).toBeTruthy();
-  expect(childButton("SSH Config Sync")).toBeTruthy();
+  expect(childButton("GitHub Gist Sync")).toBeTruthy();
 });
 
 test("hides a child whose plugin is disabled", () => {
   usePluginRegistryStore.setState({ overrides: { "plugin-ai-agent": false } });
   render(<SettingsModal />);
   expect(childButton("AI Agent")).toBeFalsy();
-  expect(childButton("SSH Config Sync")).toBeTruthy();
+  expect(childButton("GitHub Gist Sync")).toBeTruthy();
 });
 
 test("an installed plugin whose manifest says defaultEnabled:false still gets its nav child", () => {
-  loaded.list = [manifest("plugin-ai-agent", false), manifest("plugin-ssh-config")];
+  loaded.list = [manifest("plugin-ai-agent", false), manifest("plugin-gist-sync")];
   useMarketplaceStore.setState({
     installedMeta: [{ id: "plugin-ai-agent", version: "1.0.0", sourceId: "voltius", hash: "abc" }],
   });
@@ -97,7 +97,7 @@ test("an installed plugin whose manifest says defaultEnabled:false still gets it
 });
 
 test("a bundled plugin with defaultEnabled:false and no override stays out of the nav", () => {
-  loaded.list = [manifest("plugin-ai-agent", false), manifest("plugin-ssh-config")];
+  loaded.list = [manifest("plugin-ai-agent", false), manifest("plugin-gist-sync")];
   render(<SettingsModal />);
   expect(childButton("AI Agent")).toBeFalsy();
 });
@@ -174,8 +174,8 @@ test("a disabled plugin's page still renders when reached directly", () => {
   expect(useUIStore.getState().settingsPluginPageId).toBe(AI_PAGE.id);
 });
 
-// Fresh-install path: gist-sync and ssh-config register their settings page before
-// their isActive() gate, so a disabled plugin's page must still open via a
+// Fresh-install path: gist-sync registers its settings page before
+// its isActive() gate, so a disabled plugin's page must still open via a
 // non-nav-gated entry point (a gear icon, a "Configure" button).
 test("a disabled plugin's page opened via openSettings is retained, not wiped", () => {
   useUIStore.setState({ settingsOpen: false });
@@ -188,14 +188,14 @@ test("a disabled plugin's page opened via openSettings is retained, not wiped", 
 
 test("a deep-link opens straight onto the plugin page", () => {
   useUIStore.setState({ settingsOpen: false });
-  useUIStore.getState().openSettings("plugins", SSH_PAGE.id);
+  useUIStore.getState().openSettings("plugins", GIST_PAGE.id);
   render(<SettingsModal />);
-  expect(screen.getByTestId("ssh-page")).toBeTruthy();
+  expect(screen.getByTestId("gist-page")).toBeTruthy();
 });
 
 test("uninstalling the owner clears a still-registered page", () => {
   useUIStore.setState({ settingsPluginPageId: AI_PAGE.id, settingsSection: "plugins" });
-  loaded.list = [manifest("plugin-ssh-config")]; // page stays in settingsPages
+  loaded.list = [manifest("plugin-gist-sync")]; // page stays in settingsPages
   render(<SettingsModal />);
   expect(useUIStore.getState().settingsPluginPageId).toBeNull();
 });

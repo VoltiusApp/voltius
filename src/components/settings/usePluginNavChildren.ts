@@ -33,8 +33,8 @@ export function usePluginNavChildren(): NavChild[] {
  *
  * Eligibility here is deliberately looser than the sidebar's: a page is resolvable as
  * long as it is registered and attributable to a currently loaded plugin, regardless of
- * that plugin's enabled state. Some bundled plugins (gist-sync, ssh-config) register
- * their settings page before their `isActive()` gate specifically so it can be reached
+ * that plugin's enabled state. A bundled plugin such as gist-sync registers
+ * its settings page before its `isActive()` gate specifically so it can be reached
  * while disabled — via a gear icon or a "Configure" button that isn't nav-eligibility
  * gated — e.g. to enter credentials before turning the plugin on. Only an unregistered
  * page (uninstall, reload) clears the target.
