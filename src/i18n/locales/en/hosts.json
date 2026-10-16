@@ -8,7 +8,7 @@
       "importExport": "Import/Export",
       "import": "Import…",
       "export": "Export…",
-      "fromImporter": "From {{label}}",
+      "importFrom": "Import from",
       "newHost": "New Host",
       "newSerialHost": "New Serial Host",
       "newFolder": "New Folder"
@@ -151,6 +151,15 @@
       "hostDefault": "host default",
       "vaultDefault": "My identity for {{vault}}…",
       "clearPick": "Clear my choice"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "Managed by ~/.ssh/config · alias {{alias}}",
+      "bannerTitle": "Managed by ~/.ssh/config",
+      "bannerBodyBefore": "Alias ",
+      "bannerBodyAfter": ". Locked fields follow the file.",
+      "detach": "Detach",
+      "detachMenu": "Detach from ~/.ssh/config"
     }
   }
 }

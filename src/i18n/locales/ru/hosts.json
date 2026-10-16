@@ -8,7 +8,7 @@
       "importExport": "Импорт/Экспорт",
       "import": "Импорт…",
       "export": "Экспорт…",
-      "fromImporter": "Из {{label}}",
+      "importFrom": "Импорт из",
       "newHost": "Новый хост",
       "newSerialHost": "Новый последовательный хост",
       "newFolder": "Новая папка"
@@ -180,6 +180,15 @@
       "hostDefault": "по умолчанию хоста",
       "vaultDefault": "Моя личность для {{vault}}…",
       "clearPick": "Сбросить мой выбор"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "Управляется ~/.ssh/config · псевдоним {{alias}}",
+      "bannerTitle": "Управляется ~/.ssh/config",
+      "bannerBodyBefore": "Псевдоним ",
+      "bannerBodyAfter": ". Заблокированные поля следуют файлу.",
+      "detach": "Отвязать",
+      "detachMenu": "Отвязать от ~/.ssh/config"
     }
   }
 }

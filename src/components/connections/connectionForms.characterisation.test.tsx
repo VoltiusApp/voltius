@@ -195,6 +195,8 @@ vi.mock("./KeySelector", () => ({ default: () => null }));
 vi.mock("./JumpHostsPanel", () => ({ default: () => null }));
 vi.mock("./EnvVarsPanel", () => ({ default: () => null }));
 
+import { useSshConfigStore } from "@/stores/sshConfigStore";
+import { fingerprint } from "@/services/sshConfig/hostFields";
 const { default: ConnectionForm } = await import("./ConnectionForm");
 const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
 const { PERM_BITS } = await import("@/services/permissions");
@@ -226,6 +228,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 afterEach(() => {
+  useSshConfigStore.setState({ state: {} });
   cleanup();
   vi.useRealTimers();
 });
@@ -382,6 +385,37 @@ test("ssh form locks the proxy fields without edit permission", async () => {
   await act(async () => { await Promise.resolve(); });
   expect((screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "connections.form.proxy.label" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("ssh form locks only the fields ~/.ssh/config owns on a managed host", async () => {
+  useSshConfigStore.setState({ state: { managed: { c1: { alias: "web", at: 1, devices: {} } } } });
+  renderSsh({ initial: conn({ name: "Web", host: "h.example", username: "root" }) });
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByDisplayValue("h.example").matches(":disabled")).toBe(true);
+  expect(screen.getByDisplayValue("22").matches(":disabled")).toBe(true);
+  expect(screen.getByDisplayValue("Web").matches(":disabled")).toBe(false);
+  expect(screen.getByDisplayValue("root").matches(":disabled")).toBe(false);
+});
+
+test("a managed host whose key ~/.ssh/config owns offers no private key to paste", async () => {
+  const hash = fingerprint({ alias: "web", hostname: "h.example", port: 22, identityFile: "~/.ssh/id" });
+  useSshConfigStore.setState({ state: { managed: { c1: { alias: "web", at: 1, devices: { d1: { present: true, hash, at: 1 } } } } } });
+  renderSsh({ initial: conn({ auth_type: "password" }) });
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByPlaceholderText(/BEGIN OPENSSH PRIVATE KEY/)).toBeNull();
+  useSshConfigStore.setState({ state: { managed: { c1: { alias: "web", at: 1, devices: {} } } } });
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByPlaceholderText(/BEGIN OPENSSH PRIVATE KEY/)).not.toBeNull();
+});
+
+test("a vault change drops the key ~/.ssh/config owns, for the sync to resolve in the new vault", async () => {
+  const hash = fingerprint({ alias: "web", hostname: "h.example", port: 22, identityFile: "~/.ssh/id" });
+  useSshConfigStore.setState({ state: { managed: { c1: { alias: "web", at: 1, devices: { d1: { present: true, hash, at: 1 } } } } } });
+  const { onSubmit, ref } = renderSsh({ initial: conn({ auth_type: "key", key_id: "k1" }) });
+  await act(async () => { await Promise.resolve(); });
+  fireEvent.click(document.querySelector("[data-vault-picker]")!);
+  await act(async () => { ref.current!.flush(); });
+  expect(onSubmit.mock.lastCall![0].key_id).toBeFalsy();
 });
 
 test("serial form submits its host commands with the serial defaults", async () => {

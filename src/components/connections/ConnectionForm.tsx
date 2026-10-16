@@ -48,6 +48,9 @@ import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, norm
 import { DistroIconPicker } from "./DistroIconPicker";
 import { IconTileButton } from "@/components/shared/IconTileButton";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { ManagedBanner, LockedField } from "@/components/sshConfig/ManagedHost";
+import { useManagedOwned } from "@/stores/sshConfigStore";
+import type { OwnedField } from "@/services/sshConfig/hostFields";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import {
   PanelShell,
@@ -89,6 +92,8 @@ const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || 
 
 const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, onMoveToVault, onCopyToVault, readOnly }, ref) {
   const { t } = useTranslation();
+  const owned = useManagedOwned(initial?.id);
+  const locks = (f: OwnedField) => owned.includes(f);
   const [name, setName] = useState(initial?.name ?? "");
   const [host, setHost] = useState(initial?.host ?? "");
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
@@ -492,6 +497,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         <div className="flex-1 px-4 py-4 space-y-3">
 
           <StoredSecretsNote state={storedSecrets} />
+          <ManagedBanner id={initial?.id} />
 
           <ReadOnlyFields readOnly={readOnly} className="space-y-3">
           <FormSection label={t("connections.common.general")}>
@@ -536,8 +542,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           </FormSection>
 
           <FormSection label={t("connections.form.sectionConnection")}>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.protocol")}</label>
+            <LockedField label={t("connections.form.protocol")} locked={locks("connection_type")}>
               <FormSelect
                 value={protocol}
                 options={[
@@ -555,7 +560,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   }
                 }}
               />
-            </div>
+            </LockedField>
             {isWebdav ? (
               <div>
                 <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.webdavUrl")} <span className="text-(--t-accent)">*</span></label>
@@ -576,8 +581,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
               </div>
             ) : (
               <div className="flex gap-2.5">
-                <div className="flex-1">
-                  <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.hostIp")} <span className="text-(--t-accent)">*</span></label>
+                <LockedField className="flex-1" label={<>{t("connections.form.hostIp")} <span className="text-(--t-accent)">*</span></>} locked={locks("host")}>
                   <input
                     className={formInputClass}
                     style={formInputStyle}
@@ -585,9 +589,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                     onChange={(e) => { markDirty(); setHost(e.target.value); }}
                     placeholder={t("connections.form.hostPlaceholder")}
                   />
-                </div>
-                <div className="w-20">
-                  <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.port")} <span className="text-(--t-accent)">*</span></label>
+                </LockedField>
+                <LockedField className="w-20" label={<>{t("connections.common.port")} <span className="text-(--t-accent)">*</span></>} locked={locks("port")}>
                   <input
                     className={formInputClass}
                     style={{ ...formInputStyle, MozAppearance: "textfield" }}
@@ -599,7 +602,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                       setPort(raw === "" ? "" : Math.min(65535, Math.max(1, Number(raw))));
                     }}
                   />
-                </div>
+                </LockedField>
               </div>
             )}
             {isWebdav && proxyFields}
@@ -609,7 +612,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
               onToggle={() => setShowAdvanced((v) => !v)}
               hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession || proxyOverride || portKnock.enabled)}
             >
-                <DrillInRow icon="lucide:waypoints" label={t("connections.common.hostsChaining")} count={jumpHosts.length} onClick={() => setShowChaining(true)} />
+                <DrillInRow icon="lucide:waypoints" label={t("connections.common.hostsChaining")} count={jumpHosts.length} onClick={() => setShowChaining(true)} locked={locks("jump_hosts")} />
                 <DrillInRow
                   icon="lucide:door-closed-locked"
                   label={t("connections.knock.title")}
@@ -660,23 +663,22 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
           <FormSection label={fileOnly ? t("connections.form.sectionCredentials") : t("connections.form.sectionIdentity")}>
             {!fileOnly && (
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.form.keychainIdentity")}{isTeamHost && <span className="font-normal text-(--t-text-dim)"> · {t("connections.form.sharedWithTeam")}</span>}</label>
+            <LockedField
+              label={<>{t("connections.form.keychainIdentity")}{isTeamHost && <span className="font-normal text-(--t-text-dim)"> · {t("connections.form.sharedWithTeam")}</span>}</>}
+              locked={locks("identity_id")}
+            >
               <IdentitySelector
                 value={identityId}
                 identities={relevantIdentities}
                 onChange={(id) => { markDirty(); setIdentityId(id); }}
                 onGoToKeychain={() => setActiveNav("keychain")}
               />
-            </div>
+            </LockedField>
             )}
 
             {(fileOnly || !identityId) && (
               <>
-                <div>
-                  <label className={formLabelClass} style={formLabelStyle}>
-                    {t("connections.common.username")}
-                  </label>
+                <LockedField label={t("connections.common.username")} locked={locks("username")}>
                   <input
                     className={formInputClass}
                     style={formInputStyle}
@@ -685,7 +687,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                     placeholder={DEFAULT_USERNAME[protocol]}
                     {...formIdentifierProps}
                   />
-                </div>
+                </LockedField>
 
                 {!secretsHidden && (
                 <div>
@@ -713,14 +715,15 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
                 {!fileOnly && (
                 <div>
-                  <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.privateKey")}</label>
+                  <LockedField label={t("connections.common.privateKey")} locked={locks("key_id")}>
                   <KeySelector
                     value={keyId}
                     keys={relevantKeys}
                     onChange={(id) => { markDirty(); setKeyId(id); if (id) { privateKeyDirty.current = false; setPrivateKey(""); } }}
                     onGoToKeychain={() => setActiveNav("keychain")}
                   />
-                  {!keyId && !secretsHidden && (
+                  </LockedField>
+                  {!keyId && !secretsHidden && !locks("key_id") && (
                     <>
                       <textarea
                         className={`${formInputClass} font-mono text-xs h-28 resize-none mt-2`}

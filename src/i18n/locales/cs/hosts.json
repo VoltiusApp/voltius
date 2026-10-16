@@ -8,7 +8,7 @@
       "importExport": "Import/export",
       "import": "Importovat…",
       "export": "Exportovat…",
-      "fromImporter": "Z {{label}}",
+      "importFrom": "Importovat z",
       "newHost": "Nový host",
       "newSerialHost": "Nový sériový host",
       "newFolder": "Nová složka"
@@ -171,6 +171,15 @@
       "hostDefault": "výchozí pro host",
       "vaultDefault": "Moje identita pro {{vault}}…",
       "clearPick": "Zrušit moji volbu"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "Spravováno z ~/.ssh/config · alias {{alias}}",
+      "bannerTitle": "Spravováno z ~/.ssh/config",
+      "bannerBodyBefore": "Alias ",
+      "bannerBodyAfter": ". Zamčená pole sledují soubor.",
+      "detach": "Odpojit",
+      "detachMenu": "Odpojit od ~/.ssh/config"
     }
   }
 }

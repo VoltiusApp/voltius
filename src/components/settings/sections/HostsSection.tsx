@@ -22,6 +22,8 @@ import ProxyFields from "@/components/connections/ProxyFields";
 import { DEFAULT_KEEPALIVE_PRESET, KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { SshConfigGroup } from "@/components/sshConfig/SshConfigGroup";
+import { SshConfigHostsDialog } from "@/components/sshConfig/SshConfigHostsDialog";
 import { SettingRow, SettingsGroup } from "./shared";
 
 const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
@@ -227,6 +229,8 @@ export default function HostsSection() {
         </SettingRow>
       </SettingsGroup>
 
+      <SshConfigGroup />
+
       <SettingsGroup title={t("settings.hosts.terminalTitle")}>
         <SettingRow
           syncKey="appSettings.toggles.shell-integration"
@@ -250,6 +254,7 @@ export default function HostsSection() {
           <Toggle checked={presenceEnabled} onChange={setPresenceEnabled} />
         </SettingRow>
       </SettingsGroup>
+      <SshConfigHostsDialog />
     </div>
   );
 }

@@ -30,6 +30,7 @@ import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
+import { ManagedBadge } from "@/components/sshConfig/ManagedHost";
 
 function MobileHostRow({
   c,
@@ -78,6 +79,7 @@ function MobileHostRow({
               {connectionDisplayName(c)}
             </span>
             {pinned && <Icon icon="lucide:pin" width={12} className="shrink-0 text-(--t-accent)" />}
+            <ManagedBadge id={c.id} compact />
           </span>
           {/* Unnamed hosts already show "user@host" as their display name — don't repeat it. */}
           {subtitle && <span className="text-xs text-(--t-text-dim) truncate">{subtitle}</span>}

@@ -8,7 +8,7 @@
       "importExport": "导入/导出",
       "import": "导入…",
       "export": "导出…",
-      "fromImporter": "从 {{label}}",
+      "importFrom": "导入自",
       "newHost": "新建主机",
       "newSerialHost": "新建串口主机",
       "newFolder": "新建文件夹"
@@ -151,6 +151,15 @@
       "hostDefault": "主机默认",
       "vaultDefault": "我在 {{vault}} 的身份…",
       "clearPick": "清除我的选择"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "由 ~/.ssh/config 管理 · 别名 {{alias}}",
+      "bannerTitle": "由 ~/.ssh/config 管理",
+      "bannerBodyBefore": "别名 ",
+      "bannerBodyAfter": "。锁定的字段跟随该文件。",
+      "detach": "分离",
+      "detachMenu": "从 ~/.ssh/config 分离"
     }
   }
 }

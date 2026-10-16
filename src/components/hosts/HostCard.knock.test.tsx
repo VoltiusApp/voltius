@@ -37,6 +37,7 @@ vi.mock("@/utils/connectionMenuItems", () => ({ buildConnectionMenuItems: () => 
 
 const { default: HostCard } = await import("./HostCard");
 const { useHostPingStore } = await import("@/stores/hostPingStore");
+const { useSshConfigStore } = await import("@/stores/sshConfigStore");
 
 const conn = {
   id: "c1", host: "h1", port: 22, username: "root", tags: [], vault_id: "personal",
@@ -81,5 +82,20 @@ describe("HostCard knock-protected", () => {
     useHostPingStore.setState({ statuses: { c1: "knock" }, latencies: {} });
     const { container } = renderCard("list");
     expect(container.textContent).toContain("hosts.card.knockProtectedShort");
+  });
+});
+
+describe("HostCard managed badge slot", () => {
+  afterEach(() => useSshConfigStore.setState({ state: {} }));
+  const slot = (container: HTMLElement) => container.querySelector("span.w-24");
+
+  test("list view keeps its columns when no host follows ~/.ssh/config", () => {
+    useSshConfigStore.setState({ state: { managed: { other: { alias: "web", at: 1, gone: "detached", devices: {} } } } });
+    expect(slot(renderCard("list").container)).toBeNull();
+  });
+
+  test("list view reserves the badge slot once a host follows ~/.ssh/config", () => {
+    useSshConfigStore.setState({ state: { managed: { other: { alias: "web", at: 1, devices: {} } } } });
+    expect(slot(renderCard("list").container)).not.toBeNull();
   });
 });

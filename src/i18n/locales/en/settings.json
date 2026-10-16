@@ -1030,6 +1030,81 @@
       "teamPresence": {
         "title": "Share which team-vault hosts you're using",
         "desc": "When on, your avatar appears on a host card while you have a terminal open to it. Only teammates with access to the host see it."
+      },
+      "sshConfig": {
+        "switch": {
+          "title": "Sync continuously from ~/.ssh/config",
+          "desc": "Hosts in your config are created and kept up to date in Voltius, on all your computers. Useful when a tool writes the config (gcloud, MDM…)."
+        },
+        "vault": {
+          "title": "Vault",
+          "desc": "Where new managed hosts are created. Personal vaults only.",
+          "personal": "Personal"
+        },
+        "status": {
+          "title": "Status",
+          "line": "Last read {{when}} · {{managed}} managed · {{skipped}} not synced",
+          "never": "Not read yet",
+          "view": "View hosts…",
+          "syncNow": "Sync now"
+        },
+        "off": {
+          "title": "Turn off continuous sync?",
+          "message_one": "The managed host stays in Voltius and becomes a normal host: it no longer follows ~/.ssh/config, on any of your computers.",
+          "message_other": "The {{count}} managed hosts stay in Voltius and become normal hosts: they no longer follow ~/.ssh/config, on any of your computers.",
+          "confirm": "Turn off"
+        },
+        "dialog": {
+          "activateTitle": "Turn on continuous sync",
+          "reviewTitle": "Hosts from ~/.ssh/config",
+          "intro": "Linked hosts keep their name, folder and settings. Only what the file sets (host, port, and user, key or jump hosts when present) will follow it, on all your computers.",
+          "turnOn": "Turn on",
+          "cancel": "Cancel",
+          "close": "Close",
+          "linkAgain": "Link again",
+          "recreate": "Recreate",
+          "counts": "{{create}} to create · {{link}} to link · {{skipped}} not synced · vault {{vault}}"
+        },
+        "row": {
+          "create": "Will be created",
+          "link": {
+            "legacy": "Will be linked to “{{name}}” · previous sync",
+            "detached": "Will be linked to “{{name}}” · detached earlier",
+            "name": "Will be linked to “{{name}}” · same name and address",
+            "address": "Will be linked to “{{name}}” · same address"
+          },
+          "ambiguous": "Ambiguous ({{names}} match) · a new host will be created",
+          "managed": "Managed · “{{name}}”",
+          "detached": "Detached · “{{name}}” no longer follows the file",
+          "deleted": "Deleted · not recreated by the sync",
+          "ignored": "Ignored · will not be synced",
+          "identityReplaced": "The identity “{{name}}” will be replaced by the file's key",
+          "skipped": {
+            "pattern": "Not synced · pattern, not a host",
+            "match": "Not synced · Match block",
+            "include": "Not synced · Include could not be read",
+            "includeOutside": "Not synced · Include outside ~/.ssh",
+            "proxyCommand": "Not synced · ProxyCommand not supported",
+            "key": "Key unreadable · host created without a key",
+            "keyNotCopied": "Key not copied · host created without a key",
+            "pending": "Waiting · the host has not arrived from your other device yet"
+          }
+        },
+        "keys": {
+          "title": "Keys",
+          "switch": "Copy private keys to the vault",
+          "warning": "Copied keys go to {{vault}} and sync to all your devices, phone included (encrypted).",
+          "settingDesc": "Off: hosts use a key already in the vault (same public key or name), or no key. Copied keys sync to all your devices.",
+          "copy": "Will be copied",
+          "notCopied": "Not copied",
+          "exists": "Already in the vault",
+          "unreadable": "Unreadable"
+        },
+        "here": {
+          "title": "This computer",
+          "desc": "Sync is on for your account, but this computer's ~/.ssh/config has not been reviewed. Nothing is read or copied here until you review it.",
+          "action": "Review…"
+        }
       }
     },
     "toggleDefs": {

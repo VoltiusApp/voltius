@@ -8,7 +8,7 @@
       "importExport": "İçe/dışa aktar",
       "import": "İçe aktar…",
       "export": "Dışa aktar…",
-      "fromImporter": "{{label}} kaynağından",
+      "importFrom": "Şuradan içe aktar",
       "newHost": "Yeni sunucu",
       "newSerialHost": "Yeni seri sunucu",
       "newFolder": "Yeni klasör"
@@ -151,6 +151,15 @@
       "hostDefault": "sunucu varsayılanı",
       "vaultDefault": "{{vault}} için kimliğim…",
       "clearPick": "Seçimimi temizle"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "~/.ssh/config tarafından yönetiliyor · takma ad {{alias}}",
+      "bannerTitle": "~/.ssh/config tarafından yönetiliyor",
+      "bannerBodyBefore": "Takma ad ",
+      "bannerBodyAfter": ". Kilitli alanlar dosyayı izler.",
+      "detach": "Ayır",
+      "detachMenu": "~/.ssh/config'ten ayır"
     }
   }
 }

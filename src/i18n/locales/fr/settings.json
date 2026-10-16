@@ -1036,6 +1036,82 @@
       "teamPresence": {
         "title": "Partager les hôtes du coffre-fort d'équipe que vous utilisez",
         "desc": "Lorsqu'activé, votre avatar apparaît sur la carte d'un hôte pendant que vous avez un terminal ouvert dessus. Seuls les coéquipiers ayant accès à l'hôte le voient."
+      },
+      "sshConfig": {
+        "switch": {
+          "title": "Synchroniser en continu depuis ~/.ssh/config",
+          "desc": "Les hôtes de votre config sont créés et tenus à jour dans Voltius, sur tous vos ordinateurs. Utile quand un outil génère la config (gcloud, MDM…)."
+        },
+        "vault": {
+          "title": "Coffre",
+          "desc": "Où les hôtes gérés sont créés. Coffres personnels seulement.",
+          "personal": "Personnel"
+        },
+        "status": {
+          "title": "État",
+          "line": "Dernière lecture {{when}} · {{managed}} gérés · {{skipped}} non synchronisés",
+          "never": "Pas encore lu",
+          "view": "Voir les hôtes…",
+          "syncNow": "Synchroniser maintenant"
+        },
+        "off": {
+          "title": "Désactiver la synchronisation continue ?",
+          "message_one": "L'hôte géré reste dans Voltius et devient un hôte normal : il ne suivra plus ~/.ssh/config, sur aucun de vos ordinateurs.",
+          "message_many": "Les {{count}} hôtes gérés restent dans Voltius et deviennent des hôtes normaux : ils ne suivront plus ~/.ssh/config, sur aucun de vos ordinateurs.",
+          "message_other": "Les {{count}} hôtes gérés restent dans Voltius et deviennent des hôtes normaux : ils ne suivront plus ~/.ssh/config, sur aucun de vos ordinateurs.",
+          "confirm": "Désactiver"
+        },
+        "dialog": {
+          "activateTitle": "Activer la synchronisation continue",
+          "reviewTitle": "Hôtes de ~/.ssh/config",
+          "intro": "Les hôtes rattachés gardent leur nom, leur dossier et leurs réglages. Seul ce que le fichier indique (adresse, port, et utilisateur, clé ou rebonds s'ils y figurent) le suivra, sur tous vos ordinateurs.",
+          "turnOn": "Activer",
+          "cancel": "Annuler",
+          "close": "Fermer",
+          "linkAgain": "Rattacher",
+          "recreate": "Recréer",
+          "counts": "{{create}} à créer · {{link}} à rattacher · {{skipped}} non synchronisés · coffre {{vault}}"
+        },
+        "row": {
+          "create": "Sera créé",
+          "link": {
+            "legacy": "Sera rattaché à « {{name}} » · ancienne sync",
+            "detached": "Sera rattaché à « {{name}} » · détaché",
+            "name": "Sera rattaché à « {{name}} » · même nom et adresse",
+            "address": "Sera rattaché à « {{name}} » · même adresse"
+          },
+          "ambiguous": "Ambigu ({{names}} correspondent) · un nouvel hôte sera créé",
+          "managed": "Géré · « {{name}} »",
+          "detached": "Détaché · « {{name}} » ne suit plus le fichier",
+          "deleted": "Supprimé · la sync ne le recrée pas",
+          "ignored": "Ignoré · ne sera pas synchronisé",
+          "identityReplaced": "L'identité « {{name}} » sera remplacée par la clé du fichier",
+          "skipped": {
+            "pattern": "Non synchronisé · motif, pas un hôte",
+            "match": "Non synchronisé · bloc Match",
+            "include": "Non synchronisé · Include illisible",
+            "includeOutside": "Non synchronisé · Include hors de ~/.ssh",
+            "proxyCommand": "Non synchronisé · ProxyCommand non pris en charge",
+            "key": "Clé illisible · hôte créé sans clé",
+            "keyNotCopied": "Clé non copiée · hôte créé sans clé",
+            "pending": "En attente · l’hôte n’est pas encore arrivé depuis votre autre appareil"
+          }
+        },
+        "keys": {
+          "title": "Clés",
+          "switch": "Copier les clés privées dans le coffre",
+          "warning": "Les clés copiées vont dans {{vault}} et se synchronisent sur tous vos appareils, téléphone compris (chiffrées).",
+          "settingDesc": "Désactivé : les hôtes utilisent une clé déjà dans le coffre (même clé publique ou même nom), sinon aucune. Les clés copiées se synchronisent sur tous vos appareils.",
+          "copy": "Sera copiée",
+          "notCopied": "Non copiée",
+          "exists": "Déjà dans le coffre",
+          "unreadable": "Illisible"
+        },
+        "here": {
+          "title": "Cet ordinateur",
+          "desc": "La synchronisation est activée sur votre compte, mais le ~/.ssh/config de cet ordinateur n'a pas été vérifié. Rien n'est lu ni copié ici avant cette vérification.",
+          "action": "Vérifier…"
+        }
       }
     },
     "toggleDefs": {

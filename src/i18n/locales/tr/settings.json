@@ -900,6 +900,81 @@
       "teamPresence": {
         "title": "Kullandığınız ekip kasası sunucularını paylaş",
         "desc": "Açıkken, bir sunucuya terminaliniz açık olduğu sürece avatarınız o sunucunun kartında görünür. Bunu yalnızca o sunucuya erişimi olan ekip arkadaşlarınız görür."
+      },
+      "sshConfig": {
+        "switch": {
+          "title": "~/.ssh/config'ten sürekli senkronize et",
+          "desc": "Yapılandırmanızdaki ana makineler Voltius'ta oluşturulur ve tüm bilgisayarlarınızda güncel tutulur. Bir araç yapılandırmayı yazdığında kullanışlıdır (gcloud, MDM…)."
+        },
+        "vault": {
+          "title": "Kasa",
+          "desc": "Yeni yönetilen ana makinelerin oluşturulacağı yer. Yalnızca kişisel kasalar.",
+          "personal": "Kişisel"
+        },
+        "status": {
+          "title": "Durum",
+          "line": "Son okuma {{when}} · {{managed}} yönetilen · {{skipped}} senkronize edilmeyen",
+          "never": "Henüz okunmadı",
+          "view": "Ana makineleri göster…",
+          "syncNow": "Şimdi senkronize et"
+        },
+        "off": {
+          "title": "Sürekli senkronizasyon kapatılsın mı?",
+          "message_one": "Yönetilen ana makine Voltius'ta kalır ve normal bir ana makineye dönüşür: hiçbir bilgisayarınızda artık ~/.ssh/config'i izlemez.",
+          "message_other": "{{count}} yönetilen ana makine Voltius'ta kalır ve normal ana makinelere dönüşür: hiçbir bilgisayarınızda artık ~/.ssh/config'i izlemezler.",
+          "confirm": "Kapat"
+        },
+        "dialog": {
+          "activateTitle": "Sürekli senkronizasyonu aç",
+          "reviewTitle": "~/.ssh/config ana makineleri",
+          "intro": "Bağlanan ana makineler adlarını, klasörlerini ve ayarlarını korur. Dosyayı yalnızca onun belirttikleri (adres, port ve varsa kullanıcı, anahtar veya atlama ana makineleri) izler; bu tüm bilgisayarlarınızda geçerlidir.",
+          "turnOn": "Aç",
+          "cancel": "İptal",
+          "close": "Kapat",
+          "linkAgain": "Yeniden bağla",
+          "recreate": "Yeniden oluştur",
+          "counts": "{{create}} oluşturulacak · {{link}} bağlanacak · {{skipped}} senkronize edilmeyen · kasa {{vault}}"
+        },
+        "row": {
+          "create": "Oluşturulacak",
+          "link": {
+            "legacy": "“{{name}}” ile bağlanacak · önceki senkronizasyon",
+            "detached": "“{{name}}” ile bağlanacak · daha önce ayrılmış",
+            "name": "“{{name}}” ile bağlanacak · aynı ad ve adres",
+            "address": "“{{name}}” ile bağlanacak · aynı adres"
+          },
+          "ambiguous": "Belirsiz ({{names}} eşleşiyor) · yeni bir ana makine oluşturulacak",
+          "managed": "Yönetilen · “{{name}}”",
+          "detached": "Ayrıldı · “{{name}}” artık dosyayı izlemiyor",
+          "deleted": "Silindi · senkronizasyon yeniden oluşturmaz",
+          "ignored": "Yok sayıldı · senkronize edilmeyecek",
+          "identityReplaced": "“{{name}}” kimliği dosyadaki anahtarla değiştirilecek",
+          "skipped": {
+            "pattern": "Senkronize edilmez · desen, ana makine değil",
+            "match": "Senkronize edilmez · Match bloğu",
+            "include": "Senkronize edilmez · Include okunamadı",
+            "includeOutside": "Senkronize edilmez · ~/.ssh dışındaki Include",
+            "proxyCommand": "Senkronize edilmez · ProxyCommand desteklenmiyor",
+            "key": "Anahtar okunamadı · ana makine anahtarsız oluşturuldu",
+            "keyNotCopied": "Anahtar kopyalanmadı · ana makine anahtarsız oluşturuldu",
+            "pending": "Bekleniyor · ana makine diğer cihazınızdan henüz gelmedi"
+          }
+        },
+        "keys": {
+          "title": "Anahtarlar",
+          "switch": "Özel anahtarları kasaya kopyala",
+          "warning": "Kopyalanan anahtarlar {{vault}} kasasına gider ve telefon dahil tüm cihazlarınıza senkronize edilir (şifreli).",
+          "settingDesc": "Kapalı: ana makineler kasada zaten bulunan bir anahtarı (aynı genel anahtar veya ad) kullanır, yoksa anahtarsız olur. Kopyalanan anahtarlar tüm cihazlarınıza senkronize edilir.",
+          "copy": "Kopyalanacak",
+          "notCopied": "Kopyalanmadı",
+          "exists": "Kasada zaten var",
+          "unreadable": "Okunamadı"
+        },
+        "here": {
+          "title": "Bu bilgisayar",
+          "desc": "Eşitleme hesabınızda açık, ancak bu bilgisayarın ~/.ssh/config dosyası henüz gözden geçirilmedi. Siz gözden geçirene kadar burada hiçbir şey okunmaz veya kopyalanmaz.",
+          "action": "Gözden geçir…"
+        }
       }
     },
     "toggleDefs": {

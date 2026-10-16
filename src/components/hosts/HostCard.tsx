@@ -29,6 +29,9 @@ import { writeClipboard } from "@/utils/clipboard";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import type { TeamMember } from "@/stores/teamStore";
 import { isFileOnlyProtocol, protocolLabel } from "@/utils/connectionType";
+import { ManagedBadge } from "@/components/sshConfig/ManagedHost";
+import { useAnyManaged, useManagedAlias } from "@/stores/sshConfigStore";
+import { detach } from "@/services/sshConfig/link";
 import {
   useEffectivePinned,
   useEffectivePinSource,
@@ -159,6 +162,8 @@ export default function HostCard({
     </span>
   );
 
+  const managedAlias = useManagedAlias(connection.id);
+  const anyManaged = useAnyManaged();
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(connection), shortcut: "E" }] : []),
     ...rename.menuItems,
@@ -196,6 +201,7 @@ export default function HostCard({
       onTogglePing: () => updateConnection(connection.id, { ...connectionToFormData(connection), ping_disabled: !connection.ping_disabled }),
       onDelete: canEdit ? () => onDelete(connection.id) : undefined,
       extras: [
+        ...(managedAlias && canEdit ? [{ label: t("hosts.managed.detachMenu"), icon: "lucide:unlink", onClick: () => void detach([connection.id]), divider: true }] : []),
         {
           label: isTeamVault
             ? (pinSource === "personal" || pinSource === "team+personal")
@@ -289,6 +295,7 @@ export default function HostCard({
               : `${shownUsername}@${connection.host}:${connection.port}${showPingDot && knockClosed ? ` · ${t("hosts.card.knockProtectedShort")}` : showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : ""}`
             }
           </p>
+          {anyManaged && <span className="w-24 shrink-0 flex"><ManagedBadge id={connection.id} /></span>}
           {connection.tags.length > 0 && (
             <OverflowTagList tags={connection.tags} className="max-w-32 flex-1" />
           )}
@@ -324,6 +331,7 @@ export default function HostCard({
                   <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">
                     {protocol}
                   </span>
+                  <ManagedBadge id={connection.id} />
                   {pinAlwaysVisible && <CardPinButton color={pinColor} title={pinTooltip} onClick={handlePinClick} />}
                   {(showPingDot || syncIcon || presenceAvatar) && (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">

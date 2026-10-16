@@ -15,6 +15,7 @@ import type { NotesMode } from "@/components/notes/NotesEditor";
 import { LazyNotesEditor as NotesEditor } from "@/components/notes/LazyNotesEditor";
 import EncodingSelector from "./EncodingSelector";
 import { HostCommandField } from "./HostCommandField";
+import { LockMark } from "@/components/sshConfig/ManagedHost";
 
 export interface ConnectionFormProps {
   initial?: Connection;
@@ -114,15 +115,16 @@ export function SettingRow({
   );
 }
 
-export function DrillInRow({ icon, label, count, onClick }: { icon: string; label: string; count: number; onClick: () => void }) {
+export function DrillInRow({ icon, label, count, onClick, locked }: { icon: string; label: string; count: number; onClick: () => void; locked?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1"
+      disabled={locked}
+      className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1 disabled:cursor-not-allowed"
     >
       <Icon icon={icon} width={13} />
-      <span>{label}</span>
+      <span>{label}{locked && <LockMark />}</span>
       {count > 0 && (
         <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold leading-none">
           {count}

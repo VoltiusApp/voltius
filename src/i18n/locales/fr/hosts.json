@@ -8,7 +8,7 @@
       "importExport": "Import/Export",
       "import": "Importer…",
       "export": "Exporter…",
-      "fromImporter": "Depuis {{label}}",
+      "importFrom": "Importer depuis",
       "newHost": "Nouvel hôte",
       "newSerialHost": "Nouvel hôte série",
       "newFolder": "Nouveau dossier"
@@ -161,6 +161,15 @@
       "hostDefault": "par défaut de l'hôte",
       "vaultDefault": "Mon identité pour {{vault}}…",
       "clearPick": "Effacer mon choix"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "Géré par ~/.ssh/config · alias {{alias}}",
+      "bannerTitle": "Géré par ~/.ssh/config",
+      "bannerBodyBefore": "Alias ",
+      "bannerBodyAfter": ". Les champs verrouillés suivent le fichier.",
+      "detach": "Détacher",
+      "detachMenu": "Détacher de ~/.ssh/config"
     }
   }
 }

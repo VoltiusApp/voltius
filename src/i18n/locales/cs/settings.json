@@ -1264,6 +1264,83 @@
       "teamPresence": {
         "title": "Sdílet, které hosty z týmového trezoru používáte",
         "desc": "Pokud je zapnuto, váš avatar se zobrazí na kartě hostu, dokud k němu máte otevřený terminál. Vidí ho jen kolegové s přístupem k danému hostu."
+      },
+      "sshConfig": {
+        "switch": {
+          "title": "Průběžně synchronizovat z ~/.ssh/config",
+          "desc": "Hostitelé z vaší konfigurace se vytvářejí a udržují aktuální ve Voltiu na všech vašich počítačích. Hodí se, když konfiguraci zapisuje nástroj (gcloud, MDM…)."
+        },
+        "vault": {
+          "title": "Trezor",
+          "desc": "Kde se vytvářejí nově spravovaní hostitelé. Pouze osobní trezory.",
+          "personal": "Osobní"
+        },
+        "status": {
+          "title": "Stav",
+          "line": "Naposledy načteno {{when}} · {{managed}} spravovaných · {{skipped}} nesynchronizovaných",
+          "never": "Zatím nenačteno",
+          "view": "Zobrazit hostitele…",
+          "syncNow": "Synchronizovat nyní"
+        },
+        "off": {
+          "title": "Vypnout průběžnou synchronizaci?",
+          "message_one": "Spravovaný hostitel zůstane ve Voltiu a stane se běžným hostitelem: na žádném z vašich počítačů už nebude sledovat ~/.ssh/config.",
+          "message_few": "{{count}} spravovaní hostitelé zůstanou ve Voltiu a stanou se běžnými hostiteli: na žádném z vašich počítačů už nebudou sledovat ~/.ssh/config.",
+          "message_many": "{{count}} spravovaného hostitele zůstane ve Voltiu a stane se běžnými hostiteli: na žádném z vašich počítačů už nebudou sledovat ~/.ssh/config.",
+          "message_other": "{{count}} spravovaných hostitelů zůstane ve Voltiu a stane se běžnými hostiteli: na žádném z vašich počítačů už nebudou sledovat ~/.ssh/config.",
+          "confirm": "Vypnout"
+        },
+        "dialog": {
+          "activateTitle": "Zapnout průběžnou synchronizaci",
+          "reviewTitle": "Hostitelé z ~/.ssh/config",
+          "intro": "Propojení hostitelé si ponechají název, složku a nastavení. Soubor budou sledovat jen údaje, které uvádí (adresa, port a případně uživatel, klíč nebo jump hostitelé), na všech vašich počítačích.",
+          "turnOn": "Zapnout",
+          "cancel": "Zrušit",
+          "close": "Zavřít",
+          "linkAgain": "Propojit znovu",
+          "recreate": "Vytvořit znovu",
+          "counts": "{{create}} k vytvoření · {{link}} k propojení · {{skipped}} nesynchronizovaných · trezor {{vault}}"
+        },
+        "row": {
+          "create": "Bude vytvořen",
+          "link": {
+            "legacy": "Bude propojen s „{{name}}“ · dřívější synchronizace",
+            "detached": "Bude propojen s „{{name}}“ · dříve odpojen",
+            "name": "Bude propojen s „{{name}}“ · stejný název a adresa",
+            "address": "Bude propojen s „{{name}}“ · stejná adresa"
+          },
+          "ambiguous": "Nejednoznačné (shoduje se: {{names}}) · vytvoří se nový hostitel",
+          "managed": "Spravován · „{{name}}“",
+          "detached": "Odpojen · „{{name}}“ už soubor nesleduje",
+          "deleted": "Smazán · synchronizace jej znovu nevytvoří",
+          "ignored": "Ignorován · nebude se synchronizovat",
+          "identityReplaced": "Identita „{{name}}“ bude nahrazena klíčem ze souboru",
+          "skipped": {
+            "pattern": "Nesynchronizuje se · vzor, ne hostitel",
+            "match": "Nesynchronizuje se · blok Match",
+            "include": "Nesynchronizuje se · Include se nepodařilo načíst",
+            "includeOutside": "Nesynchronizuje se · Include mimo ~/.ssh",
+            "proxyCommand": "Nesynchronizuje se · ProxyCommand není podporován",
+            "key": "Klíč nelze přečíst · hostitel vytvořen bez klíče",
+            "keyNotCopied": "Klíč nezkopírován · hostitel vytvořen bez klíče",
+            "pending": "Čeká se · hostitel ještě nedorazil z vašeho jiného zařízení"
+          }
+        },
+        "keys": {
+          "title": "Klíče",
+          "switch": "Kopírovat soukromé klíče do trezoru",
+          "warning": "Zkopírované klíče putují do trezoru {{vault}} a synchronizují se do všech vašich zařízení, včetně telefonu (šifrovaně).",
+          "settingDesc": "Vypnuto: hostitelé použijí klíč, který už v trezoru je (stejný veřejný klíč nebo název), jinak žádný. Zkopírované klíče se synchronizují do všech vašich zařízení.",
+          "copy": "Bude zkopírován",
+          "notCopied": "Nezkopírován",
+          "exists": "Už v trezoru",
+          "unreadable": "Nečitelný"
+        },
+        "here": {
+          "title": "Tento počítač",
+          "desc": "Synchronizace je pro váš účet zapnutá, ale ~/.ssh/config tohoto počítače ještě nebyl zkontrolován. Dokud ho nezkontrolujete, nic se tu nečte ani nekopíruje.",
+          "action": "Zkontrolovat…"
+        }
       }
     },
     "toggleDefs": {
