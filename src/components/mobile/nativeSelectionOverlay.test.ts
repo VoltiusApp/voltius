@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
+import { autoscrollRate, edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
 import { boundaryFromDom, renderLine } from "./nativeSelectionOverlay";
 
 type Cell = { ch: string; w: number };
@@ -120,3 +120,20 @@ describe("scroll sync", () => {
   });
 });
 
+
+describe("autoscrollRate", () => {
+  test("idle away from the edges", () => {
+    expect(autoscrollRate(200, 100, 420, 16)).toBe(0);
+  });
+
+  test("starts one row inside each edge and speeds up past it", () => {
+    expect(autoscrollRate(110, 100, 420, 16)).toBeLessThan(0);
+    expect(autoscrollRate(410, 100, 420, 16)).toBeGreaterThan(0);
+    expect(Math.abs(autoscrollRate(20, 100, 420, 16))).toBeGreaterThan(Math.abs(autoscrollRate(110, 100, 420, 16)));
+  });
+
+  test("caps the speed far outside", () => {
+    expect(autoscrollRate(5000, 100, 420, 16)).toBe(60);
+    expect(autoscrollRate(-5000, 100, 420, 16)).toBe(-60);
+  });
+});

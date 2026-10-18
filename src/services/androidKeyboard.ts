@@ -80,6 +80,11 @@ export function hideAndroidKeyboard(focusWebView = false): void {
   void invoke("terminal_hide_keyboard", { focusWebView }).catch(() => {});
 }
 
+/** Start or stop native finger reports (`window.__voltiusSelTouch`) for terminal selection autoscroll. */
+export function setSelectionTouchFeed(on: boolean): void {
+  void invoke("terminal_selection_touch_feed", { on }).catch(() => {});
+}
+
 /** Point native input at a session without toggling keyboard visibility (e.g. tab switch). */
 export function setAndroidKeyboardTarget(sessionId: string | null): void {
   activeSession = sessionId;

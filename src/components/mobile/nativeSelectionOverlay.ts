@@ -1,4 +1,4 @@
-import { edgeLine, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
+import { autoscrollRate, edgeLine, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
 
 export interface OverlayTerm {
   rows(): number;
@@ -17,6 +17,8 @@ export interface NativeSelection {
   /** Whether a client point lands on rendered text; only meaningful while armed. */
   hitsText(x: number, y: number): boolean;
   isSelecting(): boolean;
+  /** Native finger position (client y) during a live selection, or null once it lifts. */
+  finger(y: number | null): void;
   dispose(): void;
 }
 
@@ -92,7 +94,11 @@ function glyphMeter(font: string) {
  * Transparent copy of the terminal grid laid exactly over the canvas, so the
  * WebView's own selection (handles, magnifier, action menu) works on terminal text.
  */
-export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayTerm | null): NativeSelection {
+export function createNativeSelection(
+  host: HTMLElement,
+  getTerm: () => OverlayTerm | null,
+  onSelecting?: (on: boolean) => void,
+): NativeSelection {
   const el = document.createElement("div");
   el.dataset.nativeSelection = "";
   el.className = "scrollbar-none";
@@ -259,6 +265,10 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
 
   const end = () => {
     selecting = false;
+    onSelecting?.(false);
+    stopFingerLoop();
+    fingerY = null;
+    fingerSeen = false;
     if (pendingScroll) clearTimeout(pendingScroll);
     pendingScroll = null;
     prevAnchor = null;
@@ -267,6 +277,49 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     delete document.body.dataset.nativeTermSelecting;
     setShift(getTerm()?.screenEl(), 0);
     disarm();
+  };
+
+  let fingerY: number | null = null;
+  let fingerSeen = false;
+  let draggingEnd = false;
+  let frame: number | null = null;
+  let frameAt = 0;
+  let carry = 0;
+
+  const stopFingerLoop = () => {
+    if (frame !== null) cancelAnimationFrame(frame);
+    frame = null;
+    carry = 0;
+  };
+
+  const fingerTick = (t: number) => {
+    frame = null;
+    if (!selecting || fingerY === null || !draggingEnd || !cellH) return;
+    const dt = frameAt ? Math.min(0.1, (t - frameAt) / 1000) : 0;
+    frameAt = t;
+    const r = el.getBoundingClientRect();
+    carry += autoscrollRate(fingerY, r.top, r.bottom, cellH) * cellH * dt;
+    const px = Math.trunc(carry);
+    if (px) {
+      carry -= px;
+      el.scrollTop += px;
+      updateSelectable();
+    }
+    frame = requestAnimationFrame(fingerTick);
+  };
+
+  const finger = (y: number | null) => {
+    fingerY = y;
+    if (y === null) {
+      draggingEnd = false;
+      stopFingerLoop();
+      return;
+    }
+    fingerSeen = true;
+    if (draggingEnd && frame === null) {
+      frameAt = 0;
+      frame = requestAnimationFrame(fingerTick);
+    }
   };
 
   // A throttled step is deferred, not dropped: the next clamp only moves once the edge row has.
@@ -305,6 +358,7 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     const focus = focusIn ? boundaryFromDom(el, sel.focusNode, sel.focusOffset) : null;
     if (!selecting) {
       selecting = true;
+      onSelecting?.(true);
       document.body.dataset.nativeTermSelecting = "";
       expand();
       prevAnchor = anchor;
@@ -318,6 +372,13 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     prevFocus = focus ?? prevFocus;
     updateSelectable();
     if (!movedNode) return;
+    if (fingerSeen) {
+      if (fingerY !== null && !draggingEnd) {
+        draggingEnd = true;
+        finger(fingerY);
+      }
+      return;
+    }
     if (!moved) {
       autoscroll(el.compareDocumentPosition(movedNode) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1);
       return;
@@ -360,13 +421,17 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     disarm,
     hitsText,
     isSelecting: () => selecting,
+    finger,
     dispose: () => {
       document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("copy", onCopy);
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("contextmenu", onContextMenu);
       resizeObserver.disconnect();
+      stopFingerLoop();
+      if (pendingScroll) clearTimeout(pendingScroll);
       if (selecting) {
+        onSelecting?.(false);
         delete document.body.dataset.nativeTermSelecting;
         setShift(getTerm()?.screenEl(), 0);
         document.getSelection()?.removeAllRanges();

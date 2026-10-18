@@ -94,3 +94,15 @@ export function edgeLine(
   return Math.max(first, Math.min(last - 1, line));
 }
 
+
+/**
+ * Autoscroll speed in rows per second for a finger at client `y` against an overlay spanning
+ * [top, bottom): negative scrolls up. Starts one row inside each edge and grows with distance past it.
+ */
+export function autoscrollRate(y: number, top: number, bottom: number, cellH: number): number {
+  const zone = cellH;
+  const past = y < top + zone ? top + zone - y : y > bottom - zone ? y - (bottom - zone) : 0;
+  if (past <= 0) return 0;
+  const rate = Math.min(60, 8 + (past / cellH) * 8);
+  return y < top + zone ? -rate : rate;
+}

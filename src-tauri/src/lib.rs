@@ -289,6 +289,7 @@ pub fn run() {
             system_auth::system_auth_verify,
             terminal_kbd::terminal_show_keyboard,
             terminal_kbd::terminal_hide_keyboard,
+            terminal_kbd::terminal_selection_touch_feed,
             commands::diagnostics::set_verbose_logging,
             commands::diagnostics::create_bug_report,
             commands::ping::ping_host,

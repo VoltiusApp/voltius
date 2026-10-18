@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getTerminalApi } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
-import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget } from "@/services/androidKeyboard";
+import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget, setSelectionTouchFeed } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
 import { fontSizeFromPinch, linesFromPixelDelta, touchDistance } from "./mobileTerminalGesturesCore";
@@ -52,7 +52,12 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     const root = rootRef.current;
     const container = root?.parentElement;
     if (!root || !container) return;
-    const sel = createNativeSelection(root, () => getTerminalApi(sessionId));
+    const sel = createNativeSelection(root, () => getTerminalApi(sessionId), (on) => {
+      if (isAndroid) setSelectionTouchFeed(on);
+    });
+    const w = window as unknown as { __voltiusSelTouch?: (y: number | null) => void };
+    const onFinger = (y: number | null) => sel.finger(y);
+    w.__voltiusSelTouch = onFinger;
 
     const clearLongPress = () => {
       if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
@@ -227,6 +232,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       clearLongPress();
       lastTap.current = null;
       sel.dispose();
+      if (w.__voltiusSelTouch === onFinger) delete w.__voltiusSelTouch;
       setPaste(null);
     };
   }, [active, sessionId, isAndroid]);

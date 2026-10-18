@@ -44,3 +44,20 @@ pub fn terminal_hide_keyboard(focus_web_view: Option<bool>) {
     #[cfg(not(target_os = "android"))]
     let _ = focus_web_view;
 }
+
+/// Streams finger positions to JS while a native terminal selection is live (handle drags never
+/// reach the DOM), so the selection overlay can autoscroll under a held handle.
+#[tauri::command]
+pub fn terminal_selection_touch_feed(on: bool) {
+    #[cfg(target_os = "android")]
+    if let Err(e) = call(
+        "terminal selection touch feed",
+        "setSelectionTouchFeed",
+        "(Z)V",
+        &[jni::objects::JValue::Bool(on.into())],
+    ) {
+        log::warn!("terminal_selection_touch_feed: {e}");
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = on;
+}
