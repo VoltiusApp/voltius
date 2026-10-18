@@ -5,7 +5,7 @@ import { memberLabel } from "@/services/memberLabel";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { displaySeatCap } from "@/services/seatMath";
+import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
 import { InviteControl } from "./InviteControl";
@@ -40,9 +40,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
   const membersByTeam = useTeamStore((s) => s.membersByTeam);
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
   const pendingInvitationsByTeam = useTeamStore((s) => s.pendingInvitationsByTeam);
-  const usedSeats = useSubscriptionStore((s) => s.usedSeats);
-  const effectiveSeats = useSubscriptionStore((s) => s.effectiveSeats);
-  const totalSeats = useSubscriptionStore((s) => s.totalSeats);
+  const seats = useSeatReadout();
 
   const [tab, setTab] = useState<Tab>("people");
   // Owned by the sheet, never by a tab: the bug this component replaces was an
@@ -254,8 +252,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull }: Props) {
           teamId={teamId}
           roles={rolesByTeam[teamId] ?? []}
           existingIds={new Set(people.map((p) => p.userId))}
-          usedSeats={usedSeats}
-          seatCap={displaySeatCap(effectiveSeats, totalSeats)}
+          seats={seats}
           onInvited={() => setTab("people")}
         />
       )}

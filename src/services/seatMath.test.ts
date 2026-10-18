@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { seatAvailability, seatCost, displaySeatCap } from "./seatMath.ts";
+import { seatAvailability, seatCost, seatReadout, seatState } from "./seatMath.ts";
 
 test("seatAvailability: normal case", () => {
   expect(seatAvailability(2, 5)).toEqual({ used: 2, total: 5, available: 3, atLimit: false });
@@ -25,14 +25,37 @@ test("seatCost: null total falls back to default (3), matching BuySeatsModal", (
   expect(seatCost(null, 1, 15, 3)).toEqual({ newTotal: 4, monthlyCost: 60 });
 });
 
-test("displaySeatCap: the enforced cap wins over the purchased one", () => {
-  // #219: a trial owner who bought 25 is enforced at 10; showing 25 is the bug.
-  expect(displaySeatCap(10, 25)).toBe(10);
+test("seat state reports unknown instead of question marks", () => {
+  expect(seatState(undefined, undefined)).toEqual({ kind: "unknown" });
+  expect(seatState(0, null)).toEqual({ kind: "unknown" });
 });
 
-test("displaySeatCap: no enforced cap falls back to what was purchased", () => {
-  // Uncapped account, or a server too old to send effective_seats — a readout of
-  // "unavailable" there would blame the connection for a working account.
-  expect(displaySeatCap(null, 5)).toBe(5);
-  expect(displaySeatCap(null, null)).toBeNull();
+test("seat state computes availability when known", () => {
+  expect(seatState(2, 10)).toEqual({ kind: "known", used: 2, total: 10, available: 8, atLimit: false });
+  expect(seatState(10, 10)).toEqual({ kind: "known", used: 10, total: 10, available: 0, atLimit: true });
+});
+
+test("seatReadout: the enforced cap wins over the purchased one", () => {
+  // #219: a trial owner who bought 25 is enforced at 10; showing 25 is the bug.
+  expect(seatReadout(4, 10, 25, true)).toMatchObject({ kind: "known", total: 10 });
+});
+
+test("seatReadout: with billing, no enforced cap falls back to what was purchased", () => {
+  expect(seatReadout(2, null, 5, true)).toMatchObject({ kind: "known", total: 5 });
+  expect(seatReadout(2, null, null, true)).toEqual({ kind: "unknown" });
+});
+
+test("seatReadout: without billing, no enforced cap is unlimited whatever seats reports", () => {
+  // #649: a self-hosted server still sends the billing fallback of 3 seats.
+  expect(seatReadout(1, null, 3, false)).toEqual({ kind: "unlimited", used: 1 });
+  expect(seatReadout(1, null, null, false)).toEqual({ kind: "unlimited", used: 1 });
+});
+
+test("seatReadout: without billing, an operator-set cap is still shown and enforced", () => {
+  expect(seatReadout(5, 5, 3, false)).toMatchObject({ kind: "known", total: 5, atLimit: true });
+});
+
+test("seatReadout: a failed load stays unknown in both modes", () => {
+  expect(seatReadout(null, null, null, false)).toEqual({ kind: "unknown" });
+  expect(seatReadout(null, null, 3, true)).toEqual({ kind: "unknown" });
 });

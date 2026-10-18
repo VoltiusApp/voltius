@@ -17,23 +17,6 @@ export function leastPrivilegedRole(roles: TeamRole[]): TeamRole | null {
   return sorted.length > 0 ? sorted[sorted.length - 1] : null;
 }
 
-export type SeatState =
-  | { kind: "known"; used: number; total: number; available: number; atLimit: boolean }
-  | { kind: "unknown" };
-
-/**
- * A failed subscription load used to render as "? available · ? total".
- * Unknown is its own state so the UI can say so in words.
- */
-export function seatState(
-  used: number | null | undefined,
-  total: number | null | undefined,
-): SeatState {
-  if (typeof used !== "number" || typeof total !== "number") return { kind: "unknown" };
-  const available = Math.max(0, total - used);
-  return { kind: "known", used, total, available, atLimit: available <= 0 };
-}
-
 const MANAGING_ROLES = new Set(["owner", "manager"]);
 
 export function canManageShare(myRoleNames: string[]): boolean {

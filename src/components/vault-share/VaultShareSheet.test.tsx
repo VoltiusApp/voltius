@@ -76,6 +76,7 @@ vi.mock("@/stores/subscriptionStore", () => ({
     getState: () => ({ load: vi.fn() }),
   }),
 }));
+vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => true }));
 vi.mock("@/stores/teamVaultStateStore", () => ({
   useTeamVaultStateStore: Object.assign((sel: (s: unknown) => unknown) => sel({ statusByTeamId: {} }), {
     getState: () => ({ statusByTeamId: {} }),

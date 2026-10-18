@@ -8,7 +8,10 @@ type Seats = {
   isTrialActive: boolean;
 };
 const DEFAULT_SEATS: Seats = { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false };
-const h = vi.hoisted(() => ({ seats: { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false } as Seats }));
+const h = vi.hoisted(() => ({
+  seats: { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false } as Seats,
+  billingEnabled: true,
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
@@ -21,9 +24,11 @@ vi.mock("@/stores/subscriptionStore", () => ({
   ),
 }));
 
+vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => h.billingEnabled }));
+
 import { SeatsMeter } from "./SeatsMeter";
 
-afterEach(() => { cleanup(); h.seats = { ...DEFAULT_SEATS }; });
+afterEach(() => { cleanup(); h.seats = { ...DEFAULT_SEATS }; h.billingEnabled = true; });
 
 const bar = () => document.querySelector(".h-1\\.5 > div") as HTMLElement;
 
@@ -99,4 +104,20 @@ test("no enforced cap falls back to the purchased seats rather than reading as o
   render(<SeatsMeter />);
   expect(screen.getByText(/seatsSummary/).textContent).toContain('"total":5');
   expect(screen.queryByText("members.invite.seatsUnknown")).toBeNull();
+});
+
+test("a server without billing hides buy-seats even when a handler is given", () => {
+  h.billingEnabled = false;
+  render(<SeatsMeter onBuySeats={vi.fn()} />);
+  expect(screen.queryByRole("button")).toBeNull();
+});
+
+test("a server without billing reads an uncapped account as unlimited, not the 3-seat fallback", () => {
+  // #649: self-hosted owners are uncapped, but /subscription still reports seats: 3.
+  h.billingEnabled = false;
+  h.seats = { usedSeats: 1, effectiveSeats: null, totalSeats: 3, isTrialActive: false };
+  render(<SeatsMeter />);
+  expect(screen.getByText(/seatsUnlimited/).textContent).toContain('"used":1');
+  expect(screen.queryByText(/seatsSummary/)).toBeNull();
+  expect(bar()).toBeNull();
 });

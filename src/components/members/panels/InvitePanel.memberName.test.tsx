@@ -34,6 +34,7 @@ vi.mock("@/hooks/useUserSearch", () => ({
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: () => ({ usedSeats: h.usedSeats, effectiveSeats: 10, load: vi.fn() }),
 }));
+vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => true }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({ onSuccess }: { onSuccess: () => void }) => <button onClick={onSuccess}>seats-bought</button>,
 }));

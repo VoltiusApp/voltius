@@ -7,6 +7,7 @@ import { UserSearchField } from "@/components/shared/UserSearchField";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { seatAvailability } from "@/services/seatMath";
+import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { RoleToggleChip } from "@/components/members/roleChips";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
@@ -39,11 +40,18 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
+  const billingEnabled = useServerBillingEnabled();
 
   // Against the *enforced* cap, not the purchased one: during a trial the server
   // caps at 10 however many seats were bought, and pre-checking the purchased
   // number sends invites it then rejects with 402.
   const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, effectiveSeats);
+
+  const onSeatLimit = (user: UserSearchResult | null) => {
+    setOpen(false);
+    if (billingEnabled) setBuySeatsFor(user);
+    else setError(t("members.error.seatLimitReached"));
+  };
 
   const nameToSend = canNameMembers ? memberName.trim() || undefined : undefined;
 
@@ -83,7 +91,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
 
   const handleAdd = async (user: UserSearchResult) => {
     if (!hasRoleSelected) return;
-    if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
+    if (isAtSeatLimit) { onSeatLimit(user); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
       const result = await inviteUserWithRoles({
@@ -104,7 +112,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       if ((e as { code?: number }).code === 402 || err.message.includes("402")) {
-        setBuySeatsFor(user); setOpen(false);
+        onSeatLimit(user);
       } else {
         setOpen(false);
         setError(t("members.error.inviteFailed", { name: user.handle, reason: inviteFailureReason(err) }));
@@ -114,7 +122,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
 
   const handleEmailInvite = async () => {
     if (!isValidEmail(query) || !hasRoleSelected) return;
-    if (isAtSeatLimit) { setBuySeatsFor(null); return; }
+    if (isAtSeatLimit) { onSeatLimit(null); return; }
     setSendingInvite(true); setError(""); setSuccess("");
     try {
       const invitedEmail = query;
@@ -127,7 +135,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       if ((e as { code?: number }).code === 402 || err.message.includes("402")) {
-        setBuySeatsFor(null);
+        onSeatLimit(null);
       } else {
         setOpen(false);
         setError(t("members.error.inviteFailed", { name: query, reason: inviteFailureReason(err) }));

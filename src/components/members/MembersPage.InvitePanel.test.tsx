@@ -12,7 +12,8 @@ const h = vi.hoisted(() => ({
   getMyHandle: vi.fn(async () => "merry-quartz-2597"),
   t: vi.fn((k: string) => k),
   usedSeats: 2,
-  effectiveSeats: 3,
+  effectiveSeats: 3 as number | null,
+  billingEnabled: true,
 }));
 
 // Looks up the real English copy so the interpolating t below reproduces what
@@ -66,10 +67,14 @@ vi.mock("@/stores/teamStore", () => {
 });
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: Object.assign(
-    () => ({ usedSeats: h.usedSeats, effectiveSeats: h.effectiveSeats, load: h.reload }),
+    (sel?: (s: object) => unknown) => {
+      const state = { usedSeats: h.usedSeats, effectiveSeats: h.effectiveSeats, totalSeats: 3, load: h.reload };
+      return sel ? sel(state) : state;
+    },
     { getState: () => ({ load: h.reload }) },
   ),
 }));
+vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => h.billingEnabled }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({
     pendingUser,
@@ -113,6 +118,7 @@ beforeEach(() => {
   h.t.mockImplementation((k: string) => k);
   h.usedSeats = 2;
   h.effectiveSeats = 3;
+  h.billingEnabled = true;
   baseProps.onClose = vi.fn();
   baseProps.onMemberAdded = vi.fn();
 });
@@ -226,6 +232,46 @@ test("add at seat limit: no invite call, BuySeatsModal shown with that user", as
   expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
   const modal = await screen.findByTestId("buy-seats-modal");
   expect(modal.dataset.pendingUser).toBe("inA");
+});
+
+test("add at seat limit on a server without billing: an admin hint, never BuySeatsModal", async () => {
+  h.billingEnabled = false;
+  h.usedSeats = 3;
+  h.effectiveSeats = 3;
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  expect(await screen.findByText("members.error.seatLimitReached")).toBeTruthy();
+  expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
+});
+
+test("email invite rejected 402 on a server without billing: an admin hint, never BuySeatsModal", async () => {
+  h.billingEnabled = false;
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([]);
+  h.inviteByEmailAddress.mockRejectedValue(Object.assign(new Error("x"), { code: 402 }));
+  render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("a@b.com");
+  vi.useRealTimers();
+  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
+
+  expect(await screen.findByText("members.error.seatLimitReached")).toBeTruthy();
+  expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
+});
+
+test("a server without billing shows no buy-seats button and reads the uncapped owner as unlimited", () => {
+  h.billingEnabled = false;
+  h.effectiveSeats = null;
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.queryByText("members.invite.buySeats")).toBeNull();
+  expect(screen.getByText("members.invite.seatsUnlimited")).toBeTruthy();
 });
 
 test("add rejects {code:402} (not at limit): BuySeatsModal shown, no error text", async () => {

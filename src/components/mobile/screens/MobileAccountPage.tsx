@@ -12,6 +12,9 @@ import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
+import { useServerBillingEnabled } from "@/services/serverCapabilities";
+import { useSeatReadout } from "@/hooks/useSeatReadout";
+import { seatsUsedText } from "@/services/seatMath";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 
 export default function MobileAccountPage() {
@@ -31,8 +34,8 @@ export default function MobileAccountPage() {
   const isTrialActive = useSubscriptionStore((s) => s.isTrialActive);
   const isPro = useSubscriptionStore((s) => s.isPro);
   const isTeams = useSubscriptionStore((s) => s.isTeams);
-  const usedSeats = useSubscriptionStore((s) => s.usedSeats);
-  const totalSeats = useSubscriptionStore((s) => s.totalSeats);
+  const billingEnabled = useServerBillingEnabled();
+  const seatsText = seatsUsedText(t, useSeatReadout(), "mobile.account.seatsUsed");
   const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
   const subscriptionCancelled = useSubscriptionStore((s) => s.subscriptionCancelled);
   const renewsAt = useSubscriptionStore((s) => s.renewsAt);
@@ -45,7 +48,7 @@ export default function MobileAccountPage() {
   useEffect(() => { void getCurrentUserEmail().then(setEmail); }, []);
 
   const signedIn = accountMode === "server";
-  const isPaidPro = isPro && !isTrialActive;
+  const isPaidPro = isPro && !isTrialActive && billingEnabled;
   const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000)) : 0;
   const planValue = isTrialActive ? t("mobile.account.proTrial", { days: daysLeft }) : (TIER_LABEL[tier] ?? tier);
   const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
@@ -101,11 +104,11 @@ export default function MobileAccountPage() {
               </div>
             )}
 
-            {isTeams && totalSeats != null && (
+            {isTeams && seatsText && (
               <div className="flex items-center justify-between text-xs px-1">
                 <span className="text-(--t-text-secondary)">{t("mobile.account.seats")}</span>
                 <span className="text-(--t-text-primary)" style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {t("mobile.account.seatsUsed", { used: usedSeats ?? "…", total: totalSeats })}
+                  {seatsText}
                 </span>
               </div>
             )}
@@ -137,15 +140,17 @@ export default function MobileAccountPage() {
               </>
             )}
 
-            <button
-              data-account-manage-billing
-              onClick={() => void openPortal()}
-              className="w-full h-11 rounded-xl text-sm font-medium text-(--t-text-primary) flex items-center justify-center gap-2"
-              style={{ border: "1px solid var(--t-border)" }}
-            >
-              <Icon icon="lucide:external-link" width={16} />
-              {isPro ? t("mobile.account.manageBilling") : t("mobile.account.viewAllPlans")}
-            </button>
+            {billingEnabled && (
+              <button
+                data-account-manage-billing
+                onClick={() => void openPortal()}
+                className="w-full h-11 rounded-xl text-sm font-medium text-(--t-text-primary) flex items-center justify-center gap-2"
+                style={{ border: "1px solid var(--t-border)" }}
+              >
+                <Icon icon="lucide:external-link" width={16} />
+                {isPro ? t("mobile.account.manageBilling") : t("mobile.account.viewAllPlans")}
+              </button>
+            )}
           </div>
         )}
 

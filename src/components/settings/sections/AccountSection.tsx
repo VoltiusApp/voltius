@@ -10,6 +10,9 @@ import { ActionItem, FormButtons, SettingsInput } from "./shared";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
+import { useServerBillingEnabled } from "@/services/serverCapabilities";
+import { useSeatReadout } from "@/hooks/useSeatReadout";
+import { seatsUsedText } from "@/services/seatMath";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
@@ -490,7 +493,9 @@ export default function AccountSection() {
 
 function PlansSection() {
   const { t } = useTranslation();
-  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, usedSeats, totalSeats, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
+  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
+  const billingEnabled = useServerBillingEnabled();
+  const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
 
   const daysLeft = trialEndsAt
     ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
@@ -502,7 +507,7 @@ function PlansSection() {
     isTrialActive ? t("settings.account.plan.badge.proTrial", { daysLeft }) :
     tier === "pro" ? t("settings.account.plan.badge.pro") : t("settings.account.plan.badge.free");
 
-  const isPaidPro = isPro && !isTrialActive;
+  const isPaidPro = isPro && !isTrialActive && billingEnabled;
 
   const badgeColor = isPro ? "#f59e0b" : "var(--t-text-muted)";
   const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
@@ -552,11 +557,11 @@ function PlansSection() {
           </div>
         )}
 
-        {isTeams && totalSeats != null && (
+        {isTeams && seatsText && (
           <div className="flex items-center justify-between text-xs py-0.5">
             <span style={{ color: "var(--t-text-secondary)" }}>{t("settings.account.plan.seats")}</span>
             <span style={{ color: "var(--t-text-primary)", fontVariantNumeric: "tabular-nums" }}>
-              {t("settings.account.plan.seatsUsed", { used: usedSeats ?? "…", total: totalSeats })}
+              {seatsText}
             </span>
           </div>
         )}
@@ -597,12 +602,14 @@ function PlansSection() {
           })}
         </div>
 
-        <button
-          onClick={() => openPortal()}
-          className="text-xs w-full text-center text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors pt-1"
-        >
-          {t("settings.account.plan.viewAllPlans")}
-        </button>
+        {billingEnabled && (
+          <button
+            onClick={() => openPortal()}
+            className="text-xs w-full text-center text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors pt-1"
+          >
+            {t("settings.account.plan.viewAllPlans")}
+          </button>
+        )}
       </div>
     </div>
   );

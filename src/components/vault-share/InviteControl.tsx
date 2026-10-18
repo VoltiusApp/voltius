@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { TeamRole } from "@/stores/teamStore";
 import { useUserSearch } from "@/hooks/useUserSearch";
-import { assignableRoles, seatState } from "./vaultShareModel";
+import { assignableRoles } from "./vaultShareModel";
+import { seatsSummaryText, type SeatState } from "@/services/seatMath";
 import { ChoiceChip } from "./ChoiceChip";
 import { roleLabel } from "@/components/members/roleChips";
 import { inviteUserById, inviteByEmailAddress } from "@/services/vaultShare";
@@ -14,16 +15,13 @@ interface Props {
   teamId: string;
   roles: TeamRole[];
   existingIds: Set<string>;
-  usedSeats: number | null;
-  /** The cap to show, from `displaySeatCap` — the enforced one when the server reports it. */
-  seatCap: number | null;
+  seats: SeatState;
   onInvited: () => void;
 }
 
-export function InviteControl({ teamId, roles, existingIds, usedSeats, seatCap, onInvited }: Props) {
+export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: Props) {
   const { t } = useTranslation();
   const options = assignableRoles(roles);
-  const seats = seatState(usedSeats, seatCap);
   const [roleId, setRoleId] = useState<string | null>(null);
   const search = useUserSearch(existingIds);
 
@@ -120,9 +118,7 @@ export function InviteControl({ teamId, roles, existingIds, usedSeats, seatCap, 
       </div>
 
       <span className="text-[11px] text-(--t-text-secondary)">
-        {seats.kind === "known"
-          ? t("members.invite.seatsSummary", { used: seats.used, available: seats.available, total: seats.total })
-          : t("members.invite.seatsUnknown")}
+        {seatsSummaryText(t, seats)}
       </span>
     </div>
   );

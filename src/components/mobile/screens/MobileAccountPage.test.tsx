@@ -14,9 +14,25 @@ const effective = vi.hoisted(() => ({
 }));
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ providers: [], effective: effective.value }) }));
 
-import MobileAccountPage from "./MobileAccountPage";
+const billing = vi.hoisted(() => ({ enabled: true }));
+vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => billing.enabled }));
 
-afterEach(() => { cleanup(); useMobileNavStore.setState({ sheet: null }); });
+import MobileAccountPage from "./MobileAccountPage";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
+
+const initialSubscription = useSubscriptionStore.getState();
+afterEach(() => {
+  cleanup();
+  useMobileNavStore.setState({ sheet: null });
+  useSubscriptionStore.setState(initialSubscription, true);
+  billing.enabled = true;
+});
+
+const businessAccount = () =>
+  useSubscriptionStore.setState({
+    accountMode: "server", tier: "business", isPro: true, isTeams: true, isBusiness: true,
+    usedSeats: 1, totalSeats: 3, effectiveSeats: null,
+  });
 
 test("a paused sync reads as paused, not off", () => {
   effective.value = { ...effective.value, paused: true };
@@ -41,4 +57,21 @@ test("a configured sync reads with the shared status label", () => {
   effective.value = { ...effective.value, configured: true, paused: false, status: "offline" };
   const { queryByText } = render(<MobileAccountPage />);
   expect(queryByText("layout.sync.status.offline")).not.toBeNull();
+});
+
+test("a self-hosted business account shows no billing link and an unlimited seat count", () => {
+  billing.enabled = false;
+  businessAccount();
+  const { container, queryByText } = render(<MobileAccountPage />);
+  expect(container.querySelector("[data-account-manage-billing]")).toBeNull();
+  expect(queryByText("mobile.account.subscriptionActive")).toBeNull();
+  expect(queryByText("members.invite.seatsUnlimited")).not.toBeNull();
+  expect(queryByText("mobile.account.seatsUsed")).toBeNull();
+});
+
+test("a billed business account keeps its billing link and seat count", () => {
+  businessAccount();
+  const { container, queryByText } = render(<MobileAccountPage />);
+  expect(container.querySelector("[data-account-manage-billing]")).not.toBeNull();
+  expect(queryByText("mobile.account.seatsUsed")).not.toBeNull();
 });
