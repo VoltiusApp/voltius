@@ -23,11 +23,8 @@ export interface Boundary {
   col: number;
 }
 
-/**
- * Splits a buffer row into runs of uniform-advance cells padded with spaces to `cols`, isolating
- * wide or odd-advance glyphs. Every point of the row then hits text, so native selection never
- * resolves to a position outside the overlay.
- */
+// Padded to `cols` so every point of a row hits text; a blank area makes Chromium resolve the
+// selection end to the nearest caret, often far up the scrollback.
 export function segmentsForLine(line: LineLike | undefined, isUniform: (ch: string) => boolean, cols: number): Segment[] {
   const out: Segment[] = [];
   let run: Segment | null = null;
@@ -51,7 +48,6 @@ export function segmentsForLine(line: LineLike | undefined, isUniform: (ch: stri
   return out;
 }
 
-/** End column (exclusive) of a rendered line from its segments. */
 export function segmentsEnd(segments: Segment[]): number {
   const s = segments[segments.length - 1];
   if (!s) return 0;
@@ -73,13 +69,11 @@ export function textBetween(getLine: (i: number) => LineLike | undefined, start:
   return out;
 }
 
-/** Splits an overlay scroll offset into whole rows and the sub-row remainder in px. */
 export function splitScroll(scrollTop: number, cellH: number): { line: number; frac: number } {
   const line = Math.floor(scrollTop / cellH + 1e-6);
   return { line, frac: Math.max(0, scrollTop - line * cellH) };
 }
 
-/** First fully visible row (up) or last fully visible row (down) of a scrolled overlay window [first, last). */
 export function edgeLine(
   scrollTop: number,
   clientHeight: number,
@@ -95,10 +89,7 @@ export function edgeLine(
 }
 
 
-/**
- * Autoscroll speed in rows per second for a finger at client `y` against an overlay spanning
- * [top, bottom): negative scrolls up. Starts one row inside each edge and grows with distance past it.
- */
+/** Rows per second, negative upward: from one row inside an edge, faster the further past it. */
 export function autoscrollRate(y: number, top: number, bottom: number, cellH: number): number {
   const zone = cellH;
   const past = y < top + zone ? top + zone - y : y > bottom - zone ? y - (bottom - zone) : 0;

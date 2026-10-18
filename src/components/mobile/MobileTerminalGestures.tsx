@@ -17,11 +17,8 @@ const DOUBLE_TAP = { ms: 300, px: 24 };
 
 type Phase = "idle" | "pending" | "scrolling" | "native" | "pinching";
 
-/**
- * Mobile-only unified terminal gesture layer. One-finger immediate drag scrolls;
- * a long-press on text hands off to the WebView's native selection, on blank it offers Paste.
- * Double-tap sends Tab, two fingers pinch the font size (#159). Single taps pass through to xterm.
- */
+/** Mobile terminal gestures: drag scrolls, long-press selects natively (Paste on blank),
+ *  double-tap sends Tab, pinch sets the font size (#159); single taps reach xterm. */
 export default function MobileTerminalGestures({ sessionId, active }: { sessionId: string; active: boolean }) {
   const { t } = useTranslation();
   const isAndroid = useIsAndroid();

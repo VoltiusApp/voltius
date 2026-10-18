@@ -69,8 +69,7 @@ object TerminalKeyboard {
     }
   }
 
-  /** JS asked to dismiss the keyboard (terminal blurred / session closed). [focusWebView] hands
-   *  Android focus back to the WebView, which its native text selection needs to show handles. */
+  /** JS asked to dismiss the keyboard. [focusWebView]: native text selection needs WebView focus. */
   @JvmStatic
   fun hide(focusWebView: Boolean) {
     val view = inputView ?: return

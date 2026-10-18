@@ -11,12 +11,8 @@ import android.view.inspector.WindowInspector
 import java.util.Collections
 import java.util.WeakHashMap
 
-/**
- * While a native terminal selection is live: reports the finger position to JS and repeats a held
- * finger's last move, so Chromium keeps re-clamping the dragged end to the edge row while the
- * overlay autoscrolls under a still finger. Selection handles live in their own popup windows,
- * so on API 29+ their views are found with WindowInspector and observed too.
- */
+// Reports the finger to JS during a native terminal selection and replays a still finger's move so
+// Chromium keeps clamping the dragged end while the overlay autoscrolls; handles are popup windows.
 object SelectionTouchFeed {
   private const val REPEAT_MS = 40L
   private const val SEND_MS = 16L
@@ -39,7 +35,6 @@ object SelectionTouchFeed {
     }
   }
 
-  /** Called from MainActivity.dispatchTouchEvent on the UI thread, before the WebView sees [ev]. */
   fun onTouch(activity: MainActivity, ev: MotionEvent) {
     track(ev) { e ->
       val copy = MotionEvent.obtain(e.downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, e.x, e.y, e.metaState)

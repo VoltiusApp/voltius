@@ -53,7 +53,6 @@ export function renderLine(
   return div;
 }
 
-/** Maps a DOM selection point inside the overlay back to a buffer boundary. */
 export function boundaryFromDom(root: HTMLElement, node: Node, offset: number): Boundary | null {
   const lineEnd = (div: HTMLElement): Boundary => ({ line: Number(div.dataset.line), col: Number(div.dataset.end) });
   if (node === root) {
@@ -91,10 +90,7 @@ function glyphMeter(font: string) {
   };
 }
 
-/**
- * Transparent copy of the terminal grid laid exactly over the canvas, so the
- * WebView's own selection (handles, magnifier, action menu) works on terminal text.
- */
+/** Transparent copy of the terminal grid over the canvas, so the WebView's native selection works on it. */
 export function createNativeSelection(
   host: HTMLElement,
   getTerm: () => OverlayTerm | null,
@@ -140,7 +136,6 @@ export function createNativeSelection(
     if (screen) screen.style.transform = px ? `translateY(${-px}px)` : "";
   };
 
-  /** Fits the overlay to the canvas; false when the terminal is not measurable. */
   const place = (term: OverlayTerm): boolean => {
     const screen = term.screenEl();
     const rows = term.rows();
@@ -231,18 +226,20 @@ export function createNativeSelection(
     }
   };
 
-  // Rows outside [anchor, focus, visible window] are made unselectable so a handle dragged off the
-  // overlay clamps to the edge row instead of resolving into scrollback the user cannot see.
-  const updateSelectable = () => {
-    const { top, bottom } = edges();
-    const lines = [top, bottom, prevAnchor?.line, prevFocus?.line].filter((l): l is number => l !== undefined);
-    const lo = Math.min(...lines);
-    const hi = Math.max(...lines);
+  const setSelectable = (lo: number, hi: number) => {
     if (lo === selLo && hi === selHi) return;
     markRows(selLo, selHi, false);
     markRows(lo, hi, true);
     selLo = lo;
     selHi = hi;
+  };
+
+  // Rows outside [anchor, focus, visible window] are made unselectable so a handle dragged off the
+  // overlay clamps to the edge row instead of resolving into scrollback the user cannot see.
+  const updateSelectable = () => {
+    const { top, bottom } = edges();
+    const lines = [top, bottom, prevAnchor?.line, prevFocus?.line].filter((l): l is number => l !== undefined);
+    setSelectable(Math.min(...lines), Math.max(...lines));
   };
 
   const expand = () => {
@@ -251,9 +248,7 @@ export function createNativeSelection(
     const top = first;
     const from = Math.max(0, top - SCROLLBACK_LINES);
     const to = Math.max(last, Math.min(term.bufferLength(), last + SCROLLBACK_LINES));
-    markRows(first, last - 1, true);
-    selLo = first;
-    selHi = last - 1;
+    setSelectable(first, last - 1);
     el.prepend(fill(term, from, top));
     el.append(fill(term, last, to));
     first = from;
@@ -342,9 +337,7 @@ export function createNativeSelection(
     const focusIn = el.contains(sel.focusNode);
     if (!anchorIn && !focusIn) {
       if (selecting && sel.getRangeAt(0).intersectsNode(el)) {
-        markRows(first, last - 1, true);
-        selLo = first;
-        selHi = last - 1;
+        setSelectable(first, last - 1);
         sel.selectAllChildren(el);
       } else if (selecting) end();
       return;
@@ -425,13 +418,11 @@ export function createNativeSelection(
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("contextmenu", onContextMenu);
       resizeObserver.disconnect();
-      stopLoop();
       if (selecting) {
-        onSelecting?.(false);
-        delete document.body.dataset.nativeTermSelecting;
-        setShift(getTerm()?.screenEl(), 0);
+        end();
         document.getSelection()?.removeAllRanges();
       }
+      stopLoop();
       el.remove();
     },
   };
