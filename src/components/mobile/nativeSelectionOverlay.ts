@@ -23,7 +23,8 @@ export interface NativeSelection {
 }
 
 const SCROLLBACK_LINES = 1000;
-const AUTOSCROLL_MS = 70;
+const HANDLE_ROWS_PER_S = 15;
+const HANDLE_LEASE_MS = 250;
 
 export function renderLine(
   doc: Document,
@@ -124,7 +125,6 @@ export function createNativeSelection(
   let cellH = 0;
   let screenSize = "";
   let shift = 0;
-  let lastAutoscroll = 0;
   let isUniform: (ch: string) => boolean = () => true;
   let fontKey = "";
   let baseAdvance = 0;
@@ -218,7 +218,6 @@ export function createNativeSelection(
   let selHi = -1;
   let prevAnchor: Boundary | null = null;
   let prevFocus: Boundary | null = null;
-  let pendingScroll: ReturnType<typeof setTimeout> | null = null;
 
   const edges = () => ({
     top: edgeLine(el.scrollTop, el.clientHeight, cellH, first, last, "up"),
@@ -263,75 +262,71 @@ export function createNativeSelection(
     el.scrollTop = (top - from) * cellH;
   };
 
-  const end = () => {
-    selecting = false;
-    onSelecting?.(false);
-    stopFingerLoop();
-    fingerY = null;
-    fingerSeen = false;
-    if (pendingScroll) clearTimeout(pendingScroll);
-    pendingScroll = null;
-    prevAnchor = null;
-    prevFocus = null;
-    selHi = -1;
-    delete document.body.dataset.nativeTermSelecting;
-    setShift(getTerm()?.screenEl(), 0);
-    disarm();
-  };
-
   let fingerY: number | null = null;
-  let fingerSeen = false;
   let draggingEnd = false;
+  let leaseDir: 1 | -1 = 1;
+  let leaseUntil = 0;
   let frame: number | null = null;
   let frameAt = 0;
   let carry = 0;
 
-  const stopFingerLoop = () => {
+  const stopLoop = () => {
     if (frame !== null) cancelAnimationFrame(frame);
     frame = null;
     carry = 0;
   };
 
-  const fingerTick = (t: number) => {
+  // Rows/s: from the finger when MainActivity can see it (long-press drag); handle drags live in
+  // their own popup window, so they autoscroll on a lease each edge-row selectionchange renews.
+  const rate = (now: number): number => {
+    if (fingerY !== null && draggingEnd) {
+      const r = el.getBoundingClientRect();
+      return autoscrollRate(fingerY, r.top, r.bottom, cellH);
+    }
+    return now < leaseUntil ? leaseDir * HANDLE_ROWS_PER_S : 0;
+  };
+
+  const tick = (t: number) => {
     frame = null;
-    if (!selecting || fingerY === null || !draggingEnd || !cellH) return;
+    if (!selecting || !cellH) return;
+    const v = rate(performance.now());
+    if (!v && fingerY === null) { carry = 0; return; }
     const dt = frameAt ? Math.min(0.1, (t - frameAt) / 1000) : 0;
     frameAt = t;
-    const r = el.getBoundingClientRect();
-    carry += autoscrollRate(fingerY, r.top, r.bottom, cellH) * cellH * dt;
+    carry += v * cellH * dt;
     const px = Math.trunc(carry);
     if (px) {
       carry -= px;
       el.scrollTop += px;
       updateSelectable();
     }
-    frame = requestAnimationFrame(fingerTick);
+    frame = requestAnimationFrame(tick);
+  };
+
+  const startLoop = () => {
+    if (frame !== null) return;
+    frameAt = 0;
+    frame = requestAnimationFrame(tick);
   };
 
   const finger = (y: number | null) => {
     fingerY = y;
-    if (y === null) {
-      draggingEnd = false;
-      stopFingerLoop();
-      return;
-    }
-    fingerSeen = true;
-    if (draggingEnd && frame === null) {
-      frameAt = 0;
-      frame = requestAnimationFrame(fingerTick);
-    }
+    if (y === null) draggingEnd = false;
   };
 
-  // A throttled step is deferred, not dropped: the next clamp only moves once the edge row has.
-  const autoscroll = (dir: 1 | -1) => {
-    const wait = lastAutoscroll + AUTOSCROLL_MS - performance.now();
-    if (wait > 0) {
-      if (!pendingScroll) pendingScroll = setTimeout(() => { pendingScroll = null; if (selecting) autoscroll(dir); }, wait);
-      return;
-    }
-    lastAutoscroll = performance.now();
-    el.scrollTop += dir * cellH;
-    updateSelectable();
+  const end = () => {
+    selecting = false;
+    onSelecting?.(false);
+    stopLoop();
+    fingerY = null;
+    draggingEnd = false;
+    leaseUntil = 0;
+    prevAnchor = null;
+    prevFocus = null;
+    selHi = -1;
+    delete document.body.dataset.nativeTermSelecting;
+    setShift(getTerm()?.screenEl(), 0);
+    disarm();
   };
 
   const sameBoundary = (a: Boundary | null, b: Boundary | null) => a?.line === b?.line && a?.col === b?.col;
@@ -372,20 +367,22 @@ export function createNativeSelection(
     prevFocus = focus ?? prevFocus;
     updateSelectable();
     if (!movedNode) return;
-    if (fingerSeen) {
-      if (fingerY !== null && !draggingEnd) {
-        draggingEnd = true;
-        finger(fingerY);
-      }
-      return;
-    }
-    if (!moved) {
-      autoscroll(el.compareDocumentPosition(movedNode) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1);
+    if (fingerY !== null) {
+      draggingEnd = true;
+      startLoop();
       return;
     }
     const { top, bottom } = edges();
-    if (moved.line <= top) autoscroll(-1);
-    else if (moved.line >= bottom) autoscroll(1);
+    const dir = !moved
+      ? (el.compareDocumentPosition(movedNode) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1)
+      : moved.line <= top ? -1 : moved.line >= bottom ? 1 : 0;
+    if (!dir) {
+      leaseUntil = 0;
+      return;
+    }
+    leaseDir = dir;
+    leaseUntil = performance.now() + HANDLE_LEASE_MS;
+    startLoop();
   };
 
   const onCopy = (e: ClipboardEvent) => {
@@ -428,8 +425,7 @@ export function createNativeSelection(
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("contextmenu", onContextMenu);
       resizeObserver.disconnect();
-      stopFingerLoop();
-      if (pendingScroll) clearTimeout(pendingScroll);
+      stopLoop();
       if (selecting) {
         onSelecting?.(false);
         delete document.body.dataset.nativeTermSelecting;
