@@ -15,6 +15,7 @@ export interface ToggleDef {
   section: SettingsSection;
   keywords: string[];
   default: boolean;
+  androidOnly?: boolean;
 }
 
 /**
@@ -76,6 +77,14 @@ export const TOGGLE_DEFS = {
     section: "terminal",
     keywords: ["paste", "image", "screenshot", "clipboard", "upload", "claude", "terminal", "ssh"],
     default: true,
+  },
+  "volume-down-ctrl": {
+    labelKey: "settings.toggleDefs.volumeDownCtrl.label",
+    icon: "lucide:volume-1",
+    section: "terminal",
+    keywords: ["volume", "ctrl", "control", "modifier", "button", "hardware", "termux", "android", "keyboard"],
+    default: false,
+    androidOnly: true,
   },
   "keyword-highlight": {
     labelKey: "settings.toggleDefs.keywordHighlight.label",

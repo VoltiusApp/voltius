@@ -1,21 +1,36 @@
 import { useTranslation } from "react-i18next";
 import { CURSOR_STYLES, DEFAULT_CURSOR_STYLE, useTerminalSettingsStore, type TerminalCursorStyle } from "@/stores/terminalSettingsStore";
-import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
+import { TOGGLE_DEFS, useToggle, type ToggleId } from "@/stores/toggleSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
 import { DEFAULT_KEYWORD_RULES, sameKeywordRules } from "@/utils/keywordMatcher";
 import { KeywordRulesEditor } from "./KeywordRulesEditor";
 import { SettingRow } from "./shared";
+import { useIsAndroid } from "@/utils/platform";
+
+function ToggleCard({ id, i18nKey }: { id: ToggleId; i18nKey: string }) {
+  const { t } = useTranslation();
+  const [value, setValue] = useToggle(id);
+  const fallback = TOGGLE_DEFS[id].default;
+  return (
+    <SettingRow
+      variant="card"
+      className="mt-4"
+      syncKey={`appSettings.toggles.${id}`}
+      title={t(`settings.terminal.${i18nKey}.title`)}
+      desc={t(`settings.terminal.${i18nKey}.desc`)}
+      dirty={value !== fallback}
+      onReset={() => setValue(fallback)}
+    >
+      <Toggle checked={value} onChange={setValue} />
+    </SettingRow>
+  );
+}
 
 export default function TerminalSection() {
   const { t } = useTranslation();
-  const [cursorBlink, setCursorBlink] = useToggle("cursor-blink");
-  const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
-  const [selectToCopy, setSelectToCopy] = useToggle("select-to-copy");
-  const [dragSelectsText, setDragSelectsText] = useToggle("drag-selects-text");
-  const [ignoreBracketedPaste, setIgnoreBracketedPaste] = useToggle("ignore-bracketed-paste");
-  const [pasteImageAsPath, setPasteImageAsPath] = useToggle("paste-image-as-path");
+  const isAndroid = useIsAndroid();
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
   const cursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
@@ -66,72 +81,13 @@ export default function TerminalSection() {
             onChange={(value) => setCursorStyle(value as TerminalCursorStyle)}
           />
         </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.cursor-blink"
-          title={t("settings.terminal.cursorBlink.title")}
-          desc={t("settings.terminal.cursorBlink.desc")}
-          dirty={cursorBlink !== TOGGLE_DEFS["cursor-blink"].default}
-          onReset={() => setCursorBlink(TOGGLE_DEFS["cursor-blink"].default)}
-        >
-          <Toggle checked={cursorBlink} onChange={setCursorBlink} />
-        </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.scroll-minimap"
-          title={t("settings.terminal.minimap.title")}
-          desc={t("settings.terminal.minimap.desc")}
-          dirty={scrollMinimapEnabled !== TOGGLE_DEFS["scroll-minimap"].default}
-          onReset={() => setScrollMinimapEnabled(TOGGLE_DEFS["scroll-minimap"].default)}
-        >
-          <Toggle checked={scrollMinimapEnabled} onChange={setScrollMinimapEnabled} />
-        </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.select-to-copy"
-          title={t("settings.terminal.selectToCopy.title")}
-          desc={t("settings.terminal.selectToCopy.desc")}
-          dirty={selectToCopy !== TOGGLE_DEFS["select-to-copy"].default}
-          onReset={() => setSelectToCopy(TOGGLE_DEFS["select-to-copy"].default)}
-        >
-          <Toggle checked={selectToCopy} onChange={setSelectToCopy} />
-        </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.drag-selects-text"
-          title={t("settings.terminal.dragSelectsText.title")}
-          desc={t("settings.terminal.dragSelectsText.desc")}
-          dirty={dragSelectsText !== TOGGLE_DEFS["drag-selects-text"].default}
-          onReset={() => setDragSelectsText(TOGGLE_DEFS["drag-selects-text"].default)}
-        >
-          <Toggle checked={dragSelectsText} onChange={setDragSelectsText} />
-        </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.ignore-bracketed-paste"
-          title={t("settings.terminal.ignoreBracketedPaste.title")}
-          desc={t("settings.terminal.ignoreBracketedPaste.desc")}
-          dirty={ignoreBracketedPaste !== TOGGLE_DEFS["ignore-bracketed-paste"].default}
-          onReset={() => setIgnoreBracketedPaste(TOGGLE_DEFS["ignore-bracketed-paste"].default)}
-        >
-          <Toggle checked={ignoreBracketedPaste} onChange={setIgnoreBracketedPaste} />
-        </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.paste-image-as-path"
-          title={t("settings.terminal.pasteImageAsPath.title")}
-          desc={t("settings.terminal.pasteImageAsPath.desc")}
-          dirty={pasteImageAsPath !== TOGGLE_DEFS["paste-image-as-path"].default}
-          onReset={() => setPasteImageAsPath(TOGGLE_DEFS["paste-image-as-path"].default)}
-        >
-          <Toggle checked={pasteImageAsPath} onChange={setPasteImageAsPath} />
-        </SettingRow>
+        <ToggleCard id="cursor-blink" i18nKey="cursorBlink" />
+        <ToggleCard id="scroll-minimap" i18nKey="minimap" />
+        <ToggleCard id="select-to-copy" i18nKey="selectToCopy" />
+        <ToggleCard id="drag-selects-text" i18nKey="dragSelectsText" />
+        <ToggleCard id="ignore-bracketed-paste" i18nKey="ignoreBracketedPaste" />
+        <ToggleCard id="paste-image-as-path" i18nKey="pasteImageAsPath" />
+        {isAndroid && <ToggleCard id="volume-down-ctrl" i18nKey="volumeDownCtrl" />}
         <SettingRow
           variant="card"
           className="mt-4"

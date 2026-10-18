@@ -41,6 +41,10 @@
         "title": "以文件路径粘贴图片",
         "desc": "剪贴板中是图片时，将其上传到 SSH 主机（~/.cache/voltius/pastes，仅所有者可访问，7 天后清理）并粘贴其路径。让主机上的工具（如 Claude Code）可以附加截图。若从该主机再 SSH 到其他主机，路径仍指向这第一台主机。"
       },
+      "volumeDownCtrl": {
+        "title": "将音量减键用作 Ctrl",
+        "desc": "在终端中输入时，按住音量减键即可为所按的键加上 Ctrl：音量减 + C 发送 Ctrl+C。在终端之外，该按键照常调节音量。"
+      },
       "keywordHighlight": {
         "title": "关键词高亮",
         "desc": "为命令输出中的“error”“warning”等词语着色。仅在启用 Shell 集成的会话中生效。",
@@ -1176,6 +1180,7 @@
       "groupTabsByHost": { "label": "按主机分组标签页" },
       "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },
       "pasteImageAsPath": { "label": "以文件路径粘贴图片" },
+      "volumeDownCtrl": { "label": "将音量减键用作 Ctrl" },
       "keywordHighlight": { "label": "关键词高亮" },
       "autoForward": { "label": "自动端口转发" },
       "forwardingNotifications": { "label": "端口转发通知" },

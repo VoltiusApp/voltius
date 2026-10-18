@@ -33,6 +33,8 @@ object TerminalKeyboard {
   private const val TAG = "TerminalKeyboard"
   private var inputView: TerminalInputView? = null
   private var webView: WebView? = null
+  @Volatile private var volumeCtrl = false
+  private var volumeCtrlHeld = false
 
   /** Called from MainActivity.onWebViewCreate once Wry has built the RustWebView. */
   fun install(activity: MainActivity, wv: WebView) {
@@ -54,7 +56,8 @@ object TerminalKeyboard {
    *  selection/scroll; DOM focus (cursor) is unaffected. hide() restores focusability so the
    *  rest of the app's text inputs keep working. */
   @JvmStatic
-  fun show() {
+  fun show(volumeCtrl: Boolean) {
+    this.volumeCtrl = volumeCtrl
     val view = inputView
     if (view == null) { Log.w(TAG, "show: no input view yet"); return }
     view.post {
@@ -70,6 +73,7 @@ object TerminalKeyboard {
   fun hide() {
     val view = inputView ?: return
     view.post {
+      volumeCtrlHeld = false
       val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
       imm?.hideSoftInputFromWindow(view.windowToken, 0)
       view.clearFocus()
@@ -77,20 +81,37 @@ object TerminalKeyboard {
     }
   }
 
+  /** Volume Down held while the terminal owns input acts as Ctrl; true = consumed, volume untouched. */
+  fun onVolumeKey(event: KeyEvent): Boolean {
+    if (event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) return false
+    when (event.action) {
+      KeyEvent.ACTION_DOWN -> {
+        if (!volumeCtrl || inputView?.hasFocus() != true) return false
+        volumeCtrlHeld = true
+      }
+      KeyEvent.ACTION_UP -> {
+        if (!volumeCtrlHeld) return false
+        volumeCtrlHeld = false
+      }
+      else -> return false
+    }
+    return true
+  }
+
   /** Forward a run of typed text to the active terminal. */
   fun feedText(text: String) {
     if (text.isEmpty()) return
-    eval("window.__voltiusTermInput", text)
+    eval("window.__voltiusTermInput", JSONObject.quote(text), volumeCtrlHeld.toString())
   }
 
   /** Forward a semantic key (Enter, Backspace, Delete, arrows, Home/End, Tab, Esc, PgUp/PgDn). */
   fun feedKey(name: String) {
-    eval("window.__voltiusTermKey", name)
+    eval("window.__voltiusTermKey", JSONObject.quote(name))
   }
 
-  private fun eval(fn: String, arg: String) {
+  private fun eval(fn: String, vararg jsArgs: String) {
     val wv = webView ?: return
-    val js = "if(typeof $fn==='function'){$fn(${JSONObject.quote(arg)});}"
+    val js = "if(typeof $fn==='function'){$fn(${jsArgs.joinToString(",")});}"
     wv.post { wv.evaluateJavascript(js, null) }
   }
 }

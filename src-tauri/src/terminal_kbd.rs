@@ -3,28 +3,35 @@
 //! desktop, where the OS keyboard already works.
 
 #[cfg(target_os = "android")]
-fn call(op: &str, method: &str) -> Result<(), String> {
+fn call(op: &str, method: &str, sig: &str, args: &[jni::objects::JValue]) -> Result<(), String> {
     use crate::android_ctx::{load_class, with_env};
     with_env(op, |env, _ctx| {
         // Resolve via the app class loader: Tauri commands run on tokio workers whose default
         // FindClass only sees the system loader (see android_ctx::load_class).
         let cls = load_class(env, "com.voltius.app.TerminalKeyboard")?;
-        env.call_static_method(&cls, method, "()V", &[])?.v()
+        env.call_static_method(&cls, method, sig, args)?.v()
     })
 }
 
 #[tauri::command]
-pub fn terminal_show_keyboard() {
+pub fn terminal_show_keyboard(volume_ctrl: bool) {
     #[cfg(target_os = "android")]
-    if let Err(e) = call("terminal show keyboard", "show") {
+    if let Err(e) = call(
+        "terminal show keyboard",
+        "show",
+        "(Z)V",
+        &[jni::objects::JValue::Bool(volume_ctrl.into())],
+    ) {
         log::warn!("terminal_show_keyboard: {e}");
     }
+    #[cfg(not(target_os = "android"))]
+    let _ = volume_ctrl;
 }
 
 #[tauri::command]
 pub fn terminal_hide_keyboard() {
     #[cfg(target_os = "android")]
-    if let Err(e) = call("terminal hide keyboard", "hide") {
+    if let Err(e) = call("terminal hide keyboard", "hide", "()V", &[]) {
         log::warn!("terminal_hide_keyboard: {e}");
     }
 }

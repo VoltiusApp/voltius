@@ -4,7 +4,7 @@
  * xterm.js's own IME path corrupts terminal input on Android (reordered/duplicated chars,
  * deletes that reinsert composed text). Instead a native overlay owns the IME and forwards
  * clean input here via two globals it calls with `evaluateJavascript`:
- *   - `window.__voltiusTermInput(text)` — committed characters
+ *   - `window.__voltiusTermInput(text, ctrl)` — committed characters, `ctrl` while Volume Down is held
  *   - `window.__voltiusTermKey(name)`  — semantic keys (Enter, Backspace, arrows, …)
  * We route them into the active session exactly like the on-screen extra-keys row, honoring the
  * Ctrl/Alt latch and application-cursor mode. `showAndroidKeyboard` / `hideAndroidKeyboard`
@@ -16,6 +16,7 @@ import { sendSpecialKey } from "@/services/terminalInput";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { useAppLockStore } from "@/stores/appLockStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
 
 /** Session whose terminal currently owns the native keyboard. */
 let activeSession: string | null = null;
@@ -30,12 +31,12 @@ const SPECIAL: Partial<Record<string, SpecialKey>> = {
 
 /** Committed text from the IME. Mirrors the onData path: single chars pass through the
  *  extra-keys Ctrl/Alt latch (latch Ctrl, type "c" → Ctrl-C). */
-function feedText(text: string): void {
+function feedText(text: string, heldCtrl = false): void {
   const id = activeSession;
   if (!id || !text || isLocked()) return;
   let data = text;
   if (text.length === 1) {
-    const latched = consumeLatchForChar(text);
+    const latched = consumeLatchForChar(text, heldCtrl);
     if (latched !== null) data = latched;
   }
   writeToSession(id, data);
@@ -71,7 +72,7 @@ function ensureInstalled(): void {
 export function showAndroidKeyboard(sessionId: string): void {
   ensureInstalled();
   activeSession = sessionId;
-  void invoke("terminal_show_keyboard").catch(() => {});
+  void invoke("terminal_show_keyboard", { volumeCtrl: getToggle("volume-down-ctrl") }).catch(() => {});
 }
 
 /** Dismiss the native keyboard. */

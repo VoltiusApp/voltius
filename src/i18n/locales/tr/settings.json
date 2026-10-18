@@ -41,6 +41,10 @@
         "title": "Görüntüleri dosya yolu olarak yapıştır",
         "desc": "Pano bir görüntü içerdiğinde onu SSH sunucusuna yükler (~/.cache/voltius/pastes, yalnızca sahibi erişebilir, 7 gün sonra silinir) ve yolunu yapıştırır. Claude Code gibi sunucudaki araçların ekran görüntüsü eklemesini sağlar. Oradan başka bir sunucuya SSH ile geçerseniz yol bu ilk sunucuyu gösterir."
       },
+      "volumeDownCtrl": {
+        "title": "Ses kısma tuşunu Ctrl olarak kullan",
+        "desc": "Terminalde yazarken basılan tuşlara Ctrl eklemek için ses kısma tuşunu basılı tutun: ses kısma + C, Ctrl+C gönderir. Terminal dışında tuş her zamanki gibi sesi ayarlar."
+      },
       "keywordHighlight": {
         "title": "Anahtar kelime vurgulama",
         "desc": "Komut çıktısındaki “error” veya “warning” gibi kelimeleri renklendirir. Kabuk entegrasyonu olan oturumlarda çalışır.",
@@ -998,6 +1002,9 @@
       },
       "pasteImageAsPath": {
         "label": "Görüntüleri Dosya Yolu Olarak Yapıştır"
+      },
+      "volumeDownCtrl": {
+        "label": "Ses Kısma Tuşunu Ctrl Olarak Kullan"
       },
       "keywordHighlight": {
         "label": "Anahtar Kelime Vurgulama"

@@ -41,6 +41,10 @@
         "title": "Coller les images comme chemin de fichier",
         "desc": "Quand le presse-papiers contient une image, l'envoyer sur l'hôte SSH (~/.cache/voltius/pastes, accessible au seul propriétaire, supprimée après 7 jours) et coller son chemin. Permet aux outils de l'hôte comme Claude Code de joindre une capture d'écran. Si vous rebondissez en SSH depuis cet hôte, le chemin désigne ce premier hôte."
       },
+      "volumeDownCtrl": {
+        "title": "Utiliser Volume bas comme Ctrl",
+        "desc": "Dans un terminal, maintenez le bouton Volume bas pour ajouter Ctrl aux touches tapées : Volume bas + C envoie Ctrl+C. Hors d'un terminal, le bouton règle le volume comme d'habitude."
+      },
       "keywordHighlight": {
         "title": "Mise en évidence de mots-clés",
         "desc": "Colore des mots comme « error » ou « warning » dans la sortie des commandes. Fonctionne dans les sessions avec l'intégration du shell.",
@@ -1135,6 +1139,9 @@
       },
       "pasteImageAsPath": {
         "label": "Coller les images comme chemin de fichier"
+      },
+      "volumeDownCtrl": {
+        "label": "Utiliser Volume bas comme Ctrl"
       },
       "keywordHighlight": {
         "label": "Mise en évidence de mots-clés"

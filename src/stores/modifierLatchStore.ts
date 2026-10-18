@@ -21,11 +21,12 @@ export const useModifierLatchStore = create<ModifierLatchStore>((set) => ({
 /** onData interception for the soft-keyboard path: when a virtual Ctrl/Alt is latched (via the
  *  extra-keys row) and a single char is typed on the OS keyboard, return the modified bytes and
  *  consume the latch. Returns null to pass the data through unchanged (no latch, or multi-char
- *  input like IME/paste). Inert on desktop — the latch is never armed there. */
-export function consumeLatchForChar(data: string): string | null {
+ *  input like IME/paste). `heldCtrl` is a hardware modifier held for this char (Android volume
+ *  key). Inert on desktop — the latch is never armed there. */
+export function consumeLatchForChar(data: string, heldCtrl = false): string | null {
   if (data.length !== 1) return null;
   const st = useModifierLatchStore.getState();
-  const ctrl = isActive(st.ctrl), alt = isActive(st.alt);
+  const ctrl = heldCtrl || isActive(st.ctrl), alt = isActive(st.alt);
   if (!ctrl && !alt) return null;
   const out = applyLatchToChar(data, { ctrl, alt });
   st.consume();

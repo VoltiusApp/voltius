@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
+import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleDef, type ToggleId } from "@/stores/toggleSettingsStore";
+import { useIsAndroid } from "@/utils/platform";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
@@ -29,6 +30,7 @@ export function useToggleSettings(): ToggleItem[] {
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
   const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
   const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
+  const isAndroid = useIsAndroid();
 
   return useMemo<ToggleItem[]>(() => [
     {
@@ -40,7 +42,7 @@ export function useToggleSettings(): ToggleItem[] {
       value: autoUpdate,
       onToggle: setAutoUpdate,
     },
-    ...(Object.entries(TOGGLE_DEFS) as [ToggleId, typeof TOGGLE_DEFS[ToggleId]][]).map(([id, def]) => ({
+    ...(Object.entries(TOGGLE_DEFS) as [ToggleId, ToggleDef][]).filter(([, def]) => isAndroid || !def.androidOnly).map(([id, def]) => ({
       id,
       label: t(def.labelKey),
       icon: def.icon,
@@ -70,5 +72,5 @@ export function useToggleSettings(): ToggleItem[] {
         void setPluginEnabled(m.id, v);
       },
     })),
-  ], [t, values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate]);
+  ], [t, values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
 }

@@ -41,6 +41,10 @@
         "title": "Paste images as a file path",
         "desc": "When the clipboard holds an image, upload it to the SSH host (~/.cache/voltius/pastes, owner-only, pruned after 7 days) and paste its path. Lets tools on the host such as Claude Code attach a screenshot. If you SSH further from there, the path points to this first host."
       },
+      "volumeDownCtrl": {
+        "title": "Use Volume Down as Ctrl",
+        "desc": "While typing in a terminal, hold the Volume Down button to add Ctrl to the keys you press: Volume Down + C sends Ctrl+C. Outside a terminal the button changes the volume as usual."
+      },
       "keywordHighlight": {
         "title": "Keyword highlighting",
         "desc": "Color words such as “error” or “warning” in command output. Works in sessions with shell integration.",
@@ -1128,6 +1132,9 @@
       },
       "pasteImageAsPath": {
         "label": "Paste Images as a File Path"
+      },
+      "volumeDownCtrl": {
+        "label": "Use Volume Down as Ctrl"
       },
       "keywordHighlight": {
         "label": "Keyword Highlighting"
