@@ -14,13 +14,17 @@ use uuid::Uuid;
 
 impl_vault_object!(Connection, "Connection");
 
+fn non_empty(s: String) -> Option<String> {
+    (!s.is_empty()).then_some(s)
+}
+
 /// Builds an updated `Connection` by applying `data` on top of `existing`.
 ///
 /// Using a struct literal here is intentional: the compiler will flag any newly
 /// added `Connection` field that isn't handled, preventing the class of bug
 /// where a field is silently dropped on update.
 ///
-/// `distro` / `icon` use "keep existing if not provided" semantics.
+/// `distro` / `icon` use "keep existing if not provided" semantics; an empty `icon` clears it.
 /// `vault_id` falls back to the existing vault when absent from the form.
 fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -> Connection {
     let vault_id = data.vault_id.unwrap_or_else(|| existing.vault_id.clone());
@@ -47,7 +51,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         ask_vars_each_time: data.ask_vars_each_time,
         terminal_encoding: data.terminal_encoding,
         distro: data.distro.or_else(|| existing.distro.clone()),
-        icon: data.icon.or_else(|| existing.icon.clone()),
+        icon: data.icon.map_or_else(|| existing.icon.clone(), non_empty),
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
         shell_integration: data.shell_integration,
@@ -170,7 +174,7 @@ fn build_connection(
         created_at: created_at.unwrap_or_else(|| now.clone()),
         last_used_at,
         distro: data.distro,
-        icon: data.icon,
+        icon: data.icon.and_then(non_empty),
         identity_id: data.identity_id,
         key_id: data.key_id,
         folder_id: data.folder_id,
@@ -274,12 +278,16 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
 }
 
 #[tauri::command]
-pub fn connection_set_distro(id: String, distro: String) -> Result<(), String> {
+pub fn connection_set_distro(id: String, distro: String, clear_icon: bool) -> Result<(), String> {
     let mut connections = load_connections()?;
     let conn = find_mut(&mut connections, &id)?;
     let now = Utc::now().to_rfc3339();
     conn.distro = Some(distro);
     conn.clocks.insert("distro".to_string(), now.clone());
+    if clear_icon {
+        conn.icon = None;
+        conn.clocks.insert("icon".to_string(), now.clone());
+    }
     conn.updated_at = max_clock(&conn.clocks, &now);
     save_connections(&connections)
 }
@@ -477,6 +485,14 @@ mod tests {
         let merged = merge_form_into_connection(&existing, form);
         assert_eq!(merged.distro, Some("ubuntu".to_string()));
         assert_eq!(merged.icon, Some("server".to_string()));
+    }
+
+    #[test]
+    fn merge_clears_icon_when_form_sends_empty() {
+        let mut form = sample_form();
+        form.icon = Some(String::new());
+        let merged = merge_form_into_connection(&sample_connection(), form);
+        assert_eq!(merged.icon, None);
     }
 
     #[test]

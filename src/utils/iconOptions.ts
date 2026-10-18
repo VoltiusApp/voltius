@@ -21,6 +21,8 @@ export const CONNECTION_ICON_OPTIONS = [
   { group: "OS", id: "raspbian", label: "Raspberry Pi" },
   { group: "OS", id: "linux", label: "Linux" },
   { group: "OS", id: "proxmox", label: "Proxmox" },
+  { group: "OS", id: "windows", label: "Windows" },
+  { group: "OS", id: "routeros", label: "MikroTik" },
   { group: "Services", id: "docker", label: "Docker" },
   { group: "Services", id: "nginx", label: "Nginx" },
   { group: "Services", id: "apache", label: "Apache" },

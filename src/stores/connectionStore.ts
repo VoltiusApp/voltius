@@ -17,6 +17,16 @@ import { managedOwnedOf } from "@/stores/sshConfigStore";
 import { keepOwned } from "@/services/sshConfig/hostFields";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
+/** "linux" is detection's fallback for an unrecognised OS, so it never replaces a saved distro. */
+export function detectionChangesDistro(saved: string | undefined, detected: string): boolean {
+  return saved !== detected && !(saved && detected === "linux");
+}
+
+/** A user-picked icon. One equal to the distro was copied from it (older builds did), so it follows the distro. */
+export function iconIsOverride(c: Pick<Connection, "icon" | "distro">): boolean {
+  return !!c.icon && c.icon !== c.distro;
+}
+
 /**
  * Canonical Connection → ConnectionFormData mapper. Exhaustive against every
  * field of ConnectionFormData so a full edit payload can be rebuilt from an
@@ -62,7 +72,7 @@ export function connectionFromForm(
     tags: data.tags ?? prev?.tags ?? [],
     vault_id: data.vault_id ?? prev?.vault_id ?? "personal",
     distro: data.distro ?? prev?.distro,
-    icon: data.icon ?? prev?.icon,
+    icon: data.icon === "" ? undefined : (data.icon ?? prev?.icon),
     pinned: base.pinned ?? data.pinned,
     connection_type: data.connection_type ?? prev?.connection_type,
     serial_port: data.serial_port ?? prev?.serial_port,
@@ -94,7 +104,7 @@ interface ConnectionStore {
   saveConnection: (data: ConnectionFormData) => Promise<Connection>;
   updateConnection: (id: string, data: ConnectionFormData) => Promise<void>;
   deleteConnection: (id: string) => Promise<void>;
-  setDistro: (id: string, distro: string) => Promise<void>;
+  setDistro: (id: string, distro: string, opts?: { detected?: boolean }) => Promise<void>;
   setLastUsed: (id: string) => Promise<void>;
   renameTag: (oldName: string, newName: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
@@ -255,30 +265,23 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     }
   },
 
-  setDistro: async (id, distro) => {
+  setDistro: async (id, distro, opts) => {
     const teamEntry = findTeamEntry(get().teamConnections, id);
+    const prev = teamEntry?.item ?? get().connections.find((c) => c.id === id);
+    if (opts?.detected && !detectionChangesDistro(prev?.distro, distro)) return;
+    const clearIcon = !!prev?.icon && !iconIsOverride(prev);
+    const patch: Partial<Connection> = clearIcon ? { distro, icon: undefined } : { distro };
     if (teamEntry) {
-      const { teamId, item: prev } = teamEntry;
-      const updated = await saveStampedTeamObject(teamId, "connection", prev, { distro });
-      set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamId, updated) }));
-      const prevDistro = prev.distro ?? "";
-      useHistoryStore.getState().push({
-        label: `Changed distro for "${prev.name ?? prev.host}"`,
-        undo: async () => { await useConnectionStore.getState().setDistro(id, prevDistro); },
-        redo: async () => { await useConnectionStore.getState().setDistro(id, distro); },
-      });
-      return;
+      const updated = await saveStampedTeamObject(teamEntry.teamId, "connection", teamEntry.item, patch);
+      set((s) => ({ teamConnections: upsertInTeamMap(s.teamConnections, teamEntry.teamId, updated) }));
+    } else {
+      await api.setConnectionDistro(id, distro, clearIcon);
+      set((s) => ({
+        connections: s.connections.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      }));
+      const prefs = useSyncPrefsStore.getState();
+      isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     }
-
-    const prev = get().connections.find((c) => c.id === id);
-    await api.setConnectionDistro(id, distro);
-    set((s) => ({
-      connections: s.connections.map((c) =>
-        c.id === id ? { ...c, distro } : c,
-      ),
-    }));
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) {
       const prevDistro = prev.distro ?? "";
       useHistoryStore.getState().push({

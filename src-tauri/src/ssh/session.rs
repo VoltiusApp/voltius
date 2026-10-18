@@ -136,36 +136,8 @@ impl SessionManager {
     }
 
     pub async fn detect_distro(&self, id: &str) -> Result<String, String> {
-        let text = self
-            .get_machine(id)
-            .await?
-            .stdout("{ cat /etc/os-release 2>/dev/null || echo 'ID=linux'; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true", Duration::from_secs(5))
-            .await?;
-        let mut id_value = String::new();
-        let mut is_proxmox = false;
-        let mut is_pbs = false;
-        for line in text.lines() {
-            if let Some(rest) = line.strip_prefix("ID=") {
-                id_value = rest.trim().trim_matches('"').to_lowercase();
-            } else if line.trim() == "PROXMOX_VE=1" {
-                is_proxmox = true;
-            } else if line.trim() == "PBS_DETECTED=1" {
-                is_pbs = true;
-            }
-        }
-
-        if is_proxmox {
-            return Ok("proxmox".to_string());
-        }
-        if is_pbs {
-            return Ok("pbs".to_string());
-        }
-
-        if !id_value.is_empty() {
-            return Ok(normalize_distro(&id_value));
-        }
-
-        Ok("linux".to_string())
+        let platform = self.with_session(id, |s| s.platform).await?;
+        detect_distro(&self.get_machine(id).await?, platform).await
     }
 
     pub async fn get_system_info(&self, id: &str) -> Result<SystemInfo, String> {
@@ -300,6 +272,39 @@ impl SessionManager {
     }
 }
 
+/// `platform` (from the SSH banner) wins: Windows and RouterOS have no `/etc/os-release` to read.
+pub async fn detect_distro(machine: &Machine, platform: Option<&str>) -> Result<String, String> {
+    if let Some(platform) = platform {
+        return Ok(platform.to_string());
+    }
+    let text = machine
+        .stdout("{ cat /etc/os-release 2>/dev/null || echo 'ID=linux'; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true", Duration::from_secs(5))
+        .await?;
+    Ok(parse_distro(&text))
+}
+
+fn parse_distro(text: &str) -> String {
+    let mut id_value = String::new();
+    let mut is_proxmox = false;
+    let mut is_pbs = false;
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("ID=") {
+            id_value = rest.trim().trim_matches('"').to_lowercase();
+        } else if line.trim() == "PROXMOX_VE=1" {
+            is_proxmox = true;
+        } else if line.trim() == "PBS_DETECTED=1" {
+            is_pbs = true;
+        }
+    }
+    if is_proxmox {
+        "proxmox".to_string()
+    } else if is_pbs {
+        "pbs".to_string()
+    } else {
+        normalize_distro(&id_value)
+    }
+}
+
 fn normalize_distro(id: &str) -> String {
     match id {
         "ubuntu" => "ubuntu",
@@ -329,7 +334,16 @@ fn normalize_distro(id: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::SessionManager;
+    use super::{parse_distro, SessionManager};
+
+    #[test]
+    fn parse_distro_reads_os_release_and_proxmox_markers() {
+        assert_eq!(parse_distro("NAME=\"Debian\"\nID=debian\n"), "debian");
+        assert_eq!(parse_distro("ID=\"ubuntu\"\n"), "ubuntu");
+        assert_eq!(parse_distro("ID=debian\nPROXMOX_VE=1\n"), "proxmox");
+        assert_eq!(parse_distro("ID=debian\nPBS_DETECTED=1\n"), "pbs");
+        assert_eq!(parse_distro(""), "linux");
+    }
 
     #[tokio::test]
     async fn ping_unknown_session_returns_none() {

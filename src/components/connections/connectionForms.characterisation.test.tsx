@@ -116,7 +116,7 @@ vi.mock("@/hooks/useWritableVaultIds", () => ({
   resolveVaultIdForSave: (v: string) => v,
 }));
 vi.mock("@/services/vault", () => ({ getSecret: vi.fn(async () => null) }));
-vi.mock("@/services/ssh", () => ({ sshExecCommand: vi.fn(async () => "ID=debian") }));
+vi.mock("@/services/ssh", () => ({ sshDetectDistroDirect: vi.fn(async () => "debian") }));
 vi.mock("@/services/serial", () => ({ serialListPorts: () => h.serialListPorts() }));
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: () => ({}) }));
 vi.mock("@/services/auditReporter", () => ({ reportAuditClientEvent: vi.fn() }));

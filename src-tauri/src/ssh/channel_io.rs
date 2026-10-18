@@ -224,6 +224,7 @@ pub async fn open_exec_session(
                     std::collections::HashMap::new(),
                 )),
                 machine: inside,
+                platform: None,
             },
         )
         .await;

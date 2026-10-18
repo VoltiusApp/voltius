@@ -641,7 +641,7 @@ mod live {
                 &route,
             );
             match attempt.await {
-                Ok(h) => return h,
+                Ok((h, _)) => return h,
                 Err(e) => assert!(Instant::now() < deadline, "{e}"),
             }
             tokio::time::sleep(Duration::from_millis(500)).await;

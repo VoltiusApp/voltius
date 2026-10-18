@@ -26,8 +26,8 @@ export async function deleteConnection(id: string): Promise<void> {
   return invoke("connection_delete", { id });
 }
 
-export async function setConnectionDistro(id: string, distro: string): Promise<void> {
-  return invoke("connection_set_distro", { id, distro });
+export async function setConnectionDistro(id: string, distro: string, clearIcon: boolean): Promise<void> {
+  return invoke("connection_set_distro", { id, distro, clearIcon });
 }
 
 export async function setConnectionLastUsed(id: string): Promise<void> {

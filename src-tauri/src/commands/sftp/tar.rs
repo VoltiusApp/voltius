@@ -1085,7 +1085,7 @@ mod tests {
                     &route,
                 );
                 match attempt.await {
-                    Ok(h) => break h,
+                    Ok((h, _)) => break h,
                     Err(e) => assert!(Instant::now() < deadline, "{}: {e}", c.0),
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
