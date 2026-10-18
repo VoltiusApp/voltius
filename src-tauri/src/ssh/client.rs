@@ -611,15 +611,13 @@ const CONNECT_RETRY_BACKOFF_MS: u64 = 300;
 pub(crate) fn platform_from_sshid(sshid: &[u8]) -> Option<&'static str> {
     let id = String::from_utf8_lossy(sshid).to_ascii_lowercase();
     if id.contains("windows") {
-        Some(WINDOWS)
+        Some("windows")
     } else if id.contains("rosssh") {
         Some("routeros")
     } else {
         None
     }
 }
-
-const WINDOWS: &str = "windows";
 
 async fn platform_of(sshid: &Mutex<Option<Vec<u8>>>) -> Option<&'static str> {
     sshid.lock().await.as_deref().and_then(platform_from_sshid)
@@ -1023,16 +1021,12 @@ pub async fn connect(
     )
     .await?;
 
-    // Windows OpenSSH has no POSIX `sh`/`base64`/`tmux`, so the shell-integration
-    // and persistence exec bootstraps (and the `export` env injection below) can't
-    // run there and leave a connected-but-blank terminal. Detect it from the SSH
-    // banner captured in `kex_done` and fall back to a plain interactive shell,
-    // which Windows serves fine over ConPTY.
+    // The bootstraps and env injection below are POSIX shell; without one they leave a blank terminal.
     let platform = platform_of(&final_sshid).await;
-    let remote_is_windows = platform == Some(WINDOWS);
-    let shell_integration = shell_integration && !remote_is_windows;
-    let persist = persist && !remote_is_windows;
-    let restore = restore && !remote_is_windows;
+    let posix_shell = platform.is_none();
+    let shell_integration = shell_integration && posix_shell;
+    let persist = persist && posix_shell;
+    let restore = restore && posix_shell;
 
     // Attach-only (reconnect/join): verify the multiplexer session still exists
     // before attaching — attaching never creates, so a dead session must fail
@@ -1179,10 +1173,8 @@ pub async fn connect(
 
     let (read_half, write_half) = channel.split();
 
-    // `export KEY=val` is POSIX syntax; on a Windows cmd.exe/PowerShell shell it
-    // would just echo errors, so skip it there (see `remote_is_windows`).
     let mut startup = String::new();
-    if !remote_is_windows {
+    if posix_shell {
         for (key, value) in &env_vars {
             startup.push_str(&format!("export {}={}\n", key, shell_escape(value)));
         }
