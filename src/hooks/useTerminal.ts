@@ -1,6 +1,6 @@
 import { activateTerminal, disposeClosedTerminals, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useCallback } from "react";
-import { Terminal, type IBufferCell, type IBufferRange, type IDisposable } from "@xterm/xterm";
+import { Terminal, type IBufferCell, type IBufferLine, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { claimWebglRenderer } from "@/utils/webglAddon";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -515,12 +515,11 @@ export interface TerminalApi {
   screenEl(): HTMLElement | null;
   /** Rendered text of an absolute buffer line (trimmed-right false). */
   lineText(line: number): string;
-  select(col: number, line: number, len: number): void;
-  selectLines(start: number, end: number): void;
-  selectAll(): void;
-  clearSelection(): void;
-  getSelection(): string;
-  getSelectionPosition(): IBufferRange | undefined;
+  bufferLength(): number;
+  line(i: number): IBufferLine | undefined;
+  font(): { family: string; size: number };
+  scrollToLine(line: number): void;
+  mouseMode(): boolean;
   paste(text: string): void;
 }
 
@@ -543,12 +542,11 @@ export function getTerminalApi(sessionId: string): TerminalApi | null {
     viewportTop: () => term.buffer.active.viewportY,
     screenEl: () => term.element?.querySelector<HTMLElement>(".xterm-screen") ?? null,
     lineText: (line) => term.buffer.active.getLine(line)?.translateToString(false) ?? "",
-    select: (col, line, len) => term.select(col, line, len),
-    selectLines: (start, end) => term.selectLines(start, end),
-    selectAll: () => term.selectAll(),
-    clearSelection: () => term.clearSelection(),
-    getSelection: () => term.getSelection(),
-    getSelectionPosition: () => term.getSelectionPosition(),
+    bufferLength: () => term.buffer.active.length,
+    line: (i) => term.buffer.active.getLine(i),
+    font: () => ({ family: term.options.fontFamily ?? "monospace", size: term.options.fontSize ?? 14 }),
+    scrollToLine: (line) => term.scrollToLine(line),
+    mouseMode: () => term.modes.mouseTrackingMode !== "none",
     paste: (text) => term.paste(text),
   };
 }

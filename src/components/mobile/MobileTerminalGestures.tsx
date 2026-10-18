@@ -10,15 +10,11 @@ import {
   fontSizeFromPinch,
   linesFromPixelDelta,
   touchDistance,
-  wordRangeAt,
   isBlankCell,
-  extendSelection,
-  selectionLength,
-  cellPixel,
-  type Cell,
   type CellMetrics,
 } from "./mobileTerminalGesturesCore";
-import { writeClipboard, readClipboard } from "@/utils/clipboard";
+import { createNativeSelection } from "./nativeSelectionOverlay";
+import { readClipboard } from "@/utils/clipboard";
 import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 
@@ -26,41 +22,30 @@ const LONG_PRESS_MS = 380;
 const MOVE_THRESHOLD_PX = 10;
 const DOUBLE_TAP = { ms: 300, px: 24 };
 
-type Phase = "idle" | "pending" | "scrolling" | "selecting" | "pinching" | "draggingHandle";
-
-type HandlePositions = { start: { x: number; y: number }; end: { x: number; y: number } };
+type Phase = "idle" | "pending" | "scrolling" | "native" | "pinching";
 
 /**
  * Mobile-only unified terminal gesture layer. One-finger immediate drag scrolls;
- * a long-press selects (on text) or pastes (on blank). Double-tap sends Tab.
- * Two fingers pinch the terminal font size (#159), which is the only text on a
- * phone that has to stay readable independently of the surrounding UI.
- * Single taps pass through to xterm (focus → keyboard). Attaches capture-phase
- * touch listeners to the terminal container so it can pre-empt xterm's own
- * synthesized mouse handling for consumed gestures.
+ * a long-press on text hands off to the WebView's native selection, on blank it offers Paste.
+ * Double-tap sends Tab, two fingers pinch the font size (#159). Single taps pass through to xterm.
  */
 export default function MobileTerminalGestures({ sessionId, active }: { sessionId: string; active: boolean }) {
   const { t } = useTranslation();
   const isAndroid = useIsAndroid();
   const rootRef = useRef<HTMLDivElement>(null);
   const [hintKey, setHintKey] = useState(0);
-  const [toolbar, setToolbar] = useState<{ x: number; y: number; mode: "select" | "paste" } | null>(null);
-  const [handles, setHandles] = useState<HandlePositions | null>(null);
-  const toolbarOpen = useRef(false);
-  const anchorStart = useRef<Cell | null>(null);
-  const anchorEnd = useRef<Cell | null>(null);
+  const [paste, setPaste] = useState<{ x: number; y: number } | null>(null);
+  const pasteOpen = useRef(false);
 
-  // Gesture state (refs — never trigger re-render mid-gesture).
   const phase = useRef<Phase>("idle");
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
+  const onText = useRef(false);
   const lastY = useRef(0);
   const carry = useRef(0);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   const lastTap = useRef<TapPoint | null>(null);
   const pinch = useRef<{ dist: number; size: number } | null>(null);
-  const dragHandle = useRef<"start" | "end" | null>(null);
-  const dragFixed = useRef<Cell | null>(null);
 
   const metrics = (): CellMetrics | null => {
     const api = getTerminalApi(sessionId);
@@ -81,95 +66,41 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
   };
 
-  /** Re-derives the toolbar and both drag handles from xterm's own settled selection. */
-  const refreshSelectionUI = () => {
-    const api = getTerminalApi(sessionId);
-    const m = metrics();
-    const pos = api?.getSelectionPosition();
-    if (!api || !m || !pos) { setHandles(null); return; }
-    const root = rootRef.current?.getBoundingClientRect();
-    const rx = root?.left ?? 0;
-    const ry = root?.top ?? 0;
-    const startPx = cellPixel(m, { col: pos.start.x, line: pos.start.y }, 0);
-    const endPx = cellPixel(m, { col: pos.end.x, line: pos.end.y }, 1);
-    setHandles({
-      start: { x: startPx.x - rx, y: startPx.y - ry + m.cellHeight },
-      end: { x: endPx.x - rx, y: endPx.y - ry + m.cellHeight },
-    });
-    setToolbar({ x: startPx.x - rx, y: startPx.y - ry, mode: "select" });
-  };
-
   useEffect(() => {
     if (!active) return;
-    const container = rootRef.current?.parentElement;
-    if (!container) return;
+    const root = rootRef.current;
+    const container = root?.parentElement;
+    if (!root || !container) return;
+    const sel = createNativeSelection(root, () => getTerminalApi(sessionId));
 
     const clearLongPress = () => {
       if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
     };
 
-    const closeToolbar = () => {
-      setToolbar(null);
-      setHandles(null);
-      anchorStart.current = null;
-      anchorEnd.current = null;
-    };
-
     const showPaste = (x: number, y: number) => {
-      const root = rootRef.current?.getBoundingClientRect();
-      setToolbar({ x: x - (root?.left ?? 0), y: y - (root?.top ?? 0), mode: "paste" });
-    };
-
-    const onLongPress = (x: number, y: number) => {
-      const api = getTerminalApi(sessionId);
-      const m = metrics();
-      if (!api || !m) return;
-      const cell = cellFromPoint(m, x, y);
-      const text = api.lineText(cell.line);
-      if (isBlankCell(text, cell.col)) {
-        showPaste(x, y);
-        return;
-      }
-      const word = wordRangeAt(text, cell.col);
-      if (word.len === 0) { showPaste(x, y); return; }
-      phase.current = "selecting";
-      anchorStart.current = { col: word.startCol, line: cell.line };
-      anchorEnd.current = { col: word.startCol + word.len - 1, line: cell.line };
-      api.select(word.startCol, cell.line, word.len);
+      const r = rootRef.current?.getBoundingClientRect();
+      setPaste({ x: x - (r?.left ?? 0), y: y - (r?.top ?? 0) });
     };
 
     const reset = () => {
       phase.current = "idle";
       pinch.current = null;
       start.current = null;
+      onText.current = false;
       carry.current = 0;
       longPressFired.current = false;
-      dragHandle.current = null;
-      dragFixed.current = null;
       clearLongPress();
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      const handleEl = (e.target as Element | null)?.closest("[data-selection-handle]") as HTMLElement | null;
-      if (handleEl) {
-        const api = getTerminalApi(sessionId);
-        const pos = api?.getSelectionPosition();
-        if (!pos) return;
-        const which = handleEl.dataset.selectionHandle as "start" | "end";
-        dragHandle.current = which;
-        dragFixed.current = which === "start" ? { col: pos.end.x, line: pos.end.y } : { col: pos.start.x, line: pos.start.y };
-        phase.current = "draggingHandle";
-        setToolbar(null);
-        return;
-      }
-      if (toolbarOpen.current) {
-        const target = e.target as Element | null;
-        if (target?.closest("[data-mobile-term-toolbar]")) return; // let the toolbar button handle its own tap
-        getTerminalApi(sessionId)?.clearSelection();
-        closeToolbar();
+      if (sel.isSelecting()) { reset(); return; }
+      if (pasteOpen.current) {
+        if ((e.target as Element | null)?.closest("[data-mobile-term-toolbar]")) return;
+        setPaste(null);
       }
       if (e.touches.length === 2) {
         clearLongPress();
+        sel.disarm();
         longPressFired.current = false;
         phase.current = "pinching";
         pinch.current = {
@@ -178,37 +109,35 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         };
         return;
       }
-      if (e.touches.length !== 1) { reset(); return; }
+      if (e.touches.length !== 1) { sel.disarm(); reset(); return; }
       const t = e.touches[0];
       start.current = { x: t.clientX, y: t.clientY, t: e.timeStamp };
       lastY.current = t.clientY;
       carry.current = 0;
       longPressFired.current = false;
       phase.current = "pending";
+      const api = getTerminalApi(sessionId);
+      const m = metrics();
+      const cell = m ? cellFromPoint(m, t.clientX, t.clientY) : null;
+      onText.current = !!api && !!cell && !isBlankCell(api.lineText(cell.line), cell.col);
+      // Mouse-reporting apps need short taps on the canvas, so arm only once the press is long.
+      if (onText.current && !api?.mouseMode()) sel.arm();
       clearLongPress();
       longPressTimer.current = setTimeout(() => {
         longPressTimer.current = null;
         if (phase.current !== "pending" || !start.current) return;
         longPressFired.current = true;
-        onLongPress(start.current.x, start.current.y);
+        if (onText.current) {
+          phase.current = "native";
+          sel.arm();
+        } else {
+          showPaste(start.current.x, start.current.y);
+        }
       }, LONG_PRESS_MS);
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (phase.current === "draggingHandle") {
-        e.preventDefault();
-        const m = metrics();
-        const api = getTerminalApi(sessionId);
-        const t = e.touches[0];
-        if (!m || !api || !dragFixed.current || !t) return;
-        const focus = cellFromPoint(m, t.clientX, t.clientY);
-        const sel = extendSelection(dragFixed.current, dragFixed.current, focus);
-        api.select(sel.start.col, sel.start.line, selectionLength(sel.start, sel.end, m.cols));
-        const root = rootRef.current?.getBoundingClientRect();
-        const live = { x: t.clientX - (root?.left ?? 0), y: t.clientY - (root?.top ?? 0) };
-        setHandles((h) => (h ? { ...h, [dragHandle.current!]: live } : h));
-        return;
-      }
+      if (phase.current === "native" || sel.isSelecting()) return;
       if (phase.current === "pinching") {
         const p = pinch.current;
         if (!p || e.touches.length < 2) return;
@@ -231,14 +160,11 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       if (!s || !t) return;
 
       if (phase.current === "pending") {
-        const moved = Math.hypot(t.clientX - s.x, t.clientY - s.y);
-        if (moved > MOVE_THRESHOLD_PX) {
-          clearLongPress();
-          phase.current = "scrolling";
-          lastY.current = t.clientY;
-        } else {
-          return;
-        }
+        if (Math.hypot(t.clientX - s.x, t.clientY - s.y) <= MOVE_THRESHOLD_PX) return;
+        clearLongPress();
+        sel.disarm();
+        phase.current = "scrolling";
+        lastY.current = t.clientY;
       }
 
       if (phase.current === "scrolling") {
@@ -251,25 +177,15 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         carry.current = acc.carry;
         if (acc.lines !== 0) getTerminalApi(sessionId)?.scrollLines(-acc.lines);
       }
-      if (phase.current === "selecting") {
-        e.preventDefault();
-        const m = metrics();
-        const api = getTerminalApi(sessionId);
-        if (!m || !api || !anchorStart.current || !anchorEnd.current) return;
-        const focus = cellFromPoint(m, t.clientX, t.clientY);
-        const sel = extendSelection(anchorStart.current, anchorEnd.current, focus);
-        api.select(sel.start.col, sel.start.line, selectionLength(sel.start, sel.end, m.cols));
-      }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
       clearLongPress();
       const wasPhase = phase.current;
 
-      if (wasPhase === "draggingHandle") {
-        e.preventDefault();
+      if (wasPhase === "native" || sel.isSelecting()) {
+        sel.disarm();
         reset();
-        refreshSelectionUI();
         return;
       }
 
@@ -280,22 +196,16 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         return;
       }
 
-      if (longPressFired.current) {
+      if (longPressFired.current || wasPhase === "scrolling") {
         e.preventDefault();
-        e.stopPropagation();
-        if (wasPhase === "selecting") refreshSelectionUI();
+        if (longPressFired.current) e.stopPropagation();
         reset();
         return;
       }
 
-      if (wasPhase === "scrolling") {
-        e.preventDefault();
-        reset();
-        return;
-      }
-
+      // Drop the overlay before the tap's click is dispatched so it lands on xterm.
+      sel.disarm();
       if (wasPhase === "pending") {
-        // No movement, no long-press → a tap. Check double-tap → Tab.
         const t = e.changedTouches[0];
         if (t) {
           const now: TapPoint = { t: e.timeStamp, x: t.clientX, y: t.clientY };
@@ -318,7 +228,10 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       reset();
     };
 
-    const onTouchCancel = () => reset();
+    const onTouchCancel = () => {
+      sel.disarm();
+      reset();
+    };
 
     const opts: AddEventListenerOptions = { capture: true, passive: false };
     container.addEventListener("touchstart", onTouchStart, opts);
@@ -333,8 +246,8 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       container.removeEventListener("touchcancel", onTouchCancel, rm);
       clearLongPress();
       lastTap.current = null;
-      getTerminalApi(sessionId)?.clearSelection();
-      closeToolbar();
+      sel.dispose();
+      setPaste(null);
     };
   }, [active, sessionId, isAndroid]);
 
@@ -349,7 +262,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     return () => { hideAndroidKeyboard(); };
   }, [active, sessionId, isAndroid]);
 
-  useEffect(() => { toolbarOpen.current = toolbar !== null; }, [toolbar]);
+  useEffect(() => { pasteOpen.current = paste !== null; }, [paste]);
 
   return (
     <div ref={rootRef} className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
@@ -367,43 +280,13 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
           Tab
         </span>
       )}
-      {handles && (
-        <>
-          {(["start", "end"] as const).map((which) => (
-            <div
-              key={which}
-              data-selection-handle={which}
-              className="absolute pointer-events-auto"
-              style={{
-                left: `${handles[which].x}px`,
-                top: `${handles[which].y}px`,
-                width: 32,
-                height: 32,
-                transform: "translate(-50%, 0)",
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-            >
-              <div
-                style={{
-                  width: 18,
-                  height: 18,
-                  margin: "0 auto",
-                  background: "var(--t-accent)",
-                  borderRadius: "50% 50% 50% 0",
-                  transform: "rotate(135deg)",
-                }}
-              />
-            </div>
-          ))}
-        </>
-      )}
-      {toolbar && (
+      {paste && (
         <div
           data-mobile-term-toolbar
           className="absolute pointer-events-auto flex items-center gap-1 rounded-lg p-1"
           style={{
-            left: `${Math.max(8, Math.min(toolbar.x, window.innerWidth - 160))}px`,
-            top: `${Math.max(8, toolbar.y - 44)}px`,
+            left: `${Math.max(8, Math.min(paste.x, window.innerWidth - 160))}px`,
+            top: `${Math.max(8, paste.y - 44)}px`,
             background: "var(--t-bg-modal)",
             border: "1px solid var(--t-border-hover)",
             boxShadow: "var(--t-elev-2)",
@@ -411,35 +294,6 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
           onMouseDown={(e) => e.preventDefault()}
           onTouchStart={(e) => e.preventDefault()}
         >
-          {toolbar.mode === "select" && (
-            <>
-              <button
-                data-toolbar-copy
-                className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
-                onClick={() => {
-                  const sel = getTerminalApi(sessionId)?.getSelection();
-                  if (sel) void writeClipboard(sel);
-                  getTerminalApi(sessionId)?.clearSelection();
-                  setToolbar(null);
-                  setHandles(null);
-                  anchorStart.current = null;
-                  anchorEnd.current = null;
-                }}
-              >
-                {t("common.action.copy")}
-              </button>
-              <button
-                data-toolbar-selectall
-                className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
-                onClick={() => {
-                  getTerminalApi(sessionId)?.selectAll();
-                  refreshSelectionUI();
-                }}
-              >
-                {t("mobile.terminalGestures.selectAll")}
-              </button>
-            </>
-          )}
           <button
             data-toolbar-paste
             className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
@@ -447,11 +301,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
               void readClipboard().then((text) => {
                 if (text) getTerminalApi(sessionId)?.paste(text);
               });
-              getTerminalApi(sessionId)?.clearSelection();
-              setToolbar(null);
-              setHandles(null);
-              anchorStart.current = null;
-              anchorEnd.current = null;
+              setPaste(null);
             }}
           >
             {t("mobile.terminalGestures.paste")}

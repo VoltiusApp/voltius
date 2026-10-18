@@ -27,16 +27,6 @@ export function cellFromPoint(m: CellMetrics, x: number, y: number): Cell {
 
 const isSpace = (ch: string | undefined) => !ch || /\s/.test(ch);
 
-/** Maximal run of non-whitespace around `col`. Zero-length when `col` is whitespace/past end. */
-export function wordRangeAt(lineText: string, col: number): { startCol: number; len: number } {
-  if (isSpace(lineText[col])) return { startCol: col, len: 0 };
-  let start = col;
-  while (start > 0 && !isSpace(lineText[start - 1])) start -= 1;
-  let end = col;
-  while (end < lineText.length - 1 && !isSpace(lineText[end + 1])) end += 1;
-  return { startCol: start, len: end - start + 1 };
-}
-
 /** A cell is "blank" when it is whitespace or past the end of the rendered line text. */
 export function isBlankCell(lineText: string, col: number): boolean {
   return isSpace(lineText[col]);
@@ -51,30 +41,6 @@ export function linesFromPixelDelta(
   const total = carry + dy / cellHeight;
   const lines = Math.trunc(total);
   return { lines, carry: total - lines };
-}
-
-export type Selection = { start: Cell; end: Cell };
-
-const isBefore = (a: Cell, b: Cell) => a.line < b.line || (a.line === b.line && a.col < b.col);
-const minCell = (a: Cell, b: Cell) => (isBefore(a, b) ? a : b);
-const maxCell = (a: Cell, b: Cell) => (isBefore(a, b) ? b : a);
-
-/** Extend a selection seeded by [anchorStart..anchorEnd] out to `focus`, char-precise across lines. */
-export function extendSelection(anchorStart: Cell, anchorEnd: Cell, focus: Cell): Selection {
-  return { start: minCell(anchorStart, focus), end: maxCell(anchorEnd, focus) };
-}
-
-/** Char count `term.select(col, row, length)` needs to cover [start..end] inclusive, given terminal width. */
-export function selectionLength(start: Cell, end: Cell, cols: number): number {
-  return (end.line - start.line) * cols + (end.col - start.col) + 1;
-}
-
-/** Client-coord point at a cell's left (colOffset 0) or right (colOffset 1) edge. */
-export function cellPixel(m: CellMetrics, cell: Cell, colOffset: 0 | 1): { x: number; y: number } {
-  return {
-    x: m.left + (cell.col + colOffset) * m.cellWidth,
-    y: m.top + (cell.line - m.viewportTop) * m.cellHeight,
-  };
 }
 
 /** Distance between the first two touch points of a gesture. */
