@@ -68,16 +68,21 @@ object TerminalKeyboard {
     }
   }
 
-  /** JS asked to dismiss the keyboard (terminal blurred / session closed). */
+  /** JS asked to dismiss the keyboard (terminal blurred / session closed). [focusWebView] hands
+   *  Android focus back to the WebView, which its native text selection needs to show handles. */
   @JvmStatic
-  fun hide() {
+  fun hide(focusWebView: Boolean) {
     val view = inputView ?: return
     view.post {
       volumeCtrlHeld = false
       val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
       imm?.hideSoftInputFromWindow(view.windowToken, 0)
       view.clearFocus()
-      webView?.let { it.isFocusable = true; it.isFocusableInTouchMode = true }
+      webView?.let {
+        it.isFocusable = true
+        it.isFocusableInTouchMode = true
+        if (focusWebView) it.requestFocus()
+      }
     }
   }
 

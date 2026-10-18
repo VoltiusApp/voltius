@@ -513,8 +513,6 @@ export interface TerminalApi {
   viewportTop(): number;
   /** The live `.xterm-screen` element (for cell-metric measurement), or null. */
   screenEl(): HTMLElement | null;
-  /** Rendered text of an absolute buffer line (trimmed-right false). */
-  lineText(line: number): string;
   bufferLength(): number;
   line(i: number): IBufferLine | undefined;
   font(): { family: string; size: number };
@@ -541,7 +539,6 @@ export function getTerminalApi(sessionId: string): TerminalApi | null {
     rows: () => term.rows,
     viewportTop: () => term.buffer.active.viewportY,
     screenEl: () => term.element?.querySelector<HTMLElement>(".xterm-screen") ?? null,
-    lineText: (line) => term.buffer.active.getLine(line)?.translateToString(false) ?? "",
     bufferLength: () => term.buffer.active.length,
     line: (i) => term.buffer.active.getLine(i),
     font: () => ({ family: term.options.fontFamily ?? "monospace", size: term.options.fontSize ?? 14 }),

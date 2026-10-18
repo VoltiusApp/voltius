@@ -1,4 +1,4 @@
-import { segmentsEnd, segmentsForLine, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
+import { edgeLine, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
 
 export interface OverlayTerm {
   rows(): number;
@@ -14,11 +14,14 @@ export interface OverlayTerm {
 export interface NativeSelection {
   arm(): void;
   disarm(): void;
+  /** Whether a client point lands on rendered text; only meaningful while armed. */
+  hitsText(x: number, y: number): boolean;
   isSelecting(): boolean;
   dispose(): void;
 }
 
 const SCROLLBACK_LINES = 1000;
+const AUTOSCROLL_MS = 45;
 
 export function renderLine(
   doc: Document,
@@ -111,6 +114,9 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
   let last = 0;
   let cellW = 0;
   let cellH = 0;
+  let screenSize = "";
+  let shift = 0;
+  let lastAutoscroll = 0;
   let isUniform: (ch: string) => boolean = () => true;
   let fontKey = "";
   let baseAdvance = 0;
@@ -121,18 +127,22 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     return frag;
   };
 
-  const arm = () => {
-    if (selecting || armed) return;
-    const term = getTerm();
-    const screen = term?.screenEl();
-    if (!term || !screen) return;
-    const r = screen.getBoundingClientRect();
-    const h = host.getBoundingClientRect();
+  const setShift = (screen: HTMLElement | null | undefined, px: number) => {
+    shift = px;
+    if (screen) screen.style.transform = px ? `translateY(${-px}px)` : "";
+  };
+
+  /** Fits the overlay to the canvas; false when the terminal is not measurable. */
+  const place = (term: OverlayTerm): boolean => {
+    const screen = term.screenEl();
     const cols = term.cols();
     const rows = term.rows();
-    if (!cols || !rows) return;
+    if (!screen || !cols || !rows) return false;
+    const r = screen.getBoundingClientRect();
+    const h = host.getBoundingClientRect();
     cellW = r.width / cols;
     cellH = r.height / rows;
+    screenSize = `${r.width}x${r.height}`;
     const { family, size } = term.font();
     const font = `${size}px ${family}`;
     if (font !== fontKey) {
@@ -144,28 +154,56 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     }
     Object.assign(el.style, {
       left: `${r.left - h.left}px`,
-      top: `${r.top - h.top}px`,
+      top: `${r.top + shift - h.top}px`,
       width: `${r.width}px`,
       height: `${r.height}px`,
       font,
       lineHeight: `${cellH}px`,
       letterSpacing: `${cellW - baseAdvance}px`,
-      overflowY: "hidden",
-      pointerEvents: "auto",
-      visibility: "visible",
     });
+    return true;
+  };
+
+  const resizeObserver = new ResizeObserver(() => {
+    const term = getTerm();
+    const screen = term?.screenEl();
+    if (!armed || !term || !screen) return;
+    const r = screen.getBoundingClientRect();
+    if (`${r.width}x${r.height}` === screenSize) return;
+    if (!selecting) {
+      armed = false;
+      arm();
+      return;
+    }
+    place(term);
+    el.scrollTop = (term.viewportTop() - first) * cellH;
+  });
+
+  const arm = () => {
+    if (selecting || armed) return;
+    const term = getTerm();
+    if (!term || !place(term)) return;
     first = term.viewportTop();
-    last = Math.min(term.bufferLength(), first + rows);
+    last = Math.min(term.bufferLength(), first + term.rows());
     el.replaceChildren(fill(term, first, last));
+    Object.assign(el.style, { overflowY: "hidden", pointerEvents: "auto", visibility: "visible" });
     el.scrollTop = 0;
     armed = true;
+    const screen = term.screenEl();
+    if (screen) resizeObserver.observe(screen);
   };
 
   const disarm = () => {
     if (selecting || !armed) return;
     armed = false;
+    resizeObserver.disconnect();
     el.replaceChildren();
     Object.assign(el.style, { pointerEvents: "none", visibility: "hidden" });
+  };
+
+  const hitsText = (x: number, y: number) => {
+    const hit = document.elementFromPoint(x, y);
+    return armed && !!hit && el.contains(hit) && !!hit.closest("[data-col]");
   };
 
   const expand = () => {
@@ -184,19 +222,35 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
 
   const end = () => {
     selecting = false;
+    setShift(getTerm()?.screenEl(), 0);
     disarm();
+  };
+
+  /** Pins a selection end dragged off the overlay to the visible edge row, scrolling one row toward it. */
+  const clampEnd = (node: Node): { node: Node; offset: number } => {
+    const down = (el.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const now = performance.now();
+    if (now - lastAutoscroll >= AUTOSCROLL_MS) {
+      lastAutoscroll = now;
+      el.scrollTop += down ? cellH : -cellH;
+    }
+    const line = edgeLine(el.scrollTop, el.clientHeight, cellH, first, last, down ? "down" : "up");
+    const div = el.children[line - first] ?? (down ? el.lastElementChild : el.firstElementChild);
+    if (!div) return { node: el, offset: down ? el.childNodes.length : 0 };
+    return { node: div, offset: down ? div.childNodes.length : 0 };
   };
 
   const onSelectionChange = () => {
     if (!armed) return;
     const sel = document.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.anchorNode || !sel.focusNode) {
       if (selecting) end();
       return;
     }
-    const range = sel.getRangeAt(0);
-    if (!el.contains(range.commonAncestorContainer)) {
-      if (selecting && range.intersectsNode(el)) sel.selectAllChildren(el);
+    const anchorIn = el.contains(sel.anchorNode);
+    const focusIn = el.contains(sel.focusNode);
+    if (!anchorIn && !focusIn) {
+      if (selecting && sel.getRangeAt(0).intersectsNode(el)) sel.selectAllChildren(el);
       else if (selecting) end();
       return;
     }
@@ -204,6 +258,10 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
       selecting = true;
       expand();
     }
+    if (anchorIn && focusIn) return;
+    const a = anchorIn ? { node: sel.anchorNode, offset: sel.anchorOffset } : clampEnd(sel.anchorNode);
+    const f = focusIn ? { node: sel.focusNode, offset: sel.focusOffset } : clampEnd(sel.focusNode);
+    sel.setBaseAndExtent(a.node, a.offset, f.node, f.offset);
   };
 
   const onCopy = (e: ClipboardEvent) => {
@@ -219,7 +277,11 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
   };
 
   const onScroll = () => {
-    if (selecting && cellH) getTerm()?.scrollToLine(first + Math.round(el.scrollTop / cellH));
+    const term = getTerm();
+    if (!selecting || !cellH || !term) return;
+    const { line, frac } = splitScroll(el.scrollTop, cellH);
+    term.scrollToLine(first + line);
+    setShift(term.screenEl(), frac);
   };
 
   // The terminal container pastes on contextmenu; a native long-press must not reach it.
@@ -233,13 +295,18 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
   return {
     arm,
     disarm,
+    hitsText,
     isSelecting: () => selecting,
     dispose: () => {
       document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("copy", onCopy);
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("contextmenu", onContextMenu);
-      if (selecting) document.getSelection()?.removeAllRanges();
+      resizeObserver.disconnect();
+      if (selecting) {
+        setShift(getTerm()?.screenEl(), 0);
+        document.getSelection()?.removeAllRanges();
+      }
       el.remove();
     },
   };

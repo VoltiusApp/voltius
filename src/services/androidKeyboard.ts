@@ -75,9 +75,9 @@ export function showAndroidKeyboard(sessionId: string): void {
   void invoke("terminal_show_keyboard", { volumeCtrl: getToggle("volume-down-ctrl") }).catch(() => {});
 }
 
-/** Dismiss the native keyboard. */
-export function hideAndroidKeyboard(): void {
-  void invoke("terminal_hide_keyboard").catch(() => {});
+/** Dismiss the native keyboard; `focusWebView` gives the WebView Android focus for native text selection. */
+export function hideAndroidKeyboard(focusWebView = false): void {
+  void invoke("terminal_hide_keyboard", { focusWebView }).catch(() => {});
 }
 
 /** Point native input at a session without toggling keyboard visibility (e.g. tab switch). */

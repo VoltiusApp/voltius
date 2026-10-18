@@ -34,5 +34,5 @@ test("native keyboard input never reaches the session behind the lock screen", (
 
 test("locking the screen dismisses the native keyboard", async () => {
   await useAppLockStore.getState().lockScreen();
-  expect(h.invoke).toHaveBeenCalledWith("terminal_hide_keyboard");
+  expect(h.invoke).toHaveBeenCalledWith("terminal_hide_keyboard", { focusWebView: false });
 });

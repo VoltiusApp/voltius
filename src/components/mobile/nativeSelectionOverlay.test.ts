@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { segmentsForLine, textBetween, type LineLike } from "./nativeSelectionCore";
+import { edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
 import { boundaryFromDom, renderLine } from "./nativeSelectionOverlay";
 
 type Cell = { ch: string; w: number };
@@ -96,5 +96,25 @@ describe("boundaryFromDom", () => {
 
   test("nodes outside the overlay are rejected", () => {
     expect(boundaryFromDom(root, document.createElement("span"), 0)).toBeNull();
+  });
+});
+
+describe("scroll sync", () => {
+  test("splitScroll keeps the canvas on whole rows and returns the sub-row shift", () => {
+    expect(splitScroll(0, 16)).toEqual({ line: 0, frac: 0 });
+    expect(splitScroll(40, 16)).toEqual({ line: 2, frac: 8 });
+    expect(splitScroll(48, 16)).toEqual({ line: 3, frac: 0 });
+  });
+
+  test("edgeLine picks the fully visible top or bottom row", () => {
+    expect(edgeLine(0, 160, 16, 100, 2000, "up")).toBe(100);
+    expect(edgeLine(0, 160, 16, 100, 2000, "down")).toBe(109);
+    expect(edgeLine(40, 160, 16, 100, 2000, "up")).toBe(103);
+    expect(edgeLine(40, 160, 16, 100, 2000, "down")).toBe(111);
+  });
+
+  test("edgeLine stays inside the rendered window", () => {
+    expect(edgeLine(0, 160, 16, 100, 105, "down")).toBe(104);
+    expect(edgeLine(-30, 160, 16, 100, 2000, "up")).toBe(100);
   });
 });

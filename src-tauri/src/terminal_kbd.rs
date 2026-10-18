@@ -29,9 +29,18 @@ pub fn terminal_show_keyboard(volume_ctrl: bool) {
 }
 
 #[tauri::command]
-pub fn terminal_hide_keyboard() {
+pub fn terminal_hide_keyboard(focus_web_view: Option<bool>) {
     #[cfg(target_os = "android")]
-    if let Err(e) = call("terminal hide keyboard", "hide", "()V", &[]) {
+    if let Err(e) = call(
+        "terminal hide keyboard",
+        "hide",
+        "(Z)V",
+        &[jni::objects::JValue::Bool(
+            focus_web_view.unwrap_or(false).into(),
+        )],
+    ) {
         log::warn!("terminal_hide_keyboard: {e}");
     }
+    #[cfg(not(target_os = "android"))]
+    let _ = focus_web_view;
 }

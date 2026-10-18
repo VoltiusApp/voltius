@@ -1,30 +1,12 @@
 import {
-  cellFromPoint,
-  isBlankCell,
   linesFromPixelDelta,
   fontSizeFromPinch,
   touchDistance,
-  type CellMetrics,
 } from "./mobileTerminalGesturesCore.ts";
 import { test } from "vitest";
 
 test("mobileTerminalGestures", async () => {
-function assert(cond: boolean, msg: string) { if (!cond) throw new Error(msg); }
 function eq<T>(a: T, b: T, msg: string) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${msg}: got ${JSON.stringify(a)} want ${JSON.stringify(b)}`); }
-
-const m: CellMetrics = { left: 10, top: 20, cellWidth: 8, cellHeight: 16, cols: 80, rows: 24, viewportTop: 100 };
-
-// cellFromPoint: maps client px to absolute buffer cell.
-eq(cellFromPoint(m, 10, 20), { col: 0, line: 100 }, "origin maps to col0/viewportTop");
-eq(cellFromPoint(m, 10 + 8 * 3 + 2, 20 + 16 * 2 + 1), { col: 3, line: 102 }, "mid maps via floor");
-// Clamped inside the grid.
-eq(cellFromPoint(m, -100, -100), { col: 0, line: 100 }, "clamps low");
-eq(cellFromPoint(m, 99999, 99999), { col: 79, line: 123 }, "clamps high to cols-1 / last visible line");
-
-// isBlankCell.
-assert(isBlankCell("ls", 5), "past end is blank");
-assert(isBlankCell("a b", 1), "space is blank");
-assert(!isBlankCell("a b", 0), "letter is not blank");
 
 // linesFromPixelDelta: accumulates a fractional carry.
 eq(linesFromPixelDelta(8, 16, 0), { lines: 0, carry: 0.5 }, "half a cell carries");

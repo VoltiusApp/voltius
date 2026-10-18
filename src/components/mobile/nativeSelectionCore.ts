@@ -72,3 +72,24 @@ export function textBetween(getLine: (i: number) => LineLike | undefined, start:
   }
   return out;
 }
+
+/** Splits an overlay scroll offset into whole rows and the sub-row remainder in px. */
+export function splitScroll(scrollTop: number, cellH: number): { line: number; frac: number } {
+  const line = Math.floor(scrollTop / cellH + 1e-6);
+  return { line, frac: Math.max(0, scrollTop - line * cellH) };
+}
+
+/** First fully visible row (up) or last fully visible row (down) of a scrolled overlay window [first, last). */
+export function edgeLine(
+  scrollTop: number,
+  clientHeight: number,
+  cellH: number,
+  first: number,
+  last: number,
+  dir: "up" | "down",
+): number {
+  const line = dir === "up"
+    ? first + Math.ceil(scrollTop / cellH - 1e-6)
+    : first + Math.floor((scrollTop + clientHeight) / cellH + 1e-6) - 1;
+  return Math.max(first, Math.min(last - 1, line));
+}

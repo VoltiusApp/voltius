@@ -5,14 +5,7 @@ import { sendSpecialKey } from "@/services/terminalInput";
 import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
-import {
-  cellFromPoint,
-  fontSizeFromPinch,
-  linesFromPixelDelta,
-  touchDistance,
-  isBlankCell,
-  type CellMetrics,
-} from "./mobileTerminalGesturesCore";
+import { fontSizeFromPinch, linesFromPixelDelta, touchDistance } from "./mobileTerminalGesturesCore";
 import { createNativeSelection } from "./nativeSelectionOverlay";
 import { readClipboard } from "@/utils/clipboard";
 import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/stores/uiStore";
@@ -47,23 +40,11 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
   const lastTap = useRef<TapPoint | null>(null);
   const pinch = useRef<{ dist: number; size: number } | null>(null);
 
-  const metrics = (): CellMetrics | null => {
+  const cellHeight = (): number => {
     const api = getTerminalApi(sessionId);
-    const el = api?.screenEl();
-    if (!api || !el) return null;
-    const r = el.getBoundingClientRect();
-    const cols = api.cols();
-    const rows = api.rows();
-    if (!cols || !rows) return null;
-    return {
-      left: r.left,
-      top: r.top,
-      cellWidth: r.width / cols,
-      cellHeight: r.height / rows,
-      cols,
-      rows,
-      viewportTop: api.viewportTop(),
-    };
+    const rows = api?.rows();
+    const h = api?.screenEl()?.getBoundingClientRect().height;
+    return rows && h ? h / rows : 0;
   };
 
   useEffect(() => {
@@ -116,12 +97,10 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       carry.current = 0;
       longPressFired.current = false;
       phase.current = "pending";
-      const api = getTerminalApi(sessionId);
-      const m = metrics();
-      const cell = m ? cellFromPoint(m, t.clientX, t.clientY) : null;
-      onText.current = !!api && !!cell && !isBlankCell(api.lineText(cell.line), cell.col);
+      sel.arm();
+      onText.current = sel.hitsText(t.clientX, t.clientY);
       // Mouse-reporting apps need short taps on the canvas, so arm only once the press is long.
-      if (onText.current && !api?.mouseMode()) sel.arm();
+      if (!onText.current || getTerminalApi(sessionId)?.mouseMode()) sel.disarm();
       clearLongPress();
       longPressTimer.current = setTimeout(() => {
         longPressTimer.current = null;
@@ -130,6 +109,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (onText.current) {
           phase.current = "native";
           sel.arm();
+          if (isAndroid) hideAndroidKeyboard(true);
         } else {
           showPaste(start.current.x, start.current.y);
         }
@@ -169,11 +149,11 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
       if (phase.current === "scrolling") {
         e.preventDefault();
-        const m = metrics();
-        if (!m) return;
+        const ch = cellHeight();
+        if (!ch) return;
         const dy = t.clientY - lastY.current;
         lastY.current = t.clientY;
-        const acc = linesFromPixelDelta(dy, m.cellHeight, carry.current);
+        const acc = linesFromPixelDelta(dy, ch, carry.current);
         carry.current = acc.carry;
         if (acc.lines !== 0) getTerminalApi(sessionId)?.scrollLines(-acc.lines);
       }
