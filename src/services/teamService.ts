@@ -241,6 +241,20 @@ export async function removeMemberRole(
   }
 }
 
+export async function transferBillingOwner(teamId: string, userId: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/billing-owner`, {
+    method: "PUT",
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (res.ok) return;
+  if (res.status === 402) throw new Error(i18n.t("common.error.billingTransferNeedsPlan"));
+  if (res.status === 409) throw new Error(i18n.t("common.error.billingTransferNeedsOwner"));
+  if (res.status === 403) throw new Error(i18n.t("common.error.billingTransferForbidden"));
+  throw new Error(i18n.t("common.error.failedToTransferBilling", { status: res.status }));
+}
+
 export async function setMemberPermissions(
   teamId: string,
   userId: string,

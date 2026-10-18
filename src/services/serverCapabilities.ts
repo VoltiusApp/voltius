@@ -17,6 +17,7 @@ interface ServerCapabilities {
   passkeys: boolean;
   wrappedSecretsCas: boolean;
   billingEnabled: boolean;
+  multiOwner: boolean;
 }
 
 const UNKNOWN: ServerCapabilities = {
@@ -26,6 +27,7 @@ const UNKNOWN: ServerCapabilities = {
   passkeys: false,
   wrappedSecretsCas: false,
   billingEnabled: false,
+  multiOwner: false,
 };
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
 
@@ -34,7 +36,7 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled } = await fetchServerMeta(
+    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner } = await fetchServerMeta(
       "common.error.failedToLoadServerCapabilities",
     );
     fetchedAt = Date.now();
@@ -43,6 +45,7 @@ async function loadCapabilities(): Promise<void> {
       passkeys: passkeys === true,
       wrappedSecretsCas: wrapped_secrets_cas === true,
       billingEnabled: billing_enabled === true,
+      multiOwner: multi_owner === true,
       ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
         : { advertisedSecretTypes: null }),
@@ -100,6 +103,12 @@ export function useServerSecondFactors(): { totp: boolean; passkeys: boolean } {
 export function useServerBillingEnabled(): boolean {
   useEffect(() => void refreshServerCapabilities(), []);
   return useServerCapabilities((s) => s.billingEnabled);
+}
+
+/** Whether this server lets several members hold Owner and hand billing between them. */
+export function useServerMultiOwner(): boolean {
+  useEffect(() => void refreshServerCapabilities(), []);
+  return useServerCapabilities((s) => s.multiOwner);
 }
 
 export async function serverSupportsWrappedSecretsCas(): Promise<boolean> {

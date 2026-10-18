@@ -1,6 +1,6 @@
 import { test, expect, describe, it } from "vitest";
 import {
-  resolveCan, PERM_BITS, effectivePermissions, isTeamOwner, crossesVaultKeyGate, resolveMemberReadOnlyReason,
+  resolveCan, PERM_BITS, effectivePermissions, isPrimaryOwner, crossesVaultKeyGate, resolveMemberReadOnlyReason,
   PERMISSION_GROUPS, resolveObjectPermissions, ALL_PERMISSION_BITS, OBJECT_RULE_BITS, OBJECT_RULE_ROWS,
   lostAccessToLapse, canEditConnectionsIn, planLapsedFor,
   type Permission, type PermissionSnapshot, type RuleEntry,
@@ -331,11 +331,11 @@ describe("resolveCan with an object id", () => {
   });
 });
 
-test("isTeamOwner compares the team's owner_id with the signed-in user", () => {
-  expect(isTeamOwner({ owner_id: "u1" }, "u1")).toBe(true);
-  expect(isTeamOwner({ owner_id: "u1" }, "u2")).toBe(false);
-  expect(isTeamOwner({ owner_id: "" }, "")).toBe(false);
-  expect(isTeamOwner(undefined, "u1")).toBe(false);
+test("isPrimaryOwner compares the team's owner_id with the signed-in user", () => {
+  expect(isPrimaryOwner({ owner_id: "u1" }, "u1")).toBe(true);
+  expect(isPrimaryOwner({ owner_id: "u1" }, "u2")).toBe(false);
+  expect(isPrimaryOwner({ owner_id: "" }, "")).toBe(false);
+  expect(isPrimaryOwner(undefined, "u1")).toBe(false);
 });
 
 describe("lapse principle (mirror of server lapse math)", () => {

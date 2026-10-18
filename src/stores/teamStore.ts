@@ -43,6 +43,7 @@ interface TeamStore {
   deleteRole: (teamId: string, roleId: string) => Promise<void>;
   assignMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
   removeMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
+  transferBillingOwner: (teamId: string, userId: string) => Promise<void>;
   setMemberPermissions: (teamId: string, userId: string, allow: number, deny: number) => Promise<void>;
 }
 
@@ -285,6 +286,12 @@ export const useTeamStore = create<TeamStore>()(
         ),
       },
     }));
+  },
+
+  transferBillingOwner: async (teamId, userId) => {
+    await api.transferBillingOwner(teamId, userId);
+    set((s) => ({ teams: s.teams.map((t) => (t.id === teamId ? { ...t, owner_id: userId } : t)) }));
+    await get().loadTeams();
   },
 
   setMemberName: async (teamId, userId, name) => {

@@ -1,6 +1,6 @@
 import { useTeamStore } from "@/stores/teamStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
-import { isTeamOwner } from "@/services/permissions";
+import { isPrimaryOwner } from "@/services/permissions";
 import { useMyUserId } from "@/hooks/useMyUserId";
 
 export function useBusinessLock(teamId: string | null | undefined): { locked: boolean; isOwner: boolean | null } {
@@ -8,6 +8,6 @@ export function useBusinessLock(teamId: string | null | undefined): { locked: bo
   const myUserId = useMyUserId();
   return {
     locked: isBusinessLocked(team),
-    isOwner: myUserId ? isTeamOwner(team, myUserId) : null,
+    isOwner: myUserId ? isPrimaryOwner(team, myUserId) : null,
   };
 }

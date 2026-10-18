@@ -27,6 +27,8 @@ import { formatDate } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { inviterLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
+import { memberOwnership } from "@/services/teamOwnership";
+import { useOwnershipContext } from "@/hooks/useOwnershipContext";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -92,12 +94,15 @@ export function MemberDetailPanel({
   // Stores the intent, not the computed masks — commitOverride recomputes them
   // from the render current at confirm time, in case member state changed meanwhile.
   const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | "clear" | null>(null);
+  const [pendingOwnerRole, setPendingOwnerRole] = useState<TeamRole | null>(null);
+  const [confirmingPrimary, setConfirmingPrimary] = useState(false);
 
+  const ownershipCtx = useOwnershipContext(teamId, viewer, teamRoles);
+  const ownership = memberOwnership(ownershipCtx, { userId: member.user_id, isMe, isOwner: isTargetOwner });
   const canChangeRoles = canManageMembers && !isMe;
-  const canRemove = canManageMembers && !isTargetOwner && !isMe;
-  // The server rejects an owner removing themselves (teams.rs `is_owner`), so
-  // offering Leave to an owner would promise something that 403s.
-  const canLeave = isMe && !isTargetOwner;
+  const canRemove = canManageMembers && !ownership.protectedFromViewer && !isMe;
+  const canLeave = ownership.canLeave;
+  const isOwnerRole = (role: TeamRole) => role.is_builtin && role.name === "owner";
 
   const runReversible = async (opts: {
     pending: string;
@@ -115,10 +120,14 @@ export function MemberDetailPanel({
     });
   };
 
-  const handleToggleRole = async (role: TeamRole) => {
+  const handleToggleRole = async (role: TeamRole, confirmed = false) => {
     const hasRole = member.role_ids.includes(role.id);
-    if (hasRole && isTargetOwner && role.is_builtin && role.name === "owner") {
+    if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
       setError(t("members.error.cannotRemoveOwnerRole"));
+      return;
+    }
+    if (isOwnerRole(role) && !confirmed) {
+      setPendingOwnerRole(role);
       return;
     }
     const store = useTeamStore.getState();
@@ -308,7 +317,7 @@ export function MemberDetailPanel({
           {canChangeRoles ? (
             <div className="flex flex-wrap items-start gap-2">
               {[...teamRoles]
-                .filter((r) => !(r.is_builtin && r.name === "owner"))
+                .filter((r) => !isOwnerRole(r) || ownership.canGrantOwner)
                 .sort((a, b) => a.position - b.position).map((role) => {
 
                 const hasRole = member.role_ids.includes(role.id);
@@ -431,6 +440,30 @@ export function MemberDetailPanel({
         </FormSection>
         )}
 
+        {ownershipCtx.multiOwner && ownership.isOwner && (ownership.isPrimaryOwner || ownership.canMakePrimary) && (
+          <FormSection label={t("members.ownership.title")}>
+            {ownership.isPrimaryOwner ? (
+              <div className="text-xs">
+                <p className="flex items-center gap-1.5 font-medium text-(--t-text-primary)">
+                  <Icon icon="lucide:crown" width={12} />
+                  {t("members.ownership.primary")}
+                </p>
+                <p className="text-[11px] mt-1 text-(--t-text-secondary)">
+                  {t(ownershipCtx.billingEnabled ? "members.ownership.primaryHintBilling" : "members.ownership.primaryHintSelfHosted")}
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmingPrimary(true)}
+                className="btn btn-secondary w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+              >
+                <Icon icon="lucide:crown" width={13} />
+                {t("members.ownership.makePrimary")}
+              </button>
+            )}
+          </FormSection>
+        )}
+
         {/* Info */}
         <FormSection label={t("members.info")}>
           <div className="space-y-2 text-xs">
@@ -446,6 +479,10 @@ export function MemberDetailPanel({
             )}
           </div>
         </FormSection>
+
+        {isMe && ownershipCtx.multiOwner && ownership.isPrimaryOwner && (
+          <p className="text-[11px] px-1 text-(--t-text-secondary)">{t("members.ownership.leaveBlocked")}</p>
+        )}
 
         {/* Danger zone */}
         {(canRemove || canLeave) && (
@@ -478,6 +515,49 @@ export function MemberDetailPanel({
         mode={offboarding}
         onClose={() => setOffboarding(null)}
         onDone={() => { onClose(); onUpdated(); }}
+      />
+    )}
+
+    {pendingOwnerRole && (() => {
+      const granting = !member.role_ids.includes(pendingOwnerRole.id);
+      const kind = granting ? "grant" : "revoke";
+      return (
+        <ConfirmModal
+          tone="warning"
+          title={t(`members.ownership.${kind}.title`, { name: memberLabel(member) })}
+          message={t(`members.ownership.${kind}.body`, { name: memberLabel(member) })}
+          confirmLabel={t(`members.ownership.${kind}.confirm`)}
+          onCancel={() => setPendingOwnerRole(null)}
+          onConfirm={() => {
+            const role = pendingOwnerRole;
+            setPendingOwnerRole(null);
+            void handleToggleRole(role, true);
+          }}
+        />
+      );
+    })()}
+
+    {confirmingPrimary && (
+      <ConfirmModal
+        tone="warning"
+        title={t("members.ownership.confirmPrimary.title", { name: memberLabel(member) })}
+        message={t(
+          ownershipCtx.billingEnabled ? "members.ownership.confirmPrimary.bodyBilling" : "members.ownership.confirmPrimary.bodySelfHosted",
+          { name: memberLabel(member) },
+        )}
+        confirmLabel={t("members.ownership.makePrimary")}
+        onCancel={() => setConfirmingPrimary(false)}
+        onConfirm={() => {
+          setConfirmingPrimary(false);
+          setError("");
+          void runTeamAction({
+            pending: t("members.toast.makingPrimaryOwner", { name: memberLabel(member) }),
+            success: t("members.toast.primaryOwnerChanged", { name: memberLabel(member) }),
+            run: () => useTeamStore.getState().transferBillingOwner(teamId, member.user_id),
+          })
+            .then(onUpdated)
+            .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+        }}
       />
     )}
 

@@ -5,6 +5,29 @@
     "memberSince": "Membre depuis",
     "invitedBy": "Invité par",
     "dangerZone": "Zone de danger",
+    "ownership": {
+      "title": "Propriété",
+      "primary": "Propriétaire principal",
+      "primaryHintBilling": "Paie pour cette équipe et est le seul à pouvoir la supprimer.",
+      "primaryHintSelfHosted": "Le seul à pouvoir supprimer cette équipe.",
+      "makePrimary": "Nommer propriétaire principal",
+      "leaveBlocked": "Nommez un autre propriétaire comme propriétaire principal avant de quitter cette équipe.",
+      "confirmPrimary": {
+        "title": "Nommer {{name}} propriétaire principal ?",
+        "bodyBilling": "L'abonnement Teams ou Business de {{name}} paiera désormais pour cette équipe, et seul {{name}} pourra la supprimer. Votre abonnement ne change pas : réduisez vos sièges ou résiliez-le vous-même.",
+        "bodySelfHosted": "Seul {{name}} pourra supprimer cette équipe. Vous restez propriétaire et pourrez partir ensuite."
+      },
+      "grant": {
+        "title": "Nommer {{name}} propriétaire ?",
+        "body": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires.",
+        "confirm": "Nommer propriétaire"
+      },
+      "revoke": {
+        "title": "Retirer le rôle de propriétaire à {{name}} ?",
+        "body": "{{name}} conserve ses autres rôles.",
+        "confirm": "Retirer le rôle"
+      }
+    },
     "confirmRemoval": "Cliquer à nouveau pour confirmer le retrait",
     "removeFromTeam": "Retirer de l'équipe",
     "newRole": "Nouveau rôle",
@@ -142,6 +165,8 @@
       "connect-only": "Les personnes en connexion seule peuvent ouvrir des connexions mais ne voient jamais les identifiants derrière."
     },
     "toast": {
+      "makingPrimaryOwner": "{{name}} devient propriétaire principal…",
+      "primaryOwnerChanged": "{{name}} est maintenant propriétaire principal",
       "removingRoleFrom": "Suppression du rôle {{role}} de {{name}}…",
       "roleRemovedFrom": "Rôle {{role}} supprimé de {{name}}",
       "assigningRoleTo": "Attribution du rôle {{role}} à {{name}}…",
@@ -165,7 +190,7 @@
       "leftTeam": "Vous avez quitté l'équipe"
     },
     "error": {
-      "cannotRemoveOwnerRole": "Impossible de retirer le rôle de propriétaire au propriétaire de l'équipe",
+      "cannotRemoveOwnerRole": "Nommez d'abord un autre propriétaire comme propriétaire principal",
       "failedToUpdateRole": "Échec de la mise à jour du rôle",
       "failedToUpdatePermissions": "Échec de la mise à jour des permissions",
       "failedToRemoveMember": "Échec de la suppression du membre",

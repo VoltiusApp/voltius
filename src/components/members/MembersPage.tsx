@@ -41,6 +41,8 @@ import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
+import { memberOwnership } from "@/services/teamOwnership";
+import { useOwnershipContext } from "@/hooks/useOwnershipContext";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -117,8 +119,12 @@ export default function MembersPage() {
 
   const isOwnerMember = (member: TeamMember) =>
     hasBuiltinRole(member, "owner", teamRoles);
+  const ownershipCtx = useOwnershipContext(teamId, myMember, teamRoles);
+  const outOfReach = (member: TeamMember) =>
+    memberOwnership(ownershipCtx, { userId: member.user_id, isMe: member.user_id === myUserId, isOwner: isOwnerMember(member) })
+      .protectedFromViewer;
   const canActOn = (member: TeamMember) =>
-    canManageMembers && !isOwnerMember(member) && member.user_id !== myUserId;
+    canManageMembers && !outOfReach(member) && member.user_id !== myUserId;
   const canEditMember = (member: TeamMember) => canNameMembers || canActOn(member);
 
   const existingMemberIds = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
@@ -313,7 +319,7 @@ export default function MembersPage() {
   const bulkContextMenuItems = useMemo((): ContextMenuItem[] | undefined => {
     if (selectedIdSet.size <= 1) return undefined;
     const selectedMembers = sortedMembers.filter((m) =>
-      selectedIdSet.has(m.user_id) && m.user_id !== myUserId && !isOwnerMember(m)
+      selectedIdSet.has(m.user_id) && m.user_id !== myUserId && !outOfReach(m)
     );
     if (selectedMembers.length === 0) return undefined;
 
@@ -400,7 +406,7 @@ export default function MembersPage() {
 
     return items.length > 0 ? items : undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, teamRoles, teamId, t, businessLocked]);
+  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
 
 const vaultTabs = selectedVaultIds.length > 1
     ? selectedVaultIds.map((vid) => {

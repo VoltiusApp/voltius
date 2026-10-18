@@ -5,6 +5,29 @@
     "memberSince": "Členem od",
     "invitedBy": "Pozval(a)",
     "dangerZone": "Nebezpečná zóna",
+    "ownership": {
+      "title": "Vlastnictví",
+      "primary": "Hlavní vlastník",
+      "primaryHintBilling": "Platí za tento tým a jako jediný ho může smazat.",
+      "primaryHintSelfHosted": "Jediný, kdo může tento tým smazat.",
+      "makePrimary": "Nastavit jako hlavního vlastníka",
+      "leaveBlocked": "Než tým opustíte, nastavte hlavním vlastníkem jiného vlastníka.",
+      "confirmPrimary": {
+        "title": "Nastavit {{name}} jako hlavního vlastníka?",
+        "bodyBilling": "Za tento tým bude od teď platit vlastní předplatné Teams nebo Business uživatele {{name}} a jen on ho bude moci smazat. Vaše předplatné zůstává beze změny: snižte počet míst nebo ho zrušte sami.",
+        "bodySelfHosted": "Tento tým bude moci smazat jen {{name}}. Zůstáváte vlastníkem a poté můžete odejít."
+      },
+      "grant": {
+        "title": "Nastavit {{name}} jako vlastníka?",
+        "body": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků.",
+        "confirm": "Nastavit jako vlastníka"
+      },
+      "revoke": {
+        "title": "Odebrat roli vlastníka uživateli {{name}}?",
+        "body": "{{name}} si ponechá ostatní role.",
+        "confirm": "Odebrat roli"
+      }
+    },
     "confirmRemoval": "Klikněte znovu pro potvrzení odebrání",
     "removeFromTeam": "Odebrat z týmu",
     "newRole": "Nová role",
@@ -147,6 +170,8 @@
       "connect-only": "Lidé s rolí Jen připojení mohou navazovat připojení, ale nikdy neuvidí použité přihlašovací údaje."
     },
     "toast": {
+      "makingPrimaryOwner": "{{name}} se stává hlavním vlastníkem…",
+      "primaryOwnerChanged": "{{name}} je nyní hlavní vlastník",
       "removingRoleFrom": "Odebírání role {{role}} uživateli {{name}}...",
       "roleRemovedFrom": "Role {{role}} odebrána uživateli {{name}}",
       "assigningRoleTo": "Přiřazování role {{role}} uživateli {{name}}...",
@@ -170,7 +195,7 @@
       "leftTeam": "Opustili jste tým"
     },
     "error": {
-      "cannotRemoveOwnerRole": "Vlastníkovi týmu nelze odebrat roli vlastníka",
+      "cannotRemoveOwnerRole": "Nejprve nastavte hlavním vlastníkem jiného vlastníka",
       "failedToUpdateRole": "Roli se nepodařilo upravit",
       "failedToUpdatePermissions": "Oprávnění se nepodařilo upravit",
       "failedToRemoveMember": "Člena se nepodařilo odebrat",

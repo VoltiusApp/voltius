@@ -5,6 +5,29 @@
     "memberSince": "加入时间",
     "invitedBy": "邀请人",
     "dangerZone": "危险区域",
+    "ownership": {
+      "title": "所有权",
+      "primary": "主要所有者",
+      "primaryHintBilling": "为此团队付费，且是唯一可以删除它的人。",
+      "primaryHintSelfHosted": "唯一可以删除此团队的人。",
+      "makePrimary": "设为主要所有者",
+      "leaveBlocked": "离开此团队前，请先将另一位所有者设为主要所有者。",
+      "confirmPrimary": {
+        "title": "将 {{name}} 设为主要所有者？",
+        "bodyBilling": "从现在起，此团队由 {{name}} 自己的 Teams 或 Business 订阅付费，且只有其可以删除团队。你的订阅保持不变：请自行减少席位或取消订阅。",
+        "bodySelfHosted": "只有 {{name}} 可以删除此团队。你仍是所有者，之后可以离开。"
+      },
+      "grant": {
+        "title": "将 {{name}} 设为所有者？",
+        "body": "所有者拥有全部权限，包括添加和移除其他所有者。",
+        "confirm": "设为所有者"
+      },
+      "revoke": {
+        "title": "移除 {{name}} 的所有者角色？",
+        "body": "{{name}} 保留其其他角色。",
+        "confirm": "移除角色"
+      }
+    },
     "confirmRemoval": "再次点击确认移除",
     "removeFromTeam": "从团队中移除",
     "newRole": "新建角色",
@@ -141,6 +164,8 @@
       "connect-only": "仅连接权限的人可以打开连接，但永远无法看到其背后的凭据。"
     },
     "toast": {
+      "makingPrimaryOwner": "正在将 {{name}} 设为主要所有者…",
+      "primaryOwnerChanged": "{{name}} 现在是主要所有者",
       "removingRoleFrom": "正在从 {{name}} 移除 {{role}}…",
       "roleRemovedFrom": "已从 {{name}} 移除 {{role}}",
       "assigningRoleTo": "正在为 {{name}} 分配 {{role}}…",
@@ -164,7 +189,7 @@
       "leftTeam": "你已退出团队"
     },
     "error": {
-      "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
+      "cannotRemoveOwnerRole": "请先将另一位所有者设为主要所有者",
       "failedToUpdateRole": "更新角色失败",
       "failedToUpdatePermissions": "更新权限失败",
       "failedToRemoveMember": "移除成员失败",

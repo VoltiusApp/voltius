@@ -1,4 +1,4 @@
-import { VAULT_MANAGER_BITS, isTeamOwner } from "@/services/permissions";
+import { VAULT_MANAGER_BITS, isPrimaryOwner } from "@/services/permissions";
 
 /** What a vault-admin surface acts on. Mirrors `VaultDetail` in VaultsSection. */
 export interface VaultAdminTarget {
@@ -35,7 +35,7 @@ export function vaultAdminCapabilities(
   const team = target.teamId ? teams.find((t) => t.id === target.teamId) : undefined;
   const roles = target.teamId ? rolesByTeam[target.teamId] ?? [] : [];
   const myRoles = (team?.role_ids ?? []).flatMap((rid) => roles.filter((role) => role.id === rid));
-  const isOwner = isTeamOwner(team, myUserId);
+  const isOwner = isPrimaryOwner(team, myUserId);
   const managesTeam = isOwner || myRoles.some((r) => ((r.permissions ?? 0) & VAULT_MANAGER_BITS) !== 0);
 
   return {
@@ -43,10 +43,10 @@ export function vaultAdminCapabilities(
     isOwner,
     canRename: isTeam ? managesTeam : isLocal,
     canSetLockPolicy: isTeam && managesTeam,
-    // The server lets only the owner delete a team, and that deletes it for every member.
+    // The server lets only the primary owner delete a team, and that deletes it for every member.
     canDelete: isTeam ? isOwner : isLocal && target.vaultId !== "personal",
     canMakePrivate: isTeam && isOwner && isLocal && target.vaultId !== null,
-    // The server refuses an owner leaving their own team.
+    // The server refuses the primary owner leaving their own team.
     canLeave: isTeam && !!myUserId && !isOwner,
   };
 }

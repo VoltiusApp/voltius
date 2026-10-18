@@ -12,7 +12,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import { ownerLabel } from "@/services/teamVaultFirstAccess";
 import { checkForUpdate } from "@/services/updater";
-import { isTeamOwner } from "@/services/permissions";
+import { isPrimaryOwner } from "@/services/permissions";
 import { useMyUserId } from "@/hooks/useMyUserId";
 
 export default function TeamVaultStatePanel({
@@ -27,7 +27,7 @@ export default function TeamVaultStatePanel({
   const members = useTeamStore((s) => s.membersByTeam[teamId]);
   const loadMembers = useTeamStore((s) => s.loadMembers);
   const myUserId = useMyUserId();
-  const isOwner = isTeamOwner(team, myUserId);
+  const isOwner = isPrimaryOwner(team, myUserId);
 
   // The waiting copy names the owner the user is waiting on, so the roster has
   // to be there — this panel replaces the pages that would otherwise load it.

@@ -33,6 +33,7 @@ vi.mock("@/components/members/panels/RolesPanel", () => ({
 vi.mock("@/stores/teamStore", () => {
   const state = {
     membersByTeam: {} as Record<string, TeamMember[]>,
+    teams: [] as { id: string; owner_id: string }[],
     assignMemberRole: h.assign,
     removeMemberRole: h.remove,
     removeMember: h.removeMember,

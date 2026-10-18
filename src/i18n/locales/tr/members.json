@@ -5,6 +5,29 @@
     "memberSince": "Üyelik başlangıcı",
     "invitedBy": "Davet eden",
     "dangerZone": "Tehlikeli bölge",
+    "ownership": {
+      "title": "Sahiplik",
+      "primary": "Birincil sahip",
+      "primaryHintBilling": "Bu ekibin ödemesini yapar ve ekibi silebilen tek kişidir.",
+      "primaryHintSelfHosted": "Bu ekibi silebilen tek kişi.",
+      "makePrimary": "Birincil sahip yap",
+      "leaveBlocked": "Bu ekipten ayrılmadan önce başka bir sahibi birincil sahip yapın.",
+      "confirmPrimary": {
+        "title": "{{name}} birincil sahip yapılsın mı?",
+        "bodyBilling": "Bundan sonra bu ekibin ödemesini {{name}} kişisinin kendi Teams veya Business aboneliği yapar ve ekibi yalnızca o silebilir. Aboneliğiniz değişmez: koltuklarınızı azaltın veya kendiniz iptal edin.",
+        "bodySelfHosted": "Bu ekibi yalnızca {{name}} silebilecek. Sahip olarak kalırsınız ve sonra ayrılabilirsiniz."
+      },
+      "grant": {
+        "title": "{{name}} sahip yapılsın mı?",
+        "body": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir.",
+        "confirm": "Sahip yap"
+      },
+      "revoke": {
+        "title": "{{name}} kişisinden sahip rolü kaldırılsın mı?",
+        "body": "{{name}} diğer rollerini korur.",
+        "confirm": "Rolü kaldır"
+      }
+    },
     "confirmRemoval": "Kaldırmayı onaylamak için tekrar tıklayın",
     "removeFromTeam": "Ekipten kaldır",
     "newRole": "Yeni rol",
@@ -145,6 +168,8 @@
       "connect-only": "Yalnızca bağlanabilen kişiler bağlantıları açabilir ancak arkasındaki kimlik bilgilerini hiçbir zaman göremez."
     },
     "toast": {
+      "makingPrimaryOwner": "{{name}} birincil sahip yapılıyor…",
+      "primaryOwnerChanged": "{{name}} artık birincil sahip",
       "removingRoleFrom": "{{role}} rolü kaldırılıyor: {{name}}...",
       "roleRemovedFrom": "{{role}} rolü kaldırıldı: {{name}}",
       "assigningRoleTo": "{{role}} rolü atanıyor: {{name}}...",
@@ -168,7 +193,7 @@
       "leftTeam": "Ekipten ayrıldınız"
     },
     "error": {
-      "cannotRemoveOwnerRole": "Sahip rolü ekip sahibinden kaldırılamaz",
+      "cannotRemoveOwnerRole": "Önce başka bir sahibi birincil sahip yapın",
       "failedToUpdateRole": "Rol güncellenemedi",
       "failedToUpdatePermissions": "İzinler güncellenemedi",
       "failedToRemoveMember": "Üye kaldırılamadı",
