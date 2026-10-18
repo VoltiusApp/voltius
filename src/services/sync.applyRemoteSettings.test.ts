@@ -130,7 +130,21 @@ const remoteSettings = (sections: Record<string, unknown>) => ({
   "settings.json": JSON.stringify({ type: "voltius-user-data", version: 2, exported_at: "2030-01-01T00:00:00.000Z", sections }),
 });
 
+test("another account's language never replaces this device's", async () => {
+  useLocaleStore.setState({ locale: "cs" });
+  serveRemoteDevice(
+    remoteSettings({ appSettings: { updated_at: "2030-01-01T00:00:00.000Z", data: { locale: "en" } } }),
+    {},
+    { settings_load: settingsAsOfLastPush({}) },
+  );
+
+  await syncNow();
+
+  expect(useLocaleStore.getState().locale).toBe("cs");
+});
+
 test("a local settings edit newer than the remote survives a pull made before its push", async () => {
+  useSyncPrefsStore.getState().setSettingSync("appSettings.locale", true);
   useLocaleStore.setState({ locale: "fr" });
   useAppSettingsTimestampStore.setState({ updatedAt: "2031-01-01T00:00:00.000Z", clocks: { locale: "2031-01-01T00:00:00.000Z" } });
   serveRemoteDevice(

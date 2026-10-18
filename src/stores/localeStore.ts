@@ -13,6 +13,16 @@ export const SUPPORTED_LOCALES: { value: Locale; label: string }[] = [
   { value: "cs", label: "Čeština" },
 ];
 
+// Seeds a fresh install only; a saved choice always wins on rehydrate.
+export function systemLocale(languages: readonly string[] = globalThis.navigator?.languages ?? []): Locale {
+  for (const tag of languages) {
+    const primary = tag.toLowerCase().split("-")[0];
+    const match = SUPPORTED_LOCALES.find((l) => l.value === primary);
+    if (match) return match.value;
+  }
+  return "en";
+}
+
 interface LocaleStore {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -21,7 +31,7 @@ interface LocaleStore {
 export const useLocaleStore = create<LocaleStore>()(
   persist(
     (set) => ({
-      locale: "en",
+      locale: systemLocale(),
       setLocale: (locale) => {
         set({ locale });
         touchAppSetting("appSettings.locale");

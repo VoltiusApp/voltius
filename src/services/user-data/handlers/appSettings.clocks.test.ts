@@ -15,7 +15,7 @@ const T2 = "2030-01-02T00:00:00.000Z";
 const T3 = "2030-01-03T00:00:00.000Z";
 
 beforeEach(() => {
-  useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} });
+  useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: { "appSettings.locale": true } });
   useAppSettingsTimestampStore.setState({ updatedAt: T1, clocks: {} });
 });
 

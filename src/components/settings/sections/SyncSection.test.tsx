@@ -111,9 +111,10 @@ describe("held-back settings summary", () => {
 
   test("counts the device-scoped defaults under App settings", () => {
     const { container } = render(<SyncSection />);
-    expect(el(container, "held-back-appSettings")?.textContent).toContain('"count":2');
+    expect(el(container, "held-back-appSettings")?.textContent).toContain('"count":3');
     fireEvent.click(el(container, "held-back-appSettings")!);
     expect(el(container, "resume-appSettings.terminal.preferredShell")).toBeTruthy();
+    expect(el(container, "resume-appSettings.locale")).toBeTruthy();
     expect(el(container, "resume-appSettings.proxy")).toBeTruthy();
   });
 

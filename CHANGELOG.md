@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching between saved accounts no longer changes the interface language. The language now stays on the device by default, like the preferred shell and the proxy. This means it no longer reaches your other devices either, so a new install now starts in your system language when Voltius supports it, and in English otherwise. To sync it again, turn on sync for **Language** in **Settings → Appearance** (#653)
+
 ## [0.59.0] - 2026-10-18
 
 ### Added

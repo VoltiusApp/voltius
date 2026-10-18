@@ -31,28 +31,28 @@ describe("SettingRow syncKey", () => {
   });
 
   test("clicking holds the setting back", () => {
-    const c = row("appSettings.locale");
+    const c = row("appSettings.keepalivePreset");
     fireEvent.click(btn(c)!);
-    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(false);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.keepalivePreset")).toBe(false);
   });
 
   test("clicking again resumes syncing", () => {
-    useSyncPrefsStore.getState().setSettingSync("appSettings.locale", false);
-    const c = row("appSettings.locale");
+    useSyncPrefsStore.getState().setSettingSync("appSettings.keepalivePreset", false);
+    const c = row("appSettings.keepalivePreset");
     fireEvent.click(btn(c)!);
-    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(true);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.keepalivePreset")).toBe(true);
   });
 
   test("is inert while the whole domain is off", () => {
     useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
-    const c = row("appSettings.locale");
+    const c = row("appSettings.keepalivePreset");
     expect(btn(c)!.disabled).toBe(true);
     fireEvent.click(btn(c)!);
-    expect(useSyncPrefsStore.getState().settingSyncOverrides["appSettings.locale"]).toBeUndefined();
+    expect(useSyncPrefsStore.getState().settingSyncOverrides["appSettings.keepalivePreset"]).toBeUndefined();
 
     const domainOffColor = btn(c)!.style.color;
-    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: { "appSettings.locale": false } });
-    const heldBackColor = btn(row("appSettings.locale"))!.style.color;
+    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: { "appSettings.keepalivePreset": false } });
+    const heldBackColor = btn(row("appSettings.keepalivePreset"))!.style.color;
     expect(domainOffColor).not.toBe(heldBackColor);
   });
 

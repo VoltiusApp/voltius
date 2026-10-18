@@ -108,6 +108,7 @@ describe("per-key filtering", () => {
   test("takes no copy when nothing is held back", () => {
     useSyncPrefsStore.getState().setSettingSync("appSettings.terminal.preferredShell", true);
     useSyncPrefsStore.getState().setSettingSync("appSettings.proxy", true);
+    useSyncPrefsStore.getState().setSettingSync("appSettings.locale", true);
     const input = appBundle();
     expect(filterOutgoing(input).sections.appSettings).toBe(input.sections.appSettings);
   });
@@ -218,6 +219,7 @@ describe("heldBackKeys", () => {
   test("lists the device-scoped default", () => {
     expect(heldBackKeys("appSettings").map((k) => k.id)).toEqual([
       "appSettings.terminal.preferredShell",
+      "appSettings.locale",
       "appSettings.proxy",
     ]);
   });

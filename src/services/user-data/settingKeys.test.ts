@@ -16,7 +16,7 @@ describe("settingKeys", () => {
 
   test("marks exactly the device-scoped keys", () => {
     expect(SETTING_KEYS.filter((k) => k.deviceScoped).map((k) => k.id))
-      .toEqual(["appSettings.terminal.preferredShell", "appSettings.proxy", "themes.location"]);
+      .toEqual(["appSettings.terminal.preferredShell", "appSettings.locale", "appSettings.proxy", "themes.location"]);
   });
 
   test("splits an id into its domain and the path within the section", () => {
@@ -36,7 +36,7 @@ describe("settingKeys", () => {
     const shell = "appSettings.terminal.preferredShell";
     expect(isDeviceScopedDefault(shell, {})).toBe(true);
     expect(isDeviceScopedDefault(shell, { [shell]: false })).toBe(false);
-    expect(isDeviceScopedDefault("appSettings.locale", {})).toBe(false);
+    expect(isDeviceScopedDefault("appSettings.keepalivePreset", {})).toBe(false);
   });
 
   test("ids are unique", () => {

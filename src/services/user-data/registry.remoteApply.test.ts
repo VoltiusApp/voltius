@@ -7,6 +7,7 @@ import { useShortcutStore } from "@/stores/shortcutStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useLocaleStore } from "@/stores/localeStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 
 const scheduleSync = vi.fn();
 vi.mock("@/services/sync", () => ({ scheduleSync: () => scheduleSync() }));
@@ -88,6 +89,7 @@ describe("applyUserDataBundle — remote apply", () => {
     const applying = applyUserDataBundle(b, ["appSettings"], { remote: true });
 
     // plugin_registry_save is still in flight when the user changes language.
+    useSyncPrefsStore.getState().setSettingSync("appSettings.locale", true);
     useLocaleStore.getState().setLocale("tr");
     await applying;
     await flush();

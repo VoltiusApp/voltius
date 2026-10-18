@@ -40,7 +40,11 @@ describe("per-setting overrides", () => {
   );
 
   test("an ordinary key syncs by default", () => {
-    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(true);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.keepalivePreset")).toBe(true);
+  });
+
+  test("the UI language stays on the device by default", () => {
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(false);
   });
 
   test("a device-scoped key does not sync by default", () => {
@@ -50,9 +54,9 @@ describe("per-setting overrides", () => {
   test("an explicit override beats the registry default in both directions", () => {
     const s = useSyncPrefsStore.getState();
     s.setSettingSync("appSettings.terminal.preferredShell", true);
-    s.setSettingSync("appSettings.locale", false);
+    s.setSettingSync("appSettings.keepalivePreset", false);
     expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.terminal.preferredShell")).toBe(true);
-    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(false);
+    expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.keepalivePreset")).toBe(false);
   });
 
   test("a switched-off domain overrides an opted-in key", () => {
@@ -68,6 +72,6 @@ describe("per-setting overrides", () => {
 
   test("a missing or undefined override map does not break the read path", () => {
     useSyncPrefsStore.setState({ settingSyncOverrides: undefined as unknown as Record<string, boolean> });
-    expect(() => useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).not.toThrow();
+    expect(() => useSyncPrefsStore.getState().isSettingSynced("appSettings.keepalivePreset")).not.toThrow();
   });
 });

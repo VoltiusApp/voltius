@@ -22,7 +22,12 @@ const HAND_WRITTEN: SettingKeyDef[] = [
   { id: "appSettings.sftp.autoRefreshIntervalMs", labelKey: "settings.sftp.filePanel.refreshInterval.title" },
   { id: "appSettings.plugins.overrides", labelKey: "settings.sync.settingKey.pluginOverrides" },
   { id: "appSettings.keepalivePreset", labelKey: "settings.hosts.keepalive.title" },
-  { id: "appSettings.locale", labelKey: "settings.appearance.language.title" },
+  {
+    id: "appSettings.locale",
+    labelKey: "settings.appearance.language.title",
+    // Each saved account carries its own copy, so a synced locale flips the UI on every switch.
+    deviceScoped: true,
+  },
   {
     id: "appSettings.proxy",
     labelKey: "settings.hosts.proxy.title",

@@ -1,14 +1,22 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useLocaleStore, SUPPORTED_LOCALES } from "./localeStore";
+import { useLocaleStore, SUPPORTED_LOCALES, systemLocale } from "./localeStore";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { useSyncPrefsStore } from "./syncPrefsStore";
 
 describe("localeStore", () => {
   beforeEach(() => {
     useLocaleStore.setState({ locale: "en" });
   });
 
-  it("defaults to English", () => {
-    expect(useLocaleStore.getState().locale).toBe("en");
+  it("starts a fresh install in the first supported system language", () => {
+    expect(systemLocale(["de-DE", "cs-CZ", "fr-FR"])).toBe("cs");
+    expect(systemLocale(["zh-CN"])).toBe("zh");
+    expect(systemLocale(["TR"])).toBe("tr");
+  });
+
+  it("falls back to English when no system language is supported", () => {
+    expect(systemLocale(["de-DE", "ja"])).toBe("en");
+    expect(systemLocale([])).toBe("en");
   });
 
   it("setLocale updates the locale", () => {
@@ -16,7 +24,15 @@ describe("localeStore", () => {
     expect(useLocaleStore.getState().locale).toBe("fr");
   });
 
-  it("setLocale bumps the app-settings sync timestamp", () => {
+  it("setLocale leaves the sync timestamp alone while the language stays on the device", () => {
+    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} });
+    useAppSettingsTimestampStore.setState({ updatedAt: new Date(0).toISOString() });
+    useLocaleStore.getState().setLocale("fr");
+    expect(useAppSettingsTimestampStore.getState().updatedAt).toBe(new Date(0).toISOString());
+  });
+
+  it("setLocale bumps the sync timestamp once the language is synced", () => {
+    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: { "appSettings.locale": true } });
     useAppSettingsTimestampStore.setState({ updatedAt: new Date(0).toISOString() });
     useLocaleStore.getState().setLocale("fr");
     expect(useAppSettingsTimestampStore.getState().updatedAt).not.toBe(new Date(0).toISOString());
