@@ -24,30 +24,30 @@ export interface Boundary {
 }
 
 /**
- * Splits a buffer line into runs of uniform-advance cells, isolating wide or
- * odd-advance glyphs so the overlay can pin them to their cell width.
+ * Splits a buffer row into runs of uniform-advance cells padded with spaces to `cols`, isolating
+ * wide or odd-advance glyphs. Every point of the row then hits text, so native selection never
+ * resolves to a position outside the overlay.
  */
-export function segmentsForLine(line: LineLike, isUniform: (ch: string) => boolean): Segment[] {
-  let last = -1;
-  for (let x = 0; x < line.length; x += 1) {
-    const ch = line.getCell(x)?.getChars() ?? "";
-    if (ch && ch.trim()) last = x;
-  }
+export function segmentsForLine(line: LineLike | undefined, isUniform: (ch: string) => boolean, cols: number): Segment[] {
   const out: Segment[] = [];
   let run: Segment | null = null;
-  for (let x = 0; x <= last; x += 1) {
-    const cell = line.getCell(x);
+  const push = (x: number, ch: string) => {
+    if (run) run.text += ch;
+    else out.push((run = { col: x, text: ch }));
+  };
+  const width = Math.min(line?.length ?? 0, cols);
+  for (let x = 0; x < width; x += 1) {
+    const cell = line?.getCell(x);
     const w = cell?.getWidth() ?? 1;
     if (w === 0) continue;
     const ch = cell?.getChars() || " ";
-    if (w === 1 && ch.length === 1 && isUniform(ch)) {
-      if (run) run.text += ch;
-      else out.push((run = { col: x, text: ch }));
-    } else {
+    if (w === 1 && ch.length === 1 && (ch === " " || isUniform(ch))) push(x, ch);
+    else {
       run = null;
       out.push({ col: x, text: ch, width: w });
     }
   }
+  for (let x = segmentsEnd(out); x < cols; x += 1) push(x, " ");
   return out;
 }
 
@@ -92,4 +92,23 @@ export function edgeLine(
     ? first + Math.ceil(scrollTop / cellH - 1e-6)
     : first + Math.floor((scrollTop + clientHeight) / cellH + 1e-6) - 1;
   return Math.max(first, Math.min(last - 1, line));
+}
+
+export type EndMove = "accept" | "keep" | "scroll";
+
+/**
+ * How to treat a selection end that native selection moved: `at` is its new row (null when it left
+ * the overlay toward `dir`). Only visible rows are reachable by a finger; leaving the overlay counts
+ * as a drag past the edge only when the end was already on that edge row.
+ */
+export function classifyEndMove(
+  prevLine: number | undefined,
+  at: number | null,
+  dir: "up" | "down",
+  top: number,
+  bottom: number,
+): EndMove {
+  if (at !== null) return prevLine === undefined || (at >= top - 1 && at <= bottom + 1) ? "accept" : "keep";
+  if (prevLine === undefined) return "scroll";
+  return (dir === "down" ? prevLine >= bottom : prevLine <= top) ? "scroll" : "keep";
 }

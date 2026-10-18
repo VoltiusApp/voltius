@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
+import { classifyEndMove, edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
 import { boundaryFromDom, renderLine } from "./nativeSelectionOverlay";
 
 type Cell = { ch: string; w: number };
@@ -23,22 +23,23 @@ const ascii = (s: string, width = s.length) =>
 const uniform = (ch: string) => ch !== "→";
 
 describe("segmentsForLine", () => {
-  test("one run of uniform cells, trailing blanks dropped", () => {
-    expect(segmentsForLine(lineOf(ascii("ls -la", 10)), uniform)).toEqual([{ col: 0, text: "ls -la" }]);
+  test("one run of uniform cells padded to the terminal width", () => {
+    expect(segmentsForLine(lineOf(ascii("ls -la", 8)), uniform, 10)).toEqual([{ col: 0, text: "ls -la    " }]);
   });
 
   test("wide and odd-advance glyphs get their own pinned segment", () => {
     const cells = [{ ch: "a", w: 1 }, { ch: "世", w: 2 }, { ch: "", w: 0 }, { ch: "→", w: 1 }, { ch: "b", w: 1 }];
-    expect(segmentsForLine(lineOf(cells), uniform)).toEqual([
+    expect(segmentsForLine(lineOf(cells), uniform, 6)).toEqual([
       { col: 0, text: "a" },
       { col: 1, text: "世", width: 2 },
       { col: 3, text: "→", width: 1 },
-      { col: 4, text: "b" },
+      { col: 4, text: "b " },
     ]);
   });
 
-  test("blank line has no segments", () => {
-    expect(segmentsForLine(lineOf(ascii("", 5)), uniform)).toEqual([]);
+  test("blank and missing rows still hit text across the full width", () => {
+    expect(segmentsForLine(lineOf(ascii("", 5)), uniform, 3)).toEqual([{ col: 0, text: "   " }]);
+    expect(segmentsForLine(undefined, uniform, 3)).toEqual([{ col: 0, text: "   " }]);
   });
 });
 
@@ -66,9 +67,9 @@ describe("textBetween", () => {
 describe("boundaryFromDom", () => {
   const root = document.createElement("div");
   root.append(
-    renderLine(document, 40, lineOf(ascii("ab", 4)), uniform, 8, 16),
-    renderLine(document, 41, lineOf([{ ch: "x", w: 1 }, { ch: "世", w: 2 }, { ch: "", w: 0 }, { ch: "y", w: 1 }]), uniform, 8, 16),
-    renderLine(document, 42, lineOf(ascii("", 4)), uniform, 8, 16),
+    renderLine(document, 40, lineOf(ascii("ab", 4)), uniform, 5, 8, 16),
+    renderLine(document, 41, lineOf([{ ch: "x", w: 1 }, { ch: "世", w: 2 }, { ch: "", w: 0 }, { ch: "y", w: 1 }]), uniform, 5, 8, 16),
+    renderLine(document, 42, lineOf(ascii("", 4)), uniform, 5, 8, 16),
   );
   const [l40, l41, l42] = Array.from(root.children) as HTMLElement[];
 
@@ -85,13 +86,13 @@ describe("boundaryFromDom", () => {
 
   test("line element offsets map to segment starts or the line end", () => {
     expect(boundaryFromDom(root, l41, 2)).toEqual({ line: 41, col: 3 });
-    expect(boundaryFromDom(root, l40, 1)).toEqual({ line: 40, col: 2 });
+    expect(boundaryFromDom(root, l40, 1)).toEqual({ line: 40, col: 5 });
     expect(boundaryFromDom(root, l42, 0)).toEqual({ line: 42, col: 0 });
   });
 
   test("root offsets map to line starts and the final line end", () => {
     expect(boundaryFromDom(root, root, 1)).toEqual({ line: 41, col: 0 });
-    expect(boundaryFromDom(root, root, 3)).toEqual({ line: 42, col: 0 });
+    expect(boundaryFromDom(root, root, 3)).toEqual({ line: 42, col: 5 });
   });
 
   test("nodes outside the overlay are rejected", () => {
@@ -116,5 +117,24 @@ describe("scroll sync", () => {
   test("edgeLine stays inside the rendered window", () => {
     expect(edgeLine(0, 160, 16, 100, 105, "down")).toBe(104);
     expect(edgeLine(-30, 160, 16, 100, 2000, "up")).toBe(100);
+  });
+});
+
+describe("classifyEndMove", () => {
+  test("a move onto a visible row is taken", () => {
+    expect(classifyEndMove(110, 112, "down", 100, 120)).toBe("accept");
+    expect(classifyEndMove(undefined, 5, "down", 100, 120)).toBe("accept");
+  });
+
+  test("a jump far outside the visible rows is a hit-test artefact", () => {
+    expect(classifyEndMove(110, 0, "up", 100, 120)).toBe("keep");
+    expect(classifyEndMove(110, 900, "down", 100, 120)).toBe("keep");
+  });
+
+  test("leaving the overlay scrolls only from the matching edge row", () => {
+    expect(classifyEndMove(120, null, "down", 100, 120)).toBe("scroll");
+    expect(classifyEndMove(100, null, "up", 100, 120)).toBe("scroll");
+    expect(classifyEndMove(110, null, "up", 100, 120)).toBe("keep");
+    expect(classifyEndMove(100, null, "down", 100, 120)).toBe("keep");
   });
 });
