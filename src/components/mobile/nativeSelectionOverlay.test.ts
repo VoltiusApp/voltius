@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { classifyEndMove, edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
+import { edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
 import { boundaryFromDom, renderLine } from "./nativeSelectionOverlay";
 
 type Cell = { ch: string; w: number };
@@ -120,21 +120,3 @@ describe("scroll sync", () => {
   });
 });
 
-describe("classifyEndMove", () => {
-  test("a move onto a visible row is taken", () => {
-    expect(classifyEndMove(110, 112, "down", 100, 120)).toBe("accept");
-    expect(classifyEndMove(undefined, 5, "down", 100, 120)).toBe("accept");
-  });
-
-  test("a jump far outside the visible rows is a hit-test artefact", () => {
-    expect(classifyEndMove(110, 0, "up", 100, 120)).toBe("keep");
-    expect(classifyEndMove(110, 900, "down", 100, 120)).toBe("keep");
-  });
-
-  test("leaving the overlay scrolls only from the matching edge row", () => {
-    expect(classifyEndMove(120, null, "down", 100, 120)).toBe("scroll");
-    expect(classifyEndMove(100, null, "up", 100, 120)).toBe("scroll");
-    expect(classifyEndMove(110, null, "up", 100, 120)).toBe("keep");
-    expect(classifyEndMove(100, null, "down", 100, 120)).toBe("keep");
-  });
-});

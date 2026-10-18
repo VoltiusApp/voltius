@@ -94,21 +94,3 @@ export function edgeLine(
   return Math.max(first, Math.min(last - 1, line));
 }
 
-export type EndMove = "accept" | "keep" | "scroll";
-
-/**
- * How to treat a selection end that native selection moved: `at` is its new row (null when it left
- * the overlay toward `dir`). Only visible rows are reachable by a finger; leaving the overlay counts
- * as a drag past the edge only when the end was already on that edge row.
- */
-export function classifyEndMove(
-  prevLine: number | undefined,
-  at: number | null,
-  dir: "up" | "down",
-  top: number,
-  bottom: number,
-): EndMove {
-  if (at !== null) return prevLine === undefined || (at >= top - 1 && at <= bottom + 1) ? "accept" : "keep";
-  if (prevLine === undefined) return "scroll";
-  return (dir === "down" ? prevLine >= bottom : prevLine <= top) ? "scroll" : "keep";
-}

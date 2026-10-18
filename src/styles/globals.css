@@ -472,6 +472,17 @@
     background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 
+  body[data-native-term-selecting] * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body[data-native-term-selecting] [data-native-selection] [data-sel],
+  body[data-native-term-selecting] [data-native-selection] [data-sel] * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
 }
 
 @keyframes toast-timer-drain {

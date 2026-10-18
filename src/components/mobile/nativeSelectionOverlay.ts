@@ -1,4 +1,4 @@
-import { classifyEndMove, edgeLine, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
+import { edgeLine, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
 
 export interface OverlayTerm {
   rows(): number;
@@ -21,7 +21,7 @@ export interface NativeSelection {
 }
 
 const SCROLLBACK_LINES = 1000;
-const AUTOSCROLL_MS = 45;
+const AUTOSCROLL_MS = 70;
 
 export function renderLine(
   doc: Document,
@@ -208,12 +208,47 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     return armed && !!hit && el.contains(hit) && !!hit.closest("[data-col]");
   };
 
+  let selLo = 0;
+  let selHi = -1;
+  let prevAnchor: Boundary | null = null;
+  let prevFocus: Boundary | null = null;
+  let pendingScroll: ReturnType<typeof setTimeout> | null = null;
+
+  const edges = () => ({
+    top: edgeLine(el.scrollTop, el.clientHeight, cellH, first, last, "up"),
+    bottom: edgeLine(el.scrollTop, el.clientHeight, cellH, first, last, "down"),
+  });
+
+  const markRows = (lo: number, hi: number, on: boolean) => {
+    for (let i = Math.max(lo, first); i <= Math.min(hi, last - 1); i += 1) {
+      const row = el.children[i - first] as HTMLElement | undefined;
+      if (row) row.toggleAttribute("data-sel", on);
+    }
+  };
+
+  // Rows outside [anchor, focus, visible window] are made unselectable so a handle dragged off the
+  // overlay clamps to the edge row instead of resolving into scrollback the user cannot see.
+  const updateSelectable = () => {
+    const { top, bottom } = edges();
+    const lines = [top, bottom, prevAnchor?.line, prevFocus?.line].filter((l): l is number => l !== undefined);
+    const lo = Math.min(...lines);
+    const hi = Math.max(...lines);
+    if (lo === selLo && hi === selHi) return;
+    markRows(selLo, selHi, false);
+    markRows(lo, hi, true);
+    selLo = lo;
+    selHi = hi;
+  };
+
   const expand = () => {
     const term = getTerm();
     if (!term) return;
     const top = first;
     const from = Math.max(0, top - SCROLLBACK_LINES);
     const to = Math.max(last, Math.min(term.bufferLength(), last + SCROLLBACK_LINES));
+    markRows(first, last - 1, true);
+    selLo = first;
+    selHi = last - 1;
     el.prepend(fill(term, from, top));
     el.append(fill(term, last, to));
     first = from;
@@ -224,42 +259,29 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
 
   const end = () => {
     selecting = false;
+    if (pendingScroll) clearTimeout(pendingScroll);
+    pendingScroll = null;
+    prevAnchor = null;
+    prevFocus = null;
+    selHi = -1;
+    delete document.body.dataset.nativeTermSelecting;
     setShift(getTerm()?.screenEl(), 0);
     disarm();
   };
 
-  type End = { node: Node; offset: number; line: number; col: number };
-  let good: { anchor: End; focus: End } | null = null;
-
-  const edges = () => ({
-    top: edgeLine(el.scrollTop, el.clientHeight, cellH, first, last, "up"),
-    bottom: edgeLine(el.scrollTop, el.clientHeight, cellH, first, last, "down"),
-  });
-
-  const edgeEnd = (down: boolean): End => {
-    const line = down ? edges().bottom : edges().top;
-    const div = el.children[line - first] as HTMLElement | undefined;
-    if (!div) return { node: el, offset: down ? el.childNodes.length : 0, line, col: 0 };
-    return { node: div, offset: down ? div.childNodes.length : 0, line, col: down ? Number(div.dataset.end) : 0 };
-  };
-
-  const resolveEnd = (node: Node, offset: number, prev: End | undefined): End => {
-    const inside = el.contains(node);
-    const at = inside ? boundaryFromDom(el, node, offset) : null;
-    if (prev && at && at.line === prev.line && at.col === prev.col) return prev;
-    if (inside && !at) return prev ?? { node, offset, line: first, col: 0 };
-    const down = (el.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    const { top, bottom } = edges();
-    const move = classifyEndMove(prev?.line, at?.line ?? null, down ? "down" : "up", top, bottom);
-    if (move === "accept" && at) return { node, offset, ...at };
-    if (move === "keep" && prev) return prev;
-    const now = performance.now();
-    if (now - lastAutoscroll >= AUTOSCROLL_MS) {
-      lastAutoscroll = now;
-      el.scrollTop += down ? cellH : -cellH;
+  // A throttled step is deferred, not dropped: the next clamp only moves once the edge row has.
+  const autoscroll = (dir: 1 | -1) => {
+    const wait = lastAutoscroll + AUTOSCROLL_MS - performance.now();
+    if (wait > 0) {
+      if (!pendingScroll) pendingScroll = setTimeout(() => { pendingScroll = null; if (selecting) autoscroll(dir); }, wait);
+      return;
     }
-    return edgeEnd(down);
+    lastAutoscroll = performance.now();
+    el.scrollTop += dir * cellH;
+    updateSelectable();
   };
+
+  const sameBoundary = (a: Boundary | null, b: Boundary | null) => a?.line === b?.line && a?.col === b?.col;
 
   const onSelectionChange = () => {
     if (!armed) return;
@@ -272,32 +294,46 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     const focusIn = el.contains(sel.focusNode);
     if (!anchorIn && !focusIn) {
       if (selecting && sel.getRangeAt(0).intersectsNode(el)) {
-        good = null;
+        markRows(first, last - 1, true);
+        selLo = first;
+        selHi = last - 1;
         sel.selectAllChildren(el);
       } else if (selecting) end();
       return;
     }
+    const anchor = anchorIn ? boundaryFromDom(el, sel.anchorNode, sel.anchorOffset) : null;
+    const focus = focusIn ? boundaryFromDom(el, sel.focusNode, sel.focusOffset) : null;
     if (!selecting) {
       selecting = true;
-      good = null;
+      document.body.dataset.nativeTermSelecting = "";
       expand();
+      prevAnchor = anchor;
+      prevFocus = focus;
+      updateSelectable();
+      return;
     }
-    const anchor = resolveEnd(sel.anchorNode, sel.anchorOffset, good?.anchor);
-    const focus = resolveEnd(sel.focusNode, sel.focusOffset, good?.focus);
-    good = { anchor, focus };
-    const same = anchor.node === sel.anchorNode && anchor.offset === sel.anchorOffset
-      && focus.node === sel.focusNode && focus.offset === sel.focusOffset;
-    if (!same) sel.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
+    const movedNode = !sameBoundary(focus, prevFocus) ? sel.focusNode : !sameBoundary(anchor, prevAnchor) ? sel.anchorNode : null;
+    const moved = movedNode === sel.focusNode ? focus : anchor;
+    prevAnchor = anchor ?? prevAnchor;
+    prevFocus = focus ?? prevFocus;
+    updateSelectable();
+    if (!movedNode) return;
+    if (!moved) {
+      autoscroll(el.compareDocumentPosition(movedNode) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1);
+      return;
+    }
+    const { top, bottom } = edges();
+    if (moved.line <= top) autoscroll(-1);
+    else if (moved.line >= bottom) autoscroll(1);
   };
 
   const onCopy = (e: ClipboardEvent) => {
     const term = getTerm();
     const sel = document.getSelection();
-    if (!selecting || !term || !sel || sel.rangeCount === 0) return;
+    if (!selecting || !term || !sel || sel.rangeCount === 0 || !e.clipboardData) return;
     const range = sel.getRangeAt(0);
-    const start = boundaryFromDom(el, range.startContainer, range.startOffset);
-    const stop = boundaryFromDom(el, range.endContainer, range.endOffset);
-    if (!start || !stop || !e.clipboardData) return;
+    const start = boundaryFromDom(el, range.startContainer, range.startOffset) ?? { line: selLo, col: 0 };
+    const stop = boundaryFromDom(el, range.endContainer, range.endOffset) ?? { line: selHi, col: cols };
     e.clipboardData.setData("text/plain", textBetween((i) => term.line(i), start, stop));
     e.preventDefault();
   };
@@ -308,6 +344,7 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
     const { line, frac } = splitScroll(el.scrollTop, cellH);
     term.scrollToLine(first + line);
     setShift(term.screenEl(), frac);
+    updateSelectable();
   };
 
   // The terminal container pastes on contextmenu; a native long-press must not reach it.
@@ -330,6 +367,7 @@ export function createNativeSelection(host: HTMLElement, getTerm: () => OverlayT
       el.removeEventListener("contextmenu", onContextMenu);
       resizeObserver.disconnect();
       if (selecting) {
+        delete document.body.dataset.nativeTermSelecting;
         setShift(getTerm()?.screenEl(), 0);
         document.getSelection()?.removeAllRanges();
       }
