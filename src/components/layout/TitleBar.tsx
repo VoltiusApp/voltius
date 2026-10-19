@@ -56,6 +56,7 @@ function splitTitle(t: TFunction, label: string, more: number): string {
 export default function TitleBar() {
   const { t } = useTranslation();
   const setActiveNav = useUIStore((s) => s.setActiveNav);
+  const leaveTerminal = useUIStore((s) => s.leaveTerminal);
   const activeNav = useUIStore((s) => s.activeNav);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const setRightPanelOpen = useUIStore((s) => s.setRightPanelOpen);
@@ -165,13 +166,9 @@ export default function TitleBar() {
     syncTitlebarOrder(visibleItemKeys, grouped ? titlebarKeyGroupOf : undefined);
   }, [syncTitlebarOrder, visibleItemKeys.join("|"), grouped]);
 
-  // Ensure the user never gets stuck on an empty terminal view.
-  // When all sessions are gone, fall back to Vaults.
   useEffect(() => {
-    if (sessions.length === 0 && activeNav === "terminal") {
-      setActiveNav("hosts");
-    }
-  }, [sessions.length, activeNav, setActiveNav]);
+    if (sessions.length === 0) leaveTerminal();
+  }, [sessions.length, activeNav, leaveTerminal]);
 
   const handleTabClick = (sessionId: string) => {
     if (shouldSuppressDragClick()) return;
@@ -202,7 +199,7 @@ export default function TitleBar() {
     const ids = tab ? getPaneSessionIds(tab.root) : [];
     closeSplitTab(tabId);
     ids.forEach(closeSession);
-    if (sessions.length <= ids.length) setActiveNav("hosts");
+    if (sessions.length <= ids.length) leaveTerminal();
   };
 
   const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {

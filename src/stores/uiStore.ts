@@ -3,6 +3,9 @@ import { persist } from "zustand/middleware";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
+export type PageNavItem = Exclude<NavItem, "terminal">;
+
+const navTo = (nav: NavItem) => (nav === "terminal" ? { activeNav: nav } : { activeNav: nav, lastPageNav: nav });
 
 export type BuiltinRightPanelSection = "snippets" | "history" | "notes" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
@@ -86,6 +89,7 @@ interface UIStore {
   sidebarOpen: boolean;
   homeView: boolean;
   activeNav: NavItem;
+  lastPageNav: PageNavItem;
   omniOpen: boolean;
   globalPanelOpen: Record<string, boolean>;
   setGlobalPanelOpen: (id: string, open: boolean) => void;
@@ -145,6 +149,8 @@ interface UIStore {
   setSidebarOpen: (open: boolean) => void;
   setHomeView: (v: boolean) => void;
   setActiveNav: (nav: NavItem) => void;
+  /** From the terminal view, go back to the page shown before it. */
+  leaveTerminal: () => void;
   setOmniOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setNotificationCenterOpen: (open: boolean) => void;
@@ -216,6 +222,7 @@ export const useUIStore = create<UIStore>()(
         sidebarOpen: true,
         homeView: true,
         activeNav: "hosts" as NavItem,
+        lastPageNav: "hosts" as PageNavItem,
         omniOpen: false,
         globalPanelOpen: {},
         dockedPanelWidth: 0,
@@ -269,7 +276,8 @@ export const useUIStore = create<UIStore>()(
         toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
         setSidebarOpen: (open) => set({ sidebarOpen: open }),
         setHomeView: (v) => set({ homeView: v }),
-        setActiveNav: (nav) => set({ activeNav: nav }),
+        setActiveNav: (nav) => set(navTo(nav)),
+        leaveTerminal: () => set((s) => (s.activeNav === "terminal" ? { activeNav: s.lastPageNav } : {})),
         setOmniOpen: (open) => set({ omniOpen: open }),
         setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
         toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
@@ -318,9 +326,9 @@ export const useUIStore = create<UIStore>()(
         setSnippetsLayoutMode: (v) => setPref({ snippetsLayoutMode: v }),
         setKnownHostsLayoutMode: (v) => setPref({ knownHostsLayoutMode: v }),
         setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
-        openMembersPanel: (panel) => set({ activeNav: "members", homeView: false, membersPanelPending: panel }),
+        openMembersPanel: (panel) => set({ ...navTo("members"), homeView: false, membersPanelPending: panel }),
         clearMembersPanelPending: () => set({ membersPanelPending: null }),
-        openMembersNav: () => set({ activeNav: "members", homeView: false }),
+        openMembersNav: () => set({ ...navTo("members"), homeView: false }),
         openVaultSharePending: () => set({ vaultSharePending: true }),
         clearVaultSharePending: () => set({ vaultSharePending: false }),
         openWhatsNew: () => set({ whatsNewOpen: true }),

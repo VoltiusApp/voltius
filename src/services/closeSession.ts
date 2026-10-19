@@ -23,5 +23,5 @@ export function closeSessionTabs(sessionIds: string[]): void {
     closeSession(id);
     useLayoutStore.getState().removeSession(id);
   }
-  if (useSessionStore.getState().sessions.length === 0) useUIStore.getState().setActiveNav("hosts");
+  if (useSessionStore.getState().sessions.length === 0) useUIStore.getState().leaveTerminal();
 }
