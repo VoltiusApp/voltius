@@ -213,7 +213,7 @@ export default function HostsPage() {
     navigateTo,
     navigateToRoot,
     onFolderDeleted,
-  } = useFolderNavigation(scopedFolders);
+  } = useFolderNavigation(scopedFolders, "connection");
 
   // When inside a folder, show only that folder's items; otherwise show unfoldered items
   const filtered = useMemo(() => {

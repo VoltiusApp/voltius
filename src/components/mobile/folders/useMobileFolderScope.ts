@@ -12,7 +12,7 @@ export function useMobileFolderScope(allFolders: Folder[], objectType: Folder["o
     () => allFolders.filter((f) => f.object_type === objectType && inScope(f)),
     [allFolders, objectType, inScope],
   );
-  const nav = useFolderNavigation(folders);
+  const nav = useFolderNavigation(folders, objectType);
   const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders]);
   const targetVaultId = nav.folderPath[nav.folderPath.length - 1]?.vault_id ?? createVaultId;
 

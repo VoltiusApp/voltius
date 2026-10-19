@@ -140,7 +140,7 @@ export default function KeychainPage() {
     navigateTo,
     navigateToRoot,
     onFolderDeleted,
-  } = useFolderNavigation(scopedFolders);
+  } = useFolderNavigation(scopedFolders, "keychain");
 
   const availableTags = useMemo(
     () => [...new Set([...keys.flatMap((k) => k.tags), ...identities.flatMap((i) => i.tags)])].sort(),

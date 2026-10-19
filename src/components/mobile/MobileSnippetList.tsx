@@ -73,7 +73,7 @@ export default function MobileSnippetList({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {foldersEnabled && nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
+      {foldersEnabled && nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
       <div className="shrink-0 px-3 py-2">
         <div className="flex items-center gap-2 rounded-xl px-3 h-10" style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
           <Icon icon="lucide:search" width={16} className="text-(--t-text-dim)" />

@@ -337,7 +337,7 @@ export function SnippetsPage() {
     navigateTo,
     navigateToRoot,
     onFolderDeleted,
-  } = useFolderNavigation(scopedFolders);
+  } = useFolderNavigation(scopedFolders, "snippet");
 
   useEffect(() => {
     void loadSnippets();

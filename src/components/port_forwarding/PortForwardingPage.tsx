@@ -148,7 +148,7 @@ export function PortForwardingPage() {
     navigateTo,
     navigateToRoot,
     onFolderDeleted,
-  } = useFolderNavigation(scopedFolders);
+  } = useFolderNavigation(scopedFolders, "port_forwarding");
 
   const q = search.trim();
   const match = useSearchMatcher(q);

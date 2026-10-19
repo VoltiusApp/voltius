@@ -95,6 +95,6 @@ export function foldersOutsideSubtree(folders: Folder[], rootId: string): Folder
   return folders.filter((f) => !ids.has(f.id));
 }
 
-export function rootedParentId(parentId: string | null | undefined, knownIds: ReadonlySet<string>): string | null {
+export function rootedParentId(parentId: string | null | undefined, knownIds: { has(id: string): boolean }): string | null {
   return parentId && knownIds.has(parentId) ? parentId : null;
 }
