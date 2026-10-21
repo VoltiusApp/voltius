@@ -81,7 +81,10 @@ export default function MobileLogsScreen() {
               <Icon icon="lucide:loader-circle" width={24} className="animate-spin text-(--t-text-dim)" />
             </div>
           ) : (
-            <AuditTimeline logs={visibleLogs} />
+            // select-text: log entries stay copyable under the Android no-select chrome rule.
+            <div className="select-text">
+              <AuditTimeline logs={visibleLogs} />
+            </div>
           )}
         </div>
 

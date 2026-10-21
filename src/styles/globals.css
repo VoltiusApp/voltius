@@ -720,3 +720,55 @@ fieldset:disabled :is(input, textarea, button) { cursor: default; }
   input[type="checkbox"]:disabled { cursor: default; opacity: 0.6; }
   input[type="checkbox"]:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 1px; }
 }
+
+/* ── Android shell: stop looking like a web page (A7) ─────────────────────────────
+   `html[data-android]` is set by the native shell (NativeFeel.kt) before first paint,
+   with `--vt-font-scale` = the system font scale, capped 0.85–1.3 (WebView textZoom is
+   pinned to 100 so the system setting can't break the layout on its own). Unlayered
+   on purpose so it wins over Tailwind's layers. Desktop never gets the attribute. */
+html[data-android] {
+  --vt-fs: var(--vt-font-scale, 1);
+  --text-xs: calc(0.867rem * var(--vt-fs));
+  --text-xs--line-height: calc(1.333rem * var(--vt-fs));
+  --text-sm: calc(1rem * var(--vt-fs));
+  --text-sm--line-height: calc(1.467rem * var(--vt-fs));
+  --text-base: calc(1.133rem * var(--vt-fs));
+  --text-base--line-height: calc(1.6rem * var(--vt-fs));
+  --text-lg: calc(1.267rem * var(--vt-fs));
+  --text-lg--line-height: calc(1.867rem * var(--vt-fs));
+  --text-xl: calc(1.4rem * var(--vt-fs));
+  --text-xl--line-height: calc(2rem * var(--vt-fs));
+  --text-2xl: calc(1.5rem * var(--vt-fs));
+  --text-3xl: calc(1.875rem * var(--vt-fs));
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation; /* no double-tap zoom; JS gestures set their own touch-action */
+}
+
+html[data-android],
+html[data-android] body {
+  overscroll-behavior: none; /* no page-level bounce; inner scrollers keep their own */
+}
+
+/* Chrome isn't text: no accidental selection or callout on long-press. */
+html[data-android] body {
+  font-size: calc(1rem * var(--vt-fs));
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* …except what the user types into or may want to copy (mark content with `select-text`). */
+html[data-android] :is(input, textarea, [contenteditable]:not([contenteditable="false"]), .select-text) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Hover-revealed controls (`opacity-0 group-hover:opacity-…`) are invisible on touch,
+   where there's no hover: show them. */
+@media (hover: none) {
+  html[data-android] .opacity-0[class*="group-hover"][class*=":opacity-"] {
+    opacity: 1;
+  }
+}
