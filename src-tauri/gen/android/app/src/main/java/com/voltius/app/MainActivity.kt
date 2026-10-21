@@ -14,6 +14,9 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : TauriActivity() {
+  // Back is routed to the page by NativeBack, never to WebView history.
+  override val handleBackNavigation: Boolean = false
+
   private lateinit var dirPicker: ActivityResultLauncher<Uri?>
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,8 +62,8 @@ class MainActivity : TauriActivity() {
     VoltiusBiometric.setForeground(this, true)
   }
 
-  // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34)
-  // and the window-insets -> CSS-variables bridge (SystemInsets.kt).
+  // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34),
+  // the window-insets -> CSS-variables bridge (SystemInsets.kt) and native Back (NativeBack.kt).
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     // App dark bg instead of the default white between the splash and the first web paint.
@@ -68,6 +71,7 @@ class MainActivity : TauriActivity() {
     SplashGate.watch(webView)
     TerminalKeyboard.install(this, webView)
     SystemInsets.install(webView)
+    NativeBack.install(this, webView)
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

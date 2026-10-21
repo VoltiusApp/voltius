@@ -41,7 +41,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title={t("mobile.sheets.snippetActions.deleteTitle")} onClose={closeSheet} registerBack={false}>
+      <BottomSheet title={t("mobile.sheets.snippetActions.deleteTitle")} onClose={closeSheet}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
           {t("mobile.sheets.shared.confirmDeleteBody", { name: snippet.name })}
         </div>
@@ -65,7 +65,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   if (mode === "move" || mode === "copy") {
     const copy = mode === "copy";
     return (
-      <BottomSheet title={copy ? t("mobile.sheets.shared.copyToVault") : t("mobile.sheets.shared.moveToVault")} onClose={closeSheet} registerBack={false}>
+      <BottomSheet title={copy ? t("mobile.sheets.shared.copyToVault") : t("mobile.sheets.shared.moveToVault")} onClose={closeSheet}>
         {vaultTargets.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, onTap: () => {
             if (copy) void createSnippet(copyingRulesOf({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, vault_id: v.id, favorite: false }, snippet.id));
@@ -96,7 +96,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   ];
 
   return (
-    <BottomSheet title={snippet.name} onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={snippet.name} onClose={closeSheet}>
       {items.map((it) => <Row key={it.slug ?? it.label} it={it} />)}
     </BottomSheet>
   );

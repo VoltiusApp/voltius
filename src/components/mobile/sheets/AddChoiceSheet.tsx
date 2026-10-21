@@ -13,7 +13,7 @@ export default function AddChoiceSheet({
 }) {
   const { t } = useTranslation();
   return (
-    <BottomSheet title={t("common.action.add")} onClose={onClose} registerBack={false}>
+    <BottomSheet title={t("common.action.add")} onClose={onClose}>
       {items.map((it) => <Row key={it.slug} {...it} />)}
       {onNewFolder && <Row slug="folder" icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={onNewFolder} />}
     </BottomSheet>

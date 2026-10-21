@@ -34,7 +34,7 @@ export default function FolderActionsSheet({
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title={t("mobile.sheets.folderActions.deleteTitle")} onClose={onClose} registerBack={false}>
+      <BottomSheet title={t("mobile.sheets.folderActions.deleteTitle")} onClose={onClose}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
           {t("mobile.sheets.folderActions.deleteBody", { name: folder.name })}
         </div>
@@ -45,7 +45,7 @@ export default function FolderActionsSheet({
   }
 
   return (
-    <BottomSheet title={folder.name} onClose={onClose} registerBack={false}>
+    <BottomSheet title={folder.name} onClose={onClose}>
       <Row slug="rename" icon="lucide:pencil" label={t("common.action.edit")} onTap={() => setMode("edit")} />
       <Row slug="delete" icon="lucide:trash-2" label={t("common.action.delete")} danger onTap={() => setMode("confirm-delete")} />
     </BottomSheet>

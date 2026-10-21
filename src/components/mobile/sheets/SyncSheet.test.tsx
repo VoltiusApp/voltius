@@ -18,7 +18,11 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) })
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ providers: h.providers }) }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: h.runAction }));
 vi.mock("@/stores/mobileNavStore", () => ({
-  useMobileNavStore: (sel: (s: Record<string, unknown>) => unknown) => sel({ closeSheet: h.closeSheet }),
+  // getState: BottomSheet registers a back interceptor, which reads the nav layer.
+  useMobileNavStore: Object.assign(
+    (sel: (s: Record<string, unknown>) => unknown) => sel({ closeSheet: h.closeSheet }),
+    { getState: () => ({ tab: "hosts", stack: [], sheet: { kind: "sync" } }) },
+  ),
 }));
 
 import SyncSheet from "./SyncSheet";
