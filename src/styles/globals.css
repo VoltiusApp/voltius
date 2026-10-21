@@ -828,3 +828,32 @@ html[data-android] :is(input, textarea, [contenteditable]:not([contenteditable="
     opacity: 1;
   }
 }
+
+/* ── Ripples + pressed state layer (B5, lib/ripple.ts) ───────────────────────────────
+   Spans appended to the pressed control on touch-down: the state layer (::before, 10 %
+   of currentColor while held) and the ripple circle (child span, grown by WAAPI). */
+html[data-android] .vt-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+html[data-android] .vt-ripple::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity var(--vt-dur-short2) var(--vt-ease-linear);
+}
+html[data-android] .vt-ripple[data-pressed]::before {
+  opacity: 0.1;
+}
+html[data-android] .vt-ripple > span {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.12;
+  transform: scale(0);
+}

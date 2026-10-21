@@ -54,12 +54,15 @@ import { usePfToastBridge } from "@/hooks/usePfToastBridge";
 import { openPortForwardingPage } from "@/services/portForwardingNav";
 import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import { refitSession } from "@/hooks/useTerminal";
+import { installRipples } from "@/lib/ripple";
 
 export default function MobileShell() {
   const { t } = useTranslation();
   const MORE_PAGE_TITLES = getMorePageTitles(t);
   useAndroidBack();
   useHostPingPolling(); // desktop mounts this in MainPanel; the mobile shell doesn't
+  // Touch feedback on every row / button / key, delegated from the document (Android only).
+  useEffect(() => (document.documentElement.hasAttribute("data-android") ? installRipples() : undefined), []);
   usePfToastBridge(openPortForwardingPage);
   const navTab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
