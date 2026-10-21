@@ -49,6 +49,8 @@
   --animate-spin: spin 0.8s linear infinite;
   --animate-tab-hint: tab-hint 600ms ease-out forwards;
   --animate-sync-breathe: sync-breathe 1.4s ease-in-out infinite;
+  /* Mobile full-screen surfaces (settings, import/export) entering: motion tokens below. */
+  --animate-vt-enter: fadeIn var(--vt-dur-medium2) var(--vt-ease-emphasized-decelerate) forwards;
 
   --transition-duration-400: 400ms;
 
@@ -95,6 +97,49 @@
   @keyframes fadeOut {
     0% { opacity: 1; }
     100% { opacity: 0; }
+  }
+}
+
+/* Motion tokens (Material 3): the one set of easings and durations mobile animations use.
+   Mirrored in src/lib/motion.ts for JS (WAAPI) animations; motion.test.ts keeps them in sync.
+   Use transition(..) / easeVar / durVar from there, or these vars directly. */
+:root {
+  --vt-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --vt-ease-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+  --vt-ease-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+  --vt-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --vt-ease-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --vt-ease-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --vt-ease-linear: linear;
+  --vt-dur-short1: 50ms;
+  --vt-dur-short2: 100ms;
+  --vt-dur-short3: 150ms;
+  --vt-dur-short4: 200ms;
+  --vt-dur-medium1: 250ms;
+  --vt-dur-medium2: 300ms;
+  --vt-dur-medium3: 350ms;
+  --vt-dur-medium4: 400ms;
+  --vt-dur-long1: 450ms;
+  --vt-dur-long2: 500ms;
+  --vt-dur-long3: 550ms;
+  --vt-dur-long4: 600ms;
+}
+
+/* Motion tokens, reduced: every token-driven animation becomes instant. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vt-dur-short1: 0ms;
+    --vt-dur-short2: 0ms;
+    --vt-dur-short3: 0ms;
+    --vt-dur-short4: 0ms;
+    --vt-dur-medium1: 0ms;
+    --vt-dur-medium2: 0ms;
+    --vt-dur-medium3: 0ms;
+    --vt-dur-medium4: 0ms;
+    --vt-dur-long1: 0ms;
+    --vt-dur-long2: 0ms;
+    --vt-dur-long3: 0ms;
+    --vt-dur-long4: 0ms;
   }
 }
 

@@ -29,7 +29,7 @@ export default function MobileSettings() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-fadeIn"
+      className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-vt-enter"
       data-mobile-settings
       style={{
         paddingTop: "var(--vt-safe-top)",

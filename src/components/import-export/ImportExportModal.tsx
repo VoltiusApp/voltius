@@ -55,7 +55,7 @@ export function ImportExportModal() {
 
   if (isAndroid) {
     return createPortal(
-      <div data-import-export-fullscreen className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-fadeIn"
+      <div data-import-export-fullscreen className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-vt-enter"
         style={{ paddingTop: "var(--vt-safe-top)", paddingBottom: "var(--vt-safe-bottom)", paddingLeft: "var(--vt-safe-left)", paddingRight: "var(--vt-safe-right)" }}>
         {body}
       </div>,
