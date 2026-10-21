@@ -5,19 +5,7 @@
 /// Calls a static `(Z)V` method on `TerminalKeyboard`; warns instead of failing the command.
 fn call_bool(method: &str, value: bool) {
     #[cfg(target_os = "android")]
-    {
-        use crate::android_ctx::{load_class, with_env};
-        let args = [jni::objects::JValue::Bool(value.into())];
-        let res = with_env(method, |env, _ctx| {
-            // Resolve via the app class loader: Tauri commands run on tokio workers whose default
-            // FindClass only sees the system loader (see android_ctx::load_class).
-            let cls = load_class(env, "com.voltius.app.TerminalKeyboard")?;
-            env.call_static_method(&cls, method, "(Z)V", &args)?.v()
-        });
-        if let Err(e) = res {
-            log::warn!("TerminalKeyboard.{method}: {e}");
-        }
-    }
+    crate::android_ctx::call_static_bool("com.voltius.app.TerminalKeyboard", method, value);
     #[cfg(not(target_os = "android"))]
     let _ = (method, value);
 }

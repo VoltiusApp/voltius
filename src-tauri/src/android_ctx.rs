@@ -99,3 +99,16 @@ pub fn load_class<'a>(
         .l()?;
     Ok(JClass::from(cls))
 }
+
+/// Call a static `(Z)V` method on an app class (dotted name), resolved via [`load_class`]. Logs a
+/// warning instead of failing: these are fire-and-forget UI nudges from Tauri commands.
+pub fn call_static_bool(class: &str, method: &str, value: bool) {
+    let args = [jni::objects::JValue::Bool(value.into())];
+    let res = with_env(method, |env, _ctx| {
+        let cls = load_class(env, class)?;
+        env.call_static_method(&cls, method, "(Z)V", &args)?.v()
+    });
+    if let Err(e) = res {
+        log::warn!("{class}.{method}: {e}");
+    }
+}

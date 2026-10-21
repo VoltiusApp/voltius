@@ -44,6 +44,7 @@ class MainActivity : TauriActivity() {
     }
     instance = this
     VoltiusBiometric.applyWindowFlags(this)
+    SystemBars.install(this)
   }
 
   override fun onPause() {
