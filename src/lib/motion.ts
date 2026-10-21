@@ -97,3 +97,15 @@ export const SHEET_MOTION = {
   enter: { duration: "medium2", easing: "emphasizedDecelerate" },
   exit: { duration: "short4", easing: "emphasizedAccelerate" },
 } as const satisfies Record<string, { duration: DurationToken; easing: EasingToken }>;
+
+/** Page push / pop (M3 shared axis X, see hooks/pageTransition.ts). */
+export const PAGE_MOTION = {
+  push: { duration: "medium2", easing: "emphasizedDecelerate" },
+  /** The leaving page accelerates away; the revealed one settles in. */
+  popFront: { duration: "medium1", easing: "emphasizedAccelerate" },
+  popBack: { duration: "medium1", easing: "emphasizedDecelerate" },
+  /** Where the incoming / leaving page sits off rest, and where the covered one shifts and dims to. */
+  frontShift: "30%",
+  backShift: "-10%",
+  backOpacity: 0.6,
+} as const;

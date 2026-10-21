@@ -29,8 +29,8 @@ export default function SettingsModal() {
   // A selected child force-expands, or the highlighted row would be invisible.
   const showChildren = pluginChildren.length > 0 && (navExpanded || pluginPageId !== null);
 
+  if (isAndroid) return <MobileSettings open={open} />;
   if (!open) return null;
-  if (isAndroid) return <MobileSettings />;
 
   return (
     <Modal onClose={() => setOpen(false)} blur>

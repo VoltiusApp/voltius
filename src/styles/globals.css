@@ -49,8 +49,6 @@
   --animate-spin: spin 0.8s linear infinite;
   --animate-tab-hint: tab-hint 600ms ease-out forwards;
   --animate-sync-breathe: sync-breathe 1.4s ease-in-out infinite;
-  /* Mobile full-screen surfaces (settings, import/export) entering: motion tokens below. */
-  --animate-vt-enter: fadeIn var(--vt-dur-medium2) var(--vt-ease-emphasized-decelerate) forwards;
 
   --transition-duration-400: 400ms;
 

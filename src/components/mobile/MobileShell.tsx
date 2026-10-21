@@ -27,7 +27,7 @@ import TeamVaultStatePanel from "@/components/team/TeamVaultStatePanel";
 import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
 import MobileSnippetActionsSheet from "./sheets/MobileSnippetActionsSheet";
 import MobileSnippetsSheet from "./sheets/MobileSnippetsSheet";
-import type { MorePage } from "@/stores/mobileNavCore";
+import type { MobileScreen, MorePage } from "@/stores/mobileNavCore";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -47,6 +47,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { resolvePanelScreen } from "./mobilePanelDispatch";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useBackPeekStore } from "@/hooks/predictiveBack";
+import { pickLayers, stackLayers, stackRootVisible, useLayerTransition } from "@/hooks/pageTransition";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { usePfToastBridge } from "@/hooks/usePfToastBridge";
@@ -64,9 +65,18 @@ export default function MobileShell() {
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
   const top = stack[stack.length - 1];
-  // A predictive-back preview of the only pushed page reveals the tab screen under it.
-  const peekUnder = useBackPeekStore((s) => s.peek) && stack.length === 1;
-  const tabScreen = !top || peekUnder;
+  // A predictive-back preview of the top page reveals what's under it (previous page or tab screen).
+  const peek = useBackPeekStore((s) => s.peek === "stack") && stack.length > 0;
+  // Push / pop transition: the covered or leaving page stays mounted while it animates.
+  const transition = useLayerTransition(stack, stack.length, (t) =>
+    pickLayers(
+      t.dir,
+      (role) => document.querySelector(`[data-mobile-stack-page="${role}"]`)?.firstElementChild as HTMLElement | null,
+      () => document.querySelector<HTMLElement>("[data-mobile-tab-screen]"),
+    ));
+  const pages = stackLayers(stack, transition, peek);
+  // The tab screen (and terminal / SFTP) under the stack: shown at root and while a page over it moves.
+  const tabScreen = stackRootVisible(stack.length, transition, peek);
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const panelsRowOpen = useUIStore((s) => s.terminalPanelsRowOpen);
@@ -82,7 +92,6 @@ export default function MobileShell() {
     const Render = screen.render;
     return <Render {...props} sessionId={props.sessionId as string} onBack={pop} />;
   };
-  const resolvedPanel = resolvePanelScreen(top);
 
   // A team vault that cannot show its contents replaces the vault's screens with
   // the explanatory panel, the way MainPanel does on desktop (issue #70).
@@ -92,9 +101,9 @@ export default function MobileShell() {
   // Never while the blocked panel is up — it covers the screens, so dropping the tab
   // bar as well would leave the member no way off the vault at all.
   const immersive = tab === "terminal" && hasSessions && !top && !blockedTeamVault;
-  const terminalVisible = tab === "terminal" && !top;
+  const terminalVisible = tab === "terminal" && tabScreen;
   // SFTP tab is always-mounted (below) so its connections/cwd survive tab switches; this only gates visibility.
-  const sftpVisible = !terminalVisible && tab === "sftp" && !top;
+  const sftpVisible = !terminalVisible && tab === "sftp" && tabScreen;
 
   // Keyboard-aware layout: pin the whole shell to the visual-viewport height while a
   // terminal session is foreground, so the soft keyboard shrinks the app (the extra-keys
@@ -114,9 +123,37 @@ export default function MobileShell() {
     // usableHeight (== visual viewport height) captures every keyboard inset change.
   }, [usableHeight, terminalVisible, activeSessionId]);
 
+  // One pushed page. Rendered per stack layer: the top one, plus the one under it or the
+  // leaving one during a push / pop transition or a predictive-back peek.
+  const renderPage = (screen: MobileScreen) => {
+    const panel = resolvePanelScreen(screen);
+    return (
+      <>
+        {screen.kind === "host-edit" && <MobileHostEditScreen hostId={screen.hostId} />}
+        {screen.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={screen.snippetId} />}
+        {screen.kind === "key-edit" && <MobileKeyEditScreen keyId={screen.keyId} mode={screen.mode} />}
+        {screen.kind === "identity-edit" && <MobileIdentityEditScreen identityId={screen.identityId} />}
+        {screen.kind === "more-page" && screen.page === "keychain" && <MobileKeychainScreen />}
+        {screen.kind === "more-page" && screen.page === "port-forwarding" && <MobilePortForwardingScreen />}
+        {screen.kind === "more-page" && screen.page === "known-hosts" && <MobileKnownHostsScreen />}
+        {screen.kind === "more-page" && screen.page === "logs" && <MobileLogsScreen />}
+        {screen.kind === "more-page" && screen.page === "members" && (
+          <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
+            <MobilePanelHeader title={MORE_PAGE_TITLES.members} />
+            <div className="flex-1 overflow-hidden flex flex-col"><MembersPage /></div>
+          </div>
+        )}
+        {panel && renderMobileScreen(panel.screenKind, panel.props)}
+        {screen.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={screen.connectionId} />}
+        {screen.kind === "account" && <MobileAccountPage />}
+      </>
+    );
+  };
+
   return (
     <div
       className="h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
+      data-mobile-shell
       style={{
         paddingTop: "var(--vt-safe-top)", paddingLeft: "var(--vt-safe-left)", paddingRight: "var(--vt-safe-right)",
         height: shellHeight,
@@ -136,7 +173,7 @@ export default function MobileShell() {
               panel covers them anyway. The session and SFTP layers below stay mounted —
               unmounting them would drop a live terminal or an SFTP connection. */}
           {!terminalVisible && tab !== "sftp" && !blockedTeamVault && (
-            <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }}>
+            <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }} data-mobile-tab-screen>
               {tab === "hosts" && tabScreen && <MobileHostsScreen />}
               {tab === "snippets" && tabScreen && <MobileSnippetsScreen />}
               {tab === "more" && tabScreen && <MobileMoreScreen />}
@@ -153,27 +190,13 @@ export default function MobileShell() {
             When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
         {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
         {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
-        {/* Pushed full-screen pages overlay everything. The wrapper is layout-neutral (display: contents);
-            predictive back animates its first child, the top page. */}
-        <div className="contents" data-mobile-stack-page>
-          {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
-          {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
-          {top?.kind === "key-edit" && <MobileKeyEditScreen keyId={top.keyId} mode={top.mode} />}
-          {top?.kind === "identity-edit" && <MobileIdentityEditScreen identityId={top.identityId} />}
-          {top?.kind === "more-page" && top.page === "keychain" && <MobileKeychainScreen />}
-          {top?.kind === "more-page" && top.page === "port-forwarding" && <MobilePortForwardingScreen />}
-          {top?.kind === "more-page" && top.page === "known-hosts" && <MobileKnownHostsScreen />}
-          {top?.kind === "more-page" && top.page === "logs" && <MobileLogsScreen />}
-          {top?.kind === "more-page" && top.page === "members" && (
-            <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-              <MobilePanelHeader title={MORE_PAGE_TITLES.members} />
-              <div className="flex-1 overflow-hidden flex flex-col"><MembersPage /></div>
-            </div>
-          )}
-          {resolvedPanel && renderMobileScreen(resolvedPanel.screenKind, resolvedPanel.props)}
-          {top?.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={top.connectionId} />}
-          {top?.kind === "account" && <MobileAccountPage />}
-        </div>
+        {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
+            (display: contents); transitions and predictive back animate its first child. */}
+        {pages.map(({ item, index, role }) => (
+          <div key={`${index}:${item.kind}`} className="contents" data-mobile-stack-page={role}>
+            {renderPage(item)}
+          </div>
+        ))}
         {/* Above every screen and pushed page — all of them read vault objects this
             member cannot see yet. MobileHeader rides along because it owns the vault
             switcher: desktop leaves its sidebar uncovered, and this is the mobile
