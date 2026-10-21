@@ -6,9 +6,6 @@ import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.webkit.ScriptHandler
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 import kotlin.math.roundToInt
 
@@ -44,7 +41,7 @@ import kotlin.math.roundToInt
 object SystemInsets {
   private var webView: WebView? = null
   private var lastJson: String? = null
-  private var docStartScript: ScriptHandler? = null
+  private val script = PageScript("SystemInsets")
   private var latest: WindowInsetsCompat? = null
   /** IME height (px) the WebView's parent is currently padded by. */
   private var appliedIme = 0
@@ -111,14 +108,8 @@ object SystemInsets {
       .toString()
     if (json == lastJson) return
     lastJson = json
-    val js = applyScript(json)
-    // Replay at document start of future loads (reload / not-yet-ready page)...
-    if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-      docStartScript?.remove()
-      docStartScript = WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*"))
-    }
-    // ...and apply to the current document now.
-    wv.post { wv.evaluateJavascript(js, null) }
+    // Apply now and replay at document start of future loads (reload / not-yet-ready page).
+    script.set(wv, applyScript(json))
   }
 
   private fun applyScript(json: String) = """
