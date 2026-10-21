@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { BACK_PREVIEW, animate, prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Android predictive back, in-app part (the root back-to-home preview is the system's).
@@ -13,28 +14,8 @@ import { create } from "zustand";
  *
  * Transform / opacity only (CSS `scale` / `translate`, which compose with the
  * components' own `transform`), plus a clip-path for the corners.
- * Reduced motion: no preview, Back just closes.
+ * Reduced motion: no preview, Back just closes. Geometry and timing: BACK_PREVIEW (lib/motion).
  */
-
-/** Motion tokens of the preview, named so the shared motion module (B1) can absorb them. */
-export const BACK_PREVIEW_MOTION = {
-  /** Page scale at full progress (M3: 90 %). */
-  pageMinScale: 0.9,
-  /** M3 horizontal shift: up to width / 20 − 8 dp. */
-  pageShiftDivisor: 20,
-  pageShiftMarginPx: 8,
-  /** Corner radius the page grows to (reached at 25 % progress). */
-  pageCornerPx: 28,
-  /** Sheet shrink at full progress (M3 bottom sheet: 48 dp narrower, 24 dp shorter). */
-  sheetShrinkXPx: 48,
-  sheetShrinkYPx: 24,
-  /** Cancel: back to rest (M3 standard easing). */
-  cancelMs: 250,
-  cancelEasing: "cubic-bezier(0.2, 0, 0, 1)",
-  /** Commit: the page fades out before it closes (M3 emphasized accelerate). */
-  commitMs: 120,
-  commitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)",
-} as const;
 
 export type BackEdge = "left" | "right" | "none";
 
@@ -70,7 +51,7 @@ export function previewFrame(
   width: number,
   height: number,
 ): BackPreviewFrame {
-  const m = BACK_PREVIEW_MOTION;
+  const m = BACK_PREVIEW;
   const p = Math.min(1, Math.max(0, progress));
   if (kind === "sheet") {
     return {
@@ -104,9 +85,6 @@ interface Active {
 
 let active: Active | null = null;
 let committing = false;
-
-const reducedMotion = () =>
-  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const save = (el: HTMLElement): SavedStyle =>
   Object.fromEntries(STYLE_KEYS.map((k) => [k, el.style[k]])) as SavedStyle;
@@ -154,10 +132,7 @@ function cancel(a: Active) {
   el.style.scale = "";
   el.style.translate = "";
   el.style.clipPath = a.saved.clipPath;
-  a.settling = el.animate([from, to], {
-    duration: BACK_PREVIEW_MOTION.cancelMs,
-    easing: BACK_PREVIEW_MOTION.cancelEasing,
-  });
+  a.settling = animate(el, [from, to], BACK_PREVIEW.cancel.duration, BACK_PREVIEW.cancel.easing);
   a.settling.onfinish = () => {
     if (active === a) finish();
   };
@@ -174,7 +149,7 @@ export function onBackProgress(
   if (committing) return;
   if (ev.phase === "start") {
     finish();
-    if (reducedMotion()) return;
+    if (prefersReducedMotion()) return;
     const r = resolve();
     if (!r?.target) return;
     begin(r.target, r.close);
@@ -204,9 +179,7 @@ export function commitBackPreview(): boolean {
     return true;
   }
   committing = true;
-  const fade = el.animate([{ opacity: 1 }, { opacity: 0 }], {
-    duration: BACK_PREVIEW_MOTION.commitMs,
-    easing: BACK_PREVIEW_MOTION.commitEasing,
+  const fade = animate(el, [{ opacity: 1 }, { opacity: 0 }], BACK_PREVIEW.commit.duration, BACK_PREVIEW.commit.easing, {
     fill: "forwards",
   });
   fade.onfinish = () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BACK_PREVIEW_MOTION as M, previewFrame } from "./predictiveBack";
+import { BACK_PREVIEW as M } from "@/lib/motion";
+import { previewFrame } from "./predictiveBack";
 
 describe("previewFrame", () => {
   it("is the identity at rest", () => {

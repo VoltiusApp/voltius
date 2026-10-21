@@ -96,7 +96,7 @@ export default function MobileLogsScreen() {
             <button
               onClick={() => setFilter("page", page - 1)}
               disabled={page <= 1}
-              className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity"
+              className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity duration-(--vt-dur-short3) ease-(--vt-ease-standard)"
               style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
             >
               <Icon icon="lucide:chevron-left" width={14} />
@@ -108,7 +108,7 @@ export default function MobileLogsScreen() {
             <button
               onClick={() => setFilter("page", page + 1)}
               disabled={page >= totalPages}
-              className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity"
+              className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity duration-(--vt-dur-short3) ease-(--vt-ease-standard)"
               style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
             >
               {t("mobile.logsScreen.next")}

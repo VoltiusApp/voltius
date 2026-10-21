@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
+import { SHEET_MOTION, motionMs, transition } from "@/lib/motion";
 
 /**
  * Mobile bottom sheet: scrim tap + drag-down dismiss. Children scroll internally.
@@ -37,8 +38,8 @@ export default function BottomSheet({ onClose, children, title }: {
     setDragging(false);
     setExitY((panelRef.current?.offsetHeight ?? 400) + 40);
     setClosing(true);
-    // Fallback in case transitionend doesn't fire (e.g. already off-screen).
-    closeTimer.current = setTimeout(onClose, 260);
+    // Fallback in case transitionend doesn't fire (e.g. already off-screen, or reduced motion).
+    closeTimer.current = setTimeout(onClose, motionMs(SHEET_MOTION.exit.duration) + 60);
   };
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
@@ -61,6 +62,7 @@ export default function BottomSheet({ onClose, children, title }: {
   };
 
   const translateY = closing ? exitY : entered ? dragY : 400;
+  const phase = closing ? SHEET_MOTION.exit : SHEET_MOTION.enter;
 
   return createPortal(
     <div
@@ -76,17 +78,22 @@ export default function BottomSheet({ onClose, children, title }: {
       style={{ top: offsetTop, height: usableHeight > 0 ? usableHeight : "100%" }}
     >
       <div
-        className="absolute inset-0 transition-opacity"
-        style={{ background: "rgba(0,0,0,0.5)", opacity: entered && !closing ? 1 : 0 }}
+        className="absolute inset-0"
+        style={{
+          background: "rgba(0,0,0,0.5)",
+          opacity: entered && !closing ? 1 : 0,
+          transition: transition("opacity", phase.duration, "standard"),
+        }}
         onClick={requestClose}
       />
       <div
         ref={panelRef}
-        className={`relative rounded-t-2xl max-h-[80%] flex flex-col ${dragging ? "" : "transition-transform"}`}
+        className="relative rounded-t-2xl max-h-[80%] flex flex-col"
         style={{
           background: "var(--t-bg-elevated)",
           border: "1px solid var(--t-border)",
           transform: `translateY(${translateY}px)`,
+          transition: dragging ? "none" : transition("transform", phase.duration, phase.easing),
           paddingBottom: "var(--vt-safe-bottom)",
         }}
         onTransitionEnd={(e) => {
