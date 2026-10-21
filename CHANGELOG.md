@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.60.3] - 2026-10-21
+
+### Added
+
+- Hold Ctrl and scroll over an open terminal to increase or decrease its font size, from 8 to 32 px. The size is saved in terminal settings and applied to all open terminals, including multiplayer sessions.
+
 ## [0.60.1] - 2026-10-21
 
 ### Fixed

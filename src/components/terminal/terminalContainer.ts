@@ -8,6 +8,8 @@ import {
 } from "@/components/terminal/terminalClipboard";
 import { claimWebglRenderer } from "@/utils/webglAddon";
 import { attachTerminalMouseScale } from "@/components/terminal/terminalMouseScale";
+import { useUIStore } from "@/stores/uiStore";
+import { useThemeStore } from "@/stores/themeStore";
 
 /** A terminal that outlives the views it is mounted in. */
 export interface CachedTerminal {
@@ -61,6 +63,16 @@ function bindTerminalContainer(entry: CachedTerminal, container: HTMLDivElement,
   const clip = attachTerminalClipboard(terminal, container, clipOptions);
   entry.clip = clip;
 
+  // Capture before xterm turns wheel events into scrolling or application input.
+  const handleWheel = (event: WheelEvent) => {
+    if (!event.ctrlKey || event.deltaY === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const size = useThemeStore.getState().getActiveTheme().terminalFontSize;
+    useUIStore.getState().setTerminalFontSize(size + (event.deltaY < 0 ? 1 : -1));
+  };
+  container.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+
   const handleWindowResize = () => fitIfVisible(entry);
   window.addEventListener("resize", handleWindowResize);
 
@@ -72,6 +84,7 @@ function bindTerminalContainer(entry: CachedTerminal, container: HTMLDivElement,
   resizeObserver.observe(container);
 
   return () => {
+    container.removeEventListener("wheel", handleWheel, true);
     detachMouseScale();
     clip.dispose();
     if (entry.clip === clip) entry.clip = null;
