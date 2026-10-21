@@ -66,19 +66,25 @@ jobs:
             echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Sign the tag with an SSH key registered to the account as a
-          # signing key, so GitHub shows it as Verified. Tagger email is the
-          # account's private noreply address (keeps the real email private).
-          install -m 600 /dev/null "$RUNNER_TEMP/sk"
-          printf '%s\n' "$SSH_SIGNING_KEY" > "$RUNNER_TEMP/sk"
-          git config user.name "kipavy"
-          git config user.email "88386090+kipavy@users.noreply.github.com"
-          git config gpg.format ssh
-          git config user.signingkey "$RUNNER_TEMP/sk"
-          git tag -s "$TAG" -m "Release $TAG"
+          if [ -n "$SSH_SIGNING_KEY" ]; then
+            # Preserve signed tags when the repository configures a signing key.
+            install -m 600 /dev/null "$RUNNER_TEMP/sk"
+            trap 'rm -f "$RUNNER_TEMP/sk"' EXIT
+            printf '%s\n' "$SSH_SIGNING_KEY" > "$RUNNER_TEMP/sk"
+            git config user.name "kipavy"
+            git config user.email "88386090+kipavy@users.noreply.github.com"
+            git config gpg.format ssh
+            git config user.signingkey "$RUNNER_TEMP/sk"
+            git tag -s "$TAG" -m "Release $TAG"
+          else
+            echo "::notice::SSH_SIGNING_KEY is not configured; creating an unsigned annotated tag."
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag --no-sign -a "$TAG" -m "Release $TAG"
+          fi
           git push origin "$TAG"
           echo "created=true" >> "$GITHUB_OUTPUT"
-          echo "Created and pushed signed tag $TAG"
+          echo "Created and pushed tag $TAG"
 
   release:
     needs: tag
