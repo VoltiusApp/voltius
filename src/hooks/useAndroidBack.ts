@@ -3,6 +3,12 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useBackStackStore } from "@/hooks/useBackInterceptor";
 import { planBack, type BackAction } from "@/hooks/backCore";
+import {
+  commitBackPreview,
+  onBackProgress,
+  type BackPreviewTarget,
+  type BackProgressEvent,
+} from "@/hooks/predictiveBack";
 
 /** Native side (NativeBack.kt, `addJavascriptInterface`): absent outside the Android shell. */
 interface NativeBackBridge {
@@ -13,6 +19,8 @@ declare global {
   interface Window {
     /** Called by the native OnBackPressedCallback: closes the topmost thing, true if it did. */
     __voltiusBack?: () => boolean;
+    /** Predictive back gesture (start / progress / cancel) from NativeBack.kt. */
+    __voltiusBackProgress?: (ev: BackProgressEvent) => void;
     VoltiusBack?: NativeBackBridge;
   }
 }
@@ -26,13 +34,14 @@ const currentAction = (): BackAction | null => {
   });
 };
 
-/** Run one back step. Returns false when nothing is left to close (root). */
-export function runBack(): boolean {
-  const action = currentAction();
+const interceptor = (id: number) => useBackStackStore.getState().stack.find((i) => i.id === id);
+
+/** Run one back step (`action`, default: the current one). Returns false when nothing is left to close (root). */
+export function runBack(action: BackAction | null = currentAction()): boolean {
   if (!action) return false;
   switch (action.kind) {
     case "interceptor":
-      useBackStackStore.getState().stack.find((i) => i.id === action.id)?.close();
+      interceptor(action.id)?.close();
       return true;
     case "settings-subpage":
       useUIStore.getState().setSettingsSubPage(null);
@@ -42,6 +51,28 @@ export function runBack(): boolean {
       return true;
     case "nav":
       return useMobileNavStore.getState().back();
+  }
+}
+
+const pageTarget = (el: Element | null | undefined, peek = false): BackPreviewTarget | null =>
+  el instanceof HTMLElement ? { el, kind: "page", peek } : null;
+
+/** The element a predictive-back preview of `action` animates, if it has one. */
+function previewTarget(action: BackAction): BackPreviewTarget | null {
+  switch (action.kind) {
+    case "interceptor":
+      return interceptor(action.id)?.preview?.() ?? null;
+    case "settings-subpage":
+      return pageTarget(document.querySelector("[data-mobile-settings-body]"));
+    case "settings":
+      return pageTarget(document.querySelector("[data-mobile-settings]"));
+    case "nav": {
+      // Pushed pages only: a nav sheet is a BottomSheet (interceptor), a tab switch has no preview.
+      const { stack, sheet } = useMobileNavStore.getState();
+      if (sheet || stack.length === 0) return null;
+      // The screen under a single pushed page is the tab screen: mount it so the preview reveals it.
+      return pageTarget(document.querySelector("[data-mobile-stack-page]")?.firstElementChild, stack.length === 1);
+    }
   }
 }
 
@@ -66,12 +97,18 @@ export function useAndroidBack() {
     };
 
     window.__voltiusBack = () => {
-      const consumed = runBack();
+      const consumed = commitBackPreview() || runBack();
       // Native disables itself on false; mirror that so the next change re-sends.
       if (!consumed) sent = false;
       sync();
       return consumed;
     };
+
+    window.__voltiusBackProgress = (ev) =>
+      onBackProgress(ev, () => {
+        const action = currentAction();
+        return action && { target: previewTarget(action), close: () => runBack(action) };
+      });
 
     const unsubs = [
       useMobileNavStore.subscribe(sync),
@@ -82,6 +119,7 @@ export function useAndroidBack() {
     return () => {
       unsubs.forEach((u) => u());
       delete window.__voltiusBack;
+      delete window.__voltiusBackProgress;
       window.VoltiusBack?.setEnabled(false);
     };
   }, []);

@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { backDepth, type BackInterceptorEntry } from "./backCore";
+import type { BackPreviewTarget } from "./predictiveBack";
 
 /**
  * Global LIFO stack of dismissable transient overlays (bottom sheets, popovers,
@@ -13,6 +14,8 @@ import { backDepth, type BackInterceptorEntry } from "./backCore";
  */
 interface BackInterceptor extends BackInterceptorEntry {
   close: () => void;
+  /** The layer a predictive-back gesture previews closing (see predictiveBack.ts). */
+  preview?: () => BackPreviewTarget | null;
 }
 
 interface BackStackStore {
@@ -38,15 +41,27 @@ export function currentBackDepth(): number {
 /**
  * Register `close` as a hardware-back dismiss handler while `active` is true.
  * The latest `close` closure is always used, even if it changes between renders.
+ * `preview` (optional) names the element a predictive-back gesture animates.
  */
-export function useBackInterceptor(active: boolean, close: () => void) {
+export function useBackInterceptor(
+  active: boolean,
+  close: () => void,
+  preview?: () => BackPreviewTarget | null,
+) {
   const closeRef = useRef(close);
   closeRef.current = close;
+  const previewRef = useRef(preview);
+  previewRef.current = preview;
 
   useEffect(() => {
     if (!active) return;
     const id = nextId++;
-    useBackStackStore.getState().push({ id, depth: currentBackDepth(), close: () => closeRef.current() });
+    useBackStackStore.getState().push({
+      id,
+      depth: currentBackDepth(),
+      close: () => closeRef.current(),
+      preview: () => previewRef.current?.() ?? null,
+    });
     return () => useBackStackStore.getState().remove(id);
   }, [active]);
 }
