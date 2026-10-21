@@ -3,6 +3,10 @@ export interface ViewportInput {
   layoutHeight: number;   // window.innerHeight
   visualHeight: number;   // visualViewport.height
   visualOffsetTop: number; // visualViewport.offsetTop
+  /** Android: native IME height (window.__voltiusInsets.ime, CSS px). When > 0 the native shell
+   *  has already shrunk the WebView to end at the keyboard top (SystemInsets.kt), so the
+   *  layout viewport excludes the keyboard and there is no inset left to measure. */
+  nativeIme?: number;
 }
 export interface KeyboardLayout {
   keyboardVisible: boolean;
@@ -16,10 +20,10 @@ export interface KeyboardLayout {
 const KEYBOARD_MIN_INSET = 120;
 export function computeKeyboardLayout(i: ViewportInput): KeyboardLayout {
   const bottomInset = Math.max(0, i.layoutHeight - i.visualHeight - i.visualOffsetTop);
-  const keyboardVisible = bottomInset >= KEYBOARD_MIN_INSET;
+  const keyboardVisible = (i.nativeIme ?? 0) > 0 || bottomInset >= KEYBOARD_MIN_INSET;
   return {
     keyboardVisible,
-    bottomInset: keyboardVisible ? bottomInset : 0,
+    bottomInset: keyboardVisible && bottomInset >= KEYBOARD_MIN_INSET ? bottomInset : 0,
     usableHeight: i.visualHeight,
     offsetTop: i.visualOffsetTop,
   };

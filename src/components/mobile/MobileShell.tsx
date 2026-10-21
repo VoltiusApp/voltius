@@ -97,6 +97,9 @@ export default function MobileShell() {
   // row lands flush above it) instead of the WebView growing behind the keyboard. This
   // must sit on the OUTER container — a flex-1 inner child would grow past the keyboard
   // regardless of an explicit height. usableHeight is 0 until first measured.
+  // On Android the native shell already shrinks the WebView above the keyboard
+  // (SystemInsets.kt), so usableHeight == full height there and this pin is a no-op;
+  // keyboardVisible then comes from the native IME inset.
   const { usableHeight, keyboardVisible } = useVisualViewport();
   const shellHeight = immersive && usableHeight > 0 ? usableHeight : undefined;
   useEffect(() => {

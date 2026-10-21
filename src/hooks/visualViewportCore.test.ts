@@ -45,4 +45,16 @@ function assertEqual<T>(actual: T, expected: T, msg: string): void {
   assertEqual(r.offsetTop, 309, "scroll case: offsetTop surfaced");
   assertEqual(r.usableHeight, 476, "scroll case: usable = visual height");
 }
+// Android native resize (SystemInsets.kt): the WebView already ends at the keyboard top, so
+// visual == layout height, yet the keyboard is open (nativeIme > 0) — no inset left to apply.
+{
+  const r = computeKeyboardLayout({ layoutHeight: 555, visualHeight: 555, visualOffsetTop: 0, nativeIme: 336 });
+  assertEqual(r.keyboardVisible, true, "native ime: visible");
+  assertEqual(r.bottomInset, 0, "native ime: no double inset");
+  assertEqual(r.usableHeight, 555, "native ime: usable = resized height");
+}
+{
+  const r = computeKeyboardLayout({ layoutHeight: 915, visualHeight: 915, visualOffsetTop: 0, nativeIme: 0 });
+  assertEqual(r.keyboardVisible, false, "native ime 0: closed");
+}
 });
