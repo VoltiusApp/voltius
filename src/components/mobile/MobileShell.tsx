@@ -47,7 +47,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { resolvePanelScreen } from "./mobilePanelDispatch";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useBackPeekStore } from "@/hooks/predictiveBack";
-import { pickLayers, stackLayers, stackRootVisible, useLayerTransition } from "@/hooks/pageTransition";
+import { pickLayers, stackLayers, stackRootVisible, useFadeThrough, useLayerTransition } from "@/hooks/pageTransition";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { usePfToastBridge } from "@/hooks/usePfToastBridge";
@@ -61,7 +61,7 @@ export default function MobileShell() {
   useAndroidBack();
   useHostPingPolling(); // desktop mounts this in MainPanel; the mobile shell doesn't
   usePfToastBridge(openPortForwardingPage);
-  const tab = useMobileNavStore((s) => s.tab);
+  const navTab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
   const top = stack[stack.length - 1];
@@ -77,6 +77,11 @@ export default function MobileShell() {
   const pages = stackLayers(stack, transition, peek);
   // The tab screen (and terminal / SFTP) under the stack: shown at root and while a page over it moves.
   const tabScreen = stackRootVisible(stack.length, transition, peek);
+  // Tab switch at the root = M3 fade-through of the content area. `tab` (what is rendered)
+  // lags the store's tab by the fade-out; the tab bar follows the store at once. A switch
+  // that also clears a pushed page (setTab from a page) swaps at once under the page's pop.
+  const tab = useFadeThrough(navTab, stack.length === 0 && !transition,
+    () => document.querySelector<HTMLElement>("[data-mobile-tab-content]"));
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const panelsRowOpen = useUIStore((s) => s.terminalPanelsRowOpen);
@@ -152,7 +157,7 @@ export default function MobileShell() {
 
   return (
     <div
-      className="h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
+      className="relative h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
       data-mobile-shell
       style={{
         paddingTop: "var(--vt-safe-top)", paddingLeft: "var(--vt-safe-left)", paddingRight: "var(--vt-safe-right)",
@@ -162,6 +167,7 @@ export default function MobileShell() {
       <div
         className="flex-1 relative flex flex-col"
         style={{ overflow: "clip" }}
+        data-mobile-tab-content
       >
         {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
         {terminalVisible && <MobileTerminalScreen />}
@@ -209,8 +215,9 @@ export default function MobileShell() {
         )}
       </div>
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
-          visible-but-covered under the overlay, and tapping a tab silently clears the stack. */}
-      {!immersive && !top && <BottomTabBar />}
+          visible-but-covered under the overlay, and tapping a tab silently clears the stack.
+          It slides away / back rather than vanishing (useSlideAway). */}
+      <BottomTabBar visible={!immersive && !top} />
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "sync" && <SyncSheet />}
       {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}

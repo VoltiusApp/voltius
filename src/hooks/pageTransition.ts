@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { PAGE_MOTION, animate, prefersReducedMotion } from "@/lib/motion";
+import { NAV_MOTION, PAGE_MOTION, animate, prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Page transitions of the mobile shell (M3 shared axis X): a pushed page slides in
@@ -174,4 +174,111 @@ export function useOverlayTransition(open: boolean) {
   const tr = useLayerTransition(stack, stack.length, (t) =>
     pickLayers(t.dir, (role) => (role === "under" ? null : ref.current), shellEl));
   return { mounted: open || tr?.dir === "pop", ref };
+}
+
+/**
+ * M3 fade-through between tab destinations: on a change of `value` the element `el`
+ * names fades out, then the new value is rendered and fades in from a slight zoom.
+ * Returns the value to render, which lags `value` by the fade-out (the old content
+ * stays on screen while it fades). Nothing is remounted by this: the caller renders
+ * from the returned value exactly as it would from `value`. Instant when `enabled`
+ * is false, under reduced motion and without WAAPI.
+ */
+export function useFadeThrough<T>(value: T, enabled: boolean, el: () => HTMLElement | null | undefined): T {
+  const [shown, setShown] = useState({ value, swap: 0 });
+  const latest = useRef(value);
+  latest.current = value;
+  const elRef = useRef(el);
+  elRef.current = el;
+  const phase = useRef<"idle" | "out" | "in">("idle");
+  const anims = useRef<{ out: Animation | null; in: Animation | null }>({ out: null, in: null });
+
+  useLayoutEffect(() => {
+    // During a fade-out the swap at its end picks up the latest value.
+    if (Object.is(value, shown.value) || phase.current === "out") return;
+    const node = elRef.current();
+    anims.current.in?.cancel();
+    anims.current.in = null;
+    if (!enabled || !animated() || !node) {
+      phase.current = "idle";
+      setShown((s) => ({ value, swap: s.swap }));
+      return;
+    }
+    phase.current = "out";
+    const m = NAV_MOTION.fadeOut;
+    const a = animate(node, [{ opacity: 1 }, { opacity: 0 }], m.duration, m.easing, { fill: "forwards" });
+    anims.current.out = a;
+    a.finished.then(() => {
+      if (anims.current.out !== a) return;
+      phase.current = "in";
+      setShown((s) => ({ value: latest.current, swap: s.swap + 1 }));
+    }, () => undefined);
+  }, [value, shown.value, enabled]);
+
+  useLayoutEffect(() => {
+    if (phase.current !== "in") return;
+    const node = elRef.current();
+    const out = anims.current.out;
+    anims.current.out = null;
+    if (!node) {
+      out?.cancel();
+      phase.current = "idle";
+      return;
+    }
+    const m = NAV_MOTION.fadeIn;
+    const from = { opacity: 0, scale: `${NAV_MOTION.fadeInScale}` };
+    const a = animate(node, [from, { opacity: 1, scale: "1" }], m.duration, m.easing);
+    out?.cancel(); // once the fade-in holds the element, so no frame shows it at full opacity
+    anims.current.in = a;
+    a.finished.then(() => {
+      if (anims.current.in !== a) return;
+      anims.current.in = null;
+      phase.current = "idle";
+    }, () => undefined);
+  }, [shown.swap]);
+
+  useLayoutEffect(() => () => {
+    anims.current.out?.cancel();
+    anims.current.in?.cancel();
+  }, []);
+
+  return shown.value;
+}
+
+export type SlidePhase = "shown" | "hiding" | "hidden" | "showing";
+
+/**
+ * A bar that slides off the bottom edge when `visible` turns false and back when it
+ * turns true (the mobile tab bar under a pushed page / the immersive terminal). While
+ * it slides (`phase` "hiding" / "showing") take it out of the layout, so the content
+ * next to it resizes once instead of on every frame. Render nothing while "hidden";
+ * put `ref` on the bar. Instant under reduced motion and without WAAPI.
+ */
+export function useSlideAway<E extends HTMLElement>(visible: boolean) {
+  const ref = useRef<E>(null);
+  const [phase, setPhase] = useState<SlidePhase>(visible ? "shown" : "hidden");
+  let next = phase;
+  if (visible && (phase === "hidden" || phase === "hiding")) next = animated() ? "showing" : "shown";
+  if (!visible && (phase === "shown" || phase === "showing")) next = animated() ? "hiding" : "hidden";
+  if (next !== phase) setPhase(next); // derived during render, so the bar never misses a frame
+
+  useLayoutEffect(() => {
+    if (next !== "hiding" && next !== "showing") return;
+    const el = ref.current;
+    if (!el) return;
+    const off = { translate: "0px 100%" };
+    const on = { translate: "0px 0px" };
+    const m = next === "hiding" ? NAV_MOTION.barHide : NAV_MOTION.barShow;
+    const a = animate(el, next === "hiding" ? [on, off] : [off, on], m.duration, m.easing, { fill: "forwards" });
+    let live = true;
+    a.finished.then(() => {
+      if (live) setPhase(next === "hiding" ? "hidden" : "shown");
+    }, () => undefined);
+    return () => {
+      live = false;
+      a.cancel();
+    };
+  }, [next]);
+
+  return { phase: next, ref };
 }

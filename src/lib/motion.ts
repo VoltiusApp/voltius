@@ -109,3 +109,14 @@ export const PAGE_MOTION = {
   backShift: "-10%",
   backOpacity: 0.6,
 } as const;
+
+/** Navigation bar + tab switches (M3 fade-through, see hooks/pageTransition.ts useFadeThrough). */
+export const NAV_MOTION = {
+  /** Fade-through: the outgoing destination fades out, then the incoming one fades in from a slight zoom. */
+  fadeOut: { duration: 90, easing: "standardAccelerate" },
+  fadeIn: { duration: 210, easing: "emphasizedDecelerate" },
+  fadeInScale: 0.92,
+  /** The bar slides away under a pushed page / the immersive terminal, and back. */
+  barHide: { duration: "short4", easing: "emphasizedAccelerate" },
+  barShow: { duration: "medium1", easing: "emphasizedDecelerate" },
+} as const satisfies Record<string, number | { duration: DurationToken | number; easing: EasingToken }>;
