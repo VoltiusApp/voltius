@@ -123,16 +123,32 @@ jobs:
   macos-signing:
     runs-on: macos-latest
     steps:
+      - name: Check macOS signing configuration
+        id: signing
+        env:
+          MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
+          MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -n "$MACOS_SIGNING_CERTIFICATE" ] && [ -n "$MACOS_SIGNING_CERTIFICATE_PASSWORD" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::macOS signing secrets are not fully configured; skipping signing verification."
+          fi
+
       - name: Checkout repository
+        if: steps.signing.outputs.configured == 'true'
         uses: actions/checkout@v7
 
       - name: Import the macOS signing certificate
+        if: steps.signing.outputs.configured == 'true'
         env:
           MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
           MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
         run: bash scripts/import-macos-signing-cert.sh
 
       - name: Sign a binary and check its requirement
+        if: steps.signing.outputs.configured == 'true'
         run: |
           cp /bin/ls "$RUNNER_TEMP/voltius-sign-probe"
           codesign --force --options runtime -s "$APPLE_SIGNING_IDENTITY" "$RUNNER_TEMP/voltius-sign-probe"

@@ -25,6 +25,36 @@ permissions:
   contents: write
 
 jobs:
+  release-targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - name: Select configured release targets
+        id: targets
+        env:
+          MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
+          MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          node <<'JS'
+          const fs = require('node:fs');
+          const include = [
+            { platform: 'ubuntu-24.04', target: 'x86_64-unknown-linux-gnu', args: '' },
+            { platform: 'ubuntu-24.04-arm', target: 'aarch64-unknown-linux-gnu', args: '' },
+            { platform: 'windows-latest', target: 'x86_64-pc-windows-msvc', args: '' },
+            { platform: 'windows-latest', target: 'aarch64-pc-windows-msvc', args: '--target aarch64-pc-windows-msvc' },
+          ];
+          if (process.env.MACOS_SIGNING_CERTIFICATE && process.env.MACOS_SIGNING_CERTIFICATE_PASSWORD) {
+            include.push(
+              { platform: 'macos-latest', target: 'x86_64-apple-darwin', args: '--target x86_64-apple-darwin' },
+              { platform: 'macos-latest', target: 'aarch64-apple-darwin', args: '--target aarch64-apple-darwin' },
+            );
+          } else {
+            console.log('::notice::macOS signing secrets are not fully configured; skipping macOS release builds.');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`);
+          JS
+
   changelog:
     runs-on: ubuntu-latest
     outputs:
@@ -110,7 +140,7 @@ jobs:
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   publish-tauri:
-    needs: [changelog, create-release]
+    needs: [changelog, create-release, release-targets]
     permissions:
       contents: write
     strategy:
@@ -120,31 +150,7 @@ jobs:
       # latest.json. Per-platform installers + .sig files have unique names and
       # never collide. The updater-manifest job assembles latest.json once, after
       # all builds — single writer, no race.
-      matrix:
-        include:
-          - platform: 'ubuntu-24.04'
-            target: 'x86_64-unknown-linux-gnu'
-            args: ''
-
-          - platform: 'ubuntu-24.04-arm'
-            target: 'aarch64-unknown-linux-gnu'
-            args: ''
-
-          - platform: 'windows-latest'
-            target: 'x86_64-pc-windows-msvc'
-            args: ''
-
-          - platform: 'windows-latest'
-            target: 'aarch64-pc-windows-msvc'
-            args: '--target aarch64-pc-windows-msvc'
-
-          - platform: 'macos-latest'
-            target: 'x86_64-apple-darwin'
-            args: '--target x86_64-apple-darwin'
-
-          - platform: 'macos-latest'
-            target: 'aarch64-apple-darwin'
-            args: '--target aarch64-apple-darwin'
+      matrix: ${{ fromJSON(needs.release-targets.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
     steps:
