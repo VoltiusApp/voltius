@@ -89,7 +89,7 @@ export default function BottomSheet({ onClose, children, title, registerBack = t
           background: "var(--t-bg-elevated)",
           border: "1px solid var(--t-border)",
           transform: `translateY(${translateY}px)`,
-          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingBottom: "var(--vt-safe-bottom)",
         }}
         onTransitionEnd={(e) => {
           if (closing && e.propertyName === "transform") {

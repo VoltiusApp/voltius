@@ -751,9 +751,9 @@ export default function ThemeCreator() {
         className="fixed right-0 top-0 bottom-0 z-200 flex flex-col border-l border-(--t-border) bg-(--t-bg-modal)"
         style={{
           width: 320,
-          paddingTop: "env(safe-area-inset-top)",
-          paddingBottom: "env(safe-area-inset-bottom)",
-          paddingRight: "env(safe-area-inset-right)",
+          paddingTop: "var(--vt-safe-top)",
+          paddingBottom: "var(--vt-safe-bottom)",
+          paddingRight: "var(--vt-safe-right)",
         }}
       >
         {/* Panel header */}

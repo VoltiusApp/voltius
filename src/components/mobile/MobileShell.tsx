@@ -110,7 +110,10 @@ export default function MobileShell() {
   return (
     <div
       className="h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
-      style={{ paddingTop: "env(safe-area-inset-top)", height: shellHeight }}
+      style={{
+        paddingTop: "var(--vt-safe-top)", paddingLeft: "var(--vt-safe-left)", paddingRight: "var(--vt-safe-right)",
+        height: shellHeight,
+      }}
     >
       <div
         className="flex-1 relative flex flex-col"

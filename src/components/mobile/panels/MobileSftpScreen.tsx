@@ -81,7 +81,7 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
       </div>
 
       {active.length > 0 && (
-        <div className="absolute left-0 right-0 bottom-0 px-3 pb-3 flex flex-col gap-1.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+        <div className="absolute left-0 right-0 bottom-0 px-3 pb-3 flex flex-col gap-1.5" style={{ paddingBottom: "calc(var(--vt-safe-bottom) + 0.75rem)" }}>
           {active.map((tr) => {
             const pct = tr.total > 0 ? Math.round((tr.transferred / tr.total) * 100) : 0;
             const failed = tr.status === "error";

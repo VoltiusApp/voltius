@@ -88,7 +88,7 @@ export default function MobileLogsScreen() {
         {!error && totalPages > 1 && (
           <div
             className="shrink-0 flex items-center justify-center gap-3 px-4 pt-3 border-t border-(--t-border)"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+            style={{ paddingBottom: "calc(var(--vt-safe-bottom) + 16px)" }}
           >
             <button
               onClick={() => setFilter("page", page - 1)}
