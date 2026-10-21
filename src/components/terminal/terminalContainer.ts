@@ -7,7 +7,7 @@ import {
   type TerminalClipboardOptions,
 } from "@/components/terminal/terminalClipboard";
 import { claimWebglRenderer } from "@/utils/webglAddon";
-import { attachTerminalMouseScale } from "@/components/terminal/terminalMouseScale";
+import { installTerminalMouseScale } from "@/components/terminal/terminalMouseScale";
 
 /** A terminal that outlives the views it is mounted in. */
 export interface CachedTerminal {
@@ -57,7 +57,7 @@ export function activateTerminal(entry: CachedTerminal): void {
 
 function bindTerminalContainer(entry: CachedTerminal, container: HTMLDivElement, clipOptions?: TerminalClipboardOptions): () => void {
   const { terminal } = entry;
-  const detachMouseScale = attachTerminalMouseScale(terminal);
+  installTerminalMouseScale(terminal);
   const clip = attachTerminalClipboard(terminal, container, clipOptions);
   entry.clip = clip;
 
@@ -72,7 +72,6 @@ function bindTerminalContainer(entry: CachedTerminal, container: HTMLDivElement,
   resizeObserver.observe(container);
 
   return () => {
-    detachMouseScale();
     clip.dispose();
     if (entry.clip === clip) entry.clip = null;
     window.removeEventListener("resize", handleWindowResize);

@@ -1,49 +1,52 @@
 import type { Terminal } from "@xterm/xterm";
 
 type Point = { clientX: number; clientY: number };
-interface MouseService {
-  getCoords(event: Point, element: HTMLElement, cols: number, rows: number, selection?: boolean): [number, number] | undefined;
-  getMouseReportCoords(event: Point, element: HTMLElement): { col: number; row: number; x: number; y: number } | undefined;
+
+interface XtermMouseInternals {
+  _mouseService?: {
+    getCoords(event: Point, element: HTMLElement, ...rest: unknown[]): unknown;
+    getMouseReportCoords(event: Point, element: HTMLElement): unknown;
+  };
+  _selectionService?: {
+    _screenElement: HTMLElement;
+    _getMouseEventScrollAmount(event: Point): number;
+  };
 }
 
-/** xterm 6 divides viewport distances by untransformed cell sizes. Undo the
- * ancestor scale before that division, keeping the screen's viewport origin.
- * Read geometry per event so changing UI scale needs no terminal recreation. */
-function unscalePoint(event: Point, element: HTMLElement): Point {
+const installed = new WeakSet<object>();
+
+function ratio(rendered: number, layout: string): number {
+  const r = rendered / parseFloat(layout);
+  return Number.isFinite(r) && r > 0 ? r : 1;
+}
+
+/** Map a viewport point into the element's own (untransformed) pixel space around its origin. */
+function toLayoutPoint(event: Point, element: HTMLElement): Point {
   const rect = element.getBoundingClientRect();
   const style = getComputedStyle(element);
-  const borderBox = (axis: "width" | "height") => {
-    let size = parseFloat(style[axis]);
-    if (style.boxSizing !== "border-box") {
-      const sides = axis === "width" ? ["Left", "Right"] as const : ["Top", "Bottom"] as const;
-      for (const side of sides) {
-        size += (parseFloat(style[`padding${side}`]) || 0) + (parseFloat(style[`border${side}Width`]) || 0);
-      }
-    }
-    return size;
-  };
-  const width = borderBox("width");
-  const height = borderBox("height");
-  if (!(width > 0 && height > 0 && rect.width > 0 && rect.height > 0)) return event;
+  const sx = ratio(rect.width, style.width);
+  const sy = ratio(rect.height, style.height);
+  if (sx === 1 && sy === 1) return event;
   return {
-    clientX: rect.left + (event.clientX - rect.left) * width / rect.width,
-    clientY: rect.top + (event.clientY - rect.top) * height / rect.height,
+    clientX: rect.left + (event.clientX - rect.left) / sx,
+    clientY: rect.top + (event.clientY - rect.top) / sy,
   };
 }
 
-/** Mount-owned compatibility shim for xterm 6's private mouse service.
- * Covers selection, link hit testing and application mouse reports together. */
-export function attachTerminalMouseScale(term: Terminal): () => void {
-  const service = (term as unknown as { _core?: { _mouseService?: MouseService } })._core?._mouseService;
-  if (!service) return () => {};
-  const getCoords = service.getCoords;
-  const getMouseReportCoords = service.getMouseReportCoords;
-  service.getCoords = (event, element, cols, rows, selection) =>
-    getCoords.call(service, unscalePoint(event, element), element, cols, rows, selection);
-  service.getMouseReportCoords = (event, element) =>
-    getMouseReportCoords.call(service, unscalePoint(event, element), element);
-  return () => {
-    service.getCoords = getCoords;
-    service.getMouseReportCoords = getMouseReportCoords;
-  };
+/** UI scale is a CSS transform on #root, and xterm divides viewport distances by untransformed
+ *  cell sizes. Correct every xterm path that does so, once per terminal for its whole life. */
+export function installTerminalMouseScale(term: Terminal): void {
+  const core = (term as unknown as { _core?: XtermMouseInternals })._core;
+  const mouse = core?._mouseService;
+  const selection = core?._selectionService;
+  if (!mouse || !selection || installed.has(mouse)) return;
+  installed.add(mouse);
+
+  const { getCoords, getMouseReportCoords } = mouse;
+  mouse.getCoords = (event, element, ...rest) => getCoords.call(mouse, toLayoutPoint(event, element), element, ...rest);
+  mouse.getMouseReportCoords = (event, element) => getMouseReportCoords.call(mouse, toLayoutPoint(event, element), element);
+
+  const scrollAmount = selection._getMouseEventScrollAmount;
+  selection._getMouseEventScrollAmount = (event) =>
+    scrollAmount.call(selection, toLayoutPoint(event, selection._screenElement));
 }
