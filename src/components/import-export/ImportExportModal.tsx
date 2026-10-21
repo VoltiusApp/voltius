@@ -6,6 +6,7 @@ import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore } from "@/stores/uiStore";
 import { useIsAndroid } from "@/utils/platform";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
+import { useOverlayTransition } from "@/hooks/pageTransition";
 import { reloadAll } from "@/services/import-export/registry";
 import { useReloadFns } from "./useStores";
 import { ExportTab } from "./ExportTab";
@@ -18,7 +19,10 @@ export function ImportExportModal() {
   const close = useUIStore(s => s.closeImportExport);
   const reloaders = useReloadFns();
   const isAndroid = useIsAndroid();
-  useBackInterceptor(isAndroid && !!state?.open, close);
+  // Android: a full-screen page with a push / pop transition, previewed by predictive back.
+  const overlay = useOverlayTransition(isAndroid && !!state?.open);
+  useBackInterceptor(isAndroid && !!state?.open, close, () =>
+    overlay.ref.current ? { el: overlay.ref.current, kind: "page", handoff: true } : null);
 
   const [activeSection, setActiveSection] = useState<"vaults" | "user-data">(state?.section ?? "vaults");
   const [activeMode, setActiveMode] = useState<"export" | "import">(state?.mode ?? "export");
@@ -39,7 +43,7 @@ export function ImportExportModal() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.open, activeSection]);
 
-  if (!state?.open) return null;
+  if (!state?.open && !(isAndroid && overlay.mounted)) return null;
 
   const body = (
     <ImportExportBody
@@ -55,7 +59,7 @@ export function ImportExportModal() {
 
   if (isAndroid) {
     return createPortal(
-      <div data-import-export-fullscreen className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-vt-enter"
+      <div ref={overlay.ref} data-import-export-fullscreen className="fixed inset-0 z-50 flex flex-col surface-modal-solid"
         style={{ paddingTop: "var(--vt-safe-top)", paddingBottom: "var(--vt-safe-bottom)", paddingLeft: "var(--vt-safe-left)", paddingRight: "var(--vt-safe-right)" }}>
         {body}
       </div>,

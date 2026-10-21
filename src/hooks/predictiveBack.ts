@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { BACK_PREVIEW, animate, prefersReducedMotion } from "@/lib/motion";
+import { BACK_PREVIEW, PAGE_MOTION, animate, motionMs, prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Android predictive back, in-app part (the root back-to-home preview is the system's).
@@ -9,8 +9,9 @@ import { BACK_PREVIEW, animate, prefersReducedMotion } from "@/lib/motion";
  * and hands it here. Following Material 3 predictive back:
  *   page / settings: shrinks to 90 %, shifts toward the swiped edge, rounds its corners;
  *   bottom sheet: shrinks slightly, anchored at the bottom.
- * Cancel springs back; the commit (handleOnBackPressed → `__voltiusBack`) fades a
- * page out then closes it, or lets a sheet play its own slide-out.
+ * Cancel springs back; the commit (handleOnBackPressed → `__voltiusBack`) closes the
+ * layer: a `handoff` page keeps its pose for the page transition to continue from
+ * (pageTransition.ts), another page fades out first, a sheet plays its own slide-out.
  *
  * Transform / opacity only (CSS `scale` / `translate`, which compose with the
  * components' own `transform`), plus a clip-path for the corners.
@@ -28,11 +29,16 @@ export interface BackProgressEvent {
 
 export type BackPreviewKind = "page" | "sheet";
 
+/** Which layer mounts what lies under its top page while previewing: the nav stack or the settings sub-pages. */
+export type PeekLayer = "stack" | "settings";
+
 export interface BackPreviewTarget {
   el: HTMLElement;
   kind: BackPreviewKind;
-  /** Mount the screen under this pushed page while previewing (see useBackPeekStore). */
-  peek?: boolean;
+  /** Mount what lies under this page while previewing (see useBackPeekStore). */
+  peek?: PeekLayer;
+  /** The close plays a page transition that continues from the gesture's pose (pageTransition.ts). */
+  handoff?: boolean;
 }
 
 export interface BackPreviewFrame {
@@ -66,8 +72,8 @@ export function previewFrame(
   return { scaleX: scale, scaleY: scale, x: dir * p * maxShift, radius: m.pageCornerPx * Math.min(1, p * 4) };
 }
 
-/** True while a page preview wants the screen under the pushed page mounted (MobileShell reads it). */
-export const useBackPeekStore = create<{ peek: boolean }>()(() => ({ peek: false }));
+/** The layer whose page under the top one must be mounted during a preview (MobileShell, MobileSettings read it). */
+export const useBackPeekStore = create<{ peek: PeekLayer | null }>()(() => ({ peek: null }));
 
 // Corners via clip-path, not border-radius + overflow: flipping a scroller's overflow would reset its scroll.
 const STYLE_KEYS = ["scale", "translate", "clipPath", "transformOrigin", "transition"] as const;
@@ -100,7 +106,7 @@ function finish() {
   active.settling?.cancel();
   restore(active.target.el, active.saved);
   active = null;
-  useBackPeekStore.setState({ peek: false });
+  useBackPeekStore.setState({ peek: null });
 }
 
 function begin(target: BackPreviewTarget, close: () => void) {
@@ -110,7 +116,7 @@ function begin(target: BackPreviewTarget, close: () => void) {
   // Follow the finger 1:1: no CSS transition (a sheet's transition-transform covers scale/translate).
   el.style.transition = "none";
   el.style.transformOrigin = kind === "sheet" ? "50% 100%" : "50% 50%";
-  if (target.peek) useBackPeekStore.setState({ peek: true });
+  if (target.peek) useBackPeekStore.setState({ peek: target.peek });
 }
 
 function apply(a: Active, progress: number, edge: BackEdge) {
@@ -176,6 +182,18 @@ export function commitBackPreview(): boolean {
     el.style.transition = a.saved.transition;
     active = null;
     a.close();
+    return true;
+  }
+  if (a.target.handoff) {
+    // The pop transition takes the pose over and the layer unmounts after it; the peeked
+    // layer under it is kept mounted by that transition, so the peek can end now.
+    active = null;
+    a.close();
+    useBackPeekStore.setState({ peek: null });
+    // Safety net: a close that played no transition must not leave the page shrunk.
+    setTimeout(() => {
+      if (el.isConnected && el.style.scale) restore(el, a.saved);
+    }, motionMs(PAGE_MOTION.popFront.duration) + 150);
     return true;
   }
   committing = true;

@@ -8,6 +8,7 @@ import {
   onBackProgress,
   type BackPreviewTarget,
   type BackProgressEvent,
+  type PeekLayer,
 } from "@/hooks/predictiveBack";
 
 /** Native side (NativeBack.kt, `addJavascriptInterface`): absent outside the Android shell. */
@@ -54,8 +55,9 @@ export function runBack(action: BackAction | null = currentAction()): boolean {
   }
 }
 
-const pageTarget = (el: Element | null | undefined, peek = false): BackPreviewTarget | null =>
-  el instanceof HTMLElement ? { el, kind: "page", peek } : null;
+// Every page layer here plays a page transition on close, which takes the gesture's pose over.
+const pageTarget = (el: Element | null | undefined, peek?: PeekLayer): BackPreviewTarget | null =>
+  el instanceof HTMLElement ? { el, kind: "page", peek, handoff: true } : null;
 
 /** The element a predictive-back preview of `action` animates, if it has one. */
 function previewTarget(action: BackAction): BackPreviewTarget | null {
@@ -63,15 +65,15 @@ function previewTarget(action: BackAction): BackPreviewTarget | null {
     case "interceptor":
       return interceptor(action.id)?.preview?.() ?? null;
     case "settings-subpage":
-      return pageTarget(document.querySelector("[data-mobile-settings-body]"));
+      return pageTarget(document.querySelector("[data-mobile-settings-body]"), "settings");
     case "settings":
       return pageTarget(document.querySelector("[data-mobile-settings]"));
     case "nav": {
       // Pushed pages only: a nav sheet is a BottomSheet (interceptor), a tab switch has no preview.
       const { stack, sheet } = useMobileNavStore.getState();
       if (sheet || stack.length === 0) return null;
-      // The screen under a single pushed page is the tab screen: mount it so the preview reveals it.
-      return pageTarget(document.querySelector("[data-mobile-stack-page]")?.firstElementChild, stack.length === 1);
+      // Mount the page (or tab screen) under the top one so the preview reveals it.
+      return pageTarget(document.querySelector('[data-mobile-stack-page="top"]')?.firstElementChild, "stack");
     }
   }
 }
