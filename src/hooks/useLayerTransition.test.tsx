@@ -1,23 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { useLayerTransition } from "./pageTransition";
+import { stubAnimate, unstubAnimate } from "@/test/stubAnimate";
 
-/** Stub WAAPI: each animate() returns an animation whose `finished` the test resolves. */
-function stubAnimate() {
-  const finishers: Array<() => void> = [];
-  const animate = vi.fn((_frames: Keyframe[], _opts?: KeyframeAnimationOptions) => {
-    let resolve!: () => void;
-    const finished = new Promise<void>((r) => (resolve = r));
-    finishers.push(resolve);
-    return { finished, cancel: vi.fn() } as unknown as Animation;
-  });
-  Element.prototype.animate = animate as unknown as Element["animate"];
-  return { animate, finishAll: () => finishers.forEach((f) => f()) };
-}
-
-afterEach(() => {
-  delete (Element.prototype as Partial<Element>).animate;
-});
+afterEach(unstubAnimate);
 
 describe("useLayerTransition", () => {
   it("reports a push with the previous value, animates both layers, then goes idle", async () => {
