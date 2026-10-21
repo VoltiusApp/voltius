@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.voltius" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- App dark bg, not white, behind the WebView between the splash and the first web paint. -->
+        <item name="android:windowBackground">@color/voltius_bg</item>
     </style>
 </resources>

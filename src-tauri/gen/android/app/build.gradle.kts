@@ -87,6 +87,8 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+    // Navy splash with the bolt, held until the first web paint (see SplashGate.kt).
+    implementation("androidx.core:core-splashscreen:1.0.1")
     // Hardware-backed secret storage for the OS keychain (see VoltiusKeychain.kt).
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.biometric:biometric:1.1.0")

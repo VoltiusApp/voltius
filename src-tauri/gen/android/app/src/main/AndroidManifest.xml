@@ -18,6 +18,7 @@
             android:launchMode="singleTask"
             android:label="@string/main_activity_title"
             android:name=".MainActivity"
+            android:theme="@style/Theme.voltius.Starting"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <intent-filter>
