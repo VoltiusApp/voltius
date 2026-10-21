@@ -78,6 +78,17 @@ class MainActivity : TauriActivity() {
     super.onNewIntent(withLinkType(intent))
   }
 
+  // Root Back of a task the launcher icon didn't start (deep link, notification tap, `am start`)
+  // makes the system finish the activity instead of moving the task back. Wry then drops the
+  // WebView and tao exits the process, taking every SSH session with it, and Tauri can't attach
+  // a recreated activity to the running app. So never finish at the task root: background the
+  // task the way a launcher-started one is. The system's back-to-home preview still plays.
+  // Quitting goes through app.exit / force_quit (process exit), not finish().
+  override fun finish() {
+    if (isTaskRoot && !isChangingConfigurations && moveTaskToBack(true)) return
+    super.finish()
+  }
+
   override fun onDestroy() {
     if (instance === this) instance = null
     super.onDestroy()

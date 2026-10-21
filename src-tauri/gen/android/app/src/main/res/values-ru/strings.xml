@@ -1,10 +1,17 @@
 <resources>
-    <string name="tunnel_channel_name">Проброс портов</string>
+    <string name="tunnel_channel_name">Фоновые подключения</string>
     <string name="tunnel_notification_text">Нажмите, чтобы управлять пробросом портов</string>
     <plurals name="tunnel_notification_title">
         <item quantity="one">%d порт проброшен</item>
         <item quantity="few">%d порта проброшено</item>
         <item quantity="many">%d портов проброшено</item>
         <item quantity="other">%d порта проброшено</item>
+    </plurals>
+    <string name="session_notification_text">Нажмите, чтобы вернуться в Voltius</string>
+    <plurals name="session_notification_title">
+        <item quantity="one">%d SSH-сессия подключена</item>
+        <item quantity="few">%d SSH-сессии подключены</item>
+        <item quantity="many">%d SSH-сессий подключено</item>
+        <item quantity="other">%d SSH-сессии подключено</item>
     </plurals>
 </resources>

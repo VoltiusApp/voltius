@@ -58,14 +58,14 @@
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
         </activity>
 
-        <!-- dataSync would be stopped after 6 h a day on Android 15; tunnels have no natural end. -->
+        <!-- dataSync would be stopped after 6 h a day on Android 15; sessions and tunnels have no natural end. -->
         <service
           android:name=".VoltiusTunnelService"
           android:exported="false"
           android:foregroundServiceType="specialUse">
           <property
             android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-            android:value="Keeps SSH port-forwarding tunnels opened by the user reachable while another app uses them" />
+            android:value="Keeps SSH terminal sessions and port-forwarding tunnels opened by the user connected while the app is in the background" />
         </service>
 
         <provider
