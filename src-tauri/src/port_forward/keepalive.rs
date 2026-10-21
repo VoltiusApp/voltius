@@ -3,13 +3,22 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::{SessionPfState, TunnelState};
 
-/// Android freezes a backgrounded app and its listeners; a foreground service
-/// keeps them reachable for as long as any tunnel is up.
+/// Android freezes a backgrounded app and cuts its network shortly after, which
+/// kills tunnel listeners and SSH connections; a foreground service keeps them
+/// alive for as long as any tunnel is up or any SSH session is connected.
 pub(crate) fn sync(sessions: &HashMap<String, SessionPfState>) {
     static LAST: AtomicUsize = AtomicUsize::new(0);
     let active = active_tunnels(sessions);
     if LAST.swap(active, Ordering::Relaxed) != active {
-        notify(active);
+        notify("update", active);
+    }
+}
+
+/// Same service, counting connected SSH terminal sessions (`SessionManager`).
+pub(crate) fn sync_ssh_sessions(count: usize) {
+    static LAST: AtomicUsize = AtomicUsize::new(0);
+    if LAST.swap(count, Ordering::Relaxed) != count {
+        notify("updateSessions", count);
     }
 }
 
@@ -22,13 +31,13 @@ fn active_tunnels(sessions: &HashMap<String, SessionPfState>) -> usize {
 }
 
 #[cfg(target_os = "android")]
-fn notify(active: usize) {
+fn notify(method: &str, active: usize) {
     use jni::objects::JValue;
     let res = crate::android_ctx::with_env("tunnel service", |env, ctx| {
         let cls = crate::android_ctx::load_class(env, "com.voltius.app.VoltiusTunnelService")?;
         env.call_static_method(
             &cls,
-            "update",
+            method,
             "(Landroid/content/Context;I)V",
             &[JValue::Object(ctx), JValue::Int(active as i32)],
         )?;
@@ -40,7 +49,7 @@ fn notify(active: usize) {
 }
 
 #[cfg(not(target_os = "android"))]
-fn notify(_active: usize) {}
+fn notify(_method: &str, _active: usize) {}
 
 #[cfg(test)]
 mod tests {

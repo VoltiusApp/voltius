@@ -27,7 +27,7 @@ import java.util.Locale
  * handleOnBackPressed. While disabled (root) the system plays its own
  * back-to-home preview (manifest `enableOnBackInvokedCallback`).
  *
- * Root behaviour (A8) lives in [onNothingToClose].
+ * Root Back never ends the app: MainActivity.finish backgrounds the task instead (A8).
  */
 object NativeBack {
   private const val BACK_JS = "(window.__voltiusBack ? window.__voltiusBack() : false)"

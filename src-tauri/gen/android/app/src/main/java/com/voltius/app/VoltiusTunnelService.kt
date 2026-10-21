@@ -15,8 +15,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 
-/** Held while tunnels are up so Android keeps their 127.0.0.1 listeners alive in the background.
- *  Driven over JNI from `port_forward/keepalive.rs` through [update]. */
+/** Held while tunnels are up or SSH sessions are connected, so Android neither freezes the
+ *  backgrounded app nor cuts its network (which drops every SSH connection about a minute
+ *  after leaving the app). Driven over JNI from `port_forward/keepalive.rs` through
+ *  [update] (listening tunnels) and [updateSessions] (connected SSH sessions). */
 class VoltiusTunnelService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -30,7 +32,7 @@ class VoltiusTunnelService : Service() {
     // already closed in the meantime, or the system kills the app.
     val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
     try {
-      ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(this, desired), type)
+      ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(this), type)
     } catch (e: Exception) {
       stopSelf()
       return START_NOT_STICKY
@@ -46,12 +48,11 @@ class VoltiusTunnelService : Service() {
   }
 
   private fun apply() {
-    val count = desired
-    if (count == 0) {
+    if (tunnels == 0 && sessions == 0) {
       ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
       stopSelf()
     } else {
-      getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(this, count))
+      getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(this))
     }
   }
 
@@ -60,13 +61,26 @@ class VoltiusTunnelService : Service() {
     private const val NOTIFICATION_ID = 0x7e1
 
     @Volatile private var instance: VoltiusTunnelService? = null
-    @Volatile private var desired = 0
+    @Volatile private var tunnels = 0
+    @Volatile private var sessions = 0
     @Volatile private var starting = false
 
-    /** Number of listening tunnels; 0 stops the service. */
+    /** Number of listening tunnels; with no session either, 0 stops the service. */
     @JvmStatic
     fun update(ctx: Context, count: Int) {
-      desired = count
+      tunnels = count
+      sync(ctx)
+    }
+
+    /** Number of connected SSH sessions; with no tunnel either, 0 stops the service. */
+    @JvmStatic
+    fun updateSessions(ctx: Context, count: Int) {
+      sessions = count
+      sync(ctx)
+    }
+
+    private fun sync(ctx: Context) {
+      val count = tunnels + sessions
       val running = instance
       if (running != null) {
         running.apply()
@@ -83,9 +97,10 @@ class VoltiusTunnelService : Service() {
       }
     }
 
-    private fun notification(ctx: Context, count: Int): Notification {
+    private fun notification(ctx: Context): Notification {
       val manager = ctx.getSystemService(NotificationManager::class.java)
-      if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL_ID) == null) {
+      if (Build.VERSION.SDK_INT >= 26) {
+        // Re-created every time so an existing channel picks up a renamed label.
         val channel = NotificationChannel(
           CHANNEL_ID,
           ctx.getString(R.string.tunnel_channel_name),
@@ -93,16 +108,33 @@ class VoltiusTunnelService : Service() {
         )
         manager.createNotificationChannel(channel)
       }
+      val res = ctx.resources
+      val t = tunnels
+      val s = sessions
+      val tunnelTitle = res.getQuantityString(R.plurals.tunnel_notification_title, t, t)
+      // Sessions: plain launcher intent (resumes the app where it was); tunnels only: their screen.
+      val target = if (s > 0) {
+        ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+          ?: Intent(ctx, MainActivity::class.java)
+      } else {
+        Intent(Intent.ACTION_VIEW, Uri.parse("voltius://port-forwarding"), ctx, MainActivity::class.java)
+      }
       val open = PendingIntent.getActivity(
         ctx,
         0,
-        Intent(Intent.ACTION_VIEW, Uri.parse("voltius://port-forwarding"), ctx, MainActivity::class.java),
+        target,
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
       )
+      val title = if (s > 0) res.getQuantityString(R.plurals.session_notification_title, s, s) else tunnelTitle
+      val text = when {
+        s > 0 && t > 0 -> tunnelTitle
+        s > 0 -> ctx.getString(R.string.session_notification_text)
+        else -> ctx.getString(R.string.tunnel_notification_text)
+      }
       return NotificationCompat.Builder(ctx, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_stat_tunnel)
-        .setContentTitle(ctx.resources.getQuantityString(R.plurals.tunnel_notification_title, count, count))
-        .setContentText(ctx.getString(R.string.tunnel_notification_text))
+        .setContentTitle(title)
+        .setContentText(text)
         .setContentIntent(open)
         .setOngoing(true)
         .setOnlyAlertOnce(true)

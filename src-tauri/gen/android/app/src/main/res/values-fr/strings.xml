@@ -1,9 +1,15 @@
 <resources>
-    <string name="tunnel_channel_name">Redirection de ports</string>
+    <string name="tunnel_channel_name">Connexions en arrière-plan</string>
     <string name="tunnel_notification_text">Touchez pour gérer la redirection de ports</string>
     <plurals name="tunnel_notification_title">
         <item quantity="one">%d port redirigé</item>
         <item quantity="many">%d ports redirigés</item>
         <item quantity="other">%d ports redirigés</item>
+    </plurals>
+    <string name="session_notification_text">Touchez pour revenir à Voltius</string>
+    <plurals name="session_notification_title">
+        <item quantity="one">%d session SSH connectée</item>
+        <item quantity="many">%d sessions SSH connectées</item>
+        <item quantity="other">%d sessions SSH connectées</item>
     </plurals>
 </resources>

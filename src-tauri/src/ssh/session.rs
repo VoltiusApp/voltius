@@ -62,7 +62,9 @@ impl SessionManager {
 
     pub async fn add(&self, id: String, session: ConnectedSession) {
         self.handles.set(&id, Arc::clone(&session.handle)).await;
-        self.sessions.lock().await.insert(id, session);
+        let mut sessions = self.sessions.lock().await;
+        sessions.insert(id, session);
+        crate::port_forward::keepalive::sync_ssh_sessions(sessions.len());
     }
 
     /// The session's live handle cell. Long-lived consumers (SFTP sessions,
@@ -223,7 +225,9 @@ impl SessionManager {
     ) -> Result<bool, String> {
         let session = {
             let mut sessions = self.sessions.lock().await;
-            sessions.remove(id)
+            let removed = sessions.remove(id);
+            crate::port_forward::keepalive::sync_ssh_sessions(sessions.len());
+            removed
         };
         let mut killed = false;
         if let Some(session) = session {

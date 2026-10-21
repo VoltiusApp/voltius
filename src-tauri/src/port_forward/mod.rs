@@ -1,5 +1,5 @@
 mod bind;
-mod keepalive;
+pub(crate) mod keepalive;
 pub(crate) mod pipe;
 pub mod poller;
 pub mod socks;

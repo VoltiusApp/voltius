@@ -1,8 +1,13 @@
 <resources>
-    <string name="tunnel_channel_name">Port yönlendirme</string>
+    <string name="tunnel_channel_name">Arka plan bağlantıları</string>
     <string name="tunnel_notification_text">Port yönlendirmeyi yönetmek için dokunun</string>
     <plurals name="tunnel_notification_title">
         <item quantity="one">%d port yönlendirildi</item>
         <item quantity="other">%d port yönlendirildi</item>
+    </plurals>
+    <string name="session_notification_text">Voltius\'a dönmek için dokunun</string>
+    <plurals name="session_notification_title">
+        <item quantity="one">%d SSH oturumu bağlı</item>
+        <item quantity="other">%d SSH oturumu bağlı</item>
     </plurals>
 </resources>
