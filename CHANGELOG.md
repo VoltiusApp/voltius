@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.60.1] - 2026-10-21
+
+### Fixed
+
+- Terminal text selection now follows the pointer when UI Scale differs from 100%. Mouse coordinates also stay aligned for terminal links and applications with mouse tracking, including after changing UI Scale while a session is open.
+
 ## [0.60.0] - 2026-10-19
 
 ### Added
