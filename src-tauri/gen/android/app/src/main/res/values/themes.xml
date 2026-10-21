@@ -1,6 +1,17 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.voltius" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- App dark bg, not white, behind the WebView between the splash and the first web paint. -->
+        <item name="android:windowBackground">@color/voltius_bg</item>
+    </style>
+
+    <!-- Launch theme (MainActivity): navy splash with the launcher bolt, see SplashGate.kt. The
+         foreground is the adaptive-icon layer, so its 72dp safe zone fits the splash icon mask. -->
+    <style name="Theme.voltius.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/voltius_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.voltius</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>
 </resources>

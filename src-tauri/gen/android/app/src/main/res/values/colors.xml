@@ -7,4 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Default Voltius theme bgBase (src/themes/presets.ts): splash, window and WebView background. -->
+    <color name="voltius_bg">#FF111827</color>
 </resources>

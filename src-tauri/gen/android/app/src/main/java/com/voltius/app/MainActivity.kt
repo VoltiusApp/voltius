@@ -18,6 +18,8 @@ class MainActivity : TauriActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     intent?.let(::withLinkType)
+    // Before super.onCreate: swaps Theme.voltius.Starting for Theme.voltius once released.
+    SplashGate.install(this)
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     // super.onCreate loaded the Rust lib; hand the keychain store the app Context + VM.
@@ -59,6 +61,9 @@ class MainActivity : TauriActivity() {
   // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34).
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
+    // App dark bg instead of the default white between the splash and the first web paint.
+    webView.setBackgroundColor(getColor(R.color.voltius_bg))
+    SplashGate.watch(webView)
     TerminalKeyboard.install(this, webView)
   }
 
