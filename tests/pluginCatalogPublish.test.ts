@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, copyFileSy
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   FIRST_PARTY_PLUGIN_IDS,
   buildCatalogFragment,
@@ -53,7 +54,7 @@ describe("plugin catalogue publish pipeline", () => {
         execFileSync(
           "pnpm",
           ["vite", "build", "--config", "vite.plugins.config.ts", "--outDir", dir, "--emptyOutDir"],
-          { cwd: ROOT, stdio: "pipe", env: { ...process.env, VOLTIUS_PLUGIN_ID: id } },
+          { cwd: ROOT, stdio: "pipe", env: { ...process.env, VOLTIUS_PLUGIN_ID: id }, shell: process.platform === "win32" },
         );
       } else {
         writeFileSync(path.join(dir, "index.js"), `// stub for ${id}\n`);
@@ -267,12 +268,14 @@ describe("plugin catalogue publish pipeline", () => {
   });
 
   test("releaseRepoFor matches the client's unprefixed fetch pattern", () => {
+    // GitHub Actions publishes to the current repository, including forks.
+    const repository = process.env.GITHUB_REPOSITORY || "VoltiusApp/voltius";
     const repo = releaseRepoFor("plugin-docker", "9.9.9");
-    expect(repo).toBe("https://github.com/VoltiusApp/voltius/releases/download/plugin-docker-v9.9.9");
+    expect(repo).toBe(`https://github.com/${repository}/releases/download/plugin-docker-v9.9.9`);
     // src/stores/marketplaceStore.ts always fetches `${plugin.repo}/index.js` and
     // `${plugin.repo}/manifest.json` verbatim — no per-plugin prefix.
     expect(`${repo}/index.js`).toBe(
-      "https://github.com/VoltiusApp/voltius/releases/download/plugin-docker-v9.9.9/index.js",
+      `https://github.com/${repository}/releases/download/plugin-docker-v9.9.9/index.js`,
     );
   });
 });
@@ -302,7 +305,7 @@ describe("CLI entry-point guard", () => {
     writeFileSync(
       probePath,
       [
-        `import { isCliEntryPoint } from ${JSON.stringify(modulePath)};`,
+        `import { isCliEntryPoint } from ${JSON.stringify(pathToFileURL(modulePath).href)};`,
         `console.log(isCliEntryPoint(import.meta.filename, process.argv[1]));`,
       ].join("\n"),
     );
