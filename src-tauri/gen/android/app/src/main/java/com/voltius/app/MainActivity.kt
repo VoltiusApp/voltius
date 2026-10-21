@@ -56,10 +56,12 @@ class MainActivity : TauriActivity() {
     VoltiusBiometric.setForeground(this, true)
   }
 
-  // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34).
+  // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34)
+  // and the window-insets -> CSS-variables bridge (SystemInsets.kt).
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     TerminalKeyboard.install(this, webView)
+    SystemInsets.install(webView)
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

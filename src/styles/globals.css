@@ -99,6 +99,19 @@
 }
 
 /*
+  Safe-area insets. On Android the native shell (SystemInsets.kt) pushes the real
+  system-bar + cutout insets as --vt-sa{t,b,l,r} (CSS px) because WebView often reports
+  env(safe-area-inset-*) = 0; --vt-ime is the soft-keyboard height. Use these --vt-safe-*
+  tokens instead of env() directly. Elsewhere --vt-sa* are unset, so they resolve to env().
+*/
+:root {
+  --vt-safe-top: max(var(--vt-sat, 0px), env(safe-area-inset-top, 0px));
+  --vt-safe-bottom: max(var(--vt-sab, 0px), env(safe-area-inset-bottom, 0px));
+  --vt-safe-left: max(var(--vt-sal, 0px), env(safe-area-inset-left, 0px));
+  --vt-safe-right: max(var(--vt-sar, 0px), env(safe-area-inset-right, 0px));
+}
+
+/*
   Derived UI surfaces — computed from the runtime `--t-*` theme vars so they
   adapt to every built-in and custom theme without per-theme edits.
   - chrome:   deep-navy header+navbar block, a subtle lift of the theme's own dark

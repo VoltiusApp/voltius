@@ -120,7 +120,7 @@ export default function MobileSnippetTargetSheet(
       {!p.hasHosts && <p className="px-4 py-3 text-xs text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.noHosts")}</p>}
 
       {p.totalSelected > 0 && (
-        <div className="sticky bottom-0 px-3 pt-2 pb-[env(safe-area-inset-bottom)]" style={{ background: "var(--t-bg-modal)" }}>
+        <div className="sticky bottom-0 px-3 pt-2 pb-(--vt-safe-bottom)" style={{ background: "var(--t-bg-modal)" }}>
           <button data-snippet-target-confirm onClick={() => void go()}
             className="w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
             style={{ background: "var(--t-accent)", color: "#fff" }}>

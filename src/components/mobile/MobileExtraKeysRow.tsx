@@ -54,7 +54,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
         // Keyboard closed: the shell spans edge-to-edge, so inset the row above the Android
         // system nav bar. Keyboard open: stay flush above the keyboard (no inset; the nav bar
         // is behind the keyboard).
-        paddingBottom: keyboardOpen ? undefined : "env(safe-area-inset-bottom)",
+        paddingBottom: keyboardOpen ? undefined : "var(--vt-safe-bottom)",
       }}
       onMouseDown={noFocusSteal} onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(); }}>
       {MODS.map(({ mod, label }) => {
