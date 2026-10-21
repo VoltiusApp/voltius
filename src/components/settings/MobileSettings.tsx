@@ -30,6 +30,7 @@ export default function MobileSettings() {
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-fadeIn"
+      data-mobile-settings
       style={{
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
@@ -61,7 +62,7 @@ export default function MobileSettings() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" data-mobile-settings-body>
         {activePluginPage ? (
           <div className="p-6">
             <activePluginPage.component />

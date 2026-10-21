@@ -42,8 +42,9 @@ export default function BottomSheet({ onClose, children, title }: {
   };
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
-  // Hardware-back routes through the exit animation too.
-  useBackInterceptor(true, requestClose);
+  // Hardware-back routes through the exit animation too; a predictive-back gesture shrinks the panel first.
+  useBackInterceptor(true, requestClose, () =>
+    panelRef.current && !closing ? { el: panelRef.current, kind: "sheet" } : null);
 
   const setDrag = (y: number) => { dragYRef.current = y; setDragY(y); };
 
