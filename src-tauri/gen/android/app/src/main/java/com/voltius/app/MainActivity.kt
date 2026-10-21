@@ -3,6 +3,7 @@ package com.voltius.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -72,6 +73,12 @@ class MainActivity : TauriActivity() {
     TerminalKeyboard.install(this, webView)
     SystemInsets.install(webView)
     NativeBack.install(this, webView)
+    NativeFeel.install(webView)
+  }
+
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    NativeFeel.onFontScale(newConfig.fontScale)
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
