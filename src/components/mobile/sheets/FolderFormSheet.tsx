@@ -20,7 +20,7 @@ export default function FolderFormSheet({
   const [appearance, setAppearance] = useState<FolderAppearance>(initialAppearance);
   const trimmed = name.trim();
   return (
-    <BottomSheet title={title} onClose={onClose} registerBack={false}>
+    <BottomSheet title={title} onClose={onClose}>
       <div className="px-3 pt-1 pb-3 flex flex-col gap-3">
         <input
           data-folder-name-input

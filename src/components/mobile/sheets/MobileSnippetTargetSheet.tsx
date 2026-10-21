@@ -80,7 +80,7 @@ export default function MobileSnippetTargetSheet(
   }
 
   return (
-    <BottomSheet title={t(execute ? "mobile.sheets.snippetTarget.executeTitle" : "mobile.sheets.snippetTarget.insertTitle", { name: snippet.name })} onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={t(execute ? "mobile.sheets.snippetTarget.executeTitle" : "mobile.sheets.snippetTarget.insertTitle", { name: snippet.name })} onClose={closeSheet}>
       <div className="px-3 pb-2">
         <div className="flex items-center gap-2 rounded-xl px-3 h-10" style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
           <Icon icon="lucide:search" width={16} className="text-(--t-text-dim)" />

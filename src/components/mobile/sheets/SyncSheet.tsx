@@ -74,7 +74,7 @@ export default function SyncSheet() {
   const onAction = (action: SyncProviderAction) => runSyncMenuAction(action, closeSheet);
 
   return (
-    <BottomSheet title={t("layout.sync.title")} onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={t("layout.sync.title")} onClose={closeSheet}>
       {providers.map((provider) => <SyncSheetSection key={provider.id} provider={provider} onAction={onAction} />)}
     </BottomSheet>
   );

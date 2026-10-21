@@ -59,7 +59,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title={t("mobile.sheets.hostActions.deleteTitle")} onClose={closeSheet} registerBack={false}>
+      <BottomSheet title={t("mobile.sheets.hostActions.deleteTitle")} onClose={closeSheet}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
           {t("mobile.sheets.shared.confirmDeleteBody", { name })}
         </div>
@@ -71,7 +71,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
 
   if (mode === "move") {
     return (
-      <BottomSheet title={t("mobile.sheets.shared.moveToVault")} onClose={closeSheet} registerBack={false}>
+      <BottomSheet title={t("mobile.sheets.shared.moveToVault")} onClose={closeSheet}>
         {moveTargets.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, onTap: () => {
             void moveConnectionToVault(conn, v.id, updateConnection);
@@ -124,7 +124,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   ];
 
   return (
-    <BottomSheet title={name} onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={name} onClose={closeSheet}>
       {items.map((it) => <Row key={it.slug ?? it.label} it={it} />)}
     </BottomSheet>
   );

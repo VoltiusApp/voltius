@@ -17,7 +17,7 @@ export default function MoveToFolderSheet({
 }) {
   const { t } = useTranslation();
   return (
-    <BottomSheet title={t("mobile.sheets.shared.moveToFolder")} onClose={onClose} registerBack={false}>
+    <BottomSheet title={t("mobile.sheets.shared.moveToFolder")} onClose={onClose}>
       {targets.map((target) => {
         const selected = (target.id ?? null) === (currentFolderId ?? null);
         return (

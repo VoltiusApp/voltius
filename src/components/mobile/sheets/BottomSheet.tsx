@@ -9,13 +9,10 @@ import { useBackInterceptor } from "@/hooks/useBackInterceptor";
  * through requestClose, which plays the slide-out animation and then calls
  * onClose on transition end (so the parent unmounts after the exit, not before).
  */
-export default function BottomSheet({ onClose, children, title, registerBack = true }: {
+export default function BottomSheet({ onClose, children, title }: {
   onClose: () => void;
   children: ReactNode;
   title?: string;
-  /** Close on Android hardware-back. Set false for nav-store-driven sheets that
-   *  already reserve a back press via the mobileNav `sheet` trap. */
-  registerBack?: boolean;
 }) {
   const [dragY, setDragY] = useState(0);
   const dragYRef = useRef(0); // mirrors dragY so onTouchEnd reads the latest value, not a stale closure
@@ -46,7 +43,7 @@ export default function BottomSheet({ onClose, children, title, registerBack = t
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
   // Hardware-back routes through the exit animation too.
-  useBackInterceptor(registerBack, requestClose);
+  useBackInterceptor(true, requestClose);
 
   const setDrag = (y: number) => { dragYRef.current = y; setDragY(y); };
 

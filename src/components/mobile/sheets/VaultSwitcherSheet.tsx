@@ -46,7 +46,7 @@ export default function VaultSwitcherSheet() {
   };
 
   return (
-    <BottomSheet title={t("common.entity.vaults")} onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={t("common.entity.vaults")} onClose={closeSheet}>
       {entries.map((e) => {
         const active = selectedVaultIds[0] === e.id;
         return (
