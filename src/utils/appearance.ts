@@ -35,6 +35,14 @@ export function luminanceFromHex(color: string): number | null {
   return rgb ? relativeLuminance(rgb[0], rgb[1], rgb[2]) : null;
 }
 
+/** True when black text/icons out-contrast white ones on `color`: the WCAG black-vs-white
+ *  crossover (luminance >= 0.179). Unparseable colors return false (white foreground),
+ *  mirroring `appearanceFromColor`'s "dark" fallback. */
+export function prefersDarkForeground(color: string): boolean {
+  const lum = luminanceFromHex(color);
+  return lum !== null && lum >= 0.179;
+}
+
 export function appearanceFromColor(color: string): Appearance {
   const rgb = parseHex(color);
   if (!rgb) return "dark";

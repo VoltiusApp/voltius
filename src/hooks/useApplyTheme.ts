@@ -3,7 +3,8 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import type { AppTheme } from "@/themes/types";
 import { terminalFontStack, withFlagEmojiFallback } from "@/utils/fontStack";
-import { appearanceFromColor, luminanceFromHex } from "@/utils/appearance";
+import { appearanceFromColor, luminanceFromHex, prefersDarkForeground } from "@/utils/appearance";
+import { syncSystemBars } from "@/services/androidSystemBars";
 
 export function applyThemeToDom(theme: AppTheme) {
   const root = document.documentElement;
@@ -35,8 +36,7 @@ export function applyThemeToDom(theme: AppTheme) {
   // accent (#57c7d8, luminance 0.478) would get white text at 1.99:1
   // contrast instead of black at 10.57:1. Unparseable colors fall back to
   // white, mirroring appearanceFromColor's "dark" fallback.
-  const accentLuminance = luminanceFromHex(ui.accent);
-  root.style.setProperty("--t-on-accent", accentLuminance !== null && accentLuminance >= 0.179 ? "#000000" : "#ffffff");
+  root.style.setProperty("--t-on-accent", prefersDarkForeground(ui.accent) ? "#000000" : "#ffffff");
   // MCP provenance marking. Deliberately not --t-accent: that already means
   // active tab, active pane, and broadcast.
   const baseLuminance = luminanceFromHex(ui.bgBase);
@@ -64,6 +64,8 @@ export function applyThemeToDom(theme: AppTheme) {
   // Derive light/dark from the base bg so globals.css can override the
   // dark-baked shadow/ring/highlight tokens under :root[data-appearance="light"].
   root.setAttribute("data-appearance", appearanceFromColor(ui.bgBase));
+  // Android only: status/nav bar icons contrast with the theme, not the phone dark mode.
+  syncSystemBars(ui.bgBase);
   window.dispatchEvent(new CustomEvent("theme-preview", { detail: theme }));
 }
 
