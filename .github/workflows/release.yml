@@ -29,12 +29,17 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
+      android-enabled: ${{ steps.targets.outputs.android-enabled }}
     steps:
       - name: Select configured release targets
         id: targets
         env:
           MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
           MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           node <<'JS'
           const fs = require('node:fs');
@@ -53,6 +58,14 @@ jobs:
             console.log('::notice::macOS signing secrets are not fully configured; skipping macOS release builds.');
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`);
+          const androidEnabled = [
+            'ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD',
+            'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD',
+          ].every(name => Boolean(process.env[name]));
+          if (!androidEnabled) {
+            console.log('::notice::Android signing secrets are not fully configured; skipping APK release build.');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `android-enabled=${androidEnabled}\n`);
           JS
 
   changelog:
@@ -245,7 +258,8 @@ jobs:
     # Only needs the draft to exist to upload into, which create-release now
     # guarantees — it used to wait on the whole publish-tauri matrix purely so
     # that some job had created the draft first.
-    needs: create-release
+    needs: [create-release, release-targets]
+    if: needs.release-targets.outputs.android-enabled == 'true'
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -465,6 +479,13 @@ jobs:
     # and 0.22.0 lost plugin-catalog.json to `HTTP 422: Cannot upload assets to
     # an immutable release`.
     needs: [publish-tauri, publish-android, attach-plugin-catalog]
+    # Android is optional when signing secrets are missing. A configured APK
+    # build that fails must still block publishing an incomplete release.
+    if: >-
+      ${{ !cancelled() &&
+          needs.publish-tauri.result == 'success' &&
+          needs.attach-plugin-catalog.result == 'success' &&
+          (needs.publish-android.result == 'success' || needs.publish-android.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
