@@ -42,4 +42,4 @@ Common types: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `style`. Keep 
 
 ## Plugins
 
-Plugins live in the [marketplace repo](https://github.com/VoltiusApp/marketplace) and are licensed under MIT. See that repo for plugin development guidelines.
+Plugins live in the [marketplace repo](https://github.com/htilssu/marketplace) and are licensed under MIT. See that repo for plugin development guidelines.

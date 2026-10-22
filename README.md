@@ -34,7 +34,7 @@ No account required. Everything below is free, forever.
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more. Hold Ctrl and scroll to adjust terminal font size.
 - **MCP Server** — Let Claude Code, Claude Desktop, Cursor or VS Code drive your fleet: 52 tools covering hosts, keys, identities, sessions, commands, files, vaults, folders, the audit log and your installed plugins. Off by default, one toggle in Settings → Integrations, and it never leaves your machine. [How it works →](https://voltius.app/blog/mcp-server) *(written for 0.19.0, when the surface was 41 tools — the design and the security model still hold, the tool list has grown)*
-- **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
+- **Plugin System** — Install plugins from the [official registry](https://github.com/htilssu/marketplace) or point to your own custom repo.
 - **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
 - **Process Manager** — View and kill processes on connected hosts.
 - **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.

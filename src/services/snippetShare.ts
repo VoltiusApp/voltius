@@ -3,7 +3,7 @@ import type { SnippetExport } from "./import-export/formats";
 import { stepsToExport } from "./import-export/snippetRefs";
 import type { CatalogEntry } from "./snippetCatalog";
 
-const MARKETPLACE_REPO = "https://github.com/voltiusApp/marketplace";
+const MARKETPLACE_REPO = "https://github.com/htilssu/marketplace";
 
 export function slugify(name: string): string {
   return name
