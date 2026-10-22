@@ -266,7 +266,7 @@ export function DockerPanel() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-(--t-text)">{t("androidLocalTitle")}</h3>
-            <p className="mt-1 text-[11px] leading-4 text-(--t-text-muted)">
+            <p className="mt-1 text-[12px] leading-4 text-(--t-text-muted)">
               {t("androidLocalSub")}
             </p>
           </div>
@@ -308,14 +308,14 @@ export function DockerPanel() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-(--t-text)">{t("unreachableTitle")}</h3>
-            <p className="mt-1 text-[11px] leading-4 text-(--t-text-muted)">
+            <p className="mt-1 text-[12px] leading-4 text-(--t-text-muted)">
               {t("unreachableLocalSub")}
             </p>
           </div>
           <button
             onClick={() => fetchForView(state.view)}
             disabled={state.loading}
-            className="inline-flex items-center gap-1.5 rounded-md border border-(--t-border) px-2.5 py-1 text-[11px] text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md border border-(--t-border) px-2.5 py-1 text-[12px] text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={12} className={state.loading ? "animate-spin" : ""} />
             {t("refresh")}
@@ -360,7 +360,7 @@ export function DockerPanel() {
             key={tab.id}
             onClick={() => dispatch({ type: "SET_VIEW", view: tab.id })}
             title={t(tab.labelKey)}
-            className={`flex-1 flex items-center justify-center py-1.5 text-[10px] gap-1 border-b-2 transition-colors ${
+            className={`flex-1 flex items-center justify-center py-1.5 text-[11px] gap-1 border-b-2 transition-colors ${
               state.view === tab.id
                 ? "border-(--t-accent) text-(--t-text)"
                 : "border-transparent text-(--t-text-muted) hover:text-(--t-text)"
@@ -421,9 +421,9 @@ export function DockerPanel() {
             onChange={(e) => dispatch({ type: "SET_FILTER", view: state.view as ListView, query: e.target.value })}
             onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); dispatch({ type: "CLOSE_SEARCH" }); } }}
             placeholder={t("filterPlaceholder")}
-            className="flex-1 bg-transparent text-[11px] text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
+            className="flex-1 bg-transparent text-[12px] text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
           />
-          <span className="text-[10px] text-(--t-text-dim) shrink-0 tabular-nums">
+          <span className="text-[11px] text-(--t-text-dim) shrink-0 tabular-nums">
             {filterCounts[state.view as ListView].shown}/{filterCounts[state.view as ListView].total}
           </span>
           <button
@@ -437,14 +437,14 @@ export function DockerPanel() {
       )}
 
       {sysPruneMsg && (
-        <p className="px-3 py-1 text-[10px] text-(--t-text-muted) border-b border-(--t-border) shrink-0">
+        <p className="px-3 py-1 text-[11px] text-(--t-text-muted) border-b border-(--t-border) shrink-0">
           {sysPruneMsg}
         </p>
       )}
 
       {/* Error state */}
       {state.error && (
-        <div className="px-3 py-2 text-[10px] text-(--t-text-muted)">
+        <div className="px-3 py-2 text-[11px] text-(--t-text-muted)">
           <p className="break-all">{state.error}</p>
         </div>
       )}

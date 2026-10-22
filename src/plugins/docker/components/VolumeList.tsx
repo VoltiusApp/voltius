@@ -26,8 +26,8 @@ export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh
       {volumes.map((v) => (
         <ResourceRow
           key={v.name}
-          title={<p className="text-[11px] text-(--t-text) truncate font-mono">{v.name}</p>}
-          subtitle={<p className="text-[10px] text-(--t-text-muted)">{v.driver}</p>}
+          title={<p className="text-[12px] text-(--t-text) truncate font-mono">{v.name}</p>}
+          subtitle={<p className="text-[11px] text-(--t-text-muted)">{v.driver}</p>}
           removeTitle={t("removeVolume")}
           onRemove={() => dockerRemoveVolume(ctx, v.name)}
           onRefresh={onRefresh}

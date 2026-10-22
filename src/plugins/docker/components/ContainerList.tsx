@@ -46,7 +46,7 @@ export function ContainerList({
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
-        <span className="text-[10px] text-(--t-text-muted)">
+        <span className="text-[11px] text-(--t-text-muted)">
           {t("runningCount", { count: containers.filter((c) => c.state === "running").length })}
         </span>
         <div className="flex items-center gap-1">
@@ -54,14 +54,14 @@ export function ContainerList({
             onClick={checkAll}
             disabled={isChecking}
             title={t("checkContainerUpdates")}
-            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
+            className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:circle-arrow-up" width={10} className={isChecking ? "animate-pulse" : ""} />
             {isChecking ? t("checking") : t("updates")}
           </button>
           <button
             onClick={onToggleStopped}
-            className={`text-[10px] px-1.5 py-0.5 rounded ${
+            className={`text-[11px] px-1.5 py-0.5 rounded ${
               showStopped
                 ? "bg-(--t-bg-hover) text-(--t-text)"
                 : "text-(--t-text-muted) hover:bg-(--t-bg-hover)"
@@ -76,7 +76,7 @@ export function ContainerList({
       <div className="flex-1 overflow-y-auto">
         {visible.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-(--t-text-muted)">
+            <p className="text-[12px] text-(--t-text-muted)">
               {containers.length === 0 ? t("noContainers") : t("noRunningContainers")}
             </p>
           </div>

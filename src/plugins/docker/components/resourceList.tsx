@@ -75,7 +75,7 @@ export function ResourceList({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
-        <span className="text-[10px] text-(--t-text-muted)">
+        <span className="text-[11px] text-(--t-text-muted)">
           {countLabel}
           {countSuffix}
         </span>
@@ -84,7 +84,7 @@ export function ResourceList({
           <button
             onClick={prune.prune}
             disabled={prune.pruning}
-            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-status-warning) hover:bg-(--t-bg-hover) disabled:opacity-40"
+            className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-sm text-(--t-status-warning) hover:bg-(--t-bg-hover) disabled:opacity-40"
           >
             <Icon icon="lucide:trash" width={10} />
             {prune.pruning ? t("pruning") : t("prune")}
@@ -93,7 +93,7 @@ export function ResourceList({
       </div>
 
       {prune.message && (
-        <p className="px-3 py-1 text-[10px] text-(--t-text-muted) border-b border-(--t-border)">
+        <p className="px-3 py-1 text-[11px] text-(--t-text-muted) border-b border-(--t-border)">
           {prune.message}
         </p>
       )}
@@ -101,7 +101,7 @@ export function ResourceList({
       <div className="overflow-y-auto flex-1">
         {count === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-(--t-text-muted)">{emptyLabel}</p>
+            <p className="text-[12px] text-(--t-text-muted)">{emptyLabel}</p>
           </div>
         ) : (
           children
