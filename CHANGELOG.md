@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.60.4] - 2026-10-22
+
+### Fixed
+
+- Text no longer looks blurry when UI Scale is below 100% on desktop. UI Scale now uses the webview's own zoom, so text is drawn at the new size instead of being shrunk after drawing. The terminal font size stays the same as UI Scale changes. Android still uses the previous scaling method.
+
 ## [0.60.3] - 2026-10-21
 
 ### Added

@@ -12,6 +12,7 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-hide",
+    "core:webview:allow-set-webview-zoom",
     {
       "identifier": "opener:allow-open-url",
       "allow": [

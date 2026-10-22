@@ -35,7 +35,7 @@ import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { terminalFontStack } from "@/utils/fontStack";
-import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
+import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme, terminalFontPx } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 import i18n from "@/i18n";
@@ -755,7 +755,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         macOptionClickForcesSelection: true,
         cursorBlink: getToggle("cursor-blink"),
         cursorStyle,
-        fontSize: activeTheme.terminalFontSize,
+        fontSize: terminalFontPx(activeTheme),
         lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
         fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
         scrollback,

@@ -32,6 +32,11 @@ export function clampUiScale(value: number): number {
   return Math.min(MAX_UI_SCALE, Math.max(MIN_UI_SCALE, Number.isFinite(value) ? value : 1));
 }
 
+/** The part of the UI scale left to CSS: 1 when the webview zooms natively. */
+export function cssUiScale(s: { uiScale: number; webviewZoom: number }): number {
+  return clampUiScale(s.uiScale) / s.webviewZoom;
+}
+
 export const MIN_TERMINAL_FONT_SIZE = 8;
 export const MAX_TERMINAL_FONT_SIZE = 32;
 
@@ -116,6 +121,8 @@ interface UIStore {
   sftpPanelOpen: boolean;
   pendingSftpConnectionId: string | null;
   uiScale: number;
+  /** Zoom the webview itself applies; 1 where the UI scale falls back to a CSS transform. Not persisted. */
+  webviewZoom: number;
   /**
    * Overrides the active theme's `terminalFontSize` when set. Null follows the
    * theme, which is the only place the size used to live — changing it meant
@@ -173,6 +180,7 @@ interface UIStore {
   openSftpWith: (connectionId: string) => void;
   clearPendingSftpConnection: () => void;
   setUiScale: (value: number) => void;
+  setWebviewZoom: (value: number) => void;
   setTerminalFontSize: (value: number | null) => void;
   setHomeLayoutMode: (v: LayoutMode) => void;
   setHomeSortMode: (v: SortMode) => void;
@@ -241,6 +249,7 @@ export const useUIStore = create<UIStore>()(
         sftpPanelOpen: false,
         pendingSftpConnectionId: null as string | null,
         uiScale: 1,
+        webviewZoom: 1,
         terminalFontSize: null as number | null,
         homeLayoutMode: "grid" as LayoutMode,
         homeSortMode: "newest" as SortMode,
@@ -310,6 +319,7 @@ export const useUIStore = create<UIStore>()(
         openSftpWith: (connectionId) => set({ sftpPanelOpen: true, pendingSftpConnectionId: connectionId }),
         clearPendingSftpConnection: () => set({ pendingSftpConnectionId: null }),
         setUiScale: (value) => setPref({ uiScale: clampUiScale(value) }),
+        setWebviewZoom: (value) => set({ webviewZoom: value }),
         setTerminalFontSize: (value) => setPref({ terminalFontSize: value === null ? null : clampTerminalFontSize(value) }),
         setHomeLayoutMode: (v) => setPref({ homeLayoutMode: v }),
         setHomeSortMode: (v) => setPref({ homeSortMode: v }),

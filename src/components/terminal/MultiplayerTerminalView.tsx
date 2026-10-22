@@ -10,7 +10,7 @@ import { getToggle } from "@/stores/toggleSettingsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { attachGuestOutput, useTeamSessionStore } from "@/stores/teamSessionStore";
 import { terminalFontStack } from "@/utils/fontStack";
-import { clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
+import { clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme, terminalFontPx } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -41,7 +41,7 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
     macOptionClickForcesSelection: true,
     cursorBlink: getToggle("cursor-blink"),
     cursorStyle,
-    fontSize: activeTheme.terminalFontSize,
+    fontSize: terminalFontPx(activeTheme),
     lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
     fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
     scrollback,

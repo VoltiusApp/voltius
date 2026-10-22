@@ -113,7 +113,18 @@ export function useTerminalMount(
     // React passes null on unmount and when this callback changes, as on a live pane switching session.
     if (!container) return detach();
     if (unbindRef.current) return;
-    unbindRef.current = bindTerminalContainer(mount(container), container, clipOptions);
+    // Cancel the app's transform only for the terminal. xterm's canvas must
+    // reach the screen at its native pixel density, and the user's terminal
+    // font size must stay independent of the surrounding UI scale. Keep the
+    // outer container in normal layout; fit xterm to the smaller, unscaled host.
+    const host = document.createElement("div");
+    host.className = "terminal-native-scale";
+    container.appendChild(host);
+    const unbind = bindTerminalContainer(mount(host), host, clipOptions);
+    unbindRef.current = () => {
+      unbind();
+      host.remove();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
