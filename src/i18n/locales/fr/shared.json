@@ -200,6 +200,7 @@
       "memberLine": "Les permissions par membre nécessitent le forfait Business.",
       "objectLine": "Les permissions par objet nécessitent le forfait Business.",
       "removeOverrides": "Supprimer les dérogations"
-    }
+    },
+    "availableWith": "Disponible avec {{plan}}"
   }
 }

@@ -195,6 +195,7 @@
       "memberLine": "Per-member permissions need Business.",
       "objectLine": "Per-object permissions need Business.",
       "removeOverrides": "Remove overrides"
-    }
+    },
+    "availableWith": "Available with {{plan}}"
   }
 }

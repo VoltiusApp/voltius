@@ -195,6 +195,7 @@
       "memberLine": "按成员的权限需要 Business 套餐。",
       "objectLine": "按对象的权限需要 Business 套餐。",
       "removeOverrides": "移除覆盖设置"
-    }
+    },
+    "availableWith": "{{plan}} 可用"
   }
 }

@@ -2,6 +2,8 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 
 export function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
   const { t } = useTranslation();
@@ -44,6 +46,7 @@ export function UpgradeToTeamsCTA() {
           {t("members.cta.upgradeDesc")}
         </p>
       </div>
+      {!CAN_OPEN_CHECKOUT ? <AvailableWithPlan plan="Teams" /> : (<>
       <button
         onClick={() => void openCheckout()}
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
@@ -52,6 +55,7 @@ export function UpgradeToTeamsCTA() {
         {t("members.cta.upgradeBtn", { days: TEAMS_TRIAL_DAYS })}
       </button>
       <p className="-mt-3 text-xs text-(--t-text-dim)">{t("members.cta.trialNote")}</p>
+      </>)}
     </div>
   );
 }

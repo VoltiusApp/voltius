@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 
 export function UpgradeAction({ teamId, look }: { teamId: string; look: "button" | "link" }) {
   const { t } = useTranslation();
@@ -12,6 +13,9 @@ export function UpgradeAction({ teamId, look }: { teamId: string; look: "button"
     return look === "link" ? null : <p className="text-xs text-(--t-text-dim)">{t("shared.businessLock.ownerOnly")}</p>;
   }
   if (isOwner !== true) return null;
+  if (!CAN_OPEN_CHECKOUT) {
+    return look === "link" ? null : <p className="text-xs text-(--t-text-dim)">{t("shared.availableWith", { plan: "Business" })}</p>;
+  }
   if (look === "link") {
     return <button type="button" onClick={upgrade} className="text-xs text-(--t-accent)">{t("shared.businessLock.upgrade")}</button>;
   }

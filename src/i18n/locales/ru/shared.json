@@ -205,6 +205,7 @@
       "memberLine": "Права отдельных участников доступны на тарифе Business.",
       "objectLine": "Права отдельных объектов доступны на тарифе Business.",
       "removeOverrides": "Удалить исключения"
-    }
+    },
+    "availableWith": "Доступно в {{plan}}"
   }
 }

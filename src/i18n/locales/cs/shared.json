@@ -205,6 +205,7 @@
       "memberLine": "Oprávnění pro jednotlivé členy vyžadují Business.",
       "objectLine": "Oprávnění pro jednotlivé objekty vyžadují Business.",
       "removeOverrides": "Odebrat přepsání"
-    }
+    },
+    "availableWith": "K dispozici s {{plan}}"
   }
 }

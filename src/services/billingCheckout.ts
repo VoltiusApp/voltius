@@ -2,6 +2,7 @@ import { invoke } from "@/lib/invoke";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { appFetch } from "@/services/http";
 import { checkoutRequiresEmailVerification } from "@/utils/emailVerification";
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 
 export const EMAIL_VERIFICATION_REQUIRED_EVENT = "voltius:email-verification-required";
 
@@ -22,6 +23,7 @@ async function readResponseBody(res: Response): Promise<unknown> {
 }
 
 export async function openBillingCheckout(plan: BillingPlan, options: CheckoutOptions = {}): Promise<boolean> {
+  if (!CAN_OPEN_CHECKOUT) return false;
   const [serverUrl, jwt] = await Promise.all([
     invoke<string | null>("keychain_get", { key: "server_url" }),
     invoke<string | null>("keychain_get", { key: "jwt" }),

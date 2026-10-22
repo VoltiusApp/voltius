@@ -1,3 +1,4 @@
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import type { PluginManifest, SettingsPage, SyncProviderAvailability, SyncProviderSummary } from "@/plugins/api";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import { attributePage } from "@/plugins/attributePage";
@@ -69,7 +70,7 @@ const STATUS_RANK: Record<SyncStatus, number> = { idle: 0, success: 1, syncing: 
 
 const VOLTIUS_ACTIONS: Partial<Record<SyncProviderAvailability, SyncProviderAction>> = {
   locked: { kind: "signIn" },
-  needs_upgrade: { kind: "upgrade" },
+  ...(CAN_OPEN_CHECKOUT ? { needs_upgrade: { kind: "upgrade" } as const } : {}),
   paused: { kind: "resume" },
 };
 
