@@ -12,6 +12,8 @@ import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { seatsUsedText } from "@/services/seatMath";
@@ -113,7 +115,9 @@ export default function MobileAccountPage() {
               </div>
             )}
 
-            {!isPro && (
+            {!isPro && !CAN_OPEN_CHECKOUT && <AvailableWithPlan plan="Pro" />}
+
+            {!isPro && CAN_OPEN_CHECKOUT && (
               <button
                 data-account-upgrade-pro
                 disabled={checkoutBusy}
@@ -125,7 +129,7 @@ export default function MobileAccountPage() {
               </button>
             )}
 
-            {isPro && !isTeams && (
+            {isPro && !isTeams && CAN_OPEN_CHECKOUT && (
               <>
                 <button
                   data-account-upgrade-teams
@@ -140,7 +144,7 @@ export default function MobileAccountPage() {
               </>
             )}
 
-            {billingEnabled && (
+            {billingEnabled && CAN_OPEN_CHECKOUT && (
               <button
                 data-account-manage-billing
                 onClick={() => void openPortal()}

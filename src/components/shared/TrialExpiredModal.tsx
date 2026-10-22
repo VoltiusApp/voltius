@@ -6,6 +6,8 @@ import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 
 const STORAGE_KEY = "voltius_trial_expired_shown";
 
@@ -65,20 +67,24 @@ export function TrialExpiredModal() {
           {t("shared.trialExpiredModal.freeNote")}
         </p>
 
+        {CAN_OPEN_CHECKOUT && (
         <UpgradeStrip
           variant="neutral"
           label={t("shared.trialExpiredModal.teamsPrompt", { days: TEAMS_TRIAL_DAYS })}
           buttonLabel={t("settings.account.plan.teamsButton")}
           onClick={() => upgrade("teams")}
         />
+        )}
 
         <div className="flex items-center justify-between gap-3">
+          {CAN_OPEN_CHECKOUT ? (
           <button
             onClick={() => upgrade("pro")}
             className="btn btn-primary px-4 py-2 rounded-lg text-sm font-semibold"
           >
             {t("shared.trialExpiredModal.upgradeButton")}
           </button>
+          ) : <AvailableWithPlan plan="Pro" className="text-left" />}
           <button
             onClick={() => setVisible(false)}
             className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"

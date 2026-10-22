@@ -179,6 +179,7 @@
       "memberLine": "Üye bazlı izinler Business planını gerektirir.",
       "objectLine": "Nesne bazlı izinler Business planını gerektirir.",
       "removeOverrides": "Geçersiz kılmaları kaldır"
-    }
+    },
+    "availableWith": "{{plan}} ile kullanılabilir"
   }
 }

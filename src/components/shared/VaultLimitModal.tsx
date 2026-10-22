@@ -5,6 +5,8 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 
 /** Free accounts keep the one vault they start with; more vaults are a Pro feature. */
 export function useVaultLimitReached(): boolean {
@@ -50,12 +52,14 @@ export function VaultLimitModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex flex-col gap-2">
+          {isCloudAccount && !CAN_OPEN_CHECKOUT ? <AvailableWithPlan plan="Pro" className="py-2" /> : (
           <button
             onClick={isCloudAccount ? () => void upgrade() : signIn}
             className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
           >
             {isCloudAccount ? t("layout.vaultSidebar.upgradeToPro") : t("layout.vaultSidebar.signInOrCreate")}
           </button>
+          )}
           <button
             onClick={onClose}
             className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
