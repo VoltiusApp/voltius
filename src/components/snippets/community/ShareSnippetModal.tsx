@@ -9,7 +9,7 @@ import { buildShareEntry, shareEntryJson, githubNewFileUrl } from "@/services/sn
 import { scanSteps, type SecretFinding } from "@/services/snippetSecretScan";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
-const GUIDELINES_URL = "https://github.com/voltiusApp/marketplace/blob/main/CONTRIBUTING.md";
+const GUIDELINES_URL = "https://github.com/htilssu/marketplace/blob/main/CONTRIBUTING.md";
 
 export function ShareSnippetModal({ snippets, packName, onClose }: {
   snippets: Snippet[];

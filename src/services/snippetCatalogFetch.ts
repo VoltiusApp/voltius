@@ -2,7 +2,7 @@ import { invoke } from "@/lib/invoke";
 import { appFetch } from "./http";
 import { parseCatalog, type CatalogEntry } from "./snippetCatalog";
 
-export const CATALOG_URL = "https://raw.githubusercontent.com/voltiusApp/marketplace/main/snippets.json";
+export const CATALOG_URL = "https://raw.githubusercontent.com/htilssu/marketplace/main/snippets.json";
 
 const CACHE_ID = "__meta__";
 const CACHE_FILE = "snippet-catalog.json";

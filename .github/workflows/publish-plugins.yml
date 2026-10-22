@@ -14,7 +14,7 @@ name: publish-plugins
 #     the ref your fix lives on and, optionally, which plugin ids to publish.
 #
 # The emitted plugins.json fragment is uploaded as a build artifact. Merging it into
-# voltiusApp/marketplace's plugins.json is a manual follow-up this workflow cannot do
+# htilssu/marketplace's plugins.json is a manual follow-up this workflow cannot do
 # (separate repo).
 
 on:

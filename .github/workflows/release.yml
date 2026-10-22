@@ -439,7 +439,7 @@ jobs:
     secrets: inherit
 
   # The emitted plugins.json fragment is attached to the app release for the
-  # record — merging it into voltiusApp/marketplace's plugins.json is a manual
+  # record — merging it into htilssu/marketplace's plugins.json is a manual
   # follow-up this workflow cannot do (separate repo).
   attach-plugin-catalog:
     needs: publish-plugins

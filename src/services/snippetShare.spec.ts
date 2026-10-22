@@ -73,6 +73,6 @@ describe("shareEntryJson", () => {
 describe("githubNewFileUrl", () => {
   it("targets the entries directory with the entry id as the filename", () => {
     expect(githubNewFileUrl("docker-essentials"))
-      .toBe("https://github.com/voltiusApp/marketplace/new/main?filename=snippets/entries/docker-essentials.json");
+      .toBe("https://github.com/htilssu/marketplace/new/main?filename=snippets/entries/docker-essentials.json");
   });
 });

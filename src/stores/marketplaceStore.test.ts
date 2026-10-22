@@ -168,7 +168,7 @@ function resetSources() {
 const FIRST_PARTY_SOURCE_FIXTURE = {
   id: "voltius",
   name: "Voltius Marketplace",
-  url: "https://raw.githubusercontent.com/voltiusApp/marketplace/main/plugins.json",
+  url: "https://raw.githubusercontent.com/htilssu/marketplace/main/plugins.json",
   enabled: true,
   deletable: false,
 };
