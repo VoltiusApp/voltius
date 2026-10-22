@@ -1,6 +1,7 @@
 import { writeClipboard } from "../../utils/clipboard";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
 import type { TFunction } from "i18next";
 import { invoke } from "@/lib/invoke";
 import { Icon } from "@iconify/react";
@@ -264,12 +265,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     }
   }, [sessionId, sessionType, sessionStatus]);
 
-  useEffect(() => {
-    if (!visible) return;
-    const { increment, decrement } = useStatusBarStore.getState();
-    increment();
-    return decrement;
-  }, [visible]);
+  const slot = useStatusBarStore((s) => s.slot);
 
   useEffect(() => {
     systemInfoFetchedRef.current = false;
@@ -542,7 +538,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     : 0;
   const spPoints = sparklinePoints(sparklineSnapshot, 80, 20);
 
-  return (
+  const content = (
     <>
       <div
         className="flex items-center justify-between px-3 shrink-0"
@@ -898,4 +894,9 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
       {ctxPos && <ContextMenu items={ctxItems} pos={ctxPos} onClose={closeCtx} direction="up" />}
     </>
   );
+
+  // The desktop shell's slot spans beneath the side panels, so opening one
+  // does not squeeze the bar. Hidden sessions keep no bar there.
+  if (slot) return visible ? createPortal(content, slot) : null;
+  return content;
 }

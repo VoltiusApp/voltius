@@ -25,7 +25,7 @@ export function UpdateBadge({
     return (
       <span
         title={t("updateAvailable")}
-        className="shrink-0 inline-flex items-center gap-0.5 rounded-sm px-1 text-[9px] font-medium bg-[color-mix(in_srgb,var(--t-status-warning)_16%,transparent)] text-(--t-status-warning)"
+        className="shrink-0 inline-flex items-center gap-0.5 rounded-sm px-1 text-[10px] font-medium bg-[color-mix(in_srgb,var(--t-status-warning)_16%,transparent)] text-(--t-status-warning)"
       >
         {t("update")}
       </span>

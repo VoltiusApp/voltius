@@ -2,6 +2,7 @@ import { test, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { TerminalStatusBar } from "./TerminalStatusBar";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useStatusBarStore } from "@/stores/statusBarStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
@@ -38,4 +39,21 @@ test("a hidden status bar stops ticking its uptime and catches up when shown", (
 
   rerender(bar(true));
   expect(screen.getByText("00:00:07")).toBeTruthy();
+});
+
+test("renders into the shell's status bar slot only while visible", () => {
+  const slot = document.createElement("div");
+  document.body.appendChild(slot);
+  useStatusBarStore.setState({ slot });
+  try {
+    const { container, rerender } = render(bar(true));
+    expect(slot.textContent).toContain("00:00:00");
+    expect(container.textContent).toBe("");
+
+    rerender(bar(false));
+    expect(slot.textContent).toBe("");
+  } finally {
+    useStatusBarStore.setState({ slot: null });
+    slot.remove();
+  }
 });

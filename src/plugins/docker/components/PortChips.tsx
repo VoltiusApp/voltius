@@ -14,8 +14,8 @@ interface Props {
 }
 
 const SIZE = {
-  sm: "text-[10px] px-1 py-0 gap-0.5",
-  md: "text-[11px] px-2 py-1 gap-1",
+  sm: "text-[11px] px-1 py-0 gap-0.5",
+  md: "text-[12px] px-2 py-1 gap-1",
 } as const;
 
 export function PortChips({ ports, sessionId, isRemote, limit, size = "sm", onOverflow }: Props) {

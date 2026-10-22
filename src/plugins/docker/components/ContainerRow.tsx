@@ -101,9 +101,9 @@ export function ContainerRow({
       >
         <StatusDot tone={containerStateTone(container.state)} size="sm" />
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-(--t-text) truncate font-medium">{name}</p>
+          <p className="text-[12px] text-(--t-text) truncate font-medium">{name}</p>
           <div className="flex items-center gap-1.5 min-w-0">
-            <p className="text-[10px] text-(--t-text-muted) truncate">{container.image}</p>
+            <p className="text-[11px] text-(--t-text-muted) truncate">{container.image}</p>
             <UpdateBadge status={status} checking={checking} />
           </div>
           <PortChips
@@ -114,7 +114,7 @@ export function ContainerRow({
             onOverflow={() => setExpanded(true)}
           />
         </div>
-        <span className="text-[10px] text-(--t-text-muted) shrink-0">
+        <span className="text-[11px] text-(--t-text-muted) shrink-0">
           {container.status.split(" ").slice(0, 2).join(" ")}
         </span>
         <Icon
@@ -192,7 +192,7 @@ export function ContainerRow({
 
       {/* Expanded details */}
       {expanded && (
-        <div className="px-3 pb-2 text-[10px] text-(--t-text-muted) space-y-0.5">
+        <div className="px-3 pb-2 text-[11px] text-(--t-text-muted) space-y-0.5">
           <p className="font-mono">{container.id.slice(0, 12)}</p>
           <PortChips ports={container.ports} sessionId={sessionId} isRemote={isRemote} />
         </div>

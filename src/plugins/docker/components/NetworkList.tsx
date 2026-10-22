@@ -26,10 +26,10 @@ export function NetworkList({ networks, sessionId, isRemote, localShell, onRefre
       {networks.map((n) => (
         <ResourceRow
           key={n.id}
-          title={<p className="text-[11px] text-(--t-text) truncate">{n.name}</p>}
-          subtitle={<p className="text-[10px] text-(--t-text-muted) font-mono">{n.driver}</p>}
+          title={<p className="text-[12px] text-(--t-text) truncate">{n.name}</p>}
+          subtitle={<p className="text-[11px] text-(--t-text-muted) font-mono">{n.driver}</p>}
           trailing={
-            <p className="text-[10px] text-(--t-text-muted) font-mono shrink-0">
+            <p className="text-[11px] text-(--t-text-muted) font-mono shrink-0">
               {n.id.slice(0, 12)}
             </p>
           }
