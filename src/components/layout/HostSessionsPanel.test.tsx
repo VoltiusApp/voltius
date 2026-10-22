@@ -7,7 +7,6 @@ import { useDragStore } from "@/stores/dragStore";
 import { openInSplit } from "@/services/hostStack";
 import { usePaneDragController } from "@/components/panes/usePaneDragController";
 import { useUIStore } from "@/stores/uiStore";
-import { useStatusBarStore } from "@/stores/statusBarStore";
 import { HostSessionsPanel } from "./HostSessionsPanel";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -32,7 +31,6 @@ beforeEach(() => {
   useSessionStore.setState({ sessions: [s("w1", "web"), s("w2", "web"), s("d1", "db")], activeSessionId: "w1" });
   useLayoutStore.setState({ splitTabs: [], root: null, splitTabActive: false, titlebarOrder: ["session:w1", "session:w2", "session:d1"] });
   useDragStore.setState({ isPointerDown: false, isDragging: false, dragType: null, sessionId: null, fromStackList: false, dropTarget: null, lastDragEndedAt: 0 });
-  useStatusBarStore.setState({ mountedCount: 0 });
 });
 
 const rowOf = (id: string) => screen.getByTestId("host-sessions-rows").querySelector<HTMLElement>(`[data-titlebar-key="session:${id}"]`)!;
@@ -79,16 +77,6 @@ describe("HostSessionsPanel", () => {
     expect(card.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("paints a status-bar-colored filler beneath the card when a status bar is mounted", () => {
-    useStatusBarStore.getState().increment();
-    render(<HostSessionsPanel />);
-    expect(screen.getByTestId("host-sessions-panel-status-filler")).toBeTruthy();
-  });
-
-  it("has no filler when no status bar is mounted", () => {
-    render(<HostSessionsPanel />);
-    expect(screen.queryByTestId("host-sessions-panel-status-filler")).toBeNull();
-  });
 
   it("unpins from its header", () => {
     render(<HostSessionsPanel />);

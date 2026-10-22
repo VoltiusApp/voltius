@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useStatusBarMounted } from "@/stores/statusBarStore";
 import { panelTransition } from "@/components/shared/panelMotion";
 
 interface SidePanelColumnProps {
@@ -11,15 +10,19 @@ interface SidePanelColumnProps {
   children: ReactNode;
 }
 
+/** Side panels run denser than the surrounding UI; zoom (not transform) so
+ *  text and icons are laid out and rasterized at the larger size. */
+const SIDE_PANEL_ZOOM = 1.05;
+
 export function SidePanelColumn({ open, side, columnWidth, cardWidth, testId, children }: SidePanelColumnProps) {
-  const statusBarMounted = useStatusBarMounted();
-  const bottomInset = statusBarMounted ? "calc(24px + 0.5rem)" : "0.5rem";
-  const width = typeof columnWidth === "number" ? `${columnWidth}px` : columnWidth;
+  const baseWidth = typeof columnWidth === "number" ? `${columnWidth}px` : columnWidth;
+  // The zoomed card is wider by the same factor, so the column must be too.
+  const width = `calc(${baseWidth} * ${SIDE_PANEL_ZOOM})`;
   // Shifting by the full column width keeps the card riding the column's inner edge as it resizes.
-  const closedShift = side === "right" ? width : `-${width}`;
+  const closedShift = side === "right" ? width : `calc(-1 * ${width})`;
   const cardStyle: CSSProperties = {
     width: cardWidth,
-    bottom: bottomInset,
+    zoom: SIDE_PANEL_ZOOM,
     transform: open ? undefined : `translateX(${closedShift})`,
     transition: panelTransition(open, "transform"),
   };
@@ -39,13 +42,6 @@ export function SidePanelColumn({ open, side, columnWidth, cardWidth, testId, ch
       >
         {children}
       </aside>
-      {statusBarMounted && (
-        <div
-          data-testid={testId ? `${testId}-status-filler` : undefined}
-          className="absolute inset-x-0 bottom-0 border-t border-t-(--t-border)"
-          style={{ height: 24, background: "var(--t-bg-status-bar)" }}
-        />
-      )}
     </div>
   );
 }

@@ -1,17 +1,13 @@
 import { create } from "zustand";
 
 interface StatusBarState {
-  mountedCount: number;
-  increment: () => void;
-  decrement: () => void;
+  /** Shell-level strip the visible terminal status bar renders into, spanning
+   *  beneath the side panel columns. Null where the shell has none (mobile). */
+  slot: HTMLElement | null;
+  setSlot: (slot: HTMLElement | null) => void;
 }
 
 export const useStatusBarStore = create<StatusBarState>((set) => ({
-  mountedCount: 0,
-  increment: () => set((s) => ({ mountedCount: s.mountedCount + 1 })),
-  decrement: () => set((s) => ({ mountedCount: Math.max(0, s.mountedCount - 1) })),
+  slot: null,
+  setSlot: (slot) => set({ slot }),
 }));
-
-export function useStatusBarMounted(): boolean {
-  return useStatusBarStore((s) => s.mountedCount > 0);
-}

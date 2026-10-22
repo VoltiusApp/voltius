@@ -9,6 +9,7 @@ import GlobalPanelHost from "@/components/layout/GlobalPanelHost";
 import RightPanel from "@/components/terminal/RightPanel";
 import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
 import { useUIStore } from "@/stores/uiStore";
+import { useStatusBarStore } from "@/stores/statusBarStore";
 
 export default function DesktopShell() {
   const omniOpen = useUIStore((s) => s.omniOpen);
@@ -17,6 +18,7 @@ export default function DesktopShell() {
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const dockedPanelWidth = useUIStore((s) => s.dockedPanelWidth);
+  const setStatusBarSlot = useStatusBarStore((s) => s.setSlot);
   const inVault = !homeView;
   const inTerminal = activeNav === "terminal";
   const showVaultChrome = inVault && !inTerminal && !sftpPanelOpen;
@@ -38,10 +40,13 @@ export default function DesktopShell() {
               <NavBar />
             </div>
           )}
-          <div className="flex flex-1 overflow-hidden" data-shell-content style={{ paddingRight: dockedPanelWidth || undefined }}>
-            <HostSessionsPanel />
-            <MainPanel />
-            <RightPanel />
+          <div className="flex flex-col flex-1 overflow-hidden" style={{ paddingRight: dockedPanelWidth || undefined }}>
+            <div className="flex flex-1 overflow-hidden" data-shell-content>
+              <HostSessionsPanel />
+              <MainPanel />
+              <RightPanel />
+            </div>
+            <div ref={setStatusBarSlot} className="flex flex-col shrink-0" data-status-bar-slot />
           </div>
         </div>
       </div>
