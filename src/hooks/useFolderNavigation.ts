@@ -8,6 +8,23 @@ export interface FolderNavigable {
 
 const rememberedFolders = new Map<string, string | null>();
 
+/** Path, subfolders and parent of folder `id`; a folder no longer in the list reads as the root. */
+export function folderLevel<T extends FolderNavigable>(allFolders: T[], byId: Map<string, T>, id: string | null) {
+  const activeFolderId = id !== null && byId.has(id) ? id : null;
+  const folderPath: T[] = [];
+  for (let at = activeFolderId; at !== null && !folderPath.some((f) => f.id === at);) {
+    const folder = byId.get(at)!;
+    folderPath.unshift(folder);
+    at = rootedParentId(folder.parent_folder_id, byId);
+  }
+  return {
+    activeFolderId,
+    folderPath,
+    ejectTargetFolderId: folderPath.length > 1 ? folderPath[folderPath.length - 2].id : null,
+    visibleFolders: allFolders.filter((f) => rootedParentId(f.parent_folder_id, byId) === activeFolderId),
+  };
+}
+
 /**
  * Generic folder navigation hook — tracks breadcrumb path and derives
  * visible folders at the current level. With `rememberAs`, the open folder survives the page unmounting.
@@ -23,23 +40,8 @@ export function useFolderNavigation<T extends FolderNavigable>(allFolders: T[], 
   useEffect(() => {
     if (rememberAs) rememberedFolders.set(rememberAs, openId);
   }, [rememberAs, openId]);
-  const activeFolderId = stale ? null : openId;
-
-  const folderPath = useMemo(() => {
-    const path: T[] = [];
-    for (let id = activeFolderId; id !== null && !path.some((f) => f.id === id);) {
-      const folder = byId.get(id)!;
-      path.unshift(folder);
-      id = rootedParentId(folder.parent_folder_id, byId);
-    }
-    return path;
-  }, [activeFolderId, byId]);
-  const ejectTargetFolderId = folderPath.length > 1 ? folderPath[folderPath.length - 2].id : null;
-
-  const visibleFolders = useMemo(
-    () => allFolders.filter((f) => rootedParentId(f.parent_folder_id, byId) === activeFolderId),
-    [allFolders, byId, activeFolderId],
-  );
+  const level = useMemo(() => folderLevel(allFolders, byId, openId), [allFolders, byId, openId]);
+  const { folderPath, ejectTargetFolderId } = level;
 
   const navigateInto = (folder: T) => setOpenId(folder.id);
   const navigateTo = (index: number) => setOpenId(folderPath[index]?.id ?? null);
@@ -50,10 +52,8 @@ export function useFolderNavigation<T extends FolderNavigable>(allFolders: T[], 
   };
 
   return {
-    folderPath,
-    activeFolderId,
-    ejectTargetFolderId,
-    visibleFolders,
+    ...level,
+    levelOf: (id: string | null) => folderLevel(allFolders, byId, id),
     navigateInto,
     navigateTo,
     navigateToRoot,

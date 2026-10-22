@@ -96,3 +96,11 @@ test("a parent cycle does not loop", () => {
   act(() => result.current.navigateInto(cyclic[0]));
   expect(result.current.folderPath.map((f) => f.id)).toEqual(["b", "a"]);
 });
+
+test("levelOf describes any folder, and a missing one as the root", () => {
+  const { result } = renderHook(() => useFolderNavigation(nested));
+  const prod = result.current.levelOf("prod");
+  expect(prod.folderPath.map((f) => f.id)).toEqual(["servers", "prod"]);
+  expect(prod.ejectTargetFolderId).toBe("servers");
+  expect(result.current.levelOf("gone")).toMatchObject({ activeFolderId: null, folderPath: [] });
+});

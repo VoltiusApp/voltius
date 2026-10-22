@@ -31,7 +31,7 @@ type AddMode = null | "menu" | "new-folder";
 export default function MobilePortForwardingScreen() {
   const { t } = useTranslation();
   const allFolders = useAllFolders();
-  const { inScope, can, nav, folders: pfFolders, folderIds: pfFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "port_forwarding");
+  const { inScope, can, nav, axisRef, openPath, folders: pfFolders, folderIds: pfFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "port_forwarding");
   const everyRule = useAllPortForwardingRules();
   const allRules = useMemo(() => everyRule.filter(inScope), [everyRule, inScope]);
   const folderCount = useMemo(() => folderItemCounter(allRules, pfFolders), [allRules, pfFolders]);
@@ -64,7 +64,7 @@ export default function MobilePortForwardingScreen() {
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-      {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
+      {openPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
       <MobilePanelHeader
         title={t("mobile.morePages.portForwarding")}
         right={canCreateRule || canCreateFolder ? (
@@ -77,7 +77,7 @@ export default function MobilePortForwardingScreen() {
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
       <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: allRules.filter((r) => statusFor(r).status === "active").length })}</div>
 
-      <div className="flex-1 overflow-y-auto pb-4">
+      <div ref={axisRef} data-mobile-folder-level className="flex-1 overflow-y-auto pb-4">
         {!search && nav.folderPath.length === 0 && <MobileActiveTunnels />}
         {!search && subfolders.map((f) => (
           <MobileFolderRow key={f.id} folder={f} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />

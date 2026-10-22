@@ -26,7 +26,7 @@ export default function MobileSnippetList({
   const { t } = useTranslation();
   const snippets = useAllSnippets();
   const allSnippetFolders = useAllSnippetFolders();
-  const { inScope, nav, folders: snFolders, folderIds: snFolderIds, targetVaultId, canEditFolder } = useMobileFolderScope(allSnippetFolders, "snippet");
+  const { inScope, nav, axisRef, openPath, folders: snFolders, folderIds: snFolderIds, targetVaultId, canEditFolder } = useMobileFolderScope(allSnippetFolders, "snippet");
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const setTab = useMobileNavStore((s) => s.setTab);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
@@ -74,11 +74,11 @@ export default function MobileSnippetList({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {foldersEnabled && nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
+      {foldersEnabled && openPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
       <MobileFilterBar value={search} onChange={setSearch} attr="mobile-snippet-search"
         placeholder={t("mobile.snippets.searchPlaceholder")} clearLabel={t("mobile.hostsScreen.clearSearchAriaLabel")} />
       {foldersEnabled && <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={axisRef} data-mobile-folder-level className="flex-1 overflow-y-auto">
         {foldersEnabled && !search && subFolders.map((f) => (
           <MobileFolderRow
             key={f.id}

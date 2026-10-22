@@ -85,7 +85,7 @@ export function useSftpDir(connection: Connection | undefined) {
   }, [phase]);
 
   const sftpId = phase.tag === "connected" ? phase.sftpId : null;
-  const { entries, loading: listing, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick);
+  const { entries, loading: listing, landedCwd, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick);
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
   const mkdir = useCallback(async (name: string) => {
@@ -102,5 +102,5 @@ export function useSftpDir(connection: Connection | undefined) {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }
   }, [sftpId, refresh]);
 
-  return { phase, retrying, sftpId, cwd, entries, listing, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
+  return { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
 }

@@ -98,7 +98,7 @@ export default function MobileHostsScreen() {
   const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
-  const { inScope, can, nav, folders: connFolders, folderIds: connFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "connection");
+  const { inScope, can, nav, axisRef, openPath, folders: connFolders, folderIds: connFolderIds, targetVaultId, canCreateFolder, canEditFolder } = useMobileFolderScope(allFolders, "connection");
   const push = useMobileNavStore((s) => s.push);
   const openHost = useOpenHost();
   const openSheet = useMobileNavStore((s) => s.openSheet);
@@ -146,9 +146,9 @@ export default function MobileHostsScreen() {
 
   return (
     <div ref={rootRef} data-mobile-hosts className="group/appbar relative flex-1 flex flex-col overflow-hidden">
-      {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
+      {openPath.map((f) => <FolderBackTrap key={f.id} onBack={nav.navigateUp} />)}
       <MobileLargeTopBar />
-      <div data-mobile-hosts-scroll className="flex-1 overflow-y-auto scrollbar-none" style={{ overscrollBehavior: "contain" }} onScroll={onScroll}>
+      <div data-mobile-hosts-scroll className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none" style={{ overscrollBehavior: "contain" }} onScroll={onScroll}>
         <MobileLargeTitle ref={titleRef} />
         <MobileFilterBar
           pill
@@ -159,36 +159,38 @@ export default function MobileHostsScreen() {
           clearLabel={t("mobile.hostsScreen.clearSearchAriaLabel")}
           className={`sticky top-0 z-[1] bg-(--t-bg-base) ${APPBAR_TONAL}`}
         />
-        <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
-        {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
-        {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
-        {!search && subFolders.map((f) => (
-          <MobileFolderRow
-            key={f.id}
-            folder={f}
-            count={folderCount(f.id)}
-            onOpen={() => nav.navigateInto(f)}
-            onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
-          />
-        ))}
-        {visible.length === 0 && subFolders.length === 0 && (
-          <div className="flex flex-col items-center gap-2 pt-16 text-(--t-text-dim)">
-            <Icon icon="lucide:server-off" width={28} />
-            <span className="text-sm">{search ? t("mobile.snippets.noMatches") : t("mobile.hostsScreen.emptyNoHosts")}</span>
-          </div>
-        )}
-        {visible.map((c) => (
-          <MobileHostRow
-            key={c.id}
-            c={c}
-            pinned={isPinnedFn(c, "connection")}
-            pingEnabled={pingEnabled}
-            onConnect={openHost}
-            onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
-          />
-        ))}
-        {/* Clearance so the last row can scroll out from under the FAB. */}
-        {canAdd && <div aria-hidden className="h-24" />}
+        <div ref={axisRef} data-mobile-folder-level>
+          <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
+          {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
+          {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
+          {!search && subFolders.map((f) => (
+            <MobileFolderRow
+              key={f.id}
+              folder={f}
+              count={folderCount(f.id)}
+              onOpen={() => nav.navigateInto(f)}
+              onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined}
+            />
+          ))}
+          {visible.length === 0 && subFolders.length === 0 && (
+            <div className="flex flex-col items-center gap-2 pt-16 text-(--t-text-dim)">
+              <Icon icon="lucide:server-off" width={28} />
+              <span className="text-sm">{search ? t("mobile.snippets.noMatches") : t("mobile.hostsScreen.emptyNoHosts")}</span>
+            </div>
+          )}
+          {visible.map((c) => (
+            <MobileHostRow
+              key={c.id}
+              c={c}
+              pinned={isPinnedFn(c, "connection")}
+              pingEnabled={pingEnabled}
+              onConnect={openHost}
+              onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
+            />
+          ))}
+          {/* Clearance so the last row can scroll out from under the FAB. */}
+          {canAdd && <div aria-hidden className="h-24" />}
+        </div>
       </div>
       {canAdd && (
         <button

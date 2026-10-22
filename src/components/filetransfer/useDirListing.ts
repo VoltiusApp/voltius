@@ -16,6 +16,7 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code: BackendErrorCode | null } | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [landedCwd, setLandedCwd] = useState<string | null>(null);
   const shownLocation = useRef<string | null>(null);
   const wantedLocation = useRef<string | null>(null);
   const issued = useRef(0);
@@ -31,7 +32,7 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
     // A reload never cancels the one in flight: on a listing slower than auto-refresh, nothing would ever land.
     const seq = ++issued.current;
     const current = () => wantedLocation.current === location && seq > landed.current;
-    const land = () => { landed.current = seq; shownLocation.current = location; setLoading(false); };
+    const land = () => { landed.current = seq; shownLocation.current = location; setLoading(false); setLandedCwd(cwd); };
     const load = isLocal
       ? fsListDir(cwd).then((files) => files.map(toEntry))
       // The download guard checks a path's last segment, so a name that is not exactly that segment must not be listed.
@@ -61,5 +62,5 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
 
   useEffect(() => () => { wantedLocation.current = null; }, []);
 
-  return { entries, loading, error: error?.message ?? null, errorCode: error?.code ?? null, refreshError };
+  return { entries, loading, landedCwd, error: error?.message ?? null, errorCode: error?.code ?? null, refreshError };
 }

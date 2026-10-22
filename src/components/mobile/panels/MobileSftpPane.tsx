@@ -25,6 +25,7 @@ import { describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { haptic } from "@/lib/haptics";
 import { appToast } from "@/services/appToast";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
+import { sharedAxisPlan, useSwapThrough } from "@/hooks/pageTransition";
 import { PullIndicator, usePullToRefresh } from "../usePullToRefresh";
 import { allSelected, pruneSelection, toggleAll, toggleItem } from "./sftpSelectionCore";
 import { canShare, shareFiles, shareStageId, shareTotalBytes, shareableFiles, SHARE_CONFIRM_BYTES } from "@/services/share";
@@ -60,7 +61,7 @@ export default function MobileSftpPane({
   backUp: boolean;
 }) {
   const { t } = useTranslation();
-  const { phase, retrying, sftpId, cwd, entries, listing, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
@@ -117,6 +118,9 @@ export default function MobileSftpPane({
   // Back: selection mode first, then one directory up (sheets opened above register later and win).
   useBackInterceptor(onScreen && selecting, clearSelection);
   useBackInterceptor(backUp && phase.tag === "connected" && cwd !== "/", goUp);
+
+  useSwapThrough(cwd, phase.tag !== "connected" || landedCwd === cwd, () => scrollRef.current,
+    (from, to) => (landedCwd === null ? null : sharedAxisPlan(to.startsWith(from.endsWith("/") ? from : `${from}/`))));
 
   const pull = usePullToRefresh(scrollRef, { enabled: phase.tag === "connected", busy: listing, onRefresh: refresh });
 
@@ -280,6 +284,12 @@ export default function MobileSftpPane({
             );
           })}
         </div>
+        {phase.tag === "connected" && landedCwd !== null && landedCwd !== cwd && (
+          <div data-sftp-dir-loading className="absolute inset-x-0 top-10 flex justify-center pointer-events-none text-(--t-text-dim)"
+            style={{ animation: "fadeIn 200ms ease-out 150ms both" }}>
+            <Icon icon="lucide:loader-circle" width={22} className="animate-spin" />
+          </div>
+        )}
         <PullIndicator phase={pull.phase} indicatorRef={pull.indicatorRef} />
       </div>
 

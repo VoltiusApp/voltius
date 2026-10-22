@@ -194,6 +194,14 @@ export const SESSION_MOTION = {
   snapBack: { duration: "short4", easing: "standard" },
 } as const satisfies Record<string, number | { duration: DurationToken | number; easing: EasingToken }>;
 
+/** Moving between levels of a folder or directory list (M3 shared axis X, see hooks/pageTransition.ts useSharedAxis). */
+export const AXIS_MOTION = {
+  out: { duration: 90, easing: "standardAccelerate" },
+  in: { duration: 210, easing: "emphasizedDecelerate" },
+  outShiftPx: 10,
+  inShiftPx: 30,
+} as const satisfies Record<string, number | { duration: DurationToken | number; easing: EasingToken }>;
+
 /** Pull to refresh (M3 swipe-to-refresh, see components/mobile/usePullToRefresh.ts). */
 export const PULL_MOTION = {
   /** Released at least this far down (px, after resistance), the list refreshes. */

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { NAV_MOTION, PAGE_MOTION, animate, prefersReducedMotion } from "@/lib/motion";
+import { AXIS_MOTION, NAV_MOTION, PAGE_MOTION, animate, prefersReducedMotion, type DurationToken, type EasingToken } from "@/lib/motion";
 
 /**
  * Page transitions of the mobile shell (M3 shared axis X): a pushed page slides in
@@ -176,73 +176,123 @@ export function useOverlayTransition(open: boolean) {
   return { mounted: open || tr?.dir === "pop", ref };
 }
 
+export interface SwapStep {
+  frames: Keyframe[];
+  duration: DurationToken | number;
+  easing: EasingToken;
+}
+
+/** How a swap from one value to the next animates; null swaps at once. */
+export type SwapPlan = { out: SwapStep; in: SwapStep } | null;
+
 /**
- * M3 fade-through between tab destinations: on a change of `value` the element `el`
- * names fades out, then the new value is rendered and fades in from a slight zoom.
- * Returns the value to render, which lags `value` by the fade-out (the old content
- * stays on screen while it fades). Nothing is remounted by this: the caller renders
- * from the returned value exactly as it would from `value`. Instant when `enabled`
- * is false, under reduced motion and without WAAPI.
+ * Plays `out` on the element `el` names, swaps to the latest `value` once `ready`, then plays `in`.
+ * Returns the value to render, which lags `value` until the swap. Instant under reduced motion and without WAAPI.
  */
-export function useFadeThrough<T>(value: T, enabled: boolean, el: () => HTMLElement | null | undefined): T {
+export function useSwapThrough<T>(
+  value: T,
+  ready: boolean,
+  el: () => HTMLElement | null | undefined,
+  plan: (from: T, to: T) => SwapPlan,
+): T {
   const [shown, setShown] = useState({ value, swap: 0 });
+  const [outEnded, setOutEnded] = useState(0);
   const latest = useRef(value);
   latest.current = value;
   const elRef = useRef(el);
   elRef.current = el;
-  const phase = useRef<"idle" | "out" | "in">("idle");
-  const anims = useRef<{ out: Animation | null; in: Animation | null }>({ out: null, in: null });
+  const planRef = useRef(plan);
+  planRef.current = plan;
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
+  const phase = useRef<"idle" | "out" | "held" | "in">("idle");
+  const run = useRef<{ from: T; plan: SwapPlan; out: Animation | null; in: Animation | null }>({ from: value, plan: null, out: null, in: null });
 
   useLayoutEffect(() => {
-    // During a fade-out the swap at its end picks up the latest value.
-    if (Object.is(value, shown.value) || phase.current === "out") return;
+    if (Object.is(value, shown.value) || phase.current === "out" || phase.current === "held") return;
     const node = elRef.current();
-    anims.current.in?.cancel();
-    anims.current.in = null;
-    if (!enabled || !animated() || !node) {
+    run.current.in?.cancel();
+    run.current.in = null;
+    const p = planRef.current(shown.value, value);
+    if (!p || !animated() || !node) {
       phase.current = "idle";
       setShown((s) => ({ value, swap: s.swap }));
       return;
     }
     phase.current = "out";
-    const m = NAV_MOTION.fadeOut;
-    const a = animate(node, [{ opacity: 1 }, { opacity: 0 }], m.duration, m.easing, { fill: "forwards" });
-    anims.current.out = a;
+    const a = animate(node, p.out.frames, p.out.duration, p.out.easing, { fill: "forwards" });
+    run.current = { from: shown.value, plan: p, out: a, in: null };
     a.finished.then(() => {
-      if (anims.current.out !== a) return;
-      phase.current = "in";
-      setShown((s) => ({ value: latest.current, swap: s.swap + 1 }));
+      if (run.current.out !== a) return;
+      phase.current = readyRef.current ? "in" : "held";
+      if (readyRef.current) setShown((s) => ({ value: latest.current, swap: s.swap + 1 }));
+      else setOutEnded((n) => n + 1);
     }, () => undefined);
-  }, [value, shown.value, enabled]);
+  }, [value, shown.value]);
+
+  useLayoutEffect(() => {
+    if (phase.current !== "held" || !ready) return;
+    phase.current = "in";
+    setShown((s) => ({ value: latest.current, swap: s.swap + 1 }));
+  }, [outEnded, ready]);
 
   useLayoutEffect(() => {
     if (phase.current !== "in") return;
     const node = elRef.current();
-    const out = anims.current.out;
-    anims.current.out = null;
-    if (!node) {
+    const { out, from } = run.current;
+    run.current.out = null;
+    const p = planRef.current(from, shown.value) ?? run.current.plan;
+    if (!node || !p) {
       out?.cancel();
       phase.current = "idle";
       return;
     }
-    const m = NAV_MOTION.fadeIn;
-    const from = { opacity: 0, scale: `${NAV_MOTION.fadeInScale}` };
-    const a = animate(node, [from, { opacity: 1, scale: "1" }], m.duration, m.easing);
-    out?.cancel(); // once the fade-in holds the element, so no frame shows it at full opacity
-    anims.current.in = a;
+    const a = animate(node, p.in.frames, p.in.duration, p.in.easing);
+    out?.cancel(); // once the in step holds the element, so no frame shows it at rest
+    run.current.in = a;
     a.finished.then(() => {
-      if (anims.current.in !== a) return;
-      anims.current.in = null;
+      if (run.current.in !== a) return;
+      run.current.in = null;
       phase.current = "idle";
     }, () => undefined);
   }, [shown.swap]);
 
   useLayoutEffect(() => () => {
-    anims.current.out?.cancel();
-    anims.current.in?.cancel();
+    run.current.out?.cancel();
+    run.current.in?.cancel();
   }, []);
 
   return shown.value;
+}
+
+const FADE_THROUGH: SwapPlan = {
+  out: { frames: [{ opacity: 1 }, { opacity: 0 }], ...NAV_MOTION.fadeOut },
+  in: { frames: [{ opacity: 0, scale: `${NAV_MOTION.fadeInScale}` }, { opacity: 1, scale: "1" }], ...NAV_MOTION.fadeIn },
+};
+
+/** M3 fade-through between tab destinations (see useSwapThrough). */
+export function useFadeThrough<T>(value: T, enabled: boolean, el: () => HTMLElement | null | undefined): T {
+  return useSwapThrough(value, true, el, () => (enabled ? FADE_THROUGH : null));
+}
+
+/** M3 shared axis X: forward slides the new content in from the right, back from the left. */
+export function sharedAxisPlan(forward: boolean): SwapPlan {
+  const dir = forward ? 1 : -1;
+  const at = (px: number, opacity: number): Keyframe => ({ translate: `${px * dir}px 0px`, opacity });
+  return {
+    out: { frames: [at(0, 1), at(-AXIS_MOTION.outShiftPx, 0)], ...AXIS_MOTION.out },
+    in: { frames: [at(AXIS_MOTION.inShiftPx, 0), at(0, 1)], ...AXIS_MOTION.in },
+  };
+}
+
+/** Moving between levels of a folder or directory list (see useSwapThrough). */
+export function useSharedAxis<T>(
+  value: T,
+  ready: boolean,
+  el: () => HTMLElement | null | undefined,
+  forward: (from: T, to: T) => boolean,
+): T {
+  return useSwapThrough(value, ready, el, (from, to) => sharedAxisPlan(forward(from, to)));
 }
 
 export type SlidePhase = "shown" | "hiding" | "hidden" | "showing";
