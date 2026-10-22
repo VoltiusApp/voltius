@@ -119,7 +119,8 @@ jobs:
       publish: false
     secrets: inherit
 
-  # Proves the self-signed certificate signs on a hosted runner, which no release can afford to discover.
+  # Proves the Developer ID certificate signs and the API key notarizes on a hosted
+  # runner, which no release can afford to discover.
   macos-signing:
     runs-on: macos-latest
     steps:
@@ -128,12 +129,21 @@ jobs:
 
       - name: Import the macOS signing certificate
         env:
-          MACOS_SIGNING_CERTIFICATE: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
-          MACOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: bash scripts/import-macos-signing-cert.sh
 
-      - name: Sign a binary and check its requirement
+      - name: Sign a binary and notarize it
+        env:
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
-          cp /bin/ls "$RUNNER_TEMP/voltius-sign-probe"
-          codesign --force --options runtime -s "$APPLE_SIGNING_IDENTITY" "$RUNNER_TEMP/voltius-sign-probe"
-          bash scripts/check-macos-signature.sh "$RUNNER_TEMP/voltius-sign-probe"
+          probe="$RUNNER_TEMP/voltius-sign-probe"
+          cp /bin/ls "$probe"
+          codesign --force --options runtime --timestamp -s "$APPLE_SIGNING_IDENTITY" "$probe"
+          bash scripts/check-macos-signature.sh "$probe"
+          ditto -c -k "$probe" "$probe.zip"
+          xcrun notarytool submit "$probe.zip" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait --output-format json > "$RUNNER_TEMP/notary.json"
+          cat "$RUNNER_TEMP/notary.json"
+          grep -q '"status" *: *"Accepted"' "$RUNNER_TEMP/notary.json" || { echo "notarization was not accepted" >&2; exit 1; }
