@@ -1,5 +1,5 @@
 const CHANGELOG_URL =
-  "https://raw.githubusercontent.com/VoltiusApp/voltius/main/CHANGELOG.md";
+  "https://raw.githubusercontent.com/htilssu/voltius/main/CHANGELOG.md";
 const CACHE_KEY = "voltius-changelog-cache";
 
 export interface ChangelogGroup {

@@ -302,7 +302,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         {isSignup && (
           <p className="mt-2 text-xs text-center text-(--t-text-dim) leading-relaxed">
             {t("layout.auth.e2eeNotice")}{" "}
-            <button type="button" onClick={() => void openUrl("https://github.com/VoltiusApp/voltius")}
+            <button type="button" onClick={() => void openUrl("https://github.com/htilssu/voltius")}
               className="text-(--t-accent) hover:underline">
               {t("layout.auth.openSource")}
             </button>

@@ -26,7 +26,7 @@ import {
 
 function getQuickLinks(t: TFunction) {
   return [
-    { icon: "simple-icons:github", title: "GitHub", href: "https://github.com/VoltiusApp/voltius" },
+    { icon: "simple-icons:github", title: "GitHub", href: "https://github.com/htilssu/voltius" },
     { icon: "lucide:book-open", title: t("changelog.quickLinks.documentation"), href: "https://docs.voltius.app" },
     { icon: "simple-icons:x", title: "@VoltiusApp", href: "https://x.com/VoltiusApp" },
     { icon: "simple-icons:kofi", title: "Ko-Fi", href: "https://ko-fi.com/kipavy" },

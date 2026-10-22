@@ -6,14 +6,14 @@
   <p><strong>A local-first SSH/SFTP/Serial client with E2EE sync, plugins, and no account required — a modern alternative to Termius.</strong></p>
   
   <p>
-    <a href="https://github.com/VoltiusApp/voltius/releases/latest"><img src="https://img.shields.io/github/v/release/VoltiusApp/voltius?label=release&color=3b82f6" alt="Latest release" /></a>
-    <img src="https://img.shields.io/github/stars/VoltiusApp/voltius?style=flat&color=eab308" alt="Stars" />
+    <a href="https://github.com/htilssu/voltius/releases/latest"><img src="https://img.shields.io/github/v/release/htilssu/voltius?label=release&color=3b82f6" alt="Latest release" /></a>
+    <img src="https://img.shields.io/github/stars/htilssu/voltius?style=flat&color=eab308" alt="Stars" />
     <img src="https://img.shields.io/badge/status-beta-f59e0b" alt="Beta" />
     <img src="https://img.shields.io/badge/built_with-Rust-dea584?logo=rust" alt="Rust" />
     <img src="https://img.shields.io/badge/UI-Tauri-24c8db?logo=tauri" alt="Tauri" />
     <img src="https://img.shields.io/badge/Security-E2EE-green" alt="E2EE" />
     <a href="https://docs.voltius.app"><img src="https://img.shields.io/badge/docs-docs.voltius.app-3b82f6" alt="Docs" /></a>
-    <img src="https://img.shields.io/github/license/VoltiusApp/voltius" alt="License" />
+    <img src="https://img.shields.io/github/license/htilssu/voltius" alt="License" />
   </p>
 
   <img width="960" height="540" alt="demo" src="https://github.com/user-attachments/assets/cbe743be-47d2-4565-9ead-b38c619db019" />
@@ -141,7 +141,7 @@ watches this repo's releases and installs updates the way a store would.
 [<img src=".github/media/badge_obtainium.png" alt="Get it on Obtainium" height="54">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.voltius.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FVoltiusApp%2Fvoltius%22%2C%22author%22%3A%22VoltiusApp%22%2C%22name%22%3A%22Voltius%22%7D)
 
 Tap that badge **on the phone** — it opens Obtainium with the source pre-filled, or offers
-to install Obtainium first. By hand: **Add App** → `https://github.com/VoltiusApp/voltius`.
+to install Obtainium first. By hand: **Add App** → `https://github.com/htilssu/voltius`.
 
 The APK is `arm64-v8a` only (every current phone, but not x86_64 emulators or Chromebooks)
 and needs Android 7.0+. Every release is signed with the same key, so updates install over
@@ -155,7 +155,7 @@ the top; an APK from anywhere else — including one you built yourself — fail
 - Unauthenticated GitHub API calls are capped at 60/hour per IP address. If update checks
   start failing, add a personal access token in Obtainium under **Settings → Source-specific → GitHub**.
 - Without Obtainium: grab the `Voltius_<version>_aarch64.apk` asset from the
-  [latest release](https://github.com/VoltiusApp/voltius/releases/latest) — updates are then manual.
+  [latest release](https://github.com/htilssu/voltius/releases/latest) — updates are then manual.
 </details>
 
 ### Other downloads

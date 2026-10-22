@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/VoltiusApp/voltius.git",
+    "url": "git+https://github.com/htilssu/voltius.git",
     "directory": "packages/plugin-types"
   },
   "homepage": "https://docs.voltius.app/plugins/developing",

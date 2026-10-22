@@ -269,7 +269,7 @@ describe("plugin catalogue publish pipeline", () => {
 
   test("releaseRepoFor matches the client's unprefixed fetch pattern", () => {
     // GitHub Actions publishes to the current repository, including forks.
-    const repository = process.env.GITHUB_REPOSITORY || "VoltiusApp/voltius";
+    const repository = process.env.GITHUB_REPOSITORY || "htilssu/voltius";
     const repo = releaseRepoFor("plugin-docker", "9.9.9");
     expect(repo).toBe(`https://github.com/${repository}/releases/download/plugin-docker-v9.9.9`);
     // src/stores/marketplaceStore.ts always fetches `${plugin.repo}/index.js` and
