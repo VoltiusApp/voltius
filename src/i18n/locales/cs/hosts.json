@@ -120,6 +120,7 @@
     "remoteSessions": {
       "title": "Aktivní na jiných zařízeních",
       "kill": "Ukončit relaci",
+      "join": "Připojit se k relaci",
       "killing": "Ukončování relace…",
       "undo": "Zpět",
       "killFailed": "Vzdálené ukončení se nezdařilo — otevřete relaci a ukončete ji",

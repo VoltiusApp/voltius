@@ -111,6 +111,7 @@
     "remoteSessions": {
       "title": "En direct sur d'autres appareils",
       "kill": "Terminer la session",
+      "join": "Rejoindre la session",
       "killing": "Fermeture de la session…",
       "undo": "Annuler",
       "killFailed": "Impossible de terminer à distance — ouvrez la session pour la fermer",

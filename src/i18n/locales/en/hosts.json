@@ -102,6 +102,7 @@
     "remoteSessions": {
       "title": "Live on other devices",
       "kill": "Kill session",
+      "join": "Join session",
       "killing": "Killing session…",
       "undo": "Undo",
       "killFailed": "Couldn't kill remotely — open the session to end it",

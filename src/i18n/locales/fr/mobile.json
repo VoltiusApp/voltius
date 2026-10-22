@@ -8,9 +8,6 @@
     "filterBar": {
       "placeholder": "Filtrer…"
     },
-    "remoteSessions": {
-      "title": "En direct sur d'autres appareils"
-    },
     "snippets": {
       "searchPlaceholder": "Rechercher des snippets",
       "noMatches": "Aucun résultat",

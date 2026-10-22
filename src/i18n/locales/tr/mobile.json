@@ -8,9 +8,6 @@
     "filterBar": {
       "placeholder": "Filtrele…"
     },
-    "remoteSessions": {
-      "title": "Diğer cihazlarda canlı"
-    },
     "snippets": {
       "searchPlaceholder": "Kod parçacıklarında ara",
       "noMatches": "Eşleşme yok",

@@ -102,6 +102,7 @@
     "remoteSessions": {
       "title": "其他设备上的实时会话",
       "kill": "结束会话",
+      "join": "加入会话",
       "killing": "正在结束会话…",
       "undo": "撤销",
       "killFailed": "无法远程结束 — 打开会话以将其关闭",

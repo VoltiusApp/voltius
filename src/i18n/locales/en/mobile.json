@@ -8,9 +8,6 @@
     "filterBar": {
       "placeholder": "Filter…"
     },
-    "remoteSessions": {
-      "title": "Live on other devices"
-    },
     "snippets": {
       "searchPlaceholder": "Search snippets",
       "noMatches": "No matches",

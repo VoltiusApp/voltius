@@ -1,71 +1,71 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
-import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useToggle } from "@/stores/toggleSettingsStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
-import { getJoinableSessions, joinRemoteSession } from "@/services/crossDeviceSessions";
+import { useRemoteSessionCards } from "@/hooks/useRemoteSessionCards";
+import type { RemoteSession } from "@/stores/liveSessionManifestCore";
+import { GLASS_CARD_STYLE } from "@/components/shared/BaseCard";
+import { RemoteSessionCardBody } from "@/components/hosts/RemoteSessionCardBody";
 import { sessionLabel } from "@/utils/sessionLabel";
-import { formatRelative } from "@/utils/localeFormat";
+import { useLongPress } from "./useLongPress";
+import BottomSheet from "./sheets/BottomSheet";
+import { SheetActionRow } from "./sheets/SheetActionRow";
 
-/** Mobile "Live on other devices" strip — phone-native styling over the same pure
- * getJoinableSessions()/joinRemoteSession() as the desktop RemoteDeviceSessions card.
- * On join, also switch the mobile terminal tab (joinRemoteSession's desktop setActiveNav
- * is inert in the mobile shell). */
+type Cards = ReturnType<typeof useRemoteSessionCards>;
+
+function SessionCard({ session: a, cards, onActions }: { session: RemoteSession; cards: Cards; onActions: () => void }) {
+  const state = cards.stateOf(a.sessionId);
+  const idle = state === "idle";
+  const press = useLongPress(onActions, () => cards.join(a));
+  return (
+    <div
+      role={idle ? "button" : undefined}
+      tabIndex={idle ? 0 : undefined}
+      data-mobile-remote-session={a.sessionId}
+      {...(idle ? press : {})}
+      className="shrink-0 flex items-center gap-4 px-3 py-3 rounded-2xl text-left active:opacity-80"
+      style={{ ...GLASS_CARD_STYLE, minWidth: 220, maxWidth: 280 }}
+    >
+      <RemoteSessionCardBody
+        session={a}
+        state={state}
+        joining={cards.joiningId === a.sessionId}
+        onUndo={() => cards.undo(a.sessionId)}
+        onDismiss={() => cards.dismiss(a.sessionId)}
+      />
+    </div>
+  );
+}
+
+/** Mobile "Live on other devices" strip: the desktop cards; long-press opens join / kill. */
 export default function MobileRemoteDeviceSessions() {
   const { t } = useTranslation();
-  const [enabled] = useToggle("cross-device-sessions");
-  // Subscribed so the derived list recomputes when its inputs change.
-  useCrossDeviceSessionsStore((s) => s.manifests);
-  useSessionStore((s) => s.sessions);
-  useConnectionStore((s) => s.connections);
   const setTab = useMobileNavStore((s) => s.setTab);
-  const [joiningId, setJoiningId] = useState<string | null>(null);
-
-  const joinable = enabled ? getJoinableSessions() : [];
-  if (joinable.length === 0) return null;
+  const cards = useRemoteSessionCards(() => setTab("terminal"));
+  const [actionsFor, setActionsFor] = useState<RemoteSession | null>(null);
+  if (cards.sessions.length === 0) return null;
 
   return (
-    <div className="px-3 pt-2 pb-1" data-mobile-remote-sessions>
-      <p className="text-[11px] font-bold uppercase tracking-widest text-(--t-text-dim) mb-2 px-1">
-        {t("mobile.remoteSessions.title")}
+    <div className="pt-3 pb-1" data-mobile-remote-sessions>
+      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim) mb-1 px-4">
+        {t("hosts.remoteSessions.title")}
       </p>
-      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {joinable.map((a) => (
-          <button
-            key={a.sessionId}
-            data-mobile-remote-session={a.sessionId}
-            onClick={() => {
-              if (joiningId) return;
-              setJoiningId(a.sessionId);
-              setTab("terminal");
-              void joinRemoteSession(a).finally(() => setJoiningId(null));
-            }}
-            className="shrink-0 flex items-start gap-2 rounded-xl px-3 py-2.5 text-left active:opacity-80"
-            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", minWidth: 200, maxWidth: 260 }}
-          >
-            <span
-              className="shrink-0 grid place-items-center rounded-md"
-              style={{ width: 30, height: 30, background: "var(--t-accent)" }}
-            >
-              <Icon
-                icon={joiningId === a.sessionId ? "lucide:loader-circle" : "lucide:monitor-smartphone"}
-                width={16}
-                className={joiningId === a.sessionId ? "text-white animate-spin" : "text-white"}
-              />
-            </span>
-            <span className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-sm font-semibold truncate text-(--t-text-primary)">{sessionLabel(a)}</span>
-              <span className="text-[11px] truncate text-(--t-text-dim)">
-                {a.deviceName || t("hosts.remoteSessions.unknownDevice")} · {formatRelative(a.openedAt)}
-              </span>
-              {a.cwd && <span className="text-[11px] truncate text-(--t-text-dim)">{a.cwd}</span>}
-            </span>
-          </button>
+      <div className="flex gap-3 overflow-x-auto px-4 py-2" style={{ scrollbarWidth: "none" }}>
+        {cards.sessions.map((a) => (
+          <SessionCard key={a.sessionId} session={a} cards={cards} onActions={() => setActionsFor(a)} />
         ))}
       </div>
+      {actionsFor && (
+        <BottomSheet title={sessionLabel(actionsFor)} onClose={() => setActionsFor(null)}>
+          <SheetActionRow attr="remote-session-action" it={{
+            icon: "lucide:terminal", label: t("hosts.remoteSessions.join"), slug: "join",
+            onTap: () => { cards.join(actionsFor); setActionsFor(null); },
+          }} />
+          <SheetActionRow attr="remote-session-action" it={{
+            icon: "lucide:trash-2", label: t("hosts.remoteSessions.kill"), slug: "kill", danger: true,
+            onTap: () => { cards.kill(actionsFor.sessionId); setActionsFor(null); },
+          }} />
+        </BottomSheet>
+      )}
     </div>
   );
 }

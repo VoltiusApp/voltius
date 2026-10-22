@@ -102,6 +102,7 @@
     "remoteSessions": {
       "title": "Diğer cihazlarda etkin",
       "kill": "Oturumu sonlandır",
+      "join": "Oturuma katıl",
       "killing": "Oturum sonlandırılıyor…",
       "undo": "Geri al",
       "killFailed": "Uzaktan sonlandırılamadı — sonlandırmak için oturumu açın",

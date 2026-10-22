@@ -8,9 +8,6 @@
     "filterBar": {
       "placeholder": "Фильтр…"
     },
-    "remoteSessions": {
-      "title": "Активны на других устройствах"
-    },
     "snippets": {
       "searchPlaceholder": "Поиск сниппетов",
       "noMatches": "Нет совпадений",

@@ -8,9 +8,6 @@
     "filterBar": {
       "placeholder": "Filtrovat…"
     },
-    "remoteSessions": {
-      "title": "Aktivní na jiných zařízeních"
-    },
     "snippets": {
       "searchPlaceholder": "Hledat úryvky",
       "noMatches": "Žádné shody",
