@@ -7,7 +7,7 @@
 #   GPG_PRIVATE_KEY, GPG_PASSPHRASE              package signing key
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY     R2 S3 credentials (sync only)
 # Optional env:
-#   REPO            default VoltiusApp/voltius
+#   REPO            default htilssu/voltius
 #   KEEP            number of releases to publish (default 5)
 #   R2_ACCOUNT_ID   default 53d3281538d40462e3d5773cfa2490ec
 #   R2_BUCKET       default voltius-repo
@@ -18,7 +18,7 @@
 # Requires: gh, docker, rclone.
 set -euo pipefail
 
-REPO="${REPO:-VoltiusApp/voltius}"
+REPO="${REPO:-htilssu/voltius}"
 KEEP="${KEEP:-5}"
 R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-53d3281538d40462e3d5773cfa2490ec}"
 R2_BUCKET="${R2_BUCKET:-voltius-repo}"

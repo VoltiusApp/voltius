@@ -17,7 +17,7 @@
 # Sets TAG, REPO and VERSION, and prepares a scratch dir for the checksum files.
 release_assets_init() {
   TAG="${1:?usage: release_assets_init <tag>}"
-  REPO="${REPO:-VoltiusApp/voltius}"
+  REPO="${REPO:-htilssu/voltius}"
   VERSION="${TAG#v}"
   _RA_TMP="$(mktemp -d)"
   # shellcheck disable=SC2064  # expand _RA_TMP now, not when the trap fires

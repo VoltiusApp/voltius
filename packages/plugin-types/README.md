@@ -1,6 +1,6 @@
 # @voltius/plugin-types
 
-TypeScript definitions for the [Voltius](https://github.com/VoltiusApp/voltius) plugin API.
+TypeScript definitions for the [Voltius](https://github.com/htilssu/voltius) plugin API.
 
 ```bash
 npm install --save-dev @voltius/plugin-types

@@ -7,7 +7,7 @@ import { useIsAndroid } from "@/utils/platform";
 import { useUIStore } from "@/stores/uiStore";
 
 const LINKS = [
-  { icon: "simple-icons:github", key: "github",        sub: "VoltiusApp/voltius",   href: "https://github.com/VoltiusApp/voltius" },
+  { icon: "simple-icons:github", key: "github",        sub: "htilssu/voltius",   href: "https://github.com/htilssu/voltius" },
   { icon: "lucide:book-open",    key: "documentation", sub: "docs.voltius.app",     href: "https://docs.voltius.app" },
   { icon: "simple-icons:x",      key: "x",             sub: "@VoltiusApp",           href: "https://x.com/VoltiusApp" },
   { icon: "simple-icons:kofi",   key: "kofi",          sub: "ko-fi.com/kipavy",     href: "https://ko-fi.com/kipavy" },

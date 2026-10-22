@@ -25,7 +25,7 @@ export const FIRST_PARTY_PLUGIN_IDS = [
 // owner/repo hosting the per-plugin release tags computed by releaseRepoFor. Falls
 // back to the hardcoded slug when not running in GitHub Actions (GITHUB_REPOSITORY
 // unset), e.g. for local `--emit-catalog` runs.
-const GITHUB_REPO = process.env.GITHUB_REPOSITORY || "VoltiusApp/voltius";
+const GITHUB_REPO = process.env.GITHUB_REPOSITORY || "htilssu/voltius";
 
 const PLUGIN_TAGS = {
   "gist-sync": ["sync", "github"],
