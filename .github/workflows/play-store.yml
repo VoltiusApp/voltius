@@ -1,0 +1,152 @@
+# Builds the Google Play bundle (.aab) and, once, exports the signing key for
+# Play App Signing. Nothing here uploads to Google yet: the first upload of a new
+# Play app has to go through the console by hand.
+#
+# Signing: the bundle is signed with the same keystore as the GitHub APK
+# (ANDROID_KEYSTORE_* secrets). At the first upload, choose "Use your own key"
+# in Play App Signing, so Play installs keep the GitHub APK's signature and
+# sideload users can switch to Play without uninstalling.
+#
+# Key export (PEPK): the keystore only exists as a secret, so the export runs
+# here. Put the encryption key Play Console offers ("Export and upload a key from
+# Java keystore" → download the public key) at
+# packaging/play/encryption_public_key.pem and push. The job then uploads
+# pepk-output.zip, which is encrypted for Google: only Play can read it.
+#
+# The bundle is built with VITE_DISTRIBUTION=play. Google Play forbids steering
+# users to an outside payment page, so that build hides the purchase buttons.
+name: play-store
+
+on:
+  push:
+    branches: [ci/play-store]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to build (a release tag, normally)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;26.1.10909125"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: aarch64-linux-android
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: aarch64-linux-android
+          workspaces: '. -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/voltius-release.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/voltius-release.keystore" >> "$GITHUB_ENV"
+
+      - name: Build Android App Bundle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
+          VITE_DISTRIBUTION: play
+        run: pnpm tauri android build --aab --target aarch64
+
+      - name: Check the bundle is signed with the release key
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          aab=src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+          fingerprint() { sed -n 's/^[[:space:]]*SHA256: //p' | head -1; }
+          signed=$(keytool -printcert -jarfile "$aab" | fingerprint)
+          expected=$(keytool -list -v -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" | fingerprint)
+          echo "bundle signer: ${signed:-none}"
+          echo "release key:   $expected"
+          [ -n "$signed" ] && [ "$signed" = "$expected" ] || { echo "the bundle is not signed with the release key" >&2; exit 1; }
+          cp "$aab" Voltius_play.aab
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-play-aab
+          path: Voltius_play.aab
+          retention-days: 14
+
+      - name: Export the signing key for Play App Signing
+        if: hashFiles('packaging/play/encryption_public_key.pem') != ''
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/pepk.jar" https://www.gstatic.com/play-apps-publisher-rapid/signing-tool/prod/pepk.jar
+          java -jar "$RUNNER_TEMP/pepk.jar" \
+            --keystore="$ANDROID_KEYSTORE_PATH" \
+            --alias="$ANDROID_KEY_ALIAS" \
+            --keystore-pass="$ANDROID_KEYSTORE_PASSWORD" \
+            --key-pass="$ANDROID_KEY_PASSWORD" \
+            --output=pepk-output.zip \
+            --include-cert \
+            --rsa-aes-encryption \
+            --encryption-key-path=packaging/play/encryption_public_key.pem
+
+      - name: Upload the encrypted key export
+        if: hashFiles('packaging/play/encryption_public_key.pem') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: pepk-output
+          path: pepk-output.zip
+          retention-days: 3
+
+      - name: Remove the decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/voltius-release.keystore"
