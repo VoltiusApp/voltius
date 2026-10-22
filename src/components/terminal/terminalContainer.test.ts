@@ -53,6 +53,36 @@ function resizeWindowAndContainer() {
 }
 
 describe("terminal container fits", () => {
+  it("mounts and reattaches through a native-scale host, removing old hosts on detach", () => {
+    const container = document.createElement("div");
+    const element = document.createElement("div");
+    const entry = {
+      terminal: { element } as unknown as Terminal,
+      fitAddon: { fit: vi.fn() } as unknown as FitAddon,
+      clip: null,
+    };
+    const mount = vi.fn((host: HTMLDivElement) => {
+      host.appendChild(element);
+      return entry;
+    });
+    const { result } = renderHook(() => useTerminalMount(mount, undefined, []));
+    result.current(container);
+    const host = container.firstElementChild!;
+    expect(host.className).toBe("terminal-native-scale");
+    expect(mount).toHaveBeenLastCalledWith(host);
+    expect(element.parentElement).toBe(host);
+
+    result.current(null);
+    expect(container.childElementCount).toBe(0);
+    expect(element.parentElement).toBeNull();
+
+    result.current(container);
+    expect(container.childElementCount).toBe(1);
+    expect(container.firstElementChild).not.toBe(host);
+    expect(element.parentElement).toBe(container.firstElementChild);
+    result.current(null);
+  });
+
   it("refits a visible terminal on resize", () => {
     const entry = mounted();
     resizeWindowAndContainer();
@@ -84,9 +114,11 @@ describe("terminal Ctrl+wheel font size", () => {
   function mountWheel() {
     const container = document.createElement("div");
     const child = document.createElement("div");
-    container.appendChild(child);
-    const entry = { terminal: { element: null }, fitAddon: { fit: vi.fn() }, clip: null } as unknown as CachedTerminal;
-    const hook = renderHook(() => useTerminalMount(() => entry, undefined, []));
+    const entry = { terminal: { element: child }, fitAddon: { fit: vi.fn() }, clip: null } as unknown as CachedTerminal;
+    const hook = renderHook(() => useTerminalMount((host) => {
+      host.appendChild(child);
+      return entry;
+    }, undefined, []));
     hook.result.current(container);
     const scroll = (deltaY: number, ctrlKey = true) => {
       const event = new WheelEvent("wheel", { deltaY, ctrlKey, bubbles: true, cancelable: true });

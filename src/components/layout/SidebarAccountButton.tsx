@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useUIStore } from "@/stores/uiStore";
+import { cssUiScale, useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
@@ -30,7 +30,7 @@ export function SidebarAccountButton() {
   const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
-  const uiScale = useUIStore((s) => s.uiScale);
+  const uiScale = useUIStore(cssUiScale);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const popover = useAnchoredPopover(open, () => setOpen(false), buttonRef);

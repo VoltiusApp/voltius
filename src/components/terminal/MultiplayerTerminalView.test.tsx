@@ -49,12 +49,12 @@ afterEach(() => {
 test("a remounted guest view keeps its terminal", () => {
   const dispose = vi.spyOn(FakeTerminal.prototype, "dispose");
   const first = render(<MultiplayerTerminalView localSessionId="g1" />);
-  const termEl = first.container.querySelector(".pl-\\[14px\\]")!.firstElementChild;
+  const termEl = first.container.querySelector(".terminal-native-scale")!.firstElementChild;
   expect(termEl).toBeTruthy();
   first.unmount();
 
   const second = render(<MultiplayerTerminalView localSessionId="g1" />);
-  expect(second.container.querySelector(".pl-\\[14px\\]")!.firstElementChild).toBe(termEl);
+  expect(second.container.querySelector(".terminal-native-scale")!.firstElementChild).toBe(termEl);
   expect(dispose).not.toHaveBeenCalled();
 });
 

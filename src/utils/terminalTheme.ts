@@ -18,13 +18,21 @@ export function clampTerminalLineHeight(value: number | undefined | null): numbe
   return Math.max(MIN_TERMINAL_LINE_HEIGHT, Math.min(MAX_TERMINAL_LINE_HEIGHT, value));
 }
 
+/** xterm's font size for a theme. The webview's own zoom would enlarge the
+ *  terminal with the UI, so divide it back out: the terminal font size is
+ *  independent of UI scale. */
+export function terminalFontPx(theme: AppTheme): number {
+  return theme.terminalFontSize / useUIStore.getState().webviewZoom;
+}
+
 /** Applies a theme to a live terminal, refitting only when cell metrics change. */
 export function applyTerminalTheme(term: Terminal, fit: FitAddon | null | undefined, theme: AppTheme): void {
   term.options.theme = theme.terminal;
   term.options.fontFamily = terminalFontStack(theme.terminalFontFamily);
   const lineHeight = clampTerminalLineHeight(theme.terminalLineHeight);
-  if (term.options.fontSize !== theme.terminalFontSize || term.options.lineHeight !== lineHeight) {
-    term.options.fontSize = theme.terminalFontSize;
+  const fontSize = terminalFontPx(theme);
+  if (term.options.fontSize !== fontSize || term.options.lineHeight !== lineHeight) {
+    term.options.fontSize = fontSize;
     term.options.lineHeight = lineHeight;
     fit?.fit();
   }

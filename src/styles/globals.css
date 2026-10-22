@@ -517,6 +517,15 @@
   box-shadow: inset 1.5px 0 0 rgba(255, 255, 255, 0.18), inset 0 1.5px 0 rgba(255, 255, 255, 0.18);
 }
 
+/* The app scales #root; cancel that transform around xterm so its font size
+   and canvas pixels stay native. The host still fills its scaled layout box. */
+.terminal-native-scale {
+  width: calc(100% * var(--t-ui-scale, 1));
+  height: calc(100% * var(--t-ui-scale, 1));
+  transform: scale(calc(1 / var(--t-ui-scale, 1)));
+  transform-origin: top left;
+}
+
 .xterm-decoration-overview-ruler {
   display: none;
 }

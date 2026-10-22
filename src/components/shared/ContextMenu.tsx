@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
-import { useUIStore } from "@/stores/uiStore";
+import { cssUiScale, useUIStore } from "@/stores/uiStore";
 
 export const isInMenuPortal = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest("[data-menu-portal]") !== null;
@@ -206,7 +206,7 @@ interface ContextMenuProps {
 }
 
 export function ContextMenu({ items, pos, onClose, direction = "down" }: ContextMenuProps) {
-  const uiScale = useUIStore((s) => s.uiScale);
+  const uiScale = useUIStore(cssUiScale);
   const menuRef = useRef<HTMLDivElement>(null);
   const left = useFittedStart(menuRef, pos.x, "width", [uiScale, items]);
   const top = useFittedStart(menuRef, pos.y, "height", [uiScale, items], direction === "up");
