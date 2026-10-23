@@ -184,6 +184,22 @@
       "memberLine": "Permissões por membro exigem Business.",
       "objectLine": "Permissões por objeto exigem Business.",
       "removeOverrides": "Remover substituições"
+    },
+    "deleteAccount": {
+      "action": "Excluir conta",
+      "actionSub": "Exclui permanentemente sua conta Voltius na nuvem e os dados dela",
+      "title": "Excluir sua conta Voltius?",
+      "message": "Isso exclui permanentemente sua conta na nuvem, seu cofre criptografado e todos os dados de sincronização do servidor Voltius. Você também sai de todas as equipes das quais é membro. Isso não pode ser desfeito.",
+      "deviceNote": "Em seguida, este dispositivo é desconectado e a cópia local dos seus hosts, chaves e snippets é apagada, como ao sair. As cópias nos seus outros dispositivos não são removidas remotamente.",
+      "subscriptionNote": "Sua assinatura é cancelada junto com a conta: ela não será renovada e você não será cobrado novamente.",
+      "typeToConfirm": "Digite {{target}} para confirmar",
+      "confirm": "Excluir conta",
+      "deleting": "Excluindo…",
+      "deletedTitle": "Conta excluída",
+      "deleted": "Sua conta Voltius foi excluída.",
+      "failed": "Não foi possível excluir sua conta (erro {{status}}). Tente novamente mais tarde ou entre em contato com o suporte.",
+      "ownsTeamWithMembers": "Você é dono de uma equipe que ainda tem outros membros ({{teams}}). Remova esses membros ou exclua a equipe e tente novamente.",
+      "subscriptionCancelFailed": "Não foi possível cancelar sua assinatura, então sua conta não foi excluída. Tente novamente em alguns minutos ou entre em contato com o suporte."
     }
   }
 }
