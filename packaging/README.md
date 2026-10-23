@@ -164,24 +164,15 @@ release assets — a user who downloaded one could not install it.
 nothing until the user has tapped it. A submission to homebrew-cask core is what
 would make it discoverable, and the notability bar (75 stars) is cleared.
 
-**Core is blocked on notarization.** `brew audit --cask --new`, the gate a
-submission has to pass, runs a signature scan and fails:
+**Core was blocked on notarization.** `brew audit --cask --new`, the gate a
+submission has to pass, runs a signature scan that failed on the ad-hoc signed
+app ("not signed by a distributor that meets the system Gatekeeper
+requirements"). Releases are signed with Developer ID and notarized since
+0.63.0, so that gate should now pass; `brew style` and the rest of the audit were
+already clean. The cask carries no Gatekeeper caveat any more, so the file
+`scripts/gen-homebrew-cask.sh <tag>` emits suits both the tap and a core PR.
 
-```
-Signature verification failed: Scan completed, but failed because the software
-is not signed by a distributor that meets the system Gatekeeper requirements.
-```
-
-Voltius is ad-hoc signed, not notarized, so this cannot pass without an Apple
-Developer account. `brew style` and the rest of the audit are clean, so this is
-the only thing standing in the way.
-
-`scripts/gen-homebrew-cask.sh <tag> --core` emits the variant for that PR, kept
-ready for the day notarization exists: core is hostile to caveats that talk the
-user out of Gatekeeper, so the quarantine-clearing `xattr` command the tap
-caveat carries is dropped there, leaving the right-click-Open instructions.
-
-Never put `brew install --no-quarantine` in either variant. Homebrew 6 removed
+Never put `brew install --no-quarantine` in the cask. Homebrew 6 removed
 the flag, so the hint fails with `Error: invalid option: --no-quarantine` for
 tap users, and core rejected it before that. `brew audit` does not catch it, so
 the `cask-audit` action greps the generated cask and fails the run (#176).

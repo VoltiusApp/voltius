@@ -96,18 +96,10 @@ jobs:
           }
           Write-Host "uninstalled cleanly"
 
-  # There is deliberately no homebrew-cask core job. `brew audit --cask --new`
-  # runs a signature scan that Voltius cannot pass while it is ad-hoc signed
-  # rather than notarized:
-  #
-  #   Signature verification failed: Scan completed, but failed because the
-  #   software is not signed by a distributor that meets the system Gatekeeper
-  #   requirements.
-  #
-  # That is a hard gate, not a style nit, so a core submission is blocked until
-  # there is an Apple Developer account to notarize with. `brew style` and the
-  # rest of the audit do pass — see gen-homebrew-cask.sh --core, kept for the
-  # day that changes. The tap keeps being audited by publish-installers.yml.
+  # There is no homebrew-cask core job yet. Its `brew audit --cask --new`
+  # signature scan used to fail on the ad-hoc signed app; releases are notarized
+  # since 0.63.0, so a core submission is no longer blocked by it. The tap keeps
+  # being audited by publish-installers.yml.
 
   # Proves the MSIX packs at all: it needs Windows plus the Windows SDK, so
   # nothing else in this repo can. This is a check, never a submission: it builds

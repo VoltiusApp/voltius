@@ -109,18 +109,8 @@ Community-maintained by [jing2uo](https://github.com/jing2uo) on [FlatPark](http
 brew install --cask voltiusapp/voltius/voltius
 ```
 
-Voltius is signed with its own certificate but not notarized (no Apple Developer account yet).
-If macOS Gatekeeper blocks the first launch, right-click the app and choose
-**Open**. To clear the quarantine flag from an existing installation instead,
-run:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Voltius.app
-```
-
-If you download the `.dmg` directly and macOS says **"Voltius.app is damaged and
-cannot be opened"**, the same command clears the quarantine flag after you copy
-Voltius to Applications.
+Voltius is signed and notarized by Apple. After updating from an older version,
+macOS asks once for access to the keychain: choose **Always Allow**.
 
 ### <img src=".github/media/icons/windows.svg" alt="" height="22" align="center" /> Windows — winget
 

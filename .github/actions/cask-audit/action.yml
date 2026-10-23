@@ -1,20 +1,12 @@
 name: Generate and audit the Homebrew cask
 description: >
   Generates the cask for a tag, styles it and audits it inside a throwaway tap.
-  Used both by the release job that publishes to VoltiusApp/homebrew-voltius and
-  by the packaging check that runs the stricter new-cask audit homebrew-cask
-  core applies to a submission.
+  Used by the release job that publishes to VoltiusApp/homebrew-voltius.
 
 inputs:
   tag:
     description: Release tag to generate the cask for
     required: true
-  core:
-    description: >
-      Generate the homebrew-cask core variant (drops the command-line
-      quarantine workaround) instead of the tap variant.
-    required: false
-    default: 'false'
   audit-args:
     description: Extra flags for `brew audit`, e.g. --new for a first submission
     required: false
@@ -43,15 +35,12 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
         TAG: ${{ inputs.tag }}
-        CORE: ${{ inputs.core }}
       run: |
         # The path matters: `brew style` only applies the cask cops when the
         # file sits under a Casks/ directory. On a bare .rb it falls back to
         # generic Ruby cops and fails on Sorbet sigils and frozen_string_literal.
         mkdir -p out/Casks
-        variant=""
-        [ "$CORE" = "true" ] && variant="--core"
-        bash scripts/gen-homebrew-cask.sh "$TAG" $variant > out/Casks/voltius.rb
+        bash scripts/gen-homebrew-cask.sh "$TAG" > out/Casks/voltius.rb
         if grep -q -- '--no-quarantine' out/Casks/voltius.rb; then
           echo "::error::Generated cask uses Homebrew's removed --no-quarantine option"
           exit 1
