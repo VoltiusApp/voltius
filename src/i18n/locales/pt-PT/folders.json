@@ -1,0 +1,36 @@
+{
+  "folders": {
+    "card": {
+      "pin": "Fixar",
+      "unpin": "Desfixar",
+      "openFolder": "Abrir pasta",
+      "cloudSyncDisabled": "Sincronização em nuvem desativada",
+      "unpinForMe": "Desfixar para mim",
+      "showInMyView": "Mostrar na minha visualização",
+      "hideForMe": "Ocultar para mim",
+      "pinForMe": "Fixar para mim",
+      "unpinForTeam": "Desfixar para a equipe",
+      "pinForTeam": "Fixar para a equipe",
+      "exportFolder": "Exportar pasta",
+      "disableCloudSync": "Desativar sincronização em nuvem",
+      "enableCloudSync": "Ativar sincronização em nuvem",
+      "deleteFolder": "Eliminar pasta",
+      "itemCount_one": "{{count}} item",
+      "itemCount_other": "{{count}} itens",
+      "itemCount_many": "{{count}} itens"
+    },
+    "editPanel": {
+      "title": "Editar Pasta",
+      "general": "Geral",
+      "nameLabel": "Nome",
+      "parentLabel": "Pasta pai"
+    },
+    "appearance": {
+      "title": "Aparência da pasta",
+      "change": "Alterar ícone e cor",
+      "color": "Cor",
+      "icon": "Ícone",
+      "clear": "Limpar"
+    }
+  }
+}

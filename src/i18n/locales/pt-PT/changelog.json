@@ -1,0 +1,22 @@
+{
+  "changelog": {
+    "title": "Novidades",
+    "autoDownload": "Download automático",
+    "quickLinks": {
+      "documentation": "Documentação"
+    },
+    "loading": "A carregar changelog…",
+    "unavailable": "Changelog indisponível off-line. Reconecte para ver as novidades.",
+    "hidePreviousReleases": "Ocultar versões anteriores",
+    "previousReleases": "Versões anteriores ({{count}})",
+    "newBadge": "Novo",
+    "updateBanner": {
+      "checking": "A verificar atualizações…",
+      "downloading": "A transferir v{{version}}… {{progress}}%",
+      "ready": "v{{version}} está pronto para instalar",
+      "restartToUpdate": "Reiniciar para atualizar",
+      "available": "v{{version}} está disponível",
+      "download": "Baixar"
+    }
+  }
+}

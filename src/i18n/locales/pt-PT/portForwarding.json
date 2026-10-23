@@ -1,0 +1,167 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "Filtrar regras…",
+      "deleteSelected": "Eliminar selecionadas",
+      "deleteButton": "ELIMINAR",
+      "newRule": "Nova Regra",
+      "newFolder": "Nova Pasta"
+    },
+    "reach": {
+      "copied": "{{address}} copiado para a área de transferência"
+    },
+    "page": {
+      "all": "Todas",
+      "folders": "Pastas",
+      "new": "Nova",
+      "noRulesMatchSearch": "Nenhuma regra corresponde à sua busca.",
+      "folderEmpty": "Esta pasta está vazia.",
+      "noRulesYet": "Nenhuma regra ainda. Crie uma para começar.",
+      "addRule": "Adicionar Regra",
+      "ejectMoveTo": "Mover para {{name}}",
+      "ejectRemoveFromFolder": "Remover da pasta",
+      "activeCount": "{{count}} ativas",
+      "errorCount": "{{count}} erro",
+      "confirmDelete": {
+        "title": "Eliminar regra",
+        "message": "Esta regra será permanentemente excluída."
+      },
+      "confirmDeleteBulk": {
+        "title_one": "Eliminar {{count}} regra",
+        "title_other": "Eliminar {{count}} regras",
+        "title_many": "Eliminar {{count}} regras",
+        "message_one": "Tem certeza de que deseja eliminar {{count}} regra? Isto não pode ser desfeito.",
+        "message_other": "Tem certeza de que deseja eliminar {{count}} regras? Isto não pode ser desfeito.",
+        "message_many": "Tem certeza de que deseja eliminar {{count}} regras? Isto não pode ser desfeito."
+      },
+      "confirmDeleteFolder": {
+        "title": "Eliminar pasta",
+        "message_one": "Isto eliminará a pasta, suas subpastas, e a {{count}} regra dentro dela. Isto não pode ser desfeito.",
+        "message_other": "Isto eliminará a pasta, suas subpastas, e as {{count}} regras dentro dela. Isto não pode ser desfeito.",
+        "message_many": "Isto eliminará a pasta, suas subpastas, e as {{count}} regras dentro dela. Isto não pode ser desfeito.",
+        "messageEmpty": "Isto eliminará a pasta e tudo dentro dela. Isto não pode ser desfeito."
+      },
+      "vaultCascade": {
+        "moveDescription": "Mover \"{{folderName}}\" também moverá as seguintes regras para {{targetVaultName}}:",
+        "copyDescription": "Copiar \"{{folderName}}\" também copiará as seguintes regras para {{targetVaultName}}:"
+      },
+      "bulk": {
+        "duplicateRules": "Duplicar {{count}} regras",
+        "exportRules": "Exportar {{count}} regras",
+        "deleteRules": "Eliminar {{count}} regras"
+      }
+    },
+    "ruleCard": {
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "openWebLink": "Abrir link web",
+      "activateInSession": "Ativar na sessão",
+      "duplicate": "Duplicar",
+      "enableCloudSync": "Ativar sincronização em nuvem",
+      "disableCloudSync": "Desativar sincronização em nuvem",
+      "pauseForwarding": "Pausar encaminhamento",
+      "resumeForwarding": "Retomar encaminhamento",
+      "active": "Ativa",
+      "error": "Erro",
+      "stopped": "Parada",
+      "noSshSession": "Nenhuma sessão SSH",
+      "openUrl": "Abrir {{url}}",
+      "scopedToConnections_one": "Escopo para {{count}} conexão",
+      "scopedToConnections_other": "Escopo para {{count}} conexões",
+      "scopedToConnections_many": "Escopo para {{count}} conexões",
+      "connectionsCount_one": "{{count}} conexão",
+      "connectionsCount_other": "{{count}} conexões",
+      "connectionsCount_many": "{{count}} conexões"
+    },
+    "activeTunnels": {
+      "sectionTitle": "Encaminhamentos da sessão ativa",
+      "tunnelCount_one": "{{count}} túnel",
+      "tunnelCount_other": "{{count}} túneis",
+      "tunnelCount_many": "{{count}} túneis",
+      "forwardCount_one": "{{count}} encaminhamento",
+      "forwardCount_other": "{{count}} encaminhamentos",
+      "forwardCount_many": "{{count}} encaminhamentos",
+      "errorCount": "{{count}} erro",
+      "activeCountLabel": "{{count}} ativos",
+      "connected": "Conectado",
+      "local": "Local",
+      "remote": "Remoto",
+      "socks5": "SOCKS5",
+      "auto": "Auto",
+      "adHoc": "Ad-hoc",
+      "portLabel": "Porta {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "Pausar encaminhamento",
+      "resumeForwarding": "Retomar encaminhamento",
+      "openUrl": "Abrir {{url}}"
+    },
+    "ruleForm": {
+      "editRule": "Editar Regra",
+      "newRule": "Nova Regra",
+      "general": "Geral",
+      "name": "Nome",
+      "namePlaceholder": "Meu túnel",
+      "description": "Descrição",
+      "descriptionPlaceholder": "Servidor de dev, proxy de banco de dados…",
+      "type": "Tipo",
+      "tunnelTypes": {
+        "local": {
+          "label": "Local",
+          "title": "Túnel local",
+          "summary": "Abra algo do servidor SSH na sua própria máquina."
+        },
+        "remote": {
+          "label": "Remoto",
+          "title": "Túnel remoto",
+          "summary": "Expõe algo da sua máquina no servidor SSH."
+        },
+        "dynamic": {
+          "label": "Dinâmico",
+          "title": "Proxy SOCKS dinâmico",
+          "summary": "Cria um proxy SOCKS5 local que envia o tráfego do aplicativo através do servidor SSH."
+        }
+      },
+      "route": "Rota",
+      "yourComputer": "Seu computador",
+      "sshServer": "Servidor SSH",
+      "service": "Serviço",
+      "anyDestination": "Qualquer destino",
+      "anyDestinationHelp": "Cada aplicativo escolhe para onde ir. O tráfego sai do servidor SSH.",
+      "listenPort": "Ouvir na porta",
+      "socksPort": "Porta do proxy SOCKS",
+      "whoCanConnect": "Quem pode se conectar",
+      "audience": {
+        "thisComputer": "Este computador",
+        "serverOnly": "Apenas servidor",
+        "network": "Rede",
+        "custom": "Personalizado",
+        "customAddress": "Endereço para ouvir"
+      },
+      "sharedWarning": {
+        "computer": "Outros dispositivos que alcançam este endereço podem usar o túnel.",
+        "server": "Qualquer pessoa que alcançar este endereço no servidor pode usar o túnel."
+      },
+      "host": "Host",
+      "port": "Porta",
+      "throughTunnel": "através do túnel",
+      "reaches": "alcança",
+      "backThroughTunnel": "de volta através do túnel",
+      "summary": {
+        "incomplete": "Preencha as portas para ver para onde o tráfego vai.",
+        "local": "Abra <b>{{listener}}</b> neste computador para alcançar <b>{{target}}</b> como o servidor SSH vê.",
+        "localShared": "Dispositivos na rede abrem <b>{{listener}}</b> para alcançar <b>{{target}}</b> como o servidor SSH vê.",
+        "remote": "O servidor SSH ouve em <b>{{listener}}</b> e envia cada conexão para <b>{{target}}</b> neste computador.",
+        "dynamic": "Aplicativos usando <b>{{listener}}</b> como um proxy SOCKS5 navegam a partir do servidor SSH.",
+        "dynamicShared": "Dispositivos usando <b>{{listener}}</b> como um proxy SOCKS5 navegam a partir do servidor SSH.",
+        "anyAddress": "<seu-ip>",
+        "anyHost": "<host>",
+        "copyCommand": "Copiar comando"
+      },
+      "applyTo": "Aplicar a",
+      "allConnections": "Todas as conexões",
+      "specificConnections": "Específica",
+      "noSavedConnections": "Nenhuma conexão guardada.",
+      "removeHost": "Remover {{name}}"
+    }
+  }
+}

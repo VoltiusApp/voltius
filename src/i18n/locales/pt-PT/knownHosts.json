@@ -1,0 +1,22 @@
+{
+  "knownHosts": {
+    "tlsBadge": "TLS",
+    "caVerified": "Autoridade certificadora",
+    "toolbar": {
+      "deleteSelected": "Eliminar selecionados",
+      "deleteButton": "ELIMINAR"
+    },
+    "page": {
+      "noSearchResults": "Nenhum host conhecido corresponde à sua pesquisa",
+      "emptyState": "Nenhum host conhecido ainda — eles aparecem quando você se conecta a um servidor",
+      "confirmDelete": {
+        "title_one": "Eliminar host conhecido?",
+        "title_other": "Eliminar {{count}} hosts conhecidos?",
+        "title_many": "Eliminar {{count}} hosts conhecidos?",
+        "message_one": "Isto removerá a impressão digital confiável. A próxima conexão com este host será tratada como nova.",
+        "message_other": "Isto removerá as impressões digitais confiáveis. A próxima conexão com estes hosts será tratada como nova.",
+        "message_many": "Isto removerá as impressões digitais confiáveis. A próxima conexão com estes hosts será tratada como nova."
+      }
+    }
+  }
+}

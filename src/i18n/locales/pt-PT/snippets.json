@@ -1,0 +1,258 @@
+{
+  "snippets": {
+    "sequence": {
+      "summary": {
+        "partial": "{{count}} ok — {{details}}",
+        "failed": "falhou",
+        "success_one": "Snippet executado em {{count}} destino",
+        "success_many": "Snippet executado em {{count}} destinos",
+        "success_other": "Snippet executado em {{count}} destinos"
+      },
+      "connectFailed": "não foi possível abrir uma sessão de terminal",
+      "flatten": {
+        "tooDeep": "Aninhamento de snippets profundo demais em \"{{name}}\"",
+        "tooManySteps": "O snippet expandiu etapas demais",
+        "cycle": "Ciclo de snippets detectado em \"{{name}}\"",
+        "missingRef": "Uma etapa do snippet faz referência a um snippet inexistente ({{id}})"
+      },
+      "error": {
+        "needsTerminal": "A etapa de script requer uma sessão de terminal aberta para este destino",
+        "noSftp": "Nenhuma conexão SFTP para a etapa de transferência",
+        "destExists": "O destino já existe: {{path}}"
+      },
+      "resumeFailed": "Falha no snippet: {{error}}"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Filtrar snippets...",
+      "gridLabel": "Grade",
+      "listLabel": "Lista",
+      "sortNameAsc": "A → Z",
+      "sortNameDesc": "Z → A",
+      "sortNewest": "Mais recentes primeiro",
+      "sortOldest": "Mais antigos primeiro",
+      "newSnippet": "Novo snippet",
+      "newSnippetOptions": "Opções de novo snippet",
+      "newFolder": "Nova pasta"
+    },
+    "card": {
+      "duplicate": "Duplicar",
+      "unpin": "Desafixar",
+      "pin": "Fixar",
+      "unpinForMe": "Desafixar para mim",
+      "showInMyView": "Mostrar na minha visão",
+      "hideForMe": "Ocultar para mim",
+      "pinForMe": "Fixar para mim",
+      "unpinForTeam": "Desafixar para a equipe",
+      "pinForTeam": "Fixar para a equipe",
+      "enableCloudSync": "Ativar sincronização na nuvem",
+      "disableCloudSync": "Desativar sincronização na nuvem",
+      "export": "Exportar",
+      "insert": "Inserir",
+      "execute": "Executar",
+      "noContent": "Sem conteúdo"
+    },
+    "form": {
+      "nameLabel": "Nome",
+      "namePlaceholder": "Meu snippet",
+      "contentLabel": "Conteúdo",
+      "variablesLabel": "Variáveis:",
+      "autoBadge": "auto",
+      "descriptionLabel": "Descrição (opcional)",
+      "descriptionPlaceholder": "O que este snippet faz?",
+      "tagsLabel": "Tags",
+      "folderLabel": "Pasta",
+      "starred": "Fixado",
+      "starThisSnippet": "Fixar este snippet",
+      "generalSection": "Geral",
+      "contextualFiltersSection": "Filtros contextuais",
+      "contextualFiltersHint": "Deixe vazio para mostrar em todas as conexões. Snippets que não correspondem ficam esmaecidos, não ocultos.",
+      "onlyForConnectionTags": "Apenas para tags de conexão",
+      "connectionTagsPlaceholder": "ex.: produção",
+      "onlyForDistros": "Apenas para distribuições",
+      "distrosPlaceholder": "ex.: ubuntu, debian",
+      "removeTagAriaLabel": "Remover tag {{tag}}",
+      "dynamicVars": {
+        "connectionHost": "Hostname / IP SSH ativo",
+        "connectionUsername": "Nome de utilizador SSH ativo",
+        "connectionName": "Nome da conexão ativa",
+        "date": "Hoje — AAAA-MM-DD",
+        "datetime": "Data + hora — AAAA-MM-DD HH:MM:SS",
+        "timestamp": "Timestamp Unix",
+        "clipboard": "Conteúdo atual da área de transferência"
+      },
+      "syntaxHint": "Digite <code>{{open}}</code> para autocompletar. Prompts personalizados: <code>{{prompt}}</code> — texto · número · palavra-passe · booleano · <code>{{choice}}</code>"
+    },
+    "step": {
+      "kind": {
+        "script": "Script",
+        "transfer": "Transferência",
+        "snippet": "Chamar snippet"
+      },
+      "endpoint": {
+        "local": "Local",
+        "remote": "Remoto"
+      },
+      "from": "De",
+      "to": "Para",
+      "mode": {
+        "copy": "Copiar",
+        "move": "Mover"
+      },
+      "conflict": {
+        "label": "Se existir",
+        "overwrite": "Substituir",
+        "skip": "Ignorar",
+        "fail": "Falhar"
+      },
+      "remotePicker": {
+        "title": "Navegar pelo caminho remoto",
+        "pickHost": "Escolha um host para navegar",
+        "selectHostTitle": "Selecionar um host",
+        "back": "Voltar",
+        "connecting": "A ligar…",
+        "select": "Selecionar",
+        "selectFolder": "Usar esta pasta"
+      },
+      "file": "Ficheiro",
+      "folder": "Pasta",
+      "localPath": "Caminho local",
+      "remotePath": "Caminho remoto",
+      "browse": "Procurar",
+      "dragToReorder": "Arraste para reordenar",
+      "selectSnippet": "Selecione um snippet...",
+      "addScript": "+ Script",
+      "addTransfer": "+ Transferência",
+      "addSnippet": "+ Chamar snippet",
+      "addStep": "Adicionar etapa",
+      "moveUp": "Mover etapa para cima",
+      "moveDown": "Mover etapa para baixo",
+      "remove": "Remover etapa"
+    },
+    "page": {
+      "emptyState": {
+        "title": "Nenhum snippet ainda",
+        "subtitle": "Salve comandos de terminal reutilizáveis com variáveis dinâmicas.",
+        "cta": "Crie seu primeiro snippet"
+      },
+      "pinned": "Fixados",
+      "folders": "Pastas",
+      "snippetsSection": "Snippets",
+      "other": "Outros",
+      "allSnippets": "Todos os snippets",
+      "folderEmpty": "Esta pasta está vazia",
+      "addSnippet": "Adicionar snippet",
+      "noSearchResults": "Nenhum snippet corresponde a \"{{search}}\"",
+      "clearSearch": "Limpar pesquisa",
+      "ejectMoveTo": "Mover para {{name}}",
+      "ejectRemoveFromFolder": "Remover da pasta",
+      "recent": {
+        "title": "Recentes",
+        "clear": "Limpar",
+        "showLess": "Mostrar menos",
+        "showMore": "Mostrar mais {{count}}",
+        "deletedSnippet": "Snippet eliminado",
+        "unknownTarget": "Desconhecido",
+        "targetMore": "{{name}} +{{count}} a mais",
+        "modeRun": "executar",
+        "modeInsert": "inserir",
+        "replay": "Repetir"
+      },
+      "bulk": {
+        "duplicateSnippets": "Duplicar {{count}} snippets",
+        "moveItemsTo_one": "Mover {{count}} item para",
+        "moveItemsTo_many": "Mover {{count}} itens para",
+        "moveItemsTo_other": "Mover {{count}} itens para",
+        "copyItemsTo_one": "Copiar {{count}} item para",
+        "copyItemsTo_many": "Copiar {{count}} itens para",
+        "copyItemsTo_other": "Copiar {{count}} itens para",
+        "enableCloudSync": "Ativar sincronização na nuvem ({{count}})",
+        "disableCloudSync": "Desativar sincronização na nuvem ({{count}})",
+        "exportSnippets_one": "Exportar {{count}} snippet",
+        "exportSnippets_many": "Exportar {{count}} snippets",
+        "exportSnippets_other": "Exportar {{count}} snippets",
+        "deleteSnippets": "Eliminar {{count}} snippets"
+      },
+      "confirmDelete": {
+        "title_one": "Eliminar {{count}} item",
+        "title_many": "Eliminar {{count}} itens",
+        "title_other": "Eliminar {{count}} itens",
+        "message_one": "Tem certeza de que deseja eliminar {{count}} item? Isso não pode ser desfeito.",
+        "message_many": "Tem certeza de que deseja eliminar {{count}} itens? Isso não pode ser desfeito.",
+        "message_other": "Tem certeza de que deseja eliminar {{count}} itens? Isso não pode ser desfeito.",
+        "folderCascade_one": "{{count}} snippet arquivado nas pastas selecionadas também será eliminado.",
+        "folderCascade_many": "{{count}} snippets arquivados nas pastas selecionadas também serão eliminados.",
+        "folderCascade_other": "{{count}} snippets arquivados nas pastas selecionadas também serão eliminados."
+      },
+      "confirmDeleteFolder": {
+        "title": "Eliminar \"{{name}}\"?",
+        "message_one": "Isso eliminará a pasta, suas subpastas e o {{count}} snippet dentro dela. Isso não pode ser desfeito.",
+        "message_many": "Isso eliminará a pasta, suas subpastas e os {{count}} snippets dentro dela. Isso não pode ser desfeito.",
+        "message_other": "Isso eliminará a pasta, suas subpastas e os {{count}} snippets dentro dela. Isso não pode ser desfeito.",
+        "messageEmpty": "Isso eliminará a pasta e tudo dentro dela. Isso não pode ser desfeito.",
+        "confirmLabel": "Eliminar pasta"
+      }
+    },
+    "community": {
+      "shareTitle": "Compartilhar com a comunidade",
+      "shareIntro": "Isto é o que seria enviado. Nada é enviado automaticamente — você abre um pull request e um mantenedor o revisa.",
+      "shareCopy": "Copiar JSON",
+      "shareCopied": "Copiado",
+      "shareOpenGithub": "Abrir GitHub",
+      "shareGuidelines": "Leia as diretrizes de contribuição",
+      "shareAuthor": "Seu nome ou handle",
+      "shareDescription": "Descrição curta",
+      "secretsTitle": "Verifique estes itens antes de compartilhar",
+      "secretsIntro": "Parece que estes podem ser seus, e não de todo mundo:",
+      "secretKind_privateKey": "Chave privada",
+      "secretKind_credential": "Palavra-passe ou chave",
+      "secretKind_token": "Token",
+      "secretKind_host": "Host ou endereço",
+      "secretsNone": "Nada que pareça um segredo.",
+      "shareFailed": "Não é possível compartilhar isto: {{error}}",
+      "tabMine": "Meus snippets",
+      "tabCommunity": "Comunidade",
+      "packs": "Pacotes",
+      "snippets": "Snippets",
+      "searchPlaceholder": "Pesquisar na comunidade",
+      "snippetCount_one": "{{count}} snippet",
+      "snippetCount_many": "{{count}} snippets",
+      "snippetCount_other": "{{count}} snippets",
+      "by": "por {{author}}",
+      "updated": "Atualizado em {{date}}",
+      "back": "Comunidade",
+      "loading": "A carregar catálogo…",
+      "offline": "Offline — mostrando a última cópia guardada",
+      "empty": "Nenhum snippet da comunidade ainda.",
+      "noResults": "Nada corresponde a \"{{search}}\".",
+      "retry": "Tentar novamente",
+      "loadFailed": "Não foi possível carregar o catálogo da comunidade.",
+      "install_one": "Instalar {{count}} snippet em {{vault}}",
+      "install_many": "Instalar {{count}} snippets em {{vault}}",
+      "install_other": "Instalar {{count}} snippets em {{vault}}",
+      "installing": "A instalar…",
+      "installed_one": "{{count}} snippet instalado",
+      "installed_many": "{{count}} snippets instalados",
+      "installed_other": "{{count}} snippets instalados",
+      "installFailed": "Falha na instalação: {{error}}",
+      "autoIncluded": "Incluído porque \"{{name}}\" o chama",
+      "steps": "Etapas",
+      "stepScript": "Script",
+      "stepTransfer": "Transferência",
+      "stepSnippet": "Executa snippet",
+      "selectAll": "Selecionar tudo",
+      "selectNone": "Limpar",
+      "error": {
+        "unsupportedCatalog": "Este catálogo de snippets está em um formato que esta versão do Voltius não entende. Tente atualizar o aplicativo."
+      }
+    },
+    "deepLinkInstall": {
+      "title": "Instalar estes snippets?",
+      "body": "Este link instala snippets do catálogo da comunidade Voltius. Snippets são comandos de shell que são executados nos seus hosts quando você os usa.",
+      "summary": "{{name}} por {{author}} — {{count}} snippets",
+      "unknownAuthor": "um autor sem nome",
+      "destination": "Eles serão adicionados ao cofre {{vault}}.",
+      "action": "Instalar",
+      "failed": "Não foi possível instalar estes snippets"
+    }
+  }
+}

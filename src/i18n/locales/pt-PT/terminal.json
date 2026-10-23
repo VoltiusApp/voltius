@@ -1,0 +1,370 @@
+{
+  "terminal": {
+    "shared": {
+      "copied": "Copiado",
+      "insert": "Inserir",
+      "insertAndExecute": "Inserir e executar",
+      "noActiveSession": "Nenhuma sessão ativa"
+    },
+    "historyPanel": {
+      "removeFromHistory": "Remover do histórico",
+      "searchPlaceholder": "Pesquisar histórico…",
+      "showCurrentOnly": "Mostrando apenas a conexão atual",
+      "showAllConnections": "Mostrar todas as conexões",
+      "clearAllTitle": "Limpar todo o histórico",
+      "noCommandsMatch": "Nenhum comando corresponde",
+      "noHistoryForConnection": "Ainda não há histórico para esta conexão",
+      "noHistoryYet": "Ainda não há histórico de comandos.\nOs comandos que você digitar aparecerão aqui."
+    },
+    "multiplayerBar": {
+      "ended": "Encerrada",
+      "sharing": "Compartilhando",
+      "watching": "Assistindo",
+      "requestControl": "Solicitar controle",
+      "requestPending": "Solicitado — a aguardar o anfitrião",
+      "youHaveControl": "Você tem o controle",
+      "controlRequested": "Controle solicitado",
+      "grant": "Conceder",
+      "deny": "Negar",
+      "revoke": "Revogar",
+      "stopSharingTitle": "Parar de compartilhar",
+      "leaveSessionTitle": "Sair da sessão",
+      "stop": "Parar",
+      "leave": "Sair",
+      "waitingForKey": "A aguardar o anfitrião…",
+      "keyFailed": "O anfitrião não compartilhou a chave"
+    },
+    "sftp": {
+      "hostLabel": {
+        "remote": "remoto",
+        "localMachine": "Máquina local"
+      },
+      "uploadDialogTitle": "Selecione os ficheiros para enviar",
+      "downloadDialogTitle": "Baixar para a pasta",
+      "waitingForSession": "A aguardar sessão",
+      "connecting": "A ligar…",
+      "notSupportedForSessionType": "SFTP não é compatível com este tipo de sessão",
+      "followPinned": "Seguindo o diretório atual do terminal · clique para desafixar",
+      "followWaiting": "Seguindo o diretório atual do terminal · a aguardar o shell informar o diretório (requer integração com o shell)",
+      "followTitle": "Seguir o diretório atual do terminal",
+      "uploadFiles": "Enviar ficheiros",
+      "downloadTitle_one": "Baixar \"{{name}}\"",
+      "downloadTitle_many": "Baixar {{count}} itens",
+      "downloadTitle_other": "Baixar {{count}} itens",
+      "selectFilesToDownload": "Selecione os ficheiros para baixar",
+      "viewOptions": "Opções de visualização",
+      "moreOptions": "Mais opções"
+    },
+    "ports": {
+      "badge": {
+        "auto": "Auto",
+        "adHoc": "Ad-hoc"
+      },
+      "pauseForwarding": "Pausar encaminhamento",
+      "resumeForwarding": "Retomar encaminhamento",
+      "saveAsRule": "Guardar como regra",
+      "copyAddress": "Copiar localhost:{{port}}",
+      "openUrl": "Abrir {{url}}",
+      "sshRequired": "O encaminhamento de portas requer uma sessão SSH.",
+      "empty": "Nenhuma porta encaminhada. As portas detectadas no host remoto aparecerão aqui automaticamente.",
+      "sectionSaved": "GUARDADAS",
+      "sectionActive": "ATIVAS",
+      "sectionSuppressed": "SUPRIMIDAS",
+      "header": {
+        "title": "Portas",
+        "activeCount": "{{count}} ativas",
+        "addTitle": "Encaminhar uma porta"
+      },
+      "quickForwardPlaceholder": "Encaminhar uma porta (ex.: 3000 ou 3000:8080)",
+      "quickForwardErrors": {
+        "emptyInput": "Informe uma porta",
+        "tooManyParts": "Use porta ou remota:local",
+        "invalidRemotePort": "A porta deve ser de 1 a 65535",
+        "invalidLocalPort": "A porta local deve ser de 1 a 65535"
+      },
+      "toast": {
+        "viewPorts": "Ver portas →",
+        "forwardedOne": "Porta {{port}} → localhost:{{localPort}} encaminhada",
+        "forwardedMany_one": "{{count}} porta encaminhada",
+        "forwardedMany_many": "{{count}} portas encaminhadas",
+        "forwardedMany_other": "{{count}} portas encaminhadas",
+        "autoForwardCapped_one": "Encaminhamento automático pausado — {{count}} porta já encaminhada",
+        "autoForwardCapped_many": "Encaminhamento automático pausado — {{count}} portas já encaminhadas",
+        "autoForwardCapped_other": "Encaminhamento automático pausado — {{count}} portas já encaminhadas"
+      },
+      "portLabel": "Porta {{port}}"
+    },
+    "rightPanel": {
+      "font": "Fonte",
+      "themes": "Temas",
+      "themeActive": "ativo",
+      "themeBuiltin": "nativo",
+      "themeCustom": "personalizado",
+      "createNewTheme": "Criar novo tema",
+      "closePanelTitle": "Fechar painel",
+      "sections": {
+        "history": "Histórico",
+        "sftp": "SFTP",
+        "notes": "Notas"
+      },
+      "pluginUnavailable": "Este painel não está mais disponível. O plugin que o fornecia foi removido ou desativado.",
+      "pluginUnavailableAction": "Voltar para Temas"
+    },
+    "share": {
+      "signInToShare": "Entre para compartilhar",
+      "signInDescription": "Conecte uma conta de servidor para compartilhar seu terminal com colegas de equipe.",
+      "signInButton": "Entrar / Cadastrar-se",
+      "proRequired": "Pro necessário",
+      "proRequiredDescription": "O compartilhamento de terminal está disponível no Pro e superiores.",
+      "features": [
+        "1 sessão por link de convite · 1 participante",
+        "Sincronização em nuvem em tempo real",
+        "Teams: 5 sessões · 10 participantes + cofres compartilhados"
+      ],
+      "upgradeToPro": "Atualizar para Pro",
+      "shareTerminal": "Compartilhar terminal",
+      "sessionNamePlaceholder": "Nome da sessão…",
+      "tabPeople": "Pessoas",
+      "tabTeam": "Cofre da equipe",
+      "tabInviteLink": "Link",
+      "sessionLimitReached": "Limite de sessões atingido para o seu plano.",
+      "failedToShare": "Falha ao compartilhar",
+      "failedToGenerateLink": "Falha ao gerar o link",
+      "noVaultsCreateTeamFirst": "Nenhum cofre — crie uma equipe primeiro",
+      "allRoles": "todas as funções",
+      "startSharingWithVault_one": "Começar a compartilhar com {{count}} cofre",
+      "startSharingWithVault_many": "Começar a compartilhar com {{count}} cofres",
+      "startSharingWithVault_other": "Começar a compartilhar com {{count}} cofres",
+      "selectVaultToShare": "Selecione um cofre para compartilhar",
+      "shareCodeDescription": "Compartilhe este código — qualquer pessoa que o tenha pode entrar:",
+      "generateLinkDescription": "Gere um link de uso único. Qualquer pessoa com uma conta Voltius pode entrar.",
+      "generateInviteLink": "Gerar link de convite",
+      "upToParticipants_one": "Até {{count}} participante",
+      "upToParticipants_many": "Até {{count}} participantes",
+      "upToParticipants_other": "Até {{count}} participantes",
+      "upgradeToTeamsForParticipants": "Atualize para Teams para 10 participantes + cofres compartilhados",
+      "live": "Ao vivo",
+      "waitingForGuests": "A aguardar alguém entrar…",
+      "participantsRatio_one": "{{participantCount}} / {{guestCap}} participante",
+      "participantsRatio_many": "{{participantCount}} / {{guestCap}} participantes",
+      "participantsRatio_other": "{{participantCount}} / {{guestCap}} participantes",
+      "guestsRatio_one": "{{participantCount}} de {{guestCap}} convidado",
+      "guestsRatio_many": "{{participantCount}} de {{guestCap}} convidados",
+      "guestsRatio_other": "{{participantCount}} de {{guestCap}} convidados",
+      "upgradeToTeams": "Atualizar para Teams",
+      "upgradeToBusiness": "Atualizar para Business",
+      "stopSharing": "Parar de compartilhar",
+      "inviteHasAccess": "Tem acesso",
+      "inviteSent": "Convidado",
+      "inviteCapReached": "Limite atingido",
+      "inviteFailed": "Não foi possível convidar {{name}}",
+      "withdrawInvite": "Retirar convite",
+      "uninviteFailed": "Não foi possível retirar o convite",
+      "inviteNoTeammates": "Nenhum colega de equipe ainda",
+      "inviteLoadFailed": "Não foi possível carregar os colegas de equipe",
+      "peopleSearchPlaceholder": "Pesquisar por @handle ou e-mail…",
+      "peopleNoMatch": "Ninguém nas suas equipes corresponde a \"{{query}}\".",
+      "peopleFindRule": "Pessoas fora das suas equipes são encontradas pelo @handle ou pelo endereço de e-mail completo.",
+      "recentLabel": "Recentes",
+      "recentEmpty": "As pessoas que você convidar aparecerão aqui.",
+      "yourTeamsLabel": "Suas equipes",
+      "elsewhereLabel": "Em outros lugares no Voltius",
+      "notInYourTeams": "Fora das suas equipes",
+      "presenceOnline": "Online",
+      "presenceOffline": "Offline",
+      "forgetPerson": "Remover dos recentes",
+      "deepLinkJoinTitle": "Entrar no terminal compartilhado?",
+      "deepLinkJoinBody": "Alguém compartilhou uma sessão de terminal ao vivo com você. Entrar conecta você a ela agora.",
+      "deepLinkJoinUnknownHost": "O Voltius não consegue identificar quem compartilhou até você entrar.",
+      "deepLinkJoinAction": "Entrar na sessão",
+      "deepLinkJoinFailed": "Não foi possível entrar nessa sessão — o link pode ter expirado.",
+      "deepLinkInviteTitle": "Convidar @{{handle}}?",
+      "deepLinkInviteBody": "Este link pede que você convide @{{handle}} para o terminal que você está compartilhando. Ele verá tudo naquele terminal.",
+      "deepLinkInviteUnknownUser": "Nenhuma conta Voltius corresponde exatamente a @{{handle}}.",
+      "deepLinkInviteNoActiveSession": "Você não está compartilhando um terminal agora. Comece a compartilhar um e abra este link novamente.",
+      "deepLinkInviteAction": "Convidar",
+      "deepLinkInviteFailed": "Não foi possível enviar o convite",
+      "getSpokenCode": "Obter um código para ler em voz alta",
+      "codeExpired": "Código expirado — obtenha um novo",
+      "newCode": "Novo código",
+      "readAloudHint": "Diga em voz alta",
+      "expiresIn": "expira em {{time}}",
+      "failedToMintCode": "Falha ao criar o código"
+    },
+    "snippetVariableModal": {
+      "on": "Ligado",
+      "off": "Desligado",
+      "masked": "mascarado",
+      "preview": "Prévia",
+      "execute": "Executar"
+    },
+    "snippets": {
+      "renameFolder": "Renomear pasta",
+      "newFolder": "Nova pasta",
+      "folderNamePlaceholder": "Nome da pasta",
+      "notRelevantForConnection": "Não é relevante para a conexão atual",
+      "removeFromFavorites": "Remover dos favoritos",
+      "addToFavorites": "Adicionar aos favoritos",
+      "duplicate": "Duplicar",
+      "moveToFolder": "Mover para a pasta",
+      "back": "Voltar",
+      "unfiled": "Sem pasta",
+      "searchPlaceholder": "Pesquisar snippets…",
+      "newSnippetTitle": "Novo snippet",
+      "favorites": "Favoritos",
+      "recent": "Recentes",
+      "noSnippetsMatch": "Nenhum snippet corresponde",
+      "noSnippetsYet": "Nenhum snippet ainda.\nClique em + para criar um."
+    },
+    "search": {
+      "placeholder": "Localizar",
+      "invalid": "Inválido",
+      "noResults": "Nenhum resultado",
+      "resultCounter": "{{index}} de {{count}}",
+      "matchCase": "Diferenciar maiúsculas (Alt+C)",
+      "matchWholeWord": "Palavra inteira (Alt+W)",
+      "useRegex": "Usar expressão regular (Alt+R)",
+      "previousMatch": "Correspondência anterior (Shift+Enter)",
+      "nextMatch": "Próxima correspondência (Enter)",
+      "closeTitle": "Fechar (Escape)"
+    },
+    "overlay": {
+      "continue": "Continuar",
+      "connectAndSave": "Conectar e guardar",
+      "continueAndSave": "Continuar e guardar",
+      "steps": {
+        "tcpConnection": "Conexão TCP",
+        "sshHandshake": "Handshake SSH",
+        "authenticating": "A autenticar",
+        "openingShell": "Abrindo shell",
+        "sftpSubsystem": "Subsistema SFTP",
+        "openingPort": "Abrindo porta",
+        "ready": "Pronto",
+        "portKnock": "Port knock"
+      },
+      "reconnectWait": {
+        "offline": {
+          "title": "Você está offline",
+          "subtitle": "Rea ligar quando a rede voltar"
+        },
+        "slow": {
+          "title": "Host ainda inacessível",
+          "subtitle": "Tentando novamente a cada {{seconds}} segundos"
+        },
+        "retryNow": "Tentar agora"
+      },
+      "connectionError": {
+        "title": "Falha na conexão",
+        "retry": "Tentar novamente",
+        "dismiss": "Dispensar"
+      },
+      "hostKeyConflict": {
+        "title": "CHAVE DO HOST ALTERADA",
+        "replace": "Substituir",
+        "addAsNew": "Adicionar como novo",
+        "abort": "Abortar",
+        "stored": "Armazenada",
+        "received": "Recebida",
+        "description": "A impressão digital de <host>{{address}}</host> mudou."
+      },
+      "passphrasePrompt": {
+        "title": "FRASE SECRETA DA CHAVE OBRIGATÓRIA",
+        "description": "Esta chave está criptografada. Informe a frase secreta para continuar.",
+        "placeholder": "Frase secreta"
+      },
+      "usernamePrompt": {
+        "title": "NOME DE UTILIZADOR OBRIGATÓRIO",
+        "description": "Este host não tem nome de utilizador definido. Informe um ou escolha uma identidade para continuar.",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "AUTENTICAÇÃO OBRIGATÓRIA",
+        "description": "Este host não tem método de autenticação. Escolha um para continuar.",
+        "modePassword": "Palavra-passe",
+        "modeKey": "Chave",
+        "modeIdentity": "Identidade",
+        "passwordPlaceholder": "Palavra-passe",
+        "keyPassphrasePlaceholder": "Frase secreta da chave (opcional)"
+      },
+      "vaultError": {
+        "unreadableTitle": "Não foi possível ler o cofre",
+        "unreadableBody": "As credenciais deste host estão armazenadas, mas o cofre local não pôde ser desencriptado com a chave atual. Nada foi eliminado — desbloqueie o cofre para conectar.",
+        "lockedTitle": "O cofre está bloqueado",
+        "lockedBody": "As credenciais deste host estão armazenadas no cofre, que está bloqueado. Desbloqueie-o para conectar.",
+        "unlock": "Desbloquear cofre",
+        "retry": "Tentar novamente",
+        "dismiss": "Fechar aba"
+      },
+      "identityPick": {
+        "title": "Sua identidade não está disponível",
+        "missingBody": "Você escolheu uma identidade para {{host}}, mas ela não está neste dispositivo ou foi removida. Nenhuma conexão foi tentada.",
+        "forbiddenBody": "Você escolheu {{identity}} para {{host}}, mas não pode mais usá-la. Nenhuma conexão foi tentada.",
+        "choose": "Escolher outra identidade",
+        "useHostNamed": "Usar {{name}} (host) desta vez",
+        "useHost": "Usar a credencial do host desta vez"
+      },
+      "saveTarget": {
+        "rememberFor": "Lembrar para",
+        "saveFor": "Guardar para",
+        "thisHost": "Este host",
+        "allVaultHosts": "Todos os hosts de {{vault}}",
+        "everyone": "Todos",
+        "onlyMe": "Apenas eu",
+        "ownNote": "Apenas você. Os colegas de equipe mantêm as configurações do próprio host.",
+        "teamNote": "Todos atualizam {{host}} para toda a equipe. \"Apenas eu\" deixa o host como está."
+      }
+    },
+    "statusBar": {
+      "badge": {
+        "ssh": "SSH",
+        "serial": "SERIAL",
+        "local": "LOCAL"
+      },
+      "localSystemFallback": "Sistema local",
+      "serialFallback": "serial",
+      "pingUp": "Ativo · {{ms}}ms",
+      "pingDown": "Inativo",
+      "pingUnknown": "Desconhecido",
+      "copyLabel": "Copiar {{text}}",
+      "openPortsPanel": "Abrir painel de portas",
+      "reconnectTitle": "Reconectar",
+      "serialClose": "Fechar a porta serial (mantém a aba)",
+      "serialReopen": "Reabrir a porta serial",
+      "serialAutoReconnectOn": "Reconexão automática ativada — clique para parar de reivindicar a porta",
+      "serialAutoReconnectOff": "Reconexão automática desativada — a porta fica livre após uma queda",
+      "serialLineOn": "{{line}} ativado — clique para desativar",
+      "serialLineOff": "{{line}} desativado — clique para ativar",
+      "serialRtsFlowControlled": "RTS é controlado pelo fluxo RTS/CTS",
+      "serialBreak": "Enviar sinal de break",
+      "systemMetricsTitle": "Métricas do sistema",
+      "activeTunnels_one": "{{count}} túnel ativo",
+      "activeTunnels_many": "{{count}} túneis ativos",
+      "activeTunnels_other": "{{count}} túneis ativos",
+      "cpu": "CPU {{pct}}%",
+      "copiedBang": "Copiado!",
+      "loadingEllipsis": "a carregar…",
+      "sparklineMin": "mín. {{value}}ms",
+      "sparklineAvg": "méd. {{value}}ms",
+      "sparklineMax": "máx. {{value}}ms"
+    },
+    "xterm": {
+      "linkTooltip": "Alt+clique para abrir",
+      "sessionClosed": "Sessão encerrada",
+      "serialClosed": "Conexão serial encerrada"
+    },
+    "pasteImage": {
+      "uploading": "A enviar captura de tela",
+      "uploadingDetail": "para {{host}} · {{size}} · {{width}}×{{height}}",
+      "pasted": "Captura de tela colada",
+      "pastedDetail": "{{host}} · {{name}}",
+      "firstUse": "No host por 7 dias, apenas você pode lê-la",
+      "settings": "Configurações de colagem de imagem",
+      "deleteFromHost": "Eliminar do host",
+      "deleted": "Captura de tela excluída do host",
+      "deleteFailed": "Não foi possível eliminar a captura de tela",
+      "failed": "Não foi possível enviar a captura de tela",
+      "retry": "Tentar novamente",
+      "broadcast": "A colagem de imagem fica desativada enquanto você digita em vários painéis ao mesmo tempo."
+    }
+  }
+}

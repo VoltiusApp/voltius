@@ -1,0 +1,176 @@
+{
+  "hosts": {
+    "toolbar": {
+      "filterPlaceholder": "Filtrar hosts…",
+      "openSerialConsole": "Abrir console serial",
+      "serial": "Serial",
+      "terminal": "Terminal",
+      "importExport": "Importar/Exportar",
+      "import": "Importar…",
+      "export": "Exportar…",
+      "importFrom": "Importar de",
+      "newHost": "Novo Host",
+      "newSerialHost": "Novo Host Serial",
+      "newFolder": "Nova Pasta"
+    },
+    "card": {
+      "pin": "Fixar",
+      "unpin": "Desfixar",
+      "pinned": "Fixado",
+      "pinnedByTeam": "Fixado por {{name}} para a equipe",
+      "pinnedByTeamAndPersonal": "Fixado por {{name}} para a equipe · você também fixou isto",
+      "hiddenPinnedByTeam": "Oculto da sua visualização · fixado por {{name}} para a equipe",
+      "teamMemberFallback": "um membro da equipe",
+      "unpinForMe": "Desfixar para mim",
+      "showInMyView": "Mostrar na minha visualização",
+      "hideForMe": "Ocultar para mim",
+      "pinForMe": "Fixar para mim",
+      "unpinForTeam": "Desfixar para a equipe",
+      "pinForTeam": "Fixar para a equipe",
+      "openInSftp": "Abrir no SFTP",
+      "copyHostnameIp": "Copiar Hostname/IP",
+      "copiedHost": "Copiado {{host}}",
+      "executeSnippet": "Executar Snippet",
+      "cloudSyncDisabled": "Sincronização em nuvem desativada",
+      "enableCloudSync": "Ativar sincronização em nuvem",
+      "disableCloudSync": "Desativar sincronização em nuvem",
+      "enableReachability": "Ativar verificação de acessibilidade",
+      "disableReachability": "Desativar verificação de acessibilidade",
+      "connectTitle": "Conectar (ou clique duplo)",
+      "openFilesTitle": "Abrir arquivos (ou clique duplo)",
+      "inUseBy": "Em uso por {{name}}",
+      "inUseByOverflow_one": "Em uso por {{name}} + {{count}} outro",
+      "inUseByOverflow_other": "Em uso por {{name}} + {{count}} outros",
+      "inUseByOverflow_many": "Em uso por {{name}} + {{count}} outros",
+      "filesSuffix": "arquivos",
+      "knockProtected": "Protegido por batida de porta. Sondado apenas após o Voltius bater.",
+      "knockWindowOpen": "Janela de batida aberta",
+      "knockProtectedShort": "protegido-por-batida"
+    },
+    "page": {
+      "all": "Todos",
+      "folders": "Pastas",
+      "new": "Novo",
+      "pinned": "Fixados",
+      "folderEmpty": "Esta pasta está vazia",
+      "addHost": "Adicionar Host",
+      "noSearchResults": "Nenhum host corresponde a \"{{search}}\"",
+      "ejectMoveTo": "Mover para {{name}}",
+      "ejectRemoveFromFolder": "Remover da pasta",
+      "emptyState": {
+        "title": "Nenhum host ainda",
+        "subtitle": "Adicione seu primeiro host SSH para começar"
+      },
+      "draft": {
+        "unsaved": "Não salvo"
+      },
+      "vaultCascade": {
+        "moveDescription": "Mover \"{{folderName}}\" também moverá os seguintes itens para {{targetVaultName}}:",
+        "copyDescription": "Copiar \"{{folderName}}\" também copiará os seguintes itens para {{targetVaultName}}:"
+      },
+      "bulk": {
+        "executeSnippetOn_one": "Executar Snippet em {{count}} host",
+        "executeSnippetOn_other": "Executar Snippet em {{count}} hosts",
+        "executeSnippetOn_many": "Executar Snippet em {{count}} hosts",
+        "connectHosts": "Conectar {{count}} hosts",
+        "duplicateHosts": "Duplicar {{count}} hosts",
+        "moveItemsTo_one": "Mover {{count}} item para",
+        "moveItemsTo_other": "Mover {{count}} itens para",
+        "moveItemsTo_many": "Mover {{count}} itens para",
+        "copyItemsTo_one": "Copiar {{count}} item para",
+        "copyItemsTo_other": "Copiar {{count}} itens para",
+        "copyItemsTo_many": "Copiar {{count}} itens para",
+        "enableCloudSync": "Ativar sincronização em nuvem ({{count}})",
+        "disableCloudSync": "Desativar sincronização em nuvem ({{count}})",
+        "enableReachability": "Ativar verificação de acessibilidade ({{count}})",
+        "disableReachability": "Desativar verificação de acessibilidade ({{count}})",
+        "exportHosts": "Exportar {{count}} hosts",
+        "deleteItems_one": "Excluir {{count}} item",
+        "deleteItems_other": "Excluir {{count}} itens",
+        "deleteItems_many": "Excluir {{count}} itens"
+      },
+      "confirmDelete": {
+        "title_one": "Excluir {{count}} item",
+        "title_other": "Excluir {{count}} itens",
+        "title_many": "Excluir {{count}} itens",
+        "message_one": "Tem certeza de que deseja excluir {{count}} item? Isto não pode ser desfeito.",
+        "message_other": "Tem certeza de que deseja excluir {{count}} itens? Isto não pode ser desfeito.",
+        "message_many": "Tem certeza de que deseja excluir {{count}} itens? Isto não pode ser desfeito.",
+        "folderCascade_one": "{{count}} host arquivado nas pastas selecionadas também será excluído.",
+        "folderCascade_other": "{{count}} hosts arquivados nas pastas selecionadas também serão excluídos.",
+        "folderCascade_many": "{{count}} hosts arquivados nas pastas selecionadas também serão excluídos."
+      },
+      "confirmDeleteFolder": {
+        "title": "Excluir pasta",
+        "message_one": "Isto excluirá a pasta, suas subpastas e o {{count}} host dentro dela. Isto não pode ser desfeito.",
+        "message_other": "Isto excluirá a pasta, suas subpastas e os {{count}} hosts dentro dela. Isto não pode ser desfeito.",
+        "message_many": "Isto excluirá a pasta, suas subpastas e os {{count}} hosts dentro dela. Isto não pode ser desfeito.",
+        "messageEmpty": "Isto excluirá a pasta e tudo dentro dela. Isto não pode ser desfeito."
+      }
+    },
+    "remoteSessions": {
+      "title": "Ao vivo em outros dispositivos",
+      "kill": "Encerrar sessão",
+      "join": "Participar da sessão",
+      "killing": "Encerrando sessão…",
+      "undo": "Desfazer",
+      "killFailed": "Não foi possível encerrar remotamente — abra a sessão para encerrá-la",
+      "dismiss": "Descartar",
+      "deviceActive": "{{device}} · ativo {{age}}",
+      "unknownDevice": "Dispositivo desconhecido"
+    },
+    "teamSessions": {
+      "title": "Sessões da Equipe",
+      "joinByCode": "Participar por código",
+      "emptyHint": "Terminais que seus colegas compartilham aparecem aqui. Tem um código de convite? Cole-o na pesquisa para participar.",
+      "live": "AO VIVO",
+      "pasteInviteCode": "Cole um link ou código de convite para participar de uma sessão privada:",
+      "inviteCodePlaceholder": "voltius://join?… ou sessionId:token",
+      "join": "Participar",
+      "resume": "Retomar",
+      "invalidCodeFormat": "Convite inválido — cole o link ou código que o host compartilhou com você",
+      "failedToJoinSession": "Falha ao participar da sessão",
+      "sharedTerminalFallback": "Terminal Compartilhado"
+    },
+    "snippetPicker": {
+      "title": "Executar Snippet",
+      "goToSnippets": "Ir para Snippets",
+      "filterPlaceholder": "Filtrar snippets…",
+      "newSnippetTitle": "Novo snippet",
+      "new": "Novo",
+      "noSnippetsYet": "Nenhum snippet ainda",
+      "createSnippet": "Criar snippet",
+      "noSnippetsMatch": "Nenhum snippet corresponde",
+      "recent": "Recentes",
+      "allSnippets": "Todos os Snippets",
+      "hostsSelected_one": "{{count}} host selecionado",
+      "hostsSelected_other": "{{count}} hosts selecionados",
+      "hostsSelected_many": "{{count}} hosts selecionados",
+      "insert": "Inserir",
+      "execute": "Executar"
+    },
+    "hostCommand": {
+      "labelPre": "{{host}} — Pré-comando",
+      "labelPost": "{{host}} — Pós-comando",
+      "failed": "Falha no comando do host para {{host}}: {{error}}",
+      "missingSnippet": "Snippet do comando do host está faltando para {{host}}",
+      "postPromptTimedOut": "Pós-comando para {{host}} foi ignorado: sem resposta dentro de 60s"
+    },
+    "connectAs": {
+      "title": "Conectar como",
+      "yours": "seu",
+      "hostDefault": "padrão do host",
+      "vaultDefault": "Minha identidade para {{vault}}…",
+      "clearPick": "Limpar minha escolha"
+    },
+    "managed": {
+      "badge": "ssh config",
+      "tooltip": "Gerenciado por ~/.ssh/config · alias {{alias}}",
+      "bannerTitle": "Gerenciado por ~/.ssh/config",
+      "bannerBodyBefore": "Alias ",
+      "bannerBodyAfter": ". Campos bloqueados seguem o arquivo.",
+      "detach": "Desvincular",
+      "detachMenu": "Desvincular do ~/.ssh/config"
+    }
+  }
+}

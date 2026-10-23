@@ -8,7 +8,7 @@ import { englishBundle, loadLocaleBundle } from "./bundles";
 i18n.use(initReactI18next).init({
   resources: { en: { translation: englishBundle } },
   lng: useLocaleStore.getState().locale,
-  fallbackLng: "en",
+  fallbackLng: { "pt-BR": ["pt", "en"], "pt-PT": ["pt", "en"], default: ["en"] },
   interpolation: { escapeValue: false },
   returnNull: false,
 });

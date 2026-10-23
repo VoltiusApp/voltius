@@ -1,0 +1,39 @@
+{
+  "errors": {
+    "permission-denied": "Permissão negada",
+    "not-found": "Arquivo ou diretório não encontrado",
+    "already-exists": "Já existe um arquivo ou pasta com esse nome",
+    "storage-full": "Espaço em disco ou cota insuficiente",
+    "read-only-filesystem": "O sistema de arquivos é somente leitura",
+    "connection-refused": "O host recusou a conexão — verifique o endereço e a porta, e se o serviço está em execução",
+    "host-unreachable": "O host está inalcançável — verifique o endereço e sua conexão de rede",
+    "timed-out": "Tempo da operação esgotado",
+    "connection-lost": "A conexão foi perdida",
+    "connection-lost-resumable": "A conexão foi perdida — tente a transferência novamente para continuar de onde parou",
+    "transfer-verify-failed": "A cópia não correspondeu ao original, então foi descartada — tente copiar novamente",
+    "transfer-source-changed": "O arquivo continuou mudando enquanto era copiado — tente novamente depois que terminar de ser gravado",
+    "port-in-use": "A porta {{port}} e as portas seguintes já estão em uso ({{attempts}} tentativas)",
+    "bind-address-unavailable": "Este computador não tem o endereço {{address}}",
+    "remote-forward-denied": "O servidor recusou o encaminhamento remoto — a porta pode já estar em uso lá, ou o encaminhamento não é permitido",
+    "ssh-key-rejected": "Autenticação por chave pública rejeitada",
+    "ssh-password-rejected": "Autenticação por senha rejeitada — verifique o usuário e a senha",
+    "ssh-password-expired": "O servidor exige uma nova senha — faça login uma vez a partir de um terminal e altere-a lá",
+    "ssh-prompt-unanswerable": "O servidor perguntou \"{{prompt}}\", que não pode ser respondido automaticamente",
+    "ssh-no-usable-auth-method": "Nenhum método de autenticação utilizável — o servidor aceita apenas: {{methods}}",
+    "ssh-auth-timeout": "Tempo de autenticação esgotado após {{seconds}}s — o servidor aceitou a conexão mas nunca respondeu. Alguns servidores SSH antigos travam aqui; tente a opção \"Algoritmos Legados\" do host, ou outro método de autenticação.",
+    "login-rejected": "O servidor rejeitou o usuário ou a senha",
+    "resource-locked": "O arquivo está bloqueado no servidor — outra pessoa pode tê-lo aberto",
+    "vault-locked": "$t(common.error.vaultLocked)",
+    "vault-unreadable": "$t(common.error.vaultUnreadable)",
+    "vault-sign-in-required": "Cofres de equipe exigem uma conexão ativa com o servidor. Entre para continuar.",
+    "vault-read-only": "Você não tem acesso de gravação a este cofre. Peça a um gerente de cofre um papel que possa fazer alterações.",
+    "vault-role-read-only": "Você não tem acesso de gravação a este cofre (seu papel: {{role}}). Apenas proprietários, gerentes e editores podem fazer alterações.",
+    "vault-permissions-unavailable": "Não foi possível verificar permissões do cofre porque o keychain está indisponível. Tente novamente.",
+    "vault-permissions-corrupted": "Os dados de permissão do cofre estão corrompidos. Entre novamente para atualizar o acesso.",
+    "knock-udp-via-proxy": "Batidas UDP não podem passar por um proxy. Use etapas TCP ou uma conexão direta para este host."
+  },
+  "errorAt": {
+    "proxy": "Proxy {{proxy}}: {{cause}}",
+    "jumpHost": "Host de salto {{jumpHost}}: {{cause}}"
+  }
+}

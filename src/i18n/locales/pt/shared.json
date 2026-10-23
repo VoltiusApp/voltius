@@ -1,0 +1,189 @@
+{
+  "shared": {
+    "signOutConfirm": {
+      "title": "Sair e apagar os dados deste dispositivo?",
+      "noServerCopy": "Os hosts, chaves e snippets desta conta são armazenados apenas neste dispositivo. Sair irá apagá-los e eles não poderão ser recuperados.",
+      "unsynced": "A sincronização está pausada ou não conseguiu alcançar o servidor, então alterações recentes deste dispositivo podem não estar salvas lá. Sair apaga a cópia deste dispositivo.",
+      "confirm": "Apagar e sair"
+    },
+    "errorBanner": {
+      "dismiss": "dispensar"
+    },
+    "trialExpiredModal": {
+      "title": "Seu teste Pro terminou",
+      "subtitle": "Estes três recursos param de funcionar hoje:",
+      "freeNote": "Cofre local, registros de auditoria e sincronização com o GitHub Gist continuam gratuitos, para sempre.",
+      "teamsPrompt": "Trabalha em equipe? Experimente o Teams grátis por {{days}} dias (cartão obrigatório).",
+      "upgradeButton": "Atualizar para Pro",
+      "laterButton": "Talvez depois"
+    },
+    "createVaultModal": {
+      "title": "Novo cofre",
+      "subtitle": "Cofres mantêm suas credenciais organizadas",
+      "nameLabel": "Nome do cofre",
+      "namePlaceholder": "ex.: Trabalho, Pessoal, Homologação…",
+      "createButton": "Criar cofre"
+    },
+    "vaultCascadeModal": {
+      "headingMove": "Mover itens vinculados para",
+      "headingCopy": "Copiar itens vinculados para",
+      "fallbackDescriptionMoved": "Os itens vinculados a seguir estão em outro cofre e também serão movidos:",
+      "fallbackDescriptionCopied": "Os itens vinculados a seguir estão em outro cofre e também serão copiados:",
+      "confirmMove": "Mover tudo",
+      "confirmCopy": "Copiar tudo",
+      "typeLabel": {
+        "identity": "Identidade",
+        "key": "Chave SSH"
+      }
+    },
+    "formSelect": {
+      "title": "Selecionar"
+    },
+    "folderSelector": {
+      "noFolder": "Nenhuma pasta",
+      "namePlaceholder": "Nome da pasta",
+      "newFolder": "Nova pasta"
+    },
+    "tagSelector": {
+      "placeholder": "Adicionar tags…",
+      "removeTag": "Remover tag {{tag}}"
+    },
+    "portInput": {
+      "placeholder": "/dev/ttyUSB0 ou COM3"
+    },
+    "avatarStack": {
+      "participantCount_one": "{{count}} participante",
+      "participantCount_many": "{{count}} participantes",
+      "participantCount_other": "{{count}} participantes"
+    },
+    "presence": {
+      "hasControl": "Tem o controle"
+    },
+    "panel": {
+      "saveState": {
+        "dirty": "Editando...",
+        "saving": "Salvando...",
+        "saved": "Salvo"
+      }
+    },
+    "vaultPicker": {
+      "memberBadge": "membro"
+    },
+    "pickers": {
+      "thisComputer": "Este computador",
+      "recent": "Recentes"
+    },
+    "sessionPicker": {
+      "insertTitle": "Inserir em...",
+      "executeTitle": "Executar em...",
+      "insertConfirm_one": "Inserir em {{count}} destino",
+      "insertConfirm_many": "Inserir em {{count}} destinos",
+      "insertConfirm_other": "Inserir em {{count}} destinos",
+      "executeConfirm_one": "Executar em {{count}} destino",
+      "executeConfirm_many": "Executar em {{count}} destinos",
+      "executeConfirm_other": "Executar em {{count}} destinos",
+      "noActiveSessions": "Nenhuma sessão ativa",
+      "activeSessionsHeader": "Sessões ativas",
+      "openNewConnectionHeader": "Abrir nova conexão",
+      "localShellFallbackName": "Shell local",
+      "sshSessionSub": "Sessão SSH",
+      "noRemoteHostsFound": "Nenhum host remoto encontrado",
+      "noHostsFound": "Nenhum host encontrado"
+    },
+    "hostPicker": {
+      "selectHostTitle": "Selecionar host",
+      "filterPlaceholder": "Filtrar hosts...",
+      "localMachineName": "Máquina local",
+      "wslSub": "WSL",
+      "noHostsConfigured": "Nenhum host configurado",
+      "noHostsMatch": "Nenhum host corresponde",
+      "allVaults": "Todos os cofres"
+    },
+    "sort": {
+      "nameAsc": "A → Z",
+      "nameDesc": "Z → A",
+      "newest": "Mais recentes primeiro",
+      "oldest": "Mais antigos primeiro"
+    },
+    "tagFilter": {
+      "filterByTag": "Filtrar por tag",
+      "emptyTitle": "Adicionar tags",
+      "emptyDescription": "Tags ajudam a filtrar seus hosts. Você pode adicionar uma tag ao editar um host.",
+      "searchPlaceholder": "Filtrar tags...",
+      "clearSelection": "Limpar seleção ({{count}})",
+      "noTagsMatch": "Nenhuma tag corresponde a \"{{search}}\"",
+      "deleteTagTitle": "Excluir a tag \"{{tag}}\"?",
+      "deleteTagBody_one": "Isso removerá a tag de {{count}} host. Os hosts em si não serão excluídos.",
+      "deleteTagBody_many": "Isso removerá a tag de {{count}} hosts. Os hosts em si não serão excluídos.",
+      "deleteTagBody_other": "Isso removerá a tag de {{count}} hosts. Os hosts em si não serão excluídos.",
+      "renameTagTitle": "Renomear tag",
+      "deleteTagButtonTitle": "Excluir tag"
+    },
+    "vaultUnavailable": {
+      "note": "Não foi possível ler o cofre, então os segredos armazenados não são exibidos aqui. Deixe um campo vazio para manter o que está salvo; digitar um novo valor o substitui."
+    },
+    "teamCredentials": {
+      "unavailable": "Não foi possível carregar as credenciais armazenadas deste cofre de equipe, então hosts que precisam de uma senha, chave ou frase secreta salva falharão ao conectar. Peça a um administrador do cofre para conceder acesso aos segredos do cofre à sua função."
+    },
+    "vaultBackups": {
+      "title": "Backups do cofre",
+      "description": "Arquivos de cofre guardados quando não puderam ser abertos. Restaurar um deles o coloca de volta como seu cofre e mantém o atual como um novo backup — nada é excluído.",
+      "empty": "Nenhum backup de cofre neste dispositivo.",
+      "restore": "Restaurar",
+      "confirm": "Restaurar este backup",
+      "cancel": "Cancelar",
+      "warn": "Este backup se tornará seu cofre. Ele abre com a senha mestra que estava em uso quando foi criado, então você será desconectado e solicitado a desbloquear.",
+      "warnReadable": "Seu cofre atual pode ser lido. Restaurar irá substituí-lo — ele é mantido como um novo backup, e você será desconectado e solicitado a desbloquear com a senha que criou o arquivo restaurado.",
+      "restoredToast": "Backup restaurado. Seu cofre anterior foi mantido como {{file}}.",
+      "restoredToastNoPrevious": "Backup restaurado."
+    },
+    "tunnelStatus": {
+      "noRemoteListener": "Nada está escutando na porta remota"
+    },
+    "permissions": {
+      "everyone": "@todos",
+      "moveWarning": {
+        "title": "As permissões serão alteradas",
+        "body": "Mover para cá aplica as permissões desta pasta:",
+        "bodyUnknown": "Mover para cá aplica as permissões desta pasta.",
+        "line": "{{subject}} · {{permission}}: {{before}} → {{after}}",
+        "confirm": "Mover",
+        "cancelled": "Movimentação cancelada"
+      },
+      "section": {
+        "title": "Permissões",
+        "titleKey": "Quem pode usar esta chave",
+        "titleIdentity": "Quem pode usar esta identidade",
+        "adminNote": "Proprietários e administradores sempre podem usar todas as chaves.",
+        "syncedWith": "Sincronizado com {{folder}}",
+        "syncedTeam": "Usa as permissões da equipe",
+        "notSynced": "Não sincronizado",
+        "syncNow": "Sincronizar agora",
+        "ownPermissions": "Permissões próprias",
+        "useTeams": "Usar as da equipe",
+        "addSubject": "Adicionar função ou membro",
+        "searchSubjects": "Pesquisar funções e membros…",
+        "noSubjectsLeft": "Todas as funções e membros já estão listados",
+        "use": "Usar",
+        "requiresConnect": "Requer {{connect}}",
+        "roleCount_one": "{{count}} função",
+        "roleCount_many": "{{count}} funções",
+        "roleCount_other": "{{count}} funções",
+        "loadFailed": "Não foi possível carregar as permissões"
+      }
+    },
+    "businessLock": {
+      "title": "Recurso do plano Business",
+      "upgrade": "Atualizar para Business",
+      "ownerOnly": "Apenas o proprietário da equipe pode atualizar.",
+      "removeRules": "Remover regras",
+      "confirmClear": "Clique novamente para remover",
+      "rolesBody": "Funções personalizadas exigem o plano Business da equipe.",
+      "memberLapsed": "Plano Business expirado: as permissões concedidas a {{name}} estão desativadas; as restrições continuam valendo.",
+      "objectLapsed": "Plano Business expirado: as regras de permissão estão desativadas; as regras de negação continuam valendo.",
+      "memberLine": "Permissões por membro exigem Business.",
+      "objectLine": "Permissões por objeto exigem Business.",
+      "removeOverrides": "Remover substituições"
+    }
+  }
+}

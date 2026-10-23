@@ -1,0 +1,167 @@
+{
+  "keychain": {
+    "common": {
+      "general": "Geral",
+      "label": "Rótulo",
+      "tags": "Tags",
+      "folder": "Pasta",
+      "optional": "(opcional)",
+      "username": "Utilizador",
+      "password": "Password",
+      "privateKey": "Private Key",
+      "publicKey": "Chave Pública",
+      "passphrase": "Frase de acesso",
+      "addToHost": "Adicionar ao host",
+      "disableCloudSync": "Desativar sincronização em nuvem",
+      "enableCloudSync": "Ativar sincronização em nuvem",
+      "cloudSyncDisabledTitle": "Sincronização em nuvem desativada"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Filtrar…",
+      "newKey": "Nova Chave",
+      "newKeyOptionsAriaLabel": "Opções de nova chave",
+      "generateKeyPair": "Gerar Par de Chaves",
+      "newIdentity": "Nova Identidade",
+      "newFolder": "Nova Pasta"
+    },
+    "page": {
+      "all": "Todos",
+      "folders": "Pastas",
+      "new": "Novo",
+      "pinned": "Fixados",
+      "ejectMoveTo": "Mover para {{name}}",
+      "ejectRemoveFromFolder": "Remover da pasta",
+      "bulk": {
+        "moveItemsTo_one": "Mover {{count}} item para",
+        "moveItemsTo_other": "Mover {{count}} itens para",
+        "moveItemsTo_many": "Mover {{count}} itens para",
+        "copyItemsTo_one": "Copiar {{count}} item para",
+        "copyItemsTo_other": "Copiar {{count}} itens para",
+        "copyItemsTo_many": "Copiar {{count}} itens para",
+        "enableCloudSync": "Ativar sincronização em nuvem ({{count}})",
+        "disableCloudSync": "Desativar sincronização em nuvem ({{count}})",
+        "exportPublicKeys_one": "Exportar {{count}} chave pública",
+        "exportPublicKeys_other": "Exportar {{count}} chaves públicas",
+        "exportPublicKeys_many": "Exportar {{count}} chaves públicas",
+        "deleteItems_one": "Eliminar {{count}} item",
+        "deleteItems_other": "Eliminar {{count}} itens",
+        "deleteItems_many": "Eliminar {{count}} itens"
+      },
+      "confirmDeleteFolder": {
+        "title": "Eliminar pasta",
+        "message_one": "Isto eliminará a pasta, suas subpastas e o {{count}} item dentro dela. Isto não pode ser desfeito.",
+        "message_other": "Isto eliminará a pasta, suas subpastas e os {{count}} itens dentro dela. Isto não pode ser desfeito.",
+        "message_many": "Isto eliminará a pasta, suas subpastas e os {{count}} itens dentro dela. Isto não pode ser desfeito.",
+        "messageEmpty": "Isto eliminará a pasta e tudo dentro dela. Isto não pode ser desfeito."
+      },
+      "confirmDelete": {
+        "title_one": "Eliminar {{count}} item",
+        "title_other": "Eliminar {{count}} itens",
+        "title_many": "Eliminar {{count}} itens",
+        "message_one": "Tem certeza de que deseja eliminar {{count}} item? Isto não pode ser desfeito.",
+        "message_other": "Tem certeza de que deseja eliminar {{count}} itens? Isto não pode ser desfeito.",
+        "message_many": "Tem certeza de que deseja eliminar {{count}} itens? Isto não pode ser desfeito.",
+        "folderCascade_one": "{{count}} item arquivado nas pastas selecionadas também será eliminado.",
+        "folderCascade_other": "{{count}} itens arquivados nas pastas selecionadas também serão eliminados.",
+        "folderCascade_many": "{{count}} itens arquivados nas pastas selecionadas também serão eliminados."
+      },
+      "vaultCascade": {
+        "moveDescription": "Mover \"{{folderName}}\" também moverá os seguintes itens para {{targetVaultName}}:",
+        "copyDescription": "Copiar \"{{folderName}}\" também copiará os seguintes itens para {{targetVaultName}}:"
+      }
+    },
+    "cards": {
+      "addedOn": "adicionado {{date}}",
+      "passwordBadge": "Palavra-passe",
+      "sshKeysLabel": "Chaves SSH",
+      "identitiesLabel": "Identidades",
+      "keySection": {
+        "emptyTitle": "Ainda não há chaves SSH",
+        "emptyDescription": "Armazene pares de chaves SSH reutilizáveis",
+        "addButton": "Adicionar Chave"
+      },
+      "identitySection": {
+        "emptyTitle": "Ainda não há identidades",
+        "emptyDescription": "Combine um nome de utilizador com credenciais para reutilizar em hosts",
+        "addButton": "Adicionar Identidade"
+      },
+      "pin": {
+        "unpinForMe": "Desfixar para mim",
+        "showInMyView": "Mostrar na minha visualização",
+        "hideForMe": "Ocultar para mim",
+        "pinForMe": "Fixar para mim",
+        "unpin": "Desfixar",
+        "pin": "Fixar",
+        "unpinForTeam": "Desfixar para a equipe",
+        "pinForTeam": "Fixar para a equipe"
+      }
+    },
+    "keyForm": {
+      "titleEdit": "Editar Chave",
+      "modeImport": "Importar",
+      "modeGenerate": "Gerar",
+      "sectionKeyMaterial": "Material da Chave",
+      "sectionImportFromFile": "Importar do Ficheiro",
+      "sectionKeyExport": "Exportação de Chave",
+      "unknownType": "Tipo desconhecido",
+      "invalidKey": "Chave inválida",
+      "invalidPublicKey": "Não é uma chave pública SSH — esperado \"ssh-ed25519 AAAA… comentário\" em uma linha. Não será guardada e não pode ser adicionada a um host.",
+      "keyPassphrasePlaceholder": "Frase de acesso da chave",
+      "incompleteKey": "Chave incompleta",
+      "unrecognizedKey": "Formato de chave não reconhecido"
+    },
+    "identityForm": {
+      "titleEdit": "Editar Identidade",
+      "sectionCredentials": "Credenciais",
+      "sectionNewKeyMaterial": "Novo Material de Chave",
+      "sectionLinkedTo": "Vinculado a",
+      "sshKeyLabel": "Chave SSH",
+      "noKey": "Sem chave",
+      "newKeyInline": "Nova chave (em linha)...",
+      "unnamedKey": "Chave Sem Nome",
+      "namePlaceholder": "Minha Identidade (opcional)",
+      "keyLabel": "Rótulo da Chave",
+      "keyLabelPlaceholder": "Minha Chave SSH (opcional)",
+      "editHostTitle": "Editar host",
+      "unlinkTitle": "Desvincular — copiar credenciais em linha para o host"
+    },
+    "exportPanel": {
+      "exportSectionLabel": "Exportar",
+      "destinationHost": "Host de destino",
+      "selectHostPlaceholder": "Selecione um host…",
+      "location": "Localização",
+      "filename": "Nome do ficheiro",
+      "unixOnlyNotice": "A exportação de chave atualmente suporta apenas sistemas UNIX. Use a seção Avançado para personalizar o script de exportação.",
+      "missingPublicKeyNotice": "Esta chave não tem metade pública para enviar. Abra-a no Keychain e cole sua linha .pub — ou adicione sua frase de acesso, para que a metade pública possa ser derivada da privada.",
+      "advanced": "Avançado",
+      "exportScriptLabel": "Script de exportação",
+      "successMessage": "Chave exportada com sucesso",
+      "exportingLabel": "A exportar…",
+      "publicKeyNotFoundError": "Chave pública não encontrada",
+      "multilinePublicKeyError": "Chave pública não é válida — deve ser uma única linha",
+      "invalidPublicKeyError": "Chave pública não é válida — deve ser uma chave SSH pública no formato \"tipo base64 [comentário]\"",
+      "invalidLocationError": "Localização deve ser um caminho sob o diretório home remoto, sem segmento \"..\"",
+      "invalidFilenameError": "Nome do ficheiro não deve conter um separador de caminho",
+      "remoteCommandFailedError": "Comando remoto falhou: {{detail}}",
+      "remoteCommandFailedUnknownError": "Comando remoto falhou (código de saída {{code}})"
+    },
+    "dropZone": {
+      "loaded": "Ficheiro de chave carregado",
+      "error": "Não foi possível ler o ficheiro",
+      "dropToLoad": "Solte o ficheiro de chave para carregar",
+      "dropHere": "Solte um ficheiro de chave aqui",
+      "hint": ".pem, .key, .pub ou qualquer ficheiro de chave SSH"
+    },
+    "genFields": {
+      "sectionKeyType": "Tipo de Chave",
+      "ellipticCurve": "Curva elíptica",
+      "keySizeBits": "Tamanho da chave (bits)",
+      "passphrasePlaceholder": "Frase de acesso opcional",
+      "savePassphrase": "Guardar frase de acesso",
+      "cipher": "Cifra",
+      "rounds": "Rodadas",
+      "roundsTooltip": "Número de iterações bcrypt-pbkdf usadas para derivar a chave de criptografia da sua frase de acesso. Valores mais altos tornam ataques de força bruta mais lentos, com o custo de carregamento de chave ligeiramente mais lento. O padrão do OpenSSH é 16; 100 é um bom equilíbrio.",
+      "generating": "A gerar…"
+    }
+  }
+}

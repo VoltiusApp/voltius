@@ -1,0 +1,116 @@
+{
+  "notifications": {
+    "bell": {
+      "title": "Notificações",
+      "clearHistory": "Limpar histórico",
+      "noNotifications": "Sem notificações",
+      "emptyHint": "Você está em dia",
+      "newSection": "Novas",
+      "earlierSection": "Anteriores"
+    },
+    "emailVerification": {
+      "banner": {
+        "message": "Verifique seu e-mail para desbloquear recursos na nuvem. Enviamos um link para {{email}}.",
+        "yourEmail": "seu e-mail",
+        "resend": "Reenviar e-mail",
+        "resending": "A enviar...",
+        "verified": "Já verifiquei",
+        "checking": "A verificar...",
+        "dismissAriaLabel": "Descartar banner de verificação de e-mail",
+        "undeliverable": "Não foi entregar e-mail para {{email}}. Verifique o endereço e altere se estiver errado.",
+        "changeEmail": "Alterar e-mail"
+      },
+      "modal": {
+        "title": "Verifique seu e-mail primeiro",
+        "body": "Atualizações na nuvem exigem um endereço de e-mail verificado. Verifique sua caixa de entrada para o link de verificação, ou envie um novo.",
+        "resend": "Reenviar e-mail",
+        "resending": "A enviar..."
+      },
+      "toast": {
+        "sent": "E-mail de verificação enviado.",
+        "sendFailed": "Não foi reenviar o e-mail de verificação.",
+        "refreshFailed": "Não foi atualizar a sessão.",
+        "verified": "E-mail verificado.",
+        "verifiedPending": "Não verificado ainda. Abra o link no seu e-mail, então tente novamente.",
+        "verifiedOther": "E-mail verificado para {{email}}.",
+        "verifiedSwitch": "Alternar",
+        "verifiedUnknown": "E-mail verificado. Entre para continuar.",
+        "undeliverable": "O e-mail para este endereço retorna, então não podemos enviar o link. Altere seu e-mail em Configurações → Conta."
+      }
+    },
+    "progressToast": {
+      "timedOut": "Tempo da operação esgotado"
+    },
+    "seededPluginsFailed": {
+      "message": "Plugins integrados falharam ao carregar, então o app está rodando sem eles. Isto é um bug — por favor, reporte.",
+      "action": "Diagnósticos"
+    },
+    "inbox": {
+      "someone": "Alguém",
+      "invite": {
+        "message": "{{inviter}} convidou você para {{team}}",
+        "accept": "Aceitar",
+        "decline": "Recusar"
+      },
+      "session": {
+        "message": "Um colega de equipe compartilhou {{name}}",
+        "join": "Participar",
+        "joined": "Participou"
+      },
+      "sessionInvite": {
+        "message": "{{inviter}} convidou você para {{name}}"
+      },
+      "sessionKnock": {
+        "message": "{{inviter}} quer compartilhar um terminal",
+        "join": "Participar",
+        "decline": "Recusar",
+        "blockPermanently": "Bloquear permanentemente"
+      },
+      "control": {
+        "request": "{{requester}} está solicitando controle",
+        "grant": "Conceder",
+        "deny": "Negar",
+        "granted": "Você tem controle"
+      },
+      "awaitingKey": {
+        "message": "A aguardar um proprietário de {{team}} conceder acesso ao cofre"
+      },
+      "membershipEnded": {
+        "message": "Você foi removido de {{team}}. Seus hosts, chaves e snippets foram removidos deste dispositivo, e as credenciais que você usou lá devem ser rotacionadas.",
+        "review": "Revisar credenciais"
+      },
+      "secretsNotWiped": {
+        "message": "Algumas credenciais de {{team}} não puderam ser removidas deste dispositivo. Elas permanecem legíveis aqui até que a limpeza tenha sucesso.",
+        "retry": "Remova-as agora"
+      },
+      "sshConfigMigrated": {
+        "message": "Seus hosts de ~/.ssh/config não são mais sincronizados automaticamente. Eles são seus agora: suas alterações são mantidas.",
+        "turnOnSync": "Ativar sincronização contínua",
+        "dismiss": "OK"
+      }
+    },
+    "sshConfigOffer": {
+      "message_one": "{{count}} host encontrado em ~/.ssh/config. Importá-lo para o Voltius? Você pode editá-lo livremente depois.",
+      "message_other": "{{count}} hosts encontrados em ~/.ssh/config. Importá-los para o Voltius? Você pode editá-los livremente depois.",
+      "message_many": "{{count}} hosts encontrados em ~/.ssh/config. Importá-los para o Voltius? Você pode editá-los livremente depois.",
+      "import": "Importar…",
+      "skip": "Não importar"
+    },
+    "sshConfigSync": {
+      "unreadable": "~/.ssh/config não pôde ser lido. Hosts gerenciados são mantidos como estão.",
+      "failed": "Sincronização de ~/.ssh/config falhou. Veja os logs.",
+      "vaultGone": "O cofre escolhido para hosts de ~/.ssh/config não existe mais. Escolha outro em Configurações › Hosts.",
+      "detachedToTeam_one": "Um host movido para um cofre de equipe não segue mais ~/.ssh/config.",
+      "detachedToTeam_other": "{{count}} hosts movidos para um cofre de equipe não seguem mais ~/.ssh/config.",
+      "detachedToTeam_many": "{{count}} hosts movidos para um cofre de equipe não seguem mais ~/.ssh/config.",
+      "reviewHere": "Sincronização de ~/.ssh/config está ativada para sua conta. Revise os hosts e chaves deste computador antes de sincronizar aqui.",
+      "review": "Revisar…",
+      "detachedUnsynced_one": "Um host eliminado da sincronização não segue mais ~/.ssh/config, então seus outros computadores param de esperar por ele.",
+      "detachedUnsynced_other": "{{count}} hosts eliminados da sincronização não seguem mais ~/.ssh/config, então seus outros computadores param de esperar por eles.",
+      "detachedUnsynced_many": "{{count}} hosts eliminados da sincronização não seguem mais ~/.ssh/config, então seus outros computadores param de esperar por eles.",
+      "detachedProxied_one": "Um host cuja entrada ~/.ssh/config agora usa ProxyCommand não segue mais o ficheiro.",
+      "detachedProxied_other": "{{count}} hosts cujas entradas ~/.ssh/config agora usam ProxyCommand não seguem mais o ficheiro.",
+      "detachedProxied_many": "{{count}} hosts cujas entradas ~/.ssh/config agora usam ProxyCommand não seguem mais o ficheiro."
+    }
+  }
+}

@@ -1,0 +1,1553 @@
+{
+  "settings": {
+    "terminal": {
+      "heading": "Comportamento do terminal",
+      "preferredShell": {
+        "title": "Shell preferido"
+      },
+      "scrollback": {
+        "title": "Histórico do terminal",
+        "desc": "Linhas mantidas por sessão de terminal. Aplica-se a novos terminais.",
+        "option": "{{count}} linhas"
+      },
+      "cursorStyle": {
+        "title": "Estilo do cursor",
+        "desc": "Forma do cursor do terminal.",
+        "bar": "Barra",
+        "block": "Bloco",
+        "underline": "Sublinhado"
+      },
+      "cursorBlink": {
+        "title": "Cursor piscante",
+        "desc": "Fazer o cursor do terminal piscar."
+      },
+      "minimap": {
+        "title": "Minimapa de rolagem",
+        "desc": "Mostrar uma visão geral em miniatura do histórico ao lado dos terminais."
+      },
+      "selectToCopy": {
+        "title": "Selecionar para copiar",
+        "desc": "Copiar o texto para a área de transferência assim que você o seleciona em um terminal."
+      },
+      "dragSelectsText": {
+        "title": "Arrastar seleciona texto",
+        "desc": "Selecionar texto com um arrasto simples mesmo quando um programa (tmux, vim, htop) está capturando o mouse. Um clique ainda chega ao programa; segure Ctrl ao arrastar para enviar o arrasto a ele."
+      },
+      "ignoreBracketedPaste": {
+        "title": "Colagem simples (sem colagem entre colchetes)",
+        "desc": "Colar como texto simples, sem os marcadores \\x1b[200~ / \\x1b[201~. Corrige entradas corrompidas (ex.: \"200~\") ao colar em prompts do sudo ou em aplicativos de CLI que não oferecem suporte à colagem entre colchetes."
+      },
+      "pasteImageAsPath": {
+        "title": "Colar imagens como caminho de ficheiro",
+        "desc": "Quando a área de transferência contém uma imagem, enviá-la ao host SSH (~/.cache/voltius/pastes, somente para o proprietário, removida após 7 dias) e colar o caminho dela. Permite que ferramentas no host, como o Claude Code, anexem uma captura de tela. Se você fizer SSH a partir dali, o caminho aponta para este primeiro host."
+      },
+      "volumeDownCtrl": {
+        "title": "Usar Volume Down como Ctrl",
+        "desc": "Ao digitar em um terminal, segure o botão Volume Down para adicionar Ctrl às teclas que pressiona: Volume Down + C envia Ctrl+C. Fora de um terminal, o botão altera o volume normalmente."
+      },
+      "keywordHighlight": {
+        "title": "Destaque de palavras-chave",
+        "desc": "Colorir palavras como “error” ou “warning” na saída de comandos. Funciona em sessões com integração de shell.",
+        "addRule": "Adicionar regra",
+        "deleteRule": "Eliminar regra",
+        "ruleEnabled": "Ativar regra",
+        "color": "Cor",
+        "wordsPlaceholder": "Adicionar uma palavra…",
+        "removeWord": "Remover {{word}}"
+      }
+    },
+    "appearance": {
+      "themeActions": "Ações do tema",
+      "interface": "Interface",
+      "language": {
+        "title": "Idioma"
+      },
+      "groupTabsByHost": {
+        "title": "Agrupar abas por host",
+        "desc": "Sessões no mesmo host compartilham uma aba. Passe o mouse para alternar entre elas."
+      },
+      "colorTheme": "Tema de cores",
+      "import": "Importar",
+      "importTitle": "Importar tema(s)",
+      "exportAll": "Exportar todos",
+      "exportAllTitle": "Exportar todos os temas personalizados",
+      "exportTheme": "Exportar tema",
+      "editTheme": "Editar tema",
+      "deleteTheme": "Eliminar tema",
+      "newCustomTheme": "Novo tema personalizado",
+      "dynamicThemeHint": "A partir do seu papel de parede",
+      "uiScale": {
+        "clickHintMobile": "Toque para inserir um valor",
+        "title": "Escala da interface",
+        "desc": "Aumentar ou reduzir o zoom de toda a interface.",
+        "clickHint": "Clique para inserir um valor",
+        "zoomOut": "Reduzir zoom",
+        "zoomIn": "Aumentar zoom",
+        "resetTitle": "Redefinir escala",
+        "reset": "Redefinir"
+      },
+      "terminalFontSize": {
+        "clickHintMobile": "Toque para inserir um valor",
+        "title": "Tamanho da fonte do terminal",
+        "desc": "Ajustar o texto do terminal separadamente, sem escalar o restante da interface.",
+        "clickHint": "Clique para inserir um valor",
+        "zoomOut": "Texto menor",
+        "zoomIn": "Texto maior",
+        "resetTitle": "Seguir o tamanho da fonte do tema",
+        "reset": "Redefinir"
+      },
+      "automation": {
+        "themeMode": "Modo automático de tema",
+        "title": "Tema automático",
+        "desc": "Alternar automaticamente entre um tema claro e um escuro",
+        "lightTheme": "Tema claro",
+        "darkTheme": "Tema escuro",
+        "mode": "Modo",
+        "modeManual": "Manual",
+        "modeSystem": "Seguir o sistema",
+        "modeSchedule": "Agenda",
+        "modeSunset": "Nascer / pôr do sol",
+        "lightStarts": "Início do claro",
+        "darkStarts": "Início do escuro",
+        "useMyLocation": "Usar minha localização",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "sunToday": "Hoje: nascer {{sunrise}}, pôr do sol {{sunset}}",
+        "locationNeeded": "Defina uma localização para usar o nascer/pôr do sol"
+      }
+    },
+    "nav": {
+      "appearance": {
+        "mobileSub": "Tema, escala, idioma",
+        "label": "Aparência",
+        "keywords": [
+          "tema",
+          "cor",
+          "fonte",
+          "interface"
+        ]
+      },
+      "account": {
+        "mobileSub": "Modo da conta, bloqueio do aplicativo",
+        "label": "Conta",
+        "keywords": [
+          "perfil",
+          "login",
+          "autenticação"
+        ]
+      },
+      "sync": {
+        "mobileSub": "Sincronização na nuvem e o que é sincronizado",
+        "label": "Sincronização",
+        "keywords": [
+          "cópia de segurança",
+          "nuvem",
+          "gist",
+          "sincronização",
+          "pro"
+        ]
+      },
+      "plugins": {
+        "mobileSub": "Plugins instalados e o catálogo",
+        "label": "Plugins",
+        "keywords": [
+          "extensões",
+          "complementos",
+          "marketplace"
+        ]
+      },
+      "integrations": {
+        "mobileSub": "Servidor MCP para agentes de IA",
+        "label": "Integrações",
+        "keywords": [
+          "mcp",
+          "claude",
+          "claude code",
+          "servidor",
+          "socket",
+          "agente"
+        ]
+      },
+      "terminal": {
+        "mobileSub": "Cursor, histórico, colagem",
+        "label": "Terminal",
+        "keywords": [
+          "histórico",
+          "cursor",
+          "colagem",
+          "colchetes",
+          "cópia",
+          "minimapa",
+          "buffer"
+        ]
+      },
+      "sftp": {
+        "mobileSub": "Downloads, transferências, editor",
+        "label": "SFTP",
+        "keywords": [
+          "ficheiro",
+          "transferência",
+          "ftp",
+          "ficheiros"
+        ]
+      },
+      "portForwarding": {
+        "mobileSub": "Encaminhamento automático",
+        "label": "Encaminhamento de portas",
+        "keywords": [
+          "túnel",
+          "encaminhar",
+          "portas",
+          "ssh",
+          "auto"
+        ]
+      },
+      "hosts": {
+        "mobileSub": "Alcance, keepalive, proxy",
+        "label": "Hosts",
+        "keywords": [
+          "ping",
+          "alcance",
+          "conectividade",
+          "status"
+        ]
+      },
+      "shortcuts": {
+        "label": "Atalhos",
+        "keywords": [
+          "tecla",
+          "atalho",
+          "combinação",
+          "remarcar",
+          "teclado"
+        ]
+      },
+      "diagnostics": {
+        "mobileSub": "Logs e relatórios de bugs",
+        "label": "Diagnósticos",
+        "keywords": [
+          "diagnóstico",
+          "bug",
+          "relatório",
+          "log",
+          "depuração",
+          "problema"
+        ]
+      },
+      "about": {
+        "mobileSub": "Versão e links",
+        "label": "Sobre",
+        "keywords": [
+          "versão",
+          "atualização",
+          "lançamento",
+          "changelog"
+        ]
+      }
+    },
+    "chrome": {
+      "title": "Configurações",
+      "close": "Fechar configurações",
+      "back": "Voltar",
+      "openHint": "Ctrl+, para abrir",
+      "expandPluginGroup": "Expandir configurações do plugin",
+      "collapsePluginGroup": "Recolher configurações do plugin"
+    },
+    "shared": {
+      "reset": "Redefinir",
+      "rowActions": "Ações da configuração",
+      "sync": {
+        "label": "Sincronizar esta configuração",
+        "on": "Sincronizada entre seus dispositivos",
+        "off": "Mantida neste dispositivo",
+        "deviceDefault": "Mantida neste dispositivo por padrão"
+      },
+      "cancel": "Cancelar",
+      "resetToDefault": "Redefinir para o padrão",
+      "modifiedFromDefault": "Modificada em relação ao padrão"
+    },
+    "account": {
+      "modeTitle": "Modo da conta",
+      "currentMode": "Modo atual",
+      "mode": {
+        "localNoPassword": "Local (chaveiro do SO)",
+        "local": "Local (palavra-passe mestra)",
+        "server": "Conta na nuvem",
+        "unknown": "Desconhecido"
+      },
+      "sessionSecurity": {
+        "title": "Segurança da sessão",
+        "autoLockLabel": "Bloqueio automático após inatividade",
+        "autoLockDesc": "Bloqueia o Voltius após esse período de inatividade, ou assim que você sai do aplicativo.",
+        "timeout": {
+          "never": "Nunca",
+          "5min": "5 minutos",
+          "15min": "15 minutos",
+          "30min": "30 minutos",
+          "1h": "1 hora",
+          "4h": "4 horas",
+          "immediately": "Imediatamente"
+        },
+        "lockAction": {
+          "label": "Ao bloquear",
+          "vault": "Bloquear cofre (fechar sessões)",
+          "screen": "Bloquear tela (manter sessões em execução)",
+          "vaultDesc": "Remove a chave do cofre da memória. As sessões abertas fecham e o Voltius recarrega.",
+          "screenDesc": "Cobre o Voltius enquanto sessões, encaminhamentos de portas e transferências continuam em execução."
+        },
+        "systemAuth": {
+          "toggle": "Desbloquear com autenticação do sistema",
+          "desc": "Use {{method}} em vez de digitar sua palavra-passe mestra.",
+          "unavailable": "Não disponível neste dispositivo.",
+          "status": {
+            "bound": "Vinculada ao hardware deste dispositivo.",
+            "unbound": "Ainda não vinculada ao hardware deste dispositivo.",
+            "os-login": "Protegida pelo login do seu dispositivo.",
+            "no-password": "Protegida pelo login do seu dispositivo. Defina uma palavra-passe mestra para vincular a chave ao hardware deste dispositivo."
+          },
+          "bindNow": "Vincular agora",
+          "confirm": "Confirmar",
+          "enableTitle": "Vincular a chave do cofre a este dispositivo",
+          "enableBody": "Digite sua palavra-passe mestra. Você precisará dela se o login deste dispositivo mudar.",
+          "disableTitle": "Desativar a autenticação do sistema",
+          "disableBody": "Digite sua palavra-passe mestra para continuar desbloqueando na inicialização sem um prompt.",
+          "method": {
+            "windows": "Windows Hello",
+            "macos": "Touch ID ou a palavra-passe do seu Mac",
+            "linux": "a palavra-passe do seu sistema",
+            "android": "sua impressão digital ou bloqueio de tela"
+          }
+        },
+        "needsSystemAuth": "Ative a autenticação do sistema para bloquear uma conta sem palavra-passe mestra.",
+        "immediateVaultWarning": "Com Bloquear cofre, sair do Voltius, mesmo brevemente, fecha suas sessões abertas. Bloquear tela mantém as sessões em execução.",
+        "policy": {
+          "timeout": "Definido por {{teams}}: no máximo {{duration}}.",
+          "timeoutImmediately": "Definido por {{teams}}: bloquear assim que você sair do Voltius.",
+          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório.",
+          "yourTeam": "sua equipe"
+        }
+      },
+      "email": "E-mail",
+      "editEmail": {
+        "title": "Alterar e-mail",
+        "currentLabel": "Atual:",
+        "newPlaceholder": "Novo endereço de e-mail",
+        "passwordPlaceholder": "Palavra-passe mestra atual",
+        "errorInvalidEmail": "Endereço de e-mail inválido",
+        "errorSameEmail": "O novo e-mail deve ser diferente do atual",
+        "errorPasswordRequired": "A palavra-passe é obrigatória para confirmar a alteração",
+        "pausedNote": "Até a verificação, os recursos pagos ficarão pausados.",
+        "done": "Concluído",
+        "saving": "A guardar…",
+        "save": "Guardar",
+        "toastVerification": "E-mail de verificação enviado para {{email}}.",
+        "updated": "E-mail atualizado para <email>{{email}}</email>. Verifique sua caixa de entrada para um link de verificação."
+      },
+      "handle": {
+        "title": "Identificador",
+        "copy": "Copiar",
+        "copied": "Copiado",
+        "choose": "Escolha um identificador",
+        "change": "Alterar identificador",
+        "chooseSub": "Um identificador personalizado permite que você seja encontrado por pessoas fora das suas equipes.",
+        "generatedNote": "Seu identificador atual já funciona para qualquer pessoa a quem você o fornecer.",
+        "unverified": "Verifique seu e-mail para escolher um identificador personalizado.",
+        "managed": "Gerenciado pela sua organização. Peça ao administrador para alterá-lo.",
+        "placeholder": "seu-identificador",
+        "inputLabel": "Identificador",
+        "save": "Guardar",
+        "errorInvalid": "Os identificadores só podem conter letras, números e hífens.",
+        "errorTaken": "Esse identificador já está em uso.",
+        "errorEmailNotVerified": "Verifique seu e-mail primeiro e depois escolha seu identificador.",
+        "errorCooldown": "Você poderá alterar seu identificador novamente em breve.",
+        "errorGeneric": "Não foi possível atualizar seu identificador."
+      },
+      "strangerInvites": {
+        "label": "Permitir convites de qualquer pessoa",
+        "desc": "Permitir que pessoas fora das suas equipes o convidem para um terminal compartilhado por @identificador ou e-mail."
+      },
+      "changeMasterPassword": {
+        "label": "Alterar palavra-passe mestra",
+        "sub": "Atualize sua palavra-passe sem recriptografar seu cofre",
+        "title": "Alterar palavra-passe mestra",
+        "currentPlaceholder": "Palavra-passe atual",
+        "verifyWithDevice": "Esqueceu? Confirme com {{method}} em vez disso",
+        "verifiedWithDevice": "Confirmado neste dispositivo",
+        "deviceReason": "Confirme para alterar sua palavra-passe mestra",
+        "deviceFailed": "Este dispositivo não conseguiu confirmar sua identidade. Digite sua palavra-passe atual em vez disso.",
+        "deviceSignedOut": "Este dispositivo foi desconectado, provavelmente após uma alteração de palavra-passe em outro dispositivo. Entre novamente com a nova palavra-passe.",
+        "newPlaceholder": "Nova palavra-passe (mín. 8 caracteres)",
+        "confirmPlaceholder": "Confirme a nova palavra-passe",
+        "errorCurrentRequired": "A palavra-passe atual é obrigatória",
+        "errorMinLength": "A nova palavra-passe deve ter pelo menos 8 caracteres",
+        "errorSamePassword": "A nova palavra-passe deve ser diferente da atual",
+        "successMsg": "Palavra-passe alterada com sucesso.",
+        "successNote": "Você continua conectado. Os itens do seu cofre não foram alterados.",
+        "done": "Concluído",
+        "changing": "A alterar…",
+        "changeBtn": "Alterar palavra-passe"
+      },
+      "twoFactor": {
+        "label": "Autenticação de dois fatores",
+        "subOff": "Pedir um código ou uma passkey ao entrar em um novo dispositivo",
+        "subOn": "Ativada. Entrar em um novo dispositivo pede uma segunda etapa",
+        "intro": "Depois da sua palavra-passe mestra, entrar em um novo dispositivo pedirá uma segunda etapa. Escolha uma; você pode adicionar a outra depois.",
+        "introDevices": "Ativar isso desconecta seus outros dispositivos. Eles precisam de uma versão recente do Voltius para entrar novamente.",
+        "continue": "Continuar",
+        "scan": "Escaneie isto com seu aplicativo autenticador, ou digite a chave abaixo nele.",
+        "qrLabel": "Código QR para seu aplicativo autenticador",
+        "copyKey": "Copiar chave",
+        "confirmPrompt": "Depois, digite o código de 6 dígitos que ele mostra.",
+        "turnOn": "Ativar",
+        "codesTitle": "Salve seus códigos de recuperação",
+        "codesBody": "Cada código permite entrar uma vez se você perder seu autenticador ou passkey. Eles não são mostrados novamente.",
+        "copy": "Copiar",
+        "copied": "Copiado",
+        "save": "Guardar em ficheiro",
+        "saved": "Eu os salvei",
+        "manageBody": "Entrar em um novo dispositivo pede um destes após sua palavra-passe mestra.",
+        "newCodes": "Novos códigos de recuperação",
+        "newCodesSub": "Os atuais deixam de funcionar",
+        "turnOff": "Desativar",
+        "turnOffSub": "Entrar apenas com a palavra-passe mestra",
+        "generate": "Gerar",
+        "regeneratePrompt": "Confirme com um segundo fator para substituir seus códigos de recuperação.",
+        "disablePrompt": "Digite sua palavra-passe mestra e confirme com um segundo fator para desativar a autenticação de dois fatores.",
+        "authenticator": "Aplicativo autenticador",
+        "authenticatorSub": "Códigos de 6 dígitos de um aplicativo no seu celular",
+        "authenticatorOn": "Ativado",
+        "authenticatorIntro": "Entrar em um novo dispositivo pedirá um código de 6 dígitos de um aplicativo autenticador.",
+        "passkey": "Passkey",
+        "passkeys": "Passkeys",
+        "passkeySub": "Impressão digital, rosto ou uma chave de segurança, pelo seu navegador",
+        "passkeyIntro": "O Voltius abre seu navegador para criar a passkey e depois traz você de volta aqui.",
+        "passkeyName": "Nome, por exemplo Notebook",
+        "passkeyCreate": "Continuar no navegador",
+        "passkeyAdd": "Adicionar uma passkey",
+        "passkeyAdded": "Adicionada em {{date}}",
+        "passkeyUsed": "usada por último em {{date}}",
+        "passkeyRemove": "Remover {{name}}",
+        "remove": "Remover",
+        "removeAuthenticatorPrompt": "Digite sua palavra-passe mestra e confirme com um segundo fator para remover o aplicativo autenticador.",
+        "removePasskeyPrompt": "Digite sua palavra-passe mestra e confirme com um segundo fator para remover a passkey “{{name}}”.",
+        "lastFactor": "Este é seu único segundo fator. Removê-lo desativa a autenticação de dois fatores e desconecta seus outros dispositivos.",
+        "codesLeft": "Códigos não utilizados: {{count}}",
+        "back": "Voltar"
+      },
+      "setMasterPassword": {
+        "label": "Definir uma palavra-passe mestra",
+        "sub": "Proteja seu cofre localmente sem sincronização na nuvem"
+      },
+      "lockVault": {
+        "label": "Bloquear agora",
+        "sub": "Bloqueia o Voltius com a ação escolhida acima"
+      },
+      "signOut": {
+        "label": "Sair da conta na nuvem",
+        "sub": "Limpa a palavra-passe em cache e os tokens de sincronização"
+      },
+      "wipeData": {
+        "label": "Apagar todos os dados locais",
+        "sub": "Exclui permanentemente todas as conexões, chaves, cofre e entradas do chaveiro"
+      },
+      "confirmWipe": {
+        "confirm": "Apagar tudo",
+        "desc": "Isso eliminará permanentemente <strong>todos os dados locais</strong>: conexões, chaves SSH, identidades, segredos do cofre e entradas do chaveiro do SO. Isso não pode ser desfeito."
+      },
+      "setPassword": {
+        "desc": "Escolha uma palavra-passe mestra. Seus dados existentes serão reencriptados.",
+        "newPlaceholder": "Nova palavra-passe mestra",
+        "confirmPlaceholder": "Confirme a palavra-passe",
+        "submit": "Definir palavra-passe"
+      },
+      "error": {
+        "minLength": "Pelo menos 4 caracteres",
+        "mismatch": "As palavras-passe não coincidem",
+        "updateFailed": "Falha na atualização"
+      },
+      "success": {
+        "passwordSet": "Palavra-passe mestra definida. Seu cofre agora está protegido por palavra-passe."
+      },
+      "loading": "A trabalhar...",
+      "plan": {
+        "title": "Plano",
+        "badge": {
+          "business": "Business",
+          "teams": "Teams",
+          "proTrial": "Teste Pro — {{daysLeft}}d restantes",
+          "pro": "Pro",
+          "free": "Grátis"
+        },
+        "manageBilling": "Gerenciar cobrança →",
+        "subscription": {
+          "cancelled": "Cancela em {{date}}. Você mantém o acesso até lá.",
+          "cancelledNoPeriod": "Cancela no fim do período. Você mantém o acesso até lá.",
+          "renews": "Renova em {{date}}.",
+          "active": "Sua assinatura está ativa."
+        },
+        "seats": "Assentos",
+        "seatsUsed": "{{used}} / {{total}} usados",
+        "upgradeToPro": "Atualize para desbloquear a sincronização na nuvem e mais",
+        "upgrade": "Atualizar",
+        "upgradeToTeams": "Experimente o Teams grátis por {{days}} dias: cofres compartilhados e funções para sua equipe. Cartão obrigatório.",
+        "teamsButton": "Experimentar grátis →",
+        "viewAllPlans": "Ver todos os planos →",
+        "feature": {
+          "localVault": "Cofre local",
+          "auditLogs": "Registros de auditoria",
+          "gistSync": "Sincronização com GitHub Gist",
+          "realtimeSync": "Sincronização em nuvem em tempo real",
+          "unlimitedVaults": "Cofres privados ilimitados",
+          "terminalSharing": "Compartilhamento de terminal (1 sessão · 1 convidado)",
+          "teamVaults": "Cofres de equipe compartilhados",
+          "teamSharing": "Compartilhamento em equipe (5 sessões · 10 convidados)",
+          "seats": "Assentos (conforme adquiridos)",
+          "lockPolicy": "Política de bloqueio da equipe (limite de bloqueio automático, Bloquear cofre)",
+          "granularPermissions": "Funções personalizadas, permissões por membro e por objeto"
+        }
+      },
+      "buySeats": {
+        "title": "Nenhum assento disponível",
+        "seatsUsed": "{{used}} / {{total}} assentos usados",
+        "inviting": "A convidar",
+        "additionalSeats": "Assentos adicionais",
+        "seatsTotal": "{{from}} → {{to}} no total",
+        "priceRow_one": "{{count}} assento × ${{price}}/mês",
+        "priceRow_many": "{{count}} assentos × ${{price}}/mês",
+        "priceRow_other": "{{count}} assentos × ${{price}}/mês",
+        "totalPerMonth": "${{amount}}/mês",
+        "proratedNote": "Cobrança proporcional aplicada imediatamente para o período de cobrança atual.",
+        "processing": "A processar…",
+        "buyAndInvite_one": "Comprar {{count}} assento e convidar",
+        "buyAndInvite_many": "Comprar {{count}} assentos e convidar",
+        "buyAndInvite_other": "Comprar {{count}} assentos e convidar",
+        "errorNotConnected": "Não conectado ao servidor",
+        "errorNoSubscription": "Nenhuma assinatura ativa encontrada",
+        "errorUpdateSeats": "Falha ao atualizar os assentos: {{status}}"
+      }
+    },
+    "diagnostics": {
+      "intro": "Problemas com o Voltius? Crie um relatório e envie ao desenvolvedor — isso ajuda a rastrear bugs difíceis de reproduzir.",
+      "troubleshootingTitle": "Solução de problemas",
+      "verboseLabel": "Log detalhado (esta sessão)",
+      "verboseSub": "Registra detalhes extras para ajudar a diagnosticar problemas. Volta ao normal quando você reinicia o Voltius.",
+      "verboseHint": "O log detalhado está ativado. Para capturar o problema:\n1. Reproduza o problema agora\n2. Volte e crie um relatório de bug",
+      "reportTitle": "Relatório de bug",
+      "createButton": "Criar relatório de bug",
+      "creatingButton": "Coletando logs…",
+      "createdButton": "Relatório guardado",
+      "reportSub": "Inclui logs do aplicativo e informações do sistema. Nunca inclui suas palavras-passe, chaves ou conteúdo do terminal.",
+      "whatsIncluded": "O que está incluído?",
+      "includedBody": "Incluído:\n• Logs do aplicativo (o que o Voltius estava fazendo, com valores sensíveis removidos)\n• Versão do aplicativo, sistema operacional e plugins ativos\nNÃO incluído:\n• Palavras-passe, conteúdo do cofre ou chaves privadas\n• Saída do terminal ou qualquer coisa que você digitou\nO relatório é guardado no seu computador. Nada é enviado automaticamente — você escolhe onde compartilhá-lo.",
+      "toastSaved": "Relatório guardado — {{name}}",
+      "toastError": "Não foi possível criar o relatório: {{reason}}",
+      "toastGenericError": "Algo deu errado."
+    },
+    "integrations": {
+      "mcp": {
+        "title": "MCP",
+        "sub": "Permite que clientes MCP locais (como o Claude Code) executem comandos, leiam, gravem e excluam ficheiros em todos os hosts do seu cofre e neste computador, criem, alterem ou excluam conexões, chaves e identidades guardadas, executem seus snippets guardados nesses hosts, autorizem chaves de host SSH, leiam os comandos que você digitou, vejam, cancelem ou repitam suas transferências de ficheiros, vejam quais dos seus hosts guardados estão acessíveis, reorganizem suas abas de terminal e painéis divididos, gerenciem a associação e os convites da sua equipe, compartilhem suas sessões de terminal com sua equipe ou transfiram o controle delas, leiam e alterem todas as configurações deste aplicativo e leiam sua assinatura, por meio de um socket privado. A aprovação acontece nesse cliente, não no Voltius. Desativado por padrão. Também pode instalar, atualizar e remover plugins, e exportar ou importar seus objetos guardados.",
+        "running": "Em execução",
+        "quickSetup": {
+          "title": "Configuração rápida",
+          "help": "Configura todos os agentes de IA que detectar neste computador, sem tocar nas suas outras configurações. Requer Node.js."
+        },
+        "manualSetup": {
+          "toggleLabel": "Configuração manual",
+          "toggleSub": "Node.js não instalado ou seu cliente não é compatível com o comando acima? Configure-o manualmente abaixo."
+        },
+        "setup": {
+          "title": "Configuração do cliente",
+          "clientLabel": "Cliente MCP",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "Execute isto uma vez para registrar o Voltius no Claude Code. O servidor precisa estar habilitado acima para que um cliente se conecte.",
+            "mcpServers": "Adicione este bloco ao claude_desktop_config.json (Claude Desktop) ou .cursor/mcp.json (Cursor, Cline, Windsurf). O servidor precisa estar habilitado acima para que um cliente se conecte.",
+            "vscode": "Adicione este bloco ao .vscode/mcp.json. O VS Code usa \"servers\", não \"mcpServers\" — colar um bloco no estilo do Cursor aqui não carrega nada silenciosamente.",
+            "opencode": "Adicione este bloco ao opencode.json (projeto) ou ~/.config/opencode/opencode.json (global)."
+          },
+          "exePathLabel": "Caminho do executável",
+          "socketLabel": "Caminho do socket",
+          "copied": "Copiado"
+        },
+        "plugins": {
+          "title": "Ferramentas de plugins expostas aos clientes",
+          "sub": "Plugins instalados podem adicionar seus próprios comandos ao servidor MCP. Desative um para mantê-lo fora da lista de ferramentas sem desinstalá-lo.",
+          "empty": "Nenhum plugin instalado expõe ferramentas.",
+          "count_one": "{{count}} ferramenta",
+          "count_many": "{{count}} ferramentas",
+          "count_other": "{{count}} ferramentas"
+        }
+      }
+    },
+    "mcp": {
+      "consequence": {
+        "autoUpdate": "Desativa o download automático de atualizações, então as correções de segurança deixam de chegar sozinhas.",
+        "pluginInstallReview": "Desativa a tela de consentimento mostrada antes de instalar um plugin. Um plugin que pede uma permissão sensível ainda a mostrará.",
+        "sessionTimeout": "Desativa ou aumenta o bloqueio automático.",
+        "lockAction": "Muda o bloqueio para um bloqueio de tela que mantém a chave do cofre na memória.",
+        "systemAuthUnlock": "Permite que o login do dispositivo desbloqueie o Voltius, mantendo a chave do cofre no chaveiro do sistema enquanto bloqueado."
+      }
+    },
+    "about": {
+      "versionTitle": "Versão",
+      "loading": "A carregar…",
+      "updatesTitle": "Atualizações",
+      "checkForUpdate": "Verificar atualizações",
+      "restartToUpdate": "Reiniciar para atualizar · v{{version}}",
+      "downloadUpdate": "Baixar atualização · v{{version}}",
+      "status": {
+        "idle": "Ainda não verificado",
+        "checking": "A verificar atualizações…",
+        "upToDate": "Você está atualizado",
+        "downloading": "A transferir v{{version}} — {{progress}}%",
+        "ready": "v{{version}} pronta para instalar",
+        "available": "v{{version}} disponível"
+      },
+      "autoDownload": {
+        "title": "Baixar atualizações automaticamente",
+        "desc": "Baixar novas versões em segundo plano. O Voltius as verifica de qualquer forma."
+      },
+      "whatsNew": {
+        "title": "Mostrar novidades após atualizações",
+        "desc": "Abrir o changelog automaticamente em um novo lançamento"
+      },
+      "linksTitle": "Links",
+      "links": {
+        "github": "GitHub",
+        "documentation": "Documentação",
+        "x": "X",
+        "kofi": "Ko-Fi",
+        "contact": "Contato"
+      },
+      "reportBug": "Relatar um bug"
+    },
+    "sync": {
+      "voltiusCloud": "Voltius Cloud",
+      "active": {
+        "title": "Sincronização na nuvem ativa",
+        "syncing": "A sincronizar…",
+        "error": "Erro: {{error}}",
+        "lastSync": "Última sincronização: {{time}}",
+        "offline": "Não é possível alcançar o servidor",
+        "offlineDetail": "Não é possível alcançar o servidor: {{error}}",
+        "idle": "Ainda não sincronizado",
+        "paused": "Pausada neste dispositivo",
+        "syncNow": "Sincronizar agora"
+      },
+      "pause": {
+        "label": "Pausar sincronização neste dispositivo",
+        "sub": "Interrompe a sincronização em segundo plano com o servidor. Os cofres de equipe param de atualizar e não carregam na inicialização até você retomar. Sincronizar agora sincroniza apenas seus próprios dados."
+      },
+      "requiresPro": {
+        "title": "Sincronização na nuvem",
+        "sub": "Requer uma assinatura Pro",
+        "upgrade": "Atualizar"
+      },
+      "notConnected": {
+        "title": "Conta na nuvem não conectada",
+        "sub": "Entre ou crie uma conta na nuvem para sincronizar entre dispositivos.",
+        "signIn": "Entrar"
+      },
+      "providersTitle": "Plugins de sincronização",
+      "prefsTitle": "Preferências de sincronização",
+      "prefsFooter": "Os tipos desativados nunca são enviados. Objetos individuais também podem ser eliminados do painel de edição deles.",
+      "quickToggleLabel": "Sincronizar {{label}}",
+      "objectType": {
+        "connection": {
+          "label": "Hosts",
+          "sub": "Conexões SSH"
+        },
+        "identity": {
+          "label": "Identidades",
+          "sub": "Nomes de utilizador e credenciais"
+        },
+        "key": {
+          "label": "Chaves SSH",
+          "sub": "Pares de chaves armazenados no chaveiro"
+        },
+        "folder": {
+          "label": "Pastas",
+          "sub": "Estrutura de pastas para organizar objetos"
+        },
+        "snippet": {
+          "label": "Snippets",
+          "sub": "Comandos e scripts guardados"
+        },
+        "port-forwarding-rule": {
+          "label": "Encaminhamento de portas",
+          "sub": "Regras de túnel guardadas"
+        }
+      },
+      "settingsTitle": "Configurações",
+      "settingsFooter": "Tudo o que estiver desativado fica neste dispositivo. Nunca é enviado, nem encriptado. Reativar a sincronização publica os valores deste dispositivo.",
+      "settingDomain": {
+        "themes": {
+          "label": "Temas",
+          "sub": "Tema ativo e temas personalizados"
+        },
+        "uiPreferences": {
+          "label": "Interface",
+          "sub": "Escala, layouts e ordem de classificação"
+        },
+        "shortcuts": {
+          "label": "Atalhos",
+          "sub": "Substituições de teclado"
+        },
+        "appSettings": {
+          "label": "Configurações do aplicativo",
+          "sub": "Terminal, SFTP, plugins, idioma"
+        },
+        "recentPeople": {
+          "label": "Pessoas recentes",
+          "sub": "Quem você convidou ultimamente"
+        }
+      },
+      "settingKey": {
+        "preferredShell": "Shell padrão",
+        "pluginOverrides": "Plugins habilitados",
+        "themeLocation": "Localização do nascer/pôr do sol"
+      },
+      "keyButton": {
+        "hold": "Manter esta configuração neste dispositivo",
+        "resume": "Não sincronizada — clique para sincronizar esta configuração novamente",
+        "deviceDefault": "Não sincronizada: específica deste dispositivo. Clique para sincronizá-la mesmo assim.",
+        "domainOff": "A sincronização está desativada para todo este grupo"
+      },
+      "heldBack": {
+        "summary": "Mantidas neste dispositivo: {{count}}",
+        "deviceDefault": "padrão do dispositivo",
+        "yourChoice": "sua escolha",
+        "resume": "Retomar sincronização"
+      }
+    },
+    "vaults": {
+      "general": {
+        "renameFailedToast": "Não foi possível renomear este cofre. {{reason}}",
+        "vaultNameLabel": "Nome do cofre",
+        "save": "Guardar",
+        "makePrivate": {
+          "title": "Tornar privado",
+          "confirmAll": "Remover todos os membros e tornar privado?",
+          "confirm_one": "Remover {{count}} membro e tornar privado?",
+          "confirm_many": "Remover {{count}} membros e tornar privado?",
+          "confirm_other": "Remover {{count}} membros e tornar privado?",
+          "converting": "Convertendo…",
+          "confirmBtn": "Confirmar",
+          "copyFailedToast": "Não foi possível copiar tudo da equipe — nada foi eliminado, e este ainda é um cofre de equipe.",
+          "removeMembersFailedToast": "Não foi possível remover os membros — este ainda é um cofre de equipe. {{reason}}",
+          "failedToast": "Não foi possível tornar este cofre privado — {{reason}}"
+        },
+        "deleteVault": {
+          "title": "Eliminar cofre",
+          "confirmDesc": "Exclui permanentemente este cofre e seus {{count}} itens. Isso não pode ser desfeito.",
+          "confirmDescTeam": "Exclui permanentemente este cofre e seus {{count}} itens para todos os membros. Isso não pode ser desfeito.",
+          "confirmBtn": "Confirmar exclusão",
+          "deleting": "A eliminar…",
+          "failedToast": "Não foi possível concluir a exclusão deste cofre — ele ainda está aqui, mas alguns de seus itens podem já ter sido removidos. {{reason}}",
+          "teamFailedToast": "Não foi possível eliminar este cofre — nada foi eliminado. {{reason}}"
+        },
+        "madePrivateToast_one": "O cofre agora é privado. {{count}} membro perdeu o acesso.",
+        "madePrivateToast_many": "O cofre agora é privado. {{count}} membros perderam o acesso.",
+        "madePrivateToast_other": "O cofre agora é privado. {{count}} membros perderam o acesso.",
+        "madePrivateToastEmpty": "O cofre agora é privado."
+      },
+      "rolesPanel": {
+        "permGroup": {
+          "administration": "Administração",
+          "dataAccess": "Acesso aos dados",
+          "connectionManagement": "Gerenciamento de conexões",
+          "teamAdministration": "Administração da equipe",
+          "terminalSessions": "Sessões de terminal"
+        },
+        "perm": {
+          "VIEW": "Ver um objeto",
+          "ADMINISTRATOR": "Todas as permissões em todos os objetos, independentemente de suas regras",
+          "VIEW_SECRETS": "Ver palavras-passe e chaves privadas em texto simples",
+          "COPY_SECRETS": "Copiar palavras-passe e chaves para a área de transferência",
+          "CONNECT": "Iniciar conexões SSH",
+          "EDIT_CONNECTIONS": "Criar, modificar e eliminar conexões",
+          "EDIT_IDENTITIES": "Criar, modificar e eliminar identidades SSH",
+          "EDIT_KEYS": "Criar, modificar e eliminar chaves SSH",
+          "EDIT_SNIPPETS": "Criar, modificar e eliminar snippets de comando",
+          "EDIT_FOLDERS": "Gerenciar a estrutura de pastas",
+          "VIEW_AUDIT_LOG": "Ler o registro de auditoria de atividades",
+          "INVITE_MEMBERS": "Convidar novos membros para o cofre",
+          "MANAGE_MEMBERS": "Atribuir funções e remover membros",
+          "CREATE_CUSTOM_ROLES": "Permissão descontinuada — mantida por compatibilidade",
+          "MANAGE_ROLES": "Criar, editar e eliminar funções",
+          "MANAGE_VAULT": "Renomear o cofre e gerenciar as configurações do cofre",
+          "START_TERMINAL_SESSION": "Iniciar sessões de terminal multijogador",
+          "JOIN_TERMINAL_SESSION": "Entrar em sessões de terminal existentes",
+          "VIEW_TERMINAL_SESSIONS": "Ver sessões de terminal ativas"
+        },
+        "builtinBadge": "Nativa",
+        "dragToReorder": "Arraste para reordenar",
+        "deleteRoleTitle": "Eliminar função",
+        "clickToConfirm": "Clique novamente para confirmar",
+        "failedToDelete": "Falha ao eliminar",
+        "editRole": "Editar função",
+        "newRole": "Nova função personalizada",
+        "roleName": "Nome da função",
+        "roleNamePlaceholder": "ex.: Somente leitura, Implantação, DevOps…",
+        "colorLabel": "Cor",
+        "clearColor": "Limpar",
+        "preview": "Prévia",
+        "permissionsLabel": "Permissões",
+        "objectOverrideNote": "Qualquer host, chave, identidade, snippet ou pasta pode substituir estas permissões.",
+        "saveChanges": "Guardar alterações",
+        "createRole": "Criar função",
+        "errorNameRequired": "O nome é obrigatório",
+        "errorFailedToSave": "Falha ao guardar a função",
+        "builtinRoles": "Funções nativas",
+        "customRoles": "Funções personalizadas",
+        "newRoleBtn": "Nova função",
+        "noCustomRolesCanEdit": "Nenhuma função personalizada ainda. Crie uma para atribuir permissões específicas.",
+        "noCustomRoles": "Nenhuma função personalizada definida para esta equipe."
+      }
+    },
+    "plugins": {
+      "categoryLabel": "Plugin",
+      "tabs": {
+        "installed": "Instalados ({{count}})",
+        "browse": "Explorar",
+        "updateCount_one": "• {{count}} atualização",
+        "updateCount_many": "• {{count}} atualizações",
+        "updateCount_other": "• {{count}} atualizações"
+      },
+      "installed": {
+        "filterPlaceholder": "Filtrar plugins…",
+        "scanTitle": "Procurar plugins locais",
+        "pluginSettingsTitle": "Configurações de {{name}}",
+        "noConfig": "Nenhuma configuração disponível.",
+        "bundledBadge": "Incluído",
+        "settingsTitle": "Configurações do plugin",
+        "reloadTitle": "Recarregar plugin",
+        "uninstallTitle": "Desinstalar plugin",
+        "noMatch": "Nenhum plugin corresponde à sua pesquisa.",
+        "noneInstalled": "Nenhum plugin instalado.",
+        "sourceLocal": "Local",
+        "sourceUrl": "URL",
+        "sourceInstalled": "Instalado",
+        "unverified": "Não verificado",
+        "update": "Atualizar",
+        "updating": "A atualizar…",
+        "updateTitle": "Atualizar para v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "Desinstalar {{name}}?",
+          "message": "{{name}} é um plugin incluído. Desinstalá-lo o remove da sua lista — você pode reinstalá-lo a qualquer momento na aba Explorar.",
+          "confirm": "Desinstalar"
+        }
+      },
+      "browse": {
+        "searchPlaceholder": "Pesquisar plugins…",
+        "refreshTitle": "Atualizar catálogo",
+        "manageSourcesTitle": "Gerenciar fontes",
+        "sourcesHeader": "Fontes de plugins",
+        "addSource": "Adicionar fonte",
+        "addSourcePlaceholder": "https://example.com/plugins.json",
+        "add": "Adicionar",
+        "installedBadge": "Instalado",
+        "byAuthor": "por {{author}} · v{{version}}",
+        "noCatalog": "Nenhum plugin no catálogo.",
+        "noResults": "Nenhum resultado.",
+        "removing": "Removendo…",
+        "uninstall": "Desinstalar",
+        "installing": "A instalar…",
+        "install": "Instalar",
+        "updateBadge": "atualização disponível",
+        "requiresVersion": "Requer v{{version}} ou superior"
+      },
+      "install": {
+        "integrityFailed": "O pacote do plugin falhou na verificação de integridade — instalação bloqueada.",
+        "alreadyInstalling": "Este plugin já está sendo instalado — verifique Configurações › Plugins.",
+        "failed": "Falha ao instalar o plugin.",
+        "versionUnsupported": "Este plugin requer a versão {{version}} ou superior do aplicativo."
+      },
+      "deepLinkInstall": {
+        "title": "Instalar este plugin?",
+        "body": "Este link instala um plugin. Um plugin executa código dentro do Voltius com as permissões listadas abaixo.",
+        "summary": "{{name}} {{version}} por {{author}}",
+        "source": "Do catálogo {{source}}.",
+        "action": "Instalar",
+        "failed": "Este link não indica um plugin que o Voltius possa instalar"
+      },
+      "permissionModal": {
+        "installTitle": "Instalar {{name}}?",
+        "installBody": "Este plugin é executado com privilégios totais do aplicativo. Ele solicita estas permissões:",
+        "updateTitle": "Atualizar {{name}}?",
+        "updateBody": "Esta atualização solicita novas permissões. Revise-as antes de continuar:",
+        "newPermissions": "Novas permissões",
+        "noPermissions": "Este plugin não solicita permissões especiais.",
+        "installConfirm": "Instalar",
+        "updateConfirm": "Atualizar",
+        "permissions": {
+          "readOnlyHeading": "Acesso somente leitura",
+          "readOnlyWarning": "O plugin pode ver isto, mas não pode alterar ou eliminar nada com isso.",
+          "dangerHeading": "Permissões poderosas",
+          "dangerWarning": "Estas concedem ao plugin acesso amplo. Conceda-as apenas a um plugin em que você confia.",
+          "terminalRead": {
+            "label": "Ler a saída do terminal",
+            "description": "Ler a saída visível e o histórico das suas sessões de terminal."
+          },
+          "terminalStream": {
+            "label": "Observar a saída do terminal ao vivo",
+            "description": "Observar continuamente tudo o que é impresso nas suas sessões de terminal, à medida que acontece."
+          },
+          "terminalWrite": {
+            "label": "Digitar nos seus terminais",
+            "description": "Enviar entrada e executar comandos nas suas sessões de terminal — como se você os digitasse."
+          },
+          "keychainRead": {
+            "label": "Ler seus próprios segredos armazenados",
+            "description": "Ler segredos que este plugin armazenou anteriormente no chaveiro do seu dispositivo."
+          },
+          "keychainWrite": {
+            "label": "Armazenar segredos no seu dispositivo",
+            "description": "Guardar segredos no chaveiro do SO do seu dispositivo."
+          },
+          "metricsRead": {
+            "label": "Ler métricas do sistema",
+            "description": "Ler estatísticas de CPU, memória, disco e rede dos seus hosts conectados."
+          },
+          "dockerRead": {
+            "label": "Ler informações do Docker",
+            "description": "Listar contêineres, imagens, volumes, redes e stacks, e ler logs de contêineres. Os logs podem conter palavras-passe ou tokens."
+          },
+          "processesRead": {
+            "label": "Ler informações de processos",
+            "description": "Listar processos em execução nos seus hosts conectados."
+          },
+          "processesManage": {
+            "label": "Gerenciar processos",
+            "description": "Listar e encerrar processos em execução nos seus hosts conectados."
+          },
+          "dockerManage": {
+            "label": "Gerenciar o Docker",
+            "description": "Listar, iniciar, parar e eliminar contêineres, imagens, volumes, redes e stacks. Isso pode destruir dados permanentemente."
+          },
+          "portsForward": {
+            "label": "Encaminhar portas para este computador",
+            "description": "Abrir túneis SSH dos seus hosts conectados para portas locais neste computador, e abrir o endereço resultante no seu navegador ou área de transferência."
+          },
+          "proxmoxRead": {
+            "label": "Ler informações do Proxmox",
+            "description": "Listar contêineres LXC e seus snapshots."
+          },
+          "proxmoxManage": {
+            "label": "Gerenciar o Proxmox",
+            "description": "Listar e controlar contêineres LXC, incluindo criar, eliminar e reverter snapshots. Isso pode destruir dados permanentemente."
+          },
+          "sftpRead": {
+            "label": "Ler ficheiros",
+            "description": "Navegar e ler ficheiros nos seus hosts SSH/FTP guardados e neste computador."
+          },
+          "sftpWrite": {
+            "label": "Gravar e mover ficheiros",
+            "description": "Criar, renomear, substituir e eliminar ficheiros nos seus hosts SSH/FTP guardados e neste computador, e copiar ficheiros entre eles. Isso pode destruir dados permanentemente."
+          },
+          "audit": {
+            "label": "Registrar eventos de auditoria",
+            "description": "Adicionar entradas ao seu registro de auditoria descrevendo o que ele fez. Para um host em um cofre de equipe, essas entradas também são enviadas ao servidor dessa equipe."
+          },
+          "auditRead": {
+            "label": "Ler o registro de atividades",
+            "description": "Ler o registro de atividades deste dispositivo, incluindo quais hosts foram acessados, quais ficheiros foram tocados e o que outros plugins fizeram. Quando uma equipe é indicada, também lê o log do lado do servidor dessa equipe — a atividade de todos os membros."
+          },
+          "mcpContribute": {
+            "label": "Expor ferramentas a agentes de IA externos",
+            "description": "Permite que este plugin adicione seus próprios comandos ao servidor MCP do Voltius, para que qualquer agente de IA externo que você tenha conectado possa executá-los — usando as próprias permissões deste plugin."
+          },
+          "vaultsRead": {
+            "label": "Ver seus cofres",
+            "description": "Ver os nomes dos seus cofres, incluindo cofres de equipe, e como estão organizados."
+          },
+          "vaultsWrite": {
+            "label": "Criar e eliminar cofres",
+            "description": "Criar, renomear e eliminar seus cofres. Eliminar um cofre pode eliminar tudo o que está nele."
+          },
+          "foldersRead": {
+            "label": "Ver suas pastas",
+            "description": "Ver as pastas em que você organiza hosts, chaves, encaminhamentos de portas e snippets."
+          },
+          "foldersWrite": {
+            "label": "Criar e eliminar pastas",
+            "description": "Criar, renomear e eliminar pastas. Eliminar uma pasta pode eliminar tudo o que está nela."
+          },
+          "sessionsRead": {
+            "label": "Ver suas sessões",
+            "description": "Ver quais sessões de terminal estão abertas e quando mudam."
+          },
+          "sessionsWrite": {
+            "label": "Abrir e fechar sessões",
+            "description": "Abrir novas sessões de terminal e fechar as existentes."
+          },
+          "connectionsRead": {
+            "label": "Ler suas conexões",
+            "description": "Ler suas conexões guardadas e seus detalhes."
+          },
+          "connectionsWrite": {
+            "label": "Gerenciar suas conexões",
+            "description": "Criar, editar e eliminar suas conexões guardadas."
+          },
+          "keysRead": {
+            "label": "Ler suas chaves SSH",
+            "description": "Listar suas chaves SSH guardadas e acrescentar uma à authorized_keys de um host guardado por SSH."
+          },
+          "keysWrite": {
+            "label": "Gerenciar suas chaves SSH",
+            "description": "Criar e eliminar chaves SSH em seu nome."
+          },
+          "identitiesRead": {
+            "label": "Ler suas identidades",
+            "description": "Listar suas identidades guardadas."
+          },
+          "identitiesWrite": {
+            "label": "Gerenciar suas identidades",
+            "description": "Criar e eliminar identidades em seu nome."
+          },
+          "snippetsRead": {
+            "label": "Ler seus snippets",
+            "description": "Listar seus snippets guardados e os comandos que executam."
+          },
+          "snippetsWrite": {
+            "label": "Gerenciar seus snippets",
+            "description": "Criar, editar, mover e eliminar seus snippets guardados."
+          },
+          "snippetsRun": {
+            "label": "Executar seus snippets nos seus hosts",
+            "description": "Executar um snippet guardado em um host, a ligar-se a ele se necessário. Seus comandos são executados com o seu próprio acesso, exatamente como se você os executasse."
+          },
+          "portForwardingRead": {
+            "label": "Ler seus encaminhamentos de portas",
+            "description": "Listar suas regras de encaminhamento de portas guardadas e os túneis abertos no momento."
+          },
+          "portForwardingWrite": {
+            "label": "Gerenciar seus encaminhamentos de portas",
+            "description": "Criar, editar, mover e eliminar suas regras de encaminhamento de portas guardadas."
+          },
+          "knownHostsRead": {
+            "label": "Ler seus hosts conhecidos",
+            "description": "Listar as chaves de host SSH que você confiou, com suas impressões digitais."
+          },
+          "knownHostsWrite": {
+            "label": "Confiar e remover chaves de host",
+            "description": "Autorizar uma chave de host SSH ou eliminar uma em que você confiou. Uma chave confiável significa que as conexões com esse host são aceitas sem perguntar a você."
+          },
+          "historyRead": {
+            "label": "Ler seu histórico de comandos",
+            "description": "Pesquisar os comandos que você digitou nos terminais. Eles podem conter palavras-passe ou tokens que você digitou em texto simples."
+          },
+          "transfersRead": {
+            "label": "Ver transferências de ficheiros",
+            "description": "Ver as transferências de ficheiros em andamento, incluindo nomes de ficheiros, progresso e erros."
+          },
+          "transfersWrite": {
+            "label": "Cancelar e repetir transferências",
+            "description": "Cancelar uma transferência de ficheiros em andamento ou iniciar novamente uma que falhou — incluindo transferências que você mesmo iniciou."
+          },
+          "healthRead": {
+            "label": "Ver a acessibilidade dos hosts",
+            "description": "Ver quais dos seus hosts guardados responderam pela última vez a uma verificação de acessibilidade, e com que rapidez."
+          },
+          "vaultRead": {
+            "label": "Ler seu cofre",
+            "description": "Ler dados armazenados no seu cofre."
+          },
+          "vaultWrite": {
+            "label": "Gravar no seu cofre",
+            "description": "Armazenar e alterar dados no seu cofre."
+          },
+          "syncRead": {
+            "label": "Ler dados de sincronização",
+            "description": "Ler os próprios dados deste plugin sincronizados entre seus dispositivos, e ver o status da sincronização da sua própria configuração."
+          },
+          "syncWrite": {
+            "label": "Gravar dados de sincronização",
+            "description": "Armazenar e alterar dados sincronizados entre seus dispositivos."
+          },
+          "panesRead": {
+            "label": "Ler o layout do terminal",
+            "description": "Ver suas abas abertas e painéis divididos, e qual sessão está em cada um."
+          },
+          "panesWrite": {
+            "label": "Organizar os painéis do terminal",
+            "description": "Dividir, mover, separar e focar painéis do terminal. As sessões permanecem abertas; nada é fechado."
+          },
+          "teamRead": {
+            "label": "Ler suas equipes",
+            "description": "Ver suas equipes, quem pertence a elas, suas funções e quais membros possuem a chave do cofre da equipe."
+          },
+          "teamWrite": {
+            "label": "Gerenciar membros da equipe",
+            "description": "Convidar pessoas para suas equipes, remover membros e alterar a função deles."
+          },
+          "sharingRead": {
+            "label": "Ler terminais compartilhados",
+            "description": "Ver quais das suas sessões de terminal estão compartilhadas, quem as assiste e quem tem o controle."
+          },
+          "sharingWrite": {
+            "label": "Compartilhar terminais ao vivo",
+            "description": "Transmitir uma sessão de terminal ao vivo para membros das suas equipes, parar o compartilhamento e passar o controle dela a um participante que o solicitou."
+          },
+          "settingsRead": {
+            "label": "Ler as configurações do aplicativo",
+            "description": "Ver cada configuração deste aplicativo e seu valor atual."
+          },
+          "settingsWrite": {
+            "label": "Alterar as configurações do aplicativo",
+            "description": "Alterar qualquer configuração deste aplicativo, incluindo as que desativam uma proteção."
+          },
+          "accountRead": {
+            "label": "Ler sua assinatura",
+            "description": "Ver seu plano, status do teste, assentos e estado da cobrança."
+          },
+          "pluginsManage": {
+            "label": "Gerenciar plugins",
+            "description": "Instalar, atualizar, remover, habilitar e desabilitar plugins, e adicionar fontes de marketplace. Um plugin instalado executa código dentro do Voltius com as permissões que declara."
+          },
+          "importExportRead": {
+            "label": "Exportar seus dados",
+            "description": "Exportar conexões, identidades, chaves SSH, snippets e regras de encaminhamento de portas. Pacotes contendo palavras-passe ou chaves privadas só podem ser exportados encriptados."
+          },
+          "importExportWrite": {
+            "label": "Importar dados",
+            "description": "Importar conexões, identidades, chaves SSH, snippets e regras de encaminhamento de portas para um cofre. Os itens existentes nunca são substituídos."
+          },
+          "storage": {
+            "label": "Armazenar dados do plugin",
+            "description": "Guardar as próprias configurações e dados deste plugin no seu dispositivo."
+          },
+          "http": {
+            "label": "Acessar a rede",
+            "description": "Fazer solicitações de rede a serviços externos."
+          },
+          "cryptoDerive": {
+            "label": "Derivar chaves de criptografia",
+            "description": "Derivar uma chave de criptografia a partir de uma frase secreta que você fornece. Não concede acesso aos seus segredos armazenados."
+          },
+          "fs": {
+            "label": "Acessar ficheiros",
+            "description": "Ler e gravar ficheiros no seu dispositivo."
+          },
+          "ui": {
+            "label": "Mostrar elementos de interface",
+            "description": "Adicionar seus próprios painéis e controles ao aplicativo."
+          },
+          "notifications": {
+            "label": "Mostrar notificações",
+            "description": "Mostrar notificações e avisos a você."
+          },
+          "settingsPage": {
+            "label": "Adicionar uma página de configurações",
+            "description": "Adicionar sua própria página às Configurações."
+          },
+          "rightPanel": {
+            "label": "Adicionar um painel lateral",
+            "description": "Adicionar um painel à área lateral da sessão."
+          },
+          "globalPanel": {
+            "label": "Adicionar um painel global",
+            "description": "Adicionar um painel disponível em todo o aplicativo."
+          },
+          "themes": {
+            "label": "Adicionar temas de cores",
+            "description": "Adicionar seus próprios temas de cores que você pode selecionar no aplicativo."
+          },
+          "omniCommands": {
+            "label": "Adicionar ações à paleta de comandos",
+            "description": "Adicionar suas próprias ações à paleta de comandos."
+          },
+          "uiContributions": {
+            "label": "Adicionar elementos de interface",
+            "description": "Adicionar seus próprios elementos à interface do aplicativo."
+          }
+        }
+      }
+    },
+    "sftp": {
+      "downloads": {
+        "title": "Downloads",
+        "folderLabel": "Pasta de download",
+        "notSet": "Não definida — escolhida no primeiro download",
+        "changeFolder": "Alterar pasta"
+      },
+      "transfers": {
+        "title": "Transferências",
+        "tarAcceleration": {
+          "title": "Aceleração com tar",
+          "desc": "Empacotar diretórios em um único tar.gz antes da transferência — muito mais rápido para muitos ficheiros pequenos. Requer <code>tar</code> nos dois lados."
+        }
+      },
+      "filePanel": {
+        "showHidden": {
+          "title": "Mostrar ficheiros ocultos"
+        },
+        "title": "Painel de ficheiros",
+        "autoRefresh": {
+          "title": "Atualização automática",
+          "desc": "Atualiza silenciosamente o conteúdo do diretório em segundo plano"
+        },
+        "refreshInterval": {
+          "title": "Intervalo de atualização",
+          "desc": "Mínimo de 0,5 s",
+          "unit": "s"
+        }
+      },
+      "editor": {
+        "maxBytes": {
+          "title": "Tamanho máximo de ficheiro editável"
+        },
+        "title": "Editor",
+        "autoSave": {
+          "title": "Salvamento automático",
+          "desc": "Guardar alterações no ficheiro automaticamente enquanto você digita"
+        }
+      }
+    },
+    "portForwarding": {
+      "automationTitle": "Automação",
+      "autoForward": {
+        "title": "Encaminhamento automático de portas",
+        "desc": "As portas de escuta detectadas são encaminhadas automaticamente durante as sessões SSH"
+      },
+      "notifications": {
+        "title": "Notificações de encaminhamento",
+        "desc": "Mostrar uma notificação sempre que uma porta for encaminhada automaticamente"
+      }
+    },
+    "hosts": {
+      "connectivityTitle": "Conectividade",
+      "reachability": {
+        "title": "Verificação de acessibilidade",
+        "desc": "Sonda a porta SSH e mostra um ponto de status + latência em cada cartão de host. Pode ser desativada por host nas configurações do host."
+      },
+      "pollInterval": {
+        "title": "Intervalo de verificação",
+        "desc": "Frequência de verificação em segundo plano para a página de hosts."
+      },
+      "ms": "ms",
+      "activeInterval": {
+        "title": "Intervalo da sessão ativa",
+        "desc": "Frequência mais rápida usada para o indicador de latência na barra de status do terminal."
+      },
+      "keepalive": {
+        "title": "Keepalive",
+        "desc": "Com que rapidez uma sessão é declarada perdida quando o servidor para de responder. {{detail}}. Pode ser substituído por host."
+      },
+      "keepalivePresets": {
+        "fast": {
+          "label": "Rápido",
+          "detail": "Detecta uma conexão perdida em ~4s"
+        },
+        "balanced": {
+          "label": "Equilibrado",
+          "detail": "~9s; tolera uma breve oscilação de rede"
+        },
+        "tolerant": {
+          "label": "Tolerante",
+          "detail": "~20s; para redes instáveis"
+        },
+        "off": {
+          "label": "Desativado",
+          "detail": "Sem sondagens de keepalive"
+        }
+      },
+      "proxy": {
+        "title": "Proxy",
+        "desc": "Encaminhar SSH, SFTP e verificações de acessibilidade por um proxy. Os hosts podem substituir isto.",
+        "modes": {
+          "none": "Sem proxy",
+          "system": "Sistema",
+          "socks5": "SOCKS5",
+          "http": "HTTP",
+          "https": "HTTPS"
+        },
+        "detected": "Detectado: {{kind}} {{host}}:{{port}}",
+        "detectedNone": "Detectado: nenhum (a ligar diretamente)",
+        "passwordSaveFailed": "Não foi possível guardar a palavra-passe do proxy: {{error}}"
+      },
+      "persistentSessions": {
+        "title": "Sessões persistentes",
+        "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão."
+      },
+      "terminalTitle": "Terminal",
+      "shellIntegration": {
+        "title": "Integração com o shell",
+        "desc": "Conecta o shell remoto/local para informar seu diretório de trabalho (OSC 7) para painéis de ficheiros cientes do diretório atual. Se a mensagem de boas-vindas ou o prompt de um host parecerem errados, desative-a nele. Pode ser substituído por host, em Avançado nas configurações da conexão."
+      },
+      "teamPresenceTitle": "Presença da equipe",
+      "teamPresence": {
+        "title": "Compartilhar quais hosts do cofre de equipe você está usando",
+        "desc": "Quando ativado, seu avatar aparece em um cartão de host enquanto você tem um terminal aberto para ele. Apenas colegas de equipe com acesso ao host o veem."
+      },
+      "sshConfig": {
+        "switch": {
+          "title": "Sincronizar continuamente a partir de ~/.ssh/config",
+          "desc": "Os hosts do seu config são criados e mantidos atualizados no Voltius, em todos os seus computadores. Útil quando uma ferramenta escreve o config (gcloud, MDM…)."
+        },
+        "vault": {
+          "title": "Cofre",
+          "desc": "Onde novos hosts gerenciados são criados. Apenas cofres pessoais.",
+          "personal": "Pessoal"
+        },
+        "status": {
+          "title": "Status",
+          "line": "Última leitura {{when}} · {{managed}} gerenciados · {{skipped}} não sincronizados",
+          "never": "Ainda não lido",
+          "view": "Ver hosts…",
+          "syncNow": "Sincronizar agora"
+        },
+        "off": {
+          "title": "Desativar a sincronização contínua?",
+          "message_one": "O host gerenciado permanece no Voltius e se torna um host normal: ele deixa de seguir ~/.ssh/config, em todos os seus computadores.",
+          "message_many": "Os {{count}} hosts gerenciados permanecem no Voltius e se tornam hosts normais: eles deixam de seguir ~/.ssh/config, em todos os seus computadores.",
+          "message_other": "Os {{count}} hosts gerenciados permanecem no Voltius e se tornam hosts normais: eles deixam de seguir ~/.ssh/config, em todos os seus computadores.",
+          "confirm": "Desativar"
+        },
+        "dialog": {
+          "activateTitle": "Ativar a sincronização contínua",
+          "reviewTitle": "Hosts de ~/.ssh/config",
+          "intro": "Os hosts vinculados mantêm seu nome, pasta e configurações. Apenas o que o ficheiro define (host, porta e utilizador, chave ou hosts de salto, quando presentes) será seguido, em todos os seus computadores.",
+          "turnOn": "Ativar",
+          "cancel": "Cancelar",
+          "close": "Fechar",
+          "linkAgain": "Vincular novamente",
+          "recreate": "Recriar",
+          "counts": "{{create}} para criar · {{link}} para vincular · {{skipped}} não sincronizados · cofre {{vault}}"
+        },
+        "row": {
+          "create": "Será criado",
+          "link": {
+            "legacy": "Será vinculado a “{{name}}” · sincronização anterior",
+            "detached": "Será vinculado a “{{name}}” · separado anteriormente",
+            "name": "Será vinculado a “{{name}}” · mesmo nome e endereço",
+            "address": "Será vinculado a “{{name}}” · mesmo endereço"
+          },
+          "ambiguous": "Ambíguo ({{names}} correspondem) · um novo host será criado",
+          "managed": "Gerenciado · “{{name}}”",
+          "detached": "Separado · “{{name}}” não segue mais o ficheiro",
+          "deleted": "Eliminado · não recriado pela sincronização",
+          "ignored": "Ignorado · não será sincronizado",
+          "identityReplaced": "A identidade “{{name}}” será substituída pela chave do ficheiro",
+          "skipped": {
+            "pattern": "Não sincronizado · padrão, não um host",
+            "match": "Não sincronizado · bloco Match",
+            "include": "Não sincronizado · não foi possível ler o Include",
+            "includeOutside": "Não sincronizado · Include fora de ~/.ssh",
+            "proxyCommand": "Não sincronizado · ProxyCommand não suportado",
+            "key": "Chave ilegível · host criado sem chave",
+            "keyNotCopied": "Chave não copiada · host criado sem chave",
+            "pending": "A aguardar · o host ainda não chegou do seu outro dispositivo"
+          }
+        },
+        "keys": {
+          "title": "Chaves",
+          "switch": "Copiar chaves privadas para o cofre",
+          "warning": "As chaves copiadas vão para {{vault}} e são sincronizadas com todos os seus dispositivos, incluindo o celular (criptografadas).",
+          "settingDesc": "Desativado: os hosts usam uma chave já presente no cofre (mesma chave pública ou nome), ou nenhuma chave. As chaves copiadas são sincronizadas com todos os seus dispositivos.",
+          "copy": "Será copiada",
+          "notCopied": "Não copiada",
+          "exists": "Já está no cofre",
+          "unreadable": "Ilegível"
+        },
+        "here": {
+          "title": "Este computador",
+          "desc": "A sincronização está ativada para sua conta, mas o ~/.ssh/config deste computador ainda não foi revisado. Nada é lido ou copiado aqui até você revisá-lo.",
+          "action": "Revisar…"
+        }
+      }
+    },
+    "toggleDefs": {
+      "cursorBlink": {
+        "label": "Cursor piscante"
+      },
+      "scrollMinimap": {
+        "label": "Minimapa de rolagem"
+      },
+      "selectToCopy": {
+        "label": "Selecionar para copiar"
+      },
+      "dragSelectsText": {
+        "label": "Arrastar seleciona texto"
+      },
+      "groupTabsByHost": {
+        "label": "Agrupar abas por host"
+      },
+      "ignoreBracketedPaste": {
+        "label": "Colagem simples (sem colagem entre colchetes)"
+      },
+      "pasteImageAsPath": {
+        "label": "Colar imagens como caminho de ficheiro"
+      },
+      "volumeDownCtrl": {
+        "label": "Usar Volume Down como Ctrl"
+      },
+      "keywordHighlight": {
+        "label": "Destaque de palavras-chave"
+      },
+      "autoForward": {
+        "label": "Encaminhamento automático de portas"
+      },
+      "forwardingNotifications": {
+        "label": "Notificações de encaminhamento de portas"
+      },
+      "sftpTar": {
+        "label": "Aceleração com tar no SFTP"
+      },
+      "sftpAutoRefresh": {
+        "label": "Atualização automática do SFTP"
+      },
+      "reachability": {
+        "label": "Verificação de acessibilidade"
+      },
+      "teamPresence": {
+        "label": "Presença da equipe"
+      },
+      "shellIntegration": {
+        "label": "Integração com o shell"
+      },
+      "persistentSessions": {
+        "label": "Sessões persistentes"
+      },
+      "restoreWorkspace": {
+        "label": "Restaurar área de trabalho ao iniciar"
+      },
+      "crossDeviceSessions": {
+        "label": "Sessões entre dispositivos"
+      },
+      "changelogPopup": {
+        "label": "Mostrar novidades após atualizações"
+      },
+      "pluginInstallReview": {
+        "label": "Revisar permissões antes de instalar plugins"
+      },
+      "mcpServer": {
+        "label": "Servidor MCP"
+      }
+    },
+    "shortcuts": {
+      "searchPlaceholder": "Pesquisar atalhos…",
+      "clearSearch": "Limpar pesquisa",
+      "resetAll": "Redefinir tudo",
+      "resetAllTitle": "Redefinir todos os atalhos para os padrões",
+      "statusRecording": "Pressione uma combinação de teclas… (Esc para cancelar)",
+      "statusIdle": "Clique em um atalho para remarcá-lo.",
+      "result_one": "{{count}} resultado",
+      "result_many": "{{count}} resultados",
+      "result_other": "{{count}} resultados",
+      "noMatch": "Nenhum atalho corresponde a \"{{query}}\"",
+      "bindingRecordingTitle": "Pressione uma combinação de teclas ou Esc para cancelar",
+      "bindingIdleTitle": "Clique para remarcar",
+      "pressKey": "Pressione a tecla…",
+      "conflict": "Conflito",
+      "aliasTitle": "Atalho fixo — sempre ativo",
+      "group": {
+        "global": "Global",
+        "tabs": "Abas",
+        "navigation": "Navegação",
+        "editing": "Edição",
+        "other": "Outros"
+      },
+      "items": {
+        "omni": {
+          "label": "Pesquisa Omni",
+          "desc": "Acesse tudo a partir de um único lugar"
+        },
+        "shortcuts": {
+          "label": "Atalhos de teclado",
+          "desc": "Abrir as configurações de atalhos"
+        },
+        "themes": {
+          "label": "Configurações",
+          "desc": "Abrir as configurações"
+        },
+        "newTab": {
+          "label": "Nova aba",
+          "desc": "Ir para a visualização de hosts"
+        },
+        "duplicateSession": {
+          "label": "Duplicar sessão",
+          "desc": "Abrir um segundo terminal no mesmo host"
+        },
+        "duplicateSessionSplit": {
+          "label": "Duplicar em painel dividido",
+          "desc": "Abrir um segundo terminal ao lado do atual"
+        },
+        "closeTab": {
+          "label": "Fechar aba",
+          "desc": "Fechar a sessão ativa"
+        },
+        "nextTab": {
+          "label": "Próxima aba",
+          "desc": "Alternar para a próxima aba"
+        },
+        "prevTab": {
+          "label": "Aba anterior",
+          "desc": "Alternar para a aba anterior"
+        },
+        "sidebar": {
+          "label": "Alternar barra lateral",
+          "desc": "Mostrar/ocultar a barra lateral"
+        },
+        "delete": {
+          "label": "Eliminar selecionados",
+          "desc": "Eliminar os itens selecionados"
+        },
+        "rename": {
+          "label": "Renomear selecionado",
+          "desc": "Renomear o item selecionado no local"
+        },
+        "copy": {
+          "label": "Copiar",
+          "desc": "Copiar os itens selecionados para a área de transferência"
+        },
+        "cut": {
+          "label": "Recortar",
+          "desc": "Recortar os itens selecionados para a área de transferência"
+        },
+        "paste": {
+          "label": "Colar",
+          "desc": "Colar os itens da área de transferência na pasta atual"
+        },
+        "undo": {
+          "label": "Desfazer",
+          "desc": "Desfazer a última ação"
+        },
+        "redo": {
+          "label": "Refazer",
+          "desc": "Refazer a última ação desfeita"
+        },
+        "filter": {
+          "label": "Focar filtro",
+          "desc": "Focar o filtro de pesquisa"
+        },
+        "terminalSearch": {
+          "label": "Localizar no terminal",
+          "desc": "Pesquisar no histórico do terminal"
+        },
+        "history": {
+          "label": "Painel de histórico",
+          "desc": "Abrir o histórico de comandos no painel direito"
+        },
+        "snippets": {
+          "label": "Painel de snippets",
+          "desc": "Abrir snippets no painel direito"
+        },
+        "panelThemes": {
+          "label": "Painel de temas",
+          "desc": "Abrir temas no painel direito"
+        },
+        "panelNotes": {
+          "label": "Painel de notas",
+          "desc": "Abrir notas do host no painel direito"
+        }
+      }
+    }
+  }
+}

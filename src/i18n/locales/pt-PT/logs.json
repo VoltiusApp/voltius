@@ -1,0 +1,165 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "Nenhum cofre selecionado",
+        "description": "Selecione um único cofre para visualizar registros de auditoria."
+      },
+      "restricted": {
+        "title": "Acesso restrito",
+        "description": "Você precisa da permissão Visualizar Registro de Auditoria para acessar esta página."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Filtrar registros…",
+      "allActors": "Todos os atores",
+      "fromDate": "De data",
+      "toDate": "Até data",
+      "dateRangeSeparator": "a",
+      "reset": "Redefinir",
+      "actionOptions": {
+        "all": "Todas as ações",
+        "memberInvited": "Membro convidado",
+        "memberJoined": "Membro entrou",
+        "memberRemoved": "Membro removido",
+        "memberRoleChanged": "Função alterada",
+        "memberPermissionsChanged": "Permissões alteradas",
+        "connectionCreated": "Host criado",
+        "connectionUpdated": "Host atualizado",
+        "connectionDeleted": "Host eliminado",
+        "identityCreated": "Identidade criada",
+        "identityUpdated": "Identidade atualizada",
+        "identityDeleted": "Identidade excluída",
+        "keyCreated": "Chave criada",
+        "keyUpdated": "Chave atualizada",
+        "keyDeleted": "Chave excluída",
+        "snippetCreated": "Snippet criado",
+        "snippetUpdated": "Snippet atualizado",
+        "snippetDeleted": "Snippet eliminado",
+        "folderCreated": "Pasta criada",
+        "folderUpdated": "Pasta atualizada",
+        "folderDeleted": "Pasta excluída",
+        "portForwardCreated": "Encaminhamento de porta criado",
+        "portForwardUpdated": "Encaminhamento de porta atualizado",
+        "portForwardDeleted": "Encaminhamento de porta eliminado",
+        "vaultRenamed": "Cofre renomeado",
+        "vaultKeyRotated": "Chave rotacionada",
+        "teamLockPolicySet": "Política de bloqueio definida",
+        "teamLockPolicyRemoved": "Política de bloqueio removida",
+        "roleCreated": "Função criada",
+        "roleUpdated": "Função atualizada",
+        "roleDeleted": "Função excluída",
+        "connectionStarted": "Conexão iniciada",
+        "connectionEnded": "Conexão encerrada",
+        "secretViewed": "Segredo revelado",
+        "sessionStarted": "Sessão iniciada",
+        "sessionEnded": "Sessão encerrada",
+        "sessionJoined": "Sessão participada",
+        "memberRenamed": "Membro renomeado",
+        "permissionGranted": "Permissão concedida",
+        "permissionRevoked": "Permissão revogada",
+        "sessionLeft": "Sessão deixada",
+        "vaultCreated": "Cofre criado",
+        "vaultDeleted": "Cofre eliminado"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Últimas 24 horas",
+      "lastWeek": "Última semana",
+      "lastMonth": "Últimos 30 dias",
+      "all": "Todo o tempo",
+      "custom": "Intervalo personalizado"
+    },
+    "layout": {
+      "timeline": "Linha do tempo",
+      "horizontal": "Visual",
+      "list": "Lista"
+    },
+    "export": {
+      "button": "Exportar",
+      "failed": "Falha na exportação"
+    },
+    "badges": {
+      "client": "cliente",
+      "clientTooltip": "Reportado pelo aplicativo cliente — não autoritativo",
+      "ownKey": "própria chave",
+      "ownKeyTooltip": "Conectado com a própria identidade do membro; nunca sai do dispositivo deles",
+      "shared": "compartilhado · {{name}}",
+      "sharedUnknown": "compartilhado"
+    },
+    "eventLabels": {
+      "memberInvited": "convidou {{name}}",
+      "memberJoined": "entrou na equipe como {{role}}",
+      "memberRemoved": "removeu {{name}}",
+      "memberRenamed": "nomeou {{name}} “{{to}}”",
+      "memberNameRemoved": "removeu o nome de {{name}}",
+      "memberRoleChanged": "alterou a função de {{name}}",
+      "memberPermissionsChanged": "alterou as permissões de {{name}}",
+      "vaultCreated": "criou o cofre \"{{name}}\"",
+      "vaultDeleted": "excluiu o cofre \"{{name}}\"",
+      "vaultRenamed": "renomeou o cofre para \"{{name}}\"",
+      "vaultKeyRotated": "rotacionou a chave do cofre \"{{name}}\"",
+      "lockPolicySet": "definiu a política de bloqueio (bloqueio automático: {{timeout}})",
+      "lockPolicySetVault": "definiu a política de bloqueio (bloqueio automático: {{timeout}}, bloqueio de cofre necessário)",
+      "lockPolicyRemoved": "removeu a política de bloqueio",
+      "roleCreated": "criou a função \"{{name}}\"",
+      "roleUpdated": "atualizou a função \"{{name}}\"",
+      "roleDeleted": "excluiu a função \"{{name}}\"",
+      "permissionGranted": "concedeu permissão em {{name}}",
+      "permissionRevoked": "revogou permissão em {{name}}",
+      "connectionCreated": "criou o host \"{{name}}\"",
+      "connectionUpdated": "atualizou o host \"{{name}}\"",
+      "connectionDeleted": "excluiu o host \"{{name}}\"",
+      "connectionStarted": "conectou a {{name}}",
+      "connectionEnded": "desconectou de {{name}}",
+      "identityCreated": "criou a identidade \"{{name}}\"",
+      "identityUpdated": "atualizou a identidade \"{{name}}\"",
+      "identityDeleted": "excluiu a identidade \"{{name}}\"",
+      "keyCreated": "criou a chave \"{{name}}\"",
+      "keyUpdated": "atualizou a chave \"{{name}}\"",
+      "keyDeleted": "excluiu a chave \"{{name}}\"",
+      "snippetCreated": "criou o snippet \"{{name}}\"",
+      "snippetUpdated": "atualizou o snippet \"{{name}}\"",
+      "snippetDeleted": "excluiu o snippet \"{{name}}\"",
+      "folderCreated": "criou a pasta \"{{name}}\"",
+      "folderUpdated": "atualizou a pasta \"{{name}}\"",
+      "folderDeleted": "excluiu a pasta \"{{name}}\"",
+      "portForwardCreated": "criou o encaminhamento de porta \"{{name}}\"",
+      "portForwardUpdated": "atualizou o encaminhamento de porta \"{{name}}\"",
+      "portForwardDeleted": "excluiu o encaminhamento de porta \"{{name}}\"",
+      "secretViewed": "revelou o segredo \"{{name}}\"",
+      "sessionStarted": "iniciou sessão de terminal",
+      "sessionEnded": "encerrou sessão de terminal",
+      "sessionJoined": "participou da sessão de terminal",
+      "sessionLeft": "saiu da sessão de terminal",
+      "fallbackUser": "um utilizador",
+      "fallbackMember": "um membro",
+      "fallbackRole": "membro",
+      "fallbackResource": "um recurso",
+      "fallbackHost": "um host",
+      "you": "Você"
+    },
+    "timeline": {
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "weekOf": "Semana de {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "Ator",
+        "action": "Ação",
+        "target": "Alvo",
+        "time": "Hora"
+      }
+    },
+    "pagination": {
+      "prev": "Anterior",
+      "next": "Próximo",
+      "pageOf": "Página {{page}} / {{totalPages}}"
+    },
+    "emptyState": "Nenhum evento corresponde aos seus filtros.",
+    "error": {
+      "retry": "Tentar novamente"
+    }
+  }
+}

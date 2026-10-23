@@ -1,0 +1,224 @@
+{
+  "fileTransfer": {
+    "common": {
+      "localMachine": "Máquina Local",
+      "remoteFallback": "remoto",
+      "itemsCount_one": "{{count}} item",
+      "itemsCount_other": "{{count}} itens",
+      "itemsCount_many": "{{count}} itens"
+    },
+    "acceleratedBadge": {
+      "title": "Aceleração Tar",
+      "description": "Agrupado em um único arquivo e extraído do outro lado — muito menos viagens de ida e volta do que arquivo por arquivo.",
+      "howItWorks": "Como funciona"
+    },
+    "perFileBadge": { "reason": "Arquivo por arquivo: este host não pode fazer streaming tar" },
+    "conflict": {
+      "title": "Arquivo já existe",
+      "conflictOf": "Conflito {{number}} de {{total}}",
+      "description": "Um item com este nome já existe no destino. O que você gostaria de fazer?",
+      "skip": "Pular",
+      "skipAll": "Pular Todos",
+      "overwrite": "Sobrescrever",
+      "overwriteAll": "Sobrescrever Todos"
+    },
+    "pane": {
+      "toolbar": {
+        "parentDirectory": "Pasta pai",
+        "homeDirectory": "Pasta inicial",
+        "browse": "Procurar…",
+        "selectFolder": "Selecionar pasta",
+        "newFolder": "Nova pasta",
+        "newFile": "Novo arquivo",
+        "refresh": "Atualizar"
+      },
+      "dropToTransfer": "Solte para transferir",
+      "placeholder": {
+        "folderName": "Nome da pasta",
+        "fileName": "Nome do arquivo"
+      },
+      "emptyDirectory": "Diretório vazio",
+      "refreshFailed": "Não foi possível atualizar: {{reason}}",
+      "selection": {
+        "selected": "{{count}} selecionado",
+        "clear": "Limpar"
+      },
+      "confirmDelete": {
+        "title": "Confirmar exclusão",
+        "messageSingle": "Excluir \"{{name}}\"?",
+        "messageMulti": "Excluir {{count}} itens?"
+      },
+      "menu": {
+        "download_one": "Baixar",
+        "download_other": "Baixar {{count}} itens",
+        "download_many": "Baixar {{count}} itens",
+        "copyToTarget_one": "Copiar para o destino",
+        "copyToTarget_other": "Copiar {{count}} itens para o destino",
+        "copyToTarget_many": "Copiar {{count}} itens para o destino",
+        "moveToTarget_one": "Mover para o destino",
+        "moveToTarget_other": "Mover {{count}} itens para o destino",
+        "moveToTarget_many": "Mover {{count}} itens para o destino",
+        "delete_one": "Excluir",
+        "delete_other": "Excluir {{count}} itens",
+        "delete_many": "Excluir {{count}} itens",
+        "copyPath_one": "Copiar caminho",
+        "copyPath_other": "Copiar {{count}} caminhos",
+        "copyPath_many": "Copiar {{count}} caminhos",
+        "permissions": "Permissões…",
+        "compress": "Compactar para .tar.gz",
+        "extractHere": "Extrair aqui",
+        "openInTerminal": "Abrir no terminal",
+        "uploadFiles": "Fazer upload de arquivos",
+        "selectAll": "Selecionar Tudo",
+        "deselect": "Deselecionar",
+        "disconnect": "Desconectar",
+        "hideHiddenFiles": "Ocultar arquivos ocultos",
+        "showHiddenFiles": "Mostrar arquivos ocultos",
+        "sizeColumn": "Coluna de tamanho",
+        "dateColumn": "Coluna de data",
+        "permissionsColumn": "Coluna de permissões"
+      },
+      "columns": {
+        "name": "Nome",
+        "size": "Tamanho",
+        "modified": "Modificado",
+        "permissions": "Permissões"
+      }
+    },
+    "permissions": {
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} itens",
+      "items_many": "{{count}} itens",
+      "bit": "{{who}}: {{what}}",
+      "read": "Ler",
+      "write": "Gravar",
+      "execute": "Executar",
+      "owner": "Proprietário",
+      "group": "Grupo",
+      "others": "Outros",
+      "octal": "Modo octal",
+      "uid": "uid {{id}}",
+      "gid": "gid {{id}}",
+      "mixed": "misto",
+      "noShell": "Alterar o proprietário ou o conteúdo de uma pasta precisa de um shell POSIX no host.",
+      "recurse": "Recursivo",
+      "scopeAll": "Todos",
+      "scopeFiles": "Arquivos",
+      "scopeDirs": "Pastas",
+      "apply": "Aplicar",
+      "applyItems_one": "Aplicar a {{count}}",
+      "applyItems_other": "Aplicar a {{count}}",
+      "applyItems_many": "Aplicar a {{count}}"
+    },
+    "side": {
+      "chooseHost": "Escolher host…",
+      "back": "Voltar",
+      "forward": "Avançar",
+      "filterPlaceholder": "Filtrar…",
+      "uploadHere": "Fazer upload de arquivos aqui",
+      "selectFilesToDownload": "Selecionar arquivos para baixar",
+      "download_one": "Baixar \"{{name}}\"",
+      "download_other": "Baixar {{count}} itens",
+      "download_many": "Baixar {{count}} itens",
+      "viewOptions": "Opções de exibição",
+      "moreOptions": "Mais opções",
+      "tryAgain": "Tentar novamente",
+      "sparkline": {
+        "min": "mín {{value}}ms",
+        "avg": "méd {{value}}ms",
+        "max": "máx {{value}}ms"
+      }
+    },
+    "page": {
+      "transferLeftToRight_one": "Transferir \"{{name}}\" →",
+      "transferLeftToRight_other": "Transferir {{count}} itens →",
+      "transferLeftToRight_many": "Transferir {{count}} itens →",
+      "transferRightToLeft_one": "Transferir \"{{name}}\" ←",
+      "transferRightToLeft_other": "Transferir {{count}} itens ←",
+      "transferRightToLeft_many": "Transferir {{count}} itens ←",
+      "selectFileLeft": "Selecione um arquivo à esquerda",
+      "selectFileRight": "Selecione um arquivo à direita",
+      "compareTitle": "Comparar \"{{leftName}}\" ↔ \"{{rightName}}\"",
+      "compareHint": "Selecione um arquivo de cada lado para comparar",
+      "selectFilesToUpload": "Selecionar arquivos para enviar",
+      "downloadToFolder": "Baixar para a pasta",
+      "connectionLost": "Conexão perdida",
+      "moveSourceNotDeleted": "Copiado, mas não foi possível remover o original de {{names}}: {{error}}"
+    },
+    "queue": {
+      "title": "Transferências",
+      "transferCount_one": "{{count}} transferência",
+      "transferCount_other": "{{count}} transferências",
+      "transferCount_many": "{{count}} transferências",
+      "combinedThroughput": "Taxa combinada",
+      "cancelAll": "Cancelar todas as transferências",
+      "clearFinished": "Limpar transferências concluídas",
+      "cancelTransfer": "Cancelar transferência",
+      "retryTransfer": "Tentar transferência novamente",
+      "waiting": "Aguardando conexão…",
+      "resumedAt": "Retomado em {{size}}",
+      "resumedTooltip": "Retomado de onde a transferência interrompida parou",
+      "skipped_one": "Ignorado {{count}} nome que este sistema não pode armazenar:",
+      "skipped_other": "Ignorados {{count}} nomes que este sistema não pode armazenar:",
+      "skipped_many": "Ignorados {{count}} nomes que este sistema não pode armazenar:",
+      "mcpTooltip": "Iniciado por {{client}}",
+      "mcpTooltipUnknown": "Iniciado por um cliente MCP",
+      "status": {
+        "done": "Concluído",
+        "error": "Erro",
+        "cancelled": "Cancelado"
+      },
+      "transferCountActive_one": "{{transfers}} · {{count}} ativo",
+      "transferCountActive_other": "{{transfers}} · {{count}} ativos",
+      "transferCountActive_many": "{{transfers}} · {{count}} ativos"
+    },
+    "editor": {
+      "common": {
+        "saveCtrlS": "Salvar (Ctrl+S)",
+        "saveFailed": "Falha ao salvar",
+        "retrySave": "Tentar salvar novamente",
+        "retry": "Tentar novamente",
+        "dismiss": "Descartar"
+      },
+      "diff": {
+        "loadError": "Falha ao carregar um ou ambos os arquivos para diff.",
+        "loading": "Carregando diff…",
+        "previousChange": "Alteração anterior",
+        "nextChange": "Próxima alteração",
+        "saveErrorLine": "{{label}}: {{msg}}",
+        "applyToRight": "Aplicar à direita (→)",
+        "applyToLeft": "Aplicar à esquerda (←)"
+      },
+      "tab": {
+        "autoSave": "Salvamento automático",
+        "saveFailedReason": "Falha ao salvar: {{error}}",
+        "error": {
+          "default": "Falha ao abrir o arquivo.",
+          "tooLarge": "Arquivo muito grande ({{size}} bytes, limite {{limit}}). Baixe-o em vez disso.",
+          "binary": "Arquivo binário — não é possível editar. Baixe-o em vez disso."
+        }
+      },
+      "image": {
+        "fit": "Ajustar",
+        "toggleFit": "Ajustar à aba ou mostrar tamanho real (0 / 1)",
+        "zoomIn": "Ampliar (+)",
+        "zoomOut": "Reduzir (−)",
+        "copy": "Copiar imagem",
+        "copied": "Imagem copiada para a área de transferência",
+        "copyFailed": "Não foi possível copiar a imagem: {{error}}",
+        "download": "Baixar",
+        "tooLarge": "Esta imagem tem {{size}}, acima do limite de pré-visualização {{limit}}.",
+        "previewAnyway": "Pré-visualizar mesmo assim"
+      },
+      "tabStrip": {
+        "filesTab": "Arquivos",
+        "pendingNameFallback": "este arquivo",
+        "pendingNameDiffFallback": "este diff",
+        "discardTitle": "Descartar alterações não salvas?",
+        "discardMessage": "\"{{name}}\" tem alterações não salvas. Fechar esta aba as descartará.",
+        "discard": "Descartar",
+        "diffTitle": "diff: {{name}}"
+      }
+    }
+  }
+}

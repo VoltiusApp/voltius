@@ -1,0 +1,308 @@
+{
+  "mobile": {
+    "tabBar": {
+      "terminal": "Terminal",
+      "sftp": "SFTP",
+      "more": "Mais"
+    },
+    "filterBar": {
+      "placeholder": "Filtrar…"
+    },
+    "snippets": {
+      "searchPlaceholder": "Buscar snippets",
+      "noMatches": "Sem correspondências",
+      "empty": "Nenhum snippet ainda",
+      "insertAriaLabel": "Inserir",
+      "executeAriaLabel": "Executar",
+      "moreAriaLabel": "Mais",
+      "newFolderTitle": "Nova pasta"
+    },
+    "terminalGestures": {
+      "paste": "Colar"
+    },
+    "terminalTopBar": {
+      "exitAriaLabel": "Sair do terminal",
+      "newSessionAriaLabel": "Nova sessão",
+      "panelsAriaLabel": "Painéis"
+    },
+    "panelItems": {
+      "sftp": "SFTP",
+      "docker": "Docker",
+      "metrics": "Métricas",
+      "processes": "Processos",
+      "proxmox": "Proxmox"
+    },
+    "morePages": {
+      "keychain": "Keychain",
+      "portForwarding": "Encaminhamento de Porta",
+      "knownHosts": "Hosts Conhecidos",
+      "members": "Membros",
+      "logs": "Logs"
+    },
+    "account": {
+      "title": "Conta",
+      "email": "E-mail",
+      "notSignedIn": "Não conectado",
+      "plan": "Plano",
+      "cloudSync": "Sincronização em nuvem",
+      "off": "Desligado",
+      "proTrial": "Avaliação Pro — {{days}}d restantes",
+      "tier": {
+        "free": "Gratuito",
+        "pro": "Pro",
+        "teams": "Teams",
+        "business": "Business"
+      },
+      "cancelsOn": "Cancela em {{date}}. Você mantém acesso até então.",
+      "periodEnd": "o fim do período",
+      "renewsOn": "Renova em {{date}}.",
+      "subscriptionActive": "Sua assinatura está ativa.",
+      "seats": "Vagas",
+      "seatsUsed": "{{used}} / {{total}} usadas",
+      "upgradeToPro": "Atualizar para Pro",
+      "upgradeToTeams": "Experimente Teams gratuitamente por {{days}} dias",
+      "teamsTrialNote": "Cartão necessário · sem cobrança durante a avaliação",
+      "manageBilling": "Gerenciar cobrança",
+      "viewAllPlans": "Ver todos os planos",
+      "signInToSync": "Entrar para sincronizar",
+      "signOutConfirm": "Sair? Seu cofre criptografado é removido deste dispositivo e re-sincronizado quando você entrar novamente.",
+      "signOut": "Sair"
+    },
+    "more": {
+      "settings": "Configurações",
+      "planLabel": "{{tier}} plano"
+    },
+    "host": {
+      "newTitle": "Novo host",
+      "editTitle": "Editar host"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Buscar hosts",
+      "clearSearchAriaLabel": "Limpar busca",
+      "emptyNoHosts": "Nenhum host ainda — toque em + para adicionar um"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Filtrar keychain…",
+      "sshKeysHeader": "CHAVES SSH",
+      "identitiesHeader": "IDENTIDADES",
+      "addedOn": "adicionado {{date}}",
+      "noSearchMatches": "Nada corresponde à sua busca",
+      "empty": "Keychain está vazio",
+      "generateKey": "Gerar chave SSH",
+      "importKey": "Importar chave SSH",
+      "newIdentity": "Nova identidade"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Filtrar hosts…",
+      "noSearchMatches": "Nenhum host conhecido corresponde à sua busca",
+      "empty": "Nenhum host conhecido ainda — eles aparecem quando você se conecta a um servidor."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Filtrar logs…",
+      "retry": "Tentar novamente",
+      "prev": "Anterior",
+      "next": "Próximo",
+      "pageIndicator": "Página {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Filtrar regras…",
+      "summary": "{{total}} total · {{active}} ativas",
+      "noSearchMatches": "Nenhuma regra corresponde à sua busca",
+      "empty": "Nenhuma regra de encaminhamento de porta ainda"
+    },
+    "snippetEdit": {
+      "editTitle": "Editar snippet",
+      "newTitle": "Novo snippet",
+      "namePlaceholder": "Nome do snippet",
+      "contentPlaceholder": "echo hello",
+      "delete": "Excluir snippet",
+      "nameLabel": "Nome",
+      "contentLabel": "Script"
+    },
+    "editForm": {
+      "required": "Obrigatório",
+      "incompleteTitle": "Sair sem salvar?",
+      "incompleteBody": "Um campo obrigatório está vazio, então suas últimas alterações não podem ser salvas ainda.",
+      "unsavedTitle": "Descartar alterações?",
+      "unsavedBody": "Suas alterações neste snippet não foram salvas.",
+      "keepEditing": "Continuar editando",
+      "discard": "Descartar"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "Novo snippet"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "Nenhuma sessão ativa",
+      "pickHost": "Escolha um host"
+    },
+    "sftp": {
+      "transferFailed": "Falha na transferência",
+      "chooseHost": "Escolha um host",
+      "hidden": "Oculto",
+      "visible": "Visível",
+      "connecting": "Conectando…",
+      "reconnecting": "Reconectando…",
+      "reconnectNow": "Reconectar agora",
+      "permissionDenied": "Permissão negada",
+      "goUp": "Subir",
+      "emptyFolder": "Pasta vazia",
+      "selectedCount": "{{count}} selecionado",
+      "downloadSelectedAriaLabel": "Baixar selecionados",
+      "deleteSelectedAriaLabel": "Excluir selecionados",
+      "clearSelectionAriaLabel": "Limpar seleção",
+      "copyToOtherPane": "Copiar para outro painel",
+      "download": "Baixar",
+      "details": "Detalhes",
+      "copyPath": "Copiar caminho",
+      "renameTitle": "Renomear {{name}}",
+      "deleteConfirmTitle": "Excluir {{name}}?",
+      "detail": {
+        "path": "Caminho",
+        "type": "Tipo",
+        "size": "Tamanho",
+        "permissions": "Permissões",
+        "modified": "Modificado"
+      },
+      "typeSymlink": "Link simbólico",
+      "typeFile": "Arquivo",
+      "batchDeleteTitle_one": "Excluir {{count}} item?",
+      "batchDeleteTitle_other": "Excluir {{count}} itens?",
+      "batchDeleteTitle_many": "Excluir {{count}} itens?",
+      "newFileOption": "Novo arquivo",
+      "folderNamePlaceholder": "Nome da pasta",
+      "fileNamePlaceholder": "Nome do arquivo",
+      "selectAll": "Selecionar tudo",
+      "onePane": "Um painel",
+      "twoPanes": "Dois painéis",
+      "moreActions": "Mais ações",
+      "itemActions": "Ações para {{name}}"
+    },
+    "folders": {
+      "home": "Início"
+    },
+    "sheets": {
+      "newSession": {
+        "noHosts": "Sem hosts"
+      },
+      "shared": {
+        "moveToVault": "Mover para cofre",
+        "copyToVault": "Copiar para cofre",
+        "moveToFolder": "Mover para pasta",
+        "back": "Voltar",
+        "duplicate": "Duplicar",
+        "pin": "Fixar",
+        "unpin": "Desfixar",
+        "confirmDeleteBody": "Excluir permanentemente {{name}}? Isto não pode ser desfeito."
+      },
+      "folderActions": {
+        "deleteTitle": "Excluir pasta?",
+        "deleteBody": "Excluir {{name}} e tudo dentro dela? Isto não pode ser desfeito."
+      },
+      "hostActions": {
+        "deleteTitle": "Excluir host?",
+        "openFiles": "Abrir arquivos",
+        "copyAddress": "Copiar endereço",
+        "copiedAddress": "Copiado {{host}}",
+        "enableCloudSync": "Ativar sincronização em nuvem",
+        "disableCloudSync": "Desativar sincronização em nuvem",
+        "enableReachabilityCheck": "Ativar verificação de acessibilidade",
+        "disableReachabilityCheck": "Desativar verificação de acessibilidade"
+      },
+      "keychainActions": {
+        "unnamedKey": "Chave sem nome",
+        "deleteKeyTitle": "Excluir chave?",
+        "deleteIdentityTitle": "Excluir identidade?",
+        "copyPublicKey": "Copiar chave pública",
+        "copiedPublicKey": "Chave pública copiada",
+        "noPublicKeyStored": "Nenhuma chave pública armazenada",
+        "copyUsername": "Copiar usuário",
+        "copiedUsername": "Usuário copiado"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Excluir host conhecido?",
+        "deleteBody": "Isto remove a impressão digital confiável. A próxima conexão com este host será tratada como nova.",
+        "copyFingerprint": "Copiar impressão digital",
+        "copiedFingerprint": "Impressão digital copiada"
+      },
+      "logsExport": {
+        "title": "Exportar logs",
+        "exportCsv": "Exportar como CSV",
+        "exportJson": "Exportar como JSON"
+      },
+      "snippetActions": {
+        "deleteTitle": "Excluir snippet?"
+      },
+      "snippetTarget": {
+        "executeTitle": "Executar \"{{name}}\"",
+        "insertTitle": "Inserir \"{{name}}\"",
+        "confirmExecute_one": "Executar em {{count}} alvo",
+        "confirmExecute_other": "Executar em {{count}} alvos",
+        "confirmExecute_many": "Executar em {{count}} alvos",
+        "confirmInsert_one": "Inserir em {{count}} alvo",
+        "confirmInsert_other": "Inserir em {{count}} alvos",
+        "confirmInsert_many": "Inserir em {{count}} alvos",
+        "activeSessions": "Sessões Ativas",
+        "openNewConnection": "Abrir Nova Conexão",
+        "noHosts": "Sem hosts"
+      },
+      "ruleActions": {
+        "deleteTitle": "Excluir regra?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "Sem hosts SSH"
+      },
+      "vaultSwitcher": {
+        "newVault": "Novo cofre",
+        "namePlaceholder": "Nome do cofre"
+      }
+    },
+    "shortcuts": {
+      "hostGone": "Esse host não existe mais. Seu atalho foi removido."
+    },
+    "share": {
+      "action": "Compartilhar",
+      "publicKey": "Compartilhar chave pública",
+      "failed": "Não foi abrir a tela de compartilhamento",
+      "downloadFailed": "Não foi baixar o arquivo para compartilhar",
+      "largeTitle": "Compartilhar {{size}}?",
+      "largeBody": "Os arquivos são baixados neste telefone primeiro, então entregues ao aplicativo que você escolher.",
+      "tooLong": "Muito longo para compartilhar como texto"
+    },
+    "vaultSettings": {
+      "title": "Configurações do cofre",
+      "gone": "Este cofre não existe mais neste dispositivo.",
+      "openFor": "Configurações para {{name}}",
+      "nameRequired": "Um cofre precisa de um nome.",
+      "nameReadOnly": "Apenas os gerentes do cofre podem renomeá-lo.",
+      "kindTeam": "Cofre de equipe",
+      "kindPrivate": "Cofre privado",
+      "sections": {
+        "general": "Geral",
+        "people": "Pessoas",
+        "danger": "Zona de perigo"
+      },
+      "rows": {
+        "name": "Nome",
+        "share": "Compartilhar e convidar",
+        "members": "Membros",
+        "roles": "Funções",
+        "security": "Política de segurança",
+        "makePrivate": "Tornar privado",
+        "delete": "Excluir cofre",
+        "leave": "Sair do cofre"
+      },
+      "summaries": {
+        "share": "Convidar pessoas e gerenciar links de participação",
+        "members_one": "{{count}} membro",
+        "members_other": "{{count}} membros",
+        "members_many": "{{count}} membros",
+        "roles": "O que cada função pode fazer",
+        "security": "Bloqueio e regras de sessão para membros",
+        "makePrivate": "Remover todos e manter uma cópia privada",
+        "delete": "Exclui o cofre e tudo dentro dele",
+        "deleteTeam": "Exclui para todos os membros",
+        "leave": "Remove seu acesso a este cofre"
+      }
+    }
+  }
+}

@@ -2,6 +2,52 @@ import type { PluginLocale } from "@/plugins/api";
 
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.metrics / mobile.metrics.* —
 // values carried over verbatim, keys shortened now that this catalog is plugin-scoped.
+const pt: Record<string, string> = {
+  "title": "Métricas",
+  "sshOnly": "As métricas ao vivo só estão disponíveis para sessões SSH. Conecte-se a um host via SSH para ver suas métricas.",
+  "cpu": "CPU",
+  "memory": "Memória",
+  "netRx": "Rede RX",
+  "netTx": "Rede TX",
+  // Desktop panel and the shared disk / system-info sections.
+  "noActiveSession": "Nenhuma sessão ativa",
+  "androidUnavailable": "As métricas ao vivo deste dispositivo não estão disponíveis no Android. Conecte-se a um host via SSH para ver suas métricas.",
+  "serialUnavailable": "As métricas ao vivo não estão disponíveis para sessões seriais.",
+  "disk": "Disco",
+  "systemInfo": "Informações do sistema",
+  "loading": "Carregando.",
+  "cores": "Núcleos",
+  "arch": "Arq.",
+  "gpu": "GPU",
+  "gpus": "GPUs",
+  "host": "Host",
+  "os": "SO",
+  "kernel": "Kernel",
+};
+
+const ptPt: Record<string, string> = {
+  "title": "Métricas",
+  "sshOnly": "As métricas ao vivo só estão disponíveis para sessões SSH. Conecte-se a um host via SSH para ver suas métricas.",
+  "cpu": "CPU",
+  "memory": "Memória",
+  "netRx": "Rede RX",
+  "netTx": "Rede TX",
+  // Desktop panel and the shared disk / system-info sections.
+  "noActiveSession": "Nenhuma sessão ativa",
+  "androidUnavailable": "As métricas ao vivo deste dispositivo não estão disponíveis no Android. Conecte-se a um host via SSH para ver suas métricas.",
+  "serialUnavailable": "As métricas ao vivo não estão disponíveis para sessões seriais.",
+  "disk": "Disco",
+  "systemInfo": "Informações do sistema",
+  "loading": "A carregar.",
+  "cores": "Núcleos",
+  "arch": "Arq.",
+  "gpu": "GPU",
+  "gpus": "GPUs",
+  "host": "Host",
+  "os": "SO",
+  "kernel": "Kernel",
+};
+
 export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Metrics",
@@ -130,4 +176,7 @@ export const messages: Record<PluginLocale, Record<string,string>> = {
     "os": "OS",
     "kernel": "Jádro OS",
   },
+  pt,
+  "pt-BR": pt,
+  "pt-PT": ptPt,
 };

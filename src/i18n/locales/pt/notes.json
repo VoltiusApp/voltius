@@ -1,0 +1,54 @@
+{
+  "notes": {
+    "toolbar": {
+      "heading": "Título",
+      "h1": "Título 1",
+      "h2": "Título 2",
+      "h3": "Título 3",
+      "bold": "Negrito",
+      "italic": "Itálico",
+      "code": "Código em linha",
+      "link": "Link",
+      "bullet": "Lista com marcadores",
+      "ordered": "Lista numerada",
+      "task": "Lista de tarefas",
+      "codeBlock": "Bloco de código",
+      "more": "Mais formatação",
+      "preview": "Pré-visualizar",
+      "edit": "Editar"
+    },
+    "editor": {
+      "placeholder": "Escreva notas em Markdown — digite / para blocos"
+    },
+    "slash": {
+      "h1": "Título 1",
+      "h2": "Título 2",
+      "h3": "Título 3",
+      "bullet": "Lista com marcadores",
+      "numbered": "Lista numerada",
+      "todo": "Lista de tarefas",
+      "code": "Bloco de código",
+      "table": "Tabela",
+      "divider": "Divisor",
+      "link": "Link"
+    },
+    "empty": {
+      "title": "Nenhuma nota ainda",
+      "start": "Comece a escrever"
+    },
+    "code": {
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "sendToTerminal": "Enviar para o terminal"
+    },
+    "panel": {
+      "noHost": "Notas são anexadas a hosts salvos",
+      "readOnly": "Somente leitura",
+      "conflict": "Notas alteradas em outro lugar",
+      "reload": "Recarregar",
+      "keepMine": "Manter as minhas",
+      "saveFailed": "Não foi salvar notas: {{error}}",
+      "retry": "Tentar novamente"
+    }
+  }
+}

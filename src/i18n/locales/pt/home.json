@@ -1,0 +1,56 @@
+{
+  "home": {
+    "greeting": {
+      "morning": "Bom dia",
+      "afternoon": "Boa tarde",
+      "evening": "Boa noite"
+    },
+    "search": {
+      "placeholder": "Pesquisar hosts, sessões, snippets…"
+    },
+    "stat": {
+      "vaults_one": "cofre",
+      "vaults_other": "cofres",
+      "vaults_many": "cofres",
+      "hosts_one": "host",
+      "hosts_other": "hosts",
+      "hosts_many": "hosts",
+      "activeSessions_one": "sessão ativa",
+      "activeSessions_other": "sessões ativas",
+      "activeSessions_many": "sessões ativas",
+      "portForwards_one": "encaminhamento de porta",
+      "portForwards_other": "encaminhamentos de porta",
+      "portForwards_many": "encaminhamentos de porta"
+    },
+    "quickActions": {
+      "export": "Exportar",
+      "import": "Importar"
+    },
+    "recentHosts": {
+      "title": "Hosts Recentes",
+      "seeAll": "Ver todos",
+      "prevPage": "Página anterior",
+      "nextPage": "Próxima página",
+      "pageNumber": "Página {{number}}"
+    },
+    "allHosts": {
+      "back": "Voltar",
+      "title": "Todos os Hosts",
+      "empty": "Nenhum host ainda."
+    },
+    "hostCard": {
+      "pin": "Fixar",
+      "unpin": "Desfixar",
+      "serial": "serial",
+      "baud": "{{rate}} baud"
+    },
+    "serialFallback": "Serial",
+    "vaultCard": {
+      "hostCount_one": "{{count}} host",
+      "hostCount_other": "{{count}} hosts",
+      "hostCount_many": "{{count}} hosts",
+      "empty": "Nenhum host ainda",
+      "more": "+{{count}} mais"
+    }
+  }
+}

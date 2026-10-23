@@ -2,6 +2,56 @@ import type { PluginLocale } from "@/plugins/api";
 
 // Moved from src/i18n/locales/*/mobile.json's mobile.panelItems.processes / mobile.processes.* and
 // mobile.json's common.action.cancel — values carried over verbatim.
+const pt: Record<string, string> = {
+  "title": "Processos",
+  "sshOnly": "A lista de processos só está disponível para sessões SSH. Conecte-se a um host via SSH para ver seus processos.",
+  "filterPlaceholder": "Filtrar processos.",
+  "sortCpu": "CPU%",
+  "sortMem": "MEM",
+  "sortPid": "PID",
+  "sortName": "Nome",
+  "noProcessesFound": "Nenhum processo encontrado",
+  "loadingProcesses": "Carregando processos.",
+  "sheetKillTerm": "Encerrar (SIGTERM)",
+  "sheetForceKill": "Forçar encerramento (SIGKILL)",
+  "killConfirmTitle": "Encerrar processo?",
+  "forceKillConfirmTitle": "Forçar o encerramento do processo?",
+  "killConfirmBody": "{{signal}} será enviado a {{name}} (pid {{pid}}).",
+  "confirmKill": "Encerrar",
+  "confirmForceKill": "Forçar encerramento",
+  "cancel": "Cancelar",
+  // Desktop panel.
+  "noActiveSession": "Nenhuma sessão ativa",
+  "androidUnavailable": "A lista de processos deste dispositivo não está disponível no Android. Conecte-se a um host via SSH para ver seus processos.",
+  "colUser": "Usuário",
+  "killProcessTitle": "Encerrar processo {{pid}}",
+};
+
+const ptPt: Record<string, string> = {
+  "title": "Processos",
+  "sshOnly": "A lista de processos só está disponível para sessões SSH. Conecte-se a um host via SSH para ver seus processos.",
+  "filterPlaceholder": "Filtrar processos.",
+  "sortCpu": "CPU%",
+  "sortMem": "MEM",
+  "sortPid": "PID",
+  "sortName": "Nome",
+  "noProcessesFound": "Nenhum processo encontrado",
+  "loadingProcesses": "A carregar processos.",
+  "sheetKillTerm": "Encerrar (SIGTERM)",
+  "sheetForceKill": "Forçar encerramento (SIGKILL)",
+  "killConfirmTitle": "Encerrar processo?",
+  "forceKillConfirmTitle": "Forçar o encerramento do processo?",
+  "killConfirmBody": "{{signal}} será enviado a {{name}} (pid {{pid}}).",
+  "confirmKill": "Encerrar",
+  "confirmForceKill": "Forçar encerramento",
+  "cancel": "Cancelar",
+  // Desktop panel.
+  "noActiveSession": "Nenhuma sessão ativa",
+  "androidUnavailable": "A lista de processos deste dispositivo não está disponível no Android. Conecte-se a um host via SSH para ver seus processos.",
+  "colUser": "Utilizador",
+  "killProcessTitle": "Encerrar processo {{pid}}",
+};
+
 export const messages: Record<PluginLocale, Record<string,string>> = {
   en: {
     "title": "Processes",
@@ -142,4 +192,7 @@ export const messages: Record<PluginLocale, Record<string,string>> = {
     "colUser": "Uživatel",
     "killProcessTitle": "Ukončit proces {{pid}}",
   },
+  pt,
+  "pt-BR": pt,
+  "pt-PT": ptPt,
 };

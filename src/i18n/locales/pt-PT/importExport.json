@@ -1,0 +1,235 @@
+{
+  "importExport": {
+    "modal": {
+      "title": "Importar / Exportar",
+      "sectionUserData": "Dados do Utilizador",
+      "tabExport": "Exportar",
+      "tabImport": "Importar"
+    },
+    "include": "Incluir",
+    "copied": "Copiado!",
+    "downloadExt": "Baixar .{{ext}}",
+    "passwordPlaceholder": "Palavra-passe",
+    "export": {
+      "format": "Formato",
+      "formatCsvDescription": "Apenas conexões — amigável para planilha",
+      "formatJsonDescription": "Dados completos incluindo conteúdo de chave",
+      "encryptBackup": "Criptografar cópia de segurança",
+      "plaintextSecretsWarning": "Esta exportação contém palavras-passe, chaves ou notas de host em texto simples. Mantenha a criptografia ativada, a menos que você deliberadamente precise de um ficheiro não encriptado.",
+      "snippetRefMissing": "“{{name}}” executa outro snippet ({{target}}) que não faz parte desta exportação. Inclua-o na seleção, ou remova essa etapa.",
+      "exportFailed": "Não foi possível exportar: {{error}}",
+      "confirmPasswordPlaceholder": "Confirmar palavra-passe",
+      "passwordsDontMatch": "As palavras-passe não coincidem",
+      "building": "A criar…",
+      "nothingToExport": "Nada para exportar",
+      "downloadEncrypted": "Baixar encriptado",
+      "hidePreview": "Ocultar pré-visualização",
+      "showPreview": "Mostrar pré-visualização",
+      "selectedItem_one": "{{count}} item selecionado",
+      "selectedItem_other": "{{count}} itens selecionados",
+      "selectedItem_many": "{{count}} itens selecionados",
+      "autoInclude": {
+        "connections_one": "{{count}} conexão",
+        "connections_other": "{{count}} conexões",
+        "connections_many": "{{count}} conexões",
+        "snippets_one": "{{count}} snippet",
+        "snippets_other": "{{count}} snippets",
+        "snippets_many": "{{count}} snippets"
+      },
+      "autoIncludeHint": "Também incluído: usado pelos itens exportados, para que continuem funcionando após a importação",
+      "relatedCredentials": "Incluir credenciais vinculadas",
+      "relatedCredentialsHint": "As identidades e chaves SSH que estas conexões usam. Deixe desmarcado para exportar apenas as configurações de conexão; na importação eles se reconectam a uma identidade ou chave já existente no cofre.",
+      "checkboxLabel": {
+        "connections_one": "Conexão ({{count}})",
+        "connections_other": "Conexões ({{count}})",
+        "connections_many": "Conexões ({{count}})",
+        "identities_one": "Identidade ({{count}})",
+        "identities_other": "Identidades ({{count}})",
+        "identities_many": "Identidades ({{count}})",
+        "keys_one": "Chave SSH ({{count}})",
+        "keys_other": "Chaves SSH ({{count}})",
+        "keys_many": "Chaves SSH ({{count}})",
+        "snippets": "Snippets ({{count}})",
+        "portForwarding": "Encaminhamento de Porta ({{count}})"
+      }
+    },
+    "import": {
+      "importFrom": "Importar de",
+      "importInto": "Importar para",
+      "autoExtractTitle": "Extração automática de {{label}}",
+      "autoExtractDescription": "Lê seus dados locais {{label}} — nenhuma exportação manual necessária",
+      "extracting": "A extrair…",
+      "extractFrom": "Extrair de {{label}}",
+      "chooseConfigFolder": "Ou escolha uma pasta Config {{label}}…",
+      "orImportFromFile": "ou importar de ficheiro",
+      "openFileLabel": "Abrir ficheiro {{sub}}…",
+      "encryptedBackupTitle": "Cópia de segurança encriptado — insira sua palavra-passe para desbloquear",
+      "unlock": "Desbloquear",
+      "configPassphraseTitle": "Esta configuração SecureCRT tem uma frase de acesso de configuração — insira-a para importar palavras-passe guardadas",
+      "skipPasswords": "Importar sem palavras-passe guardadas",
+      "reviewItems_one": "Revisar {{count}} item",
+      "reviewItems_other": "Revisar {{count}} itens",
+      "reviewItems_many": "Revisar {{count}} itens",
+      "back": "Voltar",
+      "reviewImportTitle": "Revisar importação",
+      "reIncludeDuplicates": "Reincluir duplicatas",
+      "skipAllDuplicates": "Pular todas as duplicatas",
+      "filterItemsPlaceholder": "Filtrar itens…",
+      "groupConnections": "Conexões",
+      "groupKeys": "Chaves SSH",
+      "groupIdentities": "Identidades",
+      "groupLinkedCredentials": "Credenciais vinculadas",
+      "linkedTo": "Vinculado a “{{name}}” neste cofre",
+      "linkedNotFound": "Não está neste cofre — atribua-o após a importação",
+      "groupPortForwarding": "Encaminhamento de Porta",
+      "selectAll": "Selecionar tudo",
+      "deselectAll": "Deselecionar tudo",
+      "advanced": "Avançado",
+      "tagLabel": "Tag:",
+      "tagPlaceholder": "opcional",
+      "importing": "A importar…",
+      "importButton_one": "Importar {{count}} item",
+      "importButton_other": "Importar {{count}} itens",
+      "importButton_many": "Importar {{count}} itens",
+      "importButtonMultiVault_one": "Importar {{count}} item × {{vaultCount}} cofres",
+      "importButtonMultiVault_other": "Importar {{count}} itens × {{vaultCount}} cofres",
+      "importButtonMultiVault_many": "Importar {{count}} itens × {{vaultCount}} cofres",
+      "nothingSelected": "Nada selecionado",
+      "unnamedKey": "Chave sem nome",
+      "sshKeyFallback": "Chave SSH",
+      "actionSkip": "Pular",
+      "actionInclude": "Importar",
+      "actionOverwrite": "Sobrescrever",
+      "resultImportedSuccess_one": "Importado com sucesso {{count}} item{{vaultNote}}.",
+      "resultImportedSuccess_other": "Importados com sucesso {{count}} itens{{vaultNote}}.",
+      "resultImportedSuccess_many": "Importados com sucesso {{count}} itens{{vaultNote}}.",
+      "resultVaultNote": " em {{count}} cofres",
+      "resultError": "Erro: {{error}}",
+      "resultImportedWithErrors_one": "Importado {{count}} item{{vaultNote}}, {{errors}} falhou.",
+      "resultImportedWithErrors_other": "Importados {{count}} itens{{vaultNote}}, {{errors}} falhou.",
+      "resultImportedWithErrors_many": "Importados {{count}} itens{{vaultNote}}, {{errors}} falhou.",
+      "groupNotImported": "Não importado",
+      "viaJump": "via {{hosts}}",
+      "teamKeysWarning": "Estas chaves privadas serão compartilhadas com todos os membros de {{team}}.",
+      "notice": {
+        "pattern": "Padrão: aplicado a hosts correspondentes, não importado por conta própria",
+        "match": "Bloco de correspondência: não suportado, ignorado",
+        "include": "Incluir não pôde ser lido",
+        "includeOutside": "Incluir fora de ~/.ssh: não lido",
+        "key": "Caminho IdentityFile usa tokens que não podem ser resolvidos",
+        "proxyCommand": "ProxyCommand não suportado ainda"
+      }
+    },
+    "fileInput": {
+      "openFileDefault": "Abrir ficheiro…",
+      "pasteFromClipboard": "Colar da Área de Transferência",
+      "clear": "Limpar",
+      "dropToLoad": "Solte para carregar"
+    },
+    "userData": {
+      "import": {
+        "openFileLabel": "Abrir Ficheiro…",
+        "placeholder": "Cole um JSON de configurações do utilizador Voltius aqui, ou solte um ficheiro…\n\n{ \"type\": \"voltius-user-data\", \"version\": 2, \"sections\": { ... } }",
+        "foundSections_one": "Encontrada {{count}} seção de configurações",
+        "foundSections_other": "Encontradas {{count}} seções de configurações",
+        "foundSections_many": "Encontradas {{count}} seções de configurações",
+        "applying": "Aplicando…",
+        "applyButton_one": "Aplicar {{count}} seção",
+        "applyButton_other": "Aplicar {{count}} seções",
+        "applyButton_many": "Aplicar {{count}} seções",
+        "applyDefault": "Aplicar",
+        "resultApplied_one": "Aplicado {{count}} configuração: {{list}}.",
+        "resultApplied_other": "Aplicadas {{count}} configurações: {{list}}.",
+        "resultApplied_many": "Aplicadas {{count}} configurações: {{list}}.",
+        "resultError": "Erro: {{error}}",
+        "themesReplaceWarning": "Substitui os temas personalizados deste dispositivo."
+      },
+      "handlers": {
+        "themes": {
+          "label": "Temas"
+        },
+        "uiPreferences": {
+          "label": "Preferências da UI"
+        },
+        "shortcuts": {
+          "label": "Atalhos"
+        },
+        "appSettings": {
+          "label": "Configurações do App"
+        },
+        "recentPeople": {
+          "label": "Pessoas Recentes"
+        },
+        "vaults": {
+          "label": "Cofres"
+        }
+      },
+      "describe": {
+        "themes_one": "{{count}} tema personalizado",
+        "themes_other": "{{count}} temas personalizados",
+        "themes_many": "{{count}} temas personalizados",
+        "uiPreferences": "escala {{scale}}× · layout {{layout}}",
+        "shortcutsOverrides_one": "{{count}} sobrescrita",
+        "shortcutsOverrides_other": "{{count}} sobrescritas",
+        "shortcutsOverrides_many": "{{count}} sobrescritas",
+        "shortcutsDefaults": "Padrões",
+        "appSettingsShell": "shell: {{shell}}",
+        "appSettingsDefault": "Configurações padrão",
+        "recentPeople_one": "{{count}} pessoa recente",
+        "recentPeople_other": "{{count}} pessoas recentes",
+        "recentPeople_many": "{{count}} pessoas recentes",
+        "vaults_one": "{{count}} cofre",
+        "vaults_other": "{{count}} cofres",
+        "vaults_many": "{{count}} cofres"
+      }
+    },
+    "importers": {
+      "voltius": {
+        "sub": "JSON",
+        "placeholder": "Cole o JSON do Voltius aqui, ou solte um ficheiro .json…\n\n{ \"version\": 1, \"connections\": [...] }"
+      },
+      "csv": {
+        "sub": "Planilha",
+        "placeholder": "Cole o CSV aqui, ou solte um ficheiro…\n\nname,host,port,username,auth_type,tags"
+      },
+      "openssh": {
+        "sub": "~/.ssh/config",
+        "hint": "Lê ~/.ssh/config, seus ficheiros Include e as chaves nomeadas por IdentityFile. Você também pode colar um config ou abrir um ficheiro.",
+        "hintMobile": "Cole seu ~/.ssh/config ou abra o ficheiro. As chaves são correspondidas pelo nome de ficheiro com as chaves já no cofre.",
+        "placeholder": "Host my-server\n  HostName 10.0.0.5\n  User alex\n  IdentityFile ~/.ssh/id_ed25519",
+        "notFound": "Nenhum ~/.ssh/config foi encontrado neste computador.",
+        "unreadable": "~/.ssh/config não pôde ser lido ({{reason}})."
+      },
+      "mobaxterm": {
+        "sub": "Instalação local · auto-descriptografia",
+        "hint": "Requer MobaXterm instalado (apenas Windows).",
+        "placeholder": "Solte MobaXterm.ini aqui, ou cole seu conteúdo…"
+      },
+      "termius": {
+        "sub": "Instalação local · extração automática",
+        "hint": "Requer Termius instalado e logado.",
+        "placeholder": "Use a Extração Automática para o Termius. Dumps legados do Termius colados não são suportados para importação fiel."
+      },
+      "zoc": {
+        "sub": "Host Directory · .zhd",
+        "hint": "Encontre-o em Documents\\ZOC9 Files\\Options (Windows) ou ~/Library/Application Support/ZOC9 Files/Options (macOS). Entradas SSH e serial são importadas; palavras-passe guardadas não são.",
+        "placeholder": "Solte HostDirectory.zhd aqui, ou cole seu conteúdo…"
+      },
+      "putty": {
+        "sub": ".reg ou sessão",
+        "hint": "Lê sessões guardadas do registro no Windows, ou de ~/.putty/sessions no Linux e macOS. Você também pode soltar uma exportação .reg ou colar ficheiros de sessão. Sessões SSH e serial, proxies e túneis são importados; ficheiros de chave não são.",
+        "placeholder": "Solte uma exportação .reg do PuTTY aqui, ou cole ficheiros de sessão…"
+      },
+      "securecrt": {
+        "sub": "Sessão .ini · exportação XML",
+        "hint": "A extração automática lê a configuração local do SecureCRT. Você também pode soltar um ficheiro .ini de sessão de Config/Sessions, ou o ficheiro XML de Ficheiro → Exportar Configurações. Sessões SSH e serial são importadas com suas palavras-passe guardadas; Telnet, RLogin, Raw e outros protocolos são ignorados.",
+        "placeholder": "Solte um ficheiro .ini de sessão do SecureCRT ou um ficheiro .xml de Exportar Configurações aqui, ou cole seu conteúdo…"
+      }
+    },
+    "menu": {
+      "export": "Exportar",
+      "importEllipsis": "Importar…",
+      "exportEllipsis": "Exportar…"
+    }
+  }
+}

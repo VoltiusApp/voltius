@@ -12,6 +12,8 @@ describe("localeStore", () => {
     expect(systemLocale(["de-DE", "cs-CZ", "fr-FR"])).toBe("cs");
     expect(systemLocale(["zh-CN"])).toBe("zh");
     expect(systemLocale(["TR"])).toBe("tr");
+    expect(systemLocale(["pt-BR"])).toBe("pt-BR");
+    expect(systemLocale(["pt-PT"])).toBe("pt-PT");
   });
 
   it("falls back to English when no system language is supported", () => {
@@ -40,7 +42,7 @@ describe("localeStore", () => {
 
   it("exposes every shipped locale, English first", () => {
     const values = SUPPORTED_LOCALES.map((l) => l.value);
-    expect(values).toEqual(["en", "fr", "ru", "zh", "tr", "cs"]);
+    expect(values).toEqual(["en", "fr", "ru", "zh", "tr", "cs", "pt", "pt-BR", "pt-PT"]);
   });
 
   it("every supported locale is settable and carries a native label", () => {

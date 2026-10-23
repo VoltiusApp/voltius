@@ -1,0 +1,52 @@
+{
+  "panes": {
+    "badge": {
+      "ssh": "SSH",
+      "serial": "SERIAL",
+      "multiplayer": "MPX",
+      "local": "LOCAL"
+    },
+    "header": {
+      "copied": "Copiado!",
+      "loading": "carregando…",
+      "localSystem": "Sistema local",
+      "excludedFromBroadcast": "Excluído da transmissão",
+      "mcpBadge": "MCP",
+      "mcpTooltip": "Aberto por {{client}}",
+      "mcpTooltipUnknown": "Aberto por um cliente MCP",
+      "mcpTooltipDisconnected": "Aberto por {{client}} (desconectado)",
+      "disableBroadcast": "Desativar transmissão",
+      "broadcastInput": "Transmitir entrada",
+      "detachPane": "Desacoplar painel",
+      "restorePane": "Restaurar painel",
+      "maximizePane": "Maximizar painel",
+      "closePane": "Fechar painel",
+      "latencyTooltip": "{{ms}}ms — clique para copiar",
+      "reconnect": "Reconectar",
+      "rename": "Renomear…",
+      "duplicate": "Duplicar",
+      "duplicateSplit": "Duplicar em divisão",
+      "split": "Dividir",
+      "splitLeft": "Dividir esquerda",
+      "splitRight": "Dividir direita",
+      "splitTop": "Dividir topo",
+      "splitBottom": "Dividir fundo",
+      "noSessionToSplit": "Abra outra sessão ou arraste uma aba existente sobre um painel para dividir.",
+      "sparkline": {
+        "min": "mín {{ms}}ms",
+        "avg": "méd {{ms}}ms",
+        "max": "máx {{ms}}ms"
+      }
+    },
+    "terminal": {
+      "emptyTitle": "Área de trabalho dividida está vazia",
+      "emptyHint": "Arraste uma aba de sessão aqui para começar a dividir painéis.",
+      "serialSubtitle": "{{port}} · {{baud}} baud"
+    },
+    "dragToast": {
+      "alreadyVisible": "Essa sessão já está visível na área de trabalho dividida.",
+      "invalidDropTarget": "Solte no terminal ativo ou em um painel dividido para criar uma divisão.",
+      "cannotDuplicate": "Esta sessão não pode ser duplicada."
+    }
+  }
+}
