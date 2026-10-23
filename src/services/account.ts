@@ -14,6 +14,7 @@ import { base64ToByteArray, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import type { SavedAccount } from "./savedAccounts";
 import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
+import { fetchAuth } from "./authFetch";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
 
 function reloadSubscription() {
@@ -560,6 +561,20 @@ export async function logout(): Promise<void> {
   onSessionEnd();
   const { resetVault } = await import("@/services/vault");
   await resetVault();
+}
+
+/**
+ * Permanently deletes the signed-in cloud account (DELETE /v1/auth/account),
+ * then signs this device out. The server removes the user row and everything
+ * cascading from it; it does not cancel a Lemon Squeezy subscription. On any
+ * failure the session is left intact, since the account still exists.
+ */
+export async function deleteAccount(): Promise<void> {
+  const serverUrl = await keychainGet("server_url");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/auth/account`, { method: "DELETE" });
+  if (!res.ok) throw new Error(i18n.t("shared.deleteAccount.failed", { status: res.status }));
+  await logout();
 }
 
 export async function getAccountMode(): Promise<string | null> {

@@ -25,6 +25,7 @@ import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 import { TwoFactorSettings } from "./TwoFactorSettings";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
+import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
@@ -119,6 +120,7 @@ export default function AccountSection() {
   const [showEditEmail, setShowEditEmail] = useState(false);
   const { requestSignOut, signOutConfirm } = useSignOutConfirm((e) => setError(e instanceof Error ? e.message : String(e)));
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [handle, setHandle] = useState<string | null>(null);
   const [handleIsCustom, setHandleIsCustom] = useState(false);
   const [handleManaged, setHandleManaged] = useState(false);
@@ -390,6 +392,18 @@ export default function AccountSection() {
               }}
             />
           )}
+          {mode === "server" && (
+            <ActionItem
+              icon="lucide:user-x"
+              label={t("shared.deleteAccount.action")}
+              sub={t("shared.deleteAccount.actionSub")}
+              danger
+              onClick={() => {
+                setError("");
+                setShowDeleteAccount(true);
+              }}
+            />
+          )}
           <ActionItem
             icon="lucide:trash-2"
             label={t("settings.account.wipeData.label")}
@@ -413,6 +427,10 @@ export default function AccountSection() {
       )}
 
       {signOutConfirm}
+
+      {showDeleteAccount && (
+        <DeleteAccountModal onCancel={() => setShowDeleteAccount(false)} onDeleted={() => window.location.reload()} />
+      )}
 
       {showEditEmail && currentEmail && (
         <EditEmailModal

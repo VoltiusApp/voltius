@@ -6,6 +6,21 @@
       "unsynced": "Synchronizace je pozastavena nebo se nepodařilo spojit se serverem, takže nedávné změny z tohoto zařízení na něm nemusí být uloženy. Odhlášením vymažete kopii v tomto zařízení.",
       "confirm": "Vymazat a odhlásit se"
     },
+    "deleteAccount": {
+      "action": "Smazat účet",
+      "actionSub": "Trvale smaže váš cloudový účet Voltius a jeho data",
+      "title": "Smazat váš účet Voltius?",
+      "message": "Tímto trvale smažete svůj cloudový účet, šifrovaný trezor a všechna synchronizovaná data ze serveru Voltius. Zároveň opustíte všechny týmy, jejichž jste členem. Tuto akci nelze vrátit.",
+      "deviceNote": "Toto zařízení se poté odhlásí a jeho místní kopie vašich hostitelů, klíčů a snippetů se vymaže, stejně jako při odhlášení. Kopie na vašich dalších zařízeních se na dálku neodstraní.",
+      "subscriptionWarning": "Smazáním účtu se nezruší vaše předplatné. Nejprve ho zrušte ve fakturaci, jinak vám mohou být dál účtovány platby.",
+      "manageBilling": "Spravovat fakturaci",
+      "typeToConfirm": "Pro potvrzení napište {{target}}",
+      "confirm": "Smazat účet",
+      "deleting": "Mazání…",
+      "deletedTitle": "Účet smazán",
+      "deleted": "Váš účet Voltius byl smazán.",
+      "failed": "Účet se nepodařilo smazat (chyba {{status}}). Pokud vlastníte tým, nejprve ho smažte, nebo kontaktujte podporu."
+    },
     "errorBanner": {
       "dismiss": "zavřít"
     },
