@@ -1,0 +1,62 @@
+# Proves to Google that we own com.voltius.app (Android developer verification).
+# Play Console gives a per-account token (secret ANDROID_ADI_TOKEN); it has to sit
+# in assets/adi-registration.properties inside an APK signed with the release key.
+# Any APK works, so this takes the published GitHub APK, adds the file and
+# re-signs it. Upload the artifact in Play Console > Android developer
+# verification > com.voltius.app > "Sign and upload an APK".
+name: android-package-registration
+
+on:
+  push:
+    branches: [ci/play-store]
+    paths: [.github/workflows/android-package-registration.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: v0.62.0
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the published APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Voltius_*_aarch64.apk' --output base.apk
+
+      - name: Add the registration token
+        env:
+          ADI_TOKEN: ${{ secrets.ANDROID_ADI_TOKEN }}
+        run: |
+          [ -n "$ADI_TOKEN" ] || { echo "secret ANDROID_ADI_TOKEN is not set" >&2; exit 1; }
+          mkdir -p assets
+          printf '%s' "$ADI_TOKEN" > assets/adi-registration.properties
+          zip -q base.apk assets/adi-registration.properties
+
+      - name: Align and sign with the release key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          ks="$RUNNER_TEMP/release.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ks"
+          trap 'rm -f "$ks"' EXIT
+          "$bt/zipalign" -f -p 4 base.apk aligned.apk
+          "$bt/apksigner" sign --ks "$ks" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+            --out Voltius_adi_registration.apk aligned.apk
+          "$bt/apksigner" verify --print-certs Voltius_adi_registration.apk | grep -i 'SHA-256'
+          unzip -l Voltius_adi_registration.apk assets/adi-registration.properties
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-adi-registration-apk
+          path: Voltius_adi_registration.apk
+          retention-days: 7
