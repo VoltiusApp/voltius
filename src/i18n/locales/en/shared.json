@@ -6,6 +6,22 @@
       "unsynced": "Sync is paused or could not reach the server, so recent changes on this device may not be saved there. Signing out erases this device's copy.",
       "confirm": "Erase and sign out"
     },
+    "deleteAccount": {
+      "action": "Delete account",
+      "actionSub": "Permanently delete your Voltius cloud account and its data",
+      "title": "Delete your Voltius account?",
+      "message": "This permanently deletes your cloud account, your encrypted vault and all cloud sync data from the Voltius server. You also leave any team you are a member of. This cannot be undone.",
+      "deviceNote": "This device is then signed out and its local copy of your hosts, keys and snippets is erased, as with Sign out. Copies on your other devices are not removed remotely.",
+      "subscriptionNote": "Your subscription is cancelled along with your account: it will not renew and you will not be charged again.",
+      "typeToConfirm": "Type {{target}} to confirm",
+      "confirm": "Delete account",
+      "deleting": "Deleting…",
+      "deletedTitle": "Account deleted",
+      "deleted": "Your Voltius account has been deleted.",
+      "failed": "Could not delete your account (error {{status}}). Try again later, or contact support.",
+      "ownsTeamWithMembers": "You own a team that still has other members ({{teams}}). Remove those members or delete the team, then try again.",
+      "subscriptionCancelFailed": "Your subscription could not be cancelled, so your account was not deleted. Try again in a few minutes, or contact support."
+    },
     "errorBanner": {
       "dismiss": "dismiss"
     },

@@ -12,8 +12,10 @@ import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePass
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToByteArray, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
+import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
 import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
+import { fetchAuth } from "./authFetch";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
 
 function reloadSubscription() {
@@ -560,6 +562,25 @@ export async function logout(): Promise<void> {
   onSessionEnd();
   const { resetVault } = await import("@/services/vault");
   await resetVault();
+}
+
+/**
+ * Permanently deletes the signed-in cloud account (DELETE /v1/auth/account),
+ * then signs this device out. The server cancels a renewing subscription and
+ * removes the account in one go, or refuses with a coded error (see
+ * `deleteAccountFailure`). On any failure the session is left intact, since
+ * the account still exists.
+ */
+export async function deleteAccount(): Promise<void> {
+  const serverUrl = await keychainGet("server_url");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/auth/account`, { method: "DELETE" });
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null);
+    const { key, params } = deleteAccountFailure(res.status, body);
+    throw new Error(i18n.t(key, params));
+  }
+  await logout();
 }
 
 export async function getAccountMode(): Promise<string | null> {

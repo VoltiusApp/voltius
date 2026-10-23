@@ -6,6 +6,22 @@
       "unsynced": "Eşitleme duraklatılmış veya sunucuya ulaşılamamış; bu cihazdaki son değişiklikler sunucuya kaydedilmemiş olabilir. Oturumu kapatırsanız bu cihazdaki kopya silinir.",
       "confirm": "Sil ve oturumu kapat"
     },
+    "deleteAccount": {
+      "action": "Hesabı sil",
+      "actionSub": "Voltius bulut hesabınızı ve verilerini kalıcı olarak siler",
+      "title": "Voltius hesabınız silinsin mi?",
+      "message": "Bu işlem bulut hesabınızı, şifreli kasanızı ve tüm bulut senkronizasyon verilerinizi Voltius sunucusundan kalıcı olarak siler. Üyesi olduğunuz tüm ekiplerden de ayrılırsınız. Bu işlem geri alınamaz.",
+      "deviceNote": "Ardından bu cihazda oturum kapatılır ve ana bilgisayarlarınızın, anahtarlarınızın ve snippet'lerinizin yerel kopyası, oturumu kapatırken olduğu gibi silinir. Diğer cihazlarınızdaki kopyalar uzaktan silinmez.",
+      "subscriptionNote": "Aboneliğiniz hesabınızla birlikte iptal edilir: yenilenmez ve sizden tekrar ücret alınmaz.",
+      "typeToConfirm": "Onaylamak için {{target}} yazın",
+      "confirm": "Hesabı sil",
+      "deleting": "Siliniyor…",
+      "deletedTitle": "Hesap silindi",
+      "deleted": "Voltius hesabınız silindi.",
+      "failed": "Hesabınız silinemedi (hata {{status}}). Daha sonra tekrar deneyin veya destekle iletişime geçin.",
+      "ownsTeamWithMembers": "Hâlâ başka üyeleri olan bir ekibin sahibisiniz ({{teams}}). Bu üyeleri çıkarın veya ekibi silin, ardından tekrar deneyin.",
+      "subscriptionCancelFailed": "Aboneliğiniz iptal edilemediği için hesabınız silinmedi. Birkaç dakika sonra tekrar deneyin veya destekle iletişime geçin."
+    },
     "errorBanner": {
       "dismiss": "kapat"
     },

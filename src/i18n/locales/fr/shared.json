@@ -6,6 +6,22 @@
       "unsynced": "La synchronisation est en pause ou n'a pas pu joindre le serveur : les modifications récentes de cet appareil n'y sont peut-être pas enregistrées. La déconnexion efface la copie de cet appareil.",
       "confirm": "Effacer et se déconnecter"
     },
+    "deleteAccount": {
+      "action": "Supprimer le compte",
+      "actionSub": "Supprime définitivement votre compte cloud Voltius et ses données",
+      "title": "Supprimer votre compte Voltius ?",
+      "message": "Cette action supprime définitivement votre compte cloud, votre coffre chiffré et toutes les données de synchronisation du serveur Voltius. Vous quittez aussi les équipes dont vous êtes membre. Cette action est irréversible.",
+      "deviceNote": "Cet appareil est ensuite déconnecté et sa copie locale de vos hôtes, clés et snippets est effacée, comme lors d'une déconnexion. Les copies sur vos autres appareils ne sont pas supprimées à distance.",
+      "subscriptionNote": "Votre abonnement est annulé avec votre compte : il ne sera pas renouvelé et vous ne serez plus prélevé.",
+      "typeToConfirm": "Saisissez {{target}} pour confirmer",
+      "confirm": "Supprimer le compte",
+      "deleting": "Suppression…",
+      "deletedTitle": "Compte supprimé",
+      "deleted": "Votre compte Voltius a été supprimé.",
+      "failed": "Impossible de supprimer votre compte (erreur {{status}}). Réessayez plus tard ou contactez le support.",
+      "ownsTeamWithMembers": "Vous êtes propriétaire d'une équipe qui compte encore d'autres membres ({{teams}}). Retirez ces membres ou supprimez l'équipe, puis réessayez.",
+      "subscriptionCancelFailed": "Votre abonnement n'a pas pu être annulé, votre compte n'a donc pas été supprimé. Réessayez dans quelques minutes ou contactez le support."
+    },
     "errorBanner": {
       "dismiss": "ignorer"
     },
