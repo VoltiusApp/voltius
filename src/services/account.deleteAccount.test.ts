@@ -53,6 +53,24 @@ test("a server error keeps the device signed in", async () => {
   expect(h.resetVault).not.toHaveBeenCalled();
 });
 
+test("owning a team with members surfaces the coded refusal", async () => {
+  h.fetchAuth.mockResolvedValueOnce(new Response(
+    JSON.stringify({ error: "OWNS_TEAM_WITH_MEMBERS", teams: [{ id: "t1", name: "Ops", other_members: 1 }] }),
+    { status: 409, headers: { "Content-Type": "application/json" } },
+  ));
+  await expect(deleteAccount()).rejects.toThrow(/shared\.deleteAccount\.ownsTeamWithMembers.*Ops/);
+  expect(h.resetVault).not.toHaveBeenCalled();
+});
+
+test("a failed subscription cancellation keeps the device signed in", async () => {
+  h.fetchAuth.mockResolvedValueOnce(new Response(
+    JSON.stringify({ error: "SUBSCRIPTION_CANCEL_FAILED" }),
+    { status: 502, headers: { "Content-Type": "application/json" } },
+  ));
+  await expect(deleteAccount()).rejects.toThrow("shared.deleteAccount.subscriptionCancelFailed");
+  expect(h.resetVault).not.toHaveBeenCalled();
+});
+
 test("refuses without a server to talk to", async () => {
   h.store = { account_id: "acct-1" };
   await expect(deleteAccount()).rejects.toThrow("common.error.notConnectedToServer");

@@ -7,8 +7,7 @@ import { deleteAccount, getCurrentUserEmail } from "@/services/account";
 import { appToast } from "@/services/appToast";
 import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { openPortal } from "@/utils/billing";
-import { deleteConfirmationTarget, isDeleteConfirmed, subscriptionStillBills } from "@/utils/deleteAccount";
+import { deleteConfirmationTarget, isDeleteConfirmed, subscriptionRenews } from "@/utils/deleteAccount";
 
 interface Props {
   onCancel: () => void;
@@ -85,13 +84,8 @@ export function DeleteAccountModal({ onCancel, onDeleted }: Props) {
       onCancel={busy ? () => {} : onCancel}
     >
       <p className="text-sm text-(--t-text-secondary)">{t("shared.deleteAccount.deviceNote")}</p>
-      {subscriptionStillBills({ billingEnabled, status, cancelled }) && (
-        <div className="text-sm rounded-lg px-3 py-2 flex flex-col items-start gap-1.5" style={{ background: "color-mix(in srgb, var(--t-status-warning) 12%, transparent)", color: "var(--t-text-primary)" }}>
-          <span>{t("shared.deleteAccount.subscriptionWarning")}</span>
-          <button type="button" data-delete-account-billing onClick={() => void openPortal()} className="text-sm font-medium underline text-(--t-accent)">
-            {t("shared.deleteAccount.manageBilling")}
-          </button>
-        </div>
+      {subscriptionRenews({ billingEnabled, status, cancelled }) && (
+        <p data-delete-account-subscription-note className="text-sm text-(--t-text-secondary)">{t("shared.deleteAccount.subscriptionNote")}</p>
       )}
       {loaded && (
         <label className="flex flex-col gap-1.5 text-sm text-(--t-text-secondary)">

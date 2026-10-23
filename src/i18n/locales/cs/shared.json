@@ -12,14 +12,15 @@
       "title": "Smazat váš účet Voltius?",
       "message": "Tímto trvale smažete svůj cloudový účet, šifrovaný trezor a všechna synchronizovaná data ze serveru Voltius. Zároveň opustíte všechny týmy, jejichž jste členem. Tuto akci nelze vrátit.",
       "deviceNote": "Toto zařízení se poté odhlásí a jeho místní kopie vašich hostitelů, klíčů a snippetů se vymaže, stejně jako při odhlášení. Kopie na vašich dalších zařízeních se na dálku neodstraní.",
-      "subscriptionWarning": "Smazáním účtu se nezruší vaše předplatné. Nejprve ho zrušte ve fakturaci, jinak vám mohou být dál účtovány platby.",
-      "manageBilling": "Spravovat fakturaci",
+      "subscriptionNote": "Vaše předplatné se zruší spolu s účtem: neobnoví se a nebudou vám účtovány žádné další platby.",
       "typeToConfirm": "Pro potvrzení napište {{target}}",
       "confirm": "Smazat účet",
       "deleting": "Mazání…",
       "deletedTitle": "Účet smazán",
       "deleted": "Váš účet Voltius byl smazán.",
-      "failed": "Účet se nepodařilo smazat (chyba {{status}}). Pokud vlastníte tým, nejprve ho smažte, nebo kontaktujte podporu."
+      "failed": "Účet se nepodařilo smazat (chyba {{status}}). Zkuste to později nebo kontaktujte podporu.",
+      "ownsTeamWithMembers": "Vlastníte tým, který má stále další členy ({{teams}}). Odeberte tyto členy nebo tým smažte a zkuste to znovu.",
+      "subscriptionCancelFailed": "Předplatné se nepodařilo zrušit, proto účet nebyl smazán. Zkuste to za pár minut nebo kontaktujte podporu."
     },
     "errorBanner": {
       "dismiss": "zavřít"

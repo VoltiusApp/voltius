@@ -12,14 +12,15 @@
       "title": "Voltius hesabınız silinsin mi?",
       "message": "Bu işlem bulut hesabınızı, şifreli kasanızı ve tüm bulut senkronizasyon verilerinizi Voltius sunucusundan kalıcı olarak siler. Üyesi olduğunuz tüm ekiplerden de ayrılırsınız. Bu işlem geri alınamaz.",
       "deviceNote": "Ardından bu cihazda oturum kapatılır ve ana bilgisayarlarınızın, anahtarlarınızın ve snippet'lerinizin yerel kopyası, oturumu kapatırken olduğu gibi silinir. Diğer cihazlarınızdaki kopyalar uzaktan silinmez.",
-      "subscriptionWarning": "Hesabınızı silmek aboneliğinizi iptal etmez. Önce faturalandırmadan iptal edin, aksi halde ücret alınmaya devam edebilir.",
-      "manageBilling": "Faturalandırmayı yönet",
+      "subscriptionNote": "Aboneliğiniz hesabınızla birlikte iptal edilir: yenilenmez ve sizden tekrar ücret alınmaz.",
       "typeToConfirm": "Onaylamak için {{target}} yazın",
       "confirm": "Hesabı sil",
       "deleting": "Siliniyor…",
       "deletedTitle": "Hesap silindi",
       "deleted": "Voltius hesabınız silindi.",
-      "failed": "Hesabınız silinemedi (hata {{status}}). Bir ekibin sahibiyseniz önce onu silin veya destekle iletişime geçin."
+      "failed": "Hesabınız silinemedi (hata {{status}}). Daha sonra tekrar deneyin veya destekle iletişime geçin.",
+      "ownsTeamWithMembers": "Hâlâ başka üyeleri olan bir ekibin sahibisiniz ({{teams}}). Bu üyeleri çıkarın veya ekibi silin, ardından tekrar deneyin.",
+      "subscriptionCancelFailed": "Aboneliğiniz iptal edilemediği için hesabınız silinmedi. Birkaç dakika sonra tekrar deneyin veya destekle iletişime geçin."
     },
     "errorBanner": {
       "dismiss": "kapat"
