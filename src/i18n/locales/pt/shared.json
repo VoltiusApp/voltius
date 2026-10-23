@@ -200,6 +200,7 @@
       "failed": "Não foi possível excluir sua conta (erro {{status}}). Tente novamente mais tarde ou entre em contato com o suporte.",
       "ownsTeamWithMembers": "Você é o único proprietário de uma equipe que ainda tem outros membros ({{teams}}). Torne outro membro proprietário, remova os membros ou exclua a equipe e tente novamente.",
       "subscriptionCancelFailed": "Não foi possível cancelar sua assinatura, então sua conta não foi excluída. Tente novamente em alguns minutos ou entre em contato com o suporte."
-    }
+    },
+    "availableWith": "Disponível com {{plan}}"
   }
 }
