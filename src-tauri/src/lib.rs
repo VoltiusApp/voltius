@@ -100,6 +100,8 @@ fn init_keychain_store() -> keyring_core::Result<()> {
     )?);
     #[cfg(target_os = "android")]
     keyring_core::set_default_store(crate::keychain_android::Store::new());
+    #[cfg(target_os = "ios")]
+    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
     Ok(())
 }
 

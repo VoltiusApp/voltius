@@ -123,10 +123,17 @@ gio = "0.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
+
+# Touch ID / Face ID through LocalAuthentication (system_auth/macos.rs).
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSError"] }
 objc2-local-authentication = { version = "0.3", features = ["LAContext", "LAError", "block2"] }
 block2 = "0.6"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+# iOS has only the data-protection keychain.
+apple-native-keyring-store = { version = "1", features = ["protected"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"

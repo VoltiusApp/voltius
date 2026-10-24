@@ -4,7 +4,7 @@ use serde::Serialize;
 pub mod android;
 #[cfg(target_os = "linux")]
 mod linux;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 mod macos;
 pub mod seal;
 #[cfg(target_os = "windows")]
@@ -14,7 +14,7 @@ mod windows;
 use android as backend;
 #[cfg(target_os = "linux")]
 use linux as backend;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use macos as backend;
 #[cfg(target_os = "windows")]
 use windows as backend;
