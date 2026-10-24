@@ -1,0 +1,9 @@
+{
+  "identifier": "app.voltius",
+  "bundle": {
+    "iOS": {
+      "developmentTeam": "PQ94FFKWHV",
+      "minimumSystemVersion": "16.0"
+    }
+  }
+}

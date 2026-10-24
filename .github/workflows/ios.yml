@@ -1,0 +1,82 @@
+# Builds the App Store package (.ipa) for iOS on a macOS runner. Nothing here
+# uploads to Apple yet.
+#
+# Signing is manual: the Apple Distribution certificate (IOS_CERTIFICATE, a
+# base64 .p12, and IOS_CERTIFICATE_PASSWORD) and the "Voltius App Store"
+# provisioning profile (IOS_MOBILE_PROVISION, base64) are read by the Tauri CLI.
+#
+# The iOS bundle id is app.voltius (src-tauri/tauri.ios.conf.json): Apple
+# reported com.voltius.app as taken by another team.
+#
+# The build uses VITE_DISTRIBUTION=appstore, which hides the purchase buttons.
+name: ios
+
+on:
+  push:
+    branches: [ci/ios]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to build"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        run: echo "channel=$(sed -nE "s/^channel[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p" rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: aarch64-apple-ios
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: aarch64-apple-ios
+          workspaces: ". -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Generate the Xcode project
+        run: pnpm tauri ios init --ci
+
+      - name: Build the App Store package
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_MOBILE_PROVISION: ${{ secrets.IOS_MOBILE_PROVISION }}
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
+          VITE_DISTRIBUTION: appstore
+        run: pnpm tauri ios build --export-method app-store-connect --ci
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-ios-ipa
+          path: src-tauri/gen/apple/build/arm64/*.ipa
+          retention-days: 14

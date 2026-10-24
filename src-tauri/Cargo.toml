@@ -7,7 +7,7 @@ edition = "2021"
 
 [lib]
 name = "voltius_lib"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 # NOTE: profiles are defined at the workspace root (Cargo.toml). Cargo ignores
 # `[profile.*]` in non-root members, so they must not live here.
