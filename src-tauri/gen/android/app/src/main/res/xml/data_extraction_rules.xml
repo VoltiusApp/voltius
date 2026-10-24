@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Keystore key that decrypts voltius_secrets.xml never leaves the device. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="voltius_secrets.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="voltius_secrets.xml" />
+    </device-transfer>
+</data-extraction-rules>
