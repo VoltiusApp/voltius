@@ -95,3 +95,11 @@ jobs:
           name: voltius-ios-ipa
           path: src-tauri/gen/apple/build/arm64/*.ipa
           retention-days: 14
+
+      - name: Show the signing settings
+        if: failure()
+        run: |
+          grep -n -E "CODE_SIGN|PROVISIONING|DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER|name = (debug|release)|Build configuration list" src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj || true
+          cat src-tauri/gen/apple/ExportOptions.plist || true
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" || true
+          security find-identity -v -p codesigning || true
