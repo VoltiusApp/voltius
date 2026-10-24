@@ -79,8 +79,22 @@ jobs:
             cp "$profile" "$dir/$uuid.mobileprovision"
           done
 
+      # With the App Store Connect API key, the Tauri CLI builds and archives
+      # unsigned, then signs at export time with the certificate and profile
+      # above. Signing at build time fails: Xcode 26 reports that voltius_iOS
+      # "requires a provisioning profile" although the profile is installed.
+      - name: Write the App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          printf "%s
+" "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
       - name: Build the App Store package
         env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_MOBILE_PROVISION: ${{ secrets.IOS_MOBILE_PROVISION }}
@@ -99,6 +113,7 @@ jobs:
       - name: Show the signing settings
         if: failure()
         run: |
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
           grep -n -E "CODE_SIGN|PROVISIONING|DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER|name = (debug|release)|Build configuration list" src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj || true
           cat src-tauri/gen/apple/ExportOptions.plist || true
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" || true
