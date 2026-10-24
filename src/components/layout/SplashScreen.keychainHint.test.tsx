@@ -17,6 +17,7 @@ vi.mock("@/services/account", () => ({
   setAppLock: vi.fn(async () => {}),
   isServerMode: vi.fn(async () => false),
   getAccountMode: vi.fn(async () => "local"),
+  getAccountId: vi.fn(async () => "acc-1"),
 }));
 vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => false, lockOnLaunchIfIdle: async () => null }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: true })) }));

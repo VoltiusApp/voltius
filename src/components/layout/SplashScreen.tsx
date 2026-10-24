@@ -8,7 +8,7 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { autoLogin, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
+import { autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
 import { lockOnLaunchIfIdle, systemAuthAvailable } from "@/services/appLock";
 import { secretState } from "@/services/vaultSecret";
 import { useAppLockStore } from "@/stores/appLockStore";
@@ -44,9 +44,13 @@ function keepSwitcherFresh(): void {
   saveCurrentAccount().catch((e) => console.warn("[splash] could not save this account to the switcher:", e));
 }
 
+type UnlockPhase = "auth-locked" | "auth-unreadable" | "auth-first-launch";
+
 // An account can predate its vault file: a cloud one re-derives from the server, a local one never wrote a secret.
-async function hasAccountToUnlock(): Promise<boolean> {
-  return (await getVaultStatus()).exists || canLockVault(await getAccountMode());
+// A vault whose account id is gone from the keychain (restored without it) can't take a password.
+async function unlockPhase(): Promise<UnlockPhase> {
+  if ((await getVaultStatus()).exists) return (await getAccountId()) ? "auth-locked" : "auth-unreadable";
+  return canLockVault(await getAccountMode()) ? "auth-locked" : "auth-first-launch";
 }
 
 export default function SplashScreen({ onReady }: Props) {
@@ -62,6 +66,12 @@ export default function SplashScreen({ onReady }: Props) {
   const setStep = (id: string, status: StepStatus, label?: string) =>
     setSteps((prev) => prev.map((s) => s.id === id ? { ...s, status, ...(label ? { label } : {}) } : s));
 
+  const showUnlockPhase = (next: UnlockPhase, lockedLabel: string) => {
+    if (next === "auth-unreadable") setStep("vault", "error", t("layout.splash.vaultUnreadable"));
+    else setStep("vault", "done", next === "auth-locked" ? lockedLabel : t("layout.splash.firstLaunch"));
+    setPhase(next);
+  };
+
   useEffect(() => {
     async function init() {
       setStep("init", "running");
@@ -75,9 +85,7 @@ export default function SplashScreen({ onReady }: Props) {
         const sealed = (await secretState().catch(() => "none")) === "sealed";
         setSystemAuth(sealed || (useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
         try {
-          const locked = await hasAccountToUnlock();
-          setStep("vault", "done", locked ? t("layout.splash.vaultLocked") : t("layout.splash.firstLaunch"));
-          setPhase(locked ? "auth-locked" : "auth-first-launch");
+          showUnlockPhase(await unlockPhase(), t("layout.splash.vaultLocked"));
         } catch {
           setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
           setPhase("auth-first-launch");
@@ -110,9 +118,7 @@ export default function SplashScreen({ onReady }: Props) {
 
       // autoLogin failed — check if a vault already exists (locked) or first launch
       try {
-        const locked = await hasAccountToUnlock();
-        setStep("vault", "done", locked ? t("layout.splash.vaultFound") : t("layout.splash.firstLaunch"));
-        setPhase(locked ? "auth-locked" : "auth-first-launch");
+        showUnlockPhase(await unlockPhase(), t("layout.splash.vaultFound"));
       } catch {
         setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
         setPhase("auth-first-launch");

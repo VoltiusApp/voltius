@@ -8,9 +8,10 @@ const h = vi.hoisted(() => ({
   available: true,
   exists: true,
   mode: null as string | null,
+  accountId: "acc-1" as string | null,
   launchLock: null as string | null,
   secret: "plain",
-  authProps: null as null | { isLocked: boolean; systemAuth?: boolean },
+  authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean },
 }));
 
 vi.mock("react-i18next", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/services/account", () => ({
   setAppLock: vi.fn(async () => {}),
   isServerMode: vi.fn(async () => h.mode === "server"),
   getAccountMode: vi.fn(async () => h.mode),
+  getAccountId: vi.fn(async () => h.accountId),
 }));
 vi.mock("@/services/appLock", () => ({
   systemAuthAvailable: vi.fn(async () => h.available),
@@ -35,7 +37,7 @@ vi.mock("@/stores/securityStore", () => ({
 }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: h.exists })) }));
 vi.mock("./AuthPage", () => ({
-  default: (p: { isLocked: boolean; systemAuth?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
+  default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
 
@@ -47,6 +49,7 @@ beforeEach(() => {
   h.systemAuthUnlock = false;
   h.exists = true;
   h.mode = null;
+  h.accountId = "acc-1";
   h.launchLock = null;
   h.secret = "plain";
   h.authProps = null;
@@ -153,4 +156,20 @@ test("a declined login on a cloud account with no vault file yet still gets the 
   render(<SplashScreen onReady={() => {}} />);
   await advance(2000);
   expect(h.authProps).toMatchObject({ isLocked: true });
+});
+
+test("a vault file whose account id is gone from the keychain goes to the unreadable panel, not the password form", async () => {
+  h.autoLogin.mockResolvedValueOnce("declined");
+  h.accountId = null;
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true, vaultUnreadable: true });
+});
+
+test("a vault lock over a vault whose account id is gone goes to the unreadable panel", async () => {
+  h.lock = "vault";
+  h.accountId = null;
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true, vaultUnreadable: true });
 });
