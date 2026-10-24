@@ -151,7 +151,6 @@ export default function MobileHostsScreen() {
       <div data-mobile-hosts-scroll className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none" style={{ overscrollBehavior: "contain" }} onScroll={onScroll}>
         <MobileLargeTitle ref={titleRef} />
         <MobileFilterBar
-          pill
           attr="mobile-host-search"
           value={search}
           onChange={setSearch}

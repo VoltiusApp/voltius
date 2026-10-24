@@ -10,6 +10,7 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import type { Connection } from "@/types";
 import BottomSheet from "./BottomSheet";
+import MobileFilterBar from "../MobileFilterBar";
 
 function PickRow({ c, attr, pingEnabled, onPick }: { c: Connection; attr: string; pingEnabled: boolean; onPick: (id: string) => void }) {
   const pingStatus = useHostPingStore((s) => s.statuses[c.id]);
@@ -62,9 +63,8 @@ export default function HostPickerSheet({
 
   return (
     <BottomSheet title={title} onClose={onClose}>
-      <input {...{ [`data-${attr}-search`]: "" }} autoFocus={autoFocusSearch} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("mobile.hostsScreen.searchPlaceholder")}
-        className="w-full rounded-xl px-3 h-12 text-sm outline-none text-(--t-text-primary) mb-2"
-        style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
+      <MobileFilterBar attr={`${attr}-search`} autoFocus={autoFocusSearch} value={q} onChange={setQ} inset="px-1 pb-2"
+        placeholder={t("mobile.hostsScreen.searchPlaceholder")} />
       {vaults.length > 1 && (
         <div className="flex gap-1.5 overflow-x-auto -mt-2 py-2 -mx-1 px-1">
           {[{ id: null, name: t("shared.hostPicker.allVaults") }, ...vaults].map((v) => (

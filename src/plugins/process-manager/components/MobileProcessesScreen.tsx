@@ -54,19 +54,23 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-(--t-border) shrink-0">
-              <Icon icon="lucide:search" width={16} className="text-(--t-text-muted) shrink-0" />
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder={t("filterPlaceholder")}
-                className="flex-1 bg-transparent text-sm text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
-              />
-              {snapshot && (
-                <span className="text-[11px] text-(--t-text-dim) shrink-0">
-                  {entries.length}/{snapshot.entries.length}
-                </span>
-              )}
+            {/* Same M3 search bar as the app's MobileFilterBar (48 dp pill, tonal fill). */}
+            <div className="px-4 py-2 shrink-0">
+              <div className="flex items-center gap-3 px-4 h-12 rounded-full" style={{ background: "var(--t-bg-card)" }}>
+                <Icon icon="lucide:search" width={20} className="text-(--t-text-dim) shrink-0" />
+                <input
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder={t("filterPlaceholder")}
+                  aria-label={t("filterPlaceholder")}
+                  className="flex-1 min-w-0 self-stretch bg-transparent text-base text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
+                />
+                {snapshot && (
+                  <span className="text-xs tabular-nums text-(--t-text-dim) shrink-0">
+                    {entries.length}/{snapshot.entries.length}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2 px-3 py-2 border-b border-(--t-border) shrink-0 overflow-x-auto">
