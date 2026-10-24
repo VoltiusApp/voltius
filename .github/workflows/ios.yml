@@ -87,8 +87,7 @@ jobs:
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: |
-          printf "%s
-" "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          printf "%s\n" "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
           echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
       - name: Build the App Store package
