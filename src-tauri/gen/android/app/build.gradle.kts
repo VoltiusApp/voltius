@@ -57,11 +57,16 @@ android {
             }
         }
         getByName("release") {
-            // R8 off: it barely shrinks this app (size is the native .so libs, which
-            // release strips regardless) and can rename/remove JNI-called Kotlin
-            // (nativeInit, VoltiusKeychain) → launch crash. Keep behavior identical
-            // to the on-device-verified debug build; only signing/debuggable differ.
-            isMinifyEnabled = false
+            // R8 shrinks and obfuscates the libraries (Play flags unobfuscated DEX).
+            // Rust calls our Kotlin by name over JNI (VoltiusKeychain, VoltiusBiometric,
+            // VoltiusTunnelService, ...), so proguard-rules.pro keeps com.voltius.app
+            // whole; Tauri's own classes are kept by the rules its library ships.
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+                "proguard-tauri.pro",
+            )
             // Only attach the release signing config when CI provided a keystore;
             // otherwise leave unsigned so a local `release` build still completes.
             if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
