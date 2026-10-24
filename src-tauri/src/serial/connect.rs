@@ -163,6 +163,9 @@ pub struct SerialPortInfo {
 pub fn serial_list_ports() -> Result<Vec<SerialPortInfo>, String> {
     let mut ports: Vec<SerialPortInfo> = Vec::new();
 
+    // iOS has no serial ports, and serialport enumerates them through IOKit,
+    // which is not linkable there.
+    #[cfg(not(target_os = "ios"))]
     if let Ok(detected) = serialport::available_ports() {
         for p in detected {
             ports.push(SerialPortInfo {
