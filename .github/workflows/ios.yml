@@ -117,3 +117,76 @@ jobs:
           cat src-tauri/gen/apple/ExportOptions.plist || true
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" || true
           security find-identity -v -p codesigning || true
+
+  # Runs the app in the iOS simulator and keeps screenshots and logs, since
+  # nobody on the team has an iPhone.
+  simulator:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        run: echo "channel=$(sed -nE "s/^channel[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p" rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: aarch64-apple-ios-sim
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: aarch64-apple-ios-sim
+          workspaces: ". -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Generate the Xcode project
+        run: pnpm tauri ios init --ci
+
+      - name: Build for the simulator
+        env:
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
+          VITE_DISTRIBUTION: appstore
+        run: pnpm tauri ios build --target aarch64-sim --ci
+
+      - name: Run in the simulator
+        run: |
+          app=$(find src-tauri/gen/apple/build -name "*.app" -maxdepth 3 | head -1)
+          echo "app: $app"
+          device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)[\"devices\"]; print(next(x[\"udid\"] for r in sorted(d, reverse=True) if \"iOS\" in r for x in d[r] if x[\"name\"].startswith(\"iPhone\") and \"Pro\" in x[\"name\"] and \"Max\" not in x[\"name\"]))")
+          echo "device: $device"
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device"
+          xcrun simctl install "$device" "$app"
+          mkdir -p sim
+          xcrun simctl launch --console-pty "$device" app.voltius > sim/console.log 2>&1 &
+          for t in 5 15 30 60; do
+            sleep $((t - ${prev:-0})); prev=$t
+            xcrun simctl io "$device" screenshot "sim/launch-${t}s.png"
+          done
+          xcrun simctl spawn "$device" log show --last 3m --style compact --predicate "process == \"Voltius\"" > sim/system.log || true
+          tail -50 sim/console.log || true
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-ios-simulator
+          path: sim/
+          retention-days: 14
