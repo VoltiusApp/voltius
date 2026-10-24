@@ -64,6 +64,21 @@ jobs:
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
 
+      # The Tauri CLI installs the profile in ~/Library/MobileDevice, but Xcode 16+
+      # reads ~/Library/Developer/Xcode/UserData. Install it in both places.
+      - name: Install the provisioning profile
+        env:
+          IOS_MOBILE_PROVISION: ${{ secrets.IOS_MOBILE_PROVISION }}
+        run: |
+          profile="$RUNNER_TEMP/voltius.mobileprovision"
+          echo "$IOS_MOBILE_PROVISION" | base64 --decode > "$profile"
+          uuid=$(security cms -D -i "$profile" | plutil -extract UUID raw -o - -)
+          echo "profile UUID: $uuid"
+          for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$dir"
+            cp "$profile" "$dir/$uuid.mobileprovision"
+          done
+
       - name: Build the App Store package
         env:
           IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
