@@ -485,6 +485,11 @@ await step("open-sftp", async () => {
 async function openTab(id) {
   await hideKeyboard();
   const sel = `[data-mobile-tab="${id}"]`;
+  // Session and panel pages hide the bottom bar: go back until it shows.
+  for (let i = 0; i < 4 && !(await web(page.rectOf, sel)); i++) {
+    if (await web(page.rectOf, "[data-mobile-back]")) await web(page.clickLastTarget);
+    await sleep(1200);
+  }
   let r = await tapSel(sel);
   await sleep(1500);
   const active = () => web((s) => {
@@ -521,7 +526,29 @@ if (STORE) {
   });
 
   await step("store-terminal", async () => {
-    let r = await openTab("terminal");
+    // Open a shell on prod-web if the connect step did not get one (the test
+    // server sometimes stalls on the first handshake): tap the host row again.
+    let r = "";
+    for (let attempt = 0; attempt < 3 && !/PTY_OPEN/.test(sshLog("ssh-events.log")); attempt++) {
+      r += (await openTab("hosts")) + "; ";
+      const found = await web(page.findTarget, "^prod-web");
+      if (found) await web(page.clickLastTarget);
+      for (let i = 0; i < 40 && !/PTY_OPEN/.test(sshLog("ssh-events.log")); i++) {
+        const text = await web(() => document.body.innerText || "");
+        if (/Connection failed/.test(text) && (await web(page.findTarget, "^Retry$"))) await web(page.clickLastTarget);
+        await sleep(1500);
+      }
+    }
+    if (!/PTY_OPEN/.test(sshLog("ssh-events.log"))) throw new Error(`${r}no shell on prod-web`);
+    if (!(await web(page.terminalRect))) {
+      r += await openTab("terminal");
+      await sleep(1500);
+      // The terminal tab may list sessions: open the prod-web one.
+      if (!(await web(page.terminalRect)) && (await web(page.findTarget, "prod-web"))) {
+        await web(page.clickLastTarget);
+        await sleep(2000);
+      }
+    }
     const prompt = String.raw`\[\e[1;32m\]deploy@prod-web\[\e[0m\]:\[\e[1;34m\]~\[\e[0m\]$ `;
     const cmds = [
       `export PS1='${prompt}' LSCOLORS=ExGxFxdxCxDxDxhbadExEx; cd "$DEMO_DIR"; clear`,
