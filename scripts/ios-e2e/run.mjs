@@ -301,11 +301,18 @@ await step("save-host", async () => {
     r += "; exit guard shown: " + (await tap("^Save$|Keep editing"));
   }
   // Back on the hosts list: the host row exists and the editor is gone.
-  const end = Date.now() + 20000;
+  const onList = () => web(() => !!document.querySelector("[data-mobile-hosts] [data-mobile-host]") &&
+    !/^(Edit|New) host$/m.test(document.body.innerText || ""));
+  for (let i = 0; i < 4; i++) {
+    if (await onList()) return r;
+    await sleep(1000);
+  }
+  // The native tap missed (page zoomed / scrolled by iOS): click it from JS and say so.
+  r += "; NATIVE TAP MISSED, js-click fallback";
+  if (await web(page.rectOf, "[data-mobile-back]")) await web(page.clickLastTarget);
+  const end = Date.now() + 15000;
   while (Date.now() < end) {
-    const back = await web(() => !!document.querySelector("[data-mobile-hosts] [data-mobile-host]") &&
-      !/^(Edit|New) host$/m.test(document.body.innerText || ""));
-    if (back) return r;
+    if (await onList()) return r;
     await sleep(1000);
   }
   throw new Error(`${r}; still in the host editor`);
@@ -317,9 +324,15 @@ await step("connect", async () => {
     ? await tapSel("[data-mobile-hosts] [data-mobile-host]")
     : await tap(HOST_LABEL);
   // Desktop lists may need a second tap or an explicit Connect button.
-  await sleep(3000);
-  if (!/CONNECT/.test(sshLog("ssh-events.log"))) {
-    r += "; " + (await optional(() => tap("^Connect$|^SSH$|Open terminal")));
+  // Latency pings also open TCP connections; only an auth attempt means "connect".
+  await sleep(5000);
+  if (!/AUTH_BEGIN/.test(sshLog("ssh-events.log"))) {
+    r += "; NATIVE TAP MISSED, js-click fallback";
+    if (await web(page.rectOf, "[data-mobile-hosts] [data-mobile-host] button, [data-mobile-hosts] [data-mobile-host]")) {
+      await web(page.clickLastTarget);
+    } else {
+      r += "; " + (await optional(() => tap(HOST_LABEL, { js: true })));
+    }
   }
   const end = Date.now() + 45000;
   while (Date.now() < end) {
