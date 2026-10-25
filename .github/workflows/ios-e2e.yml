@@ -129,8 +129,9 @@ jobs:
 
       - name: Boot a simulator
         run: |
-          # The store screenshots need a 6.9-inch iPhone (Pro Max, 1320x2868).
-          want_max=$([ "$STORE" = 1 ] && echo True || echo False)
+          # App Store Connect takes its iPhone screenshots at 1206x2622 (the
+          # medium Dynamic Island iPhone, i.e. the Pro): use the Pro either way.
+          want_max=False
           device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; m=$want_max; print(next(x['udid'] for r in sorted(d, reverse=True) if 'iOS' in r for x in d[r] if x['name'].startswith('iPhone') and 'Pro' in x['name'] and ('Max' in x['name']) == m))")
           echo "UDID=$device" >> "$GITHUB_ENV"
           xcrun simctl boot "$device"
