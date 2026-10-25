@@ -169,6 +169,20 @@ export function typeInTerminal(text) {
   return `typed into terminal ${areas.indexOf(ta) + 1}/${areas.length}`;
 }
 
+/** Rect of the first visible element matching a CSS selector (scrolled into view), or null. */
+export function rectOf(selector) {
+  const el = [...document.querySelectorAll(selector)].find((e) => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  if (!el) return null;
+  const r0 = el.getBoundingClientRect();
+  if (r0.top < 0 || r0.bottom > innerHeight) el.scrollIntoView({ block: "center" });
+  window.__e2eTarget = el;
+  const r = el.getBoundingClientRect();
+  return [r.x, r.y, r.width, r.height];
+}
+
 /** Rect of the last visible terminal, for tapping it. */
 export function terminalRect() {
   const all = [...document.querySelectorAll(".xterm")].filter((x) => x.getBoundingClientRect().width > 0);

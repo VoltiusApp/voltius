@@ -183,6 +183,13 @@ async function tap(pattern, { timeoutMs = 20000, js = false } = {}) {
   return `tap <${found.tag}> "${found.text}" at ${at}`;
 }
 
+async function tapSel(selector) {
+  const rect = await web(page.rectOf, selector);
+  if (!rect) throw new Error(`no element ${selector}`);
+  const at = await tapRect(rect);
+  return `tap ${selector} at ${at}`;
+}
+
 async function fill(pattern, value) {
   const found = await web(page.findInput, pattern);
   if (!found) throw new Error(`no input matches /${pattern}/`);
@@ -248,8 +255,18 @@ await step("dismiss-onboarding", async () => {
   return out.join("; ") || "nothing to dismiss";
 });
 
+// Selectors follow MobileShell (same screens as Android): data-mobile-* attributes
+// first, visible text as the fallback, so a desktop layout still gets a try.
+
 await step("new-host", async () => {
-  const r = await tap("New Host|New host|Add Host|Add host|^\\+$|Create host");
+  let r;
+  if (await web(page.rectOf, "[data-mobile-add]")) {
+    r = await tapSel("[data-mobile-add]");
+    await sleep(1200);
+    r += "; " + (await tapSel("[data-add-choice=item]").catch(() => tap("^New host$")));
+  } else {
+    r = await tap("New Host|New host|Add Host|Add host|Create host");
+  }
   await waitText("Host / IP|Hostname|Host or IP|Address", 20000);
   return r;
 });
@@ -265,7 +282,16 @@ await step("fill-host", async () => {
 });
 
 await step("save-host", async () => {
-  const r = await tap("^(Save|Create|Add|Add host|Save host|Done)$");
+  // The mobile host editor autosaves: wait out the debounce, then go back.
+  await sleep(2500);
+  let r;
+  if (await web(page.rectOf, "[data-mobile-back]")) r = await tapSel("[data-mobile-back]");
+  else r = await tap("^(Save|Create|Add|Add host|Save host|Done)$");
+  await sleep(1500);
+  const text = await web(() => document.body.innerText || "");
+  if (/Leave without saving|Discard changes/i.test(text)) {
+    r += "; exit guard shown: " + (await tap("^Save$|Keep editing"));
+  }
   await waitText(HOST_LABEL, 20000);
   return r;
 });
@@ -326,7 +352,17 @@ await step("check-output", async () => {
 });
 
 await step("open-sftp", async () => {
-  const r = await tap("^SFTP$|Files|File browser|Open SFTP");
+  // Mobile: terminal top bar "Panels" → SFTP; else the SFTP tab, then pick the host.
+  let r;
+  try {
+    r = await tap("^Panels$");
+    await sleep(1200);
+    r += "; " + (await tap("^SFTP$"));
+  } catch {
+    r = await tapSel("[data-mobile-tab=sftp]").catch(() => tap("^SFTP$|Files|Open SFTP"));
+    await sleep(1500);
+    r += "; " + (await optional(() => tap(HOST_LABEL)));
+  }
   const end = Date.now() + 30000;
   while (Date.now() < end) {
     if (/SFTP_OPEN/.test(sshLog("ssh-events.log"))) return `${r}; SFTP session opened`;
