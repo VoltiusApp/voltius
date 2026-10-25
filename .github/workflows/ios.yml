@@ -76,6 +76,14 @@ jobs:
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
 
+      # iPhone only: the mobile shell is not laid out for iPad (it still runs
+      # there in iPhone compatibility mode), and the store then needs no iPad
+      # screenshots.
+      - name: Target iPhone only
+        run: |
+          perl -pi -e 's/TARGETED_DEVICE_FAMILY = "?1,2"?;/TARGETED_DEVICE_FAMILY = 1;/' src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj
+          grep -n "TARGETED_DEVICE_FAMILY" src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj
+
       # The Tauri CLI installs the profile in ~/Library/MobileDevice, but Xcode 16+
       # reads ~/Library/Developer/Xcode/UserData. Install it in both places.
       - name: Install the provisioning profile
@@ -187,6 +195,14 @@ jobs:
 
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
+
+      # iPhone only: the mobile shell is not laid out for iPad (it still runs
+      # there in iPhone compatibility mode), and the store then needs no iPad
+      # screenshots.
+      - name: Target iPhone only
+        run: |
+          perl -pi -e 's/TARGETED_DEVICE_FAMILY = "?1,2"?;/TARGETED_DEVICE_FAMILY = 1;/' src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj
+          grep -n "TARGETED_DEVICE_FAMILY" src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj
 
       - name: Build for the simulator
         env:

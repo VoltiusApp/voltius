@@ -230,6 +230,9 @@ pub fn run() {
             // Verbose logging auto-reverts on every launch: always start at Info.
             log::set_max_level(log::LevelFilter::Info);
 
+            #[cfg(target_os = "ios")]
+            crate::ios_native::hide_keyboard_accessory_bar();
+
             // On Android `dirs::config_dir()` resolves to an unwritable cwd, so
             // pin generic file storage (connections, plugins, identities, …) to
             // the app's scoped data dir — the same dir the vault already uses.

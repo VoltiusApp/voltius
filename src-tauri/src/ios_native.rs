@@ -37,6 +37,40 @@ pub fn share_files_native(app: AppHandle, paths: Vec<String>) -> bool {
     }
 }
 
+/// Hide the bar iOS shows above the keyboard for web inputs (previous / next /
+/// done). The terminal has its own extra-keys row right there, and the bar
+/// pushes it up. Same trick as Capacitor's Keyboard plugin: WKContentView's
+/// `inputAccessoryView` returns nil. Call once, on the main thread.
+#[cfg(target_os = "ios")]
+pub fn hide_keyboard_accessory_bar() {
+    use std::ffi::{c_char, c_void};
+
+    extern "C" {
+        fn objc_getClass(name: *const c_char) -> *mut c_void;
+        fn sel_registerName(name: *const c_char) -> *const c_void;
+        fn class_replaceMethod(
+            cls: *mut c_void,
+            name: *const c_void,
+            imp: *const c_void,
+            types: *const c_char,
+        ) -> *const c_void;
+    }
+
+    extern "C" fn no_accessory(_this: *mut c_void, _cmd: *const c_void) -> *mut c_void {
+        std::ptr::null_mut()
+    }
+
+    unsafe {
+        let cls = objc_getClass(c"WKContentView".as_ptr());
+        if cls.is_null() {
+            log::warn!("WKContentView not found: keyboard accessory bar stays");
+            return;
+        }
+        let sel = sel_registerName(c"inputAccessoryView".as_ptr());
+        class_replaceMethod(cls, sel, no_accessory as *const c_void, c"@@:".as_ptr());
+    }
+}
+
 #[cfg(target_os = "ios")]
 mod imp {
     use block2::Block;
