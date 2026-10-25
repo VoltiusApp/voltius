@@ -302,7 +302,7 @@ await step("save-host", async () => {
   }
   // Back on the hosts list: the host row exists and the editor is gone.
   const onList = () => web(() => !!document.querySelector("[data-mobile-hosts] [data-mobile-host]") &&
-    !/^(Edit|New) host$/m.test(document.body.innerText || ""));
+    !document.querySelector("[data-mobile-edit-form]"));
   for (let i = 0; i < 4; i++) {
     if (await onList()) return r;
     await sleep(1000);
@@ -318,17 +318,31 @@ await step("save-host", async () => {
   throw new Error(`${r}; still in the host editor`);
 });
 
-await step("connect", async () => {
+async function hideKeyboard() {
   await web(page.resetView);
-  let r = (await web(page.rectOf, "[data-mobile-hosts] [data-mobile-host]"))
-    ? await tapSel("[data-mobile-hosts] [data-mobile-host]")
-    : await tap(HOST_LABEL);
-  // Desktop lists may need a second tap or an explicit Connect button.
+  try {
+    await toNative();
+    if (await driver.isKeyboardShown()) await driver.execute("mobile: hideKeyboard", { keys: ["Done", "done", "Return"] });
+  } catch {
+    /* no keyboard */
+  }
+  await sleep(800);
+  const h = await web(() => (window.visualViewport ? Math.round(visualViewport.height) : innerHeight));
+  return `viewport height ${h}`;
+}
+
+await step("connect", async () => {
+  const kb = await hideKeyboard();
+  const row = "[data-mobile-hosts] [data-mobile-host] > button";
+  let r = (await web(page.rectOf, row)) ? await tapSel(row) : await tap(HOST_LABEL);
+  r = `${kb}; ${r}`;
+  await sleep(1500);
+  shot("07a-after-host-tap");
   // Latency pings also open TCP connections; only an auth attempt means "connect".
   await sleep(5000);
   if (!/AUTH_BEGIN/.test(sshLog("ssh-events.log"))) {
     r += "; NATIVE TAP MISSED, js-click fallback";
-    if (await web(page.rectOf, "[data-mobile-hosts] [data-mobile-host] button, [data-mobile-hosts] [data-mobile-host]")) {
+    if (await web(page.rectOf, row)) {
       await web(page.clickLastTarget);
     } else {
       r += "; " + (await optional(() => tap(HOST_LABEL, { js: true })));
