@@ -256,16 +256,22 @@ async function step(name, fn) {
   let status = "ok";
   let detail = "";
   try {
-    detail = (await fn()) || "";
+    // A hung WebDriver call must not eat the whole job: give up on the step.
+    let timer;
+    const limit = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("step timed out after 4 min")), 4 * 60 * 1000);
+    });
+    detail = (await Promise.race([fn(), limit]).finally(() => clearTimeout(timer))) || "";
   } catch (e) {
     status = "FAILED";
     detail = e.message.split("\n")[0];
   }
   await sleep(1500);
   shot(id);
-  const d = await dump(id);
+  const d = await Promise.race([dump(id), sleep(30000).then(() => null)]);
   results.push({ id, status, detail, secs: Math.round((Date.now() - started) / 1000), text: d ? d.text.slice(0, 300) : "" });
   log(status, detail);
+  fs.writeFileSync(path.join(OUT, "results.json"), JSON.stringify(results, null, 2));
   return status === "ok";
 }
 

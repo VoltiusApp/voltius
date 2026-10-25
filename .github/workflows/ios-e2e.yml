@@ -148,6 +148,7 @@ jobs:
           curl -fs http://127.0.0.1:4723/status
 
       - name: Drive the app
+        timeout-minutes: 30
         env:
           SSH_LOG_DIR: ${{ github.workspace }}/e2e-out/ssh
         run: node scripts/ios-e2e/run.mjs
