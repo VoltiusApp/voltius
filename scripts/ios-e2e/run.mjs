@@ -512,10 +512,11 @@ function storeShot(name) {
 }
 
 if (STORE) {
+  // Order follows where the e2e steps leave the app: on the SFTP panel, opened
+  // from the prod-web terminal.
   await step("store-seed", async () => {
     await toWeb();
     await driver.setTimeout({ script: 120000 });
-    await web(() => window.scrollTo(0, 0));
     const seeded = await driver.executeAsync((done) => {
       const f = window.__voltiusDemoSeed;
       if (!f) return done("no __voltiusDemoSeed: build without VITE_DEMO_SEED=1?");
@@ -525,30 +526,20 @@ if (STORE) {
     return seeded;
   });
 
+  await step("store-sftp", async () => {
+    await hideKeyboard();
+    if (!(await web(page.findTarget, "^SFTP$"))) throw new Error("not on the SFTP panel");
+    await sleep(1500);
+    storeShot("03-sftp");
+    return "SFTP panel";
+  });
+
   await step("store-terminal", async () => {
-    // Open a shell on prod-web if the connect step did not get one (the test
-    // server sometimes stalls on the first handshake): tap the host row again.
-    let r = "";
-    for (let attempt = 0; attempt < 3 && !/PTY_OPEN/.test(sshLog("ssh-events.log")); attempt++) {
-      r += (await openTab("hosts")) + "; ";
-      const found = await web(page.findTarget, "^prod-web");
-      if (found) await web(page.clickLastTarget);
-      for (let i = 0; i < 40 && !/PTY_OPEN/.test(sshLog("ssh-events.log")); i++) {
-        const text = await web(() => document.body.innerText || "");
-        if (/Connection failed/.test(text) && (await web(page.findTarget, "^Retry$"))) await web(page.clickLastTarget);
-        await sleep(1500);
-      }
-    }
-    if (!/PTY_OPEN/.test(sshLog("ssh-events.log"))) throw new Error(`${r}no shell on prod-web`);
-    if (!(await web(page.terminalRect))) {
-      r += await openTab("terminal");
-      await sleep(1500);
-      // The terminal tab may list sessions: open the prod-web one.
-      if (!(await web(page.terminalRect)) && (await web(page.findTarget, "prod-web"))) {
-        await web(page.clickLastTarget);
-        await sleep(2000);
-      }
-    }
+    // Back from the panel to the terminal.
+    if (await web(page.rectOf, "[data-mobile-back]")) await web(page.clickLastTarget);
+    await sleep(2000);
+    if (!/PTY_OPEN/.test(sshLog("ssh-events.log"))) throw new Error("no shell on prod-web");
+    if (!(await web(page.terminalRect))) throw new Error("no terminal on screen");
     const prompt = String.raw`\[\e[1;32m\]deploy@prod-web\[\e[0m\]:\[\e[1;34m\]~\[\e[0m\]$ `;
     const cmds = [
       `export PS1='${prompt}' LSCOLORS=ExGxFxdxCxDxDxhbadExEx; cd "$DEMO_DIR"; clear`,
@@ -558,41 +549,32 @@ if (STORE) {
     ];
     for (const c of cmds) {
       await web(page.typeInTerminal, `${c}\r`);
-      await sleep(1200);
+      await sleep(1500);
     }
     await hideKeyboard();
     await sleep(1500);
     storeShot("02-terminal");
-    return r;
+    return "terminal";
   });
 
-  await step("store-sftp", async () => {
-    const r = await openTab("sftp");
-    await sleep(2500);
-    storeShot("03-sftp");
-    return r;
-  });
+  // Leave the session page for the tab screens.
+  async function toTabs() {
+    for (let i = 0; i < 4 && !(await web(page.rectOf, "[data-mobile-tab]")); i++) {
+      const exit = (await web(page.rectOf, "[data-mobile-terminal-exit]")) || (await web(page.rectOf, "[data-mobile-back]"));
+      if (exit) await web(page.clickLastTarget);
+      await sleep(1500);
+    }
+  }
 
-  await step("store-snippets", async () => {
-    const r = await openTab("snippets");
-    await sleep(2000);
-    storeShot("04-snippets");
-    return r;
-  });
-
-  await step("store-more", async () => {
-    const r = await openTab("more");
-    await sleep(2000);
-    storeShot("05-more");
-    return r;
-  });
-
-  await step("store-hosts", async () => {
-    const r = await openTab("hosts");
-    await sleep(2500);
-    storeShot("01-hosts");
-    return r;
-  });
+  for (const [tab, name] of [["snippets", "04-snippets"], ["more", "05-more"], ["hosts", "01-hosts"]]) {
+    await step(`store-${tab}`, async () => {
+      await toTabs();
+      const r = await openTab(tab);
+      await sleep(2500);
+      storeShot(name);
+      return r;
+    });
+  }
 }
 
 // ---------------------------------------------------------------- report

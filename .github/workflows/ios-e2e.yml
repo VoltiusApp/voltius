@@ -95,7 +95,8 @@ jobs:
       - name: Make the demo folder
         if: inputs.store
         run: |
-          demo="$RUNNER_TEMP/demo"
+          demo=/Users/deploy
+          sudo mkdir -p "$demo" && sudo chown "$(id -u):$(id -g)" "$demo"
           mkdir -p "$demo"/{app/src,backups,logs,www}
           printf 'services:\n  app:\n    image: ghcr.io/acme/app:2.4.1\n    ports: ["8080:8080"]\n  db:\n    image: postgres:17\n' > "$demo/docker-compose.yml"
           printf 'server {\n  listen 443 ssl;\n  server_name app.example.com;\n  location / { proxy_pass http://127.0.0.1:8080; }\n}\n' > "$demo/nginx.conf"
