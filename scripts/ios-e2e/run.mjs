@@ -369,11 +369,17 @@ await step("type-command", async () => {
   let how = "native keyboard";
   try {
     await toNative();
-    const focused = await driver.$("-ios predicate string:hasKeyboardFocus == 1");
-    await focused.addValue(`echo ${MARKER}\n`);
+    const shown = await driver.isKeyboardShown();
+    how = `keyboard ${shown ? "shown" : "NOT SHOWN after tapping the terminal"}`;
+    if (shown) {
+      // Types through the on-screen keyboard, like a user.
+      await driver.keys([...`echo ${MARKER}`, "\n"]);
+      how += "; typed with the system keyboard";
+    }
   } catch (e) {
-    how = `native failed (${e.message.split("\n")[0]})`;
+    how += `; native typing failed (${e.message.split("\n")[0]})`;
   }
+  shot("08a-after-typing");
   await sleep(3000);
   if (!sshLog("ssh-pty-input.log").includes(`echo ${MARKER}`)) {
     how += "; fallback " + (await web(page.typeInTerminal, `echo ${MARKER}\r`));
@@ -400,9 +406,22 @@ await step("open-sftp", async () => {
   // Mobile: terminal top bar "Panels" → SFTP; else the SFTP tab, then pick the host.
   let r;
   try {
+    await hideKeyboard();
     r = await tap("^Panels$");
-    await sleep(1200);
+    await sleep(1500);
+    if (!(await web(page.findTarget, "^SFTP$"))) {
+      r += "; NATIVE TAP MISSED, js-click fallback";
+      await web(page.findTarget, "^Panels$");
+      await web(page.clickLastTarget);
+      await sleep(1500);
+    }
+    const before = sshLog("ssh-events.log").length;
     r += "; " + (await tap("^SFTP$"));
+    await sleep(4000);
+    if (!/SFTP_OPEN/.test(sshLog("ssh-events.log").slice(before))) {
+      r += "; NATIVE TAP MISSED, js-click fallback";
+      if (await web(page.findTarget, "^SFTP$")) await web(page.clickLastTarget);
+    }
   } catch {
     r = await tapSel("[data-mobile-tab=sftp]").catch(() => tap("^SFTP$|Files|Open SFTP"));
     await sleep(1500);

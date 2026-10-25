@@ -106,19 +106,29 @@ async def run_shell(process, command=None):
     loop.add_reader(master, on_master)
 
     async def pump_input():
-        try:
-            while not process.stdin.at_eof():
+        while True:
+            try:
                 data = await process.stdin.read(65536)
-                if not data:
-                    break
-                raw = data.encode() if isinstance(data, str) else data
-                PTY_IN.write(raw)
-                event("PTY_IN", repr(raw[:200]))
-                os.write(master, raw)
-        except (asyncssh.BreakReceived, asyncssh.TerminalSizeChanged) as exc:
-            event("PTY_SIGNAL", type(exc).__name__)
-        except Exception as exc:
-            event("PTY_IN_ERROR", repr(exc))
+            except asyncssh.TerminalSizeChanged as exc:
+                event("PTY_RESIZE", exc.width, exc.height)
+                try:
+                    import fcntl, struct, termios
+                    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", exc.height, exc.width, 0, 0))
+                except Exception as err:
+                    event("WINSZ_ERROR", repr(err))
+                continue
+            except asyncssh.BreakReceived:
+                event("PTY_BREAK")
+                continue
+            except Exception as exc:
+                event("PTY_IN_ERROR", repr(exc))
+                break
+            if not data:
+                break
+            raw = data.encode() if isinstance(data, str) else data
+            PTY_IN.write(raw)
+            event("PTY_IN", repr(raw[:200]))
+            os.write(master, raw)
 
     pump = asyncio.ensure_future(pump_input())
     await asyncio.wait([asyncio.ensure_future(done.wait()), asyncio.ensure_future(proc.wait())],
