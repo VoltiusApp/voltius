@@ -19,6 +19,14 @@ installGlobalErrorLogging();
 
 registerMcpConsumer();
 
+// App Store screenshot build only (scripts/ios-e2e/store.mjs): the harness
+// calls window.__voltiusDemoSeed() to fill the vault with demo hosts.
+if (import.meta.env.VITE_DEMO_SEED === "1") {
+  void import("@/services/demoSeed").then((m) => {
+    (window as Window & { __voltiusDemoSeed?: () => Promise<string> }).__voltiusDemoSeed = m.seedDemo;
+  });
+}
+
 void i18nReady.then(() =>
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>

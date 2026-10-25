@@ -4,6 +4,7 @@
 interface ImportMetaEnv {
   /** "play" for the Google Play bundle; unset everywhere else. */
   readonly VITE_DISTRIBUTION?: string;
+  readonly VITE_DEMO_SEED?: string;
 }
 
 declare module "virtual:lucide-subset" {

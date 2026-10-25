@@ -20,6 +20,11 @@ on:
         description: "Ref to build"
         required: true
         type: string
+      store:
+        description: "App Store screenshots (iPhone 6.9-inch, demo data) instead of the test report"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -31,7 +36,8 @@ jobs:
     env:
       OUT_DIR: ${{ github.workspace }}/e2e-out
       SSH_PORT: "2222"
-      SSH_USER: e2e
+      SSH_USER: ${{ inputs.store && 'deploy' || 'e2e' }}
+      STORE: ${{ inputs.store && '1' || '0' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -69,10 +75,14 @@ jobs:
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
 
+      - name: Target iPhone only
+        run: perl -pi -e 's/TARGETED_DEVICE_FAMILY = "?1,2"?;/TARGETED_DEVICE_FAMILY = 1;/' src-tauri/gen/apple/voltius.xcodeproj/project.pbxproj
+
       - name: Build for the simulator (inspectable WebView)
         env:
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
           VITE_DISTRIBUTION: appstore
+          VITE_DEMO_SEED: ${{ inputs.store && '1' || '' }}
         run: pnpm tauri ios build --target aarch64-sim --ci --features tauri/devtools
 
       - name: Install Appium and the XCUITest driver
@@ -81,25 +91,52 @@ jobs:
           appium driver install xcuitest
           npm install --prefix scripts/ios-e2e --no-package-lock --no-audit --no-fund
 
+      # Store run: the remote shell and SFTP open in a small demo project.
+      - name: Make the demo folder
+        if: inputs.store
+        run: |
+          demo="$RUNNER_TEMP/demo"
+          mkdir -p "$demo"/{app/src,backups,logs,www}
+          printf 'services:\n  app:\n    image: ghcr.io/acme/app:2.4.1\n    ports: ["8080:8080"]\n  db:\n    image: postgres:17\n' > "$demo/docker-compose.yml"
+          printf 'server {\n  listen 443 ssl;\n  server_name app.example.com;\n  location / { proxy_pass http://127.0.0.1:8080; }\n}\n' > "$demo/nginx.conf"
+          printf '#!/bin/sh\nset -e\ndocker compose pull && docker compose up -d\n' > "$demo/deploy.sh"; chmod +x "$demo/deploy.sh"
+          printf '# app\n\nProduction deployment.\n' > "$demo/README.md"
+          for d in 21 22 23 24 25; do head -c 3000000 /dev/urandom > "$demo/backups/db-2026-10-$d.sql.gz"; done
+          {
+            echo "2026-10-25 08:59:58 pulling ghcr.io/acme/app:2.4.1"
+            echo "2026-10-25 09:00:04 app  | migrations: 3 applied"
+            echo "2026-10-25 09:00:05 app  | listening on :8080"
+            echo "2026-10-25 09:00:06 health check passed (42 ms)"
+            echo "2026-10-25 09:00:06 deploy 2.4.1 done in 8.1 s"
+            echo "2026-10-25 09:00:07 old containers removed"
+          } > "$demo/logs/deploy.log"
+          echo "DEMO_DIR=$demo" >> "$GITHUB_ENV"
+
       - name: Start the test SSH server
         run: |
+          [ -z "$DEMO_DIR" ] || cd "$DEMO_DIR"
           python3 -m venv "$RUNNER_TEMP/sshvenv"
           "$RUNNER_TEMP/sshvenv/bin/pip" install --quiet asyncssh
           password="e2e-$(openssl rand -hex 8)"
           echo "SSH_PASSWORD=$password" >> "$GITHUB_ENV"
           mkdir -p "$OUT_DIR/ssh"
           E2E_SSH_USER="$SSH_USER" E2E_SSH_PASSWORD="$password" \
-            nohup "$RUNNER_TEMP/sshvenv/bin/python" scripts/ios-e2e/ssh_server.py "$SSH_PORT" "$OUT_DIR/ssh" \
+            nohup "$RUNNER_TEMP/sshvenv/bin/python" "$GITHUB_WORKSPACE/scripts/ios-e2e/ssh_server.py" "$SSH_PORT" "$OUT_DIR/ssh" \
             > "$OUT_DIR/ssh/server-stdout.log" 2>&1 &
           for _ in $(seq 1 20); do nc -z 127.0.0.1 "$SSH_PORT" && break; sleep 1; done
           nc -z 127.0.0.1 "$SSH_PORT"
 
       - name: Boot a simulator
         run: |
-          device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted(d, reverse=True) if 'iOS' in r for x in d[r] if x['name'].startswith('iPhone') and 'Pro' in x['name'] and 'Max' not in x['name']))")
+          # The store screenshots need a 6.9-inch iPhone (Pro Max, 1320x2868).
+          want_max=$([ "$STORE" = 1 ] && echo True || echo False)
+          device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; m=$want_max; print(next(x['udid'] for r in sorted(d, reverse=True) if 'iOS' in r for x in d[r] if x['name'].startswith('iPhone') and 'Pro' in x['name'] and ('Max' in x['name']) == m))")
           echo "UDID=$device" >> "$GITHUB_ENV"
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device"
+          if [ "$STORE" = 1 ]; then
+            xcrun simctl status_bar "$device" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+          fi
           app=$(find src-tauri/gen/apple/build -name "*.app" -maxdepth 3 | head -1)
           echo "APP_PATH=$GITHUB_WORKSPACE/$app" >> "$GITHUB_ENV"
           echo "device $device, app $app"
@@ -130,3 +167,12 @@ jobs:
           name: voltius-ios-e2e
           path: e2e-out/
           retention-days: 14
+
+      - name: Upload the store screenshots
+        if: always() && inputs.store
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-ios-store-screenshots
+          path: e2e-out/store/
+          if-no-files-found: ignore
+          retention-days: 30

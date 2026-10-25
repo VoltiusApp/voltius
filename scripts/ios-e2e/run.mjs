@@ -21,7 +21,9 @@ const SSH = {
   password: process.env.SSH_PASSWORD,
   logs: process.env.SSH_LOG_DIR,
 };
-const HOST_LABEL = "e2e-local";
+// STORE=1: the App Store screenshot run (see the store steps at the end).
+const STORE = process.env.STORE === "1";
+const HOST_LABEL = STORE ? "prod-web" : "e2e-local";
 const MARKER = "voltius-e2e-ok";
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -463,6 +465,93 @@ await step("open-sftp", async () => {
   }
   throw new Error(`${r}; no SFTP session on the server`);
 });
+
+// ---------------------------------------------------------------- store
+
+/** Taps a bottom-bar tab, falling back to a JS click if the tap misses. */
+async function openTab(id) {
+  await hideKeyboard();
+  const sel = `[data-mobile-tab="${id}"]`;
+  let r = await tapSel(sel);
+  await sleep(1500);
+  const active = () => web((s) => {
+    const el = document.querySelector(s);
+    return !!el && (el.getAttribute("aria-selected") === "true" || el.getAttribute("data-active") !== null || el.className.includes("active"));
+  }, sel);
+  if (!(await active())) {
+    await web(page.rectOf, sel);
+    await web(page.clickLastTarget);
+    r += "; js-click";
+    await sleep(1500);
+  }
+  return r;
+}
+
+function storeShot(name) {
+  const dir = path.join(OUT, "store");
+  fs.mkdirSync(dir, { recursive: true });
+  execFileSync("xcrun", ["simctl", "io", UDID, "screenshot", path.join(dir, `${name}.png`)], { stdio: "ignore" });
+}
+
+if (STORE) {
+  await step("store-seed", async () => {
+    await web(() => window.scrollTo(0, 0));
+    const seeded = await driver.executeAsync((done) => {
+      const f = window.__voltiusDemoSeed;
+      if (!f) return done("no __voltiusDemoSeed: build without VITE_DEMO_SEED=1?");
+      f().then(done, (e) => done(`seed failed: ${e}`));
+    });
+    if (!/^seeded/.test(seeded)) throw new Error(seeded);
+    return seeded;
+  });
+
+  await step("store-terminal", async () => {
+    let r = await openTab("terminal");
+    const prompt = String.raw`\[\e[1;32m\]deploy@prod-web\[\e[0m\]:\[\e[1;34m\]~\[\e[0m\]$ `;
+    const cmds = [
+      `export PS1='${prompt}' LSCOLORS=ExGxFxdxCxDxDxhbadExEx; cd "$DEMO_DIR"; clear`,
+      "ls -lhG",
+      "tail -n 6 logs/deploy.log",
+      "df -h / | awk '{print $1, $2, $3, $4, $5}' | column -t",
+    ];
+    for (const c of cmds) {
+      await web(page.typeInTerminal, `${c}\r`);
+      await sleep(1200);
+    }
+    await hideKeyboard();
+    await sleep(1500);
+    storeShot("02-terminal");
+    return r;
+  });
+
+  await step("store-sftp", async () => {
+    const r = await openTab("sftp");
+    await sleep(2500);
+    storeShot("03-sftp");
+    return r;
+  });
+
+  await step("store-snippets", async () => {
+    const r = await openTab("snippets");
+    await sleep(2000);
+    storeShot("04-snippets");
+    return r;
+  });
+
+  await step("store-more", async () => {
+    const r = await openTab("more");
+    await sleep(2000);
+    storeShot("05-more");
+    return r;
+  });
+
+  await step("store-hosts", async () => {
+    const r = await openTab("hosts");
+    await sleep(2500);
+    storeShot("01-hosts");
+    return r;
+  });
+}
 
 // ---------------------------------------------------------------- report
 
