@@ -58,7 +58,7 @@ vi.mock("@/stores/seededTombstoneStore", () => ({
   loadSeededEntries: vi.fn(async () => seeded.entries),
 }));
 const androidFlag = vi.hoisted(() => ({ value: false }));
-vi.mock("@/utils/platform", () => ({ useIsAndroid: () => androidFlag.value }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => androidFlag.value, useIsMobile: () => androidFlag.value }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },

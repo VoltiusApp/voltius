@@ -5,7 +5,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { ProgressToast } from "./ProgressToast";
 import type { ToastEntry } from "@/stores/notificationStore";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import MobileSnackbarHost from "@/components/mobile/MobileSnackbar";
 
 type TimerInfo = { id: ReturnType<typeof setTimeout>; remaining: number; startedAt: number; original: number };
@@ -136,10 +136,10 @@ function RegularToast({
 
 export function NotificationToastContainer() {
   const locked = useAppLockStore((s) => s.kind !== null);
-  const android = useIsAndroid();
+  const mobile = useIsMobile();
   if (locked) return null;
-  // Android: plain toasts are M3 snackbars (one at a time, above the bottom chrome).
-  return android ? <><MobileSnackbarHost /><ToastStack only="progress" /></> : <ToastStack />;
+  // Phones: plain toasts are M3 snackbars (one at a time, above the bottom chrome).
+  return mobile ? <><MobileSnackbarHost /><ToastStack only="progress" /></> : <ToastStack />;
 }
 
 function ToastStack({ only }: { only?: ToastEntry["type"] }) {

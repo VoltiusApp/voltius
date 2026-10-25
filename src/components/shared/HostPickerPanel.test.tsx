@@ -12,7 +12,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/sftp", () => ({ wslListDistros: async () => [] }));
 vi.mock("@/services/connections", () => ({ listConnections: async () => h.personal }));
 vi.mock("@/services/folders", () => ({ listFolders: async () => h.folders }));
-vi.mock("@/utils/platform", () => ({ useIsAndroid: () => false }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => false }));
 vi.mock("./ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
 
 import { HostPickerPanel } from "./HostPickerPanel";

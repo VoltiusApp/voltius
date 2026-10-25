@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ platform: "linux" }));
-vi.mock("@/utils/platform", () => ({ getPlatform: async () => h.platform }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatform: async () => h.platform }));
 
 import { isPlainName, checkRemoteName } from "./remoteName";
 

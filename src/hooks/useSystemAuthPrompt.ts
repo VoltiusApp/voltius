@@ -8,6 +8,7 @@ export function systemAuthMethodKey(platform: string | null): string {
     case "windows": return "settings.account.sessionSecurity.systemAuth.method.windows";
     case "macos": return "settings.account.sessionSecurity.systemAuth.method.macos";
     case "android": return "settings.account.sessionSecurity.systemAuth.method.android";
+    case "ios": return "settings.account.sessionSecurity.systemAuth.method.ios";
     default: return "settings.account.sessionSecurity.systemAuth.method.linux";
   }
 }

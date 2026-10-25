@@ -5,7 +5,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { partitionRecentHosts } from "@/utils/recentHosts";
 import { sessionMatchesQuery } from "@/utils/sessionLabel";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
 import { useLocalShells } from "@/hooks/useLocalShells";
 
@@ -17,7 +17,7 @@ export function useSnippetTargetPicker() {
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const [localShell, setLocalShell] = useState<string | null>(null);
   const shells = useLocalShells();
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
 
   const activeSessions = useMemo(
     () => sessions.filter((s) => s.status === "connected" && s.type !== "multiplayer"),
@@ -99,7 +99,7 @@ export function useSnippetTargetPicker() {
   }
 
   return {
-    search, setSearch, isAndroid, shells,
+    search, setSearch, isMobile, shells,
     activeSessions, filteredSessions, recentHosts, filteredHosts,
     hasHosts: recentHosts.length + filteredHosts.length > 0,
     selectedSessionIds, selectedConnectionIds, selectedConnections, localShell, setLocalShell,

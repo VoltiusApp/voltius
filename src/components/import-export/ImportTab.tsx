@@ -19,7 +19,7 @@ import { searchMatcher } from "@/utils/search";
 import { defaultActions, setActions, type ItemAction } from "./importActions";
 import { useTeamStore } from "@/stores/teamStore";
 import { isTeamVaultId } from "@/stores/teamVaultMap";
-import { isMobileShell, useIsAndroid } from "@/utils/platform";
+import { isMobileShell, useIsMobile } from "@/utils/platform";
 
 type ItemMeta = { isDupe: boolean };
 type RefMeta = { icon: string; title: string; linkedTo?: string };
@@ -225,14 +225,14 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
 
   const writableVaults = useVaultList(true);
   const teams = useTeamStore((s) => s.teams);
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const touched = useRef(new Set<string>());
   const teamTargets = useMemo(
     () => targetVaultIds.map(resolveVaultIdForSave).filter(isTeamVaultId).map((id) => teams.find((t) => t.id === id)?.name ?? id),
     [targetVaultIds, teams],
   );
   const source = IMPORTERS.find(i => i.key === selectedSource)!;
-  const hintKey = (isAndroid && source.mobileHintKey) || source.hintKey;
+  const hintKey = (isMobile && source.mobileHintKey) || source.hintKey;
 
   const applyBundle = useCallback((bundle: ExportBundle) => {
     const vaultDupes = targetVaultIds.map(vId => findDupes(existingItems, resolveVaultIdForSave(vId)));
@@ -766,7 +766,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         </div>
       )}
 
-      {source.autoExtract && !isAndroid && !text.trim() && status.type !== "ready" && (
+      {source.autoExtract && !isMobile && !text.trim() && status.type !== "ready" && (
         <div
           className="flex flex-col gap-3 p-4 rounded-xl"
           style={{ background: "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-elevated))", border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)" }}
@@ -809,7 +809,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         </div>
       )}
 
-      {source.autoExtract && !isAndroid && selectedSource !== "termius" && !text.trim() && status.type !== "ready" && (
+      {source.autoExtract && !isMobile && selectedSource !== "termius" && !text.trim() && status.type !== "ready" && (
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px" style={{ background: "var(--t-border)" }} />
           <span className="text-xs font-medium" style={{ color: "var(--t-text-dim)" }}>{t("importExport.import.orImportFromFile")}</span>

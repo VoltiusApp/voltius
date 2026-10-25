@@ -20,7 +20,7 @@ import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 import { searchMatcher } from "@/utils/search";
 
@@ -231,7 +231,7 @@ export function InstalledTab() {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
 
   useEffect(() => {
@@ -313,7 +313,7 @@ export function InstalledTab() {
   const bundled = bundledPluginManifests(externalPluginIds);
   const allBundled = visiblePlugins(
     bundled.map((manifest) => ({ manifest })),
-    isAndroid,
+    isMobile,
   );
   const allExternal = installedMeta;
 
@@ -874,14 +874,14 @@ export default function PluginsSection() {
   const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const fetchCatalog = useMarketplaceStore((s) => s.fetchCatalog);
   const appVersion = useMarketplaceStore((s) => s.appVersion);
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const externalIds = new Set(installedMeta.map((m) => m.id));
   // Filtered through visiblePlugins before anything counts against it — a desktopOnly
   // seeded plugin is still loaded on Android but renders no row and
   // no button there, so an update for it must never be counted either.
   const visibleBundledManifests = visiblePlugins(
     bundledPluginManifests(externalIds).map((manifest) => ({ manifest })),
-    isAndroid,
+    isMobile,
   ).map(({ manifest }) => manifest);
   const totalCount = installedMeta.length + visibleBundledManifests.length;
   const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());

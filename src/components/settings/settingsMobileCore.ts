@@ -20,9 +20,9 @@ export function mobileSettingsNav<T extends { id: SettingsSection }>(nav: T[]): 
 /** Plugins visible in the list: drop desktopOnly when on mobile. */
 export function visiblePlugins<T extends { manifest: { desktopOnly?: boolean } }>(
   plugins: T[],
-  isAndroid: boolean,
+  isMobile: boolean,
 ): T[] {
-  return plugins.filter((p) => !(isAndroid && p.manifest.desktopOnly));
+  return plugins.filter((p) => !(isMobile && p.manifest.desktopOnly));
 }
 
 /** Android list row whose tap anywhere runs its trailing control (switch, picker, …). */
@@ -48,6 +48,6 @@ export function rowTapControl(target: Element | null): HTMLElement | null {
 }
 
 /** i18n key list for a string that has a touch wording: `<key>Mobile` first on Android. */
-export function mobileKey(key: string, isAndroid: boolean): string | string[] {
-  return isAndroid ? [`${key}Mobile`, key] : key;
+export function mobileKey(key: string, isMobile: boolean): string | string[] {
+  return isMobile ? [`${key}Mobile`, key] : key;
 }

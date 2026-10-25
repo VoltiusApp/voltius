@@ -29,7 +29,7 @@ vi.mock("@/utils/billing", () => ({ openPortal: vi.fn() }));
 vi.mock("@/utils/platform", async () => ({
   ...(await vi.importActual<typeof import("@/utils/platform")>("@/utils/platform")),
   usePlatform: () => "linux",
-  useIsAndroid: () => false,
+  useIsAndroid: () => false, useIsMobile: () => false,
 }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn(async () => {}) }));
 vi.mock("./EditEmailModal", () => ({ default: () => null }));

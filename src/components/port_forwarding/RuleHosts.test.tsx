@@ -9,7 +9,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/sftp", () => ({ wslListDistros: async () => [] }));
-vi.mock("@/utils/platform", () => ({ useIsAndroid: () => false }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => false }));
 vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
 
 import { RuleHosts } from "./RuleHosts";

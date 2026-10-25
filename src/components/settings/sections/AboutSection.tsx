@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { useUIStore } from "@/stores/uiStore";
 
 const LINKS = [
@@ -32,7 +32,7 @@ export default function AboutSection() {
   const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
   const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
   const [changelogPopup, setChangelogPopup] = useToggle("changelog-popup");
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion("unknown"));
@@ -72,7 +72,7 @@ export default function AboutSection() {
         </div>
       </div>
 
-      {!isAndroid && (
+      {!isMobile && (
         <div>
           <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
             {t("settings.about.updatesTitle")}
@@ -196,7 +196,7 @@ export default function AboutSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.about.linksTitle")}
         </h3>
-        <div className={isAndroid ? undefined : "space-y-2"}>
+        <div className={isMobile ? undefined : "space-y-2"}>
           {LINKS.map(({ icon, key, sub, href }) => (
             <button
               key={href}

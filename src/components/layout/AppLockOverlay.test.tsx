@@ -29,7 +29,7 @@ vi.mock("@/services/account", () => ({
   setAppLock: async () => undefined,
   getAppLock: async () => null,
 }));
-vi.mock("@/utils/platform", () => ({ usePlatform: () => "linux" }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", usePlatform: () => "linux" }));
 vi.mock("@/services/vault", () => ({ resetVault: h.resetVault }));
 
 import AppLockOverlay from "./AppLockOverlay";

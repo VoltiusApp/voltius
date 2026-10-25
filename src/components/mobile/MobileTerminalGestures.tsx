@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getTerminalApi } from "@/hooks/useTerminal";
+import { focusSession, getTerminalApi } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget, setSelectionTouchFeed } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
@@ -260,8 +260,10 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
           lastTap.current = now;
         }
         // Plain tap: xterm's textarea has inputmode=none on Android, so raise the native
-        // keyboard overlay ourselves (idempotent; see services/androidKeyboard.ts).
+        // keyboard overlay ourselves (idempotent; see services/androidKeyboard.ts). iOS has no
+        // overlay: focusing xterm's textarea inside the tap raises the system keyboard.
         if (isAndroid) showAndroidKeyboard(sessionId);
+        else focusSession(sessionId);
       }
       reset();
     };

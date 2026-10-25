@@ -105,7 +105,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
           </PickerSectionLabel>
 
           {/* Local shell rows */}
-          {!picker.search && !picker.isAndroid && (picker.shells.length > 0 ? picker.shells : [{ name: t("shared.sessionPicker.localShellFallbackName"), path: "" }]).map((s) => {
+          {!picker.search && !picker.isMobile && (picker.shells.length > 0 ? picker.shells : [{ name: t("shared.sessionPicker.localShellFallbackName"), path: "" }]).map((s) => {
             const selected = picker.localShell === s.path;
             return (
               <HostRow

@@ -18,7 +18,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@/utils/platform", () => ({ usePlatform: () => "linux" }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", usePlatform: () => "linux" }));
 vi.mock("@/services/account", () => ({
   autoLogin: h.autoLogin,
   getAppLock: vi.fn(async () => h.lock),

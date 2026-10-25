@@ -42,7 +42,7 @@ const m = vi.hoisted(() => ({
 }));
 vi.mock("@/services/sftp", () => m);
 const platform = vi.hoisted(() => ({ current: "linux" }));
-vi.mock("@/utils/platform", () => ({ getPlatform: async () => platform.current }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatform: async () => platform.current }));
 
 import { transferItem } from "./sftpTransferCore";
 

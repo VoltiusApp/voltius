@@ -4,7 +4,7 @@ import { DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SettingsGroup } from "./shared";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, type DownloadDirInfo } from "@/services/downloads";
 
 export default function SFTPSection() {
@@ -19,10 +19,11 @@ export default function SFTPSection() {
   const intervalSeconds = autoRefreshIntervalMs / 1000;
 
   const isAndroid = useIsAndroid();
+  const isIOS = useIsIOS();
   const [downloadDir, setDownloadDir] = useState<DownloadDirInfo | null>(null);
   useEffect(() => {
-    if (isAndroid) void downloadDirGet().then(setDownloadDir);
-  }, [isAndroid]);
+    if (isAndroid || isIOS) void downloadDirGet().then(setDownloadDir).catch(() => {});
+  }, [isAndroid, isIOS]);
   const changeDownloadDir = async () => {
     const picked = await downloadDirPick();
     if (picked) setDownloadDir(picked);
@@ -36,20 +37,20 @@ export default function SFTPSection() {
 
   return (
     <div className="p-6 space-y-6">
-      {isAndroid && (
+      {(isAndroid || isIOS) && (
         <SettingsGroup title={t("settings.sftp.downloads.title")}>
           <SettingRow
             title={t("settings.sftp.downloads.folderLabel")}
             desc={downloadDir?.displayName ?? downloadDir?.uri ?? t("settings.sftp.downloads.notSet")}
             truncateDesc
           >
-            <button
+            {isAndroid && <button
               onClick={() => void changeDownloadDir()}
               data-row-control
               className="shrink-0 h-10 px-3 -mr-2 rounded-full text-sm font-medium text-(--t-accent)"
             >
               {t("settings.sftp.downloads.changeFolder")}
-            </button>
+            </button>}
           </SettingRow>
         </SettingsGroup>
       )}
