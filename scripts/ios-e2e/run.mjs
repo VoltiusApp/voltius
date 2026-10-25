@@ -277,8 +277,15 @@ await step("launch", async () => {
 });
 
 await step("get-started", async () => {
-  const r = await tap("Get started");
-  await waitText("New Host|New host|Add Host|Add host|No hosts|Hosts", 60000);
+  let r = await tap("Get started");
+  const next = "New Host|New host|Add Host|Add host|No hosts|Hosts";
+  try {
+    await waitText(next, 10000);
+  } catch {
+    r += "; NATIVE TAP MISSED, js-click fallback";
+    if (await web(page.findTarget, "Get started")) await web(page.clickLastTarget);
+    await waitText(next, 60000);
+  }
   return r;
 });
 
@@ -495,6 +502,8 @@ function storeShot(name) {
 
 if (STORE) {
   await step("store-seed", async () => {
+    await toWeb();
+    await driver.setTimeout({ script: 120000 });
     await web(() => window.scrollTo(0, 0));
     const seeded = await driver.executeAsync((done) => {
       const f = window.__voltiusDemoSeed;
