@@ -2,15 +2,29 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HAPTIC_KINDS, haptic, toggleHaptic } from "./haptics";
 
+const platform = vi.hoisted(() => ({ os: null as string | null }));
+const invoke = vi.hoisted(() => vi.fn(() => Promise.resolve(true)));
+vi.mock("@/lib/invoke", () => ({ invoke }));
+vi.mock("@/utils/platform", () => ({ getPlatformSync: () => platform.os }));
+
 type W = Window & { VoltiusHaptics?: { perform(kind: string): boolean }; __voltiusHaptics?: unknown };
 const w = window as W;
 
 afterEach(() => {
   delete w.VoltiusHaptics;
   delete w.__voltiusHaptics;
+  platform.os = null;
+  invoke.mockClear();
 });
 
 describe("haptic", () => {
+  it("goes to the native UIKit command on iOS", () => {
+    platform.os = "ios";
+    expect(haptic("tick")).toBe(true);
+    expect(invoke).toHaveBeenCalledWith("haptic_perform", { kind: "tick" });
+    expect(w.__voltiusHaptics).toEqual({ count: 1, last: "tick", byKind: { tick: 1 } });
+  });
+
   it("is a no-op without the native bridge (desktop / web)", () => {
     expect(haptic("key")).toBe(false);
     expect(w.__voltiusHaptics).toBeUndefined();

@@ -28,7 +28,7 @@ import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { sharedAxisPlan, useSwapThrough } from "@/hooks/pageTransition";
 import { PullIndicator, usePullToRefresh } from "../usePullToRefresh";
 import { allSelected, pruneSelection, toggleAll, toggleItem } from "./sftpSelectionCore";
-import { canShare, shareFiles, shareStageId, shareTotalBytes, shareableFiles, SHARE_CONFIRM_BYTES } from "@/services/share";
+import { canShareFiles as canShareStagedFiles, shareFiles, shareStageId, shareTotalBytes, shareableFiles, SHARE_CONFIRM_BYTES } from "@/services/share";
 
 // Coded errors arrive translated, so only an uncoded one is matched by its English text.
 function isPermissionDenied(msg: string, code: BackendErrorCode | null): boolean {
@@ -163,7 +163,7 @@ export default function MobileSftpPane({
 
   // Share: the files download into the share staging folder (with the usual transfer cards),
   // then the system chooser gets them. Large sets ask first. Folders can't be shared.
-  const canShareFiles = isAndroid && canShare();
+  const canShareFiles = canShareStagedFiles();
   const share = async (items: FileEntry[], confirmed = false) => {
     const files = shareableFiles(items);
     if (!sftpId || files.length === 0) return;

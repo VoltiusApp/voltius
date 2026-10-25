@@ -1,5 +1,8 @@
+import { invoke } from "@/lib/invoke";
+import { getPlatformSync } from "@/utils/platform";
+
 /**
- * Haptic feedback for the Android shell. `haptic(kind)` asks the native side
+ * Haptic feedback for the Android shell (and iOS, see below). `haptic(kind)` asks the native side
  * (Haptics.kt, `window.VoltiusHaptics`) to play View.performHapticFeedback with the
  * matching HapticFeedbackConstants, so the user's system touch-feedback setting
  * applies. Anywhere without that bridge (desktop, web, tests) it is a no-op, so
@@ -40,11 +43,18 @@ export function haptic(kind: HapticKind): boolean {
   if (typeof window === "undefined") return false;
   const w = window as HapticWindow;
   const bridge = w.VoltiusHaptics;
-  if (!bridge) return false;
   let ok = false;
-  try {
-    ok = bridge.perform(kind) === true;
-  } catch {
+  if (bridge) {
+    try {
+      ok = bridge.perform(kind) === true;
+    } catch {
+      return false;
+    }
+  } else if (getPlatformSync() === "ios") {
+    // UIFeedbackGenerator through `haptic_perform` (src-tauri/src/ios_native.rs).
+    void invoke("haptic_perform", { kind }).catch(() => {});
+    ok = true;
+  } else {
     return false;
   }
   const stats = (w.__voltiusHaptics ??= { count: 0, last: null, byKind: {} });

@@ -13,6 +13,7 @@ mod crypto;
 mod docker;
 mod error;
 mod ftp;
+mod ios_native;
 #[cfg(target_os = "android")]
 mod keychain_android;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -484,6 +485,8 @@ pub fn run() {
             commands::downloads::download_dir_pick,
             commands::downloads::download_dir_clear,
             commands::downloads::download_publish,
+            ios_native::haptic_perform,
+            ios_native::share_files_native,
             commands::sftp::sftp_transfer_batch_tar,
             commands::plugin_storage::plugin_storage_get,
             commands::plugin_storage::plugin_storage_read_strict,

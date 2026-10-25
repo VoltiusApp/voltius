@@ -1,3 +1,4 @@
+import { invoke } from "@/lib/invoke";
 import { withLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 import { snippetScriptText } from "@/services/snippetSteps";
 import type { Snippet } from "@/types";
@@ -9,8 +10,9 @@ import { getPlatformSync } from "@/utils/platform";
  * the app FileProvider with a read grant, and only from the share staging folders under the
  * app cache (`voltius-downloads/share-*`, see `shareStageId`); the native side refuses any
  * other path and prunes old staged files. On iOS, text goes through the Web Share API of
- * WKWebView (files are not offered there yet). Everywhere else (desktop, web, tests)
- * `canShare()` is false and nothing is offered.
+ * WKWebView, and files through the native UIActivityViewController (`share_files_native`,
+ * src-tauri/src/ios_native.rs): the Web Share API needs a fresh tap, which the download
+ * before sharing outlives. Everywhere else (desktop, web, tests) nothing is offered.
  *
  * What gets shared is decided here, by pure helpers, so it is unit-tested: a key's OpenSSH
  * public line only (never the private half), a snippet's command text, remote files.
@@ -34,6 +36,11 @@ const webShare = (): ((data: ShareData) => Promise<void>) | undefined =>
 /** True where a system share sheet can be opened (the Android shell, iOS for text). */
 export function canShare(): boolean {
   return !!bridge() || !!webShare();
+}
+
+/** True where staged files can be shared: the Android shell, and iOS (native share sheet). */
+export function canShareFiles(): boolean {
+  return !!bridge() || getPlatformSync() === "ios";
 }
 
 /** Text larger than this would overflow the Binder transaction that carries the intent. */
@@ -149,5 +156,10 @@ export function shareText(text: string, title = ""): boolean {
 /** Open the share sheet for staged files (absolute paths from `downloadTempPath(shareStageId(..))`). */
 export function shareFiles(paths: string[], names: string[], title = ""): boolean {
   if (paths.length === 0) return false;
+  if (!bridge() && getPlatformSync() === "ios") {
+    void withLeaveLockSuppressed(untilBack);
+    void invoke<boolean>("share_files_native", { paths }).catch(() => {});
+    return true;
+  }
   return open((b) => b.shareFiles(JSON.stringify(paths), shareMime(names), title));
 }
