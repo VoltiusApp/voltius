@@ -106,7 +106,7 @@ async function web(fn, ...args) {
 function shot(name) {
   const file = path.join(OUT, `${name}.png`);
   try {
-    execFileSync("xcrun", ["simctl", "io", UDID, "screenshot", file], { stdio: "ignore" });
+    execFileSync("xcrun", ["simctl", "io", UDID, "screenshot", file], { stdio: "ignore", timeout: 30000 });
   } catch (e) {
     log("screenshot failed", e.message);
   }
@@ -508,7 +508,7 @@ async function openTab(id) {
 function storeShot(name) {
   const dir = path.join(OUT, "store");
   fs.mkdirSync(dir, { recursive: true });
-  execFileSync("xcrun", ["simctl", "io", UDID, "screenshot", path.join(dir, `${name}.png`)], { stdio: "ignore" });
+  execFileSync("xcrun", ["simctl", "io", UDID, "screenshot", path.join(dir, `${name}.png`)], { stdio: "ignore", timeout: 30000 });
 }
 
 if (STORE) {
