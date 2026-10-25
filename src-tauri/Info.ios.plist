@@ -4,5 +4,9 @@
 <dict>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Voltius uses Face ID to unlock your vault.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 </dict>
 </plist>
