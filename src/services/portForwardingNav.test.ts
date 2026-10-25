@@ -1,7 +1,7 @@
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({ mobile: true }));
-vi.mock("@/utils/platform", () => ({ isMobileShell: () => h.mobile }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", isMobileShell: () => h.mobile }));
 
 import { openPortForwardingPage } from "./portForwardingNav";
 import { useMobileNavStore } from "@/stores/mobileNavStore";

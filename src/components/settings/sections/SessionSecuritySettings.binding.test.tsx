@@ -26,7 +26,7 @@ vi.mock("@/services/vaultBinding", () => ({
 vi.mock("@/utils/platform", async () => ({
   ...(await vi.importActual<typeof import("@/utils/platform")>("@/utils/platform")),
   usePlatform: () => "windows",
-  useIsAndroid: () => false,
+  useIsAndroid: () => false, useIsMobile: () => false,
 }));
 
 import { SessionSecuritySettings } from "./SessionSecuritySettings";

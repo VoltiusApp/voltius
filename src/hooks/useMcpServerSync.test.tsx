@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   setEnabled: vi.fn(),
   os: { value: "linux" },
 }));
-vi.mock("@/utils/platform", () => ({ getPlatform: async () => h.os.value }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatform: async () => h.os.value }));
 vi.mock("@/mcp/enable", () => ({ syncMcpServer: h.sync }));
 vi.mock("@/stores/toggleSettingsStore", () => ({
   useToggle: () => [h.enabled.value, h.setEnabled],

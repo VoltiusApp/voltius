@@ -6,7 +6,7 @@ import { systemAuthAvailable } from "@/services/appLock";
 import { systemAuthMethodKey } from "@/hooks/useSystemAuthPrompt";
 import { useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { canLockApp, canLockVault } from "@/utils/accountMode";
-import { useIsAndroid, usePlatform } from "@/utils/platform";
+import { useIsMobile, usePlatform } from "@/utils/platform";
 import { SettingRow } from "./shared";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
@@ -20,7 +20,7 @@ import { BindPasswordDialog } from "./BindPasswordDialog";
 export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const { sessionTimeoutMinutes, lockAction, policy } = useEffectiveLockSettings();
   const teams = useTeamStore((s) => s.teams);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
@@ -81,7 +81,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
         />
           );
           // Android: an M3 row with the value trailing (the picker opens as a sheet).
-          return isAndroid ? (
+          return isMobile ? (
             <SettingRow title={t("settings.account.sessionSecurity.autoLockLabel")} desc={t("settings.account.sessionSecurity.autoLockDesc")} dimmed={!lockable}>
               {select}
             </SettingRow>
@@ -119,7 +119,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
           const desc = t(effectiveAction === "screen"
             ? "settings.account.sessionSecurity.lockAction.screenDesc"
             : "settings.account.sessionSecurity.lockAction.vaultDesc");
-          return isAndroid ? (
+          return isMobile ? (
             <SettingRow title={t("settings.account.sessionSecurity.lockAction.label")} desc={desc} dimmed={!lockable}>
               {select}
             </SettingRow>

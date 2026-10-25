@@ -11,7 +11,7 @@ import { accelFor, tarMode } from "@/components/filetransfer/tarSupport";
 import { PermissionsDialog } from "@/components/filetransfer/PermissionsDialog";
 import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
 import { transferItem } from "@/services/sftpTransferCore";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
 import { needsPicker } from "@/components/terminal/androidDownloadDir";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
@@ -64,6 +64,7 @@ export default function MobileSftpPane({
   const { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
+  const isIOS = useIsIOS();
   const [showHidden, setShowHidden] = useState(false);
   const [sheetFor, setSheetFor] = useState<FileEntry | null>(null);
   const [renaming, setRenaming] = useState<FileEntry | null>(null);
@@ -138,7 +139,8 @@ export default function MobileSftpPane({
     });
     // Android: stream to a temp path, then publish into the user's SAF download folder
     // (picked once, persisted) so the file lands somewhere visible to the system Files app.
-    if (isAndroid) {
+    // iOS: same path; the folder is always the app's Documents (Files › Voltius SSH), no picker.
+    if (isAndroid || isIOS) {
       try {
         let dir = await downloadDirGet();
         if (needsPicker(dir)) {

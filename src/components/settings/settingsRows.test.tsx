@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 const android = vi.hoisted(() => ({ on: true }));
-vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<object>()), useIsAndroid: () => android.on }));
+vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<object>()), useIsAndroid: () => android.on, useIsMobile: () => android.on }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string | string[]) => (Array.isArray(k) ? k[0] : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },

@@ -45,7 +45,7 @@ vi.mock("@/components/shared/Toggle", () => ({
   ),
 }));
 vi.mock("@/components/settings/sections/PluginPermissionModal", () => ({ PluginPermissionModal: () => null }));
-vi.mock("@/utils/platform", () => ({ useIsAndroid: () => false }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => false }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },

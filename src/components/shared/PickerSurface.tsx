@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 
 interface Pos { top?: number; bottom?: number; left?: number; right?: number; width?: number; maxHeight: number }
@@ -40,14 +40,14 @@ export function PickerSurface({
    *  hover-opened surface has no gap for the pointer to fall through. */
   gap?: number;
 }) {
-  const isAndroid = useIsAndroid();
-  const popover = useAnchoredPopover(open && !isAndroid, onClose, anchorRef);
+  const isMobile = useIsMobile();
+  const popover = useAnchoredPopover(open && !isMobile, onClose, anchorRef);
   const [pos, setPos] = useState<Pos>({ left: 0, width: 0, maxHeight });
 
   // Desktop: measure the anchor on open, and keep the float pinned to it while open as the
   // form panel scrolls or the window resizes (the fixed-position float doesn't move on its own).
   useEffect(() => {
-    if (!open || isAndroid) return;
+    if (!open || isMobile) return;
     const measure = () => {
       const el = anchorRef.current;
       if (!el) return;
@@ -72,9 +72,9 @@ export function PickerSurface({
       window.removeEventListener("scroll", measure, true);
       window.removeEventListener("resize", measure);
     };
-  }, [open, isAndroid, anchorRef, width, maxHeight, align, gap]);
+  }, [open, isMobile, anchorRef, width, maxHeight, align, gap]);
 
-  if (isAndroid) {
+  if (isMobile) {
     return open ? <BottomSheet title={title} onClose={onClose}>{children}</BottomSheet> : null;
   }
 

@@ -26,7 +26,7 @@ vi.mock("@/services/account", () => ({
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: (sel: (s: unknown) => unknown) => sel({ addToast: vi.fn() }),
 }));
-vi.mock("@/utils/platform", () => ({ usePlatform: () => "windows" }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", usePlatform: () => "windows" }));
 vi.mock("@/components/shared/VaultBackups", () => ({ VaultBackups: () => null }));
 
 import AuthPage from "./AuthPage";

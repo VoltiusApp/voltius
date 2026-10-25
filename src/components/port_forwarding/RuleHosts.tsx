@@ -5,7 +5,7 @@ import { ChipInput } from "@/components/shared/ChipInput";
 import { ConnectionHostRow } from "@/components/shared/HostPickerPanel";
 import { HostPickerTree } from "@/components/shared/HostPickerTree";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import type { Connection } from "@/types";
 
 export function RuleHosts({ vaultId, hosts, selected, onToggle }: {
@@ -15,7 +15,7 @@ export function RuleHosts({ vaultId, hosts, selected, onToggle }: {
   onToggle: (id: string) => void;
 }) {
   const { t } = useTranslation();
-  const touch = useIsAndroid();
+  const touch = useIsMobile();
   const [query, setQuery] = useState("");
   const { rows, recent, toggleFolder, hasHosts } = useHostPicker({ query, sshOnly: true, vaultId });
   const label = (id: string) => {

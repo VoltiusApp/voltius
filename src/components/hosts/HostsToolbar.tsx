@@ -8,7 +8,7 @@ import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useLocalShells } from "@/hooks/useLocalShells";
 import { IMPORTERS } from "@/services/import-export/importers";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 
 interface HomeToolbarProps {
   search: string;
@@ -69,7 +69,7 @@ export function HomeToolbar({
   const shells = useLocalShells();
   const { preferredShell, setPreferredShell } = useTerminalSettingsStore();
   // Android sandbox can't spawn a local PTY — hide the local-terminal launcher.
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
 
   return (
     <>
@@ -96,7 +96,7 @@ export function HomeToolbar({
 
         <div ref={rightRef} className="ml-auto flex items-center gap-2 shrink-0">
           {/* Android sandbox has no /dev/tty* access — hide serial console. */}
-          {!isAndroid && (
+          {!isMobile && (
             <button
               className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary) border border-(--t-border-hover) relative overflow-hidden"
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
@@ -112,7 +112,7 @@ export function HomeToolbar({
             </button>
           )}
 
-          {!isAndroid && (
+          {!isMobile && (
             <ToolbarDropdown
               icon="lucide:terminal"
               label={compact ? undefined : t("hosts.toolbar.terminal")}

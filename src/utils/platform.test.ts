@@ -30,3 +30,30 @@ describe("getPlatformSync", () => {
     expect(getPlatformSync()).toBe("unknown");
   });
 });
+
+describe("mobile platforms", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    invoke.mockReset();
+  });
+
+  it("treats Android and iOS as phones, and nothing else", async () => {
+    const { isMobilePlatform } = await import("./platform");
+    expect(isMobilePlatform("android")).toBe(true);
+    expect(isMobilePlatform("ios")).toBe(true);
+    for (const p of ["macos", "linux", "windows", "unknown", null]) expect(isMobilePlatform(p)).toBe(false);
+  });
+
+  it.each([
+    ["android", true],
+    ["ios", true],
+    ["macos", false],
+    ["windows", false],
+  ])("isMobileShell on %s is %s once the platform resolves", async (os, mobile) => {
+    invoke.mockResolvedValue(os);
+    const { getPlatform, isMobileShell } = await import("./platform");
+    expect(isMobileShell()).toBe(false);
+    await getPlatform();
+    expect(isMobileShell()).toBe(mobile);
+  });
+});

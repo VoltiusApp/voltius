@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 
 export interface StepperCardProps {
   title: string;
@@ -36,7 +36,7 @@ export interface StepperCardProps {
 export default function StepperCard({
   title, desc, value, unit, min, max, step, buttonStep, onChange, onReset, dirty, labels,
 }: StepperCardProps) {
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +83,7 @@ export default function StepperCard({
     </button>
   );
 
-  if (isAndroid) {
+  if (isMobile) {
     // M3 list item with a slider underneath: full bleed, 48 dp -/+ targets, Reset as a
     // text button only while the value is off its default.
     const stepBy = buttonStep ?? step;

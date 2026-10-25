@@ -15,7 +15,7 @@ import { managedCount, openActivationReview, useSshConfigStore, type SkippedAlia
 import { useVaultStore } from "@/stores/vaultStore";
 import { PERSONAL_VAULT, personalVaults } from "@/services/vaultLookup";
 import { isTeamVaultId } from "@/stores/teamVaultMap";
-import { getPlatform } from "@/utils/platform";
+import { getPlatform, isMobilePlatform } from "@/utils/platform";
 import type { Connection, ConnectionFormData, JumpHost } from "@/types";
 import { connectionFieldsOf, fingerprint, identityPaths, jumpHostsOf, keyExportsOf, keylessFingerprint, ownedFieldsOf, ownedFromHash, pickOwned, splitSupported, targetOf } from "./hostFields";
 import type { ParsedSshConfig, SshConfigHost } from "./parse";
@@ -316,7 +316,7 @@ export function createSshConfigSync(overrides: Partial<SyncDeps> = {}) {
 export const sshConfigSync = createSshConfigSync();
 
 export async function sshConfigSyncNow(): Promise<DomainResult<SyncSummary>> {
-  if ((await getPlatform()) === "android") return failed("~/.ssh/config sync runs on desktop only");
+  if (isMobilePlatform(await getPlatform())) return failed("~/.ssh/config sync runs on desktop only");
   if (!(await loadSshConfigState()).sync?.on) return failed("Continuous sync is off; turn it on in Settings › Hosts");
   const summary = await sshConfigSync.request("mcp");
   return summary ? { ok: true, result: summary } : failed("the sync did not run: it is paused, this computer has not reviewed it yet, or ~/.ssh/config kept changing; see Settings › Hosts");

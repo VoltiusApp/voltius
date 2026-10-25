@@ -8,7 +8,7 @@ import { Modal, ModalCard } from "@/components/shared/Modal";
 import { Toggle } from "@/components/shared/Toggle";
 import { useUIStore } from "@/stores/uiStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import {
   useUpdaterStatus,
   installUpdate,
@@ -49,7 +49,7 @@ function WhatsNewInner() {
   const [loading, setLoading] = useState(true);
   const updater = useUpdaterStatus();
   const [showOlder, setShowOlder] = useState(false);
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
   const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
 
@@ -82,7 +82,7 @@ function WhatsNewInner() {
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--t-border) shrink-0">
           <Icon icon="lucide:megaphone" width={18} className="text-(--t-accent)" />
           <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("changelog.title")}</h2>
-          {!isAndroid && (
+          {!isMobile && (
             <div
               className="flex items-center gap-2 ml-3 pl-3 border-l border-(--t-border)"
               title={t("settings.about.autoDownload.desc")}

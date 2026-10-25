@@ -4,7 +4,7 @@ import { cleanup, render } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
 import { ImportExportModal } from "./ImportExportModal";
 
-vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<object>()), useIsAndroid: () => true }));
+vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<object>()), useIsAndroid: () => true, useIsMobile: () => true }));
 vi.mock("@/services/import-export/registry", () => ({ reloadAll: async () => {} }));
 vi.mock("./useStores", () => ({ useReloadFns: () => [] }));
 vi.mock("./ImportTab", () => ({ ImportTab: () => null }));

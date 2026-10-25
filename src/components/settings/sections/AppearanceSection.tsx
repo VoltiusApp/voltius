@@ -16,7 +16,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SyncKeyButton } from "./shared";
 import { saveTextFile } from "@/services/saveFile";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsAndroid, useIsMobile } from "@/utils/platform";
 import { MOBILE_HIDDEN_TOGGLES } from "@/components/settings/settingsMobileCore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
@@ -55,6 +55,7 @@ export default function AppearanceSection() {
   const setLocale = useLocaleStore((s) => s.setLocale);
   const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
   const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   // Android: a custom theme's export / edit / delete live in a sheet (no hover there).
   const [themeMenu, setThemeMenu] = useState<AppTheme | null>(null);
 
@@ -89,7 +90,7 @@ export default function AppearanceSection() {
             onChange={(value) => setLocale(value as typeof locale)}
           />
         </SettingRow>
-        {!(isAndroid && MOBILE_HIDDEN_TOGGLES.has("group-tabs-by-host")) && <SettingRow
+        {!(isMobile && MOBILE_HIDDEN_TOGGLES.has("group-tabs-by-host")) && <SettingRow
           variant="card"
           className="mt-4"
           syncKey="appSettings.toggles.group-tabs-by-host"
@@ -132,7 +133,7 @@ export default function AppearanceSection() {
             <div data-settings-card className="rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 space-y-4">
               <p className="text-xs text-(--t-text-dim)">{t("settings.appearance.automation.desc")}</p>
 
-              {isAndroid ? (
+              {isMobile ? (
                 // M3 rows, the value trailing; each opens its picker sheet.
                 <>
                   <SettingRow title={t("settings.appearance.automation.mode")}>
@@ -269,7 +270,7 @@ export default function AppearanceSection() {
                     {t("settings.appearance.dynamicThemeHint")}
                   </span>
                 )}
-                {!theme.builtIn && isAndroid && (
+                {!theme.builtIn && isMobile && (
                   <span
                     role="button"
                     tabIndex={0}
@@ -282,7 +283,7 @@ export default function AppearanceSection() {
                     <Icon icon="lucide:ellipsis-vertical" width={18} />
                   </span>
                 )}
-                {!theme.builtIn && !isAndroid && (
+                {!theme.builtIn && !isMobile && (
                   <div className="absolute bottom-2 right-2 flex gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); exportTheme(theme); }}

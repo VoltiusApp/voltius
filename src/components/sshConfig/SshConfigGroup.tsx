@@ -8,7 +8,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { managedCount, useSshConfigStore } from "@/stores/sshConfigStore";
 import { changeSync, turnOff } from "@/services/sshConfig/link";
 import { sshConfigSync } from "@/services/sshConfig/sync";
-import { usePlatform } from "@/utils/platform";
+import { isMobilePlatform, usePlatform } from "@/utils/platform";
 import { statusLine } from "./statusLine";
 import { usePersonalVaultOptions } from "./vaultOptions";
 
@@ -21,7 +21,7 @@ export function SshConfigGroup() {
   const openDialog = useSshConfigStore((s) => s.openDialog);
   const vaultOptions = usePersonalVaultOptions(sync?.vault);
   const [confirmOff, setConfirmOff] = useState(false);
-  if (!platform || platform === "android") return null;
+  if (!platform || isMobilePlatform(platform)) return null;
 
   const on = !!sync?.on;
   const reviewed = status.error !== "join";
