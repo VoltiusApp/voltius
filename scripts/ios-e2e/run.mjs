@@ -191,6 +191,7 @@ async function tapSel(selector) {
 }
 
 async function fill(pattern, value) {
+  await web(page.resetView);
   const found = await web(page.findInput, pattern);
   if (!found) throw new Error(`no input matches /${pattern}/`);
   await tapRect(found.rect);
@@ -284,20 +285,32 @@ await step("fill-host", async () => {
 await step("save-host", async () => {
   // The mobile host editor autosaves: wait out the debounce, then go back.
   await sleep(2500);
-  let r;
-  if (await web(page.rectOf, "[data-mobile-back]")) r = await tapSel("[data-mobile-back]");
-  else r = await tap("^(Save|Create|Add|Add host|Save host|Done)$");
+  const reset = await web(page.resetView);
+  await sleep(1200);
+  let r = `page was scrolled by ${JSON.stringify(reset.scrolledBy)}; `;
+  if (await web(page.rectOf, "[data-mobile-back]")) r += await tapSel("[data-mobile-back]");
+  else r += await tap("^(Save|Create|Add|Add host|Save host|Done)$");
   await sleep(1500);
   const text = await web(() => document.body.innerText || "");
   if (/Leave without saving|Discard changes/i.test(text)) {
     r += "; exit guard shown: " + (await tap("^Save$|Keep editing"));
   }
-  await waitText(HOST_LABEL, 20000);
-  return r;
+  // Back on the hosts list: the host row exists and the editor is gone.
+  const end = Date.now() + 20000;
+  while (Date.now() < end) {
+    const back = await web(() => !!document.querySelector("[data-mobile-hosts] [data-mobile-host]") &&
+      !/^(Edit|New) host$/m.test(document.body.innerText || ""));
+    if (back) return r;
+    await sleep(1000);
+  }
+  throw new Error(`${r}; still in the host editor`);
 });
 
 await step("connect", async () => {
-  let r = await tap(HOST_LABEL);
+  await web(page.resetView);
+  let r = (await web(page.rectOf, "[data-mobile-hosts] [data-mobile-host]"))
+    ? await tapSel("[data-mobile-hosts] [data-mobile-host]")
+    : await tap(HOST_LABEL);
   // Desktop lists may need a second tap or an explicit Connect button.
   await sleep(3000);
   if (!/CONNECT/.test(sshLog("ssh-events.log"))) {

@@ -121,7 +121,7 @@ jobs:
           [ -n "$UDID" ] || exit 0
           xcrun simctl spawn "$UDID" log show --last 60m --style compact \
             --predicate 'process == "Voltius"' > "$OUT_DIR/app-system.log" 2>/dev/null || true
-          grep -i -E "error|fault|panic|voltius_lib|tauri|\[voltius" "$OUT_DIR/app-system.log" | grep -v -i "BoardServices" | tail -400 > "$OUT_DIR/app-errors.log" || true
+          grep -i -E "error|fault|panic|voltius_lib|tauri|\[voltius" "$OUT_DIR/app-system.log" | grep -v -i -E "BoardServices|xctest|KeyboardArbiter" | tail -400 > "$OUT_DIR/app-errors.log" || true
 
       - name: Upload screenshots and logs
         if: always()

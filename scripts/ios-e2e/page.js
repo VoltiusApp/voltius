@@ -169,6 +169,18 @@ export function typeInTerminal(text) {
   return `typed into terminal ${areas.indexOf(ta) + 1}/${areas.length}`;
 }
 
+/**
+ * Closes the keyboard (blur) and scrolls the document back to the top: on iOS the
+ * whole WKWebView page can scroll, which moves fixed headers off screen.
+ */
+export function resetView() {
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  const before = [window.scrollY, document.scrollingElement ? document.scrollingElement.scrollTop : 0];
+  window.scrollTo(0, 0);
+  if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+  return { scrolledBy: before };
+}
+
 /** Rect of the first visible element matching a CSS selector (scrolled into view), or null. */
 export function rectOf(selector) {
   const el = [...document.querySelectorAll(selector)].find((e) => {
