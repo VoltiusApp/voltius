@@ -207,6 +207,35 @@ async function fill(pattern, value) {
   return `filled [${found.described}]`;
 }
 
+/** Taps keys of the iOS keyboard (letters, digits, space, "-", return). */
+async function typeWithKeyboard(text) {
+  await toNative();
+  let layer = "letters";
+  const press = async (name) => {
+    // Key names follow the shift state ("e" or "E"); match either.
+    const key = await driver.$(`-ios predicate string:type == "XCUIElementTypeKey" AND name ==[c] "${name}"`);
+    if (!(await key.isExisting())) {
+      const button = await driver.$(`-ios predicate string:type == "XCUIElementTypeButton" AND name == "${name}"`);
+      if (!(await button.isExisting())) throw new Error(`no keyboard key "${name}"`);
+      await button.click();
+      return;
+    }
+    await key.click();
+  };
+  const toLayer = async (want) => {
+    if (layer === want) return;
+    await press("more");
+    layer = want;
+  };
+  for (const ch of text) {
+    if (ch === " ") await press("space");
+    else if (ch === "\n") await press("Return").catch(() => press("return"));
+    else if (/[a-z]/.test(ch)) { await toLayer("letters"); await press(ch); }
+    else { await toLayer("numbers"); await press(ch); }
+  }
+  await toLayer("letters").catch(() => {});
+}
+
 async function optional(fn) {
   try {
     return await fn();
@@ -372,9 +401,9 @@ await step("type-command", async () => {
     const shown = await driver.isKeyboardShown();
     how = `keyboard ${shown ? "shown" : "NOT SHOWN after tapping the terminal"}`;
     if (shown) {
-      // Types through the on-screen keyboard, like a user.
-      await driver.keys([...`echo ${MARKER}`, "\n"]);
-      how += "; typed with the system keyboard";
+      // Presses the on-screen keyboard keys one by one, like a user.
+      await typeWithKeyboard(`echo ${MARKER}\n`);
+      how += "; typed on the system keyboard";
     }
   } catch (e) {
     how += `; native typing failed (${e.message.split("\n")[0]})`;
