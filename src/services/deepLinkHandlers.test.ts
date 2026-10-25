@@ -168,7 +168,7 @@ vi.mock("@/services/launcherShortcuts", () => ({
   requestHostConnect: (id: string) => requestHostConnect(id),
 }));
 let mobileShell = false;
-vi.mock("@/utils/platform", () => ({ isMobileShell: () => mobileShell }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", isMobileShell: () => mobileShell }));
 
 test("connect opens the host on the mobile shell only", async () => {
   const { handleUnpromptedIntent } = await import("./deepLinkHandlers");

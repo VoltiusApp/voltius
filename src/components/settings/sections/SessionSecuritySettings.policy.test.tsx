@@ -13,7 +13,7 @@ vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => false })
 vi.mock("@/utils/platform", async () => ({
   ...(await vi.importActual<typeof import("@/utils/platform")>("@/utils/platform")),
   usePlatform: () => "linux",
-  useIsAndroid: () => false,
+  useIsAndroid: () => false, useIsMobile: () => false,
 }));
 
 import { SessionSecuritySettings } from "./SessionSecuritySettings";

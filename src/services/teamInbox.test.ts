@@ -43,7 +43,7 @@ vi.mock("@/services/teamService", () => ({
   declineSessionInvite: h.declineSessionInvite,
   getMyUserId: vi.fn(async () => "me"),
 }));
-vi.mock("@/utils/platform", () => ({
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios",
   getPlatform: async () => "linux",
   isMobileShell: () => h.isMobileShell(),
 }));

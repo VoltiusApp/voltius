@@ -315,7 +315,8 @@
             "windows": "Windows Hello",
             "macos": "Touch ID ou a senha do seu Mac",
             "linux": "a senha do seu sistema",
-            "android": "sua impressão digital ou bloqueio de tela"
+            "android": "sua impressão digital ou bloqueio de tela",
+            "ios": "Face ID, Touch ID ou seu código"
           }
         },
         "needsSystemAuth": "Ative a autenticação do sistema para bloquear uma conta sem senha mestra.",

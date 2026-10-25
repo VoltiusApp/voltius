@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore } from "@/stores/uiStore";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { useOverlayTransition } from "@/hooks/pageTransition";
 import { reloadAll } from "@/services/import-export/registry";
@@ -18,10 +18,10 @@ export function ImportExportModal() {
   const state = useUIStore(s => s.importExportModal);
   const close = useUIStore(s => s.closeImportExport);
   const reloaders = useReloadFns();
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   // Android: a full-screen page with a push / pop transition, previewed by predictive back.
-  const overlay = useOverlayTransition(isAndroid && !!state?.open);
-  useBackInterceptor(isAndroid && !!state?.open, close, () =>
+  const overlay = useOverlayTransition(isMobile && !!state?.open);
+  useBackInterceptor(isMobile && !!state?.open, close, () =>
     overlay.ref.current ? { el: overlay.ref.current, kind: "page", handoff: true } : null);
 
   const [activeSection, setActiveSection] = useState<"vaults" | "user-data">(state?.section ?? "vaults");
@@ -43,11 +43,11 @@ export function ImportExportModal() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.open, activeSection]);
 
-  if (!state?.open && !(isAndroid && overlay.mounted)) return null;
+  if (!state?.open && !(isMobile && overlay.mounted)) return null;
 
   const body = (
     <ImportExportBody
-      phone={isAndroid}
+      phone={isMobile}
       state={state}
       close={close}
       activeSection={activeSection}
@@ -57,7 +57,7 @@ export function ImportExportModal() {
     />
   );
 
-  if (isAndroid) {
+  if (isMobile) {
     return createPortal(
       <div ref={overlay.ref} data-import-export-fullscreen data-vt-hit-scope className="fixed inset-0 z-50 flex flex-col surface-modal-solid"
         style={{ paddingTop: "var(--vt-safe-top)", paddingBottom: "var(--vt-safe-bottom)", paddingLeft: "var(--vt-safe-left)", paddingRight: "var(--vt-safe-right)" }}>

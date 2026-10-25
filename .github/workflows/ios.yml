@@ -20,6 +20,11 @@ on:
         description: "Ref to build"
         required: true
         type: string
+      testflight:
+        description: "Upload the package to TestFlight"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -100,7 +105,24 @@ jobs:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
           VITE_DISTRIBUTION: appstore
-        run: pnpm tauri ios build --export-method app-store-connect --ci
+        # CFBundleVersion must grow with every upload and have at most three
+        # numbers, so it is the workflow run number (--build-number would
+        # append a fourth one to the app version).
+        run: >-
+          pnpm tauri ios build --export-method app-store-connect --ci
+          --config "{\"bundle\":{\"iOS\":{\"bundleVersion\":\"${{ github.run_number }}\"}}}"
+
+      - name: Upload to TestFlight
+        if: inputs.testflight
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          cp "$APPLE_API_KEY_PATH" "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8"
+          ipa=$(ls src-tauri/gen/apple/build/arm64/*.ipa)
+          xcrun altool --upload-app --type ios --file "$ipa" --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER" --output-format normal
+          rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8"
 
       - name: Upload the package
         uses: actions/upload-artifact@v7

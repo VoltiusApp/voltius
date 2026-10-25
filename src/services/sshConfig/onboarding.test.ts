@@ -12,7 +12,7 @@ import * as sync from "./sync";
 import * as openssh from "@/services/import-export/parsers/openssh";
 import { log } from "@/lib/logger";
 
-vi.mock("@/utils/platform", () => ({ getPlatform: vi.fn() }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatform: vi.fn() }));
 vi.mock("./state", () => ({ loadSshConfigState: vi.fn(), updateSshConfigState: vi.fn(async (p) => p) }));
 vi.mock("./migrate", () => ({ migrateFromPlugin: vi.fn(async () => {}) }));
 vi.mock("./notice", () => ({ showMigrationNotice: vi.fn() }));

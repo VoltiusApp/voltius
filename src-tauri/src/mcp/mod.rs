@@ -11,7 +11,7 @@ pub use bridge::{Bridge, BridgeError};
 /// The local MCP server only makes sense where an MCP client can run next to
 /// the app. On Android nothing can, and the `mcp-server` toggle is a synced
 /// setting: a desktop that turned it on must not open a socket on the phone.
-pub const SUPPORTED: bool = !cfg!(target_os = "android");
+pub const SUPPORTED: bool = !cfg!(any(target_os = "android", target_os = "ios"));
 
 pub struct McpState {
     pub bridge: Bridge,

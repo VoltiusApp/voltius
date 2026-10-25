@@ -323,7 +323,8 @@
             "windows": "Windows Hello",
             "macos": "Touch ID ou le mot de passe de votre Mac",
             "linux": "votre mot de passe système",
-            "android": "votre empreinte ou le verrouillage de l'écran"
+            "android": "votre empreinte ou le verrouillage de l'écran",
+            "ios": "Face ID, Touch ID ou votre code"
           }
         }
       },

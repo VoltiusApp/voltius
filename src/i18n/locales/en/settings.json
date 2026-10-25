@@ -315,7 +315,8 @@
             "windows": "Windows Hello",
             "macos": "Touch ID or your Mac password",
             "linux": "your system password",
-            "android": "your fingerprint or screen lock"
+            "android": "your fingerprint or screen lock",
+            "ios": "Face ID, Touch ID or your passcode"
           }
         },
         "needsSystemAuth": "Turn on system authentication to lock an account without a master password.",

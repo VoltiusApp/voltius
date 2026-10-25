@@ -4,7 +4,7 @@ import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { parseOpensshFiles, readOpensshFiles } from "@/services/import-export/parsers/openssh";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
-import { getPlatform } from "@/utils/platform";
+import { getPlatform, isMobilePlatform } from "@/utils/platform";
 import { migrateFromPlugin } from "./migrate";
 import { showMigrationNotice } from "./notice";
 import { loadSshConfigState, updateSshConfigState, type SshConfigState } from "./state";
@@ -26,7 +26,7 @@ export function startSshConfigOnboarding(): () => void {
     await whenLoginSyncSettled();
     if (disposed) return;
     await loadSshConfigState();
-    if (disposed || (await getPlatform()) === "android") return;
+    if (disposed || isMobilePlatform(await getPlatform())) return;
     await migrateFromPlugin().catch((e) => log.error("ssh-config migration failed", e));
     if (disposed) return;
     stopEngine = startSshConfigSyncEngine();

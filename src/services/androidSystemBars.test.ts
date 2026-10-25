@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({
   platform: "android",
 }));
 vi.mock("@/lib/invoke", () => ({ invoke: h.invoke }));
-vi.mock("@/utils/platform", () => ({ getPlatform: () => Promise.resolve(h.platform) }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatform: () => Promise.resolve(h.platform) }));
 
 import { resetSystemBarsForTest, syncSystemBars } from "./androidSystemBars";
 

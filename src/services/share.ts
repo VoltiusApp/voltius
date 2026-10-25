@@ -1,14 +1,16 @@
 import { withLeaveLockSuppressed } from "@/services/leaveLockSuppression";
 import { snippetScriptText } from "@/services/snippetSteps";
 import type { Snippet } from "@/types";
+import { getPlatformSync } from "@/utils/platform";
 
 /**
  * Outgoing Android share sheet. The native side (ShareSheet.kt, `window.VoltiusShare`) builds
  * an ACTION_SEND / ACTION_SEND_MULTIPLE intent and opens the system chooser. Files go through
  * the app FileProvider with a read grant, and only from the share staging folders under the
  * app cache (`voltius-downloads/share-*`, see `shareStageId`); the native side refuses any
- * other path and prunes old staged files. Everywhere without the bridge (desktop, web,
- * tests) `canShare()` is false and nothing is offered.
+ * other path and prunes old staged files. On iOS, text goes through the Web Share API of
+ * WKWebView (files are not offered there yet). Everywhere else (desktop, web, tests)
+ * `canShare()` is false and nothing is offered.
  *
  * What gets shared is decided here, by pure helpers, so it is unit-tested: a key's OpenSSH
  * public line only (never the private half), a snippet's command text, remote files.
@@ -23,9 +25,15 @@ type ShareWindow = Window & { VoltiusShare?: Bridge };
 const bridge = (): Bridge | undefined =>
   typeof window === "undefined" ? undefined : (window as ShareWindow).VoltiusShare;
 
-/** True where a system share sheet can be opened (the Android shell). */
+/** The Web Share API, on iOS only (desktop WebKit has it too, but desktop shares nothing). */
+const webShare = (): ((data: ShareData) => Promise<void>) | undefined =>
+  typeof navigator !== "undefined" && typeof navigator.share === "function" && getPlatformSync() === "ios"
+    ? (data) => navigator.share(data)
+    : undefined;
+
+/** True where a system share sheet can be opened (the Android shell, iOS for text). */
 export function canShare(): boolean {
-  return !!bridge();
+  return !!bridge() || !!webShare();
 }
 
 /** Text larger than this would overflow the Binder transaction that carries the intent. */
@@ -128,6 +136,13 @@ function open(call: (b: Bridge) => boolean): boolean {
 /** Open the share sheet for plain text. False if it could not be opened. */
 export function shareText(text: string, title = ""): boolean {
   if (!text || text.length > MAX_SHARE_TEXT) return false;
+  const web = !bridge() ? webShare() : undefined;
+  if (web) {
+    // Must run inside the tap (user activation). A dismissed sheet rejects: nothing to report.
+    void withLeaveLockSuppressed(untilBack);
+    web({ text, title: title || undefined }).catch(() => {});
+    return true;
+  }
   return open((b) => b.shareText(text, title));
 }
 

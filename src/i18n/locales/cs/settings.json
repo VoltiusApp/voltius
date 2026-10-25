@@ -323,7 +323,8 @@
             "windows": "Windows Hello",
             "macos": "Touch ID nebo heslo k Macu",
             "linux": "systémové heslo",
-            "android": "otisk prstu nebo zámek obrazovky"
+            "android": "otisk prstu nebo zámek obrazovky",
+            "ios": "Face ID, Touch ID nebo kód zařízení"
           }
         }
       },

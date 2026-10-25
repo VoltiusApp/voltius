@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({ invoke: vi.fn(), save: vi.fn(), addToast: vi.fn(),
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: h.save }));
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" }, useNotificationStore: { getState: () => ({ addToast: h.addToast }) } }));
-vi.mock("@/utils/platform", () => ({ isMobileShell: () => h.mobile }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatformSync: () => null, isMobileShell: () => h.mobile }));
 
 import { saveTextFile } from "./saveFile";
 

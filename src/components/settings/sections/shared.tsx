@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { domainOf, isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { setKeySync } from "@/services/user-data/syncChoice";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
@@ -24,8 +24,8 @@ export function SettingsGroup({ title, divided, className, children }: {
   className?: string;
   children: ReactNode;
 }) {
-  const isAndroid = useIsAndroid();
-  if (isAndroid) {
+  const isMobile = useIsMobile();
+  if (isMobile) {
     // M3 list: section header + flat rows edge to edge (the page keeps 16 px gutters).
     return (
       <div className={className}>
@@ -72,8 +72,8 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   className?: string;
   children: ReactNode;
 }) {
-  const isAndroid = useIsAndroid();
-  if (isAndroid) {
+  const isMobile = useIsMobile();
+  if (isMobile) {
     return (
       <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey}>
         {children}
@@ -120,9 +120,9 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
   onClick: () => void;
 }) {
   const color = disabled ? "var(--t-text-dim)" : danger ? "var(--t-text-muted)" : "var(--t-text-primary)";
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
 
-  if (isAndroid) {
+  if (isMobile) {
     // M3 list row: leading icon, title + supporting text, full bleed.
     return (
       <button
@@ -208,8 +208,8 @@ export function DirtyDot() {
 
 export function ResetButton({ onReset }: { onReset: () => void }) {
   const { t } = useTranslation();
-  const isAndroid = useIsAndroid();
-  if (isAndroid) {
+  const isMobile = useIsMobile();
+  if (isMobile) {
     // Touch has no hover: a visible M3 text button, shown only while the value is off its default.
     return (
       <button
@@ -246,7 +246,7 @@ function useKeySync(path: string) {
 
 export function SyncKeyButton({ path }: { path: string }) {
   const { t } = useTranslation();
-  const isAndroid = useIsAndroid();
+  const isMobile = useIsMobile();
   const { domainSynced, synced, deviceDefault } = useKeySync(path);
 
   const title = !domainSynced
@@ -269,7 +269,7 @@ export function SyncKeyButton({ path }: { path: string }) {
       onClick={() => setKeySync(path, !synced)}
       title={title}
       aria-label={title}
-      className={isAndroid
+      className={isMobile
         // Touch: always visible, with a 40 dp target.
         ? "p-2.5 -m-1.5 rounded-full text-(--t-text-muted)"
         : `p-1 rounded-sm transition-opacity text-(--t-text-muted)${synced ? " opacity-0 group-hover:opacity-100 focus-visible:opacity-100" : ""}`}
@@ -277,7 +277,7 @@ export function SyncKeyButton({ path }: { path: string }) {
       onMouseEnter={(e) => { if (domainSynced) e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = accented ? "var(--t-accent)" : ""; }}
     >
-      <Icon icon={synced ? "lucide:cloud" : "lucide:cloud-off"} width={isAndroid ? 16 : 11} />
+      <Icon icon={synced ? "lucide:cloud" : "lucide:cloud-off"} width={isMobile ? 16 : 11} />
     </button>
   );
 }

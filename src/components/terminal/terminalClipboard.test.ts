@@ -14,7 +14,7 @@ vi.mock("@/stores/toggleSettingsStore", () => ({
 const copyFailed = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/logger", () => ({ logFailure: () => copyFailed }));
 const platform = vi.hoisted(() => ({ os: "linux" }));
-vi.mock("@/utils/platform", () => ({ getPlatformSync: () => platform.os }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatformSync: () => platform.os }));
 
 import { attachTerminalClipboard, type TerminalClipboardHandle } from "./terminalClipboard";
 

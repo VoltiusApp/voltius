@@ -329,7 +329,8 @@
             "windows": "Windows Hello",
             "macos": "Touch ID veya Mac parolanız",
             "linux": "sistem parolanız",
-            "android": "parmak iziniz veya ekran kilidiniz"
+            "android": "parmak iziniz veya ekran kilidiniz",
+            "ios": "Face ID, Touch ID veya parolanız"
           }
         }
       },

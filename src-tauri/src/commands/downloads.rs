@@ -210,7 +210,17 @@ pub fn download_temp_path(
 }
 
 #[tauri::command]
-pub async fn download_dir_get() -> Result<Option<DownloadDirInfo>, String> {
+pub async fn download_dir_get(app: AppHandle) -> Result<Option<DownloadDirInfo>, String> {
+    #[cfg(target_os = "ios")]
+    {
+        let dir = ios_downloads_dir(&app)?;
+        Ok(Some(DownloadDirInfo {
+            uri: dir.to_string_lossy().into_owned(),
+            display_name: Some("Files \u{203a} Voltius SSH".into()),
+        }))
+    }
+    #[cfg(not(target_os = "ios"))]
+    let _ = app;
     #[cfg(target_os = "android")]
     {
         match android::get_dir()? {
@@ -221,7 +231,7 @@ pub async fn download_dir_get() -> Result<Option<DownloadDirInfo>, String> {
             None => Ok(None),
         }
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         Ok(None)
     }
@@ -260,7 +270,21 @@ pub async fn download_dir_clear() -> Result<(), String> {
 /// Move a completed temp download (`temp_path`, a file or directory) into the SAF tree under
 /// `base_name`, then delete the temp. Android-only.
 #[tauri::command]
-pub async fn download_publish(temp_path: String, base_name: String) -> Result<(), String> {
+pub async fn download_publish(
+    app: AppHandle,
+    temp_path: String,
+    base_name: String,
+) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    {
+        let dir = ios_downloads_dir(&app)?;
+        let dest = unique_destination(&dir, &base_name);
+        move_tree(Path::new(&temp_path), &dest)
+            .map_err(|e| format!("Failed to save {base_name} to Files: {e}"))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "ios"))]
+    let _ = &app;
     #[cfg(target_os = "android")]
     {
         if !android::is_writable()? {
@@ -278,16 +302,107 @@ pub async fn download_publish(temp_path: String, base_name: String) -> Result<()
         let _ = std::fs::remove_file(Path::new(&temp_path));
         Ok(())
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = (temp_path, base_name);
         Err("download publish is Android-only".into())
     }
 }
 
+/// iOS: downloads land in the app Documents folder, which the Files app shows
+/// under "On My iPhone > Voltius SSH" (UIFileSharingEnabled in Info.ios.plist).
+#[cfg(target_os = "ios")]
+fn ios_downloads_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .document_dir()
+        .map_err(|e| format!("Cannot find the Documents folder: {e}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Cannot create the Documents folder: {e}"))?;
+    Ok(dir)
+}
+
+/// `dir/name`, or `dir/name (2)`, `dir/name (3)`... when it already exists. The
+/// counter goes before the extension of a file name ("a.txt" -> "a (2).txt").
+#[cfg(any(target_os = "ios", test))]
+fn unique_destination(dir: &Path, name: &str) -> PathBuf {
+    let name = name.replace(['/', '\\'], "_");
+    let first = dir.join(&name);
+    if !first.exists() {
+        return first;
+    }
+    let (stem, ext) = match name.rfind('.') {
+        Some(i) if i > 0 => (&name[..i], &name[i..]),
+        _ => (name.as_str(), ""),
+    };
+    (2..)
+        .map(|n| dir.join(format!("{stem} ({n}){ext}")))
+        .find(|p| !p.exists())
+        .expect("an unused name exists")
+}
+
+/// Move a file or directory, copying when a rename is not possible.
+#[cfg(any(target_os = "ios", test))]
+fn move_tree(from: &Path, to: &Path) -> std::io::Result<()> {
+    if std::fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    if std::fs::metadata(from)?.is_dir() {
+        std::fs::create_dir_all(to)?;
+        for entry in std::fs::read_dir(from)? {
+            let entry = entry?;
+            if entry.file_type()?.is_symlink() {
+                continue;
+            }
+            move_tree(&entry.path(), &to.join(entry.file_name()))?;
+        }
+        std::fs::remove_dir_all(from)
+    } else {
+        std::fs::copy(from, to)?;
+        std::fs::remove_file(from)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unique_destination_adds_a_counter_before_the_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            unique_destination(dir.path(), "a.txt"),
+            dir.path().join("a.txt")
+        );
+        std::fs::write(dir.path().join("a.txt"), "x").unwrap();
+        assert_eq!(
+            unique_destination(dir.path(), "a.txt"),
+            dir.path().join("a (2).txt")
+        );
+        std::fs::write(dir.path().join("a (2).txt"), "x").unwrap();
+        assert_eq!(
+            unique_destination(dir.path(), "a.txt"),
+            dir.path().join("a (3).txt")
+        );
+        std::fs::create_dir(dir.path().join(".bashrc")).unwrap();
+        assert_eq!(
+            unique_destination(dir.path(), ".bashrc"),
+            dir.path().join(".bashrc (2)")
+        );
+    }
+
+    #[test]
+    fn move_tree_moves_a_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let from = dir.path().join("from");
+        std::fs::create_dir_all(from.join("sub")).unwrap();
+        std::fs::write(from.join("sub/f"), "data").unwrap();
+        let to = dir.path().join("to");
+        move_tree(&from, &to).unwrap();
+        assert_eq!(std::fs::read_to_string(to.join("sub/f")).unwrap(), "data");
+        assert!(!from.exists());
+    }
     use std::fs;
 
     #[test]

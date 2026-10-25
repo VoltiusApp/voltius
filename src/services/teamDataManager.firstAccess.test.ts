@@ -51,7 +51,7 @@ vi.mock("@/stores/vaultStore", () => ({
 vi.mock("@/stores/mobileNavStore", () => ({
   useMobileNavStore: { getState: () => ({ setTab: h.setTab, push: h.push }) },
 }));
-vi.mock("@/utils/platform", () => ({ isMobileShell: h.isMobileShell }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", isMobileShell: h.isMobileShell }));
 
 import { refreshAwaitingKeyTeams, joinAndLoadTeamVault } from "./teamDataManager";
 

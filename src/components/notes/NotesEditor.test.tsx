@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({ dispatched: [] as string[], extensions: [] as unkn
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("@/utils/platform", () => ({ useIsAndroid: () => h.android }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => h.android, useIsMobile: () => h.android }));
 vi.mock("./NotesPreview", () => ({
   NotesPreview: ({ value, onRequestEdit }: { value: string; onRequestEdit?: () => void }) => (
     <div data-preview onDoubleClick={onRequestEdit}>{value}</div>
