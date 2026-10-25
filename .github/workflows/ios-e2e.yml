@@ -6,8 +6,9 @@
 # artifact; summary.md lists which steps passed. A failing app step does not
 # fail the job (the point is the report); a broken harness does.
 #
-# The build is a debug build so the WKWebView is inspectable (Appium needs it
-# for the WEBVIEW context).
+# The build is a release build with the tauri/devtools feature, which makes the
+# WKWebView inspectable (Appium needs it for the WEBVIEW context). A debug build
+# does not link on iOS: without dead-code stripping, serialport pulls in IOKit.
 name: ios-e2e
 
 on:
@@ -59,7 +60,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          key: aarch64-apple-ios-sim-debug
+          key: aarch64-apple-ios-sim-devtools
           workspaces: ". -> target"
 
       - name: Install frontend dependencies
@@ -68,11 +69,11 @@ jobs:
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
 
-      - name: Build for the simulator (debug, inspectable WebView)
+      - name: Build for the simulator (inspectable WebView)
         env:
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
           VITE_DISTRIBUTION: appstore
-        run: pnpm tauri ios build --target aarch64-sim --debug --ci
+        run: pnpm tauri ios build --target aarch64-sim --ci --features tauri/devtools
 
       - name: Install Appium and the XCUITest driver
         run: |
