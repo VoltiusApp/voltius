@@ -1,0 +1,9 @@
+{
+  "name": "voltius-ios-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Drives the Voltius iOS app in the simulator through Appium (XCUITest + WebView context).",
+  "dependencies": {
+    "webdriverio": "9.20.0"
+  }
+}
