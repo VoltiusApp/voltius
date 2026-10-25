@@ -141,12 +141,17 @@ async function webviewOrigin() {
 /** Native tap at the centre of a CSS-pixel rect of the WebView. */
 async function tapRect(rect) {
   const [x, y, w, h] = rect;
-  const viewport = await web(() => [innerWidth, innerHeight]);
+  // Rects are in layout-viewport CSS pixels; iOS may have zoomed the page (input
+  // focus zoom), so map through the visual viewport's offset and size.
+  const vv = await web(() => {
+    const v = window.visualViewport;
+    return v ? [v.offsetLeft, v.offsetTop, v.width, v.height] : [0, 0, innerWidth, innerHeight];
+  });
   const origin = await webviewOrigin();
-  const sx = origin.width / viewport[0];
-  const sy = origin.height / viewport[1];
-  const px = Math.round(origin.x + (x + w / 2) * sx);
-  const py = Math.round(origin.y + (y + h / 2) * sy);
+  const sx = origin.width / vv[2];
+  const sy = origin.height / vv[3];
+  const px = Math.round(origin.x + (x + w / 2 - vv[0]) * sx);
+  const py = Math.round(origin.y + (y + h / 2 - vv[1]) * sy);
   await driver.execute("mobile: tap", { x: px, y: py });
   return [px, py];
 }

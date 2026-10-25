@@ -71,9 +71,9 @@ async def run_exec(process):
     process.exit(proc.returncode or 0)
 
 
-async def run_shell(process):
+async def run_shell(process, command=None):
     cols, rows, *_ = process.get_terminal_size() or (80, 24)
-    event("PTY_OPEN", process.get_terminal_type(), cols, rows)
+    event("PTY_OPEN", process.get_terminal_type(), cols, rows, "exec" if command else "shell")
     master, slave = pty.openpty()
     try:
         import fcntl, struct, termios
@@ -82,8 +82,9 @@ async def run_shell(process):
         event("WINSZ_ERROR", repr(exc))
     env = dict(os.environ, TERM=process.get_terminal_type() or "xterm-256color",
                PS1="e2e$ ", HOME=os.path.expanduser("~"))
+    argv = ["/bin/bash", "-c", command] if command else ["/bin/bash", "--noprofile", "--norc", "-i"]
     proc = await asyncio.create_subprocess_exec(
-        "/bin/bash", "--noprofile", "--norc", "-i",
+        *argv,
         stdin=slave, stdout=slave, stderr=slave, env=env, start_new_session=True,
     )
     os.close(slave)
@@ -132,7 +133,14 @@ async def run_shell(process):
 
 
 async def handle(process):
-    if process.command:
+    command = process.command
+    if isinstance(command, bytes):
+        command = command.decode()
+    if command and process.get_terminal_type():
+        # Voltius opens its interactive shell as an exec request with a PTY.
+        event("EXEC_PTY", repr(command[:120]))
+        await run_shell(process, command)
+    elif command:
         await run_exec(process)
     elif process.get_terminal_type():
         await run_shell(process)
