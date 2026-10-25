@@ -1,0 +1,40 @@
+# Reads or updates the App Store Connect record of the iOS app (Voltius SSH,
+# bundle id app.voltius) through the App Store Connect API. Nothing here
+# submits the app for review.
+name: asc
+
+on:
+  # A push only prints the state (and registers the workflow for dispatch).
+  push:
+    branches: [ci/ios]
+    paths: ["scripts/asc/**", ".github/workflows/asc.yml"]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Script in scripts/asc/ to run"
+        required: true
+        default: status
+        type: choice
+        options: [status, listing]
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - name: Run scripts/asc/${{ inputs.task || 'status' }}.mjs
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: node scripts/asc/${{ inputs.task || 'status' }}.mjs
