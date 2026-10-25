@@ -1,0 +1,131 @@
+# Drives the iOS app in the simulator, step by step, since nobody on the team
+# has an iPhone: Appium (XCUITest) taps the screen and reads the WebView DOM,
+# a throwaway SSH/SFTP server on the runner plays the remote host.
+#
+# Every step leaves a screenshot and a DOM dump in the voltius-ios-e2e
+# artifact; summary.md lists which steps passed. A failing app step does not
+# fail the job (the point is the report); a broken harness does.
+#
+# The build is a debug build so the WKWebView is inspectable (Appium needs it
+# for the WEBVIEW context).
+name: ios-e2e
+
+on:
+  push:
+    branches: [ios/e2e, ci/ios]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to build"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  simulator-e2e:
+    runs-on: macos-latest
+    timeout-minutes: 75
+    env:
+      OUT_DIR: ${{ github.workspace }}/e2e-out
+      SSH_PORT: "2222"
+      SSH_USER: e2e
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        run: echo "channel=$(sed -nE "s/^channel[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p" rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: aarch64-apple-ios-sim
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: aarch64-apple-ios-sim-debug
+          workspaces: ". -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Generate the Xcode project
+        run: pnpm tauri ios init --ci
+
+      - name: Build for the simulator (debug, inspectable WebView)
+        env:
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
+          VITE_DISTRIBUTION: appstore
+        run: pnpm tauri ios build --target aarch64-sim --debug --ci
+
+      - name: Install Appium and the XCUITest driver
+        run: |
+          npm install --global appium@3
+          appium driver install xcuitest
+          npm install --prefix scripts/ios-e2e --no-package-lock --no-audit --no-fund
+
+      - name: Start the test SSH server
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sshvenv"
+          "$RUNNER_TEMP/sshvenv/bin/pip" install --quiet asyncssh
+          password="e2e-$(openssl rand -hex 8)"
+          echo "SSH_PASSWORD=$password" >> "$GITHUB_ENV"
+          mkdir -p "$OUT_DIR/ssh"
+          E2E_SSH_USER="$SSH_USER" E2E_SSH_PASSWORD="$password" \
+            nohup "$RUNNER_TEMP/sshvenv/bin/python" scripts/ios-e2e/ssh_server.py "$SSH_PORT" "$OUT_DIR/ssh" \
+            > "$OUT_DIR/ssh/server-stdout.log" 2>&1 &
+          for _ in $(seq 1 20); do nc -z 127.0.0.1 "$SSH_PORT" && break; sleep 1; done
+          nc -z 127.0.0.1 "$SSH_PORT"
+
+      - name: Boot a simulator
+        run: |
+          device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted(d, reverse=True) if 'iOS' in r for x in d[r] if x['name'].startswith('iPhone') and 'Pro' in x['name'] and 'Max' not in x['name']))")
+          echo "UDID=$device" >> "$GITHUB_ENV"
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device"
+          app=$(find src-tauri/gen/apple/build -name "*.app" -maxdepth 3 | head -1)
+          echo "APP_PATH=$GITHUB_WORKSPACE/$app" >> "$GITHUB_ENV"
+          echo "device $device, app $app"
+
+      - name: Start Appium
+        run: |
+          nohup appium --address 127.0.0.1 --port 4723 --log "$OUT_DIR/appium.log" --log-no-colors > /dev/null 2>&1 &
+          for _ in $(seq 1 60); do curl -fs http://127.0.0.1:4723/status > /dev/null && break; sleep 1; done
+          curl -fs http://127.0.0.1:4723/status
+
+      - name: Drive the app
+        env:
+          SSH_LOG_DIR: ${{ github.workspace }}/e2e-out/ssh
+        run: node scripts/ios-e2e/run.mjs
+
+      - name: Collect the app logs
+        if: always()
+        run: |
+          [ -n "$UDID" ] || exit 0
+          xcrun simctl spawn "$UDID" log show --last 60m --style compact \
+            --predicate 'process == "Voltius"' > "$OUT_DIR/app-system.log" 2>/dev/null || true
+          grep -i -E "error|fault|panic|voltius_lib|tauri|\[voltius" "$OUT_DIR/app-system.log" | grep -v -i "BoardServices" | tail -400 > "$OUT_DIR/app-errors.log" || true
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-ios-e2e
+          path: e2e-out/
+          retention-days: 14
