@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorView, keymap, placeholder, tooltips } from "@codemirror/view";
+import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { EditorSelection, Prec, type StateCommand } from "@codemirror/state";
 import { autocompletion } from "@codemirror/autocomplete";
 import { useCmTheme } from "@/components/filetransfer/editor/useCmTheme";
+import { cmPopupChrome } from "@/components/filetransfer/editor/cmTheme";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { MenuItemList } from "@/components/shared/ContextMenu";
 import { useIsAndroid } from "@/utils/platform";
@@ -120,30 +121,6 @@ function ToolbarMenu({ menu, className, onRun }: { menu: ToolbarMenuEntry; class
   );
 }
 
-const NOTES_THEME = EditorView.theme({
-  ".cm-placeholder": { color: "var(--t-text-muted)" },
-  ".cm-tooltip.cm-tooltip-autocomplete": {
-    background: "var(--t-bg-card)",
-    border: "none",
-    borderRadius: "var(--r-md)",
-    boxShadow: "var(--t-ring), var(--t-elev-2)",
-    padding: "0.375rem",
-    "& > ul": { fontFamily: "inherit", minWidth: "12.667rem", maxHeight: "320px" },
-    "& > ul > li": {
-      padding: "0.5rem 0.75rem",
-      borderRadius: "0.5rem",
-      fontSize: "0.75rem",
-      lineHeight: "1rem",
-      color: "var(--t-text-secondary)",
-    },
-    "& > ul > li:hover, & > ul > li[aria-selected]": {
-      background: "var(--t-bg-card-hover)",
-      color: "var(--t-text-primary)",
-    },
-  },
-  ".cm-completionMatchedText": { textDecoration: "none" },
-});
-
 function clampSelection(selection: EditorSelection, length: number): EditorSelection {
   const clamp = (pos: number) => Math.min(pos, length);
   return EditorSelection.create(
@@ -187,8 +164,7 @@ export function NotesEditor({
     () => [
       ...themeExt,
       markdown(),
-      NOTES_THEME,
-      tooltips({ position: "fixed", parent: document.body }),
+      cmPopupChrome,
       EditorView.lineWrapping,
       EditorView.updateListener.of((update) => { selectionRef.current = update.state.selection; }),
       placeholder(t("notes.editor.placeholder")),

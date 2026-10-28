@@ -17,7 +17,8 @@ import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import type { Snippet, Folder } from "@/types";
-import { snippetMatcher, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher } from "@/services/snippetSteps";
+import { SnippetPreview } from "@/components/snippets/HighlightedScript";
 import { compareStrings } from "@/utils/localeFormat";
 
 export default function MobileSnippetList({
@@ -99,7 +100,7 @@ export default function MobileSnippetList({
             <button className="flex-1 flex flex-col gap-0.5 px-4 py-3 text-left active:bg-(--t-bg-card) min-w-0"
               onClick={() => openPicker(sn.id, "execute")}>
               <span className="text-sm font-medium text-(--t-text-primary) truncate">{sn.name}</span>
-              <span className="text-xs font-mono text-(--t-text-dim) truncate">{snippetSearchText(sn)}</span>
+              <span className="text-xs font-mono text-(--t-text-dim) truncate"><SnippetPreview snippet={sn} /></span>
             </button>
             <button className="vt-icon-btn text-(--t-text-secondary)" data-mobile-snippet-insert={sn.id} aria-label={t("mobile.snippets.insertAriaLabel")} onClick={() => onInsert(sn)}>
               <Icon icon="lucide:arrow-down-to-line" width={18} />

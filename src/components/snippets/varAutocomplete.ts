@@ -23,25 +23,6 @@ export function activeVarQuery(textBeforeCursor: string): string | null {
   return match ? match[1] : null;
 }
 
-export interface VarInsertion {
-  value: string;
-  cursor: number;
-}
-
-/** Insert `{{varName}}` at the cursor. If an open `{{query` precedes the cursor,
- *  the partial query is replaced; otherwise a fresh `{{varName}}` is inserted
- *  (any selection between selStart/selEnd is overwritten). */
-export function insertVarAt(value: string, selStart: number, selEnd: number, varName: string): VarInsertion {
-  const before = value.slice(0, selStart);
-  const after = value.slice(selEnd);
-  const match = before.match(/\{\{([^}]*)$/);
-  if (match) {
-    const start = selStart - match[1].length;
-    return { value: before.slice(0, start) + varName + "}}" + after, cursor: start + varName.length + 2 };
-  }
-  return { value: before + "{{" + varName + "}}" + after, cursor: selStart + varName.length + 4 };
-}
-
 /** Dynamic-var defs whose value prefix-matches the query (case-insensitive). */
 export function filterDynamicVars<T extends { value: string }>(defs: T[], query: string): T[] {
   const q = query.toLowerCase();
