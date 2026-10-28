@@ -145,6 +145,14 @@ jobs:
     uses: ./.github/workflows/publish-repo.yml
     secrets: inherit
 
+  publish-play:
+    needs: [tag, release-published]
+    if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
+    uses: ./.github/workflows/play-store.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
+
   # Merges to dev reference issues as "(#N)", which GitHub never closes; the "fixed on dev"
   # label marks them. Issues labelled after the release commit wait for the next release.
   close-fixed-issues:

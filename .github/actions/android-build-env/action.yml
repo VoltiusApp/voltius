@@ -1,0 +1,66 @@
+name: android-build-env
+description: Toolchain for a signed aarch64 Android release build (node, pnpm, Java, SDK, NDK, Rust) plus the decoded release keystore in ANDROID_KEYSTORE_PATH.
+
+inputs:
+  keystore-base64:
+    description: The ANDROID_KEYSTORE_BASE64 secret.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v6
+
+    - name: Setup node
+      uses: actions/setup-node@v7
+      with:
+        node-version: lts/*
+        cache: 'pnpm'
+
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: 'platform-tools'
+
+    - name: Install Android NDK
+      shell: bash
+      run: |
+        sdkmanager "ndk;26.1.10909125"
+        echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+        echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+    - name: Read toolchain channel from rust-toolchain.toml
+      id: rust
+      shell: bash
+      run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.rust.outputs.channel }}
+        targets: aarch64-linux-android
+
+    - name: Rust cache
+      uses: swatinem/rust-cache@v2
+      with:
+        key: aarch64-linux-android
+        workspaces: '. -> target'
+
+    - name: Install frontend dependencies
+      shell: bash
+      run: pnpm install
+
+    - name: Decode release keystore
+      shell: bash
+      env:
+        ANDROID_KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+      run: |
+        echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/voltius-release.keystore"
+        echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/voltius-release.keystore" >> "$GITHUB_ENV"

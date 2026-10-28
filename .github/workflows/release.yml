@@ -41,16 +41,8 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
         run: |
-          version="${TAG#v}"
-          notes=$(awk -v hdr="## [$version]" '
-            index($0, hdr) == 1 { flag=1; next }
-            flag && /^## / { flag=0 }
-            flag { print }
-          ' CHANGELOG.md)
-          # Trim leading/trailing blank lines
-          notes=$(printf '%s\n' "$notes" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac)
-          if [ -z "$notes" ]; then
-            echo "::error::No CHANGELOG.md section found for version $version. Add a '## [$version]' entry before releasing."
+          if ! notes=$(node scripts/store/release-notes.mjs "${TAG#v}"); then
+            echo "::error::No CHANGELOG.md section found for version ${TAG#v}. Add a '## [${TAG#v}]' entry before releasing."
             exit 1
           fi
           {
@@ -255,57 +247,10 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup node
-        uses: actions/setup-node@v7
+      - name: Android build environment
+        uses: ./.github/actions/android-build-env
         with:
-          node-version: lts/*
-          cache: 'pnpm'
-
-      - name: Setup Java
-        uses: actions/setup-java@v6
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools'
-
-      - name: Install Android NDK
-        run: |
-          sdkmanager "ndk;26.1.10909125"
-          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
-
-      - name: Read toolchain channel from rust-toolchain.toml
-        id: rust
-        run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.rust.outputs.channel }}
-          targets: aarch64-linux-android
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          key: aarch64-linux-android
-          workspaces: '. -> target'
-
-      - name: Install frontend dependencies
-        run: pnpm install
-
-      - name: Decode release keystore
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/voltius-release.keystore"
-          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/voltius-release.keystore" >> "$GITHUB_ENV"
+          keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       # tauri-action@v1 does expose a `mobile` input, but this job predates it:
       # under the old v0 pin the input did not exist, so `mobile: android` was
