@@ -57,6 +57,7 @@ snow = "0.9"
 sha2 = "0.10"
 zeroize = "1"
 rand = "0.8"
+mdns-sd = "0.21"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 keyring-core = "1"
 base64 = "0.22"
