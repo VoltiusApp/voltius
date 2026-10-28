@@ -1,10 +1,15 @@
-import type { ComponentType, ReactNode } from "react";
+import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import { useCanEditObject } from "@/hooks/usePermission";
 import type { TeamObjectType } from "@/services/teamObjects";
 
 export interface EditAccessProps {
   readOnly: boolean;
 }
+
+const FieldsReadOnly = createContext(false);
+
+/** True inside a locked ReadOnlyFields, for editors a disabled fieldset cannot reach (contenteditable). */
+export const useFieldsReadOnly = () => useContext(FieldsReadOnly);
 
 /** Locks every native control inside it, including ones nested in custom pickers. */
 export function ReadOnlyFields({ readOnly, className, children }: {
@@ -14,7 +19,7 @@ export function ReadOnlyFields({ readOnly, className, children }: {
 }) {
   return (
     <fieldset disabled={readOnly} className={`min-w-0 ${className ?? ""}`}>
-      {children}
+      <FieldsReadOnly.Provider value={readOnly}>{children}</FieldsReadOnly.Provider>
     </fieldset>
   );
 }

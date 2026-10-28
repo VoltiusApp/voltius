@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.64.1] - 2026-10-28
+
+### Added
+
+- On Android, the Snippets screen has a Community tab, as on desktop: browse and search the community catalogue, open a pack to choose which snippets to install, and install them into the current vault (#725)
+
+### Fixed
+
+- In the community snippet list, the author and snippet count are no longer cut off when the description is long (#725)
+
+## [0.64.0] - 2026-10-28
+
+### Added
+
+- Snippet scripts are now syntax-highlighted everywhere they appear: snippet cards and lists, community packs, Ctrl+K search, the terminal snippets panel and the snippet chooser. The snippet editor is now a code editor and still autocompletes `{{variables}}`. Voltius detects the language from the script: shell by default, PowerShell when the script clearly uses PowerShell, and a shebang always decides (#720)
+
+### Fixed
+
+- In bash, when a command's output doesn't end with a newline (for example a `curl` that returns JSON), the prompt now starts on a new line. Before, the prompt was drawn after the output and recalling history with Up/Down garbled the line (#716, #719)
+- The Windows installer and `voltius.exe` now show "Voltius" as the publisher and include a copyright notice (#718)
+
 ## [0.63.1] - 2026-10-24
 
 ### Changed

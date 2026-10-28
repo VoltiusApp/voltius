@@ -11,10 +11,11 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { haptic } from "@/lib/haptics";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
+import { ScriptEditor } from "@/components/snippets/ScriptEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import { FieldError, useRequiredField } from "@/components/shared/fieldValidation";
-import { formIdentifierProps, formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
+import { formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
 import type { Snippet, SnippetFormData, SnippetStep } from "@/types";
 
 export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
@@ -139,14 +140,13 @@ function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAcce
         ) : (
           <div className="flex-1 flex flex-col">
             <label className={formLabelClass} style={formLabelStyle}>{t("mobile.snippetEdit.contentLabel")}</label>
-            <textarea
-              data-mobile-snippet-content
+            <ScriptEditor
               value={content}
-              onChange={(e) => setSteps([{ kind: "script", content: e.target.value }])}
+              onChange={(v) => setSteps([{ kind: "script", content: v }])}
               placeholder={t("mobile.snippetEdit.contentPlaceholder")}
-              className={`${formInputClass} flex-1 min-h-40 font-mono resize-none`}
-              style={formInputStyle}
-              {...formIdentifierProps}
+              minHeight="10rem"
+              fill
+              className="flex-1"
               {...contentField.fieldProps}
             />
             <FieldError show={contentField.invalid} />

@@ -23,7 +23,7 @@ export function EntryCard({ entry, layout, onOpen }: {
         <div className="flex-1 min-w-0">
           <span className="text-sm font-semibold text-(--t-text-bright) truncate block">{entry.name}</span>
           <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-            {meta && <span className="text-xs text-(--t-text-muted) truncate">{meta}</span>}
+            {meta && <span className="text-xs text-(--t-text-muted) shrink-0">{meta}</span>}
             {entry.description && (
               <>
                 <span className="text-xs text-(--t-text-dim)">·</span>

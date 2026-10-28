@@ -1,6 +1,6 @@
 {
   "productName": "Voltius",
-  "version": "0.63.1",
+  "version": "0.64.1",
   "identifier": "com.voltius.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -34,6 +34,8 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "publisher": "Voltius",
+    "copyright": "Copyright © Voltius Contributors",
     "category": "DeveloperTool",
     "targets": [
       "nsis",

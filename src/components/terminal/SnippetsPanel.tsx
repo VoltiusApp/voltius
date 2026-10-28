@@ -22,7 +22,8 @@ import { SectionHeader } from "@/components/shared/SectionHeader";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { MenuItemList, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
-import { snippetMatcher, snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetScriptText } from "@/services/snippetSteps";
+import { SnippetPreview } from "@/components/snippets/HighlightedScript";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -167,7 +168,7 @@ function SnippetRow({
             )}
           </div>
           <p className="text-[11px] font-mono truncate mt-0.5 leading-tight" style={{ color: "var(--t-text-muted)" }}>
-            {snippetSearchText(snippet)}
+            <SnippetPreview snippet={snippet} />
           </p>
           {snippet.tags.length > 0 && (
             <div className="flex gap-1 mt-1 flex-wrap">

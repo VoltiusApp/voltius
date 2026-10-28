@@ -13,6 +13,7 @@ import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import type { Snippet, Folder, VaultOption } from "@/types";
 import { snippetSearchText } from "@/services/snippetSteps";
+import { SnippetPreview } from "./HighlightedScript";
 import { useSnippetStore, snippetToFormData } from "@/stores/snippetStore";
 import { useInlineRename } from "@/hooks/useInlineRename";
 import { useTeamStore } from "@/stores/teamStore";
@@ -218,7 +219,8 @@ export function SnippetCard({
                   overflow: "hidden",
                 }}
               >
-                {`> ${snippetSearchText(snippet) || t("snippets.card.noContent")}`}
+                {"> "}
+                {snippetSearchText(snippet) ? <SnippetPreview snippet={snippet} /> : t("snippets.card.noContent")}
               </p>
             </div>
 
@@ -260,7 +262,7 @@ export function SnippetCard({
         <AvatarTile icon="lucide:braces" iconSize={14} className="w-7 h-7 rounded-lg" />
         <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{rename.editor ?? snippet.name}</p>
         <p className={`text-xs truncate flex-1 min-w-0 text-(--t-text-secondary) ${snippet.description ? "" : "font-mono"}`}>
-          {snippet.description || snippetSearchText(snippet)}
+          {snippet.description || <SnippetPreview snippet={snippet} />}
         </p>
         {folder && (
           <span className="flex items-center gap-1 text-xs text-(--t-text-dim) shrink-0">

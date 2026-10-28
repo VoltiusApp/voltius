@@ -20,7 +20,8 @@ import {
 import { broadcastSnippetInject } from "@/services/snippetInject";
 import { runSnippetSequence, reportSequenceResult } from "@/services/snippetSequence";
 import { getActiveRunnableSession } from "@/services/snippetRun";
-import { snippetMatcher, snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
+import { snippetMatcher, snippetScriptText } from "@/services/snippetSteps";
+import { SnippetPreview } from "@/components/snippets/HighlightedScript";
 import { searchMatcher } from "@/utils/search";
 import { matchesSearch } from "@/utils/connectionFilter";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
@@ -673,7 +674,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.snippet.name}
             </span>
             <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">
-              {snippetSearchText(item.snippet)}
+              <SnippetPreview snippet={item.snippet} />
             </p>
           </div>
           <VaultBadge vaultId={item.snippet.vault_id} />

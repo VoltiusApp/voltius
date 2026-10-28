@@ -10,7 +10,6 @@ import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { sql } from "@codemirror/lang-sql";
 import { xml } from "@codemirror/lang-xml";
-import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { properties } from "@codemirror/legacy-modes/mode/properties";
 import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
@@ -19,13 +18,14 @@ import { lua } from "@codemirror/legacy-modes/mode/lua";
 import { perl } from "@codemirror/legacy-modes/mode/perl";
 import { ruby } from "@codemirror/legacy-modes/mode/ruby";
 import { swift } from "@codemirror/legacy-modes/mode/swift";
-import { powerShell } from "@codemirror/legacy-modes/mode/powershell";
 import { c, cpp, java, csharp, kotlin } from "@codemirror/legacy-modes/mode/clike";
+import { SCRIPT_LANGUAGES } from "@/components/snippets/scriptLanguage";
 
 const legacy = (m: Parameters<typeof StreamLanguage.define>[0]) => () =>
   StreamLanguage.define(m);
 
-const sh = legacy(shell);
+const sh = () => SCRIPT_LANGUAGES.shell;
+const ps = () => SCRIPT_LANGUAGES.powershell;
 const ini = legacy(properties);
 
 const MAP: Record<string, () => Extension> = {
@@ -79,8 +79,8 @@ const MAP: Record<string, () => Extension> = {
   pl: legacy(perl),
   pm: legacy(perl),
   swift: legacy(swift),
-  ps1: legacy(powerShell),
-  psm1: legacy(powerShell),
+  ps1: ps,
+  psm1: ps,
 };
 
 // Extension-less / dotfile well-known basenames (lowercased).

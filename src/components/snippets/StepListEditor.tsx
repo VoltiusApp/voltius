@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { pickLocalPath } from "@/services/sftp";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
 import { FormSelect } from "@/components/shared/FormSelect";
-import { VariableTextarea } from "@/components/snippets/VariableTextarea";
+import { ScriptEditor } from "@/components/snippets/ScriptEditor";
 import { useListReorder } from "@/hooks/useListReorder";
 import { ReorderHandle, OrderBadge } from "@/components/shared/reorder";
 import type { SnippetStep, Snippet } from "@/types";
@@ -75,7 +75,7 @@ export function StepListEditor({ value, onChange, snippets, onBrowseRemote }: Pr
             {/* Body */}
             <div className="p-2.5">
               {step.kind === "script" && (
-                <VariableTextarea value={step.content} onChange={(v) => update(i, { ...step, content: v })} rows={3} />
+                <ScriptEditor value={step.content} onChange={(v) => update(i, { ...step, content: v })} />
               )}
 
               {step.kind === "transfer" && (
