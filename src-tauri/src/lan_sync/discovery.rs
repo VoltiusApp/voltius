@@ -1,5 +1,6 @@
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use mdns_sd::{DaemonEvent, ServiceDaemon, ServiceEvent, ServiceInfo};
 use rand::Rng;
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -27,8 +28,6 @@ impl std::fmt::Display for DiscoveryError {
 
 impl std::error::Error for DiscoveryError {}
 
-const EHOSTUNREACH_MACOS: i32 = 65;
-
 pub fn instance_name() -> String {
     format!("{:016x}", rand::thread_rng().gen::<u64>())
 }
@@ -37,33 +36,39 @@ pub fn txt_properties() -> Vec<(&'static str, &'static str)> {
     vec![("v", "1")]
 }
 
-fn map_error(e: &std::io::Error) -> DiscoveryError {
-    if e.kind() == std::io::ErrorKind::PermissionDenied
-        || e.raw_os_error() == Some(EHOSTUNREACH_MACOS)
-    {
+pub(crate) fn classify_mdns_error(msg: &str) -> DiscoveryError {
+    const BLOCKED: [&str; 4] = [
+        "No route to host",
+        "os error 65",
+        "Permission denied",
+        "Operation not permitted",
+    ];
+    if BLOCKED.iter().any(|needle| msg.contains(needle)) {
         DiscoveryError::Blocked
     } else {
-        DiscoveryError::Other(e.to_string())
+        DiscoveryError::Other(msg.to_string())
     }
 }
 
 fn map_mdns_error(e: &mdns_sd::Error) -> DiscoveryError {
-    let text = e.to_string();
-    if [
-        "No route to host",
-        "Permission denied",
-        "Operation not permitted",
-    ]
-    .iter()
-    .any(|needle| text.contains(needle))
-    {
-        DiscoveryError::Blocked
-    } else {
-        DiscoveryError::Other(text)
-    }
+    classify_mdns_error(&e.to_string())
 }
 
-type OwnNames = Arc<Mutex<Vec<String>>>;
+fn lock_names(own: &OwnNames) -> std::sync::MutexGuard<'_, VecDeque<String>> {
+    own.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+// Keeps the previous instance too: peers may still resolve it for a while after rotation.
+fn rotate_own(names: &mut VecDeque<String>, new: String) -> Option<String> {
+    let previous = names.back().cloned();
+    names.push_back(new);
+    while names.len() > OWN_NAMES_KEPT {
+        names.pop_front();
+    }
+    previous
+}
+
+type OwnNames = Arc<Mutex<VecDeque<String>>>;
 
 fn register_instance(
     daemon: &ServiceDaemon,
@@ -88,16 +93,34 @@ fn register_instance(
 pub struct Discovery {
     daemon: ServiceDaemon,
     own: OwnNames,
-    tasks: [JoinHandle<()>; 2],
+    tasks: [JoinHandle<()>; 3],
 }
 
-pub fn start(port: u16, found: Sender<SocketAddr>) -> Result<Discovery, DiscoveryError> {
+pub fn start(
+    port: u16,
+    found: Sender<SocketAddr>,
+    errors: Sender<DiscoveryError>,
+) -> Result<Discovery, DiscoveryError> {
     let daemon = ServiceDaemon::new().map_err(|e| map_mdns_error(&e))?;
     let first = register_instance(&daemon, port, &instance_name())?;
-    let own: OwnNames = Arc::new(Mutex::new(vec![first]));
+    let own: OwnNames = Arc::new(Mutex::new(VecDeque::from([first])));
     let events = daemon
         .browse(SERVICE_TYPE)
         .map_err(|e| map_mdns_error(&e))?;
+    let monitor = daemon.monitor().map_err(|e| map_mdns_error(&e))?;
+
+    let watch = {
+        let errors = errors.clone();
+        tokio::spawn(async move {
+            while let Ok(event) = monitor.recv_async().await {
+                if let DaemonEvent::Error(e) = event {
+                    if errors.send(map_mdns_error(&e)).await.is_err() {
+                        return;
+                    }
+                }
+            }
+        })
+    };
 
     let browse = {
         let own = own.clone();
@@ -106,12 +129,7 @@ pub fn start(port: u16, found: Sender<SocketAddr>) -> Result<Discovery, Discover
                 let ServiceEvent::ServiceResolved(service) = event else {
                     continue;
                 };
-                if own
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .any(|n| n == service.get_fullname())
-                {
+                if lock_names(&own).iter().any(|n| n == service.get_fullname()) {
                     continue;
                 }
                 for ip in service.get_addresses() {
@@ -132,17 +150,15 @@ pub fn start(port: u16, found: Sender<SocketAddr>) -> Result<Discovery, Discover
             ticker.tick().await;
             loop {
                 ticker.tick().await;
-                let Ok(fresh) = register_instance(&daemon, port, &instance_name()) else {
-                    continue;
+                let fresh = match register_instance(&daemon, port, &instance_name()) {
+                    Ok(fresh) => fresh,
+                    Err(e) => {
+                        log::warn!("lan-sync: mdns re-registration failed: {e}");
+                        let _ = errors.send(e).await;
+                        continue;
+                    }
                 };
-                let old = {
-                    let mut names = own.lock().unwrap();
-                    let old = names.last().cloned();
-                    names.push(fresh);
-                    let excess = names.len().saturating_sub(OWN_NAMES_KEPT);
-                    names.drain(..excess);
-                    old
-                };
+                let old = rotate_own(&mut lock_names(&own), fresh);
                 if let Some(old) = old {
                     let _ = daemon.unregister(&old);
                 }
@@ -153,7 +169,7 @@ pub fn start(port: u16, found: Sender<SocketAddr>) -> Result<Discovery, Discover
     Ok(Discovery {
         daemon,
         own,
-        tasks: [browse, rotate],
+        tasks: [browse, rotate, watch],
     })
 }
 
@@ -162,7 +178,7 @@ impl Drop for Discovery {
         for task in &self.tasks {
             task.abort();
         }
-        if let Some(current) = self.own.lock().unwrap().last() {
+        if let Some(current) = lock_names(&self.own).back() {
             let _ = self.daemon.unregister(current);
         }
         let _ = self.daemon.shutdown();
@@ -172,7 +188,6 @@ impl Drop for Discovery {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Error, ErrorKind};
 
     #[test]
     fn instance_name_is_16_lowercase_hex_and_random() {
@@ -188,20 +203,41 @@ mod tests {
     }
 
     #[test]
-    fn permission_denied_and_macos_unreachable_are_blocked() {
+    fn blocked_messages_classify_as_blocked() {
+        for msg in [
+            "send failed: No route to host (os error 65)",
+            "Permission denied",
+            "Operation not permitted (os error 1)",
+            "os error 65",
+        ] {
+            assert_eq!(classify_mdns_error(msg), DiscoveryError::Blocked, "{msg}");
+        }
+    }
+
+    #[test]
+    fn other_messages_are_kept() {
         assert_eq!(
-            map_error(&Error::from(ErrorKind::PermissionDenied)),
-            DiscoveryError::Blocked
-        );
-        assert_eq!(
-            map_error(&Error::from_raw_os_error(65)),
-            DiscoveryError::Blocked
+            classify_mdns_error("address in use"),
+            DiscoveryError::Other("address in use".into())
         );
     }
 
     #[test]
-    fn other_errors_keep_their_message() {
-        let e = Error::new(ErrorKind::AddrInUse, "in use");
-        assert_eq!(map_error(&e), DiscoveryError::Other(e.to_string()));
+    fn rotate_own_returns_previous_and_caps() {
+        let mut names = VecDeque::from(["a".to_string()]);
+        assert_eq!(rotate_own(&mut names, "b".into()), Some("a".into()));
+        assert_eq!(names, ["a", "b"]);
+        assert_eq!(rotate_own(&mut names, "c".into()), Some("b".into()));
+        assert_eq!(names, ["b", "c"]);
+        assert_eq!(rotate_own(&mut VecDeque::new(), "x".into()), None);
+    }
+
+    #[tokio::test]
+    async fn start_and_drop_do_not_panic() {
+        let (found, _found_rx) = tokio::sync::mpsc::channel(4);
+        let (errors, _errors_rx) = tokio::sync::mpsc::channel(4);
+        if let Ok(discovery) = start(4242, found, errors) {
+            drop(discovery);
+        }
     }
 }
