@@ -20,6 +20,7 @@ mod keychain_android;
 mod keychain_bundle;
 mod knock;
 mod known_hosts;
+mod lan_sync;
 #[cfg(target_os = "linux")]
 mod linux_gfx;
 mod local;
