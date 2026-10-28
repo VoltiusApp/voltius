@@ -1,5 +1,7 @@
-# Builds the App Store package (.ipa) for iOS on a macOS runner. Nothing here
-# uploads to Apple yet.
+# Builds the App Store package (.ipa) for iOS on a macOS runner. tag-release
+# calls it with a release tag: the package then goes to TestFlight and is
+# submitted for App Store review (scripts/asc/release.mjs), released
+# automatically once Apple approves it.
 #
 # Signing is manual: the Apple Distribution certificate (IOS_CERTIFICATE, a
 # base64 .p12, and IOS_CERTIFICATE_PASSWORD) and the "Voltius App Store"
@@ -12,6 +14,11 @@
 name: ios
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
   push:
     branches: [ci/ios]
     paths-ignore: ["scripts/asc/**", ".github/workflows/asc.yml", ".github/workflows/ios-e2e.yml", "scripts/ios-e2e/**"]
@@ -30,11 +37,11 @@ on:
 permissions:
   contents: read
 
-# A newer push replaces the build of the previous one; TestFlight uploads
-# (workflow_dispatch) are never cancelled.
+# A newer push replaces the build of the previous one; release and TestFlight
+# runs are never cancelled.
 concurrency:
-  group: ios-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
-  cancel-in-progress: true
+  group: ios-${{ inputs.tag || github.event_name }}-${{ github.event_name == 'push' && !inputs.tag && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !inputs.tag }}
 
 jobs:
   ipa:
@@ -43,7 +50,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ inputs.tag || inputs.ref || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -120,15 +127,16 @@ jobs:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
           VITE_DISTRIBUTION: appstore
-        # CFBundleVersion must grow with every upload and have at most three
-        # numbers, so it is the workflow run number (--build-number would
-        # append a fourth one to the app version).
+        # CFBundleVersion must be new for every upload and have at most three
+        # numbers, so it is the run number and attempt (--build-number would
+        # append a fourth one to the app version). Called from tag-release, the
+        # run is tag-release's.
         run: >-
           pnpm tauri ios build --export-method app-store-connect --ci
-          --config "{\"bundle\":{\"iOS\":{\"bundleVersion\":\"${{ github.run_number }}\"}}}"
+          --config "{\"bundle\":{\"iOS\":{\"bundleVersion\":\"${{ github.run_number }}.${{ github.run_attempt }}\"}}}"
 
       - name: Upload to TestFlight
-        if: inputs.testflight
+        if: inputs.testflight || inputs.tag
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -138,6 +146,18 @@ jobs:
           ipa=$(ls src-tauri/gen/apple/build/arm64/*.ipa)
           xcrun altool --upload-app --type ios --file "$ipa" --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER" --output-format normal
           rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8"
+
+      - name: Submit for App Store review
+        if: inputs.tag
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          TAG: ${{ inputs.tag }}
+          BUILD: ${{ github.run_number }}.${{ github.run_attempt }}
+        run: |
+          node scripts/store/release-notes.mjs "${TAG#v}" 4000 > "$RUNNER_TEMP/whats-new.txt"
+          node scripts/asc/release.mjs --version "${TAG#v}" --build "$BUILD" --notes "$RUNNER_TEMP/whats-new.txt"
 
       - name: Upload the package
         uses: actions/upload-artifact@v7
@@ -158,12 +178,13 @@ jobs:
   # Runs the app in the iOS simulator and keeps screenshots and logs, since
   # nobody on the team has an iPhone.
   simulator:
+    if: ${{ !inputs.tag }}
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ inputs.tag || inputs.ref || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
