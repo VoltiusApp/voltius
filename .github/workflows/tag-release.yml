@@ -145,6 +145,14 @@ jobs:
     uses: ./.github/workflows/publish-repo.yml
     secrets: inherit
 
+  publish-play:
+    needs: [tag, release-published]
+    if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
+    uses: ./.github/workflows/play-store.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
+
   publish-appstore:
     needs: [tag, release-published]
     if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}

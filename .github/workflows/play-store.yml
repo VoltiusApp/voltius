@@ -1,0 +1,100 @@
+# Builds the Google Play bundle for a release tag and publishes it to a Play
+# track. tag-release calls it after the GitHub release is published; run it by
+# hand to republish a tag or to target another track.
+#
+# Needs the PLAY_SERVICE_ACCOUNT_JSON secret (a service account with release
+# rights on the app in Play Console). Without it the bundle is still built and
+# kept as an artifact, and the publish step is skipped with a warning.
+# The track comes from the PLAY_TRACK repository variable ("alpha" is the
+# closed testing track); switch it to "production" once Play grants access.
+#
+# The bundle is signed with the same keystore as the GitHub APK, which is the
+# key enrolled in Play App Signing, and built with VITE_DISTRIBUTION=play so it
+# shows no purchase buttons.
+name: play-store
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.64.0)'
+        required: true
+        type: string
+      track:
+        description: 'Play track; empty uses the PLAY_TRACK variable'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Android build environment
+        uses: ./.github/actions/android-build-env
+        with:
+          keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build Android App Bundle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
+          VITE_DISTRIBUTION: play
+        run: pnpm tauri android build --aab --target aarch64
+
+      - name: Check the bundle is signed with the release key
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          aab=src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+          fingerprint() { sed -n 's/^[[:space:]]*SHA256: //p' | head -1; }
+          signed=$(keytool -printcert -jarfile "$aab" | fingerprint)
+          expected=$(keytool -list -v -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" | fingerprint)
+          echo "bundle signer: ${signed:-none}"
+          echo "release key:   $expected"
+          [ -n "$signed" ] && [ "$signed" = "$expected" ] || { echo "the bundle is not signed with the release key" >&2; exit 1; }
+          cp "$aab" Voltius_play.aab
+
+      - name: Remove the decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/voltius-release.keystore"
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-play-aab
+          path: Voltius_play.aab
+          retention-days: 14
+
+      - name: Publish to Google Play
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ inputs.track || vars.PLAY_TRACK || 'alpha' }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set; the bundle is only kept as an artifact."
+            exit 0
+          fi
+          node scripts/store/release-notes.mjs "${TAG#v}" 500 > "$RUNNER_TEMP/play-notes.txt"
+          node scripts/store/play-publish.mjs \
+            --package com.voltius.app \
+            --aab Voltius_play.aab \
+            --track "$TRACK" \
+            --name "${TAG#v}" \
+            --notes "$RUNNER_TEMP/play-notes.txt"

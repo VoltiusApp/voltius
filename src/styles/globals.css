@@ -719,7 +719,8 @@ button svg *,
 }
 
 .form-input:focus,
-.form-input:focus-visible {
+.form-input:focus-visible,
+[data-script-editor].form-input:focus-within {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
 }
@@ -906,17 +907,20 @@ html[data-android] [data-mobile-edit-form] textarea.form-input {
   padding: 0.875rem 1rem;
   border-radius: 0.5rem;
 }
-html[data-android] [data-mobile-edit-form] :is(input.form-input, textarea.form-input, [data-picker-trigger], [data-form-select], [data-chip-input]) {
+html[data-android] [data-mobile-edit-form] [data-script-editor] { border-radius: 0.5rem; }
+html[data-android] [data-mobile-edit-form] [data-script-editor] .cm-content { padding-block: 0.875rem; }
+html[data-android] [data-mobile-edit-form] [data-script-editor] .cm-line { padding-inline: 1rem; }
+html[data-android] [data-mobile-edit-form] :is(input.form-input, textarea.form-input, [data-script-editor], [data-picker-trigger], [data-form-select], [data-chip-input]) {
   /* M3 outline: the theme border tokens are near-invisible on the page background. */
   border-color: color-mix(in srgb, var(--t-text-primary) 30%, transparent) !important;
   transition: border-color var(--vt-dur-short3) var(--vt-ease-standard), box-shadow var(--vt-dur-short3) var(--vt-ease-standard);
 }
 html[data-android] [data-mobile-edit-form] :is(input.form-input, textarea.form-input):focus,
-html[data-android] [data-mobile-edit-form] [data-chip-input]:focus-within {
+html[data-android] [data-mobile-edit-form] :is([data-chip-input], [data-script-editor]):focus-within {
   border-color: var(--t-accent) !important;
   box-shadow: inset 0 0 0 1px var(--t-accent);
 }
-html[data-android] [data-mobile-edit-form] :is(input, textarea)[aria-invalid="true"],
+html[data-android] [data-mobile-edit-form] :is(input, textarea, [data-script-editor])[aria-invalid="true"],
 html[data-android] [data-mobile-edit-form][data-reveal-errors] :is(input, textarea):invalid {
   border-color: var(--t-status-error) !important;
   box-shadow: inset 0 0 0 1px var(--t-status-error);

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { SnippetExport } from "@/services/import-export/formats";
+import { HighlightedScript } from "../HighlightedScript";
 
 /** Every step exactly as it will run. Nothing here truncates or collapses — a
  *  user who installs without reading is their own problem, a user who couldn't
@@ -22,7 +23,7 @@ export function StepPreview({ steps, nameOfEid }: {
               className="text-xs font-mono whitespace-pre-wrap break-words px-2.5 py-2 rounded-lg overflow-x-auto text-(--t-text-secondary)"
               style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
             >
-              {step.content}
+              <HighlightedScript code={step.content} />
             </pre>
           );
         }

@@ -36,7 +36,7 @@ import { snippetScriptText } from "@/services/snippetSteps";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { SlideOver } from "@/components/shared/slideOver";
-import { VariableTextarea } from "@/components/snippets/VariableTextarea";
+import { ScriptEditor } from "@/components/snippets/ScriptEditor";
 import { searchMatcher } from "@/utils/search";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
@@ -209,13 +209,12 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
                 onBrowseRemote={(index, field, isDir) => setRemotePick({ index, field, isDir })}
               />
             ) : (
-              <VariableTextarea
+              <ScriptEditor
                 value={content}
                 onChange={(v) => { markDirty(); setSteps([{ kind: "script", content: v }]); }}
-                rows={6}
                 // Sample shell command syntax, not prose UI copy — left untranslated like snippet body content
                 placeholder="echo Hello, {{name}}!"
-                style={{ minHeight: "7rem" }}
+                minHeight="7rem"
               />
             )}
 

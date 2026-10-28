@@ -126,11 +126,15 @@ pub fn cleanup(tempfiles: &[PathBuf]) {
 // D (last exit status) and A (prompt start) ride on the OSC 7 printf, so each
 // prompt is still one write and nothing touches PS1.
 macro_rules! pwd_fn {
-    ($url:literal, $host:literal) => {
+    ($lead_fmt:literal, $lead_args:literal, $url:literal, $host:literal) => {
         concat!(
-            r##"__voltius_pwd() { printf '\e]133;D;%s\a\e]133;A\a\e]7;"##,
+            r##"__voltius_pwd() { printf '"##,
+            $lead_fmt,
+            r##"\e]133;D;%s\a\e]133;A\a\e]7;"##,
             $url,
-            r##"\a' "$?" ""##,
+            r##"\a' "##,
+            $lead_args,
+            r##""$?" ""##,
             $host,
             r##"" "$PWD"; }
 "##
@@ -143,11 +147,19 @@ macro_rules! pwd_fn {
 macro_rules! bash_hooks {
     ($url:literal, $host:literal) => {
         concat!(
-            pwd_fn!($url, $host),
+            // zsh's PROMPT_SP: readline assumes column 0. Skipped until bash knows COLUMNS,
+            // which checkwinsize keeps fresh.
+            pwd_fn!(
+                r##"%b%*s%b"##,
+                r##""${COLUMNS:+\e[7m%\e[m}" "$((${COLUMNS:-1}-1))" '' "${COLUMNS:+\r\e[K}" "##,
+                $url,
+                $host
+            ),
             r##"case ";${PROMPT_COMMAND-};" in
   *";__voltius_pwd;"*) ;;
   *) PROMPT_COMMAND="__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
 esac
+shopt -s checkwinsize
 PS0='\e]133;C\a'"${PS0-}"
 __voltius_pwd 2>/dev/null
 "##
@@ -174,7 +186,7 @@ fi
 macro_rules! zsh_hooks {
     ($url:literal, $host:literal) => {
         concat!(
-            pwd_fn!($url, $host),
+            pwd_fn!("", "", $url, $host),
             r##"__voltius_run() { printf '\e]133;C\a'; }
 typeset -ag precmd_functions preexec_functions
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
@@ -1483,25 +1495,29 @@ mod tests {
     }
 
     #[cfg(target_os = "linux")]
-    fn prompt_marks(shell_command: &str, hooks: &str, rc_name: &str) -> Vec<String> {
+    fn run_hooked(shell_command: &str, hooks: &str, rc_name: &str, input: &str) -> String {
+        static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!(
             "voltius-marks-{}-{}",
             std::process::id(),
-            rc_name.trim_start_matches('.')
+            RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join(rc_name), hooks).unwrap();
         let out = std::process::Command::new("sh")
             .arg("-c")
-            .arg(format!(
-                "printf 'true\\nfalse\\n\\n' | {shell_command} 2>&1"
-            ))
+            .arg(format!("printf '{input}' | {shell_command} 2>&1"))
             .env("RC_DIR", &dir)
             .output()
             .expect("sh runs");
         let _ = std::fs::remove_dir_all(&dir);
-        let text = String::from_utf8_lossy(&out.stdout).into_owned();
-        text.split("\x1b]133;")
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    }
+
+    #[cfg(target_os = "linux")]
+    fn prompt_marks(shell_command: &str, hooks: &str, rc_name: &str) -> Vec<String> {
+        run_hooked(shell_command, hooks, rc_name, "true\\nfalse\\n\\n")
+            .split("\x1b]133;")
             .skip(1)
             .filter_map(|rest| rest.split('\x07').next().map(str::to_string))
             .collect()
@@ -1523,6 +1539,28 @@ mod tests {
             "rc",
         );
         assert_eq!(marks, EXPECTED_MARKS);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn bash_prompt_starts_on_a_fresh_line_after_unterminated_output() {
+        let run = |columns: &str| {
+            run_hooked(
+                &format!(r#"env {columns} bash --rcfile "$RC_DIR/rc" -i"#),
+                bash_hooks!("file://%s%s", "$HOSTNAME"),
+                "rc",
+                "printf x\\n",
+            )
+        };
+        let sized = run("COLUMNS=10");
+        assert!(
+            sized.contains("x\x1b[7m%\x1b[m         \r\x1b[K\x1b]133;D;0\x07"),
+            "{sized:?}"
+        );
+        // Readline sets COLUMNS at the first prompt; only the rc's own call can lack it.
+        let unknown = run("-u COLUMNS");
+        let rc_call = unknown.split("\x1b]133;D").next().unwrap_or_default();
+        assert!(!rc_call.contains('%'), "{unknown:?}");
     }
 
     #[cfg(target_os = "linux")]

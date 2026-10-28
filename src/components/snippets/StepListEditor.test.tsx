@@ -4,7 +4,7 @@ import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/sftp", () => ({ pickLocalPath: vi.fn() }));
-vi.mock("@/components/snippets/VariableTextarea", () => ({ VariableTextarea: () => null }));
+vi.mock("@/components/snippets/ScriptEditor", () => ({ ScriptEditor: () => null }));
 
 import { StepListEditor } from "./StepListEditor";
 import type { SnippetStep } from "@/types";

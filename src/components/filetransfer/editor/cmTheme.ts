@@ -1,6 +1,7 @@
-import { EditorView } from "@codemirror/view";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { tags as t } from "@lezer/highlight";
+import { EditorView, tooltips } from "@codemirror/view";
+import { HighlightStyle, syntaxHighlighting, type TagStyle } from "@codemirror/language";
+import { tagHighlighter, tags as t, type Highlighter } from "@lezer/highlight";
+import type { CSSProperties } from "react";
 import type { Extension } from "@codemirror/state";
 import type { AppTheme } from "@/themes/types";
 
@@ -75,7 +76,16 @@ export function cmTheme(theme: AppTheme): Extension[] {
     { dark },
   );
 
-  const highlight = HighlightStyle.define([
+  const highlight = HighlightStyle.define(syntaxTagStyles(theme));
+
+  return [view, syntaxHighlighting(highlight)];
+}
+
+function syntaxTagStyles(theme: AppTheme): TagStyle[] {
+  const ui = theme.ui;
+  const term = theme.terminal;
+  const fg = ui.textPrimary;
+  return [
     { tag: [t.comment, t.lineComment, t.blockComment], color: ui.textDim, fontStyle: "italic" },
     { tag: [t.keyword, t.modifier, t.operatorKeyword], color: term.magenta },
     { tag: [t.string, t.special(t.string), t.regexp], color: term.green },
@@ -91,7 +101,45 @@ export function cmTheme(theme: AppTheme): Extension[] {
     { tag: [t.heading], color: term.blue, fontWeight: "bold" },
     { tag: [t.link, t.url], color: term.cyan, textDecoration: "underline" },
     { tag: [t.invalid], color: term.red },
-  ]);
-
-  return [view, syntaxHighlighting(highlight)];
+  ];
 }
+
+export interface InlineSyntax {
+  highlighter: Highlighter;
+  styleOf: (cls: string) => CSSProperties;
+}
+
+/** The editor's token colours as inline styles, for read-only code that does not mount an EditorView. */
+export function inlineSyntax(theme: AppTheme): InlineSyntax {
+  const specs = syntaxTagStyles(theme);
+  const styles = specs.map(({ tag: _tag, ...css }) => css as CSSProperties);
+  return {
+    highlighter: tagHighlighter(specs.map((spec, i) => ({ tag: spec.tag, class: String(i) }))),
+    styleOf: (cls) => Object.assign({}, ...cls.split(" ").map((i) => styles[Number(i)])),
+  };
+}
+
+/** Placeholder and autocomplete popup styled like the app's own menus; fixed to body so panels cannot clip it. */
+export const cmPopupChrome: Extension = [tooltips({ position: "fixed", parent: document.body }), EditorView.theme({
+  ".cm-placeholder": { color: "var(--t-text-muted)" },
+  ".cm-tooltip.cm-tooltip-autocomplete": {
+    background: "var(--t-bg-card)",
+    border: "none",
+    borderRadius: "var(--r-md)",
+    boxShadow: "var(--t-ring), var(--t-elev-2)",
+    padding: "0.375rem",
+    "& > ul": { fontFamily: "inherit", minWidth: "12.667rem", maxHeight: "320px" },
+    "& > ul > li": {
+      padding: "0.5rem 0.75rem",
+      borderRadius: "0.5rem",
+      fontSize: "0.75rem",
+      lineHeight: "1rem",
+      color: "var(--t-text-secondary)",
+    },
+    "& > ul > li:hover, & > ul > li[aria-selected]": {
+      background: "var(--t-bg-card-hover)",
+      color: "var(--t-text-primary)",
+    },
+  },
+  ".cm-completionMatchedText": { textDecoration: "none" },
+})];
