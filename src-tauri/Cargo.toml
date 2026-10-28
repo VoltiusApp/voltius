@@ -52,6 +52,8 @@ voltius-diagnostics = { path = "../crates/voltius-diagnostics" }
 chacha20poly1305 = { version = "0.10", features = ["rand_core"] }
 voltius-crypto = { path = "../crates/voltius-crypto" }
 hkdf = "0.12"
+hmac = "0.12"
+snow = "0.9"
 sha2 = "0.10"
 zeroize = "1"
 rand = "0.8"
