@@ -8,19 +8,26 @@ const KIND_HELLO: u8 = 1;
 const KIND_BLOB: u8 = 2;
 const KIND_NUDGE: u8 = 3;
 const KIND_BYE: u8 = 4;
+const KIND_AUTH: u8 = 5;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Hello {
-    pub version: u16,
     pub device_id: String,
     pub device_name: String,
     pub platform: String,
+    pub device_key: [u8; 32],
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Auth {
+    pub version: u16,
     pub proofs: Vec<[u8; 32]>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Frame {
     Hello(Hello),
+    Auth(Auth),
     Blob(Vec<u8>),
     Nudge,
     Bye,
@@ -38,12 +45,18 @@ pub enum ProtocolError {
     Io(#[from] std::io::Error),
 }
 
+fn to_json<T: Serialize>(v: &T) -> Result<Vec<u8>, ProtocolError> {
+    serde_json::to_vec(v).map_err(|e| ProtocolError::Malformed(e.to_string()))
+}
+
+fn from_json<T: serde::de::DeserializeOwned>(payload: &[u8]) -> Result<T, ProtocolError> {
+    serde_json::from_slice(payload).map_err(|e| ProtocolError::Malformed(e.to_string()))
+}
+
 pub fn encode(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
     let (kind, payload) = match frame {
-        Frame::Hello(h) => (
-            KIND_HELLO,
-            serde_json::to_vec(h).map_err(|e| ProtocolError::Malformed(e.to_string()))?,
-        ),
+        Frame::Hello(h) => (KIND_HELLO, to_json(h)?),
+        Frame::Auth(a) => (KIND_AUTH, to_json(a)?),
         Frame::Blob(b) => (KIND_BLOB, b.clone()),
         Frame::Nudge => (KIND_NUDGE, Vec::new()),
         Frame::Bye => (KIND_BYE, Vec::new()),
@@ -64,9 +77,8 @@ pub fn decode(buf: &[u8]) -> Result<Frame, ProtocolError> {
         .split_first()
         .ok_or_else(|| ProtocolError::Malformed("empty frame".into()))?;
     match kind {
-        KIND_HELLO => serde_json::from_slice(payload)
-            .map(Frame::Hello)
-            .map_err(|e| ProtocolError::Malformed(e.to_string())),
+        KIND_HELLO => from_json(payload).map(Frame::Hello),
+        KIND_AUTH => from_json(payload).map(Frame::Auth),
         KIND_BLOB => Ok(Frame::Blob(payload.to_vec())),
         KIND_NUDGE | KIND_BYE if !payload.is_empty() => {
             Err(ProtocolError::Malformed("unexpected payload".into()))
@@ -105,11 +117,10 @@ mod tests {
 
     fn sample_hello() -> Hello {
         Hello {
-            version: PROTOCOL_VERSION,
             device_id: "dev-1".into(),
             device_name: "Laptop".into(),
             platform: "linux".into(),
-            proofs: vec![[7u8; 32], [9u8; 32]],
+            device_key: [3u8; 32],
         }
     }
 
@@ -117,6 +128,10 @@ mod tests {
     fn roundtrip_every_kind() {
         for f in [
             Frame::Hello(sample_hello()),
+            Frame::Auth(Auth {
+                version: PROTOCOL_VERSION,
+                proofs: vec![[7u8; 32], [9u8; 32]],
+            }),
             Frame::Blob(vec![1, 2, 3]),
             Frame::Nudge,
             Frame::Bye,
@@ -145,10 +160,12 @@ mod tests {
     #[test]
     fn rejects_empty_and_bad_payloads() {
         assert!(matches!(decode(&[]), Err(ProtocolError::Malformed(_))));
-        assert!(matches!(
-            decode(&[1, b'x']),
-            Err(ProtocolError::Malformed(_))
-        ));
+        for kind in [KIND_HELLO, KIND_AUTH] {
+            assert!(matches!(
+                decode(&[kind, b'x']),
+                Err(ProtocolError::Malformed(_))
+            ));
+        }
         assert!(matches!(decode(&[3, 0]), Err(ProtocolError::Malformed(_))));
     }
 
