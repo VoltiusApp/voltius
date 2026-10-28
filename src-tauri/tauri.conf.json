@@ -34,6 +34,8 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "publisher": "Voltius",
+    "copyright": "Copyright © Voltius Contributors",
     "category": "DeveloperTool",
     "targets": [
       "nsis",
