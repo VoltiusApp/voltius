@@ -76,6 +76,9 @@ jobs:
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
 
+      - name: Use the Voltius app icons
+        run: bash scripts/ios/use-app-icons.sh
+
       # iPhone only: the mobile shell is not laid out for iPad (it still runs
       # there in iPhone compatibility mode), and the store then needs no iPad
       # screenshots.
@@ -195,6 +198,9 @@ jobs:
 
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
+
+      - name: Use the Voltius app icons
+        run: bash scripts/ios/use-app-icons.sh
 
       # iPhone only: the mobile shell is not laid out for iPad (it still runs
       # there in iPhone compatibility mode), and the store then needs no iPad
