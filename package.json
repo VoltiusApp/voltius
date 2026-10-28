@@ -65,7 +65,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "uplot": "^1.6.32",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -83,6 +83,6 @@
     "typescript": "^5.9.3",
     "vite": "^8.1.6",
     "vite-plugin-svgr": "^5.2.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
