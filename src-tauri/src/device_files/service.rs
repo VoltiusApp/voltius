@@ -372,6 +372,9 @@ impl FileService {
 impl InboundFiles for FileService {
     async fn serve(&self, mut session: Session, peer: Hello, route: Route, req: FilesRequest) {
         let admitted = self.authorize(&peer, route, &mut session, req).await;
+        if admitted.is_err() && self.stopped.is_cancelled() {
+            return;
+        }
         let reply = match &admitted {
             Ok(a) => FilesReply::Accepted {
                 read_only: a.read_only,
@@ -493,14 +496,34 @@ mod tests {
         assert_eq!(reply(&mut fifth).await, busy());
         svc.stop();
         for client in &mut waiting {
-            assert_eq!(
-                reply(client).await,
-                FilesReply::Refused {
-                    reason: Refusal::Off
-                }
-            );
+            assert!(client.recv().await.is_err());
         }
         assert!(svc.pending().is_empty());
+    }
+
+    #[tokio::test]
+    async fn stopped_service_drops_requests_instead_of_refusing_off() {
+        let (svc, _dir) = service(&["d0"]);
+        svc.stop();
+        let mut client = request(&svc, "d0").await;
+        assert!(client.recv().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn turning_access_off_still_refuses_off() {
+        let (svc, _dir) = service(&["d0"]);
+        svc.set_config(FileAccessConfig {
+            enabled: false,
+            ..svc.config()
+        })
+        .unwrap();
+        let mut client = request(&svc, "d0").await;
+        assert_eq!(
+            reply(&mut client).await,
+            FilesReply::Refused {
+                reason: Refusal::Off
+            }
+        );
     }
 
     #[tokio::test]

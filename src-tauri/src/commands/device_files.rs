@@ -830,7 +830,7 @@ mod tests {
             serving::stop_inner(&s.lan).await;
         };
         let (waiting, ()) = tokio::join!(c.connect(), stop);
-        assert_eq!(code(waiting), Some(ErrorCode::DeviceFileAccessOff));
+        assert_eq!(code(waiting), Some(ErrorCode::DeviceUnreachable));
         s.until_open(&[]).await;
         assert!(s.lan.files.service.lock().await.is_none());
         until("caps off", || {
