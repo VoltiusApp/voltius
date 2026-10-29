@@ -4,6 +4,7 @@ use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
 };
 use crate::lan_sync::manager::{self, LanStatus, Manager, ManagerEvent, PeerInfo};
+use crate::lan_sync::peers::PeerStore;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::ipc::{Request, Response};
@@ -71,6 +72,7 @@ fn payloads(event: &ManagerEvent, paused: bool) -> Vec<(&'static str, Value)> {
             vec![(PEERS, json!([])), status(LanStatus::Stopped)]
         }
         ManagerEvent::Status(s) => vec![status(*s)],
+        ManagerEvent::Rejected { .. } => vec![],
     }
 }
 
@@ -121,7 +123,8 @@ pub async fn start_inner(
         log::warn!("lan-sync: {e}");
     }
     let (tx, rx) = mpsc::channel(EVENTS);
-    let manager = match manager::start(me, derived, paused, !cfg!(test), tx).await {
+    let store = PeerStore::memory();
+    let manager = match manager::start(me, derived, paused, !cfg!(test), store, tx).await {
         Ok(manager) => manager,
         Err(e) => {
             #[cfg(target_os = "android")]

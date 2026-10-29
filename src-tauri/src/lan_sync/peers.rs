@@ -67,7 +67,7 @@ pub struct Blocked {
     pub blocked_at: u64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Rejection {
     Blocked,

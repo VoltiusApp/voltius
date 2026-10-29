@@ -5,7 +5,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 pub const PROTOCOL_VERSION: u16 = 1;
 pub const MAX_FRAME: usize = 16 * 1024 * 1024;
 
-const KIND_HELLO: u8 = 1;
+pub(super) const KIND_HELLO: u8 = 1;
 const KIND_BLOB: u8 = 2;
 const KIND_NUDGE: u8 = 3;
 const KIND_BYE: u8 = 4;

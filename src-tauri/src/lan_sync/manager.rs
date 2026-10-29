@@ -1,11 +1,14 @@
+use super::addrs;
 use super::discovery::{self, classify_mdns_error, Discovery, DiscoveryError};
 use super::handshake::{handshake, HandshakeError, SessionReader, SessionWriter};
 use super::identity::LocalIdentity;
+use super::peers::{now_secs, write_snapshot, PeerRecord, PeerStore, PinDecision, Rejection};
 use super::protocol::{Frame, Hello};
 use super::route::{classify, Route};
 use serde::Serialize;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -25,6 +28,7 @@ const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
 const REDIAL_DELAY: Duration = Duration::from_secs(1);
 const REMEMBERED: usize = 32;
+const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 const CONTROL: usize = 4;
 const PING_EVERY: Duration = if cfg!(test) {
     Duration::from_millis(100)
@@ -53,6 +57,7 @@ const PROBE_EVERY: Duration = if cfg!(test) {
 };
 
 pub type Probe = Arc<dyn Fn() -> std::io::Result<()> + Send + Sync>;
+type Save = Option<(PathBuf, Vec<u8>)>;
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -77,8 +82,14 @@ pub enum LanStatus {
 #[derive(Clone, Debug)]
 pub enum ManagerEvent {
     Peers(Vec<PeerInfo>),
-    BlobReady { device_id: String },
+    BlobReady {
+        device_id: String,
+    },
     Status(LanStatus),
+    Rejected {
+        device_id: String,
+        reason: Rejection,
+    },
 }
 
 #[derive(Default)]
@@ -122,15 +133,34 @@ async fn bind() -> std::io::Result<TcpListener> {
     }
 }
 
+fn local_port(listener: &TcpListener) -> Result<u16, String> {
+    listener
+        .local_addr()
+        .map(|a| a.port())
+        .map_err(|e| e.to_string())
+}
+
+fn guard<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 async fn secure(
     stream: TcpStream,
     addr: SocketAddr,
     initiator: bool,
     shared: &Shared,
 ) -> Result<Link, HandshakeError> {
-    let (session, hello) = handshake(stream, initiator, &shared.me, &shared.auth_keys)
+    let (mut session, hello) = handshake(stream, initiator, &shared.me, &shared.auth_keys)
         .await
         .inspect_err(|e| log::debug!("lan-sync: handshake with {addr} failed: {e}"))?;
+    if hello.device_id != shared.me.device_id {
+        if let Err(reason) = shared.admit(&hello.device_id, &hello.device_key) {
+            log::debug!("lan-sync: {addr} refused: {reason:?}");
+            shared.rejected(&hello.device_id, reason).await;
+            let _ = session.send(&Frame::Bye).await;
+            return Err(HandshakeError::Pinned(reason));
+        }
+    }
     let session_id = session.handshake_hash().to_vec();
     let (mut reader, mut writer) = session.split();
     reader.set_idle_timeout(IDLE_TIMEOUT);
@@ -184,7 +214,9 @@ async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermi
             Ok(()) => return,
             Err(e) => matches!(
                 e,
-                HandshakeError::NotTrusted | HandshakeError::VersionMismatch(_)
+                HandshakeError::NotTrusted
+                    | HandshakeError::VersionMismatch(_)
+                    | HandshakeError::Pinned(_)
             ),
         },
         Ok(Err(e)) => {
@@ -264,6 +296,7 @@ struct State {
     peers: HashMap<String, Peer>,
     blobs: HashMap<String, Vec<u8>>,
     dialable: VecDeque<Known>,
+    rejected: HashSet<(String, Rejection)>,
     next_conn: u64,
     closed: bool,
 }
@@ -281,6 +314,9 @@ struct Shared {
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     events: mpsc::Sender<ManagerEvent>,
     state: Mutex<State>,
+    store: Mutex<PeerStore>,
+    saves: watch::Sender<Save>,
+    flush: Notify,
     paused: AtomicBool,
     blocked: AtomicBool,
     inbound: Arc<Semaphore>,
@@ -291,7 +327,55 @@ struct Shared {
 
 impl Shared {
     fn lock(&self) -> MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(|e| e.into_inner())
+        guard(&self.state)
+    }
+
+    fn store(&self) -> MutexGuard<'_, PeerStore> {
+        guard(&self.store)
+    }
+
+    // Sent under the store lock so an older snapshot can never land after a newer one.
+    fn persist(&self) {
+        let store = self.store();
+        if let Some(save) = store.snapshot() {
+            self.saves.send_replace(Some(save));
+        }
+    }
+
+    fn admit(&self, device_id: &str, key: &[u8; 32]) -> Result<(), Rejection> {
+        let decision = self.store().decide(device_id, key, now_secs());
+        match decision {
+            PinDecision::Known => Ok(()),
+            PinDecision::Pinned => {
+                self.persist();
+                Ok(())
+            }
+            PinDecision::Rejected(reason) => Err(reason),
+        }
+    }
+
+    async fn rejected(&self, device_id: &str, reason: Rejection) {
+        if reason == Rejection::Blocked {
+            return;
+        }
+        let first = self.lock().rejected.insert((device_id.to_string(), reason));
+        if first {
+            let device_id = device_id.to_string();
+            let _ = self
+                .events
+                .send(ManagerEvent::Rejected { device_id, reason })
+                .await;
+        }
+    }
+
+    fn record_addrs(&self, link: &Link) {
+        let mut reached = link.hello.peer_addrs();
+        if link.initiator {
+            reached.push(link.addr);
+        }
+        self.store()
+            .record_addrs(&link.hello.device_id, &reached, now_secs());
+        self.persist();
     }
 
     fn peers(&self) -> Vec<PeerInfo> {
@@ -341,6 +425,7 @@ impl Shared {
     }
 
     fn adopt(self: &Arc<Self>, link: Link) {
+        self.record_addrs(&link);
         let rank = self.rank(&link);
         let id = link.hello.device_id.clone();
         let mut state = self.lock();
@@ -591,6 +676,33 @@ async fn probe_loop(shared: Arc<Shared>, probe: Probe) {
     }
 }
 
+async fn write_saves(shared: Arc<Shared>, mut saves: watch::Receiver<Save>) {
+    loop {
+        let last = tokio::select! {
+            changed = saves.changed() => {
+                if changed.is_err() {
+                    return;
+                }
+                false
+            }
+            _ = shared.flush.notified() => true,
+        };
+        if last && !saves.has_changed().unwrap_or(false) {
+            return;
+        }
+        let Some((path, bytes)) = saves.borrow_and_update().clone() else {
+            continue;
+        };
+        let written = tokio::task::spawn_blocking(move || write_snapshot(&path, &bytes)).await;
+        if let Ok(Err(e)) = written {
+            log::warn!("lan-sync: saving peers failed: {e}");
+        }
+        if last {
+            return;
+        }
+    }
+}
+
 async fn emit_peers(shared: Arc<Shared>) {
     loop {
         shared.peers_changed.notified().await;
@@ -613,19 +725,26 @@ pub struct Manager {
     shared: Arc<Shared>,
     port: u16,
     tasks: Vec<JoinHandle<()>>,
+    writer: Option<JoinHandle<()>>,
     discovery: Option<Discovery>,
 }
 
 pub async fn start(
-    me: LocalIdentity,
+    mut me: LocalIdentity,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     paused: bool,
     discovery: bool,
+    store: PeerStore,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let listener = bind().await.map_err(|e| e.to_string())?;
-    let probe = discovery.then(|| Arc::new(discovery::probe_multicast) as Probe);
-    serve(listener, me, auth_keys, paused, discovery, probe, events).await
+    me.addrs = addrs::interfaces(local_port(&listener)?);
+    let mut manager = serve(listener, me, auth_keys, paused, store, events).await?;
+    if discovery {
+        manager.spawn_probe(Arc::new(discovery::probe_multicast));
+        manager.start_discovery().await;
+    }
+    Ok(manager)
 }
 
 async fn serve(
@@ -633,16 +752,19 @@ async fn serve(
     me: LocalIdentity,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     paused: bool,
-    discovery: bool,
-    probe: Option<Probe>,
+    store: PeerStore,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
-    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    let port = local_port(&listener)?;
+    let (saves, saved) = watch::channel(None);
     let shared = Arc::new(Shared {
         me,
         auth_keys,
         events,
         state: Mutex::default(),
+        store: Mutex::new(store),
+        saves,
+        flush: Notify::new(),
         paused: AtomicBool::new(paused),
         blocked: AtomicBool::new(false),
         inbound: Arc::new(Semaphore::new(MAX_INBOUND_HANDSHAKES)),
@@ -650,28 +772,27 @@ async fn serve(
         peers_changed: Notify::new(),
         lost: Notify::new(),
     });
-    let mut manager = Manager {
+    let manager = Manager {
         port,
         tasks: vec![
             tokio::spawn(accept_loop(listener, shared.clone())),
             tokio::spawn(emit_peers(shared.clone())),
             tokio::spawn(retry_unlisted(shared.clone())),
         ],
+        writer: Some(tokio::spawn(write_saves(shared.clone(), saved))),
         discovery: None,
         shared,
     };
     manager.shared.status(LanStatus::Running).await;
-    if let Some(probe) = probe {
-        let shared = manager.shared.clone();
-        manager.tasks.push(tokio::spawn(probe_loop(shared, probe)));
-    }
-    if discovery {
-        manager.start_discovery().await;
-    }
     Ok(manager)
 }
 
 impl Manager {
+    fn spawn_probe(&mut self, probe: Probe) {
+        let shared = self.shared.clone();
+        self.tasks.push(tokio::spawn(probe_loop(shared, probe)));
+    }
+
     async fn start_discovery(&mut self) {
         let (found, mut found_rx) = mpsc::channel(32);
         let (errors, mut errors_rx) = mpsc::channel(8);
@@ -725,6 +846,24 @@ impl Manager {
         self.shared.peers()
     }
 
+    pub fn record(&self, device_id: &str) -> Option<PeerRecord> {
+        self.shared.store().get(device_id).cloned()
+    }
+
+    pub fn forget(&self, device_id: &str) -> bool {
+        let forgotten = self.shared.store().forget(device_id, now_secs());
+        let dropped = {
+            let mut state = self.shared.lock();
+            state.rejected.retain(|(id, _)| id != device_id);
+            state.peers.remove(device_id)
+        };
+        if dropped.is_some() {
+            self.shared.peers_changed.notify_one();
+        }
+        self.shared.persist();
+        forgotten
+    }
+
     pub fn set_paused(&self, paused: bool) {
         let was = self.shared.paused.swap(paused, Ordering::Relaxed);
         if was && !paused {
@@ -746,6 +885,14 @@ impl Manager {
 
     pub async fn stop(mut self) {
         self.shutdown();
+        if let Some(writer) = self.writer.take() {
+            self.shared.flush.notify_one();
+            let abort = writer.abort_handle();
+            if timeout(FLUSH_TIMEOUT, writer).await.is_err() {
+                log::warn!("lan-sync: peers file not flushed before stop");
+                abort.abort();
+            }
+        }
         self.shared.status(LanStatus::Stopped).await;
     }
 }
@@ -753,17 +900,36 @@ impl Manager {
 impl Drop for Manager {
     fn drop(&mut self) {
         self.shutdown();
+        if let Some(writer) = &self.writer {
+            writer.abort();
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lan_sync::handshake::Session;
-    use crate::lan_sync::identity::{derive_auth_key, test_identity};
-    use crate::lan_sync::protocol::MAX_FRAME;
+    use crate::lan_sync::handshake::{initiate_with_hello, Session};
+    use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey};
+    use crate::lan_sync::protocol::{KIND_HELLO, MAX_FRAME};
     use std::io::Write;
     use std::sync::atomic::AtomicUsize;
+
+    async fn serve_as(
+        me: LocalIdentity,
+        account: u8,
+        listener: TcpListener,
+        probe: Option<Probe>,
+        store: PeerStore,
+    ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
+        let (tx, rx) = mpsc::channel(64);
+        let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
+        let mut manager = serve(listener, me, keys, false, store, tx).await.unwrap();
+        if let Some(probe) = probe {
+            manager.spawn_probe(probe);
+        }
+        (manager, rx)
+    }
 
     async fn spawn_with(
         id: &str,
@@ -771,12 +937,46 @@ mod tests {
         listener: TcpListener,
         probe: Option<Probe>,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
-        let (tx, rx) = mpsc::channel(64);
-        let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
-        let manager = serve(listener, test_identity(id), keys, false, false, probe, tx)
-            .await
-            .unwrap();
-        (manager, rx)
+        serve_as(
+            test_identity(id),
+            account,
+            listener,
+            probe,
+            PeerStore::memory(),
+        )
+        .await
+    }
+
+    async fn spawn_as(
+        me: LocalIdentity,
+        store: PeerStore,
+    ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
+        serve_as(me, 1, bind().await.unwrap(), None, store).await
+    }
+
+    fn file_store(dir: &tempfile::TempDir) -> PeerStore {
+        PeerStore::open(dir.path(), "acct")
+    }
+
+    fn advertising(id: &str, addr: &str) -> LocalIdentity {
+        let addr: SocketAddr = addr.parse().unwrap();
+        LocalIdentity {
+            addrs: Arc::new(move || vec![addr]),
+            ..test_identity(id)
+        }
+    }
+
+    fn addrs_of(m: &Manager, id: &str) -> Vec<SocketAddr> {
+        m.record(id).unwrap().addrs.iter().map(|s| s.addr).collect()
+    }
+
+    fn rejections(rx: &mut mpsc::Receiver<ManagerEvent>) -> Vec<(String, Rejection)> {
+        std::iter::from_fn(|| rx.try_recv().ok())
+            .filter_map(|e| match e {
+                ManagerEvent::Rejected { device_id, reason } => Some((device_id, reason)),
+                _ => None,
+            })
+            .collect()
     }
 
     async fn spawn_on(
@@ -815,14 +1015,16 @@ mod tests {
     }
 
     async fn raw_peer(m: &Manager, id: &str) -> (Session, std::net::TcpStream) {
+        raw_peer_as(m, &test_identity(id)).await
+    }
+
+    async fn raw_peer_as(m: &Manager, me: &LocalIdentity) -> (Session, std::net::TcpStream) {
         let raw = std::net::TcpStream::connect(local(m)).unwrap();
         let fd = raw.try_clone().unwrap();
         raw.set_nonblocking(true).unwrap();
         let stream = TcpStream::from_std(raw).unwrap();
         let keys = [derive_auth_key(&[1; 32])];
-        let (session, _) = handshake(stream, true, &test_identity(id), &keys)
-            .await
-            .unwrap();
+        let (session, _) = handshake(stream, true, me, &keys).await.unwrap();
         (session, fd)
     }
 
@@ -923,6 +1125,151 @@ mod tests {
         a.connect(local(&a)).await;
         until("handshakes settle", || idle(&a)).await;
         assert!(a.peers().is_empty());
+        assert!(a.record("dev-a").is_none());
+    }
+
+    #[tokio::test]
+    async fn first_contact_pins_the_device_key() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        a.connect(local(&b)).await;
+        until("both peers", || {
+            a.peers().len() == 1 && b.peers().len() == 1
+        })
+        .await;
+        let pinned = |m: &Manager, id| m.record(id).unwrap().device_key;
+        assert_eq!(pinned(&a, "dev-b"), test_identity("dev-b").key.public);
+        assert_eq!(pinned(&b, "dev-a"), test_identity("dev-a").key.public);
+    }
+
+    #[tokio::test]
+    async fn key_change_is_refused_until_forgotten() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let ephemeral = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).await.unwrap();
+        let (b, _eb) = spawn_on("dev-b", 1, ephemeral).await;
+        a.connect(local(&b)).await;
+        next_event(&mut ea, listed("dev-b")).await;
+        b.stop().await;
+        next_event(&mut ea, no_peers).await;
+
+        let impostor = LocalIdentity {
+            key: DeviceKey::from_private([7; 32]),
+            ..test_identity("dev-b")
+        };
+        for _ in 0..2 {
+            let (mut session, _fd) = raw_peer_as(&a, &impostor).await;
+            assert_eq!(session.recv().await.unwrap(), Frame::Bye);
+        }
+        until("handshakes settle", || idle(&a)).await;
+        assert!(a.peers().is_empty());
+        assert_eq!(
+            rejections(&mut ea),
+            vec![("dev-b".to_string(), Rejection::KeyChanged)]
+        );
+
+        assert!(a.forget("dev-b"));
+        let (_session, _fd) = raw_peer_as(&a, &impostor).await;
+        next_event(&mut ea, listed("dev-b")).await;
+        assert_eq!(a.record("dev-b").unwrap().device_key, impostor.key.public);
+    }
+
+    #[tokio::test]
+    async fn forgotten_device_is_dropped_and_refused() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (_live, _live_fd) = raw_peer(&a, "dev-b").await;
+        next_event(&mut ea, listed("dev-b")).await;
+        assert!(a.forget("dev-b"));
+        next_event(&mut ea, no_peers).await;
+        assert!(a.record("dev-b").is_none());
+        assert!(!a.forget("dev-b"));
+
+        let (mut session, _fd) = raw_peer(&a, "dev-b").await;
+        assert_eq!(session.recv().await.unwrap(), Frame::Bye);
+        until("handshakes settle", || idle(&a)).await;
+        assert!(a.peers().is_empty());
+        assert_eq!(rejections(&mut ea), vec![]);
+    }
+
+    fn part1_hello(h: Hello) -> Vec<u8> {
+        let json = serde_json::json!({
+            "device_id": h.device_id, "device_name": h.device_name, "platform": h.platform,
+            "device_key": h.device_key, "device_sig": h.device_sig,
+        })
+        .to_string();
+        let len = (json.len() as u32 + 1).to_be_bytes();
+        [&len[..], &[KIND_HELLO], json.as_bytes()].concat()
+    }
+
+    #[tokio::test]
+    async fn part1_shaped_hello_still_syncs() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let stream = TcpStream::connect(local(&b)).await.unwrap();
+        let keys = [derive_auth_key(&[1; 32])];
+        let (session, seen) =
+            initiate_with_hello(stream, &test_identity("dev-a"), &keys, part1_hello).await;
+        assert!(matches!(&seen[..], [Frame::Auth(_), Frame::Hello(_)]));
+        next_event(&mut eb, listed("dev-a")).await;
+        assert!(addrs_of(&b, "dev-a").is_empty());
+
+        let (_reader, mut writer) = session.split();
+        writer.send(&Frame::Blob(vec![3; 4])).await.unwrap();
+        next_event(&mut eb, blob_from("dev-a")).await;
+        assert_eq!(b.take_blob("dev-a"), Some(vec![3; 4]));
+    }
+
+    #[tokio::test]
+    async fn adopt_records_advertised_and_dialed_addresses() {
+        let memory = PeerStore::memory;
+        let (a, _ea) = spawn_as(advertising("dev-a", "10.9.9.9:1234"), memory()).await;
+        let (b, _eb) = spawn_as(advertising("dev-b", "10.8.8.8:4321"), memory()).await;
+        b.connect(local(&a)).await;
+        until("both peers", || {
+            a.peers().len() == 1 && b.peers().len() == 1
+        })
+        .await;
+        let on_b = addrs_of(&b, "dev-a");
+        assert!(on_b.contains(&"10.9.9.9:1234".parse().unwrap()), "{on_b:?}");
+        assert!(on_b.contains(&local(&a)), "{on_b:?}");
+        assert_eq!(
+            addrs_of(&a, "dev-b"),
+            vec!["10.8.8.8:4321".parse().unwrap()]
+        );
+    }
+
+    #[tokio::test]
+    async fn writer_persists_latest_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, _ea) = spawn_as(test_identity("dev-a"), file_store(&dir)).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        a.connect(local(&b)).await;
+        until("a lists b", || a.peers().len() == 1).await;
+        for i in 0..50u8 {
+            let id = format!("dev-{i}");
+            assert_eq!(a.shared.admit(&id, &[i; 32]), Ok(()));
+            if i % 2 == 0 {
+                assert!(a.forget(&id));
+            }
+        }
+        let shared = a.shared.clone();
+        a.stop().await;
+
+        let mut reopened = file_store(&dir);
+        let store = shared.store();
+        assert_eq!(store.records().count(), 26);
+        assert!(reopened.records().eq(store.records()));
+        assert_eq!(
+            reopened.decide("x", &[48; 32], 0),
+            PinDecision::Rejected(Rejection::Blocked)
+        );
+    }
+
+    #[tokio::test]
+    async fn untrusted_peer_is_never_pinned() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 2).await;
+        a.connect(local(&b)).await;
+        until("handshakes settle", || idle(&a) && idle(&b)).await;
+        assert!(a.record("dev-b").is_none() && b.record("dev-a").is_none());
     }
 
     #[tokio::test]

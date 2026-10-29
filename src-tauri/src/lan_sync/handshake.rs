@@ -1,4 +1,5 @@
 use super::identity::{verify_signature, LocalIdentity};
+use super::peers::Rejection;
 use super::protocol::{
     decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, FEATURES, MAX_FRAME,
     MAX_HELLO_ADDRS, PROTOCOL_VERSION,
@@ -32,6 +33,8 @@ pub enum HandshakeError {
     VersionMismatch(u16),
     #[error(transparent)]
     Protocol(#[from] ProtocolError),
+    #[error("peer refused by pin: {0:?}")]
+    Pinned(Rejection),
 }
 
 impl From<snow::Error> for HandshakeError {
@@ -395,6 +398,30 @@ pub async fn handshake<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 }
 
 #[cfg(test)]
+pub(crate) async fn initiate_with_hello<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    stream: S,
+    me: &LocalIdentity,
+    auth_keys: &[[u8; 32]],
+    wire: impl FnOnce(Hello) -> Vec<u8>,
+) -> (Session, Vec<Frame>) {
+    let mut s = noise(stream, true).await.unwrap();
+    let hash = s.handshake_hash().to_vec();
+    let proofs = auth_keys.iter().map(|k| proof(k, &hash, true)).collect();
+    s.send(&Frame::Auth(Auth {
+        version: PROTOCOL_VERSION,
+        proofs,
+    }))
+    .await
+    .unwrap();
+    let seen = vec![s.recv().await.unwrap(), s.recv().await.unwrap()];
+    s.writer
+        .send_raw(&wire(hello(me, &hash, true)))
+        .await
+        .unwrap();
+    (s, seen)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::lan_sync::identity::{derive_auth_key, test_identity as identity};
@@ -472,22 +499,12 @@ mod tests {
     async fn rogue_after_auth<S>(
         stream: S,
         keys: &[[u8; 32]],
-        hello: impl FnOnce(&[u8]) -> Vec<u8>,
+        wire: impl FnOnce(Hello) -> Vec<u8>,
     ) -> Vec<Frame>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let mut s = noise(stream, true).await.unwrap();
-        let hash = s.handshake_hash().to_vec();
-        let proofs = keys.iter().map(|k| proof(k, &hash, true)).collect();
-        s.send(&Frame::Auth(Auth {
-            version: PROTOCOL_VERSION,
-            proofs,
-        }))
-        .await
-        .unwrap();
-        let seen = vec![s.recv().await.unwrap(), s.recv().await.unwrap()];
-        s.writer.send_raw(&hello(&hash)).await.unwrap();
+        let (s, seen) = initiate_with_hello(stream, &identity("dev-a"), keys, wire).await;
         drain(s, seen).await
     }
 
@@ -644,10 +661,8 @@ mod tests {
     async fn wrong_length_signature_is_rejected() {
         let keys = [derive_auth_key(&[1; 32])];
         let me = identity("dev-b");
-        let claimed = identity("dev-a");
         for len in [0, 63, 65] {
-            let resized = |hash: &[u8]| {
-                let mut h = hello(&claimed, hash, true);
+            let resized = |mut h: Hello| {
                 h.device_sig.resize(len, 0);
                 encode(&Frame::Hello(h)).unwrap()
             };
