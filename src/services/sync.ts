@@ -427,7 +427,7 @@ export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<v
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const blob = await exportLocalBlob();
-  const [deviceName, platform] = await Promise.all([invoke<string>("device_hostname"), getPlatform()]);
+  const [deviceName, platform] = await Promise.all([invoke<string>("device_hostname").catch(() => null), getPlatform()]);
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
     method: "PUT",
@@ -435,7 +435,7 @@ export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<v
     body: JSON.stringify({
       device_id: deviceId,
       blob: bytesToBase64(blob),
-      metadata: { device_id: deviceId, synced_at: new Date().toISOString(), device_name: deviceName, platform },
+      metadata: { device_id: deviceId, synced_at: new Date().toISOString(), ...(deviceName && { device_name: deviceName }), platform },
     }),
     signal,
   });
@@ -571,11 +571,12 @@ async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Pro
   if (!res.ok) return null; // skip unreachable devices
 
   const { blob: blobB64 } = await res.json();
-  const remotePayload = await openRemoteBlob(sessionBlobKeys(), base64ToByteArray(blobB64));
+  return openRemoteBlob(sessionBlobKeys(), base64ToByteArray(blobB64));
+}
 
+async function applyRemoteExtras(remoteDeviceId: string, remotePayload: BlobPayload): Promise<void> {
   await applyRemoteSettings(remotePayload);
   applyRemoteLiveSessions(remoteDeviceId, remotePayload);
-  return remotePayload;
 }
 
 const applyRemoteSshConfig = (payload: BlobPayload) => applyRemoteSshConfigState(payload.files["ssh-config.json"]).catch(() => {});
@@ -603,6 +604,7 @@ const deviceLabel = (device: DeviceInfo) => `device ${device.device_id}`;
 
 /** CRDT-merge a decrypted remote payload into local state. Returns true if local state changed. */
 export async function mergeRemotePayload(remoteDeviceId: string, remotePayload: BlobPayload): Promise<boolean> {
+  await applyRemoteExtras(remoteDeviceId, remotePayload);
   const { payload, changed } = mergeBlobPayload(await invoke<BlobPayload>("state_export_raw"), remotePayload);
   if (changed) await importMergedPayload(payload);
   await applyRemoteSshConfig(remotePayload);
@@ -734,16 +736,20 @@ export async function syncOnLoginReplace(): Promise<void> {
       ...(await readDeviceSecrets()),
     };
 
-    const pulled: BlobPayload[] = [];
+    const pulled: [string, BlobPayload][] = [];
     await forEachRemoteBlob(devices, deviceLabel, async (device) => {
       const remotePayload = await pullRemotePayload(serverUrl, device.device_id);
       if (!remotePayload) return;
+      await applyRemoteExtras(device.device_id, remotePayload);
       merged = mergeBlobPayload(merged, remotePayload).payload;
-      pulled.push(remotePayload);
+      pulled.push([device.device_id, remotePayload]);
     });
 
     await importMergedPayload(merged);
-    for (const remotePayload of pulled) await applyRemoteSshConfig(remotePayload);
+    for (const [deviceId, remotePayload] of pulled) {
+      await applyRemoteSshConfig(remotePayload);
+      remoteMergedListeners.emit(deviceId, remotePayload);
+    }
     await reloadAllStores();
     await push();
     await completeTeamLoginSetup();

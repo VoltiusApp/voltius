@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { test, expect, vi, beforeEach } from "vitest";
+import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
 const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -8,6 +8,11 @@ vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 import { push, scheduleSync, resumeSync, onLocalMutation, onRemotePayloadMerged, mergeRemotePayload } from "./sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { setVaultKey } from "@/services/vault";
+import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
+
+const cleanups: (() => void)[] = [];
+const track = (off: () => void) => { cleanups.push(off); return off; };
+afterEach(() => { cleanups.splice(0).forEach((off) => off()); });
 
 function jwt(): string {
   const b64 = (o: unknown) => btoa(JSON.stringify(o));
@@ -40,10 +45,9 @@ beforeEach(() => {
 
 test("scheduleSync notifies local-mutation listeners even without Pro", () => {
   const fn = vi.fn();
-  const off = onLocalMutation(fn);
+  track(onLocalMutation(fn));
   scheduleSync();
   expect(fn).toHaveBeenCalledTimes(1);
-  off();
 });
 
 test("unsubscribe stops notifications", () => {
@@ -55,10 +59,10 @@ test("unsubscribe stops notifications", () => {
 
 test("a throwing listener does not stop others", () => {
   const fn = vi.fn();
-  const offs = [onLocalMutation(() => { throw new Error("boom"); }), onLocalMutation(fn)];
+  track(onLocalMutation(() => { throw new Error("boom"); }));
+  track(onLocalMutation(fn));
   expect(() => scheduleSync()).not.toThrow();
   expect(fn).toHaveBeenCalledTimes(1);
-  offs.forEach((off) => off());
 });
 
 test("push sends device_name and platform in metadata", async () => {
@@ -69,9 +73,49 @@ test("push sends device_name and platform in metadata", async () => {
 
 test("mergeRemotePayload notifies merge listeners", async () => {
   const fn = vi.fn();
-  const off = onRemotePayloadMerged(fn);
+  track(onRemotePayloadMerged(fn));
   const payload = { files: {}, secrets: {}, secret_clocks: {} };
   await mergeRemotePayload("dev-2", payload);
   expect(fn).toHaveBeenCalledWith("dev-2", payload);
-  off();
+});
+
+test("a throwing merge listener does not break mergeRemotePayload", async () => {
+  const fn = vi.fn();
+  track(onRemotePayloadMerged(() => { throw new Error("boom"); }));
+  track(onRemotePayloadMerged(fn));
+  await expect(mergeRemotePayload("dev-2", { files: {}, secrets: {}, secret_clocks: {} })).resolves.toBe(false);
+  expect(fn).toHaveBeenCalledTimes(1);
+});
+
+test("mergeRemotePayload applies remote settings and live sessions", async () => {
+  const ingestManifest = vi.spyOn(useCrossDeviceSessionsStore.getState(), "ingestManifest");
+  const manifest = { deviceId: "dev-2", sessions: [] };
+  const settings = {
+    type: "voltius-user-data",
+    version: 2,
+    exported_at: "2030-01-01T00:00:00.000Z",
+    sections: {
+      appSettings: { updated_at: "2030-01-01T00:00:00.000Z", data: { terminal: { cursorStyle: "underline" } } },
+    },
+  };
+  await mergeRemotePayload("dev-2", {
+    files: { "settings.json": JSON.stringify(settings), "live_sessions.json": JSON.stringify(manifest) },
+    secrets: {},
+    secret_clocks: {},
+  });
+  expect(h.invoke.mock.calls.some(([c]) => c === "settings_save")).toBe(true);
+  expect(ingestManifest).toHaveBeenCalledWith(manifest);
+});
+
+test("a device_hostname failure does not block push", async () => {
+  const base = h.invoke.getMockImplementation()!;
+  h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+    if (cmd === "device_hostname") throw new Error("no such command");
+    return base(cmd, args);
+  });
+  await push();
+  const upload = h.appFetch.mock.calls.find(([, init]) => init?.method === "PUT");
+  const { metadata } = JSON.parse(upload?.[1].body);
+  expect(metadata).not.toHaveProperty("device_name");
+  expect(metadata.platform).toBe("linux");
 });
