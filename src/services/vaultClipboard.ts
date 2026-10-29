@@ -1,3 +1,4 @@
+import { createSerialQueue } from "@/lib/serialQueue";
 import type { NavItem } from "@/stores/uiStore";
 import type { VaultClipboard, VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { useHistoryStore } from "@/stores/historyStore";
@@ -264,15 +265,7 @@ function strandsAtRoot(
 // api.objects alike: `pasteFromClipboard` registers its undo entry inside a
 // `withoutHistory` window, which is a depth counter, so an overlapping paste
 // holds that window open and the other one's history entry is silently dropped.
-let pasteChain: Promise<unknown> = Promise.resolve();
-
-/** Queues `fn` behind every other paste. Rejections propagate to the caller but
- *  never poison the chain. */
-export function runPaste<T>(fn: () => Promise<T>): Promise<T> {
-  const run = pasteChain.then(fn);
-  pasteChain = run.catch(() => {});
-  return run;
-}
+export const runPaste = createSerialQueue();
 
 export async function pasteFromClipboard(
   clipboard: VaultClipboard,
