@@ -1,7 +1,9 @@
+use super::link::READ_ONLY_MESSAGE;
 use super::roots::{normalize, Jail, Resolved, SharedRoots};
 use russh_sftp::protocol::{
     Attrs, Data, File as Entry, FileAttributes, Handle, Name, OpenFlags, Status, StatusCode,
 };
+use russh_sftp::server::StatusReply;
 use std::collections::{HashMap, VecDeque};
 use std::fs::{File, FileTimes, OpenOptions};
 use std::io;
@@ -218,9 +220,9 @@ impl SharedFs {
         }
     }
 
-    fn writable(&self) -> Result<(), StatusCode> {
+    fn writable(&self) -> Result<(), StatusReply> {
         if self.read_only {
-            Err(StatusCode::PermissionDenied)
+            Err(StatusCode::PermissionDenied.with_message(READ_ONLY_MESSAGE))
         } else {
             Ok(())
         }
@@ -284,7 +286,7 @@ impl SharedFs {
         &self,
         id: u32,
         f: impl FnOnce(&SharedRoots) -> Result<(), StatusCode> + Send + 'static,
-    ) -> Result<Status, StatusCode> {
+    ) -> Result<Status, StatusReply> {
         self.writable()?;
         self.on_roots(f).await?;
         Ok(ok(id))
@@ -292,13 +294,13 @@ impl SharedFs {
 }
 
 impl russh_sftp::server::Handler for SharedFs {
-    type Error = StatusCode;
+    type Error = StatusReply;
 
-    fn unimplemented(&self) -> StatusCode {
-        StatusCode::OpUnsupported
+    fn unimplemented(&self) -> StatusReply {
+        StatusCode::OpUnsupported.into()
     }
 
-    async fn realpath(&mut self, id: u32, path: String) -> Result<Name, StatusCode> {
+    async fn realpath(&mut self, id: u32, path: String) -> Result<Name, StatusReply> {
         let vpath = self
             .on_roots(move |_| Ok(format!("/{}", normalize(&path).join("/"))))
             .await?;
@@ -308,17 +310,17 @@ impl russh_sftp::server::Handler for SharedFs {
         })
     }
 
-    async fn stat(&mut self, id: u32, path: String) -> Result<Attrs, StatusCode> {
+    async fn stat(&mut self, id: u32, path: String) -> Result<Attrs, StatusReply> {
         let attrs = self.path_attrs(path, true).await?;
         Ok(Attrs { id, attrs })
     }
 
-    async fn lstat(&mut self, id: u32, path: String) -> Result<Attrs, StatusCode> {
+    async fn lstat(&mut self, id: u32, path: String) -> Result<Attrs, StatusReply> {
         let attrs = self.path_attrs(path, false).await?;
         Ok(Attrs { id, attrs })
     }
 
-    async fn fstat(&mut self, id: u32, handle: String) -> Result<Attrs, StatusCode> {
+    async fn fstat(&mut self, id: u32, handle: String) -> Result<Attrs, StatusReply> {
         let f = self.file(&handle)?;
         let meta = blocking(move || f.file.metadata().map_err(io_status)).await?;
         Ok(Attrs {
@@ -327,18 +329,18 @@ impl russh_sftp::server::Handler for SharedFs {
         })
     }
 
-    async fn opendir(&mut self, id: u32, path: String) -> Result<Handle, StatusCode> {
+    async fn opendir(&mut self, id: u32, path: String) -> Result<Handle, StatusReply> {
         self.room()?;
         let entries = self.on_roots(move |roots| list(roots, &path)).await?;
         Ok(self.insert(id, Open::Dir(entries)))
     }
 
-    async fn readdir(&mut self, id: u32, handle: String) -> Result<Name, StatusCode> {
+    async fn readdir(&mut self, id: u32, handle: String) -> Result<Name, StatusReply> {
         let Some(Open::Dir(entries)) = self.open.get_mut(&handle) else {
-            return Err(StatusCode::Failure);
+            return Err(StatusCode::Failure.into());
         };
         if entries.is_empty() {
-            return Err(StatusCode::Eof);
+            return Err(StatusCode::Eof.into());
         }
         let n = entries.len().min(BATCH);
         Ok(Name {
@@ -353,7 +355,7 @@ impl russh_sftp::server::Handler for SharedFs {
         filename: String,
         pflags: OpenFlags,
         _: FileAttributes,
-    ) -> Result<Handle, StatusCode> {
+    ) -> Result<Handle, StatusReply> {
         let writes = OpenFlags::WRITE | OpenFlags::APPEND | OpenFlags::CREATE | OpenFlags::TRUNCATE;
         if pflags.intersects(writes) {
             self.writable()?;
@@ -378,7 +380,7 @@ impl russh_sftp::server::Handler for SharedFs {
         handle: String,
         offset: u64,
         len: u32,
-    ) -> Result<Data, StatusCode> {
+    ) -> Result<Data, StatusReply> {
         let f = self.file(&handle)?;
         let data = blocking(move || {
             let mut buf = vec![0; len.min(MAX_READ) as usize];
@@ -399,7 +401,7 @@ impl russh_sftp::server::Handler for SharedFs {
         handle: String,
         offset: u64,
         data: Vec<u8>,
-    ) -> Result<Status, StatusCode> {
+    ) -> Result<Status, StatusReply> {
         let f = self.file(&handle)?;
         blocking(move || {
             let at = if f.append {
@@ -413,7 +415,7 @@ impl russh_sftp::server::Handler for SharedFs {
         Ok(ok(id))
     }
 
-    async fn close(&mut self, id: u32, handle: String) -> Result<Status, StatusCode> {
+    async fn close(&mut self, id: u32, handle: String) -> Result<Status, StatusReply> {
         self.open.remove(&handle).ok_or(StatusCode::Failure)?;
         Ok(ok(id))
     }
@@ -423,7 +425,7 @@ impl russh_sftp::server::Handler for SharedFs {
         id: u32,
         path: String,
         attrs: FileAttributes,
-    ) -> Result<Status, StatusCode> {
+    ) -> Result<Status, StatusReply> {
         self.change(id, move |roots| {
             let (_, path) = target(roots, &path, SharedRoots::resolve_entry)?;
             set_times(&open_for_times(&path).map_err(io_status)?, &attrs)
@@ -436,7 +438,7 @@ impl russh_sftp::server::Handler for SharedFs {
         id: u32,
         handle: String,
         attrs: FileAttributes,
-    ) -> Result<Status, StatusCode> {
+    ) -> Result<Status, StatusReply> {
         self.writable()?;
         let f = self.file(&handle)?;
         blocking(move || set_times(&f.file, &attrs)).await?;
@@ -448,7 +450,7 @@ impl russh_sftp::server::Handler for SharedFs {
         id: u32,
         path: String,
         _: FileAttributes,
-    ) -> Result<Status, StatusCode> {
+    ) -> Result<Status, StatusReply> {
         self.change(id, move |roots| {
             std::fs::create_dir(target(roots, &path, SharedRoots::resolve_for_create)?.1)
                 .map_err(io_status)
@@ -456,7 +458,7 @@ impl russh_sftp::server::Handler for SharedFs {
         .await
     }
 
-    async fn rmdir(&mut self, id: u32, path: String) -> Result<Status, StatusCode> {
+    async fn rmdir(&mut self, id: u32, path: String) -> Result<Status, StatusReply> {
         self.change(id, move |roots| {
             std::fs::remove_dir(target(roots, &path, SharedRoots::resolve_entry)?.1)
                 .map_err(io_status)
@@ -464,7 +466,7 @@ impl russh_sftp::server::Handler for SharedFs {
         .await
     }
 
-    async fn remove(&mut self, id: u32, filename: String) -> Result<Status, StatusCode> {
+    async fn remove(&mut self, id: u32, filename: String) -> Result<Status, StatusReply> {
         self.change(id, move |roots| {
             std::fs::remove_file(target(roots, &filename, SharedRoots::resolve_entry)?.1)
                 .map_err(io_status)
@@ -477,7 +479,7 @@ impl russh_sftp::server::Handler for SharedFs {
         id: u32,
         oldpath: String,
         newpath: String,
-    ) -> Result<Status, StatusCode> {
+    ) -> Result<Status, StatusReply> {
         self.change(id, move |roots| rename_entry(roots, &oldpath, &newpath))
             .await
     }
@@ -619,6 +621,18 @@ mod tests {
             StatusCode::OpUnsupported
         );
         assert!(t.alpha().join("f.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn read_only_refusal_classifies_as_device_read_only() {
+        use crate::error::{Classify, ErrorCode};
+        let t = serve(true).await;
+        let err = t.sftp.create_dir("/alpha/d").await.unwrap_err();
+        assert_eq!(err.error_code(), Some(ErrorCode::DeviceReadOnly));
+        let t = serve(false).await;
+        t.sftp.create_dir("/alpha/ok").await.unwrap();
+        let err = t.sftp.create_dir("/alpha/ok/../../zz/y").await.unwrap_err();
+        assert_ne!(err.error_code(), Some(ErrorCode::DeviceReadOnly));
     }
 
     #[tokio::test]

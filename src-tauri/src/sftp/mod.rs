@@ -72,6 +72,19 @@ pub(crate) fn emit_closed(app: &AppHandle, id: &str, code: Option<ErrorCode>) {
     let _ = app.emit(&format!("sftp-closed-{id}"), Closed { code });
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ReadOnlyChanged {
+    read_only: bool,
+}
+
+pub(crate) fn emit_read_only(app: &AppHandle, id: &str, read_only: bool) {
+    let _ = app.emit(
+        &format!("sftp-readonly-{id}"),
+        ReadOnlyChanged { read_only },
+    );
+}
+
 struct SftpEntry {
     backend: Arc<dyn FileBackend>,
     /// Live SSH handle for the session's host. Present for SSH-based transports

@@ -1,9 +1,9 @@
 use crate::commands::lan_sync::{with_manager, LanSyncState};
-use crate::device_files::link::{DeviceLink, DeviceLinks, FilesSource, OnClosed};
+use crate::device_files::link::{DeviceLink, DeviceLinks, FilesSource, LinkEvents};
 use crate::error::AppError;
 use crate::lan_sync::manager::FilesDialer;
 use crate::sftp::real::RealSftp;
-use crate::sftp::{emit_closed, emit_step, FileBackend, SftpManager, SftpStep};
+use crate::sftp::{emit_closed, emit_read_only, emit_step, FileBackend, SftpManager, SftpStep};
 use async_trait::async_trait;
 use serde::Serialize;
 use std::sync::Arc;
@@ -47,7 +47,7 @@ pub(crate) async fn connect_inner(
     device_id: String,
     relink: Option<&str>,
     step: impl Fn(SftpStep),
-    on_closed: OnClosed,
+    events: LinkEvents,
 ) -> Result<DeviceConnected, AppError> {
     let closed = CancellationToken::new();
     let pass = relink
@@ -58,7 +58,7 @@ pub(crate) async fn connect_inner(
         device_id,
         pass,
         closed.clone(),
-        on_closed,
+        events,
     ));
     step(SftpStep::DeviceDialing);
     let dial = link.dial();
@@ -105,7 +105,7 @@ pub async fn device_files_connect(
     connect_id: String,
     relink: Option<String>,
 ) -> Result<DeviceConnected, AppError> {
-    let closer = app.clone();
+    let (closer, flipper) = (app.clone(), app.clone());
     connect_inner(
         &sftp_state,
         &links,
@@ -113,7 +113,10 @@ pub async fn device_files_connect(
         device_id,
         relink.as_deref(),
         |step| emit_step(&app, &connect_id, step, ""),
-        Box::new(move |id, code| emit_closed(&closer, id, code)),
+        LinkEvents {
+            closed: Box::new(move |id, code| emit_closed(&closer, id, code)),
+            read_only: Box::new(move |id, read_only| emit_read_only(&flipper, id, read_only)),
+        },
     )
     .await
 }
@@ -466,6 +469,7 @@ mod tests {
         links: DeviceLinks,
         steps: Arc<Mutex<Vec<Value>>>,
         closed: Closed,
+        read_only: Arc<Mutex<Vec<(String, bool)>>>,
     }
 
     async fn browser(id: &'static str, server: &Server) -> Browser {
@@ -487,12 +491,17 @@ mod tests {
             links: DeviceLinks::default(),
             steps: Arc::default(),
             closed: Arc::default(),
+            read_only: Arc::default(),
         }
     }
 
     impl Browser {
         async fn relink(&self, relink: Option<&str>) -> Result<DeviceConnected, AppError> {
-            let (steps, closed) = (self.steps.clone(), self.closed.clone());
+            let (steps, closed, flips) = (
+                self.steps.clone(),
+                self.closed.clone(),
+                self.read_only.clone(),
+            );
             connect_inner(
                 &self.sftp,
                 &self.links,
@@ -500,7 +509,14 @@ mod tests {
                 "dev-b".into(),
                 relink,
                 move |s| steps.lock().unwrap().push(json!(s)),
-                Box::new(move |id, code| closed.lock().unwrap().push((id.to_string(), code))),
+                LinkEvents {
+                    closed: Box::new(move |id, code| {
+                        closed.lock().unwrap().push((id.to_string(), code))
+                    }),
+                    read_only: Box::new(move |id, read_only| {
+                        flips.lock().unwrap().push((id.to_string(), read_only))
+                    }),
+                },
             )
             .await
         }
@@ -832,6 +848,39 @@ mod tests {
         lan_stop(&s.lan).await;
         s.until_open(&[]).await;
         assert!(s.lan.files.service.lock().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn reopen_reports_read_only_flips_both_ways() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        let c = a.connect().await.unwrap();
+        s.until_open(&["dev-a"]).await;
+        for flip in [true, false] {
+            let mut cfg = s.svc().await.config();
+            cfg.read_only = flip;
+            s.set(cfg).await;
+            s.until_open(&[]).await;
+            a.list(&c.sftp_id, "/").await.unwrap();
+            s.until_open(&["dev-a"]).await;
+            assert_eq!(
+                a.read_only.lock().unwrap().last(),
+                Some(&(c.sftp_id.clone(), flip))
+            );
+        }
+        assert_eq!(a.read_only.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn listing_after_the_service_stops_is_unreachable_not_access_off() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        let c = a.connect().await.unwrap();
+        s.until_open(&["dev-a"]).await;
+        serving::stop_inner(&s.lan).await;
+        s.until_open(&[]).await;
+        let err = a.list(&c.sftp_id, "/").await.unwrap_err();
+        assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable));
     }
 
     #[tokio::test]

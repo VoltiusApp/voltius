@@ -88,10 +88,14 @@ pub trait SftpReopen: Send + Sync {
         }
     }
 
+    fn open_timed_out(&self) -> AppError {
+        AppError::from("Timed out reopening the SFTP channel")
+    }
+
     async fn open_bounded(&self) -> Result<SftpSession, AppError> {
         timeout(LINK_PROBE, self.open())
             .await
-            .map_err(|_| AppError::from("Timed out reopening the SFTP channel"))?
+            .map_err(|_| self.open_timed_out())?
     }
 
     /// Open a fresh channel and swap it into the shared session in place, so every

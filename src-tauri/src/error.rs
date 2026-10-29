@@ -13,6 +13,7 @@
 //! A code only reaches the frontend through commands returning `AppError` —
 //! `?` into a `Result<T, String>` keeps the message and drops the code.
 
+use crate::device_files::link::READ_ONLY_MESSAGE;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::io::ErrorKind;
@@ -85,6 +86,7 @@ error_codes! {
     DeviceBusy,
     DeviceUnreachable,
     DeviceAccessExpired,
+    DeviceReadOnly,
 }
 
 /// A lower-level failure whose cause may have an [`ErrorCode`]. The one place
@@ -160,6 +162,9 @@ impl Classify for russh_sftp::client::error::Error {
         use russh_sftp::protocol::StatusCode;
         match self {
             Sftp::Status(s) => match s.status_code {
+                StatusCode::PermissionDenied if s.error_message == READ_ONLY_MESSAGE => {
+                    Some(ErrorCode::DeviceReadOnly)
+                }
                 StatusCode::NoSuchFile => Some(ErrorCode::NotFound),
                 StatusCode::PermissionDenied => Some(ErrorCode::PermissionDenied),
                 StatusCode::NoConnection | StatusCode::ConnectionLost => {

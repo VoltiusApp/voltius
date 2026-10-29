@@ -84,7 +84,15 @@ pub trait FilesSource: Send + Sync {
     async fn dialer(&self) -> Option<FilesDialer>;
 }
 
+pub const READ_ONLY_MESSAGE: &str = "device-read-only";
+
 pub type OnClosed = Box<dyn Fn(&str, Option<ErrorCode>) + Send + Sync>;
+pub type OnReadOnly = Box<dyn Fn(&str, bool) + Send + Sync>;
+
+pub struct LinkEvents {
+    pub closed: OnClosed,
+    pub read_only: OnReadOnly,
+}
 
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct Pass {
@@ -100,7 +108,7 @@ pub struct DeviceLink {
     read_only: AtomicBool,
     closed: CancellationToken,
     sftp_id: OnceLock<String>,
-    on_closed: OnClosed,
+    events: LinkEvents,
 }
 
 fn unreachable(why: impl std::fmt::Display) -> AppError {
@@ -136,7 +144,7 @@ impl DeviceLink {
         device_id: String,
         pass: Pass,
         closed: CancellationToken,
-        on_closed: OnClosed,
+        events: LinkEvents,
     ) -> Self {
         Self {
             source,
@@ -146,7 +154,7 @@ impl DeviceLink {
             read_only: AtomicBool::new(false),
             closed,
             sftp_id: OnceLock::new(),
-            on_closed,
+            events,
         }
     }
 
@@ -169,7 +177,7 @@ impl DeviceLink {
     fn close_with(&self, err: AppError) -> AppError {
         self.closed.cancel();
         if let Some(id) = self.sftp_id.get() {
-            (self.on_closed)(id, err.code());
+            (self.events.closed)(id, err.code());
         }
         err
     }
@@ -194,15 +202,25 @@ impl DeviceLink {
             }
             Err(e) => return Err(unreachable(e)),
         };
+        let mut flipped = None;
         {
             let mut pass = self.lock();
             pass.key = Some(key);
             if let FilesReply::Accepted { read_only, grant } = reply {
-                self.read_only.store(read_only, Ordering::Relaxed);
+                if self.read_only.swap(read_only, Ordering::Relaxed) != read_only {
+                    flipped = Some(read_only);
+                }
                 if let Some(g) = grant {
                     pass.grant = Some(g);
                 }
             }
+        }
+        if let (Some(read_only), Some(id), true) = (
+            flipped,
+            self.sftp_id.get(),
+            self.opened.load(Ordering::Relaxed),
+        ) {
+            (self.events.read_only)(id, read_only);
         }
         let session = SftpSession::new(Wire::new(stream, self.closed.clone(), ()))
             .await
@@ -242,6 +260,10 @@ impl SftpReopen for DeviceLink {
         self.dial().await
     }
 
+    fn open_timed_out(&self) -> AppError {
+        unreachable("timed out reopening")
+    }
+
     fn closed_now(&self) -> bool {
         self.closed.is_cancelled()
     }
@@ -264,15 +286,41 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn a_failed_reopen_keeps_the_unreachable_code() {
-        let link = DeviceLink::new(
-            Arc::new(NoSync),
+    struct Silent;
+
+    #[async_trait]
+    impl FilesSource for Silent {
+        async fn dialer(&self) -> Option<FilesDialer> {
+            std::future::pending().await
+        }
+    }
+
+    fn link_over(source: Arc<dyn FilesSource>) -> DeviceLink {
+        DeviceLink::new(
+            source,
             "dev".into(),
             Pass::default(),
             CancellationToken::new(),
-            Box::new(|_, _| {}),
-        );
+            LinkEvents {
+                closed: Box::new(|_, _| {}),
+                read_only: Box::new(|_, _| {}),
+            },
+        )
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_reopen_that_times_out_is_unreachable() {
+        let err = link_over(Arc::new(Silent))
+            .open_bounded()
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable));
+    }
+
+    #[tokio::test]
+    async fn a_failed_reopen_keeps_the_unreachable_code() {
+        let link = link_over(Arc::new(NoSync));
         let err = link.open_bounded().await.err().unwrap();
         assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable));
     }
