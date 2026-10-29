@@ -72,6 +72,7 @@ const calls = (cmd: string) => h.invoke.mock.calls.filter(([c]) => c === cmd);
 const broadcasts = () => calls("lan_sync_broadcast").length;
 const emit = (name: string, payload: unknown) => h.handlers.get(`lan-sync://${name}`)?.({ payload });
 const settle = () => vi.advanceTimersByTimeAsync(1000);
+const bytes = (b: number[] | null) => new Uint8Array(b ?? []).buffer;
 const nearby = (...ids: string[]) =>
   useLanSyncStore.setState({
     peers: ids.map(peer) as never,
@@ -89,7 +90,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   h.invoke.mockReset().mockImplementation(async (cmd: string) => {
     if (cmd === "device_hostname") return "host";
-    if (cmd === "lan_sync_take_blob") return h.blob;
+    if (cmd === "lan_sync_take_blob") return bytes(h.blob);
     return undefined;
   });
   h.serverMode = true;
@@ -192,6 +193,26 @@ describe("lanSync", () => {
     await settle();
     expect(useLanSyncStore.getState().localClocks).toEqual({ "connections.json:c": "4" });
     expect(broadcasts()).toBe(0);
+  });
+
+  test("blobs cross IPC as raw bytes", async () => {
+    await started();
+    h.mutations.forEach((fn) => fn());
+    await settle();
+    const [, sent] = calls("lan_sync_broadcast")[0];
+    expect(sent).toBeInstanceOf(Uint8Array);
+    expect([...(sent as Uint8Array)]).toEqual([7]);
+    emit("blob-ready", { deviceId: "A" });
+    await settle();
+    expect(h.openRemoteBlob).toHaveBeenLastCalledWith([[1]], [9]);
+  });
+
+  test("an empty take means the blob is gone", async () => {
+    await started();
+    h.blob = null;
+    emit("blob-ready", { deviceId: "A" });
+    await settle();
+    expect(h.mergeRemotePayload).not.toHaveBeenCalled();
   });
 
   test("on Android the background stops LAN sync and the foreground restarts it, still paused", async () => {

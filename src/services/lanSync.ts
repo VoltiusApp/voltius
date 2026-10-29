@@ -51,7 +51,7 @@ async function broadcastOwn(): Promise<void> {
   if (store().paused || Object.keys(store().known).length === 0) return;
   const blob = await exportLocalBlob();
   store().setLocalClocks(entityClocks(await openRemoteBlob(sessionBlobKeys(), blob)));
-  if (store().peers.length > 0) await invoke("lan_sync_broadcast", { blob });
+  if (store().peers.length > 0) await invoke("lan_sync_broadcast", Uint8Array.from(blob));
 }
 
 async function flush(): Promise<void> {
@@ -105,9 +105,9 @@ function onBlobReady(s: Session, deviceId: string): Promise<void> {
     if (session !== s) return;
     store().markSyncing(deviceId, true);
     try {
-      const blob = await invoke<number[] | null>("lan_sync_take_blob", { deviceId });
-      if (!blob) return;
-      const payload = await openRemoteBlob(sessionBlobKeys(), blob);
+      const blob = await invoke<ArrayBuffer>("lan_sync_take_blob", { deviceId });
+      if (blob.byteLength === 0) return;
+      const payload = await openRemoteBlob(sessionBlobKeys(), Array.from(new Uint8Array(blob)));
       if (session !== s || !(await mergeRemotePayload(deviceId, payload))) return;
       await reloadAllStores();
       requestBroadcast();

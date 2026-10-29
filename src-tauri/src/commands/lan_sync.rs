@@ -1,9 +1,11 @@
+use super::raw_body;
 use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
 };
 use crate::lan_sync::manager::{self, LanStatus, Manager, ManagerEvent, PeerInfo};
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex, MutexGuard};
+use tauri::ipc::{Request, Response};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{mpsc, OnceCell};
 use zeroize::Zeroizing;
@@ -214,18 +216,20 @@ pub async fn lan_sync_stop(state: State<'_, LanSyncState>) -> Result<(), String>
 #[tauri::command]
 pub async fn lan_sync_broadcast(
     state: State<'_, LanSyncState>,
-    blob: Vec<u8>,
+    request: Request<'_>,
 ) -> Result<(), String> {
-    broadcast_inner(&state, blob).await;
+    broadcast_inner(&state, raw_body(request.body(), "blob")?.to_vec()).await;
     Ok(())
 }
 
+// Empty when nothing is waiting: a sealed blob is never empty.
 #[tauri::command]
 pub async fn lan_sync_take_blob(
     state: State<'_, LanSyncState>,
     device_id: String,
-) -> Result<Option<Vec<u8>>, String> {
-    Ok(take_blob_inner(&state, &device_id).await)
+) -> Result<Response, String> {
+    let blob = take_blob_inner(&state, &device_id).await;
+    Ok(Response::new(blob.unwrap_or_default()))
 }
 
 #[tauri::command]

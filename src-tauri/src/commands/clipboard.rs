@@ -1,5 +1,6 @@
+use super::raw_body;
 use tauri::image::Image;
-use tauri::ipc::{InvokeBody, Request};
+use tauri::ipc::Request;
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -15,9 +16,7 @@ fn check_pixels(len: usize, width: u32, height: u32) -> Result<(), String> {
 /// as JSON, a 4K image would be tens of MB of numbers.
 #[tauri::command]
 pub async fn clipboard_write_rgba(app: AppHandle, request: Request<'_>) -> Result<(), String> {
-    let InvokeBody::Raw(rgba) = request.body() else {
-        return Err("expected raw RGBA bytes".into());
-    };
+    let rgba = raw_body(request.body(), "RGBA")?;
     let dim = |name: &str| {
         request
             .headers()
