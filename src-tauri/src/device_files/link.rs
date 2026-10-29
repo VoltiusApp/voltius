@@ -238,8 +238,8 @@ impl DeviceLinks {
 
 #[async_trait]
 impl SftpReopen for DeviceLink {
-    async fn open(&self) -> Result<SftpSession, String> {
-        self.dial().await.map_err(String::from)
+    async fn open(&self) -> Result<SftpSession, AppError> {
+        self.dial().await
     }
 
     fn closed_now(&self) -> bool {
@@ -248,5 +248,32 @@ impl SftpReopen for DeviceLink {
 
     fn closed(&self) -> &CancellationToken {
         &self.closed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct NoSync;
+
+    #[async_trait]
+    impl FilesSource for NoSync {
+        async fn dialer(&self) -> Option<FilesDialer> {
+            None
+        }
+    }
+
+    #[tokio::test]
+    async fn a_failed_reopen_keeps_the_unreachable_code() {
+        let link = DeviceLink::new(
+            Arc::new(NoSync),
+            "dev".into(),
+            Pass::default(),
+            CancellationToken::new(),
+            Box::new(|_, _| {}),
+        );
+        let err = link.open_bounded().await.err().unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable));
     }
 }

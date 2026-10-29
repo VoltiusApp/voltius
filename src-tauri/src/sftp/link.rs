@@ -71,7 +71,7 @@ async fn answers(session: &Mutex<SftpSession>) -> Result<(), SftpError> {
 
 #[async_trait]
 pub trait SftpReopen: Send + Sync {
-    async fn open(&self) -> Result<SftpSession, String>;
+    async fn open(&self) -> Result<SftpSession, AppError>;
 
     fn closed_now(&self) -> bool;
 
@@ -88,10 +88,10 @@ pub trait SftpReopen: Send + Sync {
         }
     }
 
-    async fn open_bounded(&self) -> Result<SftpSession, String> {
+    async fn open_bounded(&self) -> Result<SftpSession, AppError> {
         timeout(LINK_PROBE, self.open())
             .await
-            .map_err(|_| "Timed out reopening the SFTP channel".to_string())?
+            .map_err(|_| AppError::from("Timed out reopening the SFTP channel"))?
     }
 
     /// Open a fresh channel and swap it into the shared session in place, so every
@@ -127,9 +127,11 @@ async fn revive<L: SftpReopen + ?Sized>(link: &L, session: &Mutex<SftpSession>) 
 
 #[async_trait]
 impl<H: Handler> SftpReopen for SftpLink<H> {
-    async fn open(&self) -> Result<SftpSession, String> {
+    async fn open(&self) -> Result<SftpSession, AppError> {
         let handle = read_cell(&self.handle);
-        open_sftp(&handle, &self.opener).await
+        open_sftp(&handle, &self.opener)
+            .await
+            .map_err(AppError::from)
     }
 
     fn closed_now(&self) -> bool {

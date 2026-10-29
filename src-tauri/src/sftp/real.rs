@@ -424,7 +424,7 @@ mod tests {
 
     #[async_trait]
     impl SftpReopen for Piped {
-        async fn open(&self) -> Result<SftpSession, String> {
+        async fn open(&self) -> Result<SftpSession, AppError> {
             self.opens.fetch_add(1, Ordering::SeqCst);
             let (client, mut near) = tokio::io::duplex(1 << 16);
             let (mut far, server) = tokio::io::duplex(1 << 16);
@@ -433,7 +433,9 @@ mod tests {
                 let _ = tokio::io::copy_bidirectional(&mut near, &mut far).await;
             });
             *self.pipe.lock().unwrap() = Some(pipe);
-            SftpSession::new(client).await.map_err(|e| e.to_string())
+            SftpSession::new(client)
+                .await
+                .map_err(|e| e.to_string().into())
         }
 
         fn closed_now(&self) -> bool {
