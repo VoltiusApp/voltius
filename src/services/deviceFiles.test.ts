@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@/services/account", () => ({ getAccountId: async () => h.account }));
 vi.mock("@/utils/platform", () => ({ getPlatform: async () => h.platform }));
 
-import { answerFileRequest, startDeviceFiles, stopDeviceFiles } from "./deviceFiles";
+import { answerFileRequest, loadFileAccess, saveFileAccess, startDeviceFiles, stopDeviceFiles } from "./deviceFiles";
 import { useDeviceFilesStore, type ApprovalPrompt } from "@/stores/deviceFilesStore";
 
 const prompt = (requestId: string): ApprovalPrompt => ({
@@ -69,6 +69,22 @@ describe("deviceFiles", () => {
     expect(useDeviceFilesStore.getState().config).toEqual(CONFIG);
     expect(useDeviceFilesStore.getState().pending).toEqual([prompt("r1")]);
     expect([...h.handlers.keys()].sort()).toEqual(["device-files://config", "device-files://request", "device-files://sessions"]);
+  });
+
+  test("load_and_save_pass_account_without_starting_service", async () => {
+    await loadFileAccess();
+    expect(calls("device_files_get_config")[0][1]).toEqual({ accountId: "acct" });
+    expect(useDeviceFilesStore.getState().config).toEqual(CONFIG);
+    await saveFileAccess({ ...CONFIG, readOnly: true });
+    expect(calls("device_files_set_config")[0][1]).toEqual({ accountId: "acct", config: { ...CONFIG, readOnly: true } });
+    expect(calls("device_files_start")).toHaveLength(0);
+  });
+
+  test("load_without_account_leaves_config_empty", async () => {
+    h.account = null;
+    await loadFileAccess();
+    expect(h.invoke).not.toHaveBeenCalled();
+    expect(useDeviceFilesStore.getState().config).toBeNull();
   });
 
   test("request_event_adds_pending", async () => {

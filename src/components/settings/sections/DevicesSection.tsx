@@ -1,9 +1,10 @@
+import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { downloadDir } from "@tauri-apps/api/path";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
 import { logFailure } from "@/lib/logger";
-import { disconnectDevice, saveFileAccess } from "@/services/deviceFiles";
+import { disconnectDevice, loadFileAccess, saveFileAccess } from "@/services/deviceFiles";
 import { openSystemDialog } from "@/services/systemDialog";
 import { useDeviceFilesStore, type AllowedDevice, type FileAccessConfig } from "@/stores/deviceFilesStore";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
@@ -21,6 +22,9 @@ export default function DevicesSection() {
   const config = useDeviceFilesStore((s) => s.config);
   const sessions = useDeviceFilesStore((s) => s.sessions);
   const known = useLanSyncStore((s) => s.known);
+  useEffect(() => {
+    if (!isAndroid) void loadFileAccess().catch(logFailure("device-files load config"));
+  }, [isAndroid]);
   if (isAndroid || !config) return null;
 
   const update = (patch: Partial<FileAccessConfig>) => save({ ...config, ...patch });

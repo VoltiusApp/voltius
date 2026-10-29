@@ -24,6 +24,14 @@ async function refreshPending(): Promise<void> {
 
 const refresh = () => refreshPending().catch(fail("pending"));
 
+export async function loadFileAccess(): Promise<void> {
+  if ((await getPlatform()) === "android") return;
+  const accountId = await getAccountId();
+  if (!accountId) return;
+  const config = await invoke<FileAccessConfig>("device_files_get_config", { accountId });
+  store().setConfig(config);
+}
+
 async function begin(gen: number): Promise<void> {
   if ((await getPlatform()) === "android") return;
   const accountId = await getAccountId();
@@ -37,7 +45,7 @@ async function begin(gen: number): Promise<void> {
     attached.push(await listen<FileAccessConfig>("device-files://config", (e) => store().setConfig(e.payload)));
     window.addEventListener("focus", refresh);
     attached.push(() => window.removeEventListener("focus", refresh));
-    const config = await invoke<FileAccessConfig>("device_files_get_config");
+    const config = await invoke<FileAccessConfig>("device_files_get_config", { accountId });
     const pending = await invoke<ApprovalPrompt[]>("device_files_pending");
     if (gen !== generation) return detach();
     store().setConfig(config);
@@ -85,7 +93,9 @@ export async function answerFileRequest(requestId: string, answer: FileAnswer): 
 }
 
 export async function saveFileAccess(config: FileAccessConfig): Promise<void> {
-  await invoke("device_files_set_config", { config });
+  const accountId = await getAccountId();
+  if (!accountId) return;
+  await invoke("device_files_set_config", { accountId, config });
   store().setConfig(config);
 }
 

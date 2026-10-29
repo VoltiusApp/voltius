@@ -116,9 +116,9 @@ pub async fn device_files_connect(
 #[cfg(desktop)]
 mod serving {
     use crate::commands::lan_sync::{emitter, Emit, LanSyncState};
-    use crate::device_files::policy::{Answer, ApprovalPrompt, FileAccessConfig};
+    use crate::device_files::policy::{self, Answer, ApprovalPrompt, FileAccessConfig};
     use crate::device_files::service::{Alert, FileService};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use tauri::{AppHandle, Manager, State};
 
@@ -156,15 +156,39 @@ mod serving {
         lan.offer_files(None).await;
     }
 
+    async fn running_for(lan: &LanSyncState, account: &str) -> Option<Arc<FileService>> {
+        running(lan).await.filter(|s| s.account() == account)
+    }
+
+    pub(crate) async fn get_config_inner(
+        lan: &LanSyncState,
+        dir: &Path,
+        account: &str,
+    ) -> FileAccessConfig {
+        match running_for(lan, account).await {
+            Some(svc) => svc.config(),
+            None => policy::load(dir, account),
+        }
+    }
+
     pub(crate) async fn set_config_inner(
         lan: &LanSyncState,
-        config: FileAccessConfig,
+        dir: &Path,
+        account: &str,
+        mut config: FileAccessConfig,
     ) -> Result<(), String> {
         let slot = lan.files.service.lock().await;
-        let svc = slot.as_ref().ok_or("File access is not running")?;
-        svc.set_config(config)?;
-        lan.offer_files(Some(svc.clone())).await;
-        Ok(())
+        match slot.as_ref().filter(|s| s.account() == account) {
+            Some(svc) => {
+                svc.set_config(config)?;
+                lan.offer_files(Some(svc.clone())).await;
+                Ok(())
+            }
+            None => {
+                config.keep_seen_from(&policy::load(dir, account));
+                policy::save(dir, account, &config)
+            }
+        }
     }
 
     fn alert(app: AppHandle) -> Alert {
@@ -210,16 +234,20 @@ mod serving {
     #[tauri::command]
     pub async fn device_files_get_config(
         lan: State<'_, LanSyncState>,
+        account_id: String,
     ) -> Result<FileAccessConfig, String> {
-        Ok(running(&lan).await.map(|s| s.config()).unwrap_or_default())
+        let dir = crate::storage::config::config_dir();
+        Ok(get_config_inner(&lan, &dir, &account_id).await)
     }
 
     #[tauri::command]
     pub async fn device_files_set_config(
         lan: State<'_, LanSyncState>,
+        account_id: String,
         config: FileAccessConfig,
     ) -> Result<(), String> {
-        set_config_inner(&lan, config).await
+        let dir = crate::storage::config::config_dir();
+        set_config_inner(&lan, &dir, &account_id, config).await
     }
 
     #[tauri::command]
@@ -421,7 +449,9 @@ mod tests {
         }
 
         async fn set(&self, cfg: FileAccessConfig) {
-            serving::set_config_inner(&self.lan, cfg).await.unwrap();
+            serving::set_config_inner(&self.lan, self.dir.path(), ACCOUNT, cfg)
+                .await
+                .unwrap();
         }
     }
 
@@ -808,5 +838,43 @@ mod tests {
             async move { peers_inner(&lan).await.iter().all(|p| !p.files) }
         })
         .await;
+    }
+
+    #[tokio::test]
+    async fn get_config_reads_saved_file_while_stopped() {
+        let dir = tempfile::tempdir().unwrap();
+        let saved = config(dir.path(), &["dev-a"]);
+        policy::save(dir.path(), ACCOUNT, &saved).unwrap();
+        let lan = LanSyncState::default();
+        assert_eq!(
+            serving::get_config_inner(&lan, dir.path(), ACCOUNT).await,
+            saved
+        );
+        assert_eq!(
+            serving::get_config_inner(&lan, dir.path(), "other").await,
+            FileAccessConfig::default()
+        );
+    }
+
+    #[tokio::test]
+    async fn set_config_while_stopped_persists_and_next_start_uses_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let lan = LanSyncState::default();
+        let cfg = config(dir.path(), &["dev-a"]);
+        serving::set_config_inner(&lan, dir.path(), ACCOUNT, cfg.clone())
+            .await
+            .unwrap();
+        assert!(lan.files.service.lock().await.is_none());
+        assert_eq!(policy::load(dir.path(), ACCOUNT), cfg);
+        serving::start_inner(
+            &lan,
+            dir.path().to_path_buf(),
+            ACCOUNT.into(),
+            Arc::new(|_, _| {}),
+            Arc::new(|_| {}),
+        )
+        .await;
+        let svc = lan.files.service.lock().await.clone().unwrap();
+        assert_eq!(svc.config(), cfg);
     }
 }

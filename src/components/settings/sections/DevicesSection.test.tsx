@@ -4,12 +4,13 @@ import { render, cleanup, fireEvent, screen, waitFor } from "@testing-library/re
 const android = vi.hoisted(() => ({ on: false }));
 const saveFileAccess = vi.hoisted(() => vi.fn(async () => {}));
 const disconnectDevice = vi.hoisted(() => vi.fn(async () => {}));
+const loadFileAccess = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock("react-i18next", async (orig) => ({ ...(await orig<object>()), useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@tauri-apps/api/path", () => ({ downloadDir: vi.fn(async () => "/home/me/Downloads") }));
 vi.mock("@/services/systemDialog", () => ({ openSystemDialog: vi.fn(async () => "/home/me/Pictures") }));
-vi.mock("@/services/deviceFiles", () => ({ saveFileAccess, disconnectDevice }));
+vi.mock("@/services/deviceFiles", () => ({ saveFileAccess, disconnectDevice, loadFileAccess }));
 vi.mock("@/utils/platform", async (orig) => ({
   ...(await orig<object>()),
   useIsAndroid: () => android.on,
@@ -34,12 +35,23 @@ beforeEach(() => {
   android.on = false;
   saveFileAccess.mockClear();
   disconnectDevice.mockClear();
+  loadFileAccess.mockReset().mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 
 const laptop = { name: "MacBook", platform: "macos", lastSeen: "", lastRoute: null, deviceKey: "key-mac" };
 
 describe("DevicesSection", () => {
+  test("loads_config_on_mount_without_service", async () => {
+    setup(null);
+    loadFileAccess.mockImplementation(async () => {
+      useDeviceFilesStore.getState().setConfig({ ...base, folders: ["/saved"] });
+    });
+    render(<DevicesSection />);
+    expect(await screen.findByText("/saved")).toBeTruthy();
+    expect(loadFileAccess).toHaveBeenCalledTimes(1);
+  });
+
   test("toggle_on_adds_downloads_once", async () => {
     setup(base);
     render(<DevicesSection />);

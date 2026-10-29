@@ -37,6 +37,14 @@ impl FileAccessConfig {
     pub fn always_allows(&self, key: &str) -> bool {
         self.allowed.iter().any(|d| d.always && d.device_key == key)
     }
+
+    pub fn keep_seen_from(&mut self, old: &FileAccessConfig) {
+        for key in &old.seen_keys {
+            if !self.seen_keys.contains(key) {
+                self.seen_keys.push(key.clone());
+            }
+        }
+    }
 }
 
 pub(crate) fn hex(bytes: &[u8]) -> String {

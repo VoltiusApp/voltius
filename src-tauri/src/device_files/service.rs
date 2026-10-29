@@ -198,11 +198,7 @@ impl FileService {
     pub fn set_config(&self, mut cfg: FileAccessConfig) -> Result<(), String> {
         let mut guard = self.core.lock();
         let book = &mut *guard;
-        for key in &book.cfg.seen_keys {
-            if !cfg.seen_keys.contains(key) {
-                cfg.seen_keys.push(key.clone());
-            }
-        }
+        cfg.keep_seen_from(&book.cfg);
         policy::save(&self.dir, &self.account, &cfg)?;
         let old = std::mem::replace(&mut book.cfg, cfg);
         let new = &book.cfg;
