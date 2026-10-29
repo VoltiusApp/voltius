@@ -46,6 +46,21 @@ describe("lanSyncStore", () => {
     expect([...useLanSyncStore.getState().syncing]).toEqual(["d1"]);
   });
 
+  it("stamps lastSeen when a known peer leaves, not when it arrived", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-29T10:00:00Z"));
+      const { rememberDevice, setPeers } = useLanSyncStore.getState();
+      rememberDevice(peer);
+      setPeers([peer]);
+      vi.setSystemTime(new Date("2026-10-29T10:05:00Z"));
+      setPeers([]);
+      expect(useLanSyncStore.getState().known.d1.lastSeen).toBe("2026-10-29T10:05:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps clocks of known devices and caps the rest, oldest first", () => {
     const { rememberDevice, recordPeerPayload } = useLanSyncStore.getState();
     rememberDevice(peer);

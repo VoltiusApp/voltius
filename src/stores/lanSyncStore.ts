@@ -43,7 +43,12 @@ export const useLanSyncStore = create<LanSyncStore>()(
       setPeers: (peers) =>
         set((s) => {
           const present = new Set(peers.map((p) => p.deviceId));
-          return { peers, syncing: new Set([...s.syncing].filter((id) => present.has(id))) };
+          const lastSeen = new Date().toISOString();
+          const known = { ...s.known };
+          for (const { deviceId } of s.peers) {
+            if (!present.has(deviceId) && known[deviceId]) known[deviceId] = { ...known[deviceId], lastSeen };
+          }
+          return { peers, known, syncing: new Set([...s.syncing].filter((id) => present.has(id))) };
         }),
       markSyncing: (deviceId, on) =>
         set((s) => {
