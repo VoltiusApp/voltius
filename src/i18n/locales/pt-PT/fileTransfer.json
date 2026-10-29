@@ -227,7 +227,9 @@
       "fileAccessOff": "O acesso a ficheiros está desativado neste dispositivo",
       "offlineSeen": "Offline · visto {{ago}}",
       "offline": "Offline",
-      "routeChip": "{{route}} · {{ms}} ms"
+      "routeChip": "{{route}} · {{ms}} ms",
+      "readOnlyBadge": "Só de leitura",
+      "readOnlyShare": "{{name}} partilha estas pastas só para leitura."
     },
     "connect": {
       "deviceDialing": "A ligar…",

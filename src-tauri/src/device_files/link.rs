@@ -97,6 +97,7 @@ pub struct DeviceLink {
     device_id: String,
     pass: Mutex<Pass>,
     opened: AtomicBool,
+    read_only: AtomicBool,
     closed: CancellationToken,
     sftp_id: OnceLock<String>,
     on_closed: OnClosed,
@@ -142,10 +143,15 @@ impl DeviceLink {
             device_id,
             pass: Mutex::new(pass),
             opened: AtomicBool::new(false),
+            read_only: AtomicBool::new(false),
             closed,
             sftp_id: OnceLock::new(),
             on_closed,
         }
+    }
+
+    pub fn read_only(&self) -> bool {
+        self.read_only.load(Ordering::Relaxed)
     }
 
     pub fn bind(&self, sftp_id: String) {
@@ -191,8 +197,11 @@ impl DeviceLink {
         {
             let mut pass = self.lock();
             pass.key = Some(key);
-            if let FilesReply::Accepted { grant: Some(g), .. } = reply {
-                pass.grant = Some(g);
+            if let FilesReply::Accepted { read_only, grant } = reply {
+                self.read_only.store(read_only, Ordering::Relaxed);
+                if let Some(g) = grant {
+                    pass.grant = Some(g);
+                }
             }
         }
         let session = SftpSession::new(Wire::new(stream, self.closed.clone(), ()))

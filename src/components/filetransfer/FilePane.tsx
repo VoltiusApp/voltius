@@ -34,7 +34,7 @@ import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
 import { useDirListing } from "./useDirListing";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { describeError } from "@/services/backendErrors";
+import { describeWriteError } from "@/services/backendErrors";
 import { getShortcutHint, matchShortcut } from "@/stores/shortcutStore";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ export function FilePane({
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
   initialVisibleCols, onPanelDownload, onPanelUpload, onEdit,
-  onPaste, onBack, onForward,
+  onPaste, onBack, onForward, readOnly,
 }: {
   sftpId: string | null;
   isLocal: boolean;
@@ -118,9 +118,11 @@ export function FilePane({
   onForward?: () => void;
   canBack?: boolean;
   canForward?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const resolvedHostLabel = hostLabel ?? t("fileTransfer.common.remoteFallback");
+  const explain = (e: unknown) => describeWriteError(e, t, readOnly ? resolvedHostLabel : undefined);
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
 
@@ -242,7 +244,7 @@ export function FilePane({
       else if (isLocal) await fsTouch(fullPath);
       else if (sftpId) await sftpTouch(sftpId, fullPath);
       onRefresh();
-    } catch (e) { alert(describeError(e, t)); }
+    } catch (e) { alert(explain(e)); }
   };
 
   const selectedEntries = visibleEntries.filter((f) => selectedIdSet.has(f.path));
@@ -272,7 +274,7 @@ export function FilePane({
       }
       setSelection([]);
       onRefresh();
-    } catch (e) { alert(describeError(e, t)); }
+    } catch (e) { alert(explain(e)); }
   };
 
   const startRename = (f: FileEntry) => setRenaming(f.path);
@@ -284,7 +286,7 @@ export function FilePane({
       if (isLocal) { await fsRename(f.path, newPath); }
       else { await sftpRename(sftpId!, f.path, newPath); }
       onRefresh();
-    } catch (e) { alert(describeError(e, t)); }
+    } catch (e) { alert(explain(e)); }
     setRenaming(null);
   };
 
@@ -386,7 +388,7 @@ export function FilePane({
       if (isLocal) await fsCompress(file.path, archivePath);
       else if (sftpId) await sftpCompress(sftpId, file.path, archivePath);
       onRefresh();
-    } catch (e) { alert(describeError(e, t)); }
+    } catch (e) { alert(explain(e)); }
   };
 
   const handleExtract = async (file: FileEntry) => {
@@ -396,7 +398,7 @@ export function FilePane({
       if (isLocal) await fsExtract(file.path, destDir);
       else if (sftpId) await sftpExtract(sftpId, file.path, destDir);
       onRefresh();
-    } catch (e) { alert(describeError(e, t)); }
+    } catch (e) { alert(explain(e)); }
   };
 
   const handlePickLocal = async () => {

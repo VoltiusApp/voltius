@@ -210,7 +210,9 @@
       "fileAccessOff": "此设备已关闭文件访问",
       "offlineSeen": "离线 · 上次在线 {{ago}}",
       "offline": "离线",
-      "routeChip": "{{route}} · {{ms}} 毫秒"
+      "routeChip": "{{route}} · {{ms}} 毫秒",
+      "readOnlyBadge": "只读",
+      "readOnlyShare": "{{name}} 以只读方式共享这些文件夹。"
     },
     "connect": {
       "deviceDialing": "正在连接…",

@@ -6,7 +6,7 @@ const closed = vi.hoisted(() => ({ handlers: new Map<string, (e: { payload: unkn
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async (name: string, cb: (e: { payload: unknown }) => void) => { closed.handlers.set(name, cb); return () => {}; }),
 }));
-vi.mock("@/services/deviceFiles", () => ({ connectDevice: vi.fn(async () => ({ sftpId: "sftp-dev", rttMs: 3 })) }));
+vi.mock("@/services/deviceFiles", () => ({ connectDevice: vi.fn(async () => ({ sftpId: "sftp-dev", rttMs: 3, readOnly: false })) }));
 vi.mock("@/services/sftpTarget", () => ({ connectFileBackend: vi.fn(async () => "sftp-1") }));
 vi.mock("@/services/sftp", () => ({
   sftpClose: vi.fn(async () => {}),
@@ -31,9 +31,18 @@ test("device_target_uses_connectDevice", async () => {
   const { connectFileBackend } = await import("@/services/sftpTarget");
   const device = { deviceId: "d1", deviceKey: "k", name: "Work PC", platform: "linux", state: "ready", route: "lan", lastSeen: null } as const;
   const { result } = renderHook(() => useSftpDir({ device }));
-  await waitFor(() => expect(result.current.phase).toEqual({ tag: "connected", sftpId: "sftp-dev" }));
+  await waitFor(() => expect(result.current.phase).toMatchObject({ tag: "connected", sftpId: "sftp-dev", readOnly: false }));
   expect(connectDevice).toHaveBeenCalledWith("d1", expect.any(String));
   expect(connectFileBackend).not.toHaveBeenCalledWith(expect.objectContaining({ id: "d1" }), expect.anything());
+});
+
+test("device_connect_read_only_reaches_the_controller", async () => {
+  const { connectDevice } = await import("@/services/deviceFiles");
+  vi.mocked(connectDevice).mockResolvedValueOnce({ sftpId: "sftp-ro", rttMs: 3, readOnly: true });
+  const device = { deviceId: "d3", deviceKey: "k", name: "Work PC", platform: "linux", state: "ready", route: "lan", lastSeen: null } as const;
+  const { result } = renderHook(() => useSftpDir({ device }));
+  await waitFor(() => expect(result.current.phase.tag).toBe("connected"));
+  expect(result.current.readOnly).toBe(true);
 });
 
 test("a coded sftp-closed shows that code's message and stops retrying", async () => {

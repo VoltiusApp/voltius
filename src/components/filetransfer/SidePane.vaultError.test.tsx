@@ -58,6 +58,17 @@ beforeEach(() => {
   h.overlayProps = null;
 });
 
+test("a read-only device shows the marker and disables upload", () => {
+  const onUpload = vi.fn();
+  const phase: SidePhase = { tag: "connected", sftpId: "s", cwd: "/", selected: [], readOnly: true };
+  render(<SidePane {...props} phase={phase} onUpload={onUpload} />);
+  expect(document.querySelector("[data-read-only-badge]")?.textContent).toBe("fileTransfer.myDevices.readOnlyBadge");
+  expect((screen.getAllByTitle(/readOnlyShare/).find((el) => el.tagName === "BUTTON") as HTMLButtonElement).disabled).toBe(true);
+  cleanup();
+  render(<SidePane {...props} phase={{ ...phase, readOnly: false }} onUpload={onUpload} />);
+  expect(document.querySelector("[data-read-only-badge]")).toBeNull();
+});
+
 // The credentials are stored and the panel can offer to unlock; printing the
 // translated message instead leaves the user with no action.
 test("an SFTP connect blocked by the vault gets the overlay, not the raw message", () => {

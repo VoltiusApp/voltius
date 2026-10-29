@@ -195,13 +195,28 @@ export function SidePane({
           />
         )}
 
+        {phase.tag === "connected" && phase.readOnly && (
+          <span
+            data-read-only-badge
+            title={t("fileTransfer.myDevices.readOnlyShare", { name: hostLabel })}
+            className="px-1.5 py-0.5 rounded text-[0.6875rem] text-(--t-text-muted) bg-(--t-bg-hover)"
+          >
+            {t("fileTransfer.myDevices.readOnlyBadge")}
+          </span>
+        )}
+
         {phase.tag === "connected" && (
           <div className="ml-auto flex items-center gap-1">
             <NavBtn icon="lucide:arrow-left"  title={t("fileTransfer.side.back")}    disabled={!histState.canBack}    onClick={goBack} />
             <NavBtn icon="lucide:arrow-right" title={t("fileTransfer.side.forward")} disabled={!histState.canForward} onClick={goForward} />
             <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder={t("fileTransfer.side.filterPlaceholder")} width={128} shortcutId="filter" />
             {onUpload && (
-              <NavBtn icon="lucide:upload" title={t("fileTransfer.side.uploadHere")} disabled={false} onClick={onUpload} />
+              <NavBtn
+                icon="lucide:upload"
+                title={phase.readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: hostLabel }) : t("fileTransfer.side.uploadHere")}
+                disabled={!!phase.readOnly}
+                onClick={onUpload}
+              />
             )}
             {onDownloadFiles && (
               <NavBtn
@@ -312,6 +327,7 @@ export function SidePane({
             onForward={goForward}
             canBack={histState.canBack}
             canForward={histState.canForward}
+            readOnly={phase.readOnly}
           />
         )}
       </div>

@@ -21,6 +21,7 @@ const APPROVAL_HINT: Duration = Duration::from_millis(300);
 pub struct DeviceConnected {
     pub sftp_id: String,
     pub rtt_ms: u32,
+    pub read_only: bool,
 }
 
 #[async_trait]
@@ -88,7 +89,11 @@ pub(crate) async fn connect_inner(
     };
     link.bind(sftp_id.clone());
     links.insert(sftp_id.clone(), &link);
-    Ok(DeviceConnected { sftp_id, rtt_ms })
+    Ok(DeviceConnected {
+        sftp_id,
+        rtt_ms,
+        read_only: link.read_only(),
+    })
 }
 
 #[tauri::command]
@@ -575,6 +580,17 @@ mod tests {
         let cfg = s.svc().await.config();
         assert_eq!(cfg.seen_keys, [key_of("dev-a")]);
         assert!(cfg.allowed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn connect_reports_whether_the_device_is_read_only() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        assert!(!a.connect().await.unwrap().read_only);
+        let mut cfg = s.svc().await.config();
+        cfg.read_only = true;
+        s.set(cfg).await;
+        assert!(a.connect().await.unwrap().read_only);
     }
 
     #[tokio::test]

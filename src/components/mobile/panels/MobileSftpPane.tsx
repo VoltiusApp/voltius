@@ -24,7 +24,7 @@ import type { MyDevice } from "@/services/myDevices";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
 import { compareStrings } from "@/utils/localeFormat";
-import { describeError, type BackendErrorCode } from "@/services/backendErrors";
+import { describeWriteError, type BackendErrorCode } from "@/services/backendErrors";
 import { haptic } from "@/lib/haptics";
 import { appToast } from "@/services/appToast";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
@@ -65,7 +65,7 @@ export default function MobileSftpPane({
   backUp: boolean;
 }) {
   const { t } = useTranslation();
-  const { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
@@ -93,7 +93,7 @@ export default function MobileSftpPane({
 
   // A failed operation: error snackbar whose Retry runs it again (and reports again if it fails again).
   const fail = (e: unknown, retry: () => Promise<unknown>) => {
-    appToast("error", describeError(e, t), { action: { label: t("common.action.retry"), onClick: () => void attempt(retry) } });
+    appToast("error", describeWriteError(e, t, readOnly ? device?.name : undefined), { action: { label: t("common.action.retry"), onClick: () => void attempt(retry) } });
   };
   const attempt = (op: () => Promise<unknown>) => op().catch((e) => fail(e, op));
 
@@ -233,10 +233,16 @@ export default function MobileSftpPane({
           <span className="text-sm font-medium text-(--t-text-primary) truncate">{device ? device.name : connectionDisplayName(connection!)}</span>
           <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-dim) shrink-0" />
         </button>
+        {readOnly && (
+          <span data-read-only-badge className="ml-1 px-1.5 py-0.5 rounded text-[0.6875rem] text-(--t-text-muted) bg-(--t-bg-hover) shrink-0">
+            {t("fileTransfer.myDevices.readOnlyBadge")}
+          </span>
+        )}
         <div className="flex-1" />
         <button data-sftp-hidden onClick={() => setShowHidden((v) => !v)} className="h-12 px-3 text-xs rounded-full"
           style={{ color: showHidden ? "var(--t-accent)" : "var(--t-text-dim)" }}>{showHidden ? t("mobile.sftp.hidden") : t("mobile.sftp.visible")}</button>
-        <button data-sftp-create onClick={() => setCreating(true)} className="w-12 h-12 flex items-center justify-center rounded-full text-(--t-text-dim)" aria-label={t("common.action.create")}>
+        <button data-sftp-create onClick={() => setCreating(true)} disabled={readOnly} className="w-12 h-12 flex items-center justify-center rounded-full text-(--t-text-dim) disabled:opacity-35"
+          aria-label={readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: device?.name }) : t("common.action.create")}>
           <Icon icon="lucide:plus" width={20} />
         </button>
       </div>

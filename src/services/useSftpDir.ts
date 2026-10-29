@@ -18,7 +18,7 @@ import type { BackendErrorCode } from "@/services/backendErrors";
 
 export type SftpPhase =
   | { tag: "connecting" }
-  | { tag: "connected"; sftpId: string }
+  | { tag: "connected"; sftpId: string; readOnly?: boolean }
   | { tag: "error"; message: string; errorCode?: BackendErrorCode; final?: boolean };
 
 /** Parent of a POSIX path; "/" stays "/". */
@@ -60,8 +60,9 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     (async () => {
       try {
         let sftpId: string;
+        let readOnly: boolean | undefined;
         if ("device" in target) {
-          sftpId = (await connectDevice(target.device.deviceId, genId())).sftpId;
+          ({ sftpId, readOnly } = await connectDevice(target.device.deviceId, genId()));
         } else {
           sftpId = await connectFileBackend(target, genId());
           useConnectionStore.getState().setLastUsed(target.id).catch(() => {});
@@ -71,7 +72,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
         const home = await sftpCanonicalize(sftpId, ".");
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         setCwd(home || "/");
-        setPhase({ tag: "connected", sftpId });
+        setPhase({ tag: "connected", sftpId, readOnly });
       } catch (e) {
         if (!cancelled) setPhase(connectErrorPhase(e));
       }
@@ -117,5 +118,6 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }
   }, [sftpId, refresh]);
 
-  return { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
+  const readOnly = phase.tag === "connected" && !!phase.readOnly;
+  return { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
 }

@@ -241,7 +241,9 @@
       "fileAccessOff": "Přístup k souborům je na tomto zařízení vypnutý",
       "offlineSeen": "Offline · naposledy {{ago}}",
       "offline": "Offline",
-      "routeChip": "{{route}} · {{ms}} ms"
+      "routeChip": "{{route}} · {{ms}} ms",
+      "readOnlyBadge": "Pouze pro čtení",
+      "readOnlyShare": "{{name}} sdílí tyto složky pouze pro čtení."
     },
     "connect": {
       "deviceDialing": "Připojování…",

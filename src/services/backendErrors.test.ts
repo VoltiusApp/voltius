@@ -7,6 +7,7 @@ import {
   BackendError,
   backendErrorCode,
   describeError,
+  describeWriteError,
   fromInvokeRejection,
   type BackendErrorCode,
 } from "./backendErrors";
@@ -14,6 +15,16 @@ import { VaultLockedError } from "./vaultErrors";
 
 beforeAll(() => Promise.all([ensureLocale("fr"), ensureLocale("tr")]));
 afterEach(() => i18n.changeLanguage("en"));
+
+describe("describeWriteError", () => {
+  it("names a read-only device when its write is refused", () => {
+    const denied = new BackendError("permission-denied", "Permission denied");
+    expect(describeWriteError(denied, i18n.t, "Work PC")).toBe("Work PC shares these folders read-only.");
+    expect(describeWriteError(denied, i18n.t)).toBe(describeError(denied, i18n.t));
+    const other = new BackendError("not-found", "gone");
+    expect(describeWriteError(other, i18n.t, "Work PC")).toBe(describeError(other, i18n.t));
+  });
+});
 
 describe("describeError", () => {
   it("translates a coded error, filling its params", async () => {

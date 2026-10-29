@@ -211,7 +211,9 @@
       "fileAccessOff": "Bu cihazda dosya erişimi kapalı",
       "offlineSeen": "Çevrimdışı · son görülme {{ago}}",
       "offline": "Çevrimdışı",
-      "routeChip": "{{route}} · {{ms}} ms"
+      "routeChip": "{{route}} · {{ms}} ms",
+      "readOnlyBadge": "Salt okunur",
+      "readOnlyShare": "{{name}} bu klasörleri salt okunur olarak paylaşıyor."
     },
     "connect": {
       "deviceDialing": "Bağlanıyor…",

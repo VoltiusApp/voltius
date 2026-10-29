@@ -48,7 +48,7 @@ export function columnGrid(withPermissions: boolean, visibleCols: VisibleCols, c
 export type SidePhase =
   | { tag: "picking" }
   | { tag: "connecting"; connectId: string; host: HostChoice }
-  | { tag: "connected"; sftpId: string | null; cwd: string; selected: FileEntry[]; route?: LanRoute; rttMs?: number }
+  | { tag: "connected"; sftpId: string | null; cwd: string; selected: FileEntry[]; route?: LanRoute; rttMs?: number; readOnly?: boolean }
   | { tag: "error"; message: string; errorCode?: BackendErrorCode; final?: boolean; host?: HostChoice; lostSftpId?: string };
 
 export type Transfer = {

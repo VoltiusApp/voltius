@@ -22,7 +22,8 @@ import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboard
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { connectFileBackend } from "@/services/sftpTarget";
 import { connectDevice } from "@/services/deviceFiles";
-import type { BackendErrorCode } from "@/services/backendErrors";
+import { describeWriteError, type BackendErrorCode } from "@/services/backendErrors";
+import type { TFunction } from "i18next";
 import { hostPresentation } from "./hostPresentation";
 import { idToRelease, relinkOf } from "./sideRelink";
 import { cancelKnownHostPrompt } from "@/services/knownHosts";
@@ -44,6 +45,14 @@ import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { lazyNamed } from "@/utils/lazyNamed";
 import { EditorDropOverlay } from "./editor/EditorDropOverlay";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
+
+type TransferFn = (transferId: string) => Promise<void>;
+
+function explainReadOnly(fn: TransferFn, dst: SidePhase, dstHost: HostChoice | null, t: TFunction): TransferFn {
+  if (dst.tag !== "connected" || !dst.readOnly || !dstHost) return fn;
+  const name = hostPresentation(dstHost, t).name;
+  return (tid) => fn(tid).catch((e) => { throw new Error(describeWriteError(e, t, name)); });
+}
 
 const EditorTab = lazyNamed(() => import("./editor/EditorTab"), "EditorTab");
 const DiffTab = lazyNamed(() => import("./editor/DiffTab"), "DiffTab");
@@ -123,7 +132,7 @@ export default function SFTPPage() {
     const isCurrent = () => currentConnect.current[side] === connectId;
     setPhase({ tag: "connecting", connectId, host });
     let sftpId: string | null = null;
-    let link: Pick<Extract<SidePhase, { tag: "connected" }>, "route" | "rttMs"> = {};
+    let link: Pick<Extract<SidePhase, { tag: "connected" }>, "route" | "rttMs" | "readOnly"> = {};
     try {
       let cwd = "/";
       if (host.kind === "local") {
@@ -134,7 +143,7 @@ export default function SFTPPage() {
           if (host.kind === "device") {
             const opened = await connectDevice(host.device.deviceId, connectId, relink);
             sftpId = opened.sftpId;
-            link = { route: host.device.route ?? undefined, rttMs: opened.rttMs };
+            link = { route: host.device.route ?? undefined, rttMs: opened.rttMs, readOnly: opened.readOnly };
           } else {
             sftpId = await connectFileBackend(host.connection, connectId, true, relink);
             useConnectionStore.getState().setLastUsed(host.connection.id).catch(() => {});
@@ -201,7 +210,7 @@ export default function SFTPPage() {
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
-    await runTransfer(file.name, dir, (tid) => transferItem({
+    await runTransfer(file.name, dir, explainReadOnly((tid) => transferItem({
       from: srcIsLocal ? "local" : "remote",
       to: dstIsLocal ? "local" : "remote",
       srcSftpId: src.sftpId ?? undefined,
@@ -211,8 +220,8 @@ export default function SFTPPage() {
       isDir: file.isDir,
       useTar: mode === "tar",
       transferId: tid,
-    }), refreshDst, accelFor(mode, file.isDir));
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
+    }), dst, dstHost, t), refreshDst, accelFor(mode, file.isDir));
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, t]);
 
   // Batch-tar path: packs all selected items into one archive per transfer.
   const execBatchTar = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
@@ -235,16 +244,16 @@ export default function SFTPPage() {
         await runTransfer(file.name, dir, (tid) => fsCopy(file.path, joinPath(dstBase, file.name), tid), refreshDst);
       }
     } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
-      await runTransfer(label, dir, (tid) =>
-        sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), refreshDst, "tar");
+      await runTransfer(label, dir, explainReadOnly((tid) =>
+        sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), dst, dstHost, t), refreshDst, "tar");
     } else if (!srcIsLocal && dstIsLocal && src.sftpId) {
       await runTransfer(label, dir, (tid) =>
         sftpDownloadBatchTar({ sftpId: src.sftpId!, remotePaths: files.map((f) => f.path), localDir: dstBase, transferId: tid }), refreshDst, "tar");
     } else if (!srcIsLocal && !dstIsLocal && src.sftpId && dst.sftpId) {
-      await runTransfer(label, dir, (tid) =>
-        sftpTransferBatchTar({ srcSftpId: src.sftpId!, srcPaths: files.map((f) => f.path), dstSftpId: dst.sftpId!, dstDir: dstBase, transferId: tid }), refreshDst, "tar");
+      await runTransfer(label, dir, explainReadOnly((tid) =>
+        sftpTransferBatchTar({ srcSftpId: src.sftpId!, srcPaths: files.map((f) => f.path), dstSftpId: dst.sftpId!, dstDir: dstBase, transferId: tid }), dst, dstHost, t), refreshDst, "tar");
     }
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, t]);
 
   // Batch-tar when tar is usable, else per-file; plain SFTP if any host lacks tar.
   const executeFiles = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {

@@ -80,7 +80,7 @@ export async function stopDeviceFiles(): Promise<void> {
   await invoke("device_files_stop").catch(fail("stop"));
 }
 
-export function connectDevice(deviceId: string, connectId: string, relink?: string): Promise<{ sftpId: string; rttMs: number }> {
+export function connectDevice(deviceId: string, connectId: string, relink?: string): Promise<{ sftpId: string; rttMs: number; readOnly: boolean }> {
   return invoke("device_files_connect", { deviceId, connectId, relink });
 }
 
