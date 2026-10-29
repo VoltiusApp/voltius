@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { createSerialQueue } from "@/lib/serialQueue";
 import { isServerMode } from "@/services/account";
 import { scheduleSync } from "@/services/sync";
 import { useSshConfigStore } from "@/stores/sshConfigStore";
@@ -107,12 +108,7 @@ function write(state: SshConfigState): Promise<void> {
   return invoke("ssh_config_state_save", { state: JSON.stringify(state) });
 }
 
-let writes: Promise<unknown> = Promise.resolve();
-function serialized<T>(step: () => Promise<T>): Promise<T> {
-  const run = writes.then(step);
-  writes = run.catch(() => {});
-  return run;
-}
+const serialized = createSerialQueue();
 
 export const updateSshConfigState = (patch: SshConfigState): Promise<SshConfigState> => serialized(async () => {
   const merged = mergeSshConfigState(patch, await loadSshConfigState());

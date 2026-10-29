@@ -8,7 +8,8 @@ import {
   authenticateServerAccount, getAccountMode, getCurrentUserEmail, linkToCloud, login, setMasterPassword, signInToCloud,
 } from "@/services/account";
 import { addAccount } from "@/services/savedAccounts";
-import { startRealtimeSync, syncNow, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
+import { syncNow, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
+import { startSessionSync } from "@/services/lanSync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { lastServerUrl } from "@/utils/serverInstance";
@@ -75,7 +76,7 @@ export default function CloudAuthModal() {
 
     const connected = async (firstSync: () => Promise<void>) => {
       firstSync().catch(() => {});
-      startRealtimeSync();
+      startSessionSync();
       await reloadSubscription().catch(() => {});
       onClose();
       setEmail("");

@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   signInToCloud: vi.fn(),
   syncNow: vi.fn(async () => {}),
   syncOnLoginReplace: vi.fn(async () => {}),
-  startRealtimeSync: vi.fn(),
+  startSessionSync: vi.fn(),
   openPasskey: vi.fn(),
   passkeyRoundTrip: vi.fn(),
   cancelPasskeyRoundTrip: vi.fn(),
@@ -37,8 +37,8 @@ vi.mock("@/services/passkeyRoundTrip", () => {
     cancelPasskeyRoundTrip: h.cancelPasskeyRoundTrip,
   };
 });
+vi.mock("@/services/lanSync", () => ({ startSessionSync: h.startSessionSync }));
 vi.mock("@/services/sync", () => ({
-  startRealtimeSync: h.startRealtimeSync,
   syncNow: h.syncNow,
   syncOnLogin: vi.fn(async () => {}),
   syncOnLoginReplace: h.syncOnLoginReplace,
@@ -87,7 +87,7 @@ test("a sign-in that needs a code shows the code step and finishes from it", asy
   await waitFor(() => expect(useUIStore.getState().cloudAuthOpen).toBe(false));
   expect(complete).toHaveBeenCalledWith({ code: "123456" });
   expect(h.syncOnLoginReplace).toHaveBeenCalled();
-  expect(h.startRealtimeSync).toHaveBeenCalled();
+  expect(h.startSessionSync).toHaveBeenCalled();
 });
 
 test("a refused code keeps the step open with the reason, and a recovery code can be used instead", async () => {

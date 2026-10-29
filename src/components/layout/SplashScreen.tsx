@@ -14,7 +14,8 @@ import { secretState } from "@/services/vaultSecret";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { saveCurrentAccount } from "@/services/savedAccounts";
-import { syncOnLaunch, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
+import { syncOnLaunch, syncOnLoginReplace } from "@/services/sync";
+import { startSessionSync } from "@/services/lanSync";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
 import { loadSeededPlugins } from "@/plugins/seeded";
 import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows } from "@/stores/marketplaceStore";
@@ -162,7 +163,7 @@ export default function SplashScreen({ onReady }: Props) {
       (useReplace ? syncOnLoginReplace() : syncOnLaunch())
         .catch(() => {})
         .finally(() => resolveLoginSync());
-      startRealtimeSync();
+      startSessionSync();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
     // Plugin loading must never freeze startup: a single rejected invoke here

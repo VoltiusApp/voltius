@@ -117,10 +117,17 @@ export async function verifyVaultKey(encKey: number[]): Promise<void> {
   await invokeDecrypting("secrets_verify", { encKey });
 }
 
-export async function lockVault(): Promise<void> {
+// The LAN listener outlives a page reload, so it must stop wherever the key is dropped.
+async function dropKey(): Promise<void> {
   pendingKey = null;
   unlocked = false;
+  const { stopLanSync } = await import("@/services/lanSync");
+  await stopLanSync();
   await invoke("secrets_lock");
+}
+
+export async function lockVault(): Promise<void> {
+  await dropKey();
   const { onSessionEnd } = await import("@/services/teamDataManager");
   onSessionEnd();
 }
@@ -184,12 +191,10 @@ export async function readLocalSecrets(keys: string[]): Promise<Record<string, s
 }
 
 export async function resetVault(): Promise<void> {
-  pendingKey = null;
-  unlocked = false;
   // Before the storage wipe: the store writes itself back to localStorage on set.
   useOrgLockPolicyStore.getState().setPolicy(null);
   clearPersistedAccountUiState();
-  await invoke("secrets_lock");
+  await dropKey();
   await invoke("vault_reset"); // deletes secrets.enc + connections.json + legacy vault.hold
 
   // Clear all keychain entries so the app starts fresh

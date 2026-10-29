@@ -22,8 +22,8 @@ vi.mock("@/services/account", () => ({
   signInToCloud: h.signInToCloud,
 }));
 vi.mock("@/services/savedAccounts", () => ({ addAccount: h.addAccount }));
+vi.mock("@/services/lanSync", () => ({ startSessionSync: vi.fn() }));
 vi.mock("@/services/sync", () => ({
-  startRealtimeSync: vi.fn(),
   syncOnLogin: vi.fn(async () => {}),
   syncOnLoginReplace: vi.fn(async () => {}),
 }));
