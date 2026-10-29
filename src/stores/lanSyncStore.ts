@@ -75,7 +75,8 @@ export const useLanSyncStore = create<LanSyncStore>()(
           const peerClocks = { ...s.peerClocks };
           delete peerClocks[deviceId];
           const strangers = Object.keys(peerClocks).filter((id) => !(id in s.known));
-          for (const id of strangers.slice(0, Math.max(0, strangers.length - MAX_UNKNOWN_PEER_CLOCKS + 1))) delete peerClocks[id];
+          const room = MAX_UNKNOWN_PEER_CLOCKS - (deviceId in s.known ? 0 : 1);
+          for (const id of strangers.slice(0, Math.max(0, strangers.length - room))) delete peerClocks[id];
           return { peerClocks: { ...peerClocks, [deviceId]: entityClocks(payload) } };
         }),
     }),

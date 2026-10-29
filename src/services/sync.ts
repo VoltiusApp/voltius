@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
+import { createSerialQueue } from "@/lib/serialQueue";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
@@ -522,6 +523,9 @@ async function completeTeamLoginSetup(): Promise<void> {
 
 type MergedPayload = Required<BlobPayload>;
 
+// `state_import` rewrites whole files: every read-merge-write of local state runs here, one at a time.
+export const serialMerge = createSerialQueue();
+
 export function parseEntities(json: string | undefined): TimestampedEntity[] {
   try {
     const parsed: unknown = JSON.parse(json ?? "[]");
@@ -609,8 +613,11 @@ const deviceLabel = (device: DeviceInfo) => `device ${device.device_id}`;
 /** CRDT-merge a decrypted remote payload into local state. Returns true if local state changed. */
 export async function mergeRemotePayload(remoteDeviceId: string, remotePayload: BlobPayload): Promise<boolean> {
   await applyRemoteExtras(remoteDeviceId, remotePayload);
-  const { payload, changed } = mergeBlobPayload(await invoke<BlobPayload>("state_export_raw"), remotePayload);
-  if (changed) await importMergedPayload(payload);
+  const changed = await serialMerge(async () => {
+    const { payload, changed } = mergeBlobPayload(await invoke<BlobPayload>("state_export_raw"), remotePayload);
+    if (changed) await importMergedPayload(payload);
+    return changed;
+  });
   await applyRemoteSshConfig(remotePayload);
   remoteMergedListeners.emit(remoteDeviceId, remotePayload);
   return changed;
@@ -749,7 +756,7 @@ export async function syncOnLoginReplace(): Promise<void> {
       pulled.push([device.device_id, remotePayload]);
     });
 
-    await importMergedPayload(merged);
+    await serialMerge(() => importMergedPayload(merged));
     for (const [deviceId, remotePayload] of pulled) {
       await applyRemoteSshConfig(remotePayload);
       remoteMergedListeners.emit(deviceId, remotePayload);

@@ -6,6 +6,7 @@ import { setVaultKey, getVaultKey, verifyVaultKey, lockVault, getVaultStatus, un
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
+import { sameKey } from "./vaultKeyCandidates";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
@@ -38,9 +39,6 @@ interface UnwrappedUserSecrets {
   dek: number[];
   x25519_private: number[];
 }
-
-const sameKey = (a: number[] | null, b: number[] | null) =>
-  !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
 
 function isHexEncoded32ByteKey(value: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(value);

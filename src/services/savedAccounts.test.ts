@@ -11,7 +11,8 @@ const h = vi.hoisted(() => ({
   readLocalSecrets: vi.fn(async (_keys: string[]) => ({}) as Record<string, string>),
   push: vi.fn(async (_options?: { signal?: AbortSignal }) => undefined),
   stopRealtimeSync: vi.fn(),
-  startRealtimeSync: vi.fn(),
+  stopLanSync: vi.fn(async () => undefined),
+  startSessionSync: vi.fn(),
   haltSync: vi.fn(),
   resumeSync: vi.fn(),
   isSyncPaused: vi.fn(() => false),
@@ -39,11 +40,11 @@ vi.mock("./vault", () => ({
 vi.mock("@/services/sync", () => ({
   push: h.push,
   stopRealtimeSync: h.stopRealtimeSync,
-  startRealtimeSync: h.startRealtimeSync,
   haltSync: h.haltSync,
   resumeSync: h.resumeSync,
   isSyncPaused: h.isSyncPaused,
 }));
+vi.mock("@/services/lanSync", () => ({ stopLanSync: h.stopLanSync, startSessionSync: h.startSessionSync }));
 vi.mock("@/stores/persistedAccountUiState", () => ({
   clearPersistedAccountUiState: h.clearPersistedAccountUiState,
   parkAccountUiState: h.parkAccountUiState,
@@ -248,6 +249,7 @@ test("switchToAccount tears the old session down before reloading", async () => 
   await switchToAccount(CLOUD_B);
   expect(h.push).toHaveBeenCalled();
   expect(h.stopRealtimeSync).toHaveBeenCalled();
+  expect(h.stopLanSync.mock.invocationCallOrder[0]).toBeLessThan(h.swapAccountProfile.mock.invocationCallOrder[0]);
   expect(h.lockVault).toHaveBeenCalled();
   expect(h.swapAccountProfile).toHaveBeenCalledWith({ parkAs: null, restore: "b", carry: {} });
   expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
@@ -352,7 +354,7 @@ test("a swap that fails leaves the session as it was", async () => {
   expect(h.store.jwt).toBe(CLOUD_A.jwt);
   expect(h.lockVault).not.toHaveBeenCalled();
   expect(h.resumeSync).toHaveBeenCalled();
-  expect(h.startRealtimeSync).toHaveBeenCalled();
+  expect(h.startSessionSync).toHaveBeenCalled();
   expect(h.clearPersistedAccountUiState).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });

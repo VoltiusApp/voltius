@@ -313,8 +313,10 @@ async function flushPendingChanges(): Promise<void> {
  */
 async function swapOutSession(restore: string): Promise<boolean> {
   const parkAs = await stashUiStateForCurrentAccount();
-  const { stopRealtimeSync, startRealtimeSync, haltSync, resumeSync } = await import("@/services/sync");
+  const { stopRealtimeSync, haltSync, resumeSync } = await import("@/services/sync");
+  const { stopLanSync, startSessionSync } = await import("@/services/lanSync");
   stopRealtimeSync();
+  await stopLanSync();
   await flushPendingChanges();
   haltSync();
   // Read with the outgoing key, before the swap locks the store.
@@ -323,7 +325,7 @@ async function swapOutSession(restore: string): Promise<boolean> {
     return await swapAccountProfile({ parkAs, restore, carry });
   } catch (e) {
     resumeSync();
-    startRealtimeSync();
+    startSessionSync();
     throw e;
   }
 }

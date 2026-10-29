@@ -56,5 +56,7 @@ describe("lanSyncStore", () => {
     expect(ids.filter((id) => id.startsWith("cloud"))).toEqual(Array.from({ length: 16 }, (_, i) => `cloud${i + 4}`));
     recordPeerPayload("cloud4", payload);
     expect(Object.keys(useLanSyncStore.getState().peerClocks).pop()).toBe("cloud4");
+    recordPeerPayload("d1", payload);
+    expect(Object.keys(useLanSyncStore.getState().peerClocks).filter((id) => id.startsWith("cloud"))).toHaveLength(16);
   });
 });

@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { logFailure } from "@/lib/logger";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
@@ -121,9 +122,11 @@ export async function verifyVaultKey(encKey: number[]): Promise<void> {
 async function dropKey(): Promise<void> {
   pendingKey = null;
   unlocked = false;
-  const { stopLanSync } = await import("@/services/lanSync");
-  await stopLanSync();
-  await invoke("secrets_lock");
+  try {
+    await invoke("secrets_lock");
+  } finally {
+    await import("@/services/lanSync").then((m) => m.stopLanSync()).catch(logFailure("lan-sync stop"));
+  }
 }
 
 export async function lockVault(): Promise<void> {

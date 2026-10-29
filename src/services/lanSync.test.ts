@@ -51,6 +51,7 @@ vi.mock("@/services/sync", async () => {
 });
 
 import { setLanSyncPaused, startLanSync, stopLanSync } from "./lanSync";
+import { resolveLoginSync, setLoginSyncPending } from "./loginSyncGate";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 
@@ -165,9 +166,13 @@ describe("lanSync", () => {
     h.mutations.forEach((fn) => fn());
     await settle();
     expect(broadcasts()).toBe(0);
+    expect(h.exportLocalBlob).not.toHaveBeenCalled();
+    await setLanSyncPaused(false);
+    await settle();
+    expect(broadcasts()).toBe(1);
   });
 
-  test("lock or logout stops lan sync and clears trust", async () => {
+  test("stop clears peers, listeners and the running manager", async () => {
     await started();
     emit("peers", [peer("A")]);
     await stopLanSync();
@@ -228,6 +233,7 @@ describe("lanSync", () => {
   test("local clocks come from our own outgoing payload", async () => {
     await startLanSync();
     await vi.advanceTimersByTimeAsync(0);
+    expect(broadcasts()).toBe(1);
     expect(h.openRemoteBlob).toHaveBeenCalledWith([[1]], [7]);
     expect(useLanSyncStore.getState().localClocks).toEqual({ "connections.json:c": "4" });
   });
@@ -268,5 +274,79 @@ describe("lanSync", () => {
     emit("peers", [peer("A")]);
     await settle();
     expect(broadcasts()).toBe(2);
+  });
+
+  test("waits for the login sync and the first sync before starting", async () => {
+    setLoginSyncPending();
+    let firstSyncDone!: () => void;
+    const run = startLanSync(new Promise<void>((r) => { firstSyncDone = r; }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_start")).toHaveLength(0);
+    resolveLoginSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_start")).toHaveLength(0);
+    firstSyncDone();
+    await run;
+    expect(calls("lan_sync_start")).toHaveLength(1);
+  });
+
+  test("starting again with the same keys keeps the running manager", async () => {
+    await startLanSync();
+    await startLanSync();
+    expect(calls("lan_sync_start")).toHaveLength(1);
+  });
+
+  test("a failed start detaches every listener", async () => {
+    h.invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "lan_sync_start") throw new Error("bind failed");
+      return cmd === "device_hostname" ? "host" : undefined;
+    });
+    await expect(startLanSync()).rejects.toThrow("bind failed");
+    expect(h.handlers.size).toBe(0);
+    expect(h.mutations.size).toBe(0);
+  });
+
+  test("stop returns within its bound while lan_sync_start hangs, then stops once it settles", async () => {
+    let finishStart!: () => void;
+    h.invoke.mockImplementation((cmd: string) =>
+      cmd === "lan_sync_start" ? new Promise<void>((r) => { finishStart = r; }) : Promise.resolve(cmd === "device_hostname" ? "host" : undefined),
+    );
+    void startLanSync();
+    await vi.advanceTimersByTimeAsync(0);
+    let stopped = false;
+    void stopLanSync().then(() => { stopped = true; });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(stopped).toBe(true);
+    expect(calls("lan_sync_stop")).toHaveLength(0);
+    finishStart();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_stop")).toHaveLength(1);
+  });
+
+  test("a failed export does not wedge later broadcasts", async () => {
+    await started();
+    h.exportLocalBlob.mockRejectedValueOnce(new Error("vault locked"));
+    h.mutations.forEach((fn) => fn());
+    await settle();
+    expect(broadcasts()).toBe(0);
+    h.mutations.forEach((fn) => fn());
+    await settle();
+    expect(broadcasts()).toBe(1);
+  });
+
+  test("blobs queued behind a running merge are dropped once stopped", async () => {
+    await started();
+    let finishMerge!: () => void;
+    h.mergeRemotePayload.mockImplementationOnce(() => new Promise<boolean>((r) => { finishMerge = () => r(false); }));
+    emit("blob-ready", { deviceId: "A" });
+    emit("blob-ready", { deviceId: "B" });
+    await vi.advanceTimersByTimeAsync(0);
+    const stopping = stopLanSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_stop")).toHaveLength(0);
+    finishMerge();
+    await stopping;
+    expect(calls("lan_sync_stop")).toHaveLength(1);
+    expect(calls("lan_sync_take_blob").map(([, a]) => a.deviceId)).toEqual(["A"]);
   });
 });

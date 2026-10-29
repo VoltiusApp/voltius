@@ -75,8 +75,7 @@ export default function CloudAuthModal() {
     }
 
     const connected = async (firstSync: () => Promise<void>) => {
-      firstSync().catch(() => {});
-      startSessionSync();
+      startSessionSync(firstSync().catch(() => {}));
       await reloadSubscription().catch(() => {});
       onClose();
       setEmail("");
