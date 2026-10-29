@@ -23,6 +23,7 @@ import { getVaultKey } from "@/services/vault";
 import { sameKey } from "@/services/vaultKeyCandidates";
 import { useLanSyncStore, type LanStatus } from "@/stores/lanSyncStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
+import { getPlatformSync } from "@/utils/platform";
 
 const BROADCAST_DEBOUNCE_MS = 1000;
 const STOP_WAIT_MS = 2000;
@@ -41,6 +42,7 @@ const lifecycle = createSerialQueue();
 const merges = createSerialQueue();
 let session: Session | null = null;
 let epoch = 0;
+let requested = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
 let owed = false;
@@ -165,6 +167,7 @@ async function end(): Promise<void> {
 }
 
 export async function startLanSync(firstSync: Promise<unknown> = Promise.resolve()): Promise<void> {
+  requested = true;
   const wanted = ++epoch;
   if (!getVaultKey() || !(await isServerMode())) return;
   await ensureLanSyncIntro();
@@ -173,11 +176,25 @@ export async function startLanSync(firstSync: Promise<unknown> = Promise.resolve
 }
 
 // Bounded: a vault lock or account switch must never wait on a stuck start.
-export async function stopLanSync(): Promise<void> {
+async function halt(): Promise<void> {
   epoch++;
   const stopped = lifecycle(end).catch(fail("stop")).then(() => true);
   if (!(await settleWithin(stopped, STOP_WAIT_MS, false))) fail("stop")("still waiting on start");
 }
+
+export async function stopLanSync(): Promise<void> {
+  requested = false;
+  await halt();
+}
+
+// Android keeps the process alive in the background; the multicast lock must not outlive the foreground.
+function onVisibilityChange(): void {
+  if (!requested || getPlatformSync() !== "android") return;
+  if (document.visibilityState === "hidden") void halt();
+  else startLanSync().catch(fail("resume"));
+}
+
+if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibilityChange);
 
 export async function setLanSyncPaused(paused: boolean): Promise<void> {
   store().setPaused(paused);

@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   intro: vi.fn(async () => {}),
   failListen: null as string | null,
   toast: vi.fn(),
+  platform: "linux",
+  visibility: "visible" as DocumentVisibilityState,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -31,6 +33,10 @@ vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `
 vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode }));
 vi.mock("@/services/vault", () => ({ getVaultKey: () => h.vaultKey }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: h.intro }));
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  getPlatformSync: () => h.platform,
+}));
 vi.mock("@/services/sync", async () => {
   const { buildDecryptKeyCandidates } = await import("@/services/vaultKeyCandidates");
   const { useVaultKeysStore } = await import("@/stores/vaultKeysStore");
@@ -71,6 +77,13 @@ const nearby = (...ids: string[]) =>
     peers: ids.map(peer) as never,
     known: Object.fromEntries(ids.map((id) => [id, { name: id, platform: "linux", lastSeen: "1", lastRoute: "lan" }])),
   });
+const toBackground = async (state: DocumentVisibilityState) => {
+  h.visibility = state;
+  document.dispatchEvent(new Event("visibilitychange"));
+  await vi.advanceTimersByTimeAsync(0);
+};
+
+Object.defineProperty(document, "visibilityState", { configurable: true, get: () => h.visibility });
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -86,6 +99,8 @@ beforeEach(() => {
   h.mergeRemotePayload.mockReset().mockImplementation(async () => h.merged);
   h.merged = false;
   h.failListen = null;
+  h.platform = "linux";
+  h.visibility = "visible";
   h.toast.mockClear();
   h.reloadAllStores.mockClear();
   h.exportLocalBlob.mockClear();
@@ -177,6 +192,47 @@ describe("lanSync", () => {
     await settle();
     expect(useLanSyncStore.getState().localClocks).toEqual({ "connections.json:c": "4" });
     expect(broadcasts()).toBe(0);
+  });
+
+  test("on Android the background stops LAN sync and the foreground restarts it, still paused", async () => {
+    h.platform = "android";
+    useLanSyncStore.setState({ paused: true });
+    await started();
+    await toBackground("hidden");
+    expect(calls("lan_sync_stop")).toHaveLength(1);
+    expect(useLanSyncStore.getState().status).toBe("stopped");
+    await toBackground("visible");
+    const order = h.invoke.mock.calls.map(([c]) => c);
+    expect(calls("lan_sync_start")).toHaveLength(1);
+    expect(h.invoke).toHaveBeenCalledWith("lan_sync_set_paused", { paused: true });
+    expect(order.lastIndexOf("lan_sync_set_paused")).toBeLessThan(order.indexOf("lan_sync_start"));
+  });
+
+  test("the foreground does not restart LAN sync stopped by a lock", async () => {
+    h.platform = "android";
+    await started();
+    await stopLanSync();
+    await toBackground("hidden");
+    await toBackground("visible");
+    expect(calls("lan_sync_start")).toHaveLength(0);
+  });
+
+  test("the foreground waits for a pending login sync", async () => {
+    h.platform = "android";
+    await started();
+    await toBackground("hidden");
+    setLoginSyncPending();
+    await toBackground("visible");
+    expect(calls("lan_sync_start")).toHaveLength(0);
+    resolveLoginSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_start")).toHaveLength(1);
+  });
+
+  test("desktop keeps LAN sync running in the background", async () => {
+    await started();
+    await toBackground("hidden");
+    expect(calls("lan_sync_stop")).toHaveLength(0);
   });
 
   test("received blob that changes state reloads and rebroadcasts", async () => {
