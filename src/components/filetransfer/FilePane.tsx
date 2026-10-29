@@ -34,7 +34,7 @@ import { parentDir, joinPath, withDriveRootSep } from "./moveTargetCore";
 import { useDirListing } from "./useDirListing";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { describeWriteError } from "@/services/backendErrors";
+import { describeError } from "@/services/backendErrors";
 import { getShortcutHint, matchShortcut } from "@/stores/shortcutStore";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ type SelectionActionsCtx = {
   onCompress: (file: FileEntry) => Promise<void>;
   onExtract: (file: FileEntry) => Promise<void>;
   canArchive: boolean;
+  readOnlyTip?: string;
   onPermissions?: (files: FileEntry[]) => void;
   onOpenInTerminal?: (path: string) => void;
   onPanelDownload?: (files: FileEntry[]) => void;
@@ -61,12 +62,13 @@ type SelectionActionsCtx = {
 
 // ── IconBtn ───────────────────────────────────────────────────────────────────
 
-export function IconBtn({ icon, title, onClick }: { icon: string; title: string; onClick: () => void }) {
+export function IconBtn({ icon, title, onClick, disabled }: { icon: string; title: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim)"
+      disabled={disabled}
+      className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim) disabled:opacity-35"
       onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
     >
@@ -122,7 +124,7 @@ export function FilePane({
 }) {
   const { t } = useTranslation();
   const resolvedHostLabel = hostLabel ?? t("fileTransfer.common.remoteFallback");
-  const explain = (e: unknown) => describeWriteError(e, t, readOnly ? resolvedHostLabel : undefined);
+  const readOnlyTip = readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: resolvedHostLabel }) : undefined;
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
 
@@ -231,8 +233,8 @@ export function FilePane({
   const parentPath = parentDir(cwd) || null;
   const goUp = () => { if (parentPath) onNavigate(parentPath); };
 
-  const handleMkdir = () => setCreating("folder");
-  const handleNewFile = () => setCreating("file");
+  const handleMkdir = () => { if (!readOnlyTip) setCreating("folder"); };
+  const handleNewFile = () => { if (!readOnlyTip) setCreating("file"); };
 
   const commitCreate = async (name: string) => {
     const kind = creating;
@@ -244,7 +246,7 @@ export function FilePane({
       else if (isLocal) await fsTouch(fullPath);
       else if (sftpId) await sftpTouch(sftpId, fullPath);
       onRefresh();
-    } catch (e) { alert(explain(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const selectedEntries = visibleEntries.filter((f) => selectedIdSet.has(f.path));
@@ -260,6 +262,7 @@ export function FilePane({
 
   const handleDelete = async (files: FileEntry[]) => {
     if (files.length === 0) return;
+    if (readOnlyTip) { alert(readOnlyTip); return; }
     if (!isLocal && !sftpId) return;
     const title = t("fileTransfer.pane.confirmDelete.title");
     const msg = files.length === 1
@@ -274,10 +277,10 @@ export function FilePane({
       }
       setSelection([]);
       onRefresh();
-    } catch (e) { alert(explain(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
-  const startRename = (f: FileEntry) => setRenaming(f.path);
+  const startRename = (f: FileEntry) => { if (readOnlyTip) alert(readOnlyTip); else setRenaming(f.path); };
   const commitRename = async (f: FileEntry, name: string) => {
     if (!name || name === f.name) { setRenaming(null); return; }
     if (!isLocal && !sftpId) { setRenaming(null); return; }
@@ -286,7 +289,7 @@ export function FilePane({
       if (isLocal) { await fsRename(f.path, newPath); }
       else { await sftpRename(sftpId!, f.path, newPath); }
       onRefresh();
-    } catch (e) { alert(explain(e)); }
+    } catch (e) { alert(describeError(e, t)); }
     setRenaming(null);
   };
 
@@ -383,22 +386,24 @@ export function FilePane({
   };
 
   const handleCompress = async (file: FileEntry) => {
+    if (readOnlyTip) { alert(readOnlyTip); return; }
     const archivePath = joinPath(parentDir(file.path), `${file.name}.tar.gz`);
     try {
       if (isLocal) await fsCompress(file.path, archivePath);
       else if (sftpId) await sftpCompress(sftpId, file.path, archivePath);
       onRefresh();
-    } catch (e) { alert(explain(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const handleExtract = async (file: FileEntry) => {
+    if (readOnlyTip) { alert(readOnlyTip); return; }
     const baseName = file.name.replace(/\.(tar\.gz|tgz)$/i, "");
     const destDir = joinPath(parentDir(file.path), baseName);
     try {
       if (isLocal) await fsExtract(file.path, destDir);
       else if (sftpId) await sftpExtract(sftpId, file.path, destDir);
       onRefresh();
-    } catch (e) { alert(explain(e)); }
+    } catch (e) { alert(describeError(e, t)); }
   };
 
   const handlePickLocal = async () => {
@@ -413,7 +418,7 @@ export function FilePane({
   const selectionActionsCtx: SelectionActionsCtx = {
     isLocal, sftpId, hostLabel: resolvedHostLabel, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
-    onCompress: handleCompress, onExtract: handleExtract, canArchive,
+    onCompress: handleCompress, onExtract: handleExtract, canArchive, readOnlyTip,
     onPermissions: isLocal || sftpId ? setPermissionsFor : undefined,
     onOpenInTerminal, onPanelDownload, onEdit, setSelection, onRefresh,
   };
@@ -468,8 +473,8 @@ export function FilePane({
           <PathBreadcrumb cwd={cwd} isLocal={isLocal} onNavigate={onNavigate} dropFolderPath={dropFolderPath} />
           {isLocal && <IconBtn icon="lucide:folder-open" title={t("fileTransfer.pane.toolbar.browse")} onClick={handlePickLocal} />}
         </div>
-        <IconBtn icon="lucide:folder-plus" title={t("fileTransfer.pane.toolbar.newFolder")} onClick={handleMkdir} />
-        <IconBtn icon="lucide:file-plus" title={t("fileTransfer.pane.toolbar.newFile")} onClick={handleNewFile} />
+        <IconBtn icon="lucide:folder-plus" title={readOnlyTip ?? t("fileTransfer.pane.toolbar.newFolder")} onClick={handleMkdir} disabled={!!readOnlyTip} />
+        <IconBtn icon="lucide:file-plus" title={readOnlyTip ?? t("fileTransfer.pane.toolbar.newFile")} onClick={handleNewFile} disabled={!!readOnlyTip} />
         <IconBtn icon="lucide:refresh-cw" title={t("fileTransfer.pane.toolbar.refresh")} onClick={onRefresh} />
       </div>
 
@@ -503,7 +508,7 @@ export function FilePane({
           onItemSelect={handleItemSelect}
           onNavigate={onNavigate} onSetSelection={setSelection}
           onInternalDrop={handleInternalDrop}
-          onMoveWithin={onMoveWithin}
+          onMoveWithin={readOnlyTip ? undefined : onMoveWithin}
           selectionActionsCtx={selectionActionsCtx}
         />
       </DragSelectSurface>
@@ -537,7 +542,7 @@ export function FilePane({
             selectedEntries, entryIds,
             selectionActionsCtx,
             handleMkdir, handleNewFile, setSelection, onChangeHost, cwd,
-            onPanelUpload, t,
+            onPanelUpload, readOnlyTip, t,
           })}
         />
       )}
@@ -603,7 +608,7 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
     if (!ctx.isLocal && ctx.sftpId) {
       const sid = ctx.sftpId;
       items.push({
-        label: t("fileTransfer.pane.menu.moveToTarget", { count: files.length }), icon: "lucide:scissors",
+        label: t("fileTransfer.pane.menu.moveToTarget", { count: files.length }), icon: "lucide:scissors", disabledReason: ctx.readOnlyTip,
         onClick: async () => {
           ctx.onTransferToTarget?.(files);
           for (const f of files) await sftpDelete(sid, f.path).catch(() => {});
@@ -634,22 +639,22 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
   }
 
   // Rename / Delete
-  if (single) items.push({ label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => ctx.onStartRename(single), shortcut: getShortcutHint("rename") });
+  if (single) items.push({ label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => ctx.onStartRename(single), shortcut: getShortcutHint("rename"), disabledReason: ctx.readOnlyTip });
   if (ctx.onPermissions && canEditPermissions(files)) {
-    items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files) });
+    items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files), disabledReason: ctx.readOnlyTip });
   }
   if (files.length > 0) {
     items.push({
       label: t("fileTransfer.pane.menu.delete", { count: files.length }),
-      icon: "lucide:trash-2", onClick: () => void ctx.onDelete(files), danger: true,
+      icon: "lucide:trash-2", onClick: () => void ctx.onDelete(files), danger: true, disabledReason: ctx.readOnlyTip,
     });
   }
 
   // Archive (single file only)
   if (single && ctx.canArchive) {
-    items.push({ label: t("fileTransfer.pane.menu.compress"), icon: "lucide:archive", onClick: () => ctx.onCompress(single), divider: true });
+    items.push({ label: t("fileTransfer.pane.menu.compress"), icon: "lucide:archive", onClick: () => ctx.onCompress(single), divider: true, disabledReason: ctx.readOnlyTip });
     if (!single.isDir && /\.(tar\.gz|tgz)$/i.test(single.name)) {
-      items.push({ label: t("fileTransfer.pane.menu.extractHere"), icon: "lucide:package-open", onClick: () => ctx.onExtract(single) });
+      items.push({ label: t("fileTransfer.pane.menu.extractHere"), icon: "lucide:package-open", onClick: () => ctx.onExtract(single), disabledReason: ctx.readOnlyTip });
     }
   }
 
@@ -687,16 +692,17 @@ function buildPaneMenuItems(ctx: {
   onChangeHost?: () => void;
   cwd: string;
   onPanelUpload?: () => void;
+  readOnlyTip?: string;
   t: TFunction;
 }): ContextMenuItem[] {
   const { selectedEntries, entryIds, selectionActionsCtx,
-    handleMkdir, handleNewFile, setSelection, onChangeHost, cwd, onPanelUpload, t } = ctx;
+    handleMkdir, handleNewFile, setSelection, onChangeHost, cwd, onPanelUpload, readOnlyTip, t } = ctx;
   const sel = selectedEntries;
   const items: ContextMenuItem[] = [];
 
   // ── Upload (panel embedding only — shown when nothing is selected)
   if (onPanelUpload && sel.length === 0) {
-    items.push({ label: t("fileTransfer.pane.menu.uploadFiles"), icon: "lucide:upload", onClick: onPanelUpload });
+    items.push({ label: t("fileTransfer.pane.menu.uploadFiles"), icon: "lucide:upload", onClick: onPanelUpload, disabledReason: readOnlyTip });
   }
 
   // ── File actions (delegated to shared builder)
@@ -705,8 +711,8 @@ function buildPaneMenuItems(ctx: {
 
   // ── Directory
   const dirActions: ContextMenuItem[] = [];
-  dirActions.push({ label: t("fileTransfer.pane.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: handleMkdir });
-  dirActions.push({ label: t("fileTransfer.pane.toolbar.newFile"),   icon: "lucide:file-plus",   onClick: handleNewFile });
+  dirActions.push({ label: t("fileTransfer.pane.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: handleMkdir, disabledReason: readOnlyTip });
+  dirActions.push({ label: t("fileTransfer.pane.toolbar.newFile"),   icon: "lucide:file-plus",   onClick: handleNewFile, disabledReason: readOnlyTip });
   dirActions.push({ label: t("fileTransfer.pane.menu.selectAll"), icon: "lucide:list-checks", onClick: () => setSelection(entryIds) });
   if (sel.length > 0) dirActions.push({ label: t("fileTransfer.pane.menu.deselect"), icon: "lucide:square", onClick: () => setSelection([]) });
   dirActions[0].divider = true; items.push(...dirActions);

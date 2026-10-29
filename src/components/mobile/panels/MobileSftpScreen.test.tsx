@@ -55,6 +55,19 @@ describe("MobileSftpScreen", () => {
     useUIStore.setState({ mobileSftpTwoPanes: false });
   });
 
+  test("a read-only device is marked and its create button is disabled", async () => {
+    const { default: MobileSftpScreen } = await import("./MobileSftpScreen");
+    const { connectDevice } = await import("@/services/deviceFiles");
+    vi.mocked(connectDevice).mockResolvedValueOnce({ sftpId: "s-ro", rttMs: 2, readOnly: true });
+    const view = render(<MobileSftpScreen asTab />);
+    fireEvent.click(view.container.querySelector("[data-sftp-pick-host]")!);
+    fireEvent.click(await view.findByText("Work PC"));
+    await vi.waitFor(() => expect(view.container.querySelector("[data-read-only-badge]")).not.toBeNull());
+    const create = view.container.querySelector("[data-sftp-create]") as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    expect(create.title).toContain("fileTransfer.myDevices.readOnlyShare");
+  });
+
   test("re-showing the tab keeps a device in pane A instead of the active session's host", async () => {
     const { default: MobileSftpScreen } = await import("./MobileSftpScreen");
     const { useSessionStore } = await import("@/stores/sessionStore");

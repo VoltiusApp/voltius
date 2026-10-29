@@ -36,7 +36,8 @@
     "device-approval-timed-out": "Ninguém respondeu ao pedido no dispositivo a tempo.",
     "device-busy": "Esse dispositivo tem muitas sessões de arquivos abertas. Feche uma e tente novamente.",
     "device-unreachable": "Não foi possível alcançar esse dispositivo. Verifique se ele está ligado e na mesma rede.",
-    "device-access-expired": "O acesso a este dispositivo terminou. Abra-o novamente para pedir permissão."
+    "device-access-expired": "O acesso a este dispositivo terminou. Abra-o novamente para pedir permissão.",
+    "device-read-only": "Esse dispositivo partilha estas pastas só para leitura."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

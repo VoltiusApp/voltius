@@ -20,6 +20,8 @@ export interface ContextMenuItem {
   shortcut?: string;
   /** Dim text after the label, e.g. "yours" */
   hint?: string;
+  /** Greys the item out and shows this as its tooltip. */
+  disabledReason?: string;
 }
 
 // ── Shared item-list renderer (no positioning) ────────────────────────────────
@@ -63,6 +65,8 @@ export function MenuItemList({
               <div className="my-1 mx-1 h-px bg-(--t-border)" />
             )}
             <button
+              disabled={!!item.disabledReason}
+              title={item.disabledReason}
               onClick={(e) => {
                 if (item.children) return openSub(i, e.currentTarget);
                 item.onClick?.();
@@ -71,6 +75,7 @@ export function MenuItemList({
               className="flex items-center gap-2.5 p-3 rounded-lg transition-colors w-full"
               style={{
                 background: isSubActive ? "var(--t-bg-card-hover)" : "transparent",
+                opacity: item.disabledReason ? 0.4 : 1,
                 color: item.danger ? "var(--t-status-error)" : "var(--t-text-secondary)",
               }}
               onMouseEnter={(e) => {

@@ -92,7 +92,7 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
       <div className="flex-1 min-h-0 flex flex-col" data-sftp-pane={id} onPointerDown={() => setFocused(id)}>
         <MobileSftpPane controller={ctrl} connection={conn} device={target?.kind === "device" ? target.device : undefined} selected={paneItems(sel, id)}
           onSelectionChange={(items) => setSel(setPaneSelection(id, items))} onPickHost={() => setPicking(id)}
-          onCopyToOther={(items) => void copy(id, items)} otherConnected={twoPanes && other.sftpId != null}
+          onCopyToOther={(items) => void copy(id, items)} otherConnected={twoPanes && other.sftpId != null && !other.readOnly}
           headerSlot={headerSlot} onScreen={visible} backUp={visible && backPane === id && sel.pane == null} />
       </div>
     );

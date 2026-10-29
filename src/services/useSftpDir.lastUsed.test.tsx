@@ -45,6 +45,19 @@ test("device_connect_read_only_reaches_the_controller", async () => {
   expect(result.current.readOnly).toBe(true);
 });
 
+test("a read-only flip event updates the controller both ways", async () => {
+  const { connectDevice } = await import("@/services/deviceFiles");
+  vi.mocked(connectDevice).mockResolvedValueOnce({ sftpId: "sftp-flip", rttMs: 3, readOnly: false });
+  const device = { deviceId: "d4", deviceKey: "k", name: "Work PC", platform: "linux", state: "ready", route: "lan", lastSeen: null } as const;
+  const { result } = renderHook(() => useSftpDir({ device }));
+  await waitFor(() => expect(closed.handlers.has("sftp-readonly-sftp-flip")).toBe(true));
+  expect(result.current.readOnly).toBe(false);
+  act(() => closed.handlers.get("sftp-readonly-sftp-flip")!({ payload: { readOnly: true } }));
+  expect(result.current.readOnly).toBe(true);
+  act(() => closed.handlers.get("sftp-readonly-sftp-flip")!({ payload: { readOnly: false } }));
+  expect(result.current.readOnly).toBe(false);
+});
+
 test("a coded sftp-closed shows that code's message and stops retrying", async () => {
   const device = { deviceId: "d2", deviceKey: "k", name: "Work PC", platform: "linux", state: "ready", route: "lan", lastSeen: null } as const;
   const { result } = renderHook(() => useSftpDir({ device }));

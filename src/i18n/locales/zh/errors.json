@@ -36,7 +36,8 @@
     "device-approval-timed-out": "设备上无人及时响应请求。",
     "device-busy": "该设备打开的文件会话过多。请关闭一个后重试。",
     "device-unreachable": "无法连接该设备。请确认它已开机并处于同一网络。",
-    "device-access-expired": "对此设备的访问已结束。请重新打开以请求权限。"
+    "device-access-expired": "对此设备的访问已结束。请重新打开以请求权限。",
+    "device-read-only": "该设备以只读方式共享这些文件夹。"
   },
   "errorAt": {
     "proxy": "代理 {{proxy}}：{{cause}}",

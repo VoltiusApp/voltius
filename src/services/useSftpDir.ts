@@ -7,6 +7,7 @@ import {
 } from "@/services/sftp";
 import { connectFileBackend } from "@/services/sftpTarget";
 import { connectDevice } from "@/services/deviceFiles";
+import { useReadOnlyFlips } from "@/services/deviceReadOnly";
 import type { MyDevice } from "@/services/myDevices";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
@@ -101,6 +102,10 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
   }, [phase]);
 
   const sftpId = phase.tag === "connected" ? phase.sftpId : null;
+  const applyReadOnly = useCallback((readOnly: boolean) => {
+    setPhase((p) => (p.tag === "connected" && p.sftpId === sftpId ? { ...p, readOnly } : p));
+  }, [sftpId]);
+  useReadOnlyFlips(sftpId, applyReadOnly);
   const { entries, loading: listing, landedCwd, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick);
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);

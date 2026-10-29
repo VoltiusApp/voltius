@@ -36,7 +36,8 @@
     "device-approval-timed-out": "Na žádost na zařízení nikdo včas neodpověděl.",
     "device-busy": "Toto zařízení má otevřeno příliš mnoho souborových relací. Jednu zavřete a zkuste to znovu.",
     "device-unreachable": "Zařízení je nedostupné. Zkontrolujte, že je zapnuté a ve stejné síti.",
-    "device-access-expired": "Přístup k tomuto zařízení skončil. Otevřete ho znovu a požádejte o povolení."
+    "device-access-expired": "Přístup k tomuto zařízení skončil. Otevřete ho znovu a požádejte o povolení.",
+    "device-read-only": "Toto zařízení sdílí tyto složky pouze pro čtení."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

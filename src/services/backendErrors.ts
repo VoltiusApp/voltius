@@ -43,6 +43,7 @@ export const BACKEND_ERROR_CODES = [
   "device-busy",
   "device-unreachable",
   "device-access-expired",
+  "device-read-only",
 ] as const;
 
 export type BackendErrorCode = (typeof BACKEND_ERROR_CODES)[number];
@@ -108,13 +109,6 @@ const FAILED_AT = ["proxy", "jumpHost"] as const;
  * What to show the user for a failure: the translation of its code, prefixed with
  * the proxy or jump host it happened at, else its message.
  */
-export function describeWriteError(e: unknown, t: TFunction, readOnlyDevice?: string): string {
-  if (readOnlyDevice && backendErrorCode(e) === "permission-denied") {
-    return t("fileTransfer.myDevices.readOnlyShare", { name: readOnlyDevice });
-  }
-  return describeError(e, t);
-}
-
 export function describeError(e: unknown, t: TFunction): string {
   if (!(e instanceof BackendError)) return e instanceof Error ? e.message : String(e);
   const cause = t(`errors.${e.code}`, { ...e.params, defaultValue: "" });

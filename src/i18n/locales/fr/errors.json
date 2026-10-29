@@ -36,7 +36,8 @@
     "device-approval-timed-out": "Personne n'a répondu à temps à la demande sur l'appareil.",
     "device-busy": "Cet appareil a trop de sessions de fichiers ouvertes. Fermez-en une et réessayez.",
     "device-unreachable": "Impossible de joindre cet appareil. Vérifiez qu'il est allumé et sur le même réseau.",
-    "device-access-expired": "L'accès à cet appareil a pris fin. Ouvrez-le à nouveau pour demander l'autorisation."
+    "device-access-expired": "L'accès à cet appareil a pris fin. Ouvrez-le à nouveau pour demander l'autorisation.",
+    "device-read-only": "Cet appareil partage ces dossiers en lecture seule."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}} : {{cause}}",

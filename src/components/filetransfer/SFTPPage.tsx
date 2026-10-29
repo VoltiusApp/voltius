@@ -22,8 +22,8 @@ import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboard
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { connectFileBackend } from "@/services/sftpTarget";
 import { connectDevice } from "@/services/deviceFiles";
-import { describeWriteError, type BackendErrorCode } from "@/services/backendErrors";
-import type { TFunction } from "i18next";
+import { useReadOnlyFlips } from "@/services/deviceReadOnly";
+import type { BackendErrorCode } from "@/services/backendErrors";
 import { hostPresentation } from "./hostPresentation";
 import { idToRelease, relinkOf } from "./sideRelink";
 import { cancelKnownHostPrompt } from "@/services/knownHosts";
@@ -45,14 +45,6 @@ import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { lazyNamed } from "@/utils/lazyNamed";
 import { EditorDropOverlay } from "./editor/EditorDropOverlay";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
-
-type TransferFn = (transferId: string) => Promise<void>;
-
-function explainReadOnly(fn: TransferFn, dst: SidePhase, dstHost: HostChoice | null, t: TFunction): TransferFn {
-  if (dst.tag !== "connected" || !dst.readOnly || !dstHost) return fn;
-  const name = hostPresentation(dstHost, t).name;
-  return (tid) => fn(tid).catch((e) => { throw new Error(describeWriteError(e, t, name)); });
-}
 
 const EditorTab = lazyNamed(() => import("./editor/EditorTab"), "EditorTab");
 const DiffTab = lazyNamed(() => import("./editor/DiffTab"), "DiffTab");
@@ -79,6 +71,14 @@ function useConnectionLoss(
     });
     return () => { unlisten.then((fn) => fn()); };
   }, [sftpId, host, setPhase, t]);
+}
+
+function useSideReadOnly(phase: SidePhase, setPhase: Dispatch<SetStateAction<SidePhase>>) {
+  const sftpId = phase.tag === "connected" ? phase.sftpId : null;
+  const apply = useCallback((readOnly: boolean) => {
+    setPhase((p) => p.tag === "connected" && p.sftpId === sftpId ? { ...p, readOnly } : p);
+  }, [sftpId, setPhase]);
+  useReadOnlyFlips(sftpId, apply);
 }
 
 export default function SFTPPage() {
@@ -193,8 +193,16 @@ export default function SFTPPage() {
 
   useConnectionLoss(leftPhase, setLeftPhase, leftHost);
   useConnectionLoss(rightPhase, setRightPhase, rightHost);
+  useSideReadOnly(leftPhase, setLeftPhase);
+  useSideReadOnly(rightPhase, setRightPhase);
 
   // ── Transfers ──────────────────────────────────────────────────────────────
+
+  const refuseReadOnly = useCallback((phase: SidePhase, host: HostChoice | null) => {
+    if (phase.tag !== "connected" || !phase.readOnly || !host) return false;
+    alert(t("fileTransfer.myDevices.readOnlyShare", { name: hostPresentation(host, t).name }));
+    return true;
+  }, [t]);
 
   const execTransfer = useCallback(async (file: FileEntry, fromSide: "left" | "right", mode: TarMode, targetFolder?: string) => {
     const src     = fromSide === "left" ? leftPhase  : rightPhase;
@@ -210,7 +218,7 @@ export default function SFTPPage() {
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
-    await runTransfer(file.name, dir, explainReadOnly((tid) => transferItem({
+    await runTransfer(file.name, dir, (tid) => transferItem({
       from: srcIsLocal ? "local" : "remote",
       to: dstIsLocal ? "local" : "remote",
       srcSftpId: src.sftpId ?? undefined,
@@ -220,8 +228,8 @@ export default function SFTPPage() {
       isDir: file.isDir,
       useTar: mode === "tar",
       transferId: tid,
-    }), dst, dstHost, t), refreshDst, accelFor(mode, file.isDir));
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, t]);
+    }), refreshDst, accelFor(mode, file.isDir));
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
   // Batch-tar path: packs all selected items into one archive per transfer.
   const execBatchTar = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
@@ -244,16 +252,16 @@ export default function SFTPPage() {
         await runTransfer(file.name, dir, (tid) => fsCopy(file.path, joinPath(dstBase, file.name), tid), refreshDst);
       }
     } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
-      await runTransfer(label, dir, explainReadOnly((tid) =>
-        sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), dst, dstHost, t), refreshDst, "tar");
+      await runTransfer(label, dir, (tid) =>
+        sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), refreshDst, "tar");
     } else if (!srcIsLocal && dstIsLocal && src.sftpId) {
       await runTransfer(label, dir, (tid) =>
         sftpDownloadBatchTar({ sftpId: src.sftpId!, remotePaths: files.map((f) => f.path), localDir: dstBase, transferId: tid }), refreshDst, "tar");
     } else if (!srcIsLocal && !dstIsLocal && src.sftpId && dst.sftpId) {
-      await runTransfer(label, dir, explainReadOnly((tid) =>
-        sftpTransferBatchTar({ srcSftpId: src.sftpId!, srcPaths: files.map((f) => f.path), dstSftpId: dst.sftpId!, dstDir: dstBase, transferId: tid }), dst, dstHost, t), refreshDst, "tar");
+      await runTransfer(label, dir, (tid) =>
+        sftpTransferBatchTar({ srcSftpId: src.sftpId!, srcPaths: files.map((f) => f.path), dstSftpId: dst.sftpId!, dstDir: dstBase, transferId: tid }), refreshDst, "tar");
     }
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, t]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
   // Batch-tar when tar is usable, else per-file; plain SFTP if any host lacks tar.
   const executeFiles = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
@@ -279,7 +287,7 @@ export default function SFTPPage() {
   const triggerTransfer = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
     const dst     = fromSide === "left" ? rightPhase : leftPhase;
     const dstHost = fromSide === "left" ? rightHost  : leftHost;
-    if (dst.tag !== "connected") return;
+    if (dst.tag !== "connected" || refuseReadOnly(dst, dstHost)) return;
 
     const dstIsLocal = dstHost?.kind === "local";
     const dstBase    = targetFolder ?? dst.cwd;
@@ -306,7 +314,7 @@ export default function SFTPPage() {
     }
 
     void executeFiles(files, fromSide, targetFolder);
-  }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles, setPending]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles, setPending, refuseReadOnly]);
 
   const transfer = useCallback((direction: "LR" | "RL") => {
     const fromSide = direction === "LR" ? "left" : "right" as const;
@@ -321,7 +329,7 @@ export default function SFTPPage() {
     const dst     = dstSide === "left" ? leftPhase  : rightPhase;
     const dstHost = dstSide === "left" ? leftHost   : rightHost;
     const refreshDst = dstSide === "left" ? () => setLeftRefresh((n) => n + 1) : () => setRightRefresh((n) => n + 1);
-    if (dst.tag !== "connected") return;
+    if (dst.tag !== "connected" || refuseReadOnly(dst, dstHost)) return;
 
     await triggerOsDropPipeline(paths, {
       isLocal: dstHost?.kind === "local",
@@ -329,12 +337,12 @@ export default function SFTPPage() {
       cwd: targetFolder ?? dst.cwd,
       onRefresh: refreshDst,
     });
-  }, [leftPhase, rightPhase, leftHost, rightHost]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, refuseReadOnly]);
 
   const moveWithin = useCallback(async (files: FileEntry[], targetDir: string, side: "left" | "right") => {
     const phase = side === "left" ? leftPhase : rightPhase;
     const host  = side === "left" ? leftHost  : rightHost;
-    if (phase.tag !== "connected") return;
+    if (phase.tag !== "connected" || refuseReadOnly(phase, host)) return;
     const isLocal = host?.kind === "local";
     const sftpId = phase.sftpId;
     await runIntraPaneMove(files, targetDir, {
@@ -345,18 +353,20 @@ export default function SFTPPage() {
       onRefresh: side === "left" ? () => setLeftRefresh((n) => n + 1) : () => setRightRefresh((n) => n + 1),
       onError: (m) => alert(m),
     });
-  }, [leftPhase, rightPhase, leftHost, rightHost, setPending]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, setPending, refuseReadOnly]);
 
   const onPaste = useCallback((dest: FileEndpoint) => {
     const clip = useFileClipboardStore.getState().clipboard;
     if (!clip) return;
+    const onLeft = dest.sftpId === (leftPhase.tag === "connected" ? leftPhase.sftpId : null);
+    if (onLeft ? refuseReadOnly(leftPhase, leftHost) : refuseReadOnly(rightPhase, rightHost)) return;
     const refreshBoth = () => { setLeftRefresh((n) => n + 1); setRightRefresh((n) => n + 1); };
     const deps = buildPasteDeps(clip, dest, {
       runTransfer, setPending, refresh: refreshBoth,
       clearClipboard: useFileClipboardStore.getState().clear,
     });
     void executePaste(clip, dest, deps);
-  }, [runTransfer, setPending]);
+  }, [runTransfer, setPending, leftPhase, rightPhase, leftHost, rightHost, refuseReadOnly]);
 
   // Tauri's drag-drop event delivers OS file paths once the user releases over
   // the webview. Position is in physical pixels; elementFromPoint wants CSS

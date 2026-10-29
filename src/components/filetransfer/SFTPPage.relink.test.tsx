@@ -3,7 +3,12 @@ import { act, cleanup, render } from "@testing-library/react";
 import type { HostChoice, SidePhase } from "./SFTPTypes";
 import { BackendError } from "@/services/backendErrors";
 
-type PaneProps = { phase: SidePhase; onPick: (h: HostChoice) => void; onChangeHost: () => void };
+type PaneProps = {
+  phase: SidePhase; onPick: (h: HostChoice) => void; onChangeHost: () => void;
+  onDropFiles: (files: unknown[], fromSide: "left" | "right" | "panel", target?: string) => void;
+  onMoveWithin?: (files: unknown[], target: string) => void;
+  onPaste?: (dest: { isLocal: boolean; sftpId: string | null; cwd: string }) => void;
+};
 
 const h = vi.hoisted(() => ({
   panes: {} as Record<string, PaneProps>,
@@ -47,6 +52,7 @@ vi.mock("./InternalDragGhost", () => ({ InternalDragGhost: () => null }));
 vi.mock("./editor/TabDragGhost", () => ({ TabDragGhost: () => null }));
 
 import SFTPPage from "./SFTPPage";
+import { useFileClipboardStore } from "@/stores/fileClipboardStore";
 
 const remote = (id: string) => ({
   kind: "remote",
@@ -166,4 +172,23 @@ test("a session closed with a refusal shows it and is not retried", async () => 
   expect(left().phase).not.toMatchObject({ message: "fileTransfer.page.connectionLost" });
   await runRetry();
   expect(h.connectDevice).toHaveBeenCalledTimes(1);
+});
+
+test("a read-only device refuses writes into it and follows the backend's flips", async () => {
+  const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+  h.connectDevice.mockResolvedValueOnce({ sftpId: "sd", rttMs: 1, readOnly: true });
+  h.connectFileBackend.mockResolvedValueOnce("s1");
+  render(<SFTPPage />);
+  await act(async () => { left().onPick(device); });
+  await act(async () => { h.panes.right.onPick(remote("c1")); });
+  const file = { name: "a.txt", path: "/a.txt", size: 1, isDir: false };
+  await act(async () => { left().onDropFiles([file], "right"); });
+  await act(async () => { left().onMoveWithin?.([file], "/x"); });
+  useFileClipboardStore.setState({ clipboard: { items: [file], source: { isLocal: false, sftpId: "s1", cwd: "/" }, mode: "copy" } });
+  await act(async () => { left().onPaste?.({ isLocal: false, sftpId: "sd", cwd: "/" }); });
+  expect(alert).toHaveBeenCalledTimes(3);
+  expect(alert).toHaveBeenCalledWith("fileTransfer.myDevices.readOnlyShare");
+  await act(async () => { h.listeners.get("sftp-readonly-sd")!({ readOnly: false }); });
+  expect(left().phase).toMatchObject({ tag: "connected", readOnly: false });
+  alert.mockRestore();
 });

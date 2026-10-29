@@ -15,6 +15,7 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { isVaultErrorCode } from "@/services/vaultErrors";
 import { routeLabel } from "@/services/myDevices";
 import { hostPresentation } from "./hostPresentation";
+import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
 
 const SPARKLINE_MAX = 20;
 
@@ -61,6 +62,7 @@ export function SidePane({
   const { t } = useTranslation();
   const shown = host ? hostPresentation(host, t) : null;
   const hostLabel = shown?.name ?? null;
+  const readOnlyTip = phase.tag === "connected" && phase.readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: hostLabel }) : undefined;
   const connectingHost = phase.tag === "connecting" ? phase.host : null;
   const connectSteps = useMemo(() => (connectingHost?.kind === "device" ? getDeviceSteps(connectingHost.device.name) : getSftpSteps()), [connectingHost]);
   const overlayHost = (h: HostChoice | null | undefined) => {
@@ -195,15 +197,7 @@ export function SidePane({
           />
         )}
 
-        {phase.tag === "connected" && phase.readOnly && (
-          <span
-            data-read-only-badge
-            title={t("fileTransfer.myDevices.readOnlyShare", { name: hostLabel })}
-            className="px-1.5 py-0.5 rounded text-[0.6875rem] text-(--t-text-muted) bg-(--t-bg-hover)"
-          >
-            {t("fileTransfer.myDevices.readOnlyBadge")}
-          </span>
-        )}
+        {readOnlyTip && <ReadOnlyBadge tip={readOnlyTip} />}
 
         {phase.tag === "connected" && (
           <div className="ml-auto flex items-center gap-1">
@@ -213,7 +207,7 @@ export function SidePane({
             {onUpload && (
               <NavBtn
                 icon="lucide:upload"
-                title={phase.readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: hostLabel }) : t("fileTransfer.side.uploadHere")}
+                title={readOnlyTip ?? t("fileTransfer.side.uploadHere")}
                 disabled={!!phase.readOnly}
                 onClick={onUpload}
               />
