@@ -38,6 +38,7 @@ import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { parseUsingEvent } from "@/services/presenceEvent";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { applyRemoteSshConfigState } from "@/services/sshConfig/state";
+import { getPlatform } from "@/utils/platform";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -261,7 +262,7 @@ class BlobDecryptError extends Error {
  * and dek when vaultKeysStore is populated (set by interactive login and — once it
  * adopts dek — autoLogin). A bare autoLogin session before that holds only one key.
  */
-function sessionBlobKeys(): number[][] {
+export function sessionBlobKeys(): number[][] {
   const { kek, dek } = useVaultKeysStore.getState();
   return buildDecryptKeyCandidates(getVaultKey(), kek, dek);
 }
@@ -397,29 +398,36 @@ function outgoingSettings(): UserDataBundle {
   return filterOutgoing(buildUserDataBundle());
 }
 
-/** Export local data and upload to server. */
-export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<void> {
+/** Vault-key-encrypted export of local data, honouring sync exclusions. */
+export async function exportLocalBlob(): Promise<number[]> {
   assertNotHalted();
   const encKey = await getEncKey();
-  const [serverUrl, deviceId, accountId] = await Promise.all([
-    getServerUrl(),
+  const [deviceId, accountId] = await Promise.all([
     getDeviceId(),
     invoke<string | null>("keychain_get", { key: "account_id" }),
   ]);
-
-  if (!serverUrl || !accountId) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  if (!accountId) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   await unlockVaultIfNeeded();
-
   await writeFilteredSettings();
 
-  const blob: number[] = await invoke("backup_export", {
+  return invoke<number[]>("backup_export", {
     encKey,
     accountId,
     deviceId,
     excludedIds: getExcludedObjectIds(),
     skipFiles: getSkippedSyncFiles(),
   });
+}
+
+/** Export local data and upload to server. */
+export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<void> {
+  assertNotHalted();
+  const [serverUrl, deviceId] = await Promise.all([getServerUrl(), getDeviceId()]);
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+
+  const blob = await exportLocalBlob();
+  const [deviceName, platform] = await Promise.all([invoke<string>("device_hostname"), getPlatform()]);
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
     method: "PUT",
@@ -427,7 +435,7 @@ export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<v
     body: JSON.stringify({
       device_id: deviceId,
       blob: bytesToBase64(blob),
-      metadata: { device_id: deviceId, synced_at: new Date().toISOString() },
+      metadata: { device_id: deviceId, synced_at: new Date().toISOString(), device_name: deviceName, platform },
     }),
     signal,
   });
@@ -448,7 +456,7 @@ async function listDevices(): Promise<DeviceInfo[]> {
 }
 
 /** Reload all in-memory stores from disk after a merge. */
-async function reloadAllStores(): Promise<void> {
+export async function reloadAllStores(): Promise<void> {
   await Promise.all([
     useConnectionStore.getState().loadConnections(),
     useIdentityStore.getState().loadIdentities(),
@@ -593,6 +601,15 @@ export async function forEachRemoteBlob<T>(
 
 const deviceLabel = (device: DeviceInfo) => `device ${device.device_id}`;
 
+/** CRDT-merge a decrypted remote payload into local state. Returns true if local state changed. */
+export async function mergeRemotePayload(remoteDeviceId: string, remotePayload: BlobPayload): Promise<boolean> {
+  const { payload, changed } = mergeBlobPayload(await invoke<BlobPayload>("state_export_raw"), remotePayload);
+  if (changed) await importMergedPayload(payload);
+  await applyRemoteSshConfig(remotePayload);
+  remoteMergedListeners.emit(remoteDeviceId, remotePayload);
+  return changed;
+}
+
 /**
  * Fetch a remote device's blob, decrypt it, CRDT-merge with local state, and write to disk.
  * Returns true if the merge changed local state.
@@ -605,10 +622,7 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   const remotePayload = await pullRemotePayload(serverUrl, remoteDeviceId);
   if (!remotePayload) return false;
 
-  const { payload, changed } = mergeBlobPayload(await invoke<BlobPayload>("state_export_raw"), remotePayload);
-  if (changed) await importMergedPayload(payload);
-  await applyRemoteSshConfig(remotePayload);
-  return changed;
+  return mergeRemotePayload(remoteDeviceId, remotePayload);
 }
 
 /**
@@ -823,10 +837,32 @@ export function setSyncPaused(paused: boolean): void {
 
 // ─── Debounced sync on mutations ──────────────────────────────────────────────
 
+function createListeners<A extends unknown[]>() {
+  const fns = new Set<(...args: A) => void>();
+  return {
+    subscribe(fn: (...args: A) => void): () => void {
+      fns.add(fn);
+      return () => { fns.delete(fn); };
+    },
+    emit(...args: A) {
+      for (const fn of fns) {
+        try { fn(...args); } catch (e) { logFailure("sync listener")(e); }
+      }
+    },
+  };
+}
+
+const localMutationListeners = createListeners<[]>();
+const remoteMergedListeners = createListeners<[deviceId: string, payload: BlobPayload]>();
+
+export const onLocalMutation = localMutationListeners.subscribe;
+export const onRemotePayloadMerged = remoteMergedListeners.subscribe;
+
 let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Schedule a sync 2 s after the last mutation (debounced). */
 export function scheduleSync() {
+  localMutationListeners.emit();
   if (!useSubscriptionStore.getState().isPro || isSyncPaused() || _halted) return;
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
@@ -837,12 +873,9 @@ export function scheduleSync() {
 
 // ─── Real-time SSE sync ───────────────────────────────────────────────────────
 
-const _teamEventListeners = new Set<(teamId: string) => void>();
+const teamEventListeners = createListeners<[teamId: string]>();
 
-export function onTeamSseEvent(fn: (teamId: string) => void): () => void {
-  _teamEventListeners.add(fn);
-  return () => { _teamEventListeners.delete(fn); };
-}
+export const onTeamSseEvent = teamEventListeners.subscribe;
 
 let _sseAbort: AbortController | null = null;
 // Set while a stream is open: ends that one connection so the loop reconnects.
@@ -1049,7 +1082,7 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
 export async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
   if (eventData.startsWith("team:")) {
     const teamId = eventData.slice(5);
-    _teamEventListeners.forEach((fn) => fn(teamId));
+    teamEventListeners.emit(teamId);
     const { fetchTeamData } = await import("@/services/teamVaultSync");
     fetchTeamData(teamId, { background: true }).catch(logFailure(`team event: fetchTeamData team=${teamId}`));
   } else if (eventData.startsWith("team_members:")) {
