@@ -63,6 +63,7 @@ pub struct SessionWriter {
 pub struct Session {
     reader: SessionReader,
     writer: SessionWriter,
+    hash: Vec<u8>,
 }
 
 async fn read_msg<R: AsyncRead + Unpin>(io: &mut R, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -153,6 +154,10 @@ impl Session {
         self.reader.recv_max(limit).await
     }
 
+    pub fn handshake_hash(&self) -> &[u8] {
+        &self.hash
+    }
+
     pub fn split(self) -> (SessionReader, SessionWriter) {
         (self.reader, self.writer)
     }
@@ -196,6 +201,7 @@ async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             noise,
             nonce: 0,
         },
+        hash: hash.clone(),
     };
     Ok((session, hash))
 }
@@ -305,17 +311,8 @@ pub async fn handshake<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lan_sync::identity::{derive_auth_key, DeviceKey};
+    use crate::lan_sync::identity::{derive_auth_key, test_identity as identity};
     use tokio::io::{duplex, AsyncWriteExt};
-
-    fn identity(id: &str) -> LocalIdentity {
-        LocalIdentity {
-            device_id: id.into(),
-            device_name: format!("{id} name"),
-            platform: "linux".into(),
-            key: DeviceKey::from_private(derive_auth_key(id.as_bytes())),
-        }
-    }
 
     type Outcome = Result<(Session, Hello), HandshakeError>;
 

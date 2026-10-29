@@ -71,6 +71,16 @@ pub fn load_or_create_device_key() -> Result<DeviceKey, String> {
 }
 
 #[cfg(test)]
+pub(crate) fn test_identity(id: &str) -> LocalIdentity {
+    LocalIdentity {
+        device_id: id.into(),
+        device_name: format!("{id} name"),
+        platform: "linux".into(),
+        key: DeviceKey::from_private(derive_auth_key(id.as_bytes())),
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
