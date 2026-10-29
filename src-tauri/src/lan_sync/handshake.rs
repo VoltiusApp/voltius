@@ -11,6 +11,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
 const NOISE_PARAMS: &str = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+// A silent connection must give its pre-auth slot back long before the whole handshake would.
+const FIRST_MESSAGE_TIMEOUT: Duration = Duration::from_secs(2);
 const NOISE_MAX: usize = 65535;
 const MAX_CHUNK: usize = NOISE_MAX - 16;
 const MAX_PROOFS: usize = 16;
@@ -218,13 +220,14 @@ async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     };
     let mut sealed = vec![0u8; NOISE_MAX];
     let mut plain = vec![0u8; NOISE_MAX];
+    let mut first_read = Some(FIRST_MESSAGE_TIMEOUT);
     while !hs.is_handshake_finished() {
         if hs.is_my_turn() {
             let mut wire = Vec::new();
             push_msg(&mut wire, |out| hs.write_message(&[], out))?;
             write_frame(&mut stream, &wire).await?;
         } else {
-            let n = read_msg(&mut stream, &mut sealed).await?;
+            let n = bounded(first_read.take(), read_msg(&mut stream, &mut sealed)).await?;
             hs.read_message(&sealed[..n], &mut plain)?;
         }
     }
@@ -678,15 +681,32 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn silent_peer_times_out() {
+    async fn silent_peer_times_out_on_the_first_message() {
         let k = derive_auth_key(&[1; 32]);
         for initiator in [true, false] {
             let (a, _silent) = duplex(64 * 1024);
             let started = tokio::time::Instant::now();
             let r = handshake(a, initiator, &identity("dev-a"), &[k]).await;
             assert!(matches!(r, Err(HandshakeError::Timeout)));
-            assert!(started.elapsed() >= std::time::Duration::from_secs(10));
+            assert!(started.elapsed() >= FIRST_MESSAGE_TIMEOUT);
+            assert!(started.elapsed() < HANDSHAKE_TIMEOUT);
         }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn peer_stalling_after_its_first_message_gets_the_whole_timeout() {
+        let k = derive_auth_key(&[1; 32]);
+        let (a, mut rogue) = duplex(64 * 1024);
+        let mut hs = snow::Builder::new(NOISE_PARAMS.parse().unwrap())
+            .build_initiator()
+            .unwrap();
+        let mut wire = Vec::new();
+        push_msg(&mut wire, |out| hs.write_message(&[], out)).unwrap();
+        write_frame(&mut rogue, &wire).await.unwrap();
+        let started = tokio::time::Instant::now();
+        let r = handshake(a, false, &identity("dev-b"), &[k]).await;
+        assert!(matches!(r, Err(HandshakeError::Timeout)));
+        assert!(started.elapsed() >= HANDSHAKE_TIMEOUT);
     }
 
     #[tokio::test]
@@ -705,6 +725,43 @@ mod tests {
                     Err(HandshakeError::Noise(_) | HandshakeError::Protocol(_))
                 ));
             }
+        }
+    }
+
+    fn chunk() -> impl proptest::strategy::Strategy<Value = Vec<u8>> {
+        use proptest::prelude::*;
+        prop_oneof![
+            proptest::collection::vec(any::<u8>(), 0..512),
+            (
+                0u32..1024,
+                any::<u8>(),
+                proptest::collection::vec(any::<u8>(), 0..512)
+            )
+                .prop_map(|(len, kind, body)| [&len.to_be_bytes()[..], &[kind], &body].concat()),
+        ]
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(64))]
+        #[test]
+        fn anonymous_session_chunks_end_in_an_error(chunks in proptest::collection::vec(chunk(), 0..8)) {
+            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            rt.block_on(async {
+                let keys = [derive_auth_key(&[1; 32])];
+                let me = identity("dev-b");
+                let (a, b) = duplex(64 * 1024);
+                let rogue = async {
+                    let mut s = noise(a, true).await.unwrap();
+                    for c in &chunks {
+                        if s.writer.send_raw(c).await.is_err() {
+                            break;
+                        }
+                    }
+                };
+                let responder = tokio::time::timeout(HANDSHAKE_TIMEOUT * 2, handshake(b, false, &me, &keys));
+                let (_, outcome) = tokio::join!(rogue, responder);
+                assert!(matches!(outcome, Ok(Err(_))), "{:?}", outcome.map(|r| r.map(|_| ())));
+            });
         }
     }
 
