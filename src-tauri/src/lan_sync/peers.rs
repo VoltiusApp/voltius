@@ -233,6 +233,7 @@ impl PeerStore {
         self.peers.get(device_id)
     }
 
+    #[cfg(test)]
     pub fn records(&self) -> impl Iterator<Item = (&String, &PeerRecord)> {
         self.peers.iter()
     }

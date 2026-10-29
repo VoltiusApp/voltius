@@ -5,7 +5,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 pub const PROTOCOL_VERSION: u16 = 1;
 pub const MAX_FRAME: usize = 16 * 1024 * 1024;
 
-pub(super) const KIND_HELLO: u8 = 1;
+const KIND_HELLO: u8 = 1;
 const KIND_BLOB: u8 = 2;
 const KIND_NUDGE: u8 = 3;
 const KIND_BYE: u8 = 4;
@@ -25,21 +25,18 @@ pub struct Hello {
 }
 
 pub const MAX_HELLO_ADDRS: usize = 16;
-pub const MAX_FEATURES: usize = 16;
-const MAX_FEATURE_LEN: usize = 32;
 pub const FEATURES: &[&str] = &[];
 
 impl Hello {
     pub fn peer_addrs(&self) -> Vec<SocketAddr> {
         super::addrs::sanitize(&self.addrs)
     }
+}
 
-    pub fn has_feature(&self, f: &str) -> bool {
-        self.features
-            .iter()
-            .take(MAX_FEATURES)
-            .any(|x| x.len() <= MAX_FEATURE_LEN && x == f)
-    }
+#[cfg(test)]
+pub(super) fn raw_hello_frame(json: &str) -> Vec<u8> {
+    let len = (json.len() as u32 + 1).to_be_bytes();
+    [&len[..], &[KIND_HELLO], json.as_bytes()].concat()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -190,18 +187,6 @@ mod tests {
             json,
             serde_json::from_str::<serde_json::Value>(&part1_json()).unwrap()
         );
-    }
-
-    #[test]
-    fn has_feature_ignores_overlong_and_excess() {
-        let mut h = sample_hello();
-        h.features = (0..MAX_FEATURES).map(|i| format!("f{i}")).collect();
-        h.features.push("x".into());
-        assert!(h.has_feature("f3"));
-        assert!(!h.has_feature("x"));
-        let long = "a".repeat(33);
-        h.features = vec![long.clone()];
-        assert!(!h.has_feature(&long));
     }
 
     #[test]

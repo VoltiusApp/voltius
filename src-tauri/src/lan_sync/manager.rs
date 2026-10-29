@@ -2,7 +2,7 @@ use super::addrs;
 use super::discovery::{self, classify_mdns_error, Discovery, DiscoveryError};
 use super::handshake::{handshake, HandshakeError, SessionReader, SessionWriter};
 use super::identity::LocalIdentity;
-use super::peers::{now_secs, write_snapshot, PeerRecord, PeerStore, PinDecision, Rejection};
+use super::peers::{now_secs, write_snapshot, PeerStore, PinDecision, Rejection};
 use super::protocol::{Frame, Hello};
 use super::route::{classify, Route};
 use serde::Serialize;
@@ -424,16 +424,20 @@ impl Shared {
         }
     }
 
+    // Lock order is store, then state, in adopt and forget.
     fn adopt(self: &Arc<Self>, link: Link) {
         self.record_addrs(&link);
         let rank = self.rank(&link);
         let id = link.hello.device_id.clone();
+        let is_self = id == self.me.device_id;
+        let store = self.store();
+        if !is_self && store.get(&id).map(|r| r.device_key) != Some(link.hello.device_key) {
+            return;
+        }
         let mut state = self.lock();
+        drop(store);
         state.tag(link.addr.ip(), &id);
-        if id == self.me.device_id
-            || state.closed
-            || state.peers.get(&id).is_some_and(|p| p.rank <= rank)
-        {
+        if is_self || state.closed || state.peers.get(&id).is_some_and(|p| p.rank <= rank) {
             return;
         }
         state.next_conn += 1;
@@ -846,14 +850,17 @@ impl Manager {
         self.shared.peers()
     }
 
-    pub fn record(&self, device_id: &str) -> Option<PeerRecord> {
+    #[cfg(test)]
+    pub fn record(&self, device_id: &str) -> Option<super::peers::PeerRecord> {
         self.shared.store().get(device_id).cloned()
     }
 
     pub fn forget(&self, device_id: &str) -> bool {
-        let forgotten = self.shared.store().forget(device_id, now_secs());
+        let mut store = self.shared.store();
+        let forgotten = store.forget(device_id, now_secs());
         let dropped = {
             let mut state = self.shared.lock();
+            drop(store);
             state.rejected.retain(|(id, _)| id != device_id);
             state.peers.remove(device_id)
         };
@@ -911,7 +918,7 @@ mod tests {
     use super::*;
     use crate::lan_sync::handshake::{initiate_with_hello, Session};
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey};
-    use crate::lan_sync::protocol::{KIND_HELLO, MAX_FRAME};
+    use crate::lan_sync::protocol::{raw_hello_frame, MAX_FRAME};
     use std::io::Write;
     use std::sync::atomic::AtomicUsize;
 
@@ -1051,6 +1058,13 @@ mod tests {
         }
     }
 
+    async fn both_listed(a: &Manager, b: &Manager) {
+        until("both peers", || {
+            a.peers().len() == 1 && b.peers().len() == 1
+        })
+        .await;
+    }
+
     async fn next_event(
         rx: &mut mpsc::Receiver<ManagerEvent>,
         wanted: impl Fn(&ManagerEvent) -> bool,
@@ -1084,10 +1098,7 @@ mod tests {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
         a.connect(local(&b)).await;
-        until("both peers", || {
-            a.peers().len() == 1 && b.peers().len() == 1
-        })
-        .await;
+        both_listed(&a, &b).await;
         let seen_by_b = &b.peers()[0];
         assert_eq!(seen_by_b.device_id, "dev-a");
         assert_eq!(seen_by_b.device_name, "dev-a name");
@@ -1133,10 +1144,7 @@ mod tests {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         a.connect(local(&b)).await;
-        until("both peers", || {
-            a.peers().len() == 1 && b.peers().len() == 1
-        })
-        .await;
+        both_listed(&a, &b).await;
         let pinned = |m: &Manager, id| m.record(id).unwrap().device_key;
         assert_eq!(pinned(&a, "dev-b"), test_identity("dev-b").key.public);
         assert_eq!(pinned(&b, "dev-a"), test_identity("dev-a").key.public);
@@ -1196,8 +1204,7 @@ mod tests {
             "device_key": h.device_key, "device_sig": h.device_sig,
         })
         .to_string();
-        let len = (json.len() as u32 + 1).to_be_bytes();
-        [&len[..], &[KIND_HELLO], json.as_bytes()].concat()
+        raw_hello_frame(&json)
     }
 
     #[tokio::test]
@@ -1223,10 +1230,7 @@ mod tests {
         let (a, _ea) = spawn_as(advertising("dev-a", "10.9.9.9:1234"), memory()).await;
         let (b, _eb) = spawn_as(advertising("dev-b", "10.8.8.8:4321"), memory()).await;
         b.connect(local(&a)).await;
-        until("both peers", || {
-            a.peers().len() == 1 && b.peers().len() == 1
-        })
-        .await;
+        both_listed(&a, &b).await;
         let on_b = addrs_of(&b, "dev-a");
         assert!(on_b.contains(&"10.9.9.9:1234".parse().unwrap()), "{on_b:?}");
         assert!(on_b.contains(&local(&a)), "{on_b:?}");
@@ -1261,6 +1265,17 @@ mod tests {
             reopened.decide("x", &[48; 32], 0),
             PinDecision::Rejected(Rejection::Blocked)
         );
+    }
+
+    #[tokio::test]
+    async fn forget_between_admit_and_adopt_leaves_the_peer_unlisted() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let stream = TcpStream::connect(local(&b)).await.unwrap();
+        let link = secure(stream, local(&b), true, &a.shared).await.unwrap();
+        assert!(a.forget("dev-b"));
+        a.shared.adopt(link);
+        assert!(a.peers().is_empty());
     }
 
     #[tokio::test]
@@ -1606,10 +1621,7 @@ mod tests {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
         a.connect(local(&b)).await;
-        until("both peers", || {
-            a.peers().len() == 1 && b.peers().len() == 1
-        })
-        .await;
+        both_listed(&a, &b).await;
         tokio::time::sleep(Duration::from_millis(300)).await;
         while ea.try_recv().is_ok() {}
 
