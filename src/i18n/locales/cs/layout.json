@@ -223,7 +223,13 @@
           "seenOk": "Naposledy {{when}} · aktuální"
         },
         "catchUp": "Změny se k nim dostanou, až budou příště ve stejné síti.",
-        "upsell": "Voltius Cloud udržuje zařízení synchronizovaná, i když nejsou online současně."
+        "upsell": "Voltius Cloud udržuje zařízení synchronizovaná, i když nejsou online současně.",
+        "tooltip": "Synchronizace s okolními zařízeními",
+        "toast": {
+          "lan": "{{name}} je poblíž · Synchronizace přes Wi-Fi",
+          "tailscale": "{{name}} je poblíž · Synchronizace přes Tailscale",
+          "vpn": "{{name}} je poblíž · Synchronizace přes VPN"
+        }
       },
       "status": {
         "syncing": "Synchronizace…",

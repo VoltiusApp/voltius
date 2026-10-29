@@ -215,7 +215,13 @@
           "seenOk": "Seen {{when}} · up to date"
         },
         "catchUp": "Changes reach them the next time they are on the same network.",
-        "upsell": "Voltius Cloud keeps devices in sync even when they're not online together."
+        "upsell": "Voltius Cloud keeps devices in sync even when they're not online together.",
+        "tooltip": "Syncing with nearby devices",
+        "toast": {
+          "lan": "{{name}} is nearby · Syncing over Wi-Fi",
+          "tailscale": "{{name}} is nearby · Syncing over Tailscale",
+          "vpn": "{{name}} is nearby · Syncing over VPN"
+        }
       },
       "status": {
         "syncing": "Syncing…",

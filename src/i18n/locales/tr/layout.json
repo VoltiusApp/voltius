@@ -215,7 +215,13 @@
           "seenOk": "Son görülme {{when}} · güncel"
         },
         "catchUp": "Değişiklikler, bir sonraki sefer aynı ağda olduklarında onlara ulaşır.",
-        "upsell": "Voltius Cloud, cihazlar aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar."
+        "upsell": "Voltius Cloud, cihazlar aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar.",
+        "tooltip": "Yakındaki cihazlarla senkronize ediliyor",
+        "toast": {
+          "lan": "{{name}} yakında · Wi-Fi üzerinden senkronize ediliyor",
+          "tailscale": "{{name}} yakında · Tailscale üzerinden senkronize ediliyor",
+          "vpn": "{{name}} yakında · VPN üzerinden senkronize ediliyor"
+        }
       },
       "status": {
         "syncing": "Eşitleniyor…",

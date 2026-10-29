@@ -12,7 +12,7 @@ import { INACTIVE_SYNC_ROWS, syncFailureReason, syncStatusLabel, syncStatusToolt
 const t = ((key: string, opts?: Record<string, unknown>) => (opts ? `${key} ${JSON.stringify(opts)}` : key)) as unknown as TFunction;
 
 const effective = (over: Partial<EffectiveSync>): EffectiveSync => ({
-  configured: true, paused: false, status: "idle", lastSync: null, error: null, errorSource: null, ...over,
+  configured: true, paused: false, status: "idle", lastSync: null, error: null, errorSource: null, nearby: 0, ...over,
 });
 
 describe("syncStatusLabel", () => {

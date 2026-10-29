@@ -2,6 +2,7 @@ import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
@@ -15,6 +16,7 @@ vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data
 afterEach(() => {
   cleanup();
   useSyncPrefsStore.setState({ paused: false });
+  useLanSyncStore.setState({ peers: [], paused: false });
   useSubscriptionStore.setState({ accountMode: null, isPro: false });
   useMobileNavStore.setState({ sheet: null });
 });
@@ -46,6 +48,22 @@ describe("MobileHeader", () => {
     const button = container.querySelector("button[data-mobile-sync-status]")!;
     expect(button.getAttribute("aria-label")).toBe("layout.sync.status.paused");
     expect(button.querySelector("[data-icon='lucide:circle-pause']")).not.toBeNull();
+  });
+
+  test("a device with sync off but peers nearby shows the wifi icon", async () => {
+    useLanSyncStore.setState({ peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a" }] });
+    const { default: MobileHeader } = await import("./MobileHeader");
+    const { container } = render(<MobileHeader />);
+    const button = container.querySelector("button[data-mobile-sync-status]")!;
+    expect(button.getAttribute("aria-label")).toBe("layout.sync.local.tooltip");
+    expect(button.querySelector("[data-icon='lucide:wifi']")).not.toBeNull();
+  });
+
+  test("paused local sync does not count its peers as nearby", async () => {
+    useLanSyncStore.setState({ paused: true, peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a" }] });
+    const { default: MobileHeader } = await import("./MobileHeader");
+    const { container } = render(<MobileHeader />);
+    expect(container.querySelector("[data-mobile-sync-status]")).toBeNull();
   });
 
   test("a device that never set sync up shows no sync icon", async () => {

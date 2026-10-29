@@ -10,7 +10,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 const effective = vi.hoisted(() => ({
-  value: { configured: false, paused: false, status: "idle", lastSync: null, error: null, errorSource: null },
+  value: { configured: false, paused: false, status: "idle", lastSync: null, error: null, errorSource: null, nearby: 0 },
 }));
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ providers: [], effective: effective.value }) }));
 
@@ -51,6 +51,14 @@ test("the cloud sync row opens the sync sheet", () => {
   const { container } = render(<MobileAccountPage />);
   fireEvent.click(container.querySelector("button[data-account-sync]")!);
   expect(useMobileNavStore.getState().sheet).toEqual({ kind: "sync" });
+});
+
+test("nearby devices with sync off read as local sync", () => {
+  effective.value = { ...effective.value, configured: false, paused: false, nearby: 2 };
+  const { queryByText } = render(<MobileAccountPage />);
+  expect(queryByText("layout.sync.local.tooltip")).not.toBeNull();
+  expect(queryByText("mobile.account.off")).toBeNull();
+  effective.value = { ...effective.value, nearby: 0 };
 });
 
 test("a configured sync reads with the shared status label", () => {

@@ -1,8 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon } from "@iconify/react";
 import type { SyncStatus } from "@/services/sync";
-import type { EffectiveSync } from "@/services/syncProviders";
-import { SYNC_PAUSED_ICON, syncStatusColor, syncStatusIcon } from "@/services/syncStatus";
+import { isNearbyOnly, type EffectiveSync } from "@/services/syncProviders";
+import { SYNC_NEARBY_COLOR, SYNC_NEARBY_ICON, SYNC_PAUSED_ICON, syncStatusColor, syncStatusIcon } from "@/services/syncStatus";
 import { isManualSyncRunning, onManualSyncChange } from "@/services/syncIntent";
 
 type Motion = "none" | "breathe" | "arc";
@@ -90,10 +90,12 @@ export function SyncStatusIcon({ sync, width, className = "", style }: SyncStatu
 }
 
 export function effectiveSyncColor(sync: EffectiveSync, motion: SyncMotion): string {
+  if (isNearbyOnly(sync)) return SYNC_NEARBY_COLOR;
   return sync.configured ? syncStatusColor(motion.status) : "var(--t-text-dim)";
 }
 
 export function EffectiveSyncIcon({ sync, motion, width }: { sync: EffectiveSync; motion: SyncMotion; width: number }) {
+  if (isNearbyOnly(sync)) return <Icon icon={SYNC_NEARBY_ICON} width={width} />;
   return sync.configured
     ? <SyncStatusIcon sync={motion} width={width} />
     : <Icon icon={sync.paused ? SYNC_PAUSED_ICON : "lucide:cloud-off"} width={width} />;

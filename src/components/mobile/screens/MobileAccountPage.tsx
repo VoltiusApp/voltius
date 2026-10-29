@@ -6,8 +6,9 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
-import { SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
-import { syncStatusLabel } from "@/services/syncStatusText";
+import { SYNC_NEARBY_COLOR, SYNC_NEARBY_ICON, SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
+import { isNearbyOnly } from "@/services/syncProviders";
+import { effectiveSyncLabel } from "@/services/syncStatusText";
 import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
@@ -44,6 +45,7 @@ export default function MobileAccountPage() {
   const renewsAt = useSubscriptionStore((s) => s.renewsAt);
   const endsAt = useSubscriptionStore((s) => s.endsAt);
   const sync = useSyncProviders().effective;
+  const nearbyOnly = isNearbyOnly(sync);
   const [email, setEmail] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -87,10 +89,10 @@ export default function MobileAccountPage() {
         <Row icon="lucide:mail" label={t("mobile.account.email")} value={email ?? (signedIn ? "—" : t("mobile.account.notSignedIn"))} />
         <Row icon="lucide:badge-check" label={t("mobile.account.plan")} value={planValue} valueColor={isPro ? "#f59e0b" : undefined} />
         <Row
-          icon={sync.paused ? SYNC_PAUSED_ICON : syncStatusIcon(sync.status)}
+          icon={nearbyOnly ? SYNC_NEARBY_ICON : sync.paused ? SYNC_PAUSED_ICON : syncStatusIcon(sync.status)}
           label={t("mobile.account.cloudSync")}
-          value={sync.configured ? syncStatusLabel(t, sync.status, sync.lastSync) : t(sync.paused ? "layout.sync.paused" : "mobile.account.off")}
-          valueColor={sync.configured ? syncStatusColor(sync.status) : undefined}
+          value={effectiveSyncLabel(t, sync)}
+          valueColor={nearbyOnly ? SYNC_NEARBY_COLOR : sync.configured ? syncStatusColor(sync.status) : undefined}
           onTap={() => openSheet({ kind: "sync" })}
         />
 

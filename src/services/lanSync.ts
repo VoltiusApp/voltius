@@ -1,9 +1,11 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@/lib/invoke";
+import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
 import { createSerialQueue } from "@/lib/serialQueue";
 import { settleWithin } from "@/lib/settleWithin";
 import { isServerMode } from "@/services/account";
+import { appToast } from "@/services/appToast";
 import { entityClocks, type PeerInfo } from "@/services/lanSyncDevices";
 import { ensureLanSyncIntro } from "@/services/lanSyncIntro";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";
@@ -81,12 +83,16 @@ function clearPeers(): void {
   store().setPeers([]);
 }
 
+function announceNearby(peer: PeerInfo): void {
+  appToast("info", i18n.t(`layout.sync.local.toast.${peer.route}`, { name: peer.deviceName }));
+}
+
 function onPeers(s: Session, peers: PeerInfo[]): void {
   const others = peers.filter((p) => p.deviceId !== s.selfId);
   const { setPeers, rememberDevice } = store();
   setPeers(others);
   const arrived = others.filter((p) => !s.seen.has(p.deviceId));
-  others.forEach(rememberDevice);
+  others.filter(rememberDevice).forEach(announceNearby);
   s.seen = new Set(others.map((p) => p.deviceId));
   if (arrived.length > 0) requestBroadcast();
 }

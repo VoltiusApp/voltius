@@ -2,7 +2,10 @@ import { test, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, cleanup, act, fireEvent } from "@testing-library/react";
 import type { SyncStatus } from "@/services/sync";
 import { runManualSync } from "@/services/syncIntent";
-import { SyncStatusIcon, useSyncMotion } from "./SyncStatusIcon";
+import type { EffectiveSync } from "@/services/syncProviders";
+import { EffectiveSyncIcon, SyncStatusIcon, effectiveSyncColor, useSyncMotion } from "./SyncStatusIcon";
+
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
@@ -99,4 +102,38 @@ test("the first sync after launch rests on the plain cloud until it has a result
   const view = mount("syncing");
   expect(view.icon().dataset.motion).toBe("none");
   expect(view.icon().dataset.status).toBe("idle");
+});
+
+const effective = (over: Partial<EffectiveSync>): EffectiveSync => ({
+  configured: true, paused: false, status: "success", lastSync: null, error: null, errorSource: null, nearby: 0, ...over,
+});
+
+function EffectiveProbe({ sync }: { sync: EffectiveSync }) {
+  const motion = useSyncMotion(sync.status);
+  return <span data-color={effectiveSyncColor(sync, motion)}><EffectiveSyncIcon sync={sync} motion={motion} width={18} /></span>;
+}
+
+const renderEffective = (sync: EffectiveSync) => render(<EffectiveProbe sync={sync} />).container.firstChild as HTMLElement;
+
+test("nearby devices with no cloud sync show a green wifi icon", () => {
+  const el = renderEffective(effective({ configured: false, status: "idle", nearby: 2 }));
+  expect(el.querySelector("[data-icon='lucide:wifi']")).not.toBeNull();
+  expect(el.dataset.color).toBe("var(--t-status-connected)");
+});
+
+test("nearby devices with cloud sync offline show the wifi icon", () => {
+  expect(renderEffective(effective({ status: "offline", nearby: 1 })).querySelector("[data-icon='lucide:wifi']")).not.toBeNull();
+});
+
+test("no nearby devices keeps cloud-off, and cloud sync that works keeps its own icon", () => {
+  const off = renderEffective(effective({ configured: false, status: "idle" }));
+  expect(off.querySelector("[data-icon='lucide:cloud-off']")).not.toBeNull();
+  cleanup();
+  expect(renderEffective(effective({ nearby: 2 })).querySelector("[data-icon='lucide:wifi']")).toBeNull();
+});
+
+test("nearby never upgrades an error", () => {
+  const el = renderEffective(effective({ status: "error", error: "boom", nearby: 3 }));
+  expect(el.querySelector("[data-icon='lucide:wifi']")).toBeNull();
+  expect(el.dataset.color).toBe("var(--t-status-error)");
 });

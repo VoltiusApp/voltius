@@ -153,6 +153,12 @@ describe("aggregateSyncStatus", () => {
       })),
     }));
 
+  test("no providers still carries the nearby count", () => {
+    expect(aggregateSyncStatus([], 2)).toMatchObject({ configured: false, nearby: 2 });
+    expect(aggregateSyncStatus([]).nearby).toBe(0);
+    expect(aggregateSyncStatus(providersWith({ status: "success" }), 3).nearby).toBe(3);
+  });
+
   test("worst status wins and the error names its provider", () => {
     const effective = aggregateSyncStatus(providersWith({ status: "syncing" }, { status: "error", error: "Sync token is invalid or expired" }, { status: "offline" }));
     expect(effective).toMatchObject({ configured: true, status: "error", error: "Sync token is invalid or expired", errorSource: "P1" });
@@ -160,7 +166,7 @@ describe("aggregateSyncStatus", () => {
 
   test("an unreachable provider keeps its reason but is not named as a failing source", () => {
     const effective = aggregateSyncStatus(providersWith({ status: "success" }, { status: "offline", error: "connection refused" }));
-    expect(effective).toMatchObject({ status: "offline", error: "connection refused", errorSource: null });
+    expect(effective).toMatchObject({ status: "offline", error: "connection refused", errorSource: null, nearby: 0 });
   });
 
   test("rank order is error > offline > syncing > success > idle", () => {
@@ -187,7 +193,7 @@ describe("aggregateSyncStatus", () => {
 
   test("with no active provider it falls back to the Voltius state, unconfigured", () => {
     const providers = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, accountMode: "local", state: { status: "idle", lastSync: null, error: null, blobSizeBytes: null } } }));
-    expect(aggregateSyncStatus(providers)).toEqual({ configured: false, paused: false, status: "idle", lastSync: null, error: null, errorSource: null });
+    expect(aggregateSyncStatus(providers)).toEqual({ configured: false, paused: false, status: "idle", lastSync: null, error: null, errorSource: null, nearby: 0 });
   });
 
   test("a paused Voltius provider is left out of the status and reported as paused", () => {

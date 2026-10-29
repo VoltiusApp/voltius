@@ -219,7 +219,13 @@
           "seenOk": "Visto {{when}} · atualizado"
         },
         "catchUp": "As alterações chegam-lhes na próxima vez que estiverem na mesma rede.",
-        "upsell": "O Voltius Cloud mantém os dispositivos sincronizados mesmo quando não estão online ao mesmo tempo."
+        "upsell": "O Voltius Cloud mantém os dispositivos sincronizados mesmo quando não estão online ao mesmo tempo.",
+        "tooltip": "A sincronizar com dispositivos próximos",
+        "toast": {
+          "lan": "{{name}} está por perto · A sincronizar via Wi-Fi",
+          "tailscale": "{{name}} está por perto · A sincronizar via Tailscale",
+          "vpn": "{{name}} está por perto · A sincronizar via VPN"
+        }
       },
       "status": {
         "syncing": "A sincronizar…",

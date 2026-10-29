@@ -8,6 +8,7 @@ import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { usePluginStore } from "@/stores/pluginStore";
+import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 export function useSyncProviders(): { providers: SyncProviderView[]; effective: EffectiveSync } {
@@ -19,12 +20,13 @@ export function useSyncProviders(): { providers: SyncProviderView[]; effective: 
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const overrides = usePluginRegistryStore((s) => s.overrides);
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
+  const nearby = useLanSyncStore((s) => (s.paused ? 0 : s.peers.length));
   const locale = useUiLanguage();
 
   return useMemo(() => {
     const providers = buildSyncProviders(readSyncProviderInputs(loadedPluginSource));
-    return { providers, effective: aggregateSyncStatus(providers) };
+    return { providers, effective: aggregateSyncStatus(providers, nearby) };
     // The inputs are read from stores inside; these subscriptions only trigger the rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voltiusState, accountMode, isPro, pluginStates, settingsPages, overrides, installedMeta, locale]);
+  }, [voltiusState, accountMode, isPro, pluginStates, settingsPages, overrides, installedMeta, nearby, locale]);
 }

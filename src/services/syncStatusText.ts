@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { SyncProviderAvailability } from "@/plugins/api";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import type { SyncStatus } from "./sync";
-import type { EffectiveSync } from "./syncProviders";
+import { isNearbyOnly, type EffectiveSync } from "./syncProviders";
 import { SYNC_PAUSED_ICON } from "./syncStatus";
 
 export function syncStatusLabel(
@@ -26,8 +26,15 @@ export function syncFailureReason(status: SyncStatus, error: string | null): str
   return (status === "error" || status === "offline") && error ? error : null;
 }
 
+export function effectiveSyncLabel(t: TFunction, sync: EffectiveSync): string {
+  if (isNearbyOnly(sync)) return t("layout.sync.local.tooltip");
+  if (sync.configured) return syncStatusLabel(t, sync.status, sync.lastSync);
+  return t(sync.paused ? "layout.sync.paused" : "mobile.account.off");
+}
+
 /** One-line summary for a control with no room for a reason line; `status` is what the icon shows. */
 export function syncStatusTooltip(t: TFunction, sync: EffectiveSync, status: SyncStatus): string {
+  if (isNearbyOnly(sync)) return t("layout.sync.local.tooltip");
   if (!sync.configured) return t(sync.paused ? "layout.sync.status.paused" : "layout.sync.status.notConfigured");
   if (status === "error") {
     const error = sync.error ?? t("layout.sync.status.unknown");

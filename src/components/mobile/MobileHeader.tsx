@@ -7,6 +7,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
+import { isNearbyOnly } from "@/services/syncProviders";
 import { syncStatusTooltip } from "@/services/syncStatusText";
 import { EffectiveSyncIcon, effectiveSyncColor, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -33,7 +34,7 @@ function HeaderActions({ onAdd }: { onAdd?: () => void }) {
   const syncMotion = useSyncMotion(sync.status);
   return (
     <div className="flex items-center gap-1 shrink-0">
-      {(sync.configured || sync.paused) && (
+      {(sync.configured || sync.paused || isNearbyOnly(sync)) && (
         <button
           data-mobile-sync-status
           aria-label={syncStatusTooltip(t, sync, syncMotion.status)}

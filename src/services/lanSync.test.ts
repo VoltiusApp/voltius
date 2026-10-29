@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   exportLocalBlob: vi.fn(async () => [7]),
   intro: vi.fn(async () => {}),
   failListen: null as string | null,
+  toast: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -25,6 +26,8 @@ vi.mock("@tauri-apps/api/event", () => ({
     return () => { if (h.handlers.get(name) === fn) h.handlers.delete(name); };
   },
 }));
+vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
+vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `${key}|${o.name}` } }));
 vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode }));
 vi.mock("@/services/vault", () => ({ getVaultKey: () => h.vaultKey }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: h.intro }));
@@ -78,6 +81,7 @@ beforeEach(() => {
   h.mergeRemotePayload.mockReset().mockImplementation(async () => h.merged);
   h.merged = false;
   h.failListen = null;
+  h.toast.mockClear();
   h.reloadAllStores.mockClear();
   h.exportLocalBlob.mockClear();
   useVaultKeysStore.setState({ dek: null, kek: null });
@@ -318,6 +322,17 @@ describe("lanSync", () => {
     await startLanSync();
     expect(calls("lan_sync_start")).toHaveLength(1);
     expect(h.handlers.size).toBe(3);
+  });
+
+  test("a new device toasts once with its route, reconnects and our own id do not", async () => {
+    await started();
+    emit("peers", [peer("A"), peer("self")]);
+    emit("peers", []);
+    emit("peers", [peer("A"), { ...peer("B"), route: "tailscale" }]);
+    expect(h.toast.mock.calls).toEqual([
+      ["info", "layout.sync.local.toast.lan|A"],
+      ["info", "layout.sync.local.toast.tailscale|B"],
+    ]);
   });
 
   test("stop returns within its bound while lan_sync_start hangs, then stops once it settles", async () => {
