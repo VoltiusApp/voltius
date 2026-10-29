@@ -2,10 +2,12 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
+import { providerLang, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
 import { SyncStatusIcon } from "@/components/shared/SyncStatusIcon";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
-import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
+import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 
 const ACTION_ICONS: Record<SyncProviderAction["kind"], string> = {
@@ -36,12 +38,7 @@ function SyncSheetSection({ provider, onAction }: { provider: SyncProviderView; 
   return (
     <div data-sync-provider={provider.id} className="pb-1">
       <div className="px-3 pt-2 pb-1 space-y-1.5">
-        <div className="flex items-center gap-1.5 text-(--t-text-dim)">
-          <Icon icon={provider.icon} width={13} />
-          <span lang={provider.id === VOLTIUS_PROVIDER_ID ? undefined : "en"} className="text-[11px] font-bold uppercase tracking-widest">
-            {provider.label}
-          </span>
-        </div>
+        <SyncSectionTitle variant="sheet" icon={provider.icon} label={provider.label} lang={providerLang(provider.id)} />
         {status && (
           <>
             <div className="flex items-center gap-2" style={{ color: status.color }}>
@@ -75,6 +72,7 @@ export default function SyncSheet() {
 
   return (
     <BottomSheet title={t("layout.sync.title")} onClose={closeSheet}>
+      <LocalNetworkSection variant="sheet" onClose={closeSheet} />
       {providers.map((provider) => <SyncSheetSection key={provider.id} provider={provider} onAction={onAction} />)}
     </BottomSheet>
   );

@@ -184,7 +184,38 @@
       "encryptedBlob": "Encrypted blob · {{size}}",
       "local": {
         "intro": "Voltius will ask to find your devices on this network so they can sync directly.",
-        "introContinue": "Continue"
+        "introContinue": "Continue",
+        "title": "Local network",
+        "pause": "Pause local sync",
+        "resume": "Resume local sync",
+        "status": {
+          "live_one": "Live with {{count}} device",
+          "live_other": "Live with {{count}} devices",
+          "syncing": "Syncing with {{name}}…",
+          "none": "No devices nearby",
+          "paused": "Local sync paused",
+          "blocked": "Voltius can't reach your network. Allow Local Network access in System Settings › Privacy & Security.",
+          "blockedOther": "Voltius can't reach your network. Check that your firewall allows Voltius on private networks."
+        },
+        "openSettings": "Open settings",
+        "route": {
+          "lan": "Same Wi-Fi",
+          "tailscale": "Tailscale",
+          "vpn": "VPN"
+        },
+        "row": {
+          "syncing_one": "Syncing {{count}} change",
+          "syncing_other": "Syncing {{count}} changes",
+          "behind_one": "Offline · {{count}} change behind",
+          "behind_other": "Offline · {{count}} changes behind",
+          "offlineOk": "Offline · up to date",
+          "seenBehind_one": "Seen {{when}} · {{count}} behind",
+          "seenBehind_other": "Seen {{when}} · {{count}} behind",
+          "seenOk": "Seen {{when}} · up to date"
+        },
+        "catchUp": "Changes reach them the next time they are on the same network.",
+        "upsell": "Voltius Cloud keeps devices in sync even when they're not online together.",
+        "upsellAction": "Upgrade →"
       },
       "status": {
         "syncing": "Syncing…",

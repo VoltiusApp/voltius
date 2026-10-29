@@ -184,7 +184,46 @@
       "encryptedBlob": "Šifrovaná data · {{size}}",
       "local": {
         "intro": "Voltius požádá o nalezení vašich zařízení v této síti, aby se mohla synchronizovat přímo.",
-        "introContinue": "Pokračovat"
+        "introContinue": "Pokračovat",
+        "title": "Místní síť",
+        "pause": "Pozastavit místní synchronizaci",
+        "resume": "Pokračovat v místní synchronizaci",
+        "status": {
+          "live_one": "Připojeno k {{count}} zařízení",
+          "live_few": "Připojeno k {{count}} zařízením",
+          "live_many": "Připojeno k {{count}} zařízení",
+          "live_other": "Připojeno k {{count}} zařízením",
+          "syncing": "Synchronizace se zařízením {{name}}…",
+          "none": "Žádná zařízení v okolí",
+          "paused": "Místní synchronizace pozastavena",
+          "blocked": "Voltius se nemůže připojit k vaší síti. Povolte přístup k místní síti v Nastavení systému › Soukromí a zabezpečení.",
+          "blockedOther": "Voltius se nemůže připojit k vaší síti. Zkontrolujte, zda brána firewall povoluje Voltius v privátních sítích."
+        },
+        "openSettings": "Otevřít nastavení",
+        "route": {
+          "lan": "Stejná Wi-Fi",
+          "tailscale": "Tailscale",
+          "vpn": "VPN"
+        },
+        "row": {
+          "syncing_one": "Synchronizace {{count}} změny",
+          "syncing_few": "Synchronizace {{count}} změn",
+          "syncing_many": "Synchronizace {{count}} změny",
+          "syncing_other": "Synchronizace {{count}} změn",
+          "behind_one": "Offline · pozadu o {{count}} změnu",
+          "behind_few": "Offline · pozadu o {{count}} změny",
+          "behind_many": "Offline · pozadu o {{count}} změny",
+          "behind_other": "Offline · pozadu o {{count}} změn",
+          "offlineOk": "Offline · aktuální",
+          "seenBehind_one": "Naposledy {{when}} · pozadu o {{count}}",
+          "seenBehind_few": "Naposledy {{when}} · pozadu o {{count}}",
+          "seenBehind_many": "Naposledy {{when}} · pozadu o {{count}}",
+          "seenBehind_other": "Naposledy {{when}} · pozadu o {{count}}",
+          "seenOk": "Naposledy {{when}} · aktuální"
+        },
+        "catchUp": "Změny se k nim dostanou, až budou příště ve stejné síti.",
+        "upsell": "Voltius Cloud udržuje zařízení synchronizovaná, i když nejsou online současně.",
+        "upsellAction": "Přejít na vyšší tarif →"
       },
       "status": {
         "syncing": "Synchronizace…",

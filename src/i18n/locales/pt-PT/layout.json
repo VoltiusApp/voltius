@@ -184,7 +184,42 @@
       "encryptedBlob": "Blob encriptado · {{size}}",
       "local": {
         "intro": "O Voltius vai pedir para encontrar os seus dispositivos nesta rede para que possam sincronizar diretamente.",
-        "introContinue": "Continuar"
+        "introContinue": "Continuar",
+        "title": "Rede local",
+        "pause": "Pausar sincronização local",
+        "resume": "Retomar sincronização local",
+        "status": {
+          "live_one": "Ligado a {{count}} dispositivo",
+          "live_many": "Ligado a {{count}} dispositivos",
+          "live_other": "Ligado a {{count}} dispositivos",
+          "syncing": "A sincronizar com {{name}}…",
+          "none": "Nenhum dispositivo por perto",
+          "paused": "Sincronização local pausada",
+          "blocked": "O Voltius não consegue aceder à sua rede. Permita o acesso à Rede local em Definições do Sistema › Privacidade e segurança.",
+          "blockedOther": "O Voltius não consegue aceder à sua rede. Verifique se a firewall permite o Voltius em redes privadas."
+        },
+        "openSettings": "Abrir definições",
+        "route": {
+          "lan": "Mesma Wi-Fi",
+          "tailscale": "Tailscale",
+          "vpn": "VPN"
+        },
+        "row": {
+          "syncing_one": "A sincronizar {{count}} alteração",
+          "syncing_many": "A sincronizar {{count}} alterações",
+          "syncing_other": "A sincronizar {{count}} alterações",
+          "behind_one": "Offline · {{count}} alteração pendente",
+          "behind_many": "Offline · {{count}} alterações pendentes",
+          "behind_other": "Offline · {{count}} alterações pendentes",
+          "offlineOk": "Offline · atualizado",
+          "seenBehind_one": "Visto {{when}} · {{count}} pendente",
+          "seenBehind_many": "Visto {{when}} · {{count}} pendentes",
+          "seenBehind_other": "Visto {{when}} · {{count}} pendentes",
+          "seenOk": "Visto {{when}} · atualizado"
+        },
+        "catchUp": "As alterações chegam-lhes na próxima vez que estiverem na mesma rede.",
+        "upsell": "O Voltius Cloud mantém os dispositivos sincronizados mesmo quando não estão online ao mesmo tempo.",
+        "upsellAction": "Atualizar →"
       },
       "status": {
         "syncing": "A sincronizar…",

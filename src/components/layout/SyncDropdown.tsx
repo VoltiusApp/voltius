@@ -3,13 +3,15 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
-import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
+import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
 import { SyncStatusIcon } from "@/components/shared/SyncStatusIcon";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import type { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useAvailableSyncProviders } from "@/hooks/useAvailableSyncProviders";
 import { AvailableSyncProviderRow } from "@/components/shared/AvailableSyncProviderRow";
+import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
+import { providerLang, SyncHeaderButton, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,33 +22,6 @@ function formatBytes(bytes: number): string {
 }
 
 // ─── Section ──────────────────────────────────────────────────────────────────
-
-function HeaderButton({ onClick, title, disabled = false, faded = false, children }: {
-  onClick: () => void;
-  title: string;
-  disabled?: boolean;
-  faded?: boolean;
-  children: React.ReactNode;
-}) {
-  const rest = disabled ? "var(--t-text-dim)" : "var(--t-text-secondary)";
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-all"
-      style={{ color: rest, background: "var(--t-bg-elevated)", opacity: faded ? 0.4 : 1 }}
-      onMouseEnter={(e) => {
-        if (!disabled) e.currentTarget.style.color = "var(--t-text-primary)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = rest;
-      }}
-      title={title}
-    >
-      {children}
-    </button>
-  );
-}
 
 function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
@@ -60,23 +35,17 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
   return (
     <div data-sync-provider={provider.id} className="px-3 py-2.5 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <Icon icon={provider.icon} width={12} style={{ color: "var(--t-text-dim)" }} />
-          {/* Plugin providers carry their English product name; keep it out of Turkish casing. */}
-          <span lang={provider.id === VOLTIUS_PROVIDER_ID ? undefined : "en"} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
-            {provider.label}
-          </span>
-        </div>
+        <SyncSectionTitle variant="dropdown" icon={provider.icon} label={provider.label} lang={providerLang(provider.id)} />
         <div className="flex items-stretch gap-1">
           {toggle && (
-            <HeaderButton onClick={() => onAction(toggle)} title={t(`layout.sync.${toggle.kind}`)}>
+            <SyncHeaderButton onClick={() => onAction(toggle)} title={t(`layout.sync.${toggle.kind}`)}>
               <Icon icon={toggle.kind === "pause" ? "lucide:pause" : "lucide:play"} width={10} />
-            </HeaderButton>
+            </SyncHeaderButton>
           )}
-          <HeaderButton onClick={syncNow.run} disabled={syncNow.busy || !syncNow.available} faded={!syncNow.available} title={t("layout.sync.syncNow")}>
+          <SyncHeaderButton onClick={syncNow.run} disabled={syncNow.busy || !syncNow.available} faded={!syncNow.available} title={t("layout.sync.syncNow")}>
             <Icon icon="lucide:refresh-cw" width={10} />
             {t("layout.sync.syncNow")}
-          </HeaderButton>
+          </SyncHeaderButton>
         </div>
       </div>
 
@@ -201,7 +170,7 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
   return (
     <div
       ref={fade.panelRef}
-      className={`surface-float fixed z-50 w-64 overflow-hidden ${fade.className}`}
+      className={`surface-float fixed z-50 w-68 overflow-hidden ${fade.className}`}
       style={{ top, right, ...fade.style }}
     >
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
@@ -218,6 +187,8 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
           <Icon icon="lucide:x" width={13} />
         </button>
       </div>
+
+      <LocalNetworkSection variant="dropdown" onClose={onClose} />
 
       {providers.map((provider, i) => (
         <Fragment key={provider.id}>

@@ -184,7 +184,42 @@
       "encryptedBlob": "Bloc chiffré · {{size}}",
       "local": {
         "intro": "Voltius va demander à trouver vos appareils sur ce réseau afin qu'ils se synchronisent directement.",
-        "introContinue": "Continuer"
+        "introContinue": "Continuer",
+        "title": "Réseau local",
+        "pause": "Mettre la synchronisation locale en pause",
+        "resume": "Reprendre la synchronisation locale",
+        "status": {
+          "live_one": "Connecté à {{count}} appareil",
+          "live_many": "Connecté à {{count}} appareils",
+          "live_other": "Connecté à {{count}} appareils",
+          "syncing": "Synchronisation avec {{name}}…",
+          "none": "Aucun appareil à proximité",
+          "paused": "Synchronisation locale en pause",
+          "blocked": "Voltius ne peut pas accéder à votre réseau. Autorisez l'accès au réseau local dans Réglages Système › Confidentialité et sécurité.",
+          "blockedOther": "Voltius ne peut pas accéder à votre réseau. Vérifiez que votre pare-feu autorise Voltius sur les réseaux privés."
+        },
+        "openSettings": "Ouvrir les réglages",
+        "route": {
+          "lan": "Même Wi-Fi",
+          "tailscale": "Tailscale",
+          "vpn": "VPN"
+        },
+        "row": {
+          "syncing_one": "Synchronisation de {{count}} modification",
+          "syncing_many": "Synchronisation de {{count}} modifications",
+          "syncing_other": "Synchronisation de {{count}} modifications",
+          "behind_one": "Hors ligne · {{count}} modification de retard",
+          "behind_many": "Hors ligne · {{count}} modifications de retard",
+          "behind_other": "Hors ligne · {{count}} modifications de retard",
+          "offlineOk": "Hors ligne · à jour",
+          "seenBehind_one": "Vu {{when}} · {{count}} de retard",
+          "seenBehind_many": "Vu {{when}} · {{count}} de retard",
+          "seenBehind_other": "Vu {{when}} · {{count}} de retard",
+          "seenOk": "Vu {{when}} · à jour"
+        },
+        "catchUp": "Les modifications leur parviendront la prochaine fois qu'ils seront sur le même réseau.",
+        "upsell": "Voltius Cloud garde vos appareils synchronisés même lorsqu'ils ne sont pas en ligne en même temps.",
+        "upsellAction": "Mettre à niveau →"
       },
       "status": {
         "syncing": "Synchronisation…",

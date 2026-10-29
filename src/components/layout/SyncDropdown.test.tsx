@@ -19,7 +19,12 @@ vi.mock("@/hooks/useAvailableSyncProviders", () => ({
   useAvailableSyncProviders: () => ({ available: available.list, appVersion: "0.36.0" }),
 }));
 
+const lanRows = vi.hoisted(() => ({ list: [] as unknown[] }));
+vi.mock("@/hooks/useLanDeviceRows", () => ({ useLanDeviceRows: () => lanRows.list }));
+vi.mock("@/services/lanSync", () => ({ setLanSyncPaused: vi.fn(async () => {}) }));
+
 import { SyncDropdown } from "./SyncDropdown";
+import { useLanSyncStore } from "@/stores/lanSyncStore";
 
 const view = (over: Partial<SyncProviderView>): SyncProviderView => ({
   id: "x", label: "X", icon: "lucide:cloud", availability: "active",
@@ -131,5 +136,17 @@ describe("SyncDropdown", () => {
     fireEvent.click(getByText("settings.plugins.browse.install"));
     expect(installer.startInstall).toHaveBeenCalledWith(cloudflare);
     available.list = [];
+  });
+
+  test("the local network section comes first, above the providers", () => {
+    useLanSyncStore.setState({ status: "running" });
+    lanRows.list = [{ deviceId: "d1", name: "Desktop", platform: "linux", nearby: true, route: "lan", dot: "live", behind: 0, lastSeen: null }];
+    const { container } = render(
+      <SyncDropdown anchorRef={createRef()} open onClose={() => {}} providers={[view({ id: "voltius" })]} installer={installer} />,
+    );
+    const lan = container.querySelector("[data-lan-section]")!;
+    expect(lan.compareDocumentPosition(container.querySelector("[data-sync-provider]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    lanRows.list = [];
+    useLanSyncStore.setState({ status: "stopped" });
   });
 });

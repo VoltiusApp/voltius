@@ -184,7 +184,34 @@
       "encryptedBlob": "加密数据块 · {{size}}",
       "local": {
         "intro": "Voltius 将请求在此网络上查找您的设备，以便它们直接同步。",
-        "introContinue": "继续"
+        "introContinue": "继续",
+        "title": "本地网络",
+        "pause": "暂停本地同步",
+        "resume": "继续本地同步",
+        "status": {
+          "live_other": "已与 {{count}} 台设备实时同步",
+          "syncing": "正在与 {{name}} 同步…",
+          "none": "附近没有设备",
+          "paused": "本地同步已暂停",
+          "blocked": "Voltius 无法访问您的网络。请在“系统设置 › 隐私与安全性”中允许“本地网络”访问。",
+          "blockedOther": "Voltius 无法访问您的网络。请检查防火墙是否允许 Voltius 访问专用网络。"
+        },
+        "openSettings": "打开设置",
+        "route": {
+          "lan": "同一 Wi-Fi",
+          "tailscale": "Tailscale",
+          "vpn": "VPN"
+        },
+        "row": {
+          "syncing_other": "正在同步 {{count}} 项更改",
+          "behind_other": "离线 · 落后 {{count}} 项更改",
+          "offlineOk": "离线 · 已是最新",
+          "seenBehind_other": "上次在线 {{when}} · 落后 {{count}} 项",
+          "seenOk": "上次在线 {{when}} · 已是最新"
+        },
+        "catchUp": "下次它们连到同一网络时，更改就会同步过去。",
+        "upsell": "即使设备不同时在线，Voltius Cloud 也能让它们保持同步。",
+        "upsellAction": "升级 →"
       },
       "status": {
         "syncing": "正在同步…",

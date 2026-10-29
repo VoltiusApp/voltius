@@ -184,7 +184,38 @@
       "encryptedBlob": "Şifreli veri · {{size}}",
       "local": {
         "intro": "Voltius, cihazlarınızın doğrudan eşitlenebilmesi için bu ağdaki cihazlarınızı bulma izni isteyecek.",
-        "introContinue": "Devam"
+        "introContinue": "Devam",
+        "title": "Yerel ağ",
+        "pause": "Yerel eşitlemeyi duraklat",
+        "resume": "Yerel eşitlemeyi sürdür",
+        "status": {
+          "live_one": "{{count}} cihaza bağlı",
+          "live_other": "{{count}} cihaza bağlı",
+          "syncing": "{{name}} ile eşitleniyor…",
+          "none": "Yakında cihaz yok",
+          "paused": "Yerel eşitleme duraklatıldı",
+          "blocked": "Voltius ağınıza erişemiyor. Sistem Ayarları › Gizlilik ve Güvenlik bölümünden Yerel Ağ erişimine izin verin.",
+          "blockedOther": "Voltius ağınıza erişemiyor. Güvenlik duvarınızın özel ağlarda Voltius'a izin verdiğini kontrol edin."
+        },
+        "openSettings": "Ayarları aç",
+        "route": {
+          "lan": "Aynı Wi-Fi",
+          "tailscale": "Tailscale",
+          "vpn": "VPN"
+        },
+        "row": {
+          "syncing_one": "{{count}} değişiklik eşitleniyor",
+          "syncing_other": "{{count}} değişiklik eşitleniyor",
+          "behind_one": "Çevrimdışı · {{count}} değişiklik geride",
+          "behind_other": "Çevrimdışı · {{count}} değişiklik geride",
+          "offlineOk": "Çevrimdışı · güncel",
+          "seenBehind_one": "Son görülme {{when}} · {{count}} geride",
+          "seenBehind_other": "Son görülme {{when}} · {{count}} geride",
+          "seenOk": "Son görülme {{when}} · güncel"
+        },
+        "catchUp": "Değişiklikler, bir sonraki sefer aynı ağda olduklarında onlara ulaşır.",
+        "upsell": "Voltius Cloud, cihazlar aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar.",
+        "upsellAction": "Yükselt →"
       },
       "status": {
         "syncing": "Eşitleniyor…",
