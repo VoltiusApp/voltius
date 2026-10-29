@@ -44,7 +44,6 @@
       "email": "邮箱",
       "notSignedIn": "未登录",
       "plan": "套餐",
-      "cloudSync": "云同步",
       "off": "关闭",
       "proTrial": "Pro 试用——剩余 {{days}} 天",
       "tier": {

@@ -44,7 +44,6 @@
       "email": "Email",
       "notSignedIn": "Не выполнен вход",
       "plan": "Тариф",
-      "cloudSync": "Облачная синхронизация",
       "off": "Выкл.",
       "proTrial": "Pro пробный период — осталось {{days}} дн.",
       "tier": {

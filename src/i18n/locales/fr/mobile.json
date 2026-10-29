@@ -44,7 +44,6 @@
       "email": "E-mail",
       "notSignedIn": "Non connecté",
       "plan": "Forfait",
-      "cloudSync": "Synchronisation cloud",
       "off": "Désactivée",
       "proTrial": "Essai Pro — {{days}} j restants",
       "tier": {

@@ -53,10 +53,11 @@ test("the cloud sync row opens the sync sheet", () => {
   expect(useMobileNavStore.getState().sheet).toEqual({ kind: "sync" });
 });
 
-test("nearby devices with sync off read as local sync", () => {
+test("nearby devices with sync off read as local sync under a generic sync label", () => {
   effective.value = { ...effective.value, configured: false, paused: false, nearby: 2 };
-  const { queryByText } = render(<MobileAccountPage />);
+  const { queryByText, container } = render(<MobileAccountPage />);
   expect(queryByText("layout.sync.local.tooltip")).not.toBeNull();
+  expect(container.querySelector("button[data-account-sync]")!.textContent).toContain("layout.sync.title");
   expect(queryByText("mobile.account.off")).toBeNull();
   effective.value = { ...effective.value, nearby: 0 };
 });

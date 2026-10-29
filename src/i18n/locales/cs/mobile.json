@@ -44,7 +44,6 @@
       "email": "E-mail",
       "notSignedIn": "Nepřihlášeno",
       "plan": "Tarif",
-      "cloudSync": "Synchronizace s cloudem",
       "off": "Vypnuto",
       "proTrial": "Zkušební Pro — zbývá {{days}} d",
       "tier": {

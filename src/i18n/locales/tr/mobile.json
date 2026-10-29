@@ -44,7 +44,6 @@
       "email": "E-posta",
       "notSignedIn": "Oturum açılmadı",
       "plan": "Plan",
-      "cloudSync": "Bulut eşitleme",
       "off": "Kapalı",
       "proTrial": "Pro deneme — {{days}} gün kaldı",
       "tier": {

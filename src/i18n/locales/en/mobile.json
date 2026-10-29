@@ -44,7 +44,6 @@
       "email": "Email",
       "notSignedIn": "Not signed in",
       "plan": "Plan",
-      "cloudSync": "Cloud sync",
       "off": "Off",
       "proTrial": "Pro Trial — {{days}}d left",
       "tier": {

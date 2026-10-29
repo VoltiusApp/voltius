@@ -90,7 +90,7 @@ export default function MobileAccountPage() {
         <Row icon="lucide:badge-check" label={t("mobile.account.plan")} value={planValue} valueColor={isPro ? "#f59e0b" : undefined} />
         <Row
           icon={nearbyOnly ? SYNC_NEARBY_ICON : sync.paused ? SYNC_PAUSED_ICON : syncStatusIcon(sync.status)}
-          label={t("mobile.account.cloudSync")}
+          label={t("layout.sync.title")}
           value={effectiveSyncLabel(t, sync)}
           valueColor={nearbyOnly ? SYNC_NEARBY_COLOR : sync.configured ? syncStatusColor(sync.status) : undefined}
           onTap={() => openSheet({ kind: "sync" })}
