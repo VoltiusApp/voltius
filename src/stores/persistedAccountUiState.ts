@@ -82,6 +82,7 @@ export const DEVICE_SCOPED_STORAGE_KEYS = [
   "voltius-mcp-contributions",
   // Persists poll intervals only — the statuses it holds stay in memory.
   "voltius-host-ping",
+  "voltius-lan-sync",
   // Persists nothing (`partialize: () => ({})`); the key is an empty husk.
   "voltius-connection-presence",
 ];
