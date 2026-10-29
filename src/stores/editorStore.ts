@@ -10,6 +10,7 @@ export interface EditorDoc {
   dirty: boolean;
   autoSave: boolean;
   image?: boolean;
+  readOnly?: boolean;
 }
 export interface DiffSide {
   sftpId: string | null;
@@ -28,7 +29,7 @@ export type EditorTab = EditorDoc | DiffDoc;
 interface EditorState {
   tabs: EditorTab[];
   activeTabId: string | null;
-  openDoc(args: { sftpId: string | null; path: string; hostLabel: string; autoSave: boolean }): string;
+  openDoc(args: { sftpId: string | null; path: string; hostLabel: string; autoSave: boolean; readOnly?: boolean }): string;
   openDiff(left: DiffSide, right: DiffSide): string;
   closeTab(id: string): void;
   setActiveTab(id: string | null): void;
@@ -46,7 +47,7 @@ function patchFileTab(tabs: EditorTab[], id: string, patch: Partial<EditorDoc>):
 export const useEditorStore = create<EditorState>((set, get) => ({
   tabs: [],
   activeTabId: null,
-  openDoc: ({ sftpId, path, hostLabel, autoSave }) => {
+  openDoc: ({ sftpId, path, hostLabel, autoSave, readOnly }) => {
     const existing = get().tabs.find(
       (t) => t.kind === "file" && t.sftpId === sftpId && t.path === path,
     );
@@ -55,7 +56,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return existing.id;
     }
     const id = crypto.randomUUID();
-    const doc: EditorDoc = { id, kind: "file", sftpId, path, hostLabel, dirty: false, autoSave };
+    const doc: EditorDoc = { id, kind: "file", sftpId, path, hostLabel, dirty: false, autoSave, readOnly };
     set((s) => ({ tabs: [...s.tabs, doc], activeTabId: id }));
     return id;
   },

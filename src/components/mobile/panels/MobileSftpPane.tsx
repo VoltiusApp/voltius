@@ -24,6 +24,7 @@ import type { MyDevice } from "@/services/myDevices";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
 import { compareStrings } from "@/utils/localeFormat";
+import { useReadOnlyTip } from "@/services/deviceReadOnly";
 import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
 import { describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { haptic } from "@/lib/haptics";
@@ -67,7 +68,7 @@ export default function MobileSftpPane({
 }) {
   const { t } = useTranslation();
   const { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
-  const readOnlyTip = readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: device?.name }) : undefined;
+  const readOnlyTip = useReadOnlyTip(readOnly, device?.name);
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();

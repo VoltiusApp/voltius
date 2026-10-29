@@ -35,6 +35,7 @@ import { useDirListing } from "./useDirListing";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { describeError } from "@/services/backendErrors";
+import { refuseReadOnly, useReadOnlyTip } from "@/services/deviceReadOnly";
 import { getShortcutHint, matchShortcut } from "@/stores/shortcutStore";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ export function FilePane({
 }) {
   const { t } = useTranslation();
   const resolvedHostLabel = hostLabel ?? t("fileTransfer.common.remoteFallback");
-  const readOnlyTip = readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: resolvedHostLabel }) : undefined;
+  const readOnlyTip = useReadOnlyTip(readOnly, resolvedHostLabel);
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
 
@@ -262,7 +263,7 @@ export function FilePane({
 
   const handleDelete = async (files: FileEntry[]) => {
     if (files.length === 0) return;
-    if (readOnlyTip) { alert(readOnlyTip); return; }
+    if (refuseReadOnly(readOnlyTip)) return;
     if (!isLocal && !sftpId) return;
     const title = t("fileTransfer.pane.confirmDelete.title");
     const msg = files.length === 1
@@ -280,7 +281,7 @@ export function FilePane({
     } catch (e) { alert(describeError(e, t)); }
   };
 
-  const startRename = (f: FileEntry) => { if (readOnlyTip) alert(readOnlyTip); else setRenaming(f.path); };
+  const startRename = (f: FileEntry) => { if (!refuseReadOnly(readOnlyTip)) setRenaming(f.path); };
   const commitRename = async (f: FileEntry, name: string) => {
     if (!name || name === f.name) { setRenaming(null); return; }
     if (!isLocal && !sftpId) { setRenaming(null); return; }
@@ -386,7 +387,7 @@ export function FilePane({
   };
 
   const handleCompress = async (file: FileEntry) => {
-    if (readOnlyTip) { alert(readOnlyTip); return; }
+    if (refuseReadOnly(readOnlyTip)) return;
     const archivePath = joinPath(parentDir(file.path), `${file.name}.tar.gz`);
     try {
       if (isLocal) await fsCompress(file.path, archivePath);
@@ -396,7 +397,7 @@ export function FilePane({
   };
 
   const handleExtract = async (file: FileEntry) => {
-    if (readOnlyTip) { alert(readOnlyTip); return; }
+    if (refuseReadOnly(readOnlyTip)) return;
     const baseName = file.name.replace(/\.(tar\.gz|tgz)$/i, "");
     const destDir = joinPath(parentDir(file.path), baseName);
     try {
@@ -581,12 +582,12 @@ export function FilePane({
 // double-click. Returns whether the file was openable (directories are not).
 export function openFileForEdit(
   file: FileEntry,
-  ctx: Pick<SelectionActionsCtx, "isLocal" | "sftpId" | "hostLabel" | "onEdit">,
+  ctx: Pick<SelectionActionsCtx, "isLocal" | "sftpId" | "hostLabel" | "onEdit" | "readOnlyTip">,
 ): boolean {
   if (file.isDir) return false;
   if (!ctx.isLocal && !ctx.sftpId) return false;
   if (ctx.onEdit) ctx.onEdit(file.path);
-  else openEditorFile({ sftpId: ctx.isLocal ? null : ctx.sftpId, path: file.path, hostLabel: ctx.hostLabel });
+  else openEditorFile({ sftpId: ctx.isLocal ? null : ctx.sftpId, path: file.path, hostLabel: ctx.hostLabel, readOnly: !!ctx.readOnlyTip });
   return true;
 }
 

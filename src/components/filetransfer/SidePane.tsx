@@ -15,6 +15,7 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { isVaultErrorCode } from "@/services/vaultErrors";
 import { routeLabel } from "@/services/myDevices";
 import { hostPresentation } from "./hostPresentation";
+import { useReadOnlyTip } from "@/services/deviceReadOnly";
 import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
 
 const SPARKLINE_MAX = 20;
@@ -62,7 +63,7 @@ export function SidePane({
   const { t } = useTranslation();
   const shown = host ? hostPresentation(host, t) : null;
   const hostLabel = shown?.name ?? null;
-  const readOnlyTip = phase.tag === "connected" && phase.readOnly ? t("fileTransfer.myDevices.readOnlyShare", { name: hostLabel }) : undefined;
+  const readOnlyTip = useReadOnlyTip(phase.tag === "connected" && phase.readOnly, hostLabel);
   const connectingHost = phase.tag === "connecting" ? phase.host : null;
   const connectSteps = useMemo(() => (connectingHost?.kind === "device" ? getDeviceSteps(connectingHost.device.name) : getSftpSteps()), [connectingHost]);
   const overlayHost = (h: HostChoice | null | undefined) => {
