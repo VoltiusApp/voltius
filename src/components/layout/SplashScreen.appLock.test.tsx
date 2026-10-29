@@ -12,6 +12,8 @@ const h = vi.hoisted(() => ({
   launchLock: null as string | null,
   secret: "plain",
   authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean },
+  stopLanSync: vi.fn(async () => {}),
+  getAppLock: vi.fn(async () => null as string | null),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -21,7 +23,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", usePlatform: () => "linux" }));
 vi.mock("@/services/account", () => ({
   autoLogin: h.autoLogin,
-  getAppLock: vi.fn(async () => h.lock),
+  getAppLock: h.getAppLock,
   setAppLock: vi.fn(async () => {}),
   isServerMode: vi.fn(async () => h.mode === "server"),
   getAccountMode: vi.fn(async () => h.mode),
@@ -40,6 +42,7 @@ vi.mock("./AuthPage", () => ({
   default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
+vi.mock("@/services/lanSync", () => ({ startSessionSync: vi.fn(), stopLanSync: h.stopLanSync }));
 
 import SplashScreen from "./SplashScreen";
 
@@ -54,6 +57,8 @@ beforeEach(() => {
   h.secret = "plain";
   h.authProps = null;
   h.autoLogin.mockClear();
+  h.stopLanSync.mockClear();
+  h.getAppLock.mockReset().mockImplementation(async () => h.lock);
 });
 afterEach(() => {
   cleanup();
@@ -63,6 +68,14 @@ afterEach(() => {
 async function advance(ms: number) {
   await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 }
+
+test("boot stops a LAN manager a reload left running, before deciding how to unlock", async () => {
+  h.lock = "vault";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.stopLanSync).toHaveBeenCalledTimes(1);
+  expect(h.stopLanSync.mock.invocationCallOrder[0]).toBeLessThan(h.getAppLock.mock.invocationCallOrder[0]);
+});
 
 test("a vault lock that survived a restart goes to the unlock page, never auto-login", async () => {
   h.lock = "vault";

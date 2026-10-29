@@ -15,7 +15,7 @@ import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLaunch, syncOnLoginReplace } from "@/services/sync";
-import { startSessionSync } from "@/services/lanSync";
+import { startSessionSync, stopLanSync } from "@/services/lanSync";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
 import { loadSeededPlugins } from "@/plugins/seeded";
 import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows } from "@/stores/marketplaceStore";
@@ -75,6 +75,8 @@ export default function SplashScreen({ onReady }: Props) {
 
   useEffect(() => {
     async function init() {
+      // The Rust manager outlives a webview reload: stop it until this session starts its own.
+      void stopLanSync();
       setStep("init", "running");
       await delay(300);
       setStep("init", "done");
