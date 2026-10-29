@@ -66,6 +66,11 @@ const calls = (cmd: string) => h.invoke.mock.calls.filter(([c]) => c === cmd);
 const broadcasts = () => calls("lan_sync_broadcast").length;
 const emit = (name: string, payload: unknown) => h.handlers.get(`lan-sync://${name}`)?.({ payload });
 const settle = () => vi.advanceTimersByTimeAsync(1000);
+const nearby = (...ids: string[]) =>
+  useLanSyncStore.setState({
+    peers: ids.map(peer) as never,
+    known: Object.fromEntries(ids.map((id) => [id, { name: id, platform: "linux", lastSeen: "1", lastRoute: "lan" }])),
+  });
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -95,6 +100,7 @@ afterEach(async () => {
 });
 
 async function started() {
+  nearby("N");
   await startLanSync();
   await vi.advanceTimersByTimeAsync(0);
   h.invoke.mockClear();
@@ -134,6 +140,43 @@ describe("lanSync", () => {
     await settle();
     expect(broadcasts()).toBe(1);
     expect(useLanSyncStore.getState().known.A).toBeDefined();
+  });
+
+  test("a peers event repeating a listed peer rebroadcasts, debounced", async () => {
+    await started();
+    emit("peers", [peer("A")]);
+    await settle();
+    emit("peers", [peer("A")]);
+    emit("peers", [peer("A")]);
+    await settle();
+    expect(broadcasts()).toBe(2);
+  });
+
+  test("a peers event listing nobody does not broadcast", async () => {
+    await started();
+    emit("peers", []);
+    await settle();
+    expect(broadcasts()).toBe(0);
+  });
+
+  test("with no known devices a mutation neither exports nor broadcasts", async () => {
+    await started();
+    useLanSyncStore.setState({ peers: [], known: {} });
+    h.openRemoteBlob.mockClear();
+    h.mutations.forEach((fn) => fn());
+    await settle();
+    expect(h.exportLocalBlob).not.toHaveBeenCalled();
+    expect(h.openRemoteBlob).not.toHaveBeenCalled();
+    expect(broadcasts()).toBe(0);
+  });
+
+  test("known devices but none nearby: clocks refresh, nothing is broadcast", async () => {
+    await started();
+    useLanSyncStore.setState({ peers: [], localClocks: {} });
+    h.mutations.forEach((fn) => fn());
+    await settle();
+    expect(useLanSyncStore.getState().localClocks).toEqual({ "connections.json:c": "4" });
+    expect(broadcasts()).toBe(0);
   });
 
   test("received blob that changes state reloads and rebroadcasts", async () => {
@@ -238,6 +281,7 @@ describe("lanSync", () => {
   });
 
   test("local clocks come from our own outgoing payload", async () => {
+    nearby("N");
     await startLanSync();
     await vi.advanceTimersByTimeAsync(0);
     expect(broadcasts()).toBe(1);

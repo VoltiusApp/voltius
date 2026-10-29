@@ -1145,6 +1145,30 @@ mod tests {
         next_event(&mut eb, listed("dev-a")).await;
     }
 
+    #[tokio::test]
+    async fn resumed_peer_gets_changes_made_while_it_was_paused() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        a.connect(local(&b)).await;
+        until("both peers", || {
+            a.peers().len() == 1 && b.peers().len() == 1
+        })
+        .await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        while ea.try_recv().is_ok() {}
+
+        b.set_paused(true);
+        a.broadcast(vec![4; 8]).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert_eq!(b.take_blob("dev-a"), None);
+
+        b.set_paused(false);
+        next_event(&mut ea, listed("dev-b")).await;
+        a.broadcast(vec![4; 8]).await;
+        next_event(&mut eb, blob_from("dev-a")).await;
+        assert_eq!(b.take_blob("dev-a"), Some(vec![4; 8]));
+    }
+
     #[test]
     fn rate_limiter_allows_five_per_ten_seconds() {
         let mut limiter = RateLimiter::default();

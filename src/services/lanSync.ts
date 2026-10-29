@@ -30,7 +30,6 @@ const STOP_WAIT_MS = 2000;
 interface Session {
   selfId: string;
   keys: number[][];
-  seen: Set<string>;
   offs: Array<() => void>;
 }
 
@@ -47,10 +46,10 @@ let flushing = false;
 let owed = false;
 
 async function broadcastOwn(): Promise<void> {
-  if (store().paused) return;
+  if (store().paused || Object.keys(store().known).length === 0) return;
   const blob = await exportLocalBlob();
   store().setLocalClocks(entityClocks(await openRemoteBlob(sessionBlobKeys(), blob)));
-  await invoke("lan_sync_broadcast", { blob });
+  if (store().peers.length > 0) await invoke("lan_sync_broadcast", { blob });
 }
 
 async function flush(): Promise<void> {
@@ -79,7 +78,6 @@ function requestBroadcast(): void {
 }
 
 function clearPeers(): void {
-  if (session) session.seen = new Set();
   store().setPeers([]);
 }
 
@@ -91,10 +89,8 @@ function onPeers(s: Session, peers: PeerInfo[]): void {
   const others = peers.filter((p) => p.deviceId !== s.selfId);
   const { setPeers, rememberDevice } = store();
   setPeers(others);
-  const arrived = others.filter((p) => !s.seen.has(p.deviceId));
   others.filter(rememberDevice).forEach(announceNearby);
-  s.seen = new Set(others.map((p) => p.deviceId));
-  if (arrived.length > 0) requestBroadcast();
+  if (others.length > 0) requestBroadcast();
 }
 
 function onStatus(status: LanStatus): void {
@@ -143,7 +139,7 @@ async function begin(wanted: number): Promise<void> {
     getDeviceId(),
     invoke<string>("device_hostname").catch(() => ""),
   ]);
-  const s: Session = { selfId, keys: authKeys, seen: new Set(), offs: [] };
+  const s: Session = { selfId, keys: authKeys, offs: [] };
   session = s;
   try {
     s.offs.push(await listen<PeerInfo[]>("lan-sync://peers", (e) => onPeers(s, e.payload)));
