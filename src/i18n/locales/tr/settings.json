@@ -824,6 +824,7 @@
         "enable": { "title": "Cihazlarımın bu bilgisayardaki dosyaları açmasına izin ver", "desc": "Diğer Voltius cihazlarınız aşağıdaki klasörlere SFTP üzerinden göz atabilir. Varsayılan olarak kapalı." },
         "folders": "Paylaşılan klasörler",
         "addFolder": "Klasör ekle",
+        "noFolders": "Cihazlarınızla paylaşmak için bir klasör ekleyin.",
         "removeFolder": "{{folder}} paylaşımını durdur",
         "readOnly": { "title": "Salt okunur", "desc": "Cihazlar buradan dosya kopyalayabilir, değiştiremez veya silemez." }
       },

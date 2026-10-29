@@ -62,6 +62,12 @@ export default function DevicesSection() {
         </SettingRow>
         <div className="px-4 py-3 space-y-1.5">
           <div className="text-xs font-medium text-(--t-text-dim)">{t("settings.devices.fileAccess.folders")}</div>
+          {config.enabled && config.folders.length === 0 && (
+            <div role="status" className="flex items-center gap-1.5 text-xs text-(--t-status-warning)">
+              <Icon icon="lucide:triangle-alert" width={13} className="shrink-0" />
+              {t("settings.devices.fileAccess.noFolders")}
+            </div>
+          )}
           {config.folders.map((folder) => (
             <div key={folder} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-(--t-bg-input) border border-(--t-border)">
               <Icon icon="lucide:folder" width={14} className="shrink-0 text-(--t-text-dim)" />

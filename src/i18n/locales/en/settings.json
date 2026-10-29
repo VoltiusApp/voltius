@@ -954,6 +954,7 @@
         "enable": { "title": "Let my devices open files on this computer", "desc": "Your other Voltius devices can browse the folders below from SFTP. Off by default." },
         "folders": "Shared folders",
         "addFolder": "Add folder",
+        "noFolders": "Add a folder to share it with your devices.",
         "removeFolder": "Stop sharing {{folder}}",
         "readOnly": { "title": "Read-only", "desc": "Devices can copy files from here, not change or delete them." }
       },

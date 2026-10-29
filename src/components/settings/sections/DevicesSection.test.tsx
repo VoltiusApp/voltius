@@ -68,6 +68,21 @@ describe("DevicesSection", () => {
     expect(lastSaved()).toMatchObject({ enabled: true, folders: ["/data"] });
   });
 
+  test("enabled_without_folders_warns", () => {
+    const hint = "settings.devices.fileAccess.noFolders";
+    setup({ ...base, enabled: true });
+    render(<DevicesSection />);
+    expect(screen.getByText(hint)).toBeTruthy();
+    cleanup();
+    setup({ ...base, enabled: true, folders: ["/data"] });
+    render(<DevicesSection />);
+    expect(screen.queryByText(hint)).toBeNull();
+    cleanup();
+    setup(base);
+    render(<DevicesSection />);
+    expect(screen.queryByText(hint)).toBeNull();
+  });
+
   test("read_only_saves_config", () => {
     setup(base);
     render(<DevicesSection />);

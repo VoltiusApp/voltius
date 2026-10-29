@@ -1182,6 +1182,7 @@
         "enable": { "title": "Permitir que os meus dispositivos abram ficheiros neste computador", "desc": "Os seus outros dispositivos Voltius podem navegar nas pastas abaixo através de SFTP. Desativado por predefinição." },
         "folders": "Pastas partilhadas",
         "addFolder": "Adicionar pasta",
+        "noFolders": "Adicione uma pasta para a partilhar com os seus dispositivos.",
         "removeFolder": "Parar de partilhar {{folder}}",
         "readOnly": { "title": "Só de leitura", "desc": "Os dispositivos podem copiar ficheiros daqui, mas não alterá-los nem eliminá-los." }
       },

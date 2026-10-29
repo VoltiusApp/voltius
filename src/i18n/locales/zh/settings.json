@@ -1013,6 +1013,7 @@
         "enable": { "title": "允许我的设备打开这台电脑上的文件", "desc": "你的其他 Voltius 设备可以通过 SFTP 浏览下面的文件夹。默认关闭。" },
         "folders": "共享文件夹",
         "addFolder": "添加文件夹",
+        "noFolders": "添加一个文件夹，即可与你的设备共享。",
         "removeFolder": "停止共享 {{folder}}",
         "readOnly": { "title": "只读", "desc": "设备可以从这里复制文件，但不能修改或删除。" }
       },
