@@ -9,9 +9,6 @@
  * `kek`, then `dek`. Nulls and empty arrays are dropped; byte-identical keys are
  * removed so the same key is never tried twice.
  */
-export const sameKey = (a: number[] | null, b: number[] | null): boolean =>
-  !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
-
 export function buildDecryptKeyCandidates(
   vaultKey: number[] | null,
   kek: number[] | null,
@@ -24,3 +21,6 @@ export function buildDecryptKeyCandidates(
   }
   return out;
 }
+
+export const sameKey = (a: number[] | null, b: number[] | null): boolean =>
+  !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
