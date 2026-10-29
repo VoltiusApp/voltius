@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   handlers: new Map<string, (e: { payload: unknown }) => void>(),
   mutations: new Set<() => void>(),
   serverMode: true,
+  accountId: "acct-1" as string | null,
   vaultKey: [1] as number[] | null,
   blob: [9] as number[] | null,
   merged: false,
@@ -30,7 +31,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
 vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `${key}|${o.name}` } }));
-vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode }));
+vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode, getAccountId: async () => h.accountId }));
 vi.mock("@/services/vault", () => ({ getVaultKey: () => h.vaultKey }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: h.intro }));
 vi.mock("@/utils/platform", async (importOriginal) => ({
@@ -94,6 +95,7 @@ beforeEach(() => {
     return undefined;
   });
   h.serverMode = true;
+  h.accountId = "acct-1";
   h.vaultKey = [1];
   h.blob = [9];
   h.openRemoteBlob.mockReset().mockResolvedValue(OWN_PAYLOAD);
@@ -131,10 +133,20 @@ describe("lanSync", () => {
     expect(h.handlers.size).toBe(0);
   });
 
+  test("start passes the account id as scope", async () => {
+    await startLanSync();
+    expect(calls("lan_sync_start")[0][1].scope).toBe("acct-1");
+    await stopLanSync();
+    h.invoke.mockClear();
+    h.accountId = null;
+    await startLanSync();
+    expect(calls("lan_sync_start")).toHaveLength(0);
+  });
+
   test("starts with every distinct vault key candidate", async () => {
     useVaultKeysStore.setState({ kek: [2], dek: [3] });
     await startLanSync();
-    expect(calls("lan_sync_start")[0][1]).toEqual({ deviceId: "self", deviceName: "host", authKeys: [[1], [2], [3]] });
+    expect(calls("lan_sync_start")[0][1]).toEqual({ deviceId: "self", deviceName: "host", authKeys: [[1], [2], [3]], scope: "acct-1" });
     await stopLanSync();
     useVaultKeysStore.setState({ kek: [1], dek: [3] });
     await startLanSync();

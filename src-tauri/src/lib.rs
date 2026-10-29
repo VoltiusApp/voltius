@@ -392,6 +392,8 @@ pub fn run() {
             commands::sync::device_hostname,
             commands::lan_sync::lan_sync_start,
             commands::lan_sync::lan_sync_stop,
+            commands::lan_sync::lan_sync_forget,
+            commands::lan_sync::lan_sync_clear_scope,
             commands::lan_sync::lan_sync_broadcast,
             commands::lan_sync::lan_sync_take_blob,
             commands::lan_sync::lan_sync_peers,
