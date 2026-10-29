@@ -10,12 +10,17 @@ pub const MAX_ADDRS: usize = 8;
 pub const MAX_BLOCKED: usize = 256;
 pub const MAX_FILE: usize = 256 * 1024;
 const VERSION: u32 = 1;
+const SCOPE_DOMAIN: &[u8] = b"voltius-lan-sync-scope-v1";
+
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
 
 mod hex32 {
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn encode(key: &[u8; 32]) -> String {
-        key.iter().map(|b| format!("{b:02x}")).collect()
+        super::to_hex(key)
     }
 
     pub fn serialize<S: Serializer>(key: &[u8; 32], s: S) -> Result<S::Ok, S::Error> {
@@ -108,6 +113,11 @@ fn evict_oldest<V>(
     }
 }
 
+fn trim_addrs(addrs: &mut Vec<SeenAddr>) {
+    addrs.sort_by_key(|s| std::cmp::Reverse(s.last_seen));
+    addrs.truncate(MAX_ADDRS);
+}
+
 fn read_file(path: &Path) -> Result<FileShape, String> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     if meta.len() > MAX_FILE as u64 {
@@ -132,7 +142,7 @@ impl PeerStore {
 
     pub fn open(dir: &Path, scope: &str) -> Self {
         let path = Self::path_for(dir, scope);
-        let (peers, blocked) = match read_file(&path) {
+        let (mut peers, mut blocked) = match read_file(&path) {
             Ok(file) => (file.peers, file.blocked),
             Err(e) => {
                 if path.exists() {
@@ -141,6 +151,11 @@ impl PeerStore {
                 Default::default()
             }
         };
+        evict_oldest(&mut peers, MAX_PEERS, |r| r.last_seen, "");
+        evict_oldest(&mut blocked, MAX_BLOCKED, |b| b.blocked_at, "");
+        for record in peers.values_mut() {
+            trim_addrs(&mut record.addrs);
+        }
         Self {
             path: Some(path),
             peers,
@@ -149,8 +164,11 @@ impl PeerStore {
     }
 
     pub fn path_for(dir: &Path, scope: &str) -> PathBuf {
-        let digest = Sha256::digest(scope.as_bytes());
-        let tag: String = digest[..8].iter().map(|b| format!("{b:02x}")).collect();
+        let digest = Sha256::new()
+            .chain_update(SCOPE_DOMAIN)
+            .chain_update(scope.as_bytes())
+            .finalize();
+        let tag = to_hex(&digest[..8]);
         dir.join("lan_sync").join(format!("peers-{tag}.json"))
     }
 
@@ -192,8 +210,7 @@ impl PeerStore {
                 }),
             }
         }
-        record.addrs.sort_by_key(|s| std::cmp::Reverse(s.last_seen));
-        record.addrs.truncate(MAX_ADDRS);
+        trim_addrs(&mut record.addrs);
     }
 
     pub fn forget(&mut self, device_id: &str, now: u64) -> bool {
@@ -386,15 +403,70 @@ mod tests {
     #[test]
     fn scopes_do_not_share_files() {
         let dir = Path::new("/x");
-        let (a, b) = (PeerStore::path_for(dir, "a"), PeerStore::path_for(dir, "b"));
+        let name_of = |scope| {
+            let p = PeerStore::path_for(dir, scope);
+            p.file_name().unwrap().to_str().unwrap().to_string()
+        };
+        let (a, b) = (name_of("acct-zeta"), name_of("acct-omega"));
         assert_ne!(a, b);
-        let name = a.file_name().unwrap().to_str().unwrap();
-        let tag = name
+        assert!(!a.contains("zeta") && !b.contains("omega"));
+        let tag = a
             .strip_prefix("peers-")
             .and_then(|n| n.strip_suffix(".json"))
             .unwrap();
         assert_eq!(tag.len(), 16);
         assert!(tag.bytes().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn scope_tag_is_domain_separated_sha256() {
+        let p = PeerStore::path_for(Path::new("/x"), "acct-1");
+        assert_eq!(p.file_name().unwrap(), "peers-a8f02f3c85d0444b.json");
+    }
+
+    #[test]
+    fn open_reapplies_caps() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut file = FileShape {
+            v: VERSION,
+            peers: BTreeMap::new(),
+            blocked: BTreeMap::new(),
+        };
+        for i in 0..(MAX_PEERS as u64 + 5) {
+            file.peers.insert(
+                format!("p{i}"),
+                PeerRecord {
+                    device_key: key_for(i),
+                    addrs: (0..MAX_ADDRS as u64 + 3)
+                        .map(|n| SeenAddr {
+                            addr: addr(n as u16 + 1),
+                            last_seen: n,
+                        })
+                        .collect(),
+                    group: None,
+                    first_seen: i,
+                    last_seen: i,
+                },
+            );
+        }
+        for i in 0..(MAX_BLOCKED as u64 + 5) {
+            file.blocked.insert(
+                to_hex(&key_for(i)),
+                Blocked {
+                    device_id: format!("p{i}"),
+                    blocked_at: i,
+                },
+            );
+        }
+        let path = PeerStore::path_for(dir.path(), "acct");
+        write_snapshot(&path, &serde_json::to_vec(&file).unwrap()).unwrap();
+
+        let s = PeerStore::open(dir.path(), "acct");
+        assert_eq!(s.records().count(), MAX_PEERS);
+        assert!(s.get("p0").is_none() && s.get("p5").is_some());
+        assert!(s.records().all(|(_, r)| r.addrs.len() == MAX_ADDRS));
+        assert_eq!(s.blocked.len(), MAX_BLOCKED);
+        assert!(!s.blocked.contains_key(&to_hex(&key_for(0))));
     }
 
     #[test]
