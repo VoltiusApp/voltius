@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   setPaused: vi.fn(async () => {}),
   openUrl: vi.fn(async () => {}),
   runAction: vi.fn(),
+  checkout: true,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/services/lanSync", () => ({ setLanSyncPaused: h.setPaused }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: h.runAction }));
 vi.mock("@/utils/platform", () => ({ usePlatform: () => h.platform }));
 vi.mock("@/utils/localeFormat", () => ({ formatRelative: () => "2h ago" }));
+vi.mock("@/services/distribution", () => ({ get CAN_OPEN_CHECKOUT() { return h.checkout; } }));
 
 import { LocalNetworkSection } from "./LocalNetworkSection";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
@@ -50,6 +52,7 @@ afterEach(() => {
   vi.clearAllMocks();
   h.rows = [];
   h.platform = "macos";
+  h.checkout = true;
   useLanSyncStore.setState({ status: "stopped", paused: false });
 });
 
@@ -103,6 +106,15 @@ describe("LocalNetworkSection", () => {
     h.rows = [live, behindMac];
     render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
     expect(q("[data-lan-upsell]")).toBeNull();
+  });
+
+  test.each(["dropdown", "sheet"] as const)("store builds show no upsell in the %s", (variant) => {
+    h.checkout = false;
+    h.rows = [live, behindMac];
+    render(<LocalNetworkSection variant={variant} onClose={onClose} />);
+    expect(q("[data-lan-upsell]")).toBeNull();
+    expect(q("[data-lan-action='upgrade']")).toBeNull();
+    expect(document.body.textContent).not.toContain("layout.sync.upgradeArrow");
   });
 
   test("no upsell when every device is up to date", () => {
