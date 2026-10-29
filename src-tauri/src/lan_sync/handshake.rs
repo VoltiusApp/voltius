@@ -1,6 +1,7 @@
 use super::identity::{verify_signature, LocalIdentity};
 use super::protocol::{
-    decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, MAX_FRAME, PROTOCOL_VERSION,
+    decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, FEATURES, MAX_FRAME,
+    MAX_HELLO_ADDRS, PROTOCOL_VERSION,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -277,6 +278,12 @@ fn hello(me: &LocalIdentity, handshake_hash: &[u8], initiator: bool) -> Hello {
         platform: me.platform.clone(),
         device_key: me.key.public,
         device_sig: me.key.sign(&device_msg(handshake_hash, initiator)).to_vec(),
+        addrs: (me.addrs)()
+            .iter()
+            .take(MAX_HELLO_ADDRS)
+            .map(ToString::to_string)
+            .collect(),
+        features: FEATURES.iter().map(|f| f.to_string()).collect(),
     }
 }
 
@@ -402,6 +409,23 @@ mod tests {
             handshake(a, true, &ia, a_keys),
             handshake(b, false, &ib, b_keys)
         )
+    }
+
+    #[tokio::test]
+    async fn hello_carries_identity_addrs() {
+        let mut ia = identity("dev-a");
+        ia.addrs = Arc::new(|| vec!["10.0.0.2:47391".parse().unwrap()]);
+        let (a, b) = duplex(64 * 1024);
+        let ib = identity("dev-b");
+        let keys = [derive_auth_key(&[1; 32])];
+        let (_, rb) = tokio::join!(
+            handshake(a, true, &ia, &keys),
+            handshake(b, false, &ib, &keys)
+        );
+        assert_eq!(
+            peer(&rb).peer_addrs(),
+            vec!["10.0.0.2:47391".parse::<std::net::SocketAddr>().unwrap()]
+        );
     }
 
     fn peer(o: &Outcome) -> &Hello {

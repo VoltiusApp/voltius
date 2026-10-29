@@ -1,3 +1,4 @@
+pub mod addrs;
 #[cfg(target_os = "android")]
 pub mod android;
 pub mod discovery;

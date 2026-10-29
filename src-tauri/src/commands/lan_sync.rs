@@ -1,4 +1,5 @@
 use super::raw_body;
+use crate::lan_sync::addrs;
 use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
 };
@@ -203,6 +204,7 @@ pub async fn lan_sync_start(
         device_name,
         platform: std::env::consts::OS.into(),
         key: state.device_key().await?,
+        addrs: addrs::none(),
     };
     start_inner(&state, me, auth_keys, emit).await
 }
