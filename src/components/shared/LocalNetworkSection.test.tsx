@@ -156,6 +156,16 @@ describe("LocalNetworkSection", () => {
     expect(q("[data-lan-action='open-settings']")).toBeNull();
   });
 
+  test("a listed peer outranks a blocked status", () => {
+    useLanSyncStore.setState({ status: "blocked" });
+    h.rows = [live, behindMac];
+    const { getByText, queryByText } = render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    expect(getByText("layout.sync.local.status.live:1")).toBeTruthy();
+    expect(queryByText("layout.sync.local.status.blocked")).toBeNull();
+    expect(queryByText("layout.sync.local.openSettings")).toBeNull();
+    expect(q("[data-lan-upsell]")).not.toBeNull();
+  });
+
   test("paused beats blocked and dims the list", () => {
     useLanSyncStore.setState({ status: "blocked", paused: true });
     h.rows = [live];

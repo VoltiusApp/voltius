@@ -12,7 +12,7 @@ import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import { setLanSyncPaused } from "@/services/lanSync";
 import type { DeviceDot, DeviceRow } from "@/services/lanSyncDevices";
 import { SYNC_PAUSED_ICON } from "@/services/syncStatus";
-import { useLanSyncStore, type LanStatus } from "@/stores/lanSyncStore";
+import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { formatRelative } from "@/utils/localeFormat";
 import { usePlatform } from "@/utils/platform";
@@ -63,9 +63,9 @@ function blockedKey(platform: string | null): string {
   return "layout.sync.local.status.blockedNetwork";
 }
 
-function statusLine(t: TFunction, status: LanStatus, paused: boolean, rows: DeviceRow[], platform: string | null) {
+function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: DeviceRow[], platform: string | null) {
   if (paused) return { icon: SYNC_PAUSED_ICON, color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
-  if (status === "blocked") {
+  if (blocked) {
     return { icon: "lucide:wifi-off", color: "var(--t-status-warning)", label: t(blockedKey(platform)) };
   }
   const syncing = rows.find((r) => r.dot === "syncing");
@@ -125,10 +125,10 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
 
   const s = STYLES[variant];
   const sheet = variant === "sheet";
-  const line = statusLine(t, status, isPaused, rows, platform);
-  const blocked = !isPaused && status === "blocked";
-  const running = !isPaused && status === "running";
   const anyNearby = rows.some((r) => r.nearby);
+  const blocked = !isPaused && status === "blocked" && !anyNearby;
+  const running = !isPaused && !blocked && status !== "stopped";
+  const line = statusLine(t, isPaused, blocked, rows, platform);
   const catchUp = running && !anyNearby && rows.length > 0;
   const upsell = running && !isPro && CAN_OPEN_CHECKOUT && rows.some((r) => r.dot === "behind");
 

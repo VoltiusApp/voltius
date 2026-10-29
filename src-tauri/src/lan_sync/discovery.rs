@@ -1,7 +1,7 @@
 use mdns_sd::{DaemonEvent, ServiceDaemon, ServiceEvent, ServiceInfo};
 use rand::Rng;
 use std::collections::VecDeque;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
@@ -10,6 +10,7 @@ use tokio::task::JoinHandle;
 pub const SERVICE_TYPE: &str = "_voltius._tcp.local.";
 pub const ROTATE_EVERY: Duration = Duration::from_secs(15 * 60);
 const OWN_NAMES_KEPT: usize = 2;
+const MDNS_GROUP: (Ipv4Addr, u16) = (Ipv4Addr::new(224, 0, 0, 251), 5353);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiscoveryError {
@@ -52,6 +53,22 @@ pub(crate) fn classify_mdns_error(msg: &str) -> DiscoveryError {
 
 fn map_mdns_error(e: &mdns_sd::Error) -> DiscoveryError {
     classify_mdns_error(&e.to_string())
+}
+
+fn probe_query() -> Vec<u8> {
+    let mut packet = vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+    for label in SERVICE_TYPE.trim_end_matches('.').split('.') {
+        packet.push(label.len() as u8);
+        packet.extend_from_slice(label.as_bytes());
+    }
+    packet.extend_from_slice(&[0, 0, 12, 0, 1]);
+    packet
+}
+
+// A denied macOS Local Network permission only shows when a datagram is sent; mdns-sd just logs it.
+pub fn probe_multicast() -> std::io::Result<()> {
+    let socket = std::net::UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?;
+    socket.send_to(&probe_query(), MDNS_GROUP).map(drop)
 }
 
 fn lock_names(own: &OwnNames) -> std::sync::MutexGuard<'_, VecDeque<String>> {
@@ -220,6 +237,14 @@ mod tests {
             classify_mdns_error("address in use"),
             DiscoveryError::Other("address in use".into())
         );
+    }
+
+    #[test]
+    fn probe_is_a_ptr_question_for_our_service() {
+        let mut expected = vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+        expected.extend_from_slice(b"\x08_voltius\x04_tcp\x05local\x00");
+        expected.extend_from_slice(&[0, 12, 0, 1]);
+        assert_eq!(probe_query(), expected);
     }
 
     #[test]

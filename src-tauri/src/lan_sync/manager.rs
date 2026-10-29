@@ -1,4 +1,4 @@
-use super::discovery::{self, Discovery, DiscoveryError};
+use super::discovery::{self, classify_mdns_error, Discovery, DiscoveryError};
 use super::handshake::{handshake, HandshakeError, SessionReader, SessionWriter};
 use super::identity::LocalIdentity;
 use super::protocol::{Frame, Hello};
@@ -46,6 +46,13 @@ const RETRY_MAX: Duration = if cfg!(test) {
 } else {
     Duration::from_secs(300)
 };
+const PROBE_EVERY: Duration = if cfg!(test) {
+    Duration::from_millis(100)
+} else {
+    Duration::from_secs(300)
+};
+
+pub type Probe = Arc<dyn Fn() -> std::io::Result<()> + Send + Sync>;
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -275,6 +282,7 @@ struct Shared {
     events: mpsc::Sender<ManagerEvent>,
     state: Mutex<State>,
     paused: AtomicBool,
+    blocked: AtomicBool,
     inbound: Arc<Semaphore>,
     outbound: Arc<Semaphore>,
     peers_changed: Notify,
@@ -481,10 +489,21 @@ impl Shared {
         let _ = self.events.send(ManagerEvent::Status(status)).await;
     }
 
+    async fn set_blocked(&self, blocked: bool) {
+        if self.blocked.swap(blocked, Ordering::Relaxed) != blocked {
+            let status = if blocked {
+                LanStatus::Blocked
+            } else {
+                LanStatus::Running
+            };
+            self.status(status).await;
+        }
+    }
+
     async fn discovery_failed(&self, e: DiscoveryError) {
         log::warn!("lan-sync: discovery: {e}");
         if e == DiscoveryError::Blocked {
-            self.status(LanStatus::Blocked).await;
+            self.set_blocked(true).await;
         }
     }
 }
@@ -554,10 +573,31 @@ async fn retry_unlisted(shared: Arc<Shared>) {
     }
 }
 
+async fn probe_loop(shared: Arc<Shared>, probe: Probe) {
+    let mut ticker = tokio::time::interval(PROBE_EVERY);
+    loop {
+        ticker.tick().await;
+        if !shared.lock().peers.is_empty() {
+            continue;
+        }
+        match probe() {
+            Ok(()) => shared.set_blocked(false).await,
+            Err(e) => {
+                shared
+                    .discovery_failed(classify_mdns_error(&e.to_string()))
+                    .await
+            }
+        }
+    }
+}
+
 async fn emit_peers(shared: Arc<Shared>) {
     loop {
         shared.peers_changed.notified().await;
         let peers = shared.peers();
+        if !peers.is_empty() {
+            shared.set_blocked(false).await;
+        }
         if shared
             .events
             .send(ManagerEvent::Peers(peers))
@@ -584,7 +624,8 @@ pub async fn start(
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let listener = bind().await.map_err(|e| e.to_string())?;
-    serve(listener, me, auth_keys, paused, discovery, events).await
+    let probe = discovery.then(|| Arc::new(discovery::probe_multicast) as Probe);
+    serve(listener, me, auth_keys, paused, discovery, probe, events).await
 }
 
 async fn serve(
@@ -593,6 +634,7 @@ async fn serve(
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     paused: bool,
     discovery: bool,
+    probe: Option<Probe>,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
@@ -602,6 +644,7 @@ async fn serve(
         events,
         state: Mutex::default(),
         paused: AtomicBool::new(paused),
+        blocked: AtomicBool::new(false),
         inbound: Arc::new(Semaphore::new(MAX_INBOUND_HANDSHAKES)),
         outbound: Arc::new(Semaphore::new(MAX_OUTBOUND_HANDSHAKES)),
         peers_changed: Notify::new(),
@@ -618,6 +661,10 @@ async fn serve(
         shared,
     };
     manager.shared.status(LanStatus::Running).await;
+    if let Some(probe) = probe {
+        let shared = manager.shared.clone();
+        manager.tasks.push(tokio::spawn(probe_loop(shared, probe)));
+    }
     if discovery {
         manager.start_discovery().await;
     }
@@ -716,18 +763,28 @@ mod tests {
     use crate::lan_sync::identity::{derive_auth_key, test_identity};
     use crate::lan_sync::protocol::MAX_FRAME;
     use std::io::Write;
+    use std::sync::atomic::AtomicUsize;
+
+    async fn spawn_with(
+        id: &str,
+        account: u8,
+        listener: TcpListener,
+        probe: Option<Probe>,
+    ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
+        let (tx, rx) = mpsc::channel(64);
+        let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
+        let manager = serve(listener, test_identity(id), keys, false, false, probe, tx)
+            .await
+            .unwrap();
+        (manager, rx)
+    }
 
     async fn spawn_on(
         id: &str,
         account: u8,
         listener: TcpListener,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
-        let (tx, rx) = mpsc::channel(64);
-        let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
-        let manager = serve(listener, test_identity(id), keys, false, false, tx)
-            .await
-            .unwrap();
-        (manager, rx)
+        spawn_with(id, account, listener, None).await
     }
 
     async fn spawn(id: &str, account: u8) -> (Manager, mpsc::Receiver<ManagerEvent>) {
@@ -1143,6 +1200,58 @@ mod tests {
         let listener = timeout(Duration::from_secs(5), rebind).await.unwrap();
         let (_a, _ea) = spawn_on("dev-a", 1, listener).await;
         next_event(&mut eb, listed("dev-a")).await;
+    }
+
+    fn status(wanted: LanStatus) -> impl Fn(&ManagerEvent) -> bool {
+        move |e| matches!(e, ManagerEvent::Status(s) if *s == wanted)
+    }
+
+    fn fake_probe(denied: Arc<AtomicBool>, calls: Arc<AtomicUsize>) -> Probe {
+        Arc::new(move || {
+            calls.fetch_add(1, Ordering::Relaxed);
+            if denied.load(Ordering::Relaxed) {
+                Err(std::io::Error::other(
+                    "send failed: No route to host (os error 65)",
+                ))
+            } else {
+                Ok(())
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn denied_probe_blocks_and_a_later_success_clears_it() {
+        let denied = Arc::new(AtomicBool::new(true));
+        let probe = fake_probe(denied.clone(), Arc::default());
+        let (_b, mut eb) = spawn_with("dev-b", 1, bind().await.unwrap(), Some(probe)).await;
+        next_event(&mut eb, status(LanStatus::Blocked)).await;
+        denied.store(false, Ordering::Relaxed);
+        next_event(&mut eb, status(LanStatus::Running)).await;
+    }
+
+    #[tokio::test]
+    async fn unrelated_probe_errors_do_not_block() {
+        let probe: Probe = Arc::new(|| Err(std::io::Error::other("Network is unreachable")));
+        let (_b, mut eb) = spawn_with("dev-b", 1, bind().await.unwrap(), Some(probe)).await;
+        tokio::time::sleep(PROBE_EVERY * 3).await;
+        while let Ok(e) = eb.try_recv() {
+            assert!(!status(LanStatus::Blocked)(&e), "{e:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn an_adopted_peer_clears_blocked_and_pauses_probing() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let probe = fake_probe(Arc::new(AtomicBool::new(true)), calls.clone());
+        let (b, mut eb) = spawn_with("dev-b", 1, bind().await.unwrap(), Some(probe)).await;
+        next_event(&mut eb, status(LanStatus::Blocked)).await;
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        let seen = next_event(&mut eb, listed("dev-a")).await;
+        assert!(seen.iter().any(status(LanStatus::Running)), "{seen:?}");
+        let probed = calls.load(Ordering::Relaxed);
+        tokio::time::sleep(PROBE_EVERY * 5).await;
+        assert!(calls.load(Ordering::Relaxed) <= probed + 1);
+        assert!(!std::iter::from_fn(|| eb.try_recv().ok()).any(|e| status(LanStatus::Blocked)(&e)));
     }
 
     #[tokio::test]
