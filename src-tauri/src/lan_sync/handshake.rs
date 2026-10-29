@@ -1,4 +1,4 @@
-use super::identity::LocalIdentity;
+use super::identity::{verify_signature, LocalIdentity};
 use super::protocol::{
     decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, MAX_FRAME, PROTOCOL_VERSION,
 };
@@ -15,6 +15,7 @@ const NOISE_MAX: usize = 65535;
 const MAX_CHUNK: usize = NOISE_MAX - 16;
 const MAX_PROOFS: usize = 16;
 const PREAUTH_MAX: usize = 64 * 1024;
+const DEVICE_CONTEXT: &[u8] = b"voltius-lan-sync-device-v1";
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandshakeError {
@@ -163,7 +164,7 @@ impl SessionWriter {
         self.seal_and_write(std::iter::once(&[][..])).await
     }
 
-    async fn send_raw(&mut self, bytes: &[u8]) -> Result<(), HandshakeError> {
+    pub(super) async fn send_raw(&mut self, bytes: &[u8]) -> Result<(), HandshakeError> {
         self.seal_and_write(bytes.chunks(MAX_CHUNK)).await
     }
 
@@ -249,12 +250,39 @@ async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     Ok(session)
 }
 
-// The role byte stops a keyless peer from reflecting our own proofs back at us.
+// The role byte stops a peer from reflecting our own proofs or signature back at us.
+fn role(initiator: bool) -> [u8; 1] {
+    [u8::from(initiator)]
+}
+
 fn mac(auth_key: &[u8; 32], handshake_hash: &[u8], initiator: bool) -> Hmac<Sha256> {
     let mut m = Hmac::<Sha256>::new_from_slice(auth_key).expect("HMAC takes any key length");
-    m.update(&[u8::from(initiator)]);
+    m.update(&role(initiator));
     m.update(handshake_hash);
     m
+}
+
+fn device_msg(handshake_hash: &[u8], initiator: bool) -> Vec<u8> {
+    [DEVICE_CONTEXT, &role(initiator), handshake_hash].concat()
+}
+
+fn hello(me: &LocalIdentity, handshake_hash: &[u8], initiator: bool) -> Hello {
+    Hello {
+        device_id: me.device_id.clone(),
+        device_name: me.device_name.clone(),
+        platform: me.platform.clone(),
+        device_key: me.key.public,
+        device_sig: me.key.sign(&device_msg(handshake_hash, initiator)).to_vec(),
+    }
+}
+
+fn verify_device(peer: &Hello, peer_is_initiator: bool, hash: &[u8]) -> Result<(), HandshakeError> {
+    let msg = device_msg(hash, peer_is_initiator);
+    if verify_signature(&peer.device_key, &msg, &peer.device_sig) {
+        Ok(())
+    } else {
+        Err(HandshakeError::NotTrusted)
+    }
 }
 
 fn proof(auth_key: &[u8; 32], handshake_hash: &[u8], initiator: bool) -> [u8; 32] {
@@ -288,8 +316,19 @@ fn verify(
 async fn recv_preauth(session: &mut Session) -> Result<Frame, HandshakeError> {
     match session.recv_max(PREAUTH_MAX).await? {
         Frame::Bye => Err(HandshakeError::NotTrusted),
+        Frame::Unknown(kind) => Err(ProtocolError::UnknownKind(kind).into()),
         f => Ok(f),
     }
+}
+
+async fn bye_unless(
+    session: &mut Session,
+    check: Result<(), HandshakeError>,
+) -> Result<(), HandshakeError> {
+    if check.is_err() {
+        let _ = session.send(&Frame::Bye).await;
+    }
+    check
 }
 
 async fn authenticate(
@@ -306,22 +345,14 @@ async fn authenticate(
             .map(|k| proof(k, &hash, initiator))
             .collect(),
     });
-    let my_hello = Frame::Hello(Hello {
-        device_id: me.device_id.clone(),
-        device_name: me.device_name.clone(),
-        platform: me.platform.clone(),
-        device_key: me.key.public,
-    });
+    let my_hello = Frame::Hello(hello(me, &hash, initiator));
     if initiator {
         session.send(&my_auth).await?;
     }
     let Frame::Auth(peer_auth) = recv_preauth(session).await? else {
         return Err(malformed("expected auth"));
     };
-    if let Err(e) = verify(&peer_auth, !initiator, auth_keys, &hash) {
-        let _ = session.send(&Frame::Bye).await;
-        return Err(e);
-    }
+    bye_unless(session, verify(&peer_auth, !initiator, auth_keys, &hash)).await?;
     if !initiator {
         session.send(&my_auth).await?;
         session.send(&my_hello).await?;
@@ -329,6 +360,7 @@ async fn authenticate(
     let Frame::Hello(peer) = recv_preauth(session).await? else {
         return Err(malformed("expected hello"));
     };
+    bye_unless(session, verify_device(&peer, !initiator, &hash)).await?;
     if initiator {
         session.send(&my_hello).await?;
     }
@@ -407,6 +439,37 @@ mod tests {
         };
         s.send(&Frame::Auth(reply(auth))).await.unwrap();
         drain(s, vec![first]).await
+    }
+
+    async fn rogue_after_auth<S>(
+        stream: S,
+        keys: &[[u8; 32]],
+        hello: impl FnOnce(&[u8]) -> Vec<u8>,
+    ) -> Vec<Frame>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let mut s = noise(stream, true).await.unwrap();
+        let hash = s.handshake_hash().to_vec();
+        let proofs = keys.iter().map(|k| proof(k, &hash, true)).collect();
+        s.send(&Frame::Auth(Auth {
+            version: PROTOCOL_VERSION,
+            proofs,
+        }))
+        .await
+        .unwrap();
+        let seen = vec![s.recv().await.unwrap(), s.recv().await.unwrap()];
+        s.writer.send_raw(&hello(&hash)).await.unwrap();
+        drain(s, seen).await
+    }
+
+    async fn opens_with<S>(stream: S, raw: &[u8]) -> Session
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let mut s = noise(stream, true).await.unwrap();
+        s.writer.send_raw(raw).await.unwrap();
+        s
     }
 
     #[tokio::test]
@@ -518,17 +581,99 @@ mod tests {
         let keys = [derive_auth_key(&[1; 32])];
         let me = identity("dev-b");
         let (a, b) = duplex(64 * 1024);
-        let rogue = async {
-            let mut s = noise(a, true).await.unwrap();
-            let claim = (PREAUTH_MAX as u32 + 1).to_be_bytes();
-            s.writer.send_raw(&claim).await.unwrap();
-            s
-        };
-        let (_rogue, real) = tokio::join!(rogue, handshake(b, false, &me, &keys));
+        let claim = (PREAUTH_MAX as u32 + 1).to_be_bytes();
+        let (_rogue, real) = tokio::join!(opens_with(a, &claim), handshake(b, false, &me, &keys));
         assert!(matches!(
             real,
             Err(HandshakeError::Protocol(ProtocolError::TooLarge(n))) if n == PREAUTH_MAX + 1
         ));
+    }
+
+    #[tokio::test]
+    async fn peer_with_forged_device_key_is_rejected() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let honest = identity("dev-b");
+        let mut forger = identity("dev-a");
+        forger.key.public = identity("dev-c").key.public;
+        for forger_initiates in [true, false] {
+            let (a, b) = duplex(64 * 1024);
+            let (forged, real) = tokio::join!(
+                handshake(a, forger_initiates, &forger, &keys),
+                handshake(b, !forger_initiates, &honest, &keys)
+            );
+            assert!(matches!(real, Err(HandshakeError::NotTrusted)));
+            match forged {
+                Ok((mut s, _)) => {
+                    assert!(forger_initiates);
+                    assert_eq!(s.recv().await.unwrap(), Frame::Bye);
+                }
+                Err(e) => assert!(matches!(e, HandshakeError::NotTrusted), "{e}"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn wrong_length_signature_is_rejected() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let me = identity("dev-b");
+        let claimed = identity("dev-a");
+        for len in [0, 63, 65] {
+            let resized = |hash: &[u8]| {
+                let mut h = hello(&claimed, hash, true);
+                h.device_sig.resize(len, 0);
+                encode(&Frame::Hello(h)).unwrap()
+            };
+            let (a, b) = duplex(64 * 1024);
+            let (seen, real) = tokio::join!(
+                rogue_after_auth(a, &keys, resized),
+                handshake(b, false, &me, &keys)
+            );
+            assert!(matches!(real, Err(HandshakeError::NotTrusted)), "len {len}");
+            assert!(matches!(
+                &seen[..],
+                [Frame::Auth(_), Frame::Hello(_), Frame::Bye]
+            ));
+        }
+    }
+
+    #[test]
+    fn signature_is_bound_to_role() {
+        let hash = [5u8; 32];
+        let as_initiator = hello(&identity("dev-a"), &hash, true);
+        assert!(verify_device(&as_initiator, true, &hash).is_ok());
+        assert!(matches!(
+            verify_device(&as_initiator, false, &hash),
+            Err(HandshakeError::NotTrusted)
+        ));
+        assert!(matches!(
+            verify_device(&as_initiator, true, &[6u8; 32]),
+            Err(HandshakeError::NotTrusted)
+        ));
+    }
+
+    #[tokio::test]
+    async fn unknown_kind_during_handshake_is_rejected() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let me = identity("dev-b");
+        let unknown = [0, 0, 0, 1, 0xEE];
+        let is_unknown = |r: &Outcome| {
+            matches!(
+                r,
+                Err(HandshakeError::Protocol(ProtocolError::UnknownKind(0xEE)))
+            )
+        };
+
+        let (a, b) = duplex(64 * 1024);
+        let (_rogue, real) = tokio::join!(opens_with(a, &unknown), handshake(b, false, &me, &keys));
+        assert!(is_unknown(&real));
+
+        let (a, b) = duplex(64 * 1024);
+        let (seen, real) = tokio::join!(
+            rogue_after_auth(a, &keys, |_| unknown.to_vec()),
+            handshake(b, false, &me, &keys)
+        );
+        assert!(is_unknown(&real));
+        assert!(matches!(&seen[..], [Frame::Auth(_), Frame::Hello(_)]));
     }
 
     #[tokio::test(start_paused = true)]

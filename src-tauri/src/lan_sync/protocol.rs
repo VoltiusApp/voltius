@@ -16,6 +16,7 @@ pub struct Hello {
     pub device_name: String,
     pub platform: String,
     pub device_key: [u8; 32],
+    pub device_sig: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -31,6 +32,7 @@ pub enum Frame {
     Blob(Vec<u8>),
     Nudge,
     Bye,
+    Unknown(u8),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -60,6 +62,7 @@ pub fn encode(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
         Frame::Blob(b) => (KIND_BLOB, b.clone()),
         Frame::Nudge => (KIND_NUDGE, Vec::new()),
         Frame::Bye => (KIND_BYE, Vec::new()),
+        Frame::Unknown(kind) => return Err(ProtocolError::UnknownKind(*kind)),
     };
     let len = payload.len() + 1;
     if len > MAX_FRAME {
@@ -85,7 +88,7 @@ pub fn decode(buf: &[u8]) -> Result<Frame, ProtocolError> {
         }
         KIND_NUDGE => Ok(Frame::Nudge),
         KIND_BYE => Ok(Frame::Bye),
-        other => Err(ProtocolError::UnknownKind(other)),
+        other => Ok(Frame::Unknown(other)),
     }
 }
 
@@ -121,6 +124,7 @@ mod tests {
             device_name: "Laptop".into(),
             platform: "linux".into(),
             device_key: [3u8; 32],
+            device_sig: vec![4u8; 64],
         }
     }
 
@@ -153,8 +157,13 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unknown_kind() {
-        assert!(matches!(decode(&[9]), Err(ProtocolError::UnknownKind(9))));
+    fn unknown_kind_decodes_to_unknown() {
+        assert_eq!(decode(&[9]).unwrap(), Frame::Unknown(9));
+        assert_eq!(decode(&[0, 1, 2, 3]).unwrap(), Frame::Unknown(0));
+        assert!(matches!(
+            encode(&Frame::Unknown(9)),
+            Err(ProtocolError::UnknownKind(9))
+        ));
     }
 
     #[test]

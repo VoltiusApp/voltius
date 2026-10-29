@@ -1,4 +1,5 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use zeroize::{Zeroize, Zeroizing};
@@ -28,8 +29,7 @@ pub fn derive_auth_key(key: &[u8]) -> [u8; 32] {
 
 impl DeviceKey {
     pub fn from_private(private: [u8; 32]) -> Self {
-        let secret = x25519_dalek::StaticSecret::from(private);
-        let public = *x25519_dalek::PublicKey::from(&secret).as_bytes();
+        let public = SigningKey::from_bytes(&private).verifying_key().to_bytes();
         Self { private, public }
     }
 
@@ -38,6 +38,17 @@ impl DeviceKey {
         rand::Rng::fill(&mut rand::rngs::OsRng, &mut private);
         Self::from_private(private)
     }
+
+    pub fn sign(&self, msg: &[u8]) -> [u8; 64] {
+        SigningKey::from_bytes(&self.private).sign(msg).to_bytes()
+    }
+}
+
+pub fn verify_signature(public: &[u8; 32], msg: &[u8], sig: &[u8]) -> bool {
+    let (Ok(key), Ok(sig)) = (VerifyingKey::from_bytes(public), Signature::from_slice(sig)) else {
+        return false;
+    };
+    key.verify_strict(msg, &sig).is_ok()
 }
 
 impl Drop for DeviceKey {
@@ -95,8 +106,22 @@ mod tests {
     #[test]
     fn generated_public_matches_private() {
         let k = DeviceKey::generate();
-        let expected = x25519_dalek::PublicKey::from(&x25519_dalek::StaticSecret::from(k.private));
-        assert_eq!(k.public, *expected.as_bytes());
+        let expected = ed25519_dalek::SigningKey::from_bytes(&k.private).verifying_key();
+        assert_eq!(k.public, expected.to_bytes());
         assert_ne!(k.private, DeviceKey::generate().private);
+    }
+
+    #[test]
+    fn sign_verifies_with_public() {
+        let k = DeviceKey::generate();
+        let sig = k.sign(b"hello");
+        assert!(verify_signature(&k.public, b"hello", &sig));
+        assert!(!verify_signature(&k.public, b"hellO", &sig));
+        assert!(!verify_signature(
+            &DeviceKey::generate().public,
+            b"hello",
+            &sig
+        ));
+        assert!(!verify_signature(&k.public, b"hello", &sig[..63]));
     }
 }

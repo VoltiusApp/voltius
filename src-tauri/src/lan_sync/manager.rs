@@ -803,6 +803,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unknown_frame_kind_is_ignored_after_auth() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        let (_reader, mut writer) = session.split();
+        writer.send_raw(&[0, 0, 0, 3, 0xEE, 1, 2]).await.unwrap();
+        writer.send(&Frame::Blob(vec![7])).await.unwrap();
+        let seen = next_event(&mut eb, blob_from("dev-a")).await;
+        assert!(!seen.iter().any(no_peers), "{seen:?}");
+        assert_eq!(b.peers()[0].device_id, "dev-a");
+        assert_eq!(b.take_blob("dev-a"), Some(vec![7]));
+    }
+
+    #[tokio::test]
     async fn resume_nudges_peers() {
         let (b, _eb) = spawn("dev-b", 1).await;
         let (mut session, _fd) = raw_peer(&b, "dev-a").await;
