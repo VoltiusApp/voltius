@@ -10,18 +10,29 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{mpsc, watch, Notify, OwnedSemaphorePermit, Semaphore};
 use tokio::task::{AbortHandle, JoinHandle};
 use tokio::time::timeout;
 
 pub const PREFERRED_PORT: u16 = 47391;
-const MAX_HANDSHAKES: usize = 16;
+const MAX_INBOUND_HANDSHAKES: usize = 16;
+const MAX_OUTBOUND_HANDSHAKES: usize = 4;
 const RATE_MAX: usize = 5;
 const RATE_WINDOW: Duration = Duration::from_secs(10);
 const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
-const OUTBOX: usize = 8;
+const CONTROL: usize = 4;
+const PING_EVERY: Duration = if cfg!(test) {
+    Duration::from_millis(100)
+} else {
+    Duration::from_secs(10)
+};
+const IDLE_TIMEOUT: Duration = if cfg!(test) {
+    Duration::from_secs(3)
+} else {
+    Duration::from_secs(30)
+};
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -99,7 +110,8 @@ async fn secure(
     match handshake(stream, initiator, &shared.me, &shared.auth_keys).await {
         Ok((session, hello)) => {
             let session_id = session.handshake_hash().to_vec();
-            let (reader, writer) = session.split();
+            let (mut reader, writer) = session.split();
+            reader.set_idle_timeout(IDLE_TIMEOUT);
             Some(Link {
                 hello,
                 addr,
@@ -142,7 +154,7 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
         if !limiter.allow(addr.ip(), Instant::now()) {
             continue;
         }
-        let Ok(permit) = shared.handshakes.clone().try_acquire_owned() else {
+        let Ok(permit) = shared.inbound.clone().try_acquire_owned() else {
             continue;
         };
         tokio::spawn(establish(shared.clone(), stream, addr, false, permit));
@@ -150,7 +162,8 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
 }
 
 async fn dial(shared: Arc<Shared>, addr: SocketAddr) {
-    let Ok(permit) = shared.handshakes.clone().try_acquire_owned() else {
+    let Ok(permit) = shared.outbound.clone().try_acquire_owned() else {
+        log::debug!("lan-sync: dial {addr} refused, too many handshakes in flight");
         return;
     };
     match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
@@ -171,8 +184,14 @@ async fn recv(reader: &mut SessionReader) -> Option<Frame> {
     }
 }
 
-async fn send(writer: &mut SessionWriter, frame: &Frame) -> bool {
-    matches!(timeout(WRITE_TIMEOUT, writer.send(frame)).await, Ok(Ok(())))
+async fn transmit(writer: &mut SessionWriter, frame: Option<&Frame>) -> bool {
+    let sent = async {
+        match frame {
+            Some(frame) => writer.send(frame).await,
+            None => writer.keepalive().await,
+        }
+    };
+    matches!(timeout(WRITE_TIMEOUT, sent).await, Ok(Ok(())))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -181,17 +200,32 @@ struct Rank {
     session_id: Vec<u8>,
 }
 
+type Latest = Option<Arc<Vec<u8>>>;
+
+struct Outbox {
+    blob: watch::Sender<Latest>,
+    control: mpsc::Sender<Frame>,
+}
+
+impl Outbox {
+    fn nudge(&self) {
+        let _ = self.control.try_send(Frame::Nudge);
+    }
+}
+
 struct Peer {
     info: PeerInfo,
     rank: Rank,
     conn: u64,
-    outbox: mpsc::Sender<Frame>,
-    reader: AbortHandle,
+    outbox: Outbox,
+    tasks: [AbortHandle; 2],
 }
 
 impl Drop for Peer {
     fn drop(&mut self) {
-        self.reader.abort();
+        for task in &self.tasks {
+            task.abort();
+        }
     }
 }
 
@@ -209,7 +243,8 @@ struct Shared {
     events: mpsc::Sender<ManagerEvent>,
     state: Mutex<State>,
     paused: AtomicBool,
-    handshakes: Arc<Semaphore>,
+    inbound: Arc<Semaphore>,
+    outbound: Arc<Semaphore>,
     peers_changed: Notify,
 }
 
@@ -222,6 +257,11 @@ impl Shared {
         let mut peers: Vec<PeerInfo> = self.lock().peers.values().map(|p| p.info.clone()).collect();
         peers.sort_by(|a, b| a.device_id.cmp(&b.device_id));
         peers
+    }
+
+    fn worth_dialing(&self, addr: SocketAddr) -> bool {
+        let ip = addr.ip().to_string();
+        addr.is_ipv4() && !self.lock().peers.values().any(|p| p.info.address == ip)
     }
 
     // Both ends must pick the same survivor, so the tie-break uses the shared handshake hash.
@@ -246,8 +286,6 @@ impl Shared {
         }
         state.next_conn += 1;
         let conn = state.next_conn;
-        let (outbox, queued) = mpsc::channel(OUTBOX);
-        let _ = outbox.try_send(Frame::Nudge);
         let info = PeerInfo {
             device_id: id.clone(),
             device_name: link.hello.device_name,
@@ -255,7 +293,8 @@ impl Shared {
             route: classify(link.addr.ip()),
             address: link.addr.ip().to_string(),
         };
-        let reader = self.spawn_peer(id.clone(), conn, link.reader, link.writer, queued);
+        let (outbox, tasks) = self.spawn_peer(id.clone(), conn, link.reader, link.writer);
+        outbox.nudge();
         state.peers.insert(
             id,
             Peer {
@@ -263,7 +302,7 @@ impl Shared {
                 rank,
                 conn,
                 outbox,
-                reader,
+                tasks,
             },
         );
         drop(state);
@@ -275,27 +314,27 @@ impl Shared {
         id: String,
         conn: u64,
         mut reader: SessionReader,
-        mut writer: SessionWriter,
-        mut queued: mpsc::Receiver<Frame>,
-    ) -> AbortHandle {
+        writer: SessionWriter,
+    ) -> (Outbox, [AbortHandle; 2]) {
+        let (blob, latest) = watch::channel(None);
+        let (control, nudges) = mpsc::channel(CONTROL);
         let shared = self.clone();
         let from = id.clone();
-        tokio::spawn(async move {
-            while let Some(frame) = queued.recv().await {
-                if !send(&mut writer, &frame).await {
-                    break;
-                }
-            }
+        let write = tokio::spawn(async move {
+            pump_out(writer, latest, nudges).await;
             shared.release(&from, conn);
         });
         let shared = self.clone();
-        tokio::spawn(async move {
+        let read = tokio::spawn(async move {
             while let Some(frame) = recv(&mut reader).await {
                 shared.on_frame(&id, frame).await;
             }
             shared.release(&id, conn);
-        })
-        .abort_handle()
+        });
+        (
+            Outbox { blob, control },
+            [write.abort_handle(), read.abort_handle()],
+        )
     }
 
     async fn on_frame(&self, from: &str, frame: Frame) {
@@ -330,6 +369,35 @@ impl Shared {
         log::warn!("lan-sync: discovery: {e}");
         if e == DiscoveryError::Blocked {
             self.status(LanStatus::Blocked).await;
+        }
+    }
+}
+
+async fn pump_out(
+    mut writer: SessionWriter,
+    mut latest: watch::Receiver<Latest>,
+    mut control: mpsc::Receiver<Frame>,
+) {
+    let mut ping = tokio::time::interval_at(tokio::time::Instant::now() + PING_EVERY, PING_EVERY);
+    loop {
+        let frame = tokio::select! {
+            nudge = control.recv() => match nudge {
+                Some(frame) => Some(frame),
+                None => return,
+            },
+            changed = latest.changed() => {
+                if changed.is_err() {
+                    return;
+                }
+                let Some(blob) = latest.borrow_and_update().clone() else {
+                    continue;
+                };
+                Some(Frame::Blob(blob.to_vec()))
+            }
+            _ = ping.tick() => None,
+        };
+        if !transmit(&mut writer, frame.as_ref()).await {
+            return;
         }
     }
 }
@@ -370,7 +438,8 @@ pub async fn start(
         events,
         state: Mutex::default(),
         paused: AtomicBool::new(false),
-        handshakes: Arc::new(Semaphore::new(MAX_HANDSHAKES)),
+        inbound: Arc::new(Semaphore::new(MAX_INBOUND_HANDSHAKES)),
+        outbound: Arc::new(Semaphore::new(MAX_OUTBOUND_HANDSHAKES)),
         peers_changed: Notify::new(),
     });
     let mut manager = Manager {
@@ -396,7 +465,9 @@ impl Manager {
         let shared = self.shared.clone();
         self.tasks.push(tokio::spawn(async move {
             while let Some(addr) = found_rx.recv().await {
-                tokio::spawn(dial(shared.clone(), addr));
+                if shared.worth_dialing(addr) {
+                    tokio::spawn(dial(shared.clone(), addr));
+                }
             }
         }));
         let shared = self.shared.clone();
@@ -423,15 +494,9 @@ impl Manager {
         if self.shared.paused.load(Ordering::Relaxed) {
             return;
         }
-        let outboxes: Vec<_> = self
-            .shared
-            .lock()
-            .peers
-            .values()
-            .map(|p| p.outbox.clone())
-            .collect();
-        for outbox in outboxes {
-            let _ = outbox.send(Frame::Blob(blob.clone())).await;
+        let blob = Arc::new(blob);
+        for peer in self.shared.lock().peers.values() {
+            peer.outbox.blob.send_replace(Some(blob.clone()));
         }
     }
 
@@ -444,7 +509,12 @@ impl Manager {
     }
 
     pub fn set_paused(&self, paused: bool) {
-        self.shared.paused.store(paused, Ordering::Relaxed);
+        let was = self.shared.paused.swap(paused, Ordering::Relaxed);
+        if was && !paused {
+            for peer in self.shared.lock().peers.values() {
+                peer.outbox.nudge();
+            }
+        }
     }
 
     fn shutdown(&mut self) {
@@ -472,7 +542,9 @@ impl Drop for Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lan_sync::handshake::Session;
     use crate::lan_sync::identity::{derive_auth_key, test_identity};
+    use crate::lan_sync::protocol::MAX_FRAME;
     use std::io::Write;
 
     async fn spawn(id: &str, account: u8) -> (Manager, mpsc::Receiver<ManagerEvent>) {
@@ -487,10 +559,31 @@ mod tests {
     }
 
     fn idle(m: &Manager) -> bool {
-        m.shared.handshakes.available_permits() == MAX_HANDSHAKES
+        m.shared.inbound.available_permits() == MAX_INBOUND_HANDSHAKES
+            && m.shared.outbound.available_permits() == MAX_OUTBOUND_HANDSHAKES
     }
 
-    async fn until(what: &str, cond: impl Fn() -> bool) {
+    async fn raw_peer(m: &Manager, id: &str) -> (Session, std::net::TcpStream) {
+        let raw = std::net::TcpStream::connect(local(m)).unwrap();
+        let fd = raw.try_clone().unwrap();
+        raw.set_nonblocking(true).unwrap();
+        let stream = TcpStream::from_std(raw).unwrap();
+        let keys = [derive_auth_key(&[1; 32])];
+        let (session, _) = handshake(stream, true, &test_identity(id), &keys)
+            .await
+            .unwrap();
+        (session, fd)
+    }
+
+    fn rank_of(m: &Manager, id: &str) -> Option<Rank> {
+        m.shared.lock().peers.get(id).map(|p| p.rank.clone())
+    }
+
+    fn listed(id: &'static str) -> impl Fn(&ManagerEvent) -> bool {
+        move |e| matches!(e, ManagerEvent::Peers(p) if p.iter().any(|p| p.device_id == id))
+    }
+
+    async fn until(what: &str, mut cond: impl FnMut() -> bool) {
         let poll = async {
             while !cond() {
                 tokio::time::sleep(Duration::from_millis(5)).await;
@@ -587,10 +680,9 @@ mod tests {
             b.connect(local(&a))
         );
         until("dials settle", || idle(&a) && idle(&b)).await;
-        let kept = |m: &Manager, id: &str| m.shared.lock().peers.get(id).map(|p| p.rank.clone());
-        let on_a = kept(&a, "dev-b").expect("a lost b");
+        let on_a = rank_of(&a, "dev-b").expect("a lost b");
         assert!(!on_a.higher_initiated);
-        assert_eq!(Some(on_a), kept(&b, "dev-a"));
+        assert_eq!(Some(on_a), rank_of(&b, "dev-a"));
 
         a.broadcast(vec![1]).await;
         b.broadcast(vec![2]).await;
@@ -604,48 +696,113 @@ mod tests {
     #[tokio::test]
     async fn peer_drop_mid_frame_removes_peer() {
         let (a, mut ea) = spawn("dev-a", 1).await;
-        let raw = std::net::TcpStream::connect(local(&a)).unwrap();
-        let mut cut = raw.try_clone().unwrap();
-        raw.set_nonblocking(true).unwrap();
-        let stream = TcpStream::from_std(raw).unwrap();
-        let me = test_identity("dev-b");
-        let (session, _) = handshake(stream, true, &me, &[derive_auth_key(&[1; 32])])
-            .await
-            .unwrap();
-        next_event(
-            &mut ea,
-            |e| matches!(e, ManagerEvent::Peers(p) if p.len() == 1),
-        )
-        .await;
+        let (session, mut fd) = raw_peer(&a, "dev-b").await;
+        next_event(&mut ea, listed("dev-b")).await;
 
-        cut.write_all(&[0x40, 0x00, 1, 2, 3]).unwrap();
+        fd.write_all(&[0x40, 0x00, 1, 2, 3]).unwrap();
         drop(session);
-        drop(cut);
+        drop(fd);
         next_event(&mut ea, no_peers).await;
         assert!(a.peers().is_empty());
     }
 
     #[tokio::test]
     async fn paused_manager_ignores_blobs() {
-        let (a, _ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
         b.set_paused(true);
-        a.connect(local(&b)).await;
-        until("both peers", || {
-            a.peers().len() == 1 && b.peers().len() == 1
-        })
-        .await;
-        next_event(
-            &mut eb,
-            |e| matches!(e, ManagerEvent::Peers(p) if p.len() == 1),
-        )
-        .await;
+        let (mut session, fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
 
-        a.broadcast(vec![5; 10]).await;
-        a.stop().await;
+        session.send(&Frame::Blob(vec![5; 10])).await.unwrap();
+        drop(session);
+        drop(fd);
         let seen = next_event(&mut eb, no_peers).await;
         assert!(!seen.iter().any(blob_from("dev-a")), "{seen:?}");
         assert_eq!(b.take_blob("dev-a"), None);
+    }
+
+    #[tokio::test]
+    async fn resume_nudges_peers() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (mut session, _fd) = raw_peer(&b, "dev-a").await;
+        assert_eq!(session.recv().await.unwrap(), Frame::Nudge);
+        b.set_paused(true);
+        b.set_paused(false);
+        let resumed = timeout(Duration::from_secs(1), session.recv()).await;
+        assert_eq!(resumed.unwrap().unwrap(), Frame::Nudge);
+    }
+
+    #[tokio::test]
+    async fn broadcast_never_waits_for_a_stalled_peer() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (c, mut ec) = spawn("dev-c", 1).await;
+        let (_stalled, _fd) = raw_peer(&b, "dev-a").await;
+        c.connect(local(&b)).await;
+        until("both peers on b", || b.peers().len() == 2).await;
+
+        b.broadcast(vec![0; MAX_FRAME - 1]).await;
+        let started = Instant::now();
+        for i in 1..=20u8 {
+            b.broadcast(vec![i; 16]).await;
+        }
+        assert!(started.elapsed() < Duration::from_millis(500));
+        while c.take_blob("dev-b") != Some(vec![20; 16]) {
+            next_event(&mut ec, blob_from("dev-b")).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn stop_closes_connections_without_draining() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (mut session, fd) = raw_peer(&b, "dev-a").await;
+        assert_eq!(session.recv().await.unwrap(), Frame::Nudge);
+
+        b.broadcast(vec![1; MAX_FRAME - 1]).await;
+        let mut buf = vec![0u8; 1 << 20];
+        until("blob in flight", || {
+            fd.peek(&mut buf).is_ok_and(|n| n > 100_000)
+        })
+        .await;
+        b.stop().await;
+        let drained = timeout(Duration::from_secs(5), async {
+            let mut frames = Vec::new();
+            while let Ok(frame) = session.recv().await {
+                frames.push(frame);
+            }
+            frames
+        })
+        .await
+        .expect("no EOF after stop");
+        assert!(drained.is_empty(), "{drained:?}");
+    }
+
+    #[tokio::test]
+    async fn silent_incumbent_gives_way_to_a_new_connection() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (_silent, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        let incumbent = rank_of(&b, "dev-a").unwrap();
+
+        b.connect(local(&a)).await;
+        assert_eq!(rank_of(&b, "dev-a"), Some(incumbent));
+        until("silent incumbent dropped", || b.peers().is_empty()).await;
+
+        b.connect(local(&a)).await;
+        until("reconnected", || {
+            rank_of(&b, "dev-a").is_some_and(|r| r.higher_initiated) && a.peers().len() == 1
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn discovery_skips_ipv6_and_known_peers() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        assert!(!b.shared.worth_dialing("127.0.0.1:4000".parse().unwrap()));
+        assert!(!b.shared.worth_dialing("[fe80::1]:4000".parse().unwrap()));
+        assert!(b.shared.worth_dialing("10.0.0.9:4000".parse().unwrap()));
     }
 
     #[test]

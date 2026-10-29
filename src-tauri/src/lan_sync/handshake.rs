@@ -52,6 +52,7 @@ pub struct SessionReader {
     nonce: u64,
     sealed: Vec<u8>,
     plain: Vec<u8>,
+    idle: Option<Duration>,
 }
 
 pub struct SessionWriter {
@@ -93,8 +94,18 @@ fn next_nonce(nonce: &mut u64) -> u64 {
 }
 
 impl SessionReader {
+    pub fn set_idle_timeout(&mut self, idle: Duration) {
+        self.idle = Some(idle);
+    }
+
     async fn open_next(&mut self) -> Result<usize, HandshakeError> {
-        let n = read_msg(&mut self.io, &mut self.sealed).await?;
+        let read = read_msg(&mut self.io, &mut self.sealed);
+        let n = match self.idle {
+            Some(idle) => tokio::time::timeout(idle, read)
+                .await
+                .map_err(|_| HandshakeError::Timeout)??,
+            None => read.await?,
+        };
         let nonce = next_nonce(&mut self.nonce);
         Ok(self
             .noise
@@ -106,7 +117,12 @@ impl SessionReader {
     }
 
     pub async fn recv_max(&mut self, limit: usize) -> Result<Frame, HandshakeError> {
-        let n = self.open_next().await?;
+        let n = loop {
+            match self.open_next().await? {
+                0 => continue,
+                n => break n,
+            }
+        };
         let (prefix, rest) = self.plain[..n]
             .split_first_chunk::<4>()
             .ok_or_else(|| malformed("chunk shorter than a frame header"))?;
@@ -131,13 +147,26 @@ impl SessionWriter {
         self.send_raw(&encode(f)?).await
     }
 
+    pub async fn keepalive(&mut self) -> Result<(), HandshakeError> {
+        self.seal_and_write(std::iter::once(&[][..])).await
+    }
+
     async fn send_raw(&mut self, bytes: &[u8]) -> Result<(), HandshakeError> {
-        let mut wire = Vec::with_capacity(bytes.len() + NOISE_MAX);
-        for chunk in bytes.chunks(MAX_CHUNK) {
+        self.seal_and_write(bytes.chunks(MAX_CHUNK)).await
+    }
+
+    async fn seal_and_write<'a>(
+        &mut self,
+        chunks: impl Iterator<Item = &'a [u8]>,
+    ) -> Result<(), HandshakeError> {
+        let mut wire = Vec::with_capacity(NOISE_MAX + 2);
+        for chunk in chunks {
+            wire.clear();
             let nonce = next_nonce(&mut self.nonce);
             push_msg(&mut wire, |out| self.noise.write_message(nonce, chunk, out))?;
+            write_frame(&mut self.io, &wire).await?;
         }
-        Ok(write_frame(&mut self.io, &wire).await?)
+        Ok(())
     }
 }
 
@@ -166,7 +195,7 @@ impl Session {
 async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     mut stream: S,
     initiator: bool,
-) -> Result<(Session, Vec<u8>), HandshakeError> {
+) -> Result<Session, HandshakeError> {
     let builder = snow::Builder::new(NOISE_PARAMS.parse()?);
     let mut hs = if initiator {
         builder.build_initiator()?
@@ -195,15 +224,16 @@ async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             nonce: 0,
             sealed,
             plain,
+            idle: None,
         },
         writer: SessionWriter {
             io: Box::new(w),
             noise,
             nonce: 0,
         },
-        hash: hash.clone(),
+        hash,
     };
-    Ok((session, hash))
+    Ok(session)
 }
 
 // The role byte stops a keyless peer from reflecting our own proofs back at us.
@@ -254,13 +284,13 @@ async fn authenticate(
     initiator: bool,
     me: &LocalIdentity,
     auth_keys: &[[u8; 32]],
-    hash: &[u8],
 ) -> Result<Hello, HandshakeError> {
+    let hash = session.hash.clone();
     let my_auth = Frame::Auth(Auth {
         version: PROTOCOL_VERSION,
         proofs: auth_keys
             .iter()
-            .map(|k| proof(k, hash, initiator))
+            .map(|k| proof(k, &hash, initiator))
             .collect(),
     });
     let my_hello = Frame::Hello(Hello {
@@ -275,7 +305,7 @@ async fn authenticate(
     let Frame::Auth(peer_auth) = recv_preauth(session).await? else {
         return Err(malformed("expected auth"));
     };
-    if let Err(e) = verify(&peer_auth, !initiator, auth_keys, hash) {
+    if let Err(e) = verify(&peer_auth, !initiator, auth_keys, &hash) {
         let _ = session.send(&Frame::Bye).await;
         return Err(e);
     }
@@ -299,8 +329,8 @@ pub async fn handshake<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     auth_keys: &[[u8; 32]],
 ) -> Result<(Session, Hello), HandshakeError> {
     let run = async {
-        let (mut session, hash) = noise(stream, initiator).await?;
-        let peer = authenticate(&mut session, initiator, me, auth_keys, &hash).await?;
+        let mut session = noise(stream, initiator).await?;
+        let peer = authenticate(&mut session, initiator, me, auth_keys).await?;
         Ok((session, peer))
     };
     tokio::time::timeout(HANDSHAKE_TIMEOUT, run)
@@ -347,8 +377,9 @@ mod tests {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let (mut s, hash) = noise(stream, true).await.unwrap();
-        s.send(&Frame::Auth(auth(&hash))).await.unwrap();
+        let mut s = noise(stream, true).await.unwrap();
+        let auth = auth(s.handshake_hash());
+        s.send(&Frame::Auth(auth)).await.unwrap();
         drain(s, vec![]).await
     }
 
@@ -356,7 +387,7 @@ mod tests {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let (mut s, _) = noise(stream, false).await.unwrap();
+        let mut s = noise(stream, false).await.unwrap();
         let first = s.recv().await.unwrap();
         let Frame::Auth(auth) = &first else {
             panic!("initiator opened with {first:?}");
@@ -475,7 +506,7 @@ mod tests {
         let me = identity("dev-b");
         let (a, b) = duplex(64 * 1024);
         let rogue = async {
-            let (mut s, _) = noise(a, true).await.unwrap();
+            let mut s = noise(a, true).await.unwrap();
             let claim = (PREAUTH_MAX as u32 + 1).to_be_bytes();
             s.writer.send_raw(&claim).await.unwrap();
             s
@@ -559,5 +590,22 @@ mod tests {
             b.recv().await,
             Err(HandshakeError::Protocol(ProtocolError::TooLarge(_)))
         ));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn keepalives_are_invisible_and_idle_reader_times_out() {
+        let k = derive_auth_key(&[1; 32]);
+        let (a, b) = pair(&[k], &[k]).await;
+        let (_, mut aw) = a.ok().unwrap().0.split();
+        let (mut br, _bw) = b.ok().unwrap().0.split();
+        br.set_idle_timeout(Duration::from_secs(5));
+        aw.keepalive().await.unwrap();
+        aw.keepalive().await.unwrap();
+        aw.send(&Frame::Nudge).await.unwrap();
+        assert_eq!(br.recv().await.unwrap(), Frame::Nudge);
+        aw.keepalive().await.unwrap();
+        let started = tokio::time::Instant::now();
+        assert!(matches!(br.recv().await, Err(HandshakeError::Timeout)));
+        assert!(started.elapsed() >= Duration::from_secs(5));
     }
 }
