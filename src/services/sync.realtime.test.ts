@@ -54,6 +54,7 @@ function jwt(): string {
 }
 
 const unreachable: Connect = async () => { throw new UnreachableError("error sending request"); };
+const originDown: Connect = async () => { throw new UnreachableError("HTTP 504", 504); };
 const refused: Connect = async () => { throw new Error("HTTP 500: "); };
 const untilAborted = (signal: AbortSignal) =>
   new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
@@ -152,6 +153,65 @@ test("the network coming back cuts the wait short", async () => {
   await vi.advanceTimersByTimeAsync(0);
 
   expect(h.connects).toHaveLength(4);
+});
+
+test("a proxy answering for a server that is down is retried at most every 30 s", async () => {
+  h.connect = originDown;
+  startRealtimeSync();
+
+  await vi.advanceTimersByTimeAsync(5_000 + 10_000 + 20_000 + 30_000 + 1_000);
+  expect(h.connects).toHaveLength(5);
+
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(h.connects).toHaveLength(6);
+});
+
+test("a sync the proxy answered for a down server shortens the retries too", async () => {
+  h.connect = staysOpen;
+  h.appFetch.mockImplementation(async () => new Response("", { status: 504 }));
+
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(5_000 + 10_000 + 20_000 + 30_000 + 30_000 + 1_000);
+
+  expect(h.connects).toHaveLength(6);
+});
+
+test("an edit made while the stream waits to retry tries the server right away", async () => {
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(36_000);
+  expect(h.connects).toHaveLength(4);
+
+  h.connect = staysOpen;
+  serverAnswers();
+  scheduleSync();
+  await vi.advanceTimersByTimeAsync(3_000);
+
+  expect(h.connects).toHaveLength(5);
+  expect(blobPushes()).toBe(1);
+  expect(getSyncState().status).toBe("success");
+});
+
+test("a sync the user asked for reopens a stream that waits to retry", async () => {
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(36_000);
+  expect(h.connects).toHaveLength(4);
+
+  h.connect = staysOpen;
+  serverAnswers();
+  await runSync();
+
+  expect(h.connects).toHaveLength(5);
+  expect(h.connects[4].aborted).toBe(false);
+});
+
+test("a stream that drops as soon as it opens is not reopened by its own catch-up sync", async () => {
+  h.connect = opensThenDrops;
+  serverAnswers();
+
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(4_000);
+
+  expect(h.connects).toHaveLength(1);
 });
 
 test("a stream that opened and then dropped is retried at the shortest wait", async () => {

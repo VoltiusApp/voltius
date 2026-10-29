@@ -80,6 +80,15 @@ test("an answer from the proxy in front of the server means the server is unreac
   expect(onOpen).not.toHaveBeenCalled();
 });
 
+test("a proxy error page is reported by its status, not its HTML", async () => {
+  const { stream } = await connect(() => {});
+
+  emit("open", { status: 504, headers: [] });
+  emit("closed", { error: "HTTP 504: <!doctype html><html><title>Origin server error (504)</title></html>" });
+
+  expect((await failure(stream) as Error).message).toBe("HTTP 504");
+});
+
 test("an open stream cut off mid-way means the server is unreachable", async () => {
   const { stream } = await connect(() => {});
 

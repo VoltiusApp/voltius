@@ -30,8 +30,8 @@ import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/ser
 import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
-import { sseRetryDelay } from "@/services/syncRetry";
-import { isUnreachable, reachableFetch } from "@/services/reachability";
+import { SSE_RETRY_GATEWAY_MAX_MS, sseRetryDelay } from "@/services/syncRetry";
+import { isProxyAnswer, isUnreachable, reachableFetch } from "@/services/reachability";
 import { createWakeableSleeps } from "@/lib/wakeableSleep";
 import { onForeground, onNetworkBack } from "@/lib/networkSignals";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
@@ -110,7 +110,7 @@ function reportFailure(e: unknown): void {
   }
   setState("offline", msg);
   // The stream cannot be healthy if a request just failed to reach the server.
-  _dropStream?.();
+  _dropStream?.(e);
 }
 
 async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
@@ -628,6 +628,7 @@ export async function syncNow(forcePush = false): Promise<void> {
   _syncInFlight = true;
   const mustPush = forcePush || _pushOwed;
   const holdUntil = Date.now() + SYNC_HOLD_MS;
+  const wasOffline = _status === "offline";
   setState("syncing");
 
   try {
@@ -660,6 +661,7 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     _pushOwed = false;
     setState("success");
+    if (wasOffline) wakeSseRetry();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
@@ -795,6 +797,7 @@ export function syncInBackground(forcePush = false): Promise<void> {
   if (isSyncPaused()) return Promise.resolve();
   if (awaitingServer()) {
     _pushOwed ||= forcePush;
+    if (forcePush) wakeSseRetry();
     return Promise.resolve();
   }
   return syncNow(forcePush);
@@ -843,7 +846,7 @@ export function onTeamSseEvent(fn: (teamId: string) => void): () => void {
 
 let _sseAbort: AbortController | null = null;
 // Set while a stream is open: ends that one connection so the loop reconnects.
-let _dropStream: (() => void) | null = null;
+let _dropStream: ((reason?: unknown) => void) | null = null;
 // The server sends a heartbeat every 30 s; a stream silent this long is dead.
 const STREAM_QUIET_MS = 75_000;
 
@@ -897,15 +900,16 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
     signal.addEventListener("abort", end, { once: true });
     let healthy = false;
     let quiet: ReturnType<typeof setTimeout> | undefined;
-    const drop = () => {
+    let failure: unknown;
+    const drop = (reason?: unknown) => {
       healthy = false;
+      failure = reason;
       end();
     };
     const heard = () => {
       clearTimeout(quiet);
       quiet = setTimeout(drop, STREAM_QUIET_MS);
     };
-    let failure: unknown;
     try {
       await _sseConnect(attempt.signal, {
         onOpen: () => {
@@ -925,7 +929,7 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
     if (signal.aborted) return;
     if (isUnreachable(failure) && !_syncInFlight) setState("offline", failure.message);
     failures = healthy ? 0 : failures + 1;
-    await _sseSleeps.sleep(SSE_RETRY, sseRetryDelay(failures));
+    await _sseSleeps.sleep(SSE_RETRY, sseRetryDelay(failures, isProxyAnswer(failure) ? SSE_RETRY_GATEWAY_MAX_MS : undefined));
   }
 }
 

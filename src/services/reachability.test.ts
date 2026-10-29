@@ -22,7 +22,8 @@ test.each([502, 503, 504, 521, 530])("a %i from the proxy in front of the server
   const failure = await reachableFetch("https://s/x").catch((e: unknown) => e);
 
   expect(isUnreachable(failure)).toBe(true);
-  expect((failure as Error).message).toContain(String(status));
+  expect((failure as Error).message).toBe(`HTTP ${status}`);
+  expect((failure as UnreachableError).status).toBe(status);
 });
 
 test.each([200, 401, 402, 404, 429, 500])("a %i the server sent itself is handed back", async (status) => {
