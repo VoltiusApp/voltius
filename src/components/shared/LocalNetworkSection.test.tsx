@@ -44,12 +44,13 @@ const onClose = vi.fn();
 beforeEach(() => {
   useLanSyncStore.setState({ status: "running", paused: false });
   useSubscriptionStore.setState({ isPro: false });
-  h.platform = "macos";
 });
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   h.rows = [];
+  h.platform = "macos";
+  useLanSyncStore.setState({ status: "stopped", paused: false });
 });
 
 describe("LocalNetworkSection", () => {
@@ -92,7 +93,7 @@ describe("LocalNetworkSection", () => {
     expect(text.style.color).toBe("var(--t-status-warning)");
     expect(device("d3").querySelector("[data-dot]")!.getAttribute("data-dot")).toBe("behind");
     expect(q("[data-lan-upsell]")!.textContent).toContain("layout.sync.local.upsell");
-    fireEvent.click(getByText("layout.sync.local.upsellAction"));
+    fireEvent.click(getByText("layout.sync.upgradeArrow"));
     expect(h.runAction).toHaveBeenCalledWith({ kind: "upgrade" });
     expect(onClose).toHaveBeenCalled();
   });
@@ -141,12 +142,49 @@ describe("LocalNetworkSection", () => {
     expect(h.openUrl).toHaveBeenCalledWith("x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork");
   });
 
-  test("blocked off macOS points at the firewall with no settings action", () => {
-    h.platform = "windows";
+  test.each([
+    ["windows", "layout.sync.local.status.blockedOther"],
+    ["android", "layout.sync.local.status.blockedNetwork"],
+    ["linux", "layout.sync.local.status.blockedNetwork"],
+    ["ios", "layout.sync.local.status.blockedNetwork"],
+  ])("blocked on %s shows its own copy with no settings action", (platform, key) => {
+    h.platform = platform;
     useLanSyncStore.setState({ status: "blocked" });
-    const { getByText, queryByText } = render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
-    expect(getByText("layout.sync.local.status.blockedOther")).toBeTruthy();
+    const { getByText, queryByText } = render(<LocalNetworkSection variant="sheet" onClose={onClose} />);
+    expect(getByText(key)).toBeTruthy();
     expect(queryByText("layout.sync.local.openSettings")).toBeNull();
+    expect(q("[data-lan-action='open-settings']")).toBeNull();
+  });
+
+  test("paused beats blocked and dims the list", () => {
+    useLanSyncStore.setState({ status: "blocked", paused: true });
+    h.rows = [live];
+    const { getByText, queryByText } = render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    expect(getByText("layout.sync.local.status.paused")).toBeTruthy();
+    expect(queryByText("layout.sync.local.status.blocked")).toBeNull();
+    expect(queryByText("layout.sync.local.openSettings")).toBeNull();
+    expect(device("d1").parentElement!.style.opacity).toBe("0.6");
+  });
+
+  test("a paused status without the flag still offers resume", () => {
+    useLanSyncStore.setState({ status: "paused", paused: false });
+    h.rows = [live];
+    const { getByLabelText } = render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    fireEvent.click(getByLabelText("layout.sync.local.resume"));
+    expect(h.setPaused).toHaveBeenCalledWith(false);
+  });
+
+  test.each([
+    ["paused", { status: "running", paused: true }],
+    ["blocked", { status: "blocked", paused: false }],
+    ["stopped", { status: "stopped", paused: false }],
+  ] as const)("no catch-up line or upsell while %s", (_name, state) => {
+    useLanSyncStore.setState(state);
+    h.rows = [okLaptop, behindMac];
+    const { queryByText } = render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    expect(q("[data-lan-section]")).not.toBeNull();
+    expect(queryByText("layout.sync.local.catchUp")).toBeNull();
+    expect(q("[data-lan-upsell]")).toBeNull();
   });
 
   test("hidden when stopped with no known devices", () => {
@@ -156,11 +194,17 @@ describe("LocalNetworkSection", () => {
   });
 
   test("sheet variant puts pause, settings and upgrade in tappable rows", () => {
-    useLanSyncStore.setState({ status: "blocked" });
+    const slugs = () => [...document.querySelectorAll("[data-lan-action]")].map((e) => e.getAttribute("data-lan-action"));
     h.rows = [behindMac];
-    render(<LocalNetworkSection variant="sheet" onClose={onClose} />);
-    const slugs = [...document.querySelectorAll("[data-lan-action]")].map((e) => e.getAttribute("data-lan-action"));
-    expect(slugs).toEqual(["pause", "open-settings", "upgrade"]);
+    const { rerender } = render(<LocalNetworkSection variant="sheet" onClose={onClose} />);
+    expect(slugs()).toEqual(["pause", "upgrade"]);
+    fireEvent.click(q("[data-lan-action='upgrade']")!);
+    expect(h.runAction).toHaveBeenCalledWith({ kind: "upgrade" });
+    useLanSyncStore.setState({ status: "blocked" });
+    rerender(<LocalNetworkSection variant="sheet" onClose={onClose} />);
+    expect(slugs()).toEqual(["pause", "open-settings"]);
+    fireEvent.click(q("[data-lan-action='open-settings']")!);
+    expect(h.openUrl).toHaveBeenCalled();
     fireEvent.click(q("[data-lan-action='pause']")!);
     expect(h.setPaused).toHaveBeenCalledWith(true);
   });

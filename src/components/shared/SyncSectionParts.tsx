@@ -23,6 +23,17 @@ export function SyncSectionTitle({ icon, label, lang, variant }: {
   );
 }
 
+export function SyncInlineAction({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-[10px] font-medium transition-opacity hover:opacity-75 text-(--t-accent)"
+    >
+      {label}
+    </button>
+  );
+}
+
 export function SyncHeaderButton({ onClick, title, disabled = false, faded = false, children }: {
   onClick: () => void;
   title: string;

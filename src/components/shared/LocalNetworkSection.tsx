@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { SheetActionRow, type SheetAction } from "@/components/mobile/sheets/SheetActionRow";
-import { SyncHeaderButton, SyncSectionTitle, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
+import { SyncHeaderButton, SyncInlineAction, SyncSectionTitle, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
 import { useLanDeviceRows } from "@/hooks/useLanDeviceRows";
 import { runSyncMenuAction } from "@/hooks/useSyncProviderPanel";
 import { logFailure } from "@/lib/logger";
@@ -57,10 +57,16 @@ function deviceIcon(platform: string): string {
   return "lucide:monitor";
 }
 
-function statusLine(t: TFunction, status: LanStatus, paused: boolean, rows: DeviceRow[], mac: boolean) {
-  if (paused || status === "paused") return { icon: SYNC_PAUSED_ICON, color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
+function blockedKey(platform: string | null): string {
+  if (platform === "macos") return "layout.sync.local.status.blocked";
+  if (platform === "windows") return "layout.sync.local.status.blockedOther";
+  return "layout.sync.local.status.blockedNetwork";
+}
+
+function statusLine(t: TFunction, status: LanStatus, paused: boolean, rows: DeviceRow[], platform: string | null) {
+  if (paused) return { icon: SYNC_PAUSED_ICON, color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
   if (status === "blocked") {
-    return { icon: "lucide:wifi-off", color: "var(--t-status-warning)", label: t(mac ? "layout.sync.local.status.blocked" : "layout.sync.local.status.blockedOther") };
+    return { icon: "lucide:wifi-off", color: "var(--t-status-warning)", label: t(blockedKey(platform)) };
   }
   const syncing = rows.find((r) => r.dot === "syncing");
   if (syncing) return { icon: "lucide:loader-circle", color: "var(--t-accent)", spin: true, label: t("layout.sync.local.status.syncing", { name: syncing.name }) };
@@ -106,46 +112,37 @@ function DeviceRowView({ row, anyNearby, variant }: { row: DeviceRow; anyNearby:
   );
 }
 
-function InlineAction({ action }: { action: SheetAction }) {
-  return (
-    <button
-      data-lan-action={action.slug}
-      onClick={action.onTap}
-      className="text-[10px] font-medium transition-opacity hover:opacity-75 text-(--t-accent)"
-    >
-      {action.label}
-    </button>
-  );
-}
-
 export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVariant; onClose: () => void }) {
   const { t } = useTranslation();
   const rows = useLanDeviceRows();
   const status = useLanSyncStore((s) => s.status);
-  const paused = useLanSyncStore((s) => s.paused);
+  const pausedFlag = useLanSyncStore((s) => s.paused);
   const isPro = useSubscriptionStore((s) => s.isPro);
-  const mac = usePlatform() === "macos";
+  const platform = usePlatform();
   if (status === "stopped" && rows.length === 0) return null;
+
+  const isPaused = pausedFlag || status === "paused";
 
   const s = STYLES[variant];
   const sheet = variant === "sheet";
-  const line = statusLine(t, status, paused, rows, mac);
-  const blocked = !paused && status === "blocked";
+  const line = statusLine(t, status, isPaused, rows, platform);
+  const blocked = !isPaused && status === "blocked";
+  const running = !isPaused && status === "running";
   const anyNearby = rows.some((r) => r.nearby);
-  const catchUp = !anyNearby && rows.length > 0 && !paused && !blocked;
-  const upsell = !isPro && CAN_OPEN_CHECKOUT && rows.some((r) => r.dot === "behind");
+  const catchUp = running && !anyNearby && rows.length > 0;
+  const upsell = running && !isPro && CAN_OPEN_CHECKOUT && rows.some((r) => r.dot === "behind");
 
   const toggle: SheetAction = {
-    slug: paused ? "resume" : "pause",
-    icon: paused ? "lucide:play" : "lucide:pause",
-    label: t(paused ? "layout.sync.local.resume" : "layout.sync.local.pause"),
-    onTap: () => void setLanSyncPaused(!paused).catch(logFailure("lan-sync pause")),
+    slug: isPaused ? "resume" : "pause",
+    icon: isPaused ? "lucide:play" : "lucide:pause",
+    label: t(isPaused ? "layout.sync.local.resume" : "layout.sync.local.pause"),
+    onTap: () => void setLanSyncPaused(!isPaused).catch(logFailure("lan-sync pause")),
   };
-  const openSettings: SheetAction | null = blocked && mac
+  const openSettings: SheetAction | null = blocked && platform === "macos"
     ? { slug: "open-settings", icon: "lucide:settings", label: t("layout.sync.local.openSettings"), onTap: () => void openUrl(LOCAL_NETWORK_SETTINGS).catch(logFailure("lan-sync open settings")) }
     : null;
   const upgrade: SheetAction | null = upsell
-    ? { slug: "upgrade", icon: "lucide:badge-check", label: t("layout.sync.local.upsellAction"), onTap: () => runSyncMenuAction({ kind: "upgrade" }, onClose) }
+    ? { slug: "upgrade", icon: "lucide:badge-check", label: t("layout.sync.upgradeArrow"), onTap: () => runSyncMenuAction({ kind: "upgrade" }, onClose) }
     : null;
   const note = `${s.note} leading-relaxed text-(--t-text-dim)`;
 
@@ -165,10 +162,10 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
           <Icon icon={line.icon} width={s.statusIcon} className={`shrink-0 mt-0.5 ${line.spin ? "motion-safe:animate-spin" : ""}`} />
           <span className={`${s.status} leading-snug`}>{line.label}</span>
         </div>
-        {!sheet && openSettings && <InlineAction action={openSettings} />}
+        {!sheet && openSettings && <SyncInlineAction onClick={openSettings.onTap} label={openSettings.label} />}
 
         {rows.length > 0 && (
-          <div className={s.list} style={{ background: "var(--t-bg-input)", opacity: paused ? 0.6 : 1 }}>
+          <div className={s.list} style={{ background: "var(--t-bg-input)", opacity: isPaused ? 0.6 : 1 }}>
             {rows.map((row, i) => (
               <Fragment key={row.deviceId}>
                 {!row.nearby && rows[i - 1]?.nearby && <div data-divider className="h-px my-0.5 bg-(--t-border)" />}
@@ -182,7 +179,7 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
         {upgrade && (
           <p data-lan-upsell className={note}>
             {t("layout.sync.local.upsell")}
-            {!sheet && <> <InlineAction action={upgrade} /></>}
+            {!sheet && <> <SyncInlineAction onClick={upgrade.onTap} label={upgrade.label} /></>}
           </p>
         )}
       </div>

@@ -11,7 +11,7 @@ import type { usePluginInstaller } from "@/components/settings/usePluginInstalle
 import { useAvailableSyncProviders } from "@/hooks/useAvailableSyncProviders";
 import { AvailableSyncProviderRow } from "@/components/shared/AvailableSyncProviderRow";
 import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
-import { providerLang, SyncHeaderButton, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
+import { providerLang, SyncHeaderButton, SyncInlineAction, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,15 +69,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
             {inactiveRow.icon && <Icon icon={inactiveRow.icon} width={11} />}
             <span className="text-xs">{t(inactiveRow.labelKey)}</span>
           </div>
-          <button
-            onClick={act}
-            className="text-[10px] font-medium transition-opacity"
-            style={{ color: "var(--t-accent)" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "0.75")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
-          >
-            {t(inactiveRow.actionKey)}
-          </button>
+          <SyncInlineAction onClick={act} label={t(inactiveRow.actionKey)} />
         </div>
       )}
 

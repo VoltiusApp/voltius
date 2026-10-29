@@ -32,7 +32,12 @@ const view = (over: Partial<SyncProviderView>): SyncProviderView => ({
   syncNow: vi.fn(async () => {}), action: null, pauseToggle: null, ...over,
 });
 
-afterEach(() => { cleanup(); runAction.mockReset(); });
+afterEach(() => {
+  cleanup();
+  runAction.mockReset();
+  lanRows.list = [];
+  useLanSyncStore.setState({ status: "stopped" });
+});
 
 describe("SyncDropdown", () => {
   const installer = { busy: new Set<string>(), startInstall: vi.fn() };
@@ -146,7 +151,5 @@ describe("SyncDropdown", () => {
     );
     const lan = container.querySelector("[data-lan-section]")!;
     expect(lan.compareDocumentPosition(container.querySelector("[data-sync-provider]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    lanRows.list = [];
-    useLanSyncStore.setState({ status: "stopped" });
   });
 });

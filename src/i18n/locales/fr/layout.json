@@ -196,7 +196,8 @@
           "none": "Aucun appareil à proximité",
           "paused": "Synchronisation locale en pause",
           "blocked": "Voltius ne peut pas accéder à votre réseau. Autorisez l'accès au réseau local dans Réglages Système › Confidentialité et sécurité.",
-          "blockedOther": "Voltius ne peut pas accéder à votre réseau. Vérifiez que votre pare-feu autorise Voltius sur les réseaux privés."
+          "blockedOther": "Voltius ne peut pas accéder à votre réseau. Vérifiez que votre pare-feu autorise Voltius sur les réseaux privés.",
+          "blockedNetwork": "Voltius ne peut pas accéder à votre réseau local. Vérifiez que vous êtes connecté au Wi-Fi."
         },
         "openSettings": "Ouvrir les réglages",
         "route": {
@@ -218,8 +219,7 @@
           "seenOk": "Vu {{when}} · à jour"
         },
         "catchUp": "Les modifications leur parviendront la prochaine fois qu'ils seront sur le même réseau.",
-        "upsell": "Voltius Cloud garde vos appareils synchronisés même lorsqu'ils ne sont pas en ligne en même temps.",
-        "upsellAction": "Mettre à niveau →"
+        "upsell": "Voltius Cloud garde vos appareils synchronisés même lorsqu'ils ne sont pas en ligne en même temps."
       },
       "status": {
         "syncing": "Synchronisation…",

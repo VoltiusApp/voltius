@@ -195,7 +195,8 @@
           "none": "No devices nearby",
           "paused": "Local sync paused",
           "blocked": "Voltius can't reach your network. Allow Local Network access in System Settings › Privacy & Security.",
-          "blockedOther": "Voltius can't reach your network. Check that your firewall allows Voltius on private networks."
+          "blockedOther": "Voltius can't reach your network. Check that your firewall allows Voltius on private networks.",
+          "blockedNetwork": "Voltius can't reach your local network. Check that you're on Wi-Fi."
         },
         "openSettings": "Open settings",
         "route": {
@@ -214,8 +215,7 @@
           "seenOk": "Seen {{when}} · up to date"
         },
         "catchUp": "Changes reach them the next time they are on the same network.",
-        "upsell": "Voltius Cloud keeps devices in sync even when they're not online together.",
-        "upsellAction": "Upgrade →"
+        "upsell": "Voltius Cloud keeps devices in sync even when they're not online together."
       },
       "status": {
         "syncing": "Syncing…",

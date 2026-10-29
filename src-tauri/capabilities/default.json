@@ -18,7 +18,8 @@
         { "url": "http://*" },
         { "url": "https://*" },
         { "url": "mailto:*" },
-        { "url": "tel:*" }
+        { "url": "tel:*" },
+        { "url": "x-apple.systempreferences:com.apple.preference.security[?]Privacy_LocalNetwork" }
       ]
     },
     "clipboard-manager:allow-write-text",

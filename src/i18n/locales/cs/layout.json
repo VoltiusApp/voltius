@@ -197,7 +197,8 @@
           "none": "Žádná zařízení v okolí",
           "paused": "Místní synchronizace pozastavena",
           "blocked": "Voltius se nemůže připojit k vaší síti. Povolte přístup k místní síti v Nastavení systému › Soukromí a zabezpečení.",
-          "blockedOther": "Voltius se nemůže připojit k vaší síti. Zkontrolujte, zda brána firewall povoluje Voltius v privátních sítích."
+          "blockedOther": "Voltius se nemůže připojit k vaší síti. Zkontrolujte, zda brána firewall povoluje Voltius v privátních sítích.",
+          "blockedNetwork": "Voltius se nemůže připojit k vaší místní síti. Zkontrolujte, že jste připojeni k Wi-Fi."
         },
         "openSettings": "Otevřít nastavení",
         "route": {
@@ -222,8 +223,7 @@
           "seenOk": "Naposledy {{when}} · aktuální"
         },
         "catchUp": "Změny se k nim dostanou, až budou příště ve stejné síti.",
-        "upsell": "Voltius Cloud udržuje zařízení synchronizovaná, i když nejsou online současně.",
-        "upsellAction": "Přejít na vyšší tarif →"
+        "upsell": "Voltius Cloud udržuje zařízení synchronizovaná, i když nejsou online současně."
       },
       "status": {
         "syncing": "Synchronizace…",

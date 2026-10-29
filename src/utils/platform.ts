@@ -44,7 +44,7 @@ export function isMobileShell(): boolean {
 
 /** React hook: the OS string, or `null` until it resolves. */
 export function usePlatform(): string | null {
-  const [os, setOs] = useState<string | null>(null);
+  const [os, setOs] = useState<string | null>(getPlatformSync);
   useEffect(() => {
     let alive = true;
     getPlatform().then((p) => alive && setOs(p));

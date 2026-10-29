@@ -195,7 +195,8 @@
           "none": "Yakında cihaz yok",
           "paused": "Yerel eşitleme duraklatıldı",
           "blocked": "Voltius ağınıza erişemiyor. Sistem Ayarları › Gizlilik ve Güvenlik bölümünden Yerel Ağ erişimine izin verin.",
-          "blockedOther": "Voltius ağınıza erişemiyor. Güvenlik duvarınızın özel ağlarda Voltius'a izin verdiğini kontrol edin."
+          "blockedOther": "Voltius ağınıza erişemiyor. Güvenlik duvarınızın özel ağlarda Voltius'a izin verdiğini kontrol edin.",
+          "blockedNetwork": "Voltius yerel ağınıza erişemiyor. Wi-Fi'ye bağlı olduğunuzu kontrol edin."
         },
         "openSettings": "Ayarları aç",
         "route": {
@@ -214,8 +215,7 @@
           "seenOk": "Son görülme {{when}} · güncel"
         },
         "catchUp": "Değişiklikler, bir sonraki sefer aynı ağda olduklarında onlara ulaşır.",
-        "upsell": "Voltius Cloud, cihazlar aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar.",
-        "upsellAction": "Yükselt →"
+        "upsell": "Voltius Cloud, cihazlar aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar."
       },
       "status": {
         "syncing": "Eşitleniyor…",

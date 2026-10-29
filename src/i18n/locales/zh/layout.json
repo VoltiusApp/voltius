@@ -194,7 +194,8 @@
           "none": "附近没有设备",
           "paused": "本地同步已暂停",
           "blocked": "Voltius 无法访问您的网络。请在“系统设置 › 隐私与安全性”中允许“本地网络”访问。",
-          "blockedOther": "Voltius 无法访问您的网络。请检查防火墙是否允许 Voltius 访问专用网络。"
+          "blockedOther": "Voltius 无法访问您的网络。请检查防火墙是否允许 Voltius 访问专用网络。",
+          "blockedNetwork": "Voltius 无法访问您的本地网络。请检查是否已连接 Wi-Fi。"
         },
         "openSettings": "打开设置",
         "route": {
@@ -210,8 +211,7 @@
           "seenOk": "上次在线 {{when}} · 已是最新"
         },
         "catchUp": "下次它们连到同一网络时，更改就会同步过去。",
-        "upsell": "即使设备不同时在线，Voltius Cloud 也能让它们保持同步。",
-        "upsellAction": "升级 →"
+        "upsell": "即使设备不同时在线，Voltius Cloud 也能让它们保持同步。"
       },
       "status": {
         "syncing": "正在同步…",
