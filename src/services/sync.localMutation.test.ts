@@ -31,8 +31,6 @@ beforeEach(() => {
       return null;
     }
     if (cmd === "backup_export") return [];
-    if (cmd === "device_hostname") return "ThinkPad";
-    if (cmd === "get_platform") return "linux";
     if (cmd === "state_export_raw") return { files: {}, secrets: {}, secret_clocks: {} };
     return null;
   });
@@ -65,10 +63,12 @@ test("a throwing listener does not stop others", () => {
   expect(fn).toHaveBeenCalledTimes(1);
 });
 
-test("push sends device_name and platform in metadata", async () => {
+test("push keeps the device name and platform out of server-visible metadata", async () => {
   await push();
   const upload = h.appFetch.mock.calls.find(([, init]) => init?.method === "PUT");
-  expect(JSON.parse(upload?.[1].body).metadata).toMatchObject({ device_name: "ThinkPad", platform: "linux" });
+  const { metadata } = JSON.parse(upload?.[1].body);
+  expect(Object.keys(metadata).sort()).toEqual(["device_id", "synced_at"]);
+  expect(h.invoke.mock.calls.some(([c]) => c === "device_hostname")).toBe(false);
 });
 
 test("mergeRemotePayload notifies merge listeners", async () => {
@@ -105,17 +105,4 @@ test("mergeRemotePayload applies remote settings and live sessions", async () =>
   });
   expect(h.invoke.mock.calls.some(([c]) => c === "settings_save")).toBe(true);
   expect(ingestManifest).toHaveBeenCalledWith(manifest);
-});
-
-test("a device_hostname failure does not block push", async () => {
-  const base = h.invoke.getMockImplementation()!;
-  h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
-    if (cmd === "device_hostname") throw new Error("no such command");
-    return base(cmd, args);
-  });
-  await push();
-  const upload = h.appFetch.mock.calls.find(([, init]) => init?.method === "PUT");
-  const { metadata } = JSON.parse(upload?.[1].body);
-  expect(metadata).not.toHaveProperty("device_name");
-  expect(metadata.platform).toBe("linux");
 });

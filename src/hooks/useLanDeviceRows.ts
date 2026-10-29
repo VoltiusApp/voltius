@@ -17,7 +17,7 @@ export function useLanDeviceRows(): DeviceRow[] {
     useShallow(({ peers, known, peerClocks, localClocks, syncing }) => ({ peers, known, peerClocks, localClocks, syncing })),
   );
   return useMemo(
-    () => buildDeviceRows({ selfId, peers, known, cloudDevices: [], localClocks, syncing, peerClocks }),
+    () => buildDeviceRows({ selfId, peers, known, localClocks, syncing, peerClocks }),
     [selfId, peers, known, peerClocks, localClocks, syncing],
   );
 }

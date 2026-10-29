@@ -39,7 +39,6 @@ import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { parseUsingEvent } from "@/services/presenceEvent";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { applyRemoteSshConfigState } from "@/services/sshConfig/state";
-import { getPlatform } from "@/utils/platform";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -428,7 +427,6 @@ export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<v
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const blob = await exportLocalBlob();
-  const [deviceName, platform] = await Promise.all([invoke<string>("device_hostname").catch(() => null), getPlatform()]);
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
     method: "PUT",
@@ -436,7 +434,7 @@ export async function push({ signal }: { signal?: AbortSignal } = {}): Promise<v
     body: JSON.stringify({
       device_id: deviceId,
       blob: bytesToBase64(blob),
-      metadata: { device_id: deviceId, synced_at: new Date().toISOString(), ...(deviceName && { device_name: deviceName }), platform },
+      metadata: { device_id: deviceId, synced_at: new Date().toISOString() },
     }),
     signal,
   });

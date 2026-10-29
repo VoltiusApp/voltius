@@ -29,12 +29,6 @@ export interface DeviceRow {
   lastSeen: string | null;
 }
 
-interface CloudDevice {
-  device_id: string;
-  metadata: Record<string, unknown>;
-  updated_at: string;
-}
-
 export function entityClocks(payload: BlobPayload): Record<string, string> {
   const clocks: Record<string, string> = {};
   for (const file of ENTITY_FILES) {
@@ -53,11 +47,6 @@ export function countBehind(local: Record<string, string>, peer: Record<string, 
   return n;
 }
 
-const cloudName = (d: CloudDevice | undefined): string | undefined => {
-  const name = d?.metadata?.device_name;
-  return typeof name === "string" && name ? name : undefined;
-};
-
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const time = (at: string | null) => Date.parse(at ?? "") || 0;
 
@@ -65,34 +54,31 @@ export function buildDeviceRows(input: {
   selfId: string;
   peers: PeerInfo[];
   known: Record<string, KnownDevice>;
-  cloudDevices: CloudDevice[];
   localClocks: Record<string, string>;
   syncing: ReadonlySet<string>;
   peerClocks?: Record<string, Record<string, string>>;
 }): DeviceRow[] {
-  const { selfId, peers, known, cloudDevices, localClocks, syncing, peerClocks = {} } = input;
-  const cloudById = new Map(cloudDevices.map((d) => [d.device_id, d]));
+  const { selfId, peers, known, localClocks, syncing, peerClocks = {} } = input;
   const peerById = new Map(peers.filter((p) => p.deviceId !== selfId).map((p) => [p.deviceId, p]));
-  const ids = new Set([...peerById.keys(), ...Object.keys(known), ...cloudById.keys()]);
+  const ids = new Set([...peerById.keys(), ...Object.keys(known)]);
   ids.delete(selfId);
 
   const rows = [...ids].map((deviceId): DeviceRow => {
     const peer = peerById.get(deviceId);
     const k = known[deviceId];
-    const cloud = cloudById.get(deviceId);
     const nearby = !!peer;
     const clocks = peerClocks[deviceId];
     const behind = clocks ? countBehind(localClocks, clocks) : 0;
     const dot: DeviceDot = nearby ? (syncing.has(deviceId) ? "syncing" : "live") : behind > 0 ? "behind" : "offline-ok";
     return {
       deviceId,
-      name: peer?.deviceName || k?.name || cloudName(cloud) || `Device ${deviceId.slice(0, 6)}`,
-      platform: peer?.platform || k?.platform || (typeof cloud?.metadata?.platform === "string" ? cloud.metadata.platform : ""),
+      name: peer?.deviceName || k?.name || `Device ${deviceId.slice(0, 6)}`,
+      platform: peer?.platform || k?.platform || "",
       nearby,
       route: peer?.route ?? null,
       dot,
       behind,
-      lastSeen: nearby ? null : (k?.lastSeen ?? cloud?.updated_at ?? null),
+      lastSeen: nearby ? null : (k?.lastSeen ?? null),
     };
   });
 
