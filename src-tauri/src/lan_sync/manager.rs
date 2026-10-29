@@ -22,6 +22,8 @@ const RATE_WINDOW: Duration = Duration::from_secs(10);
 const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
+const REDIAL_DELAY: Duration = Duration::from_secs(1);
+const REMEMBERED: usize = 32;
 const CONTROL: usize = 4;
 const PING_EVERY: Duration = if cfg!(test) {
     Duration::from_millis(100)
@@ -110,8 +112,9 @@ async fn secure(
     match handshake(stream, initiator, &shared.me, &shared.auth_keys).await {
         Ok((session, hello)) => {
             let session_id = session.handshake_hash().to_vec();
-            let (mut reader, writer) = session.split();
+            let (mut reader, mut writer) = session.split();
             reader.set_idle_timeout(IDLE_TIMEOUT);
+            writer.set_write_timeout(WRITE_TIMEOUT);
             Some(Link {
                 hello,
                 addr,
@@ -185,13 +188,10 @@ async fn recv(reader: &mut SessionReader) -> Option<Frame> {
 }
 
 async fn transmit(writer: &mut SessionWriter, frame: Option<&Frame>) -> bool {
-    let sent = async {
-        match frame {
-            Some(frame) => writer.send(frame).await,
-            None => writer.keepalive().await,
-        }
-    };
-    matches!(timeout(WRITE_TIMEOUT, sent).await, Ok(Ok(())))
+    match frame {
+        Some(frame) => writer.send(frame).await.is_ok(),
+        None => writer.keepalive().await.is_ok(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -233,6 +233,7 @@ impl Drop for Peer {
 struct State {
     peers: HashMap<String, Peer>,
     blobs: HashMap<String, Vec<u8>>,
+    dialable: VecDeque<SocketAddr>,
     next_conn: u64,
     closed: bool,
 }
@@ -352,12 +353,22 @@ impl Shared {
         }
     }
 
-    fn release(&self, id: &str, conn: u64) {
+    fn remember(&self, addr: SocketAddr) {
+        let mut state = self.lock();
+        state.dialable.retain(|known| known.ip() != addr.ip());
+        state.dialable.push_back(addr);
+        if state.dialable.len() > REMEMBERED {
+            state.dialable.pop_front();
+        }
+    }
+
+    fn release(self: &Arc<Self>, id: &str, conn: u64) {
         let mut state = self.lock();
         if state.peers.get(id).is_some_and(|p| p.conn == conn) {
             state.peers.remove(id);
             drop(state);
             self.peers_changed.notify_one();
+            tokio::spawn(redial(self.clone()));
         }
     }
 
@@ -381,10 +392,10 @@ async fn pump_out(
     let mut ping = tokio::time::interval_at(tokio::time::Instant::now() + PING_EVERY, PING_EVERY);
     loop {
         let frame = tokio::select! {
-            nudge = control.recv() => match nudge {
-                Some(frame) => Some(frame),
-                None => return,
-            },
+            nudge = control.recv() => {
+                let Some(frame) = nudge else { return };
+                Some(frame)
+            }
             changed = latest.changed() => {
                 if changed.is_err() {
                     return;
@@ -398,6 +409,17 @@ async fn pump_out(
         };
         if !transmit(&mut writer, frame.as_ref()).await {
             return;
+        }
+    }
+}
+
+// Delayed so a dedupe loser's EOF doesn't re-dial before the winner is listed.
+async fn redial(shared: Arc<Shared>) {
+    tokio::time::sleep(REDIAL_DELAY).await;
+    let known: Vec<SocketAddr> = shared.lock().dialable.iter().copied().collect();
+    for addr in known {
+        if shared.worth_dialing(addr) {
+            tokio::spawn(dial(shared.clone(), addr));
         }
     }
 }
@@ -465,6 +487,7 @@ impl Manager {
         let shared = self.shared.clone();
         self.tasks.push(tokio::spawn(async move {
             while let Some(addr) = found_rx.recv().await {
+                shared.remember(addr);
                 if shared.worth_dialing(addr) {
                     tokio::spawn(dial(shared.clone(), addr));
                 }
@@ -487,6 +510,7 @@ impl Manager {
     }
 
     pub async fn connect(&self, addr: SocketAddr) {
+        self.shared.remember(addr);
         dial(self.shared.clone(), addr).await;
     }
 
@@ -786,10 +810,7 @@ mod tests {
 
         b.connect(local(&a)).await;
         assert_eq!(rank_of(&b, "dev-a"), Some(incumbent));
-        until("silent incumbent dropped", || b.peers().is_empty()).await;
-
-        b.connect(local(&a)).await;
-        until("reconnected", || {
+        until("reconnected without a second dial", || {
             rank_of(&b, "dev-a").is_some_and(|r| r.higher_initiated) && a.peers().len() == 1
         })
         .await;
@@ -803,6 +824,22 @@ mod tests {
         assert!(!b.shared.worth_dialing("127.0.0.1:4000".parse().unwrap()));
         assert!(!b.shared.worth_dialing("[fe80::1]:4000".parse().unwrap()));
         assert!(b.shared.worth_dialing("10.0.0.9:4000".parse().unwrap()));
+    }
+
+    #[tokio::test]
+    async fn remembered_addresses_are_unique_per_ip_and_bounded() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        b.shared.remember("10.0.0.1:1".parse().unwrap());
+        b.shared.remember("10.0.0.1:2".parse().unwrap());
+        for i in 2..=40u8 {
+            b.shared.remember(SocketAddr::from(([10, 0, 0, i], 3)));
+        }
+        let known = b.shared.lock().dialable.clone();
+        assert_eq!(known.len(), REMEMBERED);
+        assert_eq!(known.back(), Some(&"10.0.0.40:3".parse().unwrap()));
+        assert!(!known
+            .iter()
+            .any(|a| a.ip() == "10.0.0.1".parse::<IpAddr>().unwrap()));
     }
 
     #[test]

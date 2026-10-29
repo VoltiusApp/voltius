@@ -59,6 +59,7 @@ pub struct SessionWriter {
     io: Box<dyn AsyncWrite + Send + Unpin>,
     noise: Arc<StatelessTransportState>,
     nonce: u64,
+    stall: Option<Duration>,
 }
 
 pub struct Session {
@@ -87,6 +88,19 @@ fn push_msg(
     Ok(())
 }
 
+async fn bounded<T, E: Into<HandshakeError>>(
+    limit: Option<Duration>,
+    io: impl std::future::Future<Output = Result<T, E>>,
+) -> Result<T, HandshakeError> {
+    match limit {
+        Some(limit) => tokio::time::timeout(limit, io)
+            .await
+            .map_err(|_| HandshakeError::Timeout)?
+            .map_err(Into::into),
+        None => io.await.map_err(Into::into),
+    }
+}
+
 fn next_nonce(nonce: &mut u64) -> u64 {
     let n = *nonce;
     *nonce += 1;
@@ -99,13 +113,7 @@ impl SessionReader {
     }
 
     async fn open_next(&mut self) -> Result<usize, HandshakeError> {
-        let read = read_msg(&mut self.io, &mut self.sealed);
-        let n = match self.idle {
-            Some(idle) => tokio::time::timeout(idle, read)
-                .await
-                .map_err(|_| HandshakeError::Timeout)??,
-            None => read.await?,
-        };
+        let n = bounded(self.idle, read_msg(&mut self.io, &mut self.sealed)).await?;
         let nonce = next_nonce(&mut self.nonce);
         Ok(self
             .noise
@@ -143,6 +151,10 @@ impl SessionReader {
 }
 
 impl SessionWriter {
+    pub fn set_write_timeout(&mut self, stall: Duration) {
+        self.stall = Some(stall);
+    }
+
     pub async fn send(&mut self, f: &Frame) -> Result<(), HandshakeError> {
         self.send_raw(&encode(f)?).await
     }
@@ -164,7 +176,7 @@ impl SessionWriter {
             wire.clear();
             let nonce = next_nonce(&mut self.nonce);
             push_msg(&mut wire, |out| self.noise.write_message(nonce, chunk, out))?;
-            write_frame(&mut self.io, &wire).await?;
+            bounded(self.stall, write_frame(&mut self.io, &wire)).await?;
         }
         Ok(())
     }
@@ -230,6 +242,7 @@ async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             io: Box::new(w),
             noise,
             nonce: 0,
+            stall: None,
         },
         hash,
     };
@@ -607,5 +620,15 @@ mod tests {
         let started = tokio::time::Instant::now();
         assert!(matches!(br.recv().await, Err(HandshakeError::Timeout)));
         assert!(started.elapsed() >= Duration::from_secs(5));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn stalled_write_times_out() {
+        let k = derive_auth_key(&[1; 32]);
+        let (a, _b) = pair(&[k], &[k]).await;
+        let (_, mut aw) = a.ok().unwrap().0.split();
+        aw.set_write_timeout(Duration::from_secs(5));
+        let r = aw.send(&Frame::Blob(vec![1; 1_000_000])).await;
+        assert!(matches!(r, Err(HandshakeError::Timeout)));
     }
 }
