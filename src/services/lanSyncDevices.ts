@@ -1,5 +1,4 @@
-import { ENTITY_FILES, type BlobPayload } from "@/services/sync";
-import type { TimestampedEntity } from "@/services/crdt";
+import { ENTITY_FILES, parseEntities, type BlobPayload } from "@/services/sync";
 
 export type DeviceDot = "live" | "syncing" | "behind" | "offline-ok";
 export type LanRoute = "lan" | "tailscale" | "vpn";
@@ -39,9 +38,7 @@ interface CloudDevice {
 export function entityClocks(payload: BlobPayload): Record<string, string> {
   const clocks: Record<string, string> = {};
   for (const file of ENTITY_FILES) {
-    let entities: TimestampedEntity[] = [];
-    try { entities = JSON.parse(payload.files[file] ?? "[]"); } catch {}
-    for (const e of entities) clocks[`${file}:${e.id}`] = e.updated_at;
+    for (const e of parseEntities(payload.files[file])) clocks[`${file}:${e.id}`] = e.updated_at;
   }
   for (const [id, at] of Object.entries(payload.secret_clocks ?? {})) clocks[`secret:${id}`] = at;
   return clocks;
@@ -62,6 +59,7 @@ const cloudName = (d: CloudDevice | undefined): string | undefined => {
 };
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+const time = (at: string | null) => Date.parse(at ?? "") || 0;
 
 export function buildDeviceRows(input: {
   selfId: string;
@@ -101,6 +99,6 @@ export function buildDeviceRows(input: {
   return rows.sort((a, b) => {
     if (a.nearby !== b.nearby) return a.nearby ? -1 : 1;
     if (a.nearby) return byText(a.name, b.name) || byText(a.deviceId, b.deviceId);
-    return byText(b.lastSeen ?? "", a.lastSeen ?? "") || byText(a.deviceId, b.deviceId);
+    return time(b.lastSeen) - time(a.lastSeen) || byText(a.deviceId, b.deviceId);
   });
 }

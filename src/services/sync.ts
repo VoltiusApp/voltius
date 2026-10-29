@@ -522,9 +522,13 @@ async function completeTeamLoginSetup(): Promise<void> {
 
 type MergedPayload = Required<BlobPayload>;
 
-function parseEntities(json: string | undefined): TimestampedEntity[] {
-  try { return JSON.parse(json ?? "[]"); }
-  catch { return []; }
+export function parseEntities(json: string | undefined): TimestampedEntity[] {
+  try {
+    const parsed: unknown = JSON.parse(json ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Merge one remote payload into `base`; `changed` is whether the result differs from `base`. */
