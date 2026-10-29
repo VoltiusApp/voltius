@@ -203,6 +203,15 @@ describe("aggregateSyncStatus", () => {
     expect(aggregateSyncStatus(providers)).toEqual({ configured: false, paused: false, status: "idle", lastSync: null, error: null, errorSource: null, nearby: 0 });
   });
 
+  test("a free account's refused cloud sync is not an error, so nearby devices still show", () => {
+    const providers = buildSyncProviders(inputs({
+      voltius: { ...inputs().voltius, isPro: false, state: { status: "error", lastSync: null, error: "Server error: 402", blobSizeBytes: null } },
+    }));
+    const effective = aggregateSyncStatus(providers, 1);
+    expect(effective).toMatchObject({ configured: false, status: "idle", error: null });
+    expect(isNearbyOnly(effective)).toBe(true);
+  });
+
   test("a paused Voltius provider is left out of the status and reported as paused", () => {
     const providers = buildSyncProviders(inputs({
       voltius: { ...inputs().voltius, paused: true, state: { status: "error", lastSync: null, error: "unreachable", blobSizeBytes: null } },

@@ -141,7 +141,8 @@ export function aggregateSyncStatus(providers: SyncProviderView[], nearby = 0): 
   const active = providers.filter((p) => p.availability === "active");
   if (active.length === 0) {
     const voltius = providers.find((p) => p.id === VOLTIUS_PROVIDER_ID);
-    const fallback = voltius?.state ?? NOT_CONFIGURED_SYNC_STATE;
+    // A free account's login sync ends in a 402; that is the plan, not a sync failure.
+    const fallback = voltius && voltius.availability !== "needs_upgrade" ? voltius.state : NOT_CONFIGURED_SYNC_STATE;
     return {
       configured: false,
       paused: voltius?.availability === "paused",
