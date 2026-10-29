@@ -669,13 +669,15 @@ async fn same_hash(
     part: &str,
     token: &CancellationToken,
 ) -> Result<bool, AppError> {
-    match tokio::try_join!(src.hash(src_path, token), dst.hash(part, token))? {
-        (Some(a), Some(b)) => Ok(a.eq_ignore_ascii_case(&b)),
-        _ => {
-            log::info!("no end-to-end hash for {src_path}; kept the size and overlap checks");
-            Ok(true)
+    if src.can_hash() && dst.can_hash() {
+        if let (Some(a), Some(b)) =
+            tokio::try_join!(src.hash(src_path, token), dst.hash(part, token))?
+        {
+            return Ok(a.eq_ignore_ascii_case(&b));
         }
     }
+    log::info!("no end-to-end hash for {src_path}; kept the size and overlap checks");
+    Ok(true)
 }
 
 async fn sweep<E: TransferEvents>(
@@ -1230,6 +1232,28 @@ pub(crate) mod engine_tests {
         std::fs::write(a.path().join("v"), data).unwrap();
         seed_part(&a.path().join("v"), b.path(), "v", &data[..data.len() / 2]).await;
         (a, b)
+    }
+
+    #[tokio::test]
+    async fn a_side_that_cannot_hash_spares_the_other_the_read() {
+        let a = tempfile::tempdir().unwrap();
+        std::fs::write(a.path().join("v"), b"data").unwrap();
+        let path = a.path().join("v").to_string_lossy().into_owned();
+        let token = CancellationToken::new();
+        let (src, deaf) = (
+            TestFs::default(),
+            TestFs {
+                no_hash: true,
+                ..Default::default()
+            },
+        );
+        assert!(same_hash(&src, &path, &deaf, &path, &token).await.unwrap());
+        assert!(same_hash(&deaf, &path, &src, &path, &token).await.unwrap());
+        assert_eq!(src.state.lock().unwrap().hashes, 0);
+        assert!(same_hash(&src, &path, &TestFs::default(), &path, &token)
+            .await
+            .unwrap());
+        assert_eq!(src.state.lock().unwrap().hashes, 1);
     }
 
     #[tokio::test]

@@ -210,6 +210,10 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         }
     }
 
+    fn can_hash(&self) -> bool {
+        self.tar.is_some()
+    }
+
     async fn hash(
         &self,
         path: &str,

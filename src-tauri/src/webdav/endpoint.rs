@@ -224,6 +224,10 @@ impl Endpoint for WebDavBackend {
         Ok(())
     }
 
+    fn can_hash(&self) -> bool {
+        false
+    }
+
     async fn hash(&self, _: &str, _: &CancellationToken) -> Result<Option<String>, AppError> {
         Ok(None)
     }

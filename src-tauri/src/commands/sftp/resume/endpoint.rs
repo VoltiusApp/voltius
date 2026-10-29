@@ -97,6 +97,9 @@ pub(crate) trait Endpoint: Send + Sync {
     async fn real_dir(&self, _path: &str) -> Option<String> {
         None
     }
+    fn can_hash(&self) -> bool {
+        true
+    }
     /// None when no hash is to be had; an error only when the link died while hashing.
     async fn hash(&self, path: &str, token: &CancellationToken)
         -> Result<Option<String>, AppError>;
@@ -374,6 +377,7 @@ pub(crate) mod tests_support {
         pub in_place: bool,
         pub lie_hash_once: bool,
         pub hash_fails_once: bool,
+        pub no_hash: bool,
         pub cancel_on_hash: Option<CancellationToken>,
         pub lose_first_write: bool,
         pub cut_first_write_after: Option<u64>,
@@ -393,6 +397,7 @@ pub(crate) mod tests_support {
         pub renames: usize,
         pub lied: bool,
         pub hash_failed: bool,
+        pub hashes: usize,
         pub write_lost: bool,
         pub write_cut: bool,
         pub mkdir_lost: bool,
@@ -499,7 +504,11 @@ pub(crate) mod tests_support {
         async fn set_mtime(&self, p: &str, m: u64) -> Result<(), AppError> {
             LocalFs.set_mtime(p, m).await
         }
+        fn can_hash(&self) -> bool {
+            !self.no_hash
+        }
         async fn hash(&self, p: &str, t: &CancellationToken) -> Result<Option<String>, AppError> {
+            self.state.lock().unwrap().hashes += 1;
             if let Some(token) = &self.cancel_on_hash {
                 token.cancel();
                 return Ok(None);
