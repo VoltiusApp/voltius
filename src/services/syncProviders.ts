@@ -134,7 +134,7 @@ export function buildSyncProviders(inputs: SyncProviderInputs): SyncProviderView
 }
 
 export function isNearbyOnly(sync: EffectiveSync): boolean {
-  return sync.nearby > 0 && (!sync.configured || sync.status === "offline");
+  return sync.nearby > 0 && sync.status !== "error" && (!sync.configured || sync.status === "offline");
 }
 
 export function aggregateSyncStatus(providers: SyncProviderView[], nearby = 0): EffectiveSync {

@@ -6,6 +6,7 @@ import { __resetPluginStateWarnings } from "./syncStatus";
 import {
   aggregateSyncStatus,
   availableCatalogProviders,
+  isNearbyOnly,
   buildSyncProviders,
   toSyncProviderSummary,
   type LoadedPluginInfo,
@@ -157,6 +158,12 @@ describe("aggregateSyncStatus", () => {
     expect(aggregateSyncStatus([], 2)).toMatchObject({ configured: false, nearby: 2 });
     expect(aggregateSyncStatus([]).nearby).toBe(0);
     expect(aggregateSyncStatus(providersWith({ status: "success" }), 3).nearby).toBe(3);
+  });
+
+  test("nearby never masks an error, even when unconfigured", () => {
+    const base = aggregateSyncStatus([], 2);
+    expect(isNearbyOnly(base)).toBe(true);
+    expect(isNearbyOnly({ ...base, status: "error" })).toBe(false);
   });
 
   test("worst status wins and the error names its provider", () => {
