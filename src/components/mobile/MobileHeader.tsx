@@ -7,7 +7,6 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
-import { isNearbyOnly } from "@/services/syncProviders";
 import { syncStatusTooltip } from "@/services/syncStatusText";
 import { EffectiveSyncIcon, effectiveSyncColor, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -34,17 +33,15 @@ function HeaderActions({ onAdd }: { onAdd?: () => void }) {
   const syncMotion = useSyncMotion(sync.status);
   return (
     <div className="flex items-center gap-1 shrink-0">
-      {(sync.configured || sync.paused || isNearbyOnly(sync)) && (
-        <button
-          data-mobile-sync-status
-          aria-label={syncStatusTooltip(t, sync, syncMotion.status)}
-          className="vt-icon-btn"
-          style={{ color: effectiveSyncColor(sync, syncMotion) }}
-          onClick={() => openSheet({ kind: "sync" })}
-        >
-          <EffectiveSyncIcon sync={sync} motion={syncMotion} width={18} />
-        </button>
-      )}
+      <button
+        data-mobile-sync-status
+        aria-label={syncStatusTooltip(t, sync, syncMotion.status)}
+        className="vt-icon-btn"
+        style={{ color: effectiveSyncColor(sync, syncMotion) }}
+        onClick={() => openSheet({ kind: "sync" })}
+      >
+        <EffectiveSyncIcon sync={sync} motion={syncMotion} width={18} />
+      </button>
       <NotificationBell />
       {onAdd && (
         <button data-mobile-add onClick={onAdd} className="vt-icon-btn -mr-2 text-(--t-text-primary)">

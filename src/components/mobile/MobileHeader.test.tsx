@@ -63,12 +63,16 @@ describe("MobileHeader", () => {
     useLanSyncStore.setState({ paused: true, peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a" }] });
     const { default: MobileHeader } = await import("./MobileHeader");
     const { container } = render(<MobileHeader />);
-    expect(container.querySelector("[data-mobile-sync-status]")).toBeNull();
+    const button = container.querySelector("button[data-mobile-sync-status]")!;
+    expect(button.getAttribute("aria-label")).not.toBe("layout.sync.local.tooltip");
   });
 
-  test("a device that never set sync up shows no sync icon", async () => {
+  test("a device that never set sync up still shows the sync button", async () => {
     const { default: MobileHeader } = await import("./MobileHeader");
     const { container } = render(<MobileHeader />);
-    expect(container.querySelector("[data-mobile-sync-status]")).toBeNull();
+    const button = container.querySelector<HTMLButtonElement>("button[data-mobile-sync-status]")!;
+    expect(button.getAttribute("aria-label")).toBe("layout.sync.status.notConfigured");
+    fireEvent.click(button);
+    expect(useMobileNavStore.getState().sheet).toEqual({ kind: "sync" });
   });
 });
