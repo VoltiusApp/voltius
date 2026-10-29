@@ -1,13 +1,10 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, type PersistStorage } from "zustand/middleware";
 import { logFailure } from "@/lib/logger";
 import { entityClocks, type KnownDevice, type PeerInfo } from "@/services/lanSyncDevices";
 import { getDeviceId, onRemotePayloadMerged, type BlobPayload } from "@/services/sync";
 
 export type LanStatus = "running" | "paused" | "blocked" | "stopped";
-
-// Cloud-only devices are re-recorded on every pull; the least recently recorded are dropped first.
-const MAX_UNKNOWN_PEER_CLOCKS = 16;
 
 interface LanSyncStore {
   status: LanStatus;
@@ -26,6 +23,55 @@ interface LanSyncStore {
   setLocalClocks: (localClocks: Record<string, string>) => void;
   rememberDevice: (peer: PeerInfo) => boolean;
   recordPeerPayload: (deviceId: string, payload: BlobPayload) => void;
+  forgetAccount: () => void;
+}
+
+type Persisted = Pick<LanSyncStore, "paused" | "introShown" | "known" | "peerClocks">;
+
+export const LAN_SYNC_DEVICES_KEY = "voltius-lan-sync-devices";
+export const LAN_SYNC_CLOCKS_KEY = "voltius-lan-sync-clocks";
+
+const slices = (name: string): [string, (keyof Persisted)[]][] => [
+  [name, ["paused", "introShown"]],
+  [LAN_SYNC_DEVICES_KEY, ["known"]],
+  [LAN_SYNC_CLOCKS_KEY, ["peerClocks"]],
+];
+
+function readSlice(key: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(globalThis.localStorage?.getItem(key) ?? "null");
+    return (parsed as { state?: Record<string, unknown> } | null)?.state ?? {};
+  } catch {
+    return {};
+  }
+}
+
+// Writes only slices whose values changed, so hot-path sets never re-serialize every clock.
+function splitStorage(): PersistStorage<Persisted> {
+  const written = new Map<string, unknown[]>();
+  return {
+    getItem: (name) => {
+      const state: Record<string, unknown> = {};
+      for (const [key, fields] of slices(name)) {
+        const slice = readSlice(key);
+        for (const f of fields) if (f in slice) state[f] = slice[f];
+        written.set(key, fields.map((f) => state[f]));
+      }
+      return { state: state as Persisted, version: 0 };
+    },
+    setItem: (name, { state, version }) => {
+      for (const [key, fields] of slices(name)) {
+        const values = fields.map((f) => state[f]);
+        if (written.get(key)?.every((v, i) => v === values[i])) continue;
+        written.set(key, values);
+        globalThis.localStorage?.setItem(key, JSON.stringify({ state: Object.fromEntries(fields.map((f, i) => [f, values[i]])), version }));
+      }
+    },
+    removeItem: (name) => {
+      written.clear();
+      for (const [key] of slices(name)) globalThis.localStorage?.removeItem(key);
+    },
+  };
 }
 
 export const useLanSyncStore = create<LanSyncStore>()(
@@ -75,18 +121,15 @@ export const useLanSyncStore = create<LanSyncStore>()(
         }));
         return isNew;
       },
-      recordPeerPayload: (deviceId, payload) =>
-        set((s) => {
-          const peerClocks = { ...s.peerClocks };
-          delete peerClocks[deviceId];
-          const strangers = Object.keys(peerClocks).filter((id) => !(id in s.known));
-          const room = MAX_UNKNOWN_PEER_CLOCKS - (deviceId in s.known ? 0 : 1);
-          for (const id of strangers.slice(0, Math.max(0, strangers.length - room))) delete peerClocks[id];
-          return { peerClocks: { ...peerClocks, [deviceId]: entityClocks(payload) } };
-        }),
+      recordPeerPayload: (deviceId, payload) => {
+        if (!(deviceId in get().known)) return;
+        set((s) => ({ peerClocks: { ...s.peerClocks, [deviceId]: entityClocks(payload) } }));
+      },
+      forgetAccount: () => set({ known: {}, peerClocks: {}, localClocks: {}, peers: [], syncing: new Set<string>() }),
     }),
     {
       name: "voltius-lan-sync",
+      storage: splitStorage(),
       partialize: ({ paused, known, peerClocks, introShown }) => ({ paused, known, peerClocks, introShown }),
     },
   ),

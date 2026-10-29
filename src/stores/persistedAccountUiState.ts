@@ -45,6 +45,8 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   "voltius-identity-picks",
   // The combined team lock policy, so it applies before the first team fetch.
   "voltius-org-lock-policy",
+  // This account's other devices met on the local network, by name.
+  "voltius-lan-sync-devices",
 ];
 
 /**
@@ -53,7 +55,11 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
  * last-write-wins merge, and one account's newer stamp would make the incoming
  * account's own settings look stale and never apply.
  */
-export const ACCOUNT_SCOPED_RESET_KEYS = ["voltius-app-settings-ts"];
+export const ACCOUNT_SCOPED_RESET_KEYS = [
+  "voltius-app-settings-ts",
+  // Every entity clock of each nearby device: too large to park, rebuilt by the next merge.
+  "voltius-lan-sync-clocks",
+];
 
 /**
  * Knowingly left out: `voltius-local-audit-logs`. It is account data, but it is

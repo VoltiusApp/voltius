@@ -6,7 +6,6 @@ const h = vi.hoisted(() => ({ invoke: vi.fn(), hangStart: false, failStop: false
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-vi.mock("@/stores/persistedAccountUiState", () => ({ clearPersistedAccountUiState: vi.fn() }));
 vi.mock("@/services/teamDataManager", () => ({ onSessionEnd: vi.fn() }));
 vi.mock("@/services/account", () => ({ isServerMode: async () => true }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: async () => {} }));
@@ -24,6 +23,7 @@ vi.mock("@/services/sync", () => ({
 
 import { lockVault, resetVault, setVaultKey } from "./vault";
 import { startLanSync } from "./lanSync";
+import { LAN_SYNC_DEVICES_KEY, useLanSyncStore } from "@/stores/lanSyncStore";
 
 const order = () => h.invoke.mock.calls.map(([c]) => c as string);
 
@@ -43,6 +43,16 @@ test("resetVault locks, stops lan sync, then wipes", async () => {
   await resetVault();
   const seq = order().filter((c) => ["secrets_lock", "lan_sync_stop", "vault_reset"].includes(c));
   expect(seq).toEqual(["secrets_lock", "lan_sync_stop", "vault_reset"]);
+});
+
+test("resetVault leaves none of the account's nearby devices behind", async () => {
+  await startLanSync();
+  const peer = { deviceId: "d1", deviceName: "One", platform: "linux", route: "lan" as const, address: "a" };
+  useLanSyncStore.getState().rememberDevice(peer);
+  useLanSyncStore.getState().setPeers([peer]);
+  await resetVault();
+  expect(localStorage.getItem(LAN_SYNC_DEVICES_KEY)).toBeNull();
+  expect(useLanSyncStore.getState().known).toEqual({});
 });
 
 test("a failing lan stop never fails or skips the lock", async () => {

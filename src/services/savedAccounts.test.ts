@@ -16,7 +16,7 @@ const h = vi.hoisted(() => ({
   haltSync: vi.fn(),
   resumeSync: vi.fn(),
   isSyncPaused: vi.fn(() => false),
-  clearPersistedAccountUiState: vi.fn(),
+  clearAccountUiState: vi.fn(async () => undefined),
   parkAccountUiState: vi.fn(),
   restoreAccountUiState: vi.fn(),
   writeParkedUiState: vi.fn(),
@@ -36,6 +36,7 @@ vi.mock("./vault", () => ({
   readLocalSecrets: h.readLocalSecrets,
   swapAccountProfile: h.swapAccountProfile,
   dropAccountProfile: h.dropAccountProfile,
+  clearAccountUiState: h.clearAccountUiState,
 }));
 vi.mock("@/services/sync", () => ({
   push: h.push,
@@ -46,7 +47,6 @@ vi.mock("@/services/sync", () => ({
 }));
 vi.mock("@/services/lanSync", () => ({ stopLanSync: h.stopLanSync, startSessionSync: h.startSessionSync }));
 vi.mock("@/stores/persistedAccountUiState", () => ({
-  clearPersistedAccountUiState: h.clearPersistedAccountUiState,
   parkAccountUiState: h.parkAccountUiState,
   restoreAccountUiState: h.restoreAccountUiState,
   writeParkedUiState: h.writeParkedUiState,
@@ -227,7 +227,7 @@ test("switchToAccount parks the outgoing UI state and restores the incoming one"
   await switchToAccount(CLOUD_B);
 
   expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
-  expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
+  expect(h.clearAccountUiState).toHaveBeenCalled();
   expect(h.restoreAccountUiState).toHaveBeenCalledWith("b");
 });
 
@@ -252,7 +252,7 @@ test("switchToAccount tears the old session down before reloading", async () => 
   expect(h.stopLanSync.mock.invocationCallOrder[0]).toBeLessThan(h.swapAccountProfile.mock.invocationCallOrder[0]);
   expect(h.lockVault).toHaveBeenCalled();
   expect(h.swapAccountProfile).toHaveBeenCalledWith({ parkAs: null, restore: "b", carry: {} });
-  expect(h.clearPersistedAccountUiState).toHaveBeenCalled();
+  expect(h.clearAccountUiState).toHaveBeenCalled();
   expect(sessionStorage.setItem).toHaveBeenCalledWith("voltius.replace-sync-on-login", "1");
   expect(h.reload).toHaveBeenCalled();
 });
@@ -355,7 +355,7 @@ test("a swap that fails leaves the session as it was", async () => {
   expect(h.lockVault).not.toHaveBeenCalled();
   expect(h.resumeSync).toHaveBeenCalled();
   expect(h.startSessionSync).toHaveBeenCalled();
-  expect(h.clearPersistedAccountUiState).not.toHaveBeenCalled();
+  expect(h.clearAccountUiState).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });
 

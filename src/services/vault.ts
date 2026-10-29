@@ -193,11 +193,17 @@ export async function readLocalSecrets(keys: string[]): Promise<Record<string, s
   return out;
 }
 
-export async function resetVault(): Promise<void> {
-  // Before the storage wipe: the store writes itself back to localStorage on set.
+// Memory before storage: a persisted store writes itself back to localStorage on its next set.
+export async function clearAccountUiState(): Promise<void> {
   useOrgLockPolicyStore.getState().setPolicy(null);
+  const { useLanSyncStore } = await import("@/stores/lanSyncStore");
+  useLanSyncStore.getState().forgetAccount();
   clearPersistedAccountUiState();
+}
+
+export async function resetVault(): Promise<void> {
   await dropKey();
+  await clearAccountUiState();
   await invoke("vault_reset"); // deletes secrets.enc + connections.json + legacy vault.hold
 
   // Clear all keychain entries so the app starts fresh

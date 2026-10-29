@@ -1,6 +1,5 @@
 import { invoke } from "@/lib/invoke";
 import {
-  clearPersistedAccountUiState,
   dropAccountUiState,
   parkAccountUiState,
   restoreAccountUiState,
@@ -9,7 +8,7 @@ import {
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
-import { dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
+import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { clearSecret, exportSecret, importSecret } from "./vaultSecret";
 
@@ -345,7 +344,7 @@ async function installSession(account: SavedAccount, restored: boolean): Promise
 
   // An account with nothing parked here starts empty and must be rebuilt from the server alone.
   if (!restored) sessionStorage.setItem("voltius.replace-sync-on-login", "1");
-  clearPersistedAccountUiState();
+  await clearAccountUiState();
 
   for (const key of SESSION_KEYS) {
     const value = account[key];
