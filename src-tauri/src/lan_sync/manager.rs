@@ -2,7 +2,8 @@ use super::addrs;
 use super::discovery::{self, classify_mdns_error, Discovery, DiscoveryError};
 use super::handshake::{handshake, HandshakeError, SessionReader, SessionWriter};
 use super::identity::LocalIdentity;
-use super::peers::{now_secs, write_snapshot, PeerStore, PinDecision, Rejection};
+use super::lock;
+use super::peers::{now_secs, write_snapshot, PeerStore, PinDecision, PinPolicy, Rejection};
 use super::protocol::{Frame, Hello};
 use super::route::{classify, Route};
 use serde::Serialize;
@@ -138,10 +139,6 @@ fn local_port(listener: &TcpListener) -> Result<u16, String> {
         .local_addr()
         .map(|a| a.port())
         .map_err(|e| e.to_string())
-}
-
-fn guard<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 async fn secure(
@@ -315,6 +312,7 @@ struct Shared {
     events: mpsc::Sender<ManagerEvent>,
     state: Mutex<State>,
     store: Mutex<PeerStore>,
+    policy: PinPolicy,
     saves: watch::Sender<Save>,
     flush: Notify,
     paused: AtomicBool,
@@ -327,11 +325,11 @@ struct Shared {
 
 impl Shared {
     fn lock(&self) -> MutexGuard<'_, State> {
-        guard(&self.state)
+        lock(&self.state)
     }
 
     fn store(&self) -> MutexGuard<'_, PeerStore> {
-        guard(&self.store)
+        lock(&self.store)
     }
 
     // Sent under the store lock so an older snapshot can never land after a newer one.
@@ -343,10 +341,13 @@ impl Shared {
     }
 
     fn admit(&self, device_id: &str, key: &[u8; 32]) -> Result<(), Rejection> {
-        let decision = self.store().decide(device_id, key, now_secs());
+        let decision = self.store().decide(device_id, key, now_secs(), self.policy);
         match decision {
             PinDecision::Known => Ok(()),
-            PinDecision::Pinned => {
+            PinDecision::Pinned | PinDecision::Repinned => {
+                if decision == PinDecision::Repinned {
+                    log::info!("lan-sync: {device_id} presented a new device key, re-pinned");
+                }
                 self.persist();
                 Ok(())
             }
@@ -369,10 +370,13 @@ impl Shared {
     }
 
     fn record_addrs(&self, link: &Link) {
-        let mut reached = link.hello.peer_addrs();
-        if link.initiator {
-            reached.push(link.addr);
-        }
+        // Dialed first: the address cap keeps the earliest of equally fresh entries.
+        let reached: Vec<SocketAddr> = link
+            .initiator
+            .then_some(link.addr)
+            .into_iter()
+            .chain(link.hello.peer_addrs())
+            .collect();
         self.store()
             .record_addrs(&link.hello.device_id, &reached, now_secs());
         self.persist();
@@ -739,11 +743,12 @@ pub async fn start(
     paused: bool,
     discovery: bool,
     store: PeerStore,
+    policy: PinPolicy,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let listener = bind().await.map_err(|e| e.to_string())?;
     me.addrs = addrs::interfaces(local_port(&listener)?);
-    let mut manager = serve(listener, me, auth_keys, paused, store, events).await?;
+    let mut manager = serve(listener, me, auth_keys, paused, store, policy, events).await?;
     if discovery {
         manager.spawn_probe(Arc::new(discovery::probe_multicast));
         manager.start_discovery().await;
@@ -757,6 +762,7 @@ async fn serve(
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     paused: bool,
     store: PeerStore,
+    policy: PinPolicy,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let port = local_port(&listener)?;
@@ -767,6 +773,7 @@ async fn serve(
         events,
         state: Mutex::default(),
         store: Mutex::new(store),
+        policy,
         saves,
         flush: Notify::new(),
         paused: AtomicBool::new(paused),
@@ -928,10 +935,13 @@ mod tests {
         listener: TcpListener,
         probe: Option<Probe>,
         store: PeerStore,
+        policy: PinPolicy,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
         let (tx, rx) = mpsc::channel(64);
         let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
-        let mut manager = serve(listener, me, keys, false, store, tx).await.unwrap();
+        let mut manager = serve(listener, me, keys, false, store, policy, tx)
+            .await
+            .unwrap();
         if let Some(probe) = probe {
             manager.spawn_probe(probe);
         }
@@ -950,6 +960,7 @@ mod tests {
             listener,
             probe,
             PeerStore::memory(),
+            PinPolicy::Repin,
         )
         .await
     }
@@ -957,18 +968,19 @@ mod tests {
     async fn spawn_as(
         me: LocalIdentity,
         store: PeerStore,
+        policy: PinPolicy,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
-        serve_as(me, 1, bind().await.unwrap(), None, store).await
+        serve_as(me, 1, bind().await.unwrap(), None, store, policy).await
     }
 
     fn file_store(dir: &tempfile::TempDir) -> PeerStore {
         PeerStore::open(dir.path(), "acct")
     }
 
-    fn advertising(id: &str, addr: &str) -> LocalIdentity {
-        let addr: SocketAddr = addr.parse().unwrap();
+    fn advertising(id: &str, addrs: &[&str]) -> LocalIdentity {
+        let addrs: Vec<SocketAddr> = addrs.iter().map(|a| a.parse().unwrap()).collect();
         LocalIdentity {
-            addrs: Arc::new(move || vec![addr]),
+            addrs: Arc::new(move || addrs.clone()),
             ..test_identity(id)
         }
     }
@@ -1150,9 +1162,48 @@ mod tests {
         assert_eq!(pinned(&b, "dev-a"), test_identity("dev-a").key.public);
     }
 
+    fn impostor_of(id: &str) -> LocalIdentity {
+        LocalIdentity {
+            key: DeviceKey::from_private([7; 32]),
+            ..test_identity(id)
+        }
+    }
+
+    fn rejected(e: &ManagerEvent) -> bool {
+        matches!(e, ManagerEvent::Rejected { .. })
+    }
+
+    #[tokio::test]
+    async fn key_change_repins_under_account_policy() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, mut ea) =
+            spawn_as(test_identity("dev-a"), file_store(&dir), PinPolicy::Repin).await;
+        let (old, old_fd) = raw_peer(&a, "dev-b").await;
+        next_event(&mut ea, listed("dev-b")).await;
+        drop((old, old_fd));
+        next_event(&mut ea, no_peers).await;
+
+        let reinstalled = impostor_of("dev-b");
+        let (_session, _fd) = raw_peer_as(&a, &reinstalled).await;
+        let seen = next_event(&mut ea, listed("dev-b")).await;
+        assert!(!seen.iter().any(rejected), "{seen:?}");
+        assert_eq!(rejections(&mut ea), vec![]);
+        assert_eq!(
+            a.record("dev-b").unwrap().device_key,
+            reinstalled.key.public
+        );
+        a.stop().await;
+        let reopened = file_store(&dir);
+        assert_eq!(
+            reopened.get("dev-b").unwrap().device_key,
+            reinstalled.key.public
+        );
+    }
+
     #[tokio::test]
     async fn key_change_is_refused_until_forgotten() {
-        let (a, mut ea) = spawn("dev-a", 1).await;
+        let refuse = PinPolicy::Refuse;
+        let (a, mut ea) = spawn_as(test_identity("dev-a"), PeerStore::memory(), refuse).await;
         let ephemeral = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).await.unwrap();
         let (b, _eb) = spawn_on("dev-b", 1, ephemeral).await;
         a.connect(local(&b)).await;
@@ -1160,10 +1211,7 @@ mod tests {
         b.stop().await;
         next_event(&mut ea, no_peers).await;
 
-        let impostor = LocalIdentity {
-            key: DeviceKey::from_private([7; 32]),
-            ..test_identity("dev-b")
-        };
+        let impostor = impostor_of("dev-b");
         for _ in 0..2 {
             let (mut session, _fd) = raw_peer_as(&a, &impostor).await;
             assert_eq!(session.recv().await.unwrap(), Frame::Bye);
@@ -1227,8 +1275,9 @@ mod tests {
     #[tokio::test]
     async fn adopt_records_advertised_and_dialed_addresses() {
         let memory = PeerStore::memory;
-        let (a, _ea) = spawn_as(advertising("dev-a", "10.9.9.9:1234"), memory()).await;
-        let (b, _eb) = spawn_as(advertising("dev-b", "10.8.8.8:4321"), memory()).await;
+        let repin = PinPolicy::Repin;
+        let (a, _ea) = spawn_as(advertising("dev-a", &["10.9.9.9:1234"]), memory(), repin).await;
+        let (b, _eb) = spawn_as(advertising("dev-b", &["10.8.8.8:4321"]), memory(), repin).await;
         b.connect(local(&a)).await;
         both_listed(&a, &b).await;
         let on_b = addrs_of(&b, "dev-a");
@@ -1241,9 +1290,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dialed_address_survives_a_full_advertisement() {
+        let many: Vec<String> = (1..=9).map(|i| format!("10.0.0.{i}:1")).collect();
+        let many: Vec<&str> = many.iter().map(String::as_str).collect();
+        let me = advertising("dev-a", &many);
+        let (a, _ea) = spawn_as(me, PeerStore::memory(), PinPolicy::Repin).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        b.connect(local(&a)).await;
+        both_listed(&a, &b).await;
+        let on_b = addrs_of(&b, "dev-a");
+        assert_eq!(on_b.len(), crate::lan_sync::peers::MAX_ADDRS);
+        assert!(on_b.contains(&local(&a)), "{on_b:?}");
+    }
+
+    #[tokio::test]
     async fn writer_persists_latest_snapshot() {
         let dir = tempfile::tempdir().unwrap();
-        let (a, _ea) = spawn_as(test_identity("dev-a"), file_store(&dir)).await;
+        let (a, _ea) = spawn_as(test_identity("dev-a"), file_store(&dir), PinPolicy::Repin).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         a.connect(local(&b)).await;
         until("a lists b", || a.peers().len() == 1).await;
@@ -1262,7 +1325,7 @@ mod tests {
         assert_eq!(store.records().count(), 26);
         assert!(reopened.records().eq(store.records()));
         assert_eq!(
-            reopened.decide("x", &[48; 32], 0),
+            reopened.decide("x", &[48; 32], 0, PinPolicy::Repin),
             PinDecision::Rejected(Rejection::Blocked)
         );
     }

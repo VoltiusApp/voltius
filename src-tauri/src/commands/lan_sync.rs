@@ -3,8 +3,9 @@ use crate::lan_sync::addrs;
 use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
 };
+use crate::lan_sync::lock;
 use crate::lan_sync::manager::{self, LanStatus, Manager, ManagerEvent, PeerInfo};
-use crate::lan_sync::peers::PeerStore;
+use crate::lan_sync::peers::{PeerStore, PinPolicy};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -52,10 +53,6 @@ impl LanSyncState {
             .await?;
         Ok(DeviceKey::from_private(key.private))
     }
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 fn status(s: LanStatus) -> (&'static str, Value) {
@@ -131,7 +128,9 @@ pub async fn start_inner(
     }
     let (tx, rx) = mpsc::channel(EVENTS);
     let store = store_dir.map_or_else(PeerStore::memory, |dir| PeerStore::open(dir, scope));
-    let manager = match manager::start(me, derived, paused, !cfg!(test), store, tx).await {
+    let discovery = !cfg!(test);
+    let policy = PinPolicy::Repin;
+    let manager = match manager::start(me, derived, paused, discovery, store, policy, tx).await {
         Ok(manager) => manager,
         Err(e) => {
             #[cfg(target_os = "android")]
@@ -149,8 +148,6 @@ pub async fn start_inner(
 pub async fn stop_inner(state: &LanSyncState) {
     let mut running = state.manager.lock().await;
     stop_running(state, &mut running).await;
-    #[cfg(target_os = "android")]
-    crate::lan_sync::android::release_multicast_lock();
 }
 
 async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
@@ -158,6 +155,8 @@ async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
     if let Some(manager) = running.take() {
         manager.stop().await;
     }
+    #[cfg(target_os = "android")]
+    crate::lan_sync::android::release_multicast_lock();
 }
 
 pub async fn forget_inner(state: &LanSyncState, device_id: &str) -> bool {
@@ -321,9 +320,14 @@ mod tests {
         (emit, seen)
     }
 
-    async fn until_any(seen: &Seen, what: &str, wanted: impl Fn(&(&'static str, Value)) -> bool) {
+    async fn until_after(
+        seen: &Seen,
+        from: usize,
+        what: &str,
+        wanted: impl Fn(&(&'static str, Value)) -> bool,
+    ) {
         let poll = async {
-            while !seen.lock().unwrap().iter().any(&wanted) {
+            while !seen.lock().unwrap()[from..].iter().any(&wanted) {
                 tokio::time::sleep(Duration::from_millis(5)).await;
             }
         };
@@ -333,6 +337,10 @@ mod tests {
         {
             panic!("never saw {what}; saw {:?}", seen.lock().unwrap());
         }
+    }
+
+    async fn until_any(seen: &Seen, what: &str, wanted: impl Fn(&(&'static str, Value)) -> bool) {
+        until_after(seen, 0, what, wanted).await;
     }
 
     async fn until(seen: &Seen, wanted: (&'static str, Value)) {
@@ -477,10 +485,7 @@ mod tests {
         let before = seen.lock().unwrap().len();
 
         assert!(forget_inner(&state, "dev-a").await);
-        let cleared = |seen: &Seen| seen.lock().unwrap()[before..].contains(&(PEERS, json!([])));
-        while !cleared(&seen) {
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
+        until_after(&seen, before, "peers cleared", |e| *e == (PEERS, json!([]))).await;
         assert!(!forget_inner(&state, "dev-a").await);
         stop_inner(&state).await;
         assert!(file.exists());
@@ -494,7 +499,10 @@ mod tests {
         start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
         dial_as(&state, "dev-a", 1).await.unwrap();
         until_any(&seen, "dev-a listed", lists("dev-a")).await;
-        start_in(&state, 1, "acct-2", Some(dir.path()), &emit).await;
+        let restart = start_in(&state, 1, "acct-2", Some(dir.path()), &emit);
+        tokio::time::timeout(Duration::from_secs(10), restart)
+            .await
+            .expect("restart hung");
         let saved = std::fs::read_to_string(PeerStore::path_for(dir.path(), "acct-1")).unwrap();
         assert!(saved.contains("dev-a"), "{saved}");
         stop_inner(&state).await;

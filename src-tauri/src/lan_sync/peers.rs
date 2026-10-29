@@ -78,7 +78,15 @@ pub enum Rejection {
 pub enum PinDecision {
     Known,
     Pinned,
+    Repinned,
     Rejected(Rejection),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PinPolicy {
+    Repin,
+    #[cfg_attr(not(test), expect(dead_code))]
+    Refuse,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -118,11 +126,15 @@ fn trim_addrs(addrs: &mut Vec<SeenAddr>) {
     addrs.truncate(MAX_ADDRS);
 }
 
-fn read_file(path: &Path) -> Result<FileShape, String> {
-    let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
-    if meta.len() > MAX_FILE as u64 {
-        return Err(format!("{} bytes exceeds {MAX_FILE}", meta.len()));
+fn within_cap(len: u64) -> Result<(), String> {
+    if len > MAX_FILE as u64 {
+        return Err(format!("{len} bytes exceeds {MAX_FILE}"));
     }
+    Ok(())
+}
+
+fn read_file(path: &Path) -> Result<FileShape, String> {
+    within_cap(std::fs::metadata(path).map_err(|e| e.to_string())?.len())?;
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     let file: FileShape = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
     if file.v != VERSION {
@@ -172,16 +184,27 @@ impl PeerStore {
         dir.join("lan_sync").join(format!("peers-{tag}.json"))
     }
 
-    pub fn decide(&mut self, device_id: &str, key: &[u8; 32], now: u64) -> PinDecision {
+    pub fn decide(
+        &mut self,
+        device_id: &str,
+        key: &[u8; 32],
+        now: u64,
+        policy: PinPolicy,
+    ) -> PinDecision {
         if self.blocked.contains_key(&hex32::encode(key)) {
             return PinDecision::Rejected(Rejection::Blocked);
         }
         if let Some(record) = self.peers.get_mut(device_id) {
-            if record.device_key != *key {
-                return PinDecision::Rejected(Rejection::KeyChanged);
-            }
+            let decision = match (record.device_key == *key, policy) {
+                (true, _) => PinDecision::Known,
+                (false, PinPolicy::Refuse) => return PinDecision::Rejected(Rejection::KeyChanged),
+                (false, PinPolicy::Repin) => {
+                    record.device_key = *key;
+                    PinDecision::Repinned
+                }
+            };
             record.last_seen = now;
-            return PinDecision::Known;
+            return decision;
         }
         self.peers.insert(
             device_id.to_string(),
@@ -250,6 +273,7 @@ impl PeerStore {
 }
 
 pub fn write_snapshot(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    within_cap(bytes.len() as u64).map_err(std::io::Error::other)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -269,6 +293,7 @@ mod tests {
 
     const K1: [u8; 32] = [1; 32];
     const K2: [u8; 32] = [2; 32];
+    const REPIN: PinPolicy = PinPolicy::Repin;
 
     fn addr(port: u16) -> SocketAddr {
         SocketAddr::from(([192, 168, 1, 2], port))
@@ -291,32 +316,59 @@ mod tests {
     #[test]
     fn first_contact_pins_then_known() {
         let mut s = PeerStore::memory();
-        assert_eq!(s.decide("a", &K1, 10), PinDecision::Pinned);
-        assert_eq!(s.decide("a", &K1, 20), PinDecision::Known);
+        assert_eq!(s.decide("a", &K1, 10, REPIN), PinDecision::Pinned);
+        assert_eq!(s.decide("a", &K1, 20, REPIN), PinDecision::Known);
         let r = s.get("a").unwrap();
         assert_eq!((r.first_seen, r.last_seen), (10, 20));
     }
 
     #[test]
-    fn different_key_for_pinned_id_is_key_changed() {
+    fn different_key_for_pinned_id_is_key_changed_under_refuse() {
         let mut s = PeerStore::memory();
-        s.decide("a", &K1, 10);
+        s.decide("a", &K1, 10, PinPolicy::Refuse);
         assert_eq!(
-            s.decide("a", &K2, 11),
+            s.decide("a", &K2, 11, PinPolicy::Refuse),
             PinDecision::Rejected(Rejection::KeyChanged)
         );
         assert_eq!(s.get("a").unwrap().device_key, K1);
     }
 
     #[test]
+    fn different_key_for_pinned_id_repins_under_repin() {
+        let mut s = PeerStore::memory();
+        s.decide("a", &K1, 10, REPIN);
+        s.record_addrs("a", &[addr(1)], 10);
+        assert_eq!(s.decide("a", &K2, 11, REPIN), PinDecision::Repinned);
+        let r = s.get("a").unwrap();
+        assert_eq!(r.device_key, K2);
+        assert_eq!((r.first_seen, r.last_seen), (10, 11));
+        assert_eq!(r.addrs.len(), 1);
+        assert_eq!(s.decide("a", &K2, 12, REPIN), PinDecision::Known);
+        assert_eq!(s.decide("a", &K1, 13, REPIN), PinDecision::Repinned);
+    }
+
+    #[test]
+    fn blocked_key_is_refused_under_both_policies() {
+        for policy in [PinPolicy::Repin, PinPolicy::Refuse] {
+            let mut s = PeerStore::memory();
+            s.decide("a", &K1, 1, policy);
+            s.decide("b", &K2, 1, policy);
+            s.forget("b", 2);
+            let blocked = PinDecision::Rejected(Rejection::Blocked);
+            assert_eq!(s.decide("a", &K2, 3, policy), blocked, "{policy:?}");
+            assert_eq!(s.get("a").unwrap().device_key, K1);
+        }
+    }
+
+    #[test]
     fn forget_blocks_key_and_frees_id() {
         let mut s = PeerStore::memory();
-        s.decide("a", &K1, 1);
+        s.decide("a", &K1, 1, REPIN);
         assert!(s.forget("a", 5));
         let blocked = PinDecision::Rejected(Rejection::Blocked);
-        assert_eq!(s.decide("a", &K1, 6), blocked);
-        assert_eq!(s.decide("b", &K1, 6), blocked);
-        assert_eq!(s.decide("a", &K2, 7), PinDecision::Pinned);
+        assert_eq!(s.decide("a", &K1, 6, REPIN), blocked);
+        assert_eq!(s.decide("b", &K1, 6, REPIN), blocked);
+        assert_eq!(s.decide("a", &K2, 7, REPIN), PinDecision::Pinned);
         assert!(!s.forget("zzz", 8));
     }
 
@@ -324,12 +376,12 @@ mod tests {
     fn caps_evict_least_recent() {
         let mut s = PeerStore::memory();
         for i in 0..=MAX_PEERS as u64 {
-            s.decide(&format!("p{i}"), &key_for(i), i);
+            s.decide(&format!("p{i}"), &key_for(i), i, REPIN);
         }
         assert_eq!(s.records().count(), MAX_PEERS);
         assert!(s.get("p0").is_none());
 
-        s.decide("host", &K1, 100);
+        s.decide("host", &K1, 100, REPIN);
         for i in 0..=MAX_ADDRS as u64 {
             s.record_addrs("host", &[addr(1000 + i as u16)], i);
         }
@@ -339,13 +391,13 @@ mod tests {
 
         let mut s = PeerStore::memory();
         for i in 0..=MAX_BLOCKED as u64 {
-            s.decide(&format!("p{i}"), &key_for(i), i);
+            s.decide(&format!("p{i}"), &key_for(i), i, REPIN);
             s.forget(&format!("p{i}"), i);
         }
         assert_eq!(s.blocked.len(), MAX_BLOCKED);
-        assert_eq!(s.decide("x", &key_for(0), 999), PinDecision::Pinned);
+        assert_eq!(s.decide("x", &key_for(0), 999, REPIN), PinDecision::Pinned);
         assert_eq!(
-            s.decide("y", &key_for(1), 999),
+            s.decide("y", &key_for(1), 999, REPIN),
             PinDecision::Rejected(Rejection::Blocked)
         );
     }
@@ -353,7 +405,7 @@ mod tests {
     #[test]
     fn record_addrs_merges_and_ignores_unknown() {
         let mut s = PeerStore::memory();
-        s.decide("a", &K1, 1);
+        s.decide("a", &K1, 1, REPIN);
         s.record_addrs("a", &[addr(1)], 2);
         s.record_addrs("a", &[addr(1)], 9);
         assert_eq!(
@@ -371,9 +423,9 @@ mod tests {
     fn roundtrip_through_file() {
         let dir = tempfile::tempdir().unwrap();
         let mut s = PeerStore::open(dir.path(), "acct");
-        s.decide("a", &K1, 1);
+        s.decide("a", &K1, 1, REPIN);
         s.record_addrs("a", &[addr(7)], 2);
-        s.decide("b", &K2, 3);
+        s.decide("b", &K2, 3, REPIN);
         s.forget("b", 4);
         let (path, bytes) = s.snapshot().unwrap();
         write_snapshot(&path, &bytes).unwrap();
@@ -381,7 +433,7 @@ mod tests {
         let mut re = PeerStore::open(dir.path(), "acct");
         assert!(re.records().eq(s.records()));
         assert_eq!(
-            re.decide("c", &K2, 5),
+            re.decide("c", &K2, 5, REPIN),
             PinDecision::Rejected(Rejection::Blocked)
         );
     }
@@ -468,6 +520,17 @@ mod tests {
         assert!(s.records().all(|(_, r)| r.addrs.len() == MAX_ADDRS));
         assert_eq!(s.blocked.len(), MAX_BLOCKED);
         assert!(!s.blocked.contains_key(&to_hex(&key_for(0))));
+    }
+
+    #[test]
+    fn oversized_snapshot_is_not_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = PeerStore::open(dir.path(), "acct");
+        s.decide("a", &K1, 1, REPIN);
+        let (path, bytes) = s.snapshot().unwrap();
+        write_snapshot(&path, &bytes).unwrap();
+        assert!(write_snapshot(&path, &vec![b' '; MAX_FILE + 1]).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
     }
 
     #[test]
