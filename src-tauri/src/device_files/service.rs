@@ -279,12 +279,13 @@ impl FileService {
         (self.core.emit)(REQUEST, json!(prompt));
         (self.alert)(&prompt);
         // The requester sends nothing before the reply, so any read result means it hung up.
-        let answer = tokio::select! {
-            answer = pending.wait(APPROVAL_WAIT) => answer,
-            _ = withdraw.cancelled() => return Err(Refusal::Off),
-            _ = session.recv_max(MAX_FRAME) => return Err(Refusal::Denied),
+        let outcome = tokio::select! {
+            answer = pending.wait(APPROVAL_WAIT) => Ok(answer),
+            _ = withdraw.cancelled() => Err(Refusal::Off),
+            _ = session.recv_max(MAX_FRAME) => Err(Refusal::Denied),
         };
-        let always = match answer {
+        (self.core.emit)(REQUEST, json!(null));
+        let always = match outcome? {
             None => return Err(Refusal::TimedOut),
             Some(Answer::Deny) => return Err(Refusal::Denied),
             Some(Answer::Once) => false,
@@ -409,6 +410,10 @@ mod tests {
     }
 
     fn service(always: &[&str]) -> (Arc<FileService>, tempfile::TempDir) {
+        service_emitting(always, Arc::new(|_, _| {}))
+    }
+
+    fn service_emitting(always: &[&str], emit: Emit) -> (Arc<FileService>, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         let cfg = FileAccessConfig {
             enabled: true,
@@ -427,7 +432,7 @@ mod tests {
         let svc = FileService::new(
             dir.path().to_path_buf(),
             "acct".into(),
-            Arc::new(|_, _| {}),
+            emit,
             Arc::new(|_| {}),
         );
         (Arc::new(svc), dir)
@@ -495,6 +500,42 @@ mod tests {
                 }
             );
         }
+        assert!(svc.pending().is_empty());
+    }
+
+    #[tokio::test]
+    async fn pending_request_ending_emits_a_request_event() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let sink = seen.clone();
+        let (svc, _dir) = service_emitting(
+            &[],
+            Arc::new(move |name, payload| {
+                sink.lock().unwrap().push((name.to_string(), payload));
+            }),
+        );
+        let mut client = request(&svc, "d0").await;
+        while svc.pending().is_empty() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        svc.set_config(FileAccessConfig {
+            enabled: false,
+            ..svc.config()
+        })
+        .unwrap();
+        assert_eq!(
+            reply(&mut client).await,
+            FilesReply::Refused {
+                reason: Refusal::Off
+            }
+        );
+        let requests: Vec<_> = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(n, _)| n == REQUEST)
+            .map(|(_, v)| v.is_null())
+            .collect();
+        assert_eq!(requests, [false, true]);
         assert!(svc.pending().is_empty());
     }
 

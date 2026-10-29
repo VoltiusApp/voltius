@@ -103,6 +103,15 @@ describe("FileAccessRequestModal", () => {
     expect(answerFileRequest).toHaveBeenLastCalledWith("b", "once");
   });
 
+  test("closes_when_the_request_ends_unanswered", () => {
+    useDeviceFilesStore.setState({ pending: [prompt("a")] });
+    render(<FileAccessRequestModal />);
+    expect(document.body.textContent).toContain("Dev-a");
+    act(() => useDeviceFilesStore.setState({ pending: [] }));
+    expect(document.body.textContent).not.toContain("Dev-a");
+    expect(answerFileRequest).not.toHaveBeenCalled();
+  });
+
   test("session_start_toasts_once", () => {
     const toasts = () => useNotificationStore.getState().toasts.length;
     useDeviceFilesStore.setState({ sessions: [{ deviceKey: "x", deviceName: "Old", since: "1" }] });

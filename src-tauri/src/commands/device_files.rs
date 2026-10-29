@@ -406,7 +406,7 @@ mod tests {
         }
 
         fn prompts(&self) -> usize {
-            self.events(REQUEST).len()
+            self.events(REQUEST).iter().filter(|v| !v.is_null()).count()
         }
 
         fn open_keys(&self) -> Vec<String> {
