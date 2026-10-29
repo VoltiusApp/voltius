@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), hangStart: false, failStop: false }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), hangStart: false, failStop: false, failClear: false }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/teamDataManager", () => ({ onSessionEnd: vi.fn() }));
-vi.mock("@/services/account", () => ({ isServerMode: async () => true }));
+vi.mock("@/services/account", () => ({ isServerMode: async () => true, getAccountId: async () => "acct-1" }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: async () => {} }));
 vi.mock("@/services/sync", () => ({
   ENTITY_FILES: [],
@@ -21,7 +21,7 @@ vi.mock("@/services/sync", () => ({
   startRealtimeSync: () => {},
 }));
 
-import { lockVault, resetVault, setVaultKey } from "./vault";
+import { clearAccountUiState, lockVault, resetVault, setVaultKey } from "./vault";
 import { startLanSync } from "./lanSync";
 import { LAN_SYNC_DEVICES_KEY, useLanSyncStore } from "@/stores/lanSyncStore";
 
@@ -30,9 +30,11 @@ const order = () => h.invoke.mock.calls.map(([c]) => c as string);
 beforeEach(async () => {
   h.hangStart = false;
   h.failStop = false;
+  h.failClear = false;
   h.invoke.mockReset().mockImplementation((cmd: string) => {
     if (cmd === "lan_sync_start" && h.hangStart) return new Promise(() => {});
     if (cmd === "lan_sync_stop" && h.failStop) return Promise.reject(new Error("stop failed"));
+    if (cmd === "lan_sync_clear_scope" && h.failClear) return Promise.reject(new Error("clear failed"));
     return Promise.resolve(cmd === "device_hostname" ? "host" : undefined);
   });
   setVaultKey([1]);
@@ -53,6 +55,13 @@ test("resetVault leaves none of the account's nearby devices behind", async () =
   await resetVault();
   expect(localStorage.getItem(LAN_SYNC_DEVICES_KEY)).toBeNull();
   expect(useLanSyncStore.getState().known).toEqual({});
+});
+
+test("sign-out clears the lan sync scope", async () => {
+  await clearAccountUiState();
+  expect(h.invoke).toHaveBeenCalledWith("lan_sync_clear_scope", { scope: "acct-1" });
+  h.failClear = true;
+  await expect(clearAccountUiState()).resolves.toBeUndefined();
 });
 
 test("a failing lan stop never fails or skips the lock", async () => {

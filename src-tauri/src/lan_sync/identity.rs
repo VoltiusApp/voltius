@@ -1,3 +1,4 @@
+use super::addrs::AddrSource;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use hkdf::Hkdf;
@@ -17,6 +18,7 @@ pub struct LocalIdentity {
     pub device_name: String,
     pub platform: String,
     pub key: DeviceKey,
+    pub addrs: AddrSource,
 }
 
 pub fn derive_auth_key(key: &[u8]) -> [u8; 32] {
@@ -88,6 +90,7 @@ pub(crate) fn test_identity(id: &str) -> LocalIdentity {
         device_name: format!("{id} name"),
         platform: "linux".into(),
         key: DeviceKey::from_private(derive_auth_key(id.as_bytes())),
+        addrs: super::addrs::none(),
     }
 }
 

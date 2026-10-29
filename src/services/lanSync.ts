@@ -4,7 +4,7 @@ import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
 import { createSerialQueue } from "@/lib/serialQueue";
 import { settleWithin } from "@/lib/settleWithin";
-import { isServerMode } from "@/services/account";
+import { getAccountId, isServerMode } from "@/services/account";
 import { appToast } from "@/services/appToast";
 import { entityClocks, type PeerInfo } from "@/services/lanSyncDevices";
 import { ensureLanSyncIntro } from "@/services/lanSyncIntro";
@@ -137,10 +137,12 @@ async function begin(wanted: number): Promise<void> {
   if (session && authKeys.length === session.keys.length && covers(session.keys, authKeys)) return;
   detach();
   if (!getVaultKey() || authKeys.length === 0) return;
-  const [selfId, deviceName] = await Promise.all([
+  const [selfId, deviceName, scope] = await Promise.all([
     getDeviceId(),
     invoke<string>("device_hostname").catch(() => ""),
+    getAccountId(),
   ]);
+  if (!scope) return;
   const s: Session = { selfId, keys: authKeys, offs: [] };
   session = s;
   try {
@@ -149,7 +151,7 @@ async function begin(wanted: number): Promise<void> {
     s.offs.push(await listen<LanStatus>("lan-sync://status", (e) => onStatus(e.payload)));
     s.offs.push(onLocalMutation(requestBroadcast), useVaultKeysStore.subscribe(onKeysChanged));
     await invoke("lan_sync_set_paused", { paused: store().paused });
-    await invoke("lan_sync_start", { deviceId: selfId, deviceName, authKeys });
+    await invoke("lan_sync_start", { deviceId: selfId, deviceName, authKeys, scope });
   } catch (e) {
     detach();
     store().setStatus("stopped");

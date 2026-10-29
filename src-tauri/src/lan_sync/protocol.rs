@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub const PROTOCOL_VERSION: u16 = 1;
@@ -17,6 +18,25 @@ pub struct Hello {
     pub platform: String,
     pub device_key: [u8; 32],
     pub device_sig: Vec<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub addrs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
+}
+
+pub const MAX_HELLO_ADDRS: usize = 16;
+pub const FEATURES: &[&str] = &[];
+
+impl Hello {
+    pub fn peer_addrs(&self) -> Vec<SocketAddr> {
+        super::addrs::sanitize(&self.addrs)
+    }
+}
+
+#[cfg(test)]
+pub(super) fn raw_hello_frame(json: &str) -> Vec<u8> {
+    let len = (json.len() as u32 + 1).to_be_bytes();
+    [&len[..], &[KIND_HELLO], json.as_bytes()].concat()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -126,7 +146,47 @@ mod tests {
             platform: "linux".into(),
             device_key: [3u8; 32],
             device_sig: vec![4u8; 64],
+            addrs: vec![],
+            features: vec![],
         }
+    }
+
+    fn part1_json() -> String {
+        serde_json::to_string(&serde_json::json!({
+            "device_id": "dev-1", "device_name": "Laptop", "platform": "linux",
+            "device_key": vec![3u8; 32], "device_sig": vec![4u8; 64],
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn old_hello_json_decodes() {
+        let Frame::Hello(h) =
+            decode(&[&[KIND_HELLO][..], part1_json().as_bytes()].concat()).unwrap()
+        else {
+            panic!("not a hello")
+        };
+        assert!(h.addrs.is_empty() && h.features.is_empty());
+        assert_eq!(h, sample_hello());
+    }
+
+    #[test]
+    fn unknown_hello_fields_are_ignored() {
+        let mut v: serde_json::Value = serde_json::from_str(&part1_json()).unwrap();
+        v["future"] = serde_json::json!({"x": 1});
+        let payload = [&[KIND_HELLO][..], v.to_string().as_bytes()].concat();
+        assert!(matches!(decode(&payload).unwrap(), Frame::Hello(_)));
+    }
+
+    #[test]
+    fn empty_extensions_are_not_serialised() {
+        let wire = encode(&Frame::Hello(sample_hello())).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&wire[5..]).unwrap();
+        assert!(json.get("addrs").is_none() && json.get("features").is_none());
+        assert_eq!(
+            json,
+            serde_json::from_str::<serde_json::Value>(&part1_json()).unwrap()
+        );
     }
 
     #[test]
