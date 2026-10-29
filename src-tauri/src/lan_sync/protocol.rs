@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub const PROTOCOL_VERSION: u16 = 1;
 pub const MAX_FRAME: usize = 16 * 1024 * 1024;
@@ -92,18 +92,6 @@ pub fn decode(buf: &[u8]) -> Result<Frame, ProtocolError> {
     }
 }
 
-pub async fn read_frame<R: AsyncRead + Unpin>(r: &mut R) -> Result<Vec<u8>, ProtocolError> {
-    let mut prefix = [0u8; 4];
-    r.read_exact(&mut prefix).await?;
-    let len = u32::from_be_bytes(prefix) as usize;
-    if len > MAX_FRAME {
-        return Err(ProtocolError::TooLarge(len));
-    }
-    let mut buf = vec![0u8; len];
-    r.read_exact(&mut buf).await?;
-    Ok(buf)
-}
-
 pub async fn write_frame<W: AsyncWrite + Unpin>(
     w: &mut W,
     bytes: &[u8],
@@ -117,6 +105,19 @@ pub async fn write_frame<W: AsyncWrite + Unpin>(
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use tokio::io::{AsyncRead, AsyncReadExt};
+
+    async fn read_frame<R: AsyncRead + Unpin>(r: &mut R) -> Result<Vec<u8>, ProtocolError> {
+        let mut prefix = [0u8; 4];
+        r.read_exact(&mut prefix).await?;
+        let len = u32::from_be_bytes(prefix) as usize;
+        if len > MAX_FRAME {
+            return Err(ProtocolError::TooLarge(len));
+        }
+        let mut buf = vec![0u8; len];
+        r.read_exact(&mut buf).await?;
+        Ok(buf)
+    }
 
     fn sample_hello() -> Hello {
         Hello {

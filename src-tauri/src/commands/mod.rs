@@ -15,6 +15,7 @@ pub mod keychain;
 pub mod keygen;
 pub mod keys;
 pub mod known_hosts;
+pub mod lan_sync;
 pub mod local;
 pub mod mcp;
 pub mod metrics;

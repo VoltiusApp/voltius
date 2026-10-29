@@ -13,6 +13,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, watch, Notify, OwnedSemaphorePermit, Semaphore};
 use tokio::task::{AbortHandle, JoinHandle};
 use tokio::time::timeout;
+use zeroize::Zeroizing;
 
 pub const PREFERRED_PORT: u16 = 47391;
 const MAX_INBOUND_HANDSHAKES: usize = 16;
@@ -269,7 +270,7 @@ impl State {
 
 struct Shared {
     me: LocalIdentity,
-    auth_keys: Vec<[u8; 32]>,
+    auth_keys: Zeroizing<Vec<[u8; 32]>>,
     events: mpsc::Sender<ManagerEvent>,
     state: Mutex<State>,
     paused: AtomicBool,
@@ -576,7 +577,7 @@ pub struct Manager {
 
 pub async fn start(
     me: LocalIdentity,
-    auth_keys: Vec<[u8; 32]>,
+    auth_keys: Zeroizing<Vec<[u8; 32]>>,
     discovery: bool,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
@@ -587,7 +588,7 @@ pub async fn start(
 async fn serve(
     listener: TcpListener,
     me: LocalIdentity,
-    auth_keys: Vec<[u8; 32]>,
+    auth_keys: Zeroizing<Vec<[u8; 32]>>,
     discovery: bool,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
@@ -643,10 +644,12 @@ impl Manager {
         }
     }
 
+    #[cfg(test)]
     pub fn port(&self) -> u16 {
         self.port
     }
 
+    #[cfg(test)]
     pub async fn connect(&self, addr: SocketAddr) {
         self.shared.remember(addr);
         if let Some(permit) = self.shared.outbound_permit(false).await {
@@ -717,7 +720,7 @@ mod tests {
         listener: TcpListener,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
         let (tx, rx) = mpsc::channel(64);
-        let keys = vec![derive_auth_key(&[account; 32])];
+        let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
         let manager = serve(listener, test_identity(id), keys, false, tx)
             .await
             .unwrap();

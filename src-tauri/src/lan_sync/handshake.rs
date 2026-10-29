@@ -188,6 +188,7 @@ impl Session {
         self.writer.send(f).await
     }
 
+    #[cfg(test)]
     pub async fn recv(&mut self) -> Result<Frame, HandshakeError> {
         self.reader.recv().await
     }

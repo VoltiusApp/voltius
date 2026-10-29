@@ -1,3 +1,5 @@
+#[cfg(target_os = "android")]
+pub mod android;
 pub mod discovery;
 pub mod handshake;
 pub mod identity;
