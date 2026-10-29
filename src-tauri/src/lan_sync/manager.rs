@@ -475,12 +475,8 @@ impl Shared {
         }
     }
 
-    async fn serve_files(&self, mut link: Link, req: FilesRequest) {
+    async fn serve_files(&self, link: Link, req: FilesRequest) {
         let Some(svc) = self.lock().files.clone() else {
-            let off = FilesReply::Refused {
-                reason: Refusal::Off,
-            };
-            let _ = link.session.send(&Frame::FilesReply(off)).await;
             return;
         };
         let route = classify(link.addr.ip());
@@ -1559,14 +1555,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn files_without_service_is_refused_off() {
+    async fn files_without_service_drops_the_link() {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         synced(&a, &b).await;
         let before = conn_of(&b, "dev-a");
         assert!(matches!(
             open_err(&a, "dev-b").await,
-            FilesDialError::Refused(Refusal::Off)
+            FilesDialError::Unreachable(_)
         ));
         assert_eq!(conn_of(&b, "dev-a"), before);
     }
