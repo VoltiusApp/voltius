@@ -57,9 +57,10 @@ pub struct PeerInfo {
     pub address: String,
 }
 
-#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum LanStatus {
+    #[default]
     Running,
     Paused,
     Blocked,
@@ -578,17 +579,19 @@ pub struct Manager {
 pub async fn start(
     me: LocalIdentity,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
+    paused: bool,
     discovery: bool,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let listener = bind().await.map_err(|e| e.to_string())?;
-    serve(listener, me, auth_keys, discovery, events).await
+    serve(listener, me, auth_keys, paused, discovery, events).await
 }
 
 async fn serve(
     listener: TcpListener,
     me: LocalIdentity,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
+    paused: bool,
     discovery: bool,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
@@ -598,7 +601,7 @@ async fn serve(
         auth_keys,
         events,
         state: Mutex::default(),
-        paused: AtomicBool::new(false),
+        paused: AtomicBool::new(paused),
         inbound: Arc::new(Semaphore::new(MAX_INBOUND_HANDSHAKES)),
         outbound: Arc::new(Semaphore::new(MAX_OUTBOUND_HANDSHAKES)),
         peers_changed: Notify::new(),
@@ -721,7 +724,7 @@ mod tests {
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
         let (tx, rx) = mpsc::channel(64);
         let keys = Zeroizing::new(vec![derive_auth_key(&[account; 32])]);
-        let manager = serve(listener, test_identity(id), keys, false, tx)
+        let manager = serve(listener, test_identity(id), keys, false, false, tx)
             .await
             .unwrap();
         (manager, rx)

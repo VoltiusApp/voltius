@@ -19,6 +19,7 @@ pub type Emit = Arc<dyn Fn(&'static str, Value) + Send + Sync>;
 struct Relay {
     epoch: u64,
     paused: bool,
+    status: LanStatus,
 }
 
 #[derive(Default)]
@@ -60,7 +61,9 @@ fn payloads(event: &ManagerEvent, paused: bool) -> Vec<(&'static str, Value)> {
         ManagerEvent::BlobReady { device_id } => {
             vec![(BLOB_READY, json!({ "deviceId": device_id }))]
         }
-        ManagerEvent::Status(LanStatus::Running) if paused => vec![status(LanStatus::Paused)],
+        ManagerEvent::Status(LanStatus::Running | LanStatus::Blocked) if paused => {
+            vec![status(LanStatus::Paused)]
+        }
         ManagerEvent::Status(LanStatus::Stopped) => {
             vec![(PEERS, json!([])), status(LanStatus::Stopped)]
         }
@@ -70,9 +73,12 @@ fn payloads(event: &ManagerEvent, paused: bool) -> Vec<(&'static str, Value)> {
 
 // `from` is the forwarder's epoch; a stale forwarder stays silent once a restart bumped it.
 fn publish(relay: &Mutex<Relay>, from: Option<u64>, emit: &Emit, event: &ManagerEvent) {
-    let relay = lock(relay);
+    let mut relay = lock(relay);
     if from.is_some_and(|epoch| epoch != relay.epoch) {
         return;
+    }
+    if let (Some(_), ManagerEvent::Status(s)) = (from, event) {
+        relay.status = *s;
     }
     for (name, payload) in payloads(event, relay.paused) {
         emit(name, payload);
@@ -102,18 +108,25 @@ pub async fn start_inner(
     let (epoch, paused) = {
         let mut relay = state.relay();
         relay.epoch += 1;
+        relay.status = LanStatus::Running;
         (relay.epoch, relay.paused)
     };
     *running = None;
+    publish(&state.relay, None, &emit, &ManagerEvent::Peers(vec![]));
+    #[cfg(target_os = "android")]
+    if let Err(e) = crate::lan_sync::android::acquire_multicast_lock() {
+        log::warn!("lan-sync: {e}");
+    }
     let (tx, rx) = mpsc::channel(EVENTS);
-    let manager = match manager::start(me, derived, !cfg!(test), tx).await {
+    let manager = match manager::start(me, derived, paused, !cfg!(test), tx).await {
         Ok(manager) => manager,
         Err(e) => {
+            #[cfg(target_os = "android")]
+            crate::lan_sync::android::release_multicast_lock();
             state.announce(&emit, LanStatus::Stopped);
             return Err(e);
         }
     };
-    manager.set_paused(paused);
     tokio::spawn(forward(rx, state.relay.clone(), epoch, emit));
     *running = Some(manager);
     Ok(())
@@ -124,6 +137,8 @@ pub async fn stop_inner(state: &LanSyncState) {
     if let Some(manager) = running.take() {
         manager.stop().await;
     }
+    #[cfg(target_os = "android")]
+    crate::lan_sync::android::release_multicast_lock();
 }
 
 pub async fn set_paused_inner(state: &LanSyncState, paused: bool, emit: &Emit) {
@@ -131,14 +146,8 @@ pub async fn set_paused_inner(state: &LanSyncState, paused: bool, emit: &Emit) {
     state.relay().paused = paused;
     if let Some(manager) = running.as_ref() {
         manager.set_paused(paused);
-        state.announce(
-            emit,
-            if paused {
-                LanStatus::Paused
-            } else {
-                LanStatus::Running
-            },
-        );
+        let last = state.relay().status;
+        state.announce(emit, last);
     }
 }
 
@@ -193,18 +202,12 @@ pub async fn lan_sync_start(
         platform: std::env::consts::OS.into(),
         key: state.device_key().await?,
     };
-    #[cfg(target_os = "android")]
-    if let Err(e) = crate::lan_sync::android::acquire_multicast_lock() {
-        log::warn!("lan-sync: {e}");
-    }
     start_inner(&state, me, auth_keys, emit).await
 }
 
 #[tauri::command]
 pub async fn lan_sync_stop(state: State<'_, LanSyncState>) -> Result<(), String> {
     stop_inner(&state).await;
-    #[cfg(target_os = "android")]
-    crate::lan_sync::android::release_multicast_lock();
     Ok(())
 }
 
@@ -259,9 +262,9 @@ mod tests {
         (emit, seen)
     }
 
-    async fn until(seen: &Seen, wanted: (&'static str, Value)) {
+    async fn until_any(seen: &Seen, what: &str, wanted: impl Fn(&(&'static str, Value)) -> bool) {
         let poll = async {
-            while !seen.lock().unwrap().contains(&wanted) {
+            while !seen.lock().unwrap().iter().any(&wanted) {
                 tokio::time::sleep(Duration::from_millis(5)).await;
             }
         };
@@ -269,8 +272,32 @@ mod tests {
             .await
             .is_err()
         {
-            panic!("never saw {wanted:?}; saw {:?}", seen.lock().unwrap());
+            panic!("never saw {what}; saw {:?}", seen.lock().unwrap());
         }
+    }
+
+    async fn until(seen: &Seen, wanted: (&'static str, Value)) {
+        until_any(seen, &format!("{wanted:?}"), |e| *e == wanted).await;
+    }
+
+    fn lists(id: &'static str) -> impl Fn(&(&'static str, Value)) -> bool {
+        move |(name, payload)| {
+            *name == PEERS
+                && payload
+                    .as_array()
+                    .is_some_and(|p| p.iter().any(|p| p["deviceId"] == id))
+        }
+    }
+
+    async fn start(state: &LanSyncState, account: u8, emit: &Emit) {
+        start_inner(
+            state,
+            test_identity("dev-me"),
+            vec![vec![account; 32]],
+            emit.clone(),
+        )
+        .await
+        .unwrap();
     }
 
     async fn dial_as(state: &LanSyncState, id: &str, account: u8) -> Result<(), String> {
@@ -291,16 +318,17 @@ mod tests {
     async fn start_twice_restarts_with_new_keys() {
         let state = LanSyncState::default();
         let (emit, seen) = recorder();
-        for account in [1u8, 2] {
-            start_inner(
-                &state,
-                test_identity("dev-me"),
-                vec![vec![account; 32]],
-                emit.clone(),
-            )
-            .await
-            .unwrap();
-        }
+        start(&state, 1, &emit).await;
+        dial_as(&state, "dev-a", 1).await.unwrap();
+        until_any(&seen, "dev-a listed", lists("dev-a")).await;
+
+        let restart = seen.lock().unwrap().len();
+        start(&state, 2, &emit).await;
+        let cleared = restart
+            + seen.lock().unwrap()[restart..]
+                .iter()
+                .position(|e| *e == (PEERS, json!([])))
+                .expect("restart cleared peers");
         assert!(peers_inner(&state).await.is_empty());
         assert!(dial_as(&state, "dev-old", 1).await.is_err());
 
@@ -308,12 +336,7 @@ mod tests {
         until(&seen, (BLOB_READY, json!({ "deviceId": "dev-b" }))).await;
         assert_eq!(take_blob_inner(&state, "dev-b").await, Some(vec![2]));
         assert_eq!(peers_inner(&state).await[0].device_id, "dev-b");
-        let listed = seen
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|(name, payload)| *name == PEERS && payload[0]["deviceId"] == "dev-b");
-        assert!(listed, "{:?}", seen.lock().unwrap());
+        until_any(&seen, "dev-b listed", lists("dev-b")).await;
 
         set_paused_inner(&state, true, &emit).await;
         until(&seen, status(LanStatus::Paused)).await;
@@ -321,6 +344,7 @@ mod tests {
         until(&seen, status(LanStatus::Stopped)).await;
         assert!(peers_inner(&state).await.is_empty());
         let seen = seen.lock().unwrap();
+        assert!(!seen[cleared..].iter().any(lists("dev-a")), "{seen:?}");
         assert_eq!(
             seen[seen.len() - 2..],
             [(PEERS, json!([])), status(LanStatus::Stopped)]
@@ -328,26 +352,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unpause_restores_blocked() {
+        let state = LanSyncState::default();
+        let (emit, seen) = recorder();
+        start(&state, 1, &emit).await;
+        until(&seen, status(LanStatus::Running)).await;
+        let epoch = state.relay().epoch;
+        let blocked = ManagerEvent::Status(LanStatus::Blocked);
+        publish(&state.relay, Some(epoch), &emit, &blocked);
+        set_paused_inner(&state, true, &emit).await;
+        set_paused_inner(&state, false, &emit).await;
+        {
+            let seen = seen.lock().unwrap();
+            assert_eq!(
+                seen[seen.len() - 3..],
+                [
+                    status(LanStatus::Blocked),
+                    status(LanStatus::Paused),
+                    status(LanStatus::Blocked)
+                ]
+            );
+        }
+        stop_inner(&state).await;
+    }
+
+    #[tokio::test]
     async fn stale_forwarder_is_silent_after_a_restart() {
         let state = LanSyncState::default();
         let (emit, seen) = recorder();
-        start_inner(
-            &state,
-            test_identity("dev-me"),
-            vec![vec![1; 32]],
-            emit.clone(),
-        )
-        .await
-        .unwrap();
+        start(&state, 1, &emit).await;
         let stale = state.relay().epoch;
-        start_inner(
-            &state,
-            test_identity("dev-me"),
-            vec![vec![1; 32]],
-            emit.clone(),
-        )
-        .await
-        .unwrap();
+        start(&state, 1, &emit).await;
         let before = seen.lock().unwrap().len();
         publish(
             &state.relay,
