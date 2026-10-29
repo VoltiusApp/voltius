@@ -1,5 +1,5 @@
 use super::discovery::{self, Discovery, DiscoveryError};
-use super::handshake::{handshake, SessionReader, SessionWriter};
+use super::handshake::{handshake, HandshakeError, SessionReader, SessionWriter};
 use super::identity::LocalIdentity;
 use super::protocol::{Frame, Hello};
 use super::route::{classify, Route};
@@ -118,27 +118,22 @@ async fn secure(
     addr: SocketAddr,
     initiator: bool,
     shared: &Shared,
-) -> Option<Link> {
-    match handshake(stream, initiator, &shared.me, &shared.auth_keys).await {
-        Ok((session, hello)) => {
-            let session_id = session.handshake_hash().to_vec();
-            let (mut reader, mut writer) = session.split();
-            reader.set_idle_timeout(IDLE_TIMEOUT);
-            writer.set_write_timeout(WRITE_TIMEOUT);
-            Some(Link {
-                hello,
-                addr,
-                initiator,
-                session_id,
-                reader,
-                writer,
-            })
-        }
-        Err(e) => {
-            log::debug!("lan-sync: handshake with {addr} failed: {e}");
-            None
-        }
-    }
+) -> Result<Link, HandshakeError> {
+    let (session, hello) = handshake(stream, initiator, &shared.me, &shared.auth_keys)
+        .await
+        .inspect_err(|e| log::debug!("lan-sync: handshake with {addr} failed: {e}"))?;
+    let session_id = session.handshake_hash().to_vec();
+    let (mut reader, mut writer) = session.split();
+    reader.set_idle_timeout(IDLE_TIMEOUT);
+    writer.set_write_timeout(WRITE_TIMEOUT);
+    Ok(Link {
+        hello,
+        addr,
+        initiator,
+        session_id,
+        reader,
+        writer,
+    })
 }
 
 async fn establish(
@@ -147,12 +142,10 @@ async fn establish(
     addr: SocketAddr,
     initiator: bool,
     _permit: OwnedSemaphorePermit,
-) -> bool {
-    let Some(link) = secure(stream, addr, initiator, &shared).await else {
-        return false;
-    };
+) -> Result<(), HandshakeError> {
+    let link = secure(stream, addr, initiator, &shared).await?;
     shared.adopt(link);
-    true
+    Ok(())
 }
 
 async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
@@ -177,13 +170,14 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
 }
 
 async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermit) {
-    let handshake_failed = match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
-        Ok(Ok(stream)) => {
-            if establish(shared.clone(), stream, addr, true, permit).await {
-                return;
-            }
-            true
-        }
+    let rejected = match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
+        Ok(Ok(stream)) => match establish(shared.clone(), stream, addr, true, permit).await {
+            Ok(()) => return,
+            Err(e) => matches!(
+                e,
+                HandshakeError::NotTrusted | HandshakeError::VersionMismatch(_)
+            ),
+        },
         Ok(Err(e)) => {
             log::debug!("lan-sync: dial {addr} failed: {e}");
             false
@@ -193,7 +187,7 @@ async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermi
             false
         }
     };
-    shared.note_failed_dial(addr, handshake_failed);
+    shared.note_failed_dial(addr, rejected);
 }
 
 async fn recv(reader: &mut SessionReader) -> Option<Frame> {
@@ -315,6 +309,9 @@ impl Shared {
     }
 
     async fn dial_if_new(self: Arc<Self>, addr: SocketAddr, wait: bool) {
+        if !self.worth_dialing(addr) {
+            return;
+        }
         let Some(permit) = self.outbound_permit(wait).await else {
             return;
         };
@@ -430,10 +427,10 @@ impl Shared {
         }
     }
 
-    fn note_failed_dial(&self, addr: SocketAddr, handshake_failed: bool) {
+    fn note_failed_dial(&self, addr: SocketAddr, rejected: bool) {
         self.lock()
             .dialable
-            .retain(|k| k.addr != addr || (k.device.is_some() && !handshake_failed));
+            .retain(|k| k.addr != addr || (k.device.is_some() && !rejected));
     }
 
     fn sweep_order(&self, lost: &str) -> Vec<SocketAddr> {
@@ -532,23 +529,26 @@ async fn redial(shared: Arc<Shared>, lost: String) {
 
 async fn retry_unlisted(shared: Arc<Shared>) {
     let mut delay = RETRY_FIRST;
+    let mut deadline = tokio::time::Instant::now() + delay;
     loop {
         tokio::select! {
-            _ = tokio::time::sleep(delay) => {}
+            _ = tokio::time::sleep_until(deadline) => {}
             _ = shared.lost.notified() => {
                 delay = RETRY_FIRST;
+                deadline = deadline.min(tokio::time::Instant::now() + RETRY_FIRST);
                 continue;
             }
         }
         let missing = shared.unlisted();
-        if missing.is_empty() {
-            delay = RETRY_FIRST;
-            continue;
-        }
-        for addr in missing {
-            shared.clone().dial_if_new(addr, true).await;
-        }
-        delay = (delay * 2).min(RETRY_MAX);
+        delay = if missing.is_empty() {
+            RETRY_FIRST
+        } else {
+            for addr in missing {
+                shared.clone().dial_if_new(addr, true).await;
+            }
+            (delay * 2).min(RETRY_MAX)
+        };
+        deadline = tokio::time::Instant::now() + delay;
     }
 }
 
@@ -1033,15 +1033,39 @@ mod tests {
         let (b, _eb) = spawn("dev-b", 1).await;
         let (a, _ea) = spawn("dev-a", 1).await;
         let (stranger, _es) = spawn("dev-s", 2).await;
+        let hangup = std::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 6), 0)).unwrap();
+        let tagged_hangup = hangup.local_addr().unwrap();
+        std::thread::spawn(move || {
+            for conn in hangup.incoming() {
+                drop(conn);
+            }
+        });
         let foreign = SocketAddr::from(([127, 0, 0, 2], stranger.port()));
         let closed = SocketAddr::from(([127, 0, 0, 3], 1));
         let tagged_closed = SocketAddr::from(([127, 0, 0, 4], 1));
+        let tagged_foreign = SocketAddr::from(([127, 0, 0, 5], stranger.port()));
         tag(&b, tagged_closed, "dev-x");
-        for addr in [foreign, closed, tagged_closed, local(&a)] {
+        tag(&b, tagged_foreign, "dev-y");
+        tag(&b, tagged_hangup, "dev-z");
+        for addr in [
+            foreign,
+            closed,
+            tagged_closed,
+            tagged_foreign,
+            tagged_hangup,
+            local(&a),
+        ] {
             b.connect(addr).await;
         }
-        assert_eq!(dialable(&b), vec![tagged_closed, local(&a)]);
-        assert_eq!(tags(&b), vec![Some("dev-x".into()), Some("dev-a".into())]);
+        assert_eq!(dialable(&b), vec![tagged_closed, tagged_hangup, local(&a)]);
+        assert_eq!(
+            tags(&b),
+            vec![
+                Some("dev-x".into()),
+                Some("dev-z".into()),
+                Some("dev-a".into())
+            ]
+        );
     }
 
     #[tokio::test]
