@@ -139,13 +139,11 @@ async function begin(wanted: number): Promise<void> {
   ]);
   const s: Session = { selfId, keys: authKeys, seen: new Set(), offs: [] };
   session = s;
-  s.offs = await Promise.all([
-    listen<PeerInfo[]>("lan-sync://peers", (e) => onPeers(s, e.payload)),
-    listen<{ deviceId: string }>("lan-sync://blob-ready", (e) => void onBlobReady(s, e.payload.deviceId)),
-    listen<LanStatus>("lan-sync://status", (e) => onStatus(e.payload)),
-  ]);
-  s.offs.push(onLocalMutation(requestBroadcast), useVaultKeysStore.subscribe(onKeysChanged));
   try {
+    s.offs.push(await listen<PeerInfo[]>("lan-sync://peers", (e) => onPeers(s, e.payload)));
+    s.offs.push(await listen<{ deviceId: string }>("lan-sync://blob-ready", (e) => void onBlobReady(s, e.payload.deviceId)));
+    s.offs.push(await listen<LanStatus>("lan-sync://status", (e) => onStatus(e.payload)));
+    s.offs.push(onLocalMutation(requestBroadcast), useVaultKeysStore.subscribe(onKeysChanged));
     await invoke("lan_sync_set_paused", { paused: store().paused });
     await invoke("lan_sync_start", { deviceId: selfId, deviceName, authKeys });
   } catch (e) {

@@ -2287,12 +2287,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async importStates(encKey, blobs) {
         requirePerm(manifest, "sync:write");
-        return serialMerge(async () => {
+        const { failed, bestThemeRaw, bestThemeUpdatedAt } = await serialMerge(async () => {
           const encKeyBytes = hexToBytes(encKey);
           let merged: BlobPayload = await invoke<BlobPayload>("state_export_raw");
 
-          let bestThemeRaw: string | null = null;
-          let bestThemeUpdatedAt: string | null = null;
+          let bestThemeRaw = null as string | null;
+          let bestThemeUpdatedAt = null as string | null;
           const excludedIds = getExcludedObjectIds();
           const failed = await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
             const remote = await openRemoteBlob([encKeyBytes], base64ToByteArray(b64), excludedIds);
@@ -2315,32 +2315,34 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
             if (failed.length === blobs.length) throw failed[0].error;
           }
 
-          // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
-          // device that opted themes out of sync must not have them overwritten
-          // by an incoming blob either. The domain toggle is the whole decision
-          // here — theme.json carries no per-key leaf (see themeStore's
-          // ThemeDiskState), so `location` cannot arrive through this wire.
-          if (bestThemeRaw && useSyncPrefsStore.getState().isDomainSynced("themes")) {
-            try {
-              const localRaw = await invoke<string | null>("theme_load");
-              let apply = true;
-              if (localRaw) {
-                const { updatedAt: localTs } = JSON.parse(localRaw) as { updatedAt?: string };
-                if (localTs && localTs >= bestThemeUpdatedAt!) apply = false;
-              }
-              if (apply) {
-                await invoke("theme_save", { state: bestThemeRaw });
-                await useThemeStore.getState().loadFromDisk();
-              }
-            } catch {}
-          }
-
           await importMergedPayload(merged);
-          for (const reload of Object.values(RELOADABLE_STORES)) {
-            await reload();
-          }
-          return { unreadable: failed.map((f) => f.source.i) };
+          return { failed, bestThemeRaw, bestThemeUpdatedAt };
         });
+
+        // Inbound half of what getPluginSkippedSyncFiles enforces outbound: a
+        // device that opted themes out of sync must not have them overwritten
+        // by an incoming blob either. The domain toggle is the whole decision
+        // here — theme.json carries no per-key leaf (see themeStore's
+        // ThemeDiskState), so `location` cannot arrive through this wire.
+        if (bestThemeRaw && useSyncPrefsStore.getState().isDomainSynced("themes")) {
+          try {
+            const localRaw = await invoke<string | null>("theme_load");
+            let apply = true;
+            if (localRaw) {
+              const { updatedAt: localTs } = JSON.parse(localRaw) as { updatedAt?: string };
+              if (localTs && localTs >= bestThemeUpdatedAt!) apply = false;
+            }
+            if (apply) {
+              await invoke("theme_save", { state: bestThemeRaw });
+              await useThemeStore.getState().loadFromDisk();
+            }
+          } catch {}
+        }
+
+        for (const reload of Object.values(RELOADABLE_STORES)) {
+          await reload();
+        }
+        return { unreadable: failed.map((f) => f.source.i) };
       },
     },
 

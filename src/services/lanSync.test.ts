@@ -14,11 +14,13 @@ const h = vi.hoisted(() => ({
   reloadAllStores: vi.fn(async () => {}),
   exportLocalBlob: vi.fn(async () => [7]),
   intro: vi.fn(async () => {}),
+  failListen: null as string | null,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: async (name: string, fn: (e: { payload: unknown }) => void) => {
+    if (h.failListen === name) throw new Error("listen failed");
     h.handlers.set(name, fn);
     return () => { if (h.handlers.get(name) === fn) h.handlers.delete(name); };
   },
@@ -75,6 +77,7 @@ beforeEach(() => {
   h.openRemoteBlob.mockReset().mockResolvedValue(OWN_PAYLOAD);
   h.mergeRemotePayload.mockReset().mockImplementation(async () => h.merged);
   h.merged = false;
+  h.failListen = null;
   h.reloadAllStores.mockClear();
   h.exportLocalBlob.mockClear();
   useVaultKeysStore.setState({ dek: null, kek: null });
@@ -304,6 +307,17 @@ describe("lanSync", () => {
     await expect(startLanSync()).rejects.toThrow("bind failed");
     expect(h.handlers.size).toBe(0);
     expect(h.mutations.size).toBe(0);
+  });
+
+  test("a failed listen detaches, and the next start with the same keys recovers", async () => {
+    h.failListen = "lan-sync://status";
+    await expect(startLanSync()).rejects.toThrow("listen failed");
+    expect(h.handlers.size).toBe(0);
+    expect(h.mutations.size).toBe(0);
+    h.failListen = null;
+    await startLanSync();
+    expect(calls("lan_sync_start")).toHaveLength(1);
+    expect(h.handlers.size).toBe(3);
   });
 
   test("stop returns within its bound while lan_sync_start hangs, then stops once it settles", async () => {
