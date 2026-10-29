@@ -182,6 +182,10 @@
       "pause": "Pozastavit synchronizaci",
       "resume": "Pokračovat v synchronizaci",
       "encryptedBlob": "Šifrovaná data · {{size}}",
+      "local": {
+        "intro": "Voltius požádá o nalezení vašich zařízení v této síti, aby se mohla synchronizovat přímo.",
+        "introContinue": "Pokračovat"
+      },
       "status": {
         "syncing": "Synchronizace…",
         "synced": "Synchronizováno",

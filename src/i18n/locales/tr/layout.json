@@ -182,6 +182,10 @@
       "pause": "Eşitlemeyi duraklat",
       "resume": "Eşitlemeyi sürdür",
       "encryptedBlob": "Şifreli veri · {{size}}",
+      "local": {
+        "intro": "Voltius, cihazlarınızın doğrudan eşitlenebilmesi için bu ağdaki cihazlarınızı bulma izni isteyecek.",
+        "introContinue": "Devam"
+      },
       "status": {
         "syncing": "Eşitleniyor…",
         "synced": "Eşitlendi",

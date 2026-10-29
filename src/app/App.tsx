@@ -39,6 +39,7 @@ import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
 import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
+import { LanSyncIntroModal } from "@/components/shared/LanSyncIntroModal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
 import { RuleSetPromptHost } from "@/components/permissions/RuleSetPromptHost";
@@ -105,6 +106,7 @@ function App() {
       <WhatsNewModal />
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />
+      <LanSyncIntroModal />
       <RuleSetPromptHost />
       <VaultIdentityDialogHost />
       <GlobalTransferQueue />

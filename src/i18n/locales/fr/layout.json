@@ -182,6 +182,10 @@
       "pause": "Mettre la synchronisation en pause",
       "resume": "Reprendre la synchronisation",
       "encryptedBlob": "Bloc chiffré · {{size}}",
+      "local": {
+        "intro": "Voltius va demander à trouver vos appareils sur ce réseau afin qu'ils se synchronisent directement.",
+        "introContinue": "Continuer"
+      },
       "status": {
         "syncing": "Synchronisation…",
         "synced": "Synchronisé",

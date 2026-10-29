@@ -182,6 +182,10 @@
       "pause": "Pausar sincronização",
       "resume": "Retomar sincronização",
       "encryptedBlob": "Blob criptografado · {{size}}",
+      "local": {
+        "intro": "O Voltius vai pedir para encontrar os seus dispositivos nesta rede para que possam sincronizar diretamente.",
+        "introContinue": "Continuar"
+      },
       "status": {
         "syncing": "Sincronizando…",
         "synced": "Sincronizado",

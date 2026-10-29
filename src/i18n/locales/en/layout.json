@@ -182,6 +182,10 @@
       "pause": "Pause sync",
       "resume": "Resume sync",
       "encryptedBlob": "Encrypted blob · {{size}}",
+      "local": {
+        "intro": "Voltius will ask to find your devices on this network so they can sync directly.",
+        "introContinue": "Continue"
+      },
       "status": {
         "syncing": "Syncing…",
         "synced": "Synced",

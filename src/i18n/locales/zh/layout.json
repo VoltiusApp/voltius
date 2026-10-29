@@ -182,6 +182,10 @@
       "pause": "暂停同步",
       "resume": "继续同步",
       "encryptedBlob": "加密数据块 · {{size}}",
+      "local": {
+        "intro": "Voltius 将请求在此网络上查找您的设备，以便它们直接同步。",
+        "introContinue": "继续"
+      },
       "status": {
         "syncing": "正在同步…",
         "synced": "已同步",
