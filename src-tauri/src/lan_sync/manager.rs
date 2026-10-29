@@ -137,10 +137,11 @@ async fn establish(
     addr: SocketAddr,
     initiator: bool,
     _permit: OwnedSemaphorePermit,
-) {
-    if let Some(link) = secure(stream, addr, initiator, &shared).await {
-        shared.adopt(link);
-    }
+) -> Option<String> {
+    let link = secure(stream, addr, initiator, &shared).await?;
+    let device = link.hello.device_id.clone();
+    shared.adopt(link);
+    Some(device)
 }
 
 async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
@@ -169,11 +170,18 @@ async fn dial(shared: Arc<Shared>, addr: SocketAddr) {
         log::debug!("lan-sync: dial {addr} refused, too many handshakes in flight");
         return;
     };
-    match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
-        Ok(Ok(stream)) => establish(shared, stream, addr, true, permit).await,
-        Ok(Err(e)) => log::debug!("lan-sync: dial {addr} failed: {e}"),
-        Err(_) => log::debug!("lan-sync: dial {addr} timed out"),
-    }
+    let device = match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
+        Ok(Ok(stream)) => establish(shared.clone(), stream, addr, true, permit).await,
+        Ok(Err(e)) => {
+            log::debug!("lan-sync: dial {addr} failed: {e}");
+            None
+        }
+        Err(_) => {
+            log::debug!("lan-sync: dial {addr} timed out");
+            None
+        }
+    };
+    shared.note_dial(addr, device);
 }
 
 async fn recv(reader: &mut SessionReader) -> Option<Frame> {
@@ -217,6 +225,7 @@ struct Peer {
     info: PeerInfo,
     rank: Rank,
     conn: u64,
+    adopted_at: Instant,
     outbox: Outbox,
     tasks: [AbortHandle; 2],
 }
@@ -229,11 +238,17 @@ impl Drop for Peer {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct Known {
+    addr: SocketAddr,
+    device: Option<String>,
+}
+
 #[derive(Default)]
 struct State {
     peers: HashMap<String, Peer>,
     blobs: HashMap<String, Vec<u8>>,
-    dialable: VecDeque<SocketAddr>,
+    dialable: VecDeque<Known>,
     next_conn: u64,
     closed: bool,
 }
@@ -262,7 +277,14 @@ impl Shared {
 
     fn worth_dialing(&self, addr: SocketAddr) -> bool {
         let ip = addr.ip().to_string();
-        addr.is_ipv4() && !self.lock().peers.values().any(|p| p.info.address == ip)
+        let state = self.lock();
+        addr.is_ipv4() && !state.closed && !state.peers.values().any(|p| p.info.address == ip)
+    }
+
+    async fn dial_if_new(self: Arc<Self>, addr: SocketAddr) {
+        if self.worth_dialing(addr) {
+            dial(self, addr).await;
+        }
     }
 
     // Both ends must pick the same survivor, so the tie-break uses the shared handshake hash.
@@ -302,6 +324,7 @@ impl Shared {
                 info,
                 rank,
                 conn,
+                adopted_at: Instant::now(),
                 outbox,
                 tasks,
             },
@@ -354,21 +377,45 @@ impl Shared {
     }
 
     fn remember(&self, addr: SocketAddr) {
+        if !addr.is_ipv4() {
+            return;
+        }
         let mut state = self.lock();
-        state.dialable.retain(|known| known.ip() != addr.ip());
-        state.dialable.push_back(addr);
+        let device = state
+            .dialable
+            .iter()
+            .find(|k| k.addr == addr)
+            .and_then(|k| k.device.clone());
+        state.dialable.retain(|k| k.addr.ip() != addr.ip());
+        state.dialable.push_back(Known { addr, device });
         if state.dialable.len() > REMEMBERED {
             state.dialable.pop_front();
         }
     }
 
+    fn note_dial(&self, addr: SocketAddr, device: Option<String>) {
+        let mut state = self.lock();
+        match device {
+            Some(id) => {
+                if let Some(known) = state.dialable.iter_mut().find(|k| k.addr == addr) {
+                    known.device = Some(id);
+                }
+            }
+            None => state.dialable.retain(|k| k.addr != addr),
+        }
+    }
+
     fn release(self: &Arc<Self>, id: &str, conn: u64) {
         let mut state = self.lock();
-        if state.peers.get(id).is_some_and(|p| p.conn == conn) {
-            state.peers.remove(id);
-            drop(state);
-            self.peers_changed.notify_one();
-            tokio::spawn(redial(self.clone()));
+        let Some(peer) = state.peers.get(id).filter(|p| p.conn == conn) else {
+            return;
+        };
+        let lived = peer.adopted_at.elapsed() >= REDIAL_DELAY;
+        state.peers.remove(id);
+        drop(state);
+        self.peers_changed.notify_one();
+        if lived {
+            tokio::spawn(redial(self.clone(), id.to_string()));
         }
     }
 
@@ -414,13 +461,21 @@ async fn pump_out(
 }
 
 // Delayed so a dedupe loser's EOF doesn't re-dial before the winner is listed.
-async fn redial(shared: Arc<Shared>) {
+async fn redial(shared: Arc<Shared>, lost: String) {
     tokio::time::sleep(REDIAL_DELAY).await;
-    let known: Vec<SocketAddr> = shared.lock().dialable.iter().copied().collect();
-    for addr in known {
-        if shared.worth_dialing(addr) {
-            tokio::spawn(dial(shared.clone(), addr));
+    let candidates: Vec<SocketAddr> = shared
+        .lock()
+        .dialable
+        .iter()
+        .rev()
+        .filter(|k| k.device.as_deref().is_none_or(|d| d == lost))
+        .map(|k| k.addr)
+        .collect();
+    for addr in candidates {
+        if shared.lock().peers.contains_key(&lost) {
+            return;
         }
+        shared.clone().dial_if_new(addr).await;
     }
 }
 
@@ -488,9 +543,7 @@ impl Manager {
         self.tasks.push(tokio::spawn(async move {
             while let Some(addr) = found_rx.recv().await {
                 shared.remember(addr);
-                if shared.worth_dialing(addr) {
-                    tokio::spawn(dial(shared.clone(), addr));
-                }
+                tokio::spawn(shared.clone().dial_if_new(addr));
             }
         }));
         let shared = self.shared.clone();
@@ -597,6 +650,10 @@ mod tests {
             .await
             .unwrap();
         (session, fd)
+    }
+
+    fn dialable(m: &Manager) -> Vec<SocketAddr> {
+        m.shared.lock().dialable.iter().map(|k| k.addr).collect()
     }
 
     fn rank_of(m: &Manager, id: &str) -> Option<Rank> {
@@ -807,6 +864,9 @@ mod tests {
         let (_silent, _fd) = raw_peer(&b, "dev-a").await;
         next_event(&mut eb, listed("dev-a")).await;
         let incumbent = rank_of(&b, "dev-a").unwrap();
+        for i in 1..=6 {
+            b.shared.remember(SocketAddr::from(([192, 0, 2, i], 9)));
+        }
 
         b.connect(local(&a)).await;
         assert_eq!(rank_of(&b, "dev-a"), Some(incumbent));
@@ -817,13 +877,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn discovery_skips_ipv6_and_known_peers() {
-        let (b, mut eb) = spawn("dev-b", 1).await;
+    async fn worth_dialing_skips_ipv6_known_peers_and_stopped() {
+        let (mut b, mut eb) = spawn("dev-b", 1).await;
         let (_session, _fd) = raw_peer(&b, "dev-a").await;
         next_event(&mut eb, listed("dev-a")).await;
         assert!(!b.shared.worth_dialing("127.0.0.1:4000".parse().unwrap()));
         assert!(!b.shared.worth_dialing("[fe80::1]:4000".parse().unwrap()));
         assert!(b.shared.worth_dialing("10.0.0.9:4000".parse().unwrap()));
+        b.shutdown();
+        assert!(!b.shared.worth_dialing("10.0.0.9:4000".parse().unwrap()));
     }
 
     #[tokio::test]
@@ -834,12 +896,25 @@ mod tests {
         for i in 2..=40u8 {
             b.shared.remember(SocketAddr::from(([10, 0, 0, i], 3)));
         }
-        let known = b.shared.lock().dialable.clone();
+        b.shared.remember("[fe80::1]:3".parse().unwrap());
+        let known = dialable(&b);
         assert_eq!(known.len(), REMEMBERED);
-        assert_eq!(known.back(), Some(&"10.0.0.40:3".parse().unwrap()));
-        assert!(!known
-            .iter()
-            .any(|a| a.ip() == "10.0.0.1".parse::<IpAddr>().unwrap()));
+        assert_eq!(known.last(), Some(&"10.0.0.40:3".parse().unwrap()));
+        assert!(!known.contains(&"10.0.0.1:2".parse().unwrap()));
+    }
+
+    #[tokio::test]
+    async fn dial_outcomes_tag_or_forget_addresses() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (stranger, _es) = spawn("dev-s", 2).await;
+        let foreign = SocketAddr::from(([127, 0, 0, 2], stranger.port()));
+        let closed = SocketAddr::from(([127, 0, 0, 3], 1));
+        for addr in [foreign, closed, local(&a)] {
+            b.connect(addr).await;
+        }
+        assert_eq!(dialable(&b), vec![local(&a)]);
+        assert_eq!(b.shared.lock().dialable[0].device.as_deref(), Some("dev-a"));
     }
 
     #[test]
