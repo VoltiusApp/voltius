@@ -13,6 +13,7 @@ import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
+import { uploadContentFiles, uploadPick } from "@/services/uploads";
 import { needsPicker } from "@/components/terminal/androidDownloadDir";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
@@ -167,6 +168,16 @@ export default function MobileSftpPane({
     }
     await runTransfer(f.name, "←", async (tid) => fetchTo(joinPath(await appCacheDir(), f.name), tid), undefined, accelFor(mode, f.isDir));
   };
+
+  const upload = async () => {
+    if (!sftpId) return;
+    try {
+      await uploadContentFiles(await uploadPick(), sftpId, cwd, refresh);
+    } catch (e) {
+      fail(e, upload);
+    }
+  };
+  const canUpload = isAndroid && phase.tag === "connected" && !!sftpId;
 
   // Share: the files download into the share staging folder (with the usual transfer cards),
   // then the system chooser gets them. Large sets ask first. Folders can't be shared.
@@ -398,6 +409,10 @@ export default function MobileSftpPane({
         <BottomSheet title={t("common.action.create")} onClose={() => setCreating(false)}>
           <SheetItem icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={() => { setCreating(false); setNewFolder(true); }} />
           <SheetItem icon="lucide:file-plus" label={t("mobile.sftp.newFileOption")} onTap={() => { setCreating(false); setNewFile(true); }} />
+          {canUpload && (
+            <SheetItem attr="upload" icon="lucide:upload" label={t("fileTransfer.pane.menu.uploadFiles")} disabledReason={readOnlyTip}
+              onTap={() => { setCreating(false); void upload(); }} />
+          )}
         </BottomSheet>
       )}
       {newFolder && (

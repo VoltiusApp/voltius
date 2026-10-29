@@ -33,7 +33,7 @@ import {
   genId,
 } from "./SFTPTypes";
 import { SidePane } from "./SidePane";
-import { ConflictDialog } from "./ConflictDialog";
+import { PendingConflictDialog } from "./ConflictDialog";
 import { InternalDragGhost } from "./InternalDragGhost";
 import { TabDragGhost } from "./editor/TabDragGhost";
 import { triggerOsDrop as triggerOsDropPipeline } from "./osDropPipeline";
@@ -87,9 +87,7 @@ export default function SFTPPage() {
   const pendingSftpConnectionId = useUIStore((s) => s.pendingSftpConnectionId);
   const clearPendingSftpConnection = useUIStore((s) => s.clearPendingSftpConnection);
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
-  const pending = useTransferQueueStore((s) => s.pending);
   const setPending = useTransferQueueStore((s) => s.setPending);
-  const resolvePending = useTransferQueueStore((s) => s.resolvePending);
 
   const [leftHost, setLeftHost] = useState<HostChoice | null>(null);
   const [leftPhase, setLeftPhase] = useState<SidePhase>({ tag: "picking" });
@@ -546,14 +544,7 @@ export default function SFTPPage() {
         </div>
       </div>
 
-      {pending && (
-        <ConflictDialog
-          conflict={pending.conflicts[0]}
-          conflictNumber={pending.totalConflicts - pending.conflicts.length + 1}
-          totalConflicts={pending.totalConflicts}
-          onResolve={resolvePending}
-        />
-      )}
+      <PendingConflictDialog />
 
       <InternalDragGhost />
       <TabDragGhost />

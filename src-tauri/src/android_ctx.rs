@@ -9,10 +9,11 @@
 //! Any JNI consumer (keychain store, ANDROID_ID machine fingerprint) goes through
 //! [`with_env`] rather than touching `ndk_context`.
 
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use jni::objects::{GlobalRef, JClass, JObject, JString};
 use jni::{JNIEnv, JavaVM};
+use tokio::sync::oneshot;
 
 struct AndroidCtx {
     vm: JavaVM,
@@ -148,5 +149,42 @@ pub fn call_static_bool(class: &str, method: &str, value: bool) {
     });
     if let Err(e) = res {
         log::warn!("{class}.{method}: {e}");
+    }
+}
+
+/// One pending system picker, fulfilled by the Kotlin class's activity-result callback.
+pub struct PickSlot(Mutex<Option<oneshot::Sender<Option<String>>>>);
+
+impl PickSlot {
+    pub const fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+
+    /// Calls `<class>.launchPicker()` and waits for [`PickSlot::fulfil`].
+    pub async fn pick(&self, what: &str, class: &str) -> Result<Option<String>, String> {
+        let (tx, rx) = oneshot::channel();
+        *self.0.lock().unwrap() = Some(tx);
+        let launched = with_env(what, |env, _ctx| {
+            let cls = load_class(env, class)?;
+            env.call_static_method(&cls, "launchPicker", "()Z", &[])?
+                .z()
+        });
+        if !matches!(launched, Ok(true)) {
+            let _ = self.0.lock().unwrap().take();
+            launched?;
+            return Err(format!("could not open the {what} (app not in foreground)"));
+        }
+        rx.await.map_err(|_| format!("{what} cancelled"))
+    }
+
+    pub fn fulfil(&self, env: &mut JNIEnv, value: &JString) {
+        let val = if value.is_null() {
+            None
+        } else {
+            env.get_string(value).ok().map(|s| s.into())
+        };
+        if let Some(tx) = self.0.lock().unwrap().take() {
+            let _ = tx.send(val);
+        }
     }
 }

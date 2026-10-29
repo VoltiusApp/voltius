@@ -1,6 +1,8 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Modal, ModalCard } from "@/components/shared/Modal";
+import { useTransferQueueStore } from "@/stores/transferQueueStore";
+import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { type FileEntry, type ConflictResolution, formatSize } from "./SFTPTypes";
 
 export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onResolve }: {
@@ -84,5 +86,21 @@ export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onRes
         </div>
       </ModalCard>
     </Modal>
+  );
+}
+
+/** The transfer queue's pending conflict, if any, as a dialog. */
+export function PendingConflictDialog() {
+  const pending = useTransferQueueStore((s) => s.pending);
+  const resolvePending = useTransferQueueStore((s) => s.resolvePending);
+  useBackInterceptor(!!pending, () => resolvePending("cancel"));
+  if (!pending) return null;
+  return (
+    <ConflictDialog
+      conflict={pending.conflicts[0]}
+      conflictNumber={pending.totalConflicts - pending.conflicts.length + 1}
+      totalConflicts={pending.totalConflicts}
+      onResolve={resolvePending}
+    />
   );
 }

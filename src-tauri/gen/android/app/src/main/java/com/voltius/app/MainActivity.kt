@@ -18,6 +18,7 @@ class MainActivity : TauriActivity() {
   override val handleBackNavigation: Boolean = false
 
   private lateinit var dirPicker: ActivityResultLauncher<Uri?>
+  private lateinit var filePicker: ActivityResultLauncher<Array<String>>
 
   override fun onCreate(savedInstanceState: Bundle?) {
     intent?.let { withLinkType(LauncherShortcuts.gate(it)) }
@@ -46,6 +47,9 @@ class MainActivity : TauriActivity() {
         if (granted) VoltiusDownloads.setDir(applicationContext, uri.toString())
       }
       VoltiusDownloads.nativeDirPicked(uri?.toString())
+    }
+    filePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+      VoltiusUploads.picked(applicationContext, uris)
     }
     instance = this
     VoltiusBiometric.applyWindowFlags(this)
@@ -118,6 +122,10 @@ class MainActivity : TauriActivity() {
 
   fun launchDirPicker() {
     runOnUiThread { dirPicker.launch(null) }
+  }
+
+  fun launchFilePicker() {
+    runOnUiThread { filePicker.launch(arrayOf("*/*")) }
   }
 
   fun requestNotificationPermission() {
