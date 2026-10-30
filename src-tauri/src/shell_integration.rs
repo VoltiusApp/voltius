@@ -667,7 +667,8 @@ const TTL_TMUX_VERSIONS: &str = TMUX_CC_VERSIONS;
 /// (prints the shell pids). `voltius_quiet PID...`: those shells' summed utime+stime.
 macro_rules! ttl_idle_check {
     () => {
-        r#"voltius_idle() {
+        r#"unset COLUMNS
+voltius_idle() {
   o=$(ps -e -o pid= -o ppid= -o stat= -o comm= -o args=) && [ -n "$o" ] || return 1
   printf '%s\n' "$o" | awk -v r="$*" '
 function sh(c) { return c ~ /^(sh|bash|zsh|fish|dash|ksh|mksh|ash|tcsh|csh|busybox)$/ }
@@ -683,7 +684,7 @@ function kind(l,  a, n, i) {
 $1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ || NF < 5 { bad = 1 }
 { c = $4; sub(/^-/, "", c); C[$1] = c; S[$1] = $3; L[$1] = $0; K[$2] = K[$2] " " $1 }
 END {
-  if (bad) exit 1
+  if (bad || !(1 in C)) exit 1
   t = split(r, Q, " ")
   if (!t) exit 1
   for (h = 1; h <= t; h++) W[h] = 1
@@ -1827,7 +1828,7 @@ mod tests {
     #[cfg(unix)]
     fn ps_fixture(dir: &std::path::Path, ps: &str) -> String {
         let path = dir.join("ps");
-        std::fs::write(&path, ps).unwrap();
+        std::fs::write(&path, format!("1 0 S init init\n{ps}")).unwrap();
         format!("cat {}", path.display())
     }
 
@@ -1921,10 +1922,32 @@ mod tests {
     #[test]
     fn idle_check_treats_unreadable_ps_as_busy() {
         let dir = ttl_scratch("ps-fail");
-        for ps in ["false", "true", "printf 'PID USER TIME COMMAND\\n'"] {
+        for ps in [
+            "false",
+            "true",
+            "printf 'PID USER TIME COMMAND\\n'",
+            "printf '10 1 S bash -bash\\n'",
+        ] {
             let out = run_ttl_check(ps, &dir, "voltius_idle 10");
             assert!(!out.status.success(), "{ps} must read as busy");
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn idle_check_reads_untruncated_args_whatever_columns_says() {
+        let dir = ttl_scratch("columns");
+        let table = ps_fixture(&dir, "10 1 S bash -bash\n20 10 S bash bash -i -c make\n");
+        let ps = format!("{table} | cut -c1-${{COLUMNS:-999}}");
+        let out = ttl_check(&ps, &dir, "voltius_idle 10")
+            .env("COLUMNS", "20")
+            .output()
+            .expect("sh runs");
+        assert!(
+            !out.status.success(),
+            "a -c child cut off by COLUMNS must stay busy"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
