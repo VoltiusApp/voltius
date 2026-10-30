@@ -307,9 +307,11 @@ impl FileService {
         self.core.emit(REQUEST, json!(prompt));
         (self.alert)(&prompt);
         // The requester sends nothing before the reply, so any read result means it hung up.
+        // Biased: a withdraw also drops the answer channel, which must not read as a timeout.
         let outcome = tokio::select! {
-            answer = pending.wait(APPROVAL_WAIT) => Ok(answer),
+            biased;
             _ = withdraw.cancelled() => Err(Refusal::Off),
+            answer = pending.wait(APPROVAL_WAIT) => Ok(answer),
             _ = session.recv_max(MAX_FRAME) => Err(Refusal::Denied),
         };
         self.core.emit(REQUEST, json!(null));
@@ -649,6 +651,23 @@ mod tests {
         assert_eq!(svc.admitted(), 0);
         assert!(svc.config().allowed.is_empty());
         assert!(policy::load(dir.path(), "acct").allowed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn forgetting_a_waiting_requester_refuses_it_off() {
+        for _ in 0..32 {
+            let (svc, _dir) = service(&[]);
+            let mut client = request(&svc, "d0").await;
+            until_pending(&svc).await;
+            svc.forget_device(&hex(&test_identity("d0").key.public))
+                .unwrap();
+            assert_eq!(
+                reply(&mut client).await,
+                FilesReply::Refused {
+                    reason: Refusal::Off
+                }
+            );
+        }
     }
 
     #[tokio::test]
