@@ -40,11 +40,14 @@ function controller(over: Record<string, unknown> = {}) {
   };
 }
 
-function mountPane(ctrl = controller(), dropHover = false) {
+const WORK_PC = { deviceId: "d1", deviceKey: "k", name: "Work PC", platform: "windows", state: "ready", route: "lan", lastSeen: null };
+const SERVER = { id: "c1", name: "srv", host: "h", port: 22, username: "u" };
+
+function mountPane(ctrl = controller(), dropHover = false, target: { device?: object; connection?: object } = { device: WORK_PC }) {
   const dropRef = createRef<PaneDrop>();
   const view = render(
-    <MobileSftpPane controller={ctrl as never} connection={undefined}
-      device={{ deviceId: "d1", deviceKey: "k", name: "Work PC", platform: "windows", state: "ready", route: "lan", lastSeen: null } as never}
+    <MobileSftpPane controller={ctrl as never} connection={target.connection as never}
+      device={target.device as never}
       selected={[]} onSelectionChange={() => {}} onPickHost={() => {}} onCopyToOther={() => {}} otherConnected={false}
       headerSlot={null} onScreen backUp={false} dropRef={dropRef} dropHover={dropHover} />,
   );
@@ -228,5 +231,21 @@ describe("MobileSftpPane drop from another app", () => {
     cleanup();
     mountPane(controller({ phase: { tag: "connecting" }, sftpId: null }), true);
     expect(overlay()).toBe(false);
+  });
+});
+
+describe("MobileSftpPane permissions", () => {
+  const script = { name: "a.sh", path: `${CWD}/a.sh`, size: 1, isDir: false, permissions: 0o755 };
+  const permissionsOffered = (target: { device?: object; connection?: object }) => {
+    mountPane(controller({ entries: [script] }), false, target);
+    fireEvent.click(document.querySelector(`[data-sftp-row-actions="${script.path}"]`)!);
+    const offered = document.body.textContent?.includes("fileTransfer.pane.menu.permissions");
+    cleanup();
+    return offered;
+  };
+
+  test("a device pane does not offer permissions, an ssh pane does", () => {
+    expect(permissionsOffered({ device: WORK_PC })).toBe(false);
+    expect(permissionsOffered({ connection: SERVER })).toBe(true);
   });
 });

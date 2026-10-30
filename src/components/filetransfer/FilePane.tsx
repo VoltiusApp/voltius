@@ -43,6 +43,7 @@ import { getShortcutHint, matchShortcut } from "@/stores/shortcutStore";
 
 type SelectionActionsCtx = {
   isLocal: boolean;
+  isDevice?: boolean;
   sftpId: string | null;
   hostLabel: string;
   canTransferToTarget: boolean;
@@ -87,10 +88,11 @@ export function FilePane({
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
   initialVisibleCols, onPanelDownload, onPanelUpload, onEdit,
-  onPaste, onBack, onForward, readOnly,
+  onPaste, onBack, onForward, readOnly, isDevice,
 }: {
   sftpId: string | null;
   isLocal: boolean;
+  isDevice?: boolean;
   cwd: string;
   homeCwd?: string;
   /** Display label for the remote host — shown in editor tab titles. */
@@ -418,7 +420,7 @@ export function FilePane({
   };
 
   const selectionActionsCtx: SelectionActionsCtx = {
-    isLocal, sftpId, hostLabel: resolvedHostLabel, canTransferToTarget: canTransferToTarget ?? false,
+    isLocal, isDevice, sftpId, hostLabel: resolvedHostLabel, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
     onCompress: handleCompress, onExtract: handleExtract, canArchive, readOnlyTip,
     onPermissions: isLocal || sftpId ? setPermissionsFor : undefined,
@@ -632,7 +634,7 @@ export function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsC
 
   // Rename / Delete
   if (single) items.push({ label: t("common.action.rename"), icon: "lucide:text-cursor-input", onClick: () => ctx.onStartRename(single), shortcut: getShortcutHint("rename"), disabledReason: ctx.readOnlyTip });
-  if (ctx.onPermissions && canEditPermissions(files)) {
+  if (ctx.onPermissions && !ctx.isDevice && canEditPermissions(files)) {
     items.push({ label: t("fileTransfer.pane.menu.permissions"), icon: "lucide:key-round", onClick: () => ctx.onPermissions!(files), disabledReason: ctx.readOnlyTip });
   }
   if (files.length > 0) {

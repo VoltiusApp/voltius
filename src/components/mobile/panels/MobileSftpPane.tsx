@@ -74,6 +74,7 @@ export default function MobileSftpPane({
   const { t } = useTranslation();
   const { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
   const readOnlyTip = useReadOnlyTip(readOnly, device?.name);
+  const chmodable = !!sftpId && !device;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
@@ -336,7 +337,7 @@ export default function MobileSftpPane({
           )}
           <SheetItem icon="lucide:info" label={t("mobile.sftp.details")} onTap={() => { setDetailFor(sheetFor); setSheetFor(null); }} />
           <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} disabledReason={readOnlyTip} onTap={() => { startRename(sheetFor); setSheetFor(null); }} />
-          {sftpId && canEditPermissions([sheetFor]) && (
+          {chmodable && canEditPermissions([sheetFor]) && (
             <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} disabledReason={readOnlyTip} onTap={() => { setPermissionsFor([sheetFor]); setSheetFor(null); }} />
           )}
           <SheetItem icon="lucide:clipboard" label={t("mobile.sftp.copyPath")} onTap={() => { void writeClipboard(sheetFor.path); setSheetFor(null); }} />
@@ -350,7 +351,7 @@ export default function MobileSftpPane({
           )}
           {single && <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} disabledReason={readOnlyTip} onTap={() => { setSelectionMore(false); startRename(single); clearSelection(); }} />}
           {single && <SheetItem icon="lucide:info" label={t("mobile.sftp.details")} onTap={() => { setSelectionMore(false); setDetailFor(single); clearSelection(); }} />}
-          {sftpId && canEditPermissions(selected) && (
+          {chmodable && canEditPermissions(selected) && (
             <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} disabledReason={readOnlyTip} onTap={() => { setSelectionMore(false); setPermissionsFor(selected); clearSelection(); }} />
           )}
           <SheetItem icon="lucide:clipboard" label={t("mobile.sftp.copyPath")} onTap={() => { setSelectionMore(false); void writeClipboard(selected.map((f) => f.path).join("\n")); clearSelection(); }} />

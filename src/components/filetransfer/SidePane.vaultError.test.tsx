@@ -1,7 +1,7 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ overlayProps: null as Record<string, unknown> | null }));
+const h = vi.hoisted(() => ({ overlayProps: null as Record<string, unknown> | null, paneProps: null as Record<string, unknown> | null }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${Object.values(o).join(",")}` : k) }),
@@ -19,7 +19,12 @@ vi.mock("@/components/shared/AvatarTile", () => ({
 }));
 vi.mock("@/components/shared/HostPickerPanel", () => ({ HostPickerPanel: () => null }));
 vi.mock("@/components/shared/ToolbarViewControls", () => ({ FilterInput: () => null }));
-vi.mock("./FilePane", () => ({ FilePane: () => null }));
+vi.mock("./FilePane", () => ({
+  FilePane: (p: Record<string, unknown>) => {
+    h.paneProps = p;
+    return null;
+  },
+}));
 vi.mock("@/stores/hostPingStore", () => ({ useHostPingStore: () => undefined }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false] }));
 vi.mock("@/components/terminal/connection-overlay", () => ({
@@ -102,4 +107,13 @@ test("a connected device shows its route and latency", () => {
   render(<SidePane {...props} host={device} phase={{ tag: "connected", sftpId: "s1", cwd: "/", selected: [], route: "tailscale", rttMs: 41 }} />);
 
   expect(screen.getByText("fileTransfer.myDevices.routeChip:layout.sync.local.route.tailscale,41")).toBeTruthy();
+});
+
+test("only a device pane is marked as a device for the file pane", () => {
+  const phase: SidePhase = { tag: "connected", sftpId: "s1", cwd: "/", selected: [] };
+  render(<SidePane {...props} host={device} phase={phase} />);
+  expect(h.paneProps?.isDevice).toBe(true);
+  cleanup();
+  render(<SidePane {...props} host={host} phase={phase} />);
+  expect(h.paneProps?.isDevice).toBe(false);
 });

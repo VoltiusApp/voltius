@@ -47,3 +47,18 @@ describe("buildSelectionActions", () => {
     expect(without).not.toContain("fileTransfer.pane.menu.extractHere");
   });
 });
+
+describe("buildSelectionActions permissions", () => {
+  const script: FileEntry = { ...file("a.sh"), permissions: 0o755 };
+  const offered = (isDevice: boolean) =>
+    buildSelectionActions([script], {
+      isLocal: false, isDevice, sftpId: "s1", hostLabel: "h", canTransferToTarget: false,
+      onStartRename: vi.fn(), onDelete: vi.fn(), onCompress: vi.fn(), onExtract: vi.fn(),
+      canArchive: false, setSelection: vi.fn(), onRefresh: vi.fn(), onPermissions: vi.fn(),
+    }, t).some((item) => item.label === "fileTransfer.pane.menu.permissions");
+
+  it("is hidden on a device pane and offered on an ssh pane", () => {
+    expect(offered(true)).toBe(false);
+    expect(offered(false)).toBe(true);
+  });
+});

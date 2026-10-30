@@ -298,6 +298,7 @@ export function SidePane({
           <FilePane
             sftpId={phase.sftpId}
             isLocal={host.kind === "local"}
+            isDevice={host.kind === "device"}
             cwd={phase.cwd}
             homeCwd={homeCwdRef.current || undefined}
             hostLabel={hostLabel ?? t("fileTransfer.common.remoteFallback")}
