@@ -22,6 +22,7 @@ const HAND_WRITTEN: SettingKeyDef[] = [
   { id: "appSettings.sftp.autoRefreshIntervalMs", labelKey: "settings.sftp.filePanel.refreshInterval.title" },
   { id: "appSettings.plugins.overrides", labelKey: "settings.sync.settingKey.pluginOverrides" },
   { id: "appSettings.keepalivePreset", labelKey: "settings.hosts.keepalive.title" },
+  { id: "appSettings.detachedTtlHours", labelKey: "settings.hosts.detachedTtl.durationTitle" },
   {
     id: "appSettings.locale",
     labelKey: "settings.appearance.language.title",

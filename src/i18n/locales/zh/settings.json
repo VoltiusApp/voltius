@@ -1123,6 +1123,15 @@
         "title": "持久会话",
         "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在连接设置的“高级”中按主机覆盖。"
       },
+      "detachedTtl": {
+        "title": "关闭空闲的已分离会话",
+        "desc": "当没有任何设备在所选时间内连接到主机上的持久会话时将其关闭，但仅限会话中没有任何程序在运行时。需要 tmux 3.2 或更高版本；screen 和更旧的 tmux 仍保持会话不变。更改将在该会话下次连接时生效。",
+        "durationTitle": "关闭时间",
+        "hours_one": "{{count}} 小时",
+        "hours_other": "{{count}} 小时",
+        "days_one": "{{count}} 天",
+        "days_other": "{{count}} 天"
+      },
       "terminalTitle": "终端",
       "shellIntegration": {
         "title": "Shell 集成",
@@ -1226,6 +1235,7 @@
       "teamPresence": { "label": "团队在线状态" },
       "shellIntegration": { "label": "Shell 集成" },
       "persistentSessions": { "label": "持久会话" },
+      "detachedSessionTtl": { "label": "关闭空闲的已分离会话" },
       "restoreWorkspace": { "label": "启动时恢复工作区" },
       "crossDeviceSessions": { "label": "跨设备会话" },
       "changelogPopup": { "label": "更新后显示新内容" },

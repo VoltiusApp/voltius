@@ -1310,6 +1310,19 @@
         "title": "Trvalé relace",
         "desc": "Zachovat shell a běžící procesy i při odpojení spuštěním vzdáleného shellu v tmux (případně ve screen). Vyžaduje tmux nebo screen na hostu. Pro jednotlivé hosty lze nastavit jinou volbu v sekci Pokročilé v nastavení připojení."
       },
+      "detachedTtl": {
+        "title": "Zavírat nečinné odpojené relace",
+        "desc": "Zavře trvalou relaci na hostu, pokud k ní po zvolenou dobu nebylo připojeno žádné zařízení, ale jen když v ní nic neběží. Vyžaduje tmux 3.2 nebo novější; screen a starší tmux ponechávají relace jako dříve. Změna se u relace projeví při jejím příštím připojení.",
+        "durationTitle": "Zavřít po",
+        "hours_one": "{{count}} hodina",
+        "hours_few": "{{count}} hodiny",
+        "hours_many": "{{count}} hodiny",
+        "hours_other": "{{count}} hodin",
+        "days_one": "{{count}} den",
+        "days_few": "{{count}} dny",
+        "days_many": "{{count}} dne",
+        "days_other": "{{count}} dní"
+      },
       "terminalTitle": "Terminál",
       "shellIntegration": {
         "title": "Integrace shellu",
@@ -1449,6 +1462,9 @@
       },
       "persistentSessions": {
         "label": "Trvalé relace"
+      },
+      "detachedSessionTtl": {
+        "label": "Zavírat nečinné odpojené relace"
       },
       "restoreWorkspace": {
         "label": "Obnovit pracovní plochu při spuštění"

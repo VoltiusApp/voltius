@@ -7,6 +7,10 @@ import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepaliv
 import type { CustomProxyMode, ProxyMode } from "@/types";
 import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
 
+export const DETACHED_TTL_HOURS = [1, 6, 12, 24, 72, 168] as const;
+export type DetachedTtlHours = (typeof DETACHED_TTL_HOURS)[number];
+export const DEFAULT_DETACHED_TTL_HOURS: DetachedTtlHours = 24;
+
 export type GlobalProxyMode = "none" | "system" | CustomProxyMode;
 
 export interface GlobalProxy {
@@ -24,6 +28,8 @@ export const DEFAULT_GLOBAL_PROXY: GlobalProxy = { mode: "none" };
 interface ConnectivitySettingsState {
   keepalivePreset: KeepalivePreset;
   setKeepalivePreset: (preset: KeepalivePreset) => void;
+  detachedTtlHours: DetachedTtlHours;
+  setDetachedTtlHours: (hours: DetachedTtlHours) => void;
   proxy: GlobalProxy;
   setProxy: (proxy: GlobalProxy) => void;
 }
@@ -35,6 +41,11 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
       setKeepalivePreset: (preset) => {
         set({ keepalivePreset: preset });
         touchAppSetting("appSettings.keepalivePreset");
+      },
+      detachedTtlHours: DEFAULT_DETACHED_TTL_HOURS,
+      setDetachedTtlHours: (hours) => {
+        set({ detachedTtlHours: hours });
+        touchAppSetting("appSettings.detachedTtlHours");
       },
       proxy: DEFAULT_GLOBAL_PROXY,
       setProxy: (proxy) => {
@@ -60,6 +71,19 @@ export function useGlobalKeepalivePreset(): [KeepalivePreset, (p: KeepalivePrese
   const set = useConnectivitySettingsStore((s) => s.setKeepalivePreset);
   const setter = useCallback((p: KeepalivePreset) => set(p), [set]);
   return [value, setter];
+}
+
+export function resolveDetachedTtlSecs(): number | null {
+  return getToggle("detached-session-ttl")
+    ? useConnectivitySettingsStore.getState().detachedTtlHours * 3600
+    : null;
+}
+
+export function useDetachedTtlHours(): [DetachedTtlHours, (h: DetachedTtlHours) => void] {
+  return [
+    useConnectivitySettingsStore((s) => s.detachedTtlHours),
+    useConnectivitySettingsStore((s) => s.setDetachedTtlHours),
+  ];
 }
 
 /** Per-host value wins; otherwise the global `persistent-sessions` toggle. */

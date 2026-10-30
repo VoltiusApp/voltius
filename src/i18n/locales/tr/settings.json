@@ -946,6 +946,15 @@
         "title": "Kalıcı oturumlar",
         "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
       },
+      "detachedTtl": {
+        "title": "Boştaki ayrılmış oturumları kapat",
+        "desc": "Seçilen süre boyunca hiçbir cihaz bağlı değilse, sunucudaki kalıcı oturumu kapatır; ancak yalnızca içinde çalışan bir şey yoksa. tmux 3.2 veya daha yenisi gerekir; screen ve daha eski tmux sürümleri oturumları eskisi gibi korur. Bir değişiklik, oturuma bir sonraki bağlanışınızda uygulanır.",
+        "durationTitle": "Şu süreden sonra kapat",
+        "hours_one": "{{count}} saat",
+        "hours_other": "{{count}} saat",
+        "days_one": "{{count}} gün",
+        "days_other": "{{count}} gün"
+      },
       "terminalTitle": "Terminal",
       "shellIntegration": {
         "title": "Kabuk entegrasyonu",
@@ -1083,6 +1092,9 @@
       },
       "persistentSessions": {
         "label": "Kalıcı Oturumlar"
+      },
+      "detachedSessionTtl": {
+        "label": "Boştaki Ayrılmış Oturumları Kapat"
       },
       "restoreWorkspace": {
         "label": "Başlangıçta Çalışma Alanını Geri Yükle"

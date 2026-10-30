@@ -1304,6 +1304,17 @@
         "title": "Sessões persistentes",
         "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão."
       },
+      "detachedTtl": {
+        "title": "Terminar sessões desanexadas inativas",
+        "desc": "Termina uma sessão persistente no host quando nenhum dispositivo está anexado a ela durante o tempo escolhido, mas apenas se nada estiver em execução nela. Requer tmux 3.2 ou mais recente; o screen e as versões mais antigas do tmux mantêm as sessões como antes. Uma alteração aplica-se a uma sessão na próxima vez que for anexada.",
+        "durationTitle": "Terminar após",
+        "hours_one": "{{count}} hora",
+        "hours_many": "{{count}} horas",
+        "hours_other": "{{count}} horas",
+        "days_one": "{{count}} dia",
+        "days_many": "{{count}} dias",
+        "days_other": "{{count}} dias"
+      },
       "terminalTitle": "Terminal",
       "shellIntegration": {
         "title": "Integração com o shell",
@@ -1442,6 +1453,9 @@
       },
       "persistentSessions": {
         "label": "Sessões persistentes"
+      },
+      "detachedSessionTtl": {
+        "label": "Terminar sessões desanexadas inativas"
       },
       "restoreWorkspace": {
         "label": "Restaurar área de trabalho ao iniciar"
