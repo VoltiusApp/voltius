@@ -1,18 +1,19 @@
 use super::link::Wire;
 use super::policy::{
-    self, decide, hex, AllowedDevice, Answer, ApprovalPrompt, Broker, Decision, FileAccessConfig,
+    self, decide, AllowedDevice, Answer, ApprovalPrompt, Broker, Decision, FileAccessConfig,
     Grants, APPROVAL_WAIT,
 };
 use super::roots::SharedRoots;
 use super::server::SharedFs;
 use crate::commands::lan_sync::Emit;
+use crate::crypto::hex;
 use crate::lan_sync::handshake::Session;
 use crate::lan_sync::manager::InboundFiles;
 use crate::lan_sync::protocol::{FilesReply, FilesRequest, Frame, Hello, Refusal, MAX_FRAME};
 use crate::lan_sync::route::Route;
 use crate::lan_sync::stream::SessionStream;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -78,6 +79,7 @@ impl Book {
 struct Core {
     book: Mutex<Book>,
     emit: Emit,
+    stopped: CancellationToken,
 }
 
 impl Core {
@@ -85,10 +87,15 @@ impl Core {
         self.book.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    fn emit(&self, name: &'static str, payload: Value) {
+        if !self.stopped.is_cancelled() {
+            (self.emit)(name, payload);
+        }
+    }
+
+    // Emits under the book lock so nothing published can land after stop's final listing.
     fn publish(&self, book: MutexGuard<'_, Book>) {
-        let list = book.listing();
-        drop(book);
-        (self.emit)(SESSIONS, json!(list));
+        self.emit(SESSIONS, json!(book.listing()));
     }
 
     fn end(&self, id: u64) {
@@ -128,11 +135,6 @@ pub struct FileService {
     dir: PathBuf,
     account: String,
     alert: Alert,
-    stopped: CancellationToken,
-}
-
-fn offers(cfg: &FileAccessConfig) -> bool {
-    cfg.enabled && !cfg.folders.is_empty()
 }
 
 fn remember(cfg: &mut FileAccessConfig, key: &str, name: &str, always: bool) {
@@ -166,12 +168,12 @@ impl FileService {
                     ..Book::default()
                 }),
                 emit,
+                stopped: CancellationToken::new(),
             }),
             broker: Broker::default(),
             dir,
             account,
             alert,
-            stopped: CancellationToken::new(),
         }
     }
 
@@ -184,7 +186,7 @@ impl FileService {
     }
 
     pub fn offers(&self) -> bool {
-        offers(&self.core.lock().cfg)
+        self.core.lock().cfg.offers()
     }
 
     pub fn pending(&self) -> Vec<ApprovalPrompt> {
@@ -202,7 +204,7 @@ impl FileService {
         policy::save(&self.dir, &self.account, &cfg)?;
         let old = std::mem::replace(&mut book.cfg, cfg);
         let new = &book.cfg;
-        if !offers(new) {
+        if !new.offers() {
             book.forget_all();
             return Ok(());
         }
@@ -229,12 +231,18 @@ impl FileService {
     }
 
     pub fn stop(&self) {
-        self.stopped.cancel();
-        self.core.lock().forget_all();
+        let mut book = self.core.lock();
+        book.forget_all();
+        self.core.emit(SESSIONS, json!([]));
+        self.core.stopped.cancel();
+    }
+
+    fn stopped(&self) -> bool {
+        self.core.stopped.is_cancelled()
     }
 
     fn check(&self, book: &mut Book, key: &str, req: &FilesRequest) -> Result<Decision, Refusal> {
-        if self.stopped.is_cancelled() {
+        if self.stopped() {
             return Err(Refusal::Off);
         }
         let now = Instant::now();
@@ -276,7 +284,7 @@ impl FileService {
             }
             (self.broker.register(prompt.clone()), book.withdraw.clone())
         };
-        (self.core.emit)(REQUEST, json!(prompt));
+        self.core.emit(REQUEST, json!(prompt));
         (self.alert)(&prompt);
         // The requester sends nothing before the reply, so any read result means it hung up.
         let outcome = tokio::select! {
@@ -284,7 +292,7 @@ impl FileService {
             _ = withdraw.cancelled() => Err(Refusal::Off),
             _ = session.recv_max(MAX_FRAME) => Err(Refusal::Denied),
         };
-        (self.core.emit)(REQUEST, json!(null));
+        self.core.emit(REQUEST, json!(null));
         let always = match outcome? {
             None => return Err(Refusal::TimedOut),
             Some(Answer::Deny) => return Err(Refusal::Denied),
@@ -292,14 +300,15 @@ impl FileService {
             Some(Answer::Always) => true,
         };
         let mut book = self.core.lock();
+        if self.stopped() || withdraw.is_cancelled() {
+            return Err(Refusal::Off);
+        }
         remember(&mut book.cfg, key, &peer.device_name, always);
         if let Err(e) = policy::save(&self.dir, &self.account, &book.cfg) {
             log::warn!("device-files: saving the approval failed: {e}");
         }
         let grant = (!always).then(|| book.grants.issue(key));
-        let cfg = book.cfg.clone();
-        drop(book);
-        (self.core.emit)(CONFIG, json!(cfg));
+        self.core.emit(CONFIG, json!(book.cfg));
         Ok(grant)
     }
 
@@ -372,7 +381,7 @@ impl FileService {
 impl InboundFiles for FileService {
     async fn serve(&self, mut session: Session, peer: Hello, route: Route, req: FilesRequest) {
         let admitted = self.authorize(&peer, route, &mut session, req).await;
-        if admitted.is_err() && self.stopped.is_cancelled() {
+        if admitted.is_err() && self.stopped() {
             return;
         }
         let reply = match &admitted {
@@ -439,6 +448,24 @@ mod tests {
             Arc::new(|_| {}),
         );
         (Arc::new(svc), dir)
+    }
+
+    type Events = Arc<Mutex<Vec<(String, Value)>>>;
+
+    fn recorded(always: &[&str]) -> (Arc<FileService>, tempfile::TempDir, Events) {
+        let seen = Events::default();
+        let sink = seen.clone();
+        let (svc, dir) = service_emitting(
+            always,
+            Arc::new(move |name, payload| sink.lock().unwrap().push((name.to_string(), payload))),
+        );
+        (svc, dir, seen)
+    }
+
+    async fn until_pending(svc: &FileService) {
+        while svc.pending().is_empty() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
     }
 
     async fn request(svc: &Arc<FileService>, id: &str) -> Session {
@@ -528,18 +555,9 @@ mod tests {
 
     #[tokio::test]
     async fn pending_request_ending_emits_a_request_event() {
-        let seen = Arc::new(Mutex::new(Vec::new()));
-        let sink = seen.clone();
-        let (svc, _dir) = service_emitting(
-            &[],
-            Arc::new(move |name, payload| {
-                sink.lock().unwrap().push((name.to_string(), payload));
-            }),
-        );
+        let (svc, _dir, seen) = recorded(&[]);
         let mut client = request(&svc, "d0").await;
-        while svc.pending().is_empty() {
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
+        until_pending(&svc).await;
         svc.set_config(FileAccessConfig {
             enabled: false,
             ..svc.config()
@@ -566,9 +584,7 @@ mod tests {
     async fn revoking_a_once_allowed_entry_closes_its_session() {
         let (svc, _dir) = service(&[]);
         let mut client = request(&svc, "d0").await;
-        while svc.pending().is_empty() {
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
+        until_pending(&svc).await;
         let key = hex(&test_identity("d0").key.public);
         assert!(svc.answer(&svc.pending()[0].request_id, Answer::Once));
         assert!(matches!(
@@ -588,5 +604,42 @@ mod tests {
         svc.set_config(cfg).unwrap();
         let closed = tokio::time::timeout(Duration::from_secs(2), client.recv()).await;
         assert!(matches!(closed, Ok(Err(_))), "session still open");
+    }
+
+    #[tokio::test]
+    async fn an_answer_racing_stop_is_neither_saved_nor_emitted() {
+        for _ in 0..16 {
+            let (svc, dir, seen) = recorded(&[]);
+            let mut client = request(&svc, "d0").await;
+            until_pending(&svc).await;
+            assert!(svc.answer(&svc.pending()[0].request_id, Answer::Always));
+            svc.stop();
+            assert!(client.recv().await.is_err());
+            assert!(policy::load(dir.path(), "acct").allowed.is_empty());
+            assert!(!seen.lock().unwrap().iter().any(|(n, _)| n == CONFIG));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_stopped_service_emits_nothing_after_its_final_listing() {
+        let (svc, _dir, seen) = recorded(&["d0"]);
+        let mut client = request(&svc, "d0").await;
+        assert!(matches!(
+            reply(&mut client).await,
+            FilesReply::Accepted { .. }
+        ));
+        svc.stop();
+        let after = seen.lock().unwrap().len();
+        let drained = async {
+            while !svc.core.lock().sessions.is_empty() {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(10), drained)
+            .await
+            .expect("sessions never drained");
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen[after - 1], (SESSIONS.to_string(), json!([])));
+        assert_eq!(seen.len(), after);
     }
 }

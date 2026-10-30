@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import i18n from "@/i18n";
 import { invoke } from "@/lib/invoke";
 import { logFailure } from "@/lib/logger";
 import { getAccountId } from "@/services/account";
@@ -17,6 +18,14 @@ const fail = (context: string) => logFailure(`device-files ${context}`);
 let offs: Array<() => void> = [];
 let starting: Promise<void> | null = null;
 let generation = 0;
+let lifecycle: Promise<unknown> = Promise.resolve();
+
+// Start and stop must reach Rust in call order, or a late start revives a stopped service.
+function inOrder(cmd: "device_files_start" | "device_files_stop", args?: Record<string, unknown>): Promise<void> {
+  const run = lifecycle.then(() => invoke<void>(cmd, args));
+  lifecycle = run.catch(() => {});
+  return run;
+}
 
 async function refreshPending(): Promise<void> {
   store().setPending(await invoke<ApprovalPrompt[]>("device_files_pending"));
@@ -29,14 +38,14 @@ export async function loadFileAccess(): Promise<void> {
   const accountId = await getAccountId();
   if (!accountId) return;
   const config = await invoke<FileAccessConfig>("device_files_get_config", { accountId });
-  store().setConfig(config);
+  if (store().config === null) store().setConfig(config);
 }
 
 async function begin(gen: number): Promise<void> {
   if ((await getPlatform()) === "android") return;
   const accountId = await getAccountId();
   if (!accountId || gen !== generation) return;
-  await invoke("device_files_start", { accountId });
+  await inOrder("device_files_start", { accountId, notifyBody: i18n.t("layout.deviceFiles.title", { name: "{name}" }) });
   const attached: Array<() => void> = [];
   const detach = () => attached.splice(0).forEach((off) => off());
   try {
@@ -53,20 +62,19 @@ async function begin(gen: number): Promise<void> {
     offs = attached;
   } catch (e) {
     detach();
-    if (gen === generation) await invoke("device_files_stop").catch(fail("stop"));
+    if (gen === generation) await inOrder("device_files_stop").catch(fail("stop"));
     throw e;
-  }
-  if (gen !== generation) {
-    offs.forEach((off) => off());
-    offs = [];
   }
 }
 
 export function startDeviceFiles(): Promise<void> {
   if (offs.length > 0) return Promise.resolve();
-  starting ??= begin(generation).finally(() => {
-    starting = null;
-  });
+  if (!starting) {
+    const p: Promise<void> = begin(generation).finally(() => {
+      if (starting === p) starting = null;
+    });
+    starting = p;
+  }
   return starting;
 }
 
@@ -77,7 +85,7 @@ export async function stopDeviceFiles(): Promise<void> {
   offs = [];
   store().reset();
   if ((await getPlatform()) === "android") return;
-  await invoke("device_files_stop").catch(fail("stop"));
+  await inOrder("device_files_stop").catch(fail("stop"));
 }
 
 export function connectDevice(deviceId: string, connectId: string, relink?: string): Promise<{ sftpId: string; rttMs: number; readOnly: boolean }> {

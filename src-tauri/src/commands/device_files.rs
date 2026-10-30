@@ -96,6 +96,12 @@ pub(crate) async fn connect_inner(
     })
 }
 
+pub(crate) async fn close_device_sessions(sftp: &SftpManager, links: &DeviceLinks) {
+    for sftp_id in links.drain() {
+        sftp.close(&sftp_id).await;
+    }
+}
+
 #[tauri::command]
 pub async fn device_files_connect(
     app: AppHandle,
@@ -126,6 +132,7 @@ mod serving {
     use crate::commands::lan_sync::{emitter, Emit, LanSyncState};
     use crate::device_files::policy::{self, Answer, ApprovalPrompt, FileAccessConfig};
     use crate::device_files::service::{Alert, FileService};
+    use crate::device_files::{for_account, stop_running};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use tauri::{AppHandle, Manager, State};
@@ -142,12 +149,10 @@ mod serving {
         alert: Alert,
     ) {
         let mut slot = lan.files.service.lock().await;
-        let svc = match slot.as_ref().filter(|s| s.account() == account) {
+        let svc = match for_account(&slot, &account) {
             Some(svc) => svc.clone(),
             None => {
-                if let Some(old) = slot.take() {
-                    old.stop();
-                }
+                stop_running(&mut slot);
                 let svc = Arc::new(FileService::new(dir, account, emit, alert));
                 *slot = Some(svc.clone());
                 svc
@@ -157,15 +162,12 @@ mod serving {
     }
 
     pub(crate) async fn stop_inner(lan: &LanSyncState) {
-        let mut slot = lan.files.service.lock().await;
-        if let Some(svc) = slot.take() {
-            svc.stop();
-        }
+        stop_running(&mut *lan.files.service.lock().await);
         lan.offer_files(None).await;
     }
 
     async fn running_for(lan: &LanSyncState, account: &str) -> Option<Arc<FileService>> {
-        running(lan).await.filter(|s| s.account() == account)
+        for_account(&*lan.files.service.lock().await, account).cloned()
     }
 
     pub(crate) async fn get_config_inner(
@@ -186,7 +188,7 @@ mod serving {
         mut config: FileAccessConfig,
     ) -> Result<(), String> {
         let slot = lan.files.service.lock().await;
-        match slot.as_ref().filter(|s| s.account() == account) {
+        match for_account(&slot, account) {
             Some(svc) => {
                 svc.set_config(config)?;
                 lan.offer_files(Some(svc.clone())).await;
@@ -199,7 +201,7 @@ mod serving {
         }
     }
 
-    fn alert(app: AppHandle) -> Alert {
+    fn alert(app: AppHandle, body: String) -> Alert {
         Arc::new(move |prompt: &ApprovalPrompt| {
             let focused = app
                 .webview_windows()
@@ -213,7 +215,7 @@ mod serving {
                 .notification()
                 .builder()
                 .title(&prompt.device_name)
-                .body(format!("{} wants to open your files", prompt.device_name))
+                .body(body.replace("{name}", &prompt.device_name))
                 .show();
             if let Err(e) = shown {
                 log::warn!("device-files: notification failed: {e}");
@@ -226,9 +228,10 @@ mod serving {
         app: AppHandle,
         lan: State<'_, LanSyncState>,
         account_id: String,
+        notify_body: String,
     ) -> Result<(), String> {
         let dir = crate::storage::config::config_dir();
-        let (emit, alert) = (emitter(app.clone()), alert(app));
+        let (emit, alert) = (emitter(app.clone()), alert(app, notify_body));
         start_inner(&lan, dir, account_id, emit, alert).await;
         Ok(())
     }
@@ -297,9 +300,8 @@ mod tests {
     use crate::commands::sftp::resume::copy_one;
     use crate::commands::sftp::resume::endpoint::LocalFs;
     use crate::commands::sftp::resume::engine_tests::noise;
-    use crate::device_files::policy::{
-        self, hex, AllowedDevice, Answer, FileAccessConfig, GRANT_IDLE,
-    };
+    use crate::crypto::hex;
+    use crate::device_files::policy::{self, AllowedDevice, Answer, FileAccessConfig, GRANT_IDLE};
     use crate::device_files::service::{FileService, REQUEST, SESSIONS};
     use crate::error::ErrorCode;
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey, LocalIdentity};
@@ -941,5 +943,33 @@ mod tests {
         .await;
         let svc = lan.files.service.lock().await.clone().unwrap();
         assert_eq!(svc.config(), cfg);
+    }
+
+    #[tokio::test]
+    async fn another_accounts_config_bypasses_the_running_service() {
+        let s = server(&["dev-a"]).await;
+        let path = s.dir.path();
+        let get_other = || serving::get_config_inner(&s.lan, path, "other");
+        assert_eq!(get_other().await, FileAccessConfig::default());
+        let other = config(&s.share(), &["dev-c"]);
+        serving::set_config_inner(&s.lan, path, "other", other.clone())
+            .await
+            .unwrap();
+        assert_eq!(policy::load(path, "other"), other);
+        assert_eq!(get_other().await, other);
+        let live = s.svc().await.config();
+        assert!(live.always_allows(&key_of("dev-a")) && !live.always_allows(&key_of("dev-c")));
+        assert_eq!(policy::load(path, ACCOUNT), live);
+    }
+
+    #[tokio::test]
+    async fn reload_closes_open_device_sessions() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        let c = a.connect().await.unwrap();
+        s.until_open(&["dev-a"]).await;
+        close_device_sessions(&a.sftp, &a.links).await;
+        s.until_open(&[]).await;
+        assert!(a.sftp.backend(&c.sftp_id).await.is_none());
     }
 }

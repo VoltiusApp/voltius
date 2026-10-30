@@ -6,7 +6,7 @@ use super::identity::LocalIdentity;
 use super::protocol::{Caps, FilesReply, FilesRequest, Frame, Hello, Refusal, MAX_FRAME};
 use super::route::{classify, Route};
 use super::stream::SessionStream;
-use crate::device_files::policy::hex;
+use crate::crypto::hex;
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -728,7 +728,7 @@ impl FilesDialer {
                 Err(FilesDialError::Refused(reason))
             }
             Frame::FilesReply(reply) => Ok((SessionStream::new(link.session), reply, key)),
-            other => Err(FilesDialError::Unreachable(format!("unexpected {other:?}"))),
+            _ => Err(FilesDialError::Unreachable("unexpected frame".into())),
         }
     }
 }
@@ -1502,6 +1502,34 @@ mod tests {
         assert_eq!((a.peers().len(), b.peers().len()), (1, 1));
         a.broadcast(vec![3]).await;
         next_event(&mut eb, blob_from("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn open_file_stream_outlives_manager_stop() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let svc = Arc::new(Recorder::default());
+        b.set_file_service(Some(svc.clone()));
+        synced(&a, &b).await;
+        let (mut near, _, _) = a
+            .files_dialer()
+            .open_files("dev-b", FilesRequest::default(), None)
+            .await
+            .unwrap();
+        until("the file session held", || {
+            !svc.held.lock().unwrap().is_empty()
+        })
+        .await;
+        let mut far = SessionStream::new(svc.held.lock().unwrap().pop().unwrap());
+        a.stop().await;
+        let mut got = [0u8; 4];
+        near.write_all(b"ping").await.unwrap();
+        far.read_exact(&mut got).await.unwrap();
+        assert_eq!(&got, b"ping");
+        far.write_all(b"pong").await.unwrap();
+        near.read_exact(&mut got).await.unwrap();
+        assert_eq!(&got, b"pong");
     }
 
     #[tokio::test]

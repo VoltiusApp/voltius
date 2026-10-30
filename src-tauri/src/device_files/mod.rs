@@ -9,7 +9,25 @@ pub mod server;
 pub mod service;
 
 #[cfg(desktop)]
+type Slot = Option<std::sync::Arc<service::FileService>>;
+
+#[cfg(desktop)]
 #[derive(Default)]
 pub struct DeviceFilesState {
-    pub(crate) service: tokio::sync::Mutex<Option<std::sync::Arc<service::FileService>>>,
+    pub(crate) service: tokio::sync::Mutex<Slot>,
+}
+
+#[cfg(desktop)]
+pub(crate) fn stop_running(slot: &mut Slot) {
+    if let Some(svc) = slot.take() {
+        svc.stop();
+    }
+}
+
+#[cfg(desktop)]
+pub(crate) fn for_account<'a>(
+    slot: &'a Slot,
+    account: &str,
+) -> Option<&'a std::sync::Arc<service::FileService>> {
+    slot.as_ref().filter(|s| s.account() == account)
 }

@@ -1,3 +1,4 @@
+use crate::crypto::hex;
 use crate::lan_sync::protocol::{FilesRequest, Refusal};
 use crate::lan_sync::route::Route;
 use rand::RngCore;
@@ -34,6 +35,10 @@ pub struct FileAccessConfig {
 }
 
 impl FileAccessConfig {
+    pub fn offers(&self) -> bool {
+        self.enabled && !self.folders.is_empty()
+    }
+
     pub fn always_allows(&self, key: &str) -> bool {
         self.allowed.iter().any(|d| d.always && d.device_key == key)
     }
@@ -45,10 +50,6 @@ impl FileAccessConfig {
             }
         }
     }
-}
-
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn random_hex(len: usize) -> String {
@@ -138,7 +139,7 @@ pub fn decide(
     open_for_key: usize,
     now: Instant,
 ) -> Decision {
-    if !cfg.enabled || cfg.folders.is_empty() {
+    if !cfg.offers() {
         return Decision::Refuse(Refusal::Off);
     }
     if open_for_key >= MAX_SESSIONS_PER_KEY {

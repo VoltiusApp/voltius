@@ -159,9 +159,7 @@ pub async fn start_inner(
 
 pub async fn stop_inner(state: &LanSyncState) {
     #[cfg(desktop)]
-    if let Some(svc) = state.files.service.lock().await.take() {
-        svc.stop();
-    }
+    crate::device_files::stop_running(&mut *state.files.service.lock().await);
     let mut running = state.manager.lock().await;
     if let Some(manager) = running.take() {
         manager.stop().await;

@@ -218,6 +218,14 @@ pub fn run() {
                 && payload.event() == tauri::webview::PageLoadEvent::Started
             {
                 let app = webview.app_handle().clone();
+                let devices = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    commands::device_files::close_device_sessions(
+                        &devices.state::<SftpManager>(),
+                        &devices.state::<device_files::link::DeviceLinks>(),
+                    )
+                    .await;
+                });
                 tauri::async_runtime::spawn(async move {
                     let state = app.state::<Arc<mcp::McpState>>();
                     // Order matters: close the gate first so nothing new can

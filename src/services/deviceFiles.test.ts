@@ -21,6 +21,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 vi.mock("@/services/account", () => ({ getAccountId: async () => h.account }));
 vi.mock("@/utils/platform", () => ({ getPlatform: async () => h.platform }));
+vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `${key}:${o.name}` } }));
 
 import { answerFileRequest, loadFileAccess, saveFileAccess, startDeviceFiles, stopDeviceFiles } from "./deviceFiles";
 import { useDeviceFilesStore, type ApprovalPrompt } from "@/stores/deviceFilesStore";
@@ -65,7 +66,7 @@ describe("deviceFiles", () => {
   test("start loads config and pending", async () => {
     h.pending = [prompt("r1")];
     await startDeviceFiles();
-    expect(calls("device_files_start")[0][1]).toEqual({ accountId: "acct" });
+    expect(calls("device_files_start")[0][1]).toEqual({ accountId: "acct", notifyBody: "layout.deviceFiles.title:{name}" });
     expect(useDeviceFilesStore.getState().config).toEqual(CONFIG);
     expect(useDeviceFilesStore.getState().pending).toEqual([prompt("r1")]);
     expect([...h.handlers.keys()].sort()).toEqual(["device-files://config", "device-files://request", "device-files://sessions"]);
@@ -147,5 +148,60 @@ describe("deviceFiles", () => {
     h.failConfig = false;
     await startDeviceFiles();
     expect(h.handlers.size).toBe(3);
+  });
+
+  test("a stale load does not overwrite a config the store already holds", async () => {
+    const newer = { ...CONFIG, readOnly: true };
+    useDeviceFilesStore.getState().setConfig(newer);
+    await loadFileAccess();
+    expect(useDeviceFilesStore.getState().config).toEqual(newer);
+  });
+
+  test("stop reaches rust only after an in-flight start", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const base = h.invoke.getMockImplementation()!;
+    h.invoke.mockImplementation(async (cmd: string, args: unknown) => {
+      if (cmd === "device_files_start") await held;
+      return base(cmd, args);
+    });
+    const first = startDeviceFiles();
+    await vi.waitFor(() => expect(calls("device_files_start")).toHaveLength(1));
+    const stopped = stopDeviceFiles();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calls("device_files_stop")).toHaveLength(0);
+    release();
+    await Promise.all([first, stopped]);
+    expect(h.invoke.mock.calls.map(([c]) => c).filter((c) => c === "device_files_start" || c === "device_files_stop")).toEqual([
+      "device_files_start",
+      "device_files_stop",
+    ]);
+    expect(h.handlers.size).toBe(0);
+  });
+
+  test("a stale start settling does not let a third start run beside the second", async () => {
+    let releaseSecond!: () => void;
+    const secondConfig = new Promise<void>((r) => (releaseSecond = r));
+    let configs = 0;
+    const base = h.invoke.getMockImplementation()!;
+    h.invoke.mockImplementation(async (cmd: string, args: unknown) => {
+      if (cmd === "device_files_get_config" && ++configs === 2) await secondConfig;
+      return base(cmd, args);
+    });
+    let open!: () => void;
+    h.gate = new Promise<void>((r) => (open = r));
+    const first = startDeviceFiles();
+    await vi.waitFor(() => expect(calls("device_files_start")).toHaveLength(1));
+    await stopDeviceFiles();
+    const second = startDeviceFiles();
+    await vi.waitFor(() => expect(calls("device_files_start")).toHaveLength(2));
+    open();
+    await first;
+    await vi.waitFor(() => expect(calls("device_files_get_config")).toHaveLength(2));
+    expect(startDeviceFiles()).toBe(second);
+    releaseSecond();
+    await second;
+    expect(calls("device_files_start")).toHaveLength(2);
+    expect(useDeviceFilesStore.getState().config).toEqual(CONFIG);
   });
 });

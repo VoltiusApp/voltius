@@ -247,6 +247,15 @@ impl DeviceLinks {
             .unwrap_or_default()
     }
 
+    pub fn drain(&self) -> Vec<String> {
+        let mut links = self.lock();
+        links
+            .drain()
+            .filter(|(_, l)| l.strong_count() > 0)
+            .map(|(id, _)| id)
+            .collect()
+    }
+
     pub fn insert(&self, sftp_id: String, link: &Arc<DeviceLink>) {
         let mut links = self.lock();
         links.retain(|_, l| l.strong_count() > 0);
