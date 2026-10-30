@@ -160,6 +160,20 @@ describe("DevicesSection", () => {
     expect(screen.queryByText("Old name")).toBeNull();
   });
 
+  test("an allowed device takes its name and platform from known, else its stored name", () => {
+    const phone = { name: "Pixel 9", platform: "android", lastSeen: "", lastRoute: null, deviceKey: "key-phone" };
+    const allowed = [
+      { deviceKey: "key-phone", name: "Old phone", always: true, lastOpened: null },
+      { deviceKey: "key-lost", name: "Old laptop", always: true, lastOpened: null },
+    ];
+    setup({ ...base, allowed }, { p1: phone });
+    const { container } = render(<DevicesSection />);
+    expect(screen.getByText("Pixel 9")).toBeTruthy();
+    expect(screen.queryByText("Old phone")).toBeNull();
+    expect(screen.getByText("Old laptop")).toBeTruthy();
+    expect(container.querySelectorAll('[data-icon="lucide:smartphone"]')).toHaveLength(1);
+  });
+
   test("an always entry approved while the folder dialog is open survives add folder", async () => {
     let pick!: (path: string) => void;
     openSystemDialog.mockImplementationOnce(() => new Promise((r) => (pick = r)));

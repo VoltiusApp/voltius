@@ -63,12 +63,11 @@ export default function DevicesSection() {
 
   const revoke = (deviceKey: string) => update((latest) => ({ allowed: latest.allowed.filter((a) => a.deviceKey !== deviceKey) }));
 
-  const listed: AccessRow[] = Object.entries(known)
-    .filter(([, d]) => d.platform !== "android")
-    .map(([id, d]) => ({ id, name: d.name, platform: d.platform, deviceKey: d.deviceKey }));
+  const rows: AccessRow[] = Object.entries(known).map(([id, d]) => ({ id, name: d.name, platform: d.platform, deviceKey: d.deviceKey }));
+  const listed = rows.filter((d) => d.platform !== "android");
   const unlisted: AccessRow[] = config.allowed
     .filter((a) => !listed.some((d) => d.deviceKey === a.deviceKey))
-    .map((a) => ({ id: a.deviceKey, name: a.name || a.deviceKey.slice(0, 12), platform: "", deviceKey: a.deviceKey }));
+    .map((a) => rows.find((d) => d.deviceKey === a.deviceKey) ?? { id: a.deviceKey, name: a.name || a.deviceKey.slice(0, 12), platform: "", deviceKey: a.deviceKey });
   const devices = [...listed, ...unlisted];
 
   return (
