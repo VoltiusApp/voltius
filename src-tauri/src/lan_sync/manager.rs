@@ -819,6 +819,7 @@ impl Shared {
             state
                 .rejected
                 .retain(|(id, _)| !vouched.contains(&id.as_str()));
+            state.told.retain(|id| !vouched.contains(&id.as_str()));
             state.unlinked.retain(|(id, seen)| {
                 let keep = !vouched.contains(&id.as_str());
                 if !keep {
@@ -1083,6 +1084,7 @@ impl Shared {
         let mut state = self.lock();
         drop(store);
         state.tag(link.addr.ip(), &id);
+        state.told.remove(&id);
         if is_self || state.closed || state.peers.get(&id).is_some_and(|p| p.rank <= rank) {
             return;
         }
@@ -1326,7 +1328,9 @@ impl Shared {
         let mut state = self.lock();
         state.prune();
         let missing = |id: &str| {
-            id != self.me.device_id && !state.peers.contains_key(id) && !state.told.contains(id)
+            id != self.me.device_id
+                && !state.peers.contains_key(id)
+                && !(self.kind == Kind::Farewell && state.told.contains(id))
         };
         let candidates = state
             .dialable
@@ -2916,6 +2920,21 @@ mod tests {
             b.shared.unlisted(),
             vec![addr(2), addr(5), addr(3), addr(1)]
         );
+    }
+
+    #[tokio::test]
+    async fn account_manager_does_not_skip_a_device_it_refused_as_a_farewell() {
+        let (m, mut em) = spawn_as(
+            test_identity("dev-m"),
+            PeerStore::memory(),
+            moved_to_account(1, 9),
+        )
+        .await;
+        let (_session, _fd) = raw_link(&m, &test_identity("dev-x"), &[9]).await.unwrap();
+        next_event(&mut em, farewell_sent("dev-x")).await;
+        let addr = SocketAddr::from(([192, 0, 2, 9], 1));
+        m.shared.store().seed("dev-x", &[addr], now_secs());
+        assert_eq!(m.shared.unlisted(), vec![addr]);
     }
 
     #[tokio::test]
