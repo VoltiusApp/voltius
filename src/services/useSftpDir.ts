@@ -10,6 +10,7 @@ import { connectDevice } from "@/services/deviceFiles";
 import { useReadOnlyFlips } from "@/services/deviceReadOnly";
 import type { MyDevice } from "@/services/myDevices";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
@@ -45,7 +46,11 @@ const targetKey = (t: SftpDirTarget | undefined) => (!t ? undefined : "device" i
 export async function connectTarget(
   target: SftpDirTarget, connectId: string, opts: { interactive?: boolean; relink?: string } = {},
 ): Promise<{ sftpId: string; readOnly?: boolean; rttMs?: number }> {
-  if ("device" in target) return connectDevice(target.device.deviceId, connectId, opts.relink);
+  if ("device" in target) {
+    const opened = await connectDevice(target.device.deviceId, connectId, opts.relink);
+    useEditorStore.getState().setSftpReadOnly(opened.sftpId, !!opened.readOnly);
+    return opened;
+  }
   const sftpId = await connectFileBackend(target, connectId, opts.interactive, opts.relink);
   useConnectionStore.getState().setLastUsed(target.id).catch(() => {});
   return { sftpId };

@@ -81,6 +81,29 @@ describe("deviceFiles", () => {
     expect(calls("device_files_start")).toHaveLength(0);
   });
 
+  test("save updates the store before rust answers and restores it on failure", async () => {
+    useDeviceFilesStore.getState().setConfig(CONFIG);
+    let release!: () => void;
+    let fail = false;
+    h.invoke.mockImplementation(async (cmd: string) => {
+      if (cmd !== "device_files_set_config") return undefined;
+      await new Promise<void>((r) => { release = r; });
+      if (fail) throw new Error("save failed");
+    });
+    const next = { ...CONFIG, readOnly: true };
+    const saving = saveFileAccess(next);
+    await vi.waitFor(() => expect(calls("device_files_set_config")).toHaveLength(1));
+    expect(useDeviceFilesStore.getState().config).toBe(next);
+    release();
+    await saving;
+    fail = true;
+    const failing = saveFileAccess({ ...next, enabled: false });
+    await vi.waitFor(() => expect(calls("device_files_set_config")).toHaveLength(2));
+    release();
+    await expect(failing).rejects.toThrow("save failed");
+    expect(useDeviceFilesStore.getState().config).toBe(next);
+  });
+
   test("load_without_account_leaves_config_empty", async () => {
     h.account = null;
     await loadFileAccess();

@@ -66,3 +66,17 @@ test("a coded sftp-closed shows that code's message and stops retrying", async (
   act(() => closed.handlers.get("sftp-closed-sftp-dev")!({ payload: { code: "device-file-access-off" } }));
   expect(result.current.phase).toMatchObject({ tag: "error", errorCode: "device-file-access-off", final: true });
 });
+
+test("a device connect sets read-only on that session's open editor tabs", async () => {
+  const { connectTarget } = await import("./useSftpDir");
+  const { connectDevice } = await import("@/services/deviceFiles");
+  const { useEditorStore } = await import("@/stores/editorStore");
+  const setSftpReadOnly = vi.spyOn(useEditorStore.getState(), "setSftpReadOnly");
+  const device = { deviceId: "d5", deviceKey: "k", name: "Work PC", platform: "linux", state: "ready", route: "lan", lastSeen: null } as const;
+  vi.mocked(connectDevice).mockResolvedValueOnce({ sftpId: "sftp-re", rttMs: 3, readOnly: true });
+  await connectTarget({ device }, "c1", { relink: "sftp-re" });
+  expect(setSftpReadOnly).toHaveBeenLastCalledWith("sftp-re", true);
+  vi.mocked(connectDevice).mockResolvedValueOnce({ sftpId: "sftp-re", rttMs: 3, readOnly: false });
+  await connectTarget({ device }, "c2", { relink: "sftp-re" });
+  expect(setSftpReadOnly).toHaveBeenLastCalledWith("sftp-re", false);
+});

@@ -103,8 +103,15 @@ export async function answerFileRequest(requestId: string, answer: FileAnswer): 
 export async function saveFileAccess(config: FileAccessConfig): Promise<void> {
   const accountId = await getAccountId();
   if (!accountId) return;
-  await invoke("device_files_set_config", { accountId, config });
+  const prev = store().config;
+  // Store first: a second save inside this round trip must build on this one, or Rust reads the dropped entry as a revoke.
   store().setConfig(config);
+  try {
+    await invoke("device_files_set_config", { accountId, config });
+  } catch (e) {
+    if (store().config === config) store().setConfig(prev);
+    throw e;
+  }
 }
 
 export function disconnectDevice(deviceKey: string): Promise<void> {
