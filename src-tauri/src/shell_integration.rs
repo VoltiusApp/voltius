@@ -668,7 +668,7 @@ const TTL_TMUX_VERSIONS: &str = TMUX_CC_VERSIONS;
 macro_rules! ttl_idle_check {
     () => {
         r#"voltius_idle() {
-  o=$(eval "${VOLTIUS_PS:-ps -e -o pid= -o ppid= -o stat= -o comm= -o args=}") && [ -n "$o" ] || return 1
+  o=$(ps -e -o pid= -o ppid= -o stat= -o comm= -o args=) && [ -n "$o" ] || return 1
   printf '%s\n' "$o" | awk -v r="$*" '
 function sh(c) { return c ~ /^(sh|bash|zsh|fish|dash|ksh|mksh|ash|tcsh|csh|busybox)$/ }
 function kind(l,  a, n, i) {
@@ -1832,14 +1832,41 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn run_ttl_check(ps_cmd: &str, proc_dir: &std::path::Path, call: &str) -> std::process::Output {
-        std::process::Command::new("sh")
-            .arg("-c")
+    const FAKE_PS: &str = "#!/bin/sh\nexec sh -c \"$FAKE_PS\"\n";
+
+    #[cfg(unix)]
+    fn fake_bin_path(dir: &std::path::Path, bins: &[(&str, &str)]) -> String {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::create_dir_all(dir).unwrap();
+        for (name, body) in bins {
+            let bin = dir.join(name);
+            std::fs::write(&bin, body).unwrap();
+            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        format!(
+            "{}:{}",
+            dir.display(),
+            std::env::var("PATH").unwrap_or_default()
+        )
+    }
+
+    #[cfg(unix)]
+    fn ttl_check(ps_cmd: &str, proc_dir: &std::path::Path, call: &str) -> std::process::Command {
+        let mut cmd = std::process::Command::new("sh");
+        cmd.arg("-c")
             .arg(format!("{TTL_IDLE_CHECK}\n{call}"))
-            .env("VOLTIUS_PS", ps_cmd)
-            .env("VOLTIUS_PROC", proc_dir)
-            .output()
-            .expect("sh runs")
+            .env(
+                "PATH",
+                fake_bin_path(&proc_dir.join("bin"), &[("ps", FAKE_PS)]),
+            )
+            .env("FAKE_PS", ps_cmd)
+            .env("VOLTIUS_PROC", proc_dir);
+        cmd
+    }
+
+    #[cfg(unix)]
+    fn run_ttl_check(ps_cmd: &str, proc_dir: &std::path::Path, call: &str) -> std::process::Output {
+        ttl_check(ps_cmd, proc_dir, call).output().expect("sh runs")
     }
 
     #[cfg(unix)]
@@ -1979,25 +2006,19 @@ exit 0
         sh_args: &[&str],
         env: &[(&str, &str)],
     ) -> (std::process::Output, Vec<Vec<String>>) {
-        use std::os::unix::fs::PermissionsExt;
         use std::sync::atomic::{AtomicUsize, Ordering};
         static RUN: AtomicUsize = AtomicUsize::new(0);
         let dir = ttl_scratch(&format!("tmux-{}", RUN.fetch_add(1, Ordering::Relaxed)));
-        for (name, body) in [
-            ("tmux", FAKE_TMUX),
-            ("sleep", FAKE_SLEEP),
-            ("date", FAKE_DATE),
-        ] {
-            let bin = dir.join(name);
-            std::fs::write(&bin, body).unwrap();
-            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
-        let log = dir.join("log");
-        let path = format!(
-            "{}:{}",
-            dir.display(),
-            std::env::var("PATH").unwrap_or_default()
+        let path = fake_bin_path(
+            &dir,
+            &[
+                ("tmux", FAKE_TMUX),
+                ("sleep", FAKE_SLEEP),
+                ("date", FAKE_DATE),
+                ("ps", FAKE_PS),
+            ],
         );
+        let log = dir.join("log");
         let out = std::process::Command::new("sh")
             .args(sh_args)
             .env("PATH", path)
@@ -2132,11 +2153,7 @@ exit 0
         env: &[(&str, &str)],
     ) -> Vec<Vec<String>> {
         let proc_dir = dir.to_string_lossy().into_owned();
-        let mut all = vec![
-            ("TTL", "0"),
-            ("VOLTIUS_PROC", &proc_dir),
-            ("VOLTIUS_PS", ps),
-        ];
+        let mut all = vec![("TTL", "0"), ("VOLTIUS_PROC", &proc_dir), ("FAKE_PS", ps)];
         all.extend_from_slice(env);
         let (out, calls) = run_fake_tmux(&["-c", TTL_REAPER, "voltius-reap", session], &all);
         assert!(
@@ -2215,13 +2232,14 @@ exit 0
     #[test]
     fn idle_check_terminates_on_a_self_parented_pid() {
         let dir = ttl_scratch("cycle");
-        let mut child = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(format!("{TTL_IDLE_CHECK}\nvoltius_idle 10"))
-            .env("VOLTIUS_PS", ps_fixture(&dir, "10 10 S bash -bash\n"))
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .expect("sh runs");
+        let mut child = ttl_check(
+            &ps_fixture(&dir, "10 10 S bash -bash\n"),
+            &dir,
+            "voltius_idle 10",
+        )
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("sh runs");
         let mut done = None;
         for _ in 0..100 {
             done = child.try_wait().unwrap();
