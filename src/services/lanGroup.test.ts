@@ -38,6 +38,7 @@ import { isAlive } from "./crdt";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { GLOBAL_PROXY_PASSWORD_KEY as PROXY_KEY } from "./teamVaultSecretKeys";
+import { LAN_FAREWELL_ENTRY } from "./accountCacheKeys";
 
 const SELF = "self-device";
 const HOST = "host-device";
@@ -1011,16 +1012,18 @@ test("a pairing names the member whose key it would replace", async () => {
   expect(await replacedMember("phone", "12".repeat(32))).toBeUndefined();
 });
 
-test("a device that left while linked owes no farewell; one that left alone owes each member one until told", async () => {
+test("a leave owes each member a farewell before its tombstone is written, until each is told", async () => {
   noPasswordDevice(G);
   groupOne({ device_key: SELF_KEY }, [entity("phone", { kind: "member", name: "Phone", platform: "android", device_key: "ef".repeat(32), joined_at: OLD })]);
   holdEpochs({ 1: "11".repeat(32) });
-  await leaveGroup("left", true);
-  expect((await readFarewell())?.pending).toEqual([]);
+  h.invoke.mockClear();
 
-  groupOne({ device_key: SELF_KEY }, [entity("phone", { kind: "member", name: "Phone", platform: "android", device_key: "ef".repeat(32), joined_at: OLD })]);
-  await tick();
   await leaveGroup("left");
+
+  const at = (match: (call: unknown[]) => boolean) => h.invoke.mock.invocationCallOrder[h.invoke.mock.calls.findIndex(match)];
+  const owed = at(([cmd, args]) => cmd === "keychain_set" && (args as { key: string }).key === LAN_FAREWELL_ENTRY);
+  expect(owed).toBeLessThan(at(([cmd]) => cmd === "state_import"));
+  expect(aliveIn(exported())).toEqual(["group", HOST, "phone"]);
   expect((await readFarewell())?.pending).toEqual([HOST, "phone"]);
   await farewellSent("stranger");
   await Promise.all([farewellSent("phone"), farewellSent(HOST)]);

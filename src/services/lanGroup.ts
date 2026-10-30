@@ -303,16 +303,16 @@ const departed = (member: GroupMember, reason: LeaveReason, at: string) =>
 
 /**
  * Marks this device departed; its newest secret stays behind as the farewell key.
- * A device that left unlinked still owes a farewell to every other live member.
+ * Every other live member is owed a farewell until it is heard, so a leave cut short still delivers.
  */
-export async function leaveGroup(reason: LeaveReason, linked = false): Promise<void> {
+export async function leaveGroup(reason: LeaveReason): Promise<void> {
   const { selfId, group } = await currentGroup();
   const self = group?.members.find((m) => m.id === selfId);
   if (!group || !self) return;
   const at = new Date().toISOString();
   if (group.secrets[0]) {
     const others = group.members.filter((m) => m.id !== selfId && isAlive(m) && !m.moved_at).map((m) => m.id);
-    const pending = reason === "left" ? { pending: linked ? [] : others } : {};
+    const pending = reason === "left" ? { pending: others } : {};
     await keepFarewell({ secret: bytesToHex(group.secrets[0].secret), at, reason, group: group.groupId, ...pending });
   }
   await writeGroup([departed(self, reason, at)], {}, at);

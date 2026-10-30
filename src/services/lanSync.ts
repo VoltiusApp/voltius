@@ -160,7 +160,7 @@ async function resolveScope(): Promise<Resolved | null> {
   };
 }
 
-// A device that left while no member was linked dials them until each has heard it, or the key expires.
+// A device that left dials its members until each has heard it, or the key expires.
 async function farewellOnly(): Promise<Resolved | null> {
   const farewell = await readFarewell().catch(() => null);
   if (farewell?.reason !== "left" || !farewell.group || !owesFarewell(farewell)) return null;
@@ -433,7 +433,7 @@ export async function leaveLanGroup(reason: LeaveReason = "account"): Promise<vo
   const group = await readGroup();
   if (!group) return reason === "left" ? resumeLeave() : undefined;
   const linked = canPush();
-  await leaveGroup(reason, linked);
+  await leaveGroup(reason);
   await flush();
   if (reason === "left") await forgetLeftGroup(group.groupId, linked);
 }

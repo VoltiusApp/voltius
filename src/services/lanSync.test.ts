@@ -838,7 +838,7 @@ describe("no-account groups", () => {
     await started();
     h.leaveGroup.mockImplementation(async () => { h.group = null; });
     await leaveLanGroup();
-    expect(h.leaveGroup).toHaveBeenCalledWith("account", true);
+    expect(h.leaveGroup).toHaveBeenCalledWith("account");
     expect(broadcasts()).toBe(1);
   });
 
@@ -859,16 +859,17 @@ describe("no-account groups", () => {
       h.farewell = farewell;
     });
 
-  test("leaving while linked pushes the leave, then stops, drops its secrets, clears the scope and owes no farewell", async () => {
+  test("leaving while linked pushes the leave, then stops, drops its secrets, clears the scope and still owes the farewell", async () => {
     h.group = GROUP;
     await started();
-    leaving({ ...LEFT, pending: [] });
+    leaving(LEFT);
 
     await leave();
 
-    expect(h.leaveGroup).toHaveBeenCalledWith("left", true);
-    const steps = ["lan_sync_broadcast", "lan_sync_stop", "lan_sync_clear_scope"];
-    expect(h.invoke.mock.calls.map(([c]) => c).filter((c) => [...steps, "lan_sync_start"].includes(c))).toEqual(steps);
+    expect(h.leaveGroup).toHaveBeenCalledWith("left");
+    const steps = ["lan_sync_broadcast", "lan_sync_stop", "lan_sync_clear_scope", "lan_sync_start"];
+    expect(h.invoke.mock.calls.map(([c]) => c).filter((c) => steps.includes(c))).toEqual(steps);
+    expect(calls("lan_sync_start").map(([, a]) => a)).toEqual([SAYS_FAREWELL]);
     const at = (cmd: string) => h.invoke.mock.invocationCallOrder[h.invoke.mock.calls.findIndex(([c]) => c === cmd)];
     expect(h.dropSecrets.mock.invocationCallOrder[0]).toBeGreaterThan(at("lan_sync_stop"));
     expect(h.dropSecrets.mock.invocationCallOrder[0]).toBeLessThan(at("lan_sync_clear_scope"));
@@ -876,18 +877,36 @@ describe("no-account groups", () => {
     expect(useLanSyncStore.getState().known).toEqual({});
   });
 
-  test.each([
-    ["this device is paused", () => useLanSyncStore.setState({ paused: true })],
-    ["every linked member is paused", () => useLanSyncStore.setState({ presence: { N: "paused" } })],
-  ])("a leave that cannot push because %s still owes the farewell", async (_case, pause) => {
+  test("a leave killed before its push goes out still owes every member, and the next start says farewell to each", async () => {
     h.group = GROUP;
     await started();
-    pause();
-    leaving(LEFT);
+    h.leaveGroup.mockImplementation(async (_reason: string, linked = false) => {
+      h.group = null;
+      h.holds = true;
+      h.farewell = { ...LEFT, pending: linked ? [] : LEFT.pending };
+    });
+    let kill!: (e: Error) => void;
+    h.exportLocalBlob.mockImplementationOnce(() => new Promise((_, reject) => { kill = reject; }));
+    const left = leaveLanGroup("left").catch(() => {});
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(broadcasts()).toBe(0);
+    expect(calls("lan_sync_clear_scope")).toHaveLength(0);
 
-    await leave();
+    await stopLanSync();
+    h.invoke.mockClear();
+    await startLanSync();
 
-    expect(h.leaveGroup).toHaveBeenCalledWith("left", false);
+    expect(h.holds).toBe(false);
+    expect(calls("lan_sync_start").map(([, a]) => a)).toEqual([SAYS_FAREWELL]);
+    for (const id of LEFT.pending) {
+      emit("farewell-sent", { deviceId: id });
+      await settle();
+    }
+    expect(h.farewell?.pending).toEqual([]);
+    expect(calls("lan_sync_stop")).toHaveLength(2);
+    kill(new Error("killed"));
+    await vi.advanceTimersByTimeAsync(2000);
+    await left;
   });
 
   test("leaving unlinked says farewell from a hidden manager, quietly, until every member heard it", async () => {
@@ -898,7 +917,7 @@ describe("no-account groups", () => {
 
     await leave();
 
-    expect(h.leaveGroup).toHaveBeenCalledWith("left", false);
+    expect(h.leaveGroup).toHaveBeenCalledWith("left");
     expect(calls("lan_sync_start").map(([, a]) => a)).toEqual([SAYS_FAREWELL]);
     emit("status", "running");
     expect(useLanSyncStore.getState().status).toBe("stopped");
@@ -930,7 +949,7 @@ describe("no-account groups", () => {
   test("a leave whose drop failed finishes on the next try and on the next start", async () => {
     h.group = GROUP;
     await started();
-    leaving({ ...LEFT, pending: [] });
+    leaving(LEFT);
     h.dropSecrets.mockRejectedValueOnce(new Error("io"));
 
     const attempt = leaveLanGroup("left").catch((e: Error) => e.message);
