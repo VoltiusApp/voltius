@@ -197,9 +197,24 @@ impl FileService {
         self.broker.answer(request_id, answer)
     }
 
-    pub fn set_config(&self, mut cfg: FileAccessConfig) -> Result<(), String> {
-        let mut guard = self.core.lock();
-        let book = &mut *guard;
+    pub fn set_config(&self, cfg: FileAccessConfig) -> Result<(), String> {
+        self.apply(&mut self.core.lock(), cfg)
+    }
+
+    pub fn forget_device(&self, key: &str) -> Result<(), String> {
+        let mut book = self.core.lock();
+        book.forget(key);
+        if !book.cfg.allowed.iter().any(|d| d.device_key == key) {
+            return Ok(());
+        }
+        let mut cfg = book.cfg.clone();
+        cfg.allowed.retain(|d| d.device_key != key);
+        self.apply(&mut book, cfg)?;
+        self.core.emit(CONFIG, json!(book.cfg));
+        Ok(())
+    }
+
+    fn apply(&self, book: &mut Book, mut cfg: FileAccessConfig) -> Result<(), String> {
         cfg.keep_seen_from(&book.cfg);
         policy::save(&self.dir, &self.account, &cfg)?;
         let old = std::mem::replace(&mut book.cfg, cfg);
@@ -374,6 +389,10 @@ impl FileService {
 
     pub(crate) fn admitted(&self) -> u64 {
         self.core.lock().next
+    }
+
+    pub(crate) fn grants_for(&self, key: &str) -> usize {
+        self.core.lock().grants.held_by(key)
     }
 }
 

@@ -1330,7 +1330,6 @@ impl Manager {
         self.shared.lock().dialable.iter().map(|k| k.addr).collect()
     }
 
-    #[cfg(test)]
     pub fn record(&self, device_id: &str) -> Option<super::peers::PeerRecord> {
         self.shared.store().get(device_id).cloned()
     }

@@ -1,6 +1,6 @@
 use super::raw_body;
 #[cfg(desktop)]
-use crate::device_files::service::FileService;
+use crate::device_files::{for_account, service::FileService, stop_where, Slot};
 use crate::lan_sync::addrs;
 use crate::lan_sync::handshake::valid_device_id;
 use crate::lan_sync::identity::{
@@ -63,9 +63,24 @@ impl LanSyncState {
     }
 
     #[cfg(desktop)]
-    pub(crate) async fn offer_files(&self, svc: Option<Arc<FileService>>) {
+    fn scoped<'a>(&self, slot: &'a Slot) -> Option<&'a Arc<FileService>> {
+        lock(&self.scope)
+            .as_deref()
+            .and_then(|s| for_account(slot, s))
+    }
+
+    #[cfg(desktop)]
+    pub(crate) async fn offer_files(&self, slot: &Slot) {
         if let Some(manager) = self.manager.lock().await.as_ref() {
-            offer_to(manager, svc).await;
+            offer_to(manager, self.scoped(slot).cloned()).await;
+        }
+    }
+
+    #[cfg(desktop)]
+    async fn forget_files(&self, key: &str) {
+        let slot = self.files.service.lock().await;
+        if let Some(Err(e)) = self.scoped(&slot).map(|svc| svc.forget_device(key)) {
+            log::warn!("device-files: revoking a forgotten device failed: {e}");
         }
     }
 
@@ -159,7 +174,7 @@ pub async fn start_inner(
     let auth_keys = Zeroizing::new(auth_keys);
     let derived = Zeroizing::new(auth_keys.iter().map(|k| derive_auth_key(k)).collect());
     #[cfg(desktop)]
-    let files = state.files.service.lock().await;
+    let mut files = state.files.service.lock().await;
     let mut running = state.manager.lock().await;
     let (epoch, paused) = {
         let mut relay = state.relay();
@@ -190,7 +205,10 @@ pub async fn start_inner(
     let own = store_dir.map(|dir| (dir.to_path_buf(), device_id));
     tokio::spawn(forward(rx, state.relay.clone(), epoch, emit, own));
     #[cfg(desktop)]
-    offer_to(&manager, files.clone()).await;
+    {
+        stop_where(&mut files, |s| s.account() != scope);
+        offer_to(&manager, files.clone()).await;
+    }
     *running = Some(manager);
     *lock(&state.scope) = Some(scope.to_string());
     Ok(())
@@ -213,7 +231,19 @@ async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
 }
 
 pub async fn forget_inner(state: &LanSyncState, device_id: &str) -> bool {
-    with_manager(state, |m| m.forget(device_id)).await
+    #[cfg_attr(not(desktop), allow(unused_variables))]
+    let (key, forgotten) = with_manager(state, |m| {
+        let key = m
+            .record(device_id)
+            .map(|r| crate::crypto::hex(&r.device_key));
+        (key, m.forget(device_id))
+    })
+    .await;
+    #[cfg(desktop)]
+    if let Some(key) = key.filter(|_| forgotten) {
+        state.forget_files(&key).await;
+    }
+    forgotten
 }
 
 pub async fn clear_scope_inner(
@@ -221,6 +251,10 @@ pub async fn clear_scope_inner(
     scope: &str,
     dir: &Path,
 ) -> Result<(), String> {
+    #[cfg(desktop)]
+    stop_where(&mut *state.files.service.lock().await, |s| {
+        s.account() == scope
+    });
     let mut running = state.manager.lock().await;
     if lock(&state.scope).as_deref() == Some(scope) {
         stop_running(state, &mut running).await;

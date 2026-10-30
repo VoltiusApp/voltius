@@ -117,6 +117,11 @@ impl Grants {
     pub fn clear(&mut self) {
         self.by_token.clear();
     }
+
+    #[cfg(test)]
+    pub fn held_by(&self, key: &str) -> usize {
+        self.by_token.values().filter(|(k, _)| k == key).count()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
