@@ -660,7 +660,8 @@ done
     )
 }
 
-const TTL_TMUX_VERSIONS: &str = r#"*"tmux "3.*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*"#;
+/// tmux < 3.2 fires `client-detached` only for `detach-client`, never for a lost client.
+const TTL_TMUX_VERSIONS: &str = TMUX_CC_VERSIONS;
 
 /// `voltius_idle PID...`: every process under the pane pids is allowlisted and not running
 /// (prints the shell pids). `voltius_quiet PID...`: those shells' summed utime+stime.
@@ -722,13 +723,13 @@ const TTL_IDLE_CHECK: &str = ttl_idle_check!();
 
 /// Run by the `client-detached` hook as `sh -c "$R" voltius-reap <session>`.
 /// Every failed check exits without killing.
-const TTL_REAPER: &str = concat!(
+pub(crate) const TTL_REAPER: &str = concat!(
     ttl_idle_check!(),
     r#"S=$1
 T="tmux -L voltius"
 case $S in voltius_*) ;; *) exit 0 ;; esac
 L=$($T show -v -t "=$S:" @voltius_ttl 2>/dev/null)
-case $L in ''|*[!0-9]*|??????????*) exit 0 ;; esac
+case $L in ''|0?*|*[!0-9]*|??????????*) exit 0 ;; esac
 voltius_held() {
   $T has-session -t "=$S" 2>/dev/null &&
   [ "$($T display -p -t "=$S:" '#{session_attached}' 2>/dev/null)" = 0 ] &&
@@ -766,6 +767,12 @@ exit 0
 "#
 );
 
+/// tmux 3.4 stores `$` as `\$` and `show` turns newlines into `_` outside tmux, so the
+/// option holds the reaper as a printf format of printable ASCII only.
+fn ttl_reaper_option() -> String {
+    printf_escape(TTL_REAPER)
+}
+
 /// The reaper rejects 10+ digit TTLs; `$((now + ttl))` must not overflow.
 const MAX_TTL_SECS: u64 = 999_999_999;
 
@@ -774,15 +781,15 @@ pub fn persistent_ttl_command(session_key: &str, ttl_secs: Option<u64>) -> Strin
         Some(secs) => format!(
             r#"$T set -g @voltius_reap {reaper} &&
 $T set -t ={key}: @voltius_ttl {secs} &&
-$T set-hook -t ={key} client-detached 'run-shell -b "sh -c \"\$(tmux -L {socket} show -gv @voltius_reap)\" voltius-reap #{{session_name}}"'
+$T set-hook -t ={key}: client-detached 'run-shell -b "sh -c \"\$(printf \"\$(tmux -L {socket} show -gv @voltius_reap)\")\" voltius-reap #{{session_name}} >/dev/null 2>&1 || :"'
 "#,
-            reaper = crate::ssh::exec::shell_quote(TTL_REAPER),
+            reaper = crate::ssh::exec::shell_quote(&ttl_reaper_option()),
             secs = secs.min(MAX_TTL_SECS),
             key = session_key,
             socket = TMUX_SOCKET,
         ),
         None => format!(
-            r#"$T set-hook -u -t ={session_key} client-detached 2>/dev/null
+            r#"$T set-hook -u -t ={session_key}: client-detached 2>/dev/null
 $T set -u -t ={session_key}: @voltius_ttl 2>/dev/null
 true
 "#
@@ -1774,7 +1781,7 @@ mod tests {
     fn ttl_command_arms_hook_with_seconds() {
         let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", Some(86400)));
         assert!(s.contains("set -t =voltius_s1: @voltius_ttl 86400 "));
-        assert!(s.contains("set-hook -t =voltius_s1 client-detached"));
+        assert!(s.contains("set-hook -t =voltius_s1: client-detached"));
         assert!(s.contains("@voltius_reap"));
         assert!(s.contains("until tmux -L voltius has-session -t =voltius_s1"));
         assert!(!s.contains("set-hook -u"));
@@ -1789,7 +1796,7 @@ mod tests {
     #[test]
     fn ttl_command_off_disarms() {
         let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", None));
-        assert!(s.contains("set-hook -u -t =voltius_s1 client-detached"));
+        assert!(s.contains("set-hook -u -t =voltius_s1: client-detached"));
         assert!(s.contains("set -u -t =voltius_s1: @voltius_ttl"));
         assert!(!s.contains("@voltius_reap"));
     }
@@ -2038,7 +2045,7 @@ exit 0
             "tmux 3.4",
             &persistent_ttl_command("voltius_s1", Some(3600)),
         );
-        assert!(armed.contains(&tmux(&["set", "-g", "@voltius_reap", TTL_REAPER])));
+        assert!(armed.contains(&tmux(&["set", "-g", "@voltius_reap", &ttl_reaper_option()])));
         assert!(armed.contains(&tmux(&[
             "set",
             "-t",
@@ -2049,28 +2056,41 @@ exit 0
         assert!(armed.contains(&tmux(&[
             "set-hook",
             "-t",
-            "=voltius_s1",
+            "=voltius_s1:",
             "client-detached",
-            r#"run-shell -b "sh -c \"\$(tmux -L voltius show -gv @voltius_reap)\" voltius-reap #{session_name}""#,
+            r#"run-shell -b "sh -c \"\$(printf \"\$(tmux -L voltius show -gv @voltius_reap)\")\" voltius-reap #{session_name} >/dev/null 2>&1 || :""#,
         ])));
 
-        let off = fake_tmux_calls("tmux 3.0a", &persistent_ttl_command("voltius_s1", None));
+        let off = fake_tmux_calls("tmux 3.2a", &persistent_ttl_command("voltius_s1", None));
         assert!(off.contains(&tmux(&[
             "set-hook",
             "-u",
             "-t",
-            "=voltius_s1",
+            "=voltius_s1:",
             "client-detached"
         ])));
         assert!(off.contains(&tmux(&["set", "-u", "-t", "=voltius_s1:", "@voltius_ttl"])));
 
-        for old in ["tmux 2.9a", "tmux next-3.5", ""] {
+        for old in ["tmux 2.9a", "tmux 3.0a", "tmux 3.1c", "tmux next-3.5", ""] {
             let calls = fake_tmux_calls(old, &persistent_ttl_command("voltius_s1", Some(3600)));
             assert!(
                 calls.iter().all(|c| c.len() == 1),
                 "{old:?} must stop after -V: {calls:?}"
             );
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ttl_reaper_option_decodes_back_with_printf() {
+        let out = std::process::Command::new("sh")
+            .args(["-c", r#"printf "$1""#, "x", &ttl_reaper_option()])
+            .output()
+            .expect("sh runs");
+        assert_eq!(String::from_utf8_lossy(&out.stdout), TTL_REAPER);
+        assert!(ttl_reaper_option()
+            .chars()
+            .all(|c| c.is_ascii_graphic() || c == ' '));
     }
 
     #[cfg(unix)]
@@ -2147,6 +2167,7 @@ exit 0
             ("voltius_s1", &idle, ("ATT", "1"), false),
             ("voltius_s1", &idle, ("TTL", ""), false),
             ("voltius_s1", &idle, ("TTL", "9999999999"), false),
+            ("voltius_s1", &idle, ("TTL", "000000008"), false),
             ("voltius_s1", &idle, ("HAS", "1"), false),
             ("work", &idle, ("", ""), false),
         ];
