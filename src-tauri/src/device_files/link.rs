@@ -368,6 +368,22 @@ mod tests {
         SocketAddr::from((Ipv4Addr::LOCALHOST, m.port()))
     }
 
+    type Outcome = (Option<ErrorCode>, Vec<(String, Option<ErrorCode>)>);
+
+    async fn failed_dial(me: &Manager) -> Outcome {
+        let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
+        link.bind("sftp-1".into());
+        let code = link.dial().await.err().unwrap().code();
+        let closed = closes.lock().unwrap().clone();
+        assert_eq!(link.closed_now(), !closed.is_empty());
+        (code, closed)
+    }
+
+    fn denied() -> Outcome {
+        let code = Some(ErrorCode::DeviceAccessDenied);
+        (code, vec![("sftp-1".into(), code)])
+    }
+
     fn rekeyed() -> LocalIdentity {
         LocalIdentity {
             key: DeviceKey::from_private(derive_auth_key(b"rekeyed")),
@@ -440,19 +456,7 @@ mod tests {
             (forgotten, PinPolicy::Repin),
         ] {
             let me = lan(test_identity("me"), store, policy).await;
-            let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
-            link.bind("sftp-1".into());
-            let err = link.dial().await.err().unwrap();
-            assert_eq!(
-                err.code(),
-                Some(ErrorCode::DeviceAccessDenied),
-                "{policy:?}"
-            );
-            assert!(link.closed_now(), "{policy:?}");
-            assert_eq!(
-                closes.lock().unwrap()[..],
-                [("sftp-1".to_string(), Some(ErrorCode::DeviceAccessDenied))]
-            );
+            assert_eq!(failed_dial(&me).await, denied(), "{policy:?}");
         }
     }
 
@@ -467,15 +471,7 @@ mod tests {
             PinPolicy::Repin,
         )
         .await;
-        let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
-        link.bind("sftp-1".into());
-        let err = link.dial().await.err().unwrap();
-        assert_eq!(err.code(), Some(ErrorCode::DeviceAccessDenied));
-        assert!(link.closed_now());
-        assert_eq!(
-            closes.lock().unwrap()[..],
-            [("sftp-1".to_string(), Some(ErrorCode::DeviceAccessDenied))]
-        );
+        assert_eq!(failed_dial(&me).await, denied());
     }
 
     #[tokio::test]
@@ -493,12 +489,8 @@ mod tests {
                 block(&mut store, "other");
             }
             let me = lan(test_identity("me"), store, PinPolicy::Repin).await;
-            let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
-            link.bind("sftp-1".into());
-            let err = link.dial().await.err().unwrap();
-            assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable), "{blocked}");
-            assert!(!link.closed_now(), "{blocked}");
-            assert!(closes.lock().unwrap().is_empty(), "{blocked}");
+            let unreachable = (Some(ErrorCode::DeviceUnreachable), vec![]);
+            assert_eq!(failed_dial(&me).await, unreachable, "{blocked}");
         }
     }
 

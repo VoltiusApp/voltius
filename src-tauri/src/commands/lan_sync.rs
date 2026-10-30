@@ -415,7 +415,7 @@ impl LanSyncState {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::lan_sync::handshake::handshake;
     use crate::lan_sync::identity::test_identity;
@@ -424,9 +424,9 @@ mod tests {
     use std::time::Duration;
     use tokio::net::TcpStream;
 
-    type Seen = Arc<Mutex<Vec<(&'static str, Value)>>>;
+    pub(crate) type Seen = Arc<Mutex<Vec<(&'static str, Value)>>>;
 
-    fn recorder() -> (Emit, Seen) {
+    pub(crate) fn recorder() -> (Emit, Seen) {
         let seen = Seen::default();
         let sink = seen.clone();
         let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name, payload)));

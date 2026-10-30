@@ -309,6 +309,7 @@ mod serving {
 #[cfg(all(test, desktop))]
 mod tests {
     use super::*;
+    use crate::commands::lan_sync::tests::{recorder, Seen};
     use crate::commands::lan_sync::{
         clear_scope_inner, forget_inner, peers_inner, start_inner as lan_start,
         stop_inner as lan_stop, Emit,
@@ -329,7 +330,6 @@ mod tests {
 
     const ACCOUNT: &str = "acct";
 
-    type Seen = Arc<Mutex<Vec<(&'static str, Value)>>>;
     type Closed = Arc<Mutex<Vec<(String, Option<ErrorCode>)>>>;
 
     fn key_of(id: &str) -> String {
@@ -429,13 +429,6 @@ mod tests {
         }
     }
 
-    fn recording() -> (Emit, Seen) {
-        let seen = Seen::default();
-        let sink = seen.clone();
-        let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name, payload)));
-        (emit, seen)
-    }
-
     fn events_in(seen: &Seen, name: &str) -> Vec<Value> {
         let seen = seen.lock().unwrap();
         seen.iter()
@@ -450,7 +443,7 @@ mod tests {
         std::fs::create_dir(&share).unwrap();
         std::fs::write(share.join("hello.txt"), b"hi").unwrap();
         policy::save(dir.path(), ACCOUNT, &config(&share, always)).unwrap();
-        let (emit, seen) = recording();
+        let (emit, seen) = recorder();
         let lan = lan(me).await;
         serve_files(&lan, dir.path(), ACCOUNT, emit).await;
         Server { lan, dir, seen }
@@ -1046,7 +1039,7 @@ mod tests {
         let a = lan(test_identity("dev-a")).await;
         a.meet(&b).await;
         until_files(&b, "dev-a", false).await;
-        let (emit, seen) = recording();
+        let (emit, seen) = recorder();
         serve_files(&b, dir.path(), "other", quiet()).await;
         assert!(forget_inner(&b, "dev-a", dir.path(), &emit).await);
         let svc = b.files.service.lock().await.clone().unwrap();
@@ -1069,7 +1062,7 @@ mod tests {
         let a = lan(test_identity("dev-a")).await;
         a.meet(&b).await;
         until_files(&b, "dev-a", false).await;
-        let (emit, seen) = recording();
+        let (emit, seen) = recorder();
         assert!(forget_inner(&b, "dev-a", dir.path(), &emit).await);
         let left = policy::load(dir.path(), ACCOUNT);
         assert_eq!(left, config(dir.path(), &["dev-c"]));
