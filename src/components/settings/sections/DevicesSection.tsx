@@ -14,7 +14,21 @@ import { SettingRow, SettingsGroup } from "./shared";
 
 const BUTTON = "shrink-0 h-8 px-3 rounded-lg text-xs font-medium border border-(--t-border) bg-(--t-bg-card) text-(--t-text-secondary) hover:text-(--t-text-primary)";
 
-const save = (config: FileAccessConfig) => void saveFileAccess(config).catch(logFailure("device-files save config"));
+type Patch = Partial<FileAccessConfig> | ((latest: FileAccessConfig) => Partial<FileAccessConfig>);
+
+const update = (patch: Patch) => {
+  const latest = useDeviceFilesStore.getState().config;
+  if (!latest) return;
+  const next = { ...latest, ...(typeof patch === "function" ? patch(latest) : patch) };
+  void saveFileAccess(next).catch(logFailure("device-files save config"));
+};
+
+interface AccessRow {
+  id: string;
+  name: string;
+  platform: string;
+  deviceKey?: string;
+}
 
 export default function DevicesSection() {
   const { t } = useTranslation();
@@ -27,32 +41,35 @@ export default function DevicesSection() {
   }, [isAndroid]);
   if (isAndroid || !config) return null;
 
-  const update = (patch: Partial<FileAccessConfig>) => save({ ...config, ...patch });
-
   const setEnabled = async (enabled: boolean) => {
-    if (enabled && config.folders.length === 0) {
-      const downloads = await downloadDir().catch(() => null);
-      update({ enabled, folders: downloads ? [downloads] : [] });
-      return;
-    }
-    update({ enabled });
+    const downloads = enabled && config.folders.length === 0 ? await downloadDir().catch(() => null) : null;
+    update((latest) => (enabled && latest.folders.length === 0 ? { enabled, folders: downloads ? [downloads] : [] } : { enabled }));
   };
 
   const addFolder = async () => {
     const picked = await openSystemDialog({ directory: true, multiple: false });
-    if (typeof picked !== "string" || config.folders.includes(picked)) return;
-    update({ folders: [...config.folders, picked] });
+    if (typeof picked !== "string") return;
+    update((latest) => (latest.folders.includes(picked) ? {} : { folders: [...latest.folders, picked] }));
   };
 
-  const setAlways = (deviceKey: string, name: string, always: boolean) => {
-    const exists = config.allowed.some((a) => a.deviceKey === deviceKey);
-    const allowed: AllowedDevice[] = exists
-      ? config.allowed.map((a) => (a.deviceKey === deviceKey ? { ...a, always } : a))
-      : [...config.allowed, { deviceKey, name, always, lastOpened: null }];
-    update({ allowed });
-  };
+  const setAlways = (deviceKey: string, name: string, always: boolean) =>
+    update((latest) => {
+      const exists = latest.allowed.some((a) => a.deviceKey === deviceKey);
+      const allowed: AllowedDevice[] = exists
+        ? latest.allowed.map((a) => (a.deviceKey === deviceKey ? { ...a, always } : a))
+        : [...latest.allowed, { deviceKey, name, always, lastOpened: null }];
+      return { allowed };
+    });
 
-  const devices = Object.entries(known).filter(([, d]) => d.platform !== "android");
+  const revoke = (deviceKey: string) => update((latest) => ({ allowed: latest.allowed.filter((a) => a.deviceKey !== deviceKey) }));
+
+  const listed: AccessRow[] = Object.entries(known)
+    .filter(([, d]) => d.platform !== "android")
+    .map(([id, d]) => ({ id, name: d.name, platform: d.platform, deviceKey: d.deviceKey }));
+  const unlisted: AccessRow[] = config.allowed
+    .filter((a) => !listed.some((d) => d.deviceKey === a.deviceKey))
+    .map((a) => ({ id: a.deviceKey, name: a.name || a.deviceKey.slice(0, 12), platform: "", deviceKey: a.deviceKey }));
+  const devices = [...listed, ...unlisted];
 
   return (
     <div className="p-6 space-y-6">
@@ -93,13 +110,13 @@ export default function DevicesSection() {
 
       <SettingsGroup title={t("settings.devices.allowed.title")} divided>
         {devices.length === 0 && <div className="px-4 py-3 text-xs text-(--t-text-dim)">{t("settings.devices.allowed.empty")}</div>}
-        {devices.map(([deviceId, device]) => {
+        {devices.map((device) => {
           const key = device.deviceKey;
           const entry = key ? config.allowed.find((a) => a.deviceKey === key) : undefined;
           const connected = !!key && sessions.some((s) => s.deviceKey === key);
           return (
             <SettingRow
-              key={deviceId}
+              key={device.id}
               title={
                 <span className="flex items-center gap-2.5">
                   <span
@@ -133,7 +150,7 @@ export default function DevicesSection() {
                 </button>
               )}
               {entry && (
-                <button className={BUTTON} onClick={() => update({ allowed: config.allowed.filter((a) => a.deviceKey !== key) })}>
+                <button className={BUTTON} onClick={() => revoke(entry.deviceKey)}>
                   {t("settings.devices.allowed.revoke")}
                 </button>
               )}

@@ -9,7 +9,8 @@ const loadFileAccess = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("react-i18next", async (orig) => ({ ...(await orig<object>()), useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@tauri-apps/api/path", () => ({ downloadDir: vi.fn(async () => "/home/me/Downloads") }));
-vi.mock("@/services/systemDialog", () => ({ openSystemDialog: vi.fn(async () => "/home/me/Pictures") }));
+const openSystemDialog = vi.hoisted(() => vi.fn(async (): Promise<unknown> => "/home/me/Pictures"));
+vi.mock("@/services/systemDialog", () => ({ openSystemDialog }));
 vi.mock("@/services/deviceFiles", () => ({ saveFileAccess, disconnectDevice, loadFileAccess }));
 vi.mock("@/utils/platform", async (orig) => ({
   ...(await orig<object>()),
@@ -138,5 +139,47 @@ describe("DevicesSection", () => {
     setup(null);
     const { container } = render(<DevicesSection />);
     expect(container.innerHTML).toBe("");
+  });
+
+  test("an always-allowed device missing from known can still be revoked", () => {
+    const entry = { deviceKey: "key-lost", name: "Old laptop", always: true, lastOpened: null };
+    setup({ ...base, allowed: [entry] }, {});
+    render(<DevicesSection />);
+    expect(screen.getByText("Old laptop")).toBeTruthy();
+    expect(screen.getByText("settings.devices.allowed.alwaysAllowed")).toBeTruthy();
+    expect(screen.queryByText("settings.devices.allowed.empty")).toBeNull();
+    fireEvent.click(screen.getByText("settings.devices.allowed.revoke"));
+    expect(lastSaved().allowed).toEqual([]);
+  });
+
+  test("a known device's entry is not listed twice", () => {
+    const entry = { deviceKey: "key-mac", name: "Old name", always: true, lastOpened: null };
+    setup({ ...base, allowed: [entry] }, { d1: laptop });
+    render(<DevicesSection />);
+    expect(screen.getAllByText("settings.devices.allowed.revoke")).toHaveLength(1);
+    expect(screen.queryByText("Old name")).toBeNull();
+  });
+
+  test("an always entry approved while the folder dialog is open survives add folder", async () => {
+    let pick!: (path: string) => void;
+    openSystemDialog.mockImplementationOnce(() => new Promise((r) => (pick = r)));
+    setup({ ...base, enabled: true, folders: ["/data"] });
+    render(<DevicesSection />);
+    fireEvent.click(screen.getByText("settings.devices.fileAccess.addFolder"));
+    const always = { deviceKey: "key-new", name: "New", always: true, lastOpened: null };
+    useDeviceFilesStore.getState().setConfig({ ...base, enabled: true, folders: ["/data"], allowed: [always] });
+    pick("/home/me/Pictures");
+    await waitFor(() => expect(saveFileAccess).toHaveBeenCalled());
+    expect(lastSaved()).toMatchObject({ folders: ["/data", "/home/me/Pictures"], allowed: [always] });
+  });
+
+  test("turning access on keeps an always entry that landed while downloads resolved", async () => {
+    setup(base);
+    render(<DevicesSection />);
+    fireEvent.click(screen.getByLabelText("settings.devices.fileAccess.enable.title"));
+    const always = { deviceKey: "key-new", name: "New", always: true, lastOpened: null };
+    useDeviceFilesStore.getState().setConfig({ ...base, allowed: [always] });
+    await waitFor(() => expect(saveFileAccess).toHaveBeenCalled());
+    expect(lastSaved()).toMatchObject({ enabled: true, folders: ["/home/me/Downloads"], allowed: [always] });
   });
 });
