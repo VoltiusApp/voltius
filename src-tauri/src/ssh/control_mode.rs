@@ -1255,48 +1255,16 @@ mod tests {
 #[cfg(test)]
 mod docker_harness {
     use super::*;
-    use crate::ssh::test_docker::{docker, Container as Host};
+    use crate::ssh::test_docker::{
+        container_name, docker, ensure_image, Container as Host, TMUX_IMAGES,
+    };
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
-    const IMAGES: &[(&str, &str)] = &[
-        ("tmuxh:ubuntu-22-04", "ubuntu:22.04"),
-        ("tmuxh:debian-bookworm", "debian:bookworm"),
-        ("tmuxh:ubuntu-24-04", "ubuntu:24.04"),
-        ("tmuxh:debian-trixie-slim", "debian:trixie-slim"),
-        ("tmuxh:ubuntu-26-04", "ubuntu:26.04"),
-    ];
-
-    fn ensure_image(tag: &str, base: &str) {
-        if docker(&["image", "inspect", tag]).status.success() {
-            return;
-        }
-        let dockerfile = format!(
-            "FROM {base}\nRUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y tmux >/dev/null && rm -rf /var/lib/apt/lists/*\n"
-        );
-        let mut child = Command::new("docker")
-            .args(["build", "-q", "-t", tag, "-"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(dockerfile.as_bytes())
-            .unwrap();
-        assert!(child.wait().unwrap().success(), "build {tag}");
-    }
-
     fn start(image: &str, workload: &str) -> Host {
-        let name = format!(
-            "voltius-cc-{}-{}",
-            std::process::id(),
-            image.replace([':', '.'], "-")
-        );
+        let name = container_name("voltius-cc", image);
         let env = format!("W={workload}");
         let boot = r#"tmux -L t -f /dev/null new-session -d -s s -x 80 -y 24 "$W"; sleep 600"#;
         let host = Host::run(name, &["-e", &env, image, "sh", "-c", boot]);
@@ -1400,7 +1368,7 @@ mod docker_harness {
     #[test]
     #[ignore = "needs docker"]
     fn mid_burst_attach_is_gap_free_and_matches_tmux() {
-        for (image, base) in IMAGES {
+        for (image, base) in TMUX_IMAGES {
             ensure_image(image, base);
             let host = start(
                 image,
@@ -1430,7 +1398,7 @@ mod docker_harness {
     #[test]
     #[ignore = "needs docker"]
     fn fresh_session_shows_the_prompt_once() {
-        for (image, base) in IMAGES {
+        for (image, base) in TMUX_IMAGES {
             ensure_image(image, base);
             let host = start(image, "PS1=PROMPT; export PS1; exec sh");
             let (mut parser, _) = attach(&host, None, Duration::from_secs(2));
@@ -1447,7 +1415,7 @@ mod docker_harness {
     #[ignore = "needs docker"]
     fn alternate_screen_app_is_rebuilt_with_its_modes() {
         let app = r"printf 'NORMAL1\nNORMAL2\n'; printf '\033[?1049h\033[3;8r\033[?1h\033=\033[?1002h\033[?1006h\033[5;3HALTSCREEN'; sleep 600";
-        for (image, base) in IMAGES {
+        for (image, base) in TMUX_IMAGES {
             ensure_image(image, base);
             let host = start(image, app);
             std::thread::sleep(Duration::from_millis(300));
@@ -1484,7 +1452,7 @@ mod docker_harness {
             selection_fg: "#101820".into(),
             selection_bg: "#c8d0e0".into(),
         };
-        for (image, base) in IMAGES {
+        for (image, base) in TMUX_IMAGES {
             ensure_image(image, base);
             let host = start(image, app);
             attach(&host, Some(colors.clone()), Duration::from_secs(6));
