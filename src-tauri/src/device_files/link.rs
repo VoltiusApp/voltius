@@ -358,6 +358,12 @@ mod tests {
         store
     }
 
+    fn block(store: &mut PeerStore, id: &str) {
+        let key = test_identity(id).key.public;
+        store.decide(id, &key, now_secs(), PinPolicy::Repin);
+        store.forget(id, now_secs());
+    }
+
     fn local(m: &Manager) -> SocketAddr {
         SocketAddr::from((Ipv4Addr::LOCALHOST, m.port()))
     }
@@ -451,6 +457,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_device_that_forgot_us_denies_access() {
+        let mut forgot_me = PeerStore::memory();
+        block(&mut forgot_me, "me");
+        let device = lan(test_identity("dev"), forgot_me, PinPolicy::Repin).await;
+        let me = lan(
+            test_identity("me"),
+            knowing(&[local(&device)]),
+            PinPolicy::Repin,
+        )
+        .await;
+        let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
+        link.bind("sftp-1".into());
+        let err = link.dial().await.err().unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::DeviceAccessDenied));
+        assert!(link.closed_now());
+        assert_eq!(
+            closes.lock().unwrap()[..],
+            [("sftp-1".to_string(), Some(ErrorCode::DeviceAccessDenied))]
+        );
+    }
+
+    #[tokio::test]
     async fn reopen_past_a_different_device_stays_retryable() {
         let other = lan(
             test_identity("other"),
@@ -462,9 +490,7 @@ mod tests {
         for blocked in [false, true] {
             let mut store = knowing(&[refusing, local(&other)]);
             if blocked {
-                let key = test_identity("other").key.public;
-                store.decide("other", &key, now_secs(), PinPolicy::Repin);
-                store.forget("other", now_secs());
+                block(&mut store, "other");
             }
             let me = lan(test_identity("me"), store, PinPolicy::Repin).await;
             let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));

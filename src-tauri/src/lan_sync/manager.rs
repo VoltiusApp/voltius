@@ -1177,6 +1177,7 @@ impl FilesDialer {
                 Err(FilesDialError::Refused(reason))
             }
             Frame::FilesReply(reply) => Ok((SessionStream::new(link.session), reply, key)),
+            Frame::Bye => Err(FilesDialError::Refused(Refusal::Denied)),
             _ => Err(FilesDialError::Unreachable("unexpected frame".into())),
         }
     }
