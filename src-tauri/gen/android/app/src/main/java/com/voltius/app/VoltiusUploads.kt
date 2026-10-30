@@ -1,7 +1,7 @@
 package com.voltius.app
 
 import android.app.Activity
-import android.content.ClipDescription
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
@@ -41,6 +41,14 @@ object VoltiusUploads {
         }.start()
     }
 
+    @Volatile
+    private var dropTarget = false
+
+    @JvmStatic
+    fun setDropTarget(on: Boolean) {
+        dropTarget = on
+    }
+
     fun installDrop(activity: Activity, webView: WebView) {
         val density = activity.resources.displayMetrics.density
         var active = false
@@ -51,7 +59,7 @@ object VoltiusUploads {
             webView.evaluateJavascript(js, null)
         }
         webView.setOnDragListener { _, e ->
-            if (e.action == DragEvent.ACTION_DRAG_STARTED) active = carriesFiles(e.clipDescription)
+            if (e.action == DragEvent.ACTION_DRAG_STARTED) active = dropTarget
             if (!active) return@setOnDragListener false
             when (e.action) {
                 DragEvent.ACTION_DRAG_ENTERED -> tell("over", e)
@@ -73,20 +81,16 @@ object VoltiusUploads {
         }
     }
 
-    private fun carriesFiles(desc: ClipDescription?): Boolean {
-        if (desc == null) return false
-        return (0 until desc.mimeTypeCount).any {
-            val mime = desc.getMimeType(it)
-            !mime.startsWith("text/") || mime == ClipDescription.MIMETYPE_TEXT_URILIST
-        }
-    }
-
     private fun dropped(activity: Activity, e: DragEvent, density: Float): Boolean {
+        if (!dropTarget) return false
         val clip = e.clipData ?: return false
-        val uris = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+        val uris = (0 until clip.itemCount).mapNotNull {
+            clip.getItemAt(it).uri?.takeIf { u -> u.scheme == ContentResolver.SCHEME_CONTENT }
+        }
         if (uris.isEmpty()) return false
-        // Never released: staging (and every Retry) reads the URIs later; the grant ends with the activity.
-        activity.requestDragAndDropPermissions(e) ?: return false
+        // Best effort and never released: the source may have granted read already, and staging
+        // (and every Retry) reads the URIs later; the grant ends with the activity.
+        activity.requestDragAndDropPermissions(e)
         val x = e.x / density
         val y = e.y / density
         describeAsync(activity.applicationContext, uris) { json ->

@@ -32,6 +32,7 @@ vi.mock("@/services/useSftpDir", async (orig) => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useAndroidFileDrop, FILE_DRAG_EVENT } from "./useAndroidFileDrop";
 import type { SftpPaneId } from "./sftpSelectionCore";
 import type { ContentFile } from "@/services/uploads";
@@ -72,8 +73,11 @@ function mount(props: Partial<Parameters<typeof Harness>[0]> = {}) {
   const view = render(<Harness onDrop={onDrop} {...props} />);
   const hover = () => view.container.querySelector("[data-hover]")!.getAttribute("data-hover");
   const point = (id: string | null) => { under = id ? view.container.querySelector(`[data-in="${id}"]`) : null; };
-  return { onDrop, hover, point };
+  const rerender = (p: Partial<Parameters<typeof Harness>[0]>) => view.rerender(<Harness onDrop={onDrop} {...props} {...p} />);
+  return { onDrop, hover, point, rerender, view };
 }
+
+const nativeFlag = () => vi.mocked(invoke).mock.calls.filter(([c]) => c === "upload_drop_target").map(([, a]) => (a as { on: boolean }).on);
 
 describe("useAndroidFileDrop", () => {
   test("a drop goes to the pane under the finger", async () => {
@@ -105,6 +109,46 @@ describe("useAndroidFileDrop", () => {
     expect(hover()).toBe("none");
   });
 
+  test("the native drop target is turned on at mount and off at unmount", async () => {
+    const { view } = mount();
+    expect(nativeFlag()).toEqual([true]);
+    view.unmount();
+    expect(nativeFlag()).toEqual([true, false]);
+  });
+
+  test("hiding the screen mid-drag clears the highlight and turns the native target off", async () => {
+    const { hover, point, rerender, onDrop } = mount();
+    point("a");
+    drag({ phase: "over", x: 1, y: 2 });
+    expect(hover()).toBe("a");
+    rerender({ enabled: false });
+    expect(hover()).toBe("none");
+    expect(nativeFlag()).toEqual([true, false]);
+    drag({ phase: "over", x: 1, y: 2 });
+    expect(hover()).toBe("none");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.dropped).toBeNull();
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  test("with two screens mounted only the last enabled one takes the drop", async () => {
+    const under1 = vi.fn();
+    const top = vi.fn();
+    const view = render(<><Harness onDrop={under1} /><Harness onDrop={top} /></>);
+    under = view.container.querySelectorAll('[data-in="b"]')[1];
+    drag({ phase: "over", x: 1, y: 2 });
+    expect([...view.container.querySelectorAll("[data-hover]")].map((e) => e.getAttribute("data-hover"))).toEqual(["none", "b"]);
+    await vi.waitFor(() => expect(vi.mocked(listen).mock.calls.length).toBeGreaterThanOrEqual(2));
+    for (const [, cb] of vi.mocked(listen).mock.calls.slice(-2)) {
+      act(() => (cb as (e: { payload: unknown }) => void)({ payload: { x: 5, y: 6, files: FILES } }));
+    }
+    expect(under1).not.toHaveBeenCalled();
+    expect(top).toHaveBeenCalledWith("b", FILES);
+    expect(nativeFlag()).toEqual([true]);
+    view.unmount();
+    expect(nativeFlag()).toEqual([true, false]);
+  });
+
   test("does nothing while the screen is hidden", async () => {
     const { onDrop, hover, point } = mount({ enabled: false });
     point("a");
@@ -113,6 +157,7 @@ describe("useAndroidFileDrop", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(h.dropped).toBeNull();
     expect(onDrop).not.toHaveBeenCalled();
+    expect(nativeFlag()).toEqual([]);
   });
 });
 

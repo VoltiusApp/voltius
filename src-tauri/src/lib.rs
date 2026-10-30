@@ -519,6 +519,7 @@ pub fn run() {
             commands::downloads::download_dir_clear,
             commands::downloads::download_publish,
             commands::uploads::upload_pick,
+            commands::uploads::upload_drop_target,
             commands::uploads::upload_stage,
             commands::uploads::upload_stage_clear,
             ios_native::haptic_perform,

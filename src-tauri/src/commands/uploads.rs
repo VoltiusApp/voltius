@@ -25,7 +25,7 @@ struct DroppedFiles {
 
 #[cfg(target_os = "android")]
 mod android {
-    use crate::android_ctx::{load_class, with_env, PickSlot};
+    use crate::android_ctx::{call_static_bool, load_class, with_env, PickSlot};
     use jni::objects::{JClass, JString, JValue};
     use jni::JNIEnv;
 
@@ -34,6 +34,10 @@ mod android {
 
     pub async fn pick() -> Result<Option<String>, String> {
         PICK.pick("file picker", CLASS).await
+    }
+
+    pub fn set_drop_target(on: bool) {
+        call_static_bool(CLASS, "setDropTarget", on);
     }
 
     pub fn copy_to_cache(uri: &str, dest: &str) -> Result<(), String> {
@@ -132,6 +136,14 @@ pub async fn upload_pick() -> Result<Vec<PickedFile>, String> {
     {
         Err("file upload picker is Android-only".into())
     }
+}
+
+#[tauri::command]
+pub fn upload_drop_target(on: bool) {
+    #[cfg(target_os = "android")]
+    android::set_drop_target(on);
+    #[cfg(not(target_os = "android"))]
+    let _ = on;
 }
 
 #[tauri::command]
