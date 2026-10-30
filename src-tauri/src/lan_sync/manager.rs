@@ -813,7 +813,8 @@ impl Shared {
         let link = secure(stream, addr, true, self).await?;
         drop(permit);
         if link.hello.device_id != id {
-            return Err(FilesDialError::WrongDevice);
+            let other = format!("a different device answered at {addr}");
+            return Err(FilesDialError::Unreachable(other));
         }
         Ok(link)
     }
@@ -823,8 +824,11 @@ impl Shared {
         for addr in self.files_targets(id)? {
             match self.files_link(addr, id).await {
                 Ok(link) => return Ok(link),
-                Err(e @ FilesDialError::Handshake(HandshakeError::Pinned(_))) => return Err(e),
-                Err(e) => failed = e,
+                Err(e) => {
+                    if !matches!(failed, FilesDialError::Handshake(HandshakeError::Pinned(_))) {
+                        failed = e;
+                    }
+                }
             }
         }
         Err(failed)
@@ -1410,6 +1414,7 @@ mod tests {
     use crate::lan_sync::handshake::initiate_with_hello;
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey};
     use crate::lan_sync::protocol::raw_hello_frame;
+    use crate::lan_sync::reserved;
     use std::io::Write;
     use std::sync::atomic::AtomicUsize;
 
@@ -2221,14 +2226,6 @@ mod tests {
         timeout(Duration::from_secs(5), rebind).await.unwrap()
     }
 
-    fn reserved() -> (Socket, SocketAddr) {
-        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
-        let any = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
-        socket.bind(&any.into()).unwrap();
-        let addr = socket.local_addr().unwrap().as_socket().unwrap();
-        (socket, addr)
-    }
-
     fn listening(socket: Socket) -> TcpListener {
         socket.listen(128).unwrap();
         socket.set_nonblocking(true).unwrap();
@@ -2755,7 +2752,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_files_rejects_key_mismatch() {
+    async fn open_files_rejects_a_different_device() {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         let (c, _ec) = spawn("dev-c", 1).await;
@@ -2764,7 +2761,7 @@ mod tests {
         tag(&a, local(&c), "dev-b");
         assert!(matches!(
             open_err(&a, "dev-b").await,
-            FilesDialError::WrongDevice
+            FilesDialError::Unreachable(_)
         ));
         until("handshakes settle", || idle(&c)).await;
         assert_eq!(served(&svc), 0);
@@ -2808,7 +2805,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn inbound_only_peer_without_known_port_is_unreachable() {
+    async fn pinned_device_without_an_address_is_unreachable() {
         let (b, mut eb) = spawn("dev-b", 1).await;
         let (_session, _fd) = raw_peer(&b, "dev-a").await;
         next_event(&mut eb, listed("dev-a")).await;
@@ -2945,10 +2942,23 @@ mod tests {
 
     #[tokio::test]
     async fn open_files_tries_next_address_when_first_fails() {
-        let refusing = SocketAddr::from(([127, 0, 0, 3], 1));
+        let (_socket, refusing) = reserved();
         let (a, b, svc) = remembered_b(&[refusing]).await;
         assert_eq!(a.shared.sweep_order("dev-b"), [refusing, local(&b)]);
         open(&a, "dev-b").await.unwrap();
+        assert_eq!(served(&svc), 1);
+    }
+
+    #[tokio::test]
+    async fn a_blocked_device_at_a_stale_address_does_not_stop_the_dial() {
+        let (x, _ex) = spawn("dev-x", 1).await;
+        let (a, _b, svc) = remembered_b(&[local(&x)]).await;
+        seed(&mut a.shared.store(), "dev-x", &[], now_secs());
+        assert!(a.forget("dev-x"));
+        assert_eq!(
+            open(&a, "dev-b").await.unwrap(),
+            key_of(&test_identity("dev-b"))
+        );
         assert_eq!(served(&svc), 1);
     }
 

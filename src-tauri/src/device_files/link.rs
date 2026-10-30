@@ -204,7 +204,7 @@ impl DeviceLink {
                     | FilesDialError::Handshake(HandshakeError::Pinned(_)) => {
                         refused(Refusal::Denied)
                     }
-                    FilesDialError::WrongDevice if pinned.is_some() => unreachable(e),
+                    FilesDialError::WrongDevice => unreachable(e),
                     e => return Err(unreachable(e)),
                 };
                 return Err(self.close_with(fatal));
@@ -351,12 +351,19 @@ mod tests {
             .unwrap()
     }
 
-    fn knowing(addr: SocketAddr) -> PeerStore {
+    fn knowing(addrs: &[SocketAddr]) -> PeerStore {
         let mut store = PeerStore::memory();
         let key = test_identity("dev").key.public;
-        store.decide("dev", &key, now_secs(), PinPolicy::Repin);
-        store.record_addrs("dev", &[addr], now_secs());
+        let now = now_secs();
+        store.decide("dev", &key, now, PinPolicy::Repin);
+        for (age, addr) in addrs.iter().enumerate() {
+            store.record_addrs("dev", &[*addr], now - age as u64);
+        }
         store
+    }
+
+    fn local(m: &Manager) -> SocketAddr {
+        SocketAddr::from((Ipv4Addr::LOCALHOST, m.port()))
     }
 
     #[tokio::test]
@@ -366,11 +373,11 @@ mod tests {
             ..test_identity("dev")
         };
         let device = lan(rekeyed, PeerStore::memory(), PinPolicy::Repin).await;
-        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, device.port()));
-        let mut forgotten = knowing(addr);
+        let addr = local(&device);
+        let mut forgotten = knowing(&[addr]);
         forgotten.forget("dev", now_secs());
         for (store, policy) in [
-            (knowing(addr), PinPolicy::Refuse),
+            (knowing(&[addr]), PinPolicy::Refuse),
             (forgotten, PinPolicy::Repin),
         ] {
             let me = lan(test_identity("me"), store, policy).await;
@@ -388,6 +395,26 @@ mod tests {
                 [("sftp-1".to_string(), Some(ErrorCode::DeviceAccessDenied))]
             );
         }
+    }
+
+    #[tokio::test]
+    async fn reopen_past_a_different_device_stays_retryable() {
+        let other = lan(
+            test_identity("other"),
+            PeerStore::memory(),
+            PinPolicy::Repin,
+        )
+        .await;
+        let (_socket, refusing) = crate::lan_sync::reserved();
+        let store = knowing(&[refusing, local(&other)]);
+        let me = lan(test_identity("me"), store, PinPolicy::Repin).await;
+        let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
+        link.lock().key = Some(crate::crypto::hex(&test_identity("dev").key.public));
+        link.bind("sftp-1".into());
+        let err = link.dial().await.err().unwrap();
+        assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable));
+        assert!(!link.closed_now());
+        assert!(closes.lock().unwrap().is_empty());
     }
 
     #[tokio::test(start_paused = true)]
