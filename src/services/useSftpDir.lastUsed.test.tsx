@@ -32,7 +32,7 @@ test("device_target_uses_connectDevice", async () => {
   const device = { deviceId: "d1", deviceKey: "k", name: "Work PC", platform: "linux", state: "ready", route: "lan", lastSeen: null } as const;
   const { result } = renderHook(() => useSftpDir({ device }));
   await waitFor(() => expect(result.current.phase).toMatchObject({ tag: "connected", sftpId: "sftp-dev", readOnly: false }));
-  expect(connectDevice).toHaveBeenCalledWith("d1", expect.any(String));
+  expect(connectDevice).toHaveBeenCalledWith("d1", expect.any(String), undefined);
   expect(connectFileBackend).not.toHaveBeenCalledWith(expect.objectContaining({ id: "d1" }), expect.anything());
 });
 

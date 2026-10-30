@@ -29,9 +29,14 @@ function subtitle(t: TFunction, d: MyDevice): string {
   return routeLabel(t, d.route ?? "lan");
 }
 
-export function myDevicesVisible(devices: MyDevice[], query: string, blocked: boolean): boolean {
+function shownDevices(devices: MyDevice[], query: string, blocked: boolean): MyDevice[] | null {
   const matches = searchMatcher(query);
-  return blocked || devices.some((d) => matches(d.name));
+  const shown = devices.filter((d) => matches(d.name));
+  return blocked || shown.length > 0 ? shown : null;
+}
+
+export function myDevicesVisible(devices: MyDevice[], query: string, blocked: boolean): boolean {
+  return shownDevices(devices, query, blocked) !== null;
 }
 
 export function MyDevicesGroup({ density, onPick, selectedDeviceId, query = "" }: {
@@ -44,10 +49,9 @@ export function MyDevicesGroup({ density, onPick, selectedDeviceId, query = "" }
   const devices = useMyDevices();
   const blocked = useLanSyncStore((s) => s.status === "blocked");
   const platform = usePlatform();
-  const matches = searchMatcher(query);
-  const shown = devices.filter((d) => matches(d.name));
+  const shown = shownDevices(devices, query, blocked);
   const fix = blocked ? blockedFix(t, platform) : null;
-  if (!myDevicesVisible(devices, query, blocked)) return null;
+  if (!shown) return null;
 
   return (
     <div data-my-devices>

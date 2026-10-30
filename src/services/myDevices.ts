@@ -28,7 +28,6 @@ export function buildMyDevices(input: {
   selfId: string;
   peers: PeerInfo[];
   known: Record<string, KnownDevice>;
-  viewerIsAndroid: boolean;
 }): MyDevice[] {
   const { selfId, peers, known } = input;
   const live = new Map(peers.map((p) => [p.deviceId, p]));
@@ -68,5 +67,5 @@ export function useMyDevices(): MyDevice[] {
   useEffect(() => {
     void getDeviceId().then(setSelfId);
   }, []);
-  return useMemo(() => buildMyDevices({ selfId, peers, known, viewerIsAndroid: false }), [selfId, peers, known]);
+  return useMemo(() => buildMyDevices({ selfId, peers, known }), [selfId, peers, known]);
 }

@@ -42,6 +42,15 @@ export type SftpDirTarget = Connection | { device: MyDevice };
 
 const targetKey = (t: SftpDirTarget | undefined) => (!t ? undefined : "device" in t ? t.device.deviceId : t.id);
 
+export async function connectTarget(
+  target: SftpDirTarget, connectId: string, opts: { interactive?: boolean; relink?: string } = {},
+): Promise<{ sftpId: string; readOnly?: boolean; rttMs?: number }> {
+  if ("device" in target) return connectDevice(target.device.deviceId, connectId, opts.relink);
+  const sftpId = await connectFileBackend(target, connectId, opts.interactive, opts.relink);
+  useConnectionStore.getState().setLastUsed(target.id).catch(() => {});
+  return { sftpId };
+}
+
 /** Standalone remote SFTP browser for one Connection: own SSH/SFTP connection, cwd nav,
  *  dir listing, file ops. Remote-only (no local FS). Transfers NOT handled here. */
 export function useSftpDir(target: SftpDirTarget | undefined) {
@@ -60,14 +69,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     setPhase({ tag: "connecting" });
     (async () => {
       try {
-        let sftpId: string;
-        let readOnly: boolean | undefined;
-        if ("device" in target) {
-          ({ sftpId, readOnly } = await connectDevice(target.device.deviceId, genId()));
-        } else {
-          sftpId = await connectFileBackend(target, genId());
-          useConnectionStore.getState().setLastUsed(target.id).catch(() => {});
-        }
+        const { sftpId, readOnly } = await connectTarget(target, genId());
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;
         const home = await sftpCanonicalize(sftpId, ".");

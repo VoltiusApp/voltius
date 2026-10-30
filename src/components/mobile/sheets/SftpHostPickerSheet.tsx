@@ -5,7 +5,6 @@ import { useLanSyncStore } from "@/stores/lanSyncStore";
 import type { SftpPaneTarget } from "../panels/sftpSelectionCore";
 import HostPickerSheet from "./HostPickerSheet";
 
-/** SFTP's host picker: SSH-capable hosts and the account's other devices. */
 export default function SftpHostPickerSheet({
   excludeId, onPick, onClose,
 }: { excludeId?: string; onPick: (target: SftpPaneTarget) => void; onClose: () => void }) {

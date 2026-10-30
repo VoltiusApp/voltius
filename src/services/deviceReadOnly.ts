@@ -2,11 +2,15 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { useEditorStore } from "@/stores/editorStore";
 
 export function useReadOnlyFlips(sftpId: string | null, apply: (readOnly: boolean) => void) {
   useEffect(() => {
     if (!sftpId) return;
-    const unlisten = listen<{ readOnly: boolean }>(`sftp-readonly-${sftpId}`, ({ payload }) => apply(payload.readOnly));
+    const unlisten = listen<{ readOnly: boolean }>(`sftp-readonly-${sftpId}`, ({ payload }) => {
+      apply(payload.readOnly);
+      useEditorStore.getState().setSftpReadOnly(sftpId, payload.readOnly);
+    });
     return () => { void unlisten.then((fn) => fn()); };
   }, [sftpId, apply]);
 }

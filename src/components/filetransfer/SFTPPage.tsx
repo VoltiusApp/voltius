@@ -20,8 +20,7 @@ import { joinPath } from "./moveTargetCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
-import { connectFileBackend } from "@/services/sftpTarget";
-import { connectDevice } from "@/services/deviceFiles";
+import { connectTarget } from "@/services/useSftpDir";
 import { readOnlyTip, refuseReadOnly, useReadOnlyFlips } from "@/services/deviceReadOnly";
 import type { BackendErrorCode } from "@/services/backendErrors";
 import { hostPresentation } from "./hostPresentation";
@@ -39,7 +38,7 @@ import { TabDragGhost } from "./editor/TabDragGhost";
 import { triggerOsDrop as triggerOsDropPipeline } from "./osDropPipeline";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { findAnyConnection, useConnectionStore } from "@/stores/connectionStore";
+import { findAnyConnection } from "@/stores/connectionStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { lazyNamed } from "@/utils/lazyNamed";
@@ -138,14 +137,10 @@ export default function SFTPPage() {
       } else {
         opening.current[side] = connectId;
         try {
-          if (host.kind === "device") {
-            const opened = await connectDevice(host.device.deviceId, connectId, relink);
-            sftpId = opened.sftpId;
-            link = { route: host.device.route ?? undefined, rttMs: opened.rttMs, readOnly: opened.readOnly };
-          } else {
-            sftpId = await connectFileBackend(host.connection, connectId, true, relink);
-            useConnectionStore.getState().setLastUsed(host.connection.id).catch(() => {});
-          }
+          const target = host.kind === "device" ? { device: host.device } : host.connection;
+          const opened = await connectTarget(target, connectId, { interactive: true, relink });
+          sftpId = opened.sftpId;
+          if (host.kind === "device") link = { route: host.device.route ?? undefined, rttMs: opened.rttMs, readOnly: opened.readOnly };
         } finally {
           if (opening.current[side] === connectId) opening.current[side] = null;
         }

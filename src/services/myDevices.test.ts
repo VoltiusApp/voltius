@@ -20,8 +20,8 @@ const known = (name: string, lastSeen: string, o: Partial<KnownDevice> = {}): Kn
   lastRoute: "lan",
   ...o,
 });
-const build = (peers: PeerInfo[], k: Record<string, KnownDevice> = {}, viewerIsAndroid = false) =>
-  buildMyDevices({ selfId: "self", peers, known: k, viewerIsAndroid });
+const build = (peers: PeerInfo[], k: Record<string, KnownDevice> = {}) =>
+  buildMyDevices({ selfId: "self", peers, known: k });
 
 describe("buildMyDevices", () => {
   test("peer with files is ready", () => {
@@ -44,7 +44,6 @@ describe("buildMyDevices", () => {
   test("android_devices_hidden_everywhere", () => {
     const rows = build([peer("p", { platform: "android" })], { k: known("K", "2026-01-01T00:00:00Z", { platform: "android" }) });
     expect(rows).toEqual([]);
-    expect(build([peer("a")], {}, true)).toHaveLength(1);
   });
 
   test("self_excluded", () => {
