@@ -1,11 +1,15 @@
 use super::raw_body;
 #[cfg(desktop)]
 use crate::device_files::service::FileService;
+use crate::lan_sync::addrs;
 use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
 };
+use crate::lan_sync::lock;
 use crate::lan_sync::manager::{self, LanStatus, Manager, ManagerEvent, PeerInfo};
+use crate::lan_sync::peers::{PeerStore, PinPolicy};
 use serde_json::{json, Value};
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::ipc::{Request, Response};
 use tauri::{AppHandle, Emitter, State};
@@ -16,6 +20,7 @@ const EVENTS: usize = 64;
 const PEERS: &str = "lan-sync://peers";
 const BLOB_READY: &str = "lan-sync://blob-ready";
 const STATUS: &str = "lan-sync://status";
+const REJECTED: &str = "lan-sync://rejected";
 
 pub type Emit = Arc<dyn Fn(&'static str, Value) + Send + Sync>;
 
@@ -29,6 +34,7 @@ struct Relay {
 #[derive(Default)]
 pub struct LanSyncState {
     manager: tokio::sync::Mutex<Option<Manager>>,
+    scope: Mutex<Option<String>>,
     device_key: OnceCell<DeviceKey>,
     relay: Arc<Mutex<Relay>>,
     #[cfg(desktop)]
@@ -68,10 +74,6 @@ impl LanSyncState {
     }
 }
 
-fn lock(relay: &Mutex<Relay>) -> MutexGuard<'_, Relay> {
-    relay.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 fn status(s: LanStatus) -> (&'static str, Value) {
     (STATUS, json!(s))
 }
@@ -89,6 +91,9 @@ fn payloads(event: &ManagerEvent, paused: bool) -> Vec<(&'static str, Value)> {
             vec![(PEERS, json!([])), status(LanStatus::Stopped)]
         }
         ManagerEvent::Status(s) => vec![status(*s)],
+        ManagerEvent::Rejected { device_id, reason } => {
+            vec![(REJECTED, json!({ "deviceId": device_id, "reason": reason }))]
+        }
     }
 }
 
@@ -121,6 +126,8 @@ pub async fn start_inner(
     state: &LanSyncState,
     me: LocalIdentity,
     auth_keys: Vec<Vec<u8>>,
+    scope: &str,
+    store_dir: Option<&Path>,
     emit: Emit,
 ) -> Result<(), String> {
     let auth_keys = Zeroizing::new(auth_keys);
@@ -134,14 +141,17 @@ pub async fn start_inner(
         relay.status = LanStatus::Running;
         (relay.epoch, relay.paused)
     };
-    *running = None;
+    stop_running(state, &mut running).await;
     publish(&state.relay, None, &emit, &ManagerEvent::Peers(vec![]));
     #[cfg(target_os = "android")]
     if let Err(e) = crate::lan_sync::android::acquire_multicast_lock() {
         log::warn!("lan-sync: {e}");
     }
     let (tx, rx) = mpsc::channel(EVENTS);
-    let manager = match manager::start(me, derived, paused, !cfg!(test), tx).await {
+    let store = store_dir.map_or_else(PeerStore::memory, |dir| PeerStore::open(dir, scope));
+    let discovery = !cfg!(test);
+    let policy = PinPolicy::Repin;
+    let manager = match manager::start(me, derived, paused, discovery, store, policy, tx).await {
         Ok(manager) => manager,
         Err(e) => {
             #[cfg(target_os = "android")]
@@ -154,6 +164,7 @@ pub async fn start_inner(
     #[cfg(desktop)]
     offer_to(&manager, files.clone()).await;
     *running = Some(manager);
+    *lock(&state.scope) = Some(scope.to_string());
     Ok(())
 }
 
@@ -161,11 +172,35 @@ pub async fn stop_inner(state: &LanSyncState) {
     #[cfg(desktop)]
     crate::device_files::stop_running(&mut *state.files.service.lock().await);
     let mut running = state.manager.lock().await;
+    stop_running(state, &mut running).await;
+}
+
+async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
+    *lock(&state.scope) = None;
     if let Some(manager) = running.take() {
         manager.stop().await;
     }
     #[cfg(target_os = "android")]
     crate::lan_sync::android::release_multicast_lock();
+}
+
+pub async fn forget_inner(state: &LanSyncState, device_id: &str) -> bool {
+    with_manager(state, |m| m.forget(device_id)).await
+}
+
+pub async fn clear_scope_inner(
+    state: &LanSyncState,
+    scope: &str,
+    dir: &Path,
+) -> Result<(), String> {
+    let mut running = state.manager.lock().await;
+    if lock(&state.scope).as_deref() == Some(scope) {
+        stop_running(state, &mut running).await;
+    }
+    match std::fs::remove_file(PeerStore::path_for(dir, scope)) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+        _ => Ok(()),
+    }
 }
 
 pub async fn set_paused_inner(state: &LanSyncState, paused: bool, emit: &Emit) {
@@ -220,6 +255,7 @@ pub async fn lan_sync_start(
     device_id: String,
     device_name: String,
     auth_keys: Vec<Vec<u8>>,
+    scope: String,
 ) -> Result<(), String> {
     let emit = emitter(app);
     if cfg!(target_os = "ios") {
@@ -231,14 +267,32 @@ pub async fn lan_sync_start(
         device_name,
         platform: std::env::consts::OS.into(),
         key: state.device_key().await?,
+        addrs: addrs::none(),
     };
-    start_inner(&state, me, auth_keys, emit).await
+    let dir = crate::storage::config::config_dir();
+    start_inner(&state, me, auth_keys, &scope, Some(&dir), emit).await
 }
 
 #[tauri::command]
 pub async fn lan_sync_stop(state: State<'_, LanSyncState>) -> Result<(), String> {
     stop_inner(&state).await;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn lan_sync_forget(
+    state: State<'_, LanSyncState>,
+    device_id: String,
+) -> Result<bool, String> {
+    Ok(forget_inner(&state, &device_id).await)
+}
+
+#[tauri::command]
+pub async fn lan_sync_clear_scope(
+    state: State<'_, LanSyncState>,
+    scope: String,
+) -> Result<(), String> {
+    clear_scope_inner(&state, &scope, &crate::storage::config::config_dir()).await
 }
 
 #[tauri::command]
@@ -309,9 +363,14 @@ mod tests {
         (emit, seen)
     }
 
-    async fn until_any(seen: &Seen, what: &str, wanted: impl Fn(&(&'static str, Value)) -> bool) {
+    async fn until_after(
+        seen: &Seen,
+        from: usize,
+        what: &str,
+        wanted: impl Fn(&(&'static str, Value)) -> bool,
+    ) {
         let poll = async {
-            while !seen.lock().unwrap().iter().any(&wanted) {
+            while !seen.lock().unwrap()[from..].iter().any(&wanted) {
                 tokio::time::sleep(Duration::from_millis(5)).await;
             }
         };
@@ -321,6 +380,10 @@ mod tests {
         {
             panic!("never saw {what}; saw {:?}", seen.lock().unwrap());
         }
+    }
+
+    async fn until_any(seen: &Seen, what: &str, wanted: impl Fn(&(&'static str, Value)) -> bool) {
+        until_after(seen, 0, what, wanted).await;
     }
 
     async fn until(seen: &Seen, wanted: (&'static str, Value)) {
@@ -336,15 +399,27 @@ mod tests {
         }
     }
 
-    async fn start(state: &LanSyncState, account: u8, emit: &Emit) {
+    async fn start_in(
+        state: &LanSyncState,
+        account: u8,
+        scope: &str,
+        dir: Option<&Path>,
+        emit: &Emit,
+    ) {
         start_inner(
             state,
             test_identity("dev-me"),
             vec![vec![account; 32]],
+            scope,
+            dir,
             emit.clone(),
         )
         .await
         .unwrap();
+    }
+
+    async fn start(state: &LanSyncState, account: u8, emit: &Emit) {
+        start_in(state, account, "acct", None, emit).await;
     }
 
     async fn dial_as(state: &LanSyncState, id: &str, account: u8) -> Result<(), String> {
@@ -439,6 +514,86 @@ mod tests {
         );
         assert_eq!(seen.lock().unwrap().len(), before);
         stop_inner(&state).await;
+    }
+
+    #[tokio::test]
+    async fn start_passes_scope_and_forget_drops_peer() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = PeerStore::path_for(dir.path(), "acct-1");
+        let state = LanSyncState::default();
+        let (emit, seen) = recorder();
+        start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
+        dial_as(&state, "dev-a", 1).await.unwrap();
+        until_any(&seen, "dev-a listed", lists("dev-a")).await;
+        let before = seen.lock().unwrap().len();
+
+        assert!(forget_inner(&state, "dev-a").await);
+        until_after(&seen, before, "peers cleared", |e| *e == (PEERS, json!([]))).await;
+        assert!(!forget_inner(&state, "dev-a").await);
+        stop_inner(&state).await;
+        assert!(file.exists());
+    }
+
+    #[tokio::test]
+    async fn restart_flushes_the_old_peer_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = LanSyncState::default();
+        let (emit, seen) = recorder();
+        start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
+        dial_as(&state, "dev-a", 1).await.unwrap();
+        until_any(&seen, "dev-a listed", lists("dev-a")).await;
+        let restart = start_in(&state, 1, "acct-2", Some(dir.path()), &emit);
+        tokio::time::timeout(Duration::from_secs(10), restart)
+            .await
+            .expect("restart hung");
+        let saved = std::fs::read_to_string(PeerStore::path_for(dir.path(), "acct-1")).unwrap();
+        assert!(saved.contains("dev-a"), "{saved}");
+        stop_inner(&state).await;
+    }
+
+    #[tokio::test]
+    async fn clear_scope_removes_file_and_stops_matching_manager() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = PeerStore::path_for(dir.path(), "acct-1");
+        let state = LanSyncState::default();
+        let (emit, seen) = recorder();
+        start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
+        dial_as(&state, "dev-a", 1).await.unwrap();
+        until_any(&seen, "dev-a listed", lists("dev-a")).await;
+
+        clear_scope_inner(&state, "other", dir.path())
+            .await
+            .unwrap();
+        assert!(with_manager(&state, |_| true).await);
+        stop_inner(&state).await;
+        assert!(file.exists());
+
+        start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
+        clear_scope_inner(&state, "acct-1", dir.path())
+            .await
+            .unwrap();
+        until(&seen, status(LanStatus::Stopped)).await;
+        assert!(!with_manager(&state, |_| true).await);
+        assert!(!file.exists());
+        clear_scope_inner(&state, "acct-1", dir.path())
+            .await
+            .unwrap();
+    }
+
+    #[test]
+    fn rejected_event_is_relayed() {
+        use crate::lan_sync::peers::Rejection;
+        let event = ManagerEvent::Rejected {
+            device_id: "x".into(),
+            reason: Rejection::KeyChanged,
+        };
+        assert_eq!(
+            payloads(&event, false),
+            vec![(
+                "lan-sync://rejected",
+                json!({ "deviceId": "x", "reason": "keyChanged" })
+            )]
+        );
     }
 
     #[test]

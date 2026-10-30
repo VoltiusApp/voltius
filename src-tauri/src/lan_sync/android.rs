@@ -5,7 +5,7 @@ use std::sync::{Mutex, MutexGuard};
 static MULTICAST_LOCK: Mutex<Option<GlobalRef>> = Mutex::new(None);
 
 fn held() -> MutexGuard<'static, Option<GlobalRef>> {
-    MULTICAST_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    super::lock(&MULTICAST_LOCK)
 }
 
 pub fn acquire_multicast_lock() -> Result<(), String> {

@@ -418,6 +418,8 @@ mod tests {
             platform: me.platform,
             device_key: me.key.public,
             device_sig: vec![],
+            addrs: vec![],
+            features: vec![],
         }
     }
 

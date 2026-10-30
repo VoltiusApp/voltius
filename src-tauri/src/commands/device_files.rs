@@ -343,9 +343,16 @@ mod tests {
 
     async fn lan(me: LocalIdentity) -> Arc<LanSyncState> {
         let state = Arc::new(LanSyncState::default());
-        lan_start(&state, me, vec![vec![7; 32]], Arc::new(|_, _| {}))
-            .await
-            .unwrap();
+        lan_start(
+            &state,
+            me,
+            vec![vec![7; 32]],
+            ACCOUNT,
+            None,
+            Arc::new(|_, _| {}),
+        )
+        .await
+        .unwrap();
         state
     }
 

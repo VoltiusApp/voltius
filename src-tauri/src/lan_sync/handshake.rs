@@ -1,6 +1,8 @@
 use super::identity::{verify_signature, LocalIdentity};
+use super::peers::Rejection;
 use super::protocol::{
-    decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, MAX_FRAME, PROTOCOL_VERSION,
+    decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, FEATURES, MAX_FRAME,
+    MAX_HELLO_ADDRS, PROTOCOL_VERSION,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -29,6 +31,7 @@ pub(super) const IDLE_TIMEOUT: Duration = if cfg!(test) {
 } else {
     Duration::from_secs(30)
 };
+const MAX_DEVICE_ID: usize = 128;
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandshakeError {
@@ -42,6 +45,8 @@ pub enum HandshakeError {
     VersionMismatch(u16),
     #[error(transparent)]
     Protocol(#[from] ProtocolError),
+    #[error("peer refused by pin: {0:?}")]
+    Pinned(Rejection),
 }
 
 impl From<snow::Error> for HandshakeError {
@@ -331,12 +336,19 @@ fn hello(me: &LocalIdentity, handshake_hash: &[u8], initiator: bool) -> Hello {
         platform: me.platform.clone(),
         device_key: me.key.public,
         device_sig: me.key.sign(&device_msg(handshake_hash, initiator)).to_vec(),
+        addrs: (me.addrs)()
+            .iter()
+            .take(MAX_HELLO_ADDRS)
+            .map(ToString::to_string)
+            .collect(),
+        features: FEATURES.iter().map(|f| f.to_string()).collect(),
     }
 }
 
 fn verify_device(peer: &Hello, peer_is_initiator: bool, hash: &[u8]) -> Result<(), HandshakeError> {
     let msg = device_msg(hash, peer_is_initiator);
-    if verify_signature(&peer.device_key, &msg, &peer.device_sig) {
+    let id_ok = (1..=MAX_DEVICE_ID).contains(&peer.device_id.len());
+    if id_ok && verify_signature(&peer.device_key, &msg, &peer.device_sig) {
         Ok(())
     } else {
         Err(HandshakeError::NotTrusted)
@@ -403,7 +415,7 @@ async fn authenticate(
             .map(|k| proof(k, &hash, initiator))
             .collect(),
     });
-    let my_hello = Frame::Hello(hello(me, &hash, initiator));
+    let my_hello = || Frame::Hello(hello(me, &hash, initiator));
     if initiator {
         session.send(&my_auth).await?;
     }
@@ -413,14 +425,14 @@ async fn authenticate(
     bye_unless(session, verify(&peer_auth, !initiator, auth_keys, &hash)).await?;
     if !initiator {
         session.send(&my_auth).await?;
-        session.send(&my_hello).await?;
+        session.send(&my_hello()).await?;
     }
     let Frame::Hello(peer) = recv_preauth(session).await? else {
         return Err(malformed("expected hello"));
     };
     bye_unless(session, verify_device(&peer, !initiator, &hash)).await?;
     if initiator {
-        session.send(&my_hello).await?;
+        session.send(&my_hello()).await?;
     }
     Ok(peer)
 }
@@ -442,6 +454,30 @@ pub async fn handshake<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 }
 
 #[cfg(test)]
+pub(crate) async fn initiate_with_hello<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    stream: S,
+    me: &LocalIdentity,
+    auth_keys: &[[u8; 32]],
+    wire: impl FnOnce(Hello) -> Vec<u8>,
+) -> (Session, Vec<Frame>) {
+    let mut s = noise(stream, true).await.unwrap();
+    let hash = s.handshake_hash().to_vec();
+    let proofs = auth_keys.iter().map(|k| proof(k, &hash, true)).collect();
+    s.send(&Frame::Auth(Auth {
+        version: PROTOCOL_VERSION,
+        proofs,
+    }))
+    .await
+    .unwrap();
+    let seen = vec![s.recv().await.unwrap(), s.recv().await.unwrap()];
+    s.writer
+        .send_raw(&wire(hello(me, &hash, true)))
+        .await
+        .unwrap();
+    (s, seen)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::lan_sync::identity::{derive_auth_key, test_identity as identity};
@@ -456,6 +492,23 @@ mod tests {
             handshake(a, true, &ia, a_keys),
             handshake(b, false, &ib, b_keys)
         )
+    }
+
+    #[tokio::test]
+    async fn hello_carries_identity_addrs() {
+        let mut ia = identity("dev-a");
+        ia.addrs = Arc::new(|| vec!["10.0.0.2:47391".parse().unwrap()]);
+        let (a, b) = duplex(64 * 1024);
+        let ib = identity("dev-b");
+        let keys = [derive_auth_key(&[1; 32])];
+        let (_, rb) = tokio::join!(
+            handshake(a, true, &ia, &keys),
+            handshake(b, false, &ib, &keys)
+        );
+        assert_eq!(
+            peer(&rb).peer_addrs(),
+            vec!["10.0.0.2:47391".parse::<std::net::SocketAddr>().unwrap()]
+        );
     }
 
     fn peer(o: &Outcome) -> &Hello {
@@ -502,22 +555,12 @@ mod tests {
     async fn rogue_after_auth<S>(
         stream: S,
         keys: &[[u8; 32]],
-        hello: impl FnOnce(&[u8]) -> Vec<u8>,
+        wire: impl FnOnce(Hello) -> Vec<u8>,
     ) -> Vec<Frame>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let mut s = noise(stream, true).await.unwrap();
-        let hash = s.handshake_hash().to_vec();
-        let proofs = keys.iter().map(|k| proof(k, &hash, true)).collect();
-        s.send(&Frame::Auth(Auth {
-            version: PROTOCOL_VERSION,
-            proofs,
-        }))
-        .await
-        .unwrap();
-        let seen = vec![s.recv().await.unwrap(), s.recv().await.unwrap()];
-        s.writer.send_raw(&hello(&hash)).await.unwrap();
+        let (s, seen) = initiate_with_hello(stream, &identity("dev-a"), keys, wire).await;
         drain(s, seen).await
     }
 
@@ -622,6 +665,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn responder_builds_no_hello_for_an_untrusted_peer() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = calls.clone();
+        let me = LocalIdentity {
+            addrs: Arc::new(move || {
+                counted.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                vec![]
+            }),
+            ..identity("dev-b")
+        };
+        let (a, b) = duplex(64 * 1024);
+        let (_seen, real) = tokio::join!(
+            rogue_initiator(a, |_| keyless()),
+            handshake(b, false, &me, &keys)
+        );
+        assert!(matches!(real, Err(HandshakeError::NotTrusted)));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn device_id_must_be_1_to_128_bytes() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let honest = identity("dev-b");
+        for (id, ok) in [
+            (String::new(), false),
+            ("x".repeat(129), false),
+            ("x".repeat(128), true),
+        ] {
+            let odd = identity(&id);
+            for odd_initiates in [true, false] {
+                let (a, b) = duplex(64 * 1024);
+                let (_, real) = tokio::join!(
+                    handshake(a, odd_initiates, &odd, &keys),
+                    handshake(b, !odd_initiates, &honest, &keys)
+                );
+                match real {
+                    Ok(_) => assert!(ok, "{} accepted", id.len()),
+                    Err(e) => assert!(!ok && matches!(e, HandshakeError::NotTrusted), "{e}"),
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn reflected_proofs_are_rejected() {
         let keys = [derive_auth_key(&[1; 32])];
         let me = identity("dev-a");
@@ -674,10 +762,8 @@ mod tests {
     async fn wrong_length_signature_is_rejected() {
         let keys = [derive_auth_key(&[1; 32])];
         let me = identity("dev-b");
-        let claimed = identity("dev-a");
         for len in [0, 63, 65] {
-            let resized = |hash: &[u8]| {
-                let mut h = hello(&claimed, hash, true);
+            let resized = |mut h: Hello| {
                 h.device_sig.resize(len, 0);
                 encode(&Frame::Hello(h)).unwrap()
             };

@@ -199,6 +199,9 @@ export async function clearAccountUiState(): Promise<void> {
   const { useLanSyncStore } = await import("@/stores/lanSyncStore");
   useLanSyncStore.getState().forgetAccount();
   clearPersistedAccountUiState();
+  const { getAccountId } = await import("@/services/account");
+  const scope = await getAccountId().catch(() => null);
+  if (scope) await invoke("lan_sync_clear_scope", { scope }).catch(logFailure("lan-sync clear scope"));
 }
 
 export async function resetVault(): Promise<void> {
