@@ -69,6 +69,7 @@ describe("fromInvokeRejection", () => {
 // Rust's `every_code_has_an_english_translation` ties ErrorCode to the same file.
 describe("errors.json", () => {
   it("has exactly one English string per backend code", () => {
-    expect(Object.keys(en.errors).sort()).toEqual([...BACKEND_ERROR_CODES].sort());
+    const codes = Object.entries(en.errors).filter(([, text]) => typeof text === "string").map(([code]) => code);
+    expect(codes.sort()).toEqual([...BACKEND_ERROR_CODES].sort());
   });
 });

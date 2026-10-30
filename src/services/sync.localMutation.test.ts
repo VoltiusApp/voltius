@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn() }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), mode: "server" as string }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 
 import { push, scheduleSync, resumeSync, onLocalMutation, onRemotePayloadMerged, mergeRemotePayload } from "./sync";
+import { syncAfterEdit } from "@/stores/syncAfterEdit";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { setVaultKey } from "@/services/vault";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
@@ -28,6 +30,7 @@ beforeEach(() => {
       if (args?.key === "server_url") return "https://sync.example.com";
       if (args?.key === "jwt") return jwt();
       if (args?.key === "account_id") return "account-1";
+      if (args?.key === "mode") return h.mode;
       return null;
     }
     if (cmd === "backup_export") return [];
@@ -105,4 +108,36 @@ test("mergeRemotePayload applies remote settings and live sessions", async () =>
   });
   expect(h.invoke.mock.calls.some(([c]) => c === "settings_save")).toBe(true);
   expect(ingestManifest).toHaveBeenCalledWith(manifest);
+});
+
+const blobPuts = () => h.appFetch.mock.calls.filter(([, init]) => init?.method === "PUT").length;
+
+test.each([
+  ["local-nopassword", 0],
+  ["local", 0],
+  ["server", 1],
+] as const)("a synced edit in a %s install tells lan sync and pushes %i blob(s) to the cloud", async (mode, pushes) => {
+  vi.useFakeTimers();
+  h.mode = mode;
+  useSubscriptionStore.setState({ isPro: true });
+  useSyncPrefsStore.setState({ syncTypes: {}, excludedIds: [] });
+  const fn = vi.fn();
+  track(onLocalMutation(fn));
+
+  syncAfterEdit("connection");
+  expect(fn).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(3_000);
+
+  expect(blobPuts()).toBe(pushes);
+  h.mode = "server";
+});
+
+test("an edit to a type that is not synced tells nobody", () => {
+  useSyncPrefsStore.setState({ syncTypes: { connection: false }, excludedIds: [] });
+  const fn = vi.fn();
+  track(onLocalMutation(fn));
+
+  syncAfterEdit("connection");
+
+  expect(fn).not.toHaveBeenCalled();
 });

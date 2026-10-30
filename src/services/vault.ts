@@ -2,7 +2,7 @@ import { invoke } from "@/lib/invoke";
 import { logFailure } from "@/lib/logger";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
-import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
+import { VAULT_RESET_KEYS } from "./accountCacheKeys";
 import { backendErrorCode } from "./backendErrors";
 import { VaultLockedError, VaultUnreadableError } from "./vaultErrors";
 
@@ -199,9 +199,7 @@ export async function clearAccountUiState(): Promise<void> {
   const { useLanSyncStore } = await import("@/stores/lanSyncStore");
   useLanSyncStore.getState().forgetAccount();
   clearPersistedAccountUiState();
-  const { getAccountId } = await import("@/services/account");
-  const scope = await getAccountId().catch(() => null);
-  if (scope) await invoke("lan_sync_clear_scope", { scope }).catch(logFailure("lan-sync clear scope"));
+  await (await import("@/services/lanSync")).clearLanSyncScopes();
 }
 
 export async function resetVault(): Promise<void> {
@@ -210,7 +208,7 @@ export async function resetVault(): Promise<void> {
   await invoke("vault_reset"); // deletes secrets.enc + connections.json + legacy vault.hold
 
   // Clear all keychain entries so the app starts fresh
-  for (const key of ACCOUNT_CACHE_KEYS) {
+  for (const key of VAULT_RESET_KEYS) {
     await invoke("keychain_delete", { key }).catch(() => {});
   }
   await invoke("vault_secret_clear").catch(() => {});

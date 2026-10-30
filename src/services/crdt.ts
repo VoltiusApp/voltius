@@ -121,6 +121,10 @@ export function entitiesDiffer<T extends TimestampedEntity>(base: T[], merged: T
  * Filter out tombstones for UI display.
  * An entity is alive if never deleted, or revived (updated_at > deleted_at).
  */
+export function isAlive(e: { updated_at: string; deleted_at?: string }): boolean {
+  return !e.deleted_at || e.updated_at > e.deleted_at;
+}
+
 export interface SecretMergeResult {
   /** Live secrets, keyed as before (`password:<id>`, `key:<id>:private`, …). */
   secrets: Record<string, string>;

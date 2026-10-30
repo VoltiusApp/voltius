@@ -6,7 +6,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamDataManager", () => ({ onTeamLogin: vi.fn(async () => {}) }));
 
-import { syncOnLoginReplace, ENTITY_FILES } from "./sync";
+import { replaceWithPayloads, syncOnLoginReplace, ENTITY_FILES } from "./sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { setVaultKey } from "@/services/vault";
@@ -91,4 +91,20 @@ test("once the proxy setting syncs, its password is the account's to restore, no
   await syncOnLoginReplace();
 
   expect(imports[0].secrets).toEqual({ [REMOTE_HOST_KEY]: "new" });
+});
+
+test("replace_flow_shared: replacing with given payloads keeps only them and the device-only secrets", async () => {
+  const imports = serve();
+  const remote = {
+    files: { ...emptyEntityFiles(), "connections.json": JSON.stringify([{ id: "r", updated_at: "1", clocks: { name: "1" }, name: "r" }]) },
+    secrets: { [REMOTE_HOST_KEY]: "new" },
+    secret_clocks: { [REMOTE_HOST_KEY]: "2026-02-01T00:00:00.000Z" },
+  };
+
+  await replaceWithPayloads([["peer-1", remote]]);
+
+  expect(imports).toHaveLength(1);
+  expect(imports[0].secrets).toEqual({ [PROXY_KEY]: "proxy-pw", [REMOTE_HOST_KEY]: "new" });
+  expect(JSON.parse((imports[0] as unknown as { files: Record<string, string> }).files["connections.json"]).map((e: { id: string }) => e.id)).toEqual(["r"]);
+  expect(h.appFetch.mock.calls.some(([url]) => String(url).includes("/v1/sync/"))).toBe(false);
 });

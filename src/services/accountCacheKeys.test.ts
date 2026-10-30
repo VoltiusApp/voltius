@@ -4,7 +4,7 @@ import accountSource from "./account.ts?raw";
 import vaultSource from "./vault.ts?raw";
 import savedAccountsSource from "./savedAccounts.ts?raw";
 import { SESSION_KEYS } from "./savedAccounts";
-import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
+import { ACCOUNT_CACHE_KEYS, VAULT_RESET_KEYS } from "./accountCacheKeys";
 
 /**
  * Read against the writers rather than a hand-kept list: a key that account.ts
@@ -21,8 +21,9 @@ test("every keychain key account.ts caches is cleared on sign-out", () => {
   expect(missing).toEqual([]);
 });
 
-test("resetVault clears the account cache list, not a literal of its own", () => {
-  expect(vaultSource).toContain("of ACCOUNT_CACHE_KEYS");
+test("resetVault clears the account cache list and the lan farewell key, not a literal of its own", () => {
+  expect(vaultSource).toContain("of VAULT_RESET_KEYS");
+  expect(VAULT_RESET_KEYS).toEqual(expect.arrayContaining([...ACCOUNT_CACHE_KEYS, "lan_sync_farewell"]));
 });
 
 /**

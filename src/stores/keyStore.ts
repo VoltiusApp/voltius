@@ -1,9 +1,7 @@
 import { create } from "zustand";
 import type { SshKey, SshKeyFormData } from "@/types";
 import * as api from "@/services/keys";
-import { scheduleSync } from "@/services/sync";
-import { isServerMode } from "@/services/account";
-import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { syncAfterEdit } from "@/stores/syncAfterEdit";
 import { pushCreateHistory, pushDeleteHistory, pushUpdateHistory, pushTeamDeleteHistory } from "@/stores/recreateHistory";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
@@ -83,8 +81,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     const key = await api.saveKey(data);
     const keys = await api.listKeys();
     set({ keys });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isTypeSynced("key")) scheduleSync(); });
+    syncAfterEdit("key");
     reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
     pushCreateHistory({
       label: `Saved key "${key.name ?? "unnamed"}"`,
@@ -159,8 +156,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         ? applyVaultTransition(s.teamKeys, classifyVaultTransition(prev.vault_id, key.vault_id, isTeamVaultId), id, key)
         : s.teamKeys,
     }));
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
+    syncAfterEdit("key", id);
     if (prev) reportAuditMutation("key", "updated", { id, name: data.name ?? prev.name ?? "unnamed", vault_id: data.vault_id ?? prev.vault_id }, { key_type: data.key_type ?? prev.key_type });
     if (prev) recordKeyUpdate(prev, data);
     return key;
@@ -179,8 +175,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     await api.updateKey(id, { ...keyToFormData(key), pinned: nextPinned });
     const keys = await api.listKeys();
     set({ keys });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
+    syncAfterEdit("key", id);
   },
 
   pinKeyForTeam: async (id, pinned) => {
@@ -216,8 +211,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     await api.deleteKey(id);
     const keys = await api.listKeys();
     set({ keys });
-    const prefs = useSyncPrefsStore.getState();
-    isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
+    syncAfterEdit("key", id);
     if (prev) reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
     if (prev) {
       const prevData = keyToFormData(prev);

@@ -5,6 +5,22 @@ import { entityClocks, type KnownDevice, type PeerInfo } from "@/services/lanSyn
 import { getDeviceId, onRemotePayloadMerged, type BlobPayload } from "@/services/sync";
 
 export type LanStatus = "running" | "paused" | "blocked" | "stopped";
+export type Presence = "live" | "paused" | "moved";
+export type PairRole = "host" | "joiner";
+
+export interface Pairing {
+  state: "idle" | "searching" | "code" | "peerConfirmed" | "joining" | "done" | "ended";
+  sas?: number;
+  role?: PairRole;
+  peerName?: string;
+  peerHasData?: boolean;
+  reason?: string;
+  closed?: boolean;
+  granted?: boolean;
+  replaces?: string;
+}
+
+export const IDLE_PAIRING: Pairing = { state: "idle" };
 
 interface LanSyncStore {
   status: LanStatus;
@@ -12,9 +28,13 @@ interface LanSyncStore {
   syncing: Set<string>;
   paused: boolean;
   known: Record<string, KnownDevice>;
+  knownScope?: string;
   peerClocks: Record<string, Record<string, string>>;
   localClocks: Record<string, string>;
   introShown: boolean;
+  pairing: Pairing;
+  presence: Record<string, Presence>;
+  rejected: Record<string, "keyChanged">;
   setStatus: (status: LanStatus) => void;
   setPeers: (peers: PeerInfo[]) => void;
   markSyncing: (deviceId: string, on: boolean) => void;
@@ -23,19 +43,39 @@ interface LanSyncStore {
   setLocalClocks: (localClocks: Record<string, string>) => void;
   rememberDevice: (peer: PeerInfo) => boolean;
   recordPeerPayload: (deviceId: string, payload: BlobPayload) => void;
+  setPairing: (pairing: Pairing) => void;
+  setPresence: (deviceId: string, presence: Presence) => void;
+  markRejected: (deviceId: string, reason: "keyChanged") => void;
+  dropDevice: (deviceId: string) => void;
   forgetAccount: () => void;
+  adoptScope: (scope: string) => void;
 }
 
-type Persisted = Pick<LanSyncStore, "paused" | "introShown" | "known" | "peerClocks">;
+function without<T>(record: Record<string, T>, id: string): Record<string, T> {
+  const { [id]: _, ...rest } = record;
+  return rest;
+}
+
+type Persisted = Pick<LanSyncStore, "paused" | "introShown" | "known" | "knownScope" | "peerClocks">;
 
 export const LAN_SYNC_DEVICES_KEY = "voltius-lan-sync-devices";
 export const LAN_SYNC_CLOCKS_KEY = "voltius-lan-sync-clocks";
 
 const slices = (name: string): [string, (keyof Persisted)[]][] => [
   [name, ["paused", "introShown"]],
-  [LAN_SYNC_DEVICES_KEY, ["known"]],
+  [LAN_SYNC_DEVICES_KEY, ["known", "knownScope"]],
   [LAN_SYNC_CLOCKS_KEY, ["peerClocks"]],
 ];
+
+const forgottenDevices = () => ({
+  known: {},
+  peerClocks: {},
+  localClocks: {},
+  peers: [],
+  syncing: new Set<string>(),
+  presence: {},
+  rejected: {},
+});
 
 function readSlice(key: string): Record<string, unknown> {
   try {
@@ -85,6 +125,9 @@ export const useLanSyncStore = create<LanSyncStore>()(
       peerClocks: {},
       localClocks: {},
       introShown: false,
+      pairing: IDLE_PAIRING,
+      presence: {},
+      rejected: {},
       setStatus: (status) => set({ status }),
       setPeers: (peers) =>
         set((s) => {
@@ -94,7 +137,8 @@ export const useLanSyncStore = create<LanSyncStore>()(
           for (const { deviceId } of s.peers) {
             if (!present.has(deviceId) && known[deviceId]) known[deviceId] = { ...known[deviceId], lastSeen };
           }
-          return { peers, known, syncing: new Set([...s.syncing].filter((id) => present.has(id))) };
+          const rejected = Object.fromEntries(Object.entries(s.rejected).filter(([id]) => !present.has(id)));
+          return { peers, known, rejected, syncing: new Set([...s.syncing].filter((id) => present.has(id))) };
         }),
       markSyncing: (deviceId, on) =>
         set((s) => {
@@ -126,12 +170,27 @@ export const useLanSyncStore = create<LanSyncStore>()(
         if (!(deviceId in get().known)) return;
         set((s) => ({ peerClocks: { ...s.peerClocks, [deviceId]: entityClocks(payload) } }));
       },
-      forgetAccount: () => set({ known: {}, peerClocks: {}, localClocks: {}, peers: [], syncing: new Set<string>() }),
+      setPairing: (pairing) => set({ pairing }),
+      setPresence: (deviceId, presence) => set((s) => ({ presence: { ...s.presence, [deviceId]: presence } })),
+      markRejected: (deviceId, reason) => set((s) => ({ rejected: { ...s.rejected, [deviceId]: reason } })),
+      dropDevice: (deviceId) =>
+        set((s) => ({
+          known: without(s.known, deviceId),
+          peerClocks: without(s.peerClocks, deviceId),
+          presence: without(s.presence, deviceId),
+          rejected: without(s.rejected, deviceId),
+        })),
+      forgetAccount: () => set(forgottenDevices()),
+      // Rows kept from before the scope was recorded stay; they can only be this install's own.
+      adoptScope: (scope) => {
+        const held = get().knownScope;
+        if (held !== scope) set(held === undefined ? { knownScope: scope } : { ...forgottenDevices(), knownScope: scope });
+      },
     }),
     {
       name: "voltius-lan-sync",
       storage: splitStorage(),
-      partialize: ({ paused, known, peerClocks, introShown }) => ({ paused, known, peerClocks, introShown }),
+      partialize: ({ paused, known, knownScope, peerClocks, introShown }) => ({ paused, known, knownScope, peerClocks, introShown }),
     },
   ),
 );

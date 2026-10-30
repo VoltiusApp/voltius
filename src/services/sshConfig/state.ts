@@ -1,7 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { createSerialQueue } from "@/lib/serialQueue";
-import { isServerMode } from "@/services/account";
-import { scheduleSync } from "@/services/sync";
+import { syncAfterEdit } from "@/stores/syncAfterEdit";
 import { useSshConfigStore } from "@/stores/sshConfigStore";
 
 export interface DevicePresence { present: boolean; hash: string; at: number; key?: string }
@@ -113,7 +112,7 @@ const serialized = createSerialQueue();
 export const updateSshConfigState = (patch: SshConfigState): Promise<SshConfigState> => serialized(async () => {
   const merged = mergeSshConfigState(patch, await loadSshConfigState());
   await write(merged);
-  if (await isServerMode()) scheduleSync();
+  syncAfterEdit();
   return publish(merged);
 });
 

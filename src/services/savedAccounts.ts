@@ -27,10 +27,12 @@ export const SESSION_KEYS = [
   // Per-account like the rest: without it a switch restored everything except
   // the value that recovers the dek, and team vault keys stopped unwrapping (#228).
   "wrapped_user_secrets",
+  "wrapped_user_secrets_prior",
 ] as const;
 type SessionKey = (typeof SESSION_KEYS)[number];
 
-export type SavedAccount = Record<SessionKey, string | null> & {
+export type SavedAccount = Record<Exclude<SessionKey, "wrapped_user_secrets_prior">, string | null> & {
+  wrapped_user_secrets_prior?: string | null;
   account_id: string;
   mode: string;
   master_password?: string | null;

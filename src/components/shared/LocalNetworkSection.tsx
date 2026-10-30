@@ -48,6 +48,7 @@ const DOT_STYLE: Record<DeviceDot, CSSProperties> = {
   live: { background: "var(--t-status-connected)" },
   syncing: { background: "var(--t-accent)", boxShadow: "0 0 0 3px color-mix(in srgb, var(--t-accent) 20%, transparent)" },
   behind: { background: "var(--t-status-warning)" },
+  alert: { background: "var(--t-status-warning)" },
   "offline-ok": { boxShadow: "inset 0 0 0 1.5px var(--t-text-muted)" },
 };
 

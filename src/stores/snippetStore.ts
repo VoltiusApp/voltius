@@ -4,8 +4,7 @@ import type { SnippetPendingInject } from "@/services/snippetRunCore";
 import type { SequencePrompt } from "@/services/snippetSequence";
 import { normalizeSnippetSteps } from "@/services/snippetSteps";
 import * as api from "@/services/snippets";
-import { scheduleSync } from "@/services/sync";
-import { isServerMode } from "@/services/account";
+import { syncAfterEdit } from "@/stores/syncAfterEdit";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory, pushTeamDeleteHistory } from "@/stores/recreateHistory";
@@ -114,7 +113,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const snippet = await api.createSnippet(data);
     const snippets = await api.listSnippets();
     set({ snippets });
-    isServerMode().then((s) => { if (s) scheduleSync(); });
+    syncAfterEdit();
     reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
     pushCreateHistory({
       label: `Created snippet "${snippet.name}"`,
@@ -195,7 +194,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       const transition = classifyVaultTransition(prev.vault_id, nextVaultId, isTeamVaultId);
       return { snippets, teamSnippets: applyVaultTransition(s.teamSnippets, transition, id, item) };
     });
-    isServerMode().then((s) => { if (s) scheduleSync(); });
+    syncAfterEdit();
     if (prev) reportAuditMutation("snippet", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
       const prevData = snippetToFormData(prev);
@@ -232,7 +231,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     await api.deleteSnippet(id);
     const snippets = await api.listSnippets();
     set({ snippets });
-    isServerMode().then((s) => { if (s) scheduleSync(); });
+    syncAfterEdit();
     if (prev) reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
     if (prev) {
       const prevData = snippetToFormData(prev);
@@ -258,7 +257,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const nextFavorite = pinned ?? false;
     await api.updateSnippet(id, { ...snippetToFormData(snippet), favorite: nextFavorite });
     set((s) => ({ snippets: (s.snippets as Snippet[]).map((sn) => sn.id === id ? { ...sn, favorite: nextFavorite } : sn) }));
-    isServerMode().then((s) => { if (s) scheduleSync(); });
+    syncAfterEdit();
   },
 
   pinSnippetForTeam: async (id, pinned) => {

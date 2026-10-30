@@ -513,6 +513,36 @@ test("signInToCloud carries the device-only proxy password, read under the outgo
   expect(h.wipeLocalConfig).toHaveBeenCalledWith({ [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" });
 });
 
+test("a refused sign-in never runs the hook that leaves the local group", async () => {
+  const leave = vi.fn(async () => {});
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  h.http["/auth/login"] = err(401);
+  await expect(signInToCloud("a@b.co", "pw", S, leave)).rejects.toThrow("common.error.invalidEmailOrPassword");
+  expect(leave).not.toHaveBeenCalled();
+});
+
+test("an accepted sign-in runs the hook before the vault key changes", async () => {
+  h.sessionKey = [7, 7, 7];
+  let seen: unknown[] = [];
+  const leave = vi.fn(async () => {
+    seen = [h.sessionKey, h.readLocalSecrets.mock.calls.length, h.wipeLocalConfig.mock.calls.length, h.store.mode];
+  });
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  await signInToCloud("a@b.co", "pw", S, leave);
+  expect(leave).toHaveBeenCalledTimes(1);
+  expect(seen).toEqual([[7, 7, 7], 0, 0, undefined]);
+  expect(h.store.mode).toBe("server");
+});
+
+test("a failing hook does not stop an accepted sign-in", async () => {
+  h.http["/auth/challenge"] = ok({ account_id: "acc" });
+  h.http["/auth/login"] = ok(TOKENS);
+  await signInToCloud("a@b.co", "pw", S, async () => { throw new Error("vault busy"); });
+  expect(h.store.mode).toBe("server");
+  expect(h.wipeLocalConfig).toHaveBeenCalledTimes(1);
+});
+
 // ─── linkToCloud ─────────────────────────────────────────────────────────────
 
 test("linkToCloud requires an existing account", async () => {
@@ -542,6 +572,42 @@ test("linkToCloud registers and switches to server mode on success", async () =>
   expect(h.store.mode).toBe("server");
   expect(h.store.jwt).toBe("JWT");
   expect(h.load).toHaveBeenCalled();
+});
+
+test("a refused link never runs the hook that leaves the local group", async () => {
+  const leave = vi.fn(async () => {});
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.store.master_password = "pw";
+  h.http["/auth/register"] = err(409);
+  await expect(linkToCloud("a@b.co", S, leave)).rejects.toThrow("common.error.emailAlreadyRegistered");
+  expect(leave).not.toHaveBeenCalled();
+});
+
+test("an accepted link runs the hook before the vault key moves", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.store.master_password = "pw";
+  h.http["/auth/register"] = ok(TOKENS);
+  existingVaultOpenedBy([9, 9, 9]);
+  h.sessionKey = [9, 9, 9];
+  let seen: unknown[] = [];
+  const leave = vi.fn(async () => {
+    seen = [h.fileKey, h.sessionKey, h.keysSet.mock.calls.length, h.store.mode];
+  });
+  await linkToCloud("a@b.co", S, leave);
+  expect(seen).toEqual([[9, 9, 9], [9, 9, 9], 0, "local"]);
+  expect(h.fileKey).toEqual([1, 1, 1]);
+  expect(h.store.mode).toBe("server");
+});
+
+test("a failing hook does not stop an accepted link", async () => {
+  h.store.account_id = "acc";
+  h.store.mode = "local";
+  h.store.master_password = "pw";
+  h.http["/auth/register"] = ok(TOKENS);
+  await linkToCloud("a@b.co", S, async () => { throw new Error("vault busy"); });
+  expect(h.store.mode).toBe("server");
 });
 
 // ─── changeMasterPassword ────────────────────────────────────────────────────
