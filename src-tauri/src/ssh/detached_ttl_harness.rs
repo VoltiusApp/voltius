@@ -288,6 +288,19 @@ fn root_shell_at_prompt_is_reaped() {
 
 #[test]
 #[ignore = "needs docker"]
+fn gitstatusd_under_idle_shell_is_reaped() {
+    reaped(|h| {
+        // uutils' multicall sleep (Ubuntu 26.04) refuses to run under another name.
+        h.sh(r#"cp "$(command -v gnusleep || command -v sleep)" /tmp/gitstatusd-linux-x86_64"#);
+        typed(
+            "/tmp/gitstatusd-linux-x86_64 1000 &",
+            "/tmp/gitstatusd-linux-x86_64 1000",
+        )(h);
+    });
+}
+
+#[test]
+#[ignore = "needs docker"]
 fn one_busy_pane_among_idle_keeps_session() {
     kept(|h| {
         h.tmux(&[
