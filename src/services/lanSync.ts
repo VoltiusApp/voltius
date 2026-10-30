@@ -457,7 +457,7 @@ async function forgetLeftGroup(scope: string, linked: boolean): Promise<void> {
       await end();
       await dropGroupSecrets();
       store().forgetAccount();
-      await invoke("lan_sync_clear_scope", { scope });
+      if (!owesFarewell(await readFarewell().catch(() => null))) await invoke("lan_sync_clear_scope", { scope });
     } finally {
       if (requested) await begin(epoch).catch(fail("restart"));
     }

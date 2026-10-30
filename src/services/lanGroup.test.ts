@@ -1030,6 +1030,39 @@ test("a leave owes each member a farewell before its tombstone is written, until
   expect(await readFarewell()).toMatchObject({ reason: "left", group: "group-1", pending: [] });
 });
 
+test("the last member to hear the farewell clears the left group's peer file, once", async () => {
+  noPasswordDevice(G);
+  groupOne({ device_key: SELF_KEY }, [entity("phone", { kind: "member", name: "Phone", platform: "android", device_key: "ef".repeat(32), joined_at: OLD })]);
+  holdEpochs({ 1: "11".repeat(32) });
+  await leaveGroup("left");
+
+  await farewellSent("phone");
+  expect(calls("lan_sync_clear_scope")).toEqual([]);
+  await farewellSent(HOST);
+  await farewellSent(HOST);
+  expect(calls("lan_sync_clear_scope")).toEqual([{ scope: "group-1" }]);
+});
+
+test("an expired farewell for a left group clears that group's peer file; a moved one clears nothing", async () => {
+  const kept = (reason: string) => JSON.stringify({ secret: "22".repeat(32), at: OLD, reason, group: "group-1", pending: [HOST] });
+  keychain[LAN_FAREWELL_ENTRY] = kept("account");
+  expect(await readFarewell()).toBeNull();
+  expect(calls("lan_sync_clear_scope")).toEqual([]);
+
+  keychain[LAN_FAREWELL_ENTRY] = kept("left");
+  expect(await readFarewell()).toBeNull();
+  expect(calls("lan_sync_clear_scope")).toEqual([{ scope: "group-1" }]);
+});
+
+test("joining a group clears the peer file of a group left earlier", async () => {
+  await leftGroupOne();
+  const other: GroupGrant = { groupId: "group-2", vaultKey: hex(bytes(150)), secrets: [{ epoch: 1, secret: "33".repeat(32) }], hostName: "Phone" };
+
+  await joinGroup(other, "combine");
+
+  expect(calls("lan_sync_clear_scope")).toEqual([{ scope: "group-1" }]);
+});
+
 test("a member that moved to an account is owed no farewell", async () => {
   noPasswordDevice(G);
   const phone = entity("phone", { kind: "member", name: "Phone", platform: "android", device_key: "ef".repeat(32), joined_at: OLD });

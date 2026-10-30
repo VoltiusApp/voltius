@@ -859,7 +859,7 @@ describe("no-account groups", () => {
       h.farewell = farewell;
     });
 
-  test("leaving while linked pushes the leave, then stops, drops its secrets, clears the scope and still owes the farewell", async () => {
+  test("leaving while linked pushes the leave, then stops, drops its secrets and keeps the peer file while it owes the farewell", async () => {
     h.group = GROUP;
     await started();
     leaving(LEFT);
@@ -867,14 +867,26 @@ describe("no-account groups", () => {
     await leave();
 
     expect(h.leaveGroup).toHaveBeenCalledWith("left");
-    const steps = ["lan_sync_broadcast", "lan_sync_stop", "lan_sync_clear_scope", "lan_sync_start"];
+    const steps = ["lan_sync_broadcast", "lan_sync_stop", "lan_sync_start"];
     expect(h.invoke.mock.calls.map(([c]) => c).filter((c) => steps.includes(c))).toEqual(steps);
     expect(calls("lan_sync_start").map(([, a]) => a)).toEqual([SAYS_FAREWELL]);
     const at = (cmd: string) => h.invoke.mock.invocationCallOrder[h.invoke.mock.calls.findIndex(([c]) => c === cmd)];
     expect(h.dropSecrets.mock.invocationCallOrder[0]).toBeGreaterThan(at("lan_sync_stop"));
+    expect(calls("lan_sync_clear_scope")).toHaveLength(0);
+    expect(useLanSyncStore.getState().known).toEqual({});
+  });
+
+  test("a leave that owes nobody a farewell clears the group's peer file at once and starts nothing", async () => {
+    h.group = GROUP;
+    await started();
+    leaving({ ...LEFT, pending: [] });
+
+    await leave();
+
+    const at = (cmd: string) => h.invoke.mock.invocationCallOrder[h.invoke.mock.calls.findIndex(([c]) => c === cmd)];
     expect(h.dropSecrets.mock.invocationCallOrder[0]).toBeLessThan(at("lan_sync_clear_scope"));
     expect(calls("lan_sync_clear_scope").map(([, a]) => a)).toEqual([{ scope: "grp-1" }]);
-    expect(useLanSyncStore.getState().known).toEqual({});
+    expect(calls("lan_sync_start")).toHaveLength(0);
   });
 
   test("a leave killed before its push goes out still owes every member, and the next start says farewell to each", async () => {
@@ -949,7 +961,7 @@ describe("no-account groups", () => {
   test("a leave whose drop failed finishes on the next try and on the next start", async () => {
     h.group = GROUP;
     await started();
-    leaving(LEFT);
+    leaving({ ...LEFT, pending: [] });
     h.dropSecrets.mockRejectedValueOnce(new Error("io"));
 
     const attempt = leaveLanGroup("left").catch((e: Error) => e.message);

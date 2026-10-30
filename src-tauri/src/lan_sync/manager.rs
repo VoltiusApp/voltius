@@ -3909,6 +3909,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_device_that_left_says_farewell_at_a_remembered_address_without_listening() {
+        let (m, mut em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
+        let mut store = PeerStore::memory();
+        seed(&mut store, "dev-m", &[local(&m)], now_secs());
+        let (tx, mut el) = mpsc::channel(64);
+        let l = start(
+            test_identity("dev-l"),
+            left_group(9),
+            false,
+            false,
+            store,
+            tx,
+        )
+        .await
+        .unwrap();
+        assert!(l.port.is_none());
+        assert!(l.shared.me.addrs.as_ref()().is_empty());
+        next_event(&mut el, farewell_sent("dev-m")).await;
+        next_event(&mut em, presence_is("dev-l", PresenceState::Left)).await;
+        let seen: Vec<_> = std::iter::from_fn(|| el.try_recv().ok()).collect();
+        assert!(!seen.iter().any(|e| matches!(e, ManagerEvent::OwnAddrs(_))));
+    }
+
+    #[tokio::test]
     async fn left_counts_only_from_the_key_listed_for_that_device() {
         let (l, mut el) = left_device().await;
         let (m, mut em) = member_listing("dev-l", test_identity("dev-x").key.public).await;

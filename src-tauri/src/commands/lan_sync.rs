@@ -1155,6 +1155,47 @@ pub(crate) mod tests {
         stop_inner(&state).await;
     }
 
+    #[tokio::test]
+    async fn a_left_device_says_farewell_at_a_remembered_address_then_its_scope_clears() {
+        let dir = tempfile::tempdir().unwrap();
+        let left = test_identity("dev-l");
+        let listed = MemberArg {
+            device_id: left.device_id.clone(),
+            device_key: encode_hex32(&left.key.public),
+        };
+        let member = LanSyncState::default();
+        let group = trust_from(vec![vec![4; 32]], Some(vec![listed]), None, false).unwrap();
+        let quiet: Emit = Arc::new(|_, _| {});
+        start_inner(&member, test_identity("dev-m"), group, "grp", None, quiet)
+            .await
+            .unwrap();
+        let port = with_manager(&member, Manager::port).await;
+        let mut remembered = PeerStore::open(dir.path(), "grp");
+        let key = test_identity("dev-m").key.public;
+        remembered.decide(
+            "dev-m",
+            &key,
+            now_secs(),
+            crate::lan_sync::peers::PinPolicy::Refuse,
+        );
+        let at = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+        remembered.record_addrs("dev-m", &[at], now_secs());
+        let (path, bytes) = remembered.snapshot().unwrap();
+        write_snapshot(&path, &bytes).unwrap();
+
+        let state = LanSyncState::default();
+        let (emit, seen) = recorder();
+        let farewell = trust_from(vec![], Some(vec![]), Some(hex(4)), true).unwrap();
+        start_inner(&state, left, farewell, "grp", Some(dir.path()), emit)
+            .await
+            .unwrap();
+        until(&seen, (FAREWELL_SENT, json!({ "deviceId": "dev-m" }))).await;
+
+        clear_scope_inner(&state, "grp", dir.path()).await.unwrap();
+        assert!(!PeerStore::path_for(dir.path(), "grp").exists());
+        assert!(!with_manager(&state, |_| true).await);
+    }
+
     #[test]
     fn start_with_members_builds_group_trust() {
         let member = |id: &str, key: String| MemberArg {

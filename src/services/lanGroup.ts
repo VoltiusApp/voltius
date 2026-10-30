@@ -202,7 +202,9 @@ async function enterGroup(me: Identity, groupId: string, secrets: Record<string,
     at,
     dropped.clocks,
   );
+  const left = await readKeptFarewell().catch(() => null);
   await invoke("keychain_delete", { key: FAREWELL_ENTRY }).catch(logFailure("lan group farewell"));
+  if (left) await releaseLeftScope(left);
 }
 
 export async function createGroupIfNeeded(): Promise<GroupState> {
@@ -360,6 +362,12 @@ function parseFarewell(raw: string): Record<string, unknown> {
   }
 }
 
+// A left group's peer file holds the addresses its farewell dials, so it goes only once that farewell is over.
+async function releaseLeftScope({ reason, group }: { reason?: unknown; group?: unknown }): Promise<void> {
+  if (reason !== "left" || typeof group !== "string") return;
+  await invoke("lan_sync_clear_scope", { scope: group }).catch(logFailure("lan group scope"));
+}
+
 async function keepFarewell(kept: KeptFarewell): Promise<void> {
   await invoke("keychain_set", { key: FAREWELL_ENTRY, value: JSON.stringify(kept) });
 }
@@ -378,6 +386,7 @@ async function readKeptFarewell(): Promise<KeptFarewell | null> {
     };
   }
   await invoke("keychain_delete", { key: FAREWELL_ENTRY });
+  await releaseLeftScope({ reason, group });
   return null;
 }
 
@@ -392,7 +401,10 @@ export async function readFarewell(): Promise<Farewell | null> {
 export function farewellSent(deviceId: string): Promise<void> {
   return farewellWrites(async () => {
     const kept = await readKeptFarewell();
-    if (kept?.pending?.includes(deviceId)) await keepFarewell({ ...kept, pending: kept.pending.filter((id) => id !== deviceId) });
+    if (!kept?.pending?.includes(deviceId)) return;
+    const pending = kept.pending.filter((id) => id !== deviceId);
+    await keepFarewell({ ...kept, pending });
+    if (pending.length === 0) await releaseLeftScope(kept);
   });
 }
 
