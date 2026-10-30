@@ -228,19 +228,15 @@ async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
 
 #[cfg_attr(not(desktop), allow(unused_variables))]
 pub async fn forget_inner(state: &LanSyncState, device_id: &str, dir: &Path) -> bool {
-    let (pinned, forgotten) = with_manager(state, |m| {
-        let scope = lock(&state.scope).clone();
-        let key = m
-            .record(device_id)
-            .map(|r| crate::crypto::hex(&r.device_key));
-        (scope.zip(key), m.forget(device_id))
-    })
-    .await;
+    let (scope, forgotten) =
+        with_manager(state, |m| (lock(&state.scope).clone(), m.forget(device_id))).await;
     #[cfg(desktop)]
-    if let Some((scope, key)) = pinned.filter(|_| forgotten) {
-        state.forget_files(&scope, &key, dir).await;
+    if let Some((scope, key)) = scope.zip(forgotten) {
+        state
+            .forget_files(&scope, &crate::crypto::hex(&key), dir)
+            .await;
     }
-    forgotten
+    forgotten.is_some()
 }
 
 pub async fn clear_scope_inner(

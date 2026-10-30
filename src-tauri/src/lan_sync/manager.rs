@@ -1333,11 +1333,12 @@ impl Manager {
         self.shared.lock().dialable.iter().map(|k| k.addr).collect()
     }
 
+    #[cfg(test)]
     pub fn record(&self, device_id: &str) -> Option<super::peers::PeerRecord> {
         self.shared.store().get(device_id).cloned()
     }
 
-    pub fn forget(&self, device_id: &str) -> bool {
+    pub fn forget(&self, device_id: &str) -> Option<[u8; 32]> {
         let mut store = self.shared.store();
         let forgotten = store.forget(device_id, now_secs());
         let dropped = {
@@ -1733,7 +1734,7 @@ mod tests {
             vec![("dev-b".to_string(), Rejection::KeyChanged)]
         );
 
-        assert!(a.forget("dev-b"));
+        assert!(a.forget("dev-b").is_some());
         let (_session, _fd) = raw_peer_as(&a, &impostor).await;
         next_event(&mut ea, listed("dev-b")).await;
         assert_eq!(a.record("dev-b").unwrap().device_key, impostor.key.public);
@@ -1744,10 +1745,11 @@ mod tests {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (_live, _live_fd) = raw_peer(&a, "dev-b").await;
         next_event(&mut ea, listed("dev-b")).await;
-        assert!(a.forget("dev-b"));
+        let key = test_identity("dev-b").key.public;
+        assert_eq!(a.forget("dev-b"), Some(key));
         next_event(&mut ea, no_peers).await;
         assert!(a.record("dev-b").is_none());
-        assert!(!a.forget("dev-b"));
+        assert_eq!(a.forget("dev-b"), None);
 
         let (mut session, _fd) = raw_peer(&a, "dev-b").await;
         assert_eq!(session.recv().await.unwrap(), Frame::Bye);
@@ -1823,7 +1825,7 @@ mod tests {
             let id = format!("dev-{i}");
             assert_eq!(a.shared.admit(&id, &[i; 32]), Ok(()));
             if i % 2 == 0 {
-                assert!(a.forget(&id));
+                assert!(a.forget(&id).is_some());
             }
         }
         let shared = a.shared.clone();
@@ -1845,7 +1847,7 @@ mod tests {
         let (b, _eb) = spawn("dev-b", 1).await;
         let stream = TcpStream::connect(local(&b)).await.unwrap();
         let link = secure(stream, local(&b), true, &a.shared).await.unwrap();
-        assert!(a.forget("dev-b"));
+        assert!(a.forget("dev-b").is_some());
         a.shared.adopt(link, None);
         assert!(a.peers().is_empty());
     }
@@ -2837,7 +2839,7 @@ mod tests {
     #[tokio::test]
     async fn forgotten_device_cannot_open_files() {
         let (b, svc) = serving(PinPolicy::Repin).await;
-        assert!(b.forget("dev-a"));
+        assert!(b.forget("dev-a").is_some());
         assert_files_refused(&b, &svc, &test_identity("dev-a")).await;
     }
 
@@ -2858,7 +2860,7 @@ mod tests {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         synced(&a, &b).await;
-        assert!(a.forget("dev-b"));
+        assert!(a.forget("dev-b").is_some());
         assert!(matches!(
             open_err(&a, "dev-b").await,
             FilesDialError::NotListed
@@ -2957,7 +2959,7 @@ mod tests {
         let (x, _ex) = spawn("dev-x", 1).await;
         let (a, _b, svc) = remembered_b(&[local(&x)]).await;
         seed(&mut a.shared.store(), "dev-x", &[], now_secs());
-        assert!(a.forget("dev-x"));
+        assert!(a.forget("dev-x").is_some());
         assert_eq!(
             open(&a, "dev-b").await.unwrap(),
             key_of(&test_identity("dev-b"))
