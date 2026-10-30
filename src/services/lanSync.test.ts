@@ -37,6 +37,8 @@ const h = vi.hoisted(() => ({
   heldKeys: [] as string[],
   readGate: Promise.resolve() as Promise<void>,
   retireDuplicates: vi.fn(async () => {}),
+  startFiles: vi.fn(async () => {}),
+  stopFiles: vi.fn(async () => {}),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -51,7 +53,7 @@ vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
 vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `${key}|${o.name}` } }));
 vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode, getAccountId: async () => h.accountId }));
 vi.mock("@/services/vault", () => ({ getVaultKey: () => h.vaultKey }));
-vi.mock("@/services/deviceFiles", () => ({ startDeviceFiles: async () => {}, stopDeviceFiles: async () => {} }));
+vi.mock("@/services/deviceFiles", () => ({ startDeviceFiles: h.startFiles, stopDeviceFiles: h.stopFiles }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: h.intro }));
 vi.mock("@/services/lanGroup", () => ({
   LAN_GROUP_FILE: "lan_group.json",
@@ -193,6 +195,8 @@ beforeEach(() => {
   h.heldKeys = [];
   h.readGate = Promise.resolve();
   h.retireDuplicates.mockClear();
+  h.startFiles.mockClear();
+  h.stopFiles.mockClear();
   useVaultKeysStore.setState({ dek: null, kek: null });
   useLanSyncStore.setState({
     paused: false, peers: [], known: {}, knownScope: undefined, syncing: new Set(), status: "stopped", localClocks: {},
@@ -765,7 +769,7 @@ describe("no-account groups", () => {
     nearby("A", "B");
     h.group = withMembers(member("self"), member("A"), member("B", { deleted_at: "3" }), GROUP.members[3]);
     await mergeFrom("A");
-    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1" }]);
+    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1", group: true }]);
     expect(useLanSyncStore.getState().known.B).toBeUndefined();
     expect(useLanSyncStore.getState().known.A).toBeDefined();
     expect(calls("lan_sync_set_members").map(([, a]) => a)).toEqual([{ members: ms("self", "A") }]);
@@ -802,7 +806,7 @@ describe("no-account groups", () => {
     });
     await forgetDevice("B");
     expect(h.forgetMember).toHaveBeenCalledWith("B");
-    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1" }]);
+    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1", group: true }]);
     expect(calls("lan_sync_start").map(([, a]) => [a.authKeys, a.members])).toEqual([[[[7]], ms("self", "A")]]);
     expect(useLanSyncStore.getState().known.B).toBeUndefined();
   });
@@ -811,7 +815,7 @@ describe("no-account groups", () => {
     h.group = GROUP;
     await forgetDevice("B");
     expect(h.forgetMember).toHaveBeenCalledWith("B");
-    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1" }]);
+    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1", group: true }]);
     expect(calls("lan_sync_start")).toHaveLength(0);
   });
 
@@ -975,10 +979,43 @@ describe("no-account groups", () => {
     await settle();
 
     expect(h.markLeft.mock.calls).toEqual([["A"]]);
-    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "A", scope: "grp-1" }]);
+    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "A", scope: "grp-1", group: true }]);
     expect(calls("lan_sync_set_members").map(([, a]) => a)).toEqual([{ members: ms("self", "B") }]);
     expect(useLanSyncStore.getState().known.A).toBeUndefined();
     expect(useLanSyncStore.getState().presence).toEqual({});
+  });
+});
+
+describe("dial paths and file access by scope", () => {
+  const addressesOf = (deviceId: string) => ({
+    files: { "lan_sync_addresses.json": JSON.stringify({ v: 1, deviceId, addrs: ["100.101.1.2:47391"] }) },
+    secrets: {},
+  });
+  const merged = async (deviceId: string) => {
+    h.onMerged.forEach((fn) => fn(deviceId, addressesOf(deviceId)));
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  test("an account session serves files and learns peer addresses", async () => {
+    await started();
+    await merged("A");
+    expect(h.startFiles).toHaveBeenCalledTimes(1);
+    expect(calls("lan_sync_learn").map(([, a]) => a.deviceId)).toEqual(["A"]);
+  });
+
+  test.each([
+    ["a group", () => { h.group = GROUP; }],
+    ["a farewell-only", () => { h.farewell = LEFT; }],
+  ])("%s session serves no files and learns no account addresses", async (_kind, enter) => {
+    h.serverMode = false;
+    enter();
+    await merged("A");
+    await startLanSync();
+    await merged("B");
+    expect(calls("lan_sync_start")).toHaveLength(1);
+    expect(h.startFiles).not.toHaveBeenCalled();
+    expect(h.stopFiles).toHaveBeenCalled();
+    expect(calls("lan_sync_learn")).toHaveLength(0);
   });
 });
 
@@ -1008,7 +1045,7 @@ describe("account scope", () => {
     useLanSyncStore.getState().markRejected("B", "keyChanged");
     await forgetDevice("B");
     expect(h.forgetMember).not.toHaveBeenCalled();
-    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "acct-1" }]);
+    expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "acct-1", group: false }]);
     expect(calls("lan_sync_start")).toHaveLength(0);
     expect(useLanSyncStore.getState().known.B).toBeUndefined();
     expect(useLanSyncStore.getState().rejected).toEqual({});

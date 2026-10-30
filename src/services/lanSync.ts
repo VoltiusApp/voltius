@@ -114,8 +114,9 @@ const sameLink = (a: Trust, b: Trust) =>
 const owesFarewell = (f: Farewell | null): f is Farewell => !!f && (f.reason !== "left" || !!f.pending?.length);
 const farewellTrust = (f: Farewell | null) =>
   owesFarewell(f) ? { farewell: f.secret, ...(f.reason === "left" ? { farewellLeft: true } : {}) } : {};
-// Mirrors Rust `Trust::farewell_only`: such a manager neither listens nor advertises.
+// Mirrors Rust `Kind`: a farewell manager neither listens nor advertises; only an account serves files and learns addresses.
 const sayingFarewell = (t: Trust) => t.authKeys.length === 0 && !!t.farewell;
+const onAccount = (t: Trust) => !t.members;
 
 const lifecycle = createSerialQueue();
 const merges = createSerialQueue();
@@ -263,16 +264,16 @@ function restart(): Promise<void> {
   return lifecycle(() => begin(wanted));
 }
 
-async function forgetPeer(deviceId: string, scope: string): Promise<void> {
+async function forgetPeer(deviceId: string, trust: Trust): Promise<void> {
   if (session) session.alive = session.alive.filter((id) => id !== deviceId);
   store().dropDevice(deviceId);
-  if (!(await keyStillHeld(deviceId))) await invoke("lan_sync_forget", { deviceId, scope });
+  if (!(await keyStillHeld(deviceId))) await invoke("lan_sync_forget", { deviceId, scope: trust.scope, group: !onAccount(trust) });
 }
 
 async function forgetDeparted(s: Session, next: Resolved | null): Promise<void> {
   if (!s.trust.members || !next || next.trust.scope !== s.trust.scope) return;
   for (const id of s.alive.filter((id) => !next.alive.includes(id))) {
-    await forgetPeer(id, s.trust.scope).catch(fail(`forget ${id}`));
+    await forgetPeer(id, s.trust).catch(fail(`forget ${id}`));
   }
 }
 
@@ -319,8 +320,12 @@ async function begin(wanted: number): Promise<void> {
     await invoke("lan_sync_set_paused", { paused: store().paused });
     pairingWindowLost();
     await invoke("lan_sync_start", { deviceId: me.id, deviceName: me.name, ...next.trust });
-    startDeviceFiles().catch(fail("files start"));
-    s.offs.push(watchPeerAddresses());
+    if (onAccount(next.trust)) {
+      startDeviceFiles().catch(fail("files start"));
+      s.offs.push(watchPeerAddresses());
+    } else {
+      stopDeviceFiles().catch(fail("files stop"));
+    }
   } catch (e) {
     detach();
     store().setStatus("stopped");
@@ -415,7 +420,7 @@ export function forgetDevice(deviceId: string): Promise<void> {
     const trust = await lanScope();
     if (!trust) return store().dropDevice(deviceId);
     if (trust.members) await forgetMember(deviceId);
-    await forgetPeer(deviceId, trust.scope);
+    await forgetPeer(deviceId, trust);
     if (trust.members && requested) await begin(epoch);
   });
 }
