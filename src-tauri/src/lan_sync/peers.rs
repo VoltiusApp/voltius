@@ -27,20 +27,29 @@ mod hex32 {
         s.serialize_str(&encode(key))
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 32], D::Error> {
-        let text = String::deserialize(d)?;
+    pub fn parse(text: &str) -> Option<[u8; 32]> {
         if text.len() != 64 || !text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
-            return Err(serde::de::Error::custom(
-                "device_key must be 64 lowercase hex chars",
-            ));
+            return None;
         }
         let mut out = [0u8; 32];
         for (i, byte) in out.iter_mut().enumerate() {
-            *byte = u8::from_str_radix(&text[i * 2..i * 2 + 2], 16)
-                .map_err(serde::de::Error::custom)?;
+            *byte = u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).ok()?;
         }
-        Ok(out)
+        Some(out)
     }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 32], D::Error> {
+        parse(&String::deserialize(d)?)
+            .ok_or_else(|| serde::de::Error::custom("device_key must be 64 lowercase hex chars"))
+    }
+}
+
+pub fn parse_hex32(text: &str) -> Option<[u8; 32]> {
+    hex32::parse(text)
+}
+
+pub fn encode_hex32(key: &[u8; 32]) -> String {
+    hex32::encode(key)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -85,7 +94,6 @@ pub enum PinDecision {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PinPolicy {
     Repin,
-    #[cfg_attr(not(test), expect(dead_code))]
     Refuse,
 }
 
@@ -218,6 +226,18 @@ impl PeerStore {
         );
         evict_oldest(&mut self.peers, MAX_PEERS, |r| r.last_seen, device_id);
         PinDecision::Pinned
+    }
+
+    pub fn vouch(&mut self, device_id: &str, key: &[u8; 32]) -> bool {
+        let unblocked = self.blocked.remove(&hex32::encode(key)).is_some();
+        let repinned = match self.peers.get_mut(device_id) {
+            Some(record) if record.device_key != *key => {
+                record.device_key = *key;
+                true
+            }
+            _ => false,
+        };
+        unblocked || repinned
     }
 
     pub fn record_addrs(&mut self, device_id: &str, addrs: &[SocketAddr], now: u64) {

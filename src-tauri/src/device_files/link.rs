@@ -341,8 +341,9 @@ mod tests {
 
     async fn lan(me: LocalIdentity, store: PeerStore, policy: PinPolicy) -> Manager {
         let keys = zeroize::Zeroizing::new(vec![derive_auth_key(&[1; 32])]);
+        let trust = manager::Trust::policed(keys, policy);
         let events = tokio::sync::mpsc::channel(64).0;
-        manager::start(me, keys, false, false, store, policy, events)
+        manager::start(me, trust, false, false, store, events)
             .await
             .unwrap()
     }

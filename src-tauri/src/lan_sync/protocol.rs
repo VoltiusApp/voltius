@@ -14,8 +14,16 @@ const KIND_CAPS: u8 = 6;
 const KIND_FILES: u8 = 7;
 const KIND_FILES_REPLY: u8 = 8;
 const GRANT_LEN: usize = 64;
+const KIND_PAIR: u8 = 9;
+const KIND_GROUP: u8 = 10;
+const KIND_PRESENCE: u8 = 11;
 const KIND_ADDRS: u8 = 12;
 const MAX_ADDRS_FRAME: usize = 4 * 1024;
+
+pub const MAX_EPOCHS: usize = 16;
+const SECRET_HEX_LEN: usize = 64;
+const MAX_GROUP_ID_LEN: usize = 64;
+const MAX_HOST_NAME_LEN: usize = 128;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Hello {
@@ -53,10 +61,100 @@ pub(super) fn raw_hello_frame(json: &str) -> Vec<u8> {
     [&len[..], &[KIND_HELLO], json.as_bytes()].concat()
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Auth {
     pub version: u16,
     pub proofs: Vec<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pair: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<[u8; 32]>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PairInfo {
+    pub mode: String,
+    pub group: Option<String>,
+    pub entities: u32,
+    pub members: u16,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reverify: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "t", rename_all = "camelCase")]
+pub enum Pair {
+    Info(PairInfo),
+    Confirm,
+    Cancel,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EpochSecret {
+    pub epoch: u32,
+    pub secret: String,
+}
+
+impl std::fmt::Debug for EpochSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EpochSecret")
+            .field("epoch", &self.epoch)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupGrant {
+    pub group_id: String,
+    pub vault_key: String,
+    pub secrets: Vec<EpochSecret>,
+    pub host_name: String,
+}
+
+impl std::fmt::Debug for GroupGrant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GroupGrant")
+            .field("group_id", &self.group_id)
+            .field("secrets", &self.secrets)
+            .field("host_name", &self.host_name)
+            .finish_non_exhaustive()
+    }
+}
+
+fn is_secret_hex(s: &str) -> bool {
+    s.len() == SECRET_HEX_LEN && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+impl GroupGrant {
+    pub(super) fn validate(&self) -> Result<(), ProtocolError> {
+        let ok = is_secret_hex(&self.vault_key)
+            && (1..=MAX_EPOCHS).contains(&self.secrets.len())
+            && self.secrets.iter().all(|s| is_secret_hex(&s.secret))
+            && self.group_id.len() <= MAX_GROUP_ID_LEN
+            && self.host_name.len() <= MAX_HOST_NAME_LEN;
+        ok.then_some(())
+            .ok_or_else(|| ProtocolError::Malformed("invalid group grant".into()))
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum PresenceState {
+    Live,
+    Paused,
+    Moved,
+    Left,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Presence {
+    pub state: PresenceState,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -110,6 +208,9 @@ pub enum Frame {
     Addrs(Addrs),
     Nudge,
     Bye,
+    Pair(Pair),
+    Group(GroupGrant),
+    Presence(Presence),
     Unknown(u8),
 }
 
@@ -156,6 +257,9 @@ pub fn encode(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
         Frame::Addrs(a) => (KIND_ADDRS, to_json(a)?),
         Frame::Nudge => (KIND_NUDGE, Vec::new()),
         Frame::Bye => (KIND_BYE, Vec::new()),
+        Frame::Pair(p) => (KIND_PAIR, to_json(p)?),
+        Frame::Group(g) => (KIND_GROUP, to_json(g)?),
+        Frame::Presence(p) => (KIND_PRESENCE, to_json(p)?),
         Frame::Unknown(kind) => return Err(ProtocolError::UnknownKind(*kind)),
     };
     let len = payload.len() + 1;
@@ -199,6 +303,13 @@ pub fn decode(buf: &[u8]) -> Result<Frame, ProtocolError> {
         }
         KIND_NUDGE => Ok(Frame::Nudge),
         KIND_BYE => Ok(Frame::Bye),
+        KIND_PAIR => from_json(payload).map(Frame::Pair),
+        KIND_GROUP => {
+            let grant: GroupGrant = from_json(payload)?;
+            grant.validate()?;
+            Ok(Frame::Group(grant))
+        }
+        KIND_PRESENCE => from_json(payload).map(Frame::Presence),
         other => Ok(Frame::Unknown(other)),
     }
 }
@@ -289,12 +400,25 @@ mod tests {
     }
 
     #[test]
+    fn old_auth_json_without_pair_decodes() {
+        let auth: Auth = serde_json::from_str(r#"{"version":1,"proofs":[]}"#).unwrap();
+        assert!(!auth.pair);
+        let json = serde_json::to_value(&auth).unwrap();
+        assert!(json.get("pair").is_none());
+        assert!(auth.commit.is_none() && auth.nonce.is_none());
+        assert!(json.get("commit").is_none() && json.get("nonce").is_none());
+    }
+
+    #[test]
     fn roundtrip_every_kind() {
         for f in [
             Frame::Hello(sample_hello()),
             Frame::Auth(Auth {
                 version: PROTOCOL_VERSION,
                 proofs: vec![[7u8; 32], [9u8; 32]],
+                pair: false,
+                commit: Some([3u8; 32]),
+                nonce: Some([4u8; 32]),
             }),
             Frame::Caps(Caps { files: true }),
             Frame::Caps(Caps { files: false }),
@@ -383,6 +507,132 @@ mod tests {
         assert_eq!(json, r#"{"result":"refused","reason":"timedOut"}"#);
     }
 
+    fn sample_grant() -> GroupGrant {
+        GroupGrant {
+            group_id: "g1".into(),
+            vault_key: "ab".repeat(32),
+            secrets: vec![
+                EpochSecret {
+                    epoch: 2,
+                    secret: "cd".repeat(32),
+                },
+                EpochSecret {
+                    epoch: 1,
+                    secret: "ef".repeat(32),
+                },
+            ],
+            host_name: "Laptop".into(),
+        }
+    }
+
+    #[test]
+    fn debug_never_prints_key_material() {
+        let shown = format!("{:?}", Frame::Group(sample_grant()));
+        for hex in ["ab", "cd", "ef"] {
+            assert!(!shown.contains(&hex.repeat(32)), "{shown}");
+        }
+        assert!(shown.contains("g1") && shown.contains("Laptop"), "{shown}");
+    }
+
+    fn group_payload(g: &GroupGrant) -> Vec<u8> {
+        [&[KIND_GROUP][..], &serde_json::to_vec(g).unwrap()].concat()
+    }
+
+    #[test]
+    fn pair_group_presence_roundtrip() {
+        for f in [
+            Frame::Pair(Pair::Info(PairInfo {
+                mode: "none".into(),
+                group: Some("g1".into()),
+                entities: 12,
+                members: 3,
+                reverify: true,
+            })),
+            Frame::Pair(Pair::Confirm),
+            Frame::Pair(Pair::Cancel),
+            Frame::Group(sample_grant()),
+            Frame::Presence(Presence {
+                state: PresenceState::Paused,
+            }),
+            Frame::Presence(Presence {
+                state: PresenceState::Moved,
+            }),
+            Frame::Presence(Presence {
+                state: PresenceState::Left,
+            }),
+        ] {
+            let wire = encode(&f).unwrap();
+            assert_eq!(decode(&wire[4..]).unwrap(), f);
+        }
+        let wire = encode(&Frame::Group(sample_grant())).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&wire[5..]).unwrap();
+        assert!(json.get("groupId").is_some() && json.get("vaultKey").is_some());
+        assert!(json.get("hostName").is_some());
+        let wire = encode(&Frame::Pair(Pair::Confirm)).unwrap();
+        assert_eq!(&wire[5..], br#"{"t":"confirm"}"#);
+    }
+
+    #[test]
+    fn group_grant_rejects_bad_hex_and_too_many_secrets() {
+        let reject = |g: GroupGrant| {
+            assert!(matches!(
+                decode(&group_payload(&g)),
+                Err(ProtocolError::Malformed(_))
+            ));
+        };
+        let mut g = sample_grant();
+        g.vault_key = "zz".repeat(32);
+        reject(g);
+        let mut g = sample_grant();
+        g.vault_key = "ab".repeat(31);
+        reject(g);
+        let mut g = sample_grant();
+        g.secrets[1].secret = "ab".repeat(33);
+        reject(g);
+        let mut g = sample_grant();
+        g.secrets.clear();
+        reject(g);
+        let mut g = sample_grant();
+        g.secrets = (0..=MAX_EPOCHS as u32)
+            .map(|epoch| EpochSecret {
+                epoch,
+                secret: "ab".repeat(32),
+            })
+            .collect();
+        reject(g);
+        let mut g = sample_grant();
+        g.group_id = "g".repeat(MAX_GROUP_ID_LEN + 1);
+        reject(g);
+        let mut g = sample_grant();
+        g.host_name = "h".repeat(MAX_HOST_NAME_LEN + 1);
+        reject(g);
+        let mut g = sample_grant();
+        g.secrets = (0..MAX_EPOCHS as u32)
+            .map(|epoch| EpochSecret {
+                epoch,
+                secret: "ab".repeat(32),
+            })
+            .collect();
+        assert!(decode(&group_payload(&g)).is_ok());
+    }
+
+    #[test]
+    fn part1_decoder_view() {
+        let kind_of = |f: Frame| encode(&f).unwrap()[4];
+        assert_eq!(kind_of(Frame::Pair(Pair::Cancel)), 9);
+        assert_eq!(kind_of(Frame::Group(sample_grant())), 10);
+        assert_eq!(
+            kind_of(Frame::Presence(Presence {
+                state: PresenceState::Live
+            })),
+            11
+        );
+        for kind in [9, 10, 11] {
+            assert!(!(6..=8).contains(&kind) && kind != 12);
+        }
+        assert_eq!(decode(&[13]).unwrap(), Frame::Unknown(13));
+    }
+
     #[tokio::test]
     async fn rejects_oversized_length() {
         let mut r: &[u8] = &[0xFF, 0xFF, 0xFF, 0xFF, 1, 2];
@@ -394,11 +644,11 @@ mod tests {
 
     #[test]
     fn unknown_kind_decodes_to_unknown() {
-        assert_eq!(decode(&[9]).unwrap(), Frame::Unknown(9));
+        assert_eq!(decode(&[13]).unwrap(), Frame::Unknown(13));
         assert_eq!(decode(&[0, 1, 2, 3]).unwrap(), Frame::Unknown(0));
         assert!(matches!(
-            encode(&Frame::Unknown(9)),
-            Err(ProtocolError::UnknownKind(9))
+            encode(&Frame::Unknown(13)),
+            Err(ProtocolError::UnknownKind(13))
         ));
     }
 
