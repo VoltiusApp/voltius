@@ -131,7 +131,7 @@ pub async fn device_files_connect(
 mod serving {
     use crate::commands::lan_sync::{emitter, Emit, LanSyncState};
     use crate::device_files::policy::{self, Answer, ApprovalPrompt, FileAccessConfig};
-    use crate::device_files::service::{Alert, FileService};
+    use crate::device_files::service::{Alert, FileService, CONFIG};
     use crate::device_files::{for_account, stop_running, stop_where, Slot};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -200,6 +200,7 @@ mod serving {
         dir: &Path,
         account: &str,
         key: &str,
+        emit: &Emit,
     ) -> Result<(), String> {
         if let Some(svc) = for_account(slot, account) {
             return svc.forget_device(key);
@@ -207,6 +208,10 @@ mod serving {
         let mut config = policy::load(dir, account);
         if config.drop_device(key) {
             policy::save(dir, account, &config)?;
+            // A service for another account means the UI holds that account's config.
+            if slot.is_none() {
+                emit(CONFIG, serde_json::json!(config));
+            }
         }
         Ok(())
     }
@@ -424,15 +429,28 @@ mod tests {
         }
     }
 
+    fn recording() -> (Emit, Seen) {
+        let seen = Seen::default();
+        let sink = seen.clone();
+        let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name, payload)));
+        (emit, seen)
+    }
+
+    fn events_in(seen: &Seen, name: &str) -> Vec<Value> {
+        let seen = seen.lock().unwrap();
+        seen.iter()
+            .filter(|(n, _)| *n == name)
+            .map(|(_, v)| v.clone())
+            .collect()
+    }
+
     async fn server_as(me: LocalIdentity, always: &[&str]) -> Server {
         let dir = tempfile::tempdir().unwrap();
         let share = dir.path().join("Shared");
         std::fs::create_dir(&share).unwrap();
         std::fs::write(share.join("hello.txt"), b"hi").unwrap();
         policy::save(dir.path(), ACCOUNT, &config(&share, always)).unwrap();
-        let seen = Seen::default();
-        let sink = seen.clone();
-        let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name, payload)));
+        let (emit, seen) = recording();
         let lan = lan(me).await;
         serve_files(&lan, dir.path(), ACCOUNT, emit).await;
         Server { lan, dir, seen }
@@ -452,11 +470,7 @@ mod tests {
         }
 
         fn events(&self, name: &str) -> Vec<Value> {
-            let seen = self.seen.lock().unwrap();
-            seen.iter()
-                .filter(|(n, _)| *n == name)
-                .map(|(_, v)| v.clone())
-                .collect()
+            events_in(&self.seen, name)
         }
 
         fn prompts(&self) -> usize {
@@ -1012,8 +1026,8 @@ mod tests {
         s.until_open(&["dev-a", "dev-c"]).await;
         let svc = s.svc().await;
         assert_eq!(svc.grants_for(&key_of("dev-c")), 1);
-        assert!(forget_inner(&s.lan, "dev-a", s.dir.path()).await);
-        assert!(forget_inner(&s.lan, "dev-c", s.dir.path()).await);
+        assert!(forget_inner(&s.lan, "dev-a", s.dir.path(), &quiet()).await);
+        assert!(forget_inner(&s.lan, "dev-c", s.dir.path(), &quiet()).await);
         s.until_open(&[]).await;
         assert!(svc.config().allowed.is_empty());
         assert!(policy::load(s.dir.path(), ACCOUNT).allowed.is_empty());
@@ -1032,12 +1046,34 @@ mod tests {
         let a = lan(test_identity("dev-a")).await;
         a.meet(&b).await;
         until_files(&b, "dev-a", false).await;
+        let (emit, seen) = recording();
         serve_files(&b, dir.path(), "other", quiet()).await;
-        assert!(forget_inner(&b, "dev-a", dir.path()).await);
+        assert!(forget_inner(&b, "dev-a", dir.path(), &emit).await);
         let svc = b.files.service.lock().await.clone().unwrap();
         assert_eq!(svc.config(), saved);
         assert_eq!(policy::load(dir.path(), "other"), saved);
         assert!(policy::load(dir.path(), ACCOUNT).allowed.is_empty());
+        assert!(events_in(&seen, CONFIG).is_empty());
+    }
+
+    #[tokio::test]
+    async fn forget_without_any_file_service_emits_the_dropped_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        policy::save(
+            dir.path(),
+            ACCOUNT,
+            &config(dir.path(), &["dev-a", "dev-c"]),
+        )
+        .unwrap();
+        let b = lan(test_identity("dev-b")).await;
+        let a = lan(test_identity("dev-a")).await;
+        a.meet(&b).await;
+        until_files(&b, "dev-a", false).await;
+        let (emit, seen) = recording();
+        assert!(forget_inner(&b, "dev-a", dir.path(), &emit).await);
+        let left = policy::load(dir.path(), ACCOUNT);
+        assert_eq!(left, config(dir.path(), &["dev-c"]));
+        assert_eq!(events_in(&seen, CONFIG), [json!(left)]);
     }
 
     #[tokio::test]
@@ -1046,7 +1082,7 @@ mod tests {
         let a = browser("dev-a", &s).await;
         let forget = async {
             let id = s.until_pending(1).await.remove(0);
-            assert!(forget_inner(&s.lan, "dev-a", s.dir.path()).await);
+            assert!(forget_inner(&s.lan, "dev-a", s.dir.path(), &quiet()).await);
             let svc = s.svc().await;
             assert!(svc.pending().is_empty());
             assert!(!svc.answer(&id, Answer::Always));

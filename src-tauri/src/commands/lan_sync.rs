@@ -72,9 +72,9 @@ impl LanSyncState {
     }
 
     #[cfg(desktop)]
-    async fn forget_files(&self, scope: &str, key: &str, dir: &Path) {
+    async fn forget_files(&self, scope: &str, key: &str, dir: &Path, emit: &Emit) {
         let slot = self.files.service.lock().await;
-        let forgotten = crate::commands::device_files::forget_device(&slot, dir, scope, key);
+        let forgotten = crate::commands::device_files::forget_device(&slot, dir, scope, key, emit);
         if let Err(e) = forgotten {
             log::warn!("device-files: revoking a forgotten device failed: {e}");
         }
@@ -227,13 +227,13 @@ async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
 }
 
 #[cfg_attr(not(desktop), allow(unused_variables))]
-pub async fn forget_inner(state: &LanSyncState, device_id: &str, dir: &Path) -> bool {
+pub async fn forget_inner(state: &LanSyncState, device_id: &str, dir: &Path, emit: &Emit) -> bool {
     let (scope, forgotten) =
         with_manager(state, |m| (lock(&state.scope).clone(), m.forget(device_id))).await;
     #[cfg(desktop)]
     if let Some((scope, key)) = scope.zip(forgotten) {
         state
-            .forget_files(&scope, &crate::crypto::hex(&key), dir)
+            .forget_files(&scope, &crate::crypto::hex(&key), dir, emit)
             .await;
     }
     forgotten.is_some()
@@ -343,11 +343,12 @@ pub async fn lan_sync_stop(state: State<'_, LanSyncState>) -> Result<(), String>
 
 #[tauri::command]
 pub async fn lan_sync_forget(
+    app: AppHandle,
     state: State<'_, LanSyncState>,
     device_id: String,
 ) -> Result<bool, String> {
     let dir = crate::storage::config::config_dir();
-    Ok(forget_inner(&state, &device_id, &dir).await)
+    Ok(forget_inner(&state, &device_id, &dir, &emitter(app)).await)
 }
 
 #[tauri::command]
@@ -596,9 +597,9 @@ mod tests {
         until_any(&seen, "dev-a listed", lists("dev-a")).await;
         let before = seen.lock().unwrap().len();
 
-        assert!(forget_inner(&state, "dev-a", dir.path()).await);
+        assert!(forget_inner(&state, "dev-a", dir.path(), &emit).await);
         until_after(&seen, before, "peers cleared", |e| *e == (PEERS, json!([]))).await;
-        assert!(!forget_inner(&state, "dev-a", dir.path()).await);
+        assert!(!forget_inner(&state, "dev-a", dir.path(), &emit).await);
         stop_inner(&state).await;
         assert!(file.exists());
     }
