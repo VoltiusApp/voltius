@@ -45,8 +45,8 @@ pub enum HandshakeError {
     VersionMismatch(u16),
     #[error(transparent)]
     Protocol(#[from] ProtocolError),
-    #[error("peer refused by pin: {0:?}")]
-    Pinned(Rejection),
+    #[error("peer {0} refused by pin: {1:?}")]
+    Pinned(String, Rejection),
 }
 
 impl From<snow::Error> for HandshakeError {

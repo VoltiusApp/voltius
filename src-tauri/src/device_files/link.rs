@@ -201,7 +201,7 @@ impl DeviceLink {
                 let fatal = match e {
                     FilesDialError::Refused(reason) => refused(reason),
                     FilesDialError::NotListed
-                    | FilesDialError::Handshake(HandshakeError::Pinned(_)) => {
+                    | FilesDialError::Handshake(HandshakeError::Pinned(..)) => {
                         refused(Refusal::Denied)
                     }
                     FilesDialError::WrongDevice => unreachable(e),
@@ -406,15 +406,22 @@ mod tests {
         )
         .await;
         let (_socket, refusing) = crate::lan_sync::reserved();
-        let store = knowing(&[refusing, local(&other)]);
-        let me = lan(test_identity("me"), store, PinPolicy::Repin).await;
-        let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
-        link.lock().key = Some(crate::crypto::hex(&test_identity("dev").key.public));
-        link.bind("sftp-1".into());
-        let err = link.dial().await.err().unwrap();
-        assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable));
-        assert!(!link.closed_now());
-        assert!(closes.lock().unwrap().is_empty());
+        for blocked in [false, true] {
+            let mut store = knowing(&[refusing, local(&other)]);
+            if blocked {
+                let key = test_identity("other").key.public;
+                store.decide("other", &key, now_secs(), PinPolicy::Repin);
+                store.forget("other", now_secs());
+            }
+            let me = lan(test_identity("me"), store, PinPolicy::Repin).await;
+            let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
+            link.lock().key = Some(crate::crypto::hex(&test_identity("dev").key.public));
+            link.bind("sftp-1".into());
+            let err = link.dial().await.err().unwrap();
+            assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable), "{blocked}");
+            assert!(!link.closed_now(), "{blocked}");
+            assert!(closes.lock().unwrap().is_empty(), "{blocked}");
+        }
     }
 
     #[tokio::test(start_paused = true)]

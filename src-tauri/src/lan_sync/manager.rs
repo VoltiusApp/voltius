@@ -256,7 +256,7 @@ async fn secure(
             log::debug!("lan-sync: {addr} refused: {reason:?}");
             shared.rejected(&hello.device_id, reason).await;
             let _ = session.send(&Frame::Bye).await;
-            return Err(HandshakeError::Pinned(reason));
+            return Err(HandshakeError::Pinned(hello.device_id, reason));
         }
     }
     let session_id = session.handshake_hash().to_vec();
@@ -339,7 +339,7 @@ async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermi
             Err(
                 HandshakeError::NotTrusted
                 | HandshakeError::VersionMismatch(_)
-                | HandshakeError::Pinned(_),
+                | HandshakeError::Pinned(..),
             ) => DialOutcome::Rejected,
             Err(_) => DialOutcome::Unreachable,
         },
@@ -810,11 +810,17 @@ impl Shared {
         let stream = connect(addr)
             .await
             .map_err(|e| FilesDialError::Unreachable(format!("dial {addr} failed: {e}")))?;
-        let link = secure(stream, addr, true, self).await?;
+        let other =
+            || FilesDialError::Unreachable(format!("a different device answered at {addr}"));
+        let link = secure(stream, addr, true, self)
+            .await
+            .map_err(|e| match e {
+                HandshakeError::Pinned(answered, _) if answered != id => other(),
+                e => e.into(),
+            })?;
         drop(permit);
         if link.hello.device_id != id {
-            let other = format!("a different device answered at {addr}");
-            return Err(FilesDialError::Unreachable(other));
+            return Err(other());
         }
         Ok(link)
     }
@@ -825,7 +831,10 @@ impl Shared {
             match self.files_link(addr, id).await {
                 Ok(link) => return Ok(link),
                 Err(e) => {
-                    if !matches!(failed, FilesDialError::Handshake(HandshakeError::Pinned(_))) {
+                    if !matches!(
+                        failed,
+                        FilesDialError::Handshake(HandshakeError::Pinned(..))
+                    ) {
                         failed = e;
                     }
                 }
@@ -2899,8 +2908,9 @@ mod tests {
         assert!(matches!(
             dialed,
             Err(FilesDialError::Handshake(HandshakeError::Pinned(
+                ref id,
                 Rejection::KeyChanged
-            )))
+            ))) if id == "dev-b"
         ));
         assert_eq!(served(&svc), 0);
         assert_eq!(a.peers().len(), 1);
