@@ -13,7 +13,11 @@ import {
   DEFAULT_AUTO_REFRESH_INTERVAL_MS,
   DEFAULT_EDITOR_MAX_BYTES,
 } from "@/stores/sftpSettingsStore";
-import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import {
+  useConnectivitySettingsStore,
+  DETACHED_TTL_HOURS,
+  DEFAULT_DETACHED_TTL_HOURS,
+} from "@/stores/connectivitySettingsStore";
 import { KEEPALIVE_PRESETS, DEFAULT_KEEPALIVE_PRESET } from "@/utils/keepalive";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
@@ -202,6 +206,14 @@ function explicitDefs(): SettingDef[] {
       section: "hosts", labelKey: "settings.hosts.keepalive.title", writable: true,
       get: () => useConnectivitySettingsStore.getState().keepalivePreset,
       set: (v) => useConnectivitySettingsStore.getState().setKeepalivePreset(v as never),
+    },
+    {
+      key: "connectivity.detachedTtlHours",
+      type: "enum", values: DETACHED_TTL_HOURS.map(String),
+      default: String(DEFAULT_DETACHED_TTL_HOURS),
+      section: "hosts", labelKey: "settings.hosts.detachedTtl.durationTitle", writable: true,
+      get: () => String(useConnectivitySettingsStore.getState().detachedTtlHours),
+      set: (v) => useConnectivitySettingsStore.getState().setDetachedTtlHours(Number(v) as never),
     },
     {
       key: "theme.activeThemeId",
