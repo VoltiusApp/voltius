@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 
 const android = vi.hoisted(() => ({ on: false }));
+const noAccount = vi.hoisted(() => ({ on: false }));
 const saveFileAccess = vi.hoisted(() => vi.fn(async () => {}));
 const disconnectDevice = vi.hoisted(() => vi.fn(async () => {}));
 const loadFileAccess = vi.hoisted(() => vi.fn(async () => {}));
@@ -17,6 +18,8 @@ vi.mock("@/utils/platform", async (orig) => ({
   useIsAndroid: () => android.on,
   useIsMobile: () => false,
 }));
+
+vi.mock("@/hooks/useNoAccountInstall", () => ({ useNoAccountInstall: () => noAccount.on }));
 
 import DevicesSection from "./DevicesSection";
 import { useDeviceFilesStore, type FileAccessConfig } from "@/stores/deviceFilesStore";
@@ -34,6 +37,7 @@ const lastCall = () => saveFileAccess.mock.calls[saveFileAccess.mock.calls.lengt
 
 beforeEach(() => {
   android.on = false;
+  noAccount.on = false;
   saveFileAccess.mockClear();
   disconnectDevice.mockClear();
   loadFileAccess.mockReset().mockResolvedValue(undefined);
@@ -43,6 +47,16 @@ afterEach(cleanup);
 const laptop = { name: "MacBook", platform: "macos", lastSeen: "", lastRoute: null, deviceKey: "key-mac" };
 
 describe("DevicesSection", () => {
+  test("a no-account install shows only that file access needs an account", () => {
+    noAccount.on = true;
+    setup(base, { mac: laptop });
+    render(<DevicesSection />);
+    expect(screen.getByText("fileTransfer.myDevices.needsAccount")).toBeTruthy();
+    expect(screen.queryByLabelText("settings.devices.fileAccess.enable.title")).toBeNull();
+    expect(screen.queryByText("settings.devices.allowed.title")).toBeNull();
+    expect(screen.queryByText("MacBook")).toBeNull();
+  });
+
   test("loads_config_on_mount_without_service", async () => {
     setup(null);
     loadFileAccess.mockImplementation(async () => {

@@ -223,6 +223,7 @@
     "myDevices": {
       "title": "Mes appareils",
       "fileAccessOff": "L'accès aux fichiers est désactivé sur cet appareil",
+      "needsAccount": "L'accès aux fichiers entre vos appareils nécessite un compte Voltius.",
       "offlineSeen": "Hors ligne · vu {{ago}}",
       "offline": "Hors ligne",
       "routeChip": "{{route}} · {{ms}} ms",

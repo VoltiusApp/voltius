@@ -239,6 +239,7 @@
     "myDevices": {
       "title": "Moje zařízení",
       "fileAccessOff": "Přístup k souborům je na tomto zařízení vypnutý",
+      "needsAccount": "Přístup k souborům mezi vašimi zařízeními vyžaduje účet Voltius.",
       "offlineSeen": "Offline · naposledy {{ago}}",
       "offline": "Offline",
       "routeChip": "{{route}} · {{ms}} ms",
