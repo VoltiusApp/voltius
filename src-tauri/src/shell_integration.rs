@@ -722,7 +722,7 @@ voltius_quiet() {
 #[cfg(test)]
 const TTL_IDLE_CHECK: &str = ttl_idle_check!();
 
-/// `$1` is the session; the hook decodes it from `@voltius_reap` (see [`ttl_reaper_option`]).
+/// `$1` is the session; the hook decodes it from [`TTL_REAPER_OPTION`] (see [`ttl_reaper_option`]).
 /// Every failed check exits 0 without killing.
 pub(crate) const TTL_REAPER: &str = concat!(
     ttl_idle_check!(),
@@ -768,6 +768,9 @@ exit 0
 "#
 );
 
+/// Versioned: hooks already armed by older clients keep calling the name they were given.
+pub(crate) const TTL_REAPER_OPTION: &str = "@voltius_reap1";
+
 /// tmux 3.4 stores `$` as `\$` and `show` turns newlines into `_` outside tmux, so the
 /// option holds the reaper as a printf format of printable ASCII only.
 fn ttl_reaper_option() -> String {
@@ -780,9 +783,9 @@ const MAX_TTL_SECS: u64 = 999_999_999;
 pub fn persistent_ttl_command(session_key: &str, ttl_secs: Option<u64>) -> String {
     let action = match ttl_secs {
         Some(secs) => format!(
-            r#"$T set -g @voltius_reap {reaper} &&
+            r#"$T set -g {TTL_REAPER_OPTION} {reaper} &&
 $T set -t ={key}: @voltius_ttl {secs} &&
-$T set-hook -t ={key}: client-detached 'run-shell -b "sh -c \"\$(printf \"\$(tmux -L {socket} show -gv @voltius_reap)\")\" voltius-reap #{{session_name}} >/dev/null 2>&1 || :"'
+$T set-hook -t ={key}: client-detached 'run-shell -b "sh -c \"\$(printf \"\$(tmux -L {socket} show -gv {TTL_REAPER_OPTION})\")\" voltius-reap #{{session_name}} >/dev/null 2>&1 || :"'
 "#,
             reaper = crate::ssh::exec::shell_quote(&ttl_reaper_option()),
             secs = secs.min(MAX_TTL_SECS),
@@ -1783,7 +1786,7 @@ mod tests {
         let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", Some(86400)));
         assert!(s.contains("set -t =voltius_s1: @voltius_ttl 86400 "));
         assert!(s.contains("set-hook -t =voltius_s1: client-detached"));
-        assert!(s.contains("@voltius_reap"));
+        assert!(s.contains(&format!("set -g {TTL_REAPER_OPTION} ")));
         assert!(s.contains("until tmux -L voltius has-session -t =voltius_s1"));
         assert!(!s.contains("set-hook -u"));
     }
@@ -1799,7 +1802,7 @@ mod tests {
         let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", None));
         assert!(s.contains("set-hook -u -t =voltius_s1: client-detached"));
         assert!(s.contains("set -u -t =voltius_s1: @voltius_ttl"));
-        assert!(!s.contains("@voltius_reap"));
+        assert!(!s.contains(TTL_REAPER_OPTION));
     }
 
     #[test]
@@ -2089,7 +2092,12 @@ exit 0
             "tmux 3.4",
             &persistent_ttl_command("voltius_s1", Some(3600)),
         );
-        assert!(armed.contains(&tmux(&["set", "-g", "@voltius_reap", &ttl_reaper_option()])));
+        assert!(armed.contains(&tmux(&[
+            "set",
+            "-g",
+            TTL_REAPER_OPTION,
+            &ttl_reaper_option()
+        ])));
         assert!(armed.contains(&tmux(&[
             "set",
             "-t",
@@ -2102,7 +2110,7 @@ exit 0
             "-t",
             "=voltius_s1:",
             "client-detached",
-            r#"run-shell -b "sh -c \"\$(printf \"\$(tmux -L voltius show -gv @voltius_reap)\")\" voltius-reap #{session_name} >/dev/null 2>&1 || :""#,
+            r#"run-shell -b "sh -c \"\$(printf \"\$(tmux -L voltius show -gv @voltius_reap1)\")\" voltius-reap #{session_name} >/dev/null 2>&1 || :""#,
         ])));
 
         let off = fake_tmux_calls("tmux 3.2a", &persistent_ttl_command("voltius_s1", None));

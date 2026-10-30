@@ -1,6 +1,6 @@
 use crate::shell_integration::{
     persistent_attach_command, persistent_exec_command, persistent_ttl_command, ssh_exec_command,
-    tmux_session_key, TTL_REAPER,
+    tmux_session_key, TTL_REAPER, TTL_REAPER_OPTION,
 };
 use crate::ssh::test_docker::{
     container_name, docker, ensure_image, wait_for, Container, TMUX_BASES,
@@ -381,9 +381,15 @@ fn reaper_and_hook_reach_tmux_verbatim() {
     each_image(|h| {
         h.arm(Some(TTL));
         let reap = h
-            .sh(r#"printf "$(tmux -L voltius show -gv @voltius_reap)""#)
+            .sh(&format!(
+                r#"printf "$(tmux -L voltius show -gv {TTL_REAPER_OPTION})""#
+            ))
             .stdout;
-        assert!(reap == TTL_REAPER.as_bytes(), "{}: @voltius_reap", h.image);
+        assert!(
+            reap == TTL_REAPER.as_bytes(),
+            "{}: {TTL_REAPER_OPTION}",
+            h.image
+        );
         assert!(h.hook_armed(), "{}: hook missing", h.image);
         h.arm(None);
         assert!(!h.hook_armed(), "{}: hook left after disarm", h.image);
