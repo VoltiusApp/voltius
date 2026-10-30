@@ -9,7 +9,7 @@ import {
 } from "@/services/account";
 import { addAccount } from "@/services/savedAccounts";
 import { syncNow, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
-import { startSessionSync } from "@/services/lanSync";
+import { leaveLanGroup, startSessionSync } from "@/services/lanSync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { lastServerUrl } from "@/utils/serverInstance";
@@ -99,10 +99,13 @@ export default function CloudAuthModal() {
         );
       } else if (isRegister) {
         if (isLocalNoPassword) await setMasterPassword(password);
-        await linkToCloud(email, normalizedUrl);
+        await linkToCloud(email, normalizedUrl, leaveLanGroup);
         await connected(syncOnLogin);
       } else {
-        await twoFactor.run(() => signInToCloud(email, password, normalizedUrl), () => connected(syncOnLoginReplace));
+        await twoFactor.run(
+          () => signInToCloud(email, password, normalizedUrl, leaveLanGroup),
+          () => connected(syncOnLoginReplace),
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

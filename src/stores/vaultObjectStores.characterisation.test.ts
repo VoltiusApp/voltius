@@ -384,6 +384,22 @@ describe("sync scheduling", () => {
     },
   );
 
+  test.each(["connection", "identity", "key", "folder", "snippet", "snippetFolder"])(
+    "%s edits reach local-network sync in a no-account install",
+    async (name) => {
+      h.isServerMode.mockResolvedValue(false);
+      try {
+        const a = byName(name);
+        seedLocal(a, [a.seed()]);
+        await a.remove("x1");
+        await Promise.resolve();
+        expect(h.scheduleSync).toHaveBeenCalled();
+      } finally {
+        h.isServerMode.mockResolvedValue(true);
+      }
+    },
+  );
+
   test.each(["snippet", "snippetFolder"])(
     "%s schedules a sync regardless of the per-object preference",
     async (name) => {

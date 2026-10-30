@@ -23,11 +23,13 @@ export function SyncSectionTitle({ icon, label, lang, variant }: {
   );
 }
 
-export function SyncInlineAction({ onClick, label }: { onClick: () => void; label: string }) {
+export function SyncInlineAction({ onClick, label, slug, disabled }: { onClick: () => void; label: string; slug?: string; disabled?: boolean }) {
   return (
     <button
+      data-inline-action={slug}
+      disabled={disabled}
       onClick={onClick}
-      className="text-[10px] font-medium transition-opacity hover:opacity-75 text-(--t-accent)"
+      className="text-[10px] font-medium transition-opacity hover:opacity-75 disabled:opacity-50 text-(--t-accent)"
     >
       {label}
     </button>

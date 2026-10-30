@@ -1,3 +1,4 @@
+import { notifyAccountModeChanged } from "@/utils/accountMode";
 import { invoke } from "@/lib/invoke";
 import {
   dropAccountUiState,
@@ -27,10 +28,12 @@ export const SESSION_KEYS = [
   // Per-account like the rest: without it a switch restored everything except
   // the value that recovers the dek, and team vault keys stopped unwrapping (#228).
   "wrapped_user_secrets",
+  "wrapped_user_secrets_prior",
 ] as const;
 type SessionKey = (typeof SESSION_KEYS)[number];
 
-export type SavedAccount = Record<SessionKey, string | null> & {
+export type SavedAccount = Record<Exclude<SessionKey, "wrapped_user_secrets_prior">, string | null> & {
+  wrapped_user_secrets_prior?: string | null;
   account_id: string;
   mode: string;
   master_password?: string | null;
@@ -353,6 +356,7 @@ async function installSession(account: SavedAccount, restored: boolean): Promise
   if (account.master_password_sealed) await importSecret({ kind: "sealed", value: account.master_password_sealed });
   else if (account.master_password) await importSecret({ kind: "plain", value: account.master_password });
   restoreAccountUiState(account.account_id);
+  notifyAccountModeChanged();
 }
 
 async function runSwitch(account: SavedAccount): Promise<void> {

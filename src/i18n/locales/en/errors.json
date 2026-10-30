@@ -37,7 +37,20 @@
     "device-busy": "That device has too many file sessions open. Close one and try again.",
     "device-unreachable": "Can't reach that device. Check that it's on and on the same network.",
     "device-access-expired": "Access to this device ended. Open it again to ask for permission.",
-    "device-read-only": "That device shares these folders read-only."
+    "device-read-only": "That device shares these folders read-only.",
+    "pair": {
+      "ended": {
+        "accountDevice": "The other device is signed in to a Voltius account. Sign in here with the same account instead.",
+        "bothGrouped": "Both devices are already paired with other devices. Leave the group on one of them, then pair again.",
+        "alreadyPaired": "These devices are already paired.",
+        "timedOut": "Pairing timed out.",
+        "cancelled": "Pairing was cancelled.",
+        "busy": "The other device is already pairing with someone else. Try again in a moment.",
+        "tooManyAttempts": "Too many failed attempts. Pairing is switched off. Open Pair a device again to retry.",
+        "failed": "Pairing didn't finish. Try again.",
+        "stopped": "Pairing stopped. Open Pair a device again to retry."
+      }
+    }
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

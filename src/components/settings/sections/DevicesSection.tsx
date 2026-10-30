@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { downloadDir } from "@tauri-apps/api/path";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
+import { useNoAccountInstall } from "@/hooks/useNoAccountInstall";
 import { logFailure } from "@/lib/logger";
 import { disconnectDevice, loadFileAccess, saveFileAccess } from "@/services/deviceFiles";
 import { openSystemDialog } from "@/services/systemDialog";
@@ -36,10 +37,13 @@ export default function DevicesSection() {
   const config = useDeviceFilesStore((s) => s.config);
   const sessions = useDeviceFilesStore((s) => s.sessions);
   const known = useLanSyncStore((s) => s.known);
+  const noAccount = useNoAccountInstall();
   useEffect(() => {
     if (!isAndroid) void loadFileAccess().catch(logFailure("device-files load config"));
   }, [isAndroid]);
-  if (isAndroid || !config) return null;
+  if (isAndroid) return null;
+  if (noAccount) return <p className="p-6 text-xs text-(--t-text-dim)">{t("fileTransfer.myDevices.needsAccount")}</p>;
+  if (!config) return null;
 
   const setEnabled = async (enabled: boolean) => {
     const downloads = enabled && config.folders.length === 0 ? await downloadDir().catch(() => null) : null;

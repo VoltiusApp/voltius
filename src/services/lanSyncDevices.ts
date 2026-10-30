@@ -1,6 +1,8 @@
+import { LAN_GROUP_FILE } from "@/services/lanGroup";
 import { ENTITY_FILES, parseEntities, type BlobPayload } from "@/services/sync";
 
-export type DeviceDot = "live" | "syncing" | "behind" | "offline-ok";
+export type DeviceDot = "live" | "syncing" | "behind" | "offline-ok" | "alert";
+export type DeviceFlag = "paused" | "keyChanged" | "moved";
 export type LanRoute = "lan" | "tailscale" | "vpn";
 
 export interface PeerInfo {
@@ -30,11 +32,13 @@ export interface DeviceRow {
   dot: DeviceDot;
   behind: number;
   lastSeen: string | null;
+  flag?: DeviceFlag;
 }
 
 export function entityClocks(payload: BlobPayload): Record<string, string> {
   const clocks: Record<string, string> = {};
   for (const file of ENTITY_FILES) {
+    if (file === LAN_GROUP_FILE) continue;
     for (const e of parseEntities(payload.files[file])) clocks[`${file}:${e.id}`] = e.updated_at;
   }
   for (const [id, at] of Object.entries(payload.secret_clocks ?? {})) clocks[`secret:${id}`] = at;
@@ -50,6 +54,8 @@ export function countBehind(local: Record<string, string>, peer: Record<string, 
   return n;
 }
 
+const FLAG_DOT: Record<DeviceFlag, DeviceDot> = { paused: "offline-ok", keyChanged: "alert", moved: "offline-ok" };
+
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const time = (at: string | null) => Date.parse(at ?? "") || 0;
 
@@ -60,10 +66,12 @@ export function buildDeviceRows(input: {
   localClocks: Record<string, string>;
   syncing: ReadonlySet<string>;
   peerClocks?: Record<string, Record<string, string>>;
+  presence?: Record<string, "live" | "paused" | "moved">;
+  rejected?: Record<string, "keyChanged">;
 }): DeviceRow[] {
-  const { selfId, peers, known, localClocks, syncing, peerClocks = {} } = input;
+  const { selfId, peers, known, localClocks, syncing, peerClocks = {}, presence = {}, rejected = {} } = input;
   const peerById = new Map(peers.filter((p) => p.deviceId !== selfId).map((p) => [p.deviceId, p]));
-  const ids = new Set([...peerById.keys(), ...Object.keys(known)]);
+  const ids = new Set([...peerById.keys(), ...Object.keys(known), ...Object.keys(rejected)]);
   ids.delete(selfId);
 
   const rows = [...ids].map((deviceId): DeviceRow => {
@@ -72,7 +80,10 @@ export function buildDeviceRows(input: {
     const nearby = !!peer;
     const clocks = peerClocks[deviceId];
     const behind = clocks ? countBehind(localClocks, clocks) : 0;
-    const dot: DeviceDot = nearby ? (syncing.has(deviceId) ? "syncing" : "live") : behind > 0 ? "behind" : "offline-ok";
+    const flag: DeviceFlag | undefined = rejected[deviceId] ?? (presence[deviceId] === "live" ? undefined : presence[deviceId]);
+    const dot: DeviceDot = flag
+      ? FLAG_DOT[flag]
+      : nearby ? (syncing.has(deviceId) ? "syncing" : "live") : behind > 0 ? "behind" : "offline-ok";
     return {
       deviceId,
       name: peer?.deviceName || k?.name || `Device ${deviceId.slice(0, 6)}`,
@@ -82,6 +93,7 @@ export function buildDeviceRows(input: {
       dot,
       behind,
       lastSeen: nearby ? null : (k?.lastSeen ?? null),
+      ...(flag ? { flag } : {}),
     };
   });
 

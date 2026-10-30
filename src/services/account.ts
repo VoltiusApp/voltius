@@ -1,7 +1,9 @@
+import { notifyAccountModeChanged } from "@/utils/accountMode";
 import { deriveX25519Keypair, wrapUserSecrets } from "@/services/crypto/identityKeys";
 import { invoke } from "@/lib/invoke";
 import { featureDisabledError } from "@/services/featureDisabled";
 import i18n from "@/i18n";
+import { logFailure } from "@/lib/logger";
 import { setVaultKey, getVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig, readLocalSecrets } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -11,7 +13,7 @@ import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
 import { rememberServer } from "@/utils/serverInstance";
-import { base64ToByteArray, hexToBytes } from "@/utils/base64";
+import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
@@ -153,7 +155,13 @@ async function passwordVaultKey(kek: number[], recoverFromServer: boolean): Prom
     if (recovered === null) useVaultKeysStore.getState().markIdentityUnproven();
     else if (recovered !== "legacy") dek = recovered;
   }
-  return keyThatOpensVault(...(dek ? [dek, kek] : [kek]));
+  const prior = await keychainGet(PRIOR_WRAPPED_KEY);
+  const priorKey = prior ? await wrappedVaultKey(kek, prior) : null;
+  const opened = await keyThatOpensVault(...[dek, kek, priorKey].filter((k): k is number[] => !!k));
+  // A password-mode vault never needs it; left behind, it outlives the password's seal.
+  if (opened && (await keychainGet(PENDING_VAULT_KEY))) await keychainDelete(PENDING_VAULT_KEY);
+  if (opened && prior) await settlePriorWrapped(kek, prior, opened);
+  return opened;
 }
 
 async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
@@ -180,8 +188,15 @@ async function keychainGet(key: string): Promise<string | null> {
   return invoke<string | null>("keychain_get", { key });
 }
 async function keychainSet(key: string, value: string): Promise<void> {
-  return invoke("keychain_set", { key, value });
+  await invoke("keychain_set", { key, value });
+  if (key === "mode") notifyAccountModeChanged();
 }
+async function keychainDelete(key: string): Promise<void> {
+  return invoke("keychain_delete", { key });
+}
+
+const PENDING_VAULT_KEY = "vault_key_pending";
+const PRIOR_WRAPPED_KEY = "wrapped_user_secrets_prior";
 
 /**
  * Write the keychain entries that make a server session, for every route into
@@ -296,17 +311,18 @@ export async function isCurrentMasterPassword(password: string): Promise<boolean
 
 // ─── Account operations ───────────────────────────────────────────────────────
 
+export function randomVaultKey(): number[] {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)));
+}
+
 /** First launch, no friction — random key protected by OS keychain. */
 export async function createLocalAccountNoPassword(): Promise<void> {
   const accountId = crypto.randomUUID();
-  const rawKey = crypto.getRandomValues(new Uint8Array(32));
-  const keyBytes = Array.from(rawKey);
-  // Store key as hex so we can recover it from keychain on next launch
-  const keyHex = keyBytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const keyBytes = randomVaultKey();
 
   setVaultKey(keyBytes);
 
-  await storePassword(keyHex); // hex = "password" for this mode
+  await storePassword(bytesToHex(keyBytes)); // hex = "password" for this mode
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local-nopassword");
 }
@@ -440,7 +456,7 @@ export async function login(password: string, email?: string, serverUrl?: string
         useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
         await keychainSet("wrapped_user_secrets", data.wrapped_user_secrets);
         // This device's secrets.enc may predate the split and still be kek-encrypted.
-        const opens = (await keyThatOpensVault(unwrapped.dek, kek))
+        const opens = (await keyThatOpensVault(unwrapped.dek, kek, encKey))
           ?? (await reopenWithStoredPassword(readStoredPassword, password, accountId, unwrapped.dek));
         // Server login proved the password, so this is an unreadable file, not a bad one.
         if (!opens) throw new VaultUnreadableError();
@@ -503,13 +519,12 @@ export async function openWithStoredSecret(password: string): Promise<AutoLoginO
     // In OS-keychain mode, the stored value is already the encryption key.
     // Some older installs may miss mode/account_id metadata; heal it silently.
     if (mode === "local-nopassword" || (!mode && !accountId && isHexEncoded32ByteKey(password))) {
-      if (!isHexEncoded32ByteKey(password)) return "declined";
-      encKey = hexToBytes(password); // password = stored hex key
-
       // The key lives in the OS keychain and is the only one this account has, so
       // a vault it cannot open is unreadable, not a wrong password. Installing it
       // regardless would defer the failure to the first secret read, inside the app.
-      if (!(await keyThatOpensVault(encKey))) return "vault-unreadable";
+      const opened = await noPasswordVaultKey(password);
+      if (!opened) return isHexEncoded32ByteKey(password) ? "vault-unreadable" : "declined";
+      encKey = opened;
 
       if (!accountId) {
         await keychainSet("account_id", crypto.randomUUID());
@@ -699,12 +714,15 @@ export async function setMasterPassword(password: string): Promise<void> {
 
   // Re-encrypt secrets store with new key (ensure unlocked first — autoLogin sets the key lazily)
   await unlockVaultIfNeeded();
-  await invoke("secrets_reencrypt", { newEncKey: enc_key });
+  const groupKey = priorMode === "local-nopassword" ? await sharedGroupKey() : null;
+  await withPendingVaultKey(groupKey ?? enc_key, async () => {
+    if (groupKey) (await wrapVaultKey(enc_key, groupKey))();
+    else await invoke("secrets_reencrypt", { newEncKey: enc_key });
+    await storePassword(password);
+    await keychainSet("mode", "local");
+  });
 
-  await storePassword(password);
-  await keychainSet("mode", "local");
-
-  setVaultKey(enc_key);
+  if (!groupKey) setVaultKey(enc_key);
 
   // If connected to cloud, re-push immediately so other devices get a blob
   // encrypted with the new key — without this, pullAndMerge on any other
@@ -750,13 +768,22 @@ async function signInServerAccount<T>(
   );
 }
 
+type BeforeKeyChange = () => Promise<void>;
+
+// The server has already accepted, so a failing hook must not abort the switch.
+async function runBeforeKeyChange(hook?: BeforeKeyChange): Promise<void> {
+  await hook?.().catch(logFailure("before the vault key changes"));
+}
+
 export async function signInToCloud(
   email: string,
   password: string,
   serverUrl: string,
+  beforeKeyChange?: BeforeKeyChange,
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
   await signInServerAccount(email, password, serverUrl, async ({ accountId, kek, data }) => {
+    await runBeforeKeyChange(beforeKeyChange);
     // Read with the outgoing key, before setVaultKey swaps it.
     const carried = await readLocalSecrets(deviceScopedSecretKeys());
 
@@ -816,6 +843,7 @@ export async function authenticateServerAccount(
 export async function linkToCloud(
   email: string,
   serverUrl: string,
+  beforeKeyChange?: BeforeKeyChange,
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
   const accountId = await keychainGet("account_id");
@@ -826,6 +854,7 @@ export async function linkToCloud(
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
   if (mode === "local-nopassword") throw new Error(i18n.t("common.error.setMasterPasswordBeforeLinking"));
   if (!password) throw new Error(i18n.t("common.error.masterPasswordRequired"));
+  await unlockVaultIfNeeded();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
   const { dek } = await generateUserSecrets();
@@ -837,14 +866,18 @@ export async function linkToCloud(
     serverUrl, email, accountId, authKey: auth_key,
     publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets,
   });
+  await runBeforeKeyChange(beforeKeyChange);
 
   useVaultKeysStore.getState().set({ dek, x25519Private, kek });
 
   await persistServerSession({
     serverUrl, email, jwt: data.jwt_token, refreshToken: data.refresh_token,
   });
-  await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
-  await moveVaultToDek(kek, dek).catch((e) => console.warn("Linking kept the vault on the kek:", e));
+  // A paired vault sits on its group key, not the kek; settleVaultOnDek retries a failed move.
+  await withPriorWrappedKey(kek, async () => {
+    await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
+    await moveVaultToKey(getVaultKey() ?? kek, dek);
+  }).catch((e) => console.warn("Linking kept the vault on its key:", e));
   reloadSubscription();
 }
 
@@ -862,28 +895,144 @@ async function ensureIdentity() {
 }
 
 /**
- * Puts secrets.enc and the session on the dek, the only key the new password reaches.
+ * Puts secrets.enc and the session on `to`, from `from`.
  * Returns how to put both back, or null when they were already there.
  */
-async function moveVaultToDek(kek: number[], dek: number[]): Promise<(() => Promise<void>) | null> {
-  const opener = await keyThatOpensVault(dek, kek);
+export async function moveVaultToKey(from: number[], to: number[]): Promise<(() => Promise<void>) | null> {
+  const opener = await keyThatOpensVault(to, from);
   if (!opener) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
   const sessionKey = getVaultKey();
-  const rekeyed = opener === kek;
+  const rekeyed = opener === from;
   if (rekeyed) {
     await unlockVaultIfNeeded();
-    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
-  } else if (sameKey(sessionKey, dek)) {
+    await invoke("secrets_rekey", { oldEncKey: from, newEncKey: to });
+  } else if (sameKey(sessionKey, to)) {
     return null;
   }
-  setVaultKey(dek);
+  setVaultKey(to);
   return async () => {
     if (rekeyed) {
       await unlockVaultIfNeeded();
-      await invoke("secrets_rekey", { oldEncKey: dek, newEncKey: kek });
+      await invoke("secrets_rekey", { oldEncKey: to, newEncKey: from });
     }
     if (sessionKey) setVaultKey(sessionKey);
   };
+}
+
+/**
+ * A password reaches a vault key it does not derive the way a cloud password reaches its dek.
+ * Writes the keychain entry; the returned call puts the keys in the session.
+ */
+async function wrapVaultKey(kek: number[], key: number[]): Promise<() => void> {
+  const x25519Private = base64ToByteArray((await deriveX25519Keypair(key)).private_key);
+  await keychainSet("wrapped_user_secrets", await wrapUserSecrets(kek, key, x25519Private));
+  return () => useVaultKeysStore.getState().set({ dek: key, x25519Private, kek });
+}
+
+/**
+ * While `step` moves a no-password vault, a launch that finds the stored key stale tries `key`.
+ * A failed step keeps the entry while `key` still opens the file: then nothing else reaches it.
+ */
+async function withPendingVaultKey(key: number[], step: () => Promise<void>): Promise<void> {
+  await whileMoving(PENDING_VAULT_KEY, bytesToHex(key), step, async () => {
+    if (!(await keyThatOpensVault(key))) await keychainDelete(PENDING_VAULT_KEY);
+  });
+}
+
+/**
+ * The password-mode counterpart: while `step` overwrites `wrapped_user_secrets` and moves the
+ * vault, the launch-time open also tries the entry it replaced, still wrapped under `kek`.
+ */
+async function withPriorWrappedKey(kek: number[], step: () => Promise<void>): Promise<void> {
+  const prior = (await keychainGet(PRIOR_WRAPPED_KEY)) ?? (await keychainGet("wrapped_user_secrets"));
+  if (!prior) return step();
+  await whileMoving(PRIOR_WRAPPED_KEY, prior, step, async () => {
+    const priorKey = await wrappedVaultKey(kek, prior);
+    await settlePriorWrapped(kek, prior, priorKey && (await keyThatOpensVault(priorKey)));
+  });
+}
+
+/** Keeps `entry` in the keychain while `step` runs; after a failure, `afterFailure` decides whether it stays. */
+async function whileMoving(
+  entry: string,
+  value: string,
+  step: () => Promise<void>,
+  afterFailure: () => Promise<void>,
+): Promise<void> {
+  await keychainSet(entry, value);
+  try {
+    await step();
+  } catch (e) {
+    await afterFailure().catch(() => {});
+    throw e;
+  }
+  await keychainDelete(entry).catch(() => {});
+}
+
+async function wrappedVaultKey(kek: number[], wrapped: string): Promise<number[] | null> {
+  return unwrapUserSecrets(kek, wrapped).then((u) => u.dek, () => null);
+}
+
+/**
+ * Drops the prior entry unless only its key opens the vault. Then a local vault takes it back as
+ * its stored key; a cloud one keeps it until settleVaultOnDek moves the vault onto the dek.
+ */
+async function settlePriorWrapped(kek: number[], prior: string, opened: number[] | null): Promise<void> {
+  if (!opened || !sameKey(opened, await wrappedVaultKey(kek, prior))) return keychainDelete(PRIOR_WRAPPED_KEY);
+  if ((await keychainGet("mode")) === "server") return;
+  await keychainSet("wrapped_user_secrets", prior);
+  await adoptUserSecrets(kek, prior);
+  await keychainDelete(PRIOR_WRAPPED_KEY);
+}
+
+/** The stored key, or the pending one left by an interrupted move, which then becomes the stored key. */
+async function noPasswordVaultKey(stored: string): Promise<number[] | null> {
+  const pending = await keychainGet(PENDING_VAULT_KEY);
+  const keys = [stored, pending].filter((k): k is string => !!k && isHexEncoded32ByteKey(k));
+  const opened = keys.length > 0 ? await keyThatOpensVault(...keys.map(hexToBytes)) : null;
+  if (pending) {
+    if (opened && bytesToHex(opened) !== stored.toLowerCase()) await storePassword(bytesToHex(opened));
+    await keychainDelete(PENDING_VAULT_KEY);
+  }
+  return opened;
+}
+
+async function sharedGroupKey(): Promise<number[] | null> {
+  const grouped = await (await import("@/services/lanGroup")).readGroup();
+  return grouped ? getVaultKey() : null;
+}
+
+/**
+ * Puts a no-account vault on `key` for good. The keychain names `key` before the file moves,
+ * so a failure or a crash at any step leaves a key the next launch tries that opens it.
+ */
+export async function adoptVaultKey(key: number[]): Promise<void> {
+  const current = getVaultKey();
+  if (!current) throw new Error(i18n.t("common.error.vaultLocked"));
+  if ((await keychainGet("mode")) === "local") {
+    const kek = useVaultKeysStore.getState().kek ?? current;
+    const wrappedBefore = await keychainGet("wrapped_user_secrets");
+    await withPriorWrappedKey(kek, async () => {
+      const hold = await wrapVaultKey(kek, key);
+      try {
+        await moveVaultToKey(current, key);
+      } catch (e) {
+        if (!wrappedBefore) await keychainDelete("wrapped_user_secrets").catch(() => {});
+        throw e;
+      }
+      hold();
+    });
+    return;
+  }
+  await withPendingVaultKey(key, async () => {
+    const undo = await moveVaultToKey(current, key);
+    try {
+      await storePassword(bytesToHex(key));
+    } catch (e) {
+      await undo?.().catch((u) => console.warn("Putting the vault back on its old key failed:", u));
+      throw e;
+    }
+  });
 }
 
 /** Once the identity no longer rides on the vault key, a kek vault has no reason to stay there. */
@@ -895,7 +1044,8 @@ export async function settleVaultOnDek(): Promise<void> {
   const identity = await ensureIdentity().catch(() => null);
   if (!identity?.stored) return;
   if (getVaultKey() !== vaultKey || useVaultKeysStore.getState().kek !== kek) return;
-  if (await moveVaultToDek(kek, dek)) pushUnderNewVaultKey();
+  if (await moveVaultToKey(vaultKey, dek)) pushUnderNewVaultKey();
+  await keychainDelete(PRIOR_WRAPPED_KEY);
 }
 
 /** Whether this device already knew this password: its cached secrets are wrapped under its kek. */
@@ -938,7 +1088,7 @@ async function reopenWithStoredPassword(
     if (!(await keyThatOpensVault(oldKek))) return null;
     setVaultKey(oldKek);
     await ensureIdentity().catch(() => null);
-    await moveVaultToDek(oldKek, dek);
+    await moveVaultToKey(oldKek, dek);
     pushUnderNewVaultKey();
     return dek;
   } catch (e) {
@@ -992,7 +1142,7 @@ export async function changeMasterPassword(
   const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
   const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
 
-  const undoMove = await moveVaultToDek(old_kek, cachedDek);
+  const undoMove = await moveVaultToKey(old_kek, cachedDek);
   // A change that did not land must leave the vault on the key the current password still reaches.
   const undoMoveUnlessLanded = async (res: Response | null) => {
     if (!undoMove || (await passwordChangeMayHaveLanded(res, new_wrapped_user_secrets))) return;

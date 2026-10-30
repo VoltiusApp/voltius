@@ -13,11 +13,11 @@ export function useLanDeviceRows(): DeviceRow[] {
       alive = false;
     };
   }, []);
-  const { peers, known, peerClocks, localClocks, syncing } = useLanSyncStore(
-    useShallow(({ peers, known, peerClocks, localClocks, syncing }) => ({ peers, known, peerClocks, localClocks, syncing })),
+  const { peers, known, peerClocks, localClocks, syncing, presence, rejected } = useLanSyncStore(
+    useShallow(({ peers, known, peerClocks, localClocks, syncing, presence, rejected }) => ({ peers, known, peerClocks, localClocks, syncing, presence, rejected })),
   );
   return useMemo(
-    () => buildDeviceRows({ selfId, peers, known, localClocks, syncing, peerClocks }),
-    [selfId, peers, known, peerClocks, localClocks, syncing],
+    () => buildDeviceRows({ selfId, peers, known, localClocks, syncing, peerClocks, presence, rejected }),
+    [selfId, peers, known, peerClocks, localClocks, syncing, presence, rejected],
   );
 }

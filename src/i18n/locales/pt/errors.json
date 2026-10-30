@@ -37,7 +37,20 @@
     "device-busy": "Esse dispositivo tem muitas sessões de arquivos abertas. Feche uma e tente novamente.",
     "device-unreachable": "Não foi possível alcançar esse dispositivo. Verifique se ele está ligado e na mesma rede.",
     "device-access-expired": "O acesso a este dispositivo terminou. Abra-o novamente para pedir permissão.",
-    "device-read-only": "Esse dispositivo partilha estas pastas só para leitura."
+    "device-read-only": "Esse dispositivo partilha estas pastas só para leitura.",
+    "pair": {
+      "ended": {
+        "accountDevice": "O outro dispositivo está conectado a uma conta Voltius. Entre aqui com a mesma conta.",
+        "bothGrouped": "Os dois dispositivos já estão pareados com outros dispositivos. Saia do grupo em um deles e pareie de novo.",
+        "alreadyPaired": "Estes dispositivos já estão pareados.",
+        "timedOut": "O pareamento expirou.",
+        "cancelled": "O pareamento foi cancelado.",
+        "busy": "O outro dispositivo já está pareando com outro. Tente novamente em instantes.",
+        "tooManyAttempts": "Muitas tentativas falhas. O pareamento foi desativado. Abra Parear um dispositivo de novo para tentar outra vez.",
+        "failed": "O pareamento não foi concluído. Tente novamente.",
+        "stopped": "O pareamento parou. Abra Parear um dispositivo de novo para tentar outra vez."
+      }
+    }
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

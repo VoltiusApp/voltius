@@ -8,8 +8,8 @@ import { personallyTagged, retagPersonal } from "@/stores/retagPersonal";
 import * as connApi from "@/services/connections";
 import * as keyApi from "@/services/keys";
 import * as idApi from "@/services/identities";
-import { isServerMode } from "@/services/account";
-import { getDeviceId, scheduleSync } from "@/services/sync";
+import { getDeviceId } from "@/services/sync";
+import { syncAfterEdit } from "@/stores/syncAfterEdit";
 import { log } from "@/lib/logger";
 import { loadSshConfigState, updateSshConfigState, type SshConfigState } from "./state";
 
@@ -62,7 +62,7 @@ export async function migrateFromPlugin(): Promise<void> {
       useKeyStore.getState().loadKeys(),
       useIdentityStore.getState().loadIdentities(),
     ]);
-    if (await isServerMode()) scheduleSync();
+    syncAfterEdit();
   }
 
   if (useMarketplaceStore.getState().installedMeta.some((m) => m.id === PLUGIN_ID)) {

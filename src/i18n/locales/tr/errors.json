@@ -37,7 +37,20 @@
     "device-busy": "Bu cihazda çok fazla dosya oturumu açık. Birini kapatıp tekrar deneyin.",
     "device-unreachable": "Bu cihaza ulaşılamıyor. Açık ve aynı ağda olduğundan emin olun.",
     "device-access-expired": "Bu cihaza erişim sona erdi. İzin istemek için yeniden açın.",
-    "device-read-only": "Bu cihaz bu klasörleri salt okunur olarak paylaşıyor."
+    "device-read-only": "Bu cihaz bu klasörleri salt okunur olarak paylaşıyor.",
+    "pair": {
+      "ended": {
+        "accountDevice": "Diğer cihaz bir Voltius hesabına giriş yapmış. Burada aynı hesapla giriş yapın.",
+        "bothGrouped": "İki cihaz da zaten başka cihazlarla eşlenmiş. Birinde gruptan ayrılın, sonra yeniden eşleyin.",
+        "alreadyPaired": "Bu cihazlar zaten eşlenmiş.",
+        "timedOut": "Eşleme zaman aşımına uğradı.",
+        "cancelled": "Eşleme iptal edildi.",
+        "busy": "Diğer cihaz şu anda başka biriyle eşleniyor. Biraz sonra tekrar deneyin.",
+        "tooManyAttempts": "Çok fazla başarısız deneme. Eşleme kapatıldı. Yeniden denemek için Cihaz eşle ekranını tekrar açın.",
+        "failed": "Eşleme tamamlanamadı. Tekrar deneyin.",
+        "stopped": "Eşleme durdu. Yeniden denemek için Cihaz eşle ekranını tekrar açın."
+      }
+    }
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

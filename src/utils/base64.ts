@@ -26,3 +26,7 @@ export function hexToBytes(hex: string): number[] {
   for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.slice(i, i + 2), 16));
   return bytes;
 }
+
+export function bytesToHex(bytes: number[]): string {
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+}

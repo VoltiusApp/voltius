@@ -5,6 +5,7 @@ import type { MyDevice } from "@/services/myDevices";
 const h = vi.hoisted(() => ({
   devices: [] as MyDevice[],
   openUrl: vi.fn(async () => {}),
+  noAccount: false,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/services/myDevices", async (importOriginal) => ({
   useMyDevices: () => h.devices,
 }));
 vi.mock("@/utils/platform", () => ({ usePlatform: () => "macos" }));
+vi.mock("@/hooks/useNoAccountInstall", () => ({ useNoAccountInstall: () => h.noAccount }));
 vi.mock("@/utils/localeFormat", () => ({ formatRelative: () => "2 h ago" }));
 
 import { MyDevicesGroup } from "./MyDevicesGroup";
@@ -40,10 +42,21 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   h.devices = [];
+  h.noAccount = false;
   useLanSyncStore.setState({ status: "stopped" });
 });
 
 describe("MyDevicesGroup", () => {
+  test("a no-account install shows one line that file access needs an account, and no device rows", () => {
+    h.noAccount = true;
+    h.devices = [desktop, laptop, mac];
+    const { getByText, queryByText } = render(<MyDevicesGroup density="compact" onPick={() => {}} />);
+    expect(getByText("fileTransfer.myDevices.title")).toBeTruthy();
+    expect(getByText("fileTransfer.myDevices.needsAccount")).toBeTruthy();
+    expect(queryByText("fileTransfer.myDevices.fileAccessOff")).toBeNull();
+    expect(document.querySelectorAll("button")).toHaveLength(0);
+  });
+
   test("renders each state with its subtitle", () => {
     h.devices = [desktop, server, office, laptop, mac];
     const { getByText } = render(<MyDevicesGroup density="compact" onPick={() => {}} />);

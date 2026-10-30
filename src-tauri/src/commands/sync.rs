@@ -337,6 +337,7 @@ pub const ENTITY_FILES: &[&str] = &[
     "snippets.json",
     "snippet_folders.json",
     "port_forwarding_rules.json",
+    "lan_group.json",
 ];
 
 /// Decrypt a remote blob and return its payload without writing anything to disk.
@@ -525,6 +526,11 @@ pub fn updater_set_auto(enabled: bool) -> Result<(), String> {
 #[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lan_group_is_an_entity_file() {
+        assert!(ENTITY_FILES.contains(&"lan_group.json"));
+    }
 
     #[test]
     fn collect_json_dir_skips_named_files_and_prefixes_the_rest() {

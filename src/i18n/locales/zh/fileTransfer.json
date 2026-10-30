@@ -208,6 +208,7 @@
     "myDevices": {
       "title": "我的设备",
       "fileAccessOff": "此设备已关闭文件访问",
+      "needsAccount": "在您的设备之间访问文件需要 Voltius 账户。",
       "offlineSeen": "离线 · 上次在线 {{ago}}",
       "offline": "离线",
       "routeChip": "{{route}} · {{ms}} 毫秒",

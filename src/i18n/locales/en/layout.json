@@ -212,7 +212,10 @@
           "offlineOk": "Offline · up to date",
           "seenBehind_one": "Seen {{when}} · {{count}} behind",
           "seenBehind_other": "Seen {{when}} · {{count}} behind",
-          "seenOk": "Seen {{when}} · up to date"
+          "seenOk": "Seen {{when}} · up to date",
+          "paused": "Paused",
+          "keyChanged": "Can't verify this device · Pair again to verify it",
+          "moved": "Moved to a Voltius account — sign in there to keep syncing"
         },
         "catchUp": "Changes reach them the next time they are on the same network.",
         "upsell": "Voltius Cloud keeps devices in sync even when they're not online together.",
@@ -221,6 +224,37 @@
           "lan": "{{name}} is nearby · Syncing over Wi-Fi",
           "tailscale": "{{name}} is nearby · Syncing over Tailscale",
           "vpn": "{{name}} is nearby · Syncing over VPN"
+        },
+        "pair": {
+          "title": "Pair a device",
+          "searching": "Open Pair a device on your other device too. Keep both on the same network.",
+          "signedInHint": "Is the other device signed in to a Voltius account? Sign in here with the same account instead.",
+          "compare": "Check that both screens show this code",
+          "confirm": "Codes match",
+          "cancel": "Cancel",
+          "peerConfirmed": "{{name}} confirmed",
+          "combine": "Combine both",
+          "useTheirs": "Use {{name}}'s data",
+          "done": "Paired with {{name}}",
+          "close": "Close",
+          "tryAgain": "Try again",
+          "joining": "Pairing…",
+          "hasData": "This device already has data. Combine it with {{name}}'s, or use {{name}}'s data instead.",
+          "replaces": "This replaces {{name}}"
+        },
+        "forget": {
+          "label": "Forget",
+          "aria": "Forget {{name}}",
+          "account": "Stop syncing with {{name}} over the local network on this device. To remove it completely, sign out on that device.",
+          "group": "Remove {{name}} from your devices. It keeps what it already has and receives nothing new until you pair it again.",
+          "keyChanged": "This device's identity changed. Pair it again to check the new identity with a code, and only if you recognise this device.",
+          "failed": "Couldn't forget {{name}}. Try again."
+        },
+        "leave": {
+          "label": "Leave this group",
+          "prompt": "This device stops syncing with your other devices over the local network. It keeps what it already has, and they remove it from their list. You can pair it again later.",
+          "confirm": "Leave",
+          "failed": "Couldn't leave the group. Try again."
         }
       },
       "status": {

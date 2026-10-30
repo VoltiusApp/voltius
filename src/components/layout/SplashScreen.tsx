@@ -15,7 +15,7 @@ import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
 import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLaunch, syncOnLoginReplace } from "@/services/sync";
-import { startSessionSync, stopLanSync } from "@/services/lanSync";
+import { startLanSyncInBackground, startSessionSync, stopLanSync } from "@/services/lanSync";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
 import { loadSeededPlugins } from "@/plugins/seeded";
 import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows } from "@/stores/marketplaceStore";
@@ -155,7 +155,7 @@ export default function SplashScreen({ onReady }: Props) {
     }
     useSubscriptionStore.getState().load().catch(() => {});
     isServerMode().then((server) => {
-      if (!server) return;
+      if (!server) return startLanSyncInBackground();
       const useReplace = sessionStorage.getItem("voltius.replace-sync-on-login") === "1";
       if (useReplace) sessionStorage.removeItem("voltius.replace-sync-on-login");
       // Gate plugins behind this promise so they see post-merge data.

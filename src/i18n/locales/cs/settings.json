@@ -638,6 +638,9 @@
     },
     "sync": {
       "voltiusCloud": "Voltius Cloud",
+      "local": {
+        "pairSub": "Synchronizujte s dalším zařízením ve vaší síti bez účtu."
+      },
       "active": {
         "title": "Synchronizace s cloudem aktivní",
         "syncing": "Synchronizace…",

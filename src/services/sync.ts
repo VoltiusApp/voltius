@@ -6,6 +6,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
+import { isServerMode } from "@/services/account";
 import { buildUserDataBundle, mergeUserDataBundle, applyUserDataBundle } from "@/services/user-data/registry";
 import type { UserDataBundle } from "@/services/user-data/formats";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -62,6 +63,7 @@ export const ENTITY_FILES = [
   "snippets.json",
   "snippet_folders.json",
   "port_forwarding_rules.json",
+  "lan_group.json",
 ] as const;
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -713,6 +715,30 @@ async function readDeviceSecrets(): Promise<SecretMaps> {
 }
 
 /**
+ * Local state becomes the merge of `pulled` alone, starting from empty: local disk
+ * is never read except for the device-scoped secrets, which no blob carries.
+ */
+export async function replaceWithPayloads(pulled: Array<[string, BlobPayload]>): Promise<void> {
+  let merged: MergedPayload = {
+    files: Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"])),
+    ...(await readDeviceSecrets()),
+  };
+  const applied: Array<[string, BlobPayload]> = [];
+  await forEachRemoteBlob(pulled, ([deviceId]) => `device ${deviceId}`, async ([deviceId, payload]) => {
+    await applyRemoteExtras(deviceId, payload);
+    merged = mergeBlobPayload(merged, payload).payload;
+    applied.push([deviceId, payload]);
+  });
+
+  await serialMerge(() => importMergedPayload(merged));
+  for (const [deviceId, payload] of applied) {
+    await applyRemoteSshConfig(payload);
+    notifyRemotePayloadMerged(deviceId, payload);
+  }
+  await reloadAllStores();
+}
+
+/**
  * Sign-in sync for EXISTING cloud accounts.
  *
  * Unlike syncOnLogin (which merges local + remote), this function starts from
@@ -737,29 +763,13 @@ export async function syncOnLoginReplace(): Promise<void> {
     const serverUrl = await getServerUrl();
     if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
-    const devices = await listDevices();
-
-    // Accumulate remote state starting from empty — local disk never touched
-    let merged: MergedPayload = {
-      files: Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"])),
-      ...(await readDeviceSecrets()),
-    };
-
     const pulled: [string, BlobPayload][] = [];
-    await forEachRemoteBlob(devices, deviceLabel, async (device) => {
+    await forEachRemoteBlob(await listDevices(), deviceLabel, async (device) => {
       const remotePayload = await pullRemotePayload(serverUrl, device.device_id);
-      if (!remotePayload) return;
-      await applyRemoteExtras(device.device_id, remotePayload);
-      merged = mergeBlobPayload(merged, remotePayload).payload;
-      pulled.push([device.device_id, remotePayload]);
+      if (remotePayload) pulled.push([device.device_id, remotePayload]);
     });
 
-    await serialMerge(() => importMergedPayload(merged));
-    for (const [deviceId, remotePayload] of pulled) {
-      await applyRemoteSshConfig(remotePayload);
-      notifyRemotePayloadMerged(deviceId, remotePayload);
-    }
-    await reloadAllStores();
+    await replaceWithPayloads(pulled);
     await push();
     await completeTeamLoginSetup();
 
@@ -891,14 +901,16 @@ export function blobDeviceId(blob: number[]): string | null {
 
 let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Schedule a sync 2 s after the last mutation (debounced). */
+/** Tells local-network sync about a local mutation; a signed-in device also pushes 2 s after the last one. */
 export function scheduleSync() {
   localMutationListeners.emit();
   if (!useSubscriptionStore.getState().isPro || isSyncPaused() || _halted) return;
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     _syncTimer = null;
-    syncInBackground(true).catch(logFailure("forced push after local mutation")); // forcePush: local mutation must be uploaded
+    isServerMode()
+      .then((server) => (server ? syncInBackground(true) : undefined))
+      .catch(logFailure("forced push after local mutation"));
   }, 2000);
 }
 

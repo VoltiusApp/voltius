@@ -37,7 +37,20 @@
     "device-busy": "Toto zařízení má otevřeno příliš mnoho souborových relací. Jednu zavřete a zkuste to znovu.",
     "device-unreachable": "Zařízení je nedostupné. Zkontrolujte, že je zapnuté a ve stejné síti.",
     "device-access-expired": "Přístup k tomuto zařízení skončil. Otevřete ho znovu a požádejte o povolení.",
-    "device-read-only": "Toto zařízení sdílí tyto složky pouze pro čtení."
+    "device-read-only": "Toto zařízení sdílí tyto složky pouze pro čtení.",
+    "pair": {
+      "ended": {
+        "accountDevice": "Druhé zařízení je přihlášené k účtu Voltius. Přihlaste se tady raději stejným účtem.",
+        "bothGrouped": "Obě zařízení už jsou spárovaná s jinými zařízeními. Na jednom z nich opusťte skupinu a pak spárujte znovu.",
+        "alreadyPaired": "Tato zařízení už jsou spárovaná.",
+        "timedOut": "Párování vypršelo.",
+        "cancelled": "Párování bylo zrušeno.",
+        "busy": "Druhé zařízení se právě páruje s jiným. Zkuste to za chvíli znovu.",
+        "tooManyAttempts": "Příliš mnoho neúspěšných pokusů. Párování je vypnuté. Chcete-li to zkusit znovu, otevřete Spárovat zařízení znovu.",
+        "failed": "Párování se nedokončilo. Zkuste to znovu.",
+        "stopped": "Párování se zastavilo. Chcete-li to zkusit znovu, otevřete Spárovat zařízení znovu."
+      }
+    }
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

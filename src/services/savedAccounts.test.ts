@@ -203,6 +203,18 @@ test("switchToAccount restores the target's own wrapped secrets", async () => {
   expect(h.store.wrapped_user_secrets).toBe(fake("wrapped", "b"));
 });
 
+test("a vault key move left half done survives parking the account and switching back", async () => {
+  activate({ ...CLOUD_A, wrapped_user_secrets_prior: fake("prior", "a") });
+  seed(CLOUD_B);
+  await saveCurrentAccount();
+
+  await switchToAccount(CLOUD_B);
+  expect(h.store.wrapped_user_secrets_prior).toBeUndefined();
+  await switchToAccount((await getSavedAccounts()).find((a) => a.account_id === "a")!);
+
+  expect(h.store.wrapped_user_secrets_prior).toBe(fake("prior", "a"));
+});
+
 test("saveCurrentAccount keeps stored values the live session no longer has", async () => {
   activate(CLOUD_A);
   await saveCurrentAccount();

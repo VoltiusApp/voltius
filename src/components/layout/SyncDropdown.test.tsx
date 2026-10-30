@@ -21,7 +21,7 @@ vi.mock("@/hooks/useAvailableSyncProviders", () => ({
 
 const lanRows = vi.hoisted(() => ({ list: [] as unknown[] }));
 vi.mock("@/hooks/useLanDeviceRows", () => ({ useLanDeviceRows: () => lanRows.list }));
-vi.mock("@/services/lanSync", () => ({ setLanSyncPaused: vi.fn(async () => {}) }));
+vi.mock("@/services/lanSync", () => ({ setLanSyncPaused: vi.fn(async () => {}), inLanGroup: async () => false }));
 
 import { SyncDropdown } from "./SyncDropdown";
 import { useLanSyncStore } from "@/stores/lanSyncStore";

@@ -21,6 +21,17 @@ describe("entityClocks / countBehind", () => {
     expect(clocks).toEqual({ "connections.json:a": "2", "connections.json:t": "3", "secret:s": "5" });
   });
 
+  it("group_file_not_counted_behind", () => {
+    const clocks = entityClocks({
+      files: {
+        "connections.json": JSON.stringify([{ id: "a", updated_at: "2" }]),
+        "lan_group.json": JSON.stringify([{ id: "group", updated_at: "4" }, { id: "dev", updated_at: "4" }]),
+      },
+      secrets: {},
+    });
+    expect(clocks).toEqual({ "connections.json:a": "2" });
+  });
+
   it("counts missing and older keys", () => {
     expect(countBehind({ a: "2", b: "1" }, { a: "1" })).toBe(2);
     expect(countBehind({ a: "2" }, { a: "2", z: "9" })).toBe(0);
@@ -40,6 +51,23 @@ describe("buildDeviceRows", () => {
     const dot = Object.fromEntries(rows.map((r) => [r.deviceId, r.dot]));
     expect(dot).toEqual({ p1: "live", p2: "syncing", off1: "behind", off2: "offline-ok" });
     expect(rows.find((r) => r.deviceId === "off1")?.behind).toBe(1);
+  });
+
+  it("flags paused, moved and key-changed devices with the dot they earn", () => {
+    const rows = buildDeviceRows({
+      ...base,
+      peers: [peer("p1", "A")],
+      known: { m1: known("M", "1"), k1: known("K", "1") },
+      presence: { p1: "paused", m1: "moved" },
+      rejected: { k1: "keyChanged", ghost: "keyChanged" },
+    });
+    const by = Object.fromEntries(rows.map((r) => [r.deviceId, [r.flag, r.dot]]));
+    expect(by).toEqual({
+      p1: ["paused", "offline-ok"],
+      m1: ["moved", "offline-ok"],
+      k1: ["keyChanged", "alert"],
+      ghost: ["keyChanged", "alert"],
+    });
   });
 
   it("treats unknown peer clocks as zero behind", () => {

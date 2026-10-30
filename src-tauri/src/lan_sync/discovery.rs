@@ -1,6 +1,7 @@
-use mdns_sd::{DaemonEvent, ServiceDaemon, ServiceEvent, ServiceInfo};
+use super::lock;
+use mdns_sd::{DaemonEvent, ServiceDaemon, ServiceEvent, ServiceInfo, TxtProperties};
 use rand::Rng;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -33,8 +34,37 @@ pub fn instance_name() -> String {
     format!("{:016x}", rand::thread_rng().gen::<u64>())
 }
 
-pub fn txt_properties() -> Vec<(&'static str, &'static str)> {
-    vec![("v", "1")]
+pub fn txt_properties(pairable: bool) -> Vec<(&'static str, &'static str)> {
+    let mut txt = vec![("v", "1")];
+    if pairable {
+        txt.push(("p", "1"));
+    }
+    txt
+}
+
+fn is_pairable(txt: &TxtProperties) -> bool {
+    txt.get_property_val_str("p") == Some("1")
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Found {
+    pub addr: SocketAddr,
+    pub instance: String,
+    pub pairable: bool,
+}
+
+impl Found {
+    fn each<'a>(
+        instance: &'a str,
+        addrs: impl IntoIterator<Item = SocketAddr> + 'a,
+        pairable: bool,
+    ) -> impl Iterator<Item = Found> + 'a {
+        addrs.into_iter().map(move |addr| Found {
+            addr,
+            instance: instance.to_string(),
+            pairable,
+        })
+    }
 }
 
 pub(crate) fn classify_mdns_error(msg: &str) -> DiscoveryError {
@@ -86,22 +116,57 @@ fn rotate_own(names: &mut VecDeque<String>, new: String) -> Option<String> {
 }
 
 type OwnNames = Arc<Mutex<VecDeque<String>>>;
+type Pairable = Arc<Mutex<Option<String>>>;
 
-fn register_instance(
-    daemon: &ServiceDaemon,
-    port: u16,
-    name: &str,
-) -> Result<String, DiscoveryError> {
-    let info = ServiceInfo::new(
+// Resolved events fire only when a record changes, so a peer's open window is remembered, not re-announced.
+#[derive(Default)]
+struct Sightings(HashMap<String, Vec<SocketAddr>>);
+
+impl Sightings {
+    fn resolved(&mut self, instance: &str, addrs: &[SocketAddr], pairable: bool) {
+        if pairable {
+            self.0.insert(instance.to_string(), addrs.to_vec());
+        } else {
+            self.0.remove(instance);
+        }
+    }
+
+    fn removed(&mut self, instance: &str) {
+        self.0.remove(instance);
+    }
+
+    fn pairable(&self) -> Vec<Found> {
+        self.0
+            .iter()
+            .flat_map(|(instance, addrs)| Found::each(instance, addrs.iter().copied(), true))
+            .collect()
+    }
+}
+
+pub trait Advertiser: Send {
+    fn set_pairable(&self, on: bool) -> Result<Option<String>, DiscoveryError>;
+    fn pairable_peers(&self) -> Vec<Found>;
+}
+
+fn service_info(port: u16, name: &str, pairable: bool) -> Result<ServiceInfo, DiscoveryError> {
+    ServiceInfo::new(
         SERVICE_TYPE,
         name,
         &format!("{name}.local."),
         (),
         port,
-        &txt_properties()[..],
+        &txt_properties(pairable)[..],
     )
-    .map_err(|e| map_mdns_error(&e))?
-    .enable_addr_auto();
+    .map(ServiceInfo::enable_addr_auto)
+    .map_err(|e| map_mdns_error(&e))
+}
+
+fn register_instance(
+    daemon: &ServiceDaemon,
+    port: u16,
+    pairable: bool,
+) -> Result<String, DiscoveryError> {
+    let info = service_info(port, &instance_name(), pairable)?;
     let fullname = info.get_fullname().to_string();
     daemon.register(info).map_err(|e| map_mdns_error(&e))?;
     Ok(fullname)
@@ -109,18 +174,26 @@ fn register_instance(
 
 pub struct Discovery {
     daemon: ServiceDaemon,
+    port: Option<u16>,
     own: OwnNames,
-    tasks: [JoinHandle<()>; 3],
+    pairable: Pairable,
+    seen: Arc<Mutex<Sightings>>,
+    tasks: Vec<JoinHandle<()>>,
 }
 
+/// Without a port nothing is registered: the device only browses.
 pub fn start(
-    port: u16,
-    found: Sender<SocketAddr>,
+    port: Option<u16>,
+    found: Sender<Found>,
     errors: Sender<DiscoveryError>,
 ) -> Result<Discovery, DiscoveryError> {
     let daemon = ServiceDaemon::new().map_err(|e| map_mdns_error(&e))?;
-    let first = register_instance(&daemon, port, &instance_name())?;
-    let own: OwnNames = Arc::new(Mutex::new(VecDeque::from([first])));
+    let first = port
+        .map(|port| register_instance(&daemon, port, false))
+        .transpose()?;
+    let own: OwnNames = Arc::new(Mutex::new(first.into_iter().collect()));
+    let pairable = Pairable::default();
+    let seen = Arc::new(Mutex::new(Sightings::default()));
     let events = daemon
         .browse(SERVICE_TYPE)
         .map_err(|e| map_mdns_error(&e))?;
@@ -141,17 +214,33 @@ pub fn start(
 
     let browse = {
         let own = own.clone();
+        let pairable = pairable.clone();
+        let seen = seen.clone();
         tokio::spawn(async move {
             while let Ok(event) = events.recv_async().await {
-                let ServiceEvent::ServiceResolved(service) = event else {
-                    continue;
+                let service = match event {
+                    ServiceEvent::ServiceResolved(service) => service,
+                    ServiceEvent::ServiceRemoved(_, instance) => {
+                        lock(&seen).removed(&instance);
+                        continue;
+                    }
+                    _ => continue,
                 };
-                if lock_names(&own).iter().any(|n| n == service.get_fullname()) {
+                let instance = service.get_fullname();
+                let ours = lock_names(&own).iter().any(|n| n == instance)
+                    || lock(&pairable).as_deref() == Some(instance);
+                if ours {
                     continue;
                 }
-                for ip in service.get_addresses() {
-                    let addr = SocketAddr::new(ip.to_ip_addr(), service.get_port());
-                    if found.send(addr).await.is_err() {
+                let is_open = is_pairable(service.get_properties());
+                let addrs: Vec<SocketAddr> = service
+                    .get_addresses()
+                    .iter()
+                    .map(|ip| SocketAddr::new(ip.to_ip_addr(), service.get_port()))
+                    .collect();
+                lock(&seen).resolved(instance, &addrs, is_open);
+                for found_one in Found::each(instance, addrs, is_open) {
+                    if found.send(found_one).await.is_err() {
                         return;
                     }
                 }
@@ -159,7 +248,7 @@ pub fn start(
         })
     };
 
-    let rotate = {
+    let rotate = port.map(|port| {
         let daemon = daemon.clone();
         let own = own.clone();
         tokio::spawn(async move {
@@ -167,7 +256,7 @@ pub fn start(
             ticker.tick().await;
             loop {
                 ticker.tick().await;
-                let fresh = match register_instance(&daemon, port, &instance_name()) {
+                let fresh = match register_instance(&daemon, port, false) {
                     Ok(fresh) => fresh,
                     Err(e) => {
                         log::warn!("lan-sync: mdns re-registration failed: {e}");
@@ -181,13 +270,37 @@ pub fn start(
                 }
             }
         })
-    };
+    });
 
     Ok(Discovery {
         daemon,
+        port,
         own,
-        tasks: [browse, rotate, watch],
+        pairable,
+        seen,
+        tasks: [Some(browse), rotate, Some(watch)]
+            .into_iter()
+            .flatten()
+            .collect(),
     })
+}
+
+impl Advertiser for Discovery {
+    // Each opening registers a fresh random instance so a pairing window is never linkable to the device.
+    fn set_pairable(&self, on: bool) -> Result<Option<String>, DiscoveryError> {
+        let mut pairable = lock(&self.pairable);
+        if let Some(old) = pairable.take() {
+            let _ = self.daemon.unregister(&old);
+        }
+        if let Some(port) = self.port.filter(|_| on) {
+            *pairable = Some(register_instance(&self.daemon, port, true)?);
+        }
+        Ok(pairable.clone())
+    }
+
+    fn pairable_peers(&self) -> Vec<Found> {
+        lock(&self.seen).pairable()
+    }
 }
 
 impl Drop for Discovery {
@@ -195,8 +308,9 @@ impl Drop for Discovery {
         for task in &self.tasks {
             task.abort();
         }
-        if let Some(current) = lock_names(&self.own).back() {
-            let _ = self.daemon.unregister(current);
+        let current = lock_names(&self.own).back().cloned();
+        for name in current.iter().chain(lock(&self.pairable).iter()) {
+            let _ = self.daemon.unregister(name);
         }
         let _ = self.daemon.shutdown();
     }
@@ -216,7 +330,45 @@ mod tests {
 
     #[test]
     fn txt_is_version_only() {
-        assert_eq!(txt_properties(), vec![("v", "1")]);
+        assert_eq!(txt_properties(false), vec![("v", "1")]);
+    }
+
+    #[test]
+    fn sightings_keep_open_windows_until_they_close() {
+        let addr = |i: u8| SocketAddr::from(([10, 0, 0, i], 1));
+        let mut seen = Sightings::default();
+        seen.resolved("a", &[addr(1), addr(2)], true);
+        seen.resolved("b", &[addr(3)], false);
+        seen.resolved("c", &[addr(4)], true);
+        let mut peers: Vec<(String, SocketAddr)> = seen
+            .pairable()
+            .into_iter()
+            .map(|f| (f.instance, f.addr))
+            .collect();
+        peers.sort();
+        assert_eq!(
+            peers,
+            [
+                ("a".into(), addr(1)),
+                ("a".into(), addr(2)),
+                ("c".into(), addr(4))
+            ]
+        );
+        seen.removed("a");
+        seen.resolved("c", &[addr(4)], false);
+        assert!(seen.pairable().is_empty());
+    }
+
+    #[test]
+    fn pairable_instance_is_separate() {
+        let normal = service_info(4242, &instance_name(), false).unwrap();
+        let pairable = service_info(4242, &instance_name(), true).unwrap();
+        assert_ne!(normal.get_fullname(), pairable.get_fullname());
+        assert_eq!(pairable.get_property_val_str("p"), Some("1"));
+        assert!(is_pairable(pairable.get_properties()));
+        assert!(normal.get_property("p").is_none());
+        assert!(!is_pairable(normal.get_properties()));
+        assert_eq!(pairable.get_properties().len(), 2);
     }
 
     #[test]
@@ -258,10 +410,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn browsing_only_registers_nothing() {
+        let (found, _found_rx) = tokio::sync::mpsc::channel(4);
+        let (errors, _errors_rx) = tokio::sync::mpsc::channel(4);
+        if let Ok(discovery) = start(None, found, errors) {
+            assert!(lock_names(&discovery.own).is_empty());
+            assert_eq!(discovery.tasks.len(), 2);
+            assert_eq!(discovery.set_pairable(true).unwrap(), None);
+        }
+    }
+
+    #[tokio::test]
     async fn start_and_drop_do_not_panic() {
         let (found, _found_rx) = tokio::sync::mpsc::channel(4);
         let (errors, _errors_rx) = tokio::sync::mpsc::channel(4);
-        if let Ok(discovery) = start(4242, found, errors) {
+        if let Ok(discovery) = start(Some(4242), found, errors) {
+            let own = lock_names(&discovery.own).back().cloned();
+            let pairable = discovery.set_pairable(true).unwrap();
+            assert!(pairable.is_some() && pairable != own);
+            assert_ne!(discovery.set_pairable(true).unwrap(), pairable);
+            assert_eq!(discovery.set_pairable(false).unwrap(), None);
             drop(discovery);
         }
     }

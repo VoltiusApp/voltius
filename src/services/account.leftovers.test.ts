@@ -39,6 +39,7 @@ vi.mock("@/services/identity", () => ({
   ensureIdentity: vi.fn(async () => ({ privateKey: "", publicKey: "P", proven: false, stored: false })),
 }));
 vi.mock("@/services/sync", () => ({ push: h.push, isSyncPaused: () => false, stopRealtimeSync: vi.fn() }));
+vi.mock("@/services/lanGroup", () => ({ readGroup: async () => null }));
 
 import { setMasterPassword, login, signInToCloud, changeMasterPassword } from "./account";
 

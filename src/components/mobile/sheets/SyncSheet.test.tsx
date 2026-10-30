@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { render, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { SyncProviderView } from "@/services/syncProviders";
 import type { DeviceRow } from "@/services/lanSyncDevices";
 import { NOT_CONFIGURED_SYNC_STATE } from "@/services/syncStatus";
@@ -20,7 +20,17 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) })
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ providers: h.providers }) }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: h.runAction }));
 vi.mock("@/hooks/useLanDeviceRows", () => ({ useLanDeviceRows: () => h.lanRows }));
-vi.mock("@/services/lanSync", () => ({ setLanSyncPaused: vi.fn(async () => {}) }));
+vi.mock("@/services/lanSync", () => ({
+  setLanSyncPaused: vi.fn(async () => {}),
+  lanScope: async () => null,
+  inLanGroup: async () => false,
+  forgetDevice: vi.fn(async () => {}),
+  openPairing: vi.fn(async () => {}),
+  closePairing: vi.fn(async () => {}),
+  confirmPairing: vi.fn(async () => {}),
+  cancelPairing: vi.fn(async () => {}),
+}));
+vi.mock("@/services/account", () => ({ getAccountMode: async () => "local-nopassword" }));
 vi.mock("@/stores/mobileNavStore", () => ({
   // getState: BottomSheet registers a back interceptor, which reads the nav layer.
   useMobileNavStore: Object.assign(
@@ -131,6 +141,15 @@ describe("SyncSheet", () => {
   test("no local section while local sync is stopped with no known devices", () => {
     h.providers = [view({})];
     render(<SyncSheet />);
+    expect(document.querySelector("[data-lan-section]")).toBeNull();
+  });
+
+  test("Pair a device swaps the sync sheet for the pairing sheet and Close returns", async () => {
+    h.providers = [view({})];
+    render(<SyncSheet />);
+    await waitFor(() => expect(document.querySelector("[data-lan-action='pair']")).not.toBeNull());
+    fireEvent.click(document.querySelector("[data-lan-action='pair']")!);
+    expect(document.querySelector("[data-pair-sheet]")).not.toBeNull();
     expect(document.querySelector("[data-lan-section]")).toBeNull();
   });
 });

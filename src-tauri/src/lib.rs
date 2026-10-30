@@ -429,6 +429,12 @@ pub fn run() {
             #[cfg(desktop)]
             commands::device_files::device_files_pending,
             commands::lan_sync::lan_sync_learn,
+            commands::lan_sync::lan_sync_pair_open,
+            commands::lan_sync::lan_sync_pair_close,
+            commands::lan_sync::lan_sync_pair_confirm,
+            commands::lan_sync::lan_sync_pair_cancel,
+            commands::lan_sync::lan_sync_set_members,
+            commands::lan_sync::lan_sync_device_key,
             commands::ssh::ssh_connect,
             commands::ssh::ssh_disconnect,
             commands::ssh::ssh_send_input,

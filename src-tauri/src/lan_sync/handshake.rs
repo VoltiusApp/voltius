@@ -4,8 +4,9 @@ use super::protocol::{
     decode, encode, wire_addrs, write_frame, Auth, Frame, Hello, ProtocolError, FEATURES,
     MAX_FRAME, PROTOCOL_VERSION,
 };
+use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use snow::StatelessTransportState;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,7 +18,7 @@ pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const FIRST_MESSAGE_TIMEOUT: Duration = Duration::from_secs(2);
 const NOISE_MAX: usize = 65535;
 pub(super) const MAX_CHUNK: usize = NOISE_MAX - 16;
-const MAX_PROOFS: usize = 16;
+const MAX_PROOFS: usize = super::protocol::MAX_EPOCHS;
 const PREAUTH_MAX: usize = 64 * 1024;
 const DEVICE_CONTEXT: &[u8] = b"voltius-lan-sync-device-v1";
 pub(super) const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -32,6 +33,21 @@ pub(super) const IDLE_TIMEOUT: Duration = if cfg!(test) {
     Duration::from_secs(30)
 };
 const MAX_DEVICE_ID: usize = 128;
+const SAS_COMMIT_CONTEXT: &[u8] = b"voltius-lan-sync-sas-commit-v1";
+const SAS_INFO: &[u8] = b"voltius-lan-sync-sas-v1";
+
+pub enum Mode<'a> {
+    Keys(&'a [[u8; 32]]),
+    Pair,
+    Accept { keys: &'a [[u8; 32]], pairing: bool },
+}
+
+pub struct Handshake {
+    pub session: Session,
+    pub peer: Hello,
+    pub matched: Option<usize>,
+    pub sas: Option<u32>,
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandshakeError {
@@ -47,6 +63,19 @@ pub enum HandshakeError {
     Protocol(#[from] ProtocolError),
     #[error("peer {0} refused by pin: {1:?}")]
     Pinned(String, Rejection),
+    #[error("peer {0} refused: outside this device's current group or account")]
+    Excluded(String),
+    #[error("pairing is not open")]
+    PairingClosed,
+}
+
+impl HandshakeError {
+    pub fn refused_peer(&self) -> Option<&str> {
+        match self {
+            Self::Pinned(id, _) | Self::Excluded(id) => Some(id),
+            _ => None,
+        }
+    }
 }
 
 impl From<snow::Error> for HandshakeError {
@@ -363,25 +392,79 @@ fn proof(auth_key: &[u8; 32], handshake_hash: &[u8], initiator: bool) -> [u8; 32
         .into()
 }
 
+fn check_version(peer: &Auth) -> Result<(), HandshakeError> {
+    if peer.version == PROTOCOL_VERSION {
+        Ok(())
+    } else {
+        Err(HandshakeError::VersionMismatch(peer.version))
+    }
+}
+
 fn verify(
     peer: &Auth,
     peer_is_initiator: bool,
     auth_keys: &[[u8; 32]],
     hash: &[u8],
-) -> Result<(), HandshakeError> {
-    let trusted = peer.proofs.len() <= MAX_PROOFS
-        && auth_keys.iter().any(|k| {
-            peer.proofs
-                .iter()
-                .any(|p| mac(k, hash, peer_is_initiator).verify_slice(p).is_ok())
-        });
-    if !trusted {
-        return Err(HandshakeError::NotTrusted);
+) -> Result<usize, HandshakeError> {
+    let matched = (!peer.pair
+        && peer.commit.is_none()
+        && peer.nonce.is_none()
+        && peer.proofs.len() <= MAX_PROOFS)
+        .then(|| {
+            auth_keys.iter().position(|k| {
+                peer.proofs
+                    .iter()
+                    .any(|p| mac(k, hash, peer_is_initiator).verify_slice(p).is_ok())
+            })
+        })
+        .flatten()
+        .ok_or(HandshakeError::NotTrusted)?;
+    check_version(peer)?;
+    Ok(matched)
+}
+
+pub fn sas(handshake_hash: &[u8], na: &[u8; 32], nb: &[u8; 32]) -> u32 {
+    let mut out = [0u8; 4];
+    Hkdf::<Sha256>::new(None, &[handshake_hash, na, nb].concat())
+        .expand(SAS_INFO, &mut out)
+        .expect("4 bytes is a valid HKDF length");
+    u32::from_be_bytes(out) % 1_000_000
+}
+
+fn sas_commit(handshake_hash: &[u8], na: &[u8; 32]) -> [u8; 32] {
+    Sha256::new()
+        .chain_update(SAS_COMMIT_CONTEXT)
+        .chain_update(handshake_hash)
+        .chain_update(na)
+        .finalize()
+        .into()
+}
+
+fn constant_time_eq(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    a.iter().zip(b).fold(0u8, |d, (x, y)| d | (x ^ y)) == 0
+}
+
+fn pair_auth(commit: Option<[u8; 32]>, nonce: Option<[u8; 32]>) -> Frame {
+    Frame::Auth(Auth {
+        version: PROTOCOL_VERSION,
+        pair: true,
+        commit,
+        nonce,
+        ..Default::default()
+    })
+}
+
+fn pair_nonce(auth: &Auth, commit_expected: bool) -> Result<Option<[u8; 32]>, HandshakeError> {
+    let shaped = auth.pair
+        && auth.proofs.is_empty()
+        && auth.commit.is_some() == commit_expected
+        && auth.nonce.is_some() != commit_expected;
+    if shaped {
+        check_version(auth)?;
+        Ok(auth.nonce)
+    } else {
+        Err(HandshakeError::NotTrusted)
     }
-    if peer.version != PROTOCOL_VERSION {
-        return Err(HandshakeError::VersionMismatch(peer.version));
-    }
-    Ok(())
 }
 
 async fn recv_preauth(session: &mut Session) -> Result<Frame, HandshakeError> {
@@ -392,66 +475,146 @@ async fn recv_preauth(session: &mut Session) -> Result<Frame, HandshakeError> {
     }
 }
 
-async fn bye_unless(
+async fn bye_unless<T>(
     session: &mut Session,
-    check: Result<(), HandshakeError>,
-) -> Result<(), HandshakeError> {
+    check: Result<T, HandshakeError>,
+) -> Result<T, HandshakeError> {
     if check.is_err() {
         let _ = session.send(&Frame::Bye).await;
     }
     check
 }
 
+struct Authenticated {
+    peer: Hello,
+    matched: Option<usize>,
+    sas: Option<u32>,
+}
+
 async fn authenticate(
     session: &mut Session,
     initiator: bool,
     me: &LocalIdentity,
-    auth_keys: &[[u8; 32]],
-) -> Result<Hello, HandshakeError> {
+    mode: &Mode<'_>,
+) -> Result<Authenticated, HandshakeError> {
     let hash = session.hash.clone();
-    let my_auth = Frame::Auth(Auth {
-        version: PROTOCOL_VERSION,
-        proofs: auth_keys
-            .iter()
-            .map(|k| proof(k, &hash, initiator))
-            .collect(),
-    });
+    let keys: &[[u8; 32]] = match mode {
+        Mode::Keys(keys) | Mode::Accept { keys, .. } => keys,
+        Mode::Pair => &[],
+    };
+    let key_auth = || {
+        Frame::Auth(Auth {
+            version: PROTOCOL_VERSION,
+            proofs: keys.iter().map(|k| proof(k, &hash, initiator)).collect(),
+            ..Default::default()
+        })
+    };
     let my_hello = || Frame::Hello(hello(me, &hash, initiator));
+    let pair_out = match (initiator, mode) {
+        (true, Mode::Pair) => true,
+        (true, Mode::Keys(_)) | (false, Mode::Accept { .. } | Mode::Keys(_)) => false,
+        _ => return Err(malformed("handshake mode does not match the role")),
+    };
+    let my_nonce: [u8; 32] = rand::random();
     if initiator {
-        session.send(&my_auth).await?;
+        let first = if pair_out {
+            pair_auth(Some(sas_commit(&hash, &my_nonce)), None)
+        } else {
+            key_auth()
+        };
+        session.send(&first).await?;
     }
     let Frame::Auth(peer_auth) = recv_preauth(session).await? else {
         return Err(malformed("expected auth"));
     };
-    bye_unless(session, verify(&peer_auth, !initiator, auth_keys, &hash)).await?;
+    let mut matched = None;
+    let mut commit = None;
+    let mut peer_nonce = None;
+    if initiator && pair_out {
+        peer_nonce = bye_unless(session, pair_nonce(&peer_auth, false)).await?;
+    } else if !initiator && peer_auth.pair {
+        if !matches!(mode, Mode::Accept { pairing: true, .. }) {
+            let _ = session.send(&Frame::Bye).await;
+            return Err(HandshakeError::PairingClosed);
+        }
+        bye_unless(session, pair_nonce(&peer_auth, true)).await?;
+        commit = peer_auth.commit;
+    } else {
+        matched = Some(bye_unless(session, verify(&peer_auth, !initiator, keys, &hash)).await?);
+    }
     if !initiator {
-        session.send(&my_auth).await?;
+        let reply = if commit.is_some() {
+            pair_auth(None, Some(my_nonce))
+        } else {
+            key_auth()
+        };
+        session.send(&reply).await?;
         session.send(&my_hello()).await?;
+    }
+    if let Some(commit) = commit {
+        let Frame::Auth(reveal) = recv_preauth(session).await? else {
+            return Err(malformed("expected pairing reveal"));
+        };
+        let revealed = bye_unless(session, pair_nonce(&reveal, false)).await?;
+        let honest = revealed.is_some_and(|na| constant_time_eq(&sas_commit(&hash, &na), &commit));
+        bye_unless(
+            session,
+            honest.then_some(()).ok_or(HandshakeError::NotTrusted),
+        )
+        .await?;
+        peer_nonce = revealed;
     }
     let Frame::Hello(peer) = recv_preauth(session).await? else {
         return Err(malformed("expected hello"));
     };
     bye_unless(session, verify_device(&peer, !initiator, &hash)).await?;
     if initiator {
+        if pair_out {
+            session.send(&pair_auth(None, Some(my_nonce))).await?;
+        }
         session.send(&my_hello()).await?;
     }
-    Ok(peer)
+    let sas = peer_nonce.map(|theirs| {
+        let (na, nb) = if initiator {
+            (&my_nonce, &theirs)
+        } else {
+            (&theirs, &my_nonce)
+        };
+        sas(&hash, na, nb)
+    });
+    Ok(Authenticated { peer, matched, sas })
 }
 
+pub async fn handshake_with<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    stream: S,
+    initiator: bool,
+    me: &LocalIdentity,
+    mode: Mode<'_>,
+) -> Result<Handshake, HandshakeError> {
+    let run = async {
+        let mut session = noise(stream, initiator).await?;
+        let a = authenticate(&mut session, initiator, me, &mode).await?;
+        Ok(Handshake {
+            session,
+            peer: a.peer,
+            matched: a.matched,
+            sas: a.sas,
+        })
+    };
+    tokio::time::timeout(HANDSHAKE_TIMEOUT, run)
+        .await
+        .map_err(|_| HandshakeError::Timeout)?
+}
+
+#[cfg(test)]
 pub async fn handshake<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     stream: S,
     initiator: bool,
     me: &LocalIdentity,
     auth_keys: &[[u8; 32]],
 ) -> Result<(Session, Hello), HandshakeError> {
-    let run = async {
-        let mut session = noise(stream, initiator).await?;
-        let peer = authenticate(&mut session, initiator, me, auth_keys).await?;
-        Ok((session, peer))
-    };
-    tokio::time::timeout(HANDSHAKE_TIMEOUT, run)
-        .await
-        .map_err(|_| HandshakeError::Timeout)?
+    let h = handshake_with(stream, initiator, me, Mode::Keys(auth_keys)).await?;
+    Ok((h.session, h.peer))
 }
 
 #[cfg(test)]
@@ -467,6 +630,7 @@ pub(crate) async fn initiate_with_hello<S: AsyncRead + AsyncWrite + Unpin + Send
     s.send(&Frame::Auth(Auth {
         version: PROTOCOL_VERSION,
         proofs,
+        ..Default::default()
     }))
     .await
     .unwrap();
@@ -520,6 +684,7 @@ mod tests {
         Auth {
             version: PROTOCOL_VERSION,
             proofs: vec![[0xAB; 32]],
+            ..Default::default()
         }
     }
 
@@ -617,6 +782,7 @@ mod tests {
         let future = |hash: &[u8]| Auth {
             version: 99,
             proofs: vec![proof(&keys[0], hash, true)],
+            ..Default::default()
         };
         let (a, b) = duplex(64 * 1024);
         let (seen, real) =
@@ -974,5 +1140,219 @@ mod tests {
         aw.set_write_timeout(Duration::from_secs(5));
         let r = aw.send(&Frame::Blob(vec![1; 1_000_000])).await;
         assert!(matches!(r, Err(HandshakeError::Timeout)));
+    }
+
+    async fn paired(
+        initiator: Mode<'_>,
+        responder: Mode<'_>,
+    ) -> (
+        Result<Handshake, HandshakeError>,
+        Result<Handshake, HandshakeError>,
+    ) {
+        let (a, b) = duplex(64 * 1024);
+        let (ia, ib) = (identity("dev-a"), identity("dev-b"));
+        tokio::join!(
+            handshake_with(a, true, &ia, initiator),
+            handshake_with(b, false, &ib, responder)
+        )
+    }
+
+    #[tokio::test]
+    async fn pair_handshake_gives_both_sides_the_same_sas() {
+        let (a, b) = paired(
+            Mode::Pair,
+            Mode::Accept {
+                keys: &[derive_auth_key(&[1; 32])],
+                pairing: true,
+            },
+        )
+        .await;
+        let (a, b) = (a.ok().unwrap(), b.ok().unwrap());
+        assert_eq!(a.sas, b.sas);
+        assert!(a.sas.unwrap() < 1_000_000);
+        assert_eq!((a.matched, b.matched), (None, None));
+        assert_eq!(a.peer.device_id, "dev-b");
+        assert_eq!(b.peer.device_id, "dev-a");
+    }
+
+    #[tokio::test]
+    async fn pair_refused_when_window_closed() {
+        let (a, b) = paired(
+            Mode::Pair,
+            Mode::Accept {
+                keys: &[derive_auth_key(&[1; 32])],
+                pairing: false,
+            },
+        )
+        .await;
+        assert!(matches!(a, Err(HandshakeError::NotTrusted)));
+        assert!(matches!(b, Err(HandshakeError::PairingClosed)));
+    }
+
+    #[tokio::test]
+    async fn matched_reports_the_verifying_key_index() {
+        let (k1, k2) = (derive_auth_key(&[1; 32]), derive_auth_key(&[2; 32]));
+        let (a, b) = paired(
+            Mode::Keys(&[k2]),
+            Mode::Accept {
+                keys: &[k1, k2],
+                pairing: true,
+            },
+        )
+        .await;
+        let (a, b) = (a.ok().unwrap(), b.ok().unwrap());
+        assert_eq!((a.matched, b.matched), (Some(0), Some(1)));
+        assert_eq!((a.sas, b.sas), (None, None));
+    }
+
+    #[tokio::test]
+    async fn pair_flag_with_proofs_is_still_pair_only() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let me = identity("dev-b");
+        let sneaky = |hash: &[u8]| Auth {
+            version: PROTOCOL_VERSION,
+            proofs: vec![proof(&keys[0], hash, true)],
+            pair: true,
+            ..Default::default()
+        };
+        let (a, b) = duplex(64 * 1024);
+        let (seen, real) = tokio::join!(
+            rogue_initiator(a, sneaky),
+            handshake_with(
+                b,
+                false,
+                &me,
+                Mode::Accept {
+                    keys: &keys,
+                    pairing: false
+                }
+            )
+        );
+        assert!(matches!(real, Err(HandshakeError::PairingClosed)));
+        assert_eq!(seen, vec![Frame::Bye]);
+    }
+
+    #[tokio::test]
+    async fn key_initiator_refuses_a_pair_reply() {
+        let keys = [derive_auth_key(&[1; 32])];
+        let (a, b) = duplex(64 * 1024);
+        let ia = identity("dev-a");
+        let (real, _) = tokio::join!(
+            handshake_with(a, true, &ia, Mode::Keys(&keys)),
+            rogue_responder(b, |_| Auth {
+                version: PROTOCOL_VERSION,
+                proofs: vec![],
+                pair: true,
+                ..Default::default()
+            })
+        );
+        assert!(matches!(real, Err(HandshakeError::NotTrusted)));
+    }
+
+    #[tokio::test]
+    async fn pair_initiator_refuses_a_key_reply() {
+        let (a, b) = duplex(64 * 1024);
+        let ia = identity("dev-a");
+        let (real, _) = tokio::join!(
+            handshake_with(a, true, &ia, Mode::Pair),
+            rogue_responder(b, |_| keyless())
+        );
+        assert!(matches!(real, Err(HandshakeError::NotTrusted)));
+    }
+
+    #[test]
+    fn sas_is_stable() {
+        let (h, na, nb) = ([7u8; 32], [1u8; 32], [2u8; 32]);
+        assert_eq!(sas(&h, &na, &nb), sas(&h, &na, &nb));
+        assert_ne!(sas(&h, &na, &nb), sas(&h, &nb, &na));
+        assert_ne!(sas(&h, &na, &nb), sas(&[8u8; 32], &na, &nb));
+        assert_eq!(sas(&[0u8; 32], &[0u8; 32], &[0u8; 32]), 510_912);
+    }
+
+    async fn rogue_pair_initiator<S>(
+        stream: S,
+        reveal: impl FnOnce(&[u8; 32]) -> [u8; 32],
+    ) -> Vec<Frame>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let mut s = noise(stream, true).await.unwrap();
+        let hash = s.handshake_hash().to_vec();
+        let na = [5u8; 32];
+        s.send(&pair_auth(Some(sas_commit(&hash, &na)), None))
+            .await
+            .unwrap();
+        let seen = vec![s.recv().await.unwrap(), s.recv().await.unwrap()];
+        let _ = s.send(&pair_auth(None, Some(reveal(&na)))).await;
+        let _ = s
+            .send(&Frame::Hello(hello(&identity("dev-a"), &hash, true)))
+            .await;
+        drain(s, seen).await
+    }
+
+    #[tokio::test]
+    async fn sas_commit_mismatch_is_refused() {
+        let me = identity("dev-b");
+        let keys = [derive_auth_key(&[1; 32])];
+        let (a, b) = duplex(64 * 1024);
+        let (seen, real) = tokio::join!(
+            rogue_pair_initiator(a, |_| [6u8; 32]),
+            handshake_with(
+                b,
+                false,
+                &me,
+                Mode::Accept {
+                    keys: &keys,
+                    pairing: true
+                }
+            )
+        );
+        assert!(matches!(real, Err(HandshakeError::NotTrusted)));
+        assert_eq!(seen.last(), Some(&Frame::Bye));
+    }
+
+    #[tokio::test]
+    async fn pair_replies_never_carry_key_proofs() {
+        let me = identity("dev-b");
+        let keys = [derive_auth_key(&[1; 32])];
+        let (a, b) = duplex(64 * 1024);
+        let (seen, real) = tokio::join!(
+            rogue_pair_initiator(a, |na| *na),
+            handshake_with(
+                b,
+                false,
+                &me,
+                Mode::Accept {
+                    keys: &keys,
+                    pairing: true
+                }
+            )
+        );
+        assert!(real.is_ok());
+        let Frame::Auth(reply) = &seen[0] else {
+            panic!("responder opened with {:?}", seen[0]);
+        };
+        assert!(reply.pair && reply.proofs.is_empty() && reply.nonce.is_some());
+    }
+
+    #[tokio::test]
+    async fn fresh_nonces_give_fresh_codes() {
+        let run = || async {
+            paired(
+                Mode::Pair,
+                Mode::Accept {
+                    keys: &[],
+                    pairing: true,
+                },
+            )
+            .await
+            .0
+            .ok()
+            .unwrap()
+            .sas
+            .unwrap()
+        };
+        let codes = [run().await, run().await, run().await];
+        assert!(codes[0] != codes[1] || codes[1] != codes[2]);
     }
 }

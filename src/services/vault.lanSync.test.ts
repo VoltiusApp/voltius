@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), hangStart: false, failStop: false, failClear: false }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), hangStart: false, failStop: false, failClear: false, serverMode: true }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/teamDataManager", () => ({ onSessionEnd: vi.fn() }));
-vi.mock("@/services/account", () => ({ isServerMode: async () => true, getAccountId: async () => "acct-1" }));
+vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode, getAccountId: async () => "acct-1" }));
+vi.mock("@/services/lanGroup", () => ({
+  readGroup: async () => ({ groupId: "grp-1", secrets: [{ epoch: 1, secret: [5] }], members: [] }),
+  readFarewell: async () => null,
+  thisDevice: async () => ({ id: "self", name: "host" }),
+}));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: async () => {} }));
 vi.mock("@/services/sync", () => ({
   ENTITY_FILES: [],
@@ -28,6 +33,7 @@ import { LAN_SYNC_DEVICES_KEY, useLanSyncStore } from "@/stores/lanSyncStore";
 const order = () => h.invoke.mock.calls.map(([c]) => c as string);
 
 beforeEach(async () => {
+  h.serverMode = true;
   h.hangStart = false;
   h.failStop = false;
   h.failClear = false;
@@ -62,6 +68,16 @@ test("sign-out clears the lan sync scope", async () => {
   expect(h.invoke).toHaveBeenCalledWith("lan_sync_clear_scope", { scope: "acct-1" });
   h.failClear = true;
   await expect(clearAccountUiState()).resolves.toBeUndefined();
+});
+
+test("sign-out also clears the scope of a group this device synced with", async () => {
+  h.serverMode = false;
+  await startLanSync();
+  await lockVault();
+  h.invoke.mockClear();
+  await clearAccountUiState();
+  const cleared = h.invoke.mock.calls.filter(([c]) => c === "lan_sync_clear_scope").map(([, a]) => a);
+  expect(cleared).toEqual([{ scope: "acct-1" }, { scope: "grp-1" }]);
 });
 
 test("a failing lan stop never fails or skips the lock", async () => {

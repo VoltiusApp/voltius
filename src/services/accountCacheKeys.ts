@@ -20,4 +20,11 @@ export const ACCOUNT_CACHE_KEYS = [
   "server_url",
   "device_id",
   "wrapped_user_secrets",
+  "vault_key_pending",
+  "wrapped_user_secrets_prior",
 ] as const;
+
+export const LAN_FAREWELL_ENTRY = "lan_sync_farewell";
+
+/** A switch between saved accounts keeps the farewell key; a vault reset does not. */
+export const VAULT_RESET_KEYS = [...ACCOUNT_CACHE_KEYS, LAN_FAREWELL_ENTRY] as const;

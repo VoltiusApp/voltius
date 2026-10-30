@@ -26,7 +26,33 @@ const payload = { files: { "connections.json": JSON.stringify([{ id: "c", update
 describe("lanSyncStore", () => {
   beforeEach(() => {
     localStorage.clear();
-    useLanSyncStore.setState({ known: {}, peerClocks: {}, peers: [], syncing: new Set(), paused: false, introShown: false });
+    useLanSyncStore.setState({
+      known: {}, knownScope: undefined, peerClocks: {}, peers: [], syncing: new Set(), paused: false, introShown: false, presence: {}, rejected: {},
+    });
+  });
+
+  it("a device that connects again is no longer shown as unverifiable", () => {
+    const { markRejected, setPeers } = useLanSyncStore.getState();
+    markRejected("d1", "keyChanged");
+    markRejected("d2", "keyChanged");
+
+    setPeers([peer]);
+
+    expect(useLanSyncStore.getState().rejected).toEqual({ d2: "keyChanged" });
+  });
+
+  it("adoptScope keeps rows of the same scope, drops another scope's, and adopts unscoped rows", async () => {
+    const { rememberDevice, recordPeerPayload, adoptScope } = useLanSyncStore.getState();
+    rememberDevice(peer);
+    adoptScope("grp-1");
+    expect(useLanSyncStore.getState().known.d1).toBeDefined();
+    recordPeerPayload("d1", { files: {}, secrets: {}, secret_clocks: {} });
+    adoptScope("grp-1");
+    expect(useLanSyncStore.getState().known.d1).toBeDefined();
+    adoptScope("acct-1");
+    expect(useLanSyncStore.getState()).toMatchObject({ known: {}, peerClocks: {}, knownScope: "acct-1" });
+    await useLanSyncStore.persist.rehydrate();
+    expect(useLanSyncStore.getState().knownScope).toBe("acct-1");
   });
 
   it("rememberDevice is true only for a new id and refreshes details", () => {
@@ -120,5 +146,30 @@ describe("lanSyncStore", () => {
     rememberDevice(peer);
     recordPeerPayload("d1", payload);
     expect(Object.keys(useLanSyncStore.getState().peerClocks)).toEqual(["d1"]);
+  });
+
+  it("dropDevice removes one device everywhere and keeps the others", () => {
+    const { rememberDevice, recordPeerPayload, setPresence, markRejected, dropDevice } = useLanSyncStore.getState();
+    for (const deviceId of ["d1", "d2"]) {
+      rememberDevice({ ...peer, deviceId });
+      recordPeerPayload(deviceId, payload);
+      setPresence(deviceId, "paused");
+      markRejected(deviceId, "keyChanged");
+    }
+    dropDevice("d1");
+    const { known, peerClocks, presence, rejected } = useLanSyncStore.getState();
+    expect([known, peerClocks, presence, rejected].map(Object.keys)).toEqual([["d2"], ["d2"], ["d2"], ["d2"]]);
+  });
+
+  it("presence, rejections and pairing stay in memory and leave with the account", () => {
+    const { setPresence, markRejected, setPairing, forgetAccount } = useLanSyncStore.getState();
+    setPresence("d1", "moved");
+    markRejected("d2", "keyChanged");
+    setPairing({ state: "code", sas: 1, role: "host" });
+    const persisted = [localStorage.getItem("voltius-lan-sync"), localStorage.getItem(LAN_SYNC_DEVICES_KEY)].join();
+    expect(persisted).not.toMatch(/moved|keyChanged|pairing/);
+    forgetAccount();
+    expect(useLanSyncStore.getState().presence).toEqual({});
+    expect(useLanSyncStore.getState().rejected).toEqual({});
   });
 });

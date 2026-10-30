@@ -93,6 +93,7 @@ beforeEach(() => {
     if (cmd.endsWith("_list")) return [];
     if (cmd !== "keychain_get") return null;
     if (args?.key === "server_url") return "https://sync.example.com";
+    if (args?.key === "mode") return "server";
     if (args?.key === "jwt") return jwt();
     if (args?.key === "account_id") return "account-1";
     return null;
@@ -354,6 +355,7 @@ test("an expired token that cannot be refreshed for lack of a server is offline 
   h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd !== "keychain_get") return null;
     if (args?.key === "server_url") return "https://sync.example.com";
+    if (args?.key === "mode") return "server";
     if (args?.key === "refresh_token") return "refresh";
     return null;
   });

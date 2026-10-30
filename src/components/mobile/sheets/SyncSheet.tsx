@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
+import PairDeviceSheet from "./PairDeviceSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
 import { providerLang, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
@@ -68,11 +70,13 @@ export default function SyncSheet() {
   const { t } = useTranslation();
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const { providers } = useSyncProviders();
+  const [pairing, setPairing] = useState(false);
   const onAction = (action: SyncProviderAction) => runSyncMenuAction(action, closeSheet);
+  if (pairing) return <PairDeviceSheet onClose={closeSheet} />;
 
   return (
     <BottomSheet title={t("layout.sync.title")} onClose={closeSheet}>
-      <LocalNetworkSection variant="sheet" onClose={closeSheet} />
+      <LocalNetworkSection variant="sheet" onClose={closeSheet} onPair={() => setPairing(true)} />
       {providers.map((provider) => <SyncSheetSection key={provider.id} provider={provider} onAction={onAction} />)}
     </BottomSheet>
   );

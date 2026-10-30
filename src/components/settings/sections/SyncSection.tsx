@@ -16,6 +16,8 @@ import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { SettingsGroup } from "./shared";
+import { useCanPairDevices } from "@/hooks/useNoAccountInstall";
+import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
 import { formatTime } from "@/utils/localeFormat";
 
 function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | null; error: string | null }): string {
@@ -212,8 +214,30 @@ function HeldBackKeys({ domain }: { domain: string }) {
   );
 }
 
+function LocalNetworkGroup() {
+  const { t } = useTranslation();
+  return (
+    <SettingsGroup title={t("layout.sync.local.title")} divided>
+      <div data-setting-row className="flex items-center justify-between gap-3 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-(--t-text-primary)">{t("layout.sync.local.pair.title")}</p>
+          <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.sync.local.pairSub")}</p>
+        </div>
+        <button
+          data-sync-pair
+          onClick={openPairDeviceDialog}
+          className="min-h-11 text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
+        >
+          {t("layout.sync.local.pair.title")}
+        </button>
+      </div>
+    </SettingsGroup>
+  );
+}
+
 export default function SyncSection() {
   const { t } = useTranslation();
+  const canPair = useCanPairDevices();
   const { syncTypes, setSyncType, isDomainSynced } = useSyncPrefsStore();
 
   const providers = useSyncProviders().providers;
@@ -243,6 +267,8 @@ export default function SyncSection() {
         </SettingsGroup>
       )}
       {installer.modal}
+
+      {canPair && <LocalNetworkGroup />}
 
       <div>
         <SettingsGroup title={t("settings.sync.prefsTitle")} divided>

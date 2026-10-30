@@ -1,5 +1,4 @@
 use crate::error::{AppError, ErrorCode};
-use crate::lan_sync::handshake::HandshakeError;
 use crate::lan_sync::manager::{FilesDialError, FilesDialer};
 use crate::lan_sync::protocol::{FilesReply, FilesRequest, Refusal};
 use crate::lan_sync::stream::SessionStream;
@@ -198,8 +197,7 @@ impl DeviceLink {
             Err(e) => {
                 let fatal = match e {
                     FilesDialError::Refused(reason) => refused(reason),
-                    FilesDialError::NotListed
-                    | FilesDialError::Handshake(HandshakeError::Pinned(..)) => {
+                    e if matches!(e, FilesDialError::NotListed) || e.refused_peer().is_some() => {
                         refused(Refusal::Denied)
                     }
                     e => return Err(unreachable(e)),
@@ -290,7 +288,7 @@ impl SftpReopen for DeviceLink {
 mod tests {
     use super::*;
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey, LocalIdentity};
-    use crate::lan_sync::manager::{self, Manager};
+    use crate::lan_sync::manager::{self, Manager, Trust};
     use crate::lan_sync::peers::{now_secs, PeerStore, PinPolicy};
     use std::net::{Ipv4Addr, SocketAddr};
 
@@ -339,28 +337,33 @@ mod tests {
         (link, closes)
     }
 
-    async fn lan(me: LocalIdentity, store: PeerStore, policy: PinPolicy) -> Manager {
-        let keys = zeroize::Zeroizing::new(vec![derive_auth_key(&[1; 32])]);
+    async fn lan_with(me: LocalIdentity, store: PeerStore, trust: manager::Trust) -> Manager {
         let events = tokio::sync::mpsc::channel(64).0;
-        manager::start(me, keys, false, false, store, policy, events)
+        manager::start(me, trust, false, false, store, events)
             .await
             .unwrap()
     }
 
+    async fn lan(me: LocalIdentity, store: PeerStore, policy: PinPolicy) -> Manager {
+        lan_with(
+            me,
+            store,
+            manager::Trust::policed(manager::test_keys(&[1]), policy),
+        )
+        .await
+    }
+
     fn knowing(addrs: &[SocketAddr]) -> PeerStore {
         let mut store = PeerStore::memory();
-        let key = test_identity("dev").key.public;
-        let now = now_secs();
-        store.decide("dev", &key, now, PinPolicy::Repin);
+        store.seed("dev", &[], now_secs());
         for (age, addr) in addrs.iter().enumerate() {
-            store.record_addrs("dev", &[*addr], now - age as u64);
+            store.seed("dev", &[*addr], now_secs() - age as u64);
         }
         store
     }
 
     fn block(store: &mut PeerStore, id: &str) {
-        let key = test_identity(id).key.public;
-        store.decide(id, &key, now_secs(), PinPolicy::Repin);
+        store.seed(id, &[], now_secs());
         store.forget(id, now_secs());
     }
 
@@ -426,14 +429,16 @@ mod tests {
         ] {
             let dir = tempfile::tempdir().unwrap();
             let device = sharing(test_identity("dev"), dir.path()).await;
-            let me = lan(test_identity("me"), knowing(&[local(&device)]), policy).await;
+            let me = lan(test_identity("me"), knowing(&[]), policy).await;
+            // Spent first so no sync link records the old device's advertised addresses.
+            me.spend_budget();
+            me.remember_at("dev", &[local(&device)]);
             let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
             link.bind("sftp-1".into());
             link.dial().await.unwrap();
-            me.spend_budget();
             device.stop().await;
             let device = sharing(rekeyed(), dir.path()).await;
-            me.learn("dev", &[local(&device)]);
+            me.remember_at("dev", &[local(&device)]);
             let reopened = link.dial().await.err().map(|e| e.code());
             assert_eq!(reopened, refused.map(Some), "{policy:?}");
             assert_eq!(link.closed_now(), refused.is_some(), "{policy:?}");
@@ -449,11 +454,15 @@ mod tests {
     async fn pin_refused_file_dial_is_access_denied_not_retried() {
         let device = lan(rekeyed(), PeerStore::memory(), PinPolicy::Repin).await;
         let addr = local(&device);
-        let mut forgotten = knowing(&[addr]);
-        forgotten.forget("dev", now_secs());
+        let forgotten = || {
+            let mut store = knowing(&[addr]);
+            store.forget("dev", now_secs());
+            store
+        };
         for (store, policy) in [
             (knowing(&[addr]), PinPolicy::Refuse),
-            (forgotten, PinPolicy::Repin),
+            (forgotten(), PinPolicy::Repin),
+            (forgotten(), PinPolicy::Refuse),
         ] {
             let me = lan(test_identity("me"), store, policy).await;
             assert_eq!(failed_dial(&me).await, denied(), "{policy:?}");
@@ -472,6 +481,38 @@ mod tests {
         )
         .await;
         assert_eq!(failed_dial(&me).await, denied());
+    }
+
+    #[tokio::test]
+    async fn a_group_device_that_is_not_listed_denies_file_access() {
+        let device = lan_with(
+            test_identity("dev"),
+            PeerStore::memory(),
+            Trust::grouped(&[1], &["me"]),
+        )
+        .await;
+        let store = knowing(&[local(&device)]);
+        let me = lan_with(test_identity("me"), store, Trust::grouped(&[2, 1], &[])).await;
+        assert_eq!(failed_dial(&me).await, denied());
+    }
+
+    #[tokio::test]
+    async fn an_unlisted_group_device_at_a_stale_address_stays_retryable() {
+        let other = lan_with(
+            test_identity("other"),
+            PeerStore::memory(),
+            Trust::grouped(&[1], &[]),
+        )
+        .await;
+        let store = knowing(&[local(&other)]);
+        let me = lan_with(
+            test_identity("me"),
+            store,
+            Trust::grouped(&[2, 1], &["dev"]),
+        )
+        .await;
+        let unreachable = (Some(ErrorCode::DeviceUnreachable), vec![]);
+        assert_eq!(failed_dial(&me).await, unreachable);
     }
 
     #[tokio::test]
