@@ -9,6 +9,7 @@ use std::process::Output;
 use std::time::{Duration, Instant};
 
 const TTL: u64 = 3;
+const RACE_TTL: u64 = 6;
 const SETTLE: Duration = Duration::from_secs(TTL + 13);
 const REAP_DEADLINE: Duration = Duration::from_secs(TTL + 40);
 
@@ -338,7 +339,7 @@ fn other_sockets_untouched() {
 #[ignore = "needs docker"]
 fn reattach_and_redetach_keeps_session_until_new_ttl() {
     each_image(|h| {
-        h.arm(Some(TTL));
+        h.arm(Some(RACE_TTL));
         h.drop_client(&h.first);
         let t0 = Instant::now();
         let at = |secs: f64| {
@@ -346,13 +347,13 @@ fn reattach_and_redetach_keeps_session_until_new_ttl() {
             std::thread::sleep(due.saturating_duration_since(Instant::now()));
         };
         let first = h.wait_for("first stamp", || Some(h.stamp()).filter(|s| !s.is_empty()));
-        at(2.0);
+        at(4.0);
         let second_client = h.connect(&persistent_attach_command(&h.key));
-        at(2.5);
+        at(5.0);
         h.drop_client(&second_client);
         let second = h.wait_for("second stamp", || Some(h.stamp()).filter(|s| *s != first));
         let reaper = |stamp: &str| stamp.split_once('.').unwrap().1.to_string();
-        at(5.0);
+        at(8.0);
         h.wait_until("first timer exits", || !h.alive(&reaper(&first)));
         assert_eq!(h.stamp(), second, "{}: stamp after first timer", h.image);
         assert!(h.present_on("voltius"), "{}: first timer killed", h.image);
