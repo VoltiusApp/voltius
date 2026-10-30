@@ -364,8 +364,12 @@ fn tmux_version_case(arms: &str) -> String {
     format!(r#"case "$(tmux -V 2>/dev/null)" in {arms} esac"#)
 }
 
+fn tmux_cc_arm(action: &str) -> String {
+    format!("{TMUX_CC_VERSIONS}) {action} ;;")
+}
+
 fn tmux_cc_case(action: &str) -> String {
-    tmux_version_case(&format!("{TMUX_CC_VERSIONS}) {action} ;;"))
+    tmux_version_case(&tmux_cc_arm(action))
 }
 
 fn tmux_gate(arms: &str) -> String {
@@ -647,7 +651,7 @@ rm -f "$F"
 fn tmux_wait_session(session_key: &str) -> String {
     format!(
         r#"i=0
-until tmux -L {TMUX_SOCKET} has-session -t {session_key} 2>/dev/null; do
+until tmux -L {TMUX_SOCKET} has-session -t ={session_key} 2>/dev/null; do
   [ $i -ge 15 ] && exit 0
   sleep 1
   i=$((i+1))
@@ -724,7 +728,7 @@ const TTL_REAPER: &str = concat!(
 T="tmux -L voltius"
 case $S in voltius_*) ;; *) exit 0 ;; esac
 L=$($T show -v -t "=$S:" @voltius_ttl 2>/dev/null)
-case $L in ''|*[!0-9]*) exit 0 ;; esac
+case $L in ''|*[!0-9]*|??????????*) exit 0 ;; esac
 voltius_held() {
   $T has-session -t "=$S" 2>/dev/null &&
   [ "$($T display -p -t "=$S:" '#{session_attached}' 2>/dev/null)" = 0 ] &&
@@ -733,7 +737,7 @@ voltius_held() {
 }
 voltius_now() {
   N=$(date +%s 2>/dev/null)
-  case $N in ''|*[!0-9]*) exit 0 ;; esac
+  case $N in ''|*[!0-9]*|????????????*) exit 0 ;; esac
 }
 D=
 voltius_held || exit 0
@@ -748,10 +752,10 @@ while voltius_now; [ "$N" -lt "$E" ]; do
   voltius_held || exit 0
 done
 voltius_held || exit 0
-P=$($T list-panes -s -t "=$S" -F '#{pane_pid}' 2>/dev/null) && [ -n "$P" ] || exit 0
+P=$($T list-panes -s -t "=$S:" -F '#{pane_pid}' 2>/dev/null) && [ -n "$P" ] || exit 0
 c=
 for i in 1 2 3; do
-  [ $i = 1 ] || sleep "${VOLTIUS_REAP_GAP:-5}"
+  [ $i = 1 ] || sleep 5 || exit 0
   n=$(voltius_quiet $P) || exit 0
   [ -z "$c" ] || [ "$n" = "$c" ] || exit 0
   c=$n
@@ -762,21 +766,25 @@ exit 0
 "#
 );
 
+/// The reaper rejects 10+ digit TTLs; `$((now + ttl))` must not overflow.
+const MAX_TTL_SECS: u64 = 999_999_999;
+
 #[cfg_attr(not(test), expect(dead_code))]
 pub fn persistent_ttl_command(session_key: &str, ttl_secs: Option<u64>) -> String {
     let action = match ttl_secs {
         Some(secs) => format!(
             r#"$T set -g @voltius_reap {reaper} &&
-$T set -t {key} @voltius_ttl {secs} &&
-$T set-hook -t {key} client-detached 'run-shell -b "sh -c \"\$(tmux -L {socket} show -gv @voltius_reap)\" voltius-reap #{{session_name}}"'
+$T set -t ={key}: @voltius_ttl {secs} &&
+$T set-hook -t ={key} client-detached 'run-shell -b "sh -c \"\$(tmux -L {socket} show -gv @voltius_reap)\" voltius-reap #{{session_name}}"'
 "#,
             reaper = crate::ssh::exec::shell_quote(TTL_REAPER),
+            secs = secs.min(MAX_TTL_SECS),
             key = session_key,
             socket = TMUX_SOCKET,
         ),
         None => format!(
-            r#"$T set-hook -u -t {session_key} client-detached 2>/dev/null
-$T set -u -t {session_key} @voltius_ttl 2>/dev/null
+            r#"$T set-hook -u -t ={session_key} client-detached 2>/dev/null
+$T set -u -t ={session_key}: @voltius_ttl 2>/dev/null
 true
 "#
         ),
@@ -794,7 +802,7 @@ pub fn legacy_mode_style_command(colors: &crate::ssh::control_mode::TerminalColo
     let script = format!(
         r#"{gate}tmux -L {socket} set -g mode-style '{style}' 2>/dev/null
 true"#,
-        gate = tmux_gate(&format!("{TMUX_CC_VERSIONS}) exit 0 ;;")),
+        gate = tmux_gate(&tmux_cc_arm("exit 0")),
         socket = TMUX_SOCKET,
         style = mode_style(colors),
     );
@@ -1287,7 +1295,7 @@ mod tests {
         assert!(script.contains(r#"*"tmux "3.[01]*) NC=1 ;;"#));
         assert!(script.contains(r#"*"tmux "2.[6-9]*) ;;"#));
         assert!(script.contains("*) exit 0 ;;"));
-        assert!(script.contains("until tmux -L voltius has-session -t voltius_s1"));
+        assert!(script.contains("until tmux -L voltius has-session -t =voltius_s1"));
         assert!(
             script.contains(r"printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t")
         );
@@ -1766,18 +1774,24 @@ mod tests {
     #[test]
     fn ttl_command_arms_hook_with_seconds() {
         let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", Some(86400)));
-        assert!(s.contains("set -t voltius_s1 @voltius_ttl 86400"));
-        assert!(s.contains("set-hook -t voltius_s1 client-detached"));
+        assert!(s.contains("set -t =voltius_s1: @voltius_ttl 86400 "));
+        assert!(s.contains("set-hook -t =voltius_s1 client-detached"));
         assert!(s.contains("@voltius_reap"));
-        assert!(s.contains("until tmux -L voltius has-session -t voltius_s1"));
+        assert!(s.contains("until tmux -L voltius has-session -t =voltius_s1"));
         assert!(!s.contains("set-hook -u"));
+    }
+
+    #[test]
+    fn ttl_command_clamps_ttl_to_nine_digits() {
+        let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", Some(u64::MAX)));
+        assert!(s.contains("@voltius_ttl 999999999 "));
     }
 
     #[test]
     fn ttl_command_off_disarms() {
         let s = decode_bootstrap(&persistent_ttl_command("voltius_s1", None));
-        assert!(s.contains("set-hook -u -t voltius_s1 client-detached"));
-        assert!(s.contains("set -u -t voltius_s1 @voltius_ttl"));
+        assert!(s.contains("set-hook -u -t =voltius_s1 client-detached"));
+        assert!(s.contains("set -u -t =voltius_s1: @voltius_ttl"));
         assert!(!s.contains("@voltius_reap"));
     }
 
@@ -1932,7 +1946,7 @@ case "$1" in
   has-session) exit "${HAS:-0}" ;;
   display) echo "${ATT:-0}" ;;
   show) case "$*" in
-    *@voltius_ttl*) [ -n "$TTL" ] || exit 1; echo "$TTL" ;;
+    *@voltius_ttl*) v=$TTL; [ -f "$LOG.ttl" ] && v=$(cat "$LOG.ttl"); [ -n "$v" ] || exit 1; echo "$v" ;;
     *@voltius_detached_at*) if [ -n "$STAMP" ]; then echo "$STAMP"; else cat "$LOG.stamp"; fi ;;
   esac ;;
   set) [ "$4" = @voltius_detached_at ] && printf %s "$5" > "$LOG.stamp" ;;
@@ -1940,6 +1954,19 @@ case "$1" in
 esac
 exit 0
 "#;
+
+    #[cfg(unix)]
+    const FAKE_SLEEP: &str = r#"#!/bin/sh
+printf 'sleep\037%s\037\036' "$1" >> "$LOG"
+echo $(($(cat "$LOG.now" 2>/dev/null || echo 1000) + $1)) > "$LOG.now"
+c=$(($(cat "$LOG.n" 2>/dev/null || echo 0) + 1))
+echo $c > "$LOG.n"
+[ "$c" = "${FLIP_AT:-}" ] && printf %s "$FLIP_VAL" > "$LOG.$FLIP"
+exit 0
+"#;
+
+    #[cfg(unix)]
+    const FAKE_DATE: &str = "#!/bin/sh\ncat \"$LOG.now\" 2>/dev/null || echo 1000\n";
 
     #[cfg(unix)]
     fn run_fake_tmux(
@@ -1950,9 +1977,15 @@ exit 0
         use std::sync::atomic::{AtomicUsize, Ordering};
         static RUN: AtomicUsize = AtomicUsize::new(0);
         let dir = ttl_scratch(&format!("tmux-{}", RUN.fetch_add(1, Ordering::Relaxed)));
-        let tmux = dir.join("tmux");
-        std::fs::write(&tmux, FAKE_TMUX).unwrap();
-        std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
+        for (name, body) in [
+            ("tmux", FAKE_TMUX),
+            ("sleep", FAKE_SLEEP),
+            ("date", FAKE_DATE),
+        ] {
+            let bin = dir.join(name);
+            std::fs::write(&bin, body).unwrap();
+            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
         let log = dir.join("log");
         let path = format!(
             "{}:{}",
@@ -2007,11 +2040,17 @@ exit 0
             &persistent_ttl_command("voltius_s1", Some(3600)),
         );
         assert!(armed.contains(&tmux(&["set", "-g", "@voltius_reap", TTL_REAPER])));
-        assert!(armed.contains(&tmux(&["set", "-t", "voltius_s1", "@voltius_ttl", "3600"])));
+        assert!(armed.contains(&tmux(&[
+            "set",
+            "-t",
+            "=voltius_s1:",
+            "@voltius_ttl",
+            "3600"
+        ])));
         assert!(armed.contains(&tmux(&[
             "set-hook",
             "-t",
-            "voltius_s1",
+            "=voltius_s1",
             "client-detached",
             r#"run-shell -b "sh -c \"\$(tmux -L voltius show -gv @voltius_reap)\" voltius-reap #{session_name}""#,
         ])));
@@ -2021,10 +2060,10 @@ exit 0
             "set-hook",
             "-u",
             "-t",
-            "voltius_s1",
+            "=voltius_s1",
             "client-detached"
         ])));
-        assert!(off.contains(&tmux(&["set", "-u", "-t", "voltius_s1", "@voltius_ttl"])));
+        assert!(off.contains(&tmux(&["set", "-u", "-t", "=voltius_s1:", "@voltius_ttl"])));
 
         for old in ["tmux 2.9a", "tmux next-3.5", ""] {
             let calls = fake_tmux_calls(old, &persistent_ttl_command("voltius_s1", Some(3600)));
@@ -2052,44 +2091,102 @@ exit 0
     }
 
     #[cfg(unix)]
-    #[test]
-    fn reaper_kills_only_an_idle_detached_session_it_still_owns() {
-        let dir = ttl_scratch("reaper");
+    fn reaper_fixture(name: &str) -> (std::path::PathBuf, String, String) {
+        let dir = ttl_scratch(name);
         std::fs::create_dir_all(dir.join("10")).unwrap();
         std::fs::write(
             dir.join("10").join("stat"),
             "10 (bash) S 1 10 10 0 -1 0 0 0 0 0 3 4 0\n",
         )
         .unwrap();
-        let idle = ps_fixture(&dir, "10 1 S bash -bash\n");
         let busy_path = dir.join("busy");
         std::fs::write(&busy_path, "10 1 S bash -bash\n11 10 S vim vim\n").unwrap();
-        let busy = format!("cat {}", busy_path.display());
+        let idle = ps_fixture(&dir, "10 1 S bash -bash\n");
+        (dir, idle, format!("cat {}", busy_path.display()))
+    }
+
+    #[cfg(unix)]
+    fn run_reaper(
+        dir: &std::path::Path,
+        session: &str,
+        ps: &str,
+        env: &[(&str, &str)],
+    ) -> Vec<Vec<String>> {
         let proc_dir = dir.to_string_lossy().into_owned();
-        let kill = ["-L", "voltius", "kill-session", "-t", "=voltius_s1"].map(String::from);
+        let mut all = vec![
+            ("TTL", "0"),
+            ("VOLTIUS_PROC", &proc_dir),
+            ("VOLTIUS_PS", ps),
+        ];
+        all.extend_from_slice(env);
+        let (out, calls) = run_fake_tmux(&["-c", TTL_REAPER, "voltius-reap", session], &all);
+        assert!(
+            out.status.success(),
+            "reaper must exit 0 ({env:?}): {calls:?}"
+        );
+        calls
+    }
+
+    #[cfg(unix)]
+    fn reaper_killed(calls: &[Vec<String>]) -> bool {
+        calls.contains(
+            &["-L", "voltius", "kill-session", "-t", "=voltius_s1"]
+                .map(String::from)
+                .to_vec(),
+        )
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reaper_kills_only_an_idle_detached_session_it_still_owns() {
+        let (dir, idle, busy) = reaper_fixture("reaper");
         #[rustfmt::skip]
         let cases = [
-            ("idle", "voltius_s1", &idle, ("", ""), true),
-            ("busy", "voltius_s1", &busy, ("", ""), false),
-            ("re-detached", "voltius_s1", &idle, ("STAMP", "1.1"), false),
-            ("attached", "voltius_s1", &idle, ("ATT", "1"), false),
-            ("disarmed", "voltius_s1", &idle, ("TTL", ""), false),
-            ("gone", "voltius_s1", &idle, ("HAS", "1"), false),
-            ("foreign", "work", &idle, ("", ""), false),
+            ("voltius_s1", &idle, ("", ""), true),
+            ("voltius_s1", &busy, ("", ""), false),
+            ("voltius_s1", &idle, ("STAMP", "1.1"), false),
+            ("voltius_s1", &idle, ("ATT", "1"), false),
+            ("voltius_s1", &idle, ("TTL", ""), false),
+            ("voltius_s1", &idle, ("TTL", "9999999999"), false),
+            ("voltius_s1", &idle, ("HAS", "1"), false),
+            ("work", &idle, ("", ""), false),
         ];
-        for (name, session, ps, tweak, killed) in cases {
-            let mut env = vec![
-                ("TTL", "0"),
-                ("VOLTIUS_REAP_GAP", "0"),
-                ("VOLTIUS_PROC", proc_dir.as_str()),
-                ("VOLTIUS_PS", ps.as_str()),
+        for (session, ps, tweak, killed) in cases {
+            let env: &[(&str, &str)] = if tweak.0.is_empty() { &[] } else { &[tweak] };
+            let calls = run_reaper(&dir, session, ps, env);
+            assert_eq!(
+                reaper_killed(&calls),
+                killed,
+                "{session} {tweak:?}: {calls:?}"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reaper_sleeps_in_bounded_chunks_and_rechecks_between_them() {
+        let (dir, idle, _) = reaper_fixture("chunks");
+        let sleeps = |calls: &[Vec<String>]| -> Vec<String> {
+            calls
+                .iter()
+                .filter(|c| c[0] == "sleep")
+                .map(|c| c[1].clone())
+                .collect()
+        };
+        let calls = run_reaper(&dir, "voltius_s1", &idle, &[("TTL", "601")]);
+        assert_eq!(sleeps(&calls), ["300", "300", "1", "5", "5"]);
+        assert!(reaper_killed(&calls));
+        for (flip, value) in [("ttl", "600"), ("ttl", ""), ("stamp", "1.1")] {
+            let env = [
+                ("TTL", "601"),
+                ("FLIP_AT", "2"),
+                ("FLIP", flip),
+                ("FLIP_VAL", value),
             ];
-            if !tweak.0.is_empty() {
-                env.push(tweak);
-            }
-            let (out, calls) = run_fake_tmux(&["-c", TTL_REAPER, "voltius-reap", session], &env);
-            assert!(out.status.success(), "{name}: reaper must exit 0");
-            assert_eq!(calls.contains(&kill.to_vec()), killed, "{name}: {calls:?}");
+            let calls = run_reaper(&dir, "voltius_s1", &idle, &env);
+            assert_eq!(sleeps(&calls), ["300", "300"], "{flip}={value:?}");
+            assert!(!reaper_killed(&calls), "{flip}={value:?}: {calls:?}");
         }
         let _ = std::fs::remove_dir_all(&dir);
     }
