@@ -48,7 +48,7 @@ export default function HostsSection() {
   const detachedTtlOptions = useMemo(
     () => DETACHED_TTL_HOURS.map((h) => ({
       value: String(h),
-      label: h >= 72
+      label: h > HOURS_PER_DAY && h % HOURS_PER_DAY === 0
         ? t("settings.hosts.detachedTtl.days", { count: h / HOURS_PER_DAY })
         : t("settings.hosts.detachedTtl.hours", { count: h }),
     })),

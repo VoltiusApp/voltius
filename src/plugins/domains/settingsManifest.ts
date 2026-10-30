@@ -17,6 +17,7 @@ import {
   useConnectivitySettingsStore,
   DETACHED_TTL_HOURS,
   DEFAULT_DETACHED_TTL_HOURS,
+  type DetachedTtlHours,
 } from "@/stores/connectivitySettingsStore";
 import { KEEPALIVE_PRESETS, DEFAULT_KEEPALIVE_PRESET } from "@/utils/keepalive";
 import { useThemeStore } from "@/stores/themeStore";
@@ -213,7 +214,7 @@ function explicitDefs(): SettingDef[] {
       default: String(DEFAULT_DETACHED_TTL_HOURS),
       section: "hosts", labelKey: "settings.hosts.detachedTtl.durationTitle", writable: true,
       get: () => String(useConnectivitySettingsStore.getState().detachedTtlHours),
-      set: (v) => useConnectivitySettingsStore.getState().setDetachedTtlHours(Number(v) as never),
+      set: (v) => useConnectivitySettingsStore.getState().setDetachedTtlHours(Number(v) as DetachedTtlHours),
     },
     {
       key: "theme.activeThemeId",
