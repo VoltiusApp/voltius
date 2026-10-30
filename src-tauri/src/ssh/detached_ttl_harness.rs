@@ -133,6 +133,15 @@ impl Host {
         self.tmux(&["show", "-v", "-t", &self.key, "@voltius_detached_at"])
     }
 
+    fn wait_stamp(&self, what: &str, accept: impl Fn(&str) -> bool) -> String {
+        self.wait_for(what, || Some(self.stamp()).filter(|s| accept(s)))
+    }
+
+    fn hook_armed(&self) -> bool {
+        self.tmux(&["show-hooks", "-t", &self.key])
+            .contains("client-detached")
+    }
+
     fn alive(&self, pid: &str) -> bool {
         self.exec(&["kill", "-0", pid]).status.success()
     }
@@ -211,7 +220,7 @@ fn after_drop(
 }
 
 fn stamped(h: &Host) {
-    h.wait_until("reaper stamped the detach", || !h.stamp().is_empty());
+    h.wait_stamp("reaper stamped the detach", |s| !s.is_empty());
 }
 
 fn kept(setup: impl Fn(&Host) + Sync) {
@@ -346,12 +355,12 @@ fn reattach_and_redetach_keeps_session_until_new_ttl() {
             let due = t0 + Duration::from_secs_f64(secs);
             std::thread::sleep(due.saturating_duration_since(Instant::now()));
         };
-        let first = h.wait_for("first stamp", || Some(h.stamp()).filter(|s| !s.is_empty()));
+        let first = h.wait_stamp("first stamp", |s| !s.is_empty());
         at(4.0);
         let second_client = h.connect(&persistent_attach_command(&h.key));
         at(5.0);
         h.drop_client(&second_client);
-        let second = h.wait_for("second stamp", || Some(h.stamp()).filter(|s| *s != first));
+        let second = h.wait_stamp("second stamp", |s| s != first);
         let reaper = |stamp: &str| stamp.split_once('.').unwrap().1.to_string();
         at(8.0);
         h.wait_until("first timer exits", || !h.alive(&reaper(&first)));
@@ -375,11 +384,9 @@ fn reaper_and_hook_reach_tmux_verbatim() {
             .sh(r#"printf "$(tmux -L voltius show -gv @voltius_reap)""#)
             .stdout;
         assert!(reap == TTL_REAPER.as_bytes(), "{}: @voltius_reap", h.image);
-        let hooks = h.tmux(&["show-hooks", "-t", &h.key]);
-        assert!(hooks.contains("client-detached"), "{}: {hooks}", h.image);
+        assert!(h.hook_armed(), "{}: hook missing", h.image);
         h.arm(None);
-        let hooks = h.tmux(&["show-hooks", "-t", &h.key]);
-        assert!(!hooks.contains("client-detached"), "{}: {hooks}", h.image);
+        assert!(!h.hook_armed(), "{}: hook left after disarm", h.image);
     });
 }
 
@@ -388,8 +395,7 @@ fn reaper_and_hook_reach_tmux_verbatim() {
 fn ttl_is_not_armed_below_tmux_3_2() {
     on_images(PRE_3_2_BASES, |h| {
         h.arm(Some(TTL));
-        let hooks = h.tmux(&["show-hooks", "-t", &h.key]);
-        assert!(!hooks.contains("client-detached"), "{}: {hooks}", h.image);
+        assert!(!h.hook_armed(), "{}: hook armed", h.image);
         let ttl = h.tmux(&["show", "-v", "-t", &h.key, "@voltius_ttl"]);
         assert!(ttl.is_empty(), "{}: {ttl}", h.image);
     });
