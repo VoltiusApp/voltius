@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   exportLocalBlob: vi.fn(async () => [7]),
   intro: vi.fn(async () => {}),
   failListen: null as string | null,
+  onMerged: new Set<(deviceId: string, payload: unknown) => void>(),
   toast: vi.fn(),
   platform: "linux",
   visibility: "visible" as DocumentVisibilityState,
@@ -46,7 +47,10 @@ vi.mock("@/services/sync", async () => {
     ENTITY_FILES: ["connections.json"],
     parseEntities: (json?: string) => JSON.parse(json ?? "[]"),
     getDeviceId: async () => "self",
-    onRemotePayloadMerged: () => () => {},
+    onRemotePayloadMerged: (fn: (deviceId: string, payload: unknown) => void) => {
+      h.onMerged.add(fn);
+      return () => { h.onMerged.delete(fn); };
+    },
     onLocalMutation: (fn: () => void) => {
       h.mutations.add(fn);
       return () => { h.mutations.delete(fn); };
@@ -132,6 +136,26 @@ describe("lanSync", () => {
     await startLanSync();
     expect(calls("lan_sync_start")).toHaveLength(0);
     expect(h.handlers.size).toBe(0);
+  });
+
+  test("addresses_merged_before_start_are_learned_after_lan_sync_start", async () => {
+    const addrs = (deviceId: string) => ({
+      files: { "lan_sync_addresses.json": JSON.stringify({ v: 1, deviceId, addrs: ["100.101.1.2:47391"] }) },
+      secrets: {},
+    });
+    const merged = (deviceId: string) => h.onMerged.forEach((fn) => fn(deviceId, addrs(deviceId)));
+    merged("dev-b");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_learn")).toHaveLength(0);
+    await startLanSync();
+    await vi.advanceTimersByTimeAsync(0);
+    const order = (cmd: string) => h.invoke.mock.invocationCallOrder[h.invoke.mock.calls.findIndex(([c]) => c === cmd)];
+    expect(calls("lan_sync_learn")).toEqual([["lan_sync_learn", { deviceId: "dev-b", addrs: ["100.101.1.2:47391"] }]]);
+    expect(order("lan_sync_learn")).toBeGreaterThan(order("lan_sync_start"));
+    await stopLanSync();
+    merged("dev-c");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_learn")).toHaveLength(1);
   });
 
   test("start passes the account id as scope", async () => {

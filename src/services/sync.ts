@@ -617,7 +617,7 @@ export async function mergeRemotePayload(remoteDeviceId: string, remotePayload: 
     return changed;
   });
   await applyRemoteSshConfig(remotePayload);
-  remoteMergedListeners.emit(remoteDeviceId, remotePayload);
+  notifyRemotePayloadMerged(remoteDeviceId, remotePayload);
   return changed;
 }
 
@@ -757,7 +757,7 @@ export async function syncOnLoginReplace(): Promise<void> {
     await serialMerge(() => importMergedPayload(merged));
     for (const [deviceId, remotePayload] of pulled) {
       await applyRemoteSshConfig(remotePayload);
-      remoteMergedListeners.emit(deviceId, remotePayload);
+      notifyRemotePayloadMerged(deviceId, remotePayload);
     }
     await reloadAllStores();
     await push();
@@ -872,6 +872,22 @@ const remoteMergedListeners = createListeners<[deviceId: string, payload: BlobPa
 
 export const onLocalMutation = localMutationListeners.subscribe;
 export const onRemotePayloadMerged = remoteMergedListeners.subscribe;
+
+export function notifyRemotePayloadMerged(deviceId: string, payload: BlobPayload): void {
+  remoteMergedListeners.emit(deviceId, payload);
+}
+
+export function blobDeviceId(blob: number[]): string | null {
+  if (blob.length < 4) return null;
+  const len = new DataView(Uint8Array.from(blob.slice(0, 4)).buffer).getUint32(0, true);
+  if (blob.length < 4 + len) return null;
+  try {
+    const id = (JSON.parse(new TextDecoder().decode(Uint8Array.from(blob.slice(4, 4 + len)))) as { device_id?: unknown }).device_id;
+    return typeof id === "string" ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 

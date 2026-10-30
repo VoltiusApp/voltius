@@ -10,6 +10,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::oneshot;
 use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 
 pub const GRANT_IDLE: Duration = Duration::from_secs(10 * 60);
 pub const APPROVAL_WAIT: Duration = Duration::from_secs(60);
@@ -41,6 +42,12 @@ impl FileAccessConfig {
 
     pub fn always_allows(&self, key: &str) -> bool {
         self.allowed.iter().any(|d| d.always && d.device_key == key)
+    }
+
+    pub fn drop_device(&mut self, key: &str) -> bool {
+        let before = self.allowed.len();
+        self.allowed.retain(|d| d.device_key != key);
+        self.allowed.len() != before
     }
 
     pub fn keep_seen_from(&mut self, old: &FileAccessConfig) {
@@ -117,6 +124,11 @@ impl Grants {
     pub fn clear(&mut self) {
         self.by_token.clear();
     }
+
+    #[cfg(test)]
+    pub fn held_by(&self, key: &str) -> usize {
+        self.by_token.values().filter(|(k, _)| k == key).count()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -185,9 +197,15 @@ pub struct ApprovalPrompt {
     pub new_device: bool,
 }
 
+struct Waiting {
+    prompt: ApprovalPrompt,
+    reply: Option<oneshot::Sender<Answer>>,
+    withdrawn: CancellationToken,
+}
+
 #[derive(Default)]
 pub struct Broker {
-    pending: Mutex<HashMap<String, (ApprovalPrompt, oneshot::Sender<Answer>)>>,
+    pending: Mutex<HashMap<String, Waiting>>,
 }
 
 pub fn new_request_id() -> String {
@@ -195,24 +213,42 @@ pub fn new_request_id() -> String {
 }
 
 impl Broker {
-    pub fn register(&self, prompt: ApprovalPrompt) -> PendingApproval<'_> {
+    pub fn register(
+        &self,
+        prompt: ApprovalPrompt,
+        parent: &CancellationToken,
+    ) -> PendingApproval<'_> {
         let id = prompt.request_id.clone();
         let (tx, rx) = oneshot::channel();
-        self.pending
-            .lock()
-            .unwrap()
-            .insert(id.clone(), (prompt, tx));
+        let withdrawn = parent.child_token();
+        let waiting = Waiting {
+            prompt,
+            reply: Some(tx),
+            withdrawn: withdrawn.clone(),
+        };
+        self.pending.lock().unwrap().insert(id.clone(), waiting);
         PendingApproval {
             _cleanup: Cleanup { broker: self, id },
             rx,
+            withdrawn,
         }
     }
 
+    // An answered request stays listed (hidden) until its waiter ends, so a withdraw still reaches it.
     pub fn answer(&self, request_id: &str, a: Answer) -> bool {
-        match self.pending.lock().unwrap().remove(request_id) {
-            Some((_, tx)) => tx.send(a).is_ok(),
-            None => false,
-        }
+        let mut pending = self.pending.lock().unwrap();
+        let reply = pending.get_mut(request_id).and_then(|w| w.reply.take());
+        reply.is_some_and(|tx| tx.send(a).is_ok())
+    }
+
+    pub fn withdraw(&self, key: &str) {
+        self.pending.lock().unwrap().retain(|_, w| {
+            let mine = w.prompt.device_key == key;
+            if mine {
+                w.withdrawn.cancel();
+            }
+            !mine
+        });
     }
 
     pub fn pending(&self) -> Vec<ApprovalPrompt> {
@@ -220,7 +256,8 @@ impl Broker {
             .lock()
             .unwrap()
             .values()
-            .map(|(p, _)| p.clone())
+            .filter(|w| w.reply.is_some())
+            .map(|w| w.prompt.clone())
             .collect()
     }
 }
@@ -228,9 +265,14 @@ impl Broker {
 pub struct PendingApproval<'a> {
     _cleanup: Cleanup<'a>,
     rx: oneshot::Receiver<Answer>,
+    withdrawn: CancellationToken,
 }
 
 impl PendingApproval<'_> {
+    pub fn withdrawn(&self) -> CancellationToken {
+        self.withdrawn.clone()
+    }
+
     pub async fn wait(self, wait: Duration) -> Option<Answer> {
         tokio::time::timeout(wait, self.rx).await.ok()?.ok()
     }
@@ -456,7 +498,7 @@ mod tests {
     async fn broker_times_out_to_none() {
         let broker = Broker::default();
         let r = broker
-            .register(prompt("x"))
+            .register(prompt("x"), &CancellationToken::new())
             .wait(Duration::from_secs(60))
             .await;
         assert_eq!(r, None);
@@ -466,7 +508,7 @@ mod tests {
     #[test]
     fn register_is_visible_before_wait() {
         let broker = Broker::default();
-        let _p = broker.register(prompt("my-id"));
+        let _p = broker.register(prompt("my-id"), &CancellationToken::new());
         let pending = broker.pending();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].request_id, "my-id");
@@ -475,7 +517,7 @@ mod tests {
     #[tokio::test]
     async fn broker_answer_resolves_once() {
         let broker = Broker::default();
-        let p = broker.register(prompt("x"));
+        let p = broker.register(prompt("x"), &CancellationToken::new());
         assert!(broker.answer("x", Answer::Once));
         assert!(!broker.answer("x", Answer::Always));
         assert_eq!(p.wait(APPROVAL_WAIT).await, Some(Answer::Once));

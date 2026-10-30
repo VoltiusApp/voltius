@@ -8,6 +8,7 @@ import { getAccountId, isServerMode } from "@/services/account";
 import { appToast } from "@/services/appToast";
 import { entityClocks, type PeerInfo } from "@/services/lanSyncDevices";
 import { startDeviceFiles, stopDeviceFiles } from "@/services/deviceFiles";
+import { watchPeerAddresses } from "@/services/lanSyncAddresses";
 import { ensureLanSyncIntro } from "@/services/lanSyncIntro";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import {
@@ -154,6 +155,7 @@ async function begin(wanted: number): Promise<void> {
     await invoke("lan_sync_set_paused", { paused: store().paused });
     await invoke("lan_sync_start", { deviceId: selfId, deviceName, authKeys, scope });
     startDeviceFiles().catch(fail("files start"));
+    s.offs.push(watchPeerAddresses());
   } catch (e) {
     detach();
     store().setStatus("stopped");

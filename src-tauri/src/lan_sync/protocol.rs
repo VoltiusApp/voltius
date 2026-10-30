@@ -14,6 +14,8 @@ const KIND_CAPS: u8 = 6;
 const KIND_FILES: u8 = 7;
 const KIND_FILES_REPLY: u8 = 8;
 const GRANT_LEN: usize = 64;
+const KIND_ADDRS: u8 = 12;
+const MAX_ADDRS_FRAME: usize = 4 * 1024;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Hello {
@@ -30,6 +32,14 @@ pub struct Hello {
 
 pub const MAX_HELLO_ADDRS: usize = 16;
 pub const FEATURES: &[&str] = &[];
+
+pub fn wire_addrs(addrs: &[SocketAddr]) -> Vec<String> {
+    addrs
+        .iter()
+        .take(MAX_HELLO_ADDRS)
+        .map(SocketAddr::to_string)
+        .collect()
+}
 
 impl Hello {
     pub fn peer_addrs(&self) -> Vec<SocketAddr> {
@@ -52,8 +62,6 @@ pub struct Auth {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Caps {
     pub files: bool,
-    #[serde(default)]
-    pub port: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
@@ -86,6 +94,11 @@ pub enum FilesReply {
     },
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Addrs {
+    pub addrs: Vec<String>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Frame {
     Hello(Hello),
@@ -94,6 +107,7 @@ pub enum Frame {
     Files(FilesRequest),
     FilesReply(FilesReply),
     Blob(Vec<u8>),
+    Addrs(Addrs),
     Nudge,
     Bye,
     Unknown(u8),
@@ -139,6 +153,7 @@ pub fn encode(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
         Frame::Files(r) => (KIND_FILES, to_json(r)?),
         Frame::FilesReply(r) => (KIND_FILES_REPLY, to_json(r)?),
         Frame::Blob(b) => (KIND_BLOB, b.clone()),
+        Frame::Addrs(a) => (KIND_ADDRS, to_json(a)?),
         Frame::Nudge => (KIND_NUDGE, Vec::new()),
         Frame::Bye => (KIND_BYE, Vec::new()),
         Frame::Unknown(kind) => return Err(ProtocolError::UnknownKind(*kind)),
@@ -175,6 +190,10 @@ pub fn decode(buf: &[u8]) -> Result<Frame, ProtocolError> {
             Ok(Frame::FilesReply(reply))
         }
         KIND_BLOB => Ok(Frame::Blob(payload.to_vec())),
+        KIND_ADDRS if payload.len() > MAX_ADDRS_FRAME => {
+            Err(ProtocolError::Malformed("addresses frame too large".into()))
+        }
+        KIND_ADDRS => from_json(payload).map(Frame::Addrs),
         KIND_NUDGE | KIND_BYE if !payload.is_empty() => {
             Err(ProtocolError::Malformed("unexpected payload".into()))
         }
@@ -262,16 +281,11 @@ mod tests {
     }
 
     #[test]
-    fn caps_without_port_still_decode() {
-        let mut buf = vec![KIND_CAPS];
-        buf.extend_from_slice(br#"{"files":true}"#);
-        assert_eq!(
-            decode(&buf).unwrap(),
-            Frame::Caps(Caps {
-                files: true,
-                port: None
-            })
-        );
+    fn caps_with_legacy_port_still_decodes() {
+        for json in [&br#"{"files":true}"#[..], br#"{"files":true,"port":47391}"#] {
+            let buf = [&[KIND_CAPS][..], json].concat();
+            assert_eq!(decode(&buf).unwrap(), Frame::Caps(Caps { files: true }));
+        }
     }
 
     #[test]
@@ -282,14 +296,8 @@ mod tests {
                 version: PROTOCOL_VERSION,
                 proofs: vec![[7u8; 32], [9u8; 32]],
             }),
-            Frame::Caps(Caps {
-                files: true,
-                port: Some(47391),
-            }),
-            Frame::Caps(Caps {
-                files: false,
-                port: None,
-            }),
+            Frame::Caps(Caps { files: true }),
+            Frame::Caps(Caps { files: false }),
             Frame::Files(FilesRequest::default()),
             Frame::Files(FilesRequest {
                 grant: Some("ab".repeat(32)),
@@ -392,6 +400,24 @@ mod tests {
             encode(&Frame::Unknown(9)),
             Err(ProtocolError::UnknownKind(9))
         ));
+    }
+
+    #[test]
+    fn addrs_frame_roundtrips_and_old_decoders_see_unknown() {
+        let f = Frame::Addrs(Addrs {
+            addrs: vec!["10.7.7.7:47391".into()],
+        });
+        assert_eq!(decode(&encode(&f).unwrap()[4..]).unwrap(), f);
+        assert!(matches!(
+            decode(&[12, b'{', b'}']),
+            Err(ProtocolError::Malformed(_))
+        ));
+        assert_eq!(
+            decode(&[&[12][..], br#"{"addrs":["10.7.7.7:47391"]}"#].concat()).unwrap(),
+            f
+        );
+        let huge = [&[12][..], &vec![b' '; 4097]].concat();
+        assert!(matches!(decode(&huge), Err(ProtocolError::Malformed(_))));
     }
 
     #[test]

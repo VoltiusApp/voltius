@@ -131,8 +131,8 @@ pub async fn device_files_connect(
 mod serving {
     use crate::commands::lan_sync::{emitter, Emit, LanSyncState};
     use crate::device_files::policy::{self, Answer, ApprovalPrompt, FileAccessConfig};
-    use crate::device_files::service::{Alert, FileService};
-    use crate::device_files::{for_account, stop_running};
+    use crate::device_files::service::{Alert, FileService, CONFIG};
+    use crate::device_files::{for_account, stop_running, stop_where, Slot};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use tauri::{AppHandle, Manager, State};
@@ -149,21 +149,15 @@ mod serving {
         alert: Alert,
     ) {
         let mut slot = lan.files.service.lock().await;
-        let svc = match for_account(&slot, &account) {
-            Some(svc) => svc.clone(),
-            None => {
-                stop_running(&mut slot);
-                let svc = Arc::new(FileService::new(dir, account, emit, alert));
-                *slot = Some(svc.clone());
-                svc
-            }
-        };
-        lan.offer_files(Some(svc)).await;
+        stop_where(&mut slot, |s| s.account() != account);
+        slot.get_or_insert_with(|| Arc::new(FileService::new(dir, account, emit, alert)));
+        lan.offer_files(&slot).await;
     }
 
     pub(crate) async fn stop_inner(lan: &LanSyncState) {
-        stop_running(&mut *lan.files.service.lock().await);
-        lan.offer_files(None).await;
+        let mut slot = lan.files.service.lock().await;
+        stop_running(&mut slot);
+        lan.offer_files(&slot).await;
     }
 
     async fn running_for(lan: &LanSyncState, account: &str) -> Option<Arc<FileService>> {
@@ -191,7 +185,7 @@ mod serving {
         match for_account(&slot, account) {
             Some(svc) => {
                 svc.set_config(config)?;
-                lan.offer_files(Some(svc.clone())).await;
+                lan.offer_files(&slot).await;
                 Ok(())
             }
             None => {
@@ -199,6 +193,27 @@ mod serving {
                 policy::save(dir, account, &config)
             }
         }
+    }
+
+    pub(crate) fn forget_device(
+        slot: &Slot,
+        dir: &Path,
+        account: &str,
+        key: &str,
+        emit: &Emit,
+    ) -> Result<(), String> {
+        if let Some(svc) = for_account(slot, account) {
+            return svc.forget_device(key);
+        }
+        let mut config = policy::load(dir, account);
+        if config.drop_device(key) {
+            policy::save(dir, account, &config)?;
+            // A service for another account means the UI holds that account's config.
+            if slot.is_none() {
+                emit(CONFIG, serde_json::json!(config));
+            }
+        }
+        Ok(())
     }
 
     fn alert(app: AppHandle, body: String) -> Alert {
@@ -294,15 +309,17 @@ mod serving {
 #[cfg(all(test, desktop))]
 mod tests {
     use super::*;
+    use crate::commands::lan_sync::tests::{recorder, Seen};
     use crate::commands::lan_sync::{
-        peers_inner, start_inner as lan_start, stop_inner as lan_stop, Emit,
+        clear_scope_inner, forget_inner, peers_inner, start_inner as lan_start,
+        stop_inner as lan_stop, Emit,
     };
     use crate::commands::sftp::resume::copy_one;
     use crate::commands::sftp::resume::endpoint::LocalFs;
     use crate::commands::sftp::resume::engine_tests::noise;
     use crate::crypto::hex;
     use crate::device_files::policy::{self, AllowedDevice, Answer, FileAccessConfig, GRANT_IDLE};
-    use crate::device_files::service::{FileService, REQUEST, SESSIONS};
+    use crate::device_files::service::{FileService, CONFIG, REQUEST, SESSIONS};
     use crate::error::ErrorCode;
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey, LocalIdentity};
     use crate::sftp::backend::test_tree::Recorder;
@@ -313,7 +330,6 @@ mod tests {
 
     const ACCOUNT: &str = "acct";
 
-    type Seen = Arc<Mutex<Vec<(&'static str, Value)>>>;
     type Closed = Arc<Mutex<Vec<(String, Option<ErrorCode>)>>>;
 
     fn key_of(id: &str) -> String {
@@ -341,19 +357,52 @@ mod tests {
         }
     }
 
-    async fn lan(me: LocalIdentity) -> Arc<LanSyncState> {
-        let state = Arc::new(LanSyncState::default());
+    async fn lan_start_in(state: &LanSyncState, me: LocalIdentity, scope: &str) {
         lan_start(
-            &state,
+            state,
             me,
             vec![vec![7; 32]],
-            ACCOUNT,
+            scope,
             None,
             Arc::new(|_, _| {}),
         )
         .await
         .unwrap();
+    }
+
+    async fn lan(me: LocalIdentity) -> Arc<LanSyncState> {
+        let state = Arc::new(LanSyncState::default());
+        lan_start_in(&state, me, ACCOUNT).await;
         state
+    }
+
+    async fn serve_files(lan: &LanSyncState, dir: &std::path::Path, account: &str, emit: Emit) {
+        serving::start_inner(
+            lan,
+            dir.to_path_buf(),
+            account.into(),
+            emit,
+            Arc::new(|_| {}),
+        )
+        .await;
+    }
+
+    fn quiet() -> Emit {
+        Arc::new(|_, _| {})
+    }
+
+    async fn until_files(lan: &Arc<LanSyncState>, id: &str, files: bool) {
+        until(&format!("{id} listed with files {files}"), || {
+            let lan = lan.clone();
+            let id = id.to_string();
+            async move {
+                peers_inner(&lan)
+                    .await
+                    .iter()
+                    .any(|p| p.device_id == id && p.files == files)
+            }
+        })
+        .await;
     }
 
     struct Server {
@@ -380,24 +429,23 @@ mod tests {
         }
     }
 
+    fn events_in(seen: &Seen, name: &str) -> Vec<Value> {
+        let seen = seen.lock().unwrap();
+        seen.iter()
+            .filter(|(n, _)| *n == name)
+            .map(|(_, v)| v.clone())
+            .collect()
+    }
+
     async fn server_as(me: LocalIdentity, always: &[&str]) -> Server {
         let dir = tempfile::tempdir().unwrap();
         let share = dir.path().join("Shared");
         std::fs::create_dir(&share).unwrap();
         std::fs::write(share.join("hello.txt"), b"hi").unwrap();
         policy::save(dir.path(), ACCOUNT, &config(&share, always)).unwrap();
-        let seen = Seen::default();
-        let sink = seen.clone();
-        let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name, payload)));
+        let (emit, seen) = recorder();
         let lan = lan(me).await;
-        serving::start_inner(
-            &lan,
-            dir.path().to_path_buf(),
-            ACCOUNT.into(),
-            emit,
-            Arc::new(|_| {}),
-        )
-        .await;
+        serve_files(&lan, dir.path(), ACCOUNT, emit).await;
         Server { lan, dir, seen }
     }
 
@@ -415,11 +463,7 @@ mod tests {
         }
 
         fn events(&self, name: &str) -> Vec<Value> {
-            let seen = self.seen.lock().unwrap();
-            seen.iter()
-                .filter(|(n, _)| *n == name)
-                .map(|(_, v)| v.clone())
-                .collect()
+            events_in(&self.seen, name)
         }
 
         fn prompts(&self) -> usize {
@@ -484,16 +528,7 @@ mod tests {
     async fn browser(id: &'static str, server: &Server) -> Browser {
         let lan = lan(test_identity(id)).await;
         lan.meet(&server.lan).await;
-        until("dev-b listed with files on", || {
-            let lan = lan.clone();
-            async move {
-                peers_inner(&lan)
-                    .await
-                    .iter()
-                    .any(|p| p.device_id == "dev-b" && p.files)
-            }
-        })
-        .await;
+        until_files(&lan, "dev-b", true).await;
         Browser {
             lan,
             sftp: SftpManager::new(),
@@ -824,7 +859,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reopen_refuses_a_different_device_key() {
+    async fn reopen_follows_a_repinned_device_key() {
         let s = server(&["dev-a"]).await;
         let a = browser("dev-a", &s).await;
         let c = a.connect().await.unwrap();
@@ -843,8 +878,9 @@ mod tests {
             }
         })
         .await;
-        a.closes(&c, ErrorCode::DeviceUnreachable).await;
-        assert_eq!(fake.svc().await.admitted(), 0);
+        assert!(a.list(&c.sftp_id, "/").await.is_ok());
+        assert!(a.closed.lock().unwrap().is_empty());
+        assert_eq!(fake.svc().await.admitted(), 1);
         assert_eq!(fake.prompts(), 0);
     }
 
@@ -940,14 +976,7 @@ mod tests {
             .unwrap();
         assert!(lan.files.service.lock().await.is_none());
         assert_eq!(policy::load(dir.path(), ACCOUNT), cfg);
-        serving::start_inner(
-            &lan,
-            dir.path().to_path_buf(),
-            ACCOUNT.into(),
-            Arc::new(|_, _| {}),
-            Arc::new(|_| {}),
-        )
-        .await;
+        serve_files(&lan, dir.path(), ACCOUNT, quiet()).await;
         let svc = lan.files.service.lock().await.clone().unwrap();
         assert_eq!(svc.config(), cfg);
     }
@@ -978,5 +1007,123 @@ mod tests {
         close_device_sessions(&a.sftp, &a.links).await;
         s.until_open(&[]).await;
         assert!(a.sftp.backend(&c.sftp_id).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn forget_revokes_file_access() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        let c = browser("dev-c", &s).await;
+        let on_a = a.connect().await.unwrap();
+        c.approved(&s).await;
+        s.until_open(&["dev-a", "dev-c"]).await;
+        let svc = s.svc().await;
+        assert_eq!(svc.grants_for(&key_of("dev-c")), 1);
+        assert!(forget_inner(&s.lan, "dev-a", s.dir.path(), &quiet()).await);
+        assert!(forget_inner(&s.lan, "dev-c", s.dir.path(), &quiet()).await);
+        s.until_open(&[]).await;
+        assert!(svc.config().allowed.is_empty());
+        assert!(policy::load(s.dir.path(), ACCOUNT).allowed.is_empty());
+        assert_eq!(svc.grants_for(&key_of("dev-c")), 0);
+        assert_eq!(s.events(CONFIG).last().unwrap()["allowed"], json!([]));
+        assert!(a.list(&on_a.sftp_id, "/").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn forget_without_file_service_still_drops_the_saved_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let saved = config(dir.path(), &["dev-a"]);
+        policy::save(dir.path(), ACCOUNT, &saved).unwrap();
+        policy::save(dir.path(), "other", &saved).unwrap();
+        let b = lan(test_identity("dev-b")).await;
+        let a = lan(test_identity("dev-a")).await;
+        a.meet(&b).await;
+        until_files(&b, "dev-a", false).await;
+        let (emit, seen) = recorder();
+        serve_files(&b, dir.path(), "other", quiet()).await;
+        assert!(forget_inner(&b, "dev-a", dir.path(), &emit).await);
+        let svc = b.files.service.lock().await.clone().unwrap();
+        assert_eq!(svc.config(), saved);
+        assert_eq!(policy::load(dir.path(), "other"), saved);
+        assert!(policy::load(dir.path(), ACCOUNT).allowed.is_empty());
+        assert!(events_in(&seen, CONFIG).is_empty());
+    }
+
+    #[tokio::test]
+    async fn forget_without_any_file_service_emits_the_dropped_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        policy::save(
+            dir.path(),
+            ACCOUNT,
+            &config(dir.path(), &["dev-a", "dev-c"]),
+        )
+        .unwrap();
+        let b = lan(test_identity("dev-b")).await;
+        let a = lan(test_identity("dev-a")).await;
+        a.meet(&b).await;
+        until_files(&b, "dev-a", false).await;
+        let (emit, seen) = recorder();
+        assert!(forget_inner(&b, "dev-a", dir.path(), &emit).await);
+        let left = policy::load(dir.path(), ACCOUNT);
+        assert_eq!(left, config(dir.path(), &["dev-c"]));
+        assert_eq!(events_in(&seen, CONFIG), [json!(left)]);
+    }
+
+    #[tokio::test]
+    async fn forget_withdraws_a_pending_prompt() {
+        let s = server(&[]).await;
+        let a = browser("dev-a", &s).await;
+        let forget = async {
+            let id = s.until_pending(1).await.remove(0);
+            assert!(forget_inner(&s.lan, "dev-a", s.dir.path(), &quiet()).await);
+            let svc = s.svc().await;
+            assert!(svc.pending().is_empty());
+            assert!(!svc.answer(&id, Answer::Always));
+        };
+        let (waiting, ()) = tokio::join!(a.connect(), forget);
+        assert!(waiting.is_err());
+        let svc = s.svc().await;
+        assert_eq!(svc.admitted(), 0);
+        assert!(svc.config().allowed.is_empty());
+        assert!(policy::load(s.dir.path(), ACCOUNT).allowed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn clear_scope_stops_the_file_service() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        a.connect().await.unwrap();
+        s.until_open(&["dev-a"]).await;
+        clear_scope_inner(&s.lan, "other", s.dir.path())
+            .await
+            .unwrap();
+        assert!(s.lan.files.service.lock().await.is_some());
+        s.until_open(&["dev-a"]).await;
+        clear_scope_inner(&s.lan, ACCOUNT, s.dir.path())
+            .await
+            .unwrap();
+        assert!(s.lan.files.service.lock().await.is_none());
+        s.until_open(&[]).await;
+    }
+
+    #[tokio::test]
+    async fn start_offers_only_a_scope_matching_file_service() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        lan_start_in(&s.lan, test_identity("dev-b"), "other").await;
+        assert!(s.lan.files.service.lock().await.is_none());
+        s.lan.meet(&a.lan).await;
+        until_files(&a.lan, "dev-b", false).await;
+
+        serve_files(&s.lan, s.dir.path(), ACCOUNT, quiet()).await;
+        assert!(s.lan.files.service.lock().await.is_some());
+        assert_eq!(code(a.connect().await), Some(ErrorCode::DeviceUnreachable));
+
+        let svc = s.svc().await;
+        lan_start_in(&s.lan, test_identity("dev-b"), ACCOUNT).await;
+        assert!(Arc::ptr_eq(&s.svc().await, &svc));
+        s.lan.meet(&a.lan).await;
+        until_files(&a.lan, "dev-b", true).await;
+        a.connect().await.unwrap();
     }
 }

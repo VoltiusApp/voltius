@@ -236,10 +236,8 @@ impl PeerStore {
         trim_addrs(&mut record.addrs);
     }
 
-    pub fn forget(&mut self, device_id: &str, now: u64) -> bool {
-        let Some(record) = self.peers.remove(device_id) else {
-            return false;
-        };
+    pub fn forget(&mut self, device_id: &str, now: u64) -> Option<[u8; 32]> {
+        let record = self.peers.remove(device_id)?;
         let key = hex32::encode(&record.device_key);
         self.blocked.insert(
             key.clone(),
@@ -249,14 +247,13 @@ impl PeerStore {
             },
         );
         evict_oldest(&mut self.blocked, MAX_BLOCKED, |b| b.blocked_at, &key);
-        true
+        Some(record.device_key)
     }
 
     pub fn get(&self, device_id: &str) -> Option<&PeerRecord> {
         self.peers.get(device_id)
     }
 
-    #[cfg(test)]
     pub fn records(&self) -> impl Iterator<Item = (&String, &PeerRecord)> {
         self.peers.iter()
     }
@@ -364,12 +361,12 @@ mod tests {
     fn forget_blocks_key_and_frees_id() {
         let mut s = PeerStore::memory();
         s.decide("a", &K1, 1, REPIN);
-        assert!(s.forget("a", 5));
+        assert_eq!(s.forget("a", 5), Some(K1));
         let blocked = PinDecision::Rejected(Rejection::Blocked);
         assert_eq!(s.decide("a", &K1, 6, REPIN), blocked);
         assert_eq!(s.decide("b", &K1, 6, REPIN), blocked);
         assert_eq!(s.decide("a", &K2, 7, REPIN), PinDecision::Pinned);
-        assert!(!s.forget("zzz", 8));
+        assert_eq!(s.forget("zzz", 8), None);
     }
 
     #[test]

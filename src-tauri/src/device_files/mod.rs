@@ -9,7 +9,7 @@ pub mod server;
 pub mod service;
 
 #[cfg(desktop)]
-type Slot = Option<std::sync::Arc<service::FileService>>;
+pub(crate) type Slot = Option<std::sync::Arc<service::FileService>>;
 
 #[cfg(desktop)]
 #[derive(Default)]
@@ -21,6 +21,13 @@ pub struct DeviceFilesState {
 pub(crate) fn stop_running(slot: &mut Slot) {
     if let Some(svc) = slot.take() {
         svc.stop();
+    }
+}
+
+#[cfg(desktop)]
+pub(crate) fn stop_where(slot: &mut Slot, which: impl FnOnce(&service::FileService) -> bool) {
+    if slot.as_deref().is_some_and(which) {
+        stop_running(slot);
     }
 }
 

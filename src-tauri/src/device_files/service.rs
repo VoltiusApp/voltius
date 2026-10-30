@@ -197,9 +197,27 @@ impl FileService {
         self.broker.answer(request_id, answer)
     }
 
-    pub fn set_config(&self, mut cfg: FileAccessConfig) -> Result<(), String> {
-        let mut guard = self.core.lock();
-        let book = &mut *guard;
+    pub fn set_config(&self, cfg: FileAccessConfig) -> Result<(), String> {
+        self.apply(&mut self.core.lock(), cfg)
+    }
+
+    pub fn forget_device(&self, key: &str) -> Result<(), String> {
+        let mut book = self.core.lock();
+        self.broker.withdraw(key);
+        let mut cfg = book.cfg.clone();
+        if !cfg.drop_device(key) {
+            book.forget(key);
+            return Ok(());
+        }
+        if let Err(e) = self.apply(&mut book, cfg) {
+            book.forget(key);
+            return Err(e);
+        }
+        self.core.emit(CONFIG, json!(book.cfg));
+        Ok(())
+    }
+
+    fn apply(&self, book: &mut Book, mut cfg: FileAccessConfig) -> Result<(), String> {
         cfg.keep_seen_from(&book.cfg);
         policy::save(&self.dir, &self.account, &cfg)?;
         let old = std::mem::replace(&mut book.cfg, cfg);
@@ -282,14 +300,18 @@ impl FileService {
             if self.broker.pending().len() >= MAX_PENDING {
                 return Err(Refusal::Busy);
             }
-            (self.broker.register(prompt.clone()), book.withdraw.clone())
+            let pending = self.broker.register(prompt.clone(), &book.withdraw);
+            let withdraw = pending.withdrawn();
+            (pending, withdraw)
         };
         self.core.emit(REQUEST, json!(prompt));
         (self.alert)(&prompt);
         // The requester sends nothing before the reply, so any read result means it hung up.
+        // Biased: a withdraw also drops the answer channel, which must not read as a timeout.
         let outcome = tokio::select! {
-            answer = pending.wait(APPROVAL_WAIT) => Ok(answer),
+            biased;
             _ = withdraw.cancelled() => Err(Refusal::Off),
+            answer = pending.wait(APPROVAL_WAIT) => Ok(answer),
             _ = session.recv_max(MAX_FRAME) => Err(Refusal::Denied),
         };
         self.core.emit(REQUEST, json!(null));
@@ -374,6 +396,10 @@ impl FileService {
 
     pub(crate) fn admitted(&self) -> u64 {
         self.core.lock().next
+    }
+
+    pub(crate) fn grants_for(&self, key: &str) -> usize {
+        self.core.lock().grants.held_by(key)
     }
 }
 
@@ -606,6 +632,42 @@ mod tests {
         svc.set_config(cfg).unwrap();
         let closed = tokio::time::timeout(Duration::from_secs(2), client.recv()).await;
         assert!(matches!(closed, Ok(Err(_))), "session still open");
+    }
+
+    #[tokio::test]
+    async fn an_answer_racing_forget_admits_nothing() {
+        let (svc, dir) = service(&[]);
+        let mut client = request(&svc, "d0").await;
+        until_pending(&svc).await;
+        let key = hex(&test_identity("d0").key.public);
+        assert!(svc.answer(&svc.pending()[0].request_id, Answer::Always));
+        svc.forget_device(&key).unwrap();
+        assert_eq!(
+            reply(&mut client).await,
+            FilesReply::Refused {
+                reason: Refusal::Off
+            }
+        );
+        assert_eq!(svc.admitted(), 0);
+        assert!(svc.config().allowed.is_empty());
+        assert!(policy::load(dir.path(), "acct").allowed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn forgetting_a_waiting_requester_refuses_it_off() {
+        for _ in 0..32 {
+            let (svc, _dir) = service(&[]);
+            let mut client = request(&svc, "d0").await;
+            until_pending(&svc).await;
+            svc.forget_device(&hex(&test_identity("d0").key.public))
+                .unwrap();
+            assert_eq!(
+                reply(&mut client).await,
+                FilesReply::Refused {
+                    reason: Refusal::Off
+                }
+            );
+        }
     }
 
     #[tokio::test]

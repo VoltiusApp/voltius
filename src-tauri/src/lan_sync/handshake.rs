@@ -1,8 +1,8 @@
 use super::identity::{verify_signature, LocalIdentity};
 use super::peers::Rejection;
 use super::protocol::{
-    decode, encode, write_frame, Auth, Frame, Hello, ProtocolError, FEATURES, MAX_FRAME,
-    MAX_HELLO_ADDRS, PROTOCOL_VERSION,
+    decode, encode, wire_addrs, write_frame, Auth, Frame, Hello, ProtocolError, FEATURES,
+    MAX_FRAME, PROTOCOL_VERSION,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -45,8 +45,8 @@ pub enum HandshakeError {
     VersionMismatch(u16),
     #[error(transparent)]
     Protocol(#[from] ProtocolError),
-    #[error("peer refused by pin: {0:?}")]
-    Pinned(Rejection),
+    #[error("peer {0} refused by pin: {1:?}")]
+    Pinned(String, Rejection),
 }
 
 impl From<snow::Error> for HandshakeError {
@@ -336,19 +336,20 @@ fn hello(me: &LocalIdentity, handshake_hash: &[u8], initiator: bool) -> Hello {
         platform: me.platform.clone(),
         device_key: me.key.public,
         device_sig: me.key.sign(&device_msg(handshake_hash, initiator)).to_vec(),
-        addrs: (me.addrs)()
-            .iter()
-            .take(MAX_HELLO_ADDRS)
-            .map(ToString::to_string)
-            .collect(),
+        addrs: wire_addrs(&(me.addrs)()),
         features: FEATURES.iter().map(|f| f.to_string()).collect(),
     }
 }
 
+pub fn valid_device_id(id: &str) -> bool {
+    (1..=MAX_DEVICE_ID).contains(&id.len())
+}
+
 fn verify_device(peer: &Hello, peer_is_initiator: bool, hash: &[u8]) -> Result<(), HandshakeError> {
     let msg = device_msg(hash, peer_is_initiator);
-    let id_ok = (1..=MAX_DEVICE_ID).contains(&peer.device_id.len());
-    if id_ok && verify_signature(&peer.device_key, &msg, &peer.device_sig) {
+    if valid_device_id(&peer.device_id)
+        && verify_signature(&peer.device_key, &msg, &peer.device_sig)
+    {
         Ok(())
     } else {
         Err(HandshakeError::NotTrusted)
