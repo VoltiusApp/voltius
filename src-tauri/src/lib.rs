@@ -257,6 +257,8 @@ pub fn run() {
 
             #[cfg(desktop)]
             app.manage(updater::UpdaterState::default());
+            #[cfg(target_os = "android")]
+            android_ctx::set_app(app.handle());
             commands::uploads::sweep_stale_copies(app.handle());
             app.manage(KnownHostsStore::load());
             app.manage(app_lock::AppLock::load());

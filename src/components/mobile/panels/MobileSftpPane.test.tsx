@@ -20,8 +20,9 @@ vi.mock("@/utils/platform", async (orig) => ({
   useIsIOS: () => false,
 }));
 
+import { createRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import MobileSftpPane from "./MobileSftpPane";
+import MobileSftpPane, { type PaneDrop } from "./MobileSftpPane";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 
 const CWD = "/home/u";
@@ -39,13 +40,19 @@ function controller(over: Record<string, unknown> = {}) {
   };
 }
 
-function renderPane(ctrl = controller()) {
+function mountPane(ctrl = controller(), dropHover = false) {
+  const dropRef = createRef<PaneDrop>();
   const view = render(
     <MobileSftpPane controller={ctrl as never} connection={undefined}
       device={{ deviceId: "d1", deviceKey: "k", name: "Work PC", platform: "windows", state: "ready", route: "lan", lastSeen: null } as never}
       selected={[]} onSelectionChange={() => {}} onPickHost={() => {}} onCopyToOther={() => {}} otherConnected={false}
-      headerSlot={null} onScreen backUp={false} />,
+      headerSlot={null} onScreen backUp={false} dropRef={dropRef} dropHover={dropHover} />,
   );
+  return { view, ctrl, drop: (files = PICKED) => dropRef.current!(files) };
+}
+
+function renderPane(ctrl = controller()) {
+  const { view } = mountPane(ctrl);
   fireEvent.click(view.container.querySelector("[data-sftp-create]")!);
   return { view, ctrl, uploadItem: () => document.querySelector<HTMLButtonElement>('[data-sftp-action="upload"]') };
 }
@@ -173,5 +180,53 @@ describe("MobileSftpPane upload", () => {
     expect(pending.conflicts.map((f) => f.name)).toEqual(["a.jpg"]);
     expect(pending.toTransfer.map((f) => f.name)).toEqual(["b.txt"]);
     expect(calls("upload_stage")).toEqual([]);
+  });
+});
+
+describe("MobileSftpPane drop from another app", () => {
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  test("a drop uploads the files into the pane's folder, like the menu row", async () => {
+    serve();
+    const { ctrl, drop } = mountPane();
+    drop();
+    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalledTimes(2));
+    expect(calls("upload_pick")).toEqual([]);
+    expect(calls("upload_stage").map((a) => a.uri)).toEqual(["content://media/1", "content://media/2"]);
+    expect(calls("sftp_upload").map((a) => [a.sftpId, a.remotePath])).toEqual([["s1", `${CWD}/a.jpg`], ["s1", `${CWD}/b.txt`]]);
+  });
+
+  test("a drop on a disconnected pane does nothing", async () => {
+    serve();
+    const { drop } = mountPane(controller({ phase: { tag: "connecting" }, sftpId: null }));
+    drop();
+    await settle();
+    expect([...calls("sftp_stat"), ...calls("upload_stage"), ...calls("sftp_upload")]).toEqual([]);
+  });
+
+  test("a drop on a read-only device is refused and uploads nothing", async () => {
+    serve();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const { drop } = mountPane(controller({ readOnly: true }));
+    drop();
+    await settle();
+    expect(alert).toHaveBeenCalledWith("fileTransfer.myDevices.readOnlyShare");
+    expect([...calls("sftp_stat"), ...calls("upload_stage"), ...calls("sftp_upload")]).toEqual([]);
+    alert.mockRestore();
+  });
+
+  test("the hovered pane is highlighted only when it can take the files", () => {
+    const overlay = () => document.body.textContent?.includes("fileTransfer.pane.dropToTransfer");
+    mountPane(controller(), true);
+    expect(overlay()).toBe(true);
+    cleanup();
+    mountPane(controller(), false);
+    expect(overlay()).toBe(false);
+    cleanup();
+    mountPane(controller({ readOnly: true }), true);
+    expect(overlay()).toBe(false);
+    cleanup();
+    mountPane(controller({ phase: { tag: "connecting" }, sftpId: null }), true);
+    expect(overlay()).toBe(false);
   });
 });

@@ -81,6 +81,7 @@ class MainActivity : TauriActivity() {
     Haptics.install(webView)
     LauncherShortcuts.install(this, webView)
     ShareSheet.install(this, webView)
+    VoltiusUploads.installDrop(this, webView)
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

@@ -15,6 +15,7 @@ import {
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { PermissionsDialog } from "./PermissionsDialog";
+import { PaneDropOverlay } from "./PaneDropOverlay";
 import { canEditPermissions } from "./permissionsModel";
 import {
   type FileEntry, type SortCol, type SortDir, type VisibleCols, type ColumnWidths, type FileColumn,
@@ -446,17 +447,7 @@ export function FilePane({
       tabIndex={-1}
       data-drop-side={side}
     >
-      {isCrossPaneDrop && (
-        <div
-          className="absolute inset-0 z-20 flex items-center justify-center rounded-sm pointer-events-none"
-          style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "2px solid var(--t-accent)" }}
-        >
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-(--t-bg-card) border border-(--t-accent)">
-            <Icon icon="lucide:arrow-down-to-line" width={14} className="text-(--t-accent)" />
-            <span className="text-xs font-medium text-(--t-accent)">{t("fileTransfer.pane.dropToTransfer")}</span>
-          </div>
-        </div>
-      )}
+      {isCrossPaneDrop && <PaneDropOverlay />}
 
       {/* Path bar */}
       <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-(--t-border) bg-(--t-bg-elevated)">

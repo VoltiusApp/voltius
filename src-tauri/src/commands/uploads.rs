@@ -4,6 +4,8 @@ use tauri::AppHandle;
 use crate::scratch::transfer_dir;
 
 const AREA: &str = "voltius-uploads";
+#[cfg(target_os = "android")]
+const DROP_EVENT: &str = "android://files-dropped";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +13,14 @@ pub struct PickedFile {
     pub uri: String,
     pub name: String,
     pub size: i64,
+}
+
+#[cfg(any(target_os = "android", test))]
+#[derive(Serialize, Clone, Debug)]
+struct DroppedFiles {
+    x: f32,
+    y: f32,
+    files: Vec<PickedFile>,
 }
 
 #[cfg(target_os = "android")]
@@ -53,6 +63,21 @@ mod android {
     ) {
         PICK.fulfil(&mut env, &json);
     }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_voltius_app_VoltiusUploads_nativeFilesDropped<'local>(
+        mut env: JNIEnv<'local>,
+        _class: JClass<'local>,
+        x: jni::sys::jfloat,
+        y: jni::sys::jfloat,
+        json: JString<'local>,
+    ) {
+        let json: String = match env.get_string(&json) {
+            Ok(s) => s.into(),
+            Err(_) => return,
+        };
+        super::emit_dropped(x, y, &json);
+    }
 }
 
 #[cfg(any(target_os = "android", test))]
@@ -66,6 +91,32 @@ fn parse_picked(json: &str) -> Result<Vec<PickedFile>, String> {
             ..f
         })
         .collect())
+}
+
+#[cfg(any(target_os = "android", test))]
+fn parse_dropped(x: f32, y: f32, json: &str) -> Result<DroppedFiles, String> {
+    Ok(DroppedFiles {
+        x,
+        y,
+        files: parse_picked(json)?,
+    })
+}
+
+#[cfg(target_os = "android")]
+fn emit_dropped(x: f32, y: f32, json: &str) {
+    use tauri::Emitter;
+    let Some(app) = crate::android_ctx::app() else {
+        return;
+    };
+    match parse_dropped(x, y, json) {
+        Ok(drop) if !drop.files.is_empty() => {
+            if let Err(e) = app.emit(DROP_EVENT, drop) {
+                log::warn!("files dropped: {e}");
+            }
+        }
+        Ok(_) => {}
+        Err(e) => log::warn!("files dropped: {e}"),
+    }
 }
 
 #[tauri::command]
@@ -146,6 +197,27 @@ mod tests {
     #[test]
     fn cancel_is_an_empty_list() {
         assert!(parse_picked("[]").unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_drop_carries_its_point_and_the_picker_rules() {
+        let json = r#"[
+            {"uri":"content://f/1","name":"../../etc/passwd","size":-1},
+            {"uri":"content://f/2","name":"clip.mp4","size":9}
+        ]"#;
+        let got = serde_json::to_value(parse_dropped(12.5, 300.0, json).unwrap()).unwrap();
+        assert_eq!(
+            got,
+            serde_json::json!({
+                "x": 12.5,
+                "y": 300.0,
+                "files": [
+                    {"uri":"content://f/1","name":"../../etc/passwd","size":0},
+                    {"uri":"content://f/2","name":"clip.mp4","size":9}
+                ]
+            })
+        );
+        assert!(parse_dropped(0.0, 0.0, "{}").is_err());
     }
 
     #[test]

@@ -1,8 +1,13 @@
 package com.voltius.app
 
+import android.app.Activity
+import android.content.ClipDescription
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.OpenableColumns
+import android.view.DragEvent
+import android.webkit.WebView
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -14,21 +19,80 @@ object VoltiusUploads {
     external fun nativeFilesPicked(json: String?)
 
     @JvmStatic
+    external fun nativeFilesDropped(x: Float, y: Float, json: String)
+
+    @JvmStatic
     fun launchPicker(): Boolean {
         val activity = MainActivity.instance ?: return false
         activity.launchFilePicker()
         return true
     }
 
-    fun picked(ctx: Context, uris: List<Uri>) {
+    fun picked(ctx: Context, uris: List<Uri>) = describeAsync(ctx, uris) { nativeFilesPicked(it) }
+
+    private fun describeAsync(ctx: Context, uris: List<Uri>, deliver: (String?) -> Unit) {
         Thread {
             val json = try {
                 JSONArray().apply { uris.forEach { put(describe(ctx, it)) } }.toString()
             } catch (e: Exception) {
                 null
             }
-            nativeFilesPicked(json)
+            deliver(json)
         }.start()
+    }
+
+    fun installDrop(activity: Activity, webView: WebView) {
+        val density = activity.resources.displayMetrics.density
+        var active = false
+        var lastMove = 0L
+        fun tell(phase: String, e: DragEvent) {
+            val js = "window.dispatchEvent(new CustomEvent('voltius:file-drag',{detail:" +
+                "{phase:'$phase',x:${e.x / density},y:${e.y / density}}}))"
+            webView.evaluateJavascript(js, null)
+        }
+        webView.setOnDragListener { _, e ->
+            if (e.action == DragEvent.ACTION_DRAG_STARTED) active = carriesFiles(e.clipDescription)
+            if (!active) return@setOnDragListener false
+            when (e.action) {
+                DragEvent.ACTION_DRAG_ENTERED -> tell("over", e)
+                DragEvent.ACTION_DRAG_LOCATION -> {
+                    val now = SystemClock.uptimeMillis()
+                    if (now - lastMove >= 50) {
+                        lastMove = now
+                        tell("over", e)
+                    }
+                }
+                DragEvent.ACTION_DRAG_EXITED -> tell("leave", e)
+                DragEvent.ACTION_DRAG_ENDED -> {
+                    active = false
+                    tell("leave", e)
+                }
+                DragEvent.ACTION_DROP -> return@setOnDragListener dropped(activity, e, density)
+            }
+            true
+        }
+    }
+
+    private fun carriesFiles(desc: ClipDescription?): Boolean {
+        if (desc == null) return false
+        return (0 until desc.mimeTypeCount).any {
+            val mime = desc.getMimeType(it)
+            !mime.startsWith("text/") || mime == ClipDescription.MIMETYPE_TEXT_URILIST
+        }
+    }
+
+    private fun dropped(activity: Activity, e: DragEvent, density: Float): Boolean {
+        val clip = e.clipData ?: return false
+        val uris = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+        if (uris.isEmpty()) return false
+        // Never released: staging (and every Retry) reads the URIs later; the grant ends with the activity.
+        activity.requestDragAndDropPermissions(e) ?: return false
+        val x = e.x / density
+        val y = e.y / density
+        describeAsync(activity.applicationContext, uris) { json ->
+            if (json != null) nativeFilesDropped(x, y, json)
+        }
+        return true
     }
 
     @JvmStatic

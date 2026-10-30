@@ -23,6 +23,15 @@ struct AndroidCtx {
 
 // JavaVM and GlobalRef are both Send + Sync, so this is too.
 static CTX: OnceLock<AndroidCtx> = OnceLock::new();
+static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+pub fn set_app(app: &tauri::AppHandle) {
+    let _ = APP.set(app.clone());
+}
+
+pub fn app() -> Option<&'static tauri::AppHandle> {
+    APP.get()
+}
 
 /// JNI entry point for `VoltiusKeychain.nativeInit(context)`. Idempotent; stores the VM and
 /// a global ref to the application Context. Named for the Kotlin class that declares the

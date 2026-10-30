@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
@@ -12,7 +12,9 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { formatTransferProgress, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import MobilePanelHeader from "./MobilePanelHeader";
-import MobileSftpPane from "./MobileSftpPane";
+import MobileSftpPane, { type PaneDrop } from "./MobileSftpPane";
+import { useAndroidFileDrop } from "./useAndroidFileDrop";
+import { useIsAndroid } from "@/utils/platform";
 import SftpHostPickerSheet from "../sheets/SftpHostPickerSheet";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NO_SELECTION, paneItems, setPaneSelection, type SftpPaneId, type SftpPaneTarget, type SftpSelection } from "./sftpSelectionCore";
@@ -49,6 +51,10 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
   const [focused, setFocused] = useState<SftpPaneId>("a");
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const backPane: SftpPaneId = twoPanes ? focused : "a";
+  const dropA = useRef<PaneDrop>(null);
+  const dropB = useRef<PaneDrop>(null);
+  const isAndroid = useIsAndroid();
+  const dropHover = useAndroidFileDrop(isAndroid && visible, backPane, (id, files) => (id === "a" ? dropA : dropB).current?.(files));
 
   const connA = useMemo(() => connections.find((c) => c.id === connAId), [connections, connAId]);
   const connB = useMemo(() => connections.find((c) => c.id === connBId), [connections, connBId]);
@@ -93,7 +99,8 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
         <MobileSftpPane controller={ctrl} connection={conn} device={target?.kind === "device" ? target.device : undefined} selected={paneItems(sel, id)}
           onSelectionChange={(items) => setSel(setPaneSelection(id, items))} onPickHost={() => setPicking(id)}
           onCopyToOther={(items) => void copy(id, items)} otherConnected={twoPanes && other.sftpId != null && !other.readOnly}
-          headerSlot={headerSlot} onScreen={visible} backUp={visible && backPane === id && sel.pane == null} />
+          headerSlot={headerSlot} onScreen={visible} backUp={visible && backPane === id && sel.pane == null}
+          dropRef={id === "a" ? dropA : dropB} dropHover={dropHover === id} />
       </div>
     );
   };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useLongPress } from "@/components/mobile/useLongPress";
@@ -13,7 +13,7 @@ import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
-import { uploadContentFiles, uploadPick } from "@/services/uploads";
+import { uploadContentFiles, uploadPick, type ContentFile } from "@/services/uploads";
 import { needsPicker } from "@/components/terminal/androidDownloadDir";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
@@ -25,7 +25,8 @@ import type { MyDevice } from "@/services/myDevices";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
 import { compareStrings } from "@/utils/localeFormat";
-import { useReadOnlyTip } from "@/services/deviceReadOnly";
+import { refuseReadOnly, useReadOnlyTip } from "@/services/deviceReadOnly";
+import { PaneDropOverlay } from "@/components/filetransfer/PaneDropOverlay";
 import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
 import { describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { haptic } from "@/lib/haptics";
@@ -44,6 +45,7 @@ function isPermissionDenied(msg: string, code: BackendErrorCode | null): boolean
 }
 
 type Controller = ReturnType<typeof useSftpDir>;
+export type PaneDrop = (files: ContentFile[]) => void;
 
 /**
  * One remote pane. Tap a folder to open it, a file (or its ⋮) for its actions sheet;
@@ -52,7 +54,7 @@ type Controller = ReturnType<typeof useSftpDir>;
  * walks up one directory at a time until "/".
  */
 export default function MobileSftpPane({
-  controller, connection, device, selected, onSelectionChange, onPickHost, onCopyToOther, otherConnected, headerSlot, onScreen, backUp,
+  controller, connection, device, selected, onSelectionChange, onPickHost, onCopyToOther, otherConnected, headerSlot, onScreen, backUp, dropRef, dropHover,
 }: {
   controller: Controller;
   connection: Connection | undefined;
@@ -66,6 +68,8 @@ export default function MobileSftpPane({
   /** The screen is showing (the SFTP tab stays mounted while hidden). */
   onScreen: boolean;
   backUp: boolean;
+  dropRef?: Ref<PaneDrop>;
+  dropHover?: boolean;
 }) {
   const { t } = useTranslation();
   const { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
@@ -169,15 +173,18 @@ export default function MobileSftpPane({
     await runTransfer(f.name, "←", async (tid) => fetchTo(joinPath(await appCacheDir(), f.name), tid), undefined, accelFor(mode, f.isDir));
   };
 
-  const upload = async () => {
+  const upload = async (pick: () => Promise<ContentFile[]> = uploadPick) => {
     if (!sftpId) return;
     try {
-      await uploadContentFiles(await uploadPick(), sftpId, cwd, refresh);
+      await uploadContentFiles(await pick(), sftpId, cwd, refresh);
     } catch (e) {
-      fail(e, upload);
+      fail(e, () => upload(pick));
     }
   };
   const canUpload = isAndroid && phase.tag === "connected" && !!sftpId;
+  useImperativeHandle(dropRef, () => (files: ContentFile[]) => {
+    if (canUpload && !refuseReadOnly(readOnlyTip)) void upload(async () => files);
+  });
 
   // Share: the files download into the share staging folder (with the usual transfer cards),
   // then the system chooser gets them. Large sets ask first. Folders can't be shared.
@@ -235,7 +242,8 @@ export default function MobileSftpPane({
   );
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="relative h-full flex flex-col min-h-0">
+      {dropHover && canUpload && !readOnly && <PaneDropOverlay />}
       {selectionBar}
       <div className="shrink-0 flex items-center h-12 border-b" style={{ borderColor: "var(--t-border)" }}>
         <button data-sftp-pane-host onClick={onPickHost} className="h-12 flex items-center gap-2 min-w-0 pl-3 pr-2 rounded-full">

@@ -1,19 +1,9 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, OnceLock};
-
-use tauri::AppHandle;
+use std::sync::Mutex;
 
 use super::{ActiveTunnel, SessionPfState, TunnelState};
 use crate::storage::config::TunnelType;
-
-/// The app handle, so the notification's "Stop tunnels" action (a JNI call with no Tauri
-/// context) can reach the [`super::PortForwardManager`].
-static APP: OnceLock<AppHandle> = OnceLock::new();
-
-pub(crate) fn set_app(app: &AppHandle) {
-    let _ = APP.set(app.clone());
-}
 
 /// Android freezes a backgrounded app and cuts its network shortly after, which
 /// kills tunnel listeners and SSH connections; a foreground service keeps them
@@ -106,10 +96,12 @@ fn notify_tunnels(_lines: &[String]) {}
 fn notify_sessions(_count: usize) {}
 
 /// Closes every tunnel of every host, as if the user closed each one. Returns how many.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg(target_os = "android")]
 pub(crate) async fn stop_all_tunnels() -> usize {
     use tauri::Manager;
-    let Some(app) = APP.get() else { return 0 };
+    let Some(app) = crate::android_ctx::app() else {
+        return 0;
+    };
     let Some(pf) = app.try_state::<super::PortForwardManager>() else {
         return 0;
     };
