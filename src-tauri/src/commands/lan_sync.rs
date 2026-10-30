@@ -49,7 +49,7 @@ pub struct LanSyncState {
 async fn offer_to(manager: &Manager, svc: Option<Arc<FileService>>) {
     let files = svc.as_ref().is_some_and(|s| s.offers());
     manager.set_file_service(svc.map(|s| s as Arc<dyn manager::InboundFiles>));
-    let caps = crate::lan_sync::protocol::Caps { files, port: None };
+    let caps = crate::lan_sync::protocol::Caps { files };
     manager.set_caps(caps).await;
 }
 

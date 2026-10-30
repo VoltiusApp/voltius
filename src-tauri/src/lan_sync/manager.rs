@@ -43,6 +43,7 @@ const STALE_AFTER: u64 = 30 * 24 * 60 * 60;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 const CONTROL: usize = 4;
 const FILES_REPLY_TIMEOUT: Duration = Duration::from_secs(90);
+const FILE_DIAL_ATTEMPTS: usize = 4;
 const DIAL_BUDGET: usize = 30;
 const DIAL_WINDOW: Duration = Duration::from_secs(60);
 const RETRY_FIRST: Duration = if cfg!(test) {
@@ -399,7 +400,6 @@ impl Outbox {
 struct Peer {
     info: PeerInfo,
     ip: IpAddr,
-    port: Option<u16>,
     rank: Rank,
     conn: u64,
     adopted_at: Instant,
@@ -454,6 +454,10 @@ impl State {
     fn prune(&mut self) {
         let now = Instant::now();
         self.dialable.retain(|k| !k.expired(now));
+    }
+
+    fn may_dial(&self, addr: &SocketAddr) -> bool {
+        addrs::dial_target(addr) && !self.closed && !self.own.contains(addr)
     }
 }
 
@@ -593,10 +597,7 @@ impl Shared {
                     .get(id)
                     .is_some_and(|r| r.addrs.iter().any(|s| s.addr == addr))
         };
-        addrs::dial_target(&addr)
-            && !state.closed
-            && !state.own.contains(&addr)
-            && !state.peers.iter().any(|(id, p)| listed(id, p))
+        state.may_dial(&addr) && !state.peers.iter().any(|(id, p)| listed(id, p))
     }
 
     fn charge(&self, addr: SocketAddr) -> bool {
@@ -705,7 +706,6 @@ impl Shared {
             Peer {
                 info,
                 ip: link.addr.ip(),
-                port: None,
                 rank,
                 conn,
                 adopted_at: Instant::now(),
@@ -767,7 +767,6 @@ impl Shared {
             Frame::Caps(caps) => {
                 if let Some(peer) = self.lock().peers.get_mut(from) {
                     peer.info.files = caps.files;
-                    peer.port = caps.port;
                 }
                 self.peers_changed.notify_one();
             }
@@ -787,20 +786,48 @@ impl Shared {
         svc.serve(link.session, link.hello, route, req).await;
     }
 
-    fn files_target(&self, id: &str) -> Result<(SocketAddr, String), FilesDialError> {
+    fn files_targets(&self, id: &str) -> Result<Vec<SocketAddr>, FilesDialError> {
+        if self.store().get(id).is_none() {
+            return Err(FilesDialError::NotListed);
+        }
+        let order = self.sweep_order(id);
         let state = self.lock();
-        let peer = state.peers.get(id).ok_or(FilesDialError::NotListed)?;
-        let port = peer
-            .port
-            .or_else(|| {
-                state
-                    .dialable
-                    .iter()
-                    .find(|k| k.device.as_deref() == Some(id) && k.addr.ip() == peer.ip)
-                    .map(|k| k.addr.port())
-            })
-            .ok_or_else(|| FilesDialError::Unreachable("listening port unknown".into()))?;
-        Ok((SocketAddr::new(peer.ip, port), peer.info.device_key.clone()))
+        let at_listed = state
+            .peers
+            .get(id)
+            .map(|p| p.ip)
+            .into_iter()
+            .flat_map(|ip| order.iter().map(move |a| SocketAddr::new(ip, a.port())));
+        Ok(dedupe(at_listed.chain(order.iter().copied()))
+            .into_iter()
+            .filter(|a| state.may_dial(a))
+            .take(FILE_DIAL_ATTEMPTS)
+            .collect())
+    }
+
+    async fn files_link(&self, addr: SocketAddr, id: &str) -> Result<Link, FilesDialError> {
+        let permit = self.outbound_permit(true).await;
+        let stream = connect(addr)
+            .await
+            .map_err(|e| FilesDialError::Unreachable(format!("dial {addr} failed: {e}")))?;
+        let link = secure(stream, addr, true, self).await?;
+        drop(permit);
+        if link.hello.device_id != id {
+            return Err(FilesDialError::WrongDevice);
+        }
+        Ok(link)
+    }
+
+    async fn reach_files(&self, id: &str) -> Result<Link, FilesDialError> {
+        let mut failed = FilesDialError::Unreachable("no known address".into());
+        for addr in self.files_targets(id)? {
+            match self.files_link(addr, id).await {
+                Ok(link) => return Ok(link),
+                Err(e @ FilesDialError::Handshake(HandshakeError::Pinned(_))) => return Err(e),
+                Err(e) => failed = e,
+            }
+        }
+        Err(failed)
     }
 
     fn remember(&self, addr: SocketAddr, device: Option<&str>) -> bool {
@@ -1125,17 +1152,12 @@ impl FilesDialer {
         req: FilesRequest,
         pinned: Option<&str>,
     ) -> Result<(SessionStream, FilesReply, String), FilesDialError> {
-        let (addr, key) = self.0.files_target(device_id)?;
-        if pinned.is_some_and(|p| p != key) {
-            return Err(FilesDialError::WrongDevice);
+        let mut link = self.0.reach_files(device_id).await?;
+        if !holds_pin(&self.0.store(), &link.hello) {
+            return Err(FilesDialError::NotListed);
         }
-        let permit = self.0.outbound_permit(true).await;
-        let stream = connect(addr)
-            .await
-            .map_err(|e| FilesDialError::Unreachable(format!("dial {addr} failed: {e}")))?;
-        let mut link = secure(stream, addr, true, &self.0).await?;
-        drop(permit);
-        if hex(&link.hello.device_key) != key {
+        let key = hex(&link.hello.device_key);
+        if pinned.is_some_and(|p| p != key) {
             return Err(FilesDialError::WrongDevice);
         }
         let lost = |e: HandshakeError| FilesDialError::Unreachable(e.to_string());
@@ -1340,8 +1362,7 @@ impl Manager {
     }
 
     #[cfg(desktop)]
-    pub async fn set_caps(&self, mut caps: Caps) {
-        caps.port = Some(self.port);
+    pub async fn set_caps(&self, caps: Caps) {
         self.shared.caps.send_replace(Some(caps));
     }
 
@@ -1638,6 +1659,10 @@ mod tests {
         let pinned = |m: &Manager, id| m.record(id).unwrap().device_key;
         assert_eq!(pinned(&a, "dev-b"), test_identity("dev-b").key.public);
         assert_eq!(pinned(&b, "dev-a"), test_identity("dev-a").key.public);
+    }
+
+    fn key_of(me: &LocalIdentity) -> String {
+        hex(&me.key.public)
     }
 
     fn impostor_of(id: &str) -> LocalIdentity {
@@ -2586,6 +2611,12 @@ mod tests {
         }
     }
 
+    fn recording(m: &Manager) -> Arc<Recorder> {
+        let svc = Arc::new(Recorder::default());
+        m.set_file_service(Some(svc.clone()));
+        svc
+    }
+
     fn served(svc: &Recorder) -> usize {
         svc.served.lock().unwrap().len()
     }
@@ -2599,15 +2630,15 @@ mod tests {
         m.shared.lock().peers.get(id).map(|p| p.conn)
     }
 
-    async fn open_err(m: &Manager, id: &str) -> FilesDialError {
-        match m
-            .files_dialer()
+    async fn open(m: &Manager, id: &str) -> Result<String, FilesDialError> {
+        m.files_dialer()
             .open_files(id, FilesRequest::default(), None)
             .await
-        {
-            Ok(_) => panic!("file connection to {id} opened"),
-            Err(e) => e,
-        }
+            .map(|(_, _, key)| key)
+    }
+
+    async fn open_err(m: &Manager, id: &str) -> FilesDialError {
+        open(m, id).await.expect_err("file connection opened")
     }
 
     fn files_on(id: &'static str) -> impl Fn(&ManagerEvent) -> bool {
@@ -2618,8 +2649,7 @@ mod tests {
     async fn file_connection_does_not_replace_sync_peer() {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
-        let svc = Arc::new(Recorder::default());
-        b.set_file_service(Some(svc.clone()));
+        let svc = recording(&b);
         synced(&a, &b).await;
         let before = (conn_of(&a, "dev-b"), conn_of(&b, "dev-a"));
 
@@ -2651,8 +2681,7 @@ mod tests {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
-        let svc = Arc::new(Recorder::default());
-        b.set_file_service(Some(svc.clone()));
+        let svc = recording(&b);
         synced(&a, &b).await;
         let (mut near, _, _) = a
             .files_dialer()
@@ -2687,7 +2716,7 @@ mod tests {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         synced(&a, &b).await;
-        let key = hex(&test_identity("dev-b").key.public);
+        let key = key_of(&test_identity("dev-b"));
         assert_eq!(a.peers()[0].device_key, key);
         assert!(!a.peers()[0].files);
     }
@@ -2697,17 +2726,9 @@ mod tests {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         synced(&a, &b).await;
-        b.set_caps(Caps {
-            files: true,
-            port: None,
-        })
-        .await;
+        b.set_caps(Caps { files: true }).await;
         next_event(&mut ea, files_on("dev-b")).await;
-        b.set_caps(Caps {
-            files: false,
-            port: None,
-        })
-        .await;
+        b.set_caps(Caps { files: false }).await;
         until("caps off", || !a.peers()[0].files).await;
     }
 
@@ -2715,11 +2736,7 @@ mod tests {
     async fn caps_sent_to_later_peers() {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
-        b.set_caps(Caps {
-            files: true,
-            port: None,
-        })
-        .await;
+        b.set_caps(Caps { files: true }).await;
         synced(&a, &b).await;
         next_event(&mut ea, files_on("dev-b")).await;
     }
@@ -2742,9 +2759,8 @@ mod tests {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
         let (c, _ec) = spawn("dev-c", 1).await;
-        let svc = Arc::new(Recorder::default());
-        c.set_file_service(Some(svc.clone()));
-        synced(&a, &b).await;
+        let svc = recording(&c);
+        synced(&b, &a).await;
         tag(&a, local(&c), "dev-b");
         assert!(matches!(
             open_err(&a, "dev-b").await,
@@ -2759,8 +2775,7 @@ mod tests {
     async fn untrusted_peer_cannot_open_files() {
         let (b, _eb) = spawn("dev-b", 1).await;
         let (s, _es) = spawn("dev-s", 2).await;
-        let svc = Arc::new(Recorder::default());
-        b.set_file_service(Some(svc.clone()));
+        let svc = recording(&b);
         s.connect(local(&b), Source::Mdns).await;
         assert!(matches!(
             open_err(&s, "dev-b").await,
@@ -2778,25 +2793,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_files_reaches_inbound_only_peer() {
-        let (a, _ea) = spawn("dev-a", 1).await;
-        let (b, mut eb) = spawn("dev-b", 1).await;
-        let svc = Arc::new(Recorder::default());
-        a.set_file_service(Some(svc.clone()));
-        a.set_caps(Caps {
-            files: true,
-            port: None,
-        })
-        .await;
+    async fn open_files_uses_advertised_port_without_caps_port() {
+        let listener = bind().await.unwrap();
+        let advertised = format!("192.0.2.9:{}", local_port(&listener).unwrap());
+        let me = advertising("dev-a", &[&advertised]);
+        let (a, _ea) = serve_as(me, 1, listener, None, PeerStore::memory(), PinPolicy::Repin).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let svc = recording(&a);
         synced(&a, &b).await;
-        next_event(&mut eb, files_on("dev-a")).await;
         assert!(dialable(&b).is_empty());
 
-        let (_stream, _reply, _) = b
-            .files_dialer()
-            .open_files("dev-a", FilesRequest::default(), None)
-            .await
-            .unwrap();
+        open(&b, "dev-a").await.unwrap();
         assert_eq!(served(&svc), 1);
     }
 
@@ -2822,8 +2829,7 @@ mod tests {
 
     async fn serving(policy: PinPolicy) -> (Manager, Arc<Recorder>) {
         let (b, mut eb) = spawn_as(test_identity("dev-b"), PeerStore::memory(), policy).await;
-        let svc = Arc::new(Recorder::default());
-        b.set_file_service(Some(svc.clone()));
+        let svc = recording(&b);
         let (_session, _fd) = raw_peer(&b, "dev-a").await;
         next_event(&mut eb, listed("dev-a")).await;
         (b, svc)
@@ -2860,26 +2866,111 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn open_files_refuses_a_pin_mismatch() {
-        let (a, _ea) = spawn_as(
-            test_identity("dev-a"),
-            PeerStore::memory(),
-            PinPolicy::Refuse,
-        )
-        .await;
-        let (b, _eb) = spawn("dev-b", 1).await;
-        let (c, _ec) = spawn_as(impostor_of("dev-b"), PeerStore::memory(), PinPolicy::Repin).await;
-        let svc = Arc::new(Recorder::default());
-        c.set_file_service(Some(svc.clone()));
-        synced(&a, &b).await;
+    async fn rekeyed(
+        policy: PinPolicy,
+    ) -> (
+        Manager,
+        [Manager; 2],
+        Arc<Recorder>,
+        Result<String, FilesDialError>,
+    ) {
+        let (a, _) = spawn_as(test_identity("dev-a"), PeerStore::memory(), policy).await;
+        let (b, _) = spawn("dev-b", 1).await;
+        let (c, _) = spawn_as(impostor_of("dev-b"), PeerStore::memory(), PinPolicy::Repin).await;
+        let svc = recording(&c);
+        synced(&b, &a).await;
         tag(&a, local(&c), "dev-b");
+        let dialed = open(&a, "dev-b").await;
+        (a, [b, c], svc, dialed)
+    }
+
+    fn pinned_key(m: &Manager, id: &str) -> Option<String> {
+        m.record(id).map(|r| hex(&r.device_key))
+    }
+
+    #[tokio::test]
+    async fn repinned_device_file_dial_succeeds() {
+        let (a, _others, svc, dialed) = rekeyed(PinPolicy::Repin).await;
+        let fresh = key_of(&impostor_of("dev-b"));
+        assert_eq!(dialed.unwrap(), fresh);
+        assert_eq!(pinned_key(&a, "dev-b"), Some(fresh));
+        assert_eq!(served(&svc), 1);
+    }
+
+    #[tokio::test]
+    async fn refuse_policy_key_change_file_dial_is_denied() {
+        let (a, _others, svc, dialed) = rekeyed(PinPolicy::Refuse).await;
         assert!(matches!(
-            open_err(&a, "dev-b").await,
-            FilesDialError::Handshake(HandshakeError::Pinned(Rejection::KeyChanged))
+            dialed,
+            Err(FilesDialError::Handshake(HandshakeError::Pinned(
+                Rejection::KeyChanged
+            )))
         ));
         assert_eq!(served(&svc), 0);
         assert_eq!(a.peers().len(), 1);
+        let first = key_of(&test_identity("dev-b"));
+        assert_eq!(pinned_key(&a, "dev-b"), Some(first));
+    }
+
+    async fn remembered_b(before: &[SocketAddr]) -> (Manager, Manager, Arc<Recorder>) {
+        let (a, _) = spawn("dev-a", 1).await;
+        let (b, _) = spawn("dev-b", 1).await;
+        let svc = recording(&b);
+        a.spend_budget();
+        let now = now_secs();
+        let mut store = a.shared.store();
+        for (age, addr) in before.iter().copied().chain([local(&b)]).enumerate() {
+            seed(&mut store, "dev-b", &[addr], now - age as u64);
+        }
+        drop(store);
+        (a, b, svc)
+    }
+
+    fn budget_used(m: &Manager) -> usize {
+        lock(&m.shared.budget)
+            .attempts
+            .values()
+            .map(VecDeque::len)
+            .sum()
+    }
+
+    #[tokio::test]
+    async fn open_files_reaches_an_unlisted_device_by_its_remembered_address() {
+        let (a, _b, svc) = remembered_b(&[]).await;
+        assert!(a.peers().is_empty());
+        let key = key_of(&test_identity("dev-b"));
+        assert_eq!(open(&a, "dev-b").await.unwrap(), key);
+        assert_eq!(served(&svc), 1);
+    }
+
+    #[tokio::test]
+    async fn open_files_tries_next_address_when_first_fails() {
+        let refusing = SocketAddr::from(([127, 0, 0, 3], 1));
+        let (a, b, svc) = remembered_b(&[refusing]).await;
+        assert_eq!(a.shared.sweep_order("dev-b"), [refusing, local(&b)]);
+        open(&a, "dev-b").await.unwrap();
+        assert_eq!(served(&svc), 1);
+    }
+
+    #[tokio::test]
+    async fn file_dials_do_not_charge_the_dial_budget() {
+        let (a, _b, svc) = remembered_b(&[]).await;
+        assert_eq!(budget_used(&a), DIAL_BUDGET);
+        open(&a, "dev-b").await.unwrap();
+        assert_eq!(budget_used(&a), DIAL_BUDGET);
+        assert_eq!(served(&svc), 1);
+    }
+
+    #[tokio::test]
+    async fn file_dial_never_lists_or_records() {
+        let (a, b, _svc) = remembered_b(&[]).await;
+        let recorded = |m: &Manager, id| m.record(id).map(|r| r.addrs);
+        let before = (recorded(&a, "dev-b"), a.candidates());
+        open(&a, "dev-b").await.unwrap();
+        until("handshakes settle", || idle(&a) && idle(&b)).await;
+        assert!(a.peers().is_empty() && b.peers().is_empty());
+        assert_eq!((recorded(&a, "dev-b"), a.candidates()), before);
+        assert_eq!(recorded(&b, "dev-a"), Some(vec![]));
     }
 
     #[test]

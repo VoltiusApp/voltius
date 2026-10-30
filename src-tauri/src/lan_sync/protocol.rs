@@ -62,8 +62,6 @@ pub struct Auth {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Caps {
     pub files: bool,
-    #[serde(default)]
-    pub port: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
@@ -283,16 +281,11 @@ mod tests {
     }
 
     #[test]
-    fn caps_without_port_still_decode() {
-        let mut buf = vec![KIND_CAPS];
-        buf.extend_from_slice(br#"{"files":true}"#);
-        assert_eq!(
-            decode(&buf).unwrap(),
-            Frame::Caps(Caps {
-                files: true,
-                port: None
-            })
-        );
+    fn caps_with_legacy_port_still_decodes() {
+        for json in [&br#"{"files":true}"#[..], br#"{"files":true,"port":47391}"#] {
+            let buf = [&[KIND_CAPS][..], json].concat();
+            assert_eq!(decode(&buf).unwrap(), Frame::Caps(Caps { files: true }));
+        }
     }
 
     #[test]
@@ -303,14 +296,8 @@ mod tests {
                 version: PROTOCOL_VERSION,
                 proofs: vec![[7u8; 32], [9u8; 32]],
             }),
-            Frame::Caps(Caps {
-                files: true,
-                port: Some(47391),
-            }),
-            Frame::Caps(Caps {
-                files: false,
-                port: None,
-            }),
+            Frame::Caps(Caps { files: true }),
+            Frame::Caps(Caps { files: false }),
             Frame::Files(FilesRequest::default()),
             Frame::Files(FilesRequest {
                 grant: Some("ab".repeat(32)),
