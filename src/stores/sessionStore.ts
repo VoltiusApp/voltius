@@ -4,7 +4,7 @@ import type { Connection, ConnectRetryOverride, IdentitySaveAs, TerminalSession,
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
-import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connectivitySettingsStore";
+import { getGlobalKeepalivePreset, resolveDetachedTtlSecs, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect, serialSetLine } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
@@ -137,6 +137,7 @@ async function buildSshConnectOptions(
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
   persist: boolean;
+  detachedTtlSecs: number | null;
   proxy: HopRoute["proxy"];
   knock: HopRoute["knock"];
   cols?: number;
@@ -165,6 +166,7 @@ async function buildSshConnectOptions(
     keepaliveIntervalSecs: intervalSecs,
     keepaliveMax: max,
     persist: resolvePersistSession(connection.persist_session),
+    detachedTtlSecs: resolveDetachedTtlSecs(),
     ...route,
     ...dims,
   };
