@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
 import { getAccountMode } from "@/services/account";
-import { isNoAccountMode } from "@/utils/accountMode";
+import { isNoAccountMode, subscribeAccountMode } from "@/utils/accountMode";
 import { usePlatform } from "@/utils/platform";
 
-/** False until `read` answers; read once per mount. */
+/** False until `read` answers; re-read whenever the account mode changes. */
 export function useAsyncFlag(read: () => Promise<boolean>): boolean {
   const [flag, setFlag] = useState(false);
   useEffect(() => {
     let alive = true;
-    void read()
-      .then((value) => alive && setFlag(value))
-      .catch(() => {});
+    const load = () =>
+      void read()
+        .then((value) => alive && setFlag(value))
+        .catch(() => {});
+    load();
+    const unsubscribe = subscribeAccountMode(load);
     return () => {
       alive = false;
+      unsubscribe();
     };
   }, [read]);
   return flag;

@@ -1,3 +1,4 @@
+import { notifyAccountModeChanged } from "@/utils/accountMode";
 import { invoke } from "@/lib/invoke";
 import {
   dropAccountUiState,
@@ -355,6 +356,7 @@ async function installSession(account: SavedAccount, restored: boolean): Promise
   if (account.master_password_sealed) await importSecret({ kind: "sealed", value: account.master_password_sealed });
   else if (account.master_password) await importSecret({ kind: "plain", value: account.master_password });
   restoreAccountUiState(account.account_id);
+  notifyAccountModeChanged();
 }
 
 async function runSwitch(account: SavedAccount): Promise<void> {

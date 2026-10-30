@@ -18,3 +18,14 @@ export function isNoAccountMode(mode: string | null | undefined): mode is NoAcco
 export function canLockApp(mode: string | null, systemAuthUnlock: boolean): boolean {
   return canLockVault(mode) || (mode === "local-nopassword" && systemAuthUnlock);
 }
+
+const modeListeners = new Set<() => void>();
+
+export function notifyAccountModeChanged(): void {
+  modeListeners.forEach((listener) => listener());
+}
+
+export function subscribeAccountMode(listener: () => void): () => void {
+  modeListeners.add(listener);
+  return () => modeListeners.delete(listener);
+}

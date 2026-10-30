@@ -1,3 +1,4 @@
+import { notifyAccountModeChanged } from "@/utils/accountMode";
 import { deriveX25519Keypair, wrapUserSecrets } from "@/services/crypto/identityKeys";
 import { invoke } from "@/lib/invoke";
 import { featureDisabledError } from "@/services/featureDisabled";
@@ -187,7 +188,8 @@ async function keychainGet(key: string): Promise<string | null> {
   return invoke<string | null>("keychain_get", { key });
 }
 async function keychainSet(key: string, value: string): Promise<void> {
-  return invoke("keychain_set", { key, value });
+  await invoke("keychain_set", { key, value });
+  if (key === "mode") notifyAccountModeChanged();
 }
 async function keychainDelete(key: string): Promise<void> {
   return invoke("keychain_delete", { key });

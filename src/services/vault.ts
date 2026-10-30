@@ -1,3 +1,4 @@
+import { notifyAccountModeChanged } from "@/utils/accountMode";
 import { invoke } from "@/lib/invoke";
 import { logFailure } from "@/lib/logger";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
@@ -212,6 +213,7 @@ export async function resetVault(): Promise<void> {
     await invoke("keychain_delete", { key }).catch(() => {});
   }
   await invoke("vault_secret_clear").catch(() => {});
+  notifyAccountModeChanged();
 }
 
 export async function storeLocalSecret(key: string, value: string): Promise<void> {
