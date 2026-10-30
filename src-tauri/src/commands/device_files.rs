@@ -1020,12 +1020,12 @@ mod tests {
         let svc = s.svc().await;
         assert_eq!(svc.grants_for(&key_of("dev-c")), 1);
         assert!(
-            forget_inner(&s.lan, "dev-a", ACCOUNT, s.dir.path(), &quiet())
+            forget_inner(&s.lan, "dev-a", ACCOUNT, false, s.dir.path(), &quiet())
                 .await
                 .unwrap()
         );
         assert!(
-            forget_inner(&s.lan, "dev-c", ACCOUNT, s.dir.path(), &quiet())
+            forget_inner(&s.lan, "dev-c", ACCOUNT, false, s.dir.path(), &quiet())
                 .await
                 .unwrap()
         );
@@ -1049,7 +1049,7 @@ mod tests {
         until_files(&b, "dev-a", false).await;
         let (emit, seen) = recorder();
         serve_files(&b, dir.path(), "other", quiet()).await;
-        assert!(forget_inner(&b, "dev-a", ACCOUNT, dir.path(), &emit)
+        assert!(forget_inner(&b, "dev-a", ACCOUNT, false, dir.path(), &emit)
             .await
             .unwrap());
         let svc = b.files.service.lock().await.clone().unwrap();
@@ -1073,7 +1073,7 @@ mod tests {
         a.meet(&b).await;
         until_files(&b, "dev-a", false).await;
         let (emit, seen) = recorder();
-        assert!(forget_inner(&b, "dev-a", ACCOUNT, dir.path(), &emit)
+        assert!(forget_inner(&b, "dev-a", ACCOUNT, false, dir.path(), &emit)
             .await
             .unwrap());
         let left = policy::load(dir.path(), ACCOUNT);
@@ -1088,7 +1088,7 @@ mod tests {
         let forget = async {
             let id = s.until_pending(1).await.remove(0);
             assert!(
-                forget_inner(&s.lan, "dev-a", ACCOUNT, s.dir.path(), &quiet())
+                forget_inner(&s.lan, "dev-a", ACCOUNT, false, s.dir.path(), &quiet())
                     .await
                     .unwrap()
             );
@@ -1120,6 +1120,89 @@ mod tests {
             .unwrap();
         assert!(s.lan.files.service.lock().await.is_none());
         s.until_open(&[]).await;
+    }
+
+    const GROUP: &str = "grp";
+
+    fn grouped(members: &[&str]) -> crate::lan_sync::manager::Trust {
+        let members = members
+            .iter()
+            .map(|id| json!({ "deviceId": id, "deviceKey": key_of(id) }))
+            .collect();
+        let members = serde_json::from_value(Value::Array(members)).unwrap();
+        trust_from(vec![vec![7; 32]], Some(members), None, false).unwrap()
+    }
+
+    async fn lan_start_grouped(state: &LanSyncState, scope: &str) {
+        let trust = grouped(&["dev-a"]);
+        lan_start(state, test_identity("dev-b"), trust, scope, None, quiet())
+            .await
+            .unwrap();
+    }
+
+    fn pin_in_file(dir: &std::path::Path, scope: &str, id: &str) {
+        let mut store = crate::lan_sync::peers::PeerStore::open(dir, scope);
+        let key = test_identity(id).key.public;
+        let now = crate::lan_sync::peers::now_secs();
+        store.decide(id, &key, now, crate::lan_sync::peers::PinPolicy::Repin);
+        let (path, bytes) = store.snapshot().unwrap();
+        crate::lan_sync::peers::write_snapshot(&path, &bytes).unwrap();
+    }
+
+    #[tokio::test]
+    async fn forget_in_a_group_scope_never_touches_file_access() {
+        for running in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let saved = config(dir.path(), &["dev-a"]);
+            policy::save(dir.path(), GROUP, &saved).unwrap();
+            let (emit, seen) = recorder();
+            let b = Arc::new(LanSyncState::default());
+            let _a = if running {
+                serve_files(&b, dir.path(), GROUP, emit.clone()).await;
+                lan_start_grouped(&b, GROUP).await;
+                let a = lan(test_identity("dev-a")).await;
+                a.meet(&b).await;
+                until_files(&b, "dev-a", false).await;
+                Some(a)
+            } else {
+                pin_in_file(dir.path(), GROUP, "dev-a");
+                None
+            };
+            assert!(forget_inner(&b, "dev-a", GROUP, true, dir.path(), &emit)
+                .await
+                .unwrap());
+            assert_eq!(policy::load(dir.path(), GROUP), saved, "{running}");
+            if running {
+                assert_eq!(service_config(&b).await, saved);
+            }
+            assert!(events_in(&seen, CONFIG).is_empty(), "{running}");
+        }
+    }
+
+    async fn service_config(lan: &LanSyncState) -> FileAccessConfig {
+        lan.files.service.lock().await.clone().unwrap().config()
+    }
+
+    #[tokio::test]
+    async fn a_group_scope_never_offers_its_file_service() {
+        let s = server(&["dev-a"]).await;
+        lan_start_grouped(&s.lan, ACCOUNT).await;
+        let a = lan(test_identity("dev-a")).await;
+        a.meet(&s.lan).await;
+        until_files(&a, "dev-b", false).await;
+        let browser = Browser {
+            lan: a,
+            sftp: SftpManager::new(),
+            links: DeviceLinks::default(),
+            steps: Arc::default(),
+            closed: Arc::default(),
+            read_only: Arc::default(),
+        };
+        assert_eq!(
+            code(browser.connect().await),
+            Some(ErrorCode::DeviceUnreachable)
+        );
+        assert_eq!(s.prompts(), 0);
     }
 
     #[tokio::test]

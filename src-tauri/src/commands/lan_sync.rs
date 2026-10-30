@@ -55,6 +55,7 @@ pub struct LanSyncState {
 
 #[cfg(desktop)]
 async fn offer_to(manager: &Manager, svc: Option<Arc<FileService>>) {
+    let svc = svc.filter(|_| manager.serves_files());
     let files = svc.as_ref().is_some_and(|s| s.offers());
     manager.set_file_service(svc.map(|s| s as Arc<dyn manager::InboundFiles>));
     let caps = crate::lan_sync::protocol::Caps { files };
@@ -399,12 +400,13 @@ pub async fn forget_inner(
     state: &LanSyncState,
     device_id: &str,
     scope: &str,
+    group: bool,
     dir: &Path,
     emit: &Emit,
 ) -> Result<bool, String> {
     let forgotten = forget_peer(state, device_id, scope, dir).await?;
     #[cfg(desktop)]
-    if let Some(key) = forgotten {
+    if let Some(key) = forgotten.filter(|_| !group) {
         state
             .forget_files(scope, &crate::crypto::hex(&key), dir, emit)
             .await;
@@ -604,9 +606,10 @@ pub async fn lan_sync_forget(
     state: State<'_, LanSyncState>,
     device_id: String,
     scope: String,
+    group: bool,
 ) -> Result<bool, String> {
     let dir = crate::storage::config::config_dir();
-    forget_inner(&state, &device_id, &scope, &dir, &emitter(app)).await
+    forget_inner(&state, &device_id, &scope, group, &dir, &emitter(app)).await
 }
 
 #[tauri::command]
@@ -878,7 +881,8 @@ pub(crate) mod tests {
         until_any(&seen, "dev-a listed", lists("dev-a")).await;
         let before = seen.lock().unwrap().len();
 
-        let forget = |id: &'static str| forget_inner(&state, id, "acct-1", dir.path(), &emit);
+        let forget =
+            |id: &'static str| forget_inner(&state, id, "acct-1", false, dir.path(), &emit);
         assert!(forget("dev-a").await.unwrap());
         until_after(&seen, before, "peers cleared", |e| *e == (PEERS, json!([]))).await;
         assert!(!forget("dev-a").await.unwrap());
@@ -921,9 +925,11 @@ pub(crate) mod tests {
         .await
         .expect("dev-a pin never saved");
 
-        assert!(forget_inner(&state, "dev-a", "acct-1", dir.path(), &emit)
-            .await
-            .unwrap());
+        assert!(
+            forget_inner(&state, "dev-a", "acct-1", false, dir.path(), &emit)
+                .await
+                .unwrap()
+        );
         start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
 
         assert!(with_manager(&state, |m| m.record("dev-a").is_none()).await);
@@ -1114,18 +1120,22 @@ pub(crate) mod tests {
         until_any(&seen, "dev-a listed", lists("dev-a")).await;
         stop_inner(&state).await;
 
-        assert!(forget_inner(&state, "dev-a", "acct-1", dir.path(), &emit)
-            .await
-            .unwrap());
+        assert!(
+            forget_inner(&state, "dev-a", "acct-1", false, dir.path(), &emit)
+                .await
+                .unwrap()
+        );
         let saved = std::fs::read_to_string(PeerStore::path_for(dir.path(), "acct-1")).unwrap();
         assert!(
             saved.contains("blocked") && saved.contains("dev-a"),
             "{saved}"
         );
         assert!(PeerStore::open(dir.path(), "acct-1").get("dev-a").is_none());
-        assert!(!forget_inner(&state, "dev-a", "acct-1", dir.path(), &emit)
-            .await
-            .unwrap());
+        assert!(
+            !forget_inner(&state, "dev-a", "acct-1", false, dir.path(), &emit)
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -1136,9 +1146,11 @@ pub(crate) mod tests {
         start_in(&state, 1, "acct-1", Some(dir.path()), &emit).await;
         dial_as(&state, "dev-a", 1).await.unwrap();
         until_any(&seen, "dev-a listed", lists("dev-a")).await;
-        assert!(!forget_inner(&state, "dev-a", "acct-2", dir.path(), &emit)
-            .await
-            .unwrap());
+        assert!(
+            !forget_inner(&state, "dev-a", "acct-2", false, dir.path(), &emit)
+                .await
+                .unwrap()
+        );
         assert!(!peers_inner(&state).await.is_empty());
         stop_inner(&state).await;
     }

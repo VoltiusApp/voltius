@@ -63,8 +63,19 @@ pub enum HandshakeError {
     Protocol(#[from] ProtocolError),
     #[error("peer {0} refused by pin: {1:?}")]
     Pinned(String, Rejection),
+    #[error("peer {0} is not a member here")]
+    Excluded(String),
     #[error("pairing is not open")]
     PairingClosed,
+}
+
+impl HandshakeError {
+    pub fn refused_by(&self) -> Option<&str> {
+        match self {
+            Self::Pinned(id, _) | Self::Excluded(id) => Some(id),
+            _ => None,
+        }
+    }
 }
 
 impl From<snow::Error> for HandshakeError {

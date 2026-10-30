@@ -114,6 +114,15 @@ pub enum FilesDialError {
     Refused(Refusal),
 }
 
+impl FilesDialError {
+    pub fn refused_by(&self) -> Option<&str> {
+        match self {
+            Self::Handshake(e) => e.refused_by(),
+            _ => None,
+        }
+    }
+}
+
 pub struct Trust {
     pub keys: Zeroizing<Vec<[u8; 32]>>,
     pub members: Option<Vec<Member>>,
@@ -135,9 +144,53 @@ impl Trust {
         }
     }
 
-    // Nothing to sync, only a goodbye to say: such a manager stays invisible and only dials out.
-    fn farewell_only(&self) -> bool {
-        self.keys.is_empty() && self.farewell.is_some()
+    fn kind(&self) -> Kind {
+        match (
+            self.keys.is_empty(),
+            self.farewell.is_some(),
+            self.members.is_some(),
+        ) {
+            (true, true, _) => Kind::Farewell,
+            (true, false, _) => Kind::Pairing,
+            (false, _, true) => Kind::Group,
+            (false, _, false) => Kind::Account,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Kind {
+    Account,
+    Group,
+    Pairing,
+    Farewell,
+}
+
+// Farewell has nothing to sync, only a goodbye to say: it stays invisible and only dials out.
+impl Kind {
+    fn listens(self) -> bool {
+        self != Self::Farewell
+    }
+
+    fn sweeps(self) -> bool {
+        self != Self::Pairing
+    }
+
+    #[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
+    fn polls_tailnet(self) -> bool {
+        matches!(self, Self::Account | Self::Group)
+    }
+
+    fn learns(self) -> bool {
+        self == Self::Account
+    }
+
+    fn serves_files(self) -> bool {
+        self == Self::Account
+    }
+
+    fn pairs(self) -> bool {
+        self != Self::Farewell
     }
 }
 
@@ -480,7 +533,8 @@ async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermi
             Err(
                 HandshakeError::NotTrusted
                 | HandshakeError::VersionMismatch(_)
-                | HandshakeError::Pinned(..),
+                | HandshakeError::Pinned(..)
+                | HandshakeError::Excluded(_),
             ) => DialOutcome::Rejected,
             Err(_) => DialOutcome::Unreachable,
         },
@@ -652,6 +706,7 @@ pub(super) fn dedupe(addrs: impl IntoIterator<Item = SocketAddr>) -> Vec<SocketA
 
 pub(super) struct Shared {
     me: LocalIdentity,
+    kind: Kind,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     farewell_index: usize,
     farewell_state: PresenceState,
@@ -786,11 +841,13 @@ impl Shared {
                 let device_id = device_id.to_string();
                 let _ = self
                     .events
-                    .send(ManagerEvent::FarewellSent { device_id })
+                    .send(ManagerEvent::FarewellSent {
+                        device_id: device_id.clone(),
+                    })
                     .await;
-                HandshakeError::NotTrusted
+                HandshakeError::Excluded(device_id)
             }
-            LinkRefusal::NotMember => HandshakeError::NotTrusted,
+            LinkRefusal::NotMember => HandshakeError::Excluded(device_id.to_string()),
             LinkRefusal::Pin(reason) => {
                 self.rejected(device_id, reason).await;
                 HandshakeError::Pinned(device_id.to_string(), reason)
@@ -1136,12 +1193,13 @@ impl Shared {
             .map_err(|e| FilesDialError::Unreachable(format!("dial {addr} failed: {e}")))?;
         let other =
             || FilesDialError::Unreachable(format!("a different device answered at {addr}"));
-        let shaken = shake(stream, addr, Mode::Keys(&self.auth_keys), self).await?;
+        let keys = &self.auth_keys[..self.farewell_index];
+        let shaken = shake(stream, addr, Mode::Keys(keys), self).await?;
         let link = secure(shaken, addr, true, self)
             .await
-            .map_err(|e| match e {
-                HandshakeError::Pinned(answered, _) if answered != id => other(),
-                e => e.into(),
+            .map_err(|e| match e.refused_by() {
+                Some(answered) if answered != id => other(),
+                _ => e.into(),
             })?;
         drop(permit);
         if link.hello.device_id != id {
@@ -1156,10 +1214,7 @@ impl Shared {
             match self.files_link(addr, id).await {
                 Ok(link) => return Ok(link),
                 Err(e) => {
-                    if !matches!(
-                        failed,
-                        FilesDialError::Handshake(HandshakeError::Pinned(..))
-                    ) {
+                    if failed.refused_by().is_none() {
                         failed = e;
                     }
                 }
@@ -1702,18 +1757,21 @@ pub async fn start(
     store: PeerStore,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
-    let listener = if trust.farewell_only() {
-        None
-    } else {
+    let kind = trust.kind();
+    let listener = if kind.listens() {
         let listener = bind().await.map_err(|e| e.to_string())?;
         me.addrs = addrs::interfaces(local_port(&listener)?);
         Some(listener)
+    } else {
+        None
     };
     let mut manager = serve(listener, me, trust, paused, store, events).await?;
     if discovery {
         manager.spawn(|s| probe_loop(s, Arc::new(discovery::probe_multicast)));
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        manager.spawn(|s| tailscale::poll_loop(s, tailscale::local_status()));
+        if kind.polls_tailnet() {
+            manager.spawn(|s| tailscale::poll_loop(s, tailscale::local_status()));
+        }
         manager.start_discovery().await;
     }
     Ok(manager)
@@ -1729,6 +1787,7 @@ async fn serve(
 ) -> Result<Manager, String> {
     let port = listener.as_ref().map(local_port).transpose()?;
     let (saves, saved) = watch::channel(None);
+    let kind = trust.kind();
     let Trust {
         keys,
         members,
@@ -1746,6 +1805,7 @@ async fn serve(
     auth_keys.extend(farewell.map(|f| f.key));
     let shared = Arc::new(Shared {
         me,
+        kind,
         auth_keys,
         farewell_index,
         farewell_state,
@@ -1772,10 +1832,10 @@ async fn serve(
     if let Some(members) = &members {
         shared.vouch(members);
     }
-    let mut tasks = vec![
-        tokio::spawn(emit_peers(shared.clone())),
-        tokio::spawn(retry_unlisted(shared.clone())),
-    ];
+    let mut tasks = vec![tokio::spawn(emit_peers(shared.clone()))];
+    if kind.sweeps() {
+        tasks.push(tokio::spawn(retry_unlisted(shared.clone())));
+    }
     if let Some(listener) = listener {
         tasks.push(tokio::spawn(accept_loop(listener, shared.clone())));
         tasks.push(tokio::spawn(watch_addrs(shared.clone())));
@@ -1838,6 +1898,9 @@ impl Manager {
     }
 
     pub fn learn(&self, device_id: &str, addrs: &[SocketAddr]) {
+        if !self.shared.kind.learns() {
+            return;
+        }
         let mut changed = false;
         for &addr in addrs {
             changed |= self.shared.remember(addr, Some(device_id));
@@ -1853,6 +1916,9 @@ impl Manager {
     }
 
     pub async fn open_pairing(&self, info: PairInfo) -> Result<(), String> {
+        if !self.shared.kind.pairs() {
+            return Err("a device saying farewell does not pair".into());
+        }
         self.shared.open_window(info, PAIR_WINDOW)
     }
 
@@ -1904,6 +1970,11 @@ impl Manager {
     }
 
     #[cfg(test)]
+    pub fn remember_at(&self, device_id: &str, addrs: &[SocketAddr]) {
+        self.shared.note_addrs(device_id, addrs);
+    }
+
+    #[cfg(test)]
     pub fn record(&self, device_id: &str) -> Option<super::peers::PeerRecord> {
         self.shared.store().get(device_id).cloned()
     }
@@ -1951,6 +2022,10 @@ impl Manager {
     #[cfg(desktop)]
     pub async fn set_caps(&self, caps: Caps) {
         self.shared.caps.send_replace(Some(caps));
+    }
+
+    pub fn serves_files(&self) -> bool {
+        self.shared.kind.serves_files()
     }
 
     pub fn files_dialer(&self) -> FilesDialer {
@@ -4561,5 +4636,112 @@ mod tests {
         for ok in ["fd7a:115c:a1e0::1", "fe80::1", "::1", "8.8.8.8"] {
             assert!(allowed(ok), "{ok}");
         }
+    }
+
+    #[test]
+    fn each_manager_kind_runs_only_its_own_paths() {
+        let caps = |t: Trust| {
+            let k = t.kind();
+            let dials = (k.polls_tailnet(), k.sweeps(), k.learns());
+            (k.listens(), dials, k.serves_files(), k.pairs())
+        };
+        let account = (true, (true, true, true), true, true);
+        assert_eq!(caps(on_account(1)), account);
+        assert_eq!(caps(moved_to_account(1, 9)), account);
+        let group = (true, (true, true, false), false, true);
+        assert_eq!(caps(in_group(&[1], &[])), group);
+        let pairing = (true, (false, false, false), false, true);
+        assert_eq!(caps(unpaired()), pairing);
+        let farewell = (false, (false, true, false), false, false);
+        assert_eq!(caps(left_group(9)), farewell);
+    }
+
+    #[tokio::test]
+    async fn only_an_account_manager_learns_addresses() {
+        let (_socket, addr) = reserved();
+        for (trust, learns) in [
+            (on_account(1), true),
+            (moved_to_account(1, 9), true),
+            (in_group(&[1], &[]), false),
+            (unpaired(), false),
+        ] {
+            let (m, _em) = spawn_as(test_identity("dev-a"), PeerStore::memory(), trust).await;
+            m.learn("dev-b", &[addr]);
+            assert_eq!(dialable(&m).is_empty(), !learns, "{learns}");
+        }
+        let (l, _el) = left_device().await;
+        l.learn("dev-b", &[addr]);
+        assert!(dialable(&l).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_pairing_only_manager_runs_no_retry_sweep() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (l, _el) = left_device().await;
+        until("sweeps subscribed", || {
+            a.shared.retry.receiver_count() == 1 && l.shared.retry.receiver_count() == 1
+        })
+        .await;
+        let (p, _ep) = idle_pairing("dev-p").await;
+        tokio::time::sleep(RETRY_FIRST).await;
+        assert_eq!(p.shared.retry.receiver_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn group_scope_refuses_a_changed_key_on_every_dial_path() {
+        let b = test_identity("dev-b");
+        for source in [Source::Mdns, Source::Remembered, Source::Tailscale] {
+            let group = in_group(&[1], &["dev-b"]);
+            let (a, mut ea) = spawn_as(test_identity("dev-a"), pinned(&b, false), group).await;
+            let (rekeyed, _er) = spawn_as(
+                impostor_of("dev-b"),
+                PeerStore::memory(),
+                in_group(&[1], &[]),
+            )
+            .await;
+            let dialed = a.connect(local(&rekeyed), source).await;
+            assert_eq!(dialed, DialOutcome::Rejected, "{source:?}");
+            let refused = vec![("dev-b".to_string(), Rejection::KeyChanged)];
+            assert_eq!(rejections(&mut ea), refused, "{source:?}");
+            assert_eq!(a.record("dev-b").unwrap().device_key, b.key.public);
+            assert!(a.peers().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn a_moved_devices_file_dial_never_says_farewell() {
+        let group = in_group(&[9], &["dev-l"]);
+        let (m, mut em) = spawn_as(test_identity("dev-m"), PeerStore::memory(), group).await;
+        let mut store = PeerStore::memory();
+        seed(&mut store, "dev-m", &[], now_secs());
+        let (l, mut el) = spawn_as(test_identity("dev-l"), store, moved_to_account(1, 9)).await;
+        l.spend_budget();
+        tag(&l, local(&m), "dev-m");
+        assert!(open(&l, "dev-m").await.is_err());
+        until("handshakes settle", || idle(&l) && idle(&m)).await;
+        let on_l: Vec<_> = std::iter::from_fn(|| el.try_recv().ok()).collect();
+        let on_m: Vec<_> = std::iter::from_fn(|| em.try_recv().ok()).collect();
+        assert!(!on_l.iter().any(farewell_sent("dev-m")), "{on_l:?}");
+        let moved = presence_is("dev-l", PresenceState::Moved);
+        assert!(!on_m.iter().any(moved), "{on_m:?}");
+    }
+
+    #[tokio::test]
+    async fn a_farewell_only_manager_never_opens_pairing() {
+        let (l, _el) = left_device().await;
+        assert!(l.open_pairing(pair_info(None, 0)).await.is_err());
+        assert!(!l.shared.pairing_open());
+    }
+
+    #[tokio::test]
+    async fn a_pair_attempt_over_ipv6_is_accepted() {
+        if std::net::TcpListener::bind("[::1]:0").is_err() {
+            return;
+        }
+        let (a, mut ea) = pairing("dev-a", pair_info(None, 0)).await;
+        let (b, mut eb) = pairing("dev-b", pair_info(None, 0)).await;
+        b.connect_pair(SocketAddr::new(Ipv6Addr::LOCALHOST.into(), a.port()));
+        pair_event(&mut ea, is_code).await;
+        pair_event(&mut eb, is_code).await;
     }
 }
