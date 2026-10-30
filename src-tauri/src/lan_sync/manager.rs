@@ -341,6 +341,10 @@ impl State {
     }
 }
 
+fn holds_pin(store: &PeerStore, hello: &Hello) -> bool {
+    store.get(&hello.device_id).map(|r| r.device_key) == Some(hello.device_key)
+}
+
 struct Shared {
     me: LocalIdentity,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
@@ -471,7 +475,7 @@ impl Shared {
         let id = link.hello.device_id.clone();
         let is_self = id == self.me.device_id;
         let store = self.store();
-        if !is_self && store.get(&id).map(|r| r.device_key) != Some(link.hello.device_key) {
+        if !is_self && !holds_pin(&store, &link.hello) {
             return;
         }
         let mut state = self.lock();
@@ -569,6 +573,9 @@ impl Shared {
     }
 
     async fn serve_files(&self, link: Link, req: FilesRequest) {
+        if !holds_pin(&self.store(), &link.hello) {
+            return;
+        }
         let Some(svc) = self.lock().files.clone() else {
             return;
         };
@@ -2098,6 +2105,77 @@ mod tests {
             open_err(&b, "dev-a").await,
             FilesDialError::Unreachable(_)
         ));
+    }
+
+    async fn assert_files_refused(m: &Manager, svc: &Recorder, me: &LocalIdentity) {
+        let files = Frame::Files(FilesRequest::default());
+        let (mut session, _fd) = raw_peer_first_as(m, me, files).await;
+        let reply = session.recv().await;
+        assert!(!matches!(reply, Ok(Frame::FilesReply(_))), "{reply:?}");
+        until("handshakes settle", || idle(m)).await;
+        assert_eq!(served(svc), 0);
+    }
+
+    async fn serving(policy: PinPolicy) -> (Manager, Arc<Recorder>) {
+        let (b, mut eb) = spawn_as(test_identity("dev-b"), PeerStore::memory(), policy).await;
+        let svc = Arc::new(Recorder::default());
+        b.set_file_service(Some(svc.clone()));
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        (b, svc)
+    }
+
+    #[tokio::test]
+    async fn forgotten_device_cannot_open_files() {
+        let (b, svc) = serving(PinPolicy::Repin).await;
+        assert!(b.forget("dev-a"));
+        assert_files_refused(&b, &svc, &test_identity("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn pin_mismatch_cannot_open_files() {
+        let (b, svc) = serving(PinPolicy::Refuse).await;
+        assert_files_refused(&b, &svc, &impostor_of("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn own_device_id_cannot_open_files() {
+        let (b, svc) = serving(PinPolicy::Repin).await;
+        assert_files_refused(&b, &svc, &impostor_of("dev-b")).await;
+    }
+
+    #[tokio::test]
+    async fn open_files_refuses_a_forgotten_device() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        synced(&a, &b).await;
+        assert!(a.forget("dev-b"));
+        assert!(matches!(
+            open_err(&a, "dev-b").await,
+            FilesDialError::NotListed
+        ));
+    }
+
+    #[tokio::test]
+    async fn open_files_refuses_a_pin_mismatch() {
+        let (a, _ea) = spawn_as(
+            test_identity("dev-a"),
+            PeerStore::memory(),
+            PinPolicy::Refuse,
+        )
+        .await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (c, _ec) = spawn_as(impostor_of("dev-b"), PeerStore::memory(), PinPolicy::Repin).await;
+        let svc = Arc::new(Recorder::default());
+        c.set_file_service(Some(svc.clone()));
+        synced(&a, &b).await;
+        tag(&a, local(&c), "dev-b");
+        assert!(matches!(
+            open_err(&a, "dev-b").await,
+            FilesDialError::Handshake(HandshakeError::Pinned(Rejection::KeyChanged))
+        ));
+        assert_eq!(served(&svc), 0);
+        assert_eq!(a.peers().len(), 1);
     }
 
     #[test]
