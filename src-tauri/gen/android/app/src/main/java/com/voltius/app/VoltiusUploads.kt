@@ -8,9 +8,8 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 
-/** Phone → SFTP uploads. Called over JNI from Rust (`commands/uploads.rs`), like [VoltiusDownloads]. */
 object VoltiusUploads {
-    /** JNI callback Rust implements: a JSON `[{uri,name,size}]` (empty on cancel), or null on failure. */
+    // JSON `[{uri,name,size}]`, `[]` on cancel, null on failure.
     @JvmStatic
     external fun nativeFilesPicked(json: String?)
 
@@ -22,12 +21,14 @@ object VoltiusUploads {
     }
 
     fun picked(ctx: Context, uris: List<Uri>) {
-        val json = try {
-            JSONArray().apply { uris.forEach { put(describe(ctx, it)) } }.toString()
-        } catch (e: Exception) {
-            null
-        }
-        nativeFilesPicked(json)
+        Thread {
+            val json = try {
+                JSONArray().apply { uris.forEach { put(describe(ctx, it)) } }.toString()
+            } catch (e: Exception) {
+                null
+            }
+            nativeFilesPicked(json)
+        }.start()
     }
 
     @JvmStatic
@@ -47,7 +48,6 @@ object VoltiusUploads {
         return JSONObject().put("uri", uri.toString()).put("name", name).put("size", size)
     }
 
-    /** Copy a content URI into [destPath] (an app-cache file). Throws on failure. */
     @JvmStatic
     fun copyToCache(ctx: Context, uri: String, destPath: String) {
         val input = ctx.contentResolver.openInputStream(Uri.parse(uri))

@@ -15,7 +15,6 @@ import MobilePanelHeader from "./MobilePanelHeader";
 import MobileSftpPane from "./MobileSftpPane";
 import SftpHostPickerSheet from "../sheets/SftpHostPickerSheet";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { PendingConflictDialog } from "@/components/filetransfer/ConflictDialog";
 import { NO_SELECTION, paneItems, setPaneSelection, type SftpPaneId, type SftpPaneTarget, type SftpSelection } from "./sftpSelectionCore";
 
 /**
@@ -181,7 +180,6 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
           }}
         />
       )}
-      <PendingConflictDialog />
     </div>
   );
 }

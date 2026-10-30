@@ -14,7 +14,7 @@ import {
 import { transferItem } from "@/services/sftpTransferCore";
 import { runIntraPaneMove } from "./moveService";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
-import { triggerUpload, downloadToLocal, batchLabel } from "./osDropPipeline";
+import { triggerUpload, downloadToLocal, batchLabel, queueAfterConflicts } from "./osDropPipeline";
 import { accelFor, tarModeForPair, type TarMode } from "./tarSupport";
 import { joinPath } from "./moveTargetCore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
@@ -289,29 +289,10 @@ export default function SFTPPage() {
     const dstIsLocal = dstHost?.kind === "local";
     const dstBase    = targetFolder ?? dst.cwd;
 
-    const conflicts = (
-      await Promise.all(files.map(async (f) => {
-        const dstPath = joinPath(dstBase, f.name);
-        const exists = dstIsLocal ? await fsExists(dstPath) : await sftpExists(dst.sftpId!, dstPath);
-        return exists ? f : null;
-      }))
-    ).filter((f): f is FileEntry => f !== null);
-
-    const conflictPaths = new Set(conflicts.map((f) => f.path));
-    const toTransfer = files.filter((f) => !conflictPaths.has(f.path));
-
-    if (conflicts.length > 0) {
-      setPending({
-        conflicts,
-        toTransfer,
-        totalConflicts: conflicts.length,
-        execute: (files) => void executeFiles(files, fromSide, targetFolder),
-      });
-      return;
-    }
-
-    void executeFiles(files, fromSide, targetFolder);
-  }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles, setPending, refuseWrite]);
+    await queueAfterConflicts(files, dstBase,
+      (p) => (dstIsLocal ? fsExists(p) : sftpExists(dst.sftpId!, p)),
+      (picked) => void executeFiles(picked, fromSide, targetFolder));
+  }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles, refuseWrite]);
 
   const transfer = useCallback((direction: "LR" | "RL") => {
     const fromSide = direction === "LR" ? "left" : "right" as const;

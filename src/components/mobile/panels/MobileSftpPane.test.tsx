@@ -50,6 +50,7 @@ function renderPane(ctrl = controller()) {
   return { view, ctrl, uploadItem: () => document.querySelector<HTMLButtonElement>('[data-sftp-action="upload"]') };
 }
 
+const SETTLED = () => useTransferQueueStore.getState().transfers[0]?.settled;
 const calls = (cmd: string) => vi.mocked(invoke).mock.calls.filter(([c]) => c === cmd).map(([, a]) => a as Record<string, unknown>);
 
 function serve(over: Record<string, (args: Record<string, unknown>) => unknown> = {}) {
@@ -72,7 +73,7 @@ describe("MobileSftpPane upload", () => {
     serve();
     const { ctrl, uploadItem } = renderPane();
     fireEvent.click(uploadItem()!);
-    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalledTimes(2));
 
     const staged = calls("upload_stage");
     expect(staged.map((a) => [a.uri, a.name])).toEqual([["content://media/1", "a.jpg"], ["content://media/2", "b.txt"]]);
@@ -108,10 +109,11 @@ describe("MobileSftpPane upload", () => {
     serve({ upload_pick: () => [PICKED[0]], sftp_upload: () => { throw new Error("disk full"); } });
     const { ctrl, uploadItem } = renderPane();
     fireEvent.click(uploadItem()!);
-    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalled());
+    await vi.waitFor(() => expect(SETTLED()).toBe(true));
     const [staged] = calls("upload_stage");
     expect(calls("upload_stage_clear")).toEqual([{ transferId: staged.transferId }]);
     expect(useTransferQueueStore.getState().transfers[0].status).toBe("error");
+    expect(ctrl.refresh).not.toHaveBeenCalled();
   });
 
   test("cancelling while the file is copied skips the upload and removes the copy", async () => {
@@ -126,10 +128,40 @@ describe("MobileSftpPane upload", () => {
     const [{ transferId }] = calls("upload_stage");
     expect(useTransferQueueStore.getState().cancelTransfer(transferId as string)).toBe(true);
     copied();
-    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalled());
+    await vi.waitFor(() => expect(SETTLED()).toBe(true));
+    expect(ctrl.refresh).not.toHaveBeenCalled();
     expect(calls("sftp_upload")).toEqual([]);
     expect(calls("upload_stage_clear")).toEqual([{ transferId }]);
     expect(useTransferQueueStore.getState().transfers[0].status).toBe("cancelled");
+  });
+
+  test("retry copies the file again from its URI and refreshes the listing", async () => {
+    let fails = 1;
+    serve({
+      upload_pick: () => [PICKED[0]],
+      sftp_upload: () => { if (fails-- > 0) throw new Error("connection lost"); },
+    });
+    const { ctrl, uploadItem } = renderPane();
+    fireEvent.click(uploadItem()!);
+    await vi.waitFor(() => expect(SETTLED()).toBe(true));
+    const first = useTransferQueueStore.getState().transfers[0];
+    expect(first.status).toBe("error");
+
+    useTransferQueueStore.getState().retryTransfer(first.id);
+    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalledTimes(1));
+    const staged = calls("upload_stage");
+    expect(staged.map((a) => a.uri)).toEqual(["content://media/1", "content://media/1"]);
+    expect(staged[1].transferId).not.toBe(staged[0].transferId);
+    expect(calls("upload_stage_clear").map((a) => a.transferId)).toEqual(staged.map((a) => a.transferId));
+    expect(calls("sftp_upload")[1].localPath).toBe(`/cache/voltius-uploads/${staged[1].transferId}/a.jpg`);
+  });
+
+  test("a hostile display name cannot climb out of the folder", async () => {
+    serve({ upload_pick: () => [{ uri: "content://x/1", name: "../../.bashrc", size: 1 }, { uri: "content://x/2", name: "..", size: 1 }] });
+    const { ctrl, uploadItem } = renderPane();
+    fireEvent.click(uploadItem()!);
+    await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalledTimes(2));
+    expect(calls("sftp_upload").map((a) => a.remotePath)).toEqual([`${CWD}/.._.._.bashrc`, `${CWD}/file`]);
   });
 
   test("a name clash asks first, as the desktop upload does", async () => {

@@ -257,6 +257,7 @@ pub fn run() {
 
             #[cfg(desktop)]
             app.manage(updater::UpdaterState::default());
+            commands::uploads::sweep_stale_copies(app.handle());
             app.manage(KnownHostsStore::load());
             app.manage(app_lock::AppLock::load());
             app.manage(app_lock::LastActive::load());

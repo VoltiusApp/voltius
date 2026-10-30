@@ -89,7 +89,6 @@ export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onRes
   );
 }
 
-/** The transfer queue's pending conflict, if any, as a dialog. */
 export function PendingConflictDialog() {
   const pending = useTransferQueueStore((s) => s.pending);
   const resolvePending = useTransferQueueStore((s) => s.resolvePending);

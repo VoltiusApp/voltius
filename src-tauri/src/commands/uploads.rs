@@ -62,14 +62,12 @@ fn parse_picked(json: &str) -> Result<Vec<PickedFile>, String> {
     Ok(files
         .into_iter()
         .map(|f| PickedFile {
-            name: crate::scratch::safe_file_name(&f.name),
             size: f.size.max(0),
-            uri: f.uri,
+            ..f
         })
         .collect())
 }
 
-/// System document picker (any type, multiple). Empty when the user cancels.
 #[tauri::command]
 pub async fn upload_pick() -> Result<Vec<PickedFile>, String> {
     #[cfg(target_os = "android")]
@@ -85,7 +83,6 @@ pub async fn upload_pick() -> Result<Vec<PickedFile>, String> {
     }
 }
 
-/// Copy a `content://` URI into `<cache>/voltius-uploads/<transfer id>/<name>`; returns that path.
 #[tauri::command]
 pub async fn upload_stage(
     app: AppHandle,
@@ -121,12 +118,18 @@ pub async fn upload_stage_clear(app: AppHandle, transfer_id: String) -> Result<(
     }
 }
 
+pub fn sweep_stale_copies(app: &AppHandle) {
+    if let Ok(cache) = crate::scratch::app_scratch_dir(app) {
+        let _ = std::fs::remove_dir_all(cache.join(AREA));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn picked_names_are_made_safe_and_sizes_non_negative() {
+    fn picked_sizes_are_non_negative() {
         let json = r#"[
             {"uri":"content://a/1","name":"../../.bashrc","size":12},
             {"uri":"content://a/2","name":"","size":-1},
@@ -135,7 +138,7 @@ mod tests {
         ]"#;
         let got = parse_picked(json).unwrap();
         let names: Vec<_> = got.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, [".._.._.bashrc", "file", "file", "photo.jpg"]);
+        assert_eq!(names, ["../../.bashrc", "", "..", "photo.jpg"]);
         assert_eq!(got[1].size, 0);
         assert_eq!(got[0].uri, "content://a/1");
     }

@@ -29,7 +29,6 @@ pub fn transfer_dir(app: &AppHandle, area: &str, transfer_id: &str) -> Result<Pa
     Ok(transfer_dir_in(&app_scratch_dir(app)?, area, transfer_id))
 }
 
-/// `<cache>/<area>/<transfer id>/<name>`, with its parent created.
 pub fn transfer_file(
     app: &AppHandle,
     area: &str,

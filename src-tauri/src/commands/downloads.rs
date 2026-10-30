@@ -294,7 +294,7 @@ fn ios_downloads_dir(app: &AppHandle) -> Result<PathBuf, String> {
 /// counter goes before the extension of a file name ("a.txt" -> "a (2).txt").
 #[cfg(any(target_os = "ios", test))]
 fn unique_destination(dir: &Path, name: &str) -> PathBuf {
-    let name = name.replace(['/', '\\'], "_");
+    let name = crate::scratch::safe_file_name(name);
     let first = dir.join(&name);
     if !first.exists() {
         return first;

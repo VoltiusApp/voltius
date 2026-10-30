@@ -152,7 +152,6 @@ pub fn call_static_bool(class: &str, method: &str, value: bool) {
     }
 }
 
-/// One pending system picker, fulfilled by the Kotlin class's activity-result callback.
 pub struct PickSlot(Mutex<Option<oneshot::Sender<Option<String>>>>);
 
 impl PickSlot {
@@ -160,7 +159,7 @@ impl PickSlot {
         Self(Mutex::new(None))
     }
 
-    /// Calls `<class>.launchPicker()` and waits for [`PickSlot::fulfil`].
+    // `class` must expose a static `launchPicker(): Boolean` and later call back into `fulfil`.
     pub async fn pick(&self, what: &str, class: &str) -> Result<Option<String>, String> {
         let (tx, rx) = oneshot::channel();
         *self.0.lock().unwrap() = Some(tx);
