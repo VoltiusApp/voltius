@@ -721,8 +721,8 @@ voltius_quiet() {
 #[cfg(test)]
 const TTL_IDLE_CHECK: &str = ttl_idle_check!();
 
-/// Run by the `client-detached` hook as `sh -c "$R" voltius-reap <session>`.
-/// Every failed check exits without killing.
+/// `$1` is the session; the hook decodes it from `@voltius_reap` (see [`ttl_reaper_option`]).
+/// Every failed check exits 0 without killing.
 pub(crate) const TTL_REAPER: &str = concat!(
     ttl_idle_check!(),
     r#"S=$1
@@ -1804,7 +1804,7 @@ mod tests {
     #[test]
     fn ttl_command_fits_dropbear_max_string_len() {
         let key = tmux_session_key("0f8b1c22-4d7e-4a19-9f3b-2c6d5e8a7b41");
-        let len = persistent_ttl_command(&key, Some(604800)).len();
+        let len = persistent_ttl_command(&key, Some(u64::MAX)).len();
         assert!(len <= MAX_EXEC_COMMAND_LEN, "ttl payload is {len} bytes");
     }
 

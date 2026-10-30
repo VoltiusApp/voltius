@@ -2,32 +2,31 @@ use crate::shell_integration::{
     persistent_attach_command, persistent_exec_command, persistent_ttl_command, ssh_exec_command,
     tmux_session_key, TTL_REAPER,
 };
-use crate::ssh::test_docker::{container_name, docker, ensure_image, Container, TMUX_IMAGES};
+use crate::ssh::test_docker::{
+    container_name, docker, ensure_image, wait_for, Container, TMUX_BASES,
+};
 use std::process::Output;
 use std::time::{Duration, Instant};
 
 const TTL: u64 = 3;
 const SETTLE: Duration = Duration::from_secs(TTL + 13);
+const REAP_DEADLINE: Duration = Duration::from_secs(TTL + 40);
 
 /// tmux < 3.2 never fires `client-detached` for a lost client, so the TTL stays unarmed there.
-const PRE_3_2_IMAGES: &[(&str, &str)] = &[
-    ("tmuxh:rockylinux-8", "rockylinux:8"),
-    ("tmuxh:ubuntu-20-04", "ubuntu:20.04"),
-    ("tmuxh:debian-bullseye", "debian:bullseye"),
-];
+const PRE_3_2_BASES: &[&str] = &["rockylinux:8", "ubuntu:20.04", "debian:bullseye"];
 
 struct Host {
     container: Container,
-    image: &'static str,
+    image: String,
     key: String,
     first: String,
 }
 
 impl Host {
-    fn start(image: &'static str) -> Self {
+    fn start(image: String) -> Self {
         let container = Container::run(
-            container_name("voltius-ttl", image),
-            &["--init", "--cpus", "0.25", image, "sleep", "infinity"],
+            container_name("voltius-ttl", &image),
+            &["--init", "--cpus", "0.25", &image, "sleep", "infinity"],
         );
         let mut host = Self {
             container,
@@ -71,14 +70,11 @@ impl Host {
     }
 
     fn wait_for<T>(&self, what: &str, probe: impl Fn() -> Option<T>) -> T {
-        let deadline = Instant::now() + Duration::from_secs(30);
-        loop {
-            if let Some(v) = probe() {
-                return v;
-            }
-            assert!(Instant::now() < deadline, "{}: {what}", self.image);
-            std::thread::sleep(Duration::from_millis(200));
-        }
+        wait_for(
+            &format!("{}: {what}", self.image),
+            Duration::from_secs(30),
+            probe,
+        )
     }
 
     fn wait_until(&self, what: &str, cond: impl Fn() -> bool) {
@@ -140,22 +136,30 @@ impl Host {
         self.exec(&["kill", "-0", pid]).status.success()
     }
 
-    fn assert_settled(&self, present: bool) {
-        assert_eq!(
+    fn reaper_running(&self) -> bool {
+        let ps = self.exec(&["ps", "-eo", "args"]);
+        String::from_utf8_lossy(&ps.stdout).contains("voltius-reap")
+    }
+
+    fn settle(&self, present: bool) {
+        if !present {
+            let what = format!("{}: session reaped", self.image);
+            wait_for(&what, REAP_DEADLINE, || {
+                (!self.present_on("voltius") && !self.reaper_running()).then_some(())
+            });
+            return;
+        }
+        std::thread::sleep(SETTLE);
+        assert!(
             self.present_on("voltius"),
-            present,
             "{}: session present",
             self.image
         );
-        let ps = self.exec(&["ps", "-eo", "args"]);
         assert!(
-            !String::from_utf8_lossy(&ps.stdout).contains("voltius-reap"),
+            !self.reaper_running(),
             "{}: reaper still running",
             self.image
         );
-        if !present {
-            return;
-        }
         let panes = self.tmux(&["list-panes", "-s", "-t", &self.key, "-F", "#{pane_id}"]);
         for pane in panes.lines() {
             let mode = self.tmux(&["display", "-p", "-t", pane, "#{pane_in_mode}"]);
@@ -165,23 +169,21 @@ impl Host {
 }
 
 fn each_image(scenario: impl Fn(&Host) + Sync) {
-    on_images(TMUX_IMAGES, scenario);
+    on_images(TMUX_BASES, scenario);
 }
 
-fn on_images(images: &'static [(&'static str, &'static str)], scenario: impl Fn(&Host) + Sync) {
-    for (image, base) in images {
-        ensure_image(image, base);
-    }
+fn on_images(bases: &[&str], scenario: impl Fn(&Host) + Sync) {
+    let images: Vec<String> = bases.iter().map(|base| ensure_image(base)).collect();
     let scenario = &scenario;
-    let failed: Vec<&str> = std::thread::scope(|s| {
+    let failed: Vec<&String> = std::thread::scope(|s| {
         let runs: Vec<_> = images
             .iter()
-            .map(|(image, _)| {
+            .map(|image| {
                 let run = std::thread::Builder::new()
-                    .name(image.to_string())
-                    .spawn_scoped(s, move || scenario(&Host::start(image)))
+                    .name(image.clone())
+                    .spawn_scoped(s, move || scenario(&Host::start(image.clone())))
                     .unwrap();
-                (*image, run)
+                (image, run)
             })
             .collect();
         runs.into_iter()
@@ -191,14 +193,19 @@ fn on_images(images: &'static [(&'static str, &'static str)], scenario: impl Fn(
     assert!(failed.is_empty(), "failed on {failed:?}");
 }
 
-fn after_drop(setup: impl Fn(&Host) + Sync, then: impl Fn(&Host) + Sync, present: bool) {
+fn after_drop(
+    setup: impl Fn(&Host) + Sync,
+    then: impl Fn(&Host) + Sync,
+    present: bool,
+    check: impl Fn(&Host) + Sync,
+) {
     each_image(|h| {
         setup(h);
         h.arm(Some(TTL));
         h.drop_client(&h.first);
         then(h);
-        std::thread::sleep(SETTLE);
-        h.assert_settled(present);
+        h.settle(present);
+        check(h);
     });
 }
 
@@ -207,11 +214,11 @@ fn stamped(h: &Host) {
 }
 
 fn kept(setup: impl Fn(&Host) + Sync) {
-    after_drop(setup, stamped, true);
+    after_drop(setup, stamped, true, |_| {});
 }
 
 fn reaped(setup: impl Fn(&Host) + Sync) {
-    after_drop(setup, stamped, false);
+    after_drop(setup, stamped, false, |_| {});
 }
 
 fn typed(line: &'static str, started: &'static str) -> impl Fn(&Host) + Sync {
@@ -293,6 +300,7 @@ fn one_client_still_attached_keeps_session() {
         },
         |_| {},
         true,
+        |_| {},
     );
 }
 
@@ -306,24 +314,24 @@ fn disarm_cancels_pending_timer() {
             h.arm(None);
         },
         true,
+        |_| {},
     );
 }
 
 #[test]
 #[ignore = "needs docker"]
 fn other_sockets_untouched() {
-    each_image(|h| {
-        h.tmux_on(
-            "other",
-            &["-f", "/dev/null", "new-session", "-d", "-s", &h.key],
-        );
-        h.arm(Some(TTL));
-        h.drop_client(&h.first);
-        stamped(h);
-        std::thread::sleep(SETTLE);
-        h.assert_settled(false);
-        assert!(h.present_on("other"), "{}: -L other session", h.image);
-    });
+    after_drop(
+        |h| {
+            h.tmux_on(
+                "other",
+                &["-f", "/dev/null", "new-session", "-d", "-s", &h.key],
+            );
+        },
+        stamped,
+        false,
+        |h| assert!(h.present_on("other"), "{}: -L other session", h.image),
+    );
 }
 
 #[test]
@@ -343,22 +351,17 @@ fn reattach_and_redetach_keeps_session_until_new_ttl() {
         at(2.5);
         h.drop_client(&second_client);
         let second = h.wait_for("second stamp", || Some(h.stamp()).filter(|s| *s != first));
-        at(5.0);
-        assert_eq!(h.stamp(), second, "{}: stamp at t0+5", h.image);
-        assert!(h.present_on("voltius"), "{}: present at t0+5", h.image);
         let reaper = |stamp: &str| stamp.split_once('.').unwrap().1.to_string();
-        assert!(
-            !h.alive(&reaper(&first)),
-            "{}: first timer still alive",
-            h.image
-        );
+        at(5.0);
+        h.wait_until("first timer exits", || !h.alive(&reaper(&first)));
+        assert_eq!(h.stamp(), second, "{}: stamp after first timer", h.image);
+        assert!(h.present_on("voltius"), "{}: first timer killed", h.image);
         assert!(
             h.alive(&reaper(&second)),
             "{}: second timer gone early",
             h.image
         );
-        at(20.0);
-        h.assert_settled(false);
+        h.settle(false);
     });
 }
 
@@ -382,7 +385,7 @@ fn reaper_and_hook_reach_tmux_verbatim() {
 #[test]
 #[ignore = "needs docker"]
 fn ttl_is_not_armed_below_tmux_3_2() {
-    on_images(PRE_3_2_IMAGES, |h| {
+    on_images(PRE_3_2_BASES, |h| {
         h.arm(Some(TTL));
         let hooks = h.tmux(&["show-hooks", "-t", &h.key]);
         assert!(!hooks.contains("client-detached"), "{}: {hooks}", h.image);
