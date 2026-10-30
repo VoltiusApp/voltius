@@ -132,7 +132,7 @@ mod serving {
     use crate::commands::lan_sync::{emitter, Emit, LanSyncState};
     use crate::device_files::policy::{self, Answer, ApprovalPrompt, FileAccessConfig};
     use crate::device_files::service::{Alert, FileService};
-    use crate::device_files::{for_account, stop_running, stop_where};
+    use crate::device_files::{for_account, stop_running, stop_where, Slot};
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use tauri::{AppHandle, Manager, State};
@@ -193,6 +193,22 @@ mod serving {
                 policy::save(dir, account, &config)
             }
         }
+    }
+
+    pub(crate) fn forget_device(
+        slot: &Slot,
+        dir: &Path,
+        account: &str,
+        key: &str,
+    ) -> Result<(), String> {
+        if let Some(svc) = for_account(slot, account) {
+            return svc.forget_device(key);
+        }
+        let mut config = policy::load(dir, account);
+        if config.drop_device(key) {
+            policy::save(dir, account, &config)?;
+        }
+        Ok(())
     }
 
     fn alert(app: AppHandle, body: String) -> Alert {
@@ -355,15 +371,19 @@ mod tests {
         state
     }
 
-    async fn serve_files(lan: &LanSyncState, dir: &std::path::Path, account: &str) {
+    async fn serve_files(lan: &LanSyncState, dir: &std::path::Path, account: &str, emit: Emit) {
         serving::start_inner(
             lan,
             dir.to_path_buf(),
             account.into(),
-            Arc::new(|_, _| {}),
+            emit,
             Arc::new(|_| {}),
         )
         .await;
+    }
+
+    fn quiet() -> Emit {
+        Arc::new(|_, _| {})
     }
 
     async fn until_files(lan: &Arc<LanSyncState>, id: &str, files: bool) {
@@ -414,14 +434,7 @@ mod tests {
         let sink = seen.clone();
         let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name, payload)));
         let lan = lan(me).await;
-        serving::start_inner(
-            &lan,
-            dir.path().to_path_buf(),
-            ACCOUNT.into(),
-            emit,
-            Arc::new(|_| {}),
-        )
-        .await;
+        serve_files(&lan, dir.path(), ACCOUNT, emit).await;
         Server { lan, dir, seen }
     }
 
@@ -955,7 +968,7 @@ mod tests {
             .unwrap();
         assert!(lan.files.service.lock().await.is_none());
         assert_eq!(policy::load(dir.path(), ACCOUNT), cfg);
-        serve_files(&lan, dir.path(), ACCOUNT).await;
+        serve_files(&lan, dir.path(), ACCOUNT, quiet()).await;
         let svc = lan.files.service.lock().await.clone().unwrap();
         assert_eq!(svc.config(), cfg);
     }
@@ -998,8 +1011,8 @@ mod tests {
         s.until_open(&["dev-a", "dev-c"]).await;
         let svc = s.svc().await;
         assert_eq!(svc.grants_for(&key_of("dev-c")), 1);
-        assert!(forget_inner(&s.lan, "dev-a").await);
-        assert!(forget_inner(&s.lan, "dev-c").await);
+        assert!(forget_inner(&s.lan, "dev-a", s.dir.path()).await);
+        assert!(forget_inner(&s.lan, "dev-c", s.dir.path()).await);
         s.until_open(&[]).await;
         assert!(svc.config().allowed.is_empty());
         assert!(policy::load(s.dir.path(), ACCOUNT).allowed.is_empty());
@@ -1009,7 +1022,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn forget_without_file_service_is_a_noop() {
+    async fn forget_without_file_service_still_drops_the_saved_entry() {
         let dir = tempfile::tempdir().unwrap();
         let saved = config(dir.path(), &["dev-a"]);
         policy::save(dir.path(), ACCOUNT, &saved).unwrap();
@@ -1018,12 +1031,31 @@ mod tests {
         let a = lan(test_identity("dev-a")).await;
         a.meet(&b).await;
         until_files(&b, "dev-a", false).await;
-        serve_files(&b, dir.path(), "other").await;
-        assert!(forget_inner(&b, "dev-a").await);
+        serve_files(&b, dir.path(), "other", quiet()).await;
+        assert!(forget_inner(&b, "dev-a", dir.path()).await);
         let svc = b.files.service.lock().await.clone().unwrap();
         assert_eq!(svc.config(), saved);
         assert_eq!(policy::load(dir.path(), "other"), saved);
-        assert_eq!(policy::load(dir.path(), ACCOUNT), saved);
+        assert!(policy::load(dir.path(), ACCOUNT).allowed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn forget_withdraws_a_pending_prompt() {
+        let s = server(&[]).await;
+        let a = browser("dev-a", &s).await;
+        let forget = async {
+            let id = s.until_pending(1).await.remove(0);
+            assert!(forget_inner(&s.lan, "dev-a", s.dir.path()).await);
+            let svc = s.svc().await;
+            assert!(svc.pending().is_empty());
+            assert!(!svc.answer(&id, Answer::Always));
+        };
+        let (waiting, ()) = tokio::join!(a.connect(), forget);
+        assert!(waiting.is_err());
+        let svc = s.svc().await;
+        assert_eq!(svc.admitted(), 0);
+        assert!(svc.config().allowed.is_empty());
+        assert!(policy::load(s.dir.path(), ACCOUNT).allowed.is_empty());
     }
 
     #[tokio::test]
@@ -1053,7 +1085,7 @@ mod tests {
         s.lan.meet(&a.lan).await;
         until_files(&a.lan, "dev-b", false).await;
 
-        serve_files(&s.lan, s.dir.path(), ACCOUNT).await;
+        serve_files(&s.lan, s.dir.path(), ACCOUNT, quiet()).await;
         assert!(s.lan.files.service.lock().await.is_some());
         assert_eq!(code(a.connect().await), Some(ErrorCode::DeviceUnreachable));
 

@@ -203,13 +203,16 @@ impl FileService {
 
     pub fn forget_device(&self, key: &str) -> Result<(), String> {
         let mut book = self.core.lock();
-        book.forget(key);
-        if !book.cfg.allowed.iter().any(|d| d.device_key == key) {
+        self.broker.withdraw(key);
+        let mut cfg = book.cfg.clone();
+        if !cfg.drop_device(key) {
+            book.forget(key);
             return Ok(());
         }
-        let mut cfg = book.cfg.clone();
-        cfg.allowed.retain(|d| d.device_key != key);
-        self.apply(&mut book, cfg)?;
+        if let Err(e) = self.apply(&mut book, cfg) {
+            book.forget(key);
+            return Err(e);
+        }
         self.core.emit(CONFIG, json!(book.cfg));
         Ok(())
     }
@@ -297,7 +300,9 @@ impl FileService {
             if self.broker.pending().len() >= MAX_PENDING {
                 return Err(Refusal::Busy);
             }
-            (self.broker.register(prompt.clone()), book.withdraw.clone())
+            let pending = self.broker.register(prompt.clone(), &book.withdraw);
+            let withdraw = pending.withdrawn();
+            (pending, withdraw)
         };
         self.core.emit(REQUEST, json!(prompt));
         (self.alert)(&prompt);
@@ -625,6 +630,25 @@ mod tests {
         svc.set_config(cfg).unwrap();
         let closed = tokio::time::timeout(Duration::from_secs(2), client.recv()).await;
         assert!(matches!(closed, Ok(Err(_))), "session still open");
+    }
+
+    #[tokio::test]
+    async fn an_answer_racing_forget_admits_nothing() {
+        let (svc, dir) = service(&[]);
+        let mut client = request(&svc, "d0").await;
+        until_pending(&svc).await;
+        let key = hex(&test_identity("d0").key.public);
+        assert!(svc.answer(&svc.pending()[0].request_id, Answer::Always));
+        svc.forget_device(&key).unwrap();
+        assert_eq!(
+            reply(&mut client).await,
+            FilesReply::Refused {
+                reason: Refusal::Off
+            }
+        );
+        assert_eq!(svc.admitted(), 0);
+        assert!(svc.config().allowed.is_empty());
+        assert!(policy::load(dir.path(), "acct").allowed.is_empty());
     }
 
     #[tokio::test]

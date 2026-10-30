@@ -63,23 +63,19 @@ impl LanSyncState {
     }
 
     #[cfg(desktop)]
-    fn scoped<'a>(&self, slot: &'a Slot) -> Option<&'a Arc<FileService>> {
-        lock(&self.scope)
-            .as_deref()
-            .and_then(|s| for_account(slot, s))
-    }
-
-    #[cfg(desktop)]
     pub(crate) async fn offer_files(&self, slot: &Slot) {
         if let Some(manager) = self.manager.lock().await.as_ref() {
-            offer_to(manager, self.scoped(slot).cloned()).await;
+            let scope = lock(&self.scope).clone();
+            let svc = scope.and_then(|s| for_account(slot, &s).cloned());
+            offer_to(manager, svc).await;
         }
     }
 
     #[cfg(desktop)]
-    async fn forget_files(&self, key: &str) {
+    async fn forget_files(&self, scope: &str, key: &str, dir: &Path) {
         let slot = self.files.service.lock().await;
-        if let Some(Err(e)) = self.scoped(&slot).map(|svc| svc.forget_device(key)) {
+        let forgotten = crate::commands::device_files::forget_device(&slot, dir, scope, key);
+        if let Err(e) = forgotten {
             log::warn!("device-files: revoking a forgotten device failed: {e}");
         }
     }
@@ -230,18 +226,19 @@ async fn stop_running(state: &LanSyncState, running: &mut Option<Manager>) {
     crate::lan_sync::android::release_multicast_lock();
 }
 
-pub async fn forget_inner(state: &LanSyncState, device_id: &str) -> bool {
-    #[cfg_attr(not(desktop), allow(unused_variables))]
-    let (key, forgotten) = with_manager(state, |m| {
+#[cfg_attr(not(desktop), allow(unused_variables))]
+pub async fn forget_inner(state: &LanSyncState, device_id: &str, dir: &Path) -> bool {
+    let (pinned, forgotten) = with_manager(state, |m| {
+        let scope = lock(&state.scope).clone();
         let key = m
             .record(device_id)
             .map(|r| crate::crypto::hex(&r.device_key));
-        (key, m.forget(device_id))
+        (scope.zip(key), m.forget(device_id))
     })
     .await;
     #[cfg(desktop)]
-    if let Some(key) = key.filter(|_| forgotten) {
-        state.forget_files(&key).await;
+    if let Some((scope, key)) = pinned.filter(|_| forgotten) {
+        state.forget_files(&scope, &key, dir).await;
     }
     forgotten
 }
@@ -353,7 +350,8 @@ pub async fn lan_sync_forget(
     state: State<'_, LanSyncState>,
     device_id: String,
 ) -> Result<bool, String> {
-    Ok(forget_inner(&state, &device_id).await)
+    let dir = crate::storage::config::config_dir();
+    Ok(forget_inner(&state, &device_id, &dir).await)
 }
 
 #[tauri::command]
@@ -602,9 +600,9 @@ mod tests {
         until_any(&seen, "dev-a listed", lists("dev-a")).await;
         let before = seen.lock().unwrap().len();
 
-        assert!(forget_inner(&state, "dev-a").await);
+        assert!(forget_inner(&state, "dev-a", dir.path()).await);
         until_after(&seen, before, "peers cleared", |e| *e == (PEERS, json!([]))).await;
-        assert!(!forget_inner(&state, "dev-a").await);
+        assert!(!forget_inner(&state, "dev-a", dir.path()).await);
         stop_inner(&state).await;
         assert!(file.exists());
     }
