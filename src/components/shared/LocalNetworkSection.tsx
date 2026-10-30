@@ -2,7 +2,6 @@ import { Fragment, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { SheetActionRow, type SheetAction } from "@/components/mobile/sheets/SheetActionRow";
 import { SyncHeaderButton, SyncInlineAction, SyncSectionTitle, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
 import { useLanDeviceRows } from "@/hooks/useLanDeviceRows";
@@ -16,8 +15,9 @@ import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { formatRelative } from "@/utils/localeFormat";
 import { usePlatform } from "@/utils/platform";
-
-const LOCAL_NETWORK_SETTINGS = "x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork";
+import { deviceIcon } from "@/utils/icons";
+import { routeLabel } from "@/services/myDevices";
+import { blockedFix } from "@/services/lanBlockedFix";
 
 const STYLES = {
   dropdown: {
@@ -51,23 +51,9 @@ const DOT_STYLE: Record<DeviceDot, CSSProperties> = {
   "offline-ok": { boxShadow: "inset 0 0 0 1.5px var(--t-text-muted)" },
 };
 
-function deviceIcon(platform: string): string {
-  if (platform === "android" || platform === "ios") return "lucide:smartphone";
-  if (platform === "macos") return "lucide:laptop";
-  return "lucide:monitor";
-}
-
-function blockedKey(platform: string | null): string {
-  if (platform === "macos") return "layout.sync.local.status.blocked";
-  if (platform === "windows") return "layout.sync.local.status.blockedOther";
-  return "layout.sync.local.status.blockedNetwork";
-}
-
-function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: DeviceRow[], platform: string | null) {
+function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: DeviceRow[], platform: string | null): { icon: string; color: string; label: string; spin?: boolean } {
   if (paused) return { icon: SYNC_PAUSED_ICON, color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
-  if (blocked) {
-    return { icon: "lucide:wifi-off", color: "var(--t-status-warning)", label: t(blockedKey(platform)) };
-  }
+  if (blocked) return blockedFix(t, platform);
   const syncing = rows.find((r) => r.dot === "syncing");
   if (syncing) return { icon: "lucide:loader-circle", color: "var(--t-accent)", spin: true, label: t("layout.sync.local.status.syncing", { name: syncing.name }) };
   const nearby = rows.filter((r) => r.nearby).length;
@@ -80,7 +66,7 @@ function rowDetail(t: TFunction, row: DeviceRow, anyNearby: boolean): { text: st
   if (row.dot === "syncing") {
     return { text: t(count > 0 ? "layout.sync.local.row.syncing" : "layout.sync.status.syncing", { count }), color: "var(--t-accent)" };
   }
-  if (row.dot === "live") return { text: t(`layout.sync.local.route.${row.route ?? "lan"}`), color: "var(--t-text-dim)" };
+  if (row.dot === "live") return { text: routeLabel(t, row.route ?? "lan"), color: "var(--t-text-dim)" };
   const when = !anyNearby && row.lastSeen ? formatRelative(row.lastSeen) : null;
   if (row.dot === "behind") {
     const text = when ? t("layout.sync.local.row.seenBehind", { when, count }) : t("layout.sync.local.row.behind", { count });
@@ -138,9 +124,7 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
     label: t(isPaused ? "layout.sync.local.resume" : "layout.sync.local.pause"),
     onTap: () => void setLanSyncPaused(!isPaused).catch(logFailure("lan-sync pause")),
   };
-  const openSettings: SheetAction | null = blocked && platform === "macos"
-    ? { slug: "open-settings", icon: "lucide:settings", label: t("layout.sync.local.openSettings"), onTap: () => void openUrl(LOCAL_NETWORK_SETTINGS).catch(logFailure("lan-sync open settings")) }
-    : null;
+  const openSettings = blocked ? blockedFix(t, platform).action : null;
   const upgrade: SheetAction | null = upsell
     ? { slug: "upgrade", icon: "lucide:badge-check", label: t("layout.sync.upgradeArrow"), onTap: () => runSyncMenuAction({ kind: "upgrade" }, onClose) }
     : null;

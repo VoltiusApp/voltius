@@ -9,10 +9,11 @@
 //! Any JNI consumer (keychain store, ANDROID_ID machine fingerprint) goes through
 //! [`with_env`] rather than touching `ndk_context`.
 
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use jni::objects::{GlobalRef, JClass, JObject, JString};
 use jni::{JNIEnv, JavaVM};
+use tokio::sync::oneshot;
 
 struct AndroidCtx {
     vm: JavaVM,
@@ -22,6 +23,15 @@ struct AndroidCtx {
 
 // JavaVM and GlobalRef are both Send + Sync, so this is too.
 static CTX: OnceLock<AndroidCtx> = OnceLock::new();
+static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+pub fn set_app(app: &tauri::AppHandle) {
+    let _ = APP.set(app.clone());
+}
+
+pub fn app() -> Option<&'static tauri::AppHandle> {
+    APP.get()
+}
 
 /// JNI entry point for `VoltiusKeychain.nativeInit(context)`. Idempotent; stores the VM and
 /// a global ref to the application Context. Named for the Kotlin class that declares the
@@ -148,5 +158,41 @@ pub fn call_static_bool(class: &str, method: &str, value: bool) {
     });
     if let Err(e) = res {
         log::warn!("{class}.{method}: {e}");
+    }
+}
+
+pub struct PickSlot(Mutex<Option<oneshot::Sender<Option<String>>>>);
+
+impl PickSlot {
+    pub const fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+
+    // `class` must expose a static `launchPicker(): Boolean` and later call back into `fulfil`.
+    pub async fn pick(&self, what: &str, class: &str) -> Result<Option<String>, String> {
+        let (tx, rx) = oneshot::channel();
+        *self.0.lock().unwrap() = Some(tx);
+        let launched = with_env(what, |env, _ctx| {
+            let cls = load_class(env, class)?;
+            env.call_static_method(&cls, "launchPicker", "()Z", &[])?
+                .z()
+        });
+        if !matches!(launched, Ok(true)) {
+            let _ = self.0.lock().unwrap().take();
+            launched?;
+            return Err(format!("could not open the {what} (app not in foreground)"));
+        }
+        rx.await.map_err(|_| format!("{what} cancelled"))
+    }
+
+    pub fn fulfil(&self, env: &mut JNIEnv, value: &JString) {
+        let val = if value.is_null() {
+            None
+        } else {
+            env.get_string(value).ok().map(|s| s.into())
+        };
+        if let Some(tx) = self.0.lock().unwrap().take() {
+            let _ = tx.send(val);
+        }
     }
 }

@@ -359,6 +359,18 @@
       "promptReason": "Unlock Voltius",
       "sealReason": "Confirm to keep your vault key on this device",
       "bindingLost": "Your device sign-in changed. Enter your master password."
+    },
+    "deviceFiles": {
+      "title": "{{name}} wants to open your files",
+      "subtitle": "Your device · {{route}}",
+      "newDevice": "New device",
+      "folders": "It will see the folders you share in Settings › Devices: {{folders}}.",
+      "readWrite": "It can copy, rename and delete files there.",
+      "readOnly": "It can copy files from there.",
+      "deny": "Deny",
+      "once": "Allow once",
+      "always": "Always allow",
+      "sessionToast": "{{name}} opened your files"
     }
   }
 }

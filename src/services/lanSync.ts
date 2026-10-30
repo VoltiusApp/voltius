@@ -7,6 +7,7 @@ import { settleWithin } from "@/lib/settleWithin";
 import { getAccountId, isServerMode } from "@/services/account";
 import { appToast } from "@/services/appToast";
 import { entityClocks, type PeerInfo } from "@/services/lanSyncDevices";
+import { startDeviceFiles, stopDeviceFiles } from "@/services/deviceFiles";
 import { ensureLanSyncIntro } from "@/services/lanSyncIntro";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import {
@@ -152,6 +153,7 @@ async function begin(wanted: number): Promise<void> {
     s.offs.push(onLocalMutation(requestBroadcast), useVaultKeysStore.subscribe(onKeysChanged));
     await invoke("lan_sync_set_paused", { paused: store().paused });
     await invoke("lan_sync_start", { deviceId: selfId, deviceName, authKeys, scope });
+    startDeviceFiles().catch(fail("files start"));
   } catch (e) {
     detach();
     store().setStatus("stopped");
@@ -165,6 +167,7 @@ async function end(): Promise<void> {
   await merges(async () => {});
   clearPeers();
   store().setStatus("stopped");
+  await stopDeviceFiles();
   await invoke("lan_sync_stop");
 }
 

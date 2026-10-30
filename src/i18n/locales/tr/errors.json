@@ -30,7 +30,14 @@
     "vault-role-read-only": "Bu kasaya yazma izniniz yok (rolünüz: {{role}}). Yalnızca sahipler, yöneticiler ve düzenleyiciler değişiklik yapabilir.",
     "vault-permissions-unavailable": "Anahtar zinciri kullanılamadığı için kasa izinleri doğrulanamadı. Tekrar deneyin.",
     "vault-permissions-corrupted": "Kasa izin verileri bozuk. Erişimi yenilemek için tekrar oturum açın.",
-    "knock-udp-via-proxy": "UDP vuruşları bir proxy üzerinden gönderilemez. Bu sunucu için TCP adımları veya doğrudan bağlantı kullanın."
+    "knock-udp-via-proxy": "UDP vuruşları bir proxy üzerinden gönderilemez. Bu sunucu için TCP adımları veya doğrudan bağlantı kullanın.",
+    "device-file-access-off": "Bu cihazda dosya erişimi kapalı. Cihazda Ayarlar › Cihazlar bölümünden açın.",
+    "device-access-denied": "Cihaz, dosyalarını açma isteğini reddetti.",
+    "device-approval-timed-out": "Cihazdaki isteğe zamanında yanıt verilmedi.",
+    "device-busy": "Bu cihazda çok fazla dosya oturumu açık. Birini kapatıp tekrar deneyin.",
+    "device-unreachable": "Bu cihaza ulaşılamıyor. Açık ve aynı ağda olduğundan emin olun.",
+    "device-access-expired": "Bu cihaza erişim sona erdi. İzin istemek için yeniden açın.",
+    "device-read-only": "Bu cihaz bu klasörleri salt okunur olarak paylaşıyor."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

@@ -10,7 +10,7 @@ vi.mock("@/services/sync", async (importOriginal) => ({
 import { useLanDeviceRows } from "./useLanDeviceRows";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
 
-const peer = (deviceId: string) => ({ deviceId, deviceName: deviceId, platform: "linux", route: "lan" as const, address: "10.0.0.2" });
+const peer = (deviceId: string) => ({ deviceId, deviceName: deviceId, platform: "linux", route: "lan" as const, address: "10.0.0.2", deviceKey: "key", files: false });
 const known = (name: string) => ({ name, platform: "linux", lastSeen: "2026-10-29T08:00:00Z", lastRoute: "lan" });
 
 afterEach(() => {

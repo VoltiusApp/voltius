@@ -359,6 +359,18 @@
       "promptReason": "Voltius'un kilidini aç",
       "sealReason": "Kasa anahtarını bu cihazda tutmak için onaylayın",
       "bindingLost": "Cihaz girişiniz değişti. Ana parolanızı girin."
+    },
+    "deviceFiles": {
+      "title": "{{name}} dosyalarınızı açmak istiyor",
+      "subtitle": "Cihazınız · {{route}}",
+      "newDevice": "Yeni cihaz",
+      "folders": "Ayarlar › Cihazlar bölümünde paylaştığınız klasörleri görecek: {{folders}}.",
+      "readWrite": "Orada dosyaları kopyalayabilir, yeniden adlandırabilir ve silebilir.",
+      "readOnly": "Oradan dosyaları kopyalayabilir.",
+      "deny": "Reddet",
+      "once": "Bir kez izin ver",
+      "always": "Her zaman izin ver",
+      "sessionToast": "{{name}} dosyalarınızı açtı"
     }
   }
 }

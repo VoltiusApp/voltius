@@ -33,6 +33,7 @@ vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
 vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `${key}|${o.name}` } }));
 vi.mock("@/services/account", () => ({ isServerMode: async () => h.serverMode, getAccountId: async () => h.accountId }));
 vi.mock("@/services/vault", () => ({ getVaultKey: () => h.vaultKey }));
+vi.mock("@/services/deviceFiles", () => ({ startDeviceFiles: async () => {}, stopDeviceFiles: async () => {} }));
 vi.mock("@/services/lanSyncIntro", () => ({ ensureLanSyncIntro: h.intro }));
 vi.mock("@/utils/platform", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/platform")>()),
@@ -68,7 +69,7 @@ import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 
 const OWN_PAYLOAD = { files: { "connections.json": JSON.stringify([{ id: "c", updated_at: "4" }]) }, secrets: {} };
-const peer = (deviceId: string) => ({ deviceId, deviceName: deviceId, platform: "linux", route: "lan", address: "a" });
+const peer = (deviceId: string) => ({ deviceId, deviceName: deviceId, platform: "linux", route: "lan", address: "a", deviceKey: "key", files: false });
 const calls = (cmd: string) => h.invoke.mock.calls.filter(([c]) => c === cmd);
 const broadcasts = () => calls("lan_sync_broadcast").length;
 const emit = (name: string, payload: unknown) => h.handlers.get(`lan-sync://${name}`)?.({ payload });

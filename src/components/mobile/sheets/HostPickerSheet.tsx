@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useHostPicker } from "@/hooks/useHostPicker";
 import { HostPickerTree } from "@/components/shared/HostPickerTree";
@@ -39,12 +39,14 @@ function PickRow({ c, attr, pingEnabled, onPick }: { c: Connection; attr: string
     </button>
   );
 }
+const noDevices = () => ({ node: null, shown: false });
+
 /**
  * Bottom-sheet host picker: search, vault chips, recent hosts first, then the folder tree.
  * `attr` names its test hooks (`data-<attr>-search|-vault|-pick`).
  */
 export default function HostPickerSheet({
-  title, attr, emptyLabel, sshOnly, excludeId, autoFocusSearch = true, onPick, onClose,
+  title, attr, emptyLabel, sshOnly, excludeId, autoFocusSearch = true, devices = noDevices, onPick, onClose,
 }: {
   title: string;
   attr: string;
@@ -53,6 +55,7 @@ export default function HostPickerSheet({
   excludeId?: string;
   /** Off where the soft keyboard popping up with the sheet would cover the recent hosts. */
   autoFocusSearch?: boolean;
+  devices?: (query: string) => { node: ReactNode; shown: boolean };
   onPick: (id: string) => void;
   onClose: () => void;
 }) {
@@ -60,6 +63,8 @@ export default function HostPickerSheet({
   const [pingEnabled] = useToggle("reachability");
   const [q, setQ] = useState("");
   const { rows, recent, vaults, vaultFilter, setVaultFilter, toggleFolder } = useHostPicker({ query: q, sshOnly, excludeId });
+
+  const { node: deviceRows, shown: hasDevices } = devices(q);
 
   return (
     <BottomSheet title={title} onClose={onClose}>
@@ -79,7 +84,8 @@ export default function HostPickerSheet({
         </div>
       )}
       <div className="max-h-[50vh] overflow-y-auto">
-        {rows.length === 0 && <div className="px-3 py-6 text-center text-sm text-(--t-text-dim)">{emptyLabel}</div>}
+        {deviceRows}
+        {rows.length === 0 && !hasDevices && <div className="px-3 py-6 text-center text-sm text-(--t-text-dim)">{emptyLabel}</div>}
         <HostPickerTree
           rows={rows}
           recent={recent}

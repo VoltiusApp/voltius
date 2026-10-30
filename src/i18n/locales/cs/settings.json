@@ -181,6 +181,11 @@
           "buffer"
         ]
       },
+      "devices": {
+        "mobileSub": "Povolit zařízením otevírat zde soubory",
+        "label": "Zařízení",
+        "keywords": ["zařízení", "soubory", "sftp", "sdílení", "složky", "přístup"]
+      },
       "sftp": {
         "mobileSub": "Stahování, přenosy, editor",
         "label": "SFTP",
@@ -1175,6 +1180,28 @@
             "description": "Přidat vlastní prvky do rozhraní aplikace."
           }
         }
+      }
+    },
+    "devices": {
+      "fileAccess": {
+        "title": "Přístup k souborům",
+        "enable": { "title": "Povolit mým zařízením otevírat soubory v tomto počítači", "desc": "Vaše další zařízení Voltius mohou procházet níže uvedené složky přes SFTP. Ve výchozím stavu vypnuto." },
+        "folders": "Sdílené složky",
+        "addFolder": "Přidat složku",
+        "noFolders": "Přidejte složku, abyste ji mohli sdílet se svými zařízeními.",
+        "removeFolder": "Přestat sdílet {{folder}}",
+        "readOnly": { "title": "Pouze pro čtení", "desc": "Zařízení mohou odsud kopírovat soubory, ale ne je měnit ani mazat." }
+      },
+      "allowed": {
+        "title": "Povolená zařízení",
+        "asksEachTime": "Zeptat se pokaždé",
+        "alwaysAllowed": "Vždy povoleno",
+        "connectedNow": "připojeno",
+        "disconnect": "Odpojit",
+        "revoke": "Odvolat",
+        "needsKey": "Pro povolení se jednou připojte",
+        "alwaysLabel": "Vždy povolit {{name}}",
+        "empty": "Zatím žádná další zařízení."
       }
     },
     "sftp": {

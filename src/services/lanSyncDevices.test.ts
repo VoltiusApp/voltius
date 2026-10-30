@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDeviceRows, countBehind, entityClocks, type KnownDevice, type PeerInfo } from "./lanSyncDevices";
 
-const peer = (deviceId: string, deviceName: string): PeerInfo => ({ deviceId, deviceName, platform: "linux", route: "lan", address: "10.0.0.2:1" });
+const peer = (deviceId: string, deviceName: string): PeerInfo => ({ deviceId, deviceName, platform: "linux", route: "lan", address: "10.0.0.2:1", deviceKey: "key", files: false });
 const known = (name: string, lastSeen: string): KnownDevice => ({ name, platform: "mac", lastSeen, lastRoute: "lan" });
 const day = (n: number) => `2026-01-0${n}T00:00:00.000Z`;
 const base = { selfId: "self", peers: [], known: {}, localClocks: {}, syncing: new Set<string>() };

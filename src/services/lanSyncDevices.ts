@@ -9,6 +9,8 @@ export interface PeerInfo {
   platform: string;
   route: LanRoute;
   address: string;
+  deviceKey: string;
+  files: boolean;
 }
 
 export interface KnownDevice {
@@ -16,6 +18,7 @@ export interface KnownDevice {
   platform: string;
   lastSeen: string;
   lastRoute: string | null;
+  deviceKey?: string;
 }
 
 export interface DeviceRow {

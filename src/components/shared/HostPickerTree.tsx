@@ -6,9 +6,10 @@ import { chevronRotateStyle } from "@/utils/icons";
 import { hostPickerRowKey, type HostPickerRow } from "@/utils/hostPickerTree";
 import type { Connection } from "@/types";
 
-const DENSITY = {
+export const HOST_PICKER_DENSITY = {
   compact: {
     heading: "px-2.5 text-[10px]",
+    row: "gap-2.5 px-2.5 py-2 rounded-lg",
     folder: "gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-(--t-text-secondary) hover:bg-(--t-bg-elevated)",
     name: "text-xs",
     chevron: 13,
@@ -17,6 +18,7 @@ const DENSITY = {
   },
   touch: {
     heading: "px-3 text-[11px]",
+    row: "gap-3 px-3 py-3 rounded-xl",
     folder: "gap-2 px-3 py-2.5 min-h-12 rounded-xl text-(--t-text-primary) active:bg-(--t-bg-card)",
     name: "text-sm",
     chevron: 16,
@@ -25,7 +27,7 @@ const DENSITY = {
   },
 };
 
-type Density = (typeof DENSITY)[keyof typeof DENSITY];
+export type HostPickerDensity = keyof typeof HOST_PICKER_DENSITY;
 
 /** Vault → folder → host tree, headed by the recently used hosts when there are any. */
 export function HostPickerTree({ rows, recent, onToggleFolder, renderHost, density = "compact" }: {
@@ -33,18 +35,17 @@ export function HostPickerTree({ rows, recent, onToggleFolder, renderHost, densi
   recent: Connection[];
   onToggleFolder: (id: string) => void;
   renderHost: (c: Connection) => ReactNode;
-  density?: keyof typeof DENSITY;
+  density?: HostPickerDensity;
 }) {
-  const d = DENSITY[density];
   return (
     <>
       <RecentHostsGroup
         recent={recent}
         renderHost={renderHost}
-        heading={(label) => <Heading d={d}>{label}</Heading>}
+        heading={(label) => <Heading density={density}>{label}</Heading>}
         restHeading={rows.length > 0 && rows[0].kind !== "vault"}
       />
-      {rows.map((row) => <TreeRow key={hostPickerRowKey(row)} row={row} d={d} onToggleFolder={onToggleFolder} renderHost={renderHost} />)}
+      {rows.map((row) => <TreeRow key={hostPickerRowKey(row)} row={row} density={density} onToggleFolder={onToggleFolder} renderHost={renderHost} />)}
     </>
   );
 }
@@ -69,21 +70,22 @@ export function RecentHostsGroup({ recent, renderHost, heading, restHeading }: {
   );
 }
 
-function Heading({ d, children, vaultId }: { d: Density; children: ReactNode; vaultId?: string }) {
+export function Heading({ density, children, vaultId }: { density: HostPickerDensity; children: ReactNode; vaultId?: string }) {
   return (
-    <p data-host-picker-vault={vaultId} className={`${d.heading} pt-3 pb-1 font-semibold uppercase tracking-wider truncate text-(--t-text-dim)`}>
+    <p data-host-picker-vault={vaultId} className={`${HOST_PICKER_DENSITY[density].heading} pt-3 pb-1 font-semibold uppercase tracking-wider truncate text-(--t-text-dim)`}>
       {children}
     </p>
   );
 }
 
-function TreeRow({ row, d, onToggleFolder, renderHost }: {
+function TreeRow({ row, density, onToggleFolder, renderHost }: {
   row: HostPickerRow;
-  d: Density;
+  density: HostPickerDensity;
   onToggleFolder: (id: string) => void;
   renderHost: (c: Connection) => ReactNode;
 }) {
-  if (row.kind === "vault") return <Heading d={d} vaultId={row.id}>{row.name}</Heading>;
+  if (row.kind === "vault") return <Heading density={density} vaultId={row.id}>{row.name}</Heading>;
+  const d = HOST_PICKER_DENSITY[density];
   const indent = { paddingLeft: `${row.depth * d.indentRem}rem` };
   if (row.kind === "host") return <div style={indent}>{renderHost(row.connection)}</div>;
   return (

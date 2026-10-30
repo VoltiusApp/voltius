@@ -10,6 +10,10 @@ const KIND_BLOB: u8 = 2;
 const KIND_NUDGE: u8 = 3;
 const KIND_BYE: u8 = 4;
 const KIND_AUTH: u8 = 5;
+const KIND_CAPS: u8 = 6;
+const KIND_FILES: u8 = 7;
+const KIND_FILES_REPLY: u8 = 8;
+const GRANT_LEN: usize = 64;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Hello {
@@ -45,10 +49,50 @@ pub struct Auth {
     pub proofs: Vec<[u8; 32]>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Caps {
+    pub files: bool,
+    #[serde(default)]
+    pub port: Option<u16>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+pub struct FilesRequest {
+    pub grant: Option<String>,
+    #[serde(default)]
+    pub reopen: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Refusal {
+    Off,
+    Denied,
+    TimedOut,
+    Busy,
+    Expired,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "result", rename_all = "camelCase")]
+pub enum FilesReply {
+    #[serde(rename_all = "camelCase")]
+    Accepted {
+        read_only: bool,
+        grant: Option<String>,
+    },
+    Refused {
+        reason: Refusal,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Frame {
     Hello(Hello),
     Auth(Auth),
+    Caps(Caps),
+    Files(FilesRequest),
+    FilesReply(FilesReply),
     Blob(Vec<u8>),
     Nudge,
     Bye,
@@ -75,10 +119,25 @@ fn from_json<T: serde::de::DeserializeOwned>(payload: &[u8]) -> Result<T, Protoc
     serde_json::from_slice(payload).map_err(|e| ProtocolError::Malformed(e.to_string()))
 }
 
+fn check_grant(grant: Option<&String>) -> Result<(), ProtocolError> {
+    match grant {
+        Some(g)
+            if g.len() != GRANT_LEN
+                || !g.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) =>
+        {
+            Err(ProtocolError::Malformed("invalid grant".into()))
+        }
+        _ => Ok(()),
+    }
+}
+
 pub fn encode(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
     let (kind, payload) = match frame {
         Frame::Hello(h) => (KIND_HELLO, to_json(h)?),
         Frame::Auth(a) => (KIND_AUTH, to_json(a)?),
+        Frame::Caps(c) => (KIND_CAPS, to_json(c)?),
+        Frame::Files(r) => (KIND_FILES, to_json(r)?),
+        Frame::FilesReply(r) => (KIND_FILES_REPLY, to_json(r)?),
         Frame::Blob(b) => (KIND_BLOB, b.clone()),
         Frame::Nudge => (KIND_NUDGE, Vec::new()),
         Frame::Bye => (KIND_BYE, Vec::new()),
@@ -102,6 +161,19 @@ pub fn decode(buf: &[u8]) -> Result<Frame, ProtocolError> {
     match kind {
         KIND_HELLO => from_json(payload).map(Frame::Hello),
         KIND_AUTH => from_json(payload).map(Frame::Auth),
+        KIND_CAPS => from_json(payload).map(Frame::Caps),
+        KIND_FILES => {
+            let req: FilesRequest = from_json(payload)?;
+            check_grant(req.grant.as_ref())?;
+            Ok(Frame::Files(req))
+        }
+        KIND_FILES_REPLY => {
+            let reply: FilesReply = from_json(payload)?;
+            if let FilesReply::Accepted { grant, .. } = &reply {
+                check_grant(grant.as_ref())?;
+            }
+            Ok(Frame::FilesReply(reply))
+        }
         KIND_BLOB => Ok(Frame::Blob(payload.to_vec())),
         KIND_NUDGE | KIND_BYE if !payload.is_empty() => {
             Err(ProtocolError::Malformed("unexpected payload".into()))
@@ -190,12 +262,61 @@ mod tests {
     }
 
     #[test]
+    fn caps_without_port_still_decode() {
+        let mut buf = vec![KIND_CAPS];
+        buf.extend_from_slice(br#"{"files":true}"#);
+        assert_eq!(
+            decode(&buf).unwrap(),
+            Frame::Caps(Caps {
+                files: true,
+                port: None
+            })
+        );
+    }
+
+    #[test]
     fn roundtrip_every_kind() {
         for f in [
             Frame::Hello(sample_hello()),
             Frame::Auth(Auth {
                 version: PROTOCOL_VERSION,
                 proofs: vec![[7u8; 32], [9u8; 32]],
+            }),
+            Frame::Caps(Caps {
+                files: true,
+                port: Some(47391),
+            }),
+            Frame::Caps(Caps {
+                files: false,
+                port: None,
+            }),
+            Frame::Files(FilesRequest::default()),
+            Frame::Files(FilesRequest {
+                grant: Some("ab".repeat(32)),
+                reopen: true,
+            }),
+            Frame::FilesReply(FilesReply::Accepted {
+                read_only: true,
+                grant: None,
+            }),
+            Frame::FilesReply(FilesReply::Accepted {
+                read_only: false,
+                grant: Some("0f".repeat(32)),
+            }),
+            Frame::FilesReply(FilesReply::Refused {
+                reason: Refusal::Off,
+            }),
+            Frame::FilesReply(FilesReply::Refused {
+                reason: Refusal::Denied,
+            }),
+            Frame::FilesReply(FilesReply::Refused {
+                reason: Refusal::TimedOut,
+            }),
+            Frame::FilesReply(FilesReply::Refused {
+                reason: Refusal::Busy,
+            }),
+            Frame::FilesReply(FilesReply::Refused {
+                reason: Refusal::Expired,
             }),
             Frame::Blob(vec![1, 2, 3]),
             Frame::Nudge,
@@ -206,6 +327,52 @@ mod tests {
             assert_eq!(len, wire.len() - 4);
             assert_eq!(decode(&wire[4..]).unwrap(), f);
         }
+    }
+
+    fn files_wire(grant: &str) -> Vec<u8> {
+        let mut buf = vec![KIND_FILES];
+        buf.extend_from_slice(format!(r#"{{"grant":"{grant}"}}"#).as_bytes());
+        buf
+    }
+
+    #[test]
+    fn files_request_without_reopen_still_decodes() {
+        let buf = files_wire(&"a".repeat(64));
+        assert_eq!(
+            decode(&buf).unwrap(),
+            Frame::Files(FilesRequest {
+                grant: Some("a".repeat(64)),
+                reopen: false,
+            })
+        );
+    }
+
+    #[test]
+    fn files_request_rejects_oversized_grant() {
+        let buf = files_wire(&"a".repeat(65));
+        assert!(matches!(decode(&buf), Err(ProtocolError::Malformed(_))));
+    }
+
+    #[test]
+    fn files_request_rejects_non_hex_grant() {
+        let buf = files_wire(&"g".repeat(64));
+        assert!(matches!(decode(&buf), Err(ProtocolError::Malformed(_))));
+    }
+
+    #[test]
+    fn files_reply_rejects_bad_grant() {
+        let mut buf = vec![KIND_FILES_REPLY];
+        buf.extend_from_slice(br#"{"result":"accepted","readOnly":true,"grant":"abc"}"#);
+        assert!(matches!(decode(&buf), Err(ProtocolError::Malformed(_))));
+    }
+
+    #[test]
+    fn files_reply_wire_shape() {
+        let json = serde_json::to_string(&FilesReply::Refused {
+            reason: Refusal::TimedOut,
+        })
+        .unwrap();
+        assert_eq!(json, r#"{"result":"refused","reason":"timedOut"}"#);
     }
 
     #[tokio::test]

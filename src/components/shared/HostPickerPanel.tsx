@@ -16,10 +16,14 @@ import type { Connection } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { searchMatcher } from "@/utils/search";
 import { HostPickerTree } from "./HostPickerTree";
+import { HostRow } from "./HostRow";
+import { MyDevicesGroup } from "./MyDevicesGroup";
+import type { MyDevice } from "@/services/myDevices";
 
 export type HostChoice =
   | { kind: "local"; wslDistro?: string }
-  | { kind: "remote"; connection: Connection };
+  | { kind: "remote"; connection: Connection }
+  | { kind: "device"; device: MyDevice };
 
 interface Props {
   onPick: (h: HostChoice) => void;
@@ -28,9 +32,10 @@ interface Props {
   sshOnly?: boolean;
   vaultId?: string;
   showRecents?: boolean;
+  devices?: boolean;
 }
 
-export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vaultId, showRecents = true }: Props) {
+export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vaultId, showRecents = true, devices = false }: Props) {
   const { t } = useTranslation();
   const loadConnections = useConnectionStore((s) => s.loadConnections);
   const loadFolders = useFolderStore((s) => s.loadFolders);
@@ -153,6 +158,8 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
             );
           })}
 
+        {devices && <MyDevicesGroup density="compact" query={search} onPick={(device) => onPick({ kind: "device", device })} />}
+
         {!hasHosts && (
           <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">{t("shared.hostPicker.noHostsConfigured")}</p>
         )}
@@ -196,30 +203,5 @@ export function ConnectionHostRow({ connection: c, isSelected, onClick, multiSel
       isSelected={isSelected}
       onClick={onClick}
     />
-  );
-}
-
-export function HostRow({ avatar, name, sub, isSelected, onClick }: {
-  avatar: React.ReactNode;
-  name: string;
-  sub: string;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-left"
-      style={{ background: isSelected ? "var(--t-bg-card-hover)" : "transparent" }}
-      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
-      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
-    >
-      {avatar}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm truncate font-medium text-(--t-text-bright)">{name}</p>
-        <p className="text-xs truncate text-(--t-text-secondary)">{sub}</p>
-      </div>
-      {isSelected && <Icon icon="lucide:check" width={14} className="text-(--t-accent) shrink-0" />}
-    </button>
   );
 }

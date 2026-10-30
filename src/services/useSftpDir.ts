@@ -6,17 +6,21 @@ import {
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
 } from "@/services/sftp";
 import { connectFileBackend } from "@/services/sftpTarget";
+import { connectDevice } from "@/services/deviceFiles";
+import { useReadOnlyFlips } from "@/services/deviceReadOnly";
+import type { MyDevice } from "@/services/myDevices";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
-import { connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
+import { closedPhase, connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
 import type { Connection } from "@/types";
 import type { BackendErrorCode } from "@/services/backendErrors";
 
 export type SftpPhase =
   | { tag: "connecting" }
-  | { tag: "connected"; sftpId: string }
+  | { tag: "connected"; sftpId: string; readOnly?: boolean }
   | { tag: "error"; message: string; errorCode?: BackendErrorCode; final?: boolean };
 
 /** Parent of a POSIX path; "/" stays "/". */
@@ -35,9 +39,27 @@ export function breadcrumbs(path: string): { name: string; path: string }[] {
   return out;
 }
 
+export type SftpDirTarget = Connection | { device: MyDevice };
+
+const targetKey = (t: SftpDirTarget | undefined) => (!t ? undefined : "device" in t ? t.device.deviceId : t.id);
+
+export async function connectTarget(
+  target: SftpDirTarget, connectId: string, opts: { interactive?: boolean; relink?: string } = {},
+): Promise<{ sftpId: string; readOnly?: boolean; rttMs?: number }> {
+  if ("device" in target) {
+    const opened = await connectDevice(target.device.deviceId, connectId, opts.relink);
+    useEditorStore.getState().setSftpReadOnly(opened.sftpId, !!opened.readOnly);
+    return opened;
+  }
+  const sftpId = await connectFileBackend(target, connectId, opts.interactive, opts.relink);
+  useConnectionStore.getState().setLastUsed(target.id).catch(() => {});
+  return { sftpId };
+}
+
 /** Standalone remote SFTP browser for one Connection: own SSH/SFTP connection, cwd nav,
  *  dir listing, file ops. Remote-only (no local FS). Transfers NOT handled here. */
-export function useSftpDir(connection: Connection | undefined) {
+export function useSftpDir(target: SftpDirTarget | undefined) {
+  const key = targetKey(target);
   const [phase, setPhase] = useState<SftpPhase>({ tag: "connecting" });
   const [cwd, setCwd] = useState<string>("/");
   const [refreshTick, setRefreshTick] = useState(0);
@@ -47,19 +69,18 @@ export function useSftpDir(connection: Connection | undefined) {
 
   // Connect once per connection.
   useEffect(() => {
-    if (!connection) return;
+    if (!target) return;
     let cancelled = false;
     setPhase({ tag: "connecting" });
     (async () => {
       try {
-        const sftpId = await connectFileBackend(connection, genId());
-        useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+        const { sftpId, readOnly } = await connectTarget(target, genId());
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;
         const home = await sftpCanonicalize(sftpId, ".");
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         setCwd(home || "/");
-        setPhase({ tag: "connected", sftpId });
+        setPhase({ tag: "connected", sftpId, readOnly });
       } catch (e) {
         if (!cancelled) setPhase(connectErrorPhase(e));
       }
@@ -68,23 +89,30 @@ export function useSftpDir(connection: Connection | undefined) {
       cancelled = true;
       if (sftpIdRef.current) { sftpClose(sftpIdRef.current).catch(() => {}); sftpIdRef.current = null; }
     };
-  }, [connection?.id, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-reconnect on error. Mobile backgrounding (e.g. SAF picker) freezes the
   // process and trips keepalive; retry so the drop self-heals instead of dead-ending.
-  const { retrying, reset: resetRetry } = useConnectRetry(phase, () => setRetryTick((n) => n + 1), connection?.id);
+  const { retrying, reset: resetRetry } = useConnectRetry(phase, () => setRetryTick((n) => n + 1), key);
   const reconnect = useCallback(() => { resetRetry(); setRetryTick((n) => n + 1); }, [resetRetry]);
 
   // Detect connection loss.
   useEffect(() => {
     if (phase.tag !== "connected") return;
     const id = phase.sftpId;
-    const un = listen(`sftp-closed-${id}`, () =>
-      setPhase((p) => (p.tag === "connected" && p.sftpId === id ? { tag: "error", message: i18n.t("fileTransfer.page.connectionLost") } : p)));
+    const un = listen<{ code?: BackendErrorCode } | null>(`sftp-closed-${id}`, ({ payload }) => {
+      const lost = i18n.t("fileTransfer.page.connectionLost");
+      const next: SftpPhase = closedPhase(payload, lost);
+      setPhase((p) => (p.tag === "connected" && p.sftpId === id ? next : p));
+    });
     return () => { un.then((fn) => fn()); };
   }, [phase]);
 
   const sftpId = phase.tag === "connected" ? phase.sftpId : null;
+  const applyReadOnly = useCallback((readOnly: boolean) => {
+    setPhase((p) => (p.tag === "connected" && p.sftpId === sftpId ? { ...p, readOnly } : p));
+  }, [sftpId]);
+  useReadOnlyFlips(sftpId, applyReadOnly);
   const { entries, loading: listing, landedCwd, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick);
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
@@ -102,5 +130,6 @@ export function useSftpDir(connection: Connection | undefined) {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }
   }, [sftpId, refresh]);
 
-  return { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
+  const readOnly = phase.tag === "connected" && !!phase.readOnly;
+  return { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
 }

@@ -121,6 +121,7 @@
       "plugins":        { "mobileSub": "已安装插件和插件目录", "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
       "integrations":   { "mobileSub": "供 AI 代理使用的 MCP 服务器", "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
       "terminal":       { "mobileSub": "光标、回滚、粘贴", "label": "终端",        "keywords": ["光标", "回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
+      "devices": { "mobileSub": "允许你的设备在此打开文件", "label": "设备", "keywords": ["设备", "文件", "sftp", "共享", "文件夹", "访问"] },
       "sftp":           { "mobileSub": "下载、传输、编辑器", "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
       "portForwarding": { "mobileSub": "自动端口转发", "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
       "hosts":          { "mobileSub": "可达性、保活、代理", "label": "主机",           "keywords": ["ping", "可达性", "连接性", "状态"] },
@@ -1004,6 +1005,28 @@
             "description": "向应用界面添加其自身的元素。"
           }
         }
+      }
+    },
+    "devices": {
+      "fileAccess": {
+        "title": "文件访问",
+        "enable": { "title": "允许我的设备打开这台电脑上的文件", "desc": "你的其他 Voltius 设备可以通过 SFTP 浏览下面的文件夹。默认关闭。" },
+        "folders": "共享文件夹",
+        "addFolder": "添加文件夹",
+        "noFolders": "添加一个文件夹，即可与你的设备共享。",
+        "removeFolder": "停止共享 {{folder}}",
+        "readOnly": { "title": "只读", "desc": "设备可以从这里复制文件，但不能修改或删除。" }
+      },
+      "allowed": {
+        "title": "已允许的设备",
+        "asksEachTime": "每次询问",
+        "alwaysAllowed": "始终允许",
+        "connectedNow": "已连接",
+        "disconnect": "断开连接",
+        "revoke": "撤销",
+        "needsKey": "连接一次即可允许",
+        "alwaysLabel": "始终允许 {{name}}",
+        "empty": "暂无其他设备。"
       }
     },
     "sftp": {

@@ -17,6 +17,8 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio_util::sync::CancellationToken;
 
+pub(crate) const NO_SHELL: &str = "This connection cannot run commands on the host";
+
 /// Where a transfer's progress and skipped-name events go: the app, or a test's recorder.
 pub trait TransferEvents: Send + Sync {
     fn send<S: Serialize + Clone>(&self, event: &str, payload: S);
@@ -42,7 +44,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
 
     /// Run a POSIX `sh` script with `args` as `$1…` on the host the files live on.
     async fn run_sh(&self, _script: &str, _args: &[&str]) -> Result<Captured, String> {
-        Err("This connection cannot run commands on the host".into())
+        Err(NO_SHELL.into())
     }
     async fn set_attrs(&self, change: &AttrChange) -> Result<(), AppError> {
         apply_via_shell(self, change).await
@@ -396,6 +398,9 @@ mod tests {
             Ok(Box::new(std::io::Cursor::new(
                 &content.as_bytes()[offset as usize..],
             )))
+        }
+        fn can_hash(&self) -> bool {
+            false
         }
         async fn hash(&self, _: &str, _: &CancellationToken) -> Result<Option<String>, AppError> {
             Ok(None)

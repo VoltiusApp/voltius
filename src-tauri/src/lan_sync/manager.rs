@@ -1,11 +1,15 @@
 use super::addrs;
 use super::discovery::{self, classify_mdns_error, Discovery, DiscoveryError};
-use super::handshake::{handshake, HandshakeError, SessionReader, SessionWriter};
+use super::handshake::{
+    handshake, ping_timer, HandshakeError, Session, SessionReader, SessionWriter, HANDSHAKE_TIMEOUT,
+};
 use super::identity::LocalIdentity;
 use super::lock;
 use super::peers::{now_secs, write_snapshot, PeerStore, PinDecision, PinPolicy, Rejection};
-use super::protocol::{Frame, Hello};
+use super::protocol::{Caps, FilesReply, FilesRequest, Frame, Hello, Refusal, MAX_FRAME};
 use super::route::{classify, Route};
+use super::stream::SessionStream;
+use crate::crypto::hex;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -25,22 +29,12 @@ const MAX_OUTBOUND_HANDSHAKES: usize = 4;
 const RATE_MAX: usize = 5;
 const RATE_WINDOW: Duration = Duration::from_secs(10);
 const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
-const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
 const REDIAL_DELAY: Duration = Duration::from_secs(1);
 const REMEMBERED: usize = 32;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 const CONTROL: usize = 4;
-const PING_EVERY: Duration = if cfg!(test) {
-    Duration::from_millis(100)
-} else {
-    Duration::from_secs(10)
-};
-const IDLE_TIMEOUT: Duration = if cfg!(test) {
-    Duration::from_secs(3)
-} else {
-    Duration::from_secs(30)
-};
+const FILES_REPLY_TIMEOUT: Duration = Duration::from_secs(90);
 const RETRY_FIRST: Duration = if cfg!(test) {
     Duration::from_millis(200)
 } else {
@@ -68,6 +62,27 @@ pub struct PeerInfo {
     pub platform: String,
     pub route: Route,
     pub address: String,
+    pub device_key: String,
+    pub files: bool,
+}
+
+#[async_trait::async_trait]
+pub trait InboundFiles: Send + Sync {
+    async fn serve(&self, session: Session, peer: Hello, route: Route, req: FilesRequest);
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum FilesDialError {
+    #[error("device is not listed")]
+    NotListed,
+    #[error("device is unreachable: {0}")]
+    Unreachable(String),
+    #[error("a different device answered")]
+    WrongDevice,
+    #[error(transparent)]
+    Handshake(#[from] HandshakeError),
+    #[error("file access refused: {0:?}")]
+    Refused(Refusal),
 }
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Default)]
@@ -123,8 +138,7 @@ struct Link {
     addr: SocketAddr,
     initiator: bool,
     session_id: Vec<u8>,
-    reader: SessionReader,
-    writer: SessionWriter,
+    session: Session,
 }
 
 async fn bind() -> std::io::Result<TcpListener> {
@@ -159,17 +173,19 @@ async fn secure(
         }
     }
     let session_id = session.handshake_hash().to_vec();
-    let (mut reader, mut writer) = session.split();
-    reader.set_idle_timeout(IDLE_TIMEOUT);
-    writer.set_write_timeout(WRITE_TIMEOUT);
     Ok(Link {
         hello,
         addr,
         initiator,
         session_id,
-        reader,
-        writer,
+        session,
     })
+}
+
+async fn first_frame(session: &mut Session, within: Duration) -> Result<Frame, HandshakeError> {
+    timeout(within, session.recv_max(MAX_FRAME))
+        .await
+        .map_err(|_| HandshakeError::Timeout)?
 }
 
 async fn establish(
@@ -177,10 +193,22 @@ async fn establish(
     stream: TcpStream,
     addr: SocketAddr,
     initiator: bool,
-    _permit: OwnedSemaphorePermit,
+    permit: OwnedSemaphorePermit,
 ) -> Result<(), HandshakeError> {
-    let link = secure(stream, addr, initiator, &shared).await?;
-    shared.adopt(link);
+    let mut link = secure(stream, addr, initiator, &shared).await?;
+    let first = if initiator {
+        None
+    } else {
+        Some(first_frame(&mut link.session, HANDSHAKE_TIMEOUT).await?)
+    };
+    match first {
+        Some(Frame::Files(req)) => {
+            drop(permit);
+            shared.serve_files(link, req).await;
+        }
+        Some(Frame::Bye) => {}
+        first => shared.adopt(link, first),
+    }
     Ok(())
 }
 
@@ -205,9 +233,17 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
     }
 }
 
+async fn connect(addr: SocketAddr) -> Result<TcpStream, String> {
+    match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
+        Ok(Ok(stream)) => Ok(stream),
+        Ok(Err(e)) => Err(format!("dial {addr} failed: {e}")),
+        Err(_) => Err(format!("dial {addr} timed out")),
+    }
+}
+
 async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermit) {
-    let rejected = match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
-        Ok(Ok(stream)) => match establish(shared.clone(), stream, addr, true, permit).await {
+    let rejected = match connect(addr).await {
+        Ok(stream) => match establish(shared.clone(), stream, addr, true, permit).await {
             Ok(()) => return,
             Err(e) => matches!(
                 e,
@@ -216,12 +252,8 @@ async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermi
                     | HandshakeError::Pinned(_)
             ),
         },
-        Ok(Err(e)) => {
-            log::debug!("lan-sync: dial {addr} failed: {e}");
-            false
-        }
-        Err(_) => {
-            log::debug!("lan-sync: dial {addr} timed out");
+        Err(e) => {
+            log::debug!("lan-sync: {e}");
             false
         }
     };
@@ -267,6 +299,8 @@ impl Outbox {
 
 struct Peer {
     info: PeerInfo,
+    ip: IpAddr,
+    port: Option<u16>,
     rank: Rank,
     conn: u64,
     adopted_at: Instant,
@@ -296,6 +330,7 @@ struct State {
     rejected: HashSet<(String, Rejection)>,
     next_conn: u64,
     closed: bool,
+    files: Option<Arc<dyn InboundFiles>>,
 }
 
 impl State {
@@ -304,6 +339,10 @@ impl State {
             known.device = Some(id.to_string());
         }
     }
+}
+
+fn holds_pin(store: &PeerStore, hello: &Hello) -> bool {
+    store.get(&hello.device_id).map(|r| r.device_key) == Some(hello.device_key)
 }
 
 struct Shared {
@@ -317,6 +356,7 @@ struct Shared {
     flush: Notify,
     paused: AtomicBool,
     blocked: AtomicBool,
+    caps: watch::Sender<Option<Caps>>,
     inbound: Arc<Semaphore>,
     outbound: Arc<Semaphore>,
     peers_changed: Notify,
@@ -429,13 +469,13 @@ impl Shared {
     }
 
     // Lock order is store, then state, in adopt and forget.
-    fn adopt(self: &Arc<Self>, link: Link) {
+    fn adopt(self: &Arc<Self>, link: Link, first: Option<Frame>) {
         self.record_addrs(&link);
         let rank = self.rank(&link);
         let id = link.hello.device_id.clone();
         let is_self = id == self.me.device_id;
         let store = self.store();
-        if !is_self && store.get(&id).map(|r| r.device_key) != Some(link.hello.device_key) {
+        if !is_self && !holds_pin(&store, &link.hello) {
             return;
         }
         let mut state = self.lock();
@@ -452,13 +492,17 @@ impl Shared {
             platform: link.hello.platform,
             route: classify(link.addr.ip()),
             address: link.addr.ip().to_string(),
+            device_key: hex(&link.hello.device_key),
+            files: false,
         };
-        let (outbox, tasks) = self.spawn_peer(id.clone(), conn, link.reader, link.writer);
+        let (outbox, tasks) = self.spawn_peer(id.clone(), conn, link.session, first);
         outbox.nudge();
         state.peers.insert(
             id,
             Peer {
                 info,
+                ip: link.addr.ip(),
+                port: None,
                 rank,
                 conn,
                 adopted_at: Instant::now(),
@@ -474,19 +518,27 @@ impl Shared {
         self: &Arc<Self>,
         id: String,
         conn: u64,
-        mut reader: SessionReader,
-        writer: SessionWriter,
+        session: Session,
+        first: Option<Frame>,
     ) -> (Outbox, [AbortHandle; 2]) {
+        let (mut reader, writer) = session.split_live();
         let (blob, latest) = watch::channel(None);
         let (control, nudges) = mpsc::channel(CONTROL);
+        let mut caps = self.caps.subscribe();
+        if caps.borrow().is_some() {
+            caps.mark_changed();
+        }
         let shared = self.clone();
         let from = id.clone();
         let write = tokio::spawn(async move {
-            pump_out(writer, latest, nudges).await;
+            pump_out(writer, latest, caps, nudges).await;
             shared.release(&from, conn);
         });
         let shared = self.clone();
         let read = tokio::spawn(async move {
+            if let Some(frame) = first {
+                shared.on_frame(&id, frame).await;
+            }
             while let Some(frame) = recv(&mut reader).await {
                 shared.on_frame(&id, frame).await;
             }
@@ -509,8 +561,42 @@ impl Shared {
                     .await;
             }
             Frame::Nudge => self.peers_changed.notify_one(),
+            Frame::Caps(caps) => {
+                if let Some(peer) = self.lock().peers.get_mut(from) {
+                    peer.info.files = caps.files;
+                    peer.port = caps.port;
+                }
+                self.peers_changed.notify_one();
+            }
             _ => {}
         }
+    }
+
+    async fn serve_files(&self, link: Link, req: FilesRequest) {
+        if !holds_pin(&self.store(), &link.hello) {
+            return;
+        }
+        let Some(svc) = self.lock().files.clone() else {
+            return;
+        };
+        let route = classify(link.addr.ip());
+        svc.serve(link.session, link.hello, route, req).await;
+    }
+
+    fn files_target(&self, id: &str) -> Result<(SocketAddr, String), FilesDialError> {
+        let state = self.lock();
+        let peer = state.peers.get(id).ok_or(FilesDialError::NotListed)?;
+        let port = peer
+            .port
+            .or_else(|| {
+                state
+                    .dialable
+                    .iter()
+                    .find(|k| k.device.as_deref() == Some(id) && k.addr.ip() == peer.ip)
+                    .map(|k| k.addr.port())
+            })
+            .ok_or_else(|| FilesDialError::Unreachable("listening port unknown".into()))?;
+        Ok((SocketAddr::new(peer.ip, port), peer.info.device_key.clone()))
     }
 
     fn remember(&self, addr: SocketAddr) {
@@ -601,26 +687,35 @@ impl Shared {
     }
 }
 
+async fn fresh<T: Clone>(rx: &mut watch::Receiver<Option<T>>) -> Option<T> {
+    loop {
+        rx.changed().await.ok()?;
+        if let Some(value) = rx.borrow_and_update().clone() {
+            return Some(value);
+        }
+    }
+}
+
 async fn pump_out(
     mut writer: SessionWriter,
     mut latest: watch::Receiver<Latest>,
+    mut caps: watch::Receiver<Option<Caps>>,
     mut control: mpsc::Receiver<Frame>,
 ) {
-    let mut ping = tokio::time::interval_at(tokio::time::Instant::now() + PING_EVERY, PING_EVERY);
+    let mut ping = ping_timer();
     loop {
         let frame = tokio::select! {
             nudge = control.recv() => {
                 let Some(frame) = nudge else { return };
                 Some(frame)
             }
-            changed = latest.changed() => {
-                if changed.is_err() {
-                    return;
-                }
-                let Some(blob) = latest.borrow_and_update().clone() else {
-                    continue;
-                };
+            blob = fresh(&mut latest) => {
+                let Some(blob) = blob else { return };
                 Some(Frame::Blob(blob.to_vec()))
+            }
+            caps = fresh(&mut caps) => {
+                let Some(caps) = caps else { return };
+                Some(Frame::Caps(caps))
             }
             _ = ping.tick() => None,
         };
@@ -729,6 +824,42 @@ async fn emit_peers(shared: Arc<Shared>) {
     }
 }
 
+#[derive(Clone)]
+pub struct FilesDialer(Arc<Shared>);
+
+impl FilesDialer {
+    pub async fn open_files(
+        &self,
+        device_id: &str,
+        req: FilesRequest,
+        pinned: Option<&str>,
+    ) -> Result<(SessionStream, FilesReply, String), FilesDialError> {
+        let (addr, key) = self.0.files_target(device_id)?;
+        if pinned.is_some_and(|p| p != key) {
+            return Err(FilesDialError::WrongDevice);
+        }
+        let permit = self.0.outbound_permit(true).await;
+        let stream = connect(addr).await.map_err(FilesDialError::Unreachable)?;
+        let mut link = secure(stream, addr, true, &self.0).await?;
+        drop(permit);
+        if hex(&link.hello.device_key) != key {
+            return Err(FilesDialError::WrongDevice);
+        }
+        let lost = |e: HandshakeError| FilesDialError::Unreachable(e.to_string());
+        link.session.send(&Frame::Files(req)).await.map_err(lost)?;
+        let reply = first_frame(&mut link.session, FILES_REPLY_TIMEOUT)
+            .await
+            .map_err(lost)?;
+        match reply {
+            Frame::FilesReply(FilesReply::Refused { reason }) => {
+                Err(FilesDialError::Refused(reason))
+            }
+            Frame::FilesReply(reply) => Ok((SessionStream::new(link.session), reply, key)),
+            _ => Err(FilesDialError::Unreachable("unexpected frame".into())),
+        }
+    }
+}
+
 pub struct Manager {
     shared: Arc<Shared>,
     port: u16,
@@ -778,6 +909,7 @@ async fn serve(
         flush: Notify::new(),
         paused: AtomicBool::new(paused),
         blocked: AtomicBool::new(false),
+        caps: watch::channel(None).0,
         inbound: Arc::new(Semaphore::new(MAX_INBOUND_HANDSHAKES)),
         outbound: Arc::new(Semaphore::new(MAX_OUTBOUND_HANDSHAKES)),
         peers_changed: Notify::new(),
@@ -887,6 +1019,21 @@ impl Manager {
         }
     }
 
+    #[cfg(desktop)]
+    pub fn set_file_service(&self, svc: Option<Arc<dyn InboundFiles>>) {
+        self.shared.lock().files = svc;
+    }
+
+    #[cfg(desktop)]
+    pub async fn set_caps(&self, mut caps: Caps) {
+        caps.port = Some(self.port);
+        self.shared.caps.send_replace(Some(caps));
+    }
+
+    pub fn files_dialer(&self) -> FilesDialer {
+        FilesDialer(self.shared.clone())
+    }
+
     fn shutdown(&mut self) {
         self.discovery = None;
         for task in self.tasks.drain(..) {
@@ -894,6 +1041,7 @@ impl Manager {
         }
         let mut state = self.shared.lock();
         state.closed = true;
+        state.files = None;
         state.peers.clear();
     }
 
@@ -923,9 +1071,9 @@ impl Drop for Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lan_sync::handshake::{initiate_with_hello, Session};
+    use crate::lan_sync::handshake::initiate_with_hello;
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey};
-    use crate::lan_sync::protocol::{raw_hello_frame, MAX_FRAME};
+    use crate::lan_sync::protocol::raw_hello_frame;
     use std::io::Write;
     use std::sync::atomic::AtomicUsize;
 
@@ -1033,18 +1181,31 @@ mod tests {
             && m.shared.outbound.available_permits() == MAX_OUTBOUND_HANDSHAKES
     }
 
-    async fn raw_peer(m: &Manager, id: &str) -> (Session, std::net::TcpStream) {
-        raw_peer_as(m, &test_identity(id)).await
-    }
-
-    async fn raw_peer_as(m: &Manager, me: &LocalIdentity) -> (Session, std::net::TcpStream) {
+    async fn raw_peer_first_as(
+        m: &Manager,
+        me: &LocalIdentity,
+        first: Frame,
+    ) -> (Session, std::net::TcpStream) {
         let raw = std::net::TcpStream::connect(local(m)).unwrap();
         let fd = raw.try_clone().unwrap();
         raw.set_nonblocking(true).unwrap();
         let stream = TcpStream::from_std(raw).unwrap();
         let keys = [derive_auth_key(&[1; 32])];
-        let (session, _) = handshake(stream, true, me, &keys).await.unwrap();
+        let (mut session, _) = handshake(stream, true, me, &keys).await.unwrap();
+        session.send(&first).await.unwrap();
         (session, fd)
+    }
+
+    async fn raw_peer_first(m: &Manager, id: &str, first: Frame) -> (Session, std::net::TcpStream) {
+        raw_peer_first_as(m, &test_identity(id), first).await
+    }
+
+    async fn raw_peer_as(m: &Manager, me: &LocalIdentity) -> (Session, std::net::TcpStream) {
+        raw_peer_first_as(m, me, Frame::Nudge).await
+    }
+
+    async fn raw_peer(m: &Manager, id: &str) -> (Session, std::net::TcpStream) {
+        raw_peer_as(m, &test_identity(id)).await
     }
 
     fn dialable(m: &Manager) -> Vec<SocketAddr> {
@@ -1263,13 +1424,12 @@ mod tests {
         let (session, seen) =
             initiate_with_hello(stream, &test_identity("dev-a"), &keys, part1_hello).await;
         assert!(matches!(&seen[..], [Frame::Auth(_), Frame::Hello(_)]));
-        next_event(&mut eb, listed("dev-a")).await;
-        assert!(addrs_of(&b, "dev-a").is_empty());
-
         let (_reader, mut writer) = session.split();
         writer.send(&Frame::Blob(vec![3; 4])).await.unwrap();
         next_event(&mut eb, blob_from("dev-a")).await;
         assert_eq!(b.take_blob("dev-a"), Some(vec![3; 4]));
+        assert_eq!(b.peers()[0].device_id, "dev-a");
+        assert!(addrs_of(&b, "dev-a").is_empty());
     }
 
     #[tokio::test]
@@ -1337,7 +1497,7 @@ mod tests {
         let stream = TcpStream::connect(local(&b)).await.unwrap();
         let link = secure(stream, local(&b), true, &a.shared).await.unwrap();
         assert!(a.forget("dev-b"));
-        a.shared.adopt(link);
+        a.shared.adopt(link, None);
         assert!(a.peers().is_empty());
     }
 
@@ -1698,6 +1858,324 @@ mod tests {
         a.broadcast(vec![4; 8]).await;
         next_event(&mut eb, blob_from("dev-a")).await;
         assert_eq!(b.take_blob("dev-a"), Some(vec![4; 8]));
+    }
+
+    #[derive(Default)]
+    struct Recorder {
+        served: Mutex<Vec<(String, Route, FilesRequest)>>,
+        held: Mutex<Vec<Session>>,
+    }
+
+    #[async_trait::async_trait]
+    impl InboundFiles for Recorder {
+        async fn serve(&self, mut session: Session, peer: Hello, route: Route, req: FilesRequest) {
+            self.served
+                .lock()
+                .unwrap()
+                .push((peer.device_id, route, req));
+            let reply = FilesReply::Accepted {
+                read_only: true,
+                grant: None,
+            };
+            session.send(&Frame::FilesReply(reply)).await.unwrap();
+            self.held.lock().unwrap().push(session);
+        }
+    }
+
+    fn served(svc: &Recorder) -> usize {
+        svc.served.lock().unwrap().len()
+    }
+
+    async fn synced(a: &Manager, b: &Manager) {
+        a.connect(local(b)).await;
+        until("synced", || a.peers().len() == 1 && b.peers().len() == 1).await;
+    }
+
+    fn conn_of(m: &Manager, id: &str) -> Option<u64> {
+        m.shared.lock().peers.get(id).map(|p| p.conn)
+    }
+
+    async fn open_err(m: &Manager, id: &str) -> FilesDialError {
+        match m
+            .files_dialer()
+            .open_files(id, FilesRequest::default(), None)
+            .await
+        {
+            Ok(_) => panic!("file connection to {id} opened"),
+            Err(e) => e,
+        }
+    }
+
+    fn files_on(id: &'static str) -> impl Fn(&ManagerEvent) -> bool {
+        move |e| matches!(e, ManagerEvent::Peers(p) if p.iter().any(|p| p.device_id == id && p.files))
+    }
+
+    #[tokio::test]
+    async fn file_connection_does_not_replace_sync_peer() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let svc = Arc::new(Recorder::default());
+        b.set_file_service(Some(svc.clone()));
+        synced(&a, &b).await;
+        let before = (conn_of(&a, "dev-b"), conn_of(&b, "dev-a"));
+
+        let (_stream, reply, _) = a
+            .files_dialer()
+            .open_files("dev-b", FilesRequest::default(), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            reply,
+            FilesReply::Accepted {
+                read_only: true,
+                grant: None
+            }
+        );
+        assert_eq!(
+            svc.served.lock().unwrap()[..],
+            [("dev-a".into(), Route::Lan, FilesRequest::default())]
+        );
+        until("handshake permits released", || idle(&a) && idle(&b)).await;
+        assert_eq!((conn_of(&a, "dev-b"), conn_of(&b, "dev-a")), before);
+        assert_eq!((a.peers().len(), b.peers().len()), (1, 1));
+        a.broadcast(vec![3]).await;
+        next_event(&mut eb, blob_from("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn open_file_stream_outlives_manager_stop() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let svc = Arc::new(Recorder::default());
+        b.set_file_service(Some(svc.clone()));
+        synced(&a, &b).await;
+        let (mut near, _, _) = a
+            .files_dialer()
+            .open_files("dev-b", FilesRequest::default(), None)
+            .await
+            .unwrap();
+        until("the file session held", || {
+            !svc.held.lock().unwrap().is_empty()
+        })
+        .await;
+        let mut far = SessionStream::new(svc.held.lock().unwrap().pop().unwrap());
+        a.stop().await;
+        let mut got = [0u8; 4];
+        near.write_all(b"ping").await.unwrap();
+        far.read_exact(&mut got).await.unwrap();
+        assert_eq!(&got, b"ping");
+        far.write_all(b"pong").await.unwrap();
+        near.read_exact(&mut got).await.unwrap();
+        assert_eq!(&got, b"pong");
+    }
+
+    #[tokio::test]
+    async fn first_sync_frame_is_not_lost() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (_session, _fd) = raw_peer_first(&b, "dev-a", Frame::Blob(vec![4])).await;
+        next_event(&mut eb, blob_from("dev-a")).await;
+        assert_eq!(b.take_blob("dev-a"), Some(vec![4]));
+    }
+
+    #[tokio::test]
+    async fn peers_carry_the_proven_device_key() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        synced(&a, &b).await;
+        let key = hex(&test_identity("dev-b").key.public);
+        assert_eq!(a.peers()[0].device_key, key);
+        assert!(!a.peers()[0].files);
+    }
+
+    #[tokio::test]
+    async fn caps_reach_peer_and_update_listing() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        synced(&a, &b).await;
+        b.set_caps(Caps {
+            files: true,
+            port: None,
+        })
+        .await;
+        next_event(&mut ea, files_on("dev-b")).await;
+        b.set_caps(Caps {
+            files: false,
+            port: None,
+        })
+        .await;
+        until("caps off", || !a.peers()[0].files).await;
+    }
+
+    #[tokio::test]
+    async fn caps_sent_to_later_peers() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        b.set_caps(Caps {
+            files: true,
+            port: None,
+        })
+        .await;
+        synced(&a, &b).await;
+        next_event(&mut ea, files_on("dev-b")).await;
+    }
+
+    #[tokio::test]
+    async fn files_without_service_drops_the_link() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        synced(&a, &b).await;
+        let before = conn_of(&b, "dev-a");
+        assert!(matches!(
+            open_err(&a, "dev-b").await,
+            FilesDialError::Unreachable(_)
+        ));
+        assert_eq!(conn_of(&b, "dev-a"), before);
+    }
+
+    #[tokio::test]
+    async fn open_files_rejects_key_mismatch() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (c, _ec) = spawn("dev-c", 1).await;
+        let svc = Arc::new(Recorder::default());
+        c.set_file_service(Some(svc.clone()));
+        synced(&a, &b).await;
+        tag(&a, local(&c), "dev-b");
+        assert!(matches!(
+            open_err(&a, "dev-b").await,
+            FilesDialError::WrongDevice
+        ));
+        until("handshakes settle", || idle(&c)).await;
+        assert_eq!(served(&svc), 0);
+        assert!(c.peers().is_empty());
+    }
+
+    #[tokio::test]
+    async fn untrusted_peer_cannot_open_files() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (s, _es) = spawn("dev-s", 2).await;
+        let svc = Arc::new(Recorder::default());
+        b.set_file_service(Some(svc.clone()));
+        s.connect(local(&b)).await;
+        assert!(matches!(
+            open_err(&s, "dev-b").await,
+            FilesDialError::NotListed
+        ));
+
+        let stream = TcpStream::connect(local(&b)).await.unwrap();
+        let keys = [derive_auth_key(&[2; 32])];
+        assert!(handshake(stream, true, &test_identity("dev-s"), &keys)
+            .await
+            .is_err());
+        until("handshakes settle", || idle(&b)).await;
+        assert_eq!(served(&svc), 0);
+        assert!(b.peers().is_empty());
+    }
+
+    #[tokio::test]
+    async fn open_files_reaches_inbound_only_peer() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let svc = Arc::new(Recorder::default());
+        a.set_file_service(Some(svc.clone()));
+        a.set_caps(Caps {
+            files: true,
+            port: None,
+        })
+        .await;
+        synced(&a, &b).await;
+        next_event(&mut eb, files_on("dev-a")).await;
+        assert!(dialable(&b).is_empty());
+
+        let (_stream, _reply, _) = b
+            .files_dialer()
+            .open_files("dev-a", FilesRequest::default(), None)
+            .await
+            .unwrap();
+        assert_eq!(served(&svc), 1);
+    }
+
+    #[tokio::test]
+    async fn inbound_only_peer_without_known_port_is_unreachable() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        assert!(matches!(
+            open_err(&b, "dev-a").await,
+            FilesDialError::Unreachable(_)
+        ));
+    }
+
+    async fn assert_files_refused(m: &Manager, svc: &Recorder, me: &LocalIdentity) {
+        let files = Frame::Files(FilesRequest::default());
+        let (mut session, _fd) = raw_peer_first_as(m, me, files).await;
+        let reply = session.recv().await;
+        assert!(!matches!(reply, Ok(Frame::FilesReply(_))), "{reply:?}");
+        until("handshakes settle", || idle(m)).await;
+        assert_eq!(served(svc), 0);
+    }
+
+    async fn serving(policy: PinPolicy) -> (Manager, Arc<Recorder>) {
+        let (b, mut eb) = spawn_as(test_identity("dev-b"), PeerStore::memory(), policy).await;
+        let svc = Arc::new(Recorder::default());
+        b.set_file_service(Some(svc.clone()));
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        (b, svc)
+    }
+
+    #[tokio::test]
+    async fn forgotten_device_cannot_open_files() {
+        let (b, svc) = serving(PinPolicy::Repin).await;
+        assert!(b.forget("dev-a"));
+        assert_files_refused(&b, &svc, &test_identity("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn pin_mismatch_cannot_open_files() {
+        let (b, svc) = serving(PinPolicy::Refuse).await;
+        assert_files_refused(&b, &svc, &impostor_of("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn own_device_id_cannot_open_files() {
+        let (b, svc) = serving(PinPolicy::Repin).await;
+        assert_files_refused(&b, &svc, &impostor_of("dev-b")).await;
+    }
+
+    #[tokio::test]
+    async fn open_files_refuses_a_forgotten_device() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        synced(&a, &b).await;
+        assert!(a.forget("dev-b"));
+        assert!(matches!(
+            open_err(&a, "dev-b").await,
+            FilesDialError::NotListed
+        ));
+    }
+
+    #[tokio::test]
+    async fn open_files_refuses_a_pin_mismatch() {
+        let (a, _ea) = spawn_as(
+            test_identity("dev-a"),
+            PeerStore::memory(),
+            PinPolicy::Refuse,
+        )
+        .await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (c, _ec) = spawn_as(impostor_of("dev-b"), PeerStore::memory(), PinPolicy::Repin).await;
+        let svc = Arc::new(Recorder::default());
+        c.set_file_service(Some(svc.clone()));
+        synced(&a, &b).await;
+        tag(&a, local(&c), "dev-b");
+        assert!(matches!(
+            open_err(&a, "dev-b").await,
+            FilesDialError::Handshake(HandshakeError::Pinned(Rejection::KeyChanged))
+        ));
+        assert_eq!(served(&svc), 0);
+        assert_eq!(a.peers().len(), 1);
     }
 
     #[test]

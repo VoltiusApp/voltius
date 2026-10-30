@@ -181,6 +181,11 @@
           "buffer"
         ]
       },
+      "devices": {
+        "mobileSub": "Permitir que os seus dispositivos abram ficheiros aqui",
+        "label": "Dispositivos",
+        "keywords": ["dispositivos", "ficheiros", "sftp", "partilha", "pastas", "acesso"]
+      },
       "sftp": {
         "mobileSub": "Downloads, transferências, editor",
         "label": "SFTP",
@@ -947,6 +952,28 @@
           "omniCommands": { "label": "Adicionar ações à paleta de comandos", "description": "Adicionar suas próprias ações à paleta de comandos." },
           "uiContributions": { "label": "Adicionar elementos de interface", "description": "Adicionar seus próprios elementos à interface do aplicativo." }
         }
+      }
+    },
+    "devices": {
+      "fileAccess": {
+        "title": "Acesso a ficheiros",
+        "enable": { "title": "Permitir que os meus dispositivos abram ficheiros neste computador", "desc": "Os seus outros dispositivos Voltius podem navegar nas pastas abaixo através de SFTP. Desativado por predefinição." },
+        "folders": "Pastas partilhadas",
+        "addFolder": "Adicionar pasta",
+        "noFolders": "Adicione uma pasta para a partilhar com os seus dispositivos.",
+        "removeFolder": "Parar de partilhar {{folder}}",
+        "readOnly": { "title": "Só de leitura", "desc": "Os dispositivos podem copiar ficheiros daqui, mas não alterá-los nem eliminá-los." }
+      },
+      "allowed": {
+        "title": "Dispositivos permitidos",
+        "asksEachTime": "Perguntar sempre",
+        "alwaysAllowed": "Sempre permitido",
+        "connectedNow": "ligado",
+        "disconnect": "Desligar",
+        "revoke": "Revogar",
+        "needsKey": "Ligue-se uma vez para permitir",
+        "alwaysLabel": "Permitir sempre {{name}}",
+        "empty": "Ainda não há outros dispositivos."
       }
     },
     "sftp": {

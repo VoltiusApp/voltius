@@ -2,6 +2,7 @@ import type { HostChoice } from "@/components/shared/HostPickerPanel";
 import type { McpOwner } from "@/stores/mcpOwnershipStore";
 import type { BackendErrorCode } from "@/services/backendErrors";
 import { formatDate, formatDateTime, formatTime, HOUR_MINUTE, MONTH_DAY, SHORT_DATE } from "@/utils/localeFormat";
+import type { LanRoute } from "@/services/lanSyncDevices";
 import type { Accel } from "./tarSupport";
 export type { HostChoice };
 
@@ -47,7 +48,7 @@ export function columnGrid(withPermissions: boolean, visibleCols: VisibleCols, c
 export type SidePhase =
   | { tag: "picking" }
   | { tag: "connecting"; connectId: string; host: HostChoice }
-  | { tag: "connected"; sftpId: string | null; cwd: string; selected: FileEntry[] }
+  | { tag: "connected"; sftpId: string | null; cwd: string; selected: FileEntry[]; route?: LanRoute; rttMs?: number; readOnly?: boolean }
   | { tag: "error"; message: string; errorCode?: BackendErrorCode; final?: boolean; host?: HostChoice; lostSftpId?: string };
 
 export type Transfer = {

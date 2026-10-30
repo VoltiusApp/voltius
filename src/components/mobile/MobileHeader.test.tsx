@@ -51,7 +51,7 @@ describe("MobileHeader", () => {
   });
 
   test("a device with sync off but peers nearby shows the wifi icon", async () => {
-    useLanSyncStore.setState({ peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a" }] });
+    useLanSyncStore.setState({ peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a", deviceKey: "key", files: false }] });
     const { default: MobileHeader } = await import("./MobileHeader");
     const { container } = render(<MobileHeader />);
     const button = container.querySelector("button[data-mobile-sync-status]")!;
@@ -60,7 +60,7 @@ describe("MobileHeader", () => {
   });
 
   test("paused local sync does not count its peers as nearby", async () => {
-    useLanSyncStore.setState({ paused: true, peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a" }] });
+    useLanSyncStore.setState({ paused: true, peers: [{ deviceId: "A", deviceName: "A", platform: "linux", route: "lan", address: "a", deviceKey: "key", files: false }] });
     const { default: MobileHeader } = await import("./MobileHeader");
     const { container } = render(<MobileHeader />);
     const button = container.querySelector("button[data-mobile-sync-status]")!;

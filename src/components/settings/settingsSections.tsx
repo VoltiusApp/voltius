@@ -9,6 +9,7 @@ import SFTPSection from "@/components/settings/sections/SFTPSection";
 import PortForwardingSection from "@/components/settings/sections/PortForwardingSection";
 import AboutSection from "@/components/settings/sections/AboutSection";
 import HostsSection from "@/components/settings/sections/HostsSection";
+import DevicesSection from "@/components/settings/sections/DevicesSection";
 import ShortcutsSection from "@/components/settings/sections/ShortcutsSection";
 import DiagnosticsSection from "@/components/settings/sections/DiagnosticsSection";
 
@@ -24,6 +25,7 @@ export function renderSettingsSection(section: SettingsSection) {
     case "sftp": return <SFTPSection />;
     case "portForwarding": return <PortForwardingSection />;
     case "hosts": return <HostsSection />;
+    case "devices": return <DevicesSection />;
     case "shortcuts": return <ShortcutsSection />;
     case "diagnostics": return <DiagnosticsSection />;
     case "about": return <AboutSection />;

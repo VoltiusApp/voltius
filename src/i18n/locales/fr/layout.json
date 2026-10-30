@@ -367,6 +367,18 @@
       "promptReason": "Déverrouiller Voltius",
       "sealReason": "Confirmez pour garder la clé du coffre sur cet appareil",
       "bindingLost": "La connexion de votre appareil a changé. Saisissez votre mot de passe principal."
+    },
+    "deviceFiles": {
+      "title": "{{name}} veut ouvrir vos fichiers",
+      "subtitle": "Votre appareil · {{route}}",
+      "newDevice": "Nouvel appareil",
+      "folders": "Il verra les dossiers que vous partagez dans Paramètres › Appareils : {{folders}}.",
+      "readWrite": "Il peut y copier, renommer et supprimer des fichiers.",
+      "readOnly": "Il peut y copier des fichiers.",
+      "deny": "Refuser",
+      "once": "Autoriser une fois",
+      "always": "Toujours autoriser",
+      "sessionToast": "{{name}} a ouvert vos fichiers"
     }
   }
 }

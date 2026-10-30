@@ -30,7 +30,14 @@
     "vault-role-read-only": "Você não tem acesso de gravação a este cofre (seu papel: {{role}}). Apenas proprietários, gerentes e editores podem fazer alterações.",
     "vault-permissions-unavailable": "Não foi possível verificar permissões do cofre porque o keychain está indisponível. Tente novamente.",
     "vault-permissions-corrupted": "Os dados de permissão do cofre estão corrompidos. Entre novamente para atualizar o acesso.",
-    "knock-udp-via-proxy": "Batidas UDP não podem passar por um proxy. Use etapas TCP ou uma conexão direta para este host."
+    "knock-udp-via-proxy": "Batidas UDP não podem passar por um proxy. Use etapas TCP ou uma conexão direta para este host.",
+    "device-file-access-off": "O acesso a arquivos está desativado nesse dispositivo. Ative-o em Configurações › Dispositivos no dispositivo.",
+    "device-access-denied": "O dispositivo recusou o pedido para abrir seus arquivos.",
+    "device-approval-timed-out": "Ninguém respondeu ao pedido no dispositivo a tempo.",
+    "device-busy": "Esse dispositivo tem muitas sessões de arquivos abertas. Feche uma e tente novamente.",
+    "device-unreachable": "Não foi possível alcançar esse dispositivo. Verifique se ele está ligado e na mesma rede.",
+    "device-access-expired": "O acesso a este dispositivo terminou. Abra-o novamente para pedir permissão.",
+    "device-read-only": "Esse dispositivo partilha estas pastas só para leitura."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

@@ -1,3 +1,4 @@
+#[cfg(any(target_os = "android", target_os = "ios", test))]
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -12,16 +13,14 @@ pub struct DownloadDirInfo {
 
 #[cfg(target_os = "android")]
 mod android {
-    use crate::android_ctx::{load_class, with_env};
+    use crate::android_ctx::{load_class, with_env, PickSlot};
     use jni::objects::{JClass, JObject, JString, JValue};
     use jni::JNIEnv;
-    use std::sync::Mutex;
-    use tokio::sync::oneshot;
 
     // Dotted name for the app class loader (see `android_ctx::load_class`): these commands are
     // `async`, so they run on tokio threads whose default `FindClass` can't see app classes.
     const CLASS: &str = "com.voltius.app.VoltiusDownloads";
-    static PICK_TX: Mutex<Option<oneshot::Sender<Option<String>>>> = Mutex::new(None);
+    static PICK: PickSlot = PickSlot::new();
 
     fn opt_string(env: &mut JNIEnv, v: JObject) -> Result<Option<String>, jni::errors::Error> {
         if v.is_null() {
@@ -107,19 +106,7 @@ mod android {
     }
 
     pub async fn pick() -> Result<Option<String>, String> {
-        let (tx, rx) = oneshot::channel();
-        *PICK_TX.lock().unwrap() = Some(tx);
-        let launched = with_env("download dir pick", |env, _ctx| {
-            let cls = load_class(env, CLASS)?;
-            env.call_static_method(&cls, "launchPicker", "()Z", &[])?
-                .z()
-        })?;
-        if !launched {
-            // No Activity handled it (app backgrounded); don't park forever.
-            let _ = PICK_TX.lock().unwrap().take();
-            return Err("could not open the folder picker (app not in foreground)".into());
-        }
-        rx.await.map_err(|_| "folder picker cancelled".to_string())
+        PICK.pick("folder picker", CLASS).await
     }
 
     /// JNI entry for `VoltiusDownloads.nativeDirPicked(uri)`. Fulfils the pending picker.
@@ -129,14 +116,7 @@ mod android {
         _class: JClass<'local>,
         uri: JString<'local>,
     ) {
-        let val = if uri.is_null() {
-            None
-        } else {
-            env.get_string(&uri).ok().map(|s| s.into())
-        };
-        if let Some(tx) = PICK_TX.lock().unwrap().take() {
-            let _ = tx.send(val);
-        }
+        PICK.fulfil(&mut env, &uri);
     }
 }
 
@@ -183,14 +163,6 @@ pub fn collect_publish_entries(
     Ok(out)
 }
 
-fn temp_download_path(cache_dir: &Path, transfer_id: &str, name: &str) -> PathBuf {
-    let safe = |s: &str| s.replace(['/', '\\'], "_");
-    cache_dir
-        .join("voltius-downloads")
-        .join(safe(transfer_id))
-        .join(safe(name))
-}
-
 /// A unique temp destination under the app cache for an in-flight download. The existing
 /// `sftp_download*` commands write here (real fs); `download_publish` then moves it into the
 /// SAF tree. Parent dirs are created; the leaf is returned for use as `localPath`.
@@ -200,12 +172,7 @@ pub fn download_temp_path(
     transfer_id: String,
     name: String,
 ) -> Result<String, String> {
-    let cache = crate::scratch::app_scratch_dir(&app)?;
-    let path = temp_download_path(&cache, &transfer_id, &name);
-    let dir = path
-        .parent()
-        .ok_or_else(|| "Invalid temp download path".to_string())?;
-    std::fs::create_dir_all(dir).map_err(|e| format!("Cannot create temp dir: {e}"))?;
+    let path = crate::scratch::transfer_file(&app, "voltius-downloads", &transfer_id, &name)?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -327,7 +294,7 @@ fn ios_downloads_dir(app: &AppHandle) -> Result<PathBuf, String> {
 /// counter goes before the extension of a file name ("a.txt" -> "a (2).txt").
 #[cfg(any(target_os = "ios", test))]
 fn unique_destination(dir: &Path, name: &str) -> PathBuf {
-    let name = name.replace(['/', '\\'], "_");
+    let name = crate::scratch::safe_file_name(name);
     let first = dir.join(&name);
     if !first.exists() {
         return first;
@@ -429,25 +396,6 @@ mod tests {
             entries.iter().map(|(r, _)| r.clone()).collect::<Vec<_>>(),
             vec!["proj/README".to_string(), "proj/src/main.rs".to_string()],
         );
-    }
-
-    #[test]
-    fn temp_path_nests_under_the_app_cache_dir() {
-        let p = temp_download_path(
-            Path::new("/data/user/0/com.voltius.app/cache"),
-            "t1",
-            "a.bin",
-        );
-        assert_eq!(
-            p,
-            Path::new("/data/user/0/com.voltius.app/cache/voltius-downloads/t1/a.bin"),
-        );
-    }
-
-    #[test]
-    fn temp_path_flattens_separators_in_the_remote_name() {
-        let p = temp_download_path(Path::new("/cache"), "t1", "../../etc/passwd");
-        assert_eq!(p, Path::new("/cache/voltius-downloads/t1/.._.._etc_passwd"));
     }
 
     #[test]

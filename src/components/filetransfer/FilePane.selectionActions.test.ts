@@ -14,6 +14,29 @@ const labels = (canArchive: boolean, entry: FileEntry) =>
     canArchive, setSelection: vi.fn(), onRefresh: vi.fn(),
   }, t).map((item) => item.label);
 
+const writeLabels = ["common.action.rename", "fileTransfer.pane.menu.delete", "fileTransfer.pane.menu.compress"];
+
+describe("buildSelectionActions on a read-only device", () => {
+  const build = (readOnlyTip?: string) =>
+    buildSelectionActions([file("a.txt")], {
+      isLocal: false, sftpId: "s1", hostLabel: "h", canTransferToTarget: true,
+      onStartRename: vi.fn(), onDelete: vi.fn(), onCompress: vi.fn(), onExtract: vi.fn(),
+      canArchive: true, setSelection: vi.fn(), onRefresh: vi.fn(), readOnlyTip,
+    }, t);
+
+  it("disables every write with the tip", () => {
+    const items = build("shared read-only");
+    for (const label of [...writeLabels, "fileTransfer.pane.menu.moveToTarget"]) {
+      expect(items.find((i) => i.label === label)?.disabledReason).toBe("shared read-only");
+    }
+    expect(items.find((i) => i.label === "common.action.edit")?.disabledReason).toBeUndefined();
+  });
+
+  it("leaves them enabled otherwise", () => {
+    expect(build().every((i) => i.disabledReason === undefined)).toBe(true);
+  });
+});
+
 describe("buildSelectionActions", () => {
   it("offers Compress and Extract only where tar can run", () => {
     expect(labels(true, file("a.tar.gz"))).toEqual(expect.arrayContaining([
@@ -22,5 +45,20 @@ describe("buildSelectionActions", () => {
     const without = labels(false, file("a.tar.gz"));
     expect(without).not.toContain("fileTransfer.pane.menu.compress");
     expect(without).not.toContain("fileTransfer.pane.menu.extractHere");
+  });
+});
+
+describe("buildSelectionActions permissions", () => {
+  const script: FileEntry = { ...file("a.sh"), permissions: 0o755 };
+  const offered = (isDevice: boolean) =>
+    buildSelectionActions([script], {
+      isLocal: false, isDevice, sftpId: "s1", hostLabel: "h", canTransferToTarget: false,
+      onStartRename: vi.fn(), onDelete: vi.fn(), onCompress: vi.fn(), onExtract: vi.fn(),
+      canArchive: false, setSelection: vi.fn(), onRefresh: vi.fn(), onPermissions: vi.fn(),
+    }, t).some((item) => item.label === "fileTransfer.pane.menu.permissions");
+
+  it("is hidden on a device pane and offered on an ssh pane", () => {
+    expect(offered(true)).toBe(false);
+    expect(offered(false)).toBe(true);
   });
 });

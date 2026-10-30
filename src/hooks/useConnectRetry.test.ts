@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { IdentityPickUnavailableError } from "@/services/credentialPlan";
+import { BackendError } from "@/services/backendErrors";
 import { connectErrorPhase, useConnectRetry } from "./useConnectRetry";
 import { FAST_DELAYS_MS, SLOW_RETRY_MS, STABLE_CONNECTION_MS, connectRetryDelay } from "@/stores/reconnectBackoffCore";
 
@@ -24,6 +25,17 @@ describe("connectRetryDelay", () => {
     // A coded failure's message arrives translated, so only its code tells.
     expect(connectRetryDelay(0, "Mot de passe refusé.", "ssh-password-rejected")).toBeNull();
     expect(connectRetryDelay(0, "Connexion refusée.", "connection-refused")).toBe(FAST_DELAYS_MS[0]);
+  });
+});
+
+describe("connectErrorPhase", () => {
+  it("is final for a device refusal but not for a busy or unreachable device", () => {
+    for (const code of ["device-file-access-off", "device-access-denied", "device-approval-timed-out", "device-access-expired"] as const) {
+      expect(connectErrorPhase(new BackendError(code, code))).toMatchObject({ errorCode: code, final: true });
+    }
+    for (const code of ["device-busy", "device-unreachable"] as const) {
+      expect(connectErrorPhase(new BackendError(code, code))).toMatchObject({ errorCode: code, final: false });
+    }
   });
 });
 

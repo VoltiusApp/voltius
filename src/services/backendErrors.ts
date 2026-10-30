@@ -37,6 +37,13 @@ export const BACKEND_ERROR_CODES = [
   "vault-permissions-unavailable",
   "vault-permissions-corrupted",
   "knock-udp-via-proxy",
+  "device-file-access-off",
+  "device-access-denied",
+  "device-approval-timed-out",
+  "device-busy",
+  "device-unreachable",
+  "device-access-expired",
+  "device-read-only",
 ] as const;
 
 export type BackendErrorCode = (typeof BACKEND_ERROR_CODES)[number];

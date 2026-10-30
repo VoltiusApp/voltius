@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useLongPress } from "@/components/mobile/useLongPress";
@@ -13,14 +13,21 @@ import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
 import { transferItem } from "@/services/sftpTransferCore";
 import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
+import { uploadContentFiles, uploadPick, type ContentFile } from "@/services/uploads";
 import { needsPicker } from "@/components/terminal/androidDownloadDir";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
 import type { Connection } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { AvatarTile } from "@/components/shared/AvatarTile";
+import { DEVICE_TILE_BASE, deviceIcon } from "@/utils/icons";
+import type { MyDevice } from "@/services/myDevices";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
 import { compareStrings } from "@/utils/localeFormat";
+import { refuseReadOnly, useReadOnlyTip } from "@/services/deviceReadOnly";
+import { PaneDropOverlay } from "@/components/filetransfer/PaneDropOverlay";
+import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
 import { describeError, type BackendErrorCode } from "@/services/backendErrors";
 import { haptic } from "@/lib/haptics";
 import { appToast } from "@/services/appToast";
@@ -38,6 +45,7 @@ function isPermissionDenied(msg: string, code: BackendErrorCode | null): boolean
 }
 
 type Controller = ReturnType<typeof useSftpDir>;
+export type PaneDrop = (files: ContentFile[]) => void;
 
 /**
  * One remote pane. Tap a folder to open it, a file (or its ⋮) for its actions sheet;
@@ -46,10 +54,11 @@ type Controller = ReturnType<typeof useSftpDir>;
  * walks up one directory at a time until "/".
  */
 export default function MobileSftpPane({
-  controller, connection, selected, onSelectionChange, onPickHost, onCopyToOther, otherConnected, headerSlot, onScreen, backUp,
+  controller, connection, device, selected, onSelectionChange, onPickHost, onCopyToOther, otherConnected, headerSlot, onScreen, backUp, dropRef, dropHover,
 }: {
   controller: Controller;
   connection: Connection | undefined;
+  device?: MyDevice;
   selected: FileEntry[];
   onSelectionChange: (items: FileEntry[]) => void;
   onPickHost: () => void;
@@ -59,9 +68,13 @@ export default function MobileSftpPane({
   /** The screen is showing (the SFTP tab stays mounted while hidden). */
   onScreen: boolean;
   backUp: boolean;
+  dropRef?: Ref<PaneDrop>;
+  dropHover?: boolean;
 }) {
   const { t } = useTranslation();
-  const { phase, retrying, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
+  const { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
+  const readOnlyTip = useReadOnlyTip(readOnly, device?.name);
+  const chmodable = !!sftpId && !device;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
@@ -161,6 +174,19 @@ export default function MobileSftpPane({
     await runTransfer(f.name, "←", async (tid) => fetchTo(joinPath(await appCacheDir(), f.name), tid), undefined, accelFor(mode, f.isDir));
   };
 
+  const upload = async (pick: () => Promise<ContentFile[]> = uploadPick) => {
+    if (!sftpId) return;
+    try {
+      await uploadContentFiles(await pick(), sftpId, cwd, refresh);
+    } catch (e) {
+      fail(e, () => upload(pick));
+    }
+  };
+  const canUpload = isAndroid && phase.tag === "connected" && !!sftpId;
+  useImperativeHandle(dropRef, () => (files: ContentFile[]) => {
+    if (canUpload && !refuseReadOnly(readOnlyTip)) void upload(async () => files);
+  });
+
   // Share: the files download into the share staging folder (with the usual transfer cards),
   // then the system chooser gets them. Large sets ask first. Folders can't be shared.
   const canShareFiles = canShareStagedFiles();
@@ -182,7 +208,7 @@ export default function MobileSftpPane({
     }
   };
 
-  if (!connection) {
+  if (!connection && !device) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
         <Icon icon="lucide:folder-open" width={28} className="text-(--t-text-dim)" />
@@ -210,25 +236,32 @@ export default function MobileSftpPane({
         <BarButton attr="data-sftp-sel-copy" icon="lucide:arrow-right-left" label={t("mobile.sftp.copyToOtherPane")} onTap={() => onCopyToOther(selected)} />
       )}
       <BarButton attr="data-sftp-sel-download" icon="lucide:download" label={t("mobile.sftp.downloadSelectedAriaLabel")} onTap={() => void downloadSelected()} />
-      <BarButton attr="data-sftp-sel-delete" icon="lucide:trash-2" label={t("mobile.sftp.deleteSelectedAriaLabel")} danger onTap={() => setConfirmBatchDelete(true)} />
+      <BarButton attr="data-sftp-sel-delete" icon="lucide:trash-2" label={t("mobile.sftp.deleteSelectedAriaLabel")} danger disabledReason={readOnlyTip} onTap={() => setConfirmBatchDelete(true)} />
       <BarButton attr="data-sftp-sel-more" icon="lucide:ellipsis-vertical" label={t("mobile.sftp.moreActions")} onTap={() => setSelectionMore(true)} />
     </header>,
     headerSlot,
   );
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="relative h-full flex flex-col min-h-0">
+      {dropHover && canUpload && !readOnly && <PaneDropOverlay />}
       {selectionBar}
       <div className="shrink-0 flex items-center h-12 border-b" style={{ borderColor: "var(--t-border)" }}>
         <button data-sftp-pane-host onClick={onPickHost} className="h-12 flex items-center gap-2 min-w-0 pl-3 pr-2 rounded-full">
-          <ConnectionAvatar connection={connection} size={22} />
-          <span className="text-sm font-medium text-(--t-text-primary) truncate">{connectionDisplayName(connection)}</span>
+          {device ? (
+            <AvatarTile base={DEVICE_TILE_BASE} icon={deviceIcon(device.platform)} iconSize={12} className="w-[1.375rem] h-[1.375rem] rounded-md text-(--t-text-bright)" />
+          ) : (
+            <ConnectionAvatar connection={connection!} size={22} />
+          )}
+          <span className="text-sm font-medium text-(--t-text-primary) truncate">{device ? device.name : connectionDisplayName(connection!)}</span>
           <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-dim) shrink-0" />
         </button>
+        {readOnlyTip && <ReadOnlyBadge tip={readOnlyTip} className="ml-1" />}
         <div className="flex-1" />
         <button data-sftp-hidden onClick={() => setShowHidden((v) => !v)} className="h-12 px-3 text-xs rounded-full"
           style={{ color: showHidden ? "var(--t-accent)" : "var(--t-text-dim)" }}>{showHidden ? t("mobile.sftp.hidden") : t("mobile.sftp.visible")}</button>
-        <button data-sftp-create onClick={() => setCreating(true)} className="w-12 h-12 flex items-center justify-center rounded-full text-(--t-text-dim)" aria-label={t("common.action.create")}>
+        <button data-sftp-create onClick={() => setCreating(true)} disabled={readOnly} className="w-12 h-12 flex items-center justify-center rounded-full text-(--t-text-dim) disabled:opacity-35"
+          aria-label={readOnlyTip ?? t("common.action.create")} title={readOnlyTip}>
           <Icon icon="lucide:plus" width={20} />
         </button>
       </div>
@@ -303,12 +336,12 @@ export default function MobileSftpPane({
             <SheetItem attr="share" icon="lucide:share-2" label={t("mobile.share.action")} onTap={() => { const f = sheetFor; setSheetFor(null); void share([f]); }} />
           )}
           <SheetItem icon="lucide:info" label={t("mobile.sftp.details")} onTap={() => { setDetailFor(sheetFor); setSheetFor(null); }} />
-          <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} onTap={() => { startRename(sheetFor); setSheetFor(null); }} />
-          {sftpId && canEditPermissions([sheetFor]) && (
-            <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} onTap={() => { setPermissionsFor([sheetFor]); setSheetFor(null); }} />
+          <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} disabledReason={readOnlyTip} onTap={() => { startRename(sheetFor); setSheetFor(null); }} />
+          {chmodable && canEditPermissions([sheetFor]) && (
+            <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} disabledReason={readOnlyTip} onTap={() => { setPermissionsFor([sheetFor]); setSheetFor(null); }} />
           )}
           <SheetItem icon="lucide:clipboard" label={t("mobile.sftp.copyPath")} onTap={() => { void writeClipboard(sheetFor.path); setSheetFor(null); }} />
-          <SheetItem icon="lucide:trash-2" label={t("common.action.delete")} danger onTap={() => { setConfirmDelete(sheetFor); setSheetFor(null); }} />
+          <SheetItem icon="lucide:trash-2" label={t("common.action.delete")} danger disabledReason={readOnlyTip} onTap={() => { setConfirmDelete(sheetFor); setSheetFor(null); }} />
         </BottomSheet>
       )}
       {selectionMore && (
@@ -316,10 +349,10 @@ export default function MobileSftpPane({
           {canShareFiles && selected.every((f) => !f.isDir) && (
             <SheetItem attr="share" icon="lucide:share-2" label={t("mobile.share.action")} onTap={() => { const items = selected; setSelectionMore(false); clearSelection(); void share(items); }} />
           )}
-          {single && <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} onTap={() => { setSelectionMore(false); startRename(single); clearSelection(); }} />}
+          {single && <SheetItem icon="lucide:text-cursor-input" label={t("common.action.rename")} disabledReason={readOnlyTip} onTap={() => { setSelectionMore(false); startRename(single); clearSelection(); }} />}
           {single && <SheetItem icon="lucide:info" label={t("mobile.sftp.details")} onTap={() => { setSelectionMore(false); setDetailFor(single); clearSelection(); }} />}
-          {sftpId && canEditPermissions(selected) && (
-            <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} onTap={() => { setSelectionMore(false); setPermissionsFor(selected); clearSelection(); }} />
+          {chmodable && canEditPermissions(selected) && (
+            <SheetItem icon="lucide:key-round" label={t("fileTransfer.pane.menu.permissions")} disabledReason={readOnlyTip} onTap={() => { setSelectionMore(false); setPermissionsFor(selected); clearSelection(); }} />
           )}
           <SheetItem icon="lucide:clipboard" label={t("mobile.sftp.copyPath")} onTap={() => { setSelectionMore(false); void writeClipboard(selected.map((f) => f.path).join("\n")); clearSelection(); }} />
         </BottomSheet>
@@ -385,6 +418,10 @@ export default function MobileSftpPane({
         <BottomSheet title={t("common.action.create")} onClose={() => setCreating(false)}>
           <SheetItem icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={() => { setCreating(false); setNewFolder(true); }} />
           <SheetItem icon="lucide:file-plus" label={t("mobile.sftp.newFileOption")} onTap={() => { setCreating(false); setNewFile(true); }} />
+          {canUpload && (
+            <SheetItem attr="upload" icon="lucide:upload" label={t("fileTransfer.pane.menu.uploadFiles")} disabledReason={readOnlyTip}
+              onTap={() => { setCreating(false); void upload(); }} />
+          )}
         </BottomSheet>
       )}
       {newFolder && (
@@ -443,10 +480,11 @@ function FileRow({ file, checked, selecting, moreLabel, onTap, onLong, onToggle,
   );
 }
 
-function BarButton({ attr, icon, label, onTap, danger, pressed }: { attr: string; icon: string; label: string; onTap: () => void; danger?: boolean; pressed?: boolean }) {
+function BarButton({ attr, icon, label, onTap, danger, pressed, disabledReason }: { attr: string; icon: string; label: string; onTap: () => void; danger?: boolean; pressed?: boolean; disabledReason?: string }) {
   return (
-    <button {...{ [attr]: "" }} onClick={onTap} aria-label={label} title={label} aria-pressed={pressed}
-      className="w-12 h-12 shrink-0 flex items-center justify-center rounded-full"
+    <button {...{ [attr]: "" }} onClick={onTap} aria-label={disabledReason ?? label} title={disabledReason ?? label} aria-pressed={pressed}
+      disabled={!!disabledReason}
+      className="w-12 h-12 shrink-0 flex items-center justify-center rounded-full disabled:opacity-35"
       style={{ color: danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
       <Icon icon={icon} width={20} />
     </button>
@@ -462,10 +500,10 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SheetItem({ icon, label, onTap, danger, attr }: { icon: string; label: string; onTap: () => void; danger?: boolean; attr?: string }) {
+function SheetItem({ icon, label, onTap, danger, attr, disabledReason }: { icon: string; label: string; onTap: () => void; danger?: boolean; attr?: string; disabledReason?: string }) {
   return (
-    <button data-sftp-action={attr ?? label.toLowerCase().replace(/\s+/g, "-")}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
+    <button data-sftp-action={attr ?? label.toLowerCase().replace(/\s+/g, "-")} disabled={!!disabledReason} title={disabledReason}
+      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-35"
       style={{ color: danger ? "var(--t-status-error)" : "var(--t-text-primary)" }} onClick={onTap}>
       <Icon icon={icon} width={18} /><span className="text-sm font-medium">{label}</span>
     </button>

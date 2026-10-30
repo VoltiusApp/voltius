@@ -181,6 +181,11 @@
           "buffer"
         ]
       },
+      "devices": {
+        "mobileSub": "Let your devices open files here",
+        "label": "Devices",
+        "keywords": ["devices", "files", "sftp", "share", "folders", "access"]
+      },
       "sftp": {
         "mobileSub": "Downloads, transfers, editor",
         "label": "SFTP",
@@ -941,6 +946,28 @@
           "omniCommands": { "label": "Add command-palette actions", "description": "Add its own actions to the command palette." },
           "uiContributions": { "label": "Add interface elements", "description": "Add its own elements to the app's interface." }
         }
+      }
+    },
+    "devices": {
+      "fileAccess": {
+        "title": "File access",
+        "enable": { "title": "Let my devices open files on this computer", "desc": "Your other Voltius devices can browse the folders below from SFTP. Off by default." },
+        "folders": "Shared folders",
+        "addFolder": "Add folder",
+        "noFolders": "Add a folder to share it with your devices.",
+        "removeFolder": "Stop sharing {{folder}}",
+        "readOnly": { "title": "Read-only", "desc": "Devices can copy files from here, not change or delete them." }
+      },
+      "allowed": {
+        "title": "Allowed devices",
+        "asksEachTime": "Asks each time",
+        "alwaysAllowed": "Always allowed",
+        "connectedNow": "connected now",
+        "disconnect": "Disconnect",
+        "revoke": "Revoke",
+        "needsKey": "Connect once to allow",
+        "alwaysLabel": "Always allow {{name}}",
+        "empty": "No other devices yet."
       }
     },
     "sftp": {

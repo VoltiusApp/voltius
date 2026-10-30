@@ -8,6 +8,8 @@ export type StepStatus = "pending" | "active" | "done" | "error";
 export interface StepConfig {
   id: string;
   label: string;
+  /** Listed only once the backend reports it. */
+  lazy?: boolean;
 }
 
 export interface Step extends StepConfig {

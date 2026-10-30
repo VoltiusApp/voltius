@@ -30,7 +30,14 @@
     "vault-role-read-only": "您没有此保险库的写入权限（您的角色：{{role}}）。只有所有者、管理员和编辑者可以进行修改。",
     "vault-permissions-unavailable": "钥匙串不可用，无法验证保险库权限。请重试。",
     "vault-permissions-corrupted": "保险库权限数据已损坏。请重新登录以刷新访问权限。",
-    "knock-udp-via-proxy": "UDP 敲门包无法通过代理发送。请为此主机使用 TCP 步骤或直接连接。"
+    "knock-udp-via-proxy": "UDP 敲门包无法通过代理发送。请为此主机使用 TCP 步骤或直接连接。",
+    "device-file-access-off": "该设备的文件访问已关闭。请在该设备的 设置 › 设备 中开启。",
+    "device-access-denied": "该设备拒绝了打开其文件的请求。",
+    "device-approval-timed-out": "设备上无人及时响应请求。",
+    "device-busy": "该设备打开的文件会话过多。请关闭一个后重试。",
+    "device-unreachable": "无法连接该设备。请确认它已开机并处于同一网络。",
+    "device-access-expired": "对此设备的访问已结束。请重新打开以请求权限。",
+    "device-read-only": "该设备以只读方式共享这些文件夹。"
   },
   "errorAt": {
     "proxy": "代理 {{proxy}}：{{cause}}",

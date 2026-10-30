@@ -367,6 +367,18 @@
       "promptReason": "Desbloquear Voltius",
       "sealReason": "Confirmar para manter sua chave de cofre neste dispositivo",
       "bindingLost": "Seu login no dispositivo mudou. Digite sua palavra-passe mestra."
+    },
+    "deviceFiles": {
+      "title": "{{name}} quer abrir os seus ficheiros",
+      "subtitle": "O seu dispositivo · {{route}}",
+      "newDevice": "Novo dispositivo",
+      "folders": "Vai ver as pastas que partilha em Definições › Dispositivos: {{folders}}.",
+      "readWrite": "Pode copiar, mudar o nome e eliminar ficheiros aí.",
+      "readOnly": "Pode copiar ficheiros daí.",
+      "deny": "Recusar",
+      "once": "Permitir uma vez",
+      "always": "Permitir sempre",
+      "sessionToast": "{{name}} abriu os seus ficheiros"
     }
   }
 }

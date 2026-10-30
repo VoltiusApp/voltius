@@ -181,6 +181,11 @@
           "tampon"
         ]
       },
+      "devices": {
+        "mobileSub": "Laisser vos appareils ouvrir des fichiers ici",
+        "label": "Appareils",
+        "keywords": ["appareils", "fichiers", "sftp", "partage", "dossiers", "accès"]
+      },
       "sftp": {
         "mobileSub": "Téléchargements, transferts, éditeur",
         "label": "SFTP",
@@ -947,6 +952,28 @@
           "omniCommands": { "label": "Ajouter des actions à la palette de commandes", "description": "Ajouter ses propres actions à la palette de commandes." },
           "uiContributions": { "label": "Ajouter des éléments d'interface", "description": "Ajouter ses propres éléments à l'interface de l'application." }
         }
+      }
+    },
+    "devices": {
+      "fileAccess": {
+        "title": "Accès aux fichiers",
+        "enable": { "title": "Laisser mes appareils ouvrir des fichiers sur cet ordinateur", "desc": "Vos autres appareils Voltius peuvent parcourir les dossiers ci-dessous depuis SFTP. Désactivé par défaut." },
+        "folders": "Dossiers partagés",
+        "addFolder": "Ajouter un dossier",
+        "noFolders": "Ajoutez un dossier pour le partager avec vos appareils.",
+        "removeFolder": "Arrêter de partager {{folder}}",
+        "readOnly": { "title": "Lecture seule", "desc": "Les appareils peuvent copier des fichiers d'ici, sans les modifier ni les supprimer." }
+      },
+      "allowed": {
+        "title": "Appareils autorisés",
+        "asksEachTime": "Demande à chaque fois",
+        "alwaysAllowed": "Toujours autorisé",
+        "connectedNow": "connecté",
+        "disconnect": "Déconnecter",
+        "revoke": "Révoquer",
+        "needsKey": "Connectez-vous une fois pour autoriser",
+        "alwaysLabel": "Toujours autoriser {{name}}",
+        "empty": "Aucun autre appareil pour l'instant."
       }
     },
     "sftp": {

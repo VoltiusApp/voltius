@@ -250,6 +250,10 @@ impl Endpoint for FtpBackend {
             .map_err(|e| failed("MFMT", e))
     }
 
+    fn can_hash(&self) -> bool {
+        false
+    }
+
     async fn hash(&self, _: &str, _: &CancellationToken) -> Result<Option<String>, AppError> {
         Ok(None)
     }

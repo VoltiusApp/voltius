@@ -16,7 +16,7 @@ export function isMissingUsernameError(msg?: string): boolean {
 }
 
 export function createSteps(stepConfigs: readonly StepConfig[]): Step[] {
-  return stepConfigs.map((step) => ({ ...step, status: "pending" }));
+  return stepConfigs.filter((step) => !step.lazy).map((step) => ({ ...step, status: "pending" }));
 }
 
 export function activateStep(
@@ -27,8 +27,15 @@ export function activateStep(
 ): Step[] {
   const ids = stepConfigs.map((step) => step.id);
   const currentIdx = ids.indexOf(id);
+  const shown = currentSteps.some((step) => step.id === id)
+    ? currentSteps
+    : stepConfigs.flatMap((c): Step[] => {
+      const step = currentSteps.find((s) => s.id === c.id);
+      if (step) return [step];
+      return c.id === id ? [{ ...c, status: "pending" }] : [];
+    });
 
-  return currentSteps.map((step) => {
+  return shown.map((step) => {
     const stepIdx = ids.indexOf(step.id);
     if (stepIdx < currentIdx) return { ...step, status: "done" };
     if (step.id === id) return { ...step, status: "active", detail };

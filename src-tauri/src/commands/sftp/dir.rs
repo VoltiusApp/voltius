@@ -39,7 +39,7 @@ pub async fn sftp_transfer_dir(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::commands::sftp::resume::{endpoint::LocalFs, sftp_fs::SftpFs, walk};
     use crate::sftp::backend::test_tree::{assert_downloaded, children, lookup, Recorder, ROOT};
@@ -54,7 +54,7 @@ mod tests {
 
     /// Serves `test_tree` over SFTP; `listed` ends each directory listing after one batch.
     #[derive(Default)]
-    struct TreeServer {
+    pub(crate) struct TreeServer {
         listed: HashSet<String>,
     }
 

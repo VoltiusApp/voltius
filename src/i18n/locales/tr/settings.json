@@ -187,6 +187,11 @@
           "tampon"
         ]
       },
+      "devices": {
+        "mobileSub": "Cihazlarınızın burada dosya açmasına izin verin",
+        "label": "Cihazlar",
+        "keywords": ["cihazlar", "dosyalar", "sftp", "paylaşım", "klasörler", "erişim"]
+      },
       "sftp": {
         "mobileSub": "İndirmeler, aktarımlar, düzenleyici",
         "label": "SFTP",
@@ -812,6 +817,28 @@
         "contact": "İletişim"
       },
       "reportBug": "Hata bildir"
+    },
+    "devices": {
+      "fileAccess": {
+        "title": "Dosya erişimi",
+        "enable": { "title": "Cihazlarımın bu bilgisayardaki dosyaları açmasına izin ver", "desc": "Diğer Voltius cihazlarınız aşağıdaki klasörlere SFTP üzerinden göz atabilir. Varsayılan olarak kapalı." },
+        "folders": "Paylaşılan klasörler",
+        "addFolder": "Klasör ekle",
+        "noFolders": "Cihazlarınızla paylaşmak için bir klasör ekleyin.",
+        "removeFolder": "{{folder}} paylaşımını durdur",
+        "readOnly": { "title": "Salt okunur", "desc": "Cihazlar buradan dosya kopyalayabilir, değiştiremez veya silemez." }
+      },
+      "allowed": {
+        "title": "İzin verilen cihazlar",
+        "asksEachTime": "Her seferinde sor",
+        "alwaysAllowed": "Her zaman izinli",
+        "connectedNow": "bağlı",
+        "disconnect": "Bağlantıyı kes",
+        "revoke": "İptal et",
+        "needsKey": "İzin vermek için bir kez bağlanın",
+        "alwaysLabel": "{{name}} için her zaman izin ver",
+        "empty": "Henüz başka cihaz yok."
+      }
     },
     "sftp": {
       "downloads": {

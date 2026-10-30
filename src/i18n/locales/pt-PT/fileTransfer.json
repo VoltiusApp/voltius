@@ -221,6 +221,19 @@
         "discard": "Descartar",
         "diffTitle": "diff: {{name}}"
       }
+    },
+    "myDevices": {
+      "title": "Os meus dispositivos",
+      "fileAccessOff": "O acesso a ficheiros está desativado neste dispositivo",
+      "offlineSeen": "Offline · visto {{ago}}",
+      "offline": "Offline",
+      "routeChip": "{{route}} · {{ms}} ms",
+      "readOnlyBadge": "Só de leitura",
+      "readOnlyShare": "{{name}} partilha estas pastas só para leitura."
+    },
+    "connect": {
+      "deviceDialing": "A ligar…",
+      "deviceApproval": "A aguardar aprovação em {{name}}…"
     }
   }
 }

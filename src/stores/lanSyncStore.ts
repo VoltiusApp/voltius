@@ -116,6 +116,7 @@ export const useLanSyncStore = create<LanSyncStore>()(
               platform: peer.platform,
               lastSeen: new Date().toISOString(),
               lastRoute: peer.route,
+              deviceKey: peer.deviceKey,
             },
           },
         }));

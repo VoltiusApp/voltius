@@ -61,7 +61,7 @@ struct Probed<H: Handler> {
 }
 
 pub struct TarProbe<H: Handler = SshClient> {
-    handle: Cell<Arc<Handle<H>>>,
+    pub(crate) handle: Cell<Arc<Handle<H>>>,
     inside: Option<String>,
     last: Mutex<Option<Probed<H>>>,
 }

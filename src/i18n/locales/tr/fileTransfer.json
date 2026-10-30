@@ -205,6 +205,19 @@
         "discard": "Değişiklikleri at",
         "diffTitle": "fark: {{name}}"
       }
+    },
+    "myDevices": {
+      "title": "Cihazlarım",
+      "fileAccessOff": "Bu cihazda dosya erişimi kapalı",
+      "offlineSeen": "Çevrimdışı · son görülme {{ago}}",
+      "offline": "Çevrimdışı",
+      "routeChip": "{{route}} · {{ms}} ms",
+      "readOnlyBadge": "Salt okunur",
+      "readOnlyShare": "{{name}} bu klasörleri salt okunur olarak paylaşıyor."
+    },
+    "connect": {
+      "deviceDialing": "Bağlanıyor…",
+      "deviceApproval": "{{name}} üzerinde onay bekleniyor…"
     }
   }
 }

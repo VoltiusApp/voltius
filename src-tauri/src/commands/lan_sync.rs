@@ -1,4 +1,6 @@
 use super::raw_body;
+#[cfg(desktop)]
+use crate::device_files::service::FileService;
 use crate::lan_sync::addrs;
 use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
@@ -35,6 +37,16 @@ pub struct LanSyncState {
     scope: Mutex<Option<String>>,
     device_key: OnceCell<DeviceKey>,
     relay: Arc<Mutex<Relay>>,
+    #[cfg(desktop)]
+    pub(crate) files: crate::device_files::DeviceFilesState,
+}
+
+#[cfg(desktop)]
+async fn offer_to(manager: &Manager, svc: Option<Arc<FileService>>) {
+    let files = svc.as_ref().is_some_and(|s| s.offers());
+    manager.set_file_service(svc.map(|s| s as Arc<dyn manager::InboundFiles>));
+    let caps = crate::lan_sync::protocol::Caps { files, port: None };
+    manager.set_caps(caps).await;
 }
 
 impl LanSyncState {
@@ -44,6 +56,13 @@ impl LanSyncState {
 
     fn announce(&self, emit: &Emit, status: LanStatus) {
         publish(&self.relay, None, emit, &ManagerEvent::Status(status));
+    }
+
+    #[cfg(desktop)]
+    pub(crate) async fn offer_files(&self, svc: Option<Arc<FileService>>) {
+        if let Some(manager) = self.manager.lock().await.as_ref() {
+            offer_to(manager, svc).await;
+        }
     }
 
     async fn device_key(&self) -> Result<DeviceKey, String> {
@@ -113,6 +132,8 @@ pub async fn start_inner(
 ) -> Result<(), String> {
     let auth_keys = Zeroizing::new(auth_keys);
     let derived = Zeroizing::new(auth_keys.iter().map(|k| derive_auth_key(k)).collect());
+    #[cfg(desktop)]
+    let files = state.files.service.lock().await;
     let mut running = state.manager.lock().await;
     let (epoch, paused) = {
         let mut relay = state.relay();
@@ -140,12 +161,16 @@ pub async fn start_inner(
         }
     };
     tokio::spawn(forward(rx, state.relay.clone(), epoch, emit));
+    #[cfg(desktop)]
+    offer_to(&manager, files.clone()).await;
     *running = Some(manager);
     *lock(&state.scope) = Some(scope.to_string());
     Ok(())
 }
 
 pub async fn stop_inner(state: &LanSyncState) {
+    #[cfg(desktop)]
+    crate::device_files::stop_running(&mut *state.files.service.lock().await);
     let mut running = state.manager.lock().await;
     stop_running(state, &mut running).await;
 }
@@ -194,7 +219,10 @@ pub async fn broadcast_inner(state: &LanSyncState, blob: Vec<u8>) {
     }
 }
 
-async fn with_manager<T: Default>(state: &LanSyncState, f: impl FnOnce(&Manager) -> T) -> T {
+pub(crate) async fn with_manager<T: Default>(
+    state: &LanSyncState,
+    f: impl FnOnce(&Manager) -> T,
+) -> T {
     state
         .manager
         .lock()
@@ -212,7 +240,7 @@ pub async fn peers_inner(state: &LanSyncState) -> Vec<PeerInfo> {
     with_manager(state, Manager::peers).await
 }
 
-fn emitter(app: AppHandle) -> Emit {
+pub(crate) fn emitter(app: AppHandle) -> Emit {
     Arc::new(move |name, payload| {
         if let Err(e) = app.emit(name, payload) {
             log::warn!("lan-sync: emit {name} failed: {e}");
@@ -299,6 +327,21 @@ pub async fn lan_sync_set_paused(
 ) -> Result<(), String> {
     set_paused_inner(&state, paused, &emitter(app)).await;
     Ok(())
+}
+
+#[cfg(test)]
+impl LanSyncState {
+    pub(crate) async fn meet(&self, other: &LanSyncState) {
+        let port = with_manager(other, Manager::port).await;
+        if let Some(manager) = self.manager.lock().await.as_ref() {
+            manager
+                .connect(std::net::SocketAddr::from((
+                    std::net::Ipv4Addr::LOCALHOST,
+                    port,
+                )))
+                .await;
+        }
+    }
 }
 
 #[cfg(test)]

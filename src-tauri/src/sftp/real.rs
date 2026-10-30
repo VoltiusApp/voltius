@@ -8,8 +8,8 @@ use crate::commands::sftp::resume::sftp_fs::SftpFs;
 use crate::commands::sftp::{sort_listing, RemoteFile, SftpFile, TarProbe};
 use crate::error::AppError;
 use crate::sftp::attrs::{apply_mode, apply_via_shell, AttrChange};
-use crate::sftp::backend::FileBackend;
-use crate::sftp::link::{is_transport_dead, SftpLink};
+use crate::sftp::backend::{FileBackend, NO_SHELL};
+use crate::sftp::link::{is_transport_dead, SftpLink, SftpReopen};
 use crate::ssh::exec::{run_captured, sh_c, Captured};
 use crate::ssh::live_cells::read_cell;
 use crate::ssh::session::SessionHandle;
@@ -80,10 +80,16 @@ macro_rules! retry_sftp {
 }
 
 #[derive(Clone)]
+pub struct SshExtras {
+    pub handle: SessionHandle,
+    pub tar: Arc<TarProbe>,
+}
+
+#[derive(Clone)]
 pub struct RealSftp {
     session: Arc<Mutex<SftpSession>>,
-    link: Arc<SftpLink>,
-    tar: Arc<TarProbe>,
+    link: Arc<dyn SftpReopen>,
+    ssh: Option<SshExtras>,
 }
 
 impl RealSftp {
@@ -94,25 +100,38 @@ impl RealSftp {
         opener: SftpOpener,
         closed: CancellationToken,
     ) -> Result<Self, String> {
-        let tar = Arc::new(TarProbe::new(Arc::clone(&handle), opener.inside()));
+        let ssh = SshExtras {
+            tar: Arc::new(TarProbe::new(Arc::clone(&handle), opener.inside())),
+            handle: Arc::clone(&handle),
+        };
         let link = Arc::new(SftpLink {
             handle,
             opener,
             closed,
         });
+        let mut sftp = Self::open_over(link).await?;
+        sftp.ssh = Some(ssh);
+        Ok(sftp)
+    }
+
+    pub async fn open_over(link: Arc<dyn SftpReopen>) -> Result<Self, String> {
         let session = link.open().await?;
-        Ok(Self {
+        Ok(Self::over(link, session))
+    }
+
+    pub fn over(link: Arc<dyn SftpReopen>, session: SftpSession) -> Self {
+        Self {
             session: Arc::new(Mutex::new(session)),
-            tar,
             link,
-        })
+            ssh: None,
+        }
     }
 
     pub(crate) fn fs(&self) -> SftpFs {
         SftpFs::new(
             Arc::clone(&self.session),
             Arc::clone(&self.link),
-            Arc::clone(&self.tar),
+            self.ssh.as_ref().map(|ssh| Arc::clone(&ssh.tar)),
         )
     }
 }
@@ -153,8 +172,11 @@ impl FileBackend for RealSftp {
     }
 
     async fn run_sh(&self, script: &str, args: &[&str]) -> Result<Captured, String> {
-        let handle = read_cell(&self.link.handle);
-        run_captured(&*handle, &self.tar.run_in(&sh_c(script, args))).await
+        let Some(ssh) = &self.ssh else {
+            return Err(NO_SHELL.into());
+        };
+        let handle = read_cell(&ssh.handle);
+        run_captured(&*handle, &ssh.tar.run_in(&sh_c(script, args))).await
     }
 
     async fn set_attrs(&self, change: &AttrChange) -> Result<(), AppError> {
@@ -217,7 +239,7 @@ impl FileBackend for RealSftp {
     }
 
     fn tar_probe(&self) -> Option<&TarProbe> {
-        Some(&self.tar)
+        self.ssh.as_ref().map(|ssh| &*ssh.tar)
     }
 }
 
@@ -297,9 +319,13 @@ fn remove_recursive(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::sftp::dir::tests::TreeServer;
     use crate::port_forward::test_ssh::TestClient;
+    use crate::sftp::backend::test_tree::ROOT;
     use crate::ssh::live_cells::own_cell;
     use crate::ssh::test_proc_server::{proc_server, sftp_server_path, ProcLog, ProcOptions};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::task::JoinHandle;
 
     struct Shared {
         session: Mutex<SftpSession>,
@@ -379,5 +405,64 @@ mod tests {
             r.unwrap();
         }
         assert_eq!(log.lock().unwrap().ran.len(), 2);
+    }
+
+    #[derive(Default)]
+    struct Piped {
+        opens: AtomicUsize,
+        pipe: std::sync::Mutex<Option<JoinHandle<()>>>,
+        closed: CancellationToken,
+    }
+
+    impl Piped {
+        async fn cut(&self) {
+            let pipe = self.pipe.lock().unwrap().take().unwrap();
+            pipe.abort();
+            let _ = pipe.await;
+        }
+    }
+
+    #[async_trait]
+    impl SftpReopen for Piped {
+        async fn open(&self) -> Result<SftpSession, AppError> {
+            self.opens.fetch_add(1, Ordering::SeqCst);
+            let (client, mut near) = tokio::io::duplex(1 << 16);
+            let (mut far, server) = tokio::io::duplex(1 << 16);
+            russh_sftp::server::run(server, TreeServer::default()).await;
+            let pipe = tokio::spawn(async move {
+                let _ = tokio::io::copy_bidirectional(&mut near, &mut far).await;
+            });
+            *self.pipe.lock().unwrap() = Some(pipe);
+            SftpSession::new(client)
+                .await
+                .map_err(|e| e.to_string().into())
+        }
+
+        fn closed_now(&self) -> bool {
+            false
+        }
+
+        fn closed(&self) -> &CancellationToken {
+            &self.closed
+        }
+    }
+
+    #[tokio::test]
+    async fn open_over_runs_without_ssh() {
+        let link = Arc::new(Piped::default());
+        let sftp = RealSftp::open_over(Arc::clone(&link) as Arc<dyn SftpReopen>)
+            .await
+            .unwrap();
+        let names = |files: Vec<RemoteFile>| files.into_iter().map(|f| f.name).collect::<Vec<_>>();
+
+        let listed = names(sftp.list_dir(ROOT).await.unwrap());
+        assert!(listed.contains(&"ok.txt".to_string()));
+        assert!(sftp.run_sh("true", &[]).await.is_err());
+        assert!(sftp.tar_probe().is_none());
+
+        sftp.session.lock().await.set_timeout(1);
+        link.cut().await;
+        assert_eq!(names(sftp.list_dir(ROOT).await.unwrap()), listed);
+        assert_eq!(link.opens.load(Ordering::SeqCst), 2);
     }
 }

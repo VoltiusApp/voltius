@@ -5,6 +5,7 @@ use super::real::SftpOpener;
 use crate::error::{AppError, ErrorCode};
 use crate::ssh::client::SshClient;
 use crate::ssh::live_cells::{read_cell, Cell};
+use async_trait::async_trait;
 use russh::client::{Handle, Handler};
 use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
@@ -68,17 +69,15 @@ async fn answers(session: &Mutex<SftpSession>) -> Result<(), SftpError> {
     session.lock().await.canonicalize(".").await.map(|_| ())
 }
 
-impl<H: Handler> SftpLink<H> {
-    pub async fn open(&self) -> Result<SftpSession, String> {
-        let handle = read_cell(&self.handle);
-        open_sftp(&handle, &self.opener).await
-    }
+#[async_trait]
+pub trait SftpReopen: Send + Sync {
+    async fn open(&self) -> Result<SftpSession, AppError>;
 
-    pub fn closed_now(&self) -> bool {
-        read_cell(&self.handle).is_closed()
-    }
+    fn closed_now(&self) -> bool;
 
-    pub async fn dead(&self, session: &Mutex<SftpSession>) -> bool {
+    fn closed(&self) -> &CancellationToken;
+
+    async fn dead(&self, session: &Mutex<SftpSession>) -> bool {
         if self.closed_now() {
             return true;
         }
@@ -89,15 +88,19 @@ impl<H: Handler> SftpLink<H> {
         }
     }
 
-    pub async fn open_bounded(&self) -> Result<SftpSession, String> {
+    fn open_timed_out(&self) -> AppError {
+        AppError::from("Timed out reopening the SFTP channel")
+    }
+
+    async fn open_bounded(&self) -> Result<SftpSession, AppError> {
         timeout(LINK_PROBE, self.open())
             .await
-            .map_err(|_| "Timed out reopening the SFTP channel".to_string())?
+            .map_err(|_| self.open_timed_out())?
     }
 
     /// Open a fresh channel and swap it into the shared session in place, so every
     /// holder of the same `Arc` heals. The open and the lock are each bounded.
-    pub async fn reopen(&self, session: &Mutex<SftpSession>) -> Result<(), String> {
+    async fn reopen(&self, session: &Mutex<SftpSession>) -> Result<(), String> {
         let fresh = self.open_bounded().await?;
         let mut sftp = timeout(LINK_PROBE, session.lock())
             .await
@@ -106,23 +109,41 @@ impl<H: Handler> SftpLink<H> {
         Ok(())
     }
 
-    async fn revive(&self, session: &Mutex<SftpSession>) -> bool {
-        if self.closed_now() {
-            return false;
-        }
-        if matches!(timeout(LINK_PROBE, answers(session)).await, Ok(Ok(()))) {
-            return true;
-        }
-        self.reopen(session).await.is_ok()
-    }
-
-    pub async fn wait(
+    async fn wait(
         &self,
         session: &Mutex<SftpSession>,
         token: &CancellationToken,
         deadline: Instant,
     ) -> Result<(), AppError> {
-        wait_for_link(|| self.revive(session), token, &self.closed, deadline).await
+        wait_for_link(|| revive(self, session), token, self.closed(), deadline).await
+    }
+}
+
+async fn revive<L: SftpReopen + ?Sized>(link: &L, session: &Mutex<SftpSession>) -> bool {
+    if link.closed_now() {
+        return false;
+    }
+    if matches!(timeout(LINK_PROBE, answers(session)).await, Ok(Ok(()))) {
+        return true;
+    }
+    link.reopen(session).await.is_ok()
+}
+
+#[async_trait]
+impl<H: Handler> SftpReopen for SftpLink<H> {
+    async fn open(&self) -> Result<SftpSession, AppError> {
+        let handle = read_cell(&self.handle);
+        open_sftp(&handle, &self.opener)
+            .await
+            .map_err(AppError::from)
+    }
+
+    fn closed_now(&self) -> bool {
+        read_cell(&self.handle).is_closed()
+    }
+
+    fn closed(&self) -> &CancellationToken {
+        &self.closed
     }
 }
 

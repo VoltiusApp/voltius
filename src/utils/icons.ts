@@ -299,3 +299,11 @@ export function neutralTileStyle(): CSSProperties {
 export function chevronRotateStyle(open: boolean, degrees = 180): CSSProperties {
   return { transition: "transform 150ms", transform: open ? `rotate(${degrees}deg)` : "rotate(0deg)" };
 }
+
+export function deviceIcon(platform: string): string {
+  if (platform === "android" || platform === "ios") return "lucide:smartphone";
+  if (platform === "macos") return "lucide:laptop";
+  return "lucide:monitor";
+}
+
+export const DEVICE_TILE_BASE = "color-mix(in srgb, var(--t-accent) 35%, var(--t-bg-card-avatar))";

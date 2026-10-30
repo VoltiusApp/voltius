@@ -669,13 +669,15 @@ async fn same_hash(
     part: &str,
     token: &CancellationToken,
 ) -> Result<bool, AppError> {
-    match tokio::try_join!(src.hash(src_path, token), dst.hash(part, token))? {
-        (Some(a), Some(b)) => Ok(a.eq_ignore_ascii_case(&b)),
-        _ => {
-            log::info!("no end-to-end hash for {src_path}; kept the size and overlap checks");
-            Ok(true)
+    if src.can_hash() && dst.can_hash() {
+        if let (Some(a), Some(b)) =
+            tokio::try_join!(src.hash(src_path, token), dst.hash(part, token))?
+        {
+            return Ok(a.eq_ignore_ascii_case(&b));
         }
     }
+    log::info!("no end-to-end hash for {src_path}; kept the size and overlap checks");
+    Ok(true)
 }
 
 async fn sweep<E: TransferEvents>(
@@ -1233,6 +1235,28 @@ pub(crate) mod engine_tests {
     }
 
     #[tokio::test]
+    async fn a_side_that_cannot_hash_spares_the_other_the_read() {
+        let a = tempfile::tempdir().unwrap();
+        std::fs::write(a.path().join("v"), b"data").unwrap();
+        let path = a.path().join("v").to_string_lossy().into_owned();
+        let token = CancellationToken::new();
+        let (src, deaf) = (
+            TestFs::default(),
+            TestFs {
+                no_hash: true,
+                ..Default::default()
+            },
+        );
+        assert!(same_hash(&src, &path, &deaf, &path, &token).await.unwrap());
+        assert!(same_hash(&deaf, &path, &src, &path, &token).await.unwrap());
+        assert_eq!(src.state.lock().unwrap().hashes, 0);
+        assert!(same_hash(&src, &path, &TestFs::default(), &path, &token)
+            .await
+            .unwrap());
+        assert_eq!(src.state.lock().unwrap().hashes, 1);
+    }
+
+    #[tokio::test]
     async fn cancel_during_the_hash_never_commits() {
         let data = noise(2_000_000);
         let (a, b) = seeded(&data).await;
@@ -1385,7 +1409,7 @@ pub(crate) mod engine_tests {
         assert_eq!(std::fs::read(locked.join("v")).unwrap(), b"new");
     }
 
-    fn tree(root: &std::path::Path) {
+    pub(crate) fn tree(root: &std::path::Path) {
         std::fs::create_dir_all(root.join("sub/empty")).unwrap();
         std::fs::write(root.join("a"), noise(300_000)).unwrap();
         std::fs::write(root.join("sub/b"), noise(200_000)).unwrap();

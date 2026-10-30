@@ -49,7 +49,7 @@ test("resetVault locks, stops lan sync, then wipes", async () => {
 
 test("resetVault leaves none of the account's nearby devices behind", async () => {
   await startLanSync();
-  const peer = { deviceId: "d1", deviceName: "One", platform: "linux", route: "lan" as const, address: "a" };
+  const peer = { deviceId: "d1", deviceName: "One", platform: "linux", route: "lan" as const, address: "a", deviceKey: "k1", files: false };
   useLanSyncStore.getState().rememberDevice(peer);
   useLanSyncStore.getState().setPeers([peer]);
   await resetVault();

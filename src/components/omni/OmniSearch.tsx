@@ -31,6 +31,8 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, sessionMatchesQuery } from "@/utils/sessionLabel";
 import { getSettingsNav } from "@/components/settings/settingsNav";
+import { mobileSettingsNav } from "@/components/settings/settingsMobileCore";
+import { useIsAndroid } from "@/utils/platform";
 import { useUiLanguage } from "@/i18n";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -123,7 +125,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const shortcuts = useShortcutStore((s) => s.shortcuts);
   const settingsPagesMap = usePluginStore((s) => s.settingsPages);
   const locale = useUiLanguage();
-  const nav = useMemo(() => getSettingsNav(), [locale]);
+  const isAndroid = useIsAndroid();
+  const nav = useMemo(() => (isAndroid ? mobileSettingsNav(getSettingsNav()) : getSettingsNav()), [locale, isAndroid]);
   const categoryBadges = useMemo(() => getCategoryBadges(t), [locale, t]);
 
   const settingsItems = useMemo<OmniItem[]>(() => {

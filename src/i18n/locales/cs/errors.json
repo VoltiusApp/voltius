@@ -30,7 +30,14 @@
     "vault-role-read-only": "Do tohoto trezoru nemáte právo zápisu (vaše role: {{role}}). Změny mohou provádět jen vlastníci, správci a editoři.",
     "vault-permissions-unavailable": "Oprávnění k trezoru nelze ověřit, protože klíčenka není dostupná. Zkuste to znovu.",
     "vault-permissions-corrupted": "Data oprávnění trezoru jsou poškozená. Přihlaste se znovu a obnovte přístup.",
-    "knock-udp-via-proxy": "Klepnutí přes UDP nelze odeslat přes proxy. Pro tento host použijte kroky TCP nebo přímé připojení."
+    "knock-udp-via-proxy": "Klepnutí přes UDP nelze odeslat přes proxy. Pro tento host použijte kroky TCP nebo přímé připojení.",
+    "device-file-access-off": "Přístup k souborům je na tomto zařízení vypnutý. Zapněte ho na zařízení v Nastavení › Zařízení.",
+    "device-access-denied": "Zařízení odmítlo otevřít své soubory.",
+    "device-approval-timed-out": "Na žádost na zařízení nikdo včas neodpověděl.",
+    "device-busy": "Toto zařízení má otevřeno příliš mnoho souborových relací. Jednu zavřete a zkuste to znovu.",
+    "device-unreachable": "Zařízení je nedostupné. Zkontrolujte, že je zapnuté a ve stejné síti.",
+    "device-access-expired": "Přístup k tomuto zařízení skončil. Otevřete ho znovu a požádejte o povolení.",
+    "device-read-only": "Toto zařízení sdílí tyto složky pouze pro čtení."
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

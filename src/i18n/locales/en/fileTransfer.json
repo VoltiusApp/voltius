@@ -205,6 +205,19 @@
         "discard": "Discard",
         "diffTitle": "diff: {{name}}"
       }
+    },
+    "myDevices": {
+      "title": "My devices",
+      "fileAccessOff": "File access is off on this device",
+      "offlineSeen": "Offline · seen {{ago}}",
+      "offline": "Offline",
+      "routeChip": "{{route}} · {{ms}} ms",
+      "readOnlyBadge": "Read-only",
+      "readOnlyShare": "{{name}} shares these folders read-only."
+    },
+    "connect": {
+      "deviceDialing": "Connecting…",
+      "deviceApproval": "Waiting for approval on {{name}}…"
     }
   }
 }

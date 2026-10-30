@@ -1,0 +1,6 @@
+{
+  "identifier": "notification-capability",
+  "platforms": ["linux", "macOS", "windows"],
+  "windows": ["main"],
+  "permissions": ["notification:default"]
+}

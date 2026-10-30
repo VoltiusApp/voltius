@@ -14,6 +14,10 @@ const FINAL_CODES: ReadonlySet<BackendErrorCode> = new Set<BackendErrorCode>([
   "ssh-password-expired",
   "ssh-prompt-unanswerable",
   "ssh-no-usable-auth-method",
+  "device-file-access-off",
+  "device-access-denied",
+  "device-approval-timed-out",
+  "device-access-expired",
 ]);
 
 /**

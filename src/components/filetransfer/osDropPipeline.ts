@@ -98,33 +98,31 @@ export async function downloadToLocal(files: FileEntry[], sftpId: string, localD
 }
 
 /**
- * Run conflict detection for an upload then either prompt the user (via the
+ * Run conflict detection for an upload into `cwd`, then either prompt the user (via the
  * global pending dialog) or execute directly when there are no conflicts.
  */
-export async function triggerUpload(items: FileEntry[], target: UploadTarget): Promise<void> {
+export async function queueAfterConflicts(
+  items: FileEntry[], cwd: string, exists: (path: string) => Promise<boolean>, execute: (files: FileEntry[]) => void,
+): Promise<void> {
   if (items.length === 0) return;
   const conflicts = (
-    await Promise.all(items.map(async (f) => {
-      const dstPath = joinPath(target.cwd, f.name);
-      const exists = target.isLocal ? await fsExists(dstPath) : await sftpExists(target.sftpId!, dstPath);
-      return exists ? f : null;
-    }))
+    await Promise.all(items.map(async (f) => (await exists(joinPath(cwd, f.name)) ? f : null)))
   ).filter((f): f is FileEntry => f !== null);
 
   const conflictPaths = new Set(conflicts.map((f) => f.path));
   const toTransfer = items.filter((f) => !conflictPaths.has(f.path));
 
   if (conflicts.length > 0) {
-    useTransferQueueStore.getState().setPending({
-      conflicts,
-      toTransfer,
-      totalConflicts: conflicts.length,
-      execute: (files) => void uploadEntries(files, target),
-    });
+    useTransferQueueStore.getState().setPending({ conflicts, toTransfer, totalConflicts: conflicts.length, execute });
     return;
   }
+  execute(items);
+}
 
-  void uploadEntries(items, target);
+export async function triggerUpload(items: FileEntry[], target: UploadTarget): Promise<void> {
+  await queueAfterConflicts(items, target.cwd,
+    (p) => (target.isLocal ? fsExists(p) : sftpExists(target.sftpId!, p)),
+    (files) => void uploadEntries(files, target));
 }
 
 /** Entry point for OS-originated drops (Tauri onDragDropEvent). */

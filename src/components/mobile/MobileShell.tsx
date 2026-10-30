@@ -21,6 +21,7 @@ import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
 import MobileKnownHostsScreen from "./screens/MobileKnownHostsScreen";
 import MobileLogsScreen from "./screens/MobileLogsScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
+import { PendingConflictDialog } from "@/components/filetransfer/ConflictDialog";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobileVaultSettingsScreen from "./screens/MobileVaultSettingsScreen";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
@@ -199,6 +200,7 @@ export default function MobileShell() {
           <div className={sftpVisible ? "contents" : "invisible pointer-events-none"}>
             <MobileSftpScreen asTab visible={sftpVisible} />
           </div>
+          <PendingConflictDialog />
         </div>
         {/* Extra-keys row: always present while the terminal is foreground with a session — usable
             even when the keyboard is closed (keys write to the PTY without needing input focus).

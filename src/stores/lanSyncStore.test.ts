@@ -20,7 +20,7 @@ import {
   restoreAccountUiState,
 } from "./persistedAccountUiState";
 
-const peer = { deviceId: "d1", deviceName: "One", platform: "linux", route: "lan" as const, address: "a" };
+const peer = { deviceId: "d1", deviceName: "One", platform: "linux", route: "lan" as const, address: "a", deviceKey: "key", files: false };
 const payload = { files: { "connections.json": JSON.stringify([{ id: "c", updated_at: "1" }]) }, secrets: {} };
 
 describe("lanSyncStore", () => {

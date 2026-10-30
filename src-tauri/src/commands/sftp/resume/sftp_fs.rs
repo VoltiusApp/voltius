@@ -1,7 +1,7 @@
 use super::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
 use crate::commands::sftp::{SftpFile, TarProbe};
 use crate::error::AppError;
-use crate::sftp::link::SftpLink;
+use crate::sftp::link::SftpReopen;
 use crate::ssh::client::SshClient;
 use async_trait::async_trait;
 use russh::client::Handler;
@@ -18,7 +18,7 @@ use tokio_util::sync::CancellationToken;
 
 pub(crate) struct SftpFs<H: Handler = SshClient> {
     session: Arc<Mutex<SftpSession>>,
-    link: Option<Arc<SftpLink<H>>>,
+    link: Option<Arc<dyn SftpReopen>>,
     tar: Option<Arc<TarProbe<H>>>,
 }
 
@@ -35,13 +35,13 @@ impl<H: Handler> Clone for SftpFs<H> {
 impl<H: Handler> SftpFs<H> {
     pub(crate) fn new(
         session: Arc<Mutex<SftpSession>>,
-        link: Arc<SftpLink<H>>,
-        tar: Arc<TarProbe<H>>,
+        link: Arc<dyn SftpReopen>,
+        tar: Option<Arc<TarProbe<H>>>,
     ) -> Self {
         Self {
             session,
             link: Some(link),
-            tar: Some(tar),
+            tar,
         }
     }
 
@@ -210,6 +210,10 @@ impl<H: Handler> Endpoint for SftpFs<H> {
         }
     }
 
+    fn can_hash(&self) -> bool {
+        self.tar.is_some()
+    }
+
     async fn hash(
         &self,
         path: &str,
@@ -253,6 +257,7 @@ pub(crate) mod tests {
     use crate::error::ErrorCode;
     use crate::port_forward::test_ssh::TestClient;
     use crate::sftp::backend::test_tree::Recorder;
+    use crate::sftp::link::SftpLink;
     use crate::sftp::real::SftpOpener;
     use crate::ssh::exec::shell_quote;
     use crate::ssh::live_cells::{own_cell, read_cell, Cell};
@@ -277,7 +282,7 @@ pub(crate) mod tests {
             Arc::clone(&link.handle),
             link.opener.inside(),
         ));
-        SftpFs::new(session, link, tar)
+        SftpFs::new(session, link, Some(tar))
     }
 
     #[test]
@@ -411,12 +416,12 @@ pub(crate) mod tests {
     }
 
     fn relink_after(fs: &SftpFs<TestClient>, delay: Duration) -> tokio::task::JoinHandle<()> {
-        let link = Arc::clone(fs.link.as_ref().unwrap());
+        let handle = Arc::clone(&fs.tar.as_ref().unwrap().handle);
         tokio::spawn(async move {
-            wait_until_link_gone(&link.handle).await;
+            wait_until_link_gone(&handle).await;
             tokio::time::sleep(delay).await;
             let (fresh, _) = proc_server(ProcOptions::default()).await;
-            *link.handle.write().unwrap() = fresh;
+            *handle.write().unwrap() = fresh;
         })
     }
 

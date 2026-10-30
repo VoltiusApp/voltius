@@ -10,6 +10,7 @@ mod app_lock;
 mod clock;
 mod commands;
 mod crypto;
+mod device_files;
 mod docker;
 mod error;
 mod ftp;
@@ -199,7 +200,9 @@ pub fn run() {
 
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+        builder = builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_notification::init());
     }
 
     builder
@@ -215,6 +218,14 @@ pub fn run() {
                 && payload.event() == tauri::webview::PageLoadEvent::Started
             {
                 let app = webview.app_handle().clone();
+                let devices = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    commands::device_files::close_device_sessions(
+                        &devices.state::<SftpManager>(),
+                        &devices.state::<device_files::link::DeviceLinks>(),
+                    )
+                    .await;
+                });
                 tauri::async_runtime::spawn(async move {
                     let state = app.state::<Arc<mcp::McpState>>();
                     // Order matters: close the gate first so nothing new can
@@ -254,6 +265,9 @@ pub fn run() {
 
             #[cfg(desktop)]
             app.manage(updater::UpdaterState::default());
+            #[cfg(target_os = "android")]
+            android_ctx::set_app(app.handle());
+            commands::uploads::sweep_stale_copies(app.handle());
             app.manage(KnownHostsStore::load());
             app.manage(app_lock::AppLock::load());
             app.manage(app_lock::LastActive::load());
@@ -279,6 +293,7 @@ pub fn run() {
         .manage(SftpManager::new())
         .manage(SerialSessionManager::new())
         .manage(commands::lan_sync::LanSyncState::default())
+        .manage(device_files::link::DeviceLinks::default())
         .invoke_handler(tauri::generate_handler![
             force_quit,
             updater::updater_restart,
@@ -398,6 +413,21 @@ pub fn run() {
             commands::lan_sync::lan_sync_take_blob,
             commands::lan_sync::lan_sync_peers,
             commands::lan_sync::lan_sync_set_paused,
+            commands::device_files::device_files_connect,
+            #[cfg(desktop)]
+            commands::device_files::device_files_start,
+            #[cfg(desktop)]
+            commands::device_files::device_files_stop,
+            #[cfg(desktop)]
+            commands::device_files::device_files_get_config,
+            #[cfg(desktop)]
+            commands::device_files::device_files_set_config,
+            #[cfg(desktop)]
+            commands::device_files::device_files_answer,
+            #[cfg(desktop)]
+            commands::device_files::device_files_disconnect,
+            #[cfg(desktop)]
+            commands::device_files::device_files_pending,
             commands::ssh::ssh_connect,
             commands::ssh::ssh_disconnect,
             commands::ssh::ssh_send_input,
@@ -498,6 +528,10 @@ pub fn run() {
             commands::downloads::download_dir_pick,
             commands::downloads::download_dir_clear,
             commands::downloads::download_publish,
+            commands::uploads::upload_pick,
+            commands::uploads::upload_drop_target,
+            commands::uploads::upload_stage,
+            commands::uploads::upload_stage_clear,
             ios_native::haptic_perform,
             ios_native::share_files_native,
             commands::sftp::sftp_transfer_batch_tar,

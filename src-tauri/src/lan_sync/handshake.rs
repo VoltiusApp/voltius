@@ -9,17 +9,28 @@ use sha2::Sha256;
 use snow::StatelessTransportState;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 const NOISE_PARAMS: &str = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
-const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 // A silent connection must give its pre-auth slot back long before the whole handshake would.
 const FIRST_MESSAGE_TIMEOUT: Duration = Duration::from_secs(2);
 const NOISE_MAX: usize = 65535;
-const MAX_CHUNK: usize = NOISE_MAX - 16;
+pub(super) const MAX_CHUNK: usize = NOISE_MAX - 16;
 const MAX_PROOFS: usize = 16;
 const PREAUTH_MAX: usize = 64 * 1024;
 const DEVICE_CONTEXT: &[u8] = b"voltius-lan-sync-device-v1";
+pub(super) const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
+const PING_EVERY: Duration = if cfg!(test) {
+    Duration::from_millis(100)
+} else {
+    Duration::from_secs(10)
+};
+pub(super) const IDLE_TIMEOUT: Duration = if cfg!(test) {
+    Duration::from_secs(3)
+} else {
+    Duration::from_secs(30)
+};
 const MAX_DEVICE_ID: usize = 128;
 
 #[derive(thiserror::Error, Debug)]
@@ -76,12 +87,26 @@ pub struct Session {
     hash: Vec<u8>,
 }
 
-async fn read_msg<R: AsyncRead + Unpin>(io: &mut R, buf: &mut [u8]) -> std::io::Result<usize> {
+fn eof() -> std::io::Error {
+    std::io::ErrorKind::UnexpectedEof.into()
+}
+
+async fn read_msg_or_eof<R: AsyncRead + Unpin>(
+    io: &mut R,
+    buf: &mut [u8],
+) -> std::io::Result<Option<usize>> {
     let mut len = [0u8; 2];
-    io.read_exact(&mut len).await?;
+    if io.read(&mut len[..1]).await? == 0 {
+        return Ok(None);
+    }
+    io.read_exact(&mut len[1..]).await?;
     let len = u16::from_be_bytes(len) as usize;
     io.read_exact(&mut buf[..len]).await?;
-    Ok(len)
+    Ok(Some(len))
+}
+
+async fn read_msg<R: AsyncRead + Unpin>(io: &mut R, buf: &mut [u8]) -> std::io::Result<usize> {
+    read_msg_or_eof(io, buf).await?.ok_or_else(eof)
 }
 
 fn push_msg(
@@ -120,12 +145,31 @@ impl SessionReader {
         self.idle = Some(idle);
     }
 
-    async fn open_next(&mut self) -> Result<usize, HandshakeError> {
-        let n = bounded(self.idle, read_msg(&mut self.io, &mut self.sealed)).await?;
+    async fn open_or_eof(&mut self) -> Result<Option<usize>, HandshakeError> {
+        let read = read_msg_or_eof(&mut self.io, &mut self.sealed);
+        let Some(n) = bounded(self.idle, read).await? else {
+            return Ok(None);
+        };
         let nonce = next_nonce(&mut self.nonce);
-        Ok(self
-            .noise
-            .read_message(nonce, &self.sealed[..n], &mut self.plain)?)
+        Ok(Some(self.noise.read_message(
+            nonce,
+            &self.sealed[..n],
+            &mut self.plain,
+        )?))
+    }
+
+    async fn open_next(&mut self) -> Result<usize, HandshakeError> {
+        Ok(self.open_or_eof().await?.ok_or_else(eof)?)
+    }
+
+    pub(super) async fn recv_chunk(&mut self) -> Result<Option<&[u8]>, HandshakeError> {
+        loop {
+            match self.open_or_eof().await? {
+                None => return Ok(None),
+                Some(0) => continue,
+                Some(n) => return Ok(Some(&self.plain[..n])),
+            }
+        }
     }
 
     pub async fn recv(&mut self) -> Result<Frame, HandshakeError> {
@@ -133,13 +177,8 @@ impl SessionReader {
     }
 
     pub async fn recv_max(&mut self, limit: usize) -> Result<Frame, HandshakeError> {
-        let n = loop {
-            match self.open_next().await? {
-                0 => continue,
-                n => break n,
-            }
-        };
-        let (prefix, rest) = self.plain[..n]
+        let first = self.recv_chunk().await?.ok_or_else(eof)?;
+        let (prefix, rest) = first
             .split_first_chunk::<4>()
             .ok_or_else(|| malformed("chunk shorter than a frame header"))?;
         let len = u32::from_be_bytes(*prefix) as usize;
@@ -173,6 +212,10 @@ impl SessionWriter {
 
     pub(super) async fn send_raw(&mut self, bytes: &[u8]) -> Result<(), HandshakeError> {
         self.seal_and_write(bytes.chunks(MAX_CHUNK)).await
+    }
+
+    pub(super) async fn finish(&mut self) -> Result<(), HandshakeError> {
+        bounded(self.stall, self.io.shutdown()).await
     }
 
     async fn seal_and_write<'a>(
@@ -211,6 +254,17 @@ impl Session {
     pub fn split(self) -> (SessionReader, SessionWriter) {
         (self.reader, self.writer)
     }
+
+    pub(super) fn split_live(self) -> (SessionReader, SessionWriter) {
+        let (mut reader, mut writer) = self.split();
+        reader.set_idle_timeout(IDLE_TIMEOUT);
+        writer.set_write_timeout(WRITE_TIMEOUT);
+        (reader, writer)
+    }
+}
+
+pub(super) fn ping_timer() -> tokio::time::Interval {
+    tokio::time::interval_at(tokio::time::Instant::now() + PING_EVERY, PING_EVERY)
 }
 
 async fn noise<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(

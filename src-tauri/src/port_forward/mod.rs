@@ -282,7 +282,6 @@ pub struct PortForwardManager {
 
 impl PortForwardManager {
     pub fn new(app: AppHandle) -> Self {
-        keepalive::set_app(&app);
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             session_keys: Arc::new(Mutex::new(HashMap::new())),

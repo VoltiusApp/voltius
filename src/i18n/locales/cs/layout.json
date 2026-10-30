@@ -375,6 +375,18 @@
       "promptReason": "Odemknout Voltius",
       "sealReason": "Potvrďte uložení klíče trezoru v tomto zařízení",
       "bindingLost": "Přihlášení k zařízení se změnilo. Zadejte hlavní heslo."
+    },
+    "deviceFiles": {
+      "title": "{{name}} chce otevřít vaše soubory",
+      "subtitle": "Vaše zařízení · {{route}}",
+      "newDevice": "Nové zařízení",
+      "folders": "Uvidí složky, které sdílíte v Nastavení › Zařízení: {{folders}}.",
+      "readWrite": "Může tam kopírovat, přejmenovávat a mazat soubory.",
+      "readOnly": "Může odtud kopírovat soubory.",
+      "deny": "Zamítnout",
+      "once": "Povolit jednou",
+      "always": "Vždy povolit",
+      "sessionToast": "{{name}} otevřel vaše soubory"
     }
   }
 }

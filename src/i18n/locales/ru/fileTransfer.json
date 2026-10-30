@@ -236,6 +236,19 @@
         "discard": "Отменить",
         "diffTitle": "сравнение: {{name}}"
       }
+    },
+    "myDevices": {
+      "title": "Мои устройства",
+      "fileAccessOff": "Доступ к файлам на этом устройстве выключен",
+      "offlineSeen": "Не в сети · замечено {{ago}}",
+      "offline": "Не в сети",
+      "routeChip": "{{route}} · {{ms}} мс",
+      "readOnlyBadge": "Только чтение",
+      "readOnlyShare": "{{name}} предоставляет эти папки только для чтения."
+    },
+    "connect": {
+      "deviceDialing": "Подключение…",
+      "deviceApproval": "Ожидание подтверждения на {{name}}…"
     }
   }
 }

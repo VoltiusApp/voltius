@@ -1,10 +1,13 @@
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
+import type { MyDevice } from "@/services/myDevices";
 
 /**
  * SFTP selection mode (pure, see MobileSftpScreen / MobileSftpPane). One pane at a time
  * owns the selection; an empty selection means selection mode is off.
  */
 export type SftpPaneId = "a" | "b";
+
+export type SftpPaneTarget = { kind: "connection"; id: string } | { kind: "device"; device: MyDevice };
 
 export interface SftpSelection {
   pane: SftpPaneId | null;
