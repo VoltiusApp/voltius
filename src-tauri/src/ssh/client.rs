@@ -900,6 +900,7 @@ pub async fn connect(
     initial_cwd: Option<String>,
     route: HopRoute,
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
+    detached_ttl_secs: Option<u64>,
 ) -> Result<ConnectedSession, AppError> {
     let terminal_colors =
         terminal_colors.filter(crate::ssh::control_mode::TerminalColors::is_valid);
@@ -1213,6 +1214,11 @@ pub async fn connect(
                 &key,
                 terminal_colors.as_ref(),
             ),
+            std::time::Duration::from_secs(30),
+        );
+        spawn_exec(
+            Arc::clone(&handle),
+            crate::shell_integration::persistent_ttl_command(&key, detached_ttl_secs),
             std::time::Duration::from_secs(30),
         );
         let cwd_cmd = crate::shell_integration::cwd_probe_command(&key);

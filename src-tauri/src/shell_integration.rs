@@ -769,7 +769,6 @@ exit 0
 /// The reaper rejects 10+ digit TTLs; `$((now + ttl))` must not overflow.
 const MAX_TTL_SECS: u64 = 999_999_999;
 
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn persistent_ttl_command(session_key: &str, ttl_secs: Option<u64>) -> String {
     let action = match ttl_secs {
         Some(secs) => format!(
