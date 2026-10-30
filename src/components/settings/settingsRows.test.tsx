@@ -79,6 +79,17 @@ test("Android: a picker in a row shows its value as trailing text and is the row
   expect(trigger.className).not.toContain("form-input");
 });
 
+test("Android: a picker's bottom sheet is titled with its row's label", () => {
+  render(
+    <SettingRow title="Cursor style">
+      <FormSelect value="bar" options={[{ value: "bar", label: "Bar" }, { value: "block", label: "Block" }]} onChange={() => {}} />
+    </SettingRow>,
+  );
+  fireEvent.click(screen.getByText("Bar").closest("button")!);
+  expect(screen.getAllByText("Cursor style")).toHaveLength(2);
+  expect(screen.queryByText("shared.formSelect.title")).toBeNull();
+});
+
 test("desktop rows are unchanged: hover reset, boxed picker, no row control on the picker", () => {
   android.on = false;
   render(

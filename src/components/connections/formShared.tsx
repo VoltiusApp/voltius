@@ -118,7 +118,7 @@ export function SettingRow({
     <div data-setting-row={isMobile ? "" : undefined} data-form-setting-row className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1" title={title}>
       <Icon icon={icon} width={13} />
       <span>{label}</span>
-      <ListRowContext.Provider value={isMobile}>
+      <ListRowContext.Provider value={isMobile ? { label } : null}>
         <span className="ml-auto">{children}</span>
       </ListRowContext.Provider>
     </div>
