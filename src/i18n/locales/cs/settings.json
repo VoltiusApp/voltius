@@ -1312,7 +1312,7 @@
       },
       "detachedTtl": {
         "title": "Zavírat nečinné odpojené relace",
-        "desc": "Zavře trvalou relaci na hostu, pokud k ní po zvolenou dobu nebylo připojeno žádné zařízení, ale jen když v ní nic neběží. Vyžaduje tmux 3.2 nebo novější; screen a starší tmux ponechávají relace jako dříve. Změna se u relace projeví při jejím příštím připojení.",
+        "desc": "Zavře trvalou relaci na hostu, pokud k ní po zvolenou dobu nebylo připojeno žádné zařízení, ale jen když v ní nic neběží. Funguje na linuxových hostech s tmux 3.2 nebo novějším; screen a starší tmux ponechávají relace jako dříve. Změna se u relace projeví při jejím příštím připojení.",
         "durationTitle": "Zavřít po",
         "hours_one": "{{count}} hodina",
         "hours_few": "{{count}} hodiny",

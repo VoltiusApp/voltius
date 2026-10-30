@@ -1306,7 +1306,7 @@
       },
       "detachedTtl": {
         "title": "Terminar sessões desanexadas inativas",
-        "desc": "Termina uma sessão persistente no host quando nenhum dispositivo está anexado a ela durante o tempo escolhido, mas apenas se nada estiver em execução nela. Requer tmux 3.2 ou mais recente; o screen e as versões mais antigas do tmux mantêm as sessões como antes. Uma alteração aplica-se a uma sessão na próxima vez que for anexada.",
+        "desc": "Termina uma sessão persistente no host quando nenhum dispositivo está anexado a ela durante o tempo escolhido, mas apenas se nada estiver em execução nela. Funciona em hosts Linux com tmux 3.2 ou mais recente; o screen e as versões mais antigas do tmux mantêm as sessões como antes. Uma alteração aplica-se a uma sessão na próxima vez que for anexada.",
         "durationTitle": "Terminar após",
         "hours_one": "{{count}} hora",
         "hours_many": "{{count}} horas",

@@ -1078,7 +1078,7 @@
       },
       "detachedTtl": {
         "title": "Close idle detached sessions",
-        "desc": "Close a persistent session on the host once no device has been attached to it for the chosen time, but only if nothing is running in it. Needs tmux 3.2 or newer; screen and older tmux keep sessions as before. A change applies to a session the next time it is attached.",
+        "desc": "Close a persistent session on the host once no device has been attached to it for the chosen time, but only if nothing is running in it. Works on Linux hosts with tmux 3.2 or newer; screen and older tmux keep sessions as before. A change applies to a session the next time it is attached.",
         "durationTitle": "Close after",
         "hours_one": "{{count}} hour",
         "hours_other": "{{count}} hours",

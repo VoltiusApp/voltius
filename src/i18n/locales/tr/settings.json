@@ -948,7 +948,7 @@
       },
       "detachedTtl": {
         "title": "Boştaki ayrılmış oturumları kapat",
-        "desc": "Seçilen süre boyunca hiçbir cihaz bağlı değilse, sunucudaki kalıcı oturumu kapatır; ancak yalnızca içinde çalışan bir şey yoksa. tmux 3.2 veya daha yenisi gerekir; screen ve daha eski tmux sürümleri oturumları eskisi gibi korur. Bir değişiklik, oturuma bir sonraki bağlanışınızda uygulanır.",
+        "desc": "Seçilen süre boyunca hiçbir cihaz bağlı değilse, sunucudaki kalıcı oturumu kapatır; ancak yalnızca içinde çalışan bir şey yoksa. tmux 3.2 veya daha yenisi olan Linux sunucularında çalışır; screen ve daha eski tmux sürümleri oturumları eskisi gibi korur. Bir değişiklik, oturuma bir sonraki bağlanışınızda uygulanır.",
         "durationTitle": "Şu süreden sonra kapat",
         "hours_one": "{{count}} saat",
         "hours_other": "{{count}} saat",
