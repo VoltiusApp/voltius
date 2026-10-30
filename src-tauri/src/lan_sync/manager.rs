@@ -934,8 +934,8 @@ impl Shared {
         state.peers.remove(id);
         drop(state);
         self.peers_changed.notify_one();
-        self.retry_soon();
         if lived {
+            self.retry_soon();
             tokio::spawn(redial(self.clone(), id.to_string()));
         }
     }
@@ -2487,6 +2487,31 @@ mod tests {
         timeout(Duration::from_secs(5), back)
             .await
             .expect("lost peer not redialed");
+    }
+
+    #[tokio::test]
+    async fn a_peer_that_says_bye_at_once_is_redialed_with_backoff() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let dials = Arc::new(Mutex::new(Vec::new()));
+        let seen = dials.clone();
+        tokio::spawn(async move {
+            let keys = [derive_auth_key(&[1; 32])];
+            let me = test_identity("dev-a");
+            while let Ok((stream, _)) = listener.accept().await {
+                seen.lock().unwrap().push(Instant::now());
+                if let Ok((mut session, _)) = handshake(stream, false, &me, &keys).await {
+                    let _ = session.send(&Frame::Bye).await;
+                }
+            }
+        });
+        let (b, _eb) = spawn("dev-b", 1).await;
+        b.learn("dev-a", &[addr]);
+        tokio::time::sleep(RETRY_FIRST * 20).await;
+        let at = dials.lock().unwrap().clone();
+        let gaps: Vec<Duration> = at.windows(2).map(|w| w[1] - w[0]).collect();
+        assert!(gaps.len() >= 3, "{gaps:?}");
+        assert!(gaps.windows(2).all(|w| w[1] > w[0]), "{gaps:?}");
     }
 
     #[tokio::test]
