@@ -538,6 +538,9 @@
     },
     "sync": {
       "voltiusCloud": "Voltius Cloud",
+      "local": {
+        "pairSub": "Hesap olmadan ağınızdaki başka bir cihazla eşitleyin."
+      },
       "active": {
         "title": "Bulut eşitleme etkin",
         "syncing": "Eşitleniyor…",

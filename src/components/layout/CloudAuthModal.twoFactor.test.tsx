@@ -37,7 +37,7 @@ vi.mock("@/services/passkeyRoundTrip", () => {
     cancelPasskeyRoundTrip: h.cancelPasskeyRoundTrip,
   };
 });
-vi.mock("@/services/lanSync", () => ({ startSessionSync: h.startSessionSync }));
+vi.mock("@/services/lanSync", () => ({ startSessionSync: h.startSessionSync, leaveLanGroup: vi.fn(async () => {}) }));
 vi.mock("@/services/sync", () => ({
   syncNow: h.syncNow,
   syncOnLogin: vi.fn(async () => {}),

@@ -1,14 +1,18 @@
-import { Fragment, type CSSProperties } from "react";
+import { Fragment, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { SheetActionRow, type SheetAction } from "@/components/mobile/sheets/SheetActionRow";
+import { LanConfirmPrompt } from "@/components/shared/LanConfirmPrompt";
+import { LanForgetPrompt } from "@/components/shared/LanForgetPrompt";
+import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
+import { useAsyncFlag, useCanPairDevices } from "@/hooks/useNoAccountInstall";
 import { SyncHeaderButton, SyncInlineAction, SyncSectionTitle, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
 import { useLanDeviceRows } from "@/hooks/useLanDeviceRows";
 import { runSyncMenuAction } from "@/hooks/useSyncProviderPanel";
 import { logFailure } from "@/lib/logger";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
-import { setLanSyncPaused } from "@/services/lanSync";
+import { inLanGroup, leaveLanGroup, setLanSyncPaused } from "@/services/lanSync";
 import type { DeviceDot, DeviceRow } from "@/services/lanSyncDevices";
 import { SYNC_PAUSED_ICON } from "@/services/syncStatus";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
@@ -57,12 +61,15 @@ function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: Devic
   if (blocked) return blockedFix(t, platform);
   const syncing = rows.find((r) => r.dot === "syncing");
   if (syncing) return { icon: "lucide:loader-circle", color: "var(--t-accent)", spin: true, label: t("layout.sync.local.status.syncing", { name: syncing.name }) };
-  const nearby = rows.filter((r) => r.nearby).length;
-  if (nearby > 0) return { icon: "lucide:circle-check", color: "var(--t-status-connected)", label: t("layout.sync.local.status.live", { count: nearby }) };
+  const live = rows.filter((r) => r.dot === "live").length;
+  if (live > 0) return { icon: "lucide:circle-check", color: "var(--t-status-connected)", label: t("layout.sync.local.status.live", { count: live }) };
   return { icon: "lucide:wifi", color: "var(--t-text-dim)", label: t("layout.sync.local.status.none") };
 }
 
 function rowDetail(t: TFunction, row: DeviceRow, anyNearby: boolean): { text: string; color: string } {
+  if (row.flag) {
+    return { text: t(`layout.sync.local.row.${row.flag}`), color: row.dot === "alert" ? "var(--t-status-warning)" : "var(--t-text-dim)" };
+  }
   const count = row.behind;
   if (row.dot === "syncing") {
     return { text: t(count > 0 ? "layout.sync.local.row.syncing" : "layout.sync.status.syncing", { count }), color: "var(--t-accent)" };
@@ -76,7 +83,7 @@ function rowDetail(t: TFunction, row: DeviceRow, anyNearby: boolean): { text: st
   return { text: when ? t("layout.sync.local.row.seenOk", { when }) : t("layout.sync.local.row.offlineOk"), color: "var(--t-text-dim)" };
 }
 
-function DeviceRowView({ row, anyNearby, variant }: { row: DeviceRow; anyNearby: boolean; variant: SyncMenuVariant }) {
+function DeviceRowView({ row, anyNearby, variant, onForget }: { row: DeviceRow; anyNearby: boolean; variant: SyncMenuVariant; onForget: () => void }) {
   const { t } = useTranslation();
   const s = STYLES[variant];
   const detail = rowDetail(t, row, anyNearby);
@@ -88,25 +95,38 @@ function DeviceRowView({ row, anyNearby, variant }: { row: DeviceRow; anyNearby:
         className="shrink-0"
         style={{ color: row.nearby ? "var(--t-text-secondary)" : "var(--t-text-muted)" }}
       />
-      <span className={`${s.name} flex-1 min-w-0 truncate`} style={{ color: row.nearby ? "var(--t-text-primary)" : "var(--t-text-secondary)" }} title={row.name}>
+      <span className={`${s.name} flex-1 min-w-[35%] truncate`} style={{ color: row.nearby ? "var(--t-text-primary)" : "var(--t-text-secondary)" }} title={row.name}>
         {row.name}
       </span>
-      <span className={`${s.detail} max-w-[65%] truncate`} style={{ color: detail.color }} title={detail.text}>
+      <span className={`${s.detail} min-w-0 max-w-[65%] ${row.flag ? "text-right leading-snug" : "truncate"}`} style={{ color: detail.color }} title={detail.text}>
         {detail.text}
       </span>
       <span aria-hidden data-dot={row.dot} className="shrink-0 size-1.5 rounded-full" style={DOT_STYLE[row.dot]} />
+      <button
+        data-lan-forget={row.deviceId}
+        onClick={onForget}
+        title={t("layout.sync.local.forget.aria", { name: row.name })}
+        aria-label={t("layout.sync.local.forget.aria", { name: row.name })}
+        className={`shrink-0 grid place-items-center text-(--t-text-muted) hover:text-(--t-text-primary) ${variant === "sheet" ? "size-11 -mr-3" : "size-5 -mr-1"}`}
+      >
+        <Icon icon="lucide:x" width={s.rowIcon} />
+      </button>
     </div>
   );
 }
 
-export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVariant; onClose: () => void }) {
+export function LocalNetworkSection({ variant, onClose, onPair }: { variant: SyncMenuVariant; onClose: () => void; onPair?: () => void }) {
   const { t } = useTranslation();
   const rows = useLanDeviceRows();
   const status = useLanSyncStore((s) => s.status);
   const pausedFlag = useLanSyncStore((s) => s.paused);
   const isPro = useSubscriptionStore((s) => s.isPro);
   const platform = usePlatform();
-  if (status === "stopped" && rows.length === 0) return null;
+  const canPair = useCanPairDevices();
+  const inGroup = useAsyncFlag(inLanGroup);
+  const [forgetting, setForgetting] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  if (status === "stopped" && rows.length === 0 && !canPair) return null;
 
   const isPaused = pausedFlag || status === "paused";
 
@@ -126,6 +146,13 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
     onTap: () => void setLanSyncPaused(!isPaused).catch(logFailure("lan-sync pause")),
   };
   const openSettings = blocked ? blockedFix(t, platform).action : null;
+  const pair: SheetAction | null = canPair
+    ? { slug: "pair", icon: "lucide:link", label: t("layout.sync.local.pair.title"), onTap: onPair ?? (() => { onClose(); openPairDeviceDialog(); }) }
+    : null;
+  const leave: SheetAction | null = canPair && inGroup
+    ? { slug: "leave", icon: "lucide:log-out", label: t("layout.sync.local.leave.label"), onTap: () => setLeaving(true) }
+    : null;
+  const forgetRow = rows.find((r) => r.deviceId === forgetting);
   const upgrade: SheetAction | null = upsell
     ? { slug: "upgrade", icon: "lucide:badge-check", label: t("layout.sync.upgradeArrow"), onTap: () => runSyncMenuAction({ kind: "upgrade" }, onClose) }
     : null;
@@ -148,18 +175,38 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
           <span className={`${s.status} leading-snug`}>{line.label}</span>
         </div>
         {!sheet && openSettings && <SyncInlineAction onClick={openSettings.onTap} label={openSettings.label} />}
+        {!sheet && (pair || leave) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {[pair, leave].map((a) => a && <SyncInlineAction key={a.slug} slug={a.slug} onClick={a.onTap} label={a.label} />)}
+          </div>
+        )}
 
         {rows.length > 0 && (
           <div className={s.list} style={{ background: "var(--t-bg-input)", opacity: isPaused ? 0.6 : 1 }}>
             {rows.map((row, i) => (
               <Fragment key={row.deviceId}>
                 {!row.nearby && rows[i - 1]?.nearby && <div data-divider className="h-px my-0.5 bg-(--t-border)" />}
-                <DeviceRowView row={row} anyNearby={anyNearby} variant={variant} />
+                <DeviceRowView row={row} anyNearby={anyNearby} variant={variant} onForget={() => setForgetting(row.deviceId)} />
               </Fragment>
             ))}
           </div>
         )}
 
+        {forgetRow && <LanForgetPrompt key={forgetRow.deviceId} row={forgetRow} variant={variant} onDone={() => setForgetting(null)} />}
+        {leaving && (
+          <LanConfirmPrompt
+            kind="leave"
+            variant={variant}
+            icon="lucide:log-out"
+            label={t("layout.sync.local.leave.confirm")}
+            failed={t("layout.sync.local.leave.failed")}
+            run={() => leaveLanGroup("left")}
+            onDone={onClose}
+            onCancel={() => setLeaving(false)}
+          >
+            <p>{t("layout.sync.local.leave.prompt")}</p>
+          </LanConfirmPrompt>
+        )}
         {catchUp && <p className={note}>{t("layout.sync.local.catchUp")}</p>}
         {upgrade && (
           <p data-lan-upsell className={note}>
@@ -168,7 +215,7 @@ export function LocalNetworkSection({ variant, onClose }: { variant: SyncMenuVar
           </p>
         )}
       </div>
-      {sheet && [toggle, openSettings, upgrade].map((a) => a && <SheetActionRow key={a.slug} attr="lan-action" it={a} />)}
+      {sheet && [toggle, pair, leave, openSettings, upgrade].map((a) => a && <SheetActionRow key={a.slug} attr="lan-action" it={a} />)}
     </div>
   );
 }

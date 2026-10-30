@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { render, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { DeviceRow } from "@/services/lanSyncDevices";
 
 const h = vi.hoisted(() => ({
@@ -9,6 +9,12 @@ const h = vi.hoisted(() => ({
   openUrl: vi.fn(async () => {}),
   runAction: vi.fn(),
   checkout: true,
+  mode: "local-nopassword" as string | null,
+  scope: null as { members?: string[] } | null,
+  forget: vi.fn(async (_id: string) => {}),
+  leave: vi.fn(async (_reason?: string) => {}),
+  grouped: false,
+  openDialog: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -21,9 +27,18 @@ vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: h.openUrl }));
 vi.mock("@/hooks/useLanDeviceRows", () => ({ useLanDeviceRows: () => h.rows }));
-vi.mock("@/services/lanSync", () => ({ setLanSyncPaused: h.setPaused }));
+vi.mock("@/services/lanSync", () => ({
+  setLanSyncPaused: h.setPaused,
+  lanScope: async () => h.scope,
+  forgetDevice: h.forget,
+  leaveLanGroup: h.leave,
+  inLanGroup: async () => h.grouped,
+}));
+vi.mock("@/services/account", () => ({ getAccountMode: async () => h.mode }));
+vi.mock("@/stores/pairDeviceDialogStore", () => ({ openPairDeviceDialog: h.openDialog }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: h.runAction }));
 vi.mock("@/utils/platform", () => ({ usePlatform: () => h.platform }));
+vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 vi.mock("@/utils/localeFormat", () => ({ formatRelative: () => "2h ago" }));
 vi.mock("@/services/distribution", () => ({ get CAN_OPEN_CHECKOUT() { return h.checkout; } }));
 
@@ -39,7 +54,7 @@ const phone = row({ deviceId: "d2", name: "Pixel 8", platform: "android", route:
 const behindMac = row({ deviceId: "d3", name: "MacBook", platform: "macos", nearby: false, route: null, dot: "behind", behind: 3, lastSeen: "2026-10-29T08:00:00Z" });
 const okLaptop = row({ deviceId: "d4", name: "Work laptop", nearby: false, route: null, dot: "offline-ok", lastSeen: "2026-10-29T08:00:00Z" });
 
-const q = (sel: string) => document.querySelector<HTMLElement>(sel);
+const q = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel);
 const device = (id: string) => q(`[data-lan-device='${id}']`)!;
 const onClose = vi.fn();
 
@@ -53,6 +68,9 @@ afterEach(() => {
   h.rows = [];
   h.platform = "macos";
   h.checkout = true;
+  h.mode = "local-nopassword";
+  h.scope = null;
+  h.grouped = false;
   useLanSyncStore.setState({ status: "stopped", paused: false });
 });
 
@@ -209,6 +227,19 @@ describe("LocalNetworkSection", () => {
     expect(q("[data-lan-upsell]")).toBeNull();
   });
 
+  test("a key-changed row never shows the cloud upsell", () => {
+    h.rows = [live, row({ deviceId: "k1", name: "Changed", nearby: false, route: null, dot: "alert", flag: "keyChanged" })];
+    render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    expect(q("[data-lan-upsell]")).toBeNull();
+    expect(device("k1").querySelector("[data-dot]")!.getAttribute("data-dot")).toBe("alert");
+  });
+
+  test("a paused nearby peer is not counted as live", () => {
+    h.rows = [live, row({ deviceId: "p1", name: "Paused", dot: "offline-ok", flag: "paused" })];
+    const { getByText } = render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    expect(getByText("layout.sync.local.status.live:1")).toBeTruthy();
+  });
+
   test("hidden when stopped with no known devices", () => {
     useLanSyncStore.setState({ status: "stopped" });
     render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
@@ -229,5 +260,224 @@ describe("LocalNetworkSection", () => {
     expect(h.openUrl).toHaveBeenCalled();
     fireEvent.click(q("[data-lan-action='pause']")!);
     expect(h.setPaused).toHaveBeenCalledWith(true);
+  });
+
+  describe("pairing and forgetting", () => {
+    const flagged = (flag: DeviceRow["flag"], over: Partial<DeviceRow> = {}) =>
+      row({ deviceId: "f1", name: "Flagged", nearby: false, route: null, dot: "offline-ok", flag, ...over });
+
+    test.each(["local", "local-nopassword"])("a %s install offers Pair a device", async (mode) => {
+      h.mode = mode;
+      h.rows = [live];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(q("[data-inline-action='pair']")).not.toBeNull());
+    });
+
+    test("iOS never offers Pair and keeps a stopped, empty section hidden", async () => {
+      h.platform = "ios";
+      h.rows = [live];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(q("[data-inline-action='pair']")).toBeNull();
+      cleanup();
+      h.rows = [];
+      useLanSyncStore.setState({ status: "stopped" });
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(q("[data-lan-section]")).toBeNull();
+    });
+
+    test.each(["server", null])("a %s install never offers Pair a device", async (mode) => {
+      h.mode = mode;
+      h.rows = [live];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(q("[data-inline-action='pair']")).toBeNull();
+    });
+
+    test("an unpaired no-account install shows the section with zero rows and the manager stopped", async () => {
+      useLanSyncStore.setState({ status: "stopped" });
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(q("[data-lan-section]")).not.toBeNull());
+      expect(q("[data-inline-action='pair']")).not.toBeNull();
+    });
+
+    test("dropdown Pair closes the menu and opens the dialog", async () => {
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(q("[data-inline-action='pair']")).not.toBeNull());
+      fireEvent.click(q("[data-inline-action='pair']")!);
+      expect(onClose).toHaveBeenCalled();
+      expect(h.openDialog).toHaveBeenCalled();
+    });
+
+    test("sheet Pair is a sheet action row that calls onPair", async () => {
+      const onPair = vi.fn();
+      render(<LocalNetworkSection variant="sheet" onClose={onClose} onPair={onPair} />);
+      await waitFor(() => expect(q("[data-lan-action='pair']")).not.toBeNull());
+      fireEvent.click(q("[data-lan-action='pair']")!);
+      expect(onPair).toHaveBeenCalled();
+      expect(h.openDialog).not.toHaveBeenCalled();
+    });
+
+    test.each([
+      ["paused", "layout.sync.local.row.paused"],
+      ["keyChanged", "layout.sync.local.row.keyChanged"],
+      ["moved", "layout.sync.local.row.moved"],
+    ] as const)("a %s row shows its copy", async (flag, copy) => {
+      h.rows = [flagged(flag)];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(device("f1").textContent).toContain(copy));
+    });
+
+    test("a flagged row keeps room for the device name and wraps its note", () => {
+      h.rows = [flagged("moved", { name: "laptop-of-a-long-name" })];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      const [name, note] = [...device("f1").querySelectorAll("span")];
+      expect(name.className).toContain("min-w-[35%]");
+      expect(note.className).toContain("min-w-0");
+      expect(note.className).not.toContain("truncate");
+    });
+
+    test("keyChanged text is amber, paused and moved are muted", () => {
+      h.rows = [flagged("keyChanged", { dot: "alert" }), flagged("paused", { deviceId: "f2" }), flagged("moved", { deviceId: "f3" })];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      const color = (id: string) => device(id).querySelectorAll("span")[1].style.color;
+      expect(color("f1")).toBe("var(--t-status-warning)");
+      expect(color("f2")).toBe("var(--t-text-dim)");
+      expect(color("f3")).toBe("var(--t-text-dim)");
+    });
+
+    test.each([
+      [{ members: ["k1"] }, "layout.sync.local.forget.group:Flagged"],
+      [null, "layout.sync.local.forget.account:Flagged"],
+    ])("forget copy follows the scope %j", async (scope, copy) => {
+      h.scope = scope;
+      h.rows = [flagged("paused")];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q("[data-lan-forget-confirm]")!.textContent).toContain(copy));
+    });
+
+    test("confirming forgets the device and closes the prompt", async () => {
+      h.rows = [flagged("paused")];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q("[data-inline-action='forget-confirm']")).not.toBeNull());
+      fireEvent.click(q("[data-inline-action='forget-confirm']")!);
+      await waitFor(() => expect(h.forget).toHaveBeenCalledWith("f1"));
+      await waitFor(() => expect(q("[data-lan-forget-confirm]")).toBeNull());
+    });
+
+    test("a failed forget shows an error and keeps the prompt", async () => {
+      h.forget.mockRejectedValueOnce(new Error("boom"));
+      h.rows = [flagged("paused")];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q("[data-inline-action='forget-confirm']")).not.toBeNull());
+      fireEvent.click(q("[data-inline-action='forget-confirm']")!);
+      await waitFor(() => expect(q("[data-lan-forget-error]")!.textContent).toContain("layout.sync.local.forget.failed:Flagged"));
+      expect(q("[data-lan-forget-confirm]")).not.toBeNull();
+    });
+
+    test("forgetting a key-changed device warns and never calls it safe", async () => {
+      h.rows = [flagged("keyChanged")];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q("[data-lan-forget-confirm]")).not.toBeNull());
+      expect(q("[data-lan-forget-confirm]")!.textContent).toContain("layout.sync.local.forget.keyChanged");
+      expect(q("[data-lan-forget-confirm]")!.textContent).not.toMatch(/safe/i);
+    });
+
+    test("cancel dismisses the prompt without forgetting", async () => {
+      h.rows = [flagged("paused")];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q("[data-inline-action='forget-cancel']")).not.toBeNull());
+      fireEvent.click(q("[data-inline-action='forget-cancel']")!);
+      expect(q("[data-lan-forget-confirm]")).toBeNull();
+      expect(h.forget).not.toHaveBeenCalled();
+    });
+
+    test("sheet Forget uses sheet action rows", async () => {
+      h.rows = [flagged("moved")];
+      render(<LocalNetworkSection variant="sheet" onClose={onClose} onPair={vi.fn()} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q<HTMLButtonElement>("[data-lan-action='forget-confirm']")?.disabled).toBe(false));
+      fireEvent.click(q("[data-lan-action='forget-confirm']")!);
+      await waitFor(() => expect(h.forget).toHaveBeenCalledWith("f1"));
+    });
+
+    test.each(["dropdown", "sheet"] as const)("no upgrade link in any new state in the %s with checkout off", async (variant) => {
+      h.checkout = false;
+      h.rows = [flagged("keyChanged"), flagged("paused", { deviceId: "f2" }), flagged("moved", { deviceId: "f3" })];
+      render(<LocalNetworkSection variant={variant} onClose={onClose} onPair={vi.fn()} />);
+      fireEvent.click(q("[data-lan-forget='f1']")!);
+      await waitFor(() => expect(q("[data-lan-forget-confirm]")).not.toBeNull());
+      expect(q("[data-lan-upsell]")).toBeNull();
+      expect(q("[data-lan-action='upgrade']")).toBeNull();
+      expect(document.body.textContent).not.toMatch(/upgrade|upsell/i);
+    });
+  });
+
+  describe("leaving the group", () => {
+    const settle = () => new Promise((r) => setTimeout(r, 10));
+
+    test("a grouped no-account install offers Leave, asks first, then leaves and closes the menu", async () => {
+      h.grouped = true;
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(q("[data-inline-action='leave']")).not.toBeNull());
+      expect(q("[data-inline-action='leave']")!.textContent).toBe("layout.sync.local.leave.label");
+      fireEvent.click(q("[data-inline-action='leave']")!);
+      expect(h.leave).not.toHaveBeenCalled();
+      expect(q("[data-lan-leave-confirm]")!.textContent).toContain("layout.sync.local.leave.prompt");
+      fireEvent.click(q("[data-inline-action='leave-confirm']")!);
+      await waitFor(() => expect(h.leave).toHaveBeenCalledWith("left"));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+    });
+
+    test("the sheet offers Leave as a sheet action row with the same prompt", async () => {
+      h.grouped = true;
+      render(<LocalNetworkSection variant="sheet" onClose={onClose} onPair={vi.fn()} />);
+      await waitFor(() => expect(q("[data-lan-action='leave']")).not.toBeNull());
+      fireEvent.click(q("[data-lan-action='leave']")!);
+      fireEvent.click(q("[data-lan-action='leave-confirm']")!);
+      await waitFor(() => expect(h.leave).toHaveBeenCalledWith("left"));
+    });
+
+    test.each([
+      ["an ungrouped no-account install", "local-nopassword", false, "linux"],
+      ["a signed-in install", "server", true, "linux"],
+      ["iOS", "local-nopassword", true, "ios"],
+    ])("%s never offers Leave", async (_case, mode, grouped, platform) => {
+      h.mode = mode;
+      h.grouped = grouped;
+      h.platform = platform;
+      h.rows = [live];
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await settle();
+      expect(q("[data-inline-action='leave']")).toBeNull();
+    });
+
+    test("cancel keeps the group", async () => {
+      h.grouped = true;
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(q("[data-inline-action='leave']")).not.toBeNull());
+      fireEvent.click(q("[data-inline-action='leave']")!);
+      fireEvent.click(q("[data-inline-action='leave-cancel']")!);
+      expect(q("[data-lan-leave-confirm]")).toBeNull();
+      expect(h.leave).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    test("a failed leave says so and keeps the prompt", async () => {
+      h.grouped = true;
+      h.leave.mockRejectedValueOnce(new Error("boom"));
+      render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+      await waitFor(() => expect(q("[data-inline-action='leave']")).not.toBeNull());
+      fireEvent.click(q("[data-inline-action='leave']")!);
+      fireEvent.click(q("[data-inline-action='leave-confirm']")!);
+      await waitFor(() => expect(q("[data-lan-leave-error]")!.textContent).toBe("layout.sync.local.leave.failed"));
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 });

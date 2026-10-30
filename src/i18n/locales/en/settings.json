@@ -632,6 +632,9 @@
     },
     "sync": {
       "voltiusCloud": "Voltius Cloud",
+      "local": {
+        "pairSub": "Sync with another device on your network without an account."
+      },
       "active": {
         "title": "Cloud sync active",
         "syncing": "Syncing…",

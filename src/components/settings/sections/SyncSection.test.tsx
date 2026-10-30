@@ -43,6 +43,10 @@ vi.mock("@/hooks/useAvailableSyncProviders", () => ({ useAvailableSyncProviders:
 vi.mock("@/components/settings/usePluginInstaller", () => ({
   usePluginInstaller: () => ({ busy: new Set(), startInstall: vi.fn(), startUpdate: vi.fn(), modal: null }),
 }));
+const { noAccount } = vi.hoisted(() => ({ noAccount: { value: true } }));
+vi.mock("@/hooks/useNoAccountInstall", () => ({ useCanPairDevices: () => noAccount.value }));
+const { openDialog } = vi.hoisted(() => ({ openDialog: vi.fn() }));
+vi.mock("@/stores/pairDeviceDialogStore", () => ({ openPairDeviceDialog: openDialog }));
 const { runAction } = vi.hoisted(() => ({ runAction: vi.fn() }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: runAction }));
 
@@ -272,5 +276,25 @@ describe("SyncSection plugin providers", () => {
     } finally {
       availableCatalog.list = [];
     }
+  });
+});
+
+describe("Local network group", () => {
+  afterEach(() => {
+    cleanup();
+    noAccount.value = true;
+    openDialog.mockClear();
+  });
+
+  test("a no-account install can open Pair a device", () => {
+    const { container } = render(<SyncSection />);
+    fireEvent.click(container.querySelector("[data-sync-pair]")!);
+    expect(openDialog).toHaveBeenCalled();
+  });
+
+  test("an account install shows no Local network group", () => {
+    noAccount.value = false;
+    const { container } = render(<SyncSection />);
+    expect(container.querySelector("[data-sync-pair]")).toBeNull();
   });
 });

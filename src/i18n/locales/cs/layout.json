@@ -220,7 +220,10 @@
           "seenBehind_few": "Naposledy {{when}} · pozadu o {{count}}",
           "seenBehind_many": "Naposledy {{when}} · pozadu o {{count}}",
           "seenBehind_other": "Naposledy {{when}} · pozadu o {{count}}",
-          "seenOk": "Naposledy {{when}} · aktuální"
+          "seenOk": "Naposledy {{when}} · aktuální",
+          "paused": "Pozastaveno",
+          "keyChanged": "Toto zařízení nelze ověřit · Spárujte ho znovu a ověřte ho",
+          "moved": "Přesunuto na účet Voltius — pro další synchronizaci se tam přihlaste"
         },
         "catchUp": "Změny se k nim dostanou, až budou příště ve stejné síti.",
         "upsell": "Voltius Cloud udržuje zařízení synchronizovaná, i když nejsou online současně.",
@@ -229,6 +232,37 @@
           "lan": "{{name}} je poblíž · Synchronizace přes Wi-Fi",
           "tailscale": "{{name}} je poblíž · Synchronizace přes Tailscale",
           "vpn": "{{name}} je poblíž · Synchronizace přes VPN"
+        },
+        "pair": {
+          "title": "Spárovat zařízení",
+          "searching": "Otevřete Spárovat zařízení i na druhém zařízení. Obě nechte ve stejné síti.",
+          "signedInHint": "Je druhé zařízení přihlášené k účtu Voltius? Přihlaste se tady raději stejným účtem.",
+          "compare": "Zkontrolujte, že obě obrazovky ukazují tento kód",
+          "confirm": "Kódy se shodují",
+          "cancel": "Zrušit",
+          "peerConfirmed": "{{name}} potvrdilo",
+          "combine": "Sloučit obojí",
+          "useTheirs": "Použít data zařízení {{name}}",
+          "done": "Spárováno se zařízením {{name}}",
+          "close": "Zavřít",
+          "tryAgain": "Zkusit znovu",
+          "joining": "Párování…",
+          "hasData": "Toto zařízení už obsahuje data. Sloučte je s daty zařízení {{name}}, nebo místo toho použijte data zařízení {{name}}.",
+          "replaces": "Nahradí zařízení {{name}}"
+        },
+        "forget": {
+          "label": "Zapomenout",
+          "aria": "Zapomenout {{name}}",
+          "account": "Přestat v tomto zařízení synchronizovat se zařízením {{name}} přes místní síť. Chcete-li ho odebrat úplně, odhlaste se na tom zařízení.",
+          "group": "Odebrat {{name}} z vašich zařízení. Ponechá si, co už má, a nic nového nedostane, dokud ho znovu nespárujete.",
+          "keyChanged": "Identita tohoto zařízení se změnila. Spárujte ho znovu, aby se nová identita ověřila kódem – ale jen pokud toto zařízení poznáváte.",
+          "failed": "Zařízení {{name}} se nepodařilo zapomenout. Zkuste to znovu."
+        },
+        "leave": {
+          "label": "Opustit tuto skupinu",
+          "prompt": "Toto zařízení přestane synchronizovat s vašimi ostatními zařízeními přes místní síť. Ponechá si, co už má, a ostatní ho odeberou ze svého seznamu. Později ho můžete znovu spárovat.",
+          "confirm": "Opustit",
+          "failed": "Skupinu se nepodařilo opustit. Zkuste to znovu."
         }
       },
       "status": {

@@ -216,7 +216,10 @@
           "seenBehind_one": "Vu {{when}} · {{count}} de retard",
           "seenBehind_many": "Vu {{when}} · {{count}} de retard",
           "seenBehind_other": "Vu {{when}} · {{count}} de retard",
-          "seenOk": "Vu {{when}} · à jour"
+          "seenOk": "Vu {{when}} · à jour",
+          "paused": "En pause",
+          "keyChanged": "Impossible de vérifier cet appareil · Associez-le à nouveau pour le vérifier",
+          "moved": "Passé sur un compte Voltius — connectez-vous là-bas pour continuer à synchroniser"
         },
         "catchUp": "Les modifications leur parviendront la prochaine fois qu'ils seront sur le même réseau.",
         "upsell": "Voltius Cloud garde vos appareils synchronisés même lorsqu'ils ne sont pas en ligne en même temps.",
@@ -225,6 +228,37 @@
           "lan": "{{name}} est à proximité · Synchronisation via le Wi-Fi",
           "tailscale": "{{name}} est à proximité · Synchronisation via Tailscale",
           "vpn": "{{name}} est à proximité · Synchronisation via le VPN"
+        },
+        "pair": {
+          "title": "Associer un appareil",
+          "searching": "Ouvrez aussi « Associer un appareil » sur votre autre appareil. Gardez les deux sur le même réseau.",
+          "signedInHint": "L'autre appareil est-il connecté à un compte Voltius ? Connectez-vous plutôt ici avec le même compte.",
+          "compare": "Vérifiez que les deux écrans affichent ce code",
+          "confirm": "Les codes correspondent",
+          "cancel": "Annuler",
+          "peerConfirmed": "{{name}} a confirmé",
+          "combine": "Fusionner les deux",
+          "useTheirs": "Utiliser les données de {{name}}",
+          "done": "Associé à {{name}}",
+          "close": "Fermer",
+          "tryAgain": "Réessayer",
+          "joining": "Association…",
+          "hasData": "Cet appareil contient déjà des données. Fusionnez-les avec celles de {{name}}, ou utilisez plutôt les données de {{name}}.",
+          "replaces": "Remplace {{name}}"
+        },
+        "forget": {
+          "label": "Oublier",
+          "aria": "Oublier {{name}}",
+          "account": "Arrêter la synchronisation avec {{name}} sur le réseau local depuis cet appareil. Pour le retirer complètement, déconnectez-vous sur cet appareil.",
+          "group": "Retirer {{name}} de vos appareils. Il conserve ce qu'il a déjà et ne reçoit plus rien de nouveau tant que vous ne l'associez pas à nouveau.",
+          "keyChanged": "L'identité de cet appareil a changé. Associez-le à nouveau pour vérifier la nouvelle identité avec un code, et seulement si vous reconnaissez cet appareil.",
+          "failed": "Impossible d'oublier {{name}}. Réessayez."
+        },
+        "leave": {
+          "label": "Quitter ce groupe",
+          "prompt": "Cet appareil arrête de se synchroniser avec vos autres appareils sur le réseau local. Il conserve ce qu'il a déjà, et les autres le retirent de leur liste. Vous pourrez l'associer à nouveau plus tard.",
+          "confirm": "Quitter",
+          "failed": "Impossible de quitter le groupe. Réessayez."
         }
       },
       "status": {

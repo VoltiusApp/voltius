@@ -13,6 +13,8 @@ const h = vi.hoisted(() => ({
   secret: "plain",
   authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean },
   stopLanSync: vi.fn(async () => {}),
+  startSessionSync: vi.fn(),
+  startLanSyncInBackground: vi.fn(),
   getAppLock: vi.fn(async () => null as string | null),
 }));
 
@@ -42,7 +44,11 @@ vi.mock("./AuthPage", () => ({
   default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
-vi.mock("@/services/lanSync", () => ({ startSessionSync: vi.fn(), stopLanSync: h.stopLanSync }));
+vi.mock("@/services/lanSync", () => ({
+  startSessionSync: h.startSessionSync,
+  startLanSyncInBackground: h.startLanSyncInBackground,
+  stopLanSync: h.stopLanSync,
+}));
 
 import SplashScreen from "./SplashScreen";
 
@@ -58,6 +64,8 @@ beforeEach(() => {
   h.authProps = null;
   h.autoLogin.mockClear();
   h.stopLanSync.mockClear();
+  h.startSessionSync.mockClear();
+  h.startLanSyncInBackground.mockClear();
   h.getAppLock.mockReset().mockImplementation(async () => h.lock);
 });
 afterEach(() => {
@@ -185,4 +193,12 @@ test("a vault lock over a vault whose account id is gone goes to the unreadable 
   render(<SplashScreen onReady={() => {}} />);
   await advance(2000);
   expect(h.authProps).toMatchObject({ isLocked: true, vaultUnreadable: true });
+});
+
+test("a no-account install starts lan sync once it has loaded", async () => {
+  h.mode = "local";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.startLanSyncInBackground).toHaveBeenCalledTimes(1);
+  expect(h.startSessionSync).not.toHaveBeenCalled();
 });

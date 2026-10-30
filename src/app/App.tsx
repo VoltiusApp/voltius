@@ -41,6 +41,7 @@ import { EmailVerificationRequiredModal } from "@/components/notifications/Email
 import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
 import { FileAccessRequestModal } from "@/components/shared/FileAccessRequestModal";
 import { LanSyncIntroModal } from "@/components/shared/LanSyncIntroModal";
+import { PairDeviceDialog } from "@/components/shared/PairDeviceDialog";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
 import { RuleSetPromptHost } from "@/components/permissions/RuleSetPromptHost";
@@ -109,6 +110,7 @@ function App() {
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />
       <LanSyncIntroModal />
+      <PairDeviceDialog />
       <RuleSetPromptHost />
       <VaultIdentityDialogHost />
       <GlobalTransferQueue />

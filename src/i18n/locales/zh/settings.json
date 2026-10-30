@@ -511,6 +511,9 @@
     },
     "sync": {
       "voltiusCloud": "Voltius 云",
+      "local": {
+        "pairSub": "无需账号，即可与网络中的另一台设备同步。"
+      },
       "active": {
         "title": "云同步活跃",
         "syncing": "正在同步…",

@@ -37,7 +37,20 @@
     "device-busy": "该设备打开的文件会话过多。请关闭一个后重试。",
     "device-unreachable": "无法连接该设备。请确认它已开机并处于同一网络。",
     "device-access-expired": "对此设备的访问已结束。请重新打开以请求权限。",
-    "device-read-only": "该设备以只读方式共享这些文件夹。"
+    "device-read-only": "该设备以只读方式共享这些文件夹。",
+    "pair": {
+      "ended": {
+        "accountDevice": "另一台设备已登录 Voltius 账号。请改在这里用同一账号登录。",
+        "bothGrouped": "两台设备都已与其他设备配对。请在其中一台上退出该组，然后重新配对。",
+        "alreadyPaired": "这两台设备已经配对。",
+        "timedOut": "配对超时。",
+        "cancelled": "配对已取消。",
+        "busy": "另一台设备正在与其他设备配对。请稍后再试。",
+        "tooManyAttempts": "失败次数过多，配对已关闭。请重新打开“配对设备”再试。",
+        "failed": "配对未完成，请重试。",
+        "stopped": "配对已停止。请重新打开“配对设备”再试。"
+      }
+    }
   },
   "errorAt": {
     "proxy": "代理 {{proxy}}：{{cause}}",

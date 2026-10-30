@@ -212,7 +212,10 @@
           "offlineOk": "Çevrimdışı · güncel",
           "seenBehind_one": "Son görülme {{when}} · {{count}} geride",
           "seenBehind_other": "Son görülme {{when}} · {{count}} geride",
-          "seenOk": "Son görülme {{when}} · güncel"
+          "seenOk": "Son görülme {{when}} · güncel",
+          "paused": "Duraklatıldı",
+          "keyChanged": "Bu cihaz doğrulanamıyor · Doğrulamak için yeniden eşleyin",
+          "moved": "Bir Voltius hesabına taşındı — eşitlemeye devam etmek için orada oturum açın"
         },
         "catchUp": "Değişiklikler, bir sonraki sefer aynı ağda olduklarında onlara ulaşır.",
         "upsell": "Voltius Cloud, cihazlar aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar.",
@@ -221,6 +224,37 @@
           "lan": "{{name}} yakında · Wi-Fi üzerinden senkronize ediliyor",
           "tailscale": "{{name}} yakında · Tailscale üzerinden senkronize ediliyor",
           "vpn": "{{name}} yakında · VPN üzerinden senkronize ediliyor"
+        },
+        "pair": {
+          "title": "Cihaz eşle",
+          "searching": "Diğer cihazınızda da Cihaz eşle ekranını açın. İkisini de aynı ağda tutun.",
+          "signedInHint": "Diğer cihaz bir Voltius hesabına giriş yapmış mı? O zaman burada aynı hesapla giriş yapın.",
+          "compare": "İki ekranda da bu kodun göründüğünü kontrol edin",
+          "confirm": "Kodlar eşleşiyor",
+          "cancel": "İptal",
+          "peerConfirmed": "{{name}} onayladı",
+          "combine": "İkisini birleştir",
+          "useTheirs": "{{name}} verilerini kullan",
+          "done": "{{name}} ile eşlendi",
+          "close": "Kapat",
+          "tryAgain": "Tekrar dene",
+          "joining": "Eşleniyor…",
+          "hasData": "Bu cihazda zaten veri var. Bunları {{name}} verileriyle birleştirin ya da onun yerine {{name}} verilerini kullanın.",
+          "replaces": "Bu, {{name}} cihazının yerini alır"
+        },
+        "forget": {
+          "label": "Unut",
+          "aria": "{{name}} cihazını unut",
+          "account": "Bu cihazda {{name}} ile yerel ağ üzerinden eşitlemeyi durdur. Tamamen kaldırmak için o cihazda oturumu kapatın.",
+          "group": "{{name}} cihazını cihazlarınızdan kaldır. Sahip olduğu verileri korur ve yeniden eşleyene kadar yeni bir şey almaz.",
+          "keyChanged": "Bu cihazın kimliği değişti. Yeni kimliği bir kodla doğrulamak için yeniden eşleyin; ancak yalnızca bu cihazı tanıyorsanız.",
+          "failed": "{{name}} unutulamadı. Tekrar deneyin."
+        },
+        "leave": {
+          "label": "Bu gruptan ayrıl",
+          "prompt": "Bu cihaz, diğer cihazlarınızla yerel ağ üzerinden eşitlemeyi durdurur. Sahip olduğu verileri korur ve diğerleri onu listelerinden kaldırır. Daha sonra yeniden eşleyebilirsiniz.",
+          "confirm": "Ayrıl",
+          "failed": "Gruptan ayrılınamadı. Tekrar deneyin."
         }
       },
       "status": {

@@ -37,7 +37,20 @@
     "device-busy": "Esse dispositivo tem demasiadas sessões de ficheiros abertas. Feche uma e tente novamente.",
     "device-unreachable": "Não foi possível contactar esse dispositivo. Verifique se está ligado e na mesma rede.",
     "device-access-expired": "O acesso a este dispositivo terminou. Abra-o novamente para pedir autorização.",
-    "device-read-only": "Esse dispositivo partilha estas pastas só para leitura."
+    "device-read-only": "Esse dispositivo partilha estas pastas só para leitura.",
+    "pair": {
+      "ended": {
+        "accountDevice": "O outro dispositivo tem sessão iniciada numa conta Voltius. Inicie sessão aqui com a mesma conta.",
+        "bothGrouped": "Os dois dispositivos já estão emparelhados com outros dispositivos. Saia do grupo num deles e emparelhe de novo.",
+        "alreadyPaired": "Estes dispositivos já estão emparelhados.",
+        "timedOut": "O emparelhamento expirou.",
+        "cancelled": "O emparelhamento foi cancelado.",
+        "busy": "O outro dispositivo já está a emparelhar com outro. Tente novamente dentro de instantes.",
+        "tooManyAttempts": "Demasiadas tentativas falhadas. O emparelhamento foi desativado. Abra Emparelhar um dispositivo de novo para tentar outra vez.",
+        "failed": "O emparelhamento não foi concluído. Tente novamente.",
+        "stopped": "O emparelhamento parou. Abra Emparelhar um dispositivo de novo para tentar outra vez."
+      }
+    }
   },
   "errorAt": {
     "proxy": "Proxy {{proxy}}: {{cause}}",

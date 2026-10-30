@@ -216,7 +216,10 @@
           "seenBehind_one": "Visto {{when}} · {{count}} pendente",
           "seenBehind_many": "Visto {{when}} · {{count}} pendentes",
           "seenBehind_other": "Visto {{when}} · {{count}} pendentes",
-          "seenOk": "Visto {{when}} · atualizado"
+          "seenOk": "Visto {{when}} · atualizado",
+          "paused": "Pausado",
+          "keyChanged": "Não foi possível verificar este dispositivo · Pareie de novo para verificá-lo",
+          "moved": "Movido para uma conta Voltius — entre lá para continuar sincronizando"
         },
         "catchUp": "As alterações chegam a eles na próxima vez que estiverem na mesma rede.",
         "upsell": "O Voltius Cloud mantém os dispositivos sincronizados mesmo quando não estão online ao mesmo tempo.",
@@ -225,6 +228,37 @@
           "lan": "{{name}} está por perto · Sincronizando via Wi-Fi",
           "tailscale": "{{name}} está por perto · Sincronizando via Tailscale",
           "vpn": "{{name}} está por perto · Sincronizando via VPN"
+        },
+        "pair": {
+          "title": "Parear um dispositivo",
+          "searching": "Abra Parear um dispositivo também no seu outro dispositivo. Mantenha os dois na mesma rede.",
+          "signedInHint": "O outro dispositivo está conectado a uma conta Voltius? Entre aqui com a mesma conta.",
+          "compare": "Confira se as duas telas mostram este código",
+          "confirm": "Os códigos coincidem",
+          "cancel": "Cancelar",
+          "peerConfirmed": "{{name}} confirmou",
+          "combine": "Combinar os dois",
+          "useTheirs": "Usar os dados de {{name}}",
+          "done": "Pareado com {{name}}",
+          "close": "Fechar",
+          "tryAgain": "Tentar novamente",
+          "joining": "Pareando…",
+          "hasData": "Este dispositivo já tem dados. Combine-os com os de {{name}} ou use os dados de {{name}}.",
+          "replaces": "Isto substitui {{name}}"
+        },
+        "forget": {
+          "label": "Esquecer",
+          "aria": "Esquecer {{name}}",
+          "account": "Parar de sincronizar com {{name}} pela rede local neste dispositivo. Para removê-lo por completo, saia da conta nesse dispositivo.",
+          "group": "Remover {{name}} dos seus dispositivos. Ele mantém o que já tem e não recebe nada novo até você pareá-lo de novo.",
+          "keyChanged": "A identidade deste dispositivo mudou. Pareie-o de novo para verificar a nova identidade com um código, e só se reconhecer este dispositivo.",
+          "failed": "Não foi possível esquecer {{name}}. Tente novamente."
+        },
+        "leave": {
+          "label": "Sair deste grupo",
+          "prompt": "Este dispositivo para de sincronizar com seus outros dispositivos pela rede local. Ele mantém o que já tem, e os outros o removem da lista deles. Você pode pareá-lo de novo depois.",
+          "confirm": "Sair",
+          "failed": "Não foi possível sair do grupo. Tente novamente."
         }
       },
       "status": {
