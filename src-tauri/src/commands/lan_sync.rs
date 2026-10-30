@@ -1170,18 +1170,8 @@ pub(crate) mod tests {
             .await
             .unwrap();
         let port = with_manager(&member, Manager::port).await;
-        let mut remembered = PeerStore::open(dir.path(), "grp");
-        let key = test_identity("dev-m").key.public;
-        remembered.decide(
-            "dev-m",
-            &key,
-            now_secs(),
-            crate::lan_sync::peers::PinPolicy::Refuse,
-        );
         let at = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
-        remembered.record_addrs("dev-m", &[at], now_secs());
-        let (path, bytes) = remembered.snapshot().unwrap();
-        write_snapshot(&path, &bytes).unwrap();
+        PeerStore::seed_file(dir.path(), "grp", "dev-m", &[at]);
 
         let state = LanSyncState::default();
         let (emit, seen) = recorder();

@@ -305,6 +305,22 @@ pub fn now_secs() -> u64 {
 }
 
 #[cfg(test)]
+impl PeerStore {
+    pub(crate) fn seed(&mut self, id: &str, addrs: &[SocketAddr], last_seen: u64) {
+        let key = super::identity::test_identity(id).key.public;
+        self.decide(id, &key, now_secs(), PinPolicy::Repin);
+        self.record_addrs(id, addrs, last_seen);
+    }
+
+    pub(crate) fn seed_file(dir: &Path, scope: &str, id: &str, addrs: &[SocketAddr]) {
+        let mut store = Self::open(dir, scope);
+        store.seed(id, addrs, now_secs());
+        let (path, bytes) = store.snapshot().unwrap();
+        write_snapshot(&path, &bytes).unwrap();
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

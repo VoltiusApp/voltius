@@ -115,9 +115,9 @@ pub enum FilesDialError {
 }
 
 impl FilesDialError {
-    pub fn refused_by(&self) -> Option<&str> {
+    pub fn refused_peer(&self) -> Option<&str> {
         match self {
-            Self::Handshake(e) => e.refused_by(),
+            Self::Handshake(e) => e.refused_peer(),
             _ => None,
         }
     }
@@ -151,9 +151,31 @@ impl Trust {
             self.members.is_some(),
         ) {
             (true, true, _) => Kind::Farewell,
-            (true, false, _) => Kind::Pairing,
+            (true, false, false) => Kind::Pairing,
+            (true, false, true) => Kind::Inert,
             (false, _, true) => Kind::Group,
             (false, _, false) => Kind::Account,
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn test_keys(secrets: &[u8]) -> Zeroizing<Vec<[u8; 32]>> {
+    let derive = |s: &u8| super::identity::derive_auth_key(&[*s; 32]);
+    Zeroizing::new(secrets.iter().map(derive).collect())
+}
+
+#[cfg(test)]
+impl Trust {
+    pub(crate) fn grouped(epochs: &[u8], members: &[&str]) -> Self {
+        let member = |id: &&str| Member {
+            device_id: id.to_string(),
+            key: super::identity::test_identity(id).key.public,
+        };
+        Self {
+            keys: test_keys(epochs),
+            members: Some(members.iter().map(member).collect()),
+            farewell: None,
         }
     }
 }
@@ -164,16 +186,24 @@ enum Kind {
     Group,
     Pairing,
     Farewell,
+    Inert,
 }
 
-// Farewell has nothing to sync, only a goodbye to say: it stays invisible and only dials out.
+// Farewell only says goodbye, invisibly and outbound; Inert is a group without a secret and does nothing.
 impl Kind {
     fn listens(self) -> bool {
-        self != Self::Farewell
+        matches!(self, Self::Account | Self::Group | Self::Pairing)
     }
 
-    fn sweeps(self) -> bool {
-        self != Self::Pairing
+    fn dials(self) -> bool {
+        matches!(self, Self::Account | Self::Group | Self::Farewell)
+    }
+
+    fn policy(self) -> PinPolicy {
+        match self {
+            Self::Account | Self::Pairing => PinPolicy::Repin,
+            Self::Group | Self::Farewell | Self::Inert => PinPolicy::Refuse,
+        }
     }
 
     #[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
@@ -190,7 +220,7 @@ impl Kind {
     }
 
     fn pairs(self) -> bool {
-        self != Self::Farewell
+        matches!(self, Self::Account | Self::Group | Self::Pairing)
     }
 }
 
@@ -660,6 +690,7 @@ struct State {
     swept: HashMap<SocketAddr, Instant>,
     own: Vec<SocketAddr>,
     rejected: HashSet<(String, Rejection)>,
+    told: HashSet<String>,
     unlinked: VecDeque<(String, Vec<SocketAddr>)>,
     next_conn: u64,
     closed: bool,
@@ -839,6 +870,7 @@ impl Shared {
             LinkRefusal::Farewell => {
                 let _ = session.send(&presence_frame(self.farewell_state)).await;
                 let device_id = device_id.to_string();
+                self.lock().told.insert(device_id.clone());
                 let _ = self
                     .events
                     .send(ManagerEvent::FarewellSent {
@@ -1000,6 +1032,9 @@ impl Shared {
         wait: bool,
         charged: bool,
     ) -> DialOutcome {
+        if !self.kind.dials() {
+            return DialOutcome::Skipped;
+        }
         let addr = addrs::canonical(addr);
         let resighted = source == Source::Mdns && !self.remember(addr, None);
         if !self.worth_dialing(addr) {
@@ -1197,7 +1232,7 @@ impl Shared {
         let shaken = shake(stream, addr, Mode::Keys(keys), self).await?;
         let link = secure(shaken, addr, true, self)
             .await
-            .map_err(|e| match e.refused_by() {
+            .map_err(|e| match e.refused_peer() {
                 Some(answered) if answered != id => other(),
                 _ => e.into(),
             })?;
@@ -1214,7 +1249,7 @@ impl Shared {
             match self.files_link(addr, id).await {
                 Ok(link) => return Ok(link),
                 Err(e) => {
-                    if failed.refused_by().is_none() {
+                    if failed.refused_peer().is_none() {
                         failed = e;
                     }
                 }
@@ -1290,7 +1325,9 @@ impl Shared {
         let store = self.store();
         let mut state = self.lock();
         state.prune();
-        let missing = |id: &str| id != self.me.device_id && !state.peers.contains_key(id);
+        let missing = |id: &str| {
+            id != self.me.device_id && !state.peers.contains_key(id) && !state.told.contains(id)
+        };
         let candidates = state
             .dialable
             .iter()
@@ -1765,7 +1802,7 @@ pub async fn start(
     } else {
         None
     };
-    let mut manager = serve(listener, me, trust, paused, store, events).await?;
+    let mut manager = serve(listener, me, trust, kind, paused, store, events).await?;
     if discovery {
         manager.spawn(|s| probe_loop(s, Arc::new(discovery::probe_multicast)));
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -1781,23 +1818,18 @@ async fn serve(
     listener: Option<TcpListener>,
     me: LocalIdentity,
     trust: Trust,
+    kind: Kind,
     paused: bool,
     store: PeerStore,
     events: mpsc::Sender<ManagerEvent>,
 ) -> Result<Manager, String> {
     let port = listener.as_ref().map(local_port).transpose()?;
     let (saves, saved) = watch::channel(None);
-    let kind = trust.kind();
     let Trust {
         keys,
         members,
         farewell,
     } = trust;
-    let policy = if members.is_some() {
-        PinPolicy::Refuse
-    } else {
-        PinPolicy::Repin
-    };
     let farewell_index = keys.len();
     let farewell_state = farewell.as_ref().map_or(PresenceState::Moved, |f| f.state);
     let mut auth_keys = Zeroizing::new(Vec::with_capacity(keys.len() + 1));
@@ -1813,7 +1845,7 @@ async fn serve(
         events,
         state: Mutex::default(),
         store: Mutex::new(store),
-        policy,
+        policy: kind.policy(),
         saves,
         flush: Notify::new(),
         paused: AtomicBool::new(paused),
@@ -1833,7 +1865,7 @@ async fn serve(
         shared.vouch(members);
     }
     let mut tasks = vec![tokio::spawn(emit_peers(shared.clone()))];
-    if kind.sweeps() {
+    if kind.dials() {
         tasks.push(tokio::spawn(retry_unlisted(shared.clone())));
     }
     if let Some(listener) = listener {
@@ -2080,27 +2112,10 @@ mod tests {
     use std::io::Write;
     use std::sync::atomic::AtomicUsize;
 
-    fn keys(secrets: &[u8]) -> Zeroizing<Vec<[u8; 32]>> {
-        Zeroizing::new(secrets.iter().map(|s| derive_auth_key(&[*s; 32])).collect())
-    }
-
     fn on_account(account: u8) -> Trust {
         Trust {
-            keys: keys(&[account]),
+            keys: test_keys(&[account]),
             members: None,
-            farewell: None,
-        }
-    }
-
-    fn in_group(epochs: &[u8], members: &[&str]) -> Trust {
-        Trust {
-            keys: keys(epochs),
-            members: Some(
-                members
-                    .iter()
-                    .map(|id| member_of(&test_identity(id)))
-                    .collect(),
-            ),
             farewell: None,
         }
     }
@@ -2120,7 +2135,7 @@ mod tests {
     fn left_group(group: u8) -> Trust {
         Trust {
             farewell: farewell(group, PresenceState::Left),
-            ..in_group(&[], &[])
+            ..Trust::grouped(&[], &[])
         }
     }
 
@@ -2132,7 +2147,8 @@ mod tests {
         store: PeerStore,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>) {
         let (tx, rx) = mpsc::channel(64);
-        let mut manager = serve(Some(listener), me, trust, false, store, tx)
+        let kind = trust.kind();
+        let mut manager = serve(Some(listener), me, trust, kind, false, store, tx)
             .await
             .unwrap();
         if let Some(probe) = probe {
@@ -2234,7 +2250,7 @@ mod tests {
         let fd = raw.try_clone().unwrap();
         raw.set_nonblocking(true).unwrap();
         let stream = TcpStream::from_std(raw).unwrap();
-        let (session, _) = handshake(stream, true, me, &keys(secrets)).await?;
+        let (session, _) = handshake(stream, true, me, &test_keys(secrets)).await?;
         Ok((session, fd))
     }
 
@@ -2455,7 +2471,7 @@ mod tests {
 
     #[tokio::test]
     async fn key_change_is_refused_until_forgotten() {
-        let group = in_group(&[1], &[]);
+        let group = Trust::grouped(&[1], &[]);
         let (a, mut ea) = spawn_as(test_identity("dev-a"), PeerStore::memory(), group).await;
         let ephemeral = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).await.unwrap();
         let (b, _eb) = spawn_on("dev-b", 1, ephemeral).await;
@@ -2869,12 +2885,9 @@ mod tests {
         b.shared.remember(addr(3), None);
         tag(&b, addr(4), "dev-a");
         b.shared.remember(addr(5), None);
-        seed(
-            &mut b.shared.store(),
-            "dev-a",
-            &[addr(6), addr(4)],
-            now_secs(),
-        );
+        b.shared
+            .store()
+            .seed("dev-a", &[addr(6), addr(4)], now_secs());
         assert_eq!(
             b.shared.sweep_order("dev-a"),
             vec![addr(6), addr(4), addr(1)]
@@ -2890,11 +2903,11 @@ mod tests {
         let now = now_secs();
         {
             let mut store = b.shared.store();
-            seed(&mut store, "dev-a", &[addr(1)], now - 10);
-            seed(&mut store, "dev-a", &[addr(2)], now);
-            seed(&mut store, "dev-c", &[addr(3)], now - 5);
-            seed(&mut store, "dev-c", &[addr(4)], now - 31 * DAY);
-            seed(&mut store, "dev-e", &[addr(7)], now);
+            store.seed("dev-a", &[addr(1)], now - 10);
+            store.seed("dev-a", &[addr(2)], now);
+            store.seed("dev-c", &[addr(3)], now - 5);
+            store.seed("dev-c", &[addr(4)], now - 31 * DAY);
+            store.seed("dev-e", &[addr(7)], now);
         }
         tag(&b, addr(5), "dev-d");
         tag(&b, addr(2), "dev-a");
@@ -2950,7 +2963,7 @@ mod tests {
                 let addrs: Vec<SocketAddr> = (1..=crate::lan_sync::peers::MAX_ADDRS as u8)
                     .map(|i| SocketAddr::from(([127, 0, 10 + d, i], 1)))
                     .collect();
-                seed(&mut store, &format!("dev-s{d}"), &addrs, now_secs());
+                store.seed(&format!("dev-s{d}"), &addrs, now_secs());
                 addrs
             })
             .collect()
@@ -3011,19 +3024,13 @@ mod tests {
 
     const DAY: u64 = 86_400;
 
-    fn seed(store: &mut PeerStore, id: &str, addrs: &[SocketAddr], last_seen: u64) {
-        let key = test_identity(id).key.public;
-        store.decide(id, &key, now_secs(), PinPolicy::Repin);
-        store.record_addrs(id, addrs, last_seen);
-    }
-
     async fn remembering(
         b: SocketAddr,
         last_seen: u64,
     ) -> (Manager, mpsc::Receiver<ManagerEvent>, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         let mut store = file_store(&dir);
-        seed(&mut store, "dev-b", &[b], last_seen);
+        store.seed("dev-b", &[b], last_seen);
         let (a, ea) = spawn_as(test_identity("dev-a"), store, on_account(1)).await;
         (a, ea, dir)
     }
@@ -3630,7 +3637,7 @@ mod tests {
         let (b, mut eb) = spawn_as(
             test_identity("dev-b"),
             PeerStore::memory(),
-            Trust::policed(keys(&[1]), policy),
+            Trust::policed(test_keys(&[1]), policy),
         )
         .await;
         let svc = recording(&b);
@@ -3681,7 +3688,7 @@ mod tests {
         let (a, _) = spawn_as(
             test_identity("dev-a"),
             PeerStore::memory(),
-            Trust::policed(keys(&[1]), policy),
+            Trust::policed(test_keys(&[1]), policy),
         )
         .await;
         let (b, _) = spawn("dev-b", 1).await;
@@ -3730,7 +3737,7 @@ mod tests {
         let now = now_secs();
         let mut store = a.shared.store();
         for (age, addr) in before.iter().copied().chain([local(&b)]).enumerate() {
-            seed(&mut store, "dev-b", &[addr], now - age as u64);
+            store.seed("dev-b", &[addr], now - age as u64);
         }
         drop(store);
         (a, b, svc)
@@ -3766,7 +3773,7 @@ mod tests {
     async fn a_blocked_device_at_a_stale_address_does_not_stop_the_dial() {
         let (x, _ex) = spawn("dev-x", 1).await;
         let (a, _b, svc) = remembered_b(&[local(&x)]).await;
-        seed(&mut a.shared.store(), "dev-x", &[], now_secs());
+        a.shared.store().seed("dev-x", &[], now_secs());
         assert!(a.forget("dev-x").is_some());
         assert_eq!(
             open(&a, "dev-b").await.unwrap(),
@@ -3806,7 +3813,7 @@ mod tests {
 
     #[tokio::test]
     async fn group_scope_never_accepts_vault_key() {
-        let group = in_group(&[9], &["dev-a"]);
+        let group = Trust::grouped(&[9], &["dev-a"]);
         let (m, _em) = spawn_as(test_identity("dev-m"), PeerStore::memory(), group).await;
         let refused = raw_link(&m, &test_identity("dev-a"), &[1]).await;
         assert!(matches!(refused, Err(HandshakeError::NotTrusted)));
@@ -3823,7 +3830,7 @@ mod tests {
 
     #[tokio::test]
     async fn old_epoch_only_from_listed_members() {
-        let group = in_group(&[2, 3], &["dev-l"]);
+        let group = Trust::grouped(&[2, 3], &["dev-l"]);
         let (m, mut em) = spawn_as(test_identity("dev-m"), PeerStore::memory(), group).await;
         let (mut unlisted, _fd) = raw_link(&m, &test_identity("dev-u"), &[3]).await.unwrap();
         assert_eq!(unlisted.recv().await.unwrap(), Frame::Bye);
@@ -3849,7 +3856,7 @@ mod tests {
         (Manager, mpsc::Receiver<ManagerEvent>),
     ) {
         let l = spawn_as(test_identity("dev-l"), PeerStore::memory(), leaver).await;
-        let group = in_group(&[9], &["dev-l"]);
+        let group = Trust::grouped(&[9], &["dev-l"]);
         let m = spawn_as(test_identity("dev-m"), PeerStore::memory(), group).await;
         (l, m)
     }
@@ -3886,7 +3893,7 @@ mod tests {
         };
         let trust = Trust {
             members: Some(vec![member]),
-            ..in_group(&[9], &[])
+            ..Trust::grouped(&[9], &[])
         };
         spawn_as(test_identity("dev-m"), PeerStore::memory(), trust).await
     }
@@ -3908,12 +3915,11 @@ mod tests {
         assert!(m.peers().is_empty() && l.peers().is_empty());
     }
 
-    #[tokio::test]
-    async fn a_device_that_left_says_farewell_at_a_remembered_address_without_listening() {
-        let (m, mut em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
+    async fn left_with_remembered_member() -> (Manager, Events, Manager, Events) {
+        let (m, em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
         let mut store = PeerStore::memory();
-        seed(&mut store, "dev-m", &[local(&m)], now_secs());
-        let (tx, mut el) = mpsc::channel(64);
+        store.seed("dev-m", &[local(&m)], now_secs());
+        let (tx, el) = mpsc::channel(64);
         let l = start(
             test_identity("dev-l"),
             left_group(9),
@@ -3924,12 +3930,61 @@ mod tests {
         )
         .await
         .unwrap();
+        (l, el, m, em)
+    }
+
+    #[tokio::test]
+    async fn a_device_that_left_says_farewell_at_a_remembered_address_without_listening() {
+        let (l, mut el, _m, mut em) = left_with_remembered_member().await;
         assert!(l.port.is_none());
         assert!(l.shared.me.addrs.as_ref()().is_empty());
         next_event(&mut el, farewell_sent("dev-m")).await;
         next_event(&mut em, presence_is("dev-l", PresenceState::Left)).await;
         let seen: Vec<_> = std::iter::from_fn(|| el.try_recv().ok()).collect();
         assert!(!seen.iter().any(|e| matches!(e, ManagerEvent::OwnAddrs(_))));
+    }
+
+    #[tokio::test]
+    async fn a_member_that_heard_the_farewell_is_not_dialed_again() {
+        let (_l, mut el, _m, _em) = left_with_remembered_member().await;
+        next_event(&mut el, farewell_sent("dev-m")).await;
+        tokio::time::sleep(RETRY_FIRST * 6).await;
+        let again: Vec<_> = std::iter::from_fn(|| el.try_recv().ok()).collect();
+        assert!(!again.iter().any(farewell_sent("dev-m")), "{again:?}");
+    }
+
+    #[tokio::test]
+    async fn a_manager_without_sync_keys_never_dials() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        for trust in [unpaired(), Trust::grouped(&[], &["dev-b"])] {
+            let (tx, _rx) = mpsc::channel(64);
+            let store = PeerStore::memory();
+            let m = start(test_identity("dev-p"), trust, false, false, store, tx)
+                .await
+                .unwrap();
+            assert_eq!(
+                m.connect(local(&b), Source::Mdns).await,
+                DialOutcome::Skipped
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_group_without_epochs_neither_listens_nor_pairs() {
+        let (tx, _rx) = mpsc::channel(64);
+        let trust = Trust::grouped(&[], &["dev-a"]);
+        let m = start(
+            test_identity("dev-g"),
+            trust,
+            false,
+            false,
+            PeerStore::memory(),
+            tx,
+        )
+        .await
+        .unwrap();
+        assert!(m.port.is_none());
+        assert!(m.open_pairing(pair_info(None, 0)).await.is_err());
     }
 
     #[tokio::test]
@@ -3987,7 +4042,7 @@ mod tests {
 
     fn unpaired() -> Trust {
         Trust {
-            keys: keys(&[]),
+            keys: test_keys(&[]),
             members: None,
             farewell: None,
         }
@@ -4161,7 +4216,7 @@ mod tests {
         members: &[&str],
         entities: u32,
     ) -> (Manager, Events) {
-        let (m, rx) = spawn_as(me, store, in_group(&[1], members)).await;
+        let (m, rx) = spawn_as(me, store, Trust::grouped(&[1], members)).await;
         m.open_pairing(pair_info(Some("g"), entities))
             .await
             .unwrap();
@@ -4258,7 +4313,12 @@ mod tests {
         let mut store = pinned(&test_identity("dev-p"), false);
         store.decide("dev-f", &forgotten.key.public, 1, PinPolicy::Refuse);
         assert!(store.forget("dev-f", 2).is_some());
-        let (e, mut ee) = spawn_as(test_identity("dev-e"), store, in_group(&[1], &["dev-p"])).await;
+        let (e, mut ee) = spawn_as(
+            test_identity("dev-e"),
+            store,
+            Trust::grouped(&[1], &["dev-p"]),
+        )
+        .await;
         refused_link(&e, &rebooted).await;
         refused_link(&e, &forgotten).await;
 
@@ -4290,11 +4350,16 @@ mod tests {
     async fn a_member_links_a_device_once_its_entry_vouches_it() {
         let rebooted = impostor_of("dev-p");
         let pins = pinned(&test_identity("dev-p"), false);
-        let (b, mut eb) = spawn_as(test_identity("dev-b"), pins, in_group(&[1], &["dev-p"])).await;
+        let (b, mut eb) = spawn_as(
+            test_identity("dev-b"),
+            pins,
+            Trust::grouped(&[1], &["dev-p"]),
+        )
+        .await;
         let (p, _ep) = spawn_as(
             impostor_of("dev-p"),
             PeerStore::memory(),
-            in_group(&[1], &["dev-b"]),
+            Trust::grouped(&[1], &["dev-b"]),
         )
         .await;
         b.connect(local(&p), Source::Mdns).await;
@@ -4314,7 +4379,12 @@ mod tests {
             ..test_identity("dev-p")
         };
         let pins = pinned(&test_identity("dev-p"), false);
-        let (e, mut ee) = spawn_as(test_identity("dev-e"), pins, in_group(&[1], &["dev-p"])).await;
+        let (e, mut ee) = spawn_as(
+            test_identity("dev-e"),
+            pins,
+            Trust::grouped(&[1], &["dev-p"]),
+        )
+        .await;
         refused_link(&e, &rebooted).await;
         assert_eq!(
             rejections(&mut ee),
@@ -4339,7 +4409,7 @@ mod tests {
         assert!(store.forget("dev-f", 2).is_some());
         let trust = Trust {
             members: Some(vec![member_of(&rebooted), member_of(&forgotten)]),
-            ..in_group(&[1], &[])
+            ..Trust::grouped(&[1], &[])
         };
         let (e, mut ee) = spawn_as(test_identity("dev-e"), store, trust).await;
 
@@ -4664,20 +4734,23 @@ mod tests {
 
     #[test]
     fn each_manager_kind_runs_only_its_own_paths() {
+        use PinPolicy::{Refuse, Repin};
         let caps = |t: Trust| {
             let k = t.kind();
-            let dials = (k.polls_tailnet(), k.sweeps(), k.learns());
-            (k.listens(), dials, k.serves_files(), k.pairs())
+            let dials = (k.polls_tailnet(), k.dials(), k.learns());
+            (k.listens(), dials, k.serves_files(), k.pairs(), k.policy())
         };
-        let account = (true, (true, true, true), true, true);
+        let account = (true, (true, true, true), true, true, Repin);
         assert_eq!(caps(on_account(1)), account);
         assert_eq!(caps(moved_to_account(1, 9)), account);
-        let group = (true, (true, true, false), false, true);
-        assert_eq!(caps(in_group(&[1], &[])), group);
-        let pairing = (true, (false, false, false), false, true);
+        let group = (true, (true, true, false), false, true, Refuse);
+        assert_eq!(caps(Trust::grouped(&[1], &[])), group);
+        let pairing = (true, (false, false, false), false, true, Repin);
         assert_eq!(caps(unpaired()), pairing);
-        let farewell = (false, (false, true, false), false, false);
+        let farewell = (false, (false, true, false), false, false, Refuse);
         assert_eq!(caps(left_group(9)), farewell);
+        let inert = (false, (false, false, false), false, false, Refuse);
+        assert_eq!(caps(Trust::grouped(&[], &["dev-a"])), inert);
     }
 
     #[tokio::test]
@@ -4686,7 +4759,7 @@ mod tests {
         for (trust, learns) in [
             (on_account(1), true),
             (moved_to_account(1, 9), true),
-            (in_group(&[1], &[]), false),
+            (Trust::grouped(&[1], &[]), false),
             (unpaired(), false),
         ] {
             let (m, _em) = spawn_as(test_identity("dev-a"), PeerStore::memory(), trust).await;
@@ -4715,12 +4788,12 @@ mod tests {
     async fn group_scope_refuses_a_changed_key_on_every_dial_path() {
         let b = test_identity("dev-b");
         for source in [Source::Mdns, Source::Remembered, Source::Tailscale] {
-            let group = in_group(&[1], &["dev-b"]);
+            let group = Trust::grouped(&[1], &["dev-b"]);
             let (a, mut ea) = spawn_as(test_identity("dev-a"), pinned(&b, false), group).await;
             let (rekeyed, _er) = spawn_as(
                 impostor_of("dev-b"),
                 PeerStore::memory(),
-                in_group(&[1], &[]),
+                Trust::grouped(&[1], &[]),
             )
             .await;
             let dialed = a.connect(local(&rekeyed), source).await;
@@ -4734,10 +4807,10 @@ mod tests {
 
     #[tokio::test]
     async fn a_moved_devices_file_dial_never_says_farewell() {
-        let group = in_group(&[9], &["dev-l"]);
+        let group = Trust::grouped(&[9], &["dev-l"]);
         let (m, mut em) = spawn_as(test_identity("dev-m"), PeerStore::memory(), group).await;
         let mut store = PeerStore::memory();
-        seed(&mut store, "dev-m", &[], now_secs());
+        store.seed("dev-m", &[], now_secs());
         let (l, mut el) = spawn_as(test_identity("dev-l"), store, moved_to_account(1, 9)).await;
         l.spend_budget();
         tag(&l, local(&m), "dev-m");

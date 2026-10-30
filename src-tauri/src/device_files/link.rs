@@ -197,8 +197,9 @@ impl DeviceLink {
             Err(e) => {
                 let fatal = match e {
                     FilesDialError::Refused(reason) => refused(reason),
-                    FilesDialError::NotListed => refused(Refusal::Denied),
-                    e if e.refused_by().is_some() => refused(Refusal::Denied),
+                    e if matches!(e, FilesDialError::NotListed) || e.refused_peer().is_some() => {
+                        refused(Refusal::Denied)
+                    }
                     e => return Err(unreachable(e)),
                 };
                 return Err(self.close_with(fatal));
@@ -287,7 +288,7 @@ impl SftpReopen for DeviceLink {
 mod tests {
     use super::*;
     use crate::lan_sync::identity::{derive_auth_key, test_identity, DeviceKey, LocalIdentity};
-    use crate::lan_sync::manager::{self, Manager};
+    use crate::lan_sync::manager::{self, Manager, Trust};
     use crate::lan_sync::peers::{now_secs, PeerStore, PinPolicy};
     use std::net::{Ipv4Addr, SocketAddr};
 
@@ -336,10 +337,6 @@ mod tests {
         (link, closes)
     }
 
-    fn keys(secrets: &[u8]) -> zeroize::Zeroizing<Vec<[u8; 32]>> {
-        zeroize::Zeroizing::new(secrets.iter().map(|s| derive_auth_key(&[*s; 32])).collect())
-    }
-
     async fn lan_with(me: LocalIdentity, store: PeerStore, trust: manager::Trust) -> Manager {
         let events = tokio::sync::mpsc::channel(64).0;
         manager::start(me, trust, false, false, store, events)
@@ -348,35 +345,25 @@ mod tests {
     }
 
     async fn lan(me: LocalIdentity, store: PeerStore, policy: PinPolicy) -> Manager {
-        lan_with(me, store, manager::Trust::policed(keys(&[1]), policy)).await
-    }
-
-    fn group(epochs: &[u8], members: &[&str]) -> manager::Trust {
-        let member = |id: &&str| manager::Member {
-            device_id: id.to_string(),
-            key: test_identity(id).key.public,
-        };
-        manager::Trust {
-            keys: keys(epochs),
-            members: Some(members.iter().map(member).collect()),
-            farewell: None,
-        }
+        lan_with(
+            me,
+            store,
+            manager::Trust::policed(manager::test_keys(&[1]), policy),
+        )
+        .await
     }
 
     fn knowing(addrs: &[SocketAddr]) -> PeerStore {
         let mut store = PeerStore::memory();
-        let key = test_identity("dev").key.public;
-        let now = now_secs();
-        store.decide("dev", &key, now, PinPolicy::Repin);
+        store.seed("dev", &[], now_secs());
         for (age, addr) in addrs.iter().enumerate() {
-            store.record_addrs("dev", &[*addr], now - age as u64);
+            store.seed("dev", &[*addr], now_secs() - age as u64);
         }
         store
     }
 
     fn block(store: &mut PeerStore, id: &str) {
-        let key = test_identity(id).key.public;
-        store.decide(id, &key, now_secs(), PinPolicy::Repin);
+        store.seed(id, &[], now_secs());
         store.forget(id, now_secs());
     }
 
@@ -501,11 +488,11 @@ mod tests {
         let device = lan_with(
             test_identity("dev"),
             PeerStore::memory(),
-            group(&[1], &["me"]),
+            Trust::grouped(&[1], &["me"]),
         )
         .await;
         let store = knowing(&[local(&device)]);
-        let me = lan_with(test_identity("me"), store, group(&[2, 1], &[])).await;
+        let me = lan_with(test_identity("me"), store, Trust::grouped(&[2, 1], &[])).await;
         assert_eq!(failed_dial(&me).await, denied());
     }
 
@@ -514,11 +501,16 @@ mod tests {
         let other = lan_with(
             test_identity("other"),
             PeerStore::memory(),
-            group(&[1], &[]),
+            Trust::grouped(&[1], &[]),
         )
         .await;
         let store = knowing(&[local(&other)]);
-        let me = lan_with(test_identity("me"), store, group(&[2, 1], &["dev"])).await;
+        let me = lan_with(
+            test_identity("me"),
+            store,
+            Trust::grouped(&[2, 1], &["dev"]),
+        )
+        .await;
         let unreachable = (Some(ErrorCode::DeviceUnreachable), vec![]);
         assert_eq!(failed_dial(&me).await, unreachable);
     }

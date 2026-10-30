@@ -63,14 +63,14 @@ pub enum HandshakeError {
     Protocol(#[from] ProtocolError),
     #[error("peer {0} refused by pin: {1:?}")]
     Pinned(String, Rejection),
-    #[error("peer {0} is not a member here")]
+    #[error("peer {0} refused: outside this device's current group or account")]
     Excluded(String),
     #[error("pairing is not open")]
     PairingClosed,
 }
 
 impl HandshakeError {
-    pub fn refused_by(&self) -> Option<&str> {
+    pub fn refused_peer(&self) -> Option<&str> {
         match self {
             Self::Pinned(id, _) | Self::Excluded(id) => Some(id),
             _ => None,

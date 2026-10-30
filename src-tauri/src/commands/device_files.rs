@@ -1124,29 +1124,11 @@ mod tests {
 
     const GROUP: &str = "grp";
 
-    fn grouped(members: &[&str]) -> crate::lan_sync::manager::Trust {
-        let members = members
-            .iter()
-            .map(|id| json!({ "deviceId": id, "deviceKey": key_of(id) }))
-            .collect();
-        let members = serde_json::from_value(Value::Array(members)).unwrap();
-        trust_from(vec![vec![7; 32]], Some(members), None, false).unwrap()
-    }
-
     async fn lan_start_grouped(state: &LanSyncState, scope: &str) {
-        let trust = grouped(&["dev-a"]);
+        let trust = crate::lan_sync::manager::Trust::grouped(&[7], &["dev-a"]);
         lan_start(state, test_identity("dev-b"), trust, scope, None, quiet())
             .await
             .unwrap();
-    }
-
-    fn pin_in_file(dir: &std::path::Path, scope: &str, id: &str) {
-        let mut store = crate::lan_sync::peers::PeerStore::open(dir, scope);
-        let key = test_identity(id).key.public;
-        let now = crate::lan_sync::peers::now_secs();
-        store.decide(id, &key, now, crate::lan_sync::peers::PinPolicy::Repin);
-        let (path, bytes) = store.snapshot().unwrap();
-        crate::lan_sync::peers::write_snapshot(&path, &bytes).unwrap();
     }
 
     #[tokio::test]
@@ -1165,7 +1147,7 @@ mod tests {
                 until_files(&b, "dev-a", false).await;
                 Some(a)
             } else {
-                pin_in_file(dir.path(), GROUP, "dev-a");
+                crate::lan_sync::peers::PeerStore::seed_file(dir.path(), GROUP, "dev-a", &[]);
                 None
             };
             assert!(forget_inner(&b, "dev-a", GROUP, true, dir.path(), &emit)
