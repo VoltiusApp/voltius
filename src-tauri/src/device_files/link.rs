@@ -98,7 +98,6 @@ pub struct LinkEvents {
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct Pass {
     grant: Option<String>,
-    key: Option<String>,
 }
 
 pub struct DeviceLink {
@@ -194,8 +193,7 @@ impl DeviceLink {
             grant: pass.grant,
             reopen: self.opened.load(Ordering::Relaxed),
         };
-        let pinned = pass.key.as_deref();
-        let (stream, reply, key) = match dialer.open_files(&self.device_id, req, pinned).await {
+        let (stream, reply, _) = match dialer.open_files(&self.device_id, req).await {
             Ok(opened) => opened,
             Err(e) => {
                 let fatal = match e {
@@ -204,7 +202,6 @@ impl DeviceLink {
                     | FilesDialError::Handshake(HandshakeError::Pinned(..)) => {
                         refused(Refusal::Denied)
                     }
-                    FilesDialError::WrongDevice => unreachable(e),
                     e => return Err(unreachable(e)),
                 };
                 return Err(self.close_with(fatal));
@@ -213,7 +210,6 @@ impl DeviceLink {
         let mut flipped = None;
         {
             let mut pass = self.lock();
-            pass.key = Some(key);
             if let FilesReply::Accepted { read_only, grant } = reply {
                 if self.read_only.swap(read_only, Ordering::Relaxed) != read_only {
                     flipped = Some(read_only);
@@ -366,13 +362,70 @@ mod tests {
         SocketAddr::from((Ipv4Addr::LOCALHOST, m.port()))
     }
 
-    #[tokio::test]
-    async fn pin_refused_file_dial_is_access_denied_not_retried() {
-        let rekeyed = LocalIdentity {
+    fn rekeyed() -> LocalIdentity {
+        LocalIdentity {
             key: DeviceKey::from_private(derive_auth_key(b"rekeyed")),
             ..test_identity("dev")
+        }
+    }
+
+    #[cfg(desktop)]
+    async fn sharing(me: LocalIdentity, dir: &std::path::Path) -> Manager {
+        use crate::device_files::policy::{self, AllowedDevice, FileAccessConfig};
+        use crate::device_files::service::FileService;
+        let cfg = FileAccessConfig {
+            enabled: true,
+            folders: vec![dir.to_string_lossy().into_owned()],
+            allowed: vec![AllowedDevice {
+                device_key: crate::crypto::hex(&test_identity("me").key.public),
+                always: true,
+                ..AllowedDevice::default()
+            }],
+            ..FileAccessConfig::default()
         };
-        let device = lan(rekeyed, PeerStore::memory(), PinPolicy::Repin).await;
+        policy::save(dir, "acct", &cfg).unwrap();
+        let svc = FileService::new(
+            dir.to_path_buf(),
+            "acct".into(),
+            Arc::new(|_, _| {}),
+            Arc::new(|_| {}),
+        );
+        let device = lan(me, PeerStore::memory(), PinPolicy::Repin).await;
+        device.set_file_service(Some(Arc::new(svc)));
+        device
+    }
+
+    #[cfg(desktop)]
+    #[tokio::test]
+    async fn reopen_after_the_device_rekeyed_follows_the_pin() {
+        for (policy, refused) in [
+            (PinPolicy::Repin, None),
+            (PinPolicy::Refuse, Some(ErrorCode::DeviceAccessDenied)),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let device = sharing(test_identity("dev"), dir.path()).await;
+            let me = lan(test_identity("me"), knowing(&[local(&device)]), policy).await;
+            let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
+            link.bind("sftp-1".into());
+            link.dial().await.unwrap();
+            me.spend_budget();
+            device.stop().await;
+            let device = sharing(rekeyed(), dir.path()).await;
+            me.learn("dev", &[local(&device)]);
+            let reopened = link.dial().await.err().map(|e| e.code());
+            assert_eq!(reopened, refused.map(Some), "{policy:?}");
+            assert_eq!(link.closed_now(), refused.is_some(), "{policy:?}");
+            let closed: Vec<_> = refused
+                .map(|c| ("sftp-1".to_string(), Some(c)))
+                .into_iter()
+                .collect();
+            assert_eq!(closes.lock().unwrap()[..], closed[..], "{policy:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn pin_refused_file_dial_is_access_denied_not_retried() {
+        let device = lan(rekeyed(), PeerStore::memory(), PinPolicy::Repin).await;
         let addr = local(&device);
         let mut forgotten = knowing(&[addr]);
         forgotten.forget("dev", now_secs());
@@ -415,7 +468,6 @@ mod tests {
             }
             let me = lan(test_identity("me"), store, PinPolicy::Repin).await;
             let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
-            link.lock().key = Some(crate::crypto::hex(&test_identity("dev").key.public));
             link.bind("sftp-1".into());
             let err = link.dial().await.err().unwrap();
             assert_eq!(err.code(), Some(ErrorCode::DeviceUnreachable), "{blocked}");

@@ -852,7 +852,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reopen_refuses_a_different_device_key() {
+    async fn reopen_follows_a_repinned_device_key() {
         let s = server(&["dev-a"]).await;
         let a = browser("dev-a", &s).await;
         let c = a.connect().await.unwrap();
@@ -871,8 +871,9 @@ mod tests {
             }
         })
         .await;
-        a.closes(&c, ErrorCode::DeviceUnreachable).await;
-        assert_eq!(fake.svc().await.admitted(), 0);
+        assert!(a.list(&c.sftp_id, "/").await.is_ok());
+        assert!(a.closed.lock().unwrap().is_empty());
+        assert_eq!(fake.svc().await.admitted(), 1);
         assert_eq!(fake.prompts(), 0);
     }
 

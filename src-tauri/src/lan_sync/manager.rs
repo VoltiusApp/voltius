@@ -98,8 +98,6 @@ pub enum FilesDialError {
     NotListed,
     #[error("device is unreachable: {0}")]
     Unreachable(String),
-    #[error("a different device answered")]
-    WrongDevice,
     #[error(transparent)]
     Handshake(#[from] HandshakeError),
     #[error("file access refused: {0:?}")]
@@ -1163,16 +1161,12 @@ impl FilesDialer {
         &self,
         device_id: &str,
         req: FilesRequest,
-        pinned: Option<&str>,
     ) -> Result<(SessionStream, FilesReply, String), FilesDialError> {
         let mut link = self.0.reach_files(device_id).await?;
         if !holds_pin(&self.0.store(), &link.hello) {
             return Err(FilesDialError::NotListed);
         }
         let key = hex(&link.hello.device_key);
-        if pinned.is_some_and(|p| p != key) {
-            return Err(FilesDialError::WrongDevice);
-        }
         let lost = |e: HandshakeError| FilesDialError::Unreachable(e.to_string());
         link.session.send(&Frame::Files(req)).await.map_err(lost)?;
         let reply = first_frame(&mut link.session, FILES_REPLY_TIMEOUT)
@@ -2637,7 +2631,7 @@ mod tests {
 
     async fn open(m: &Manager, id: &str) -> Result<String, FilesDialError> {
         m.files_dialer()
-            .open_files(id, FilesRequest::default(), None)
+            .open_files(id, FilesRequest::default())
             .await
             .map(|(_, _, key)| key)
     }
@@ -2660,7 +2654,7 @@ mod tests {
 
         let (_stream, reply, _) = a
             .files_dialer()
-            .open_files("dev-b", FilesRequest::default(), None)
+            .open_files("dev-b", FilesRequest::default())
             .await
             .unwrap();
         assert_eq!(
@@ -2690,7 +2684,7 @@ mod tests {
         synced(&a, &b).await;
         let (mut near, _, _) = a
             .files_dialer()
-            .open_files("dev-b", FilesRequest::default(), None)
+            .open_files("dev-b", FilesRequest::default())
             .await
             .unwrap();
         until("the file session held", || {
