@@ -6,13 +6,20 @@ use super::handshake::{
 use super::identity::LocalIdentity;
 use super::lock;
 use super::peers::{now_secs, write_snapshot, PeerStore, PinDecision, PinPolicy, Rejection};
-use super::protocol::{Caps, FilesReply, FilesRequest, Frame, Hello, Refusal, MAX_FRAME};
+use super::protocol::{
+    wire_addrs, Addrs, Caps, FilesReply, FilesRequest, Frame, Hello, Refusal, MAX_FRAME,
+};
 use super::route::{classify, Route};
 use super::stream::SessionStream;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use super::tailscale;
 use crate::crypto::hex;
 use serde::Serialize;
+use socket2::{Domain, Protocol, Socket, Type};
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::hash::Hash;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -31,19 +38,32 @@ const RATE_WINDOW: Duration = Duration::from_secs(10);
 const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
 const REDIAL_DELAY: Duration = Duration::from_secs(1);
-const REMEMBERED: usize = 32;
+const CANDIDATES: usize = 64;
+const STALE_AFTER: u64 = 30 * 24 * 60 * 60;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 const CONTROL: usize = 4;
 const FILES_REPLY_TIMEOUT: Duration = Duration::from_secs(90);
+const DIAL_BUDGET: usize = 30;
+const DIAL_WINDOW: Duration = Duration::from_secs(60);
 const RETRY_FIRST: Duration = if cfg!(test) {
     Duration::from_millis(200)
 } else {
-    Duration::from_secs(30)
+    Duration::from_secs(5)
 };
 const RETRY_MAX: Duration = if cfg!(test) {
-    Duration::from_secs(1)
+    Duration::from_secs(8)
 } else {
     Duration::from_secs(300)
+};
+const CANDIDATE_TTL: Duration = if cfg!(test) {
+    Duration::from_secs(5)
+} else {
+    Duration::from_secs(300)
+};
+const ADDR_POLL: Duration = if cfg!(test) {
+    Duration::from_millis(100)
+} else {
+    Duration::from_secs(60)
 };
 const PROBE_EVERY: Duration = if cfg!(test) {
     Duration::from_millis(100)
@@ -95,6 +115,24 @@ pub enum LanStatus {
     Stopped,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialOutcome {
+    Connected,
+    Unreachable,
+    Refused,
+    Rejected,
+    Skipped,
+    Throttled,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    Mdns,
+    Remembered,
+    #[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
+    Tailscale,
+}
+
 #[derive(Clone, Debug)]
 pub enum ManagerEvent {
     Peers(Vec<PeerInfo>),
@@ -106,26 +144,37 @@ pub enum ManagerEvent {
         device_id: String,
         reason: Rejection,
     },
+    OwnAddrs(Vec<SocketAddr>),
 }
 
-#[derive(Default)]
-struct RateLimiter {
-    attempts: HashMap<IpAddr, VecDeque<Instant>>,
+struct RateLimiter<K> {
+    max: usize,
+    window: Duration,
+    attempts: HashMap<K, VecDeque<Instant>>,
 }
 
-impl RateLimiter {
-    fn allow(&mut self, ip: IpAddr, now: Instant) -> bool {
+impl<K: Hash + Eq> RateLimiter<K> {
+    fn new(max: usize, window: Duration) -> Self {
+        Self {
+            max,
+            window,
+            attempts: HashMap::new(),
+        }
+    }
+
+    fn allow(&mut self, key: K, now: Instant) -> bool {
+        let window = self.window;
         self.attempts.retain(|_, hits| {
             while hits
                 .front()
-                .is_some_and(|t| now.duration_since(*t) >= RATE_WINDOW)
+                .is_some_and(|t| now.duration_since(*t) >= window)
             {
                 hits.pop_front();
             }
             !hits.is_empty()
         });
-        let hits = self.attempts.entry(ip).or_default();
-        if hits.len() >= RATE_MAX {
+        let hits = self.attempts.entry(key).or_default();
+        if hits.len() >= self.max {
             return false;
         }
         hits.push_back(now);
@@ -141,7 +190,44 @@ struct Link {
     session: Session,
 }
 
+fn rate_key(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            IpAddr::V6(Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
+        }
+        v4 => v4,
+    }
+}
+
+fn inbound_allowed(ip: IpAddr) -> bool {
+    !matches!(ip, IpAddr::V6(v6) if addrs::is_global_v6(&v6))
+}
+
+fn bind_dual(port: u16) -> std::io::Result<std::net::TcpListener> {
+    let socket = Socket::new(Domain::IPV6, Type::STREAM, Some(Protocol::TCP))?;
+    socket.set_only_v6(false)?;
+    #[cfg(unix)]
+    socket.set_reuse_address(true)?;
+    socket.set_nonblocking(true)?;
+    socket.bind(&SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), port).into())?;
+    socket.listen(128)?;
+    Ok(socket.into())
+}
+
 async fn bind() -> std::io::Result<TcpListener> {
+    bind_with(bind_dual).await
+}
+
+async fn bind_with(
+    dual: impl Fn(u16) -> std::io::Result<std::net::TcpListener>,
+) -> std::io::Result<TcpListener> {
+    for port in [PREFERRED_PORT, 0] {
+        match dual(port) {
+            Ok(listener) => return TcpListener::from_std(listener),
+            Err(e) => log::debug!("lan-sync: dual-stack bind on port {port} failed: {e}"),
+        }
+    }
     match TcpListener::bind((Ipv4Addr::UNSPECIFIED, PREFERRED_PORT)).await {
         Ok(listener) => Ok(listener),
         Err(_) => TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).await,
@@ -175,7 +261,7 @@ async fn secure(
     let session_id = session.handshake_hash().to_vec();
     Ok(Link {
         hello,
-        addr,
+        addr: addrs::canonical(addr),
         initiator,
         session_id,
         session,
@@ -207,13 +293,18 @@ async fn establish(
             shared.serve_files(link, req).await;
         }
         Some(Frame::Bye) => {}
-        first => shared.adopt(link, first),
+        first => {
+            shared.adopt(link, first);
+            if !initiator {
+                shared.retry_soon();
+            }
+        }
     }
     Ok(())
 }
 
 async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
-    let mut limiter = RateLimiter::default();
+    let mut limiter = RateLimiter::new(RATE_MAX, RATE_WINDOW);
     loop {
         let (stream, addr) = match listener.accept().await {
             Ok(conn) => conn,
@@ -223,7 +314,8 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
                 continue;
             }
         };
-        if !limiter.allow(addr.ip(), Instant::now()) {
+        let addr = addrs::canonical(addr);
+        if !inbound_allowed(addr.ip()) || !limiter.allow(rate_key(addr.ip()), Instant::now()) {
             continue;
         }
         let Ok(permit) = shared.inbound.clone().try_acquire_owned() else {
@@ -233,31 +325,34 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
     }
 }
 
-async fn connect(addr: SocketAddr) -> Result<TcpStream, String> {
-    match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
-        Ok(Ok(stream)) => Ok(stream),
-        Ok(Err(e)) => Err(format!("dial {addr} failed: {e}")),
-        Err(_) => Err(format!("dial {addr} timed out")),
-    }
+async fn connect(addr: SocketAddr) -> std::io::Result<TcpStream> {
+    timeout(DIAL_TIMEOUT, TcpStream::connect(addr))
+        .await
+        .unwrap_or_else(|_| Err(std::io::ErrorKind::TimedOut.into()))
 }
 
-async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermit) {
-    let rejected = match connect(addr).await {
+async fn dial(shared: Arc<Shared>, addr: SocketAddr, permit: OwnedSemaphorePermit) -> DialOutcome {
+    let outcome = match connect(addr).await {
         Ok(stream) => match establish(shared.clone(), stream, addr, true, permit).await {
-            Ok(()) => return,
-            Err(e) => matches!(
-                e,
+            Ok(()) => return DialOutcome::Connected,
+            Err(
                 HandshakeError::NotTrusted
-                    | HandshakeError::VersionMismatch(_)
-                    | HandshakeError::Pinned(_)
-            ),
+                | HandshakeError::VersionMismatch(_)
+                | HandshakeError::Pinned(_),
+            ) => DialOutcome::Rejected,
+            Err(_) => DialOutcome::Unreachable,
         },
         Err(e) => {
-            log::debug!("lan-sync: {e}");
-            false
+            log::debug!("lan-sync: dial {addr} failed: {e}");
+            if e.kind() == std::io::ErrorKind::ConnectionRefused {
+                DialOutcome::Refused
+            } else {
+                DialOutcome::Unreachable
+            }
         }
     };
-    shared.note_failed_dial(addr, rejected);
+    shared.note_failed_dial(addr, outcome);
+    outcome
 }
 
 async fn recv(reader: &mut SessionReader) -> Option<Frame> {
@@ -292,8 +387,12 @@ struct Outbox {
 }
 
 impl Outbox {
+    fn send(&self, frame: Frame) -> bool {
+        self.control.try_send(frame).is_ok()
+    }
+
     fn nudge(&self) {
-        let _ = self.control.try_send(Frame::Nudge);
+        self.send(Frame::Nudge);
     }
 }
 
@@ -320,6 +419,16 @@ impl Drop for Peer {
 struct Known {
     addr: SocketAddr,
     device: Option<String>,
+    failed: Option<Instant>,
+}
+
+impl Known {
+    fn expired(&self, now: Instant) -> bool {
+        self.device.is_none()
+            && self
+                .failed
+                .is_some_and(|t| now.duration_since(t) >= CANDIDATE_TTL)
+    }
 }
 
 #[derive(Default)]
@@ -327,6 +436,8 @@ struct State {
     peers: HashMap<String, Peer>,
     blobs: HashMap<String, Vec<u8>>,
     dialable: VecDeque<Known>,
+    swept: HashMap<SocketAddr, Instant>,
+    own: Vec<SocketAddr>,
     rejected: HashSet<(String, Rejection)>,
     next_conn: u64,
     closed: bool,
@@ -339,13 +450,35 @@ impl State {
             known.device = Some(id.to_string());
         }
     }
+
+    fn prune(&mut self) {
+        let now = Instant::now();
+        self.dialable.retain(|k| !k.expired(now));
+    }
+}
+
+fn fresh_addrs(store: &PeerStore, wanted: impl Fn(&str) -> bool) -> Vec<SocketAddr> {
+    let since = now_secs().saturating_sub(STALE_AFTER);
+    let mut seen: Vec<_> = store
+        .records()
+        .filter(|(id, _)| wanted(id.as_str()))
+        .flat_map(|(_, r)| &r.addrs)
+        .filter(|s| s.last_seen >= since)
+        .collect();
+    seen.sort_by_key(|s| Reverse(s.last_seen));
+    seen.into_iter().map(|s| s.addr).collect()
 }
 
 fn holds_pin(store: &PeerStore, hello: &Hello) -> bool {
     store.get(&hello.device_id).map(|r| r.device_key) == Some(hello.device_key)
 }
 
-struct Shared {
+pub(super) fn dedupe(addrs: impl IntoIterator<Item = SocketAddr>) -> Vec<SocketAddr> {
+    let mut seen = HashSet::new();
+    addrs.into_iter().filter(|a| seen.insert(*a)).collect()
+}
+
+pub(super) struct Shared {
     me: LocalIdentity,
     auth_keys: Zeroizing<Vec<[u8; 32]>>,
     events: mpsc::Sender<ManagerEvent>,
@@ -359,8 +492,9 @@ struct Shared {
     caps: watch::Sender<Option<Caps>>,
     inbound: Arc<Semaphore>,
     outbound: Arc<Semaphore>,
+    budget: Mutex<RateLimiter<()>>,
     peers_changed: Notify,
-    lost: Notify,
+    retry: watch::Sender<()>,
 }
 
 impl Shared {
@@ -409,6 +543,11 @@ impl Shared {
         }
     }
 
+    fn note_addrs(&self, device_id: &str, addrs: &[SocketAddr]) {
+        self.store().record_addrs(device_id, addrs, now_secs());
+        self.persist();
+    }
+
     fn record_addrs(&self, link: &Link) {
         // Dialed first: the address cap keeps the earliest of equally fresh entries.
         let reached: Vec<SocketAddr> = link
@@ -417,9 +556,25 @@ impl Shared {
             .into_iter()
             .chain(link.hello.peer_addrs())
             .collect();
-        self.store()
-            .record_addrs(&link.hello.device_id, &reached, now_secs());
-        self.persist();
+        self.note_addrs(&link.hello.device_id, &reached);
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    pub(super) fn remembered(&self) -> Vec<SocketAddr> {
+        fresh_addrs(&self.store(), |_| true)
+    }
+
+    fn push_addrs(&self, own: &[SocketAddr]) -> bool {
+        let frame = Frame::Addrs(Addrs {
+            addrs: wire_addrs(own),
+        });
+        let state = self.lock();
+        let sent: Vec<bool> = state
+            .peers
+            .values()
+            .map(|p| p.outbox.send(frame.clone()))
+            .collect();
+        sent.into_iter().all(|ok| ok)
     }
 
     fn peers(&self) -> Vec<PeerInfo> {
@@ -430,8 +585,26 @@ impl Shared {
 
     fn worth_dialing(&self, addr: SocketAddr) -> bool {
         let ip = addr.ip().to_string();
+        let store = self.store();
         let state = self.lock();
-        addr.is_ipv4() && !state.closed && !state.peers.values().any(|p| p.info.address == ip)
+        let listed = |id: &String, peer: &Peer| {
+            peer.info.address == ip
+                || store
+                    .get(id)
+                    .is_some_and(|r| r.addrs.iter().any(|s| s.addr == addr))
+        };
+        addrs::dial_target(&addr)
+            && !state.closed
+            && !state.own.contains(&addr)
+            && !state.peers.iter().any(|(id, p)| listed(id, p))
+    }
+
+    fn charge(&self, addr: SocketAddr) -> bool {
+        let allowed = lock(&self.budget).allow((), Instant::now());
+        if !allowed {
+            log::debug!("lan-sync: dial budget spent, {addr} skipped");
+        }
+        allowed
     }
 
     async fn outbound_permit(&self, wait: bool) -> Option<OwnedSemaphorePermit> {
@@ -446,16 +619,46 @@ impl Shared {
         permit
     }
 
-    async fn dial_if_new(self: Arc<Self>, addr: SocketAddr, wait: bool) {
+    pub(super) async fn dial_candidate(
+        self: Arc<Self>,
+        addr: SocketAddr,
+        source: Source,
+        wait: bool,
+    ) -> DialOutcome {
+        self.dial_from(addr, source, wait, source != Source::Mdns)
+            .await
+    }
+
+    async fn dial_from(
+        self: Arc<Self>,
+        addr: SocketAddr,
+        source: Source,
+        wait: bool,
+        charged: bool,
+    ) -> DialOutcome {
+        let addr = addrs::canonical(addr);
+        let resighted = source == Source::Mdns && !self.remember(addr, None);
         if !self.worth_dialing(addr) {
-            return;
+            return DialOutcome::Skipped;
+        }
+        if resighted {
+            self.retry_soon();
         }
         let Some(permit) = self.outbound_permit(wait).await else {
-            return;
+            self.note_failed_dial(addr, DialOutcome::Skipped);
+            return DialOutcome::Skipped;
         };
-        if self.worth_dialing(addr) {
-            dial(self, addr, permit).await;
+        if !self.worth_dialing(addr) {
+            return DialOutcome::Skipped;
         }
+        if charged && !self.charge(addr) {
+            return DialOutcome::Throttled;
+        }
+        dial(self, addr, permit).await
+    }
+
+    fn retry_soon(&self) {
+        self.retry.send_replace(());
     }
 
     // Both ends must pick the same survivor, so the tie-break uses the shared handshake hash.
@@ -568,6 +771,7 @@ impl Shared {
                 }
                 self.peers_changed.notify_one();
             }
+            Frame::Addrs(Addrs { addrs }) => self.note_addrs(from, &addrs::sanitize(&addrs)),
             _ => {}
         }
     }
@@ -599,54 +803,88 @@ impl Shared {
         Ok((SocketAddr::new(peer.ip, port), peer.info.device_key.clone()))
     }
 
-    fn remember(&self, addr: SocketAddr) {
-        if !addr.is_ipv4() {
-            return;
+    fn remember(&self, addr: SocketAddr, device: Option<&str>) -> bool {
+        let addr = addrs::canonical(addr);
+        if !addrs::dial_target(&addr) {
+            return false;
         }
         let mut state = self.lock();
-        let device = state
+        let known = state
             .dialable
             .iter()
             .find(|k| k.addr == addr)
-            .and_then(|k| k.device.clone());
+            .map(|k| k.device.clone());
+        let fresh = match (&known, device) {
+            (None, _) => true,
+            (Some(tagged), Some(d)) => tagged.as_deref() != Some(d),
+            (Some(_), None) => false,
+        };
+        let device = device.map(str::to_string).or(known.flatten());
         state.dialable.retain(|k| k.addr.ip() != addr.ip());
-        state.dialable.push_back(Known { addr, device });
-        if state.dialable.len() > REMEMBERED {
+        state.dialable.push_back(Known {
+            addr,
+            device,
+            failed: None,
+        });
+        if state.dialable.len() > CANDIDATES {
             state.dialable.pop_front();
+        }
+        fresh
+    }
+
+    fn note_failed_dial(&self, addr: SocketAddr, outcome: DialOutcome) {
+        let mut state = self.lock();
+        if outcome == DialOutcome::Rejected {
+            state.dialable.retain(|k| k.addr != addr);
+            return;
+        }
+        let candidate = state
+            .dialable
+            .iter_mut()
+            .find(|k| k.addr == addr && k.device.is_none());
+        if let Some(k) = candidate.filter(|k| k.failed.is_none()) {
+            k.failed = Some(Instant::now());
+            drop(state);
+            self.retry_soon();
         }
     }
 
-    fn note_failed_dial(&self, addr: SocketAddr, rejected: bool) {
-        self.lock()
-            .dialable
-            .retain(|k| k.addr != addr || (k.device.is_some() && !rejected));
-    }
-
     fn sweep_order(&self, lost: &str) -> Vec<SocketAddr> {
-        let state = self.lock();
-        let mut picks: Vec<&Known> = state
+        let store = self.store();
+        let mut state = self.lock();
+        state.prune();
+        let tagged = state
             .dialable
             .iter()
             .rev()
-            .filter(|k| k.device.as_deref().is_none_or(|d| d == lost))
-            .collect();
-        picks.sort_by_key(|k| k.device.is_none());
-        picks.into_iter().map(|k| k.addr).collect()
+            .filter(|k| k.device.as_deref() == Some(lost))
+            .map(|k| k.addr);
+        dedupe(
+            fresh_addrs(&store, |id| id == lost)
+                .into_iter()
+                .chain(tagged),
+        )
     }
 
     fn unlisted(&self) -> Vec<SocketAddr> {
-        let state = self.lock();
-        state
+        let store = self.store();
+        let mut state = self.lock();
+        state.prune();
+        let missing = |id: &str| id != self.me.device_id && !state.peers.contains_key(id);
+        let candidates = state
             .dialable
             .iter()
             .rev()
-            .filter(|k| {
-                k.device
-                    .as_ref()
-                    .is_some_and(|d| *d != self.me.device_id && !state.peers.contains_key(d))
+            .filter(|k| match &k.device {
+                Some(d) => missing(d.as_str()),
+                None => k.failed.is_some(),
             })
-            .map(|k| k.addr)
-            .collect()
+            .map(|k| k.addr);
+        let mut order = dedupe(candidates.chain(fresh_addrs(&store, missing)));
+        let listed: HashSet<SocketAddr> = order.iter().copied().collect();
+        state.swept.retain(|addr, _| listed.contains(addr));
+        order.sort_by_key(|addr| state.swept.get(addr).copied());
+        order
     }
 
     fn release(self: &Arc<Self>, id: &str, conn: u64) {
@@ -658,7 +896,7 @@ impl Shared {
         state.peers.remove(id);
         drop(state);
         self.peers_changed.notify_one();
-        self.lost.notify_one();
+        self.retry_soon();
         if lived {
             tokio::spawn(redial(self.clone(), id.to_string()));
         }
@@ -726,38 +964,91 @@ async fn pump_out(
 }
 
 // Delayed so a dedupe loser's EOF doesn't re-dial before the winner is listed.
+// Kept apart from the retry sweep: it stops once `lost` is back and is never budgeted.
 async fn redial(shared: Arc<Shared>, lost: String) {
     tokio::time::sleep(REDIAL_DELAY).await;
     for addr in shared.sweep_order(&lost) {
         if shared.lock().peers.contains_key(&lost) {
             return;
         }
-        shared.clone().dial_if_new(addr, true).await;
+        shared
+            .clone()
+            .dial_from(addr, Source::Remembered, true, false)
+            .await;
     }
 }
 
 async fn retry_unlisted(shared: Arc<Shared>) {
+    let kicks = shared.retry.subscribe();
+    retry_ladder(kicks, || {
+        let shared = shared.clone();
+        async move {
+            let missing = shared.unlisted();
+            for &addr in &missing {
+                let outcome = shared
+                    .clone()
+                    .dial_candidate(addr, Source::Remembered, true)
+                    .await;
+                if outcome == DialOutcome::Throttled {
+                    break;
+                }
+                shared.lock().swept.insert(addr, Instant::now());
+            }
+            !missing.is_empty()
+        }
+    })
+    .await;
+}
+
+async fn retry_ladder<F: std::future::Future<Output = bool>>(
+    mut kicks: watch::Receiver<()>,
+    mut sweep: impl FnMut() -> F,
+) {
     let mut delay = RETRY_FIRST;
-    let mut deadline = tokio::time::Instant::now() + delay;
+    let mut deadline = tokio::time::Instant::now();
     loop {
         tokio::select! {
             _ = tokio::time::sleep_until(deadline) => {}
-            _ = shared.lost.notified() => {
+            kicked = kicks.changed() => {
+                if kicked.is_err() {
+                    return;
+                }
                 delay = RETRY_FIRST;
                 deadline = deadline.min(tokio::time::Instant::now() + RETRY_FIRST);
                 continue;
             }
         }
-        let missing = shared.unlisted();
-        delay = if missing.is_empty() {
-            RETRY_FIRST
-        } else {
-            for addr in missing {
-                shared.clone().dial_if_new(addr, true).await;
-            }
-            (delay * 2).min(RETRY_MAX)
-        };
+        if !sweep().await {
+            delay = RETRY_FIRST;
+            deadline = tokio::time::Instant::now() + delay;
+            continue;
+        }
         deadline = tokio::time::Instant::now() + delay;
+        delay = (delay * 2).min(RETRY_MAX);
+    }
+}
+
+async fn watch_addrs(shared: Arc<Shared>) {
+    let mut ticker = tokio::time::interval(ADDR_POLL);
+    let mut seen: Option<Vec<SocketAddr>> = None;
+    let mut delivered = true;
+    loop {
+        ticker.tick().await;
+        let own = (shared.me.addrs)();
+        let mut sorted = own.clone();
+        sorted.sort();
+        if seen.as_ref() != Some(&sorted) {
+            shared.lock().own = own.clone();
+            let event = ManagerEvent::OwnAddrs(own.clone());
+            if shared.events.send(event).await.is_err() {
+                return;
+            }
+            seen = Some(sorted);
+            delivered = false;
+        }
+        if !delivered {
+            delivered = shared.push_addrs(&own);
+        }
     }
 }
 
@@ -839,7 +1130,9 @@ impl FilesDialer {
             return Err(FilesDialError::WrongDevice);
         }
         let permit = self.0.outbound_permit(true).await;
-        let stream = connect(addr).await.map_err(FilesDialError::Unreachable)?;
+        let stream = connect(addr)
+            .await
+            .map_err(|e| FilesDialError::Unreachable(format!("dial {addr} failed: {e}")))?;
         let mut link = secure(stream, addr, true, &self.0).await?;
         drop(permit);
         if hex(&link.hello.device_key) != key {
@@ -881,7 +1174,9 @@ pub async fn start(
     me.addrs = addrs::interfaces(local_port(&listener)?);
     let mut manager = serve(listener, me, auth_keys, paused, store, policy, events).await?;
     if discovery {
-        manager.spawn_probe(Arc::new(discovery::probe_multicast));
+        manager.spawn(|s| probe_loop(s, Arc::new(discovery::probe_multicast)));
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        manager.spawn(|s| tailscale::poll_loop(s, tailscale::local_status()));
         manager.start_discovery().await;
     }
     Ok(manager)
@@ -912,8 +1207,9 @@ async fn serve(
         caps: watch::channel(None).0,
         inbound: Arc::new(Semaphore::new(MAX_INBOUND_HANDSHAKES)),
         outbound: Arc::new(Semaphore::new(MAX_OUTBOUND_HANDSHAKES)),
+        budget: Mutex::new(RateLimiter::new(DIAL_BUDGET, DIAL_WINDOW)),
         peers_changed: Notify::new(),
-        lost: Notify::new(),
+        retry: watch::channel(()).0,
     });
     let manager = Manager {
         port,
@@ -921,6 +1217,7 @@ async fn serve(
             tokio::spawn(accept_loop(listener, shared.clone())),
             tokio::spawn(emit_peers(shared.clone())),
             tokio::spawn(retry_unlisted(shared.clone())),
+            tokio::spawn(watch_addrs(shared.clone())),
         ],
         writer: Some(tokio::spawn(write_saves(shared.clone(), saved))),
         discovery: None,
@@ -931,9 +1228,11 @@ async fn serve(
 }
 
 impl Manager {
-    fn spawn_probe(&mut self, probe: Probe) {
-        let shared = self.shared.clone();
-        self.tasks.push(tokio::spawn(probe_loop(shared, probe)));
+    fn spawn<F>(&mut self, task: impl FnOnce(Arc<Shared>) -> F)
+    where
+        F: std::future::Future<Output = ()> + Send + 'static,
+    {
+        self.tasks.push(tokio::spawn(task(self.shared.clone())));
     }
 
     async fn start_discovery(&mut self) {
@@ -942,8 +1241,7 @@ impl Manager {
         let shared = self.shared.clone();
         self.tasks.push(tokio::spawn(async move {
             while let Some(addr) = found_rx.recv().await {
-                shared.remember(addr);
-                tokio::spawn(shared.clone().dial_if_new(addr, false));
+                tokio::spawn(shared.clone().dial_candidate(addr, Source::Mdns, false));
             }
         }));
         let shared = self.shared.clone();
@@ -964,10 +1262,17 @@ impl Manager {
     }
 
     #[cfg(test)]
-    pub async fn connect(&self, addr: SocketAddr) {
-        self.shared.remember(addr);
-        if let Some(permit) = self.shared.outbound_permit(false).await {
-            dial(self.shared.clone(), addr, permit).await;
+    pub async fn connect(&self, addr: SocketAddr, source: Source) -> DialOutcome {
+        self.shared.clone().dial_candidate(addr, source, true).await
+    }
+
+    pub fn learn(&self, device_id: &str, addrs: &[SocketAddr]) {
+        let mut changed = false;
+        for &addr in addrs {
+            changed |= self.shared.remember(addr, Some(device_id));
+        }
+        if changed {
+            self.shared.retry_soon();
         }
     }
 
@@ -987,6 +1292,16 @@ impl Manager {
 
     pub fn peers(&self) -> Vec<PeerInfo> {
         self.shared.peers()
+    }
+
+    #[cfg(test)]
+    pub fn spend_budget(&self) {
+        while lock(&self.shared.budget).allow((), Instant::now()) {}
+    }
+
+    #[cfg(test)]
+    pub fn candidates(&self) -> Vec<SocketAddr> {
+        self.shared.lock().dialable.iter().map(|k| k.addr).collect()
     }
 
     #[cfg(test)]
@@ -1091,7 +1406,7 @@ mod tests {
             .await
             .unwrap();
         if let Some(probe) = probe {
-            manager.spawn_probe(probe);
+            manager.spawn(|s| probe_loop(s, probe));
         }
         (manager, rx)
     }
@@ -1159,8 +1474,7 @@ mod tests {
     }
 
     fn tag(m: &Manager, addr: SocketAddr, id: &str) {
-        m.shared.remember(addr);
-        m.shared.lock().tag(addr.ip(), id);
+        m.shared.remember(addr, Some(id));
     }
 
     fn tags(m: &Manager) -> Vec<Option<String>> {
@@ -1209,7 +1523,7 @@ mod tests {
     }
 
     fn dialable(m: &Manager) -> Vec<SocketAddr> {
-        m.shared.lock().dialable.iter().map(|k| k.addr).collect()
+        m.candidates()
     }
 
     fn rank_of(m: &Manager, id: &str) -> Option<Rank> {
@@ -1270,7 +1584,7 @@ mod tests {
     async fn trusted_peers_see_each_other_and_exchange_blobs() {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         both_listed(&a, &b).await;
         let seen_by_b = &b.peers()[0];
         assert_eq!(seen_by_b.device_id, "dev-a");
@@ -1289,14 +1603,17 @@ mod tests {
     async fn untrusted_peer_is_never_listed() {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 2).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         until("handshakes settle", || idle(&a) && idle(&b)).await;
         a.broadcast(vec![1]).await;
         assert!(a.peers().is_empty() && b.peers().is_empty());
         for rx in [&mut ea, &mut eb] {
             while let Ok(e) = rx.try_recv() {
                 assert!(
-                    matches!(e, ManagerEvent::Status(LanStatus::Running)),
+                    matches!(
+                        e,
+                        ManagerEvent::Status(LanStatus::Running) | ManagerEvent::OwnAddrs(_)
+                    ),
                     "{e:?}"
                 );
             }
@@ -1306,7 +1623,7 @@ mod tests {
     #[tokio::test]
     async fn connecting_to_self_is_ignored() {
         let (a, _ea) = spawn("dev-a", 1).await;
-        a.connect(local(&a)).await;
+        a.connect(local(&a), Source::Mdns).await;
         until("handshakes settle", || idle(&a)).await;
         assert!(a.peers().is_empty());
         assert!(a.record("dev-a").is_none());
@@ -1316,7 +1633,7 @@ mod tests {
     async fn first_contact_pins_the_device_key() {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 1).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         both_listed(&a, &b).await;
         let pinned = |m: &Manager, id| m.record(id).unwrap().device_key;
         assert_eq!(pinned(&a, "dev-b"), test_identity("dev-b").key.public);
@@ -1367,7 +1684,7 @@ mod tests {
         let (a, mut ea) = spawn_as(test_identity("dev-a"), PeerStore::memory(), refuse).await;
         let ephemeral = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).await.unwrap();
         let (b, _eb) = spawn_on("dev-b", 1, ephemeral).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         next_event(&mut ea, listed("dev-b")).await;
         b.stop().await;
         next_event(&mut ea, no_peers).await;
@@ -1438,7 +1755,7 @@ mod tests {
         let repin = PinPolicy::Repin;
         let (a, _ea) = spawn_as(advertising("dev-a", &["10.9.9.9:1234"]), memory(), repin).await;
         let (b, _eb) = spawn_as(advertising("dev-b", &["10.8.8.8:4321"]), memory(), repin).await;
-        b.connect(local(&a)).await;
+        b.connect(local(&a), Source::Mdns).await;
         both_listed(&a, &b).await;
         let on_b = addrs_of(&b, "dev-a");
         assert!(on_b.contains(&"10.9.9.9:1234".parse().unwrap()), "{on_b:?}");
@@ -1456,7 +1773,7 @@ mod tests {
         let me = advertising("dev-a", &many);
         let (a, _ea) = spawn_as(me, PeerStore::memory(), PinPolicy::Repin).await;
         let (b, _eb) = spawn("dev-b", 1).await;
-        b.connect(local(&a)).await;
+        b.connect(local(&a), Source::Mdns).await;
         both_listed(&a, &b).await;
         let on_b = addrs_of(&b, "dev-a");
         assert_eq!(on_b.len(), crate::lan_sync::peers::MAX_ADDRS);
@@ -1468,7 +1785,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (a, _ea) = spawn_as(test_identity("dev-a"), file_store(&dir), PinPolicy::Repin).await;
         let (b, _eb) = spawn("dev-b", 1).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         until("a lists b", || a.peers().len() == 1).await;
         for i in 0..50u8 {
             let id = format!("dev-{i}");
@@ -1505,7 +1822,7 @@ mod tests {
     async fn untrusted_peer_is_never_pinned() {
         let (a, _ea) = spawn("dev-a", 1).await;
         let (b, _eb) = spawn("dev-b", 2).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         until("handshakes settle", || idle(&a) && idle(&b)).await;
         assert!(a.record("dev-b").is_none() && b.record("dev-a").is_none());
     }
@@ -1515,9 +1832,9 @@ mod tests {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
         tokio::join!(
-            a.connect(local(&b)),
-            a.connect(local(&b)),
-            b.connect(local(&a))
+            a.connect(local(&b), Source::Mdns),
+            a.connect(local(&b), Source::Mdns),
+            b.connect(local(&a), Source::Mdns)
         );
         until("dials settle", || idle(&a) && idle(&b)).await;
         let on_a = rank_of(&a, "dev-b").expect("a lost b");
@@ -1591,7 +1908,7 @@ mod tests {
         let (b, _eb) = spawn("dev-b", 1).await;
         let (c, mut ec) = spawn("dev-c", 1).await;
         let (_stalled, _fd) = raw_peer(&b, "dev-a").await;
-        c.connect(local(&b)).await;
+        c.connect(local(&b), Source::Mdns).await;
         until("both peers on b", || b.peers().len() == 2).await;
 
         b.broadcast(vec![0; MAX_FRAME - 1]).await;
@@ -1638,10 +1955,13 @@ mod tests {
         next_event(&mut eb, listed("dev-a")).await;
         let incumbent = rank_of(&b, "dev-a").unwrap();
         for i in 1..=6 {
-            b.shared.remember(SocketAddr::from(([192, 0, 2, i], 9)));
+            b.shared
+                .remember(SocketAddr::from(([192, 0, 2, i], 9)), None);
         }
 
-        b.connect(local(&a)).await;
+        b.shared.remember(local(&a), None);
+        let permit = b.shared.outbound_permit(false).await.unwrap();
+        dial(b.shared.clone(), local(&a), permit).await;
         assert_eq!(rank_of(&b, "dev-a"), Some(incumbent));
         until("reconnected without a second dial", || {
             rank_of(&b, "dev-a").is_some_and(|r| r.higher_initiated) && a.peers().len() == 1
@@ -1650,12 +1970,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worth_dialing_skips_ipv6_known_peers_and_stopped() {
+    async fn worth_dialing_skips_link_local_known_peers_and_stopped() {
         let (mut b, mut eb) = spawn("dev-b", 1).await;
         let (_session, _fd) = raw_peer(&b, "dev-a").await;
         next_event(&mut eb, listed("dev-a")).await;
         assert!(!b.shared.worth_dialing("127.0.0.1:4000".parse().unwrap()));
         assert!(!b.shared.worth_dialing("[fe80::1]:4000".parse().unwrap()));
+        assert!(b
+            .shared
+            .worth_dialing("[fd7a:115c:a1e0::5]:4000".parse().unwrap()));
         assert!(b.shared.worth_dialing("10.0.0.9:4000".parse().unwrap()));
         b.shutdown();
         assert!(!b.shared.worth_dialing("10.0.0.9:4000".parse().unwrap()));
@@ -1664,20 +1987,21 @@ mod tests {
     #[tokio::test]
     async fn remembered_addresses_are_unique_per_ip_and_bounded() {
         let (b, _eb) = spawn("dev-b", 1).await;
-        b.shared.remember("10.0.0.1:1".parse().unwrap());
-        b.shared.remember("10.0.0.1:2".parse().unwrap());
-        for i in 2..=40u8 {
-            b.shared.remember(SocketAddr::from(([10, 0, 0, i], 3)));
+        b.shared.remember("10.0.0.1:1".parse().unwrap(), None);
+        b.shared.remember("10.0.0.1:2".parse().unwrap(), None);
+        for i in 2..=80u8 {
+            b.shared
+                .remember(SocketAddr::from(([10, 0, 0, i], 3)), None);
         }
-        b.shared.remember("[fe80::1]:3".parse().unwrap());
+        b.shared.remember("[fe80::1]:3".parse().unwrap(), None);
         let known = dialable(&b);
-        assert_eq!(known.len(), REMEMBERED);
-        assert_eq!(known.last(), Some(&"10.0.0.40:3".parse().unwrap()));
+        assert_eq!(known.len(), CANDIDATES);
+        assert_eq!(known.last(), Some(&"10.0.0.80:3".parse().unwrap()));
         assert!(!known.contains(&"10.0.0.1:2".parse().unwrap()));
     }
 
     #[tokio::test]
-    async fn dial_outcomes_tag_or_forget_addresses() {
+    async fn dial_outcomes_tag_keep_or_forget_addresses() {
         let (b, _eb) = spawn("dev-b", 1).await;
         let (a, _ea) = spawn("dev-a", 1).await;
         let (stranger, _es) = spawn("dev-s", 2).await;
@@ -1703,12 +2027,16 @@ mod tests {
             tagged_hangup,
             local(&a),
         ] {
-            b.connect(addr).await;
+            b.connect(addr, Source::Mdns).await;
         }
-        assert_eq!(dialable(&b), vec![tagged_closed, tagged_hangup, local(&a)]);
+        assert_eq!(
+            dialable(&b),
+            vec![closed, tagged_closed, tagged_hangup, local(&a)]
+        );
         assert_eq!(
             tags(&b),
             vec![
+                None,
                 Some("dev-x".into()),
                 Some("dev-z".into()),
                 Some("dev-a".into())
@@ -1726,17 +2054,47 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sweep_tries_the_lost_device_first() {
+    async fn redial_tries_only_the_lost_devices_addresses() {
         let (b, _eb) = spawn("dev-b", 1).await;
         let addr = |i: u8| SocketAddr::from(([10, 0, 0, i], 1));
         tag(&b, addr(1), "dev-a");
         tag(&b, addr(2), "dev-c");
-        b.shared.remember(addr(3));
+        b.shared.remember(addr(3), None);
         tag(&b, addr(4), "dev-a");
-        b.shared.remember(addr(5));
+        b.shared.remember(addr(5), None);
+        seed(
+            &mut b.shared.store(),
+            "dev-a",
+            &[addr(6), addr(4)],
+            now_secs(),
+        );
         assert_eq!(
             b.shared.sweep_order("dev-a"),
-            vec![addr(4), addr(1), addr(5), addr(3)]
+            vec![addr(6), addr(4), addr(1)]
+        );
+    }
+
+    #[tokio::test]
+    async fn unlisted_puts_candidates_first_then_fresh_store_addresses_newest_first() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (_session, _fd) = raw_peer(&b, "dev-e").await;
+        next_event(&mut eb, listed("dev-e")).await;
+        let addr = |i: u8| SocketAddr::from(([192, 0, 2, i], 1));
+        let now = now_secs();
+        {
+            let mut store = b.shared.store();
+            seed(&mut store, "dev-a", &[addr(1)], now - 10);
+            seed(&mut store, "dev-a", &[addr(2)], now);
+            seed(&mut store, "dev-c", &[addr(3)], now - 5);
+            seed(&mut store, "dev-c", &[addr(4)], now - 31 * DAY);
+            seed(&mut store, "dev-e", &[addr(7)], now);
+        }
+        tag(&b, addr(5), "dev-d");
+        tag(&b, addr(2), "dev-a");
+        b.shared.remember(addr(6), None);
+        assert_eq!(
+            b.shared.unlisted(),
+            vec![addr(2), addr(5), addr(3), addr(1)]
         );
     }
 
@@ -1765,7 +2123,7 @@ mod tests {
         let (b, mut eb) = spawn("dev-b", 1).await;
         let (a, _ea) = spawn("dev-a", 1).await;
         let addr = local(&a);
-        b.connect(addr).await;
+        b.connect(addr, Source::Mdns).await;
         next_event(&mut eb, listed("dev-a")).await;
         tokio::time::sleep(REDIAL_DELAY).await;
         drop(a);
@@ -1774,6 +2132,59 @@ mod tests {
         assert!(b.peers().is_empty());
         assert_eq!(dialable(&b), vec![addr]);
 
+        let (_a, _ea) = spawn_on("dev-a", 1, rebind(addr).await).await;
+        next_event(&mut eb, listed("dev-a")).await;
+    }
+
+    fn seed_refusing(m: &Manager, devices: u8) -> Vec<SocketAddr> {
+        let mut store = m.shared.store();
+        (0..devices)
+            .flat_map(|d| {
+                let addrs: Vec<SocketAddr> = (1..=crate::lan_sync::peers::MAX_ADDRS as u8)
+                    .map(|i| SocketAddr::from(([127, 0, 10 + d, i], 1)))
+                    .collect();
+                seed(&mut store, &format!("dev-s{d}"), &addrs, now_secs());
+                addrs
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn sweep_dials_candidates_before_failing_store_addresses() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        assert!(seed_refusing(&a, 5).len() > DIAL_BUDGET);
+        a.learn("dev-b", &[local(&b)]);
+        next_event(&mut ea, listed("dev-b")).await;
+    }
+
+    #[tokio::test]
+    async fn throttled_sweep_resumes_at_the_tail() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        seed_refusing(&a, 5);
+        let first = a.shared.unlisted();
+        until("budget spent on a sweep", || {
+            a.shared.lock().swept.len() == DIAL_BUDGET
+        })
+        .await;
+        tokio::time::sleep(RETRY_FIRST * 2).await;
+        assert_eq!(a.shared.lock().swept.len(), DIAL_BUDGET);
+        assert_eq!(a.shared.unlisted()[..10], first[DIAL_BUDGET..]);
+    }
+
+    #[tokio::test]
+    async fn own_addresses_are_not_dialed() {
+        let me = advertising("dev-a", &["10.0.0.5:4000"]);
+        let (a, _ea) = spawn_as(me, PeerStore::memory(), PinPolicy::Repin).await;
+        until("own addresses sampled", || {
+            !a.shared.worth_dialing("10.0.0.5:4000".parse().unwrap())
+        })
+        .await;
+        assert!(a.shared.worth_dialing("10.0.0.5:4001".parse().unwrap()));
+        assert!(a.shared.worth_dialing("10.0.0.6:4000".parse().unwrap()));
+    }
+
+    async fn rebind(addr: SocketAddr) -> TcpListener {
         let rebind = async {
             loop {
                 match TcpListener::bind(addr).await {
@@ -1782,9 +2193,302 @@ mod tests {
                 }
             }
         };
-        let listener = timeout(Duration::from_secs(5), rebind).await.unwrap();
-        let (_a, _ea) = spawn_on("dev-a", 1, listener).await;
+        timeout(Duration::from_secs(5), rebind).await.unwrap()
+    }
+
+    fn reserved() -> (Socket, SocketAddr) {
+        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
+        let any = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
+        socket.bind(&any.into()).unwrap();
+        let addr = socket.local_addr().unwrap().as_socket().unwrap();
+        (socket, addr)
+    }
+
+    fn listening(socket: Socket) -> TcpListener {
+        socket.listen(128).unwrap();
+        socket.set_nonblocking(true).unwrap();
+        TcpListener::from_std(socket.into()).unwrap()
+    }
+
+    const DAY: u64 = 86_400;
+
+    fn seed(store: &mut PeerStore, id: &str, addrs: &[SocketAddr], last_seen: u64) {
+        let key = test_identity(id).key.public;
+        store.decide(id, &key, now_secs(), PinPolicy::Repin);
+        store.record_addrs(id, addrs, last_seen);
+    }
+
+    async fn remembering(
+        b: SocketAddr,
+        last_seen: u64,
+    ) -> (Manager, mpsc::Receiver<ManagerEvent>, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = file_store(&dir);
+        seed(&mut store, "dev-b", &[b], last_seen);
+        let (a, ea) = spawn_as(test_identity("dev-a"), store, PinPolicy::Repin).await;
+        (a, ea, dir)
+    }
+
+    #[tokio::test]
+    async fn remembered_addresses_are_dialed_at_start() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (_a, mut ea, _dir) = remembering(local(&b), now_secs()).await;
+        let listing = next_event(&mut ea, listed("dev-b"));
+        timeout(Duration::from_secs(2), listing)
+            .await
+            .expect("b not listed within 2 s");
+    }
+
+    #[tokio::test]
+    async fn stale_addresses_are_not_dialed() {
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let (a, _ea, _dir) = remembering(local(&b), now_secs() - 31 * DAY).await;
+        tokio::time::sleep(RETRY_FIRST * 5).await;
+        assert!(a.peers().is_empty() && b.peers().is_empty());
+    }
+
+    #[tokio::test]
+    async fn dial_budget_caps_non_mdns_attempts() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let closed = |i: u8| SocketAddr::from(([127, 0, 0, i], 1));
+        let charged = [Source::Tailscale, Source::Remembered];
+        let mut dialed = 0;
+        for i in 10..50 {
+            let source = charged[usize::from(i) % charged.len()];
+            if a.connect(closed(i), source).await != DialOutcome::Throttled {
+                dialed += 1;
+            }
+        }
+        assert_eq!(dialed, DIAL_BUDGET);
+        for i in 10..50 {
+            let outcome = a.connect(closed(i), Source::Mdns).await;
+            assert_eq!(outcome, DialOutcome::Refused, "{i}");
+        }
+    }
+
+    #[tokio::test]
+    async fn connect_reports_outcomes() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (stranger, _es) = spawn("dev-s", 2).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let remembered = |addr| a.connect(addr, Source::Remembered);
+        let closed = SocketAddr::from(([127, 0, 0, 3], 1));
+        assert_eq!(remembered(closed).await, DialOutcome::Refused);
+        assert_eq!(remembered(local(&stranger)).await, DialOutcome::Rejected);
+        assert_eq!(remembered(local(&b)).await, DialOutcome::Connected);
+        assert_eq!(remembered(local(&b)).await, DialOutcome::Skipped);
+    }
+
+    #[tokio::test]
+    async fn learned_addresses_are_tagged_and_retried() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (socket, addr) = reserved();
+        let kicks = a.shared.retry.subscribe();
+        a.learn("dev-b", &[addr]);
+        assert_eq!(tags(&a), vec![Some("dev-b".into())]);
+        assert!(kicks.has_changed().unwrap());
+        let kicks = a.shared.retry.subscribe();
+        a.learn("dev-b", &[addr]);
+        assert!(!kicks.has_changed().unwrap());
+        tokio::time::sleep(RETRY_FIRST * 2).await;
+        let (_b, _eb) = spawn_on("dev-b", 1, listening(socket)).await;
+        next_event(&mut ea, listed("dev-b")).await;
+    }
+
+    #[tokio::test]
+    async fn listed_device_addresses_are_not_redialed() {
+        let ula: SocketAddr = "[fd00::9]:4000".parse().unwrap();
+        let me = advertising("dev-b", &["[fd00::9]:4000"]);
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn_as(me, PeerStore::memory(), PinPolicy::Repin).await;
+        assert_eq!(
+            a.connect(local(&b), Source::Mdns).await,
+            DialOutcome::Connected
+        );
+        assert!(addrs_of(&a, "dev-b").contains(&ula));
+        assert_eq!(
+            a.connect(ula, Source::Remembered).await,
+            DialOutcome::Skipped
+        );
+        assert_eq!(a.connect(ula, Source::Mdns).await, DialOutcome::Skipped);
+    }
+
+    #[tokio::test]
+    async fn failed_first_contact_is_kept_and_retried() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (socket, addr) = reserved();
+        assert_eq!(a.connect(addr, Source::Mdns).await, DialOutcome::Refused);
+        assert_eq!(dialable(&a), vec![addr]);
+        let (_b, _eb) = spawn_on("dev-b", 1, listening(socket)).await;
+        next_event(&mut ea, listed("dev-b")).await;
+    }
+
+    #[tokio::test]
+    async fn failed_first_contact_expires() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (_socket, addr) = reserved();
+        assert_eq!(a.connect(addr, Source::Mdns).await, DialOutcome::Refused);
+        assert_eq!(dialable(&a), vec![addr]);
+        until("candidate expired", || dialable(&a).is_empty()).await;
+    }
+
+    #[tokio::test]
+    async fn mdns_kicks_the_ladder_on_news_only() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        let other = TcpListener::bind((Ipv4Addr::new(127, 0, 0, 9), 0))
+            .await
+            .unwrap();
+        let (c, _ec) = spawn_on("dev-c", 1, other).await;
+        let (_socket, refused) = reserved();
+        let kicks = a.shared.retry.subscribe();
+        assert_eq!(a.connect(refused, Source::Mdns).await, DialOutcome::Refused);
+        assert!(kicks.has_changed().unwrap());
+        let kicks = a.shared.retry.subscribe();
+        let c_addr = SocketAddr::from(([127, 0, 0, 9], c.port()));
+        assert_eq!(
+            a.connect(c_addr, Source::Mdns).await,
+            DialOutcome::Connected
+        );
+        assert!(!kicks.has_changed().unwrap());
+        a.shared.remember(local(&b), None);
+        let kicks = a.shared.retry.subscribe();
+        assert_eq!(
+            a.connect(local(&b), Source::Mdns).await,
+            DialOutcome::Connected
+        );
+        assert!(kicks.has_changed().unwrap());
+        let kicks = a.shared.retry.subscribe();
+        assert_eq!(
+            a.connect(local(&b), Source::Mdns).await,
+            DialOutcome::Skipped
+        );
+        assert!(!kicks.has_changed().unwrap());
+    }
+
+    #[tokio::test]
+    async fn failed_first_contact_resets_a_backed_off_ladder() {
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let dead = std::net::TcpListener::bind((Ipv4Addr::new(127, 0, 0, 8), 0)).unwrap();
+        tag(&a, dead.local_addr().unwrap(), "dev-x");
+        let sweeps = Arc::new(AtomicUsize::new(0));
+        let seen = sweeps.clone();
+        std::thread::spawn(move || {
+            for conn in dead.incoming() {
+                seen.fetch_add(1, Ordering::SeqCst);
+                drop(conn);
+            }
+        });
+        until("ladder backed off", || sweeps.load(Ordering::SeqCst) >= 6).await;
+        let (socket, addr) = reserved();
+        assert_eq!(a.connect(addr, Source::Mdns).await, DialOutcome::Refused);
+        let failed = Instant::now();
+        let (_b, _eb) = spawn_on("dev-b", 1, listening(socket)).await;
+        next_event(&mut ea, listed("dev-b")).await;
+        assert!(
+            failed.elapsed() < Duration::from_secs(4),
+            "{:?}",
+            failed.elapsed()
+        );
+    }
+
+    #[tokio::test]
+    async fn address_change_is_pushed_to_peers() {
+        let own = Arc::new(Mutex::new(Vec::<SocketAddr>::new()));
+        let source = own.clone();
+        let me = LocalIdentity {
+            addrs: Arc::new(move || lock(&source).clone()),
+            ..test_identity("dev-a")
+        };
+        let (a, mut ea) = spawn_as(me, PeerStore::memory(), PinPolicy::Repin).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        a.connect(local(&b), Source::Mdns).await;
+        both_listed(&a, &b).await;
+        let moved: SocketAddr = "10.7.7.7:47391".parse().unwrap();
+        let ranked = vec![moved, "10.1.1.1:47391".parse().unwrap()];
+        *lock(&own) = ranked.clone();
+        until("b learns the new address", || {
+            b.record("dev-a")
+                .is_some_and(|r| r.addrs.iter().any(|s| s.addr == moved))
+        })
+        .await;
+        let seen = next_event(
+            &mut ea,
+            |e| matches!(e, ManagerEvent::OwnAddrs(v) if *v == ranked),
+        )
+        .await;
+        assert!(!seen.is_empty());
+    }
+
+    #[tokio::test]
+    async fn resighting_without_a_permit_stays_in_sweeps() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (_socket, addr) = reserved();
+        let fresh = SocketAddr::from(([127, 0, 0, 7], 1));
+        assert_eq!(a.connect(addr, Source::Mdns).await, DialOutcome::Refused);
+        let busy = a
+            .shared
+            .outbound
+            .clone()
+            .acquire_many_owned(MAX_OUTBOUND_HANDSHAKES as u32)
+            .await
+            .unwrap();
+        for sighted in [addr, fresh] {
+            let outcome = a
+                .shared
+                .clone()
+                .dial_candidate(sighted, Source::Mdns, false)
+                .await;
+            assert_eq!(outcome, DialOutcome::Skipped);
+        }
+        assert_eq!(a.shared.unlisted(), vec![fresh, addr]);
+        drop(busy);
+    }
+
+    #[tokio::test]
+    async fn lost_peer_is_redialed_with_the_budget_spent() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        b.connect(local(&a), Source::Mdns).await;
         next_event(&mut eb, listed("dev-a")).await;
+        tokio::time::sleep(REDIAL_DELAY).await;
+        a.spend_budget();
+        b.spend_budget();
+        a.shared.lock().peers.clear();
+        next_event(&mut eb, no_peers).await;
+        let back = next_event(&mut eb, listed("dev-a"));
+        timeout(Duration::from_secs(5), back)
+            .await
+            .expect("lost peer not redialed");
+    }
+
+    #[tokio::test]
+    async fn inbound_link_kicks_the_retry_ladder() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let kicks = b.shared.retry.subscribe();
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        until("kick", || kicks.has_changed().unwrap()).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn retry_ladder_sweeps_at_once_doubles_and_resets_on_a_kick() {
+        let (kick, kicks) = watch::channel(());
+        let start = tokio::time::Instant::now();
+        let sweeps = Arc::new(Mutex::new(Vec::new()));
+        let log = sweeps.clone();
+        let ladder = tokio::spawn(retry_ladder(kicks, move || {
+            log.lock().unwrap().push(start.elapsed().as_millis());
+            async { true }
+        }));
+        tokio::time::sleep(Duration::from_millis(21_000)).await;
+        kick.send_replace(());
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        ladder.abort();
+        assert_eq!(
+            *sweeps.lock().unwrap(),
+            vec![0, 200, 600, 1400, 3000, 6200, 12600, 20600, 21200, 21400, 21800]
+        );
     }
 
     fn status(wanted: LanStatus) -> impl Fn(&ManagerEvent) -> bool {
@@ -1843,7 +2547,7 @@ mod tests {
     async fn resumed_peer_gets_changes_made_while_it_was_paused() {
         let (a, mut ea) = spawn("dev-a", 1).await;
         let (b, mut eb) = spawn("dev-b", 1).await;
-        a.connect(local(&b)).await;
+        a.connect(local(&b), Source::Mdns).await;
         both_listed(&a, &b).await;
         tokio::time::sleep(Duration::from_millis(300)).await;
         while ea.try_recv().is_ok() {}
@@ -1887,7 +2591,7 @@ mod tests {
     }
 
     async fn synced(a: &Manager, b: &Manager) {
-        a.connect(local(b)).await;
+        a.connect(local(b), Source::Mdns).await;
         until("synced", || a.peers().len() == 1 && b.peers().len() == 1).await;
     }
 
@@ -2057,7 +2761,7 @@ mod tests {
         let (s, _es) = spawn("dev-s", 2).await;
         let svc = Arc::new(Recorder::default());
         b.set_file_service(Some(svc.clone()));
-        s.connect(local(&b)).await;
+        s.connect(local(&b), Source::Mdns).await;
         assert!(matches!(
             open_err(&s, "dev-b").await,
             FilesDialError::NotListed
@@ -2180,7 +2884,7 @@ mod tests {
 
     #[test]
     fn rate_limiter_allows_five_per_ten_seconds() {
-        let mut limiter = RateLimiter::default();
+        let mut limiter = RateLimiter::new(RATE_MAX, RATE_WINDOW);
         let (ip, other): (IpAddr, IpAddr) =
             ("10.0.0.2".parse().unwrap(), "10.0.0.3".parse().unwrap());
         let t0 = Instant::now();
@@ -2195,5 +2899,73 @@ mod tests {
         assert!(limiter.allow(ip, t0 + RATE_WINDOW));
         assert!(!limiter.allow(ip, t0 + RATE_WINDOW));
         assert!(limiter.allow(ip, t0 + RATE_WINDOW + Duration::from_secs(1)));
+    }
+
+    #[tokio::test]
+    async fn mapped_ipv4_peer_is_listed_canonically() {
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        let (_session, _fd) = raw_peer(&b, "dev-a").await;
+        next_event(&mut eb, listed("dev-a")).await;
+        let peer = b
+            .peers()
+            .into_iter()
+            .find(|p| p.device_id == "dev-a")
+            .unwrap();
+        assert_eq!(peer.address, "127.0.0.1");
+        assert_eq!(peer.route, Route::Lan);
+    }
+
+    #[tokio::test]
+    async fn ipv6_peers_connect_over_loopback() {
+        if std::net::TcpListener::bind("[::1]:0").is_err() {
+            return;
+        }
+        let (a, mut ea) = spawn("dev-a", 1).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        b.connect(
+            SocketAddr::new(Ipv6Addr::LOCALHOST.into(), a.port()),
+            Source::Mdns,
+        )
+        .await;
+        next_event(&mut ea, listed("dev-b")).await;
+        next_event(&mut eb, listed("dev-a")).await;
+    }
+
+    #[tokio::test]
+    async fn bind_falls_back_to_ipv4_without_ipv6() {
+        let listener = bind_with(|_| Err(std::io::Error::from_raw_os_error(97)))
+            .await
+            .unwrap();
+        assert!(listener.local_addr().unwrap().is_ipv4());
+        let (a, mut ea) = spawn_on("dev-a", 1, listener).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
+        b.connect(local(&a), Source::Mdns).await;
+        next_event(&mut ea, listed("dev-b")).await;
+        next_event(&mut eb, listed("dev-a")).await;
+    }
+
+    #[test]
+    fn ipv6_rate_limit_is_per_64() {
+        let mut limiter = RateLimiter::new(RATE_MAX, RATE_WINDOW);
+        let t0 = Instant::now();
+        let key = |s: &str| rate_key(s.parse().unwrap());
+        for i in 1..=5 {
+            assert!(limiter.allow(key(&format!("2001:db8:1:2::{i}")), t0), "{i}");
+        }
+        assert!(!limiter.allow(key("2001:db8:1:2::ffff"), t0));
+        assert!(limiter.allow(key("2001:db8:1:3::1"), t0));
+        assert_eq!(
+            rate_key("10.0.0.2".parse().unwrap()),
+            "10.0.0.2".parse::<IpAddr>().unwrap()
+        );
+    }
+
+    #[test]
+    fn global_ipv6_inbound_is_dropped() {
+        let allowed = |s: &str| inbound_allowed(s.parse().unwrap());
+        assert!(!allowed("2001:db8::1"));
+        for ok in ["fd7a:115c:a1e0::1", "fe80::1", "::1", "8.8.8.8"] {
+            assert!(allowed(ok), "{ok}");
+        }
     }
 }

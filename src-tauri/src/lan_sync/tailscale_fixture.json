@@ -1,0 +1,45 @@
+{
+  "Version": "1.76.1-t1234abcd",
+  "BackendState": "Running",
+  "TailscaleIPs": ["100.64.0.1", "fd7a:115c:a1e0::1"],
+  "Self": {
+    "ID": "n1self",
+    "UserID": 1001,
+    "HostName": "this-desktop",
+    "TailscaleIPs": ["100.64.0.1", "fd7a:115c:a1e0::1"],
+    "Online": true
+  },
+  "Peer": {
+    "nodekey:0a1b2c": {
+      "ID": "n2",
+      "UserID": 1001,
+      "HostName": "laptop",
+      "OS": "windows",
+      "TailscaleIPs": ["100.101.1.2", "fd7a:115c:a1e0::2"],
+      "Online": true
+    },
+    "nodekey:3d4e5f": {
+      "ID": "n3",
+      "HostName": "nas",
+      "OS": "linux",
+      "TailscaleIPs": ["100.101.1.3"],
+      "Online": false
+    },
+    "nodekey:6a7b8c": {
+      "ID": "n4",
+      "HostName": "odd",
+      "OS": "linux",
+      "TailscaleIPs": ["bogus"],
+      "Online": true
+    },
+    "nodekey:9d8e7f": {
+      "ID": "n5",
+      "UserID": 2002,
+      "HostName": "shared-in",
+      "OS": "linux",
+      "TailscaleIPs": ["100.101.1.4"],
+      "Online": true
+    }
+  },
+  "MagicDNSSuffix": "tail1234.ts.net"
+}

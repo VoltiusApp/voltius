@@ -9,6 +9,8 @@ pub mod peers;
 pub mod protocol;
 pub mod route;
 pub mod stream;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod tailscale;
 
 pub(crate) fn lock<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())

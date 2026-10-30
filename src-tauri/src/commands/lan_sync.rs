@@ -2,6 +2,7 @@ use super::raw_body;
 #[cfg(desktop)]
 use crate::device_files::service::FileService;
 use crate::lan_sync::addrs;
+use crate::lan_sync::handshake::valid_device_id;
 use crate::lan_sync::identity::{
     derive_auth_key, load_or_create_device_key, DeviceKey, LocalIdentity,
 };
@@ -9,7 +10,8 @@ use crate::lan_sync::lock;
 use crate::lan_sync::manager::{self, LanStatus, Manager, ManagerEvent, PeerInfo};
 use crate::lan_sync::peers::{PeerStore, PinPolicy};
 use serde_json::{json, Value};
-use std::path::Path;
+use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::ipc::{Request, Response};
 use tauri::{AppHandle, Emitter, State};
@@ -21,6 +23,8 @@ const PEERS: &str = "lan-sync://peers";
 const BLOB_READY: &str = "lan-sync://blob-ready";
 const STATUS: &str = "lan-sync://status";
 const REJECTED: &str = "lan-sync://rejected";
+
+pub const OWN_ADDRS_FILE: &str = "lan_sync_addresses.json";
 
 pub type Emit = Arc<dyn Fn(&'static str, Value) + Send + Sync>;
 
@@ -94,7 +98,16 @@ fn payloads(event: &ManagerEvent, paused: bool) -> Vec<(&'static str, Value)> {
         ManagerEvent::Rejected { device_id, reason } => {
             vec![(REJECTED, json!({ "deviceId": device_id, "reason": reason }))]
         }
+        ManagerEvent::OwnAddrs(_) => vec![],
     }
+}
+
+fn write_own_addrs(dir: &Path, device_id: &str, addrs: &[SocketAddr]) -> std::io::Result<()> {
+    let addrs: Vec<String> = addrs.iter().map(SocketAddr::to_string).collect();
+    let body = json!({ "v": 1, "deviceId": device_id, "addrs": addrs });
+    let path = dir.join(OWN_ADDRS_FILE);
+    crate::storage::secrets::write_atomic(&path, body.to_string().as_bytes())
+        .map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 // `from` is the forwarder's epoch; a stale forwarder stays silent once a restart bumped it.
@@ -116,8 +129,21 @@ async fn forward(
     relay: Arc<Mutex<Relay>>,
     epoch: u64,
     emit: Emit,
+    own: Option<(PathBuf, String)>,
 ) {
     while let Some(event) = events.recv().await {
+        if let (ManagerEvent::OwnAddrs(addrs), Some((dir, id))) = (&event, &own) {
+            if lock(&relay).epoch == epoch {
+                let (dir, id, addrs) = (dir.clone(), id.clone(), addrs.clone());
+                let written =
+                    tokio::task::spawn_blocking(move || write_own_addrs(&dir, &id, &addrs));
+                match written.await {
+                    Ok(Err(e)) => log::warn!("lan-sync: saving own addresses failed: {e}"),
+                    Err(e) => log::warn!("lan-sync: saving own addresses panicked: {e}"),
+                    Ok(Ok(())) => {}
+                }
+            }
+        }
         publish(&relay, Some(epoch), &emit, &event);
     }
 }
@@ -147,6 +173,7 @@ pub async fn start_inner(
     if let Err(e) = crate::lan_sync::android::acquire_multicast_lock() {
         log::warn!("lan-sync: {e}");
     }
+    let device_id = me.device_id.clone();
     let (tx, rx) = mpsc::channel(EVENTS);
     let store = store_dir.map_or_else(PeerStore::memory, |dir| PeerStore::open(dir, scope));
     let discovery = !cfg!(test);
@@ -160,7 +187,8 @@ pub async fn start_inner(
             return Err(e);
         }
     };
-    tokio::spawn(forward(rx, state.relay.clone(), epoch, emit));
+    let own = store_dir.map(|dir| (dir.to_path_buf(), device_id));
+    tokio::spawn(forward(rx, state.relay.clone(), epoch, emit, own));
     #[cfg(desktop)]
     offer_to(&manager, files.clone()).await;
     *running = Some(manager);
@@ -216,6 +244,13 @@ pub async fn set_paused_inner(state: &LanSyncState, paused: bool, emit: &Emit) {
 pub async fn broadcast_inner(state: &LanSyncState, blob: Vec<u8>) {
     if let Some(manager) = state.manager.lock().await.as_ref() {
         manager.broadcast(blob).await;
+    }
+}
+
+pub async fn learn_inner(state: &LanSyncState, device_id: &str, addrs: &[String]) {
+    let addrs = addrs::sanitize(addrs);
+    if !addrs.is_empty() && valid_device_id(device_id) {
+        with_manager(state, |m| m.learn(device_id, &addrs)).await;
     }
 }
 
@@ -320,6 +355,16 @@ pub async fn lan_sync_peers(state: State<'_, LanSyncState>) -> Result<Vec<PeerIn
 }
 
 #[tauri::command]
+pub async fn lan_sync_learn(
+    state: State<'_, LanSyncState>,
+    device_id: String,
+    addrs: Vec<String>,
+) -> Result<(), String> {
+    learn_inner(&state, &device_id, &addrs).await;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn lan_sync_set_paused(
     app: AppHandle,
     state: State<'_, LanSyncState>,
@@ -334,12 +379,8 @@ impl LanSyncState {
     pub(crate) async fn meet(&self, other: &LanSyncState) {
         let port = with_manager(other, Manager::port).await;
         if let Some(manager) = self.manager.lock().await.as_ref() {
-            manager
-                .connect(std::net::SocketAddr::from((
-                    std::net::Ipv4Addr::LOCALHOST,
-                    port,
-                )))
-                .await;
+            let addr = std::net::SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, port));
+            manager.connect(addr, manager::Source::Mdns).await;
         }
     }
 }
@@ -580,6 +621,60 @@ mod tests {
             .unwrap();
     }
 
+    #[tokio::test]
+    async fn learn_without_manager_is_a_noop() {
+        let state = LanSyncState::default();
+        learn_inner(&state, "dev-b", &["10.9.9.9:47391".to_string()]).await;
+        assert!(!with_manager(&state, |_| true).await);
+    }
+
+    #[tokio::test]
+    async fn learn_sanitises_before_dialing() {
+        let state = LanSyncState::default();
+        let (emit, _seen) = recorder();
+        start(&state, 1, &emit).await;
+        let candidates = || with_manager(&state, Manager::candidates);
+        let junk = [
+            "nope",
+            "0.0.0.0:47391",
+            "[2001:db8::1]:47391",
+            "127.0.0.1:47391",
+            "[::1]:47391",
+        ]
+        .map(String::from);
+        with_manager(&state, Manager::spend_budget).await;
+        learn_inner(&state, "dev-b", &junk).await;
+        assert!(candidates().await.is_empty());
+        let good = ["nope".into(), "10.9.9.9:47391".into()];
+        learn_inner(&state, "", &good).await;
+        learn_inner(&state, &"x".repeat(129), &good).await;
+        assert!(candidates().await.is_empty());
+        learn_inner(&state, &"x".repeat(128), &good).await;
+        assert_eq!(candidates().await, vec!["10.9.9.9:47391".parse().unwrap()]);
+        let many: Vec<String> = (1..=40).map(|i| format!("10.8.0.{i}:47391")).collect();
+        learn_inner(&state, "dev-b", &many).await;
+        assert!(candidates().await.len() <= 1 + crate::lan_sync::protocol::MAX_HELLO_ADDRS);
+        stop_inner(&state).await;
+    }
+
+    #[tokio::test]
+    async fn stale_forwarder_does_not_write_own_addrs() {
+        let dir = tempfile::tempdir().unwrap();
+        let (tx, rx) = mpsc::channel(8);
+        let (emit, _seen) = recorder();
+        let relay = Arc::new(Mutex::new(Relay {
+            epoch: 2,
+            ..Relay::default()
+        }));
+        let own = Some((dir.path().to_path_buf(), "dev-me".to_string()));
+        let task = tokio::spawn(forward(rx, relay, 1, emit, own));
+        let addr: SocketAddr = "10.7.7.7:47391".parse().unwrap();
+        tx.send(ManagerEvent::OwnAddrs(vec![addr])).await.unwrap();
+        drop(tx);
+        task.await.unwrap();
+        assert!(!dir.path().join(OWN_ADDRS_FILE).exists());
+    }
+
     #[test]
     fn rejected_event_is_relayed() {
         use crate::lan_sync::peers::Rejection;
@@ -594,6 +689,33 @@ mod tests {
                 json!({ "deviceId": "x", "reason": "keyChanged" })
             )]
         );
+    }
+
+    #[tokio::test]
+    async fn own_addrs_event_writes_the_blob_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join(OWN_ADDRS_FILE);
+        let (tx, rx) = mpsc::channel(8);
+        let (emit, seen) = recorder();
+        let own = Some((dir.path().to_path_buf(), "dev-me".to_string()));
+        let task = tokio::spawn(forward(rx, Arc::default(), 0, emit, own));
+        tx.send(ManagerEvent::Peers(vec![])).await.unwrap();
+        tx.send(ManagerEvent::Status(LanStatus::Running))
+            .await
+            .unwrap();
+        tx.send(ManagerEvent::Peers(vec![])).await.unwrap();
+        until_any(&seen, "peers", |(n, _)| *n == PEERS).await;
+        assert!(!file.exists());
+        let addr: SocketAddr = "10.7.7.7:47391".parse().unwrap();
+        tx.send(ManagerEvent::OwnAddrs(vec![addr])).await.unwrap();
+        drop(tx);
+        task.await.unwrap();
+        let written: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(
+            written,
+            json!({ "v": 1, "deviceId": "dev-me", "addrs": ["10.7.7.7:47391"] })
+        );
+        assert_eq!(payloads(&ManagerEvent::OwnAddrs(vec![addr]), false), vec![]);
     }
 
     #[test]

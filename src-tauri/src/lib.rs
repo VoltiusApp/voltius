@@ -428,6 +428,7 @@ pub fn run() {
             commands::device_files::device_files_disconnect,
             #[cfg(desktop)]
             commands::device_files::device_files_pending,
+            commands::lan_sync::lan_sync_learn,
             commands::ssh::ssh_connect,
             commands::ssh::ssh_disconnect,
             commands::ssh::ssh_send_input,

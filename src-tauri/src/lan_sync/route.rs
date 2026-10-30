@@ -30,11 +30,18 @@ fn classify_v4(ip: Ipv4Addr) -> Route {
     }
 }
 
+pub fn is_ula(ip: &Ipv6Addr) -> bool {
+    (ip.segments()[0] & 0xfe00) == 0xfc00
+}
+
+pub fn is_link_local_v6(ip: &Ipv6Addr) -> bool {
+    (ip.segments()[0] & 0xffc0) == 0xfe80
+}
+
 fn classify_v6(ip: Ipv6Addr) -> Route {
-    let seg = ip.segments();
-    if seg[..3] == [0xfd7a, 0x115c, 0xa1e0] {
+    if ip.segments()[..3] == [0xfd7a, 0x115c, 0xa1e0] {
         Route::Tailscale
-    } else if ip.is_loopback() || (seg[0] & 0xfe00) == 0xfc00 || (seg[0] & 0xffc0) == 0xfe80 {
+    } else if ip.is_loopback() || is_ula(&ip) || is_link_local_v6(&ip) {
         Route::Lan
     } else {
         Route::Vpn

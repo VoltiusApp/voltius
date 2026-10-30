@@ -36,7 +36,7 @@ import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, serialMerge, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, serialMerge, blobDeviceId, notifyRemotePayloadMerged, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import type {
@@ -2290,13 +2290,16 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const { failed, bestThemeRaw, bestThemeUpdatedAt } = await serialMerge(async () => {
           const encKeyBytes = hexToBytes(encKey);
           let merged: BlobPayload = await invoke<BlobPayload>("state_export_raw");
+          const opened: Array<{ deviceId: string | null; remote: BlobPayload }> = [];
 
           let bestThemeRaw = null as string | null;
           let bestThemeUpdatedAt = null as string | null;
           const excludedIds = getExcludedObjectIds();
           const failed = await forEachRemoteBlob(blobs.map((b64, i) => ({ b64, i })), ({ i }) => `gist blob ${i + 1}`, async ({ b64 }) => {
-            const remote = await openRemoteBlob([encKeyBytes], base64ToByteArray(b64), excludedIds);
+            const bytes = base64ToByteArray(b64);
+            const remote = await openRemoteBlob([encKeyBytes], bytes, excludedIds);
             merged = mergeBlobPayload(merged, remote).payload;
+            opened.push({ deviceId: blobDeviceId(bytes), remote });
 
             const themeRaw = remote.files["theme.json"];
             if (themeRaw) {
@@ -2316,6 +2319,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
 
           await importMergedPayload(merged);
+          for (const { deviceId, remote } of opened) if (deviceId) notifyRemotePayloadMerged(deviceId, remote);
           return { failed, bestThemeRaw, bestThemeUpdatedAt };
         });
 
