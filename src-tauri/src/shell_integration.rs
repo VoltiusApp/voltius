@@ -360,8 +360,19 @@ pub const CONTROL_MODE_MARKER: &str = "VOLTIUS_CC";
 
 const RAW_SENTINEL: &str = r"printf '\033P1000r\033\\'";
 
+fn tmux_version_case(arms: &str) -> String {
+    format!(r#"case "$(tmux -V 2>/dev/null)" in {arms} esac"#)
+}
+
 fn tmux_cc_case(action: &str) -> String {
-    format!(r#"case "$(tmux -V 2>/dev/null)" in {TMUX_CC_VERSIONS}) {action} ;; esac"#)
+    tmux_version_case(&format!("{TMUX_CC_VERSIONS}) {action} ;;"))
+}
+
+fn tmux_gate(arms: &str) -> String {
+    format!(
+        "command -v tmux >/dev/null 2>&1 || exit 0\n{}\n",
+        tmux_version_case(arms)
+    )
 }
 
 fn mode_style(colors: &crate::ssh::control_mode::TerminalColors) -> String {
@@ -617,14 +628,8 @@ pub fn persistent_legacy_setup_command(
         })
         .unwrap_or_default();
     let script = format!(
-        r#"command -v tmux >/dev/null 2>&1 || exit 0
-NC=
-case "$(tmux -V 2>/dev/null)" in
-  *"tmux "3.[01]*) NC=1 ;;
-  *"tmux "2.[6-9]*) ;;
-  *) exit 0 ;;
-esac
-{wait}F=$(mktemp 2>/dev/null) || exit 0
+        r#"NC=
+{gate}{wait}F=$(mktemp 2>/dev/null) || exit 0
 for t in copy-mode copy-mode-vi; do
   printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t
   [ -n "$NC" ] && printf 'bind -T %s MouseDragEnd1Pane send -X copy-selection-no-clear\n' $t
@@ -633,13 +638,12 @@ done > "$F"
 rm -f "$F"
 "#,
         socket = TMUX_SOCKET,
+        gate = tmux_gate(r#"*"tmux "3.[01]*) NC=1 ;; *"tmux "2.[6-9]*) ;; *) exit 0 ;;"#),
         wait = tmux_wait_session(session_key),
     );
     encode_wrapper(&script)
 }
 
-/// Waits up to 15 s for the session the exec channel is creating; exits the
-/// script quietly if it never appears.
 fn tmux_wait_session(session_key: &str) -> String {
     format!(
         r#"i=0
@@ -666,20 +670,23 @@ function kind(l,  a, n, i) {
   n = split(l, a, " ")
   for (i = 6; i <= n; i++) {
     if (a[i] ~ /^--(rcfile|init-file)$/) i++
-    else if (a[i] ~ /^-[^-]*c/) return "c"
-    else if (a[i] !~ /^[-+]/) return "x"
+    else if (a[i] ~ /^-[^-]*c/ || a[i] ~ /^--command/) return "c"
+    else if (a[i] ~ /^-[^-]*s/ || a[i] !~ /^[-+]/) return "x"
   }
   return "i"
 }
+$1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ || NF < 5 { bad = 1 }
 { c = $4; sub(/^-/, "", c); C[$1] = c; S[$1] = $3; L[$1] = $0; K[$2] = K[$2] " " $1 }
 END {
+  if (bad) exit 1
   t = split(r, Q, " ")
   if (!t) exit 1
   for (h = 1; h <= t; h++) W[h] = 1
   for (h = 1; h <= t; h++) {
-    x = Q[h]; c = C[x]
+    x = Q[h]
     if (!(x in C) || S[x] ~ /^R/) exit 1
-    w = 0
+    if (x in V) continue
+    V[x] = 1; c = C[x]; w = 0
     if (sh(c)) {
       k = kind(L[x])
       if (k == "x" || (k == "c" && !W[h])) exit 1
@@ -715,32 +722,46 @@ const TTL_REAPER: &str = concat!(
     ttl_idle_check!(),
     r#"S=$1
 T="tmux -L voltius"
+case $S in voltius_*) ;; *) exit 0 ;; esac
+L=$($T show -v -t "=$S:" @voltius_ttl 2>/dev/null)
+case $L in ''|*[!0-9]*) exit 0 ;; esac
 voltius_held() {
-  $T has-session -t "$S" 2>/dev/null &&
-  [ "$($T display -p -t "$S" '#{session_attached}' 2>/dev/null)" = 0 ] &&
-  case $($T show -v -t "$S" @voltius_ttl 2>/dev/null) in ''|*[!0-9]*) false ;; esac &&
-  { [ -z "$D" ] || [ "$($T show -v -t "$S" @voltius_detached_at 2>/dev/null)" = "$D" ]; }
+  $T has-session -t "=$S" 2>/dev/null &&
+  [ "$($T display -p -t "=$S:" '#{session_attached}' 2>/dev/null)" = 0 ] &&
+  [ "$($T show -v -t "=$S:" @voltius_ttl 2>/dev/null)" = "$L" ] &&
+  { [ -z "$D" ] || [ "$($T show -v -t "=$S:" @voltius_detached_at 2>/dev/null)" = "$D" ]; }
+}
+voltius_now() {
+  N=$(date +%s 2>/dev/null)
+  case $N in ''|*[!0-9]*) exit 0 ;; esac
 }
 D=
 voltius_held || exit 0
-D="$(date +%s).$$"
-$T set -t "$S" @voltius_detached_at "$D" || exit 0
-sleep "$($T show -v -t "$S" @voltius_ttl)" || exit 0
+voltius_now
+D="$N.$$"
+E=$((N + L))
+$T set -t "=$S:" @voltius_detached_at "$D" 2>/dev/null || exit 0
+while voltius_now; [ "$N" -lt "$E" ]; do
+  w=$((E - N))
+  [ "$w" -le 300 ] || w=300
+  sleep "$w" || exit 0
+  voltius_held || exit 0
+done
 voltius_held || exit 0
-P=$($T list-panes -s -t "$S" -F '#{pane_pid}' 2>/dev/null) && [ -n "$P" ] || exit 0
+P=$($T list-panes -s -t "=$S" -F '#{pane_pid}' 2>/dev/null) && [ -n "$P" ] || exit 0
 c=
 for i in 1 2 3; do
-  [ $i = 1 ] || sleep 5
+  [ $i = 1 ] || sleep "${VOLTIUS_REAP_GAP:-5}"
   n=$(voltius_quiet $P) || exit 0
   [ -z "$c" ] || [ "$n" = "$c" ] || exit 0
   c=$n
 done
-voltius_held && $T kill-session -t "$S"
+voltius_held || exit 0
+$T kill-session -t "=$S" 2>/dev/null
+exit 0
 "#
 );
 
-/// Arms (`Some(secs)`) or disarms (`None`) the detached-session TTL on a tmux
-/// 3.0+ session. The reaper is stored once per server in `@voltius_reap`.
 #[cfg_attr(not(test), expect(dead_code))]
 pub fn persistent_ttl_command(session_key: &str, ttl_secs: Option<u64>) -> String {
     let action = match ttl_secs {
@@ -761,10 +782,9 @@ true
         ),
     };
     let script = format!(
-        r#"command -v tmux >/dev/null 2>&1 || exit 0
-case "$(tmux -V 2>/dev/null)" in {TTL_TMUX_VERSIONS}) ;; *) exit 0 ;; esac
-{wait}T="tmux -L {TMUX_SOCKET}"
+        r#"{gate}{wait}T="tmux -L {TMUX_SOCKET}"
 {action}"#,
+        gate = tmux_gate(&format!("{TTL_TMUX_VERSIONS}) ;; *) exit 0 ;;")),
         wait = tmux_wait_session(session_key),
     );
     encode_wrapper(&script)
@@ -772,11 +792,9 @@ case "$(tmux -V 2>/dev/null)" in {TTL_TMUX_VERSIONS}) ;; *) exit 0 ;; esac
 
 pub fn legacy_mode_style_command(colors: &crate::ssh::control_mode::TerminalColors) -> String {
     let script = format!(
-        r#"command -v tmux >/dev/null 2>&1 || exit 0
-{cc}
-tmux -L {socket} set -g mode-style '{style}' 2>/dev/null
+        r#"{gate}tmux -L {socket} set -g mode-style '{style}' 2>/dev/null
 true"#,
-        cc = tmux_cc_case("exit 0"),
+        gate = tmux_gate(&format!("{TMUX_CC_VERSIONS}) exit 0 ;;")),
         socket = TMUX_SOCKET,
         style = mode_style(colors),
     );
@@ -1773,7 +1791,7 @@ mod tests {
     #[test]
     fn ttl_reaper_is_self_contained_and_never_ends_a_tmux_argument_with_a_semicolon() {
         assert!(TTL_REAPER.starts_with(TTL_IDLE_CHECK));
-        assert!(!TTL_REAPER.trim_end().ends_with(';'));
+        assert!(TTL_REAPER.trim_end().ends_with("\nexit 0"));
         assert!(TTL_REAPER.contains(&format!("T=\"tmux -L {TMUX_SOCKET}\"")));
         assert!(!TTL_REAPER.contains("$TMUX"));
     }
@@ -1835,6 +1853,10 @@ mod tests {
             ("10 1 S bash -bash\n20 1 S bash -bash\n21 20 S top top\n".into(), "10 20", false),
             ("10 1 S bash -bash\n".into(), "10 20", false),
             ("10 1 S bash -bash\n".into(), "", false),
+            ("10 root 0:00 -bash\n11 root 0:00 sleep 100\n".into(), "10", false),
+            ("PID PPID STAT COMMAND COMMAND\n10 1 S bash -bash\n".into(), "10", false),
+            (format!("{wrapper}{rcfile}12 11 S fish fish --command=make\n"), "10", false),
+            (format!("{wrapper}{rcfile}12 11 S bash bash -s\n"), "10", false),
         ];
         let dir = ttl_scratch("idle");
         for (ps, panes, idle) in &cases {
@@ -1901,17 +1923,35 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn fake_tmux_calls(version: &str, cmd: &str) -> Vec<Vec<String>> {
+    const FAKE_TMUX: &str = r#"#!/bin/sh
+for a; do printf '%s\037' "$a"; done >> "$LOG"
+printf '\036' >> "$LOG"
+[ "$1" = -V ] && { echo "$TMUX_V"; exit 0; }
+shift 2
+case "$1" in
+  has-session) exit "${HAS:-0}" ;;
+  display) echo "${ATT:-0}" ;;
+  show) case "$*" in
+    *@voltius_ttl*) [ -n "$TTL" ] || exit 1; echo "$TTL" ;;
+    *@voltius_detached_at*) if [ -n "$STAMP" ]; then echo "$STAMP"; else cat "$LOG.stamp"; fi ;;
+  esac ;;
+  set) [ "$4" = @voltius_detached_at ] && printf %s "$5" > "$LOG.stamp" ;;
+  list-panes) echo 10 ;;
+esac
+exit 0
+"#;
+
+    #[cfg(unix)]
+    fn run_fake_tmux(
+        sh_args: &[&str],
+        env: &[(&str, &str)],
+    ) -> (std::process::Output, Vec<Vec<String>>) {
         use std::os::unix::fs::PermissionsExt;
-        let dir = ttl_scratch(&format!("tmux-{}", version.replace(' ', "_")));
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static RUN: AtomicUsize = AtomicUsize::new(0);
+        let dir = ttl_scratch(&format!("tmux-{}", RUN.fetch_add(1, Ordering::Relaxed)));
         let tmux = dir.join("tmux");
-        std::fs::write(
-            &tmux,
-            format!(
-                "#!/bin/sh\n[ \"$1\" = -V ] && echo '{version}'\nfor a; do printf '%s\\037' \"$a\"; done >> \"$LOG\"\nprintf '\\036' >> \"$LOG\"\n"
-            ),
-        )
-        .unwrap();
+        std::fs::write(&tmux, FAKE_TMUX).unwrap();
         std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
         let log = dir.join("log");
         let path = format!(
@@ -1920,17 +1960,12 @@ mod tests {
             std::env::var("PATH").unwrap_or_default()
         );
         let out = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(cmd)
+            .args(sh_args)
             .env("PATH", path)
             .env("LOG", &log)
+            .envs(env.iter().copied())
             .output()
             .expect("sh runs");
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
         let calls = std::fs::read_to_string(&log)
             .unwrap_or_default()
             .split('\x1e')
@@ -1943,6 +1978,17 @@ mod tests {
             })
             .collect();
         let _ = std::fs::remove_dir_all(&dir);
+        (out, calls)
+    }
+
+    #[cfg(unix)]
+    fn fake_tmux_calls(version: &str, cmd: &str) -> Vec<Vec<String>> {
+        let (out, calls) = run_fake_tmux(&["-c", cmd], &[("TMUX_V", version)]);
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         calls
     }
 
@@ -2003,5 +2049,75 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reaper_kills_only_an_idle_detached_session_it_still_owns() {
+        let dir = ttl_scratch("reaper");
+        std::fs::create_dir_all(dir.join("10")).unwrap();
+        std::fs::write(
+            dir.join("10").join("stat"),
+            "10 (bash) S 1 10 10 0 -1 0 0 0 0 0 3 4 0\n",
+        )
+        .unwrap();
+        let idle = ps_fixture(&dir, "10 1 S bash -bash\n");
+        let busy_path = dir.join("busy");
+        std::fs::write(&busy_path, "10 1 S bash -bash\n11 10 S vim vim\n").unwrap();
+        let busy = format!("cat {}", busy_path.display());
+        let proc_dir = dir.to_string_lossy().into_owned();
+        let kill = ["-L", "voltius", "kill-session", "-t", "=voltius_s1"].map(String::from);
+        #[rustfmt::skip]
+        let cases = [
+            ("idle", "voltius_s1", &idle, ("", ""), true),
+            ("busy", "voltius_s1", &busy, ("", ""), false),
+            ("re-detached", "voltius_s1", &idle, ("STAMP", "1.1"), false),
+            ("attached", "voltius_s1", &idle, ("ATT", "1"), false),
+            ("disarmed", "voltius_s1", &idle, ("TTL", ""), false),
+            ("gone", "voltius_s1", &idle, ("HAS", "1"), false),
+            ("foreign", "work", &idle, ("", ""), false),
+        ];
+        for (name, session, ps, tweak, killed) in cases {
+            let mut env = vec![
+                ("TTL", "0"),
+                ("VOLTIUS_REAP_GAP", "0"),
+                ("VOLTIUS_PROC", proc_dir.as_str()),
+                ("VOLTIUS_PS", ps.as_str()),
+            ];
+            if !tweak.0.is_empty() {
+                env.push(tweak);
+            }
+            let (out, calls) = run_fake_tmux(&["-c", TTL_REAPER, "voltius-reap", session], &env);
+            assert!(out.status.success(), "{name}: reaper must exit 0");
+            assert_eq!(calls.contains(&kill.to_vec()), killed, "{name}: {calls:?}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn idle_check_terminates_on_a_self_parented_pid() {
+        let dir = ttl_scratch("cycle");
+        let mut child = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("{TTL_IDLE_CHECK}\nvoltius_idle 10"))
+            .env("VOLTIUS_PS", ps_fixture(&dir, "10 10 S bash -bash\n"))
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .expect("sh runs");
+        let mut done = None;
+        for _ in 0..100 {
+            done = child.try_wait().unwrap();
+            if done.is_some() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        if done.is_none() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(done.is_some(), "voltius_idle must not loop on a pid cycle");
     }
 }
