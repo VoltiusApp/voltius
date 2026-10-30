@@ -7,6 +7,7 @@ const MAX_ADDRS = 16;
 
 const latest = new Map<string, string[]>();
 let learning = false;
+let ignoring = false;
 
 export function addressesFrom(deviceId: string, selfId: string, payload: BlobPayload): string[] {
   const raw = payload.files[ADDRS_FILE];
@@ -28,6 +29,7 @@ function learn(deviceId: string, addrs: string[]): void {
 onRemotePayloadMerged((deviceId, payload) => {
   getDeviceId()
     .then((selfId) => {
+      if (ignoring) return;
       const addrs = addressesFrom(deviceId, selfId, payload);
       if (addrs.length === 0) {
         latest.delete(deviceId);
@@ -38,6 +40,15 @@ onRemotePayloadMerged((deviceId, payload) => {
     })
     .catch(logFailure("lan-sync learn"));
 });
+
+// A group or farewell session: nothing merged before or during it may reach a later account manager.
+export function ignorePeerAddresses(): () => void {
+  ignoring = true;
+  latest.clear();
+  return () => {
+    ignoring = false;
+  };
+}
 
 export function watchPeerAddresses(): () => void {
   learning = true;

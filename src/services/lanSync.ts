@@ -33,7 +33,7 @@ import {
 } from "@/services/lanGroup";
 import { entityClocks, type PeerInfo } from "@/services/lanSyncDevices";
 import { startDeviceFiles, stopDeviceFiles } from "@/services/deviceFiles";
-import { watchPeerAddresses } from "@/services/lanSyncAddresses";
+import { ignorePeerAddresses, watchPeerAddresses } from "@/services/lanSyncAddresses";
 import { ensureLanSyncIntro } from "@/services/lanSyncIntro";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import {
@@ -307,6 +307,8 @@ async function begin(wanted: number): Promise<void> {
   const me = await thisDevice();
   const s: Session = { selfId: me.id, ...next, offs: [] };
   session = s;
+  const account = onAccount(next.trust);
+  if (!account) s.offs.push(ignorePeerAddresses());
   try {
     await subscribe(s.offs, {
       peers: (peers: PeerInfo[]) => onPeers(s, peers),
@@ -320,7 +322,7 @@ async function begin(wanted: number): Promise<void> {
     await invoke("lan_sync_set_paused", { paused: store().paused });
     pairingWindowLost();
     await invoke("lan_sync_start", { deviceId: me.id, deviceName: me.name, ...next.trust });
-    if (onAccount(next.trust)) {
+    if (account) {
       startDeviceFiles().catch(fail("files start"));
       s.offs.push(watchPeerAddresses());
     } else {

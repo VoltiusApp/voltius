@@ -1050,6 +1050,34 @@ describe("dial paths and file access by scope", () => {
   });
 });
 
+describe("peer addresses across scopes", () => {
+  const addressesOf = (deviceId: string) => ({
+    files: { "lan_sync_addresses.json": JSON.stringify({ v: 1, deviceId, addrs: ["100.101.1.2:47391"] }) },
+    secrets: {},
+  });
+  const merged = async (deviceId: string) => {
+    h.onMerged.forEach((fn) => fn(deviceId, addressesOf(deviceId)));
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  test("addresses merged before or during a group session never reach a later account manager", async () => {
+    await merged("before");
+    h.serverMode = false;
+    h.group = GROUP;
+    await startLanSync();
+    await merged("member");
+    await stopLanSync();
+    h.group = null;
+    h.serverMode = true;
+    h.invoke.mockClear();
+
+    await startLanSync();
+    await merged("account-peer");
+
+    expect(calls("lan_sync_learn").map(([, a]) => a.deviceId)).toEqual(["account-peer"]);
+  });
+});
+
 describe("account scope", () => {
   test("a signed-in device that left a group offers its farewell key", async () => {
     h.farewell = { secret: "ff".repeat(32), reason: "account", group: "grp-1" };
