@@ -246,42 +246,53 @@ fn check_grant(grant: Option<&String>) -> Result<(), ProtocolError> {
     }
 }
 
+trait Json {
+    fn json(&self) -> Result<Vec<u8>, ProtocolError>;
+}
+
+impl<T: Serialize> Json for T {
+    fn json(&self) -> Result<Vec<u8>, ProtocolError> {
+        to_json(self)
+    }
+}
+
+enum Payload<'a> {
+    Json(&'a dyn Json),
+    Raw(&'a [u8]),
+}
+
 impl Frame {
+    fn parts(&self) -> (u8, Option<Payload<'_>>) {
+        let (kind, payload) = match self {
+            Frame::Hello(h) => (KIND_HELLO, Payload::Json(h)),
+            Frame::Auth(a) => (KIND_AUTH, Payload::Json(a)),
+            Frame::Caps(c) => (KIND_CAPS, Payload::Json(c)),
+            Frame::Files(r) => (KIND_FILES, Payload::Json(r)),
+            Frame::FilesReply(r) => (KIND_FILES_REPLY, Payload::Json(r)),
+            Frame::Blob(b) => (KIND_BLOB, Payload::Raw(b)),
+            Frame::Addrs(a) => (KIND_ADDRS, Payload::Json(a)),
+            Frame::Nudge => (KIND_NUDGE, Payload::Raw(&[])),
+            Frame::Bye => (KIND_BYE, Payload::Raw(&[])),
+            Frame::Pair(p) => (KIND_PAIR, Payload::Json(p)),
+            Frame::Group(g) => (KIND_GROUP, Payload::Json(g)),
+            Frame::Presence(p) => (KIND_PRESENCE, Payload::Json(p)),
+            Frame::Unknown(kind) => return (*kind, None),
+        };
+        (kind, Some(payload))
+    }
+
     pub fn kind(&self) -> u8 {
-        match self {
-            Frame::Hello(_) => KIND_HELLO,
-            Frame::Auth(_) => KIND_AUTH,
-            Frame::Caps(_) => KIND_CAPS,
-            Frame::Files(_) => KIND_FILES,
-            Frame::FilesReply(_) => KIND_FILES_REPLY,
-            Frame::Blob(_) => KIND_BLOB,
-            Frame::Addrs(_) => KIND_ADDRS,
-            Frame::Nudge => KIND_NUDGE,
-            Frame::Bye => KIND_BYE,
-            Frame::Pair(_) => KIND_PAIR,
-            Frame::Group(_) => KIND_GROUP,
-            Frame::Presence(_) => KIND_PRESENCE,
-            Frame::Unknown(kind) => *kind,
-        }
+        self.parts().0
     }
 }
 
 pub fn encode(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
-    let payload = match frame {
-        Frame::Hello(h) => to_json(h)?,
-        Frame::Auth(a) => to_json(a)?,
-        Frame::Caps(c) => to_json(c)?,
-        Frame::Files(r) => to_json(r)?,
-        Frame::FilesReply(r) => to_json(r)?,
-        Frame::Blob(b) => b.clone(),
-        Frame::Addrs(a) => to_json(a)?,
-        Frame::Nudge | Frame::Bye => Vec::new(),
-        Frame::Pair(p) => to_json(p)?,
-        Frame::Group(g) => to_json(g)?,
-        Frame::Presence(p) => to_json(p)?,
-        Frame::Unknown(kind) => return Err(ProtocolError::UnknownKind(*kind)),
+    let (kind, payload) = frame.parts();
+    let payload = match payload {
+        Some(Payload::Json(v)) => v.json()?,
+        Some(Payload::Raw(b)) => b.to_vec(),
+        None => return Err(ProtocolError::UnknownKind(kind)),
     };
-    let kind = frame.kind();
     let len = payload.len() + 1;
     if len > MAX_FRAME {
         return Err(ProtocolError::TooLarge(len));
