@@ -40,23 +40,40 @@ mod android {
         call_static_bool(CLASS, "setDropTarget", on);
     }
 
-    pub fn copy_to_cache(uri: &str, dest: &str) -> Result<(), String> {
+    pub fn copy_to_cache(uri: &str, dest: &str, transfer_id: &str) -> Result<(), String> {
         with_env("copy picked file", |env, ctx| {
             let cls = load_class(env, CLASS)?;
             let juri = env.new_string(uri)?;
             let jdest = env.new_string(dest)?;
+            let jid = env.new_string(transfer_id)?;
             env.call_static_method(
                 &cls,
                 "copyToCache",
-                "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
+                "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
                 &[
                     JValue::Object(ctx),
                     JValue::Object(&juri),
                     JValue::Object(&jdest),
+                    JValue::Object(&jid),
                 ],
             )?
             .v()
         })
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_voltius_app_VoltiusUploads_nativeCopyCancelled<'local>(
+        mut env: JNIEnv<'local>,
+        _class: JClass<'local>,
+        transfer_id: JString<'local>,
+    ) -> jni::sys::jboolean {
+        use tauri::Manager;
+        let Ok(id) = env.get_string(&transfer_id).map(String::from) else {
+            return jni::sys::JNI_FALSE;
+        };
+        let cancelled = crate::android_ctx::app()
+            .is_some_and(|app| app.state::<crate::sftp::SftpManager>().is_cancelled(&id));
+        u8::from(cancelled)
     }
 
     #[no_mangle]
@@ -158,11 +175,20 @@ pub async fn upload_stage(
         let dest = crate::scratch::transfer_file(&app, AREA, &transfer_id, &name)?
             .to_string_lossy()
             .into_owned();
-        let to = dest.clone();
-        tauri::async_runtime::spawn_blocking(move || android::copy_to_cache(&uri, &to))
-            .await
-            .map_err(|e| format!("copy picked file: {e}"))??;
-        Ok(dest)
+        let (to, id) = (dest.clone(), transfer_id.clone());
+        let copied =
+            tauri::async_runtime::spawn_blocking(move || android::copy_to_cache(&uri, &to, &id))
+                .await
+                .map_err(|e| format!("copy picked file: {e}"))?;
+        use tauri::Manager;
+        let transfers = app.state::<crate::sftp::SftpManager>();
+        copied.map(|()| dest).map_err(|e| {
+            if transfers.is_cancelled(&transfer_id) {
+                crate::sftp::TRANSFER_CANCELLED.into()
+            } else {
+                e
+            }
+        })
     }
     #[cfg(not(target_os = "android"))]
     {

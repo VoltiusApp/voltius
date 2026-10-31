@@ -100,10 +100,19 @@ struct SftpEntry {
     jump_handles: Vec<Arc<Handle<SshClient>>>,
 }
 
+pub const TRANSFER_CANCELLED: &str = "Transfer cancelled";
+
+const REMEMBERED_CANCELS: usize = 64;
+
+#[derive(Default)]
+struct Transfers {
+    live: HashMap<String, CancellationToken>,
+    cancelled: crate::recent_ids::RecentIds<REMEMBERED_CANCELS>,
+}
+
 pub struct SftpManager {
     sessions: Arc<Mutex<HashMap<String, SftpEntry>>>,
-    /// Active transfer cancellation tokens, keyed by transfer_id
-    transfers: Arc<Mutex<HashMap<String, CancellationToken>>>,
+    transfers: Arc<std::sync::Mutex<Transfers>>,
     /// Per-(sftp_id, path) write serialization locks.
     write_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
 }
@@ -162,7 +171,7 @@ impl SftpManager {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
-            transfers: Arc::new(Mutex::new(HashMap::new())),
+            transfers: Arc::default(),
             write_locks: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -477,26 +486,40 @@ impl SftpManager {
         }
     }
 
-    /// Register a transfer and return its cancellation token.
+    /// Register a transfer and return its cancellation token, already cancelled
+    /// when a cancel for this id came first.
     pub async fn register_transfer(&self, transfer_id: &str) -> CancellationToken {
         let token = CancellationToken::new();
-        self.transfers
-            .lock()
-            .await
-            .insert(transfer_id.to_string(), token.clone());
+        let mut t = self.transfers.lock().unwrap();
+        if t.cancelled.contains(transfer_id) {
+            token.cancel();
+        } else {
+            t.live.insert(transfer_id.to_string(), token.clone());
+        }
         token
     }
 
-    /// Cancel a transfer by ID. No-op if not found.
+    /// Cancel a transfer by ID, whether or not it has registered yet.
     pub async fn cancel_transfer(&self, transfer_id: &str) {
-        if let Some(token) = self.transfers.lock().await.remove(transfer_id) {
+        let mut t = self.transfers.lock().unwrap();
+        if let Some(token) = t.live.remove(transfer_id) {
             token.cancel();
         }
+        t.cancelled.insert(transfer_id);
+    }
+
+    #[cfg(any(target_os = "android", test))]
+    pub fn is_cancelled(&self, transfer_id: &str) -> bool {
+        self.transfers
+            .lock()
+            .unwrap()
+            .cancelled
+            .contains(transfer_id)
     }
 
     /// Remove a completed/failed transfer token.
     pub async fn finish_transfer(&self, transfer_id: &str) {
-        self.transfers.lock().await.remove(transfer_id);
+        self.transfers.lock().unwrap().live.remove(transfer_id);
         crate::commands::sftp::resume::clear_resume(transfer_id);
     }
 
@@ -526,7 +549,7 @@ impl SftpManager {
                 Some(token) => token.cancelled().await,
                 None => std::future::pending().await,
             }
-            "Transfer cancelled".to_string()
+            TRANSFER_CANCELLED.to_string()
         };
         exit_status(&self.exec_until(sftp_id, cmd, stop).await?)
     }
@@ -610,6 +633,25 @@ mod tests {
     use russh::{Channel, ChannelId};
     use std::sync::Arc;
     use tokio_util::sync::CancellationToken;
+
+    #[tokio::test]
+    async fn a_cancel_before_registration_cancels_the_token() {
+        let m = SftpManager::new();
+        m.cancel_transfer("t").await;
+        assert!(m.is_cancelled("t"));
+        assert!(m.register_transfer("t").await.is_cancelled());
+        assert!(!m.register_transfer("other").await.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_id_stays_cancelled_after_finishing() {
+        let m = SftpManager::new();
+        let token = m.register_transfer("t").await;
+        m.cancel_transfer("t").await;
+        assert!(token.is_cancelled());
+        m.finish_transfer("t").await;
+        assert!(m.register_transfer("t").await.is_cancelled());
+    }
 
     /// Answers every exec with an exit marker.
     struct ExecServer {

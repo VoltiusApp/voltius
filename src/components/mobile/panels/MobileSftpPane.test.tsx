@@ -126,18 +126,19 @@ describe("MobileSftpPane upload", () => {
     expect(ctrl.refresh).not.toHaveBeenCalled();
   });
 
-  test("cancelling while the file is copied skips the upload and removes the copy", async () => {
-    let copied!: () => void;
+  test("cancelling while the file is copied stops the copy and removes it", async () => {
+    let stopCopy!: () => void;
     serve({
       upload_pick: () => [PICKED[0]],
-      upload_stage: (a) => new Promise((r) => { copied = () => r(`/cache/voltius-uploads/${a.transferId}/a.jpg`); }),
+      upload_stage: () => new Promise((_, reject) => { stopCopy = () => reject(new Error("Transfer cancelled")); }),
     });
     const { ctrl, uploadItem } = renderPane();
     fireEvent.click(uploadItem()!);
     await vi.waitFor(() => expect(calls("upload_stage")).toHaveLength(1));
     const [{ transferId }] = calls("upload_stage");
     expect(useTransferQueueStore.getState().cancelTransfer(transferId as string)).toBe(true);
-    copied();
+    expect(calls("sftp_cancel_transfer")).toEqual([{ transferId }]);
+    stopCopy();
     await vi.waitFor(() => expect(SETTLED()).toBe(true));
     expect(ctrl.refresh).not.toHaveBeenCalled();
     expect(calls("sftp_upload")).toEqual([]);

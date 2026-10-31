@@ -902,7 +902,7 @@ mod tests {
             |_, stop| async move {
                 stop.cancelled().await;
                 unwound.store(true, Ordering::SeqCst);
-                Err("Transfer cancelled".to_string())
+                Err(crate::sftp::TRANSFER_CANCELLED.to_string())
             },
             || async {
                 assert!(

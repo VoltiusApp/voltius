@@ -415,7 +415,7 @@ fn copy_recursive(
     emit: &dyn Fn(u64),
 ) -> std::io::Result<()> {
     if token.is_cancelled() {
-        return Err(std::io::Error::other("Transfer cancelled"));
+        return Err(std::io::Error::other(crate::sftp::TRANSFER_CANCELLED));
     }
     let meta = src.symlink_metadata()?;
     // An existing link at `dst` is replaced, never written through.
@@ -450,7 +450,7 @@ fn copy_recursive(
     let mut buf = vec![0u8; COPY_CHUNK_SIZE];
     loop {
         if token.is_cancelled() {
-            return Err(std::io::Error::other("Transfer cancelled"));
+            return Err(std::io::Error::other(crate::sftp::TRANSFER_CANCELLED));
         }
         let n = reader.read(&mut buf)?;
         if n == 0 {

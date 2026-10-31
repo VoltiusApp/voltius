@@ -1,7 +1,8 @@
+use crate::recent_ids::RecentIds;
 use crate::storage::config::{config_dir, load_known_hosts, save_known_hosts, KnownHost};
 use chrono::Utc;
 use serde::Serialize;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex};
@@ -18,7 +19,7 @@ pub enum ConflictAction {
 #[derive(Default)]
 struct Slots {
     waiting: HashMap<String, oneshot::Sender<ConflictAction>>,
-    aborted: VecDeque<String>,
+    aborted: RecentIds<MAX_EARLY_ABORTS>,
 }
 
 const MAX_EARLY_ABORTS: usize = 32;
@@ -44,17 +45,13 @@ impl PendingConflicts {
             let _ = tx.send(ConflictAction::Abort);
             return;
         }
-        if slots.aborted.len() >= MAX_EARLY_ABORTS {
-            slots.aborted.pop_front();
-        }
-        slots.aborted.push_back(session_id.to_string());
+        slots.aborted.insert(session_id);
     }
 
     /// None when the session was cancelled before its prompt was shown.
     async fn wait(&self, session_id: &str) -> Option<oneshot::Receiver<ConflictAction>> {
         let mut slots = self.0.lock().await;
-        if let Some(i) = slots.aborted.iter().position(|id| id == session_id) {
-            slots.aborted.remove(i);
+        if slots.aborted.take(session_id) {
             return None;
         }
         let (tx, rx) = oneshot::channel();

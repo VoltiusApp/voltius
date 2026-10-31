@@ -68,7 +68,7 @@ where
 }
 
 fn cancelled() -> AppError {
-    "Transfer cancelled".into()
+    crate::sftp::TRANSFER_CANCELLED.into()
 }
 
 impl FtpBackend {

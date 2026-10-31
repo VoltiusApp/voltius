@@ -195,7 +195,7 @@ impl Endpoint for WebDavBackend {
             };
             tokio::select! {
                 done = segments => done,
-                _ = cancel.cancelled() => Err("Transfer cancelled".into()),
+                _ = cancel.cancelled() => Err(crate::sftp::TRANSFER_CANCELLED.into()),
             }
         })))
     }

@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::sftp::{FileBackend, SftpManager};
+use crate::sftp::{FileBackend, SftpManager, TRANSFER_CANCELLED};
 use resume::endpoint::Endpoint;
 use russh_sftp::client::fs::File;
 use serde::Serialize;
@@ -88,7 +88,11 @@ where
     Fut: Future<Output = Result<(), AppError>>,
 {
     let token = manager.register_transfer(transfer_id).await;
-    let result = run(token).await;
+    let result = if token.is_cancelled() {
+        Err(TRANSFER_CANCELLED.into())
+    } else {
+        run(token).await
+    };
     manager.finish_transfer(transfer_id).await;
     result
 }
@@ -249,7 +253,7 @@ where
     loop {
         let n = tokio::select! {
             biased;
-            _ = token.cancelled() => return Err("Transfer cancelled".into()),
+            _ = token.cancelled() => return Err(TRANSFER_CANCELLED.into()),
             r = reader.read(&mut buf) => r.map_err(|e| AppError::caused("Read error", &e))?,
         };
         if n == 0 {
@@ -257,7 +261,7 @@ where
         }
         tokio::select! {
             biased;
-            _ = token.cancelled() => return Err("Transfer cancelled".into()),
+            _ = token.cancelled() => return Err(TRANSFER_CANCELLED.into()),
             r = writer.write_all(&buf[..n]) => r.map_err(|e| AppError::caused("Write error", &e))?,
         }
         on_chunk(n);
@@ -309,5 +313,20 @@ mod transfer_error_tests {
         .await
         .unwrap_err();
         assert_eq!(err.code(), Some(ErrorCode::TransferVerifyFailed));
+    }
+
+    #[tokio::test]
+    async fn a_transfer_cancelled_before_it_starts_never_runs() {
+        let manager = SftpManager::new();
+        manager.cancel_transfer("t").await;
+        let ran = std::sync::atomic::AtomicBool::new(false);
+        let err = with_transfer(&manager, "t", |_| async {
+            ran.store(true, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        })
+        .await
+        .unwrap_err();
+        assert!(!ran.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(err.to_string().contains("cancelled"));
     }
 }

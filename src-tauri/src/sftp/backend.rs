@@ -155,7 +155,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
         let _ = self.mkdir(base).await;
         for p in local_paths {
             if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
+                return Err(crate::sftp::TRANSFER_CANCELLED.into());
             }
             // Local paths, so let `Path` handle the platform's separator.
             let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) else {
@@ -181,7 +181,7 @@ pub trait FileBackend<E: TransferEvents = AppHandle>: Send + Sync {
     ) -> Result<(), AppError> {
         for p in remote_paths {
             if token.is_cancelled() {
-                return Err("Transfer cancelled".into());
+                return Err(crate::sftp::TRANSFER_CANCELLED.into());
             }
             // Remote paths are always POSIX, whatever the host runs.
             let name = p.trim_end_matches('/').rsplit('/').next().unwrap_or(p);
