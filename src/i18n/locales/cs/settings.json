@@ -476,6 +476,15 @@
       },
       "loading": "Probíhá...",
       "plan": {
+        "name": {
+          "free": "Zdarma",
+          "pro": "Pro",
+          "teams": "Teams",
+          "business": "Business"
+        },
+        "trialName": "Zkušební verze {{plan}}",
+        "viaSeat": "{{plan}} · prostřednictvím vašeho místa v týmu {{team}}",
+        "viaTooltip": "Prostřednictvím týmu {{team}}",
         "title": "Tarif",
         "badge": {
           "business": "Business",

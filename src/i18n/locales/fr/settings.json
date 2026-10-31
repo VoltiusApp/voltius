@@ -476,6 +476,15 @@
       },
       "loading": "Traitement…",
       "plan": {
+        "name": {
+          "free": "Gratuit",
+          "pro": "Pro",
+          "teams": "Teams",
+          "business": "Business"
+        },
+        "trialName": "Essai {{plan}}",
+        "viaSeat": "{{plan}} · via votre siège dans {{team}}",
+        "viaTooltip": "Via {{team}}",
         "title": "Abonnement",
         "badge": {
           "business": "Business",

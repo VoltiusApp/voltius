@@ -482,6 +482,15 @@
       },
       "loading": "İşleniyor...",
       "plan": {
+        "name": {
+          "free": "Ücretsiz",
+          "pro": "Pro",
+          "teams": "Teams",
+          "business": "Business"
+        },
+        "trialName": "{{plan}} deneme sürümü",
+        "viaSeat": "{{plan}} · {{team}} ekibindeki koltuğunuz üzerinden",
+        "viaTooltip": "{{team}} üzerinden",
         "title": "Plan",
         "badge": {
           "business": "Business",

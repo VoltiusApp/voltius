@@ -476,6 +476,15 @@
       },
       "loading": "Выполняется...",
       "plan": {
+        "name": {
+          "free": "Бесплатный",
+          "pro": "Pro",
+          "teams": "Teams",
+          "business": "Business"
+        },
+        "trialName": "Пробный период {{plan}}",
+        "viaSeat": "{{plan}} · через ваше место в {{team}}",
+        "viaTooltip": "Через {{team}}",
         "title": "Тариф",
         "badge": {
           "business": "Business",

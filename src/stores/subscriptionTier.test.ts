@@ -94,3 +94,10 @@ test("own pro plus business seat", () => {
   const f = deriveTierFlags({ tier: "business", billing_tier: "pro", seat_team: seat }, NOW);
   expect(f).toMatchObject({ isBusiness: true, billingTier: "pro", ownsTeamsPlan: false, seatTeam: seat });
 });
+
+test("an unknown billing_tier or tier normalizes to free", () => {
+  const f = deriveTierFlags({ tier: "teams", billing_tier: "platinum" }, NOW);
+  expect(f.billingTier).toBe("free");
+  expect(f.ownsTeamsPlan).toBe(false);
+  expect(deriveTierFlags({ tier: "gold" }, NOW)).toMatchObject({ tier: "free", billingTier: "free" });
+});

@@ -476,6 +476,15 @@
       },
       "loading": "Working...",
       "plan": {
+        "name": {
+          "free": "Free",
+          "pro": "Pro",
+          "teams": "Teams",
+          "business": "Business"
+        },
+        "trialName": "{{plan}} trial",
+        "viaSeat": "{{plan}} · through your seat in {{team}}",
+        "viaTooltip": "Through {{team}}",
         "title": "Plan",
         "badge": {
           "business": "Business",

@@ -45,9 +45,13 @@ export interface TierFlags {
   emailVerified: boolean;
 }
 
+function knownTier(value: string | undefined): Tier | undefined {
+  return value !== undefined && value in TIER_RANK ? (value as Tier) : undefined;
+}
+
 export function deriveTierFlags(payload: TierFlagsInput, now: Date): TierFlags {
-  const tier = (payload.tier as Tier) ?? "free";
-  const billingTier = (payload.billing_tier as Tier | undefined) ?? tier;
+  const tier = knownTier(payload.tier) ?? "free";
+  const billingTier = payload.billing_tier === undefined ? tier : (knownTier(payload.billing_tier) ?? "free");
   const seatTeam = payload.seat_team ?? null;
   const ownsTeamsPlan = tierAtLeast(billingTier, "teams");
   const trialEndsAt = payload.trial_ends_at ? new Date(payload.trial_ends_at * 1000) : null;
