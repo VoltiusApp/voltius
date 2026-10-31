@@ -248,6 +248,7 @@
       "ownPlanTitle": "Converter um cofre em equipe exige o seu próprio plano Teams",
       "upgradeDesc": "Convidar membros, atribuir funções e compartilhar credenciais com segurança com sua equipe.",
       "upgradeBtn": "Experimente Teams gratuitamente por {{days}} dias →",
+      "ownPlanBtn": "Assinar o seu próprio plano Teams →",
       "trialNote": "Cartão necessário · sem cobrança durante a avaliação"
     },
     "joinLinks": {

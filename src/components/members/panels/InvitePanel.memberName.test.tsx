@@ -4,6 +4,7 @@ import type { TeamRole } from "@/stores/teamStore";
 
 const h = vi.hoisted(() => ({
   usedSeats: 0,
+  canBuySeats: true,
   inviteUserWithRoles: vi.fn(),
   inviteByEmailAddress: vi.fn(),
 }));
@@ -34,7 +35,7 @@ vi.mock("@/hooks/useUserSearch", () => ({
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: () => ({ usedSeats: h.usedSeats, effectiveSeats: 10, load: vi.fn() }),
 }));
-vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => true }));
+vi.mock("@/hooks/useCanBuySeats", () => ({ useCanBuySeats: () => h.canBuySeats }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({ onSuccess }: { onSuccess: () => void }) => <button onClick={onSuccess}>seats-bought</button>,
 }));
@@ -48,8 +49,10 @@ const roles: TeamRole[] = [
 
 afterEach(() => {
   cleanup();
-  Object.values(h).forEach((m) => typeof m !== "number" && m.mockReset());
+  h.inviteUserWithRoles.mockReset();
+  h.inviteByEmailAddress.mockReset();
   h.usedSeats = 0;
+  h.canBuySeats = true;
 });
 
 function renderPanel(canNameMembers: boolean) {
@@ -98,4 +101,13 @@ test("a name typed before buying seats does not leak into the next invite", () =
   fireEvent.click(screen.getByText("members.invite.inviteArrow"));
   fireEvent.click(screen.getByText("seats-bought"));
   expect(input.value).toBe("");
+});
+
+test("someone who cannot buy seats hitting the cap sees the seat-limit message, not the purchase", async () => {
+  h.canBuySeats = false;
+  renderPanel(true);
+  h.inviteByEmailAddress.mockRejectedValue(Object.assign(new Error("402"), { code: 402 }));
+  fireEvent.click(screen.getByText("members.invite.inviteArrow"));
+  await waitFor(() => expect(screen.getByText("members.error.seatLimitReached")).toBeTruthy());
+  expect(screen.queryByText("seats-bought")).toBeNull();
 });

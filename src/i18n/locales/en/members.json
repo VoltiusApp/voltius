@@ -246,6 +246,7 @@
       "ownPlanTitle": "Converting a vault into a team needs your own Teams plan",
       "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
       "upgradeBtn": "Try Teams free for {{days}} days →",
+      "ownPlanBtn": "Get your own Teams plan →",
       "trialNote": "Card required · no charge during the trial"
     },
     "joinLinks": {

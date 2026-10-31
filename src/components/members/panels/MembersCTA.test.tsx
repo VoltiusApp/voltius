@@ -30,12 +30,14 @@ const seatMember = () =>
     deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: { id: "t1", trial: false } }, new Date()),
   );
 
-test("a seat member is told converting needs their own Teams plan, with the upgrade action", () => {
+test("a seat member is told converting needs their own Teams plan, with a plain upgrade and no trial", () => {
   seatMember();
   render(<UpgradeToTeamsCTA />);
   expect(screen.getByText("members.cta.ownPlanTitle")).toBeTruthy();
   expect(screen.queryByText("members.cta.upgradeTitle")).toBeNull();
-  expect(screen.getByText("members.cta.upgradeBtn")).toBeTruthy();
+  expect(screen.getByText("members.cta.ownPlanBtn")).toBeTruthy();
+  expect(screen.queryByText("members.cta.upgradeBtn")).toBeNull();
+  expect(screen.queryByText("members.cta.trialNote")).toBeNull();
 });
 
 test("a seat member in a store build gets no purchase action", () => {
@@ -43,7 +45,7 @@ test("a seat member in a store build gets no purchase action", () => {
   seatMember();
   render(<UpgradeToTeamsCTA />);
   expect(screen.getByText("members.cta.ownPlanTitle")).toBeTruthy();
-  expect(screen.queryByText("members.cta.upgradeBtn")).toBeNull();
+  expect(screen.queryByText("members.cta.ownPlanBtn")).toBeNull();
   expect(screen.queryByText("shared.availableWith")).toBeNull();
 });
 
@@ -51,4 +53,5 @@ test("an account without a seat keeps the Teams upsell", () => {
   useSubscriptionStore.setState(deriveTierFlags({ tier: "pro" }, new Date()));
   render(<UpgradeToTeamsCTA />);
   expect(screen.getByText("members.cta.upgradeTitle")).toBeTruthy();
+  expect(screen.getByText("members.cta.upgradeBtn")).toBeTruthy();
 });

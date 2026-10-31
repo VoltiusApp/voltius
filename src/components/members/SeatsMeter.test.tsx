@@ -6,11 +6,10 @@ type Seats = {
   effectiveSeats: number | null;
   totalSeats: number | null;
   isTrialActive: boolean;
-  ownsTeamsPlan: boolean;
 };
-const DEFAULT_SEATS: Seats = { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false, ownsTeamsPlan: true };
+const DEFAULT_SEATS: Seats = { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false };
 const h = vi.hoisted(() => ({
-  seats: { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false, ownsTeamsPlan: true } as Seats,
+  seats: { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false } as Seats,
   billingEnabled: true,
 }));
 
@@ -75,14 +74,14 @@ test("the buy-seats button appears only with a handler and reports clicks", () =
 test("the meter measures the enforced cap, not the seats purchased", () => {
   // The #219 case: 25 bought, but an active trial caps the server at 10. A meter
   // reading 25 leaves the invite pre-check passing on invites the server 402s.
-  h.seats = { usedSeats: 10, effectiveSeats: 10, totalSeats: 25, isTrialActive: true, ownsTeamsPlan: true };
+  h.seats = { usedSeats: 10, effectiveSeats: 10, totalSeats: 25, isTrialActive: true };
   render(<SeatsMeter />);
   expect(screen.getByText(/seatsSummary/).textContent).toContain('"total":10');
   expect(bar().style.background).toBe("var(--t-status-error)");
 });
 
 test("a trial-clamped cap says why it is lower than what was bought", () => {
-  h.seats = { usedSeats: 4, effectiveSeats: 10, totalSeats: 25, isTrialActive: true, ownsTeamsPlan: true };
+  h.seats = { usedSeats: 4, effectiveSeats: 10, totalSeats: 25, isTrialActive: true };
   render(<SeatsMeter />);
   expect(screen.getByText(/seatsTrialClamp/).textContent).toContain('"cap":10');
   expect(screen.getByText(/seatsTrialClamp/).textContent).toContain('"purchased":25');
@@ -95,36 +94,24 @@ test("an unclamped cap says the count spans every team you own", () => {
 
 test("a trial that did not clamp anything explains the scope, not the trial", () => {
   // Trialing but under the 10-seat clamp: nothing to explain away.
-  h.seats = { usedSeats: 1, effectiveSeats: 3, totalSeats: 3, isTrialActive: true, ownsTeamsPlan: true };
+  h.seats = { usedSeats: 1, effectiveSeats: 3, totalSeats: 3, isTrialActive: true };
   render(<SeatsMeter />);
   expect(screen.getByText("members.invite.seatsScope")).toBeTruthy();
 });
 
 test("no enforced cap falls back to the purchased seats rather than reading as offline", () => {
-  h.seats = { usedSeats: 2, effectiveSeats: null, totalSeats: 5, isTrialActive: false, ownsTeamsPlan: true };
+  h.seats = { usedSeats: 2, effectiveSeats: null, totalSeats: 5, isTrialActive: false };
   render(<SeatsMeter />);
   expect(screen.getByText(/seatsSummary/).textContent).toContain('"total":5');
   expect(screen.queryByText("members.invite.seatsUnknown")).toBeNull();
 });
 
-test("a server without billing hides buy-seats even when a handler is given", () => {
-  h.billingEnabled = false;
-  render(<SeatsMeter onBuySeats={vi.fn()} />);
-  expect(screen.queryByRole("button")).toBeNull();
-});
-
 test("a server without billing reads an uncapped account as unlimited, not the 3-seat fallback", () => {
   // #649: self-hosted owners are uncapped, but /subscription still reports seats: 3.
   h.billingEnabled = false;
-  h.seats = { usedSeats: 1, effectiveSeats: null, totalSeats: 3, isTrialActive: false, ownsTeamsPlan: true };
+  h.seats = { usedSeats: 1, effectiveSeats: null, totalSeats: 3, isTrialActive: false };
   render(<SeatsMeter />);
   expect(screen.getByText(/seatsUnlimited/).textContent).toContain('"used":1');
   expect(screen.queryByText(/seatsSummary/)).toBeNull();
   expect(bar()).toBeNull();
-});
-
-test("a member without their own Teams plan cannot buy seats", () => {
-  h.seats = { ...DEFAULT_SEATS, ownsTeamsPlan: false };
-  render(<SeatsMeter onBuySeats={vi.fn()} />);
-  expect(screen.queryByRole("button")).toBeNull();
 });

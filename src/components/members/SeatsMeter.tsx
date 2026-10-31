@@ -1,15 +1,13 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { seatsSummaryText } from "@/services/seatMath";
 
 /** Seat usage bar for the invite surfaces, with a "buy seats" action on servers that sell them. */
 export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
   const { t } = useTranslation();
-  const { effectiveSeats, totalSeats, isTrialActive, ownsTeamsPlan } = useSubscriptionStore();
-  const billingEnabled = useServerBillingEnabled();
+  const { effectiveSeats, totalSeats, isTrialActive } = useSubscriptionStore();
   const seats = useSeatReadout();
   // A trial clamps the cap below what was purchased; without this the meter is a
   // number nothing on screen explains.
@@ -46,7 +44,7 @@ export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
           </>
         )}
       </div>
-      {onBuySeats && billingEnabled && ownsTeamsPlan && (
+      {onBuySeats && (
         <button
           onClick={onBuySeats}
           className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"

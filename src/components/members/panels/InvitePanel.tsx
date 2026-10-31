@@ -7,7 +7,7 @@ import { UserSearchField } from "@/components/shared/UserSearchField";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { seatAvailability } from "@/services/seatMath";
-import { useServerBillingEnabled } from "@/services/serverCapabilities";
+import { useCanBuySeats } from "@/hooks/useCanBuySeats";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { RoleToggleChip } from "@/components/members/roleChips";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
@@ -40,7 +40,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
-  const billingEnabled = useServerBillingEnabled();
+  const canBuySeats = useCanBuySeats(teamId);
 
   // Against the *enforced* cap, not the purchased one: during a trial the server
   // caps at 10 however many seats were bought, and pre-checking the purchased
@@ -49,7 +49,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
 
   const onSeatLimit = (user: UserSearchResult | null) => {
     setOpen(false);
-    if (billingEnabled) setBuySeatsFor(user);
+    if (canBuySeats) setBuySeatsFor(user);
     else setError(t("members.error.seatLimitReached"));
   };
 
@@ -173,7 +173,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Seats usage */}
           <FormSection label={t("members.invite.seatsLabel")}>
-            <SeatsMeter onBuySeats={() => setBuySeatsFor(null)} />
+            <SeatsMeter onBuySeats={canBuySeats ? () => setBuySeatsFor(null) : undefined} />
           </FormSection>
 
           {/* Role selector */}
