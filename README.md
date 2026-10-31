@@ -26,6 +26,8 @@
 No account required. Everything below is free, forever.
 
 - **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC Terminal or CSV — most in 1-click straight from the installed app. Your data is always exportable as open JSON, encrypted if you want.
+- **Local Network Sync** — Your devices sync directly with each other, end-to-end encrypted, on the same Wi-Fi or LAN and over Tailscale or another VPN. On by default; without an account, pair two devices once by comparing a 6-digit code. No server in between, so devices sync while both are online (Android while the app is open). Team vaults are not included.
+- **My Devices** — Browse and move files between your own devices from the SFTP host picker, over Wi-Fi, LAN or Tailscale. Needs a free Voltius account. A desktop shares only the folders you allow in Settings → Devices → File access (off by default); Android browses only.
 - **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
 - **Cloudflare Sync** — E2EE device sync through a Cloudflare Worker and R2 bucket you own, deployed from Settings. Same zero-knowledge model, storage you control.
 - **S3 Sync** — E2EE device sync through any S3-compatible bucket you own — AWS, R2, B2, Wasabi, Hetzner, Scaleway, MinIO and more. No server to deploy.
@@ -125,7 +127,7 @@ code-signed) — choose **More info → Run anyway**.
 
 Android is an **early preview**: the APK is release-signed and installs cleanly, but
 platform-only features are gated off (no local terminal, no serial console — remote SSH
-is the point here). There is no Play Store listing. [Obtainium](https://github.com/ImranR98/Obtainium)
+is the point here). The Google Play listing is not public yet. [Obtainium](https://github.com/ImranR98/Obtainium)
 watches this repo's releases and installs updates the way a store would.
 
 [<img src=".github/media/badge_obtainium.png" alt="Get it on Obtainium" height="54">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.voltius.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FVoltiusApp%2Fvoltius%22%2C%22author%22%3A%22VoltiusApp%22%2C%22name%22%3A%22Voltius%22%7D)
@@ -163,7 +165,7 @@ on macOS and Windows after installation.
 | **Engine** | **Rust + Tauri** 🦀 | likely Electron (closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
 | **RAM Usage** | ~300MB | ~500MB+ | ~300MB | ? | ? |
 | **Installed Size** | ~40MB | ~1GB | ~40MB | ? | ? |
-| **Cloud Sync** | Gist + Cloudflare (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
+| **Sync** | Local network + Gist + Cloudflare + S3 (Free) / Voltius Cloud (Pro) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
 | **Import/Export** | ✅ Import from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC, CSV; JSON/CSV Export | 🟡 Strong Import Integrations but no Export | ✅ | ? | ? |
 | **Port Forwarding** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec | ✅ + multi-exec | ? |
@@ -191,7 +193,7 @@ on macOS and Windows after installation.
 | **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ❌ | ❌ |
 | **Local-first** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ |
-| **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web |
+| **Platforms** | Windows, Linux, MacOS, Android (iOS coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web |
 | **License** | **AGPLv3** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT |
 | **OS Detection** | ✅ | ✅ | ✅ | ❌ | ❌ |
 
@@ -201,18 +203,20 @@ Voltius is built on a **Local-First, Zero-Knowledge** architecture. Your sensiti
 ### Account & Encryption Tiers
 We offer three levels of security to fit your workflow:
 
-- **OS Keychain (Local-Only)**: Uses your system's native secure storage (macOS Keychain, Windows Credential Manager, or Secret Service via keytar/libsecret). No master password required; maximum convenience for local-only use.
+- **OS Keychain (No Account)**: Uses your system's native secure storage (macOS Keychain, Windows Credential Manager, or Secret Service via keytar/libsecret). No master password required. Devices on the same network can still be paired by comparing a 6-digit code, then sync directly.
 
 - **Master Password:** Encrypts your vault using a user-defined passphrase. Uses Argon2id for key derivation and XChaCha20-Poly1305 for data encryption.
 
-- **Cloud Account:** Enables seamless E2EE synchronization across devices via our high-speed relay service.
+- **Voltius Account:** A free account pairs your devices automatically for local network sync and enables My Devices file transfer. Voltius Cloud (Pro) adds E2EE sync through the Voltius server, so your devices stay in sync even when they are never online together, plus an encrypted backup.
 
 ### Web Portal
 
 Account registration and login at [app.voltius.app](https://app.voltius.app) are also fully E2EE. The same `voltius-crypto` crate is compiled to WebAssembly and runs entirely in your browser — key derivation (Argon2id + HKDF-SHA256) happens client-side before anything touches the network. The server only ever receives an `auth_key`, never your password or encryption key.
 
 ### Zero-Knowledge Synchronization
-Whether you use our professional Cloud Sync or a bring-your-own sync plugin (Gist, Cloudflare), we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the Voltius server (one service handling both auth and sync), GitHub and Cloudflare have zero knowledge of vault contents.
+Whether your devices sync through Voltius Cloud, directly over the local network, or through a bring-your-own sync plugin (Gist, Cloudflare, S3), we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the Voltius server (one service handling both auth and sync), GitHub, Cloudflare and your storage provider have zero knowledge of vault contents.
+
+Local network sync never goes through a server. Devices find each other over mDNS (`_voltius._tcp`) or at remembered and Tailscale/VPN addresses, then open a `Noise_NN_25519_ChaChaPoly_BLAKE2s` channel. Inside it, each side proves it holds the vault key (an HMAC-SHA256 over the handshake hash, keyed by HKDF from the vault key, or from the group secret agreed during 6-digit code pairing) and signs the handshake with its Ed25519 device key, which the other side pins. Only then do they exchange the same XChaCha20-Poly1305 blob the cloud would store. Team vaults are not included; they sync through the server only.
 
 <details>
 <summary>Sync architecture diagram</summary>
@@ -298,17 +302,27 @@ flowchart TD
             GistAead <==>|"Encrypted app-state blobs"| Gist
         end
 
-        subgraph CloudSync ["Cloud Sync (Pro/Teams · SSE)"]
+        subgraph CloudSync ["Voltius Cloud (Pro/Teams · SSE)"]
             direction TB
             SseAead{"XChaCha20-Poly1305\n(Rust · encrypt_payload)"}:::secure
             SSE[("Voltius Server\napi.voltius.app · SSE")]:::remote
             SseAead <==>|"Encrypted CRDT payloads"| SSE
         end
+
+        subgraph LanSync ["Local Network Sync (free · personal vault only)"]
+            direction TB
+            Discover["mDNS _voltius._tcp\n+ remembered / Tailscale addresses"]:::local
+            Noise{"Noise_NN_25519_ChaChaPoly_BLAKE2s\n+ HMAC-SHA256 vault-key proof\n+ pinned Ed25519 device key"}:::secure
+            Peer[("Your other device\n(no server)")]:::local
+            Discover --> Noise
+            Noise <==>|"Same encrypted blob"| Peer
+        end
     end
 
     EncKey -->|"enc_key"| SseAead
+    EncKey -->|"enc_key"| Noise
 
-    Note1>All data leaving the device is strictly ciphertext.\nAuth and sync are one server — it and GitHub have zero knowledge of vault contents.]:::note
+    Note1>All data leaving the device is strictly ciphertext.\nAuth and sync are one server — it and GitHub have zero knowledge of vault contents.\nLocal network sync talks to your own devices only.]:::note
     SyncLayer --- Note1
 ```
 
