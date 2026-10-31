@@ -411,10 +411,12 @@ fn local_port(listener: &TcpListener) -> Result<u16, String> {
 // Closing with unread input sends a reset that can overtake our Bye, so drain until the peer hangs up.
 async fn part(session: Session) {
     let (mut reader, mut writer) = session.split();
-    let _ = writer.send(&Frame::Bye).await;
-    let _ = writer.finish().await;
-    let drain = async { while let Ok(Some(_)) = reader.recv_chunk().await {} };
-    let _ = timeout(LINGER, drain).await;
+    let parting = async {
+        let _ = writer.send(&Frame::Bye).await;
+        let _ = writer.finish().await;
+        while let Ok(Some(_)) = reader.recv_chunk().await {}
+    };
+    let _ = timeout(LINGER, parting).await;
 }
 
 async fn shake(
@@ -833,6 +835,12 @@ impl Shared {
 
     // A refused device dropped its dial entries, so nothing would reach it again before a restart.
     fn vouch(self: &Arc<Self>, members: &[Member]) {
+        {
+            let mut state = self.lock();
+            for m in members {
+                state.turned_away.remove(&m.device_id);
+            }
+        }
         let (vouched, mut addrs) = {
             let mut store = self.store();
             let mut vouched = Vec::new();
@@ -910,11 +918,15 @@ impl Shared {
                 let device_id = device_id.to_string();
                 let first = self.lock().told.insert(device_id.clone());
                 if first || self.kind != Kind::Farewell {
-                    let _ = session.send(&presence_frame(self.farewell_state)).await;
-                    let sent = ManagerEvent::FarewellSent {
-                        device_id: device_id.clone(),
-                    };
-                    let _ = self.events.send(sent).await;
+                    let said = session.send(&presence_frame(self.farewell_state)).await;
+                    if said.is_ok() {
+                        let sent = ManagerEvent::FarewellSent {
+                            device_id: device_id.clone(),
+                        };
+                        let _ = self.events.send(sent).await;
+                    } else if first {
+                        self.lock().told.remove(&device_id);
+                    }
                 }
                 HandshakeError::Excluded(device_id)
             }
@@ -1099,7 +1111,7 @@ impl Shared {
         self.retry.send_replace(());
     }
 
-    // A quiet Bye says nothing on the wire, so the sweep alone holds off until the ladder's longest step.
+    // The Bye stays quiet on the wire, so `unlisted` skips the device until the ladder's longest step.
     fn turned_away(&self, device_id: &str) {
         let now = Instant::now();
         self.lock().turned_away.insert(device_id.to_string(), now);
@@ -2109,6 +2121,7 @@ impl Manager {
             let mut state = self.shared.lock();
             drop(store);
             state.rejected.retain(|(id, _)| id != device_id);
+            state.turned_away.remove(device_id);
             state.peers.remove(device_id)
         };
         if dropped.is_some() {
@@ -4005,11 +4018,11 @@ mod tests {
         assert!(m.peers().is_empty() && l.peers().is_empty());
     }
 
-    async fn left_device() -> (Manager, mpsc::Receiver<ManagerEvent>) {
+    async fn left_device(discovery: bool) -> (Manager, mpsc::Receiver<ManagerEvent>) {
         let (tx, rx) = mpsc::channel(64);
         let me = test_identity("dev-l");
         let store = PeerStore::memory();
-        let l = start(me, left_group(9), false, false, store, tx)
+        let l = start(me, left_group(9), false, discovery, store, tx)
             .await
             .unwrap();
         (l, rx)
@@ -4029,7 +4042,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_device_that_left_listens_nowhere_yet_tells_a_member_it_left() {
-        let (l, mut el) = left_device().await;
+        let (l, mut el) = left_device(false).await;
         assert!(l.port.is_none());
         assert_eq!(l.tasks.len(), 2, "no accept loop");
         let (m, mut em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
@@ -4118,7 +4131,7 @@ mod tests {
 
     #[tokio::test]
     async fn left_counts_only_from_the_key_listed_for_that_device() {
-        let (l, mut el) = left_device().await;
+        let (l, mut el) = left_device(false).await;
         let (m, mut em) = member_listing("dev-l", test_identity("dev-x").key.public).await;
         l.connect(local(&m), Source::Mdns).await;
         next_event(&mut el, farewell_sent("dev-m")).await;
@@ -4950,7 +4963,7 @@ mod tests {
             m.learn("dev-b", &[addr]);
             assert_eq!(dialable(&m).is_empty(), !learns, "{learns}");
         }
-        let (l, _el) = left_device().await;
+        let (l, _el) = left_device(false).await;
         l.learn("dev-b", &[addr]);
         assert!(dialable(&l).is_empty());
     }
@@ -4958,7 +4971,7 @@ mod tests {
     #[tokio::test]
     async fn a_pairing_only_manager_runs_no_retry_sweep() {
         let (a, _ea) = spawn("dev-a", 1).await;
-        let (l, _el) = left_device().await;
+        let (l, _el) = left_device(false).await;
         until("sweeps subscribed", || {
             a.shared.retry.receiver_count() == 1 && l.shared.retry.receiver_count() == 1
         })
@@ -5009,7 +5022,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_farewell_only_manager_never_opens_pairing() {
-        let (l, _el) = left_device().await;
+        let (l, _el) = left_device(false).await;
         assert!(l.open_pairing(pair_info(None, 0)).await.is_err());
         assert!(!l.shared.pairing_open());
     }
@@ -5046,18 +5059,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_device_that_left_never_probes_the_network() {
-        let (tx, _rx) = mpsc::channel(64);
-        let store = PeerStore::memory();
-        let l = start(
-            test_identity("dev-l"),
-            left_group(9),
-            false,
-            true,
-            store,
-            tx,
-        )
-        .await
-        .unwrap();
+        let (l, _el) = left_device(true).await;
         assert_eq!(l.tasks.len(), 4, "sweep, peers and discovery only");
     }
 
@@ -5081,8 +5083,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_member_readded_with_its_key_unchanged_is_dialed_again() {
+        let me = test_identity("dev-a");
+        let group = Trust::grouped(&[1], &["dev-a"]);
+        let (g, _eg) = spawn_as(test_identity("dev-g"), pinned(&me, false), group).await;
+        g.shared.turned_away("dev-a");
+        g.set_members(vec![Member::of(&me)]);
+        assert!(!g.shared.lock().turned_away.contains_key("dev-a"));
+        g.shared.turned_away("dev-a");
+        assert!(g.forget("dev-a").is_some());
+        assert!(!g.shared.lock().turned_away.contains_key("dev-a"));
+    }
+
+    #[tokio::test]
+    async fn a_farewell_that_could_not_be_written_is_owed_again() {
+        let (l, mut el) = left_device(false).await;
+        let (mine, theirs) = crate::lan_sync::stream::tests::sessions().await;
+        drop(theirs);
+        l.shared.refuse(mine, "dev-m", LinkRefusal::Farewell).await;
+        assert!(!l.shared.lock().told.contains("dev-m"));
+        let seen: Vec<_> = std::iter::from_fn(|| el.try_recv().ok()).collect();
+        assert!(!seen.iter().any(farewell_sent("dev-m")), "{seen:?}");
+    }
+
+    #[tokio::test]
     async fn a_member_hears_the_farewell_once() {
-        let (l, mut el) = left_device().await;
+        let (l, mut el) = left_device(false).await;
         let (m, mut em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
         for _ in 0..2 {
             l.connect(local(&m), Source::Mdns).await;

@@ -474,9 +474,7 @@ mod tests {
     async fn without_a_port_no_query_is_ever_sent() {
         let (found, _found_rx) = tokio::sync::mpsc::channel(4);
         let (errors, _errors_rx) = tokio::sync::mpsc::channel(4);
-        let Ok(discovery) = start(None, found, errors) else {
-            return;
-        };
+        let discovery = start(None, found, errors).expect("mdns daemon starts");
         tokio::time::sleep(Duration::from_millis(300)).await;
         let metrics = discovery.daemon.get_metrics().unwrap();
         let metrics = metrics.recv_async().await.unwrap();
