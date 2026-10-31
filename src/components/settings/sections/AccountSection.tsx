@@ -11,7 +11,6 @@ import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlanDisplay } from "@/services/planDisplay";
 import { openPortal } from "@/utils/billing";
-import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { seatsUsedText } from "@/services/seatMath";
 import { openBillingCheckout } from "@/services/billingCheckout";
@@ -515,11 +514,9 @@ export function PlansSection() {
   const { t } = useTranslation();
   const plan = usePlanDisplay();
   const { ownsTeamsPlan, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
-  const billingEnabled = useServerBillingEnabled();
   const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
 
-  const ownBilled = plan.ownPaid && billingEnabled;
-  const manageBilling = plan.showManageBilling && billingEnabled && (
+  const manageBilling = plan.showManageBilling && (
     <button
       onClick={() => openPortal()}
       className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
@@ -541,7 +538,7 @@ export function PlansSection() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon
-              icon={plan.premium ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
+              icon={plan.icon}
               width={14}
               style={{ color: badgeColor }}
             />
@@ -557,7 +554,7 @@ export function PlansSection() {
           </div>
         )}
 
-        {ownBilled && (
+        {plan.ownBilled && (
           <div className="rounded-md px-3 py-2 bg-(--t-bg-input) text-xs text-(--t-text-muted)">
             {subscriptionCancelled ? (
               <span>
@@ -618,7 +615,7 @@ export function PlansSection() {
           })}
         </div>
 
-        {billingEnabled && !plan.seat && (
+        {plan.showAllPlans && (
           <button
             onClick={() => openPortal()}
             className="text-xs w-full text-center text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors pt-1"

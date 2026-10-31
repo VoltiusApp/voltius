@@ -492,6 +492,7 @@
         "trialLeft": "{{plan}} — {{daysLeft}} gün kaldı",
         "viaSeat": "{{plan}} · {{team}} ekibindeki koltuğunuz üzerinden",
         "viaTooltip": "{{team}} üzerinden",
+        "throughSeat": "{{team}} ekibindeki koltuğunuz üzerinden",
         "ownLine": "{{plan}} aboneliğiniz",
         "title": "Plan",
         "manageBilling": "Faturalandırmayı yönet →",

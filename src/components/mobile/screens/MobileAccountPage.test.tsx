@@ -97,7 +97,8 @@ const signedIn = (input: TierFlagsInput) => {
 test("a seat member sees the team plan through the seat, with no upgrade or billing", () => {
   signedIn({ tier: "teams", billing_tier: "free", seat_team: acme, trial_used: true });
   const { container, queryByText } = render(<MobileAccountPage />);
-  expect(queryByText("Teams · through your seat in Acme")).not.toBeNull();
+  expect(queryByText("Teams")).not.toBeNull();
+  expect(container.querySelector("[data-account-plan-via]")!.textContent).toBe("Through your seat in Acme");
   expect(container.querySelector("[data-account-upgrade-pro]")).toBeNull();
   expect(container.querySelector("[data-account-upgrade-teams]")).toBeNull();
   expect(container.querySelector("[data-account-own-plan]")).toBeNull();
@@ -109,8 +110,11 @@ test("a seat member sees the team plan through the seat, with no upgrade or bill
 test("own Pro plus a Business seat sees both lines and billing for the own plan", () => {
   signedIn({ tier: "business", billing_tier: "pro", seat_team: acme });
   const { container, queryByText } = render(<MobileAccountPage />);
-  expect(queryByText("Business · through your seat in Acme")).not.toBeNull();
-  expect(container.querySelector("[data-account-own-plan]")!.textContent).toBe("Your Pro subscription");
+  expect(queryByText("Business")).not.toBeNull();
+  expect(container.querySelector("[data-account-plan-via]")!.getAttribute("title")).toBe("Through your seat in Acme");
+  const card = container.querySelector("[data-account-own-plan-card]")!;
+  expect(card.querySelector("[data-account-own-plan]")!.textContent).toBe("Your Pro subscription");
+  expect(card.textContent).toContain("mobile.account.subscriptionActive");
   expect(queryByText("mobile.account.manageBilling")).not.toBeNull();
   expect(container.querySelector("[data-account-upgrade-teams]")).toBeNull();
 });

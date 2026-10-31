@@ -365,6 +365,7 @@
         "trialLeft": "{{plan}}——剩余 {{daysLeft}} 天",
         "viaSeat": "{{plan}} · 通过您在 {{team}} 的席位",
         "viaTooltip": "通过 {{team}}",
+        "throughSeat": "通过您在 {{team}} 的席位",
         "ownLine": "您的 {{plan}} 订阅",
         "title": "套餐",
         "manageBilling": "管理账单 →",

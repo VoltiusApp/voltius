@@ -16,7 +16,7 @@ const NOW = new Date();
 const acme = { id: "t1", trial: false };
 
 function display(input: TierFlagsInput, subscriptionStatus: string | null = null, teamName: string | null = "Acme") {
-  return planDisplay({ ...deriveTierFlags(input, NOW), subscriptionStatus }, teamName, NOW);
+  return planDisplay({ ...deriveTierFlags(input, NOW), subscriptionStatus }, { teamName, now: NOW });
 }
 
 describe("planDisplay", () => {
@@ -44,7 +44,7 @@ describe("planDisplay", () => {
       plan: "pro",
       label: "Pro",
       via: null,
-      ownPaid: true,
+      ownBilled: true,
       showManageBilling: true,
       showUpgrade: false,
       showTrialEnded: false,
@@ -59,7 +59,7 @@ describe("planDisplay", () => {
       badge: "Pro trial — 3d left",
       trialDaysLeft: 3,
       trial: true,
-      ownPaid: false,
+      ownBilled: false,
       showManageBilling: false,
       showUpgrade: false,
     });
@@ -105,9 +105,10 @@ describe("planDisplay", () => {
       via: "Acme",
       line: "Teams · through your seat in Acme",
       viaTooltip: "Through Acme",
+      viaLine: "Through your seat in Acme",
       ownLine: null,
       trial: false,
-      ownPaid: false,
+      ownBilled: false,
       showManageBilling: false,
       showUpgrade: false,
       showTrialEnded: false,
@@ -142,11 +143,32 @@ describe("planDisplay", () => {
     });
   });
 
+  test("a server without billing describes and manages no subscription", () => {
+    const d = planDisplay({ ...deriveTierFlags({ tier: "pro" }, NOW) }, { billingEnabled: false, now: NOW });
+    expect(d).toMatchObject({ ownBilled: false, showManageBilling: false, showAllPlans: false });
+  });
+
+  test("the badge icon offers an upgrade only when one can be bought", () => {
+    expect(display({ tier: "pro" }).icon).toBe("lucide:crown");
+    expect(display({ tier: "free" }).icon).toBe("lucide:circle-fading-arrow-up");
+    checkout.value = false;
+    try {
+      expect(display({ tier: "free" })).toMatchObject({ badge: "Free", icon: "lucide:circle-user" });
+    } finally {
+      checkout.value = true;
+    }
+  });
+
+  test("all plans are listed only without a seat and with checkout", () => {
+    expect(display({ tier: "free" }).showAllPlans).toBe(true);
+    expect(display({ tier: "teams", billing_tier: "free", seat_team: acme }).showAllPlans).toBe(false);
+  });
+
   test("store build never offers upgrade or billing actions to open", () => {
     checkout.value = false;
     try {
       expect(display({ tier: "free" }).showUpgrade).toBe(false);
-      expect(display({ tier: "pro" }, "active")).toMatchObject({ ownPaid: true, showManageBilling: false });
+      expect(display({ tier: "pro" }, "active")).toMatchObject({ ownBilled: true, showManageBilling: false, showAllPlans: false });
       expect(display({ tier: "pro" }).upgradeTo).toBeNull();
       expect(display({ tier: "free", trial_used: false }).trialOffer).toBe(false);
     } finally {

@@ -486,6 +486,7 @@
         "trialLeft": "{{plan}} — zbývá {{daysLeft}} d",
         "viaSeat": "{{plan}} · prostřednictvím vašeho místa v týmu {{team}}",
         "viaTooltip": "Prostřednictvím týmu {{team}}",
+        "throughSeat": "Prostřednictvím vašeho místa v týmu {{team}}",
         "ownLine": "Vaše předplatné {{plan}}",
         "title": "Tarif",
         "manageBilling": "Spravovat fakturaci →",

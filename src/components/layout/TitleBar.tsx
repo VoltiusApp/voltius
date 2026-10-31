@@ -743,7 +743,7 @@ export function SubscriptionBadge() {
         title={plan.viaTooltip ?? plan.badge}
       >
         <Icon
-          icon={plan.premium ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
+          icon={plan.icon}
           width={14}
           className="shrink-0"
         />

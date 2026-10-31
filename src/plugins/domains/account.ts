@@ -32,7 +32,7 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 export async function subscription(): Promise<SubscriptionView> {
   await useSubscriptionStore.getState().load();
   const s = useSubscriptionStore.getState();
-  const plan = planDisplay(s, seatTeamName(useTeamStore.getState().teams, s.seatTeam));
+  const plan = planDisplay(s, { teamName: seatTeamName(useTeamStore.getState().teams, s.seatTeam) });
   return {
     tier: s.tier,
     planSource: plan.seat ? "seat" : "own",

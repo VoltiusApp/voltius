@@ -486,6 +486,7 @@
         "trialLeft": "{{plan}} — {{daysLeft}}d left",
         "viaSeat": "{{plan}} · through your seat in {{team}}",
         "viaTooltip": "Through {{team}}",
+        "throughSeat": "Through your seat in {{team}}",
         "ownLine": "Your {{plan}} subscription",
         "title": "Plan",
         "manageBilling": "Manage billing →",

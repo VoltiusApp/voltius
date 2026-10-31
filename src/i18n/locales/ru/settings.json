@@ -486,6 +486,7 @@
         "trialLeft": "{{plan}} — осталось {{daysLeft}} дн.",
         "viaSeat": "{{plan}} · через ваше место в {{team}}",
         "viaTooltip": "Через {{team}}",
+        "throughSeat": "Через ваше место в {{team}}",
         "ownLine": "Ваша подписка {{plan}}",
         "title": "Тариф",
         "manageBilling": "Управление оплатой →",

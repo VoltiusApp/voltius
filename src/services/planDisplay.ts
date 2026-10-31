@@ -1,7 +1,8 @@
 import { useShallow } from "zustand/shallow";
 import { useTranslation } from "react-i18next";
-import i18n from "i18next";
+import i18n from "@/i18n";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import type { SeatTeam, Tier, TierFlags } from "@/stores/subscriptionTier";
@@ -12,14 +13,17 @@ export interface PlanDisplay {
   seat: boolean;
   label: string;
   badge: string;
+  icon: string;
   via: string | null;
   line: string;
   viaTooltip: string | null;
+  viaLine: string | null;
   ownLine: string | null;
   trial: boolean;
   trialDaysLeft: number | null;
-  ownPaid: boolean;
+  ownBilled: boolean;
   showManageBilling: boolean;
+  showAllPlans: boolean;
   showUpgrade: boolean;
   upgradeTo: Tier | null;
   trialOffer: boolean;
@@ -40,7 +44,14 @@ export function seatTeamName(teams: readonly { id: string; name: string }[], sea
   return seatTeam ? (teams.find((t) => t.id === seatTeam.id)?.name ?? null) : null;
 }
 
-export function planDisplay(flags: PlanDisplayInput, teamName: string | null = null, now: Date = new Date()): PlanDisplay {
+export interface PlanDisplayContext {
+  teamName?: string | null;
+  billingEnabled?: boolean;
+  now?: Date;
+}
+
+export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext = {}): PlanDisplay {
+  const { teamName = null, billingEnabled = true, now = new Date() } = context;
   const { tier, billingTier, seatTeam } = flags;
   const ownTrial = flags.isTrialActive;
   const trial = seatTeam ? seatTeam.trial : ownTrial;
@@ -52,6 +63,7 @@ export function planDisplay(flags: PlanDisplayInput, teamName: string | null = n
       ? Math.max(0, Math.ceil((flags.trialEndsAt.getTime() - now.getTime()) / DAY_MS))
       : null;
   const ownPaid = billingTier !== "free" && !ownTrial;
+  const ownBilled = ownPaid && billingEnabled;
   const upgradeTo = CAN_OPEN_CHECKOUT && !seatTeam ? NEXT_PLAN[tier] : null;
   const premium = tier !== "free";
   const trialOffer = upgradeTo === "pro" && flags.trialKnown && !flags.trialUsed;
@@ -67,17 +79,20 @@ export function planDisplay(flags: PlanDisplayInput, teamName: string | null = n
       : trialOffer ? i18n.t("layout.titleBar.plan.upgradeTrial")
       : upgradeTo === "pro" ? i18n.t("layout.titleBar.plan.upgrade")
       : label,
+    icon: premium ? "lucide:crown" : upgradeTo ? "lucide:circle-fading-arrow-up" : "lucide:circle-user",
     via,
     line: via ? i18n.t("settings.account.plan.viaSeat", { plan: label, team: via }) : ownLabel,
     viaTooltip: via ? i18n.t("settings.account.plan.viaTooltip", { team: via }) : null,
+    viaLine: via ? i18n.t("settings.account.plan.throughSeat", { team: via }) : null,
     ownLine:
       seatTeam && ownPaid
         ? i18n.t("settings.account.plan.ownLine", { plan: i18n.t(`settings.account.plan.name.${billingTier}`) })
         : null,
     trial,
     trialDaysLeft,
-    ownPaid,
-    showManageBilling: ownPaid && CAN_OPEN_CHECKOUT,
+    ownBilled,
+    showManageBilling: ownBilled && CAN_OPEN_CHECKOUT,
+    showAllPlans: billingEnabled && CAN_OPEN_CHECKOUT && !seatTeam,
     showUpgrade: upgradeTo === "pro",
     upgradeTo,
     trialOffer,
@@ -100,5 +115,6 @@ export function usePlanDisplay(): PlanDisplay {
     })),
   );
   const teamName = useTeamStore((s) => seatTeamName(s.teams, flags.seatTeam));
-  return planDisplay(flags, teamName);
+  const billingEnabled = useServerBillingEnabled();
+  return planDisplay(flags, { teamName, billingEnabled });
 }

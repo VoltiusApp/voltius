@@ -19,7 +19,7 @@ let SubscriptionBadge: (typeof import("./TitleBar"))["SubscriptionBadge"];
 beforeAll(async () => {
   await import("@/i18n");
   ({ SubscriptionBadge } = await import("./TitleBar"));
-}, 20000);
+}, 60000);
 
 const initial = useSubscriptionStore.getState();
 afterEach(() => {

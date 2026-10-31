@@ -98,13 +98,12 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     }
 
     const now = new Date();
-    const { tier, billingTier, seatTeam, ownsTeamsPlan, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified } =
-      deriveTierFlags(payload, now);
+    const flags = deriveTierFlags(payload, now);
 
-    set({ ...CLEARED, tier, billingTier, seatTeam, ownsTeamsPlan, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, emailVerified });
+    set({ ...CLEARED, ...flags, accountMode: mode });
 
     // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
-    if (billingTier !== "free") {
+    if (flags.billingTier !== "free") {
       try {
         const serverUrl = await keychainGet("server_url").catch(() => null);
         if (serverUrl) {

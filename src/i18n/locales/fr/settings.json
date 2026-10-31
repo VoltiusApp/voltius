@@ -486,6 +486,7 @@
         "trialLeft": "{{plan}} — {{daysLeft}}j restants",
         "viaSeat": "{{plan}} · via votre siège dans {{team}}",
         "viaTooltip": "Via {{team}}",
+        "throughSeat": "Via votre siège dans {{team}}",
         "ownLine": "Votre abonnement {{plan}}",
         "title": "Abonnement",
         "manageBilling": "Gérer la facturation →",
