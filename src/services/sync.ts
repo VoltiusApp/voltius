@@ -152,6 +152,8 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 export { getServerUrl };
 
 const SEAT_REFRESH_DEBOUNCE_MS = 1_000;
+// Spreads a whole team's refreshes so one office IP stays under the per-IP auth limit.
+const SEAT_REFRESH_JITTER_MS = 3_000;
 let seatRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingSeatName: string | null = null;
 
@@ -162,7 +164,7 @@ function scheduleSeatRefresh(): void {
   seatRefreshTimer = setTimeout(() => {
     seatRefreshTimer = null;
     tryRefreshJwt().catch(logFailure("seat change: tryRefreshJwt"));
-  }, SEAT_REFRESH_DEBOUNCE_MS);
+  }, SEAT_REFRESH_DEBOUNCE_MS + Math.floor(Math.random() * SEAT_REFRESH_JITTER_MS));
 }
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
