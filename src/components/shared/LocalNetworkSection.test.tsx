@@ -37,7 +37,10 @@ vi.mock("@/services/lanSync", () => ({
 vi.mock("@/services/account", () => ({ getAccountMode: async () => h.mode }));
 vi.mock("@/stores/pairDeviceDialogStore", () => ({ openPairDeviceDialog: h.openDialog }));
 vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: h.runAction }));
-vi.mock("@/utils/platform", () => ({ usePlatform: () => h.platform }));
+vi.mock("@/utils/platform", async () => ({
+  ...(await vi.importActual<typeof import("@/utils/platform")>("@/utils/platform")),
+  usePlatform: () => h.platform,
+}));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 vi.mock("@/utils/localeFormat", () => ({ formatRelative: () => "2h ago" }));
 vi.mock("@/services/distribution", () => ({ get CAN_OPEN_CHECKOUT() { return h.checkout; } }));

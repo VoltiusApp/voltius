@@ -61,7 +61,9 @@
     },
     "toast": {
       "proSubscriptionEnded": "Votre abonnement Pro a expiré — la synchronisation cloud est en pause. Vos appareils restent synchronisés sur le même réseau.",
+      "proSubscriptionEnded_ios": "Votre abonnement Pro a expiré — la synchronisation est en pause.",
       "seatEnded": "Votre place dans {{team}} a pris fin — la synchronisation cloud est en pause. Vos appareils restent synchronisés sur le même réseau.",
+      "seatEnded_ios": "Votre place dans {{team}} a pris fin — la synchronisation est en pause.",
       "managePlan": "Gérer l'abonnement →",
       "undoFailed": "Échec de l'annulation : {{error}}",
       "redoFailed": "Échec du rétablissement : {{error}}",

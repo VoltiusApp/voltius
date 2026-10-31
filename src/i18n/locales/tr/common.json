@@ -61,7 +61,9 @@
     },
     "toast": {
       "proSubscriptionEnded": "Pro aboneliğiniz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
+      "proSubscriptionEnded_ios": "Pro aboneliğiniz sona erdi — eşitleme duraklatıldı.",
       "seatEnded": "{{team}} ekibindeki koltuğunuz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
+      "seatEnded_ios": "{{team}} ekibindeki koltuğunuz sona erdi — eşitleme duraklatıldı.",
       "managePlan": "Planı yönet →",
       "undoFailed": "Geri alınamadı: {{error}}",
       "redoFailed": "Yinelenemedi: {{error}}",

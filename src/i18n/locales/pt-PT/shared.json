@@ -13,6 +13,7 @@
       "title": "Seu teste Pro terminou",
       "subtitle": "Estes três recursos param de funcionar hoje:",
       "freeNote": "Cofre local, registos de auditoria, sincronização pela rede local, transferência de ficheiros entre os seus dispositivos e sincronização com o GitHub Gist continuam gratuitos, para sempre.",
+      "freeNote_ios": "Cofre local, registros de auditoria e sincronização com o GitHub Gist continuam gratuitos, para sempre.",
       "teamsPrompt": "Trabalha em equipe? Experimente o Teams grátis por {{days}} dias (cartão obrigatório).",
       "upgradeButton": "Atualizar para Pro",
       "laterButton": "Talvez depois"

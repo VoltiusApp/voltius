@@ -35,6 +35,16 @@ export function isMobilePlatform(platform: string | null): boolean {
   return platform === "android" || platform === "ios";
 }
 
+/** iOS never runs local network sync (`lan_sync_start` is a no-op there). */
+export function runsLocalSync(platform: string | null): boolean {
+  return platform !== "ios";
+}
+
+/** i18n context selecting the `_ios` wording for copy that promises local sync. */
+export function localSyncContext(platform: string | null): "ios" | undefined {
+  return runsLocalSync(platform) ? undefined : "ios";
+}
+
 /** True when App is rendering MobileShell rather than DesktopShell. Sync, for
  *  non-React callers; false until `get_platform` resolves, so prime it with
  *  `await getPlatform()` first where a wrong answer on the first pass matters. */

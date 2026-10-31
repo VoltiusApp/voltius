@@ -61,7 +61,9 @@
     },
     "toast": {
       "proSubscriptionEnded": "Sua assinatura Pro terminou — a sincronização na nuvem foi pausada. Seus dispositivos continuam sincronizando na mesma rede.",
+      "proSubscriptionEnded_ios": "Sua assinatura Pro terminou — a sincronização foi pausada.",
       "seatEnded": "Seu assento em {{team}} terminou — a sincronização na nuvem foi pausada. Seus dispositivos continuam sincronizando na mesma rede.",
+      "seatEnded_ios": "Seu assento em {{team}} terminou — a sincronização foi pausada.",
       "managePlan": "Gerenciar plano →",
       "undoFailed": "Falha ao desfazer: {{error}}",
       "redoFailed": "Falha ao refazer: {{error}}",

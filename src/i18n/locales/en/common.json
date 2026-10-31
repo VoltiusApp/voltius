@@ -61,7 +61,9 @@
     },
     "toast": {
       "proSubscriptionEnded": "Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network.",
+      "proSubscriptionEnded_ios": "Your Pro subscription has ended — sync has been paused.",
       "seatEnded": "Your seat in {{team}} ended — cloud sync is paused. Your devices still sync on the same network.",
+      "seatEnded_ios": "Your seat in {{team}} ended — sync has been paused.",
       "managePlan": "Manage plan →",
       "undoFailed": "Undo failed: {{error}}",
       "redoFailed": "Redo failed: {{error}}",

@@ -42,6 +42,7 @@ import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { parseUsingEvent } from "@/services/presenceEvent";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 import { applyRemoteSshConfigState } from "@/services/sshConfig/state";
+import { getPlatformSync, localSyncContext } from "@/utils/platform";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -195,8 +196,8 @@ async function tryRefreshJwt(): Promise<string | null> {
       source: APP_SOURCE,
       type: "toast",
       message: before.seatTeam && lostSeatName
-        ? i18n.t("common.toast.seatEnded", { team: lostSeatName })
-        : i18n.t("common.toast.proSubscriptionEnded"),
+        ? i18n.t("common.toast.seatEnded", { team: lostSeatName, context: localSyncContext(getPlatformSync()) })
+        : i18n.t("common.toast.proSubscriptionEnded", { context: localSyncContext(getPlatformSync()) }),
       severity: "warning",
       duration: 0,
       action: {

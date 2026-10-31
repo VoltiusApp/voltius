@@ -2,7 +2,7 @@ import { test, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t: (k: string, o?: { context?: string }) => (o?.context ? `${k}_${o.context}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({
@@ -13,6 +13,11 @@ const openBillingCheckout = vi.fn((_plan: string) => Promise.resolve(true));
 const openPortal = vi.fn(() => Promise.resolve());
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: (p: string) => openBillingCheckout(p) }));
 vi.mock("@/utils/billing", () => ({ openPortal: () => openPortal() }));
+const platform = vi.hoisted(() => ({ os: "linux" as string | null }));
+vi.mock("@/utils/platform", async () => ({
+  ...(await vi.importActual<typeof import("@/utils/platform")>("@/utils/platform")),
+  usePlatform: () => platform.os,
+}));
 
 import { TrialExpiredModal } from "./TrialExpiredModal";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -34,6 +39,7 @@ function seed(over: Partial<ReturnType<typeof useSubscriptionStore.getState>> = 
 }
 
 beforeEach(() => {
+  platform.os = "linux";
   localStorage.clear();
   openBillingCheckout.mockClear();
   openPortal.mockClear();
@@ -108,4 +114,11 @@ test("the Teams strip opens the Teams checkout", () => {
   fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
   expect(openBillingCheckout).toHaveBeenCalledWith("teams");
   expect(openPortal).not.toHaveBeenCalled();
+});
+
+test("on iOS the free note leaves out local network sync", () => {
+  platform.os = "ios";
+  seed();
+  render(<TrialExpiredModal />);
+  expect(screen.getByText("shared.trialExpiredModal.freeNote_ios")).toBeTruthy();
 });

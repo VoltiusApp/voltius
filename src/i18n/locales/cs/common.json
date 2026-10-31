@@ -61,7 +61,9 @@
     },
     "toast": {
       "proSubscriptionEnded": "Vaše předplatné Pro skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
+      "proSubscriptionEnded_ios": "Vaše předplatné Pro skončilo — synchronizace byla pozastavena.",
       "seatEnded": "Vaše místo v týmu {{team}} skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
+      "seatEnded_ios": "Vaše místo v týmu {{team}} skončilo — synchronizace byla pozastavena.",
       "managePlan": "Spravovat tarif →",
       "undoFailed": "Vrácení zpět se nezdařilo: {{error}}",
       "redoFailed": "Opakování se nezdařilo: {{error}}",
