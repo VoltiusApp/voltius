@@ -58,4 +58,6 @@ runs:
         brew tap-new "$TAP" --no-git
         mkdir -p "$(brew --repository "$TAP")/Casks"
         cp out/Casks/voltius.rb "$(brew --repository "$TAP")/Casks/voltius.rb"
+        # Homebrew 6 refuses to load casks from non-official taps until trusted.
+        brew trust --cask "$TAP/voltius"
         brew audit --cask --online $AUDIT_ARGS "$TAP/voltius"
