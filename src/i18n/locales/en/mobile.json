@@ -45,13 +45,6 @@
       "notSignedIn": "Not signed in",
       "plan": "Plan",
       "off": "Off",
-      "proTrial": "Pro Trial — {{days}}d left",
-      "tier": {
-        "free": "Free",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "Cancels on {{date}}. You keep access until then.",
       "periodEnd": "the period end",
       "renewsOn": "Renews on {{date}}.",
@@ -68,8 +61,7 @@
       "signOut": "Sign out"
     },
     "more": {
-      "settings": "Settings",
-      "planLabel": "{{tier}} plan"
+      "settings": "Settings"
     },
     "host": {
       "newTitle": "New host",

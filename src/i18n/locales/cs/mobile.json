@@ -45,13 +45,6 @@
       "notSignedIn": "Nepřihlášeno",
       "plan": "Tarif",
       "off": "Vypnuto",
-      "proTrial": "Zkušební Pro — zbývá {{days}} d",
-      "tier": {
-        "free": "Free",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "Končí {{date}}. Do té doby máte přístup.",
       "periodEnd": "konec období",
       "renewsOn": "Obnoví se {{date}}.",
@@ -68,8 +61,7 @@
       "signOut": "Odhlásit se"
     },
     "more": {
-      "settings": "Nastavení",
-      "planLabel": "Tarif {{tier}}"
+      "settings": "Nastavení"
     },
     "host": {
       "newTitle": "Nový host",
