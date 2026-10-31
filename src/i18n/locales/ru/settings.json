@@ -483,17 +483,11 @@
           "business": "Business"
         },
         "trialName": "Пробный период {{plan}}",
+        "trialLeft": "{{plan}} — осталось {{daysLeft}} дн.",
         "viaSeat": "{{plan}} · через ваше место в {{team}}",
         "viaTooltip": "Через {{team}}",
         "ownLine": "Ваша подписка {{plan}}",
         "title": "Тариф",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Pro Trial — осталось {{daysLeft}} дн.",
-          "pro": "Pro",
-          "free": "Бесплатный"
-        },
         "manageBilling": "Управление оплатой →",
         "subscription": {
           "cancelled": "Отменяется {{date}}. Доступ сохранится до этой даты.",

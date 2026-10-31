@@ -105,7 +105,7 @@ vi.mock("@/stores/teamStore", () => {
   return { useTeamStore };
 });
 vi.mock("@/stores/subscriptionStore", () => {
-  const state = { isTeams: true, accountMode: "server", usedSeats: 1, totalSeats: 5, load: vi.fn() };
+  const state = { isTeams: true, ownsTeamsPlan: true, accountMode: "server", usedSeats: 1, totalSeats: 5, load: vi.fn() };
   const useSubscriptionStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
     { getState: () => state },

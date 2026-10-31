@@ -327,10 +327,6 @@
         "closeTab_other": "Sekmeyi kapat ({{count}} oturum)"
       },
       "plan": {
-        "proTrial": "Pro deneme — {{daysLeft}} gün kaldı",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "Yükselt · 14 gün ücretsiz deneme",
         "upgrade": "Yükselt"
       },

@@ -8,6 +8,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { syncStatusTooltip } from "@/services/syncStatusText";
 import type { EffectiveSync } from "@/services/syncProviders";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -717,25 +718,16 @@ function TitleBarBtn({ onClick, title, children }: {
 }
 
 
-function SubscriptionBadge() {
+export function SubscriptionBadge() {
   const { t } = useTranslation();
   const openSettings = useUIStore((s) => s.openSettings);
-  const { tier, trialEndsAt, trialUsed, trialKnown, isTrialActive } = useSubscriptionStore();
+  const plan = usePlanDisplay();
   const [hovered, setHovered] = useState(false);
 
-  const isPremium = tier !== "free";
-
-  const daysLeft = trialEndsAt
-    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
-    : 0;
-
-  const hoverLabel = isTrialActive
-    ? t("layout.titleBar.plan.proTrial", { daysLeft })
-    : tier === "teams" ? t("layout.titleBar.plan.teams")
-    : tier === "business" ? t("layout.titleBar.plan.business")
-    : tier === "pro" ? t("layout.titleBar.plan.pro")
-    : trialKnown && !trialUsed ? t("layout.titleBar.plan.upgradeTrial")
-    : t("layout.titleBar.plan.upgrade");
+  const hoverLabel = plan.premium ? (plan.via ? plan.label : plan.line)
+    : plan.trialOffer ? t("layout.titleBar.plan.upgradeTrial")
+    : plan.showUpgrade ? t("layout.titleBar.plan.upgrade")
+    : plan.label;
 
   return (
     <div className="flex items-center px-1 shrink-0">
@@ -750,14 +742,14 @@ function SubscriptionBadge() {
           whiteSpace: "nowrap",
           transition: "max-width 250ms ease, padding 250ms ease, color 150ms ease",
           color: hovered
-            ? isPremium ? "#f59e0b" : "var(--t-accent)"
-            : isPremium ? "#f59e0b" : "var(--t-text-secondary)",
+            ? plan.premium ? "#f59e0b" : "var(--t-accent)"
+            : plan.premium ? "#f59e0b" : "var(--t-text-secondary)",
           background: hovered ? "var(--t-bg-elevated)" : "transparent",
         }}
-        title={hoverLabel}
+        title={plan.viaTooltip ?? hoverLabel}
       >
         <Icon
-          icon={isPremium ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
+          icon={plan.premium ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
           width={14}
           className="shrink-0"
         />

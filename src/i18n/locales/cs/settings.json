@@ -483,17 +483,11 @@
           "business": "Business"
         },
         "trialName": "Zkušební verze {{plan}}",
+        "trialLeft": "{{plan}} — zbývá {{daysLeft}} d",
         "viaSeat": "{{plan}} · prostřednictvím vašeho místa v týmu {{team}}",
         "viaTooltip": "Prostřednictvím týmu {{team}}",
         "ownLine": "Vaše předplatné {{plan}}",
         "title": "Tarif",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Zkušební Pro — zbývá {{daysLeft}} d",
-          "pro": "Pro",
-          "free": "Free"
-        },
         "manageBilling": "Spravovat fakturaci →",
         "subscription": {
           "cancelled": "Končí {{date}}. Do té doby máte přístup.",

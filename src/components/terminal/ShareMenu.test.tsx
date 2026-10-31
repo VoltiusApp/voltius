@@ -26,6 +26,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { writeClipboard as writeClipboardImport } from "@/utils/clipboard";
 import { makeMpState, type MpState } from "./ShareMenu.testHarness";
 import { ShareMenu } from "./ShareMenu";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 const teamState = useTeamStore.getState();
 const mpState = useTeamSessionStore.getState() as unknown as MpState;
@@ -54,7 +55,11 @@ beforeEach(() => {
   resetMpState();
   writeClipboard.mockReset().mockResolvedValue(undefined);
 });
-afterEach(() => cleanup());
+const initialSubscription = useSubscriptionStore.getState();
+afterEach(() => {
+  cleanup();
+  useSubscriptionStore.setState(initialSubscription, true);
+});
 
 function renderMenu(overrides: { tier?: "pro" | "teams" | "business"; connectionVaultId?: string } = {}) {
   const anchorRef = createRef<HTMLButtonElement>();
@@ -152,4 +157,28 @@ test("a Pro host whose connection is in a qualifying vault sees all three tabs t
   expect(screen.getByText("terminal.share.tabInviteLink")).toBeTruthy();
   expect(screen.getByText("terminal.share.tabTeam")).toBeTruthy();
   expect(screen.getByPlaceholderText("terminal.share.peopleSearchPlaceholder")).toBeTruthy();
+});
+
+// ─── Upgrade prompts follow the plan display ────────────────────────────────
+
+function fullInviteLinkSession() {
+  const guests = Array.from({ length: 10 }, (_, i) => ({ user_id: `g${i}`, handle: `G${i}` }));
+  mpState.connections = {
+    "local-1": { multiplayerSessionId: "mp-1", ended: false, participants: [{ user_id: "me", handle: "Me" }, ...guests], myUserId: "me", controlHolder: "me" },
+  };
+}
+
+test("an own Teams plan at the guest cap is offered Business", () => {
+  useSubscriptionStore.setState({ tier: "teams", billingTier: "teams", seatTeam: null });
+  fullInviteLinkSession();
+  renderMenu({ tier: "teams" });
+  expect(screen.getByText("terminal.share.upgradeToBusiness")).toBeTruthy();
+});
+
+test("a seat member at the guest cap gets no upgrade prompt", () => {
+  useSubscriptionStore.setState({ tier: "teams", billingTier: "free", seatTeam: { id: "t1", name: "Acme", trial: false } });
+  fullInviteLinkSession();
+  renderMenu({ tier: "teams" });
+  expect(screen.getByText("terminal.share.participantsRatio")).toBeTruthy();
+  expect(screen.queryByText("terminal.share.upgradeToBusiness")).toBeNull();
 });

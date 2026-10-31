@@ -483,17 +483,11 @@
           "business": "Business"
         },
         "trialName": "Avaliação {{plan}}",
+        "trialLeft": "{{plan}} — {{daysLeft}}d restantes",
         "viaSeat": "{{plan}} · através do seu lugar em {{team}}",
         "viaTooltip": "Através de {{team}}",
         "ownLine": "A sua subscrição {{plan}}",
         "title": "Plano",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Teste Pro — {{daysLeft}}d restantes",
-          "pro": "Pro",
-          "free": "Grátis"
-        },
         "manageBilling": "Gerenciar cobrança →",
         "subscription": {
           "cancelled": "Cancela em {{date}}. Você mantém o acesso até lá.",

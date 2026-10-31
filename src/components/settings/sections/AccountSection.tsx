@@ -9,6 +9,7 @@ import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { openPortal } from "@/utils/billing";
 import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
@@ -510,25 +511,23 @@ export default function AccountSection() {
 
 // ─── Plans section ────────────────────────────────────────────────────────────
 
-function PlansSection() {
+export function PlansSection() {
   const { t } = useTranslation();
-  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
+  const plan = usePlanDisplay();
+  const { ownsTeamsPlan, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
   const billingEnabled = useServerBillingEnabled();
   const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
 
-  const daysLeft = trialEndsAt
-    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
-    : 0;
-
-  const badgeLabel =
-    isBusiness ? t("settings.account.plan.badge.business") :
-    isTeams ? t("settings.account.plan.badge.teams") :
-    isTrialActive ? t("settings.account.plan.badge.proTrial", { daysLeft }) :
-    tier === "pro" ? t("settings.account.plan.badge.pro") : t("settings.account.plan.badge.free");
-
-  const isPaidPro = isPro && !isTrialActive && billingEnabled;
-
-  const badgeColor = isPro ? "#f59e0b" : "var(--t-text-muted)";
+  const ownBilled = plan.ownPaid && billingEnabled;
+  const manageBilling = plan.showManageBilling && billingEnabled && (
+    <button
+      onClick={() => openPortal()}
+      className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
+    >
+      {t("settings.account.plan.manageBilling")}
+    </button>
+  );
+  const badgeColor = plan.premium ? "#f59e0b" : "var(--t-text-muted)";
   const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
   const cancellationDate = formatOptionalDate(endsAt ?? renewsAt, SHORT_DATE);
 
@@ -542,25 +541,23 @@ function PlansSection() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon
-              icon={isPro ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
+              icon={plan.premium ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
               width={14}
               style={{ color: badgeColor }}
             />
-            <span className="text-sm font-medium text-(--t-text-primary)">{badgeLabel}</span>
+            <span data-plan-line className="text-sm font-medium text-(--t-text-primary)">{plan.line}</span>
           </div>
-          <div className="flex items-center gap-2">
-            {isPaidPro && (
-              <button
-                onClick={() => openPortal()}
-                className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
-              >
-                {t("settings.account.plan.manageBilling")}
-              </button>
-            )}
-          </div>
+          {!plan.ownLine && <div className="flex items-center gap-2">{manageBilling}</div>}
         </div>
 
-        {isPaidPro && (
+        {plan.ownLine && (
+          <div className="flex items-center justify-between text-xs">
+            <span data-plan-own-line className="text-(--t-text-secondary)">{plan.ownLine}</span>
+            {manageBilling}
+          </div>
+        )}
+
+        {ownBilled && (
           <div className="rounded-md px-3 py-2 bg-(--t-bg-input) text-xs text-(--t-text-muted)">
             {subscriptionCancelled ? (
               <span>
@@ -576,7 +573,7 @@ function PlansSection() {
           </div>
         )}
 
-        {isTeams && seatsText && (
+        {ownsTeamsPlan && seatsText && (
           <div className="flex items-center justify-between text-xs py-0.5">
             <span style={{ color: "var(--t-text-secondary)" }}>{t("settings.account.plan.seats")}</span>
             <span style={{ color: "var(--t-text-primary)", fontVariantNumeric: "tabular-nums" }}>
@@ -585,7 +582,7 @@ function PlansSection() {
           </div>
         )}
 
-        {!isPro && (
+        {plan.showUpgrade && (
           <UpgradeStrip
             label={t("settings.account.plan.upgradeToPro")}
             buttonLabel={t("settings.account.plan.upgrade")}
@@ -593,7 +590,7 @@ function PlansSection() {
           />
         )}
 
-        {isPro && !isTeams && (
+        {plan.upgradeTo === "teams" && (
           <UpgradeStrip
             variant="neutral"
             label={t("settings.account.plan.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
@@ -604,8 +601,8 @@ function PlansSection() {
 
         {/* Feature comparison */}
         <div className="border-t border-(--t-border) pt-3 space-y-1.5">
-          {PLAN_FEATURES.map(({ id, free, pro, teams: teamsFlag, business }) => {
-            const active = isBusiness ? business : isTeams ? teamsFlag : isPro ? pro : free;
+          {PLAN_FEATURES.map(({ id, ...byPlan }) => {
+            const active = byPlan[plan.plan];
             return (
               <div key={id} className="flex items-center justify-between">
                 <span className="text-xs" style={{ color: active ? "var(--t-text-primary)" : "var(--t-text-muted)" }}>

@@ -483,17 +483,11 @@
           "business": "Business"
         },
         "trialName": "{{plan}} trial",
+        "trialLeft": "{{plan}} — {{daysLeft}}d left",
         "viaSeat": "{{plan}} · through your seat in {{team}}",
         "viaTooltip": "Through {{team}}",
         "ownLine": "Your {{plan}} subscription",
         "title": "Plan",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Pro Trial — {{daysLeft}}d left",
-          "pro": "Pro",
-          "free": "Free"
-        },
         "manageBilling": "Manage billing →",
         "subscription": {
           "cancelled": "Cancels on {{date}}. You keep access until then.",

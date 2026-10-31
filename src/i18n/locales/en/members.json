@@ -243,6 +243,7 @@
       "signInDesc": "Members, invites, and shared vault access require a cloud account before you can upgrade or manage a team.",
       "signInBtn": "Sign in or create cloud account →",
       "upgradeTitle": "Team Vaults require Teams",
+      "ownPlanTitle": "Converting a vault into a team needs your own Teams plan",
       "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
       "upgradeBtn": "Try Teams free for {{days}} days →",
       "trialNote": "Card required · no charge during the trial"

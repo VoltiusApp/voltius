@@ -4,6 +4,7 @@ import { getSyncState, isSyncPaused, syncNow } from "@/services/sync";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { planDisplay } from "./planDisplay";
 import type { SyncProviderInputs } from "./syncProviders";
 
 export interface LoadedPluginSource {
@@ -13,7 +14,8 @@ export interface LoadedPluginSource {
 }
 
 export function readSyncProviderInputs(source: LoadedPluginSource): SyncProviderInputs {
-  const { accountMode, isPro } = useSubscriptionStore.getState();
+  const subscription = useSubscriptionStore.getState();
+  const { accountMode, isPro } = subscription;
   const pluginStates = usePluginStateStore.getState();
   return {
     voltius: {
@@ -21,6 +23,7 @@ export function readSyncProviderInputs(source: LoadedPluginSource): SyncProvider
       state: getSyncState(),
       accountMode,
       isPro,
+      canUpgrade: planDisplay(subscription).showUpgrade,
       paused: isSyncPaused(),
       syncNow: () => syncNow(true),
     },

@@ -155,7 +155,7 @@ vi.mock("@/stores/teamStore", () => {
 });
 vi.mock("@/stores/subscriptionStore", () => {
   // Pro: guest cap 1, the tier the cap guard has to hold for.
-  const state = { tier: "pro", isTeams: true, accountMode: "server", usedSeats: 1, totalSeats: 5, load: vi.fn() };
+  const state = { tier: "pro", isTeams: true, ownsTeamsPlan: true, accountMode: "server", usedSeats: 1, totalSeats: 5, load: vi.fn() };
   const useSubscriptionStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
     { getState: () => state },

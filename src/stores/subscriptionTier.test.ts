@@ -95,6 +95,13 @@ test("own pro plus business seat", () => {
   expect(f).toMatchObject({ isBusiness: true, billingTier: "pro", ownsTeamsPlan: false, seatTeam: seat });
 });
 
+test("isTrialActive follows the own Pro trial, not the seat plan", () => {
+  const seat = { id: "t1", name: "Acme", trial: false };
+  const f = deriveTierFlags({ tier: "teams", billing_tier: "pro", seat_team: seat, trial_ends_at: soon }, NOW);
+  expect(f).toMatchObject({ tier: "teams", isTrialActive: true });
+  expect(deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: seat, trial_ends_at: soon }, NOW).isTrialActive).toBe(false);
+});
+
 test("an unknown billing_tier or tier normalizes to free", () => {
   const f = deriveTierFlags({ tier: "teams", billing_tier: "platinum" }, NOW);
   expect(f.billingTier).toBe("free");

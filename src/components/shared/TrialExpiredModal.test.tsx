@@ -19,6 +19,8 @@ const DAY = 86_400_000;
 function seed(over: Partial<ReturnType<typeof useSubscriptionStore.getState>> = {}) {
   useSubscriptionStore.setState({
     tier: "free",
+    billingTier: "free",
+    seatTeam: null,
     trialUsed: true,
     trialKnown: true,
     isTrialActive: false,
@@ -48,13 +50,19 @@ test("still shows when trial_ends_at is a past date", () => {
 });
 
 test("stays hidden while the trial is still running", () => {
-  seed({ tier: "pro", isPro: true, isTrialActive: true, trialUsed: false, trialEndsAt: new Date(Date.now() + DAY) });
+  seed({ tier: "pro", billingTier: "pro", isPro: true, isTrialActive: true, trialUsed: false, trialEndsAt: new Date(Date.now() + DAY) });
   render(<TrialExpiredModal />);
   expect(screen.queryByText("shared.trialExpiredModal.title")).toBeNull();
 });
 
 test("stays hidden for a paying subscriber", () => {
-  seed({ tier: "pro", isPro: true });
+  seed({ tier: "pro", billingTier: "pro", isPro: true });
+  render(<TrialExpiredModal />);
+  expect(screen.queryByText("shared.trialExpiredModal.title")).toBeNull();
+});
+
+test("stays hidden while a team seat applies", () => {
+  seed({ tier: "teams", isPro: true, seatTeam: { id: "t1", name: "Acme", trial: false } });
   render(<TrialExpiredModal />);
   expect(screen.queryByText("shared.trialExpiredModal.title")).toBeNull();
 });

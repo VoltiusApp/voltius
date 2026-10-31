@@ -21,7 +21,8 @@ vi.mock("@/services/vault", () => ({
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: () => ({
-    tier: "free", trialEndsAt: null, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false,
+    tier: "free", billingTier: "free", seatTeam: null, ownsTeamsPlan: false, trialKnown: false, trialUsed: false,
+    trialEndsAt: null, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false,
     usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null,
   }),
 }));

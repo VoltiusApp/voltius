@@ -243,6 +243,7 @@
       "signInDesc": "成员、邀请和共享保险库访问需要云账户才能升级或管理团队。",
       "signInBtn": "登录或创建云账户 →",
       "upgradeTitle": "团队保险库需要 Teams",
+      "ownPlanTitle": "将保险库转换为团队需要您自己的 Teams 套餐",
       "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
       "upgradeBtn": "免费试用 Teams {{days}} 天 →",
       "trialNote": "需绑定银行卡 · 试用期内不扣费"

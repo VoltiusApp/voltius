@@ -1,4 +1,3 @@
-import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import type { PluginManifest, SettingsPage, SyncProviderAvailability, SyncProviderSummary } from "@/plugins/api";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import { attributePage } from "@/plugins/attributePage";
@@ -46,6 +45,7 @@ export interface VoltiusSyncInput {
   state: { status: SyncStatus; lastSync: Date | null; error: string | null; blobSizeBytes: number | null };
   accountMode: string | null;
   isPro: boolean;
+  canUpgrade: boolean;
   paused: boolean;
   syncNow: () => Promise<void>;
 }
@@ -71,7 +71,7 @@ const STATUS_RANK: Record<SyncStatus, number> = { idle: 0, success: 1, syncing: 
 
 const VOLTIUS_ACTIONS: Partial<Record<SyncProviderAvailability, SyncProviderAction>> = {
   locked: { kind: "signIn" },
-  ...(CAN_OPEN_CHECKOUT ? { needs_upgrade: { kind: "upgrade" } as const } : {}),
+  needs_upgrade: { kind: "upgrade" },
   paused: { kind: "resume" },
 };
 
@@ -91,7 +91,7 @@ function voltiusProvider(v: VoltiusSyncInput): SyncProviderView {
     availability,
     state: { ...v.state, configured: active },
     syncNow: active || availability === "paused" ? v.syncNow : null,
-    action: VOLTIUS_ACTIONS[availability] ?? null,
+    action: availability === "needs_upgrade" && !v.canUpgrade ? null : VOLTIUS_ACTIONS[availability] ?? null,
     pauseToggle: VOLTIUS_PAUSE_TOGGLES[availability] ?? null,
   };
 }

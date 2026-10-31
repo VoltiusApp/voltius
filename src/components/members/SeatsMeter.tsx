@@ -8,7 +8,7 @@ import { seatsSummaryText } from "@/services/seatMath";
 /** Seat usage bar for the invite surfaces, with a "buy seats" action on servers that sell them. */
 export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
   const { t } = useTranslation();
-  const { effectiveSeats, totalSeats, isTrialActive } = useSubscriptionStore();
+  const { effectiveSeats, totalSeats, isTrialActive, ownsTeamsPlan } = useSubscriptionStore();
   const billingEnabled = useServerBillingEnabled();
   const seats = useSeatReadout();
   // A trial clamps the cap below what was purchased; without this the meter is a
@@ -46,7 +46,7 @@ export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
           </>
         )}
       </div>
-      {onBuySeats && billingEnabled && (
+      {onBuySeats && billingEnabled && ownsTeamsPlan && (
         <button
           onClick={onBuySeats}
           className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"

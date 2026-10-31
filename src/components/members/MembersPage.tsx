@@ -54,7 +54,7 @@ export default function MembersPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const vaults = useVaultStore((s) => s.vaults);
   const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
-  const { tier, isTeams, accountMode } = useSubscriptionStore();
+  const { tier, ownsTeamsPlan, accountMode } = useSubscriptionStore();
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
   const push = useHistoryStore((s) => s.push);
@@ -451,7 +451,7 @@ const vaultTabs = selectedVaultIds.length > 1
   // ── Private vault (no team yet) ────────────────────────────────────────────
   if (localVault && !teamId) {
     const isCloudAccount = accountMode === "server";
-    const canPrivateInvite = isCloudAccount && isTeams && !!myUserId;
+    const canPrivateInvite = isCloudAccount && ownsTeamsPlan && !!myUserId;
 
     const toolbar = (
       <MembersToolbar
@@ -480,7 +480,7 @@ const vaultTabs = selectedVaultIds.length > 1
       );
     }
 
-    if (!isTeams) {
+    if (!ownsTeamsPlan) {
       return (
         <div className="flex-1 flex flex-col bg-(--t-bg-base)">
           {toolbar}

@@ -247,6 +247,7 @@
       "signInDesc": "Üyeler, davetler ve paylaşılan kasa erişimi için, yükseltme yapmadan veya ekip yönetmeden önce bir bulut hesabı gerekir.",
       "signInBtn": "Oturum aç veya bulut hesabı oluştur →",
       "upgradeTitle": "Ekip kasaları için Teams gerekir",
+      "ownPlanTitle": "Bir kasayı ekibe dönüştürmek için kendi Teams planınız gerekir",
       "upgradeDesc": "Üye davet edin, rol atayın ve kimlik bilgilerini ekibinizle güvenle paylaşın.",
       "upgradeBtn": "Teams'i {{days}} gün ücretsiz dene →",
       "trialNote": "Kart gerekir · deneme süresince ücret alınmaz"

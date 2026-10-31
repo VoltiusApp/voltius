@@ -29,7 +29,7 @@ interface PeopleTabProps {
   invitedThisSession: ReadonlySet<string>;
   guestCap: number;
   tier: ShareTier;
-  onUpgrade: () => void;
+  onUpgrade?: () => void;
   onInvite: (target: InviteTarget) => Promise<void>;
   /** Withdraws a standing invite. Absent before the session exists, when no row can be invited yet. */
   onUninvite?: (userId: string) => Promise<void>;

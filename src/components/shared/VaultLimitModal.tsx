@@ -5,7 +5,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { openBillingCheckout } from "@/services/billingCheckout";
-import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 
 /** Free accounts keep the one vault they start with; more vaults are a Pro feature. */
@@ -19,6 +19,7 @@ export function VaultLimitModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const isCloudAccount = useSubscriptionStore((s) => s.accountMode === "server");
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
+  const { showUpgrade } = usePlanDisplay();
 
   const upgrade = async () => {
     if (await openBillingCheckout("pro")) onClose();
@@ -52,7 +53,7 @@ export function VaultLimitModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          {isCloudAccount && !CAN_OPEN_CHECKOUT ? <AvailableWithPlan plan="Pro" className="py-2" /> : (
+          {isCloudAccount && !showUpgrade ? <AvailableWithPlan plan="Pro" className="py-2" /> : (
           <button
             onClick={isCloudAccount ? () => void upgrade() : signIn}
             className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"

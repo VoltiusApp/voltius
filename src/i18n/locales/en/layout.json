@@ -327,10 +327,6 @@
         "closeTab_other": "Close tab ({{count}} sessions)"
       },
       "plan": {
-        "proTrial": "Pro Trial — {{daysLeft}}d left",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "Upgrade · 14d Free Trial",
         "upgrade": "Upgrade"
       },

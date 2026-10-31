@@ -26,22 +26,12 @@ describe("Google Play build", () => {
     expect(openUrl).not.toHaveBeenCalled();
   });
 
-  it("offers no Voltius sync upgrade action", async () => {
+  it("offers no plan upgrade, so no Voltius sync upgrade action", async () => {
     vi.stubEnv("VITE_DISTRIBUTION", "play");
-    const { buildSyncProviders } = await import("@/services/syncProviders");
-    const [voltius] = buildSyncProviders({
-      voltius: {
-        label: "Voltius Sync",
-        state: { status: "idle", lastSync: null, error: null, blobSizeBytes: null },
-        accountMode: "server",
-        isPro: false,
-        paused: false,
-        syncNow: vi.fn(async () => {}),
-      },
-      plugins: [],
-      settingsPages: [],
-    });
-    expect(voltius).toMatchObject({ availability: "needs_upgrade", action: null });
+    const { planDisplay } = await import("@/services/planDisplay");
+    const { deriveTierFlags } = await import("@/stores/subscriptionTier");
+    const plan = planDisplay(deriveTierFlags({ tier: "free", trial_used: false }, new Date()));
+    expect(plan).toMatchObject({ showUpgrade: false, upgradeTo: null, trialOffer: false });
   });
 });
 

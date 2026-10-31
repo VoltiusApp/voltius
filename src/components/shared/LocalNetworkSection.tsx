@@ -11,12 +11,11 @@ import { SyncHeaderButton, SyncInlineAction, SyncSectionTitle, type SyncMenuVari
 import { useLanDeviceRows } from "@/hooks/useLanDeviceRows";
 import { runSyncMenuAction } from "@/hooks/useSyncProviderPanel";
 import { logFailure } from "@/lib/logger";
-import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { inLanGroup, leaveLanGroup, setLanSyncPaused } from "@/services/lanSync";
 import type { DeviceDot, DeviceRow } from "@/services/lanSyncDevices";
 import { SYNC_PAUSED_ICON } from "@/services/syncStatus";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { formatRelative } from "@/utils/localeFormat";
 import { usePlatform } from "@/utils/platform";
 import { deviceIcon } from "@/utils/icons";
@@ -120,7 +119,7 @@ export function LocalNetworkSection({ variant, onClose, onPair }: { variant: Syn
   const rows = useLanDeviceRows();
   const status = useLanSyncStore((s) => s.status);
   const pausedFlag = useLanSyncStore((s) => s.paused);
-  const isPro = useSubscriptionStore((s) => s.isPro);
+  const { showUpgrade } = usePlanDisplay();
   const platform = usePlatform();
   const canPair = useCanPairDevices();
   const inGroup = useAsyncFlag(inLanGroup);
@@ -137,7 +136,7 @@ export function LocalNetworkSection({ variant, onClose, onPair }: { variant: Syn
   const running = !isPaused && !blocked && status !== "stopped";
   const line = statusLine(t, isPaused, blocked, rows, platform);
   const catchUp = running && !anyNearby && rows.length > 0;
-  const upsell = running && !isPro && CAN_OPEN_CHECKOUT && rows.some((r) => r.dot === "behind");
+  const upsell = running && showUpgrade && rows.some((r) => r.dot === "behind");
 
   const toggle: SheetAction = {
     slug: isPaused ? "resume" : "pause",

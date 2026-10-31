@@ -483,17 +483,11 @@
           "business": "Business"
         },
         "trialName": "Essai {{plan}}",
+        "trialLeft": "{{plan}} — {{daysLeft}}j restants",
         "viaSeat": "{{plan}} · via votre siège dans {{team}}",
         "viaTooltip": "Via {{team}}",
         "ownLine": "Votre abonnement {{plan}}",
         "title": "Abonnement",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Essai Pro — {{daysLeft}}j restants",
-          "pro": "Pro",
-          "free": "Gratuit"
-        },
         "manageBilling": "Gérer la facturation →",
         "subscription": {
           "cancelled": "Se termine le {{date}}. Vous conservez l'accès jusqu'à cette date.",

@@ -60,7 +60,7 @@ const onClose = vi.fn();
 
 beforeEach(() => {
   useLanSyncStore.setState({ status: "running", paused: false });
-  useSubscriptionStore.setState({ isPro: false });
+  useSubscriptionStore.setState({ tier: "free", isPro: false, seatTeam: null });
 });
 afterEach(() => {
   cleanup();
@@ -120,7 +120,14 @@ describe("LocalNetworkSection", () => {
   });
 
   test("no upsell for Pro", () => {
-    useSubscriptionStore.setState({ isPro: true });
+    useSubscriptionStore.setState({ tier: "pro", isPro: true });
+    h.rows = [live, behindMac];
+    render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
+    expect(q("[data-lan-upsell]")).toBeNull();
+  });
+
+  test("no upsell for a seat member", () => {
+    useSubscriptionStore.setState({ tier: "teams", isPro: true, billingTier: "free", seatTeam: { id: "t1", name: "Acme", trial: false } });
     h.rows = [live, behindMac];
     render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
     expect(q("[data-lan-upsell]")).toBeNull();

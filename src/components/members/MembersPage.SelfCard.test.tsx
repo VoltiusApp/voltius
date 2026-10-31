@@ -86,10 +86,10 @@ vi.mock("@/stores/teamStore", () => {
   return { useTeamStore };
 });
 vi.mock("@/stores/subscriptionStore", () => {
-  // "server" + isTeams (cloud account, Teams tier, private vault, no team
+  // "server" + ownsTeamsPlan (cloud account, own Teams plan, private vault, no team
   // yet) is the branch the self-card renders in: a local-only account sees
   // the sign-in CTA instead, and a non-Teams cloud account sees the upgrade CTA.
-  const state = { isTeams: true, accountMode: "server", usedSeats: 1, totalSeats: 1, load: vi.fn() };
+  const state = { isTeams: true, ownsTeamsPlan: true, accountMode: "server", usedSeats: 1, totalSeats: 1, load: vi.fn() };
   const useSubscriptionStore = Object.assign(
     (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state),
     { getState: () => state },
