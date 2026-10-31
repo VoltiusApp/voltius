@@ -49,7 +49,6 @@ const CANDIDATES: usize = 64;
 const STALE_AFTER: u64 = 30 * 24 * 60 * 60;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 pub(super) const LINGER: Duration = Duration::from_secs(2);
-const LINGER_MAX: usize = 1024;
 const CONTROL: usize = 4;
 const FILES_REPLY_TIMEOUT: Duration = Duration::from_secs(90);
 const FILE_DIAL_ATTEMPTS: usize = 4;
@@ -173,14 +172,25 @@ pub(crate) fn test_keys(secrets: &[u8]) -> Zeroizing<Vec<[u8; 32]>> {
 #[cfg(test)]
 impl Trust {
     pub(crate) fn grouped(epochs: &[u8], members: &[&str]) -> Self {
-        let member = |id: &&str| Member {
-            device_id: id.to_string(),
-            key: super::identity::test_identity(id).key.public,
-        };
+        let member = |id: &&str| Member::of(&super::identity::test_identity(id));
+        Self::listing(epochs, members.iter().map(member).collect())
+    }
+
+    pub(crate) fn listing(epochs: &[u8], members: Vec<Member>) -> Self {
         Self {
             keys: test_keys(epochs),
-            members: Some(members.iter().map(member).collect()),
+            members: Some(members),
             farewell: None,
+        }
+    }
+}
+
+#[cfg(test)]
+impl Member {
+    pub(crate) fn of(me: &LocalIdentity) -> Self {
+        Self {
+            device_id: me.device_id.clone(),
+            key: me.key.public,
         }
     }
 }
@@ -398,10 +408,15 @@ fn local_port(listener: &TcpListener) -> Result<u16, String> {
         .map_err(|e| e.to_string())
 }
 
-// Holds the socket open until the peer's first frame so our Bye is not lost to a reset.
-async fn part(mut session: Session) {
-    let _ = session.send(&Frame::Bye).await;
-    let _ = timeout(LINGER, session.recv_max(LINGER_MAX)).await;
+// Closing with unread input sends a reset that can overtake our Bye, so drain until the peer hangs up.
+async fn part(session: Session) {
+    let (mut reader, mut writer) = session.split();
+    let parting = async {
+        let _ = writer.send(&Frame::Bye).await;
+        let _ = writer.finish().await;
+        while let Ok(Some(_)) = reader.recv_chunk().await {}
+    };
+    let _ = timeout(LINGER, parting).await;
 }
 
 async fn shake(
@@ -521,14 +536,15 @@ async fn establish(
             shared.serve_files(link, req).await;
         }
         Some(Frame::Bye) => {}
-        first => {
-            if let Some((sent, first)) = greet(&shared, &mut link, first).await? {
+        first => match greet(&shared, &mut link, first).await? {
+            Some((sent, first)) => {
                 shared.adopt(link, sent, first);
                 if !initiator {
                     shared.retry_soon();
                 }
             }
-        }
+            None => shared.turned_away(&link.hello.device_id),
+        },
     }
     Ok(())
 }
@@ -556,6 +572,11 @@ async fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
 }
 
 async fn connect(addr: SocketAddr) -> std::io::Result<TcpStream> {
+    #[cfg(test)]
+    if !addr.ip().is_loopback() {
+        tokio::time::sleep(DIAL_TIMEOUT).await;
+        return Err(std::io::ErrorKind::TimedOut.into());
+    }
     timeout(DIAL_TIMEOUT, TcpStream::connect(addr))
         .await
         .unwrap_or_else(|_| Err(std::io::ErrorKind::TimedOut.into()))
@@ -699,6 +720,7 @@ struct State {
     own: Vec<SocketAddr>,
     rejected: HashSet<(String, Rejection)>,
     told: HashSet<String>,
+    turned_away: HashMap<String, Instant>,
     unlinked: VecDeque<(String, Vec<SocketAddr>)>,
     next_conn: u64,
     closed: bool,
@@ -715,6 +737,13 @@ impl State {
     fn prune(&mut self) {
         let now = Instant::now();
         self.dialable.retain(|k| !k.expired(now));
+        self.turned_away
+            .retain(|_, at| now.duration_since(*at) < RETRY_MAX);
+    }
+
+    fn relist(&mut self, id: &str) {
+        self.told.remove(id);
+        self.turned_away.remove(id);
     }
 
     fn may_dial(&self, addr: &SocketAddr) -> bool {
@@ -806,6 +835,12 @@ impl Shared {
 
     // A refused device dropped its dial entries, so nothing would reach it again before a restart.
     fn vouch(self: &Arc<Self>, members: &[Member]) {
+        {
+            let mut state = self.lock();
+            for m in members {
+                state.turned_away.remove(&m.device_id);
+            }
+        }
         let (vouched, mut addrs) = {
             let mut store = self.store();
             let mut vouched = Vec::new();
@@ -828,7 +863,9 @@ impl Shared {
             state
                 .rejected
                 .retain(|(id, _)| !vouched.contains(&id.as_str()));
-            state.told.retain(|id| !vouched.contains(&id.as_str()));
+            for id in &vouched {
+                state.relist(id);
+            }
             state.unlinked.retain(|(id, seen)| {
                 let keep = !vouched.contains(&id.as_str());
                 if !keep {
@@ -878,15 +915,19 @@ impl Shared {
     ) -> HandshakeError {
         let error = match refusal {
             LinkRefusal::Farewell => {
-                let _ = session.send(&presence_frame(self.farewell_state)).await;
                 let device_id = device_id.to_string();
-                self.lock().told.insert(device_id.clone());
-                let _ = self
-                    .events
-                    .send(ManagerEvent::FarewellSent {
-                        device_id: device_id.clone(),
-                    })
-                    .await;
+                let first = self.lock().told.insert(device_id.clone());
+                if first || self.kind != Kind::Farewell {
+                    let said = session.send(&presence_frame(self.farewell_state)).await;
+                    if said.is_ok() {
+                        let sent = ManagerEvent::FarewellSent {
+                            device_id: device_id.clone(),
+                        };
+                        let _ = self.events.send(sent).await;
+                    } else if first {
+                        self.lock().told.remove(&device_id);
+                    }
+                }
                 HandshakeError::Excluded(device_id)
             }
             LinkRefusal::NotMember => HandshakeError::Excluded(device_id.to_string()),
@@ -1070,6 +1111,12 @@ impl Shared {
         self.retry.send_replace(());
     }
 
+    // The Bye stays quiet on the wire, so `unlisted` skips the device until the ladder's longest step.
+    fn turned_away(&self, device_id: &str) {
+        let now = Instant::now();
+        self.lock().turned_away.insert(device_id.to_string(), now);
+    }
+
     // Both ends must pick the same survivor, so the tie-break uses the shared handshake hash.
     fn rank(&self, link: &Link) -> Rank {
         let me = self.me.device_id.as_str();
@@ -1093,7 +1140,7 @@ impl Shared {
         let mut state = self.lock();
         drop(store);
         state.tag(link.addr.ip(), &id);
-        state.told.remove(&id);
+        state.relist(&id);
         if is_self || state.closed || state.peers.get(&id).is_some_and(|p| p.rank <= rank) {
             return;
         }
@@ -1337,9 +1384,11 @@ impl Shared {
         let mut state = self.lock();
         state.prune();
         let missing = |id: &str| {
-            id != self.me.device_id
-                && !state.peers.contains_key(id)
-                && !(self.kind == Kind::Farewell && state.told.contains(id))
+            let settled = id == self.me.device_id
+                || state.peers.contains_key(id)
+                || state.turned_away.contains_key(id)
+                || (self.kind == Kind::Farewell && state.told.contains(id));
+            !settled
         };
         let candidates = state
             .dialable
@@ -1804,6 +1853,9 @@ impl FilesDialer {
         device_id: &str,
         req: FilesRequest,
     ) -> Result<(SessionStream, FilesReply, String), FilesDialError> {
+        if !self.0.kind.serves_files() {
+            return Err(FilesDialError::NotListed);
+        }
         let mut link = self.0.reach_files(device_id).await?;
         if !holds_pin(&self.0.store(), &link.hello) {
             return Err(FilesDialError::NotListed);
@@ -1853,7 +1905,9 @@ pub async fn start(
     };
     let mut manager = serve(listener, me, trust, kind, paused, store, events).await?;
     if discovery {
-        manager.spawn(|s| probe_loop(s, Arc::new(discovery::probe_multicast)));
+        if kind.listens() {
+            manager.spawn(|s| probe_loop(s, Arc::new(discovery::probe_multicast)));
+        }
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         if kind.polls_tailnet() {
             manager.spawn(|s| tailscale::poll_loop(s, tailscale::local_status()));
@@ -2067,6 +2121,7 @@ impl Manager {
             let mut state = self.shared.lock();
             drop(store);
             state.rejected.retain(|(id, _)| id != device_id);
+            state.turned_away.remove(device_id);
             state.peers.remove(device_id)
         };
         if dropped.is_some() {
@@ -2105,6 +2160,7 @@ impl Manager {
         self.shared.caps.send_replace(Some(caps));
     }
 
+    #[cfg(desktop)]
     pub fn serves_files(&self) -> bool {
         self.shared.kind.serves_files()
     }
@@ -2113,21 +2169,26 @@ impl Manager {
         FilesDialer(self.shared.clone())
     }
 
-    fn shutdown(&mut self) {
+    fn shutdown(&mut self) -> Vec<JoinHandle<()>> {
         self.shared.take_window(None);
         let discovery = lock(&self.shared.discovery).take();
         drop(discovery);
-        for task in self.tasks.drain(..) {
+        let tasks: Vec<_> = self.tasks.drain(..).collect();
+        for task in &tasks {
             task.abort();
         }
         let mut state = self.shared.lock();
         state.closed = true;
         state.files = None;
         state.peers.clear();
+        tasks
     }
 
+    // The accept loop owns the listener: a restart that binds before it is dropped lands on a random port.
     pub async fn stop(mut self) {
-        self.shutdown();
+        for task in self.shutdown() {
+            let _ = task.await;
+        }
         if let Some(writer) = self.writer.take() {
             self.shared.flush.notify_one();
             let abort = writer.abort_handle();
@@ -3333,7 +3394,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_peer_that_says_bye_at_once_is_redialed_with_backoff() {
+    async fn a_peer_that_says_bye_at_once_is_never_listed_and_redialed_at_the_ladder_max() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let dials = Arc::new(Mutex::new(Vec::new()));
@@ -3348,13 +3409,17 @@ mod tests {
                 }
             }
         });
-        let (b, _eb) = spawn("dev-b", 1).await;
+        let (b, mut eb) = spawn("dev-b", 1).await;
         b.learn("dev-a", &[addr]);
+        let dialed = || dials.lock().unwrap().len();
+        until("turned away", || dialed() == 1).await;
         tokio::time::sleep(RETRY_FIRST * 20).await;
+        assert_eq!(dialed(), 1);
+        until("redialed at the ladder max", || dialed() == 2).await;
         let at = dials.lock().unwrap().clone();
-        let gaps: Vec<Duration> = at.windows(2).map(|w| w[1] - w[0]).collect();
-        assert!(gaps.len() >= 3, "{gaps:?}");
-        assert!(gaps.windows(2).all(|w| w[1] > w[0]), "{gaps:?}");
+        assert!(at[1] - at[0] >= RETRY_MAX, "{at:?}");
+        let seen: Vec<_> = std::iter::from_fn(|| eb.try_recv().ok()).collect();
+        assert!(!seen.iter().any(listed("dev-a")), "{seen:?}");
     }
 
     #[tokio::test]
@@ -3800,15 +3865,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn refuse_policy_key_change_file_dial_is_denied() {
+    async fn a_group_session_never_dials_for_files() {
         let (a, _others, svc, dialed) = rekeyed(PinPolicy::Refuse).await;
-        assert!(matches!(
-            dialed,
-            Err(FilesDialError::Handshake(HandshakeError::Pinned(
-                ref id,
-                Rejection::KeyChanged
-            ))) if id == "dev-b"
-        ));
+        assert!(matches!(dialed, Err(FilesDialError::NotListed)));
         assert_eq!(served(&svc), 0);
         assert_eq!(a.peers().len(), 1);
         let first = key_of(&test_identity("dev-b"));
@@ -3930,7 +3989,7 @@ mod tests {
         assert!(m.record("dev-u").is_none());
         assert_eq!(rejections(&mut em), vec![]);
 
-        m.set_members(vec![member_of(&test_identity("dev-u"))]);
+        m.set_members(vec![Member::of(&test_identity("dev-u"))]);
         let (_readmitted, _fd) = greeted(&m, &test_identity("dev-u"), &[3]).await;
         next_event(&mut em, listed("dev-u")).await;
     }
@@ -3959,11 +4018,11 @@ mod tests {
         assert!(m.peers().is_empty() && l.peers().is_empty());
     }
 
-    async fn left_device() -> (Manager, mpsc::Receiver<ManagerEvent>) {
+    async fn left_device(discovery: bool) -> (Manager, mpsc::Receiver<ManagerEvent>) {
         let (tx, rx) = mpsc::channel(64);
         let me = test_identity("dev-l");
         let store = PeerStore::memory();
-        let l = start(me, left_group(9), false, false, store, tx)
+        let l = start(me, left_group(9), false, discovery, store, tx)
             .await
             .unwrap();
         (l, rx)
@@ -3977,16 +4036,13 @@ mod tests {
             device_id: device_id.into(),
             key,
         };
-        let trust = Trust {
-            members: Some(vec![member]),
-            ..Trust::grouped(&[9], &[])
-        };
+        let trust = Trust::listing(&[9], vec![member]);
         spawn_as(test_identity("dev-m"), PeerStore::memory(), trust).await
     }
 
     #[tokio::test]
     async fn a_device_that_left_listens_nowhere_yet_tells_a_member_it_left() {
-        let (l, mut el) = left_device().await;
+        let (l, mut el) = left_device(false).await;
         assert!(l.port.is_none());
         assert_eq!(l.tasks.len(), 2, "no accept loop");
         let (m, mut em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
@@ -4075,7 +4131,7 @@ mod tests {
 
     #[tokio::test]
     async fn left_counts_only_from_the_key_listed_for_that_device() {
-        let (l, mut el) = left_device().await;
+        let (l, mut el) = left_device(false).await;
         let (m, mut em) = member_listing("dev-l", test_identity("dev-x").key.public).await;
         l.connect(local(&m), Source::Mdns).await;
         next_event(&mut el, farewell_sent("dev-m")).await;
@@ -4274,13 +4330,6 @@ mod tests {
         m.shared.pairing().as_ref().map_or(0, |w| w.attempts)
     }
 
-    fn member_of(me: &LocalIdentity) -> Member {
-        Member {
-            device_id: me.device_id.clone(),
-            key: me.key.public,
-        }
-    }
-
     fn pinned(id: &LocalIdentity, forgotten: bool) -> PeerStore {
         let mut store = PeerStore::memory();
         store.decide(&id.device_id, &id.key.public, 1, PinPolicy::Refuse);
@@ -4408,7 +4457,7 @@ mod tests {
         refused_link(&e, &rebooted).await;
         refused_link(&e, &forgotten).await;
 
-        e.set_members(vec![member_of(&rebooted), member_of(&forgotten)]);
+        e.set_members(vec![Member::of(&rebooted), Member::of(&forgotten)]);
 
         let (_p, _fp) = raw_peer_as(&e, &rebooted).await;
         next_event(&mut ee, listed("dev-p")).await;
@@ -4452,7 +4501,7 @@ mod tests {
         next_event(&mut eb, rejected).await;
         until("refused dial settles", || idle(&b)).await;
 
-        b.set_members(vec![member_of(&rebooted)]);
+        b.set_members(vec![Member::of(&rebooted)]);
 
         next_event(&mut eb, listed("dev-p")).await;
     }
@@ -4477,7 +4526,7 @@ mod tests {
             vec![("dev-p".to_string(), Rejection::KeyChanged)]
         );
 
-        e.set_members(vec![member_of(&rebooted)]);
+        e.set_members(vec![Member::of(&rebooted)]);
         refused_link(&e, &again).await;
 
         assert_eq!(
@@ -4493,10 +4542,7 @@ mod tests {
         let mut store = pinned(&test_identity("dev-p"), false);
         store.decide("dev-f", &forgotten.key.public, 1, PinPolicy::Refuse);
         assert!(store.forget("dev-f", 2).is_some());
-        let trust = Trust {
-            members: Some(vec![member_of(&rebooted), member_of(&forgotten)]),
-            ..Trust::grouped(&[1], &[])
-        };
+        let trust = Trust::listing(&[1], vec![Member::of(&rebooted), Member::of(&forgotten)]);
         let (e, mut ee) = spawn_as(test_identity("dev-e"), store, trust).await;
 
         let (_p, _fp) = raw_peer_as(&e, &rebooted).await;
@@ -4917,7 +4963,7 @@ mod tests {
             m.learn("dev-b", &[addr]);
             assert_eq!(dialable(&m).is_empty(), !learns, "{learns}");
         }
-        let (l, _el) = left_device().await;
+        let (l, _el) = left_device(false).await;
         l.learn("dev-b", &[addr]);
         assert!(dialable(&l).is_empty());
     }
@@ -4925,7 +4971,7 @@ mod tests {
     #[tokio::test]
     async fn a_pairing_only_manager_runs_no_retry_sweep() {
         let (a, _ea) = spawn("dev-a", 1).await;
-        let (l, _el) = left_device().await;
+        let (l, _el) = left_device(false).await;
         until("sweeps subscribed", || {
             a.shared.retry.receiver_count() == 1 && l.shared.retry.receiver_count() == 1
         })
@@ -4976,7 +5022,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_farewell_only_manager_never_opens_pairing() {
-        let (l, _el) = left_device().await;
+        let (l, _el) = left_device(false).await;
         assert!(l.open_pairing(pair_info(None, 0)).await.is_err());
         assert!(!l.shared.pairing_open());
     }
@@ -4991,5 +5037,91 @@ mod tests {
         b.connect_pair(SocketAddr::new(Ipv6Addr::LOCALHOST.into(), a.port()));
         pair_event(&mut ea, is_code).await;
         pair_event(&mut eb, is_code).await;
+    }
+
+    #[tokio::test]
+    async fn a_refusal_closes_cleanly_after_the_bye() {
+        use std::io::Read;
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let b = test_identity("dev-b");
+        assert_eq!(a.shared.admit("dev-b", &b.key.public), Ok(()));
+        assert!(a.forget("dev-b").is_some());
+        let (mut session, fd) = greeted(&a, &b, &[1]).await;
+        session.send(&Frame::Nudge).await.unwrap();
+        assert_eq!(session.recv().await.unwrap(), Frame::Bye);
+        let rest = tokio::task::spawn_blocking(move || {
+            fd.set_nonblocking(false).unwrap();
+            fd.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            (&fd).read(&mut [0; 64]).map_err(|e| e.kind())
+        });
+        assert_eq!(rest.await.unwrap(), Ok(0));
+    }
+
+    #[tokio::test]
+    async fn a_device_that_left_never_probes_the_network() {
+        let (l, _el) = left_device(true).await;
+        assert_eq!(l.tasks.len(), 4, "sweep, peers and discovery only");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn stop_frees_the_listening_port_before_it_returns() {
+        let listener = TcpListener::from_std(bind_dual(0).unwrap()).unwrap();
+        let port = local_port(&listener).unwrap();
+        let (a, _ea) = serve_as(
+            test_identity("dev-a"),
+            on_account(1),
+            listener,
+            None,
+            PeerStore::memory(),
+        )
+        .await;
+        let rebound = tokio::spawn(async move {
+            a.stop().await;
+            bind_dual(port).map(drop).map_err(|e| e.kind())
+        });
+        assert_eq!(rebound.await.unwrap(), Ok(()));
+    }
+
+    #[tokio::test]
+    async fn a_member_readded_with_its_key_unchanged_is_dialed_again() {
+        let me = test_identity("dev-a");
+        let group = Trust::grouped(&[1], &["dev-a"]);
+        let (g, _eg) = spawn_as(test_identity("dev-g"), pinned(&me, false), group).await;
+        g.shared.turned_away("dev-a");
+        g.set_members(vec![Member::of(&me)]);
+        assert!(!g.shared.lock().turned_away.contains_key("dev-a"));
+        g.shared.turned_away("dev-a");
+        assert!(g.forget("dev-a").is_some());
+        assert!(!g.shared.lock().turned_away.contains_key("dev-a"));
+    }
+
+    #[tokio::test]
+    async fn a_farewell_that_could_not_be_written_is_owed_again() {
+        let (l, mut el) = left_device(false).await;
+        let (mine, theirs) = crate::lan_sync::stream::tests::sessions().await;
+        drop(theirs);
+        l.shared.refuse(mine, "dev-m", LinkRefusal::Farewell).await;
+        assert!(!l.shared.lock().told.contains("dev-m"));
+        let seen: Vec<_> = std::iter::from_fn(|| el.try_recv().ok()).collect();
+        assert!(!seen.iter().any(farewell_sent("dev-m")), "{seen:?}");
+    }
+
+    #[tokio::test]
+    async fn a_member_hears_the_farewell_once() {
+        let (l, mut el) = left_device(false).await;
+        let (m, mut em) = member_listing("dev-l", test_identity("dev-l").key.public).await;
+        for _ in 0..2 {
+            l.connect(local(&m), Source::Mdns).await;
+            until("handshakes settle", || idle(&l) && idle(&m)).await;
+        }
+        let told = std::iter::from_fn(|| el.try_recv().ok()).filter(farewell_sent("dev-m"));
+        assert_eq!(told.count(), 1);
+        let left = presence_is("dev-l", PresenceState::Left);
+        assert_eq!(
+            std::iter::from_fn(|| em.try_recv().ok())
+                .filter(left)
+                .count(),
+            1
+        );
     }
 }

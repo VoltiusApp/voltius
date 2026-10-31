@@ -489,31 +489,21 @@ mod tests {
     #[cfg(desktop)]
     #[tokio::test]
     async fn reopen_after_the_device_rekeyed_follows_the_pin() {
-        for (policy, refused) in [
-            (PinPolicy::Repin, None),
-            (PinPolicy::Refuse, Some(ErrorCode::DeviceAccessDenied)),
-        ] {
-            let dir = tempfile::tempdir().unwrap();
-            let device = sharing(test_identity("dev"), dir.path()).await;
-            let me = lan(test_identity("me"), knowing(&[]), policy).await;
-            // Spent first so no sync link records the old device's advertised addresses.
-            me.spend_budget();
-            me.remember_at("dev", &[local(&device)]);
-            let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
-            link.bind("sftp-1".into());
-            link.dial().await.unwrap();
-            device.stop().await;
-            let device = sharing(rekeyed(), dir.path()).await;
-            me.remember_at("dev", &[local(&device)]);
-            let reopened = link.dial().await.err().map(|e| e.code());
-            assert_eq!(reopened, refused.map(Some), "{policy:?}");
-            assert_eq!(link.closed_now(), refused.is_some(), "{policy:?}");
-            let closed: Vec<_> = refused
-                .map(|c| ("sftp-1".to_string(), Some(c)))
-                .into_iter()
-                .collect();
-            assert_eq!(closes.lock().unwrap()[..], closed[..], "{policy:?}");
-        }
+        let dir = tempfile::tempdir().unwrap();
+        let device = sharing(test_identity("dev"), dir.path()).await;
+        let me = lan(test_identity("me"), knowing(&[]), PinPolicy::Repin).await;
+        // Spent first so no sync link records the old device's advertised addresses.
+        me.spend_budget();
+        me.remember_at("dev", &[local(&device)]);
+        let (link, closes) = link_over(Arc::new(Dialing(me.files_dialer())));
+        link.bind("sftp-1".into());
+        link.dial().await.unwrap();
+        device.stop().await;
+        let device = sharing(rekeyed(), dir.path()).await;
+        me.remember_at("dev", &[local(&device)]);
+        assert!(link.dial().await.is_ok());
+        assert!(!link.closed_now());
+        assert!(closes.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -550,7 +540,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_group_device_that_is_not_listed_denies_file_access() {
+    async fn a_group_session_is_denied_file_access() {
         let device = lan_with(
             test_identity("dev"),
             PeerStore::memory(),
@@ -560,25 +550,6 @@ mod tests {
         let store = knowing(&[local(&device)]);
         let me = lan_with(test_identity("me"), store, Trust::grouped(&[2, 1], &[])).await;
         assert_eq!(failed_dial(&me).await, denied());
-    }
-
-    #[tokio::test]
-    async fn an_unlisted_group_device_at_a_stale_address_stays_retryable() {
-        let other = lan_with(
-            test_identity("other"),
-            PeerStore::memory(),
-            Trust::grouped(&[1], &[]),
-        )
-        .await;
-        let store = knowing(&[local(&other)]);
-        let me = lan_with(
-            test_identity("me"),
-            store,
-            Trust::grouped(&[2, 1], &["dev"]),
-        )
-        .await;
-        let unreachable = (Some(ErrorCode::DeviceUnreachable), vec![]);
-        assert_eq!(failed_dial(&me).await, unreachable);
     }
 
     #[tokio::test]

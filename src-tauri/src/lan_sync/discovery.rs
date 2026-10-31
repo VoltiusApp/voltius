@@ -1,5 +1,5 @@
 use super::lock;
-use mdns_sd::{DaemonEvent, ServiceDaemon, ServiceEvent, ServiceInfo, TxtProperties};
+use mdns_sd::{DaemonEvent, Receiver, ServiceDaemon, ServiceEvent, ServiceInfo, TxtProperties};
 use rand::Rng;
 use std::collections::{HashMap, VecDeque};
 use std::net::{Ipv4Addr, SocketAddr};
@@ -12,6 +12,8 @@ pub const SERVICE_TYPE: &str = "_voltius._tcp.local.";
 pub const ROTATE_EVERY: Duration = Duration::from_secs(15 * 60);
 const OWN_NAMES_KEPT: usize = 2;
 const MDNS_GROUP: (Ipv4Addr, u16) = (Ipv4Addr::new(224, 0, 0, 251), 5353);
+const OVERHEAR_EVERY: Duration = Duration::from_secs(30);
+const OVERHEAR_READ: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiscoveryError {
@@ -181,7 +183,74 @@ pub struct Discovery {
     tasks: Vec<JoinHandle<()>>,
 }
 
-/// Without a port nothing is registered: the device only browses.
+struct Sink {
+    own: OwnNames,
+    pairable: Pairable,
+    seen: Arc<Mutex<Sightings>>,
+    found: Sender<Found>,
+}
+
+impl Sink {
+    async fn take(&self, event: ServiceEvent) -> bool {
+        let service = match event {
+            ServiceEvent::ServiceResolved(service) => service,
+            ServiceEvent::ServiceRemoved(_, instance) => {
+                lock(&self.seen).removed(&instance);
+                return true;
+            }
+            _ => return true,
+        };
+        let instance = service.get_fullname();
+        let ours = lock_names(&self.own).iter().any(|n| n == instance)
+            || lock(&self.pairable).as_deref() == Some(instance);
+        if ours {
+            return true;
+        }
+        let is_open = is_pairable(service.get_properties());
+        let addrs: Vec<SocketAddr> = service
+            .get_addresses()
+            .iter()
+            .map(|ip| SocketAddr::new(ip.to_ip_addr(), service.get_port()))
+            .collect();
+        lock(&self.seen).resolved(instance, &addrs, is_open);
+        for found_one in Found::each(instance, addrs, is_open) {
+            if self.found.send(found_one).await.is_err() {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+async fn listen(events: Receiver<ServiceEvent>, sink: Sink) {
+    while let Ok(event) = events.recv_async().await {
+        if !sink.take(event).await {
+            return;
+        }
+    }
+}
+
+// Reads only what others announced; ending each read before the next keeps the daemon from refreshing it.
+async fn overhear(daemon: ServiceDaemon, sink: Sink) {
+    let mut ticker = tokio::time::interval(OVERHEAR_EVERY);
+    loop {
+        ticker.tick().await;
+        let Ok(events) = daemon.browse_cache(SERVICE_TYPE) else {
+            continue;
+        };
+        while let Ok(Ok(event)) = tokio::time::timeout(OVERHEAR_READ, events.recv_async()).await {
+            if matches!(event, ServiceEvent::SearchStopped(_)) {
+                break;
+            }
+            if !sink.take(event).await {
+                return;
+            }
+        }
+        let _ = daemon.stop_browse(SERVICE_TYPE);
+    }
+}
+
+/// Without a port nothing is registered and no query is sent: the device only overhears announcements.
 pub fn start(
     port: Option<u16>,
     found: Sender<Found>,
@@ -194,10 +263,27 @@ pub fn start(
     let own: OwnNames = Arc::new(Mutex::new(first.into_iter().collect()));
     let pairable = Pairable::default();
     let seen = Arc::new(Mutex::new(Sightings::default()));
-    let events = daemon
-        .browse(SERVICE_TYPE)
-        .map_err(|e| map_mdns_error(&e))?;
+    let sink = Sink {
+        own: own.clone(),
+        pairable: pairable.clone(),
+        seen: seen.clone(),
+        found,
+    };
     let monitor = daemon.monitor().map_err(|e| map_mdns_error(&e))?;
+    let browse = match port {
+        Some(_) => {
+            let events = daemon
+                .browse(SERVICE_TYPE)
+                .map_err(|e| map_mdns_error(&e))?;
+            tokio::spawn(listen(events, sink))
+        }
+        None => {
+            daemon
+                .accept_unsolicited(true)
+                .map_err(|e| map_mdns_error(&e))?;
+            tokio::spawn(overhear(daemon.clone(), sink))
+        }
+    };
 
     let watch = {
         let errors = errors.clone();
@@ -205,42 +291,6 @@ pub fn start(
             while let Ok(event) = monitor.recv_async().await {
                 if let DaemonEvent::Error(e) = event {
                     if errors.send(map_mdns_error(&e)).await.is_err() {
-                        return;
-                    }
-                }
-            }
-        })
-    };
-
-    let browse = {
-        let own = own.clone();
-        let pairable = pairable.clone();
-        let seen = seen.clone();
-        tokio::spawn(async move {
-            while let Ok(event) = events.recv_async().await {
-                let service = match event {
-                    ServiceEvent::ServiceResolved(service) => service,
-                    ServiceEvent::ServiceRemoved(_, instance) => {
-                        lock(&seen).removed(&instance);
-                        continue;
-                    }
-                    _ => continue,
-                };
-                let instance = service.get_fullname();
-                let ours = lock_names(&own).iter().any(|n| n == instance)
-                    || lock(&pairable).as_deref() == Some(instance);
-                if ours {
-                    continue;
-                }
-                let is_open = is_pairable(service.get_properties());
-                let addrs: Vec<SocketAddr> = service
-                    .get_addresses()
-                    .iter()
-                    .map(|ip| SocketAddr::new(ip.to_ip_addr(), service.get_port()))
-                    .collect();
-                lock(&seen).resolved(instance, &addrs, is_open);
-                for found_one in Found::each(instance, addrs, is_open) {
-                    if found.send(found_one).await.is_err() {
                         return;
                     }
                 }
@@ -418,6 +468,19 @@ mod tests {
             assert_eq!(discovery.tasks.len(), 2);
             assert_eq!(discovery.set_pairable(true).unwrap(), None);
         }
+    }
+
+    #[tokio::test]
+    async fn without_a_port_no_query_is_ever_sent() {
+        let (found, _found_rx) = tokio::sync::mpsc::channel(4);
+        let (errors, _errors_rx) = tokio::sync::mpsc::channel(4);
+        let discovery = start(None, found, errors).expect("mdns daemon starts");
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let metrics = discovery.daemon.get_metrics().unwrap();
+        let metrics = metrics.recv_async().await.unwrap();
+        let asked = ["browse", "cache-refresh-ptr", "cache-refresh-srv-txt"];
+        let sent: i64 = asked.iter().filter_map(|k| metrics.get(*k)).sum();
+        assert_eq!(sent, 0, "{metrics:?}");
     }
 
     #[tokio::test]
