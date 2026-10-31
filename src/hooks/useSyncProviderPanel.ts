@@ -4,7 +4,7 @@ import { useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { runManualSync } from "@/services/syncIntent";
 import { runSyncProviderAction } from "@/services/syncProviderAction";
 import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
-import { syncStatusColor } from "@/services/syncStatus";
+import { syncStatusColor, type SyncHeaderStatus } from "@/services/syncStatus";
 import { INACTIVE_SYNC_ROWS, syncFailureReason, syncStatusLabel } from "@/services/syncStatusText";
 
 const KEEPS_MENU_OPEN: ReadonlySet<SyncProviderAction["kind"]> = new Set(["pause", "resume"]);
@@ -32,16 +32,16 @@ export function useSyncProviderPanel(provider: SyncProviderView) {
   const active = availability === "active";
   const motion = useSyncMotion(active ? state.status : "idle");
   const syncNow = useSyncNow(provider);
-  return {
-    motion,
-    syncNow,
-    inactive: active || availability === "locked" ? null : INACTIVE_SYNC_ROWS[availability],
-    status: active
-      ? {
-          label: syncStatusLabel(t, motion.status, state.lastSync),
-          color: syncStatusColor(motion.status),
-          reason: syncFailureReason(motion.status, state.error),
-        }
-      : null,
-  };
+  const inactive = active || availability === "locked" ? null : INACTIVE_SYNC_ROWS[availability];
+  const status = active
+    ? {
+        label: syncStatusLabel(t, motion.status, state.lastSync),
+        color: syncStatusColor(motion.status),
+        reason: syncFailureReason(motion.status, state.error),
+      }
+    : null;
+  const header: SyncHeaderStatus | null = status
+    ? { label: status.label, color: status.color, spin: motion.status === "syncing" }
+    : inactive ? { label: t(inactive.labelKey), color: inactive.tone } : null;
+  return { syncNow, inactive, status, header };
 }

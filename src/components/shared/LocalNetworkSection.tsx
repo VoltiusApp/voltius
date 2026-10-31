@@ -7,14 +7,14 @@ import { LanConfirmPrompt } from "@/components/shared/LanConfirmPrompt";
 import { LanForgetPrompt } from "@/components/shared/LanForgetPrompt";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
 import { useAsyncFlag, useCanPairDevices } from "@/hooks/useNoAccountInstall";
-import { SyncHeaderButton, SyncInlineAction, SyncSectionTitle, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
+import { SyncHeaderButton, SyncInlineAction, SyncSectionHeader, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
 import { useLanDeviceRows } from "@/hooks/useLanDeviceRows";
 import { runSyncMenuAction } from "@/hooks/useSyncProviderPanel";
 import { logFailure } from "@/lib/logger";
 import { usePlanDisplay } from "@/services/planDisplay";
 import { inLanGroup, leaveLanGroup, setLanSyncPaused } from "@/services/lanSync";
 import type { DeviceDot, DeviceRow } from "@/services/lanSyncDevices";
-import { SYNC_PAUSED_ICON } from "@/services/syncStatus";
+import { SYNC_NEARBY_ICON, type SyncHeaderStatus } from "@/services/syncStatus";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { formatRelative } from "@/utils/localeFormat";
 import { usePlatform } from "@/utils/platform";
@@ -25,8 +25,6 @@ import { blockedFix } from "@/services/lanBlockedFix";
 const STYLES = {
   dropdown: {
     section: "px-3 py-2.5 space-y-2 border-b border-(--t-border)",
-    statusIcon: 12,
-    status: "text-xs",
     list: "flex flex-col gap-1.5 p-2 rounded-lg",
     row: "gap-2",
     rowIcon: 13,
@@ -36,8 +34,6 @@ const STYLES = {
   },
   sheet: {
     section: "px-3 pt-2 pb-1 space-y-1.5",
-    statusIcon: 16,
-    status: "text-sm",
     list: "flex flex-col px-3 rounded-xl",
     row: "min-h-11 gap-3",
     rowIcon: 16,
@@ -55,14 +51,17 @@ const DOT_STYLE: Record<DeviceDot, CSSProperties> = {
   "offline-ok": { boxShadow: "inset 0 0 0 1.5px var(--t-text-muted)" },
 };
 
-function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: DeviceRow[], platform: string | null): { icon: string; color: string; label: string; spin?: boolean } {
-  if (paused) return { icon: SYNC_PAUSED_ICON, color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
-  if (blocked) return blockedFix(t, platform);
+function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: DeviceRow[], platform: string | null): SyncHeaderStatus {
+  if (paused) return { color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
+  if (blocked) {
+    const { color, label } = blockedFix(t, platform);
+    return { color, label };
+  }
   const syncing = rows.find((r) => r.dot === "syncing");
-  if (syncing) return { icon: "lucide:loader-circle", color: "var(--t-accent)", spin: true, label: t("layout.sync.local.status.syncing", { name: syncing.name }) };
+  if (syncing) return { color: "var(--t-accent)", spin: true, label: t("layout.sync.local.status.syncing", { name: syncing.name }) };
   const live = rows.filter((r) => r.dot === "live").length;
-  if (live > 0) return { icon: "lucide:circle-check", color: "var(--t-status-connected)", label: t("layout.sync.local.status.live", { count: live }) };
-  return { icon: "lucide:wifi", color: "var(--t-text-dim)", label: t("layout.sync.local.status.none") };
+  if (live > 0) return { color: "var(--t-status-connected)", label: t("layout.sync.local.status.live", { count: live }) };
+  return { color: "var(--t-text-dim)", label: t("layout.sync.local.status.none") };
 }
 
 function rowDetail(t: TFunction, row: DeviceRow, anyNearby: boolean): { text: string; color: string } {
@@ -160,19 +159,13 @@ export function LocalNetworkSection({ variant, onClose, onPair }: { variant: Syn
   return (
     <div data-lan-section className={sheet ? "pb-1" : undefined}>
       <div className={s.section}>
-        <div className="flex items-center justify-between gap-2">
-          <SyncSectionTitle variant={variant} icon="lucide:wifi" label={t("layout.sync.local.title")} />
+        <SyncSectionHeader variant={variant} icon={SYNC_NEARBY_ICON} label={t("layout.sync.local.title")} status={line}>
           {!sheet && (
             <SyncHeaderButton onClick={toggle.onTap} title={toggle.label}>
               <Icon icon={toggle.icon} width={10} />
             </SyncHeaderButton>
           )}
-        </div>
-
-        <div className={`flex items-start ${sheet ? "gap-2" : "gap-1.5"}`} style={{ color: line.color }}>
-          <Icon icon={line.icon} width={s.statusIcon} className={`shrink-0 mt-0.5 ${line.spin ? "motion-safe:animate-spin" : ""}`} />
-          <span className={`${s.status} leading-snug`}>{line.label}</span>
-        </div>
+        </SyncSectionHeader>
         {!sheet && openSettings && <SyncInlineAction onClick={openSettings.onTap} label={openSettings.label} />}
         {!sheet && (pair || leave) && (
           <div className="flex flex-wrap gap-x-3 gap-y-1">

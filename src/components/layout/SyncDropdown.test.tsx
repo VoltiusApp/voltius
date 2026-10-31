@@ -68,22 +68,22 @@ describe("SyncDropdown", () => {
 
   test("Sync now calls the provider's syncNow", () => {
     const syncNow = vi.fn(async () => {});
-    const { getByText } = render(
+    const { getByTitle } = render(
       <SyncDropdown anchorRef={createRef()} open onClose={() => {}} providers={[view({ id: "plugin-gist-sync", syncNow })]} installer={installer} />,
     );
-    fireEvent.click(getByText("layout.sync.syncNow"));
+    fireEvent.click(getByTitle("layout.sync.syncNow"));
     expect(syncNow).toHaveBeenCalled();
   });
 
   test("a paused provider still syncs on demand and resumes from its row", () => {
     const syncNow = vi.fn(async () => {});
-    const { getByText } = render(
+    const { getByText, getByTitle } = render(
       <SyncDropdown anchorRef={createRef()} open onClose={() => {}} providers={[
         view({ id: "voltius", availability: "paused", syncNow, action: { kind: "resume" } }),
       ]} installer={installer} />,
     );
     expect(getByText("layout.sync.paused")).toBeTruthy();
-    fireEvent.click(getByText("layout.sync.syncNow"));
+    fireEvent.click(getByTitle("layout.sync.syncNow"));
     expect(syncNow).toHaveBeenCalled();
     fireEvent.click(getByText("layout.sync.resumeArrow"));
     expect(runAction).toHaveBeenCalledWith({ kind: "resume" });

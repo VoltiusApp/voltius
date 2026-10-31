@@ -4,14 +4,13 @@ import { Icon } from "@iconify/react";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
 import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
-import { SyncStatusIcon } from "@/components/shared/SyncStatusIcon";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import type { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useAvailableSyncProviders } from "@/hooks/useAvailableSyncProviders";
 import { AvailableSyncProviderRow } from "@/components/shared/AvailableSyncProviderRow";
 import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
-import { providerLang, SyncHeaderButton, SyncInlineAction, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
+import { providerLang, SyncHeaderButton, SyncInlineAction, SyncSectionHeader } from "@/components/shared/SyncSectionParts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +24,7 @@ function formatBytes(bytes: number): string {
 
 function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
-  const { motion, syncNow, inactive: inactiveRow, status } = useSyncProviderPanel(provider);
+  const { syncNow, inactive: inactiveRow, status, header } = useSyncProviderPanel(provider);
 
   const act = () => {
     if (provider.action) onAction(provider.action);
@@ -34,20 +33,16 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
 
   return (
     <div data-sync-provider={provider.id} className="px-3 py-2.5 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <SyncSectionTitle variant="dropdown" icon={provider.icon} label={provider.label} lang={providerLang(provider.id)} />
-        <div className="flex items-stretch gap-1">
-          {toggle && (
-            <SyncHeaderButton onClick={() => onAction(toggle)} title={t(`layout.sync.${toggle.kind}`)}>
-              <Icon icon={toggle.kind === "pause" ? "lucide:pause" : "lucide:play"} width={10} />
-            </SyncHeaderButton>
-          )}
-          <SyncHeaderButton onClick={syncNow.run} disabled={syncNow.busy || !syncNow.available} faded={!syncNow.available} title={t("layout.sync.syncNow")}>
-            <Icon icon="lucide:refresh-cw" width={10} />
-            {t("layout.sync.syncNow")}
+      <SyncSectionHeader variant="dropdown" icon={provider.icon} label={provider.label} lang={providerLang(provider.id)} status={header}>
+        {toggle && (
+          <SyncHeaderButton onClick={() => onAction(toggle)} title={t(`layout.sync.${toggle.kind}`)}>
+            <Icon icon={toggle.kind === "pause" ? "lucide:pause" : "lucide:play"} width={10} />
           </SyncHeaderButton>
-        </div>
-      </div>
+        )}
+        <SyncHeaderButton onClick={syncNow.run} disabled={syncNow.busy || !syncNow.available} faded={!syncNow.available} title={t("layout.sync.syncNow")}>
+          <Icon icon="lucide:refresh-cw" width={10} />
+        </SyncHeaderButton>
+      </SyncSectionHeader>
 
       {provider.availability === "locked" && (
         <button
@@ -63,22 +58,10 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
         </button>
       )}
 
-      {inactiveRow && (
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5" style={{ color: inactiveRow.tone }}>
-            {inactiveRow.icon && <Icon icon={inactiveRow.icon} width={11} />}
-            <span className="text-xs">{t(inactiveRow.labelKey)}</span>
-          </div>
-          {provider.action && <SyncInlineAction onClick={act} label={t(inactiveRow.actionKey)} />}
-        </div>
-      )}
+      {inactiveRow && provider.action && <SyncInlineAction onClick={act} label={t(inactiveRow.actionKey)} />}
 
       {status && (
         <>
-          <div className="flex items-center gap-1.5" style={{ color: status.color }}>
-            <SyncStatusIcon sync={motion} width={12} />
-            <span className="text-xs">{status.label}</span>
-          </div>
           {status.reason && (
             <p className="text-[10px] leading-relaxed break-words" style={{ color: status.color }}>
               {status.reason}
@@ -162,7 +145,7 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
   return (
     <div
       ref={fade.panelRef}
-      className={`surface-float fixed z-50 w-68 overflow-hidden ${fade.className}`}
+      className={`surface-float fixed z-50 w-76 overflow-hidden ${fade.className}`}
       style={{ top, right, ...fade.style }}
     >
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
