@@ -2,6 +2,8 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 export interface SubscriptionView {
   tier: string;
+  planSource: "own" | "seat";
+  seatTeam: string | null;
   accountMode: string | null;
   emailVerified: boolean;
   trialEndsAt: string | null;
@@ -30,6 +32,8 @@ export async function subscription(): Promise<SubscriptionView> {
   const s = useSubscriptionStore.getState();
   return {
     tier: s.tier,
+    planSource: s.seatTeam ? "seat" : "own",
+    seatTeam: s.seatTeam?.name ?? null,
     accountMode: s.accountMode,
     emailVerified: s.emailVerified,
     trialEndsAt: iso(s.trialEndsAt),

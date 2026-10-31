@@ -9,8 +9,9 @@ export function buildAccountTools(ports: ToolSurfacePorts): Tool[] {
     {
       name: "subscription_status",
       description:
-        "Read the signed-in account's plan: tier, trial state, seats in use, billing status and "
-        + "renewal dates. Refreshes from the server first; `stale` is true when that refresh failed.",
+        "Read the signed-in account's plan: tier, where it comes from (`planSource` own or seat, with "
+        + "`seatTeam` naming the team), trial state, seats in use, billing status and renewal dates. "
+        + "Refreshes from the server first; `stale` is true when that refresh failed.",
       risk: "auto",
       schema: z.object({}),
       execute: async () => ports.api.account.subscription(),

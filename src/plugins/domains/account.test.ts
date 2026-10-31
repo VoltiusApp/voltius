@@ -5,7 +5,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 describe("domaine account", () => {
   beforeEach(() => {
     useSubscriptionStore.setState({
-      tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false,
+      tier: "free", seatTeam: null, trialEndsAt: null, trialUsed: false, isTrialActive: false,
       accountMode: null, usedSeats: null, totalSeats: null,
       subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null,
       emailVerified: true, billingLoadFailed: false,
@@ -23,6 +23,25 @@ describe("domaine account", () => {
     expect(view.tier).toBe("teams");
     expect(view.usedSeats).toBe(3);
     expect(view.totalSeats).toBe(5);
+  });
+
+  test("plan propre : planSource own, sans équipe", async () => {
+    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "pro" });
+
+    const view = await subscription();
+
+    expect(view).toMatchObject({ tier: "pro", planSource: "own", seatTeam: null });
+  });
+
+  test("siège d'équipe : planSource seat, avec le nom de l'équipe", async () => {
+    useSubscriptionStore.setState({
+      load: vi.fn(async () => {}),
+      tier: "teams", billingTier: "free", seatTeam: { id: "t1", name: "Acme", trial: false },
+    });
+
+    const view = await subscription();
+
+    expect(view).toMatchObject({ tier: "teams", planSource: "seat", seatTeam: "Acme" });
   });
 
   test("un échec d'enrichissement facturation (pro) signale stale=true", async () => {
