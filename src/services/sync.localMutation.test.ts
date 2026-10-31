@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), mode: "server"
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 
-import { push, scheduleSync, resumeSync, onLocalMutation, onRemotePayloadMerged, mergeRemotePayload } from "./sync";
+import { exportLocalBlob, push, scheduleSync, resumeSync, onLocalMutation, onRemotePayloadMerged, mergeRemotePayload } from "./sync";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -140,4 +140,14 @@ test("an edit to a type that is not synced tells nobody", () => {
   syncAfterEdit("connection");
 
   expect(fn).not.toHaveBeenCalled();
+});
+
+test("the cloud blob leaves LAN group state behind; a group broadcast carries it", async () => {
+  const exports = () => h.invoke.mock.calls.filter(([c]) => c === "backup_export").map(([, a]) => a);
+  await push();
+  expect(exports()[0].skipFiles).toContain("lan_group.json");
+  expect(exports()[0].skipSecretPrefixes).toEqual(["lan-group-secret:"]);
+  await exportLocalBlob({ lanGroup: true });
+  expect(exports()[1].skipFiles).not.toContain("lan_group.json");
+  expect(exports()[1].skipSecretPrefixes).toEqual([]);
 });

@@ -21,6 +21,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, filterSecrets, collectExcludedIds, type SecretMaps } from "./syncExclusion";
 import { deviceScopedSecretIds } from "@/services/deviceScopedSecrets";
+import { LAN_GROUP_FILE, LAN_GROUP_SECRET_PREFIX } from "@/services/lanGroupFiles";
 import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
@@ -63,7 +64,7 @@ export const ENTITY_FILES = [
   "snippets.json",
   "snippet_folders.json",
   "port_forwarding_rules.json",
-  "lan_group.json",
+  LAN_GROUP_FILE,
 ] as const;
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -400,8 +401,8 @@ function outgoingSettings(): UserDataBundle {
   return filterOutgoing(buildUserDataBundle());
 }
 
-/** Vault-key-encrypted export of local data, honouring sync exclusions. */
-export async function exportLocalBlob(): Promise<number[]> {
+/** Vault-key-encrypted export of local data, honouring sync exclusions. A LAN group's own state leaves only for that group. */
+export async function exportLocalBlob({ lanGroup = false }: { lanGroup?: boolean } = {}): Promise<number[]> {
   assertNotHalted();
   const encKey = await getEncKey();
   const [deviceId, accountId] = await Promise.all([
@@ -418,7 +419,8 @@ export async function exportLocalBlob(): Promise<number[]> {
     accountId,
     deviceId,
     excludedIds: getExcludedObjectIds(),
-    skipFiles: getSkippedSyncFiles(),
+    skipFiles: lanGroup ? getSkippedSyncFiles() : [...getSkippedSyncFiles(), LAN_GROUP_FILE],
+    skipSecretPrefixes: lanGroup ? [] : [LAN_GROUP_SECRET_PREFIX],
   });
 }
 

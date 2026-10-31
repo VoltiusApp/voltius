@@ -660,6 +660,14 @@ test("farewell_key_expires_after_thirty_days", async () => {
   expect(keychain.lan_sync_farewell).toBeUndefined();
 });
 
+test("a group holding no epoch secret reads as no group", async () => {
+  noPasswordDevice();
+  await createGroupIfNeeded();
+  delete disk.secrets["lan-group-secret:1"];
+  expect(await readGroup()).toBeNull();
+  expect((await pairInfo()).group).toBeNull();
+});
+
 test("ungrouped_device_reports_its_entities", async () => {
   noPasswordDevice();
   withData("mine", MINE);
@@ -828,6 +836,7 @@ function groupOne(self: Record<string, unknown>, others: Array<ReturnType<typeof
     entity(HOST, { kind: "member", name: "Desktop", platform: "linux", device_key: HOST_KEY, joined_at: OLD }),
     ...others,
   ]);
+  holdEpochs({ 1: "11".repeat(32) });
 }
 
 test("rejoin_same_group_after_a_key_change_rewrites_self_with_the_new_key", async () => {

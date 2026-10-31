@@ -168,14 +168,31 @@ fn strip_excluded(
         }
     }
 
-    let is_excluded_secret = |key: &str| {
+    drop_secrets(secrets, clocks, |key| {
         key.split(':')
             .nth(1)
             .map(|id| excluded.contains(id))
             .unwrap_or(false)
-    };
-    secrets.retain(|k, _| !is_excluded_secret(k));
-    clocks.retain(|k, _| !is_excluded_secret(k));
+    });
+}
+
+fn drop_secrets(
+    secrets: &mut HashMap<String, String>,
+    clocks: &mut HashMap<String, String>,
+    drop: impl Fn(&str) -> bool,
+) {
+    secrets.retain(|k, _| !drop(k));
+    clocks.retain(|k, _| !drop(k));
+}
+
+fn strip_secret_prefixes(
+    secrets: &mut HashMap<String, String>,
+    clocks: &mut HashMap<String, String>,
+    prefixes: &[String],
+) {
+    drop_secrets(secrets, clocks, |key| {
+        prefixes.iter().any(|p| key.starts_with(p.as_str()))
+    });
 }
 
 /// Collect every `*.json` in `dir` into `files`, keyed by `prefix` + filename.
@@ -218,6 +235,7 @@ pub fn backup_export(
     device_id: String,
     excluded_ids: Option<Vec<String>>,
     skip_files: Option<Vec<String>>,
+    skip_secret_prefixes: Option<Vec<String>>,
 ) -> Result<Vec<u8>, String> {
     if enc_key.len() != 32 {
         return Err("enc_key must be 32 bytes".to_string());
@@ -253,6 +271,11 @@ pub fn backup_export(
     let mut clocks = data.clocks;
     let excluded: HashSet<String> = excluded_ids.unwrap_or_default().into_iter().collect();
     strip_excluded(&mut files, &mut secrets, &mut clocks, &excluded);
+    strip_secret_prefixes(
+        &mut secrets,
+        &mut clocks,
+        &skip_secret_prefixes.unwrap_or_default(),
+    );
     let payload = BlobPayload {
         files,
         secrets,
@@ -645,6 +668,32 @@ mod tests {
             vec!["proxy_password:h1"]
         );
         assert_eq!(clocks.keys().collect::<Vec<_>>(), vec!["proxy_password:h1"]);
+    }
+
+    #[test]
+    fn strip_secret_prefixes_drops_matching_secrets_from_both_maps() {
+        let mut secrets: HashMap<String, String> = [
+            ("lan-group-secret:1", "g"),
+            ("lan-group-secret:12", "g"),
+            ("password:lan-group-secret", "p"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let mut clocks = secrets.clone();
+        strip_secret_prefixes(
+            &mut secrets,
+            &mut clocks,
+            &["lan-group-secret:".to_string()],
+        );
+        assert_eq!(
+            secrets.keys().collect::<Vec<_>>(),
+            vec!["password:lan-group-secret"]
+        );
+        assert_eq!(
+            clocks.keys().collect::<Vec<_>>(),
+            vec!["password:lan-group-secret"]
+        );
     }
 
     #[test]

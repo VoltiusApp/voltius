@@ -14,7 +14,7 @@ vi.mock("@/services/sync", () => ({
   },
 }));
 
-import { addressesFrom, watchPeerAddresses } from "./lanSyncAddresses";
+import { addressesFrom, forgetPeerAddresses, ignorePeerAddresses, watchPeerAddresses } from "./lanSyncAddresses";
 
 const FILE = "lan_sync_addresses.json";
 const payload = (content?: string) => ({ files: content === undefined ? {} : ({ [FILE]: content } as Record<string, string>), secrets: {} });
@@ -81,6 +81,30 @@ describe("watchPeerAddresses", () => {
     await flush();
     expect(learned("dev-e")).toEqual([["10.0.0.2:1"]]);
     expect(learned("dev-f")).toEqual([]);
+    off();
+  });
+
+  test("a_merge_during_a_group_session_stays_ignored_when_it_ends_before_the_merge_settles", async () => {
+    const release = ignorePeerAddresses();
+    merged("dev-g", file({ deviceId: "dev-g" }));
+    release();
+    await flush();
+    const off = watchPeerAddresses();
+    await flush();
+    expect(learned("dev-g")).toEqual([]);
+    off();
+  });
+
+  test("forgetting_drops_settled_and_in_flight_addresses", async () => {
+    merged("dev-h", file({ deviceId: "dev-h" }));
+    await flush();
+    merged("dev-i", file({ deviceId: "dev-i" }));
+    forgetPeerAddresses();
+    await flush();
+    const off = watchPeerAddresses();
+    await flush();
+    expect(learned("dev-h")).toEqual([]);
+    expect(learned("dev-i")).toEqual([]);
     off();
   });
 });

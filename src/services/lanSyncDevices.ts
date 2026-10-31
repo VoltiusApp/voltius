@@ -4,6 +4,7 @@ import { ENTITY_FILES, parseEntities, type BlobPayload } from "@/services/sync";
 export type DeviceDot = "live" | "syncing" | "behind" | "offline-ok" | "alert";
 export type DeviceFlag = "paused" | "keyChanged" | "moved";
 export type LanRoute = "lan" | "tailscale" | "vpn";
+export type PeerPresence = "live" | "paused" | "moved";
 
 export interface PeerInfo {
   deviceId: string;
@@ -13,6 +14,7 @@ export interface PeerInfo {
   address: string;
   deviceKey: string;
   files: boolean;
+  presence?: PeerPresence | "left";
 }
 
 export interface KnownDevice {
@@ -66,7 +68,7 @@ export function buildDeviceRows(input: {
   localClocks: Record<string, string>;
   syncing: ReadonlySet<string>;
   peerClocks?: Record<string, Record<string, string>>;
-  presence?: Record<string, "live" | "paused" | "moved">;
+  presence?: Record<string, PeerPresence>;
   rejected?: Record<string, "keyChanged">;
 }): DeviceRow[] {
   const { selfId, peers, known, localClocks, syncing, peerClocks = {}, presence = {}, rejected = {} } = input;

@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { persist, type PersistStorage } from "zustand/middleware";
 import { logFailure } from "@/lib/logger";
-import { entityClocks, type KnownDevice, type PeerInfo } from "@/services/lanSyncDevices";
+import { entityClocks, type KnownDevice, type PeerInfo, type PeerPresence } from "@/services/lanSyncDevices";
 import { getDeviceId, onRemotePayloadMerged, type BlobPayload } from "@/services/sync";
 
 export type LanStatus = "running" | "paused" | "blocked" | "stopped";
-export type Presence = "live" | "paused" | "moved";
+export type Presence = PeerPresence;
 export type PairRole = "host" | "joiner";
 
 export interface Pairing {
@@ -46,14 +46,14 @@ interface LanSyncStore {
   setPairing: (pairing: Pairing) => void;
   setPresence: (deviceId: string, presence: Presence) => void;
   markRejected: (deviceId: string, reason: "keyChanged") => void;
+  clearRejected: (deviceIds: string[]) => void;
   dropDevice: (deviceId: string) => void;
   forgetAccount: () => void;
   adoptScope: (scope: string) => void;
 }
 
-function without<T>(record: Record<string, T>, id: string): Record<string, T> {
-  const { [id]: _, ...rest } = record;
-  return rest;
+function without<T>(record: Record<string, T>, ...ids: string[]): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([id]) => !ids.includes(id)));
 }
 
 type Persisted = Pick<LanSyncStore, "paused" | "introShown" | "known" | "knownScope" | "peerClocks">;
@@ -137,8 +137,15 @@ export const useLanSyncStore = create<LanSyncStore>()(
           for (const { deviceId } of s.peers) {
             if (!present.has(deviceId) && known[deviceId]) known[deviceId] = { ...known[deviceId], lastSeen };
           }
-          const rejected = Object.fromEntries(Object.entries(s.rejected).filter(([id]) => !present.has(id)));
-          return { peers, known, rejected, syncing: new Set([...s.syncing].filter((id) => present.has(id))) };
+          const presence = { ...s.presence };
+          for (const p of peers) if (p.presence && p.presence !== "left") presence[p.deviceId] = p.presence;
+          return {
+            peers,
+            known,
+            presence,
+            rejected: without(s.rejected, ...present),
+            syncing: new Set([...s.syncing].filter((id) => present.has(id))),
+          };
         }),
       markSyncing: (deviceId, on) =>
         set((s) => {
@@ -173,6 +180,7 @@ export const useLanSyncStore = create<LanSyncStore>()(
       setPairing: (pairing) => set({ pairing }),
       setPresence: (deviceId, presence) => set((s) => ({ presence: { ...s.presence, [deviceId]: presence } })),
       markRejected: (deviceId, reason) => set((s) => ({ rejected: { ...s.rejected, [deviceId]: reason } })),
+      clearRejected: (deviceIds) => set((s) => ({ rejected: without(s.rejected, ...deviceIds) })),
       dropDevice: (deviceId) =>
         set((s) => ({
           known: without(s.known, deviceId),
