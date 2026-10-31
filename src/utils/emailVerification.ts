@@ -1,16 +1,7 @@
+import { parseJwtPayload } from "@/utils/jwtPayload";
+
 export interface JwtEmailVerificationPayload {
   email_verified?: boolean;
-}
-
-export function parseJwtPayload<T extends object>(token: string): T | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const raw = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
 }
 
 export function readJwtEmailVerified(token: string): boolean {
@@ -33,3 +24,5 @@ export function isEmailUndeliverable(status: number, body: unknown): boolean {
 }
 
 export class EmailUndeliverableError extends Error {}
+
+export { parseJwtPayload };

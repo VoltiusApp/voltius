@@ -3,6 +3,7 @@ import { featureDisabledError } from "@/services/featureDisabled";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { refuseIfPlanRequired } from "@/services/planRequired";
 import { getJwt, getServerUrl } from "@/services/authTokens";
+import { parseJwtPayload } from "@/utils/jwtPayload";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -461,12 +462,7 @@ export async function getJwtToken(): Promise<string | null> {
 export async function getMyUserId(): Promise<string | null> {
   const jwt = await getJwt();
   if (!jwt) return null;
-  try {
-    const payload = JSON.parse(atob(jwt.split(".")[1]));
-    return (payload.sub as string) ?? null;
-  } catch {
-    return null;
-  }
+  return parseJwtPayload<{ sub?: string }>(jwt)?.sub ?? null;
 }
 
 export async function getServerUrlValue(): Promise<string | null> {
