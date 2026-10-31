@@ -20,7 +20,7 @@ import { routeLabel } from "@/services/myDevices";
 
 const STYLES = {
   dropdown: {
-    section: "px-3 py-2.5 space-y-2 border-b border-(--t-border)",
+    section: "px-3 py-2.5 space-y-2",
     list: "flex flex-col gap-1.5 p-2 rounded-lg",
     row: "gap-2",
     rowIcon: 13,

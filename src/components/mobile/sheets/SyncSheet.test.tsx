@@ -121,17 +121,18 @@ describe("SyncSheet", () => {
       .toEqual(["voltius", "plugin-gist-sync"]);
   });
 
-  test("sheet variant renders above provider sections with 44 px rows", () => {
+  test("sheet variant renders between Voltius Cloud and plugin providers with 44 px rows", () => {
     useLanSyncStore.setState({ status: "running", paused: false });
     h.lanRows = [
       { deviceId: "d1", name: "Desktop", platform: "linux", nearby: true, route: "lan", dot: "live", behind: 0, lastSeen: null },
       { deviceId: "d2", name: "MacBook", platform: "macos", nearby: false, route: null, dot: "offline-ok", behind: 0, lastSeen: null },
     ];
-    h.providers = [view({})];
+    h.providers = [view({ id: "voltius" }), view({ id: "plugin-gist-sync" })];
     render(<SyncSheet />);
     const lan = document.querySelector("[data-lan-section]")!;
-    const provider = document.querySelector("[data-sync-provider]")!;
-    expect(lan.compareDocumentPosition(provider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const order = [...document.querySelectorAll("[data-sync-provider], [data-lan-section]")]
+      .map((e) => e.getAttribute("data-sync-provider") ?? "lan");
+    expect(order).toEqual(["voltius", "lan", "plugin-gist-sync"]);
     const rows = [...lan.querySelectorAll("[data-lan-device]")];
     expect(rows).toHaveLength(2);
     for (const r of rows) expect(r.classList.contains("min-h-11")).toBe(true);

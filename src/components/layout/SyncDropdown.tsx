@@ -1,9 +1,8 @@
-import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
-import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
+import { splitCloudProvider, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import type { usePluginInstaller } from "@/components/settings/usePluginInstaller";
@@ -136,6 +135,7 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
   if (!fade.mounted) return null;
 
   const onAction = (action: SyncProviderAction) => runSyncMenuAction(action, onClose);
+  const { cloud, others } = splitCloudProvider(providers);
 
   const anchor = anchorRef.current;
   const rect = anchor?.getBoundingClientRect();
@@ -163,14 +163,11 @@ export function SyncDropdown({ anchorRef, open, onClose, providers, installer }:
         </button>
       </div>
 
-      <LocalNetworkSection variant="dropdown" onClose={onClose} />
-
-      {providers.map((provider, i) => (
-        <Fragment key={provider.id}>
-          {i > 0 && <div style={{ height: 1, background: "var(--t-border)" }} />}
-          <SyncSection provider={provider} onAction={onAction} />
-        </Fragment>
-      ))}
+      <div className="divide-y divide-(--t-border)">
+        {cloud && <SyncSection provider={cloud} onAction={onAction} />}
+        <LocalNetworkSection variant="dropdown" onClose={onClose} />
+        {others.map((provider) => <SyncSection key={provider.id} provider={provider} onAction={onAction} />)}
+      </div>
 
       <MoreSyncProviders installer={installer} />
 

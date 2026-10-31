@@ -134,6 +134,10 @@ export function buildSyncProviders(inputs: SyncProviderInputs): SyncProviderView
   return [voltiusProvider(inputs.voltius), ...plugins];
 }
 
+export function splitCloudProvider(providers: SyncProviderView[]): { cloud?: SyncProviderView; others: SyncProviderView[] } {
+  return { cloud: providers.find((p) => p.id === VOLTIUS_PROVIDER_ID), others: providers.filter((p) => p.id !== VOLTIUS_PROVIDER_ID) };
+}
+
 export function isNearbyOnly(sync: EffectiveSync): boolean {
   return sync.nearby > 0 && sync.status !== "error" && (!sync.configured || sync.status === "offline");
 }
