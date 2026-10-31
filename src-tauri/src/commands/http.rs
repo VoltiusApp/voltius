@@ -83,6 +83,35 @@ pub(crate) fn client_builder() -> reqwest::ClientBuilder {
     builder
 }
 
+// Kept short so a connection left over from before a network change is not picked up.
+const POOL_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// One client per connect timeout, so back-to-back requests share pooled connections
+/// instead of paying a TLS handshake each.
+fn request_client(connect_timeout_ms: Option<u64>) -> Result<reqwest::Client, String> {
+    static CLIENTS: std::sync::OnceLock<std::sync::Mutex<HashMap<Option<u64>, reqwest::Client>>> =
+        std::sync::OnceLock::new();
+    let mut clients = CLIENTS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if let Some(client) = clients.get(&connect_timeout_ms) {
+        return Ok(client.clone());
+    }
+    let mut builder = client_builder().pool_idle_timeout(POOL_IDLE_TIMEOUT);
+    if let Some(ms) = connect_timeout_ms {
+        builder = builder.connect_timeout(std::time::Duration::from_millis(ms));
+    }
+    // Defensive overall cap: a stalled handshake or read must surface as an error,
+    // never an indefinitely-pending IPC promise (which froze the cloud-login UI on Android).
+    let client = builder
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    clients.insert(connect_timeout_ms, client.clone());
+    Ok(client)
+}
+
 #[cfg(target_os = "android")]
 fn android_tls_config() -> rustls::ClientConfig {
     use std::sync::OnceLock;
@@ -123,16 +152,7 @@ pub async fn http_request(
         _ => return Err("unsupported HTTP method".to_string()),
     };
 
-    let mut builder = client_builder();
-    if let Some(ms) = connect_timeout_ms {
-        builder = builder.connect_timeout(std::time::Duration::from_millis(ms));
-    }
-    // Defensive overall cap: a stalled handshake or read must surface as an error,
-    // never an indefinitely-pending IPC promise (which froze the cloud-login UI on Android).
-    builder = builder.timeout(std::time::Duration::from_secs(30));
-    let client = builder.build().map_err(|e| e.to_string())?;
-
-    let mut request = client.request(method, url);
+    let mut request = request_client(connect_timeout_ms)?.request(method, url);
     for header in headers {
         request = request.header(header.name, header.value);
     }

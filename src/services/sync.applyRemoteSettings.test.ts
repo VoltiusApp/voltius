@@ -29,11 +29,15 @@ const emptyEntityFiles = () => Object.fromEntries(ENTITY_FILES.map((f) => [f, "[
  * One remote device ("remote-1") whose blob decrypts to `remoteFiles`, against
  * a local disk holding `localFiles`. Records what the sync round writes.
  */
+let remoteBlobVersion = 0;
+
 function serveRemoteDevice(
   remoteFiles: Record<string, string>,
   localFiles: Record<string, string> = {},
   overrides: Record<string, unknown> = {},
 ) {
+  // Each served blob is a new upload, so a sync never takes it for one it already merged.
+  const updatedAt = new Date(Date.UTC(2030, 0, 1) + ++remoteBlobVersion * 1000).toISOString();
   const served = {
     settingsSaves: [] as string[],
     stateImports: [] as Array<{ files: Record<string, string> }>,
@@ -67,7 +71,7 @@ function serveRemoteDevice(
   h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/v1/teams")) return notFound;
     if (url.endsWith("/v1/sync/devices")) {
-      return okJson({ devices: [{ device_id: "remote-1", metadata: {}, updated_at: "2030-01-01T00:00:00.000Z" }] });
+      return okJson({ devices: [{ device_id: "remote-1", metadata: {}, updated_at: updatedAt }] });
     }
     if (url.includes("/v1/sync/blob?device_id=remote-1")) return okJson({ blob: btoa("x") });
     if (url.endsWith("/v1/sync/blob") && init?.method === "PUT") return okJson({});
@@ -183,7 +187,7 @@ test("a vault created since the last push survives a pull that brings another de
   expect(useVaultStore.getState().vaults.map((v) => v.id).sort()).toEqual(["personal", "v-new", "v-remote"]);
 });
 
-test("the status reports success as soon as the work ends, while calls during the hold are still dropped", async () => {
+test("the status reports success as soon as the work ends, and a call during the hold runs once more after it", async () => {
   h.invoke.mockImplementation(async (cmd: string, args?: { key?: string }) => {
     if (cmd !== "keychain_get") return null;
     if (args?.key === "server_url") return "https://sync.example.com";
@@ -199,11 +203,10 @@ test("the status reports success as soon as the work ends, while calls during th
   const first = syncNow();
   await vi.waitFor(() => expect(getSyncState().status).toBe("success"), { timeout: 300 });
   await syncNow();
-  await first;
   expect(deviceListings).toBe(1);
-
-  await syncNow();
-  expect(deviceListings).toBe(2);
+  await first;
+  await vi.waitFor(() => expect(deviceListings).toBe(2), { timeout: 2000 });
+  await new Promise((r) => setTimeout(r, 700));
 });
 
 test("a remote rename older than a local last-used touch is still written to disk", async () => {

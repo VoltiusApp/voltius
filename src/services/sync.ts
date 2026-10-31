@@ -2,6 +2,7 @@ import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
 import { createSerialQueue } from "@/lib/serialQueue";
+import { forgetMergedRemoteBlobs, settledBlobs } from "@/services/settledBlobs";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
@@ -75,7 +76,7 @@ export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
 
 let _status: SyncStatus = "idle";
 let _syncInFlight = false;
-// Calls within this long of a sync's start are still dropped; the status no longer waits for it.
+// A sync stays in flight at least this long, so calls just after it run once more; the status does not wait for it.
 const SYNC_HOLD_MS = 600;
 let _lastSync: Date | null = null;
 let _error: string | null = null;
@@ -90,6 +91,8 @@ let _blobSizeBytes: number | null = null;
 // A local change, or the launch sync, that an unreachable server left undone.
 let _pushOwed = false;
 let _loginSyncOwed = false;
+// Asked for while a sync ran; runs once that sync succeeds.
+let _syncOwed = false;
 const _listeners = new Set<() => void>();
 
 export function getSyncState() {
@@ -615,53 +618,103 @@ async function applyRemoteExtras(remoteDeviceId: string, remotePayload: BlobPayl
 
 const applyRemoteSshConfig = (payload: BlobPayload) => applyRemoteSshConfigState(payload.files["ssh-config.json"]).catch(() => {});
 
-/** Run `step` per remote blob source; a failing source is skipped and returned, never thrown. */
+/** Run `step` per remote blob source, up to `concurrency` at once; a failing source is skipped and returned, never thrown. */
 export async function forEachRemoteBlob<T>(
   sources: T[],
   label: (source: T) => string,
   step: (source: T) => Promise<void>,
+  concurrency = 1,
 ): Promise<Array<{ source: T; error: unknown }>> {
   const failed: Array<{ source: T; error: unknown }> = [];
-  for (const source of sources) {
-    try {
-      await step(source);
-    } catch (error) {
-      failed.push({ source, error });
-      const kind = error instanceof BlobDecryptError ? "undecryptable blob" : "non-decrypt error";
-      console.debug(`[sync] ${kind} from ${label(source)}:`, error);
+  let next = 0;
+  const worker = async () => {
+    while (next < sources.length) {
+      const source = sources[next++];
+      try {
+        await step(source);
+      } catch (error) {
+        failed.push({ source, error });
+        const kind = error instanceof BlobDecryptError ? "undecryptable blob" : "non-decrypt error";
+        console.debug(`[sync] ${kind} from ${label(source)}:`, error);
+      }
     }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, sources.length) }, worker));
   return failed;
 }
 
 const deviceLabel = (device: DeviceInfo) => `device ${device.device_id}`;
 
-/** CRDT-merge a decrypted remote payload into local state. Returns true if local state changed. */
-export async function mergeRemotePayload(remoteDeviceId: string, remotePayload: BlobPayload): Promise<boolean> {
-  await applyRemoteExtras(remoteDeviceId, remotePayload);
+const PULL_CONCURRENCY = 4;
+
+/** Download and decrypt each device's blob, a few at once, in `devices` order; a device that fails is skipped. */
+async function pullRemotePayloads(devices: DeviceInfo[]): Promise<Array<[DeviceInfo, BlobPayload]>> {
+  if (devices.length === 0) return [];
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const pulled = new Array<BlobPayload | null>(devices.length).fill(null);
+  const indexed = devices.map((device, i) => ({ device, i }));
+  await forEachRemoteBlob(indexed, ({ device }) => deviceLabel(device), async ({ device, i }) => {
+    try {
+      pulled[i] = await pullRemotePayload(serverUrl, device.device_id);
+    } catch (e) {
+      if (e instanceof BlobDecryptError) settledBlobs.add(device);
+      throw e;
+    }
+  }, PULL_CONCURRENCY);
+  return devices.flatMap((device, i) => (pulled[i] ? [[device, pulled[i]] as [DeviceInfo, BlobPayload]] : []));
+}
+
+/** Merge every payload into `base` in one read-merge-write of local state. Returns true if the merge changed `base`. */
+async function mergePayloadsInto(
+  readBase: () => Promise<BlobPayload>,
+  pulled: Array<[string, BlobPayload]>,
+  { alwaysWrite = false } = {},
+): Promise<boolean> {
+  for (const [deviceId, payload] of pulled) await applyRemoteExtras(deviceId, payload);
   const changed = await serialMerge(async () => {
-    const { payload, changed } = mergeBlobPayload(await invoke<BlobPayload>("state_export_raw"), remotePayload);
-    if (changed) await importMergedPayload(payload);
-    return changed;
+    let merged = await readBase();
+    let anyChanged = false;
+    for (const [, payload] of pulled) {
+      const step = mergeBlobPayload(merged, payload);
+      merged = step.payload;
+      anyChanged ||= step.changed;
+    }
+    if (anyChanged || alwaysWrite) await importMergedPayload(merged);
+    return anyChanged;
   });
-  await applyRemoteSshConfig(remotePayload);
-  notifyRemotePayloadMerged(remoteDeviceId, remotePayload);
+  for (const [deviceId, payload] of pulled) {
+    await applyRemoteSshConfig(payload);
+    notifyRemotePayloadMerged(deviceId, payload);
+  }
   return changed;
 }
 
-/**
- * Fetch a remote device's blob, decrypt it, CRDT-merge with local state, and write to disk.
- * Returns true if the merge changed local state.
- * Errors for individual devices are swallowed so one offline device doesn't abort the sync.
- */
-async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) return false;
+/** CRDT-merge decrypted remote payloads into local state. Returns true if local state changed. */
+export function mergeRemotePayloads(pulled: Array<[string, BlobPayload]>): Promise<boolean> {
+  if (pulled.length === 0) return Promise.resolve(false);
+  return mergePayloadsInto(() => invoke<BlobPayload>("state_export_raw"), pulled);
+}
 
-  const remotePayload = await pullRemotePayload(serverUrl, remoteDeviceId);
-  if (!remotePayload) return false;
+export const mergeRemotePayload = (remoteDeviceId: string, remotePayload: BlobPayload): Promise<boolean> =>
+  mergeRemotePayloads([[remoteDeviceId, remotePayload]]);
 
-  return mergeRemotePayload(remoteDeviceId, remotePayload);
+function settledBlobsForCurrentInputs(): typeof settledBlobs {
+  const { syncTypes, syncSettingDomains, settingSyncOverrides } = useSyncPrefsStore.getState();
+  const { kek, dek } = useVaultKeysStore.getState();
+  settledBlobs.useInputs(
+    JSON.stringify([syncTypes, syncSettingDomains, settingSyncOverrides, getExcludedObjectIds()]),
+    [getVaultKey(), kek, dek],
+  );
+  return settledBlobs;
+}
+
+/** Fetch, decrypt and merge the given devices' blobs. Returns true if the merge changed local state. */
+async function pullAndMerge(devices: DeviceInfo[]): Promise<boolean> {
+  const pulled = await pullRemotePayloads(devices);
+  const changed = await mergeRemotePayloads(pulled.map(([device, payload]) => [device.device_id, payload]));
+  for (const [device] of pulled) settledBlobs.add(device);
+  return changed;
 }
 
 /**
@@ -673,13 +726,20 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
  *                   data actually changed local state, preventing infinite loops.
  */
 export async function syncNow(forcePush = false): Promise<void> {
-  if (_syncInFlight || _halted) return;
+  if (_halted) return;
+  if (_syncInFlight) {
+    _syncOwed = true;
+    _pushOwed ||= forcePush;
+    return;
+  }
 
   // Personal blob sync is a Pro feature — free-tier accounts have no blob quota.
   if (!useSubscriptionStore.getState().isPro) return;
 
   _syncInFlight = true;
   const mustPush = forcePush || _pushOwed;
+  _pushOwed = false;
+  let succeeded = false;
   const holdUntil = Date.now() + SYNC_HOLD_MS;
   const wasOffline = _status === "offline";
   setState("syncing");
@@ -693,14 +753,12 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
 
-    // Pull and merge each remote device sequentially (each merge feeds the next).
-    // Per-device errors are non-fatal: skip corrupted/mismatched blobs rather than
-    // surfacing a confusing "decryption failed" to the user.
-    let anyPersonalChanged = false;
-    const remoteDevices = devices.filter((d) => d.device_id !== localDeviceId);
-    await forEachRemoteBlob(remoteDevices, deviceLabel, async (device) => {
-      if (await pullAndMerge(device.device_id)) anyPersonalChanged = true;
-    });
+    // A blob that fails to download or decrypt is skipped rather than surfacing a
+    // confusing "decryption failed" to the user.
+    const settled = settledBlobsForCurrentInputs();
+    const anyPersonalChanged = await pullAndMerge(
+      devices.filter((d) => d.device_id !== localDeviceId && !settled.has(d)),
+    );
 
     if (anyPersonalChanged) {
       await reloadAllStores();
@@ -712,7 +770,7 @@ export async function syncNow(forcePush = false): Promise<void> {
       await push();
     }
 
-    _pushOwed = false;
+    succeeded = true;
     setState("success");
     if (wasOffline) wakeSseRetry();
   } catch (e) {
@@ -721,13 +779,16 @@ export async function syncNow(forcePush = false): Promise<void> {
       setState("success");
       return;
     }
-    _pushOwed = mustPush;
+    _pushOwed ||= mustPush;
     reportFailure(e);
     throw e;
   } finally {
     const wait = holdUntil - Date.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     _syncInFlight = false;
+    const owed = _syncOwed && succeeded;
+    _syncOwed = false;
+    if (owed) syncInBackground().catch(logFailure("sync asked for during the previous one"));
   }
 }
 
@@ -745,22 +806,12 @@ async function readDeviceSecrets(): Promise<SecretMaps> {
  * is never read except for the device-scoped secrets, which no blob carries.
  */
 export async function replaceWithPayloads(pulled: Array<[string, BlobPayload]>): Promise<void> {
-  let merged: MergedPayload = {
+  forgetMergedRemoteBlobs();
+  const empty: BlobPayload = {
     files: Object.fromEntries(ENTITY_FILES.map((f) => [f, "[]"])),
     ...(await readDeviceSecrets()),
   };
-  const applied: Array<[string, BlobPayload]> = [];
-  await forEachRemoteBlob(pulled, ([deviceId]) => `device ${deviceId}`, async ([deviceId, payload]) => {
-    await applyRemoteExtras(deviceId, payload);
-    merged = mergeBlobPayload(merged, payload).payload;
-    applied.push([deviceId, payload]);
-  });
-
-  await serialMerge(() => importMergedPayload(merged));
-  for (const [deviceId, payload] of applied) {
-    await applyRemoteSshConfig(payload);
-    notifyRemotePayloadMerged(deviceId, payload);
-  }
+  await mergePayloadsInto(async () => empty, pulled, { alwaysWrite: true });
   await reloadAllStores();
 }
 
@@ -786,16 +837,10 @@ export async function syncOnLoginReplace(): Promise<void> {
       return;
     }
 
-    const serverUrl = await getServerUrl();
-    if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+    if (!(await getServerUrl())) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
-    const pulled: [string, BlobPayload][] = [];
-    await forEachRemoteBlob(await listDevices(), deviceLabel, async (device) => {
-      const remotePayload = await pullRemotePayload(serverUrl, device.device_id);
-      if (remotePayload) pulled.push([device.device_id, remotePayload]);
-    });
-
-    await replaceWithPayloads(pulled);
+    const pulled = await pullRemotePayloads(await listDevices());
+    await replaceWithPayloads(pulled.map(([device, payload]) => [device.device_id, payload]));
     await push();
     await completeTeamLoginSetup();
 
@@ -828,7 +873,8 @@ export async function syncOnLogin(): Promise<void> {
     // CRDT merge is idempotent so pulling own blob on normal login is safe.
     const devices = await listDevices();
 
-    await forEachRemoteBlob(devices, deviceLabel, async (device) => { await pullAndMerge(device.device_id); });
+    settledBlobsForCurrentInputs();
+    await pullAndMerge(devices);
 
     await reloadAllStores();
     await push();
@@ -983,6 +1029,8 @@ export function stopRealtimeSync(): void {
 /** Stop the stream and the debounce timer, and refuse every later local write or upload until `resumeSync`. */
 export function haltSync(): void {
   _halted = true;
+  forgetMergedRemoteBlobs();
+  _syncOwed = false;
   stopRealtimeSync();
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = null;
