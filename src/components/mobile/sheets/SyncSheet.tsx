@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import PairDeviceSheet from "./PairDeviceSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
-import { providerLang, SyncSectionTitle } from "@/components/shared/SyncSectionParts";
-import { SyncStatusIcon } from "@/components/shared/SyncStatusIcon";
+import { providerLang, SyncSectionHeader } from "@/components/shared/SyncSectionParts";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
 import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
@@ -23,7 +21,7 @@ const ACTION_ICONS: Record<SyncProviderAction["kind"], string> = {
 
 function SyncSheetSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
-  const { motion, syncNow, inactive, status } = useSyncProviderPanel(provider);
+  const { syncNow, inactive, status, header } = useSyncProviderPanel(provider);
   const { action, pauseToggle } = provider;
 
   const actionRow = (a: SyncProviderAction, label: string): SheetAction =>
@@ -40,25 +38,11 @@ function SyncSheetSection({ provider, onAction }: { provider: SyncProviderView; 
   return (
     <div data-sync-provider={provider.id} className="pb-1">
       <div className="px-3 pt-2 pb-1 space-y-1.5">
-        <SyncSectionTitle variant="sheet" icon={provider.icon} label={provider.label} lang={providerLang(provider.id)} />
-        {status && (
-          <>
-            <div className="flex items-center gap-2" style={{ color: status.color }}>
-              <SyncStatusIcon sync={motion} width={16} />
-              <span className="text-sm">{status.label}</span>
-            </div>
-            {status.reason && (
-              <p data-sync-reason className="text-xs leading-relaxed break-words" style={{ color: status.color }}>
-                {status.reason}
-              </p>
-            )}
-          </>
-        )}
-        {inactive && (
-          <div className="flex items-center gap-2" style={{ color: inactive.tone }}>
-            {inactive.icon && <Icon icon={inactive.icon} width={16} />}
-            <span className="text-sm">{t(inactive.labelKey)}</span>
-          </div>
+        <SyncSectionHeader variant="sheet" icon={provider.icon} label={provider.label} lang={providerLang(provider.id)} status={header} />
+        {status?.reason && (
+          <p data-sync-reason className="text-xs leading-relaxed break-words" style={{ color: status.color }}>
+            {status.reason}
+          </p>
         )}
       </div>
       {rows.map((it) => <SheetActionRow key={it.slug} attr="sync-action" it={it} />)}

@@ -56,7 +56,7 @@ describe("MobileHeader", () => {
     const { container } = render(<MobileHeader />);
     const button = container.querySelector("button[data-mobile-sync-status]")!;
     expect(button.getAttribute("aria-label")).toBe("layout.sync.local.tooltip");
-    expect(button.querySelector("[data-icon='lucide:wifi']")).not.toBeNull();
+    expect(button.querySelector("[data-icon='lucide:monitor-smartphone']")).not.toBeNull();
   });
 
   test("paused local sync does not count its peers as nearby", async () => {

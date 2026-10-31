@@ -108,8 +108,14 @@ export function sanitizeSyncProviderState(raw: unknown, pluginId: string): SyncP
   }
 }
 
+export interface SyncHeaderStatus {
+  label: string;
+  color: string;
+  spin?: boolean;
+}
+
 export const SYNC_PAUSED_ICON = "lucide:circle-pause";
-export const SYNC_NEARBY_ICON = "lucide:wifi";
+export const SYNC_NEARBY_ICON = "lucide:monitor-smartphone";
 export const SYNC_NEARBY_COLOR = "var(--t-status-connected)";
 
 /** Lucide icon for a sync status (matches SyncDropdown). */

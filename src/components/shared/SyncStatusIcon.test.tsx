@@ -117,23 +117,23 @@ const renderEffective = (sync: EffectiveSync) => render(<EffectiveProbe sync={sy
 
 test("nearby devices with no cloud sync show a green wifi icon", () => {
   const el = renderEffective(effective({ configured: false, status: "idle", nearby: 2 }));
-  expect(el.querySelector("[data-icon='lucide:wifi']")).not.toBeNull();
+  expect(el.querySelector("[data-icon='lucide:monitor-smartphone']")).not.toBeNull();
   expect(el.dataset.color).toBe("var(--t-status-connected)");
 });
 
 test("nearby devices with cloud sync offline show the wifi icon", () => {
-  expect(renderEffective(effective({ status: "offline", nearby: 1 })).querySelector("[data-icon='lucide:wifi']")).not.toBeNull();
+  expect(renderEffective(effective({ status: "offline", nearby: 1 })).querySelector("[data-icon='lucide:monitor-smartphone']")).not.toBeNull();
 });
 
 test("no nearby devices keeps cloud-off, and cloud sync that works keeps its own icon", () => {
   const off = renderEffective(effective({ configured: false, status: "idle" }));
   expect(off.querySelector("[data-icon='lucide:cloud-off']")).not.toBeNull();
   cleanup();
-  expect(renderEffective(effective({ nearby: 2 })).querySelector("[data-icon='lucide:wifi']")).toBeNull();
+  expect(renderEffective(effective({ nearby: 2 })).querySelector("[data-icon='lucide:monitor-smartphone']")).toBeNull();
 });
 
 test("nearby never upgrades an error", () => {
   const el = renderEffective(effective({ status: "error", error: "boom", nearby: 3 }));
-  expect(el.querySelector("[data-icon='lucide:wifi']")).toBeNull();
+  expect(el.querySelector("[data-icon='lucide:monitor-smartphone']")).toBeNull();
   expect(el.dataset.color).toBe("var(--t-status-error)");
 });
