@@ -38,6 +38,7 @@
     "device-unreachable": "Não foi possível alcançar esse dispositivo. Verifique se ele está ligado e na mesma rede.",
     "device-access-expired": "O acesso a este dispositivo terminou. Abra-o novamente para pedir permissão.",
     "device-read-only": "Esse dispositivo partilha estas pastas só para leitura.",
+    "device-forgotten": "Você esqueceu este dispositivo, por isso os arquivos dele foram fechados.",
     "pair": {
       "ended": {
         "accountDevice": "O outro dispositivo está conectado a uma conta Voltius. Entre aqui com a mesma conta.",

@@ -38,6 +38,7 @@
     "device-unreachable": "Zařízení je nedostupné. Zkontrolujte, že je zapnuté a ve stejné síti.",
     "device-access-expired": "Přístup k tomuto zařízení skončil. Otevřete ho znovu a požádejte o povolení.",
     "device-read-only": "Toto zařízení sdílí tyto složky pouze pro čtení.",
+    "device-forgotten": "Toto zařízení jste zapomněli, a proto byly jeho soubory zavřeny.",
     "pair": {
       "ended": {
         "accountDevice": "Druhé zařízení je přihlášené k účtu Voltius. Přihlaste se tady raději stejným účtem.",

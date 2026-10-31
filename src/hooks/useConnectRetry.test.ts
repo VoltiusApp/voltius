@@ -29,8 +29,8 @@ describe("connectRetryDelay", () => {
 });
 
 describe("connectErrorPhase", () => {
-  it("is final for a device refusal but not for a busy or unreachable device", () => {
-    for (const code of ["device-file-access-off", "device-access-denied", "device-approval-timed-out", "device-access-expired"] as const) {
+  it("is final for a device refusal or forget but not for a busy or unreachable device", () => {
+    for (const code of ["device-file-access-off", "device-access-denied", "device-approval-timed-out", "device-access-expired", "device-forgotten"] as const) {
       expect(connectErrorPhase(new BackendError(code, code))).toMatchObject({ errorCode: code, final: true });
     }
     for (const code of ["device-busy", "device-unreachable"] as const) {

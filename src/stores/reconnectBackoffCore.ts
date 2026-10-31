@@ -18,6 +18,7 @@ const FINAL_CODES: ReadonlySet<BackendErrorCode> = new Set<BackendErrorCode>([
   "device-access-denied",
   "device-approval-timed-out",
   "device-access-expired",
+  "device-forgotten",
 ]);
 
 /**

@@ -49,6 +49,7 @@ pub(crate) async fn connect_inner(
     step: impl Fn(SftpStep),
     events: LinkEvents,
 ) -> Result<DeviceConnected, AppError> {
+    let epoch = links.epoch();
     let closed = CancellationToken::new();
     let pass = relink
         .map(|id| links.pass(id, &device_id))
@@ -88,7 +89,10 @@ pub(crate) async fn connect_inner(
         _ => sftp.register_standalone(backend, closed).await,
     };
     link.bind(sftp_id.clone());
-    links.insert(sftp_id.clone(), &link);
+    if !links.insert(epoch, sftp_id.clone(), &link) {
+        sftp.close(&sftp_id).await;
+        return Err(AppError::Msg("The app reloaded while connecting".into()));
+    }
     Ok(DeviceConnected {
         sftp_id,
         rtt_ms,
@@ -318,6 +322,7 @@ mod tests {
     use crate::commands::sftp::resume::endpoint::LocalFs;
     use crate::commands::sftp::resume::engine_tests::noise;
     use crate::crypto::hex;
+    use crate::device_files::link::device_forgotten;
     use crate::device_files::policy::{self, AllowedDevice, Answer, FileAccessConfig, GRANT_IDLE};
     use crate::device_files::service::{FileService, CONFIG, REQUEST, SESSIONS};
     use crate::error::ErrorCode;
@@ -1007,6 +1012,33 @@ mod tests {
         close_device_sessions(&a.sftp, &a.links).await;
         s.until_open(&[]).await;
         assert!(a.sftp.backend(&c.sftp_id).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_connect_landing_after_a_reload_closes_its_session() {
+        let s = server(&[]).await;
+        let a = browser("dev-a", &s).await;
+        let reload = async {
+            s.until_pending(1).await;
+            close_device_sessions(&a.sftp, &a.links).await;
+            s.approve(Answer::Once).await;
+        };
+        let (connected, ()) = tokio::join!(a.connect(), reload);
+        assert!(connected.is_err());
+        s.until_open(&[]).await;
+    }
+
+    #[tokio::test]
+    async fn forgetting_a_device_ends_its_open_panes() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        let c = a.connect().await.unwrap();
+        s.until_open(&["dev-a"]).await;
+        a.links.end_device("dev-c", device_forgotten);
+        assert!(a.closed.lock().unwrap().is_empty());
+        a.links.end_device("dev-b", device_forgotten);
+        a.closes(&c, ErrorCode::DeviceForgotten).await;
+        s.until_open(&[]).await;
     }
 
     #[tokio::test]

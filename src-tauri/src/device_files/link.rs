@@ -137,6 +137,10 @@ pub fn refused(reason: Refusal) -> AppError {
     AppError::coded(code, message)
 }
 
+pub fn device_forgotten() -> AppError {
+    AppError::coded(ErrorCode::DeviceForgotten, "This device was forgotten")
+}
+
 impl DeviceLink {
     pub fn new(
         source: Arc<dyn FilesSource>,
@@ -233,15 +237,22 @@ impl DeviceLink {
 }
 
 #[derive(Default)]
-pub struct DeviceLinks(Mutex<HashMap<String, Weak<DeviceLink>>>);
+struct Table {
+    links: HashMap<String, Weak<DeviceLink>>,
+    epoch: u64,
+}
+
+#[derive(Default)]
+pub struct DeviceLinks(Mutex<Table>);
 
 impl DeviceLinks {
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, Weak<DeviceLink>>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Table> {
         self.0.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     pub fn pass(&self, sftp_id: &str, device_id: &str) -> Pass {
         self.lock()
+            .links
             .get(sftp_id)
             .and_then(Weak::upgrade)
             .filter(|link| link.device_id == device_id)
@@ -249,19 +260,48 @@ impl DeviceLinks {
             .unwrap_or_default()
     }
 
+    pub fn epoch(&self) -> u64 {
+        self.lock().epoch
+    }
+
     pub fn drain(&self) -> Vec<String> {
-        let mut links = self.lock();
-        links
+        let mut table = self.lock();
+        table.epoch += 1;
+        table
+            .links
             .drain()
             .filter(|(_, l)| l.strong_count() > 0)
             .map(|(id, _)| id)
             .collect()
     }
 
-    pub fn insert(&self, sftp_id: String, link: &Arc<DeviceLink>) {
-        let mut links = self.lock();
-        links.retain(|_, l| l.strong_count() > 0);
-        links.insert(sftp_id, Arc::downgrade(link));
+    /// False when a drain ran since `epoch`: the page that asked for this link is gone.
+    pub fn insert(&self, epoch: u64, sftp_id: String, link: &Arc<DeviceLink>) -> bool {
+        let mut table = self.lock();
+        if table.epoch != epoch {
+            return false;
+        }
+        table.links.retain(|_, l| l.strong_count() > 0);
+        table.links.insert(sftp_id, Arc::downgrade(link));
+        true
+    }
+
+    pub fn end_device(&self, device_id: &str, why: impl Fn() -> AppError) {
+        let ended: Vec<Arc<DeviceLink>> = {
+            let mut table = self.lock();
+            let mut ended = Vec::new();
+            table.links.retain(|_, l| match l.upgrade() {
+                Some(link) if link.device_id == device_id => {
+                    ended.push(link);
+                    false
+                }
+                live => live.is_some(),
+            });
+            ended
+        };
+        for link in ended {
+            link.close_with(why());
+        }
     }
 }
 

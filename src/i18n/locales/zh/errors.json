@@ -38,6 +38,7 @@
     "device-unreachable": "无法连接该设备。请确认它已开机并处于同一网络。",
     "device-access-expired": "对此设备的访问已结束。请重新打开以请求权限。",
     "device-read-only": "该设备以只读方式共享这些文件夹。",
+    "device-forgotten": "您已忘记此设备，因此它的文件已关闭。",
     "pair": {
       "ended": {
         "accountDevice": "另一台设备已登录 Voltius 账号。请改在这里用同一账号登录。",
