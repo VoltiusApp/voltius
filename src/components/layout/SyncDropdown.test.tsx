@@ -143,13 +143,14 @@ describe("SyncDropdown", () => {
     available.list = [];
   });
 
-  test("the local network section comes first, above the providers", () => {
+  test("Voltius Cloud comes first, then the local network, then plugin providers", () => {
     useLanSyncStore.setState({ status: "running" });
     lanRows.list = [{ deviceId: "d1", name: "Desktop", platform: "linux", nearby: true, route: "lan", dot: "live", behind: 0, lastSeen: null }];
     const { container } = render(
-      <SyncDropdown anchorRef={createRef()} open onClose={() => {}} providers={[view({ id: "voltius" })]} installer={installer} />,
+      <SyncDropdown anchorRef={createRef()} open onClose={() => {}} providers={[view({ id: "plugin-gist-sync" }), view({ id: "voltius" })]} installer={installer} />,
     );
-    const lan = container.querySelector("[data-lan-section]")!;
-    expect(lan.compareDocumentPosition(container.querySelector("[data-sync-provider]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const order = [...container.querySelectorAll("[data-sync-provider], [data-lan-section]")]
+      .map((e) => e.getAttribute("data-sync-provider") ?? "lan");
+    expect(order).toEqual(["voltius", "lan", "plugin-gist-sync"]);
   });
 });

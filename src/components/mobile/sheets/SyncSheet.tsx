@@ -7,7 +7,7 @@ import { LocalNetworkSection } from "@/components/shared/LocalNetworkSection";
 import { providerLang, SyncSectionHeader } from "@/components/shared/SyncSectionParts";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { runSyncMenuAction, useSyncProviderPanel } from "@/hooks/useSyncProviderPanel";
-import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
+import { splitCloudProvider, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 
 const ACTION_ICONS: Record<SyncProviderAction["kind"], string> = {
@@ -53,15 +53,16 @@ function SyncSheetSection({ provider, onAction }: { provider: SyncProviderView; 
 export default function SyncSheet() {
   const { t } = useTranslation();
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
-  const { providers } = useSyncProviders();
+  const { cloud, others } = splitCloudProvider(useSyncProviders().providers);
   const [pairing, setPairing] = useState(false);
   const onAction = (action: SyncProviderAction) => runSyncMenuAction(action, closeSheet);
   if (pairing) return <PairDeviceSheet onClose={closeSheet} />;
 
   return (
     <BottomSheet title={t("layout.sync.title")} onClose={closeSheet}>
+      {cloud && <SyncSheetSection provider={cloud} onAction={onAction} />}
       <LocalNetworkSection variant="sheet" onClose={closeSheet} onPair={() => setPairing(true)} />
-      {providers.map((provider) => <SyncSheetSection key={provider.id} provider={provider} onAction={onAction} />)}
+      {others.map((provider) => <SyncSheetSection key={provider.id} provider={provider} onAction={onAction} />)}
     </BottomSheet>
   );
 }
