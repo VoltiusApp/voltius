@@ -718,9 +718,7 @@ mod tests {
         let svc = s.svc().await;
         let cut = async {
             until("a partial download", || {
-                let started = std::fs::read_dir(out.path())
-                    .unwrap()
-                    .any(|e| e.unwrap().metadata().unwrap().len() > 0);
+                let started = rec.count("sftp-progress-device-reconnect") > 0;
                 async move { started }
             })
             .await;
