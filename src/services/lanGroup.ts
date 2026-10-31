@@ -114,9 +114,8 @@ function groupIn(payload: BlobPayload, selfId: string): GroupState | null {
   const meta = entities.find((e): e is GroupMeta => e.kind === "group" && isAlive(e));
   const members = entities.filter((e): e is GroupMember => e.kind === "member");
   const self = members.find((m) => m.id === selfId);
-  const secrets = epochsOf(payload.secrets).slice(0, MAX_GROUP_EPOCHS);
-  if (!meta || !self || !isAlive(self) || self.moved_at || secrets.length === 0) return null;
-  return { groupId: meta.group_id, members, secrets };
+  if (!meta || !self || !isAlive(self) || self.moved_at) return null;
+  return { groupId: meta.group_id, members, secrets: epochsOf(payload.secrets).slice(0, MAX_GROUP_EPOCHS) };
 }
 
 async function currentGroup() {

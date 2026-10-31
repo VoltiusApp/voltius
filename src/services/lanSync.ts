@@ -148,7 +148,7 @@ async function resolveScope(): Promise<Resolved | null> {
     return { trust: { scope, authKeys, ...farewellTrust(farewell) }, alive: [] };
   }
   const group = await readGroup();
-  if (!group) return farewellOnly();
+  if (!group?.secrets.length) return farewellOnly();
   groupScope = group.groupId;
   const live = group.members.filter(isAlive);
   return {

@@ -137,8 +137,11 @@ export const useLanSyncStore = create<LanSyncStore>()(
           for (const { deviceId } of s.peers) {
             if (!present.has(deviceId) && known[deviceId]) known[deviceId] = { ...known[deviceId], lastSeen };
           }
-          const presence = { ...s.presence };
-          for (const p of peers) if (p.presence && p.presence !== "left") presence[p.deviceId] = p.presence;
+          const presence = Object.fromEntries(Object.entries(s.presence).filter(([id, state]) => state === "moved" || present.has(id)));
+          for (const p of peers) {
+            if (p.presence === "left") delete presence[p.deviceId];
+            else if (p.presence) presence[p.deviceId] = p.presence;
+          }
           return {
             peers,
             known,

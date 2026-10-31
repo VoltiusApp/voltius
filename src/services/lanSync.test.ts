@@ -693,6 +693,13 @@ describe("no-account groups", () => {
     expect(await exported()).toEqual([[{ lanGroup: true }]]);
   });
 
+  test("a group holding no epoch secret starts no group manager", async () => {
+    h.group = { ...GROUP, secrets: [] };
+    await startLanSync();
+    expect(calls("lan_sync_start")).toHaveLength(0);
+    expect(await lanScope()).toBeNull();
+  });
+
   test("a members-only change updates the manager without restarting it", async () => {
     h.group = GROUP;
     await started();
@@ -852,6 +859,16 @@ describe("no-account groups", () => {
     await started();
     emit("peers", [{ ...peer("A"), presence: "paused" }, { ...peer("B"), presence: "live" }, { ...peer("C"), presence: "left" }]);
     expect(useLanSyncStore.getState().presence).toEqual({ A: "paused", B: "live" });
+  });
+
+  test("presence goes with the peer, except a move", async () => {
+    h.group = GROUP;
+    await started();
+    emit("presence", { deviceId: "M", state: "moved" });
+    emit("presence", { deviceId: "C", state: "paused" });
+    emit("peers", [{ ...peer("A"), presence: "paused" }, { ...peer("C"), presence: "live" }]);
+    emit("peers", [{ ...peer("C"), presence: "left" }]);
+    expect(useLanSyncStore.getState().presence).toEqual({ M: "moved" });
   });
 
   test("presence_and_rejected_reach_store", async () => {

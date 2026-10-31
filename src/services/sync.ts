@@ -401,7 +401,7 @@ function outgoingSettings(): UserDataBundle {
   return filterOutgoing(buildUserDataBundle());
 }
 
-/** Vault-key-encrypted export of local data, honouring sync exclusions. A LAN group's own state leaves only for that group. */
+/** Vault-key-encrypted export of local data, honouring sync exclusions. */
 export async function exportLocalBlob({ lanGroup = false }: { lanGroup?: boolean } = {}): Promise<number[]> {
   assertNotHalted();
   const encKey = await getEncKey();
@@ -414,13 +414,14 @@ export async function exportLocalBlob({ lanGroup = false }: { lanGroup?: boolean
   await unlockVaultIfNeeded();
   await writeFilteredSettings();
 
+  const groupState = lanGroup ? { files: [], secretPrefixes: [] } : { files: [LAN_GROUP_FILE], secretPrefixes: [LAN_GROUP_SECRET_PREFIX] };
   return invoke<number[]>("backup_export", {
     encKey,
     accountId,
     deviceId,
     excludedIds: getExcludedObjectIds(),
-    skipFiles: lanGroup ? getSkippedSyncFiles() : [...getSkippedSyncFiles(), LAN_GROUP_FILE],
-    skipSecretPrefixes: lanGroup ? [] : [LAN_GROUP_SECRET_PREFIX],
+    skipFiles: [...getSkippedSyncFiles(), ...groupState.files],
+    skipSecretPrefixes: groupState.secretPrefixes,
   });
 }
 
