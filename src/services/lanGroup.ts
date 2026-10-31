@@ -404,8 +404,9 @@ export function farewellSent(deviceId: string): Promise<void> {
     const kept = await readKeptFarewell();
     if (!kept?.pending?.includes(deviceId)) return;
     const pending = kept.pending.filter((id) => id !== deviceId);
-    await keepFarewell({ ...kept, pending });
-    if (pending.length === 0) await releaseLeftScope(kept);
+    if (pending.length > 0) return keepFarewell({ ...kept, pending });
+    await invoke("keychain_delete", { key: FAREWELL_ENTRY });
+    await releaseLeftScope(kept);
   });
 }
 
