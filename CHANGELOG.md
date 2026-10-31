@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-10-31
+
+### Changed
+
+- Cloud sync is much faster. Devices whose data hasn't changed since the last sync are skipped, and the rest download in parallel and merge in one step, so the first sync after launch no longer takes up to a minute (#749)
+- Voltius Cloud now sits above Local network in the sync menu and the Android sync sheet. Plugin sync providers (Gist, Cloudflare, S3) stay below Local network (#750)
+
+### Fixed
+
+- A sync requested while another was running is no longer dropped. It now runs right after the current one, so a remote change or local edit no longer waits for the next sync (#749)
+
 ## [0.65.0] - 2026-10-31
 
 ### Added
