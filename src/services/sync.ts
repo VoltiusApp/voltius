@@ -15,6 +15,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
@@ -150,12 +151,29 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 
 export { getServerUrl };
 
+const SEAT_REFRESH_DEBOUNCE_MS = 1_000;
+let seatRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSeatName: string | null = null;
+
+function scheduleSeatRefresh(): void {
+  const { seatTeam } = useSubscriptionStore.getState();
+  pendingSeatName ??= seatTeamName(useTeamStore.getState().teams, seatTeam);
+  if (seatRefreshTimer) clearTimeout(seatRefreshTimer);
+  seatRefreshTimer = setTimeout(() => {
+    seatRefreshTimer = null;
+    tryRefreshJwt().catch(logFailure("seat change: tryRefreshJwt"));
+  }, SEAT_REFRESH_DEBOUNCE_MS);
+}
+
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
 async function tryRefreshJwt(): Promise<string | null> {
   const outcome = await refreshAccessToken({ fetchImpl: reachableFetch });
   if (typeof outcome === "string") return null;
   const jwt_token = outcome.jwt;
 
+  const before = useSubscriptionStore.getState();
+  const lostSeatName = seatTeamName(useTeamStore.getState().teams, before.seatTeam) ?? pendingSeatName;
+  pendingSeatName = null;
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;
   const wasTierBefore = useSubscriptionStore.getState().tier;
@@ -173,7 +191,9 @@ async function tryRefreshJwt(): Promise<string | null> {
     useNotificationStore.getState().addToast({
       source: APP_SOURCE,
       type: "toast",
-      message: i18n.t("common.toast.proSubscriptionEnded"),
+      message: before.seatTeam && lostSeatName
+        ? i18n.t("common.toast.seatEnded", { team: lostSeatName })
+        : i18n.t("common.toast.proSubscriptionEnded"),
       severity: "warning",
       duration: 0,
       action: {
@@ -1156,6 +1176,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
   } else if (eventData.startsWith("membership_changed:")) {
     const parsed = parseMembershipChangedEvent(eventData);
     if (!parsed) return;
+    scheduleSeatRefresh();
     if (parsed.kind === "added") {
       await useTeamStore.getState().loadTeams();
       await onTeamMembershipAdded(parsed.teamId);
@@ -1201,6 +1222,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       if (parsed.inUse) store.addUser(parsed.connectionId, parsed.userId);
       else store.removeUser(parsed.connectionId, parsed.userId);
     }
+  } else if (eventData === "plan_changed") {
+    scheduleSeatRefresh();
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(logFailure("token_invalidated: tryRefreshJwt"));
   } else if (eventData.startsWith("session_shared:") || eventData.startsWith("session_ended:")) {

@@ -61,6 +61,7 @@
     },
     "toast": {
       "proSubscriptionEnded": "Sua assinatura Pro terminou — a sincronização foi pausada.",
+      "seatEnded": "O seu lugar em {{team}} terminou — a sincronização foi pausada.",
       "managePlan": "Gerenciar plano →",
       "undoFailed": "Falha ao desfazer: {{error}}",
       "redoFailed": "Falha ao refazer: {{error}}",

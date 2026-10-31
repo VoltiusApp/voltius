@@ -61,6 +61,7 @@
     },
     "toast": {
       "proSubscriptionEnded": "Your Pro subscription has ended — sync has been paused.",
+      "seatEnded": "Your seat in {{team}} ended — sync has been paused.",
       "managePlan": "Manage plan →",
       "undoFailed": "Undo failed: {{error}}",
       "redoFailed": "Redo failed: {{error}}",

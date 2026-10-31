@@ -61,6 +61,7 @@
     },
     "toast": {
       "proSubscriptionEnded": "Votre abonnement Pro a expiré — la synchronisation est en pause.",
+      "seatEnded": "Votre place dans {{team}} a pris fin — la synchronisation est en pause.",
       "managePlan": "Gérer l'abonnement →",
       "undoFailed": "Échec de l'annulation : {{error}}",
       "redoFailed": "Échec du rétablissement : {{error}}",
