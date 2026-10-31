@@ -7,6 +7,9 @@ import type { PluginManifest } from "@/plugins/api";
 // update for it must not be counted in the tab's "N updates" badge either, since
 // there is no row anywhere on Android to offer it through.
 
+const catalogEntry = (id: string, name: string, version = "1.0.0") =>
+  ({ id, name, author: "Voltius", description: "", repo: "", version, tags: [], theme: false, sourceId: "voltius" });
+
 const manifest = (id: string, extra: Partial<PluginManifest> = {}): PluginManifest =>
   ({ id, name: id, version: "1.0.0", description: "", permissions: [], ...extra } as PluginManifest);
 
@@ -42,7 +45,7 @@ vi.mock("@/stores/marketplaceStore", () => ({
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
 }));
-vi.mock("@/stores/toggleSettingsStore", () => ({ getToggle: () => false, useToggle: () => false }));
+vi.mock("@/stores/toggleSettingsStore", () => ({ getToggle: () => false, useToggle: () => [false, () => {}] }));
 vi.mock("@/components/shared/ToolbarViewControls", () => ({ useFilterShortcut: () => {} }));
 vi.mock("@/components/shared/Toggle", () => ({ Toggle: () => null }));
 vi.mock("@/components/settings/sections/PluginPermissionModal", () => ({ PluginPermissionModal: () => null }));
@@ -78,7 +81,7 @@ afterEach(() => {
   loaded.list = [];
   seeded.entries = new Map();
   usePluginRegistryStore.setState({ overrides: {} });
-  useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null });
+  useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null, pluginBrowseQuery: null });
 });
 
 test("a desktopOnly seeded plugin's update is counted and shown on desktop", async () => {
@@ -86,7 +89,7 @@ test("a desktopOnly seeded plugin's update is counted and shown on desktop", asy
   loaded.list = [manifest("plugin-gist-sync", { version: "1.0.0", desktopOnly: true })];
   seeded.entries = new Map([["plugin-gist-sync", { folder: "gist-sync", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
-    { id: "plugin-gist-sync", name: "GitHub Gist Sync", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    catalogEntry("plugin-gist-sync", "GitHub Gist Sync", "2.0.0"),
   ];
   render(<PluginsSection />);
   expect(await screen.findByText(/updateCount/)).toBeTruthy();
@@ -97,7 +100,7 @@ test("a desktopOnly seeded plugin's update is NOT counted or shown on Android (n
   loaded.list = [manifest("plugin-gist-sync", { version: "1.0.0", desktopOnly: true })];
   seeded.entries = new Map([["plugin-gist-sync", { folder: "gist-sync", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
-    { id: "plugin-gist-sync", name: "GitHub Gist Sync", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    catalogEntry("plugin-gist-sync", "GitHub Gist Sync", "2.0.0"),
   ];
   render(<PluginsSection />);
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
@@ -111,7 +114,7 @@ test("a loaded id with no real seeded artifact is never counted, even with a mat
   loaded.list = [manifest("plugin-docker", { version: "1.0.0" })];
   seeded.entries = new Map(); // no artifact behind this id
   marketplaceState.catalog = [
-    { id: "plugin-docker", name: "Docker", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    catalogEntry("plugin-docker", "Docker", "2.0.0"),
   ];
   render(<PluginsSection />);
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
@@ -123,8 +126,27 @@ test("a non-desktopOnly seeded plugin's update is still counted on Android", asy
   loaded.list = [manifest("plugin-docker", { version: "1.0.0" })];
   seeded.entries = new Map([["plugin-docker", { folder: "docker", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
-    { id: "plugin-docker", name: "Docker", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+    catalogEntry("plugin-docker", "Docker", "2.0.0"),
   ];
   render(<PluginsSection />);
   expect(await screen.findByText(/updateCount/)).toBeTruthy();
+});
+
+test("a browse request opens the Browse tab filtered to that plugin and is consumed", async () => {
+  marketplaceState.catalog = [catalogEntry("plugin-proxmox", "Proxmox"), catalogEntry("plugin-docker", "Docker")];
+  useUIStore.setState({ pluginBrowseQuery: "Proxmox" });
+  render(<PluginsSection />);
+  expect(await screen.findByDisplayValue("Proxmox")).toBeTruthy();
+  expect(screen.getByText("Proxmox")).toBeTruthy();
+  expect(screen.queryByText("Docker")).toBeNull();
+  expect(useUIStore.getState().pluginBrowseQuery).toBeNull();
+});
+
+test("a browse request arriving while the Installed tab is open switches to Browse", async () => {
+  marketplaceState.catalog = [catalogEntry("plugin-proxmox", "Proxmox"), catalogEntry("plugin-docker", "Docker")];
+  render(<PluginsSection />);
+  expect(screen.queryByDisplayValue("Proxmox")).toBeNull();
+  act(() => { useUIStore.setState({ pluginBrowseQuery: "Proxmox" }); });
+  expect(await screen.findByDisplayValue("Proxmox")).toBeTruthy();
+  expect(screen.queryByText("Docker")).toBeNull();
 });

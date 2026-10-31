@@ -21,10 +21,12 @@
       "quickSettings": "Rychlá nastavení",
       "settings": "Nastavení",
       "joinByInviteCode": "Připojit se pomocí kódu pozvánky",
-      "importExport": "Import / export"
+      "importExport": "Import / export",
+      "availablePlugins": "Dostupné pluginy"
     },
     "settingsDescription": "Nastavení",
     "pluginSettingsDescription": "Nastavení pluginu",
+    "pluginNotInstalled": "Nenainstalováno",
     "editHost": "Upravit host",
     "deleteHost": "Smazat host",
     "resume": "Pokračovat",
@@ -52,7 +54,8 @@
     "localShellDefault": "Lokální shell",
     "emptyState": {
       "noSnippets": "Zatím žádné úryvky",
-      "marketplaceComingSoon": "Marketplace již brzy",
+      "loadingPlugins": "Načítání pluginů…",
+      "noPlugins": "Žádné pluginy k instalaci",
       "noSessionsMatch": "Výrazu „{{query}}“ neodpovídá žádná relace",
       "noActiveTeamSessions": "Žádné aktivní týmové relace",
       "noResultsFor": "Žádné výsledky pro „{{query}}“"

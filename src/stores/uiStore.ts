@@ -109,6 +109,8 @@ interface UIStore {
   /** Mobile drill-down page: null = section list, otherwise the open section. */
   settingsSubPage: SettingsSection | null;
   settingsPluginPageId: string | null;
+  /** Browse-tab search a caller asked for; the Plugins section consumes it. */
+  pluginBrowseQuery: string | null;
   /** Whether the Plugins nav group is expanded. Persisted; a selected child force-expands regardless. */
   pluginsNavExpanded: boolean;
   rightPanelOpen: boolean;
@@ -166,6 +168,7 @@ interface UIStore {
   /** Select a plugin settings page as the current settings target (both shells). */
   selectPluginPage: (pageId: string) => void;
   openSettings: (section?: SettingsSection, pluginPageId?: string) => void;
+  setPluginBrowseQuery: (query: string | null) => void;
   setRightPanelOpen: (open: boolean) => void;
   setRightPanelSection: (section: RightPanelSection) => void;
   toggleRightPanel: (section?: RightPanelSection) => void;
@@ -238,6 +241,7 @@ export const useUIStore = create<UIStore>()(
         settingsSection: "appearance" as SettingsSection,
         settingsSubPage: null as SettingsSection | null,
         settingsPluginPageId: null as string | null,
+        pluginBrowseQuery: null as string | null,
         pluginsNavExpanded: true,
         rightPanelOpen: false,
         rightPanelSection: "themes" as RightPanelSection,
@@ -303,6 +307,7 @@ export const useUIStore = create<UIStore>()(
           set({ settingsSection: "plugins", settingsSubPage: "plugins", settingsPluginPageId: pageId }),
         // section given = deep-link → mobile drills straight in; no section = plain open → mobile lands on the list.
         openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null })),
+        setPluginBrowseQuery: (query) => set({ pluginBrowseQuery: query }),
         setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
         setRightPanelSection: (section) => set({ rightPanelSection: section }),
         toggleRightPanel: (section) =>

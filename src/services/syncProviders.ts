@@ -1,6 +1,7 @@
 import type { PluginManifest, SettingsPage, SyncProviderAvailability, SyncProviderSummary } from "@/plugins/api";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import { attributePage } from "@/plugins/attributePage";
+import { uninstalledEntries } from "@/plugins/uninstalledEntries";
 import type { SyncStatus } from "./sync";
 import {
   NOT_CONFIGURED_SYNC_STATE,
@@ -171,12 +172,7 @@ export function aggregateSyncStatus(providers: SyncProviderView[], nearby = 0): 
 }
 
 export function availableCatalogProviders(catalog: MarketplacePlugin[], installedIds: ReadonlySet<string>): MarketplacePlugin[] {
-  const seen = new Set<string>();
-  return catalog.filter((p) => {
-    if (seen.has(p.id)) return false;
-    seen.add(p.id);
-    return !installedIds.has(p.id) && Boolean(p.permissions?.includes(SYNC_PROVIDER_PERMISSION));
-  });
+  return uninstalledEntries(catalog, installedIds).filter((p) => Boolean(p.permissions?.includes(SYNC_PROVIDER_PERMISSION)));
 }
 
 export function toSyncProviderSummary(p: SyncProviderView): SyncProviderSummary {

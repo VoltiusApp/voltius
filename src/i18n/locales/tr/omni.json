@@ -21,10 +21,12 @@
       "quickSettings": "Hızlı ayarlar",
       "settings": "Ayarlar",
       "joinByInviteCode": "Davet koduyla katıl",
-      "importExport": "İçe / dışa aktar"
+      "importExport": "İçe / dışa aktar",
+      "availablePlugins": "Kullanılabilir eklentiler"
     },
     "settingsDescription": "Ayarlar",
     "pluginSettingsDescription": "Eklenti ayarları",
+    "pluginNotInstalled": "Yüklü değil",
     "editHost": "Sunucuyu düzenle",
     "deleteHost": "Sunucuyu sil",
     "resume": "Devam et",
@@ -50,7 +52,8 @@
     "localShellDefault": "Yerel kabuk",
     "emptyState": {
       "noSnippets": "Henüz kod parçacığı yok",
-      "marketplaceComingSoon": "Mağaza yakında geliyor",
+      "loadingPlugins": "Eklentiler yükleniyor…",
+      "noPlugins": "Yüklenecek eklenti yok",
       "noSessionsMatch": "\"{{query}}\" ile eşleşen oturum yok",
       "noActiveTeamSessions": "Etkin ekip oturumu yok",
       "noResultsFor": "\"{{query}}\" için sonuç yok"

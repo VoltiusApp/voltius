@@ -21,10 +21,12 @@
       "quickSettings": "Configurações Rápidas",
       "settings": "Configurações",
       "joinByInviteCode": "Participar por código de convite",
-      "importExport": "Importar / Exportar"
+      "importExport": "Importar / Exportar",
+      "availablePlugins": "Plugins disponíveis"
     },
     "settingsDescription": "Configurações",
     "pluginSettingsDescription": "Configurações de Plugin",
+    "pluginNotInstalled": "Não instalado",
     "editHost": "Editar host",
     "deleteHost": "Excluir host",
     "resume": "Retomar",
@@ -51,7 +53,8 @@
     "localShellDefault": "Shell local",
     "emptyState": {
       "noSnippets": "Nenhum snippet ainda",
-      "marketplaceComingSoon": "Marketplace em breve",
+      "loadingPlugins": "Carregando plugins…",
+      "noPlugins": "Nenhum plugin para instalar",
       "noSessionsMatch": "Nenhuma sessão corresponde a \"{{query}}\"",
       "noActiveTeamSessions": "Nenhuma sessão ativa da equipe",
       "noResultsFor": "Sem resultados para \"{{query}}\""
