@@ -38,6 +38,7 @@
     "device-unreachable": "Bu cihaza ulaşılamıyor. Açık ve aynı ağda olduğundan emin olun.",
     "device-access-expired": "Bu cihaza erişim sona erdi. İzin istemek için yeniden açın.",
     "device-read-only": "Bu cihaz bu klasörleri salt okunur olarak paylaşıyor.",
+    "device-forgotten": "Bu cihazı unuttunuz, bu yüzden dosyaları kapatıldı.",
     "pair": {
       "ended": {
         "accountDevice": "Diğer cihaz bir Voltius hesabına giriş yapmış. Burada aynı hesapla giriş yapın.",

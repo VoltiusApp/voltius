@@ -220,10 +220,12 @@ pub fn run() {
             {
                 let app = webview.app_handle().clone();
                 let devices = app.clone();
+                // Drain before returning: a connect from the new page must see the new reload count.
+                let drained = app.state::<device_files::link::DeviceLinks>().drain();
                 tauri::async_runtime::spawn(async move {
-                    commands::device_files::close_device_sessions(
+                    commands::device_files::close_sessions(
                         &devices.state::<SftpManager>(),
-                        &devices.state::<device_files::link::DeviceLinks>(),
+                        drained,
                     )
                     .await;
                 });

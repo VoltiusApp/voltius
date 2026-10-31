@@ -1820,7 +1820,10 @@ impl FilesDialer {
             }
             Frame::FilesReply(reply) => Ok((SessionStream::new(link.session), reply, key)),
             Frame::Bye => Err(FilesDialError::Refused(Refusal::Denied)),
-            _ => Err(FilesDialError::Unreachable("unexpected frame".into())),
+            other => Err(FilesDialError::Unreachable(format!(
+                "unexpected frame kind {}",
+                other.kind()
+            ))),
         }
     }
 }
@@ -3619,6 +3622,28 @@ mod tests {
             FilesDialError::Unreachable(_)
         ));
         assert_eq!(conn_of(&b, "dev-a"), before);
+    }
+
+    struct Misreply;
+
+    #[async_trait::async_trait]
+    impl InboundFiles for Misreply {
+        async fn serve(&self, mut session: Session, _: Hello, _: Route, _: FilesRequest) {
+            session.send(&Frame::Nudge).await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn open_files_names_an_unexpected_reply_kind() {
+        let (a, _ea) = spawn("dev-a", 1).await;
+        let (b, _eb) = spawn("dev-b", 1).await;
+        b.set_file_service(Some(Arc::new(Misreply)));
+        synced(&a, &b).await;
+        let err = open_err(&a, "dev-b").await;
+        assert!(
+            err.to_string().ends_with("unexpected frame kind 3"),
+            "{err}"
+        );
     }
 
     #[tokio::test]

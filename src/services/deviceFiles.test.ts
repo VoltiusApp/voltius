@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   pending: [] as unknown[],
   gate: null as Promise<void> | null,
   failConfig: false,
+  lang: "en",
+  onLanguage: new Set<() => void>(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -21,7 +23,13 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 vi.mock("@/services/account", () => ({ getAccountId: async () => h.account }));
 vi.mock("@/utils/platform", () => ({ getPlatform: async () => h.platform }));
-vi.mock("@/i18n", () => ({ default: { t: (key: string, o: { name: string }) => `${key}:${o.name}` } }));
+vi.mock("@/i18n", () => ({
+  default: {
+    t: (key: string, o: { name: string }) => `${h.lang}|${key}:${o.name}`,
+    on: (_: string, fn: () => void) => h.onLanguage.add(fn),
+    off: (_: string, fn: () => void) => h.onLanguage.delete(fn),
+  },
+}));
 
 import { answerFileRequest, loadFileAccess, saveFileAccess, startDeviceFiles, stopDeviceFiles } from "./deviceFiles";
 import { useDeviceFilesStore, type ApprovalPrompt } from "@/stores/deviceFilesStore";
@@ -53,6 +61,7 @@ beforeEach(async () => {
   h.handlers.clear();
   h.gate = null;
   h.failConfig = false;
+  h.lang = "en";
 });
 
 describe("deviceFiles", () => {
@@ -66,10 +75,20 @@ describe("deviceFiles", () => {
   test("start loads config and pending", async () => {
     h.pending = [prompt("r1")];
     await startDeviceFiles();
-    expect(calls("device_files_start")[0][1]).toEqual({ accountId: "acct", notifyBody: "layout.deviceFiles.title:{name}" });
+    expect(calls("device_files_start")[0][1]).toEqual({ accountId: "acct", notifyBody: "en|layout.deviceFiles.title:{name}" });
     expect(useDeviceFilesStore.getState().config).toEqual(CONFIG);
     expect(useDeviceFilesStore.getState().pending).toEqual([prompt("r1")]);
     expect([...h.handlers.keys()].sort()).toEqual(["device-files://config", "device-files://request", "device-files://sessions"]);
+  });
+
+  test("a language change resends the notification text until stop", async () => {
+    await startDeviceFiles();
+    h.lang = "fr";
+    h.onLanguage.forEach((fn) => fn());
+    await vi.waitFor(() => expect(calls("device_files_start")).toHaveLength(2));
+    expect(calls("device_files_start")[1][1]).toEqual({ accountId: "acct", notifyBody: "fr|layout.deviceFiles.title:{name}" });
+    await stopDeviceFiles();
+    expect(h.onLanguage.size).toBe(0);
   });
 
   test("load_and_save_pass_account_without_starting_service", async () => {

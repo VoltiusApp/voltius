@@ -176,6 +176,7 @@ mod tests {
         assert_eq!(parse_probe("").login, None);
     }
 
+    #[cfg(unix)]
     #[test]
     fn probe_script_reports_each_shell_with_its_resolved_target() {
         let dir = tempfile::tempdir().unwrap();

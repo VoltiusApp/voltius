@@ -49,6 +49,7 @@ pub(crate) async fn connect_inner(
     step: impl Fn(SftpStep),
     events: LinkEvents,
 ) -> Result<DeviceConnected, AppError> {
+    let ticket = links.ticket(&device_id);
     let closed = CancellationToken::new();
     let pass = relink
         .map(|id| links.pass(id, &device_id))
@@ -88,7 +89,10 @@ pub(crate) async fn connect_inner(
         _ => sftp.register_standalone(backend, closed).await,
     };
     link.bind(sftp_id.clone());
-    links.insert(sftp_id.clone(), &link);
+    if let Err(e) = links.insert(ticket, sftp_id.clone(), &link) {
+        sftp.close(&sftp_id).await;
+        return Err(e);
+    }
     Ok(DeviceConnected {
         sftp_id,
         rtt_ms,
@@ -96,8 +100,8 @@ pub(crate) async fn connect_inner(
     })
 }
 
-pub(crate) async fn close_device_sessions(sftp: &SftpManager, links: &DeviceLinks) {
-    for sftp_id in links.drain() {
+pub(crate) async fn close_sessions(sftp: &SftpManager, ids: Vec<String>) {
+    for sftp_id in ids {
         sftp.close(&sftp_id).await;
     }
 }
@@ -150,7 +154,10 @@ mod serving {
     ) {
         let mut slot = lan.files.service.lock().await;
         stop_where(&mut slot, |s| s.account() != account);
-        slot.get_or_insert_with(|| Arc::new(FileService::new(dir, account, emit, alert)));
+        match slot.as_ref() {
+            Some(svc) => svc.set_alert(alert),
+            None => *slot = Some(Arc::new(FileService::new(dir, account, emit, alert))),
+        }
         lan.offer_files(&slot).await;
     }
 
@@ -711,9 +718,7 @@ mod tests {
         let svc = s.svc().await;
         let cut = async {
             until("a partial download", || {
-                let started = std::fs::read_dir(out.path())
-                    .unwrap()
-                    .any(|e| e.unwrap().metadata().unwrap().len() > 0);
+                let started = rec.count("sftp-progress-device-reconnect") > 0;
                 async move { started }
             })
             .await;
@@ -1004,9 +1009,71 @@ mod tests {
         let a = browser("dev-a", &s).await;
         let c = a.connect().await.unwrap();
         s.until_open(&["dev-a"]).await;
-        close_device_sessions(&a.sftp, &a.links).await;
+        close_sessions(&a.sftp, a.links.drain()).await;
         s.until_open(&[]).await;
         assert!(a.sftp.backend(&c.sftp_id).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_connect_landing_after_a_reload_closes_its_session() {
+        let s = server(&[]).await;
+        let a = browser("dev-a", &s).await;
+        let reload = async {
+            s.until_pending(1).await;
+            close_sessions(&a.sftp, a.links.drain()).await;
+            s.approve(Answer::Once).await;
+        };
+        let (connected, ()) = tokio::join!(a.connect(), reload);
+        assert!(connected.is_err());
+        s.until_open(&[]).await;
+    }
+
+    #[tokio::test]
+    async fn a_connect_landing_after_its_device_is_forgotten_closes_its_session() {
+        let s = server(&[]).await;
+        let a = browser("dev-a", &s).await;
+        let forget = async {
+            s.until_pending(1).await;
+            a.links.forget("dev-b");
+            s.approve(Answer::Once).await;
+        };
+        let (connected, ()) = tokio::join!(a.connect(), forget);
+        assert_eq!(code(connected), Some(ErrorCode::DeviceForgotten));
+        s.until_open(&[]).await;
+        a.approved(&s).await;
+    }
+
+    #[tokio::test]
+    async fn forgetting_a_device_ends_its_open_panes() {
+        let s = server(&["dev-a"]).await;
+        let a = browser("dev-a", &s).await;
+        let c = a.connect().await.unwrap();
+        s.until_open(&["dev-a"]).await;
+        a.links.forget("dev-c");
+        assert!(a.closed.lock().unwrap().is_empty());
+        a.links.forget("dev-b");
+        a.closes(&c, ErrorCode::DeviceForgotten).await;
+        s.until_open(&[]).await;
+    }
+
+    #[tokio::test]
+    async fn starting_again_swaps_the_notification_text() {
+        let s = server(&[]).await;
+        let before = s.svc().await;
+        let alerted: Arc<Mutex<Vec<String>>> = Arc::default();
+        let log = alerted.clone();
+        serving::start_inner(
+            &s.lan,
+            s.dir.path().to_path_buf(),
+            ACCOUNT.into(),
+            quiet(),
+            Arc::new(move |p| log.lock().unwrap().push(p.device_name.clone())),
+        )
+        .await;
+        assert!(Arc::ptr_eq(&before, &s.svc().await));
+        let a = browser("dev-a", &s).await;
+        a.approved(&s).await;
+        assert_eq!(alerted.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

@@ -1,4 +1,5 @@
 use super::raw_body;
+use crate::device_files::link::DeviceLinks;
 #[cfg(desktop)]
 use crate::device_files::{for_account, service::FileService, stop_where, Slot};
 use crate::lan_sync::addrs;
@@ -604,12 +605,17 @@ pub async fn lan_sync_stop(state: State<'_, LanSyncState>) -> Result<(), String>
 pub async fn lan_sync_forget(
     app: AppHandle,
     state: State<'_, LanSyncState>,
+    links: State<'_, DeviceLinks>,
     device_id: String,
     scope: String,
     group: bool,
 ) -> Result<bool, String> {
     let dir = crate::storage::config::config_dir();
-    forget_inner(&state, &device_id, &scope, group, &dir, &emitter(app)).await
+    let forgotten = forget_inner(&state, &device_id, &scope, group, &dir, &emitter(app)).await?;
+    if forgotten && !group {
+        links.forget(&device_id);
+    }
+    Ok(forgotten)
 }
 
 #[tauri::command]

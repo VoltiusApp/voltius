@@ -38,6 +38,7 @@
     "device-unreachable": "Can't reach that device. Check that it's on and on the same network.",
     "device-access-expired": "Access to this device ended. Open it again to ask for permission.",
     "device-read-only": "That device shares these folders read-only.",
+    "device-forgotten": "You forgot this device, so its files were closed.",
     "pair": {
       "ended": {
         "accountDevice": "The other device is signed in to a Voltius account. Sign in here with the same account instead.",

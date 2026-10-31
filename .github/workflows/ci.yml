@@ -74,6 +74,11 @@ jobs:
       - name: Cargo check
         run: cargo check --workspace
 
+      # The device-files path jail has cfg(windows) tests that only a Windows run executes.
+      - name: Device file tests (Windows)
+        if: runner.os == 'Windows'
+        run: cargo test -p voltius --lib device_files
+
   frontend-tests:
     runs-on: ubuntu-latest
     steps:

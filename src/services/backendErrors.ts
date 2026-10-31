@@ -44,6 +44,7 @@ export const BACKEND_ERROR_CODES = [
   "device-unreachable",
   "device-access-expired",
   "device-read-only",
+  "device-forgotten",
 ] as const;
 
 export type BackendErrorCode = (typeof BACKEND_ERROR_CODES)[number];
