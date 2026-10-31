@@ -5,6 +5,7 @@ import { GUARDED, settingDef, settingDefs } from "./settingsManifest";
 import { TOGGLE_DEFS } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { useConnectivitySettingsStore, DEFAULT_DETACHED_TTL_HOURS } from "@/stores/connectivitySettingsStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 
 describe("settingsManifest", () => {
@@ -136,6 +137,15 @@ describe("settingsManifest", () => {
   test("keepalivePreset expose ses quatre valeurs", () => {
     expect(settingDef("connectivity.keepalivePreset")!.values!.slice().sort())
       .toEqual(["balanced", "fast", "off", "tolerant"]);
+  });
+
+  test("detachedTtlHours expose les durées proposées et relit le magasin", () => {
+    const def = settingDef("connectivity.detachedTtlHours")!;
+    expect(def.values).toEqual(["1", "6", "12", "24", "72", "168"]);
+    def.set!("72");
+    expect(useConnectivitySettingsStore.getState().detachedTtlHours).toBe(72);
+    expect(def.get()).toBe("72");
+    def.set!(DEFAULT_DETACHED_TTL_HOURS);
   });
 
   test("chaque entrée nomme une section réelle de l'écran Settings", () => {

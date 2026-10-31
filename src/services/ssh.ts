@@ -33,6 +33,7 @@ export async function sshConnect(params: {
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
   persist?: boolean;
+  detachedTtlSecs?: number | null;
   restore?: boolean;
   /** Re-attach/join an existing multiplexer session; never creates one.
    * Rejects with SESSION_ENDED when the session is gone on the host. */
@@ -64,6 +65,7 @@ export async function sshConnect(params: {
     keepaliveIntervalSecs: params.keepaliveIntervalSecs,
     keepaliveMax: params.keepaliveMax,
     persist: params.persist ?? null,
+    detachedTtlSecs: params.detachedTtlSecs ?? null,
     restore: params.restore ?? null,
     attachOnly: params.attachOnly ?? null,
     cols: params.cols ?? null,

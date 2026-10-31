@@ -1085,6 +1085,17 @@
         "title": "Sessions persistantes",
         "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte, sous Avancé dans les paramètres de la connexion."
       },
+      "detachedTtl": {
+        "title": "Fermer les sessions détachées inactives",
+        "desc": "Ferme une session persistante sur l'hôte lorsqu'aucun appareil n'y est attaché depuis la durée choisie, mais seulement si rien n'y tourne. Fonctionne sur les hôtes Linux avec tmux 3.2 ou plus récent ; screen et les anciennes versions de tmux conservent les sessions comme avant. Un changement s'applique à une session la prochaine fois qu'elle est attachée.",
+        "durationTitle": "Fermer après",
+        "hours_one": "{{count}} heure",
+        "hours_many": "{{count}} heures",
+        "hours_other": "{{count}} heures",
+        "days_one": "{{count}} jour",
+        "days_many": "{{count}} jours",
+        "days_other": "{{count}} jours"
+      },
       "terminalTitle": "Terminal",
       "shellIntegration": {
         "title": "Intégration du shell",
@@ -1223,6 +1234,9 @@
       },
       "persistentSessions": {
         "label": "Sessions persistantes"
+      },
+      "detachedSessionTtl": {
+        "label": "Fermer les sessions détachées inactives"
       },
       "restoreWorkspace": {
         "label": "Restaurer l'espace de travail au lancement"

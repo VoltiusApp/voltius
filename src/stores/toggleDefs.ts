@@ -149,6 +149,13 @@ export const TOGGLE_DEFS = {
     keywords: ["persistent", "session", "tmux", "screen", "reconnect", "survive", "resume", "sleep", "reattach", "keep alive"],
     default: true,
   },
+  "detached-session-ttl": {
+    labelKey: "settings.toggleDefs.detachedSessionTtl.label",
+    icon: "lucide:timer",
+    section: "hosts",
+    keywords: ["ttl", "idle", "detached", "timeout", "tmux", "close", "expire", "cleanup"],
+    default: true,
+  },
   "restore-workspace": {
     labelKey: "settings.toggleDefs.restoreWorkspace.label",
     icon: "lucide:archive-restore",

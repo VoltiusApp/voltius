@@ -10,7 +10,9 @@ import { remoteApplyTimestamp } from "@/stores/remoteApplyGuard";
 import { getPath, hasPath, setPath } from "@/utils/dotPath";
 import {
   useConnectivitySettingsStore,
+  DETACHED_TTL_HOURS,
   GLOBAL_PROXY_MODES,
+  type DetachedTtlHours,
   type GlobalProxy,
   type GlobalProxyMode,
 } from "@/stores/connectivitySettingsStore";
@@ -26,6 +28,7 @@ interface AppSettingsData {
   plugins?: { overrides?: Record<string, boolean> };
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
+  detachedTtlHours?: DetachedTtlHours;
   locale?: Locale;
   proxy?: GlobalProxy;
   // Absent from peers that predate per-leaf clocks: every leaf then carries the section's clock.
@@ -96,6 +99,7 @@ export const appSettingsHandler: UserDataHandler = {
       plugins: { overrides: plugins.overrides },
       toggles: { ...values },
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
+      detachedTtlHours: useConnectivitySettingsStore.getState().detachedTtlHours,
       locale: useLocaleStore.getState().locale,
       proxy: useConnectivitySettingsStore.getState().proxy,
       clocks: { ...useAppSettingsTimestampStore.getState().clocks },
@@ -128,6 +132,9 @@ export const appSettingsHandler: UserDataHandler = {
     }
     if (d.keepalivePreset && d.keepalivePreset in KEEPALIVE_PRESETS) {
       useConnectivitySettingsStore.setState({ keepalivePreset: d.keepalivePreset });
+    }
+    if (DETACHED_TTL_HOURS.includes(d.detachedTtlHours as DetachedTtlHours)) {
+      useConnectivitySettingsStore.setState({ detachedTtlHours: d.detachedTtlHours });
     }
     if (d.locale && SUPPORTED_LOCALES.some((l) => l.value === d.locale)) {
       useLocaleStore.getState().setLocale(d.locale);

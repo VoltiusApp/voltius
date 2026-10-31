@@ -5,7 +5,7 @@ import { DropdownMenuItem } from "./DropdownMenuItem";
 import { formInputStyle } from "./Panel";
 import { PickerSurface } from "./PickerSurface";
 import { chevronRotateStyle } from "@/utils/icons";
-import { useInListRow } from "./listRowContext";
+import { useInListRow, useListRowLabel } from "./listRowContext";
 
 interface Option {
   value: string;
@@ -32,6 +32,7 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
   const selectedLabel = options.find((o) => o.value === value)?.label ?? value;
   // Android settings row: the value is trailing text (M3), the row tap opens the sheet.
   const inRow = useInListRow();
+  const rowLabel = useListRowLabel();
 
   return (
     <div className={inRow ? undefined : className}>
@@ -73,7 +74,7 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
       </button>
       )}
 
-      <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={triggerRef} title={title ?? ariaLabel ?? t("shared.formSelect.title")}>
+      <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={triggerRef} title={title ?? ariaLabel ?? rowLabel ?? t("shared.formSelect.title")}>
         {options.map((opt) => (
           <DropdownMenuItem
             key={opt.value}

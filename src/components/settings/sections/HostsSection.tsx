@@ -9,10 +9,14 @@ import {
 } from "@/stores/hostPingStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import {
+  DEFAULT_DETACHED_TTL_HOURS,
   DEFAULT_GLOBAL_PROXY,
+  DETACHED_TTL_HOURS,
   GLOBAL_PROXY_MODES,
+  useDetachedTtlHours,
   useGlobalKeepalivePreset,
   useGlobalProxy,
+  type DetachedTtlHours,
   type GlobalProxy,
 } from "@/stores/connectivitySettingsStore";
 import { deleteSecret, getSecret, storeSecret } from "@/services/vault";
@@ -28,6 +32,8 @@ import { SettingRow, SettingsGroup } from "./shared";
 
 const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
 const PERSIST_SESSIONS_DEFAULT = TOGGLE_DEFS["persistent-sessions"].default;
+const DETACHED_TTL_DEFAULT = TOGGLE_DEFS["detached-session-ttl"].default;
+const HOURS_PER_DAY = 24;
 
 export default function HostsSection() {
   const { t } = useTranslation();
@@ -35,6 +41,17 @@ export default function HostsSection() {
     () => (Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map(
       (p) => ({ value: p, label: t(KEEPALIVE_PRESETS[p].labelKey) }),
     ),
+    [t],
+  );
+  const [detachedTtlOn, setDetachedTtlOn] = useToggle("detached-session-ttl");
+  const [detachedTtlHours, setDetachedTtlHours] = useDetachedTtlHours();
+  const detachedTtlOptions = useMemo(
+    () => DETACHED_TTL_HOURS.map((h) => ({
+      value: String(h),
+      label: h > HOURS_PER_DAY && h % HOURS_PER_DAY === 0
+        ? t("settings.hosts.detachedTtl.days", { count: h / HOURS_PER_DAY })
+        : t("settings.hosts.detachedTtl.hours", { count: h }),
+    })),
     [t],
   );
   const [enabled, setEnabled] = useToggle("reachability");
@@ -227,6 +244,30 @@ export default function HostsSection() {
         >
           <Toggle checked={persistSessions} onChange={setPersistSessions} />
         </SettingRow>
+        <SettingRow
+          syncKey="appSettings.toggles.detached-session-ttl"
+          title={t("settings.hosts.detachedTtl.title")}
+          desc={t("settings.hosts.detachedTtl.desc")}
+          dirty={detachedTtlOn !== DETACHED_TTL_DEFAULT}
+          onReset={() => setDetachedTtlOn(DETACHED_TTL_DEFAULT)}
+        >
+          <Toggle checked={detachedTtlOn} onChange={setDetachedTtlOn} />
+        </SettingRow>
+        {detachedTtlOn && (
+          <SettingRow
+            syncKey="appSettings.detachedTtlHours"
+            title={t("settings.hosts.detachedTtl.durationTitle")}
+            dirty={detachedTtlHours !== DEFAULT_DETACHED_TTL_HOURS}
+            onReset={() => setDetachedTtlHours(DEFAULT_DETACHED_TTL_HOURS)}
+          >
+            <FormSelect
+              className="w-36 shrink-0"
+              value={String(detachedTtlHours)}
+              options={detachedTtlOptions}
+              onChange={(v) => setDetachedTtlHours(Number(v) as DetachedTtlHours)}
+            />
+          </SettingRow>
+        )}
       </SettingsGroup>
 
       <SshConfigGroup />

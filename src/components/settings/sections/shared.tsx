@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { domainOf, isDeviceScopedDefault } from "@/services/user-data/settingKeys";
@@ -314,6 +314,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
   });
   const style = dimmed ? { opacity: 0.45 } : undefined;
   const name = typeof title === "string" ? title : undefined;
+  const rowContext = useMemo(() => ({ label: name }), [name]);
   const press = hasActions ? { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onClick } : {};
 
   return (
@@ -337,7 +338,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <ListRowContext.Provider value={true}>
+        <ListRowContext.Provider value={rowContext}>
           {canReset && <ResetButton onReset={onReset!} />}
           {children}
         </ListRowContext.Provider>

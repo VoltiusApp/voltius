@@ -43,6 +43,7 @@ pub async fn ssh_connect(
     proxy: Option<ProxySpec>,
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
     knock: Option<KnockSpec>,
+    detached_ttl_secs: Option<u64>,
 ) -> Result<(), AppError> {
     let connected = client::connect(
         app,
@@ -71,6 +72,7 @@ pub async fn ssh_connect(
         initial_cwd,
         HopRoute { proxy, knock },
         terminal_colors,
+        detached_ttl_secs,
     )
     .await?;
 
