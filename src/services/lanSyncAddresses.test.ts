@@ -3,9 +3,11 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 const h = vi.hoisted(() => ({
   invoke: vi.fn(async (_cmd: string, _args: { deviceId: string; addrs: string[] }) => {}),
   listener: null as null | ((deviceId: string, payload: unknown) => void),
+  forgetMergedRemoteBlobs: vi.fn(),
 }));
 
 vi.mock("@/lib/invoke", () => ({ invoke: h.invoke }));
+vi.mock("@/services/settledBlobs", () => ({ forgetMergedRemoteBlobs: h.forgetMergedRemoteBlobs }));
 vi.mock("@/services/sync", () => ({
   getDeviceId: async () => "dev-me",
   onRemotePayloadMerged: (fn: (deviceId: string, payload: unknown) => void) => {
@@ -107,4 +109,10 @@ describe("watchPeerAddresses", () => {
     expect(learned("dev-i")).toEqual([]);
     off();
   });
+});
+
+test("forgetting peer addresses makes the next cloud sync announce every remote blob again", () => {
+  h.forgetMergedRemoteBlobs.mockClear();
+  forgetPeerAddresses();
+  expect(h.forgetMergedRemoteBlobs).toHaveBeenCalledOnce();
 });

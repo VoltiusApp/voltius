@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { logFailure } from "@/lib/logger";
 import { getDeviceId, onRemotePayloadMerged, type BlobPayload } from "@/services/sync";
+import { forgetMergedRemoteBlobs } from "@/services/settledBlobs";
 
 const ADDRS_FILE = "lan_sync_addresses.json";
 const MAX_ADDRS = 16;
@@ -56,6 +57,7 @@ export function ignorePeerAddresses(): () => void {
 export function forgetPeerAddresses(): void {
   era++;
   latest.clear();
+  forgetMergedRemoteBlobs();
 }
 
 export function watchPeerAddresses(): () => void {
