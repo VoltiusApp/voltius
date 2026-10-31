@@ -485,6 +485,7 @@
         "trialName": "Пробный период {{plan}}",
         "viaSeat": "{{plan}} · через ваше место в {{team}}",
         "viaTooltip": "Через {{team}}",
+        "ownLine": "Ваша подписка {{plan}}",
         "title": "Тариф",
         "badge": {
           "business": "Business",

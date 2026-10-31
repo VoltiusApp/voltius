@@ -65,6 +65,7 @@ describe("planDisplay", () => {
       via: "Acme",
       line: "Teams · through your seat in Acme",
       viaTooltip: "Through Acme",
+      ownLine: null,
       trial: false,
       showManageBilling: false,
       showUpgrade: false,
@@ -89,6 +90,7 @@ describe("planDisplay", () => {
       plan: "business",
       label: "Business",
       via: "Acme",
+      ownLine: "Your Pro subscription",
       showManageBilling: true,
       showUpgrade: false,
     });
@@ -98,6 +100,7 @@ describe("planDisplay", () => {
     checkout.value = false;
     try {
       expect(display({ tier: "free" }).showUpgrade).toBe(false);
+      expect(display({ tier: "pro" }, "active").showManageBilling).toBe(false);
     } finally {
       checkout.value = true;
     }

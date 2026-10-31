@@ -491,6 +491,7 @@
         "trialName": "{{plan}} deneme sürümü",
         "viaSeat": "{{plan}} · {{team}} ekibindeki koltuğunuz üzerinden",
         "viaTooltip": "{{team}} üzerinden",
+        "ownLine": "{{plan}} aboneliğiniz",
         "title": "Plan",
         "badge": {
           "business": "Business",

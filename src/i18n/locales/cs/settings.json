@@ -485,6 +485,7 @@
         "trialName": "Zkušební verze {{plan}}",
         "viaSeat": "{{plan}} · prostřednictvím vašeho místa v týmu {{team}}",
         "viaTooltip": "Prostřednictvím týmu {{team}}",
+        "ownLine": "Vaše předplatné {{plan}}",
         "title": "Tarif",
         "badge": {
           "business": "Business",

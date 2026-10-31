@@ -364,6 +364,7 @@
         "trialName": "{{plan}} 试用",
         "viaSeat": "{{plan}} · 通过您在 {{team}} 的席位",
         "viaTooltip": "通过 {{team}}",
+        "ownLine": "您的 {{plan}} 订阅",
         "title": "套餐",
         "badge": {
           "business": "Business",

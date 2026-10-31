@@ -485,6 +485,7 @@
         "trialName": "Avaliação {{plan}}",
         "viaSeat": "{{plan}} · através do seu lugar em {{team}}",
         "viaTooltip": "Através de {{team}}",
+        "ownLine": "A sua subscrição {{plan}}",
         "title": "Plano",
         "badge": {
           "business": "Business",

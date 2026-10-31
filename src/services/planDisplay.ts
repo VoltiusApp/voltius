@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/shallow";
 import { useTranslation } from "react-i18next";
 import i18n from "i18next";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
@@ -10,13 +11,16 @@ export interface PlanDisplay {
   via: string | null;
   line: string;
   viaTooltip: string | null;
+  ownLine: string | null;
   trial: boolean;
   showManageBilling: boolean;
   showUpgrade: boolean;
   showTrialEnded: boolean;
 }
 
-export type PlanDisplayInput = TierFlags & { subscriptionStatus?: string | null };
+export type PlanDisplayInput = Pick<TierFlags, "tier" | "billingTier" | "seatTeam" | "isTrialActive" | "trialUsed"> & {
+  subscriptionStatus?: string | null;
+};
 
 export function planDisplay(flags: PlanDisplayInput): PlanDisplay {
   const { tier, billingTier, seatTeam } = flags;
@@ -31,8 +35,12 @@ export function planDisplay(flags: PlanDisplayInput): PlanDisplay {
     via,
     line: via ? i18n.t("settings.account.plan.viaSeat", { plan: label, team: via }) : label,
     viaTooltip: via ? i18n.t("settings.account.plan.viaTooltip", { team: via }) : null,
+    ownLine:
+      seatTeam && billingTier !== "free"
+        ? i18n.t("settings.account.plan.ownLine", { plan: i18n.t(`settings.account.plan.name.${billingTier}`) })
+        : null,
     trial,
-    showManageBilling: billingTier !== "free" && !ownTrial,
+    showManageBilling: billingTier !== "free" && !ownTrial && CAN_OPEN_CHECKOUT,
     showUpgrade: tier === "free" && CAN_OPEN_CHECKOUT,
     showTrialEnded: tier === "free" && !seatTeam && !flags.isTrialActive && flags.trialUsed,
   };
@@ -40,6 +48,15 @@ export function planDisplay(flags: PlanDisplayInput): PlanDisplay {
 
 export function usePlanDisplay(): PlanDisplay {
   useTranslation();
-  const flags = useSubscriptionStore();
+  const flags = useSubscriptionStore(
+    useShallow((s) => ({
+      tier: s.tier,
+      billingTier: s.billingTier,
+      seatTeam: s.seatTeam,
+      isTrialActive: s.isTrialActive,
+      trialUsed: s.trialUsed,
+      subscriptionStatus: s.subscriptionStatus,
+    })),
+  );
   return planDisplay(flags);
 }

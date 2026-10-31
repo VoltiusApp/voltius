@@ -485,6 +485,7 @@
         "trialName": "Essai {{plan}}",
         "viaSeat": "{{plan}} · via votre siège dans {{team}}",
         "viaTooltip": "Via {{team}}",
+        "ownLine": "Votre abonnement {{plan}}",
         "title": "Abonnement",
         "badge": {
           "business": "Business",

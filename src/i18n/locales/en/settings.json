@@ -485,6 +485,7 @@
         "trialName": "{{plan}} trial",
         "viaSeat": "{{plan}} · through your seat in {{team}}",
         "viaTooltip": "Through {{team}}",
+        "ownLine": "Your {{plan}} subscription",
         "title": "Plan",
         "badge": {
           "business": "Business",
