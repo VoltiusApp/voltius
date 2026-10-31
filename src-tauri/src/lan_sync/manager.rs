@@ -80,6 +80,11 @@ const PROBE_EVERY: Duration = if cfg!(test) {
 } else {
     Duration::from_secs(300)
 };
+const PAIR_REDIAL: Duration = if cfg!(test) {
+    Duration::from_millis(50)
+} else {
+    Duration::from_secs(2)
+};
 
 pub type Probe = Arc<dyn Fn() -> std::io::Result<()> + Send + Sync>;
 type Save = Option<(PathBuf, Vec<u8>)>;
@@ -1422,12 +1427,17 @@ impl Shared {
             _expiry: AbortOnDropHandle::new(expiry),
         });
         drop(pairing);
+        self.dial_seen_windows();
+        Ok(())
+    }
+
+    // mdns-sd reports a window once, so a window still open after a failed attempt dials it again.
+    fn dial_seen_windows(self: &Arc<Self>) {
         let seen = lock(&self.discovery)
             .as_ref()
             .map(|d| d.pairable_peers())
             .unwrap_or_default();
         self.pair_with_any(seen);
-        Ok(())
     }
 
     fn pair_with_any(self: &Arc<Self>, seen: impl IntoIterator<Item = Found>) {
@@ -1527,8 +1537,9 @@ impl Shared {
         self.finish_pair(claim.window, end, initiator).await;
     }
 
-    async fn finish_pair(&self, id: u64, end: PairEnd, initiator: bool) {
+    async fn finish_pair(self: &Arc<Self>, id: u64, end: PairEnd, initiator: bool) {
         let paired = end == PairEnd::Paired;
+        let failed = matches!(end, PairEnd::Failed(_));
         let (ended, exhausted) = {
             let mut pairing = self.pairing();
             let Some(window) = pairing.as_mut().filter(|w| w.id == id) else {
@@ -1552,6 +1563,12 @@ impl Shared {
             self.close_window(id, PairRefusal::TooManyAttempts).await;
         } else if paired {
             self.take_window(Some(id));
+        } else if failed {
+            let shared = self.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(PAIR_REDIAL).await;
+                shared.dial_seen_windows();
+            });
         }
     }
 }
@@ -4631,6 +4648,22 @@ mod tests {
         let (a, mut ea) = idle_pairing("dev-a").await;
         advertise(&a, "a-window", vec![sighting("b-window", local(&b))]);
         a.open_pairing(pair_info(None, 1)).await.unwrap();
+        pair_event(&mut ea, is_code).await;
+        pair_event(&mut eb, is_code).await;
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_attempt_dials_the_seen_window_again() {
+        let (b, mut eb) = pairing("dev-b", pair_info(None, 0)).await;
+        let (a, mut ea) = idle_pairing("dev-a").await;
+        advertise(&a, "a-window", vec![sighting("b-window", local(&b))]);
+        a.open_pairing(pair_info(None, 1)).await.unwrap();
+        pair_event(&mut ea, is_code).await;
+        pair_event(&mut eb, is_code).await;
+        b.cancel_pairing();
+        let cancelled = ended(PairRefusal::Cancelled);
+        assert_eq!(pair_event(&mut ea, any_pair).await, cancelled);
+        assert_eq!(pair_event(&mut eb, any_pair).await, cancelled);
         pair_event(&mut ea, is_code).await;
         pair_event(&mut eb, is_code).await;
     }
