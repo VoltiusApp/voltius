@@ -15,8 +15,16 @@ export function teamLocked(teams: { id: string; owner_tier?: string }[], teamId:
   return isBusinessLocked(teams.find((t) => t.id === teamId));
 }
 
+export interface SeatTeam {
+  id: string;
+  name: string;
+  trial: boolean;
+}
+
 export interface TierFlagsInput {
   tier?: string;
+  billing_tier?: string;
+  seat_team?: SeatTeam;
   trial_ends_at?: number;
   trial_used?: boolean;
   email_verified?: boolean;
@@ -24,6 +32,9 @@ export interface TierFlagsInput {
 
 export interface TierFlags {
   tier: Tier;
+  billingTier: Tier;
+  seatTeam: SeatTeam | null;
+  ownsTeamsPlan: boolean;
   trialEndsAt: Date | null;
   trialKnown: boolean;
   trialUsed: boolean;
@@ -36,6 +47,9 @@ export interface TierFlags {
 
 export function deriveTierFlags(payload: TierFlagsInput, now: Date): TierFlags {
   const tier = (payload.tier as Tier) ?? "free";
+  const billingTier = (payload.billing_tier as Tier | undefined) ?? tier;
+  const seatTeam = payload.seat_team ?? null;
+  const ownsTeamsPlan = tierAtLeast(billingTier, "teams");
   const trialEndsAt = payload.trial_ends_at ? new Date(payload.trial_ends_at * 1000) : null;
   const trialKnown = "trial_used" in payload || "trial_ends_at" in payload;
   const trialUsed = payload.trial_used ?? false;
@@ -44,5 +58,5 @@ export function deriveTierFlags(payload: TierFlagsInput, now: Date): TierFlags {
   const isTeams = tier === "teams" || tier === "business";
   const isBusiness = tier === "business";
   const emailVerified = payload.email_verified !== false;
-  return { tier, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified };
+  return { tier, billingTier, seatTeam, ownsTeamsPlan, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified };
 }

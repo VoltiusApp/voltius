@@ -25,7 +25,7 @@ beforeEach(() => {
   h.invoke.mockReset();
   h.appFetch.mockReset();
   useSubscriptionStore.setState({
-    tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false,
+    tier: "free", billingTier: "free", seatTeam: null, ownsTeamsPlan: false, trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false,
     isPro: false, isTeams: false, isBusiness: false, accountMode: null, usedSeats: null, totalSeats: null, effectiveSeats: null,
     subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true,
     billingLoadFailed: false,
@@ -109,4 +109,19 @@ test("a server that omits effective_seats leaves the cap unknown rather than fal
   });
   await get().load();
   expect(get()).toMatchObject({ totalSeats: 25, effectiveSeats: null });
+});
+
+test("seat-only member (own plan free) skips the billing endpoint", async () => {
+  const seat = { id: "t", name: "Acme", trial: false };
+  keychain({ mode: "server", jwt: makeJwt({ tier: "teams", billing_tier: "free", seat_team: seat }), server_url: "https://api.example" });
+  await get().load();
+  expect(h.appFetch).not.toHaveBeenCalled();
+  expect(get()).toMatchObject({ tier: "teams", billingTier: "free", ownsTeamsPlan: false, seatTeam: seat });
+});
+
+test("own pro plus seat still loads billing", async () => {
+  keychain({ mode: "server", jwt: makeJwt({ tier: "business", billing_tier: "pro" }), server_url: "https://api.example" });
+  h.appFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+  await get().load();
+  expect(h.appFetch).toHaveBeenCalled();
 });
