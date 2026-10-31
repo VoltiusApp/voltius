@@ -40,3 +40,14 @@ test("settings actions are separated from plain actions", () => {
   expect(b.actionCount).toBe(1);
   expect(b.toggleCount).toBe(1);
 });
+
+test("catalogue plugins come after settings", () => {
+  const b = computeSectionBoundaries(
+    [item("host"), item("action", "open-settings:plugins"), item("plugin"), item("plugin")],
+    0,
+  );
+  expect(b.settingsStart).toBe(1);
+  expect(b.settingsCount).toBe(1);
+  expect(b.pluginStart).toBe(2);
+  expect(b.pluginCount).toBe(2);
+});

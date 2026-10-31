@@ -56,6 +56,10 @@ import { useLocalShells } from "@/hooks/useLocalShells";
 import { useThemeStore } from "@/stores/themeStore";
 import OmniThemeSwitch from "@/components/omni/OmniThemeSwitch";
 import OmniThemeAutomation from "@/components/omni/OmniThemeAutomation";
+import { suggestPlugins } from "@/components/omni/omniPlugins";
+import { useInstallablePlugins } from "@/hooks/useInstallablePlugins";
+import { catalogEntryIcon } from "@/plugins/catalogIcon";
+import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -75,7 +79,8 @@ type OmniItem =
   | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
   | { kind: "join-code"; id: string; label: string; icon: string; code: string }
   | { kind: "join-code-prompt"; id: string; label: string; icon: string }
-  | { kind: "local-shell"; shell: ShellOption | null };
+  | { kind: "local-shell"; shell: ShellOption | null }
+  | { kind: "plugin"; plugin: MarketplacePlugin };
 
 type Category = "all" | "snippets" | "marketplace" | "settings" | "join";
 
@@ -124,6 +129,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const pluginCommands = useMemo(() => [...omniCommandsMap.values()], [omniCommandsMap]);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
   const settingsPagesMap = usePluginStore((s) => s.settingsPages);
+  const { merged: pluginCatalog, taken: takenPluginIds, appVersion } = useInstallablePlugins();
+  const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const locale = useUiLanguage();
   const isAndroid = useIsAndroid();
   const nav = useMemo(() => (isAndroid ? mobileSettingsNav(getSettingsNav()) : getSettingsNav()), [locale, isAndroid]);
@@ -201,7 +208,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     if (category === "snippets") {
       return snippets.filter(snippetMatches).map((s): OmniItem => ({ kind: "snippet", snippet: s }));
     }
-    if (category === "marketplace") return [];
+    const pluginItems = (browsing: boolean) =>
+      suggestPlugins(pluginCatalog, takenPluginIds, appVersion, q, browsing)
+        .map((plugin): OmniItem => ({ kind: "plugin", plugin }));
+    if (category === "marketplace") return pluginItems(true);
     if (category === "join") {
       if (isJoinInput(q)) {
         return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
@@ -314,8 +324,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     // Settings pages (only when query matches — avoids flooding the empty state)
     if (q) result.push(...settingsItems.filter(settingsMatches));
 
+    result.push(...pluginItems(false));
+
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, t]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, pluginCatalog, takenPluginIds, appVersion, t]);
 
   const shellNeedsPath = useMemo(() => {
     const shown = items
@@ -455,6 +467,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         onClose();
       } else if (item.kind === "quick-connect") {
         launchQuickConnect(item.intent);
+        onClose();
+      } else if (item.kind === "plugin") {
+        openSettings("plugins");
+        useUIStore.getState().setPluginBrowseQuery(item.plugin.name);
         onClose();
       }
     },
@@ -886,6 +902,32 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       );
     }
 
+    if (item.kind === "plugin") {
+      const { plugin } = item;
+      return (
+        <button
+          key={`p-${plugin.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <AvatarTile icon={catalogEntryIcon(plugin)} iconSize={13} className="w-7 h-7 rounded-lg" iconClassName="text-(--t-accent)" />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {plugin.name}
+            </span>
+            <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">{plugin.description}</p>
+          </div>
+          <span className="text-xs shrink-0 px-1.5 py-0.5 rounded-sm font-medium bg-(--t-bg-elevated) text-(--t-text-dim)">
+            {t("omni.pluginNotInstalled")}
+          </span>
+        </button>
+      );
+    }
+
     return null;
   }
 
@@ -1067,10 +1109,19 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
               )}
+
+              {sectionBoundaries.pluginCount > 0 && (
+                <>
+                  {sectionHeader(t("omni.sections.availablePlugins"), runningIdx > 0)}
+                  {items.slice(sectionBoundaries.pluginStart, sectionBoundaries.pluginStart + sectionBoundaries.pluginCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
             </>
           ) : (
             <>
               {category === "settings" && sectionHeader(t("omni.sections.settings"), false)}
+              {category === "marketplace" && items.length > 0 && sectionHeader(t("omni.sections.availablePlugins"), false)}
               {category === "join" && items[0]?.kind === "join-code" && sectionHeader(t("omni.sections.joinByInviteCode"), false)}
               {category === "join" && items[0]?.kind !== "join-code" && sectionHeader(t("omni.sections.teamSessions"), false)}
               {items.map((item) => renderItem(item, runningIdx++))}
@@ -1080,7 +1131,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           {items.length === 0 && (
             <p className="px-4 py-6 text-sm text-center text-(--t-text-dim)">
               {category === "snippets" ? t("omni.emptyState.noSnippets") :
-               category === "marketplace" ? t("omni.emptyState.marketplaceComingSoon") :
+               category === "marketplace" ? (catalogLoading ? t("omni.emptyState.loadingPlugins") : q ? t("omni.emptyState.noResultsFor", { query: q }) : t("omni.emptyState.noPlugins")) :
                category === "join" ? (q ? t("omni.emptyState.noSessionsMatch", { query: q }) : t("omni.emptyState.noActiveTeamSessions")) :
                t("omni.emptyState.noResultsFor", { query: q || query })}
             </p>

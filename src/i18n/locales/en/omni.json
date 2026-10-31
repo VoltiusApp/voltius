@@ -21,10 +21,12 @@
       "quickSettings": "Quick Settings",
       "settings": "Settings",
       "joinByInviteCode": "Join by invite code",
-      "importExport": "Import / Export"
+      "importExport": "Import / Export",
+      "availablePlugins": "Available plugins"
     },
     "settingsDescription": "Settings",
     "pluginSettingsDescription": "Plugin Settings",
+    "pluginNotInstalled": "Not installed",
     "editHost": "Edit host",
     "deleteHost": "Delete host",
     "resume": "Resume",
@@ -50,7 +52,8 @@
     "localShellDefault": "Local shell",
     "emptyState": {
       "noSnippets": "No snippets yet",
-      "marketplaceComingSoon": "Marketplace coming soon",
+      "loadingPlugins": "Loading plugins…",
+      "noPlugins": "No plugins to install",
       "noSessionsMatch": "No sessions match \"{{query}}\"",
       "noActiveTeamSessions": "No active team sessions",
       "noResultsFor": "No results for \"{{query}}\""

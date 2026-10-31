@@ -21,10 +21,12 @@
       "quickSettings": "快速设置",
       "settings": "设置",
       "joinByInviteCode": "通过邀请码加入",
-      "importExport": "导入 / 导出"
+      "importExport": "导入 / 导出",
+      "availablePlugins": "可用插件"
     },
     "settingsDescription": "设置",
     "pluginSettingsDescription": "插件设置",
+    "pluginNotInstalled": "未安装",
     "editHost": "编辑主机",
     "deleteHost": "删除主机",
     "resume": "继续",
@@ -50,7 +52,8 @@
     "localShellDefault": "本地 Shell",
     "emptyState": {
       "noSnippets": "暂无代码片段",
-      "marketplaceComingSoon": "市场即将上线",
+      "loadingPlugins": "正在加载插件…",
+      "noPlugins": "没有可安装的插件",
       "noSessionsMatch": "没有匹配 \"{{query}}\" 的会话",
       "noActiveTeamSessions": "没有活跃的团队会话",
       "noResultsFor": "没有 \"{{query}}\" 的结果"

@@ -12,6 +12,7 @@ export interface SectionBoundaries {
   actionStart: number; actionCount: number;
   toggleStart: number; toggleCount: number;
   settingsStart: number; settingsCount: number;
+  pluginStart: number; pluginCount: number;
 }
 
 export function computeSectionBoundaries(
@@ -46,13 +47,15 @@ export function computeSectionBoundaries(
   const toggleCount = count("toggle");
   const actionStart = take(actionCount);
   const toggleStart = take(toggleCount);
-  const settingsStart = idx;
+  const settingsStart = take(settingsCount);
+  const pluginCount = count("plugin");
+  const pluginStart = take(pluginCount);
 
   return {
     joinCodeStart, joinCodeCount, quickConnectStart, quickConnectCount, activeStart, activeCount,
     teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount,
     localStart, localCount, keyStart, keyCount, identityStart, identityCount,
     snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount,
-    settingsStart, settingsCount,
+    settingsStart, settingsCount, pluginStart, pluginCount,
   };
 }

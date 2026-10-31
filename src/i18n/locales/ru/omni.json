@@ -21,10 +21,12 @@
       "quickSettings": "Быстрые настройки",
       "settings": "Настройки",
       "joinByInviteCode": "Присоединиться по коду приглашения",
-      "importExport": "Импорт / Экспорт"
+      "importExport": "Импорт / Экспорт",
+      "availablePlugins": "Доступные плагины"
     },
     "settingsDescription": "Настройки",
     "pluginSettingsDescription": "Настройки плагина",
+    "pluginNotInstalled": "Не установлен",
     "editHost": "Изменить хост",
     "deleteHost": "Удалить хост",
     "resume": "Возобновить",
@@ -52,7 +54,8 @@
     "localShellDefault": "Локальная оболочка",
     "emptyState": {
       "noSnippets": "Пока нет сниппетов",
-      "marketplaceComingSoon": "Маркетплейс скоро появится",
+      "loadingPlugins": "Загрузка плагинов…",
+      "noPlugins": "Нет плагинов для установки",
       "noSessionsMatch": "Нет сессий, соответствующих \"{{query}}\"",
       "noActiveTeamSessions": "Нет активных командных сессий",
       "noResultsFor": "Нет результатов для \"{{query}}\""

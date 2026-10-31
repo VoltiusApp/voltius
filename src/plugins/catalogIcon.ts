@@ -9,3 +9,7 @@ export function catalogIcon(icon: string | undefined, fallback: string): string 
   if (!prefix || !name || !isHostIconPrefix(prefix)) return fallback;
   return icon;
 }
+
+export function catalogEntryIcon(entry: { icon?: string; theme: boolean }): string {
+  return catalogIcon(entry.icon, entry.theme ? "lucide:palette" : "lucide:puzzle");
+}
