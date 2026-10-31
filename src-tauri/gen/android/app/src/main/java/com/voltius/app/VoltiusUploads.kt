@@ -117,9 +117,24 @@ object VoltiusUploads {
     }
 
     @JvmStatic
-    fun copyToCache(ctx: Context, uri: String, destPath: String) {
+    external fun nativeCopyCancelled(transferId: String): Boolean
+
+    @JvmStatic
+    fun copyToCache(ctx: Context, uri: String, destPath: String, transferId: String) {
         val input = ctx.contentResolver.openInputStream(Uri.parse(uri))
             ?: throw IOException("cannot open $uri")
-        input.use { src -> File(destPath).outputStream().use { src.copyTo(it) } }
+        input.use { src ->
+            File(destPath).outputStream().use { out ->
+                val buf = ByteArray(COPY_CHUNK)
+                while (!nativeCopyCancelled(transferId)) {
+                    val n = src.read(buf)
+                    if (n < 0) return
+                    out.write(buf, 0, n)
+                }
+                throw IOException("Transfer cancelled")
+            }
+        }
     }
+
+    private const val COPY_CHUNK = 256 * 1024
 }

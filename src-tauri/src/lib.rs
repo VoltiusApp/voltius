@@ -33,6 +33,7 @@ mod port_forward;
 mod processes;
 mod proxmox;
 mod proxy;
+mod recent_ids;
 mod scratch;
 mod serial;
 mod sftp;

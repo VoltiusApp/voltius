@@ -347,7 +347,7 @@ impl<H: Handler + 'static> Endpoint for DockerFs<H> {
             let mut writer = channel.make_writer();
             tokio::select! {
                 copied = tokio::io::copy(&mut rx, &mut writer) => copied?,
-                _ = cancel.cancelled() => return Err("Transfer cancelled".into()),
+                _ = cancel.cancelled() => return Err(crate::sftp::TRANSFER_CANCELLED.into()),
             };
             writer.flush().await?;
             drop(writer);

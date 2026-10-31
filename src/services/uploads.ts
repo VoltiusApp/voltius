@@ -24,14 +24,9 @@ function safeUploadName(name: string): string {
   return isPlainName(flat.trim(), false) ? flat : "file";
 }
 
-const isCancelled = (tid: string) =>
-  useTransferQueueStore.getState().transfers.find((t) => t.id === tid)?.status === "cancelled";
-
 async function uploadOne(f: FileEntry, sftpId: string, cwd: string, tid: string): Promise<void> {
   try {
     const tmp = await invoke<string>("upload_stage", { uri: f.path, name: f.name, transferId: tid });
-    // Cancel can only reach sftp_upload once it runs, so one pressed during the copy is checked here.
-    if (isCancelled(tid)) throw new Error("cancelled");
     await sftpUpload({ sftpId, localPath: tmp, remotePath: joinPath(cwd, f.name), transferId: tid });
   } finally {
     await invoke("upload_stage_clear", { transferId: tid }).catch(() => {});

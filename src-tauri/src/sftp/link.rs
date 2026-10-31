@@ -183,7 +183,7 @@ where
         };
         tokio::select! {
             biased;
-            _ = token.cancelled() => return Err("Transfer cancelled".into()),
+            _ = token.cancelled() => return Err(crate::sftp::TRANSFER_CANCELLED.into()),
             _ = closed.cancelled() => return Err("SFTP session closed".into()),
             _ = tokio::time::sleep_until(deadline) => {
                 return Err(AppError::coded(

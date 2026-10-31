@@ -139,7 +139,7 @@ impl Landing {
 }
 
 fn cancelled() -> AppError {
-    "Transfer cancelled".into()
+    crate::sftp::TRANSFER_CANCELLED.into()
 }
 
 pub(crate) fn connection_lost() -> AppError {

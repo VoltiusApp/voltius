@@ -194,7 +194,7 @@ pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
         let msg = match token {
             Some(t) => tokio::select! {
                 biased;
-                _ = t.cancelled() => return Err("Transfer cancelled".into()),
+                _ = t.cancelled() => return Err(crate::sftp::TRANSFER_CANCELLED.into()),
                 m = channel.wait() => m,
             },
             None => channel.wait().await,
@@ -205,7 +205,7 @@ pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
                 match token {
                     Some(t) => tokio::select! {
                         biased;
-                        _ = t.cancelled() => return Err("Transfer cancelled".into()),
+                        _ = t.cancelled() => return Err(crate::sftp::TRANSFER_CANCELLED.into()),
                         r = write => r,
                     },
                     None => write.await,

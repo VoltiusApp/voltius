@@ -2,6 +2,7 @@ use super::local_tar::{self, Sink};
 use super::tar_failure::{explain, End};
 use super::{pump, TransferProgress, CHUNK_SIZE};
 use crate::sftp::backend::{report_skipped, TransferEvents};
+use crate::sftp::TRANSFER_CANCELLED;
 use crate::ssh::exec::{drain_channel, open_exec};
 use russh::client::{Handle, Handler, Msg};
 use russh::{ChannelReadHalf, ChannelWriteHalf};
@@ -20,7 +21,6 @@ use tokio_util::sync::CancellationToken;
 const PIPE: usize = 256 * 1024;
 const REMOTE_REASON_WAIT: Duration = Duration::from_secs(2);
 const CLOSE_WAIT: Duration = Duration::from_millis(500);
-const CANCELLED: &str = "Transfer cancelled";
 
 type Status = Result<(Option<i32>, Vec<u8>), String>;
 type Joined = Result<Status, tokio::task::JoinError>;
@@ -190,7 +190,7 @@ async fn fail_remote(
 ) -> String {
     close_bounded(tx.close()).await;
     let message = if token.is_cancelled() {
-        CANCELLED.into()
+        TRANSFER_CANCELLED.into()
     } else {
         remote_reason(end, dir, status_task).await.unwrap_or(cause)
     };
@@ -219,7 +219,7 @@ async fn finish_remote(
     };
     let result = tokio::select! {
         biased;
-        _ = token.cancelled() => Err(CANCELLED.to_string()),
+        _ = token.cancelled() => Err(TRANSFER_CANCELLED.to_string()),
         r = finish => r,
     };
     if result.is_err() {
@@ -320,7 +320,7 @@ pub async fn download<H: Handler, E: TransferEvents>(
     let unpacked = joined(unpacker.await);
 
     if job.token.is_cancelled() {
-        return Err(CANCELLED.into());
+        return Err(TRANSFER_CANCELLED.into());
     }
     let remote_failure = match &drained {
         Ok((code @ Some(c), err)) if *c != 0 => {
