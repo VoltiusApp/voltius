@@ -37,7 +37,7 @@ export function PresenceAvatar({
       {hasControl ? (
         <span
           className="absolute -bottom-0.5 -right-0.5 rounded-full flex items-center justify-center"
-          style={{ width: badge, height: badge, background: "var(--t-accent)", color: "#fff" }}
+          style={{ width: badge, height: badge, background: "var(--t-accent)", color: "var(--t-on-accent)" }}
         >
           <Icon icon="lucide:pencil" width={Math.round(badge * 0.6)} />
         </span>

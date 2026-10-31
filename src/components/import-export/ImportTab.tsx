@@ -791,7 +791,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
             onClick={handleAutoExtract}
             disabled={extracting}
             className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-            style={{ background: "var(--t-accent)", color: "#fff" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           >
             <Icon icon={extracting ? "lucide:loader-circle" : "lucide:download"} width={14} className={extracting ? "animate-spin" : ""} />
             {extracting ? t("importExport.import.extracting") : t("importExport.import.extractFrom", { label: source.label })}

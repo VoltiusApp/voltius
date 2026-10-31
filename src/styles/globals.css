@@ -656,7 +656,7 @@ button svg *,
    regardless of host surface. Object cards/tiles keep their glossy depth; CTAs
    do not. See docs/design-surfaces.md. */
 .btn-primary {
-  color: #fff;
+  color: var(--t-on-accent);
   background: var(--t-accent);
   box-shadow: var(--t-ring);
 }

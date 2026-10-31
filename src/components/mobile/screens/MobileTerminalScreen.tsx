@@ -18,7 +18,7 @@ export default function MobileTerminalScreen() {
         <button
           data-mobile-pick-host
           className="text-sm px-4 py-2 rounded-xl font-medium"
-          style={{ background: "var(--t-accent)", color: "#fff" }}
+          style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           onClick={() => setTab("hosts")}
         >
           {t("mobile.terminalScreen.pickHost")}

@@ -109,7 +109,7 @@ export function VaultBackups({ currentReadable, hideWhenEmpty, className }: Prop
                   type="button"
                   disabled={busy}
                   onClick={() => void restore(b.file)}
-                  className="flex-1 text-xs px-3 py-1.5 rounded-md font-medium transition-opacity bg-(--t-accent) text-white hover:opacity-80"
+                  className="flex-1 text-xs px-3 py-1.5 rounded-md font-medium transition-opacity bg-(--t-accent) text-(--t-on-accent) hover:opacity-80"
                 >
                   {t("shared.vaultBackups.confirm")}
                 </button>

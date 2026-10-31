@@ -76,7 +76,7 @@ export default function HostPickerSheet({
             <button key={v.id ?? ""} {...{ [`data-${attr}-vault`]: v.id ?? "all" }} onClick={() => setVaultFilter(v.id)}
               className="vt-hit shrink-0 px-3 h-8 rounded-full text-xs font-medium whitespace-nowrap"
               style={v.id === vaultFilter
-                ? { background: "var(--t-accent)", color: "var(--t-bg-terminal)" }
+                ? { background: "var(--t-accent)", color: "var(--t-on-accent)" }
                 : { background: "var(--t-bg-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border)" }}>
               {v.name}
             </button>

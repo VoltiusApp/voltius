@@ -43,7 +43,7 @@ export default function MobileSnippetTargetSheet(
         className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card)"
         onClick={() => p.toggleConnection(c.id)}>
         {sel
-          ? <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--t-accent)" }}><Icon icon="lucide:check" width={15} className="text-white" /></span>
+          ? <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--t-accent)" }}><Icon icon="lucide:check" width={15} className="text-(--t-on-accent)" /></span>
           : <ConnectionAvatar connection={c} size={28} />}
         <span className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{connectionDisplayName(c)}</span>
       </button>
@@ -94,7 +94,7 @@ export default function MobileSnippetTargetSheet(
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card)"
                 onClick={() => p.toggleSession(s.id)}>
                 <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: sel ? "var(--t-accent)" : "var(--t-bg-elevated)", color: sel ? "#fff" : "var(--t-text-dim)" }}>
+                  style={{ background: sel ? "var(--t-accent)" : "var(--t-bg-elevated)", color: sel ? "var(--t-on-accent)" : "var(--t-text-dim)" }}>
                   <Icon icon={sel ? "lucide:check" : "lucide:terminal"} width={15} />
                 </span>
                 <span className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{sessionLabel(s)}</span>
@@ -118,7 +118,7 @@ export default function MobileSnippetTargetSheet(
         <div className="sticky bottom-0 px-3 pt-2 pb-(--vt-safe-bottom)" style={{ background: "var(--t-bg-modal)" }}>
           <button data-snippet-target-confirm onClick={() => void go()}
             className="w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
-            style={{ background: "var(--t-accent)", color: "#fff" }}>
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}>
             <Icon icon={execute ? "lucide:play" : "lucide:arrow-down-to-line"} width={16} />
             {confirmLabel}
           </button>

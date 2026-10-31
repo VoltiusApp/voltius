@@ -338,7 +338,7 @@ function PendingInviteModal({
             onClick={() => void handle("accept")}
             disabled={!!loading}
             className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-opacity"
-            style={{ background: "var(--t-accent)", color: "#fff", opacity: loading ? 0.6 : 1 }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: loading ? 0.6 : 1 }}
           >
             {loading === "accept" ? t("layout.vaultSidebar.accepting") : t("layout.vaultSidebar.accept")}
           </button>

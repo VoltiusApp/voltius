@@ -156,7 +156,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
         onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(); }}
         onClick={(e) => { noFocusSteal(e); togglePanels(); }}
         className={`${KEY_CLASS} font-medium`}
-        style={{ background: panelsOpen ? "var(--t-accent)" : "var(--t-bg-card)", color: panelsOpen ? "#fff" : "var(--t-text-primary)", border: "1px solid var(--t-border)" }}>
+        style={{ background: panelsOpen ? "var(--t-accent)" : "var(--t-bg-card)", color: panelsOpen ? "var(--t-on-accent)" : "var(--t-text-primary)", border: "1px solid var(--t-border)" }}>
         <Icon icon="lucide:layout-grid" width={18} />
       </button>
     </div>

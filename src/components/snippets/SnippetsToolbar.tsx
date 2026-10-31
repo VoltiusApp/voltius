@@ -114,7 +114,7 @@ export function SnippetsToolbar({
             title={compact ? t("snippets.toolbar.newSnippet") : undefined}
             type="button"
             className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
-            style={{ background: "var(--t-accent)", color: "var(--t-bg-terminal)" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
           >

@@ -56,7 +56,7 @@ export function VaultLimitModal({ onClose }: { onClose: () => void }) {
           {isCloudAccount && !showUpgrade ? <AvailableWithPlan plan="Pro" className="py-2" /> : (
           <button
             onClick={isCloudAccount ? () => void upgrade() : signIn}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-(--t-on-accent) hover:opacity-90 transition-opacity"
           >
             {isCloudAccount ? t("layout.vaultSidebar.upgradeToPro") : t("layout.vaultSidebar.signInOrCreate")}
           </button>

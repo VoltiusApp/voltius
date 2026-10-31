@@ -132,7 +132,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           </span>
           <button
             className="px-2 py-0.5 rounded-sm text-xs font-medium transition-colors"
-            style={{ background: "var(--t-accent)", color: "white" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             onClick={() => grantControl(localSessionId, mpState.controlRequester!)}
           >
             {t("terminal.multiplayerBar.grant")}

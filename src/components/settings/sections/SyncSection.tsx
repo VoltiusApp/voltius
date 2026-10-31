@@ -113,7 +113,7 @@ function VoltiusSyncGroup({ provider }: { provider: SyncProviderView }) {
         {provider.action && (
           <button
             onClick={runAction}
-            className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
+            className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-(--t-on-accent) hover:opacity-85 transition-opacity"
           >
             {t("settings.sync.requiresPro.upgrade")}
           </button>
@@ -255,7 +255,7 @@ function LocalNetworkGroup() {
             <button
               data-sync-pair
               onClick={openPairDeviceDialog}
-              className="min-h-11 text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
+              className="min-h-11 text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-(--t-on-accent) hover:opacity-85 transition-opacity"
             >
               {t("layout.sync.local.pair.title")}
             </button>

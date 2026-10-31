@@ -89,7 +89,7 @@ export default function VaultSwitcherSheet() {
             onClick={create}
             disabled={!name.trim()}
             className="px-3 h-10 rounded-lg text-sm font-semibold disabled:opacity-40"
-            style={{ background: "var(--t-accent)", color: "#fff" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           >
             {t("common.action.create")}
           </button>
