@@ -134,7 +134,7 @@ pub struct FileService {
     broker: Broker,
     dir: PathBuf,
     account: String,
-    alert: Alert,
+    alert: Mutex<Alert>,
 }
 
 fn remember(cfg: &mut FileAccessConfig, key: &str, name: &str, always: bool) {
@@ -173,12 +173,20 @@ impl FileService {
             broker: Broker::default(),
             dir,
             account,
-            alert,
+            alert: Mutex::new(alert),
         }
     }
 
     pub fn account(&self) -> &str {
         &self.account
+    }
+
+    fn alerting(&self) -> MutexGuard<'_, Alert> {
+        self.alert.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub fn set_alert(&self, alert: Alert) {
+        *self.alerting() = alert;
     }
 
     pub fn config(&self) -> FileAccessConfig {
@@ -305,7 +313,8 @@ impl FileService {
             (pending, withdraw)
         };
         self.core.emit(REQUEST, json!(prompt));
-        (self.alert)(&prompt);
+        let alert = self.alerting().clone();
+        alert(&prompt);
         // The requester sends nothing before the reply, so any read result means it hung up.
         // Biased: a withdraw also drops the answer channel, which must not read as a timeout.
         let outcome = tokio::select! {

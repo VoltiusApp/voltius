@@ -41,14 +41,19 @@ export async function loadFileAccess(): Promise<void> {
   if (store().config === null) store().setConfig(config);
 }
 
+const startArgs = (accountId: string) => ({ accountId, notifyBody: i18n.t("layout.deviceFiles.title", { name: "{name}" }) });
+
 async function begin(gen: number): Promise<void> {
   if ((await getPlatform()) === "android") return;
   const accountId = await getAccountId();
   if (!accountId || gen !== generation) return;
-  await inOrder("device_files_start", { accountId, notifyBody: i18n.t("layout.deviceFiles.title", { name: "{name}" }) });
+  await inOrder("device_files_start", startArgs(accountId));
   const attached: Array<() => void> = [];
   const detach = () => attached.splice(0).forEach((off) => off());
+  const relabel = () => void inOrder("device_files_start", startArgs(accountId)).catch(fail("relabel"));
   try {
+    i18n.on("languageChanged", relabel);
+    attached.push(() => i18n.off("languageChanged", relabel));
     attached.push(await listen("device-files://request", () => void refresh()));
     attached.push(await listen<ActiveSession[]>("device-files://sessions", (e) => store().setSessions(e.payload)));
     attached.push(await listen<FileAccessConfig>("device-files://config", (e) => store().setConfig(e.payload)));

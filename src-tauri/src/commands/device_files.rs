@@ -154,7 +154,10 @@ mod serving {
     ) {
         let mut slot = lan.files.service.lock().await;
         stop_where(&mut slot, |s| s.account() != account);
-        slot.get_or_insert_with(|| Arc::new(FileService::new(dir, account, emit, alert)));
+        match slot.as_ref() {
+            Some(svc) => svc.set_alert(alert),
+            None => *slot = Some(Arc::new(FileService::new(dir, account, emit, alert))),
+        }
         lan.offer_files(&slot).await;
     }
 
@@ -1039,6 +1042,26 @@ mod tests {
         a.links.end_device("dev-b", device_forgotten);
         a.closes(&c, ErrorCode::DeviceForgotten).await;
         s.until_open(&[]).await;
+    }
+
+    #[tokio::test]
+    async fn starting_again_swaps_the_notification_text() {
+        let s = server(&[]).await;
+        let before = s.svc().await;
+        let alerted: Arc<Mutex<Vec<String>>> = Arc::default();
+        let log = alerted.clone();
+        serving::start_inner(
+            &s.lan,
+            s.dir.path().to_path_buf(),
+            ACCOUNT.into(),
+            quiet(),
+            Arc::new(move |p| log.lock().unwrap().push(p.device_name.clone())),
+        )
+        .await;
+        assert!(Arc::ptr_eq(&before, &s.svc().await));
+        let a = browser("dev-a", &s).await;
+        a.approved(&s).await;
+        assert_eq!(alerted.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
