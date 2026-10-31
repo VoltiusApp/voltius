@@ -4,7 +4,10 @@ import { render, cleanup, act, waitFor } from "@testing-library/react";
 const h = vi.hoisted(() => ({ mode: "local" as string | null, platform: "macos" as string | null }));
 
 vi.mock("@/services/account", () => ({ getAccountMode: async () => h.mode }));
-vi.mock("@/utils/platform", () => ({ usePlatform: () => h.platform }));
+vi.mock("@/utils/platform", async () => ({
+  ...(await vi.importActual<typeof import("@/utils/platform")>("@/utils/platform")),
+  usePlatform: () => h.platform,
+}));
 
 import { useNoAccountInstall, useCanPairDevices } from "./useNoAccountInstall";
 import { notifyAccountModeChanged } from "@/utils/accountMode";

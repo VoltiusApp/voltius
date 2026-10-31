@@ -13,6 +13,7 @@ import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { lastServerUrl } from "@/utils/serverInstance";
+import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
 
@@ -35,6 +36,7 @@ type Unreadable = "no-password" | "wrong-key";
 
 export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onReady }: Props) {
   const { t } = useTranslation();
+  const lanContext = localSyncContext(usePlatform());
   const [view, setView] = useState<View>("home");
   const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
   const [loading, setLoading] = useState(false);
@@ -207,7 +209,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         <ActionButton
           icon="lucide:zap"
           label={t("layout.auth.getStarted")}
-          sub={t("layout.auth.getStartedSub")}
+          sub={t("layout.auth.getStartedSub", { context: lanContext })}
           primary
           loading={loading}
           onClick={() => wrap(createLocalAccountNoPassword)}
@@ -222,7 +224,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         <ActionButton
           icon="lucide:cloud"
           label={t("layout.auth.cloudAccount")}
-          sub={t("layout.auth.cloudAccountSub")}
+          sub={t("layout.auth.cloudAccountSub", { context: lanContext })}
           onClick={() => reset("cloud", "signup")}
         />
       </Layout>
@@ -259,7 +261,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     return (
       <Layout onBack={() => reset("home")}>
         <p className="text-xs mb-4 text-center text-(--t-text-muted)">
-          {isSignup ? t("layout.auth.signupPrompt") : t("layout.auth.signinPrompt")}
+          {isSignup ? t("layout.auth.signupPrompt", { context: lanContext }) : t("layout.auth.signinPrompt")}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
           <Input type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail} autoFocus />

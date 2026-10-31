@@ -251,7 +251,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           </div>
           <button
             className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-opacity"
-            style={{ background: "var(--t-accent)", color: "var(--t-accent-fg)", opacity: 1 }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: 1 }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             onClick={onSignIn}
@@ -293,7 +293,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           {upgrade && (
             <button
               className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-opacity"
-              style={{ background: "var(--t-accent)", color: "var(--t-accent-fg)", opacity: 1 }}
+              style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: 1 }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
               onClick={upgrade}

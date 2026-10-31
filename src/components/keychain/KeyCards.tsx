@@ -174,7 +174,7 @@ function KeyCard({
       t,
     ),
     {
-      label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
+      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
       icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(sshKey.id),
       divider: true,
@@ -209,7 +209,7 @@ function KeyCard({
           <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList name={rename.editor ?? sshKey.name} />
           <div className="flex items-center gap-1 shrink-0">
             {!isSynced && (
-              <span title={t("keychain.common.cloudSyncDisabledTitle")} className="text-(--t-text-dim) flex items-center">
+              <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
                 <Icon icon="lucide:cloud-off" width={18} />
               </span>
             )}
@@ -233,7 +233,7 @@ function KeyCard({
                   </span>
                 )}
                 {!isSynced && (
-                  <span title={t("keychain.common.cloudSyncDisabledTitle")} className="shrink-0 text-(--t-text-dim) flex items-center">
+                  <span title={t("common.objectSync.notSynced")} className="shrink-0 text-(--t-text-dim) flex items-center">
                     <Icon icon="lucide:cloud-off" width={14} />
                   </span>
                 )}
@@ -432,7 +432,7 @@ function IdentityCard({
       t,
     ),
     {
-      label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
+      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
       icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(identity.id),
       divider: true,
@@ -493,7 +493,7 @@ function IdentityCard({
           )}
           <div className="flex items-center gap-1 shrink-0">
             {!isSynced && (
-              <span title={t("keychain.common.cloudSyncDisabledTitle")} className="text-(--t-text-dim) flex items-center">
+              <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
                 <Icon icon="lucide:cloud-off" width={18} />
               </span>
             )}
@@ -522,7 +522,7 @@ function IdentityCard({
                   </span>
                 )}
                 {!isSynced && (
-                  <span title={t("keychain.common.cloudSyncDisabledTitle")} className="shrink-0 text-(--t-text-dim) flex items-center">
+                  <span title={t("common.objectSync.notSynced")} className="shrink-0 text-(--t-text-dim) flex items-center">
                     <Icon icon="lucide:cloud-off" width={14} />
                   </span>
                 )}

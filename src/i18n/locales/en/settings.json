@@ -137,14 +137,23 @@
         ]
       },
       "sync": {
-        "mobileSub": "Cloud sync and what gets synced",
+        "mobileSub": "Cloud, local network and what gets synced",
         "label": "Sync",
         "keywords": [
           "backup",
           "cloud",
           "gist",
           "sync",
-          "pro"
+          "pro",
+          "local",
+          "network",
+          "nearby",
+          "wifi",
+          "lan",
+          "pair",
+          "devices",
+          "tailscale",
+          "vpn"
         ]
       },
       "plugins": {
@@ -507,6 +516,8 @@
           "localVault": "Local vault",
           "auditLogs": "Audit logs",
           "gistSync": "GitHub Gist sync",
+          "localSync": "Local network sync",
+          "deviceFiles": "File transfer between your devices",
           "realtimeSync": "Real-time cloud sync",
           "unlimitedVaults": "Unlimited private vaults",
           "terminalSharing": "Terminal sharing (1 session · 1 guest)",
@@ -638,7 +649,10 @@
     "sync": {
       "voltiusCloud": "Voltius Cloud",
       "local": {
-        "pairSub": "Sync with another device on your network without an account."
+        "pairSub": "Sync with another device on your network without an account.",
+        "title": "Local sync",
+        "pauseSub": "Stops syncing with your other devices nearby until you resume.",
+        "footer": "Your personal vault syncs directly between your devices on the same network or over a VPN like Tailscale, while both are online. Free, with no server in between. Team vaults are not included."
       },
       "active": {
         "title": "Cloud sync active",
@@ -652,7 +666,7 @@
         "syncNow": "Sync now"
       },
       "pause": {
-        "label": "Pause sync on this device",
+        "label": "Pause cloud sync on this device",
         "sub": "Stops background sync with the server. Team vaults stop updating and do not load at launch until you resume. Sync now only syncs your own data."
       },
       "requiresPro": {
@@ -661,13 +675,13 @@
         "upgrade": "Upgrade"
       },
       "notConnected": {
-        "title": "Cloud account not connected",
-        "sub": "Sign in or create a cloud account to sync across devices.",
+        "title": "Not signed in",
+        "sub": "Voltius Cloud keeps your devices in sync even when they're not online together, with an encrypted backup. With a free account, your devices pair automatically.",
         "signIn": "Sign in"
       },
       "providersTitle": "Sync plugins",
       "prefsTitle": "Sync Preferences",
-      "prefsFooter": "Disabled types are never uploaded. Individual objects can also be excluded from their edit panel.",
+      "prefsFooter": "Disabled types never leave this device. Individual objects can also be excluded from their edit panel.",
       "quickToggleLabel": "Sync {{label}}",
       "objectType": {
         "connection": {
@@ -696,7 +710,7 @@
         }
       },
       "settingsTitle": "Settings",
-      "settingsFooter": "Anything switched off stays on this device. It is never uploaded, even encrypted. Turning sync back on publishes this device's values.",
+      "settingsFooter": "Anything switched off stays on this device and is never sent anywhere, even encrypted. Turning sync back on publishes this device's values.",
       "settingDomain": {
         "themes": { "label": "Themes", "sub": "Active theme and custom themes" },
         "uiPreferences": { "label": "Interface", "sub": "Scale, layouts and sort order" },

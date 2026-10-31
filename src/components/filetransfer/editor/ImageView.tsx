@@ -233,7 +233,7 @@ export function ImageView({ doc, onNotImage }: { doc: EditorDoc; onNotImage: () 
             {download && (
               <button
                 className="px-3 py-1 rounded-md text-xs font-medium"
-                style={{ background: "var(--t-accent)", color: "var(--t-bg-base)" }}
+                style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
                 onClick={download}
               >
                 {t("fileTransfer.editor.image.download")}

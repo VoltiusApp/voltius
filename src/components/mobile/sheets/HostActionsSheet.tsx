@@ -118,7 +118,7 @@ export default function HostActionsSheet({ hostId, fromEditor = false }: { hostI
         pinConnection(hostId, !effectivePinned).catch(() => {});
       } },
     ...(canEdit && moveTargets.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
-    ...(!isTeamHost ? [{ icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", label: isSynced ? t("mobile.sheets.hostActions.disableCloudSync") : t("mobile.sheets.hostActions.enableCloudSync"), slug: isSynced ? "disable-cloud-sync" : "enable-cloud-sync", onTap: () => {
+    ...(!isTeamHost ? [{ icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"), slug: isSynced ? "disable-cloud-sync" : "enable-cloud-sync", onTap: () => {
         useSyncPrefsStore.getState().toggleExcluded(hostId);
       } }] : []),
     ...(canEdit && !isSerial ? [{ icon: conn.ping_disabled ? "lucide:wifi" : "lucide:wifi-off", label: conn.ping_disabled ? t("mobile.sheets.hostActions.enableReachabilityCheck") : t("mobile.sheets.hostActions.disableReachabilityCheck"), slug: conn.ping_disabled ? "enable-reachability-check" : "disable-reachability-check", onTap: () => {

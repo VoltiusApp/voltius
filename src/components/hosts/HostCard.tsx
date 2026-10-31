@@ -255,7 +255,7 @@ export default function HostCard({
   const pingMotion = pingStatusMotion(pingStatus, isActive);
 
   const syncIcon = !isSynced && (
-    <span title={t("hosts.card.cloudSyncDisabled")} className="text-(--t-text-dim) flex items-center">
+    <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
       <Icon icon="lucide:cloud-off" width={18} />
     </span>
   );

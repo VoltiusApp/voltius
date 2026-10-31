@@ -195,7 +195,7 @@ function TransferArrow({ dir, count, enabled, onTap }: { dir: "up" | "down"; cou
   return (
     <button data-sftp-copy={dir === "down" ? "a" : "b"} disabled={!enabled} onClick={onTap}
       className="vt-hit flex items-center gap-1.5 px-6 py-1.5 rounded-xl text-sm font-medium"
-      style={{ background: enabled ? "var(--t-accent)" : "var(--t-bg-card)", color: enabled ? "#fff" : "var(--t-text-dim)", opacity: enabled ? 1 : 0.45 }}>
+      style={{ background: enabled ? "var(--t-accent)" : "var(--t-bg-card)", color: enabled ? "var(--t-on-accent)" : "var(--t-text-dim)", opacity: enabled ? 1 : 0.45 }}>
       <Icon icon={dir === "down" ? "lucide:arrow-down" : "lucide:arrow-up"} width={18} />
       {count > 0 && <span className="tabular-nums">{count}</span>}
     </button>

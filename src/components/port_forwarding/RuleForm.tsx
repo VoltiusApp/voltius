@@ -240,14 +240,14 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
               <div className="flex gap-2">
                 <button type="button" onClick={() => { markDirty(); setIsGlobal(true); }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    isGlobal ? "bg-(--t-accent) text-white"
+                    isGlobal ? "bg-(--t-accent) text-(--t-on-accent)"
                     : "bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-primary)"
                   }`}>
                   {t("portForwarding.ruleForm.allConnections")}
                 </button>
                 <button type="button" onClick={() => { markDirty(); setIsGlobal(false); }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    !isGlobal ? "bg-(--t-accent) text-white"
+                    !isGlobal ? "bg-(--t-accent) text-(--t-on-accent)"
                     : "bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-primary)"
                   }`}>
                   {t("portForwarding.ruleForm.specificConnections")}

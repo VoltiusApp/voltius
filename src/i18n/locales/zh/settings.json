@@ -117,7 +117,7 @@
     "nav": {
       "appearance":     { "mobileSub": "主题、缩放、语言", "label": "外观",      "keywords": ["主题", "颜色", "字体", "ui"] },
       "account":        { "mobileSub": "账户模式、应用锁", "label": "账户",         "keywords": ["个人资料", "登录", "认证"] },
-      "sync":           { "mobileSub": "云同步及同步内容", "label": "同步",            "keywords": ["备份", "云", "gist", "同步", "pro"] },
+      "sync":           { "mobileSub": "云、本地网络及同步内容", "label": "同步",            "keywords": ["备份", "云", "gist", "同步", "pro", "本地", "网络", "附近", "wifi", "局域网", "配对", "设备", "tailscale", "vpn"] },
       "plugins":        { "mobileSub": "已安装插件和插件目录", "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
       "integrations":   { "mobileSub": "供 AI 代理使用的 MCP 服务器", "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
       "terminal":       { "mobileSub": "光标、回滚、粘贴", "label": "终端",        "keywords": ["光标", "回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
@@ -386,6 +386,8 @@
           "localVault": "本地保险库",
           "auditLogs": "审计日志",
           "gistSync": "GitHub Gist 同步",
+          "localSync": "本地网络同步",
+          "deviceFiles": "在您的设备之间传输文件",
           "realtimeSync": "实时云同步",
           "unlimitedVaults": "无限私有保险库",
           "terminalSharing": "终端共享（1 个会话 · 1 名访客）",
@@ -517,7 +519,10 @@
     "sync": {
       "voltiusCloud": "Voltius 云",
       "local": {
-        "pairSub": "无需账号，即可与网络中的另一台设备同步。"
+        "pairSub": "无需账号，即可与网络中的另一台设备同步。",
+        "title": "本地同步",
+        "pauseSub": "停止与附近的其他设备同步，直到您恢复。",
+        "footer": "当两台设备都在线时，您的个人保险库会在同一网络中或通过 Tailscale 等 VPN 直接在设备之间同步。免费，无需中间服务器。不包括团队保险库。"
       },
       "active": {
         "title": "云同步活跃",
@@ -531,7 +536,7 @@
         "syncNow": "立即同步"
       },
       "pause": {
-        "label": "在此设备上暂停同步",
+        "label": "在此设备上暂停云同步",
         "sub": "停止与服务器的后台同步。在恢复之前，团队保险库将停止更新，且启动时不会加载。“立即同步”仅同步您自己的数据。"
       },
       "requiresPro": {
@@ -540,13 +545,13 @@
         "upgrade": "升级"
       },
       "notConnected": {
-        "title": "云账户未连接",
-        "sub": "登录或创建云账户以跨设备同步。",
+        "title": "未登录",
+        "sub": "即使设备不同时在线，Voltius 云也能让它们保持同步，并提供加密备份。使用免费账户，您的设备会自动配对。",
         "signIn": "登录"
       },
       "providersTitle": "同步插件",
       "prefsTitle": "同步偏好",
-      "prefsFooter": "禁用的类型永远不会上传。单个对象也可以通过其编辑面板排除。",
+      "prefsFooter": "禁用的类型永远不会离开此设备。单个对象也可以通过其编辑面板排除。",
       "quickToggleLabel": "同步 {{label}}",
       "objectType": {
         "connection": { "label": "主机", "sub": "SSH 连接" },
@@ -557,7 +562,7 @@
         "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" }
       },
       "settingsTitle": "设置",
-      "settingsFooter": "关闭的项目只保留在此设备上，永远不会上传，即使加密后也不会。重新开启同步会发布此设备的值。",
+      "settingsFooter": "关闭的项目只保留在此设备上，即使加密后也不会发送到任何地方。重新开启同步会发布此设备的值。",
       "settingDomain": {
         "themes": { "label": "主题", "sub": "当前主题和自定义主题" },
         "uiPreferences": { "label": "界面", "sub": "缩放、布局和排序方式" },

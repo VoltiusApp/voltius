@@ -43,7 +43,7 @@ function Btn({
   const size = small ? "px-3 py-1 text-xs" : "px-4 py-2 text-sm";
   const colors =
     variant === "primary"
-      ? "bg-(--t-accent) text-white hover:bg-(--t-accent-hover)"
+      ? "bg-(--t-accent) text-(--t-on-accent) hover:bg-(--t-accent-hover)"
       : variant === "danger"
         ? "bg-transparent border border-(--t-status-error) text-(--t-status-error) hover:bg-[color-mix(in_srgb,var(--t-status-error)_10%,transparent)]"
         : "bg-(--t-bg-elevated) border border-(--t-border) text-(--t-text-muted) hover:border-(--t-border-hover)";

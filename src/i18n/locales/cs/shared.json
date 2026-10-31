@@ -28,7 +28,8 @@
     "trialExpiredModal": {
       "title": "Vaše zkušební verze Pro skončila",
       "subtitle": "Tyto tři funkce dnes přestanou fungovat:",
-      "freeNote": "Lokální trezor, auditní logy a synchronizace přes GitHub Gist zůstávají navždy zdarma.",
+      "freeNote": "Lokální trezor, auditní logy, synchronizace v místní síti, přenos souborů mezi vašimi zařízeními a synchronizace přes GitHub Gist zůstávají navždy zdarma.",
+      "freeNote_ios": "Lokální trezor, auditní logy a synchronizace přes GitHub Gist zůstávají navždy zdarma.",
       "teamsPrompt": "Pracujete s dalšími lidmi? Vyzkoušejte Teams zdarma na {{days}} dní (vyžaduje kartu).",
       "upgradeButton": "Přejít na Pro",
       "laterButton": "Možná později"

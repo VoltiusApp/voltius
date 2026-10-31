@@ -11,10 +11,7 @@
       "privateKey": "Soukromý klíč",
       "publicKey": "Veřejný klíč",
       "passphrase": "Heslo ke klíči",
-      "addToHost": "Přidat k hostu",
-      "disableCloudSync": "Vypnout synchronizaci s cloudem",
-      "enableCloudSync": "Zapnout synchronizaci s cloudem",
-      "cloudSyncDisabledTitle": "Synchronizace s cloudem vypnuta"
+      "addToHost": "Přidat k hostu"
     },
     "toolbar": {
       "filterPlaceholder": "Filtrovat…",
@@ -40,8 +37,6 @@
         "copyItemsTo_few": "Kopírovat {{count}} položky do",
         "copyItemsTo_many": "Kopírovat {{count}} položky do",
         "copyItemsTo_other": "Kopírovat {{count}} položek do",
-        "enableCloudSync": "Zapnout synchronizaci s cloudem ({{count}})",
-        "disableCloudSync": "Vypnout synchronizaci s cloudem ({{count}})",
         "exportPublicKeys_one": "Exportovat {{count}} veřejný klíč",
         "exportPublicKeys_few": "Exportovat {{count}} veřejné klíče",
         "exportPublicKeys_many": "Exportovat {{count}} veřejného klíče",

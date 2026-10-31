@@ -20,7 +20,7 @@ export function UpgradeAction({ teamId, look }: { teamId: string; look: "button"
     return <button type="button" onClick={upgrade} className="text-xs text-(--t-accent)">{t("shared.businessLock.upgrade")}</button>;
   }
   return (
-    <button type="button" onClick={upgrade} className="text-xs px-3 py-1.5 rounded-lg font-medium bg-(--t-accent) text-white">
+    <button type="button" onClick={upgrade} className="text-xs px-3 py-1.5 rounded-lg font-medium bg-(--t-accent) text-(--t-on-accent)">
       {t("shared.businessLock.upgrade")}
     </button>
   );

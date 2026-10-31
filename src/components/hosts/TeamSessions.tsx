@@ -179,7 +179,7 @@ export function TeamSessions() {
             disabled={joinLoading || !inviteCode.trim()}
             onClick={() => void handleJoinByCode()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity disabled:opacity-50"
-            style={{ background: "var(--t-accent)", color: "white" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           >
             {joinLoading
               ? <Icon icon="lucide:loader-circle" width={12} className="animate-spin" />

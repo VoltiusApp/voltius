@@ -192,7 +192,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
             onClick={() => { void handleExport(); }}
             onPointerDown={canExport ? rippleExport : undefined}
             disabled={!canExport}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-white relative overflow-hidden"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-(--t-on-accent) relative overflow-hidden"
             style={{
               opacity: canExport ? 1 : 0.5,
               cursor: canExport ? "pointer" : "not-allowed",

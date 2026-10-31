@@ -213,7 +213,7 @@ export default function MobileSftpPane({
       <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
         <Icon icon="lucide:folder-open" width={28} className="text-(--t-text-dim)" />
         <button data-sftp-pick-host onClick={onPickHost}
-          className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}>
+          className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}>
           {t("mobile.sftp.chooseHost")}
         </button>
       </div>
@@ -362,7 +362,7 @@ export default function MobileSftpPane({
           <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
             className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
-          <button data-sftp-rename-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
+          <button data-sftp-rename-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             onClick={async () => { const f = renaming; const v = renameVal.trim(); setRenaming(null); if (v && v !== f.name) await attempt(() => rename(f, v)); }}>{t("common.action.rename")}</button>
         </BottomSheet>
       )}
@@ -429,7 +429,7 @@ export default function MobileSftpPane({
           <input autoFocus value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder={t("mobile.sftp.folderNamePlaceholder")}
             className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
-          <button data-sftp-mkdir-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
+          <button data-sftp-mkdir-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             onClick={async () => { const n = newFolderName.trim(); setNewFolder(false); setNewFolderName(""); if (n) await attempt(() => mkdir(n)); }}>{t("common.action.create")}</button>
         </BottomSheet>
       )}
@@ -438,7 +438,7 @@ export default function MobileSftpPane({
           <input autoFocus value={newFileName} onChange={(e) => setNewFileName(e.target.value)} placeholder={t("mobile.sftp.fileNamePlaceholder")}
             className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
-          <button data-sftp-touch-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
+          <button data-sftp-touch-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             onClick={async () => { const n = newFileName.trim(); setNewFile(false); setNewFileName(""); if (n) await attempt(() => touch(n)); }}>{t("common.action.create")}</button>
         </BottomSheet>
       )}

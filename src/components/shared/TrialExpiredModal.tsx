@@ -7,6 +7,7 @@ import { usePlanDisplay } from "@/services/planDisplay";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
+import { localSyncContext, usePlatform } from "@/utils/platform";
 
 const STORAGE_KEY = "voltius_trial_expired_shown";
 
@@ -18,6 +19,7 @@ const PRO_PERKS = [
 
 export function TrialExpiredModal() {
   const { t } = useTranslation();
+  const lanContext = localSyncContext(usePlatform());
   const { showTrialEnded, showUpgrade } = usePlanDisplay();
   const [visible, setVisible] = useState(false);
 
@@ -58,7 +60,7 @@ export function TrialExpiredModal() {
         </ul>
 
         <p className="text-xs text-(--t-text-muted) leading-relaxed">
-          {t("shared.trialExpiredModal.freeNote")}
+          {t("shared.trialExpiredModal.freeNote", { context: lanContext })}
         </p>
 
         {showUpgrade && (

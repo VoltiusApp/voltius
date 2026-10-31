@@ -60,8 +60,10 @@
       "search": "Pesquisar…"
     },
     "toast": {
-      "proSubscriptionEnded": "Sua assinatura Pro terminou — a sincronização foi pausada.",
-      "seatEnded": "O seu lugar em {{team}} terminou — a sincronização foi pausada.",
+      "proSubscriptionEnded": "A sua assinatura Pro terminou — a sincronização na nuvem foi pausada. Os seus dispositivos continuam a sincronizar na mesma rede.",
+      "proSubscriptionEnded_ios": "Sua assinatura Pro terminou — a sincronização foi pausada.",
+      "seatEnded": "O seu lugar em {{team}} terminou — a sincronização na nuvem foi pausada. Os seus dispositivos continuam a sincronizar na mesma rede.",
+      "seatEnded_ios": "O seu lugar em {{team}} terminou — a sincronização foi pausada.",
       "managePlan": "Gerenciar plano →",
       "undoFailed": "Falha ao desfazer: {{error}}",
       "redoFailed": "Falha ao refazer: {{error}}",
@@ -69,6 +71,13 @@
       "fileSaveFailed": "Não foi possível guardar o ficheiro: {{error}}",
       "sessionRevoked": "Este dispositivo foi desconectado da sua conta Voltius. Entre novamente para continuar a sincronizar.",
       "signInAgain": "Entrar"
+    },
+    "objectSync": {
+      "notSynced": "Não sincronizado · fica neste dispositivo",
+      "enable": "Sincronizar com os meus dispositivos",
+      "disable": "Manter só neste dispositivo",
+      "enableCount": "Sincronizar com os meus dispositivos ({{count}})",
+      "disableCount": "Manter só neste dispositivo ({{count}})"
     },
     "error": {
       "identityPickUnavailable": "Sua identidade para {{host}} não está disponível",

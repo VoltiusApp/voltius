@@ -90,7 +90,7 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
                 catch (e) { console.error("[proxmox] snapshot create failed:", e); }
               }}
               className="rounded-lg py-2.5 text-sm font-medium disabled:opacity-40"
-              style={{ background: "var(--t-accent)", color: "#fff" }}
+              style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             >
               {t("createSnapshot")}
             </button>

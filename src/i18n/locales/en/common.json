@@ -60,8 +60,10 @@
       "search": "Search…"
     },
     "toast": {
-      "proSubscriptionEnded": "Your Pro subscription has ended — sync has been paused.",
-      "seatEnded": "Your seat in {{team}} ended — sync has been paused.",
+      "proSubscriptionEnded": "Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network.",
+      "proSubscriptionEnded_ios": "Your Pro subscription has ended — sync has been paused.",
+      "seatEnded": "Your seat in {{team}} ended — cloud sync is paused. Your devices still sync on the same network.",
+      "seatEnded_ios": "Your seat in {{team}} ended — sync has been paused.",
       "managePlan": "Manage plan →",
       "undoFailed": "Undo failed: {{error}}",
       "redoFailed": "Redo failed: {{error}}",
@@ -69,6 +71,13 @@
       "fileSaveFailed": "Couldn't save the file: {{error}}",
       "sessionRevoked": "This device was signed out of your Voltius account. Sign in again to keep syncing.",
       "signInAgain": "Sign in"
+    },
+    "objectSync": {
+      "notSynced": "Not synced · stays on this device",
+      "enable": "Sync to my devices",
+      "disable": "Keep on this device only",
+      "enableCount": "Sync to my devices ({{count}})",
+      "disableCount": "Keep on this device only ({{count}})"
     },
     "error": {
       "identityPickUnavailable": "Your identity for {{host}} isn't available",

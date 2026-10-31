@@ -4,7 +4,6 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "openFolder": "打开文件夹",
-      "cloudSyncDisabled": "云同步已禁用",
       "unpinForMe": "为我取消置顶",
       "showInMyView": "在我的视图中显示",
       "hideForMe": "为我隐藏",
@@ -12,8 +11,6 @@
       "unpinForTeam": "为团队取消置顶",
       "pinForTeam": "为团队置顶",
       "exportFolder": "导出文件夹",
-      "disableCloudSync": "禁用云同步",
-      "enableCloudSync": "启用云同步",
       "deleteFolder": "删除文件夹",
       "itemCount_one": "{{count}} 个项目",
       "itemCount_other": "{{count}} 个项目"

@@ -394,7 +394,7 @@ export function InstalledTab() {
                     onClick={() => startUpdate(seededUpdate, manifest.permissions)}
                     disabled={isUpdating}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                    style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating ? 0.6 : 1 }}
+                    style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isUpdating ? 0.6 : 1 }}
                     title={t("settings.plugins.installed.updateTitle", { version: seededUpdate.version })}
                   >
                     <Icon icon={isUpdating ? "lucide:loader" : "lucide:arrow-up-circle"} width={12} className={isUpdating ? "animate-spin" : ""} />
@@ -490,7 +490,7 @@ export function InstalledTab() {
                     onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === meta.id)?.permissions ?? [])}
                     disabled={isUpdating || updateVersionUnsatisfied}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                    style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating || updateVersionUnsatisfied ? 0.6 : 1 }}
+                    style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isUpdating || updateVersionUnsatisfied ? 0.6 : 1 }}
                     title={updateVersionUnsatisfied
                       ? t("settings.plugins.browse.requiresVersion", { version: update.minAppVersion })
                       : t("settings.plugins.installed.updateTitle", { version: update.version })}
@@ -679,7 +679,7 @@ function BrowseTab() {
                 onClick={() => void handleAddSource()}
                 disabled={addingSource || !newSourceUrl.trim()}
                 className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: addingSource ? 0.6 : 1 }}
+                style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: addingSource ? 0.6 : 1 }}
               >
                 {addingSource ? <Icon icon="lucide:loader" width={14} className="animate-spin" /> : t("settings.plugins.browse.add")}
               </button>
@@ -824,7 +824,7 @@ function BrowseTab() {
                       disabled={isBusy || versionUnsatisfied}
                       title={versionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion }) : undefined}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
+                      style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
                     >
                       {isBusy
                         ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
@@ -837,7 +837,7 @@ function BrowseTab() {
                       disabled={isBusy || updateVersionUnsatisfied}
                       title={updateVersionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: update.minAppVersion }) : t("settings.plugins.installed.updateTitle", { version: update.version })}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy || updateVersionUnsatisfied ? 0.6 : 1 }}
+                      style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isBusy || updateVersionUnsatisfied ? 0.6 : 1 }}
                     >
                       {isBusy
                         ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.installed.updating")}</>

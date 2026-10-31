@@ -135,7 +135,7 @@ export function SnapshotList({
                     {snap.name}
                   </span>
                   {snap.is_current && (
-                    <span className="text-[9px] px-1 rounded-sm bg-(--t-accent) text-white shrink-0">{t("hereBadge")}</span>
+                    <span className="text-[9px] px-1 rounded-sm bg-(--t-accent) text-(--t-on-accent) shrink-0">{t("hereBadge")}</span>
                   )}
                 </div>
                 {snap.timestamp && (

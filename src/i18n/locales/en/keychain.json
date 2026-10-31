@@ -11,10 +11,7 @@
       "privateKey": "Private Key",
       "publicKey": "Public Key",
       "passphrase": "Passphrase",
-      "addToHost": "Add to host",
-      "disableCloudSync": "Disable cloud sync",
-      "enableCloudSync": "Enable cloud sync",
-      "cloudSyncDisabledTitle": "Cloud sync disabled"
+      "addToHost": "Add to host"
     },
     "toolbar": {
       "filterPlaceholder": "Filter...",
@@ -36,8 +33,6 @@
         "moveItemsTo_other": "Move {{count}} items to",
         "copyItemsTo_one": "Copy {{count}} item to",
         "copyItemsTo_other": "Copy {{count}} items to",
-        "enableCloudSync": "Enable cloud sync ({{count}})",
-        "disableCloudSync": "Disable cloud sync ({{count}})",
         "exportPublicKeys_one": "Export {{count}} public key",
         "exportPublicKeys_other": "Export {{count}} public keys",
         "deleteItems_one": "Delete {{count}} item",

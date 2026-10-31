@@ -11,10 +11,7 @@
       "privateKey": "Clé privée",
       "publicKey": "Clé publique",
       "passphrase": "Phrase secrète",
-      "addToHost": "Ajouter à un hôte",
-      "disableCloudSync": "Désactiver la synchronisation cloud",
-      "enableCloudSync": "Activer la synchronisation cloud",
-      "cloudSyncDisabledTitle": "Synchronisation cloud désactivée"
+      "addToHost": "Ajouter à un hôte"
     },
     "toolbar": {
       "filterPlaceholder": "Filtrer...",
@@ -38,8 +35,6 @@
         "copyItemsTo_one": "Copier {{count}} élément vers",
         "copyItemsTo_many": "Copier {{count}} éléments vers",
         "copyItemsTo_other": "Copier {{count}} éléments vers",
-        "enableCloudSync": "Activer la synchronisation cloud ({{count}})",
-        "disableCloudSync": "Désactiver la synchronisation cloud ({{count}})",
         "exportPublicKeys_one": "Exporter {{count}} clé publique",
         "exportPublicKeys_many": "Exporter {{count}} clés publiques",
         "exportPublicKeys_other": "Exporter {{count}} clés publiques",

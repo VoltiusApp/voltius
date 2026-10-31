@@ -137,14 +137,23 @@
         ]
       },
       "sync": {
-        "mobileSub": "Synchronisation cloud et contenu synchronisé",
+        "mobileSub": "Cloud, réseau local et contenu synchronisé",
         "label": "Synchronisation",
         "keywords": [
           "sauvegarde",
           "nuage",
           "gist",
           "synchronisation",
-          "pro"
+          "pro",
+          "local",
+          "réseau",
+          "proximité",
+          "wifi",
+          "lan",
+          "associer",
+          "appareils",
+          "tailscale",
+          "vpn"
         ]
       },
       "plugins": {
@@ -507,6 +516,8 @@
           "localVault": "Coffre-fort local",
           "auditLogs": "Journaux d'audit",
           "gistSync": "Synchronisation GitHub Gist",
+          "localSync": "Synchronisation sur le réseau local",
+          "deviceFiles": "Transfert de fichiers entre vos appareils",
           "realtimeSync": "Synchronisation cloud en temps réel",
           "unlimitedVaults": "Coffres-forts privés illimités",
           "terminalSharing": "Partage de terminal (1 session · 1 invité)",
@@ -641,7 +652,10 @@
     "sync": {
       "voltiusCloud": "Voltius Cloud",
       "local": {
-        "pairSub": "Synchronisez avec un autre appareil de votre réseau, sans compte."
+        "pairSub": "Synchronisez avec un autre appareil de votre réseau, sans compte.",
+        "title": "Synchronisation locale",
+        "pauseSub": "Arrête la synchronisation avec vos autres appareils à proximité jusqu'à ce que vous la repreniez.",
+        "footer": "Votre coffre personnel se synchronise directement entre vos appareils sur le même réseau ou via un VPN comme Tailscale, tant que les deux sont en ligne. Gratuit, sans serveur intermédiaire. Les coffres d'équipe ne sont pas inclus."
       },
       "active": {
         "title": "Synchronisation cloud active",
@@ -655,7 +669,7 @@
         "syncNow": "Synchroniser"
       },
       "pause": {
-        "label": "Mettre la synchronisation en pause sur cet appareil",
+        "label": "Mettre la synchronisation cloud en pause sur cet appareil",
         "sub": "Arrête la synchronisation en arrière-plan avec le serveur. Les coffres d'équipe ne sont plus mis à jour et ne se chargent pas au démarrage tant que la synchronisation n'est pas reprise. « Synchroniser » ne synchronise que vos propres données."
       },
       "requiresPro": {
@@ -664,13 +678,13 @@
         "upgrade": "Mettre à niveau"
       },
       "notConnected": {
-        "title": "Compte cloud non connecté",
-        "sub": "Connectez-vous ou créez un compte cloud pour synchroniser vos appareils.",
+        "title": "Non connecté",
+        "sub": "Voltius Cloud garde vos appareils synchronisés même lorsqu'ils ne sont pas en ligne en même temps, avec une sauvegarde chiffrée. Avec un compte gratuit, vos appareils s'associent automatiquement.",
         "signIn": "Se connecter"
       },
       "providersTitle": "Plugins de synchronisation",
       "prefsTitle": "Préférences de synchronisation",
-      "prefsFooter": "Les types désactivés ne sont jamais envoyés. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
+      "prefsFooter": "Les types désactivés ne quittent jamais cet appareil. Les objets peuvent aussi être exclus depuis leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",
       "objectType": {
         "connection": {
@@ -699,7 +713,7 @@
         }
       },
       "settingsTitle": "Paramètres",
-      "settingsFooter": "Tout ce qui est désactivé reste sur cet appareil. Rien n'est envoyé, même chiffré. Réactiver la synchronisation publie les valeurs de cet appareil.",
+      "settingsFooter": "Tout ce qui est désactivé reste sur cet appareil et n'est jamais envoyé nulle part, même chiffré. Réactiver la synchronisation publie les valeurs de cet appareil.",
       "settingDomain": {
         "themes": { "label": "Thèmes", "sub": "Thème actif et thèmes personnalisés" },
         "uiPreferences": { "label": "Interface", "sub": "Échelle, dispositions et tri" },

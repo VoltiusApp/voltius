@@ -214,7 +214,7 @@ export function ToolbarDropdown<T extends string>({
           {selectionCount > 0 && (
             <span
               className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full text-[9px] font-bold px-0.5 leading-none"
-              style={{ background: "var(--t-accent)", color: "var(--t-bg-terminal)" }}
+              style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             >
               {selectionCount}
             </span>

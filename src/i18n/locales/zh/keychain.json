@@ -11,10 +11,7 @@
       "privateKey": "私钥",
       "publicKey": "公钥",
       "passphrase": "口令",
-      "addToHost": "添加到主机",
-      "disableCloudSync": "禁用云同步",
-      "enableCloudSync": "启用云同步",
-      "cloudSyncDisabledTitle": "云同步已禁用"
+      "addToHost": "添加到主机"
     },
     "toolbar": {
       "filterPlaceholder": "筛选...",
@@ -36,8 +33,6 @@
         "moveItemsTo_other": "移动 {{count}} 个项目到",
         "copyItemsTo_one": "复制 {{count}} 个项目到",
         "copyItemsTo_other": "复制 {{count}} 个项目到",
-        "enableCloudSync": "启用云同步 ({{count}})",
-        "disableCloudSync": "禁用云同步 ({{count}})",
         "exportPublicKeys_one": "导出 {{count}} 个公钥",
         "exportPublicKeys_other": "导出 {{count}} 个公钥",
         "deleteItems_one": "删除 {{count}} 个项目",

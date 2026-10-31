@@ -93,7 +93,7 @@ test("seat_loss_toast_names_the_team", async () => {
   });
   await handleRealtimeEvent("membership_changed:removed:t1", "dev");
   await vi.advanceTimersByTimeAsync(4_100);
-  expect(toastMessages()).toContain("Your seat in Acme ended — sync has been paused.");
+  expect(toastMessages()).toContain("Your seat in Acme ended — cloud sync is paused. Your devices still sync on the same network.");
 });
 
 test("seat loss with an unknown team falls back to the generic wording", async () => {
@@ -103,7 +103,7 @@ test("seat loss with an unknown team falls back to the generic wording", async (
   });
   await handleRealtimeEvent("plan_changed", "dev");
   await vi.advanceTimersByTimeAsync(4_100);
-  expect(toastMessages()).toEqual(["Your Pro subscription has ended — sync has been paused."]);
+  expect(toastMessages()).toEqual(["Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network."]);
 });
 
 test("the bare compat membership_changed event schedules a refresh", async () => {
@@ -128,5 +128,5 @@ test("a failed refresh does not leave a stale team name for the next one", async
   });
   await handleRealtimeEvent("plan_changed", "dev");
   await vi.advanceTimersByTimeAsync(4_100);
-  expect(toastMessages()).toEqual(["Your Pro subscription has ended — sync has been paused."]);
+  expect(toastMessages()).toEqual(["Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network."]);
 });

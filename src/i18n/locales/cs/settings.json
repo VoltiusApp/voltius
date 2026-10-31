@@ -137,14 +137,23 @@
         ]
       },
       "sync": {
-        "mobileSub": "Cloudová synchronizace a co se synchronizuje",
+        "mobileSub": "Cloud, místní síť a co se synchronizuje",
         "label": "Synchronizace",
         "keywords": [
           "záloha",
           "cloud",
           "gist",
           "synchronizace",
-          "pro"
+          "pro",
+          "místní",
+          "síť",
+          "poblíž",
+          "wifi",
+          "lan",
+          "spárovat",
+          "zařízení",
+          "tailscale",
+          "vpn"
         ]
       },
       "plugins": {
@@ -507,6 +516,8 @@
           "localVault": "Lokální trezor",
           "auditLogs": "Auditní logy",
           "gistSync": "Synchronizace přes GitHub Gist",
+          "localSync": "Synchronizace v místní síti",
+          "deviceFiles": "Přenos souborů mezi vašimi zařízeními",
           "realtimeSync": "Synchronizace s cloudem v reálném čase",
           "unlimitedVaults": "Neomezeně soukromých trezorů",
           "terminalSharing": "Sdílení terminálu (1 relace · 1 host)",
@@ -644,7 +655,10 @@
     "sync": {
       "voltiusCloud": "Voltius Cloud",
       "local": {
-        "pairSub": "Synchronizujte s dalším zařízením ve vaší síti bez účtu."
+        "pairSub": "Synchronizujte s dalším zařízením ve vaší síti bez účtu.",
+        "title": "Místní synchronizace",
+        "pauseSub": "Zastaví synchronizaci s vašimi dalšími zařízeními poblíž, dokud ji neobnovíte.",
+        "footer": "Váš osobní trezor se synchronizuje přímo mezi vašimi zařízeními ve stejné síti nebo přes VPN, jako je Tailscale, pokud jsou obě online. Zdarma, bez serveru mezi nimi. Týmové trezory nejsou zahrnuty."
       },
       "active": {
         "title": "Synchronizace s cloudem aktivní",
@@ -658,7 +672,7 @@
         "syncNow": "Synchronizovat nyní"
       },
       "pause": {
-        "label": "Pozastavit synchronizaci na tomto zařízení",
+        "label": "Pozastavit synchronizaci s cloudem na tomto zařízení",
         "sub": "Zastaví synchronizaci se serverem na pozadí. Týmové trezory se přestanou aktualizovat a při spuštění se nenačtou, dokud synchronizaci neobnovíte. „Synchronizovat nyní“ synchronizuje jen vaše vlastní data."
       },
       "requiresPro": {
@@ -667,13 +681,13 @@
         "upgrade": "Přejít na vyšší tarif"
       },
       "notConnected": {
-        "title": "Cloudový účet není připojen",
-        "sub": "Přihlaste se nebo si vytvořte cloudový účet pro synchronizaci mezi zařízeními.",
+        "title": "Nepřihlášeno",
+        "sub": "Voltius Cloud udržuje vaše zařízení synchronizovaná, i když nejsou online současně, a uchovává šifrovanou zálohu. S bezplatným účtem se vaše zařízení spárují automaticky.",
         "signIn": "Přihlásit se"
       },
       "providersTitle": "Pluginy synchronizace",
       "prefsTitle": "Předvolby synchronizace",
-      "prefsFooter": "Vypnuté typy se nikdy nenahrávají. Jednotlivé objekty lze vyloučit také v jejich panelu úprav.",
+      "prefsFooter": "Vypnuté typy nikdy neopustí toto zařízení. Jednotlivé objekty lze vyloučit také v jejich panelu úprav.",
       "quickToggleLabel": "Synchronizovat: {{label}}",
       "objectType": {
         "connection": {
@@ -702,7 +716,7 @@
         }
       },
       "settingsTitle": "Nastavení",
-      "settingsFooter": "Vše vypnuté zůstává na tomto zařízení. Nikdy se nenahrává, ani šifrovaně. Opětovným zapnutím synchronizace se odešlou hodnoty nastavení z tohoto zařízení.",
+      "settingsFooter": "Vše vypnuté zůstává na tomto zařízení a nikam se neodesílá, ani šifrovaně. Opětovným zapnutím synchronizace se odešlou hodnoty nastavení z tohoto zařízení.",
       "settingDomain": {
         "themes": {
           "label": "Motivy",

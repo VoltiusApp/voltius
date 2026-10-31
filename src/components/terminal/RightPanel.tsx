@@ -224,7 +224,7 @@ function PanelContent() {
                   <span
                     className="absolute -top-0.5 -right-0.5 min-w-3.5 h-3.5 px-0.5 flex items-center justify-center
                       rounded-full text-[9px] font-semibold leading-none"
-                    style={{ background: "var(--t-accent)", color: "var(--t-bg-modal)" }}
+                    style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
                   >
                     {tunnelCount}
                   </span>

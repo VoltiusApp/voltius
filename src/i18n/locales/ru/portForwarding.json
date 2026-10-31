@@ -67,8 +67,6 @@
       "openWebLink": "Открыть веб-ссылку",
       "activateInSession": "Активировать в сессии",
       "duplicate": "Дублировать",
-      "enableCloudSync": "Включить облачную синхронизацию",
-      "disableCloudSync": "Отключить облачную синхронизацию",
       "pauseForwarding": "Приостановить проброс",
       "resumeForwarding": "Возобновить проброс",
       "active": "Активно",

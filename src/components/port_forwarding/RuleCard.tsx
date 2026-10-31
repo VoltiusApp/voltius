@@ -77,7 +77,7 @@ export function RuleCard({
       t,
     ),
     {
-      label: isSynced ? t("portForwarding.ruleCard.disableCloudSync") : t("portForwarding.ruleCard.enableCloudSync"),
+      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
       icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(rule.id),
       divider: true,

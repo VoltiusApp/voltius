@@ -57,3 +57,16 @@ describe("mobile platforms", () => {
     expect(isMobileShell()).toBe(mobile);
   });
 });
+
+describe("local sync wording", () => {
+  it.each([
+    ["ios", false, "ios"],
+    ["android", true, undefined],
+    ["macos", true, undefined],
+    [null, true, undefined],
+  ])("on %s runsLocalSync is %s and the context is %s", async (os, runs, context) => {
+    const { runsLocalSync, localSyncContext } = await import("./platform");
+    expect(runsLocalSync(os)).toBe(runs);
+    expect(localSyncContext(os)).toBe(context);
+  });
+});

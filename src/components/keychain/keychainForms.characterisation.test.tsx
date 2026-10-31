@@ -221,7 +221,7 @@ test.each([
   h.isObjectSynced.mockReturnValue(false);
   mount({ initial: (_kind === "key" ? key() : identity()) as never, onDelete: vi.fn() });
   const labels = document.querySelector("[data-actions-menu]")!.getAttribute("data-labels")!.split("|");
-  expect(labels).toContain("keychain.common.enableCloudSync");
+  expect(labels).toContain("common.objectSync.enable");
   expect(labels).toContain("common.action.delete");
 });
 

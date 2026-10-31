@@ -26,6 +26,7 @@ import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 import { TwoFactorSettings } from "./TwoFactorSettings";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
+import { runsLocalSync, usePlatform } from "@/utils/platform";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
@@ -78,6 +79,8 @@ const PLAN_FEATURES = [
   { id: "localVault",       free: true,  pro: true,  teams: true,  business: true  },
   { id: "auditLogs",        free: true,  pro: true,  teams: true,  business: true  },
   { id: "gistSync",         free: true,  pro: true,  teams: true,  business: true  },
+  { id: "localSync",        free: true,  pro: true,  teams: true,  business: true, lan: true },
+  { id: "deviceFiles",      free: true,  pro: true,  teams: true,  business: true, lan: true },
   { id: "realtimeSync",     free: false, pro: true,  teams: true,  business: true  },
   { id: "unlimitedVaults",  free: false, pro: true,  teams: true,  business: true  },
   { id: "terminalSharing",  free: false, pro: true,  teams: true,  business: true  },
@@ -292,7 +295,7 @@ export default function AccountSection() {
                   type="button"
                   disabled={!emailVerified || handleManaged}
                   onClick={() => handleField.start(handleIsCustom ? (handle ?? "") : "")}
-                  className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-white hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
+                  className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-(--t-on-accent) hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
                 >
                   {handleIsCustom ? t("settings.account.handle.change") : t("settings.account.handle.choose")}
                 </button>
@@ -515,6 +518,7 @@ export function PlansSection() {
   const plan = usePlanDisplay();
   const { ownsTeamsPlan, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
   const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
+  const features = runsLocalSync(usePlatform()) ? PLAN_FEATURES : PLAN_FEATURES.filter((f) => !("lan" in f));
 
   const manageBilling = plan.showManageBilling && (
     <button
@@ -598,7 +602,7 @@ export function PlansSection() {
 
         {/* Feature comparison */}
         <div className="border-t border-(--t-border) pt-3 space-y-1.5">
-          {PLAN_FEATURES.map(({ id, ...byPlan }) => {
+          {features.map(({ id, ...byPlan }) => {
             const active = byPlan[plan.plan];
             return (
               <div key={id} className="flex items-center justify-between">

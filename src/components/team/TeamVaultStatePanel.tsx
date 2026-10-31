@@ -115,7 +115,7 @@ export default function TeamVaultStatePanel({
           <button
             onClick={openBilling}
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
-            style={{ background: "var(--t-accent)", color: "#fff" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           >
             {t("layout.mainPanel.manageSubscription")}
           </button>
@@ -124,7 +124,7 @@ export default function TeamVaultStatePanel({
           <button
             onClick={() => void checkForUpdate()}
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
-            style={{ background: "var(--t-accent)", color: "#fff" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           >
             {t("layout.mainPanel.checkForUpdates")}
           </button>

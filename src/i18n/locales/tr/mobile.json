@@ -56,7 +56,7 @@
       "teamsTrialNote": "Kart gerekir · deneme süresince ücret alınmaz",
       "manageBilling": "Faturalandırmayı yönet",
       "viewAllPlans": "Tüm planları gör",
-      "signInToSync": "Eşitlemek için oturum açın",
+      "signInToSync": "Voltius'ta oturum açın",
       "signOutConfirm": "Oturum kapatılsın mı? Şifreli kasanız bu cihazdan kaldırılır ve yeniden oturum açtığınızda tekrar eşitlenir.",
       "signOut": "Oturumu kapat"
     },
@@ -193,8 +193,6 @@
         "openFiles": "Dosyaları aç",
         "copyAddress": "Adresi kopyala",
         "copiedAddress": "Kopyalandı: {{host}}",
-        "enableCloudSync": "Bulut eşitlemeyi etkinleştir",
-        "disableCloudSync": "Bulut eşitlemeyi devre dışı bırak",
         "enableReachabilityCheck": "Erişilebilirlik denetimini etkinleştir",
         "disableReachabilityCheck": "Erişilebilirlik denetimini devre dışı bırak"
       },

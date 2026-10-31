@@ -132,7 +132,7 @@ export function SnippetCard({
       onClick: () => pinSnippetForTeam(snippet.id, !snippet.favorite).catch(() => {}),
     }] : []),
     ...(onToggleSync ? [{
-      label: syncEnabled ? t("snippets.card.disableCloudSync") : t("snippets.card.enableCloudSync"),
+      label: syncEnabled ? t("common.objectSync.disable") : t("common.objectSync.enable"),
       icon: syncEnabled ? "lucide:cloud-off" : "lucide:cloud",
       onClick: onToggleSync,
     }] : []),

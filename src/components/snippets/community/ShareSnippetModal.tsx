@@ -133,7 +133,7 @@ export function ShareSnippetModal({ snippets, packName, onClose }: {
             onClick={() => built.entry && void openUrl(githubNewFileUrl(built.entry.id))}
             disabled={!!built.error}
             className="px-3 h-8 rounded-lg text-xs font-semibold disabled:opacity-40"
-            style={{ background: "var(--t-accent)", color: "var(--t-bg-terminal)" }}
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
           >
             {t("snippets.community.shareOpenGithub")}
           </button>

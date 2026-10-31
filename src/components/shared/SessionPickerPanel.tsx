@@ -155,7 +155,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
             <button
               onClick={() => { void picker.confirm(onConfirm).then(() => onClose()); }}
               className="w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-opacity"
-              style={{ background: "var(--t-accent)", color: "#fff" }}
+              style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             >

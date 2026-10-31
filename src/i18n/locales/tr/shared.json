@@ -28,7 +28,8 @@
     "trialExpiredModal": {
       "title": "Pro denemeniz sona erdi",
       "subtitle": "Şu üç özellik bugün itibarıyla çalışmayı durduruyor:",
-      "freeNote": "Yerel kasa, denetim günlükleri ve GitHub Gist eşitlemesi her zaman ücretsiz kalır.",
+      "freeNote": "Yerel kasa, denetim günlükleri, yerel ağ eşitlemesi, cihazlarınız arasında dosya aktarımı ve GitHub Gist eşitlemesi her zaman ücretsiz kalır.",
+      "freeNote_ios": "Yerel kasa, denetim günlükleri ve GitHub Gist eşitlemesi her zaman ücretsiz kalır.",
       "teamsPrompt": "Başkalarıyla mı çalışıyorsunuz? Teams'i {{days}} gün ücretsiz deneyin (kart gerekir).",
       "upgradeButton": "Pro'ya yükselt",
       "laterButton": "Belki daha sonra"

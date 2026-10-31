@@ -119,7 +119,7 @@ export default function MobileAccountPage() {
                 disabled={checkoutBusy}
                 onClick={() => void checkout("pro")}
                 className="w-full h-11 rounded-xl text-sm font-semibold disabled:opacity-60"
-                style={{ background: "var(--t-accent)", color: "#fff" }}
+                style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
               >
                 {t("mobile.account.upgradeToPro")}
               </button>
@@ -160,7 +160,7 @@ export default function MobileAccountPage() {
               data-account-signin
               onClick={() => { pop(); openCloudAuth("signin"); }}
               className="w-full h-11 rounded-xl text-sm font-semibold"
-              style={{ background: "var(--t-accent)", color: "#fff" }}
+              style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
             >
               {t("mobile.account.signInToSync")}
             </button>

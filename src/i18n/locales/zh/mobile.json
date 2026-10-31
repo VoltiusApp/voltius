@@ -56,7 +56,7 @@
       "teamsTrialNote": "需绑定银行卡 · 试用期内不扣费",
       "manageBilling": "管理账单",
       "viewAllPlans": "查看所有套餐",
-      "signInToSync": "登录以同步",
+      "signInToSync": "登录 Voltius",
       "signOutConfirm": "登出？您的加密保险库将从此设备移除，重新登录后重新同步。",
       "signOut": "登出"
     },
@@ -193,8 +193,6 @@
         "openFiles": "打开文件",
         "copyAddress": "复制地址",
         "copiedAddress": "已复制 {{host}}",
-        "enableCloudSync": "启用云同步",
-        "disableCloudSync": "禁用云同步",
         "enableReachabilityCheck": "启用可达性检查",
         "disableReachabilityCheck": "禁用可达性检查"
       },

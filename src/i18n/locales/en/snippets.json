@@ -43,8 +43,6 @@
       "pinForMe": "Pin for me",
       "unpinForTeam": "Unpin for team",
       "pinForTeam": "Pin for team",
-      "enableCloudSync": "Enable cloud sync",
-      "disableCloudSync": "Disable cloud sync",
       "export": "Export",
       "insert": "Insert",
       "execute": "Execute",
@@ -162,8 +160,6 @@
         "moveItemsTo_other": "Move {{count}} items to",
         "copyItemsTo_one": "Copy {{count}} item to",
         "copyItemsTo_other": "Copy {{count}} items to",
-        "enableCloudSync": "Enable cloud sync ({{count}})",
-        "disableCloudSync": "Disable cloud sync ({{count}})",
         "exportSnippets_one": "Export {{count}} snippet",
         "exportSnippets_other": "Export {{count}} snippets",
         "deleteSnippets": "Delete {{count}} snippets"

@@ -28,7 +28,8 @@
     "trialExpiredModal": {
       "title": "Your Pro trial has ended",
       "subtitle": "These three stop working today:",
-      "freeNote": "Local vault, audit logs and GitHub Gist sync stay free, forever.",
+      "freeNote": "Local vault, audit logs, local network sync, file transfer between your devices and GitHub Gist sync stay free, forever.",
+      "freeNote_ios": "Local vault, audit logs and GitHub Gist sync stay free, forever.",
       "teamsPrompt": "Working with others? Try Teams free for {{days}} days (card required).",
       "upgradeButton": "Upgrade to Pro",
       "laterButton": "Maybe later"

@@ -49,13 +49,13 @@ export function ActionButton({ icon, label, sub, primary, loading, onClick }: {
     >
       <Icon icon={loading ? "lucide:loader-circle" : icon} width={18}
         className={`shrink-0 ${loading ? "animate-spin" : ""}`}
-        style={{ color: primary ? "white" : "var(--t-accent)" }} />
+        style={{ color: primary ? "var(--t-on-accent)" : "var(--t-accent)" }} />
       <div>
-        <p className="text-sm font-medium" style={{ color: primary ? "white" : "var(--t-text-primary)" }}>
+        <p className="text-sm font-medium" style={{ color: primary ? "var(--t-on-accent)" : "var(--t-text-primary)" }}>
           {label}
         </p>
         {sub && (
-          <p className="text-xs" style={{ color: primary ? "rgba(255,255,255,0.7)" : "var(--t-text-muted)" }}>
+          <p className="text-xs" style={{ color: primary ? "color-mix(in srgb, var(--t-on-accent) 70%, transparent)" : "var(--t-text-muted)" }}>
             {sub}
           </p>
         )}

@@ -172,7 +172,7 @@ export function FolderCard({
         <div className="flex items-center gap-1 shrink-0">
           {pinAlwaysVisible && <CardPinButton color={pinColor} title={t("folders.card.unpin")} onClick={togglePin} width={16} />}
           {!sync.isSynced && (
-            <span title={t("folders.card.cloudSyncDisabled")} className="text-(--t-text-dim) flex items-center">
+            <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
               <Icon icon="lucide:cloud-off" width={18} />
             </span>
           )}

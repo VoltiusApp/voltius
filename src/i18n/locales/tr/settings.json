@@ -139,14 +139,23 @@
         ]
       },
       "sync": {
-        "mobileSub": "Bulut eşitleme ve eşitlenenler",
+        "mobileSub": "Bulut, yerel ağ ve eşitlenenler",
         "label": "Eşitleme",
         "keywords": [
           "yedekleme",
           "bulut",
           "gist",
           "eşitleme",
-          "pro"
+          "pro",
+          "yerel",
+          "ağ",
+          "yakındaki",
+          "wifi",
+          "lan",
+          "eşle",
+          "cihazlar",
+          "tailscale",
+          "vpn"
         ]
       },
       "plugins": {
@@ -513,6 +522,8 @@
           "localVault": "Yerel kasa",
           "auditLogs": "Denetim günlükleri",
           "gistSync": "GitHub Gist eşitleme",
+          "localSync": "Yerel ağ eşitlemesi",
+          "deviceFiles": "Cihazlarınız arasında dosya aktarımı",
           "realtimeSync": "Gerçek zamanlı bulut eşitleme",
           "unlimitedVaults": "Sınırsız özel kasa",
           "terminalSharing": "Terminal paylaşımı (1 oturum · 1 konuk)",
@@ -544,7 +555,10 @@
     "sync": {
       "voltiusCloud": "Voltius Cloud",
       "local": {
-        "pairSub": "Hesap olmadan ağınızdaki başka bir cihazla eşitleyin."
+        "pairSub": "Hesap olmadan ağınızdaki başka bir cihazla eşitleyin.",
+        "title": "Yerel eşitleme",
+        "pauseSub": "Siz devam ettirene kadar yakındaki diğer cihazlarınızla eşitlemeyi durdurur.",
+        "footer": "Kişisel kasanız, ikisi de çevrimiçiyken aynı ağdaki veya Tailscale gibi bir VPN üzerindeki cihazlarınız arasında doğrudan eşitlenir. Ücretsizdir, arada sunucu yoktur. Ekip kasaları dahil değildir."
       },
       "active": {
         "title": "Bulut eşitleme etkin",
@@ -558,7 +572,7 @@
         "syncNow": "Şimdi eşitle"
       },
       "pause": {
-        "label": "Bu cihazda eşitlemeyi duraklat",
+        "label": "Bu cihazda bulut eşitlemeyi duraklat",
         "sub": "Sunucuyla arka plan eşitlemesini durdurur. Ekip kasaları güncellenmez ve siz sürdürene kadar açılışta yüklenmez. “Şimdi eşitle” yalnızca kendi verilerinizi eşitler."
       },
       "requiresPro": {
@@ -567,13 +581,13 @@
         "upgrade": "Yükselt"
       },
       "notConnected": {
-        "title": "Bulut hesabı bağlı değil",
-        "sub": "Cihazlar arasında eşitlemek için oturum açın veya bir bulut hesabı oluşturun.",
+        "title": "Oturum açılmadı",
+        "sub": "Voltius Cloud, cihazlarınız aynı anda çevrimiçi olmasa bile onları eşitlenmiş tutar ve şifreli bir yedek saklar. Ücretsiz bir hesapla cihazlarınız otomatik olarak eşlenir.",
         "signIn": "Oturum aç"
       },
       "providersTitle": "Eşitleme eklentileri",
       "prefsTitle": "Eşitleme Tercihleri",
-      "prefsFooter": "Devre dışı bırakılan türler hiçbir zaman yüklenmez. Tek tek nesneler de düzenleme panelinden hariç tutulabilir.",
+      "prefsFooter": "Devre dışı bırakılan türler bu cihazdan hiçbir zaman çıkmaz. Tek tek nesneler de düzenleme panelinden hariç tutulabilir.",
       "quickToggleLabel": "Eşitle: {{label}}",
       "objectType": {
         "connection": {
@@ -602,7 +616,7 @@
         }
       },
       "settingsTitle": "Ayarlar",
-      "settingsFooter": "Kapattığınız her şey bu cihazda kalır. Şifrelenmiş olarak bile hiçbir zaman yüklenmez. Eşitlemeyi yeniden açtığınızda bu cihazdaki değerler yayımlanır.",
+      "settingsFooter": "Kapattığınız her şey bu cihazda kalır ve şifrelenmiş olarak bile hiçbir yere gönderilmez. Eşitlemeyi yeniden açtığınızda bu cihazdaki değerler yayımlanır.",
       "settingDomain": {
         "themes": {
           "label": "Temalar",

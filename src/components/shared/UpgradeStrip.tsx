@@ -1,7 +1,7 @@
 export type UpgradeStripVariant = "accent" | "neutral";
 
 const BUTTON_CLASS: Record<UpgradeStripVariant, string> = {
-  accent: "bg-(--t-accent) text-white",
+  accent: "bg-(--t-accent) text-(--t-on-accent)",
   neutral: "bg-(--t-bg-elevated) text-(--t-text-primary) border border-(--t-border)",
 };
 
