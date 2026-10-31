@@ -55,7 +55,7 @@ export function buildConnectionMenuItems({
     ...contributions.map((a, i) => ({ ...a, divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
     {
-      label: isSynced ? t("hosts.card.disableCloudSync") : t("hosts.card.enableCloudSync"),
+      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
       icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
       onClick: onToggleSync,
       divider: true,

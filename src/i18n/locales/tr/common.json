@@ -60,8 +60,8 @@
       "search": "Ara…"
     },
     "toast": {
-      "proSubscriptionEnded": "Pro aboneliğiniz sona erdi — eşitleme duraklatıldı.",
-      "seatEnded": "{{team}} ekibindeki koltuğunuz sona erdi — eşitleme duraklatıldı.",
+      "proSubscriptionEnded": "Pro aboneliğiniz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
+      "seatEnded": "{{team}} ekibindeki koltuğunuz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
       "managePlan": "Planı yönet →",
       "undoFailed": "Geri alınamadı: {{error}}",
       "redoFailed": "Yinelenemedi: {{error}}",
@@ -69,6 +69,13 @@
       "fileSaveFailed": "Dosya kaydedilemedi: {{error}}",
       "sessionRevoked": "Bu cihazda Voltius hesabınızın oturumu kapatıldı. Eşitlemeye devam etmek için yeniden oturum açın.",
       "signInAgain": "Oturum aç"
+    },
+    "objectSync": {
+      "notSynced": "Eşitlenmiyor · bu cihazda kalır",
+      "enable": "Cihazlarımla eşitle",
+      "disable": "Yalnızca bu cihazda tut",
+      "enableCount": "Cihazlarımla eşitle ({{count}})",
+      "disableCount": "Yalnızca bu cihazda tut ({{count}})"
     },
     "error": {
       "identityPickUnavailable": "{{host}} için kimliğiniz kullanılamıyor",

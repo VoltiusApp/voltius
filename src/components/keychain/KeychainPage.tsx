@@ -332,8 +332,8 @@ export default function KeychainPage() {
       }] : []),
       {
         label: allSynced
-          ? t("keychain.page.bulk.disableCloudSync", { count: allIds.length })
-          : t("keychain.page.bulk.enableCloudSync", { count: allIds.length }),
+          ? t("common.objectSync.disableCount", { count: allIds.length })
+          : t("common.objectSync.enableCount", { count: allIds.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
         onClick: () => {
           const store = useSyncPrefsStore.getState();

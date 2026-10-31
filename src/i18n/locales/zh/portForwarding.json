@@ -52,8 +52,6 @@
       "openWebLink": "打开网页链接",
       "activateInSession": "在会话中激活",
       "duplicate": "复制",
-      "enableCloudSync": "启用云同步",
-      "disableCloudSync": "禁用云同步",
       "pauseForwarding": "暂停转发",
       "resumeForwarding": "恢复转发",
       "active": "活跃",

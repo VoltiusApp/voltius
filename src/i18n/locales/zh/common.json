@@ -60,8 +60,8 @@
       "search": "搜索…"
     },
     "toast": {
-      "proSubscriptionEnded": "您的 Pro 订阅已结束——同步已暂停。",
-      "seatEnded": "您在 {{team}} 的席位已结束——同步已暂停。",
+      "proSubscriptionEnded": "您的 Pro 订阅已结束——云同步已暂停。您的设备在同一网络中仍会同步。",
+      "seatEnded": "您在 {{team}} 的席位已结束——云同步已暂停。您的设备在同一网络中仍会同步。",
       "managePlan": "管理套餐 →",
       "undoFailed": "撤销失败：{{error}}",
       "redoFailed": "重做失败：{{error}}",
@@ -69,6 +69,13 @@
       "fileSaveFailed": "无法保存文件：{{error}}",
       "sessionRevoked": "此设备已退出您的 Voltius 账户。请重新登录以继续同步。",
       "signInAgain": "登录"
+    },
+    "objectSync": {
+      "notSynced": "未同步 · 仅保留在本设备",
+      "enable": "同步到我的设备",
+      "disable": "仅保留在本设备",
+      "enableCount": "同步到我的设备 ({{count}})",
+      "disableCount": "仅保留在本设备 ({{count}})"
     },
     "error": {
       "identityPickUnavailable": "你在 {{host}} 的身份不可用",

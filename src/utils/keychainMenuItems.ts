@@ -36,7 +36,7 @@ export function buildKeychainMenuItems({
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 && leading.length > 0 })),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
     {
-      label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
+      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
       icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
       onClick: onToggleSync,
       divider: true,

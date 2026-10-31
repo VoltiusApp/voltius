@@ -56,7 +56,7 @@
       "teamsTrialNote": "Carte bancaire requise · aucun prélèvement pendant l'essai",
       "manageBilling": "Gérer la facturation",
       "viewAllPlans": "Voir tous les forfaits",
-      "signInToSync": "Se connecter pour synchroniser",
+      "signInToSync": "Se connecter à Voltius",
       "signOutConfirm": "Se déconnecter ? Votre coffre chiffré est supprimé de cet appareil et resynchronisé lors de votre prochaine connexion.",
       "signOut": "Se déconnecter"
     },
@@ -194,8 +194,6 @@
         "openFiles": "Ouvrir les fichiers",
         "copyAddress": "Copier l'adresse",
         "copiedAddress": "Adresse copiée : {{host}}",
-        "enableCloudSync": "Activer la synchronisation cloud",
-        "disableCloudSync": "Désactiver la synchronisation cloud",
         "enableReachabilityCheck": "Activer la vérification d'accessibilité",
         "disableReachabilityCheck": "Désactiver la vérification d'accessibilité"
       },

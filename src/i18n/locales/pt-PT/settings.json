@@ -137,14 +137,23 @@
         ]
       },
       "sync": {
-        "mobileSub": "Sincronização na nuvem e o que é sincronizado",
+        "mobileSub": "Nuvem, rede local e o que é sincronizado",
         "label": "Sincronização",
         "keywords": [
           "cópia de segurança",
           "nuvem",
           "gist",
           "sincronização",
-          "pro"
+          "pro",
+          "local",
+          "rede",
+          "por perto",
+          "wifi",
+          "lan",
+          "emparelhar",
+          "dispositivos",
+          "tailscale",
+          "vpn"
         ]
       },
       "plugins": {
@@ -507,6 +516,8 @@
           "localVault": "Cofre local",
           "auditLogs": "Registros de auditoria",
           "gistSync": "Sincronização com GitHub Gist",
+          "localSync": "Sincronização pela rede local",
+          "deviceFiles": "Transferência de ficheiros entre os seus dispositivos",
           "realtimeSync": "Sincronização em nuvem em tempo real",
           "unlimitedVaults": "Cofres privados ilimitados",
           "terminalSharing": "Compartilhamento de terminal (1 sessão · 1 convidado)",
@@ -641,7 +652,10 @@
     "sync": {
       "voltiusCloud": "Voltius Cloud",
       "local": {
-        "pairSub": "Sincronize com outro dispositivo da sua rede, sem conta."
+        "pairSub": "Sincronize com outro dispositivo da sua rede, sem conta.",
+        "title": "Sincronização local",
+        "pauseSub": "Interrompe a sincronização com os seus outros dispositivos por perto até a retomar.",
+        "footer": "O seu cofre pessoal sincroniza diretamente entre os seus dispositivos na mesma rede ou através de uma VPN como o Tailscale, enquanto ambos estiverem online. Gratuito, sem servidor intermédio. Os cofres de equipe não estão incluídos."
       },
       "active": {
         "title": "Sincronização na nuvem ativa",
@@ -655,7 +669,7 @@
         "syncNow": "Sincronizar agora"
       },
       "pause": {
-        "label": "Pausar sincronização neste dispositivo",
+        "label": "Pausar sincronização na nuvem neste dispositivo",
         "sub": "Interrompe a sincronização em segundo plano com o servidor. Os cofres de equipe param de atualizar e não carregam na inicialização até você retomar. Sincronizar agora sincroniza apenas seus próprios dados."
       },
       "requiresPro": {
@@ -664,13 +678,13 @@
         "upgrade": "Atualizar"
       },
       "notConnected": {
-        "title": "Conta na nuvem não conectada",
-        "sub": "Entre ou crie uma conta na nuvem para sincronizar entre dispositivos.",
+        "title": "Sessão não iniciada",
+        "sub": "O Voltius Cloud mantém os seus dispositivos sincronizados mesmo quando não estão online ao mesmo tempo, com uma cópia de segurança encriptada. Com uma conta gratuita, os seus dispositivos emparelham-se automaticamente.",
         "signIn": "Entrar"
       },
       "providersTitle": "Plugins de sincronização",
       "prefsTitle": "Preferências de sincronização",
-      "prefsFooter": "Os tipos desativados nunca são enviados. Objetos individuais também podem ser eliminados do painel de edição deles.",
+      "prefsFooter": "Os tipos desativados nunca saem deste dispositivo. Objetos individuais também podem ser excluídos a partir do respetivo painel de edição.",
       "quickToggleLabel": "Sincronizar {{label}}",
       "objectType": {
         "connection": {
@@ -699,7 +713,7 @@
         }
       },
       "settingsTitle": "Configurações",
-      "settingsFooter": "Tudo o que estiver desativado fica neste dispositivo. Nunca é enviado, nem encriptado. Reativar a sincronização publica os valores deste dispositivo.",
+      "settingsFooter": "Tudo o que estiver desativado fica neste dispositivo e nunca é enviado para lado nenhum, nem encriptado. Reativar a sincronização publica os valores deste dispositivo.",
       "settingDomain": {
         "themes": {
           "label": "Temas",

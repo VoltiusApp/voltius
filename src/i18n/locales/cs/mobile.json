@@ -56,7 +56,7 @@
       "teamsTrialNote": "Vyžaduje kartu · během zkušební doby se nic neúčtuje",
       "manageBilling": "Spravovat fakturaci",
       "viewAllPlans": "Zobrazit všechny tarify",
-      "signInToSync": "Přihlaste se pro synchronizaci",
+      "signInToSync": "Přihlásit se do Voltius",
       "signOutConfirm": "Odhlásit se? Váš šifrovaný trezor bude z tohoto zařízení odstraněn a po opětovném přihlášení znovu synchronizován.",
       "signOut": "Odhlásit se"
     },
@@ -195,8 +195,6 @@
         "openFiles": "Otevřít soubory",
         "copyAddress": "Kopírovat adresu",
         "copiedAddress": "Zkopírováno: {{host}}",
-        "enableCloudSync": "Zapnout synchronizaci s cloudem",
-        "disableCloudSync": "Vypnout synchronizaci s cloudem",
         "enableReachabilityCheck": "Zapnout kontrolu dostupnosti",
         "disableReachabilityCheck": "Vypnout kontrolu dostupnosti"
       },

@@ -6,21 +6,17 @@ import { SheetActionRow, type SheetAction } from "@/components/mobile/sheets/She
 import { LanConfirmPrompt } from "@/components/shared/LanConfirmPrompt";
 import { LanForgetPrompt } from "@/components/shared/LanForgetPrompt";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
-import { useAsyncFlag, useCanPairDevices } from "@/hooks/useNoAccountInstall";
+import { useAsyncFlag } from "@/hooks/useNoAccountInstall";
+import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { SyncHeaderButton, SyncInlineAction, SyncSectionHeader, type SyncMenuVariant } from "@/components/shared/SyncSectionParts";
-import { useLanDeviceRows } from "@/hooks/useLanDeviceRows";
 import { runSyncMenuAction } from "@/hooks/useSyncProviderPanel";
-import { logFailure } from "@/lib/logger";
 import { usePlanDisplay } from "@/services/planDisplay";
-import { inLanGroup, leaveLanGroup, setLanSyncPaused } from "@/services/lanSync";
+import { inLanGroup, leaveLanGroup } from "@/services/lanSync";
 import type { DeviceDot, DeviceRow } from "@/services/lanSyncDevices";
-import { SYNC_NEARBY_ICON, type SyncHeaderStatus } from "@/services/syncStatus";
-import { useLanSyncStore } from "@/stores/lanSyncStore";
+import { SYNC_NEARBY_ICON } from "@/services/syncStatus";
 import { formatRelative } from "@/utils/localeFormat";
-import { usePlatform } from "@/utils/platform";
 import { deviceIcon } from "@/utils/icons";
 import { routeLabel } from "@/services/myDevices";
-import { blockedFix } from "@/services/lanBlockedFix";
 
 const STYLES = {
   dropdown: {
@@ -50,19 +46,6 @@ const DOT_STYLE: Record<DeviceDot, CSSProperties> = {
   alert: { background: "var(--t-status-warning)" },
   "offline-ok": { boxShadow: "inset 0 0 0 1.5px var(--t-text-muted)" },
 };
-
-function statusLine(t: TFunction, paused: boolean, blocked: boolean, rows: DeviceRow[], platform: string | null): SyncHeaderStatus {
-  if (paused) return { color: "var(--t-text-dim)", label: t("layout.sync.local.status.paused") };
-  if (blocked) {
-    const { color, label } = blockedFix(t, platform);
-    return { color, label };
-  }
-  const syncing = rows.find((r) => r.dot === "syncing");
-  if (syncing) return { color: "var(--t-accent)", spin: true, label: t("layout.sync.local.status.syncing", { name: syncing.name }) };
-  const live = rows.filter((r) => r.dot === "live").length;
-  if (live > 0) return { color: "var(--t-status-connected)", label: t("layout.sync.local.status.live", { count: live }) };
-  return { color: "var(--t-text-dim)", label: t("layout.sync.local.status.none") };
-}
 
 function rowDetail(t: TFunction, row: DeviceRow, anyNearby: boolean): { text: string; color: string } {
   if (row.flag) {
@@ -115,25 +98,15 @@ function DeviceRowView({ row, anyNearby, variant, onForget }: { row: DeviceRow; 
 
 export function LocalNetworkSection({ variant, onClose, onPair }: { variant: SyncMenuVariant; onClose: () => void; onPair?: () => void }) {
   const { t } = useTranslation();
-  const rows = useLanDeviceRows();
-  const status = useLanSyncStore((s) => s.status);
-  const pausedFlag = useLanSyncStore((s) => s.paused);
+  const { rows, canPair, isPaused, anyNearby, running, line, fix: openSettings, hidden } = useLocalNetworkStatus();
   const { showUpgrade } = usePlanDisplay();
-  const platform = usePlatform();
-  const canPair = useCanPairDevices();
   const inGroup = useAsyncFlag(inLanGroup);
   const [forgetting, setForgetting] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
-  if (status === "stopped" && rows.length === 0 && !canPair) return null;
-
-  const isPaused = pausedFlag || status === "paused";
+  if (hidden) return null;
 
   const s = STYLES[variant];
   const sheet = variant === "sheet";
-  const anyNearby = rows.some((r) => r.nearby);
-  const blocked = !isPaused && status === "blocked" && !anyNearby;
-  const running = !isPaused && !blocked && status !== "stopped";
-  const line = statusLine(t, isPaused, blocked, rows, platform);
   const catchUp = running && !anyNearby && rows.length > 0;
   const upsell = running && showUpgrade && rows.some((r) => r.dot === "behind");
 
@@ -141,9 +114,8 @@ export function LocalNetworkSection({ variant, onClose, onPair }: { variant: Syn
     slug: isPaused ? "resume" : "pause",
     icon: isPaused ? "lucide:play" : "lucide:pause",
     label: t(isPaused ? "layout.sync.local.resume" : "layout.sync.local.pause"),
-    onTap: () => void setLanSyncPaused(!isPaused).catch(logFailure("lan-sync pause")),
+    onTap: () => setLocalSyncPaused(!isPaused),
   };
-  const openSettings = blocked ? blockedFix(t, platform).action : null;
   const pair: SheetAction | null = canPair
     ? { slug: "pair", icon: "lucide:link", label: t("layout.sync.local.pair.title"), onTap: onPair ?? (() => { onClose(); openPairDeviceDialog(); }) }
     : null;

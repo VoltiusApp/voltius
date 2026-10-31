@@ -551,7 +551,7 @@ export default function HostsPage() {
         children: copyChildren,
       }] : []),
       {
-        label: allSynced ? t("hosts.page.bulk.disableCloudSync", { count: ids.length }) : t("hosts.page.bulk.enableCloudSync", { count: ids.length }),
+        label: allSynced ? t("common.objectSync.disableCount", { count: ids.length }) : t("common.objectSync.enableCount", { count: ids.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
         onClick: () => {
           const store = useSyncPrefsStore.getState();

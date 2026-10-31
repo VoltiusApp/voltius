@@ -11,10 +11,7 @@
       "privateKey": "Приватный ключ",
       "publicKey": "Публичный ключ",
       "passphrase": "Кодовая фраза",
-      "addToHost": "Добавить к хосту",
-      "disableCloudSync": "Отключить облачную синхронизацию",
-      "enableCloudSync": "Включить облачную синхронизацию",
-      "cloudSyncDisabledTitle": "Облачная синхронизация отключена"
+      "addToHost": "Добавить к хосту"
     },
     "toolbar": {
       "filterPlaceholder": "Фильтр...",
@@ -40,8 +37,6 @@
         "copyItemsTo_few": "Копировать {{count}} элемента в",
         "copyItemsTo_many": "Копировать {{count}} элементов в",
         "copyItemsTo_other": "Копировать {{count}} элементов в",
-        "enableCloudSync": "Включить облачную синхронизацию ({{count}})",
-        "disableCloudSync": "Отключить облачную синхронизацию ({{count}})",
         "exportPublicKeys_one": "Экспортировать {{count}} публичный ключ",
         "exportPublicKeys_few": "Экспортировать {{count}} публичных ключа",
         "exportPublicKeys_many": "Экспортировать {{count}} публичных ключей",

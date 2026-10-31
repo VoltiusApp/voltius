@@ -56,7 +56,7 @@
       "teamsTrialNote": "Cartão necessário · sem cobrança durante a avaliação",
       "manageBilling": "Gerenciar cobrança",
       "viewAllPlans": "Ver todos os planos",
-      "signInToSync": "Entrar para sincronizar",
+      "signInToSync": "Entrar no Voltius",
       "signOutConfirm": "Sair? Seu cofre criptografado é removido deste dispositivo e re-sincronizado quando você entrar novamente.",
       "signOut": "Sair"
     },
@@ -194,8 +194,6 @@
         "openFiles": "Abrir arquivos",
         "copyAddress": "Copiar endereço",
         "copiedAddress": "Copiado {{host}}",
-        "enableCloudSync": "Ativar sincronização em nuvem",
-        "disableCloudSync": "Desativar sincronização em nuvem",
         "enableReachabilityCheck": "Ativar verificação de acessibilidade",
         "disableReachabilityCheck": "Desativar verificação de acessibilidade"
       },

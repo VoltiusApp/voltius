@@ -19,7 +19,7 @@ export function readSyncProviderInputs(source: LoadedPluginSource): SyncProvider
   const pluginStates = usePluginStateStore.getState();
   return {
     voltius: {
-      label: i18n.t("layout.sync.voltiusSync"),
+      label: i18n.t("settings.sync.voltiusCloud"),
       state: getSyncState(),
       accountMode,
       isPro,

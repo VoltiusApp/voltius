@@ -43,8 +43,6 @@
       "pinForMe": "Benim için sabitle",
       "unpinForTeam": "Ekip için sabitlemeyi kaldır",
       "pinForTeam": "Ekip için sabitle",
-      "enableCloudSync": "Bulut eşitlemesini etkinleştir",
-      "disableCloudSync": "Bulut eşitlemesini devre dışı bırak",
       "export": "Dışa aktar",
       "insert": "Ekle",
       "execute": "Çalıştır",
@@ -162,8 +160,6 @@
         "moveItemsTo_other": "{{count}} öğeyi şuraya taşı",
         "copyItemsTo_one": "{{count}} öğeyi şuraya kopyala",
         "copyItemsTo_other": "{{count}} öğeyi şuraya kopyala",
-        "enableCloudSync": "Bulut eşitlemesini etkinleştir ({{count}})",
-        "disableCloudSync": "Bulut eşitlemesini devre dışı bırak ({{count}})",
         "exportSnippets_one": "{{count}} kod parçacığını dışa aktar",
         "exportSnippets_other": "{{count}} kod parçacığını dışa aktar",
         "deleteSnippets": "{{count}} kod parçacığını sil"

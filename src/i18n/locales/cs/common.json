@@ -60,8 +60,8 @@
       "search": "Hledat…"
     },
     "toast": {
-      "proSubscriptionEnded": "Vaše předplatné Pro skončilo — synchronizace byla pozastavena.",
-      "seatEnded": "Vaše místo v týmu {{team}} skončilo — synchronizace byla pozastavena.",
+      "proSubscriptionEnded": "Vaše předplatné Pro skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
+      "seatEnded": "Vaše místo v týmu {{team}} skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
       "managePlan": "Spravovat tarif →",
       "undoFailed": "Vrácení zpět se nezdařilo: {{error}}",
       "redoFailed": "Opakování se nezdařilo: {{error}}",
@@ -69,6 +69,13 @@
       "fileSaveFailed": "Soubor se nepodařilo uložit: {{error}}",
       "sessionRevoked": "Toto zařízení bylo odhlášeno z vašeho účtu Voltius. Přihlaste se znovu, aby synchronizace pokračovala.",
       "signInAgain": "Přihlásit se"
+    },
+    "objectSync": {
+      "notSynced": "Nesynchronizováno · zůstává na tomto zařízení",
+      "enable": "Synchronizovat s mými zařízeními",
+      "disable": "Ponechat jen na tomto zařízení",
+      "enableCount": "Synchronizovat s mými zařízeními ({{count}})",
+      "disableCount": "Ponechat jen na tomto zařízení ({{count}})"
     },
     "error": {
       "identityPickUnavailable": "Vaše identita pro {{host}} není k dispozici",

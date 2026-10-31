@@ -4,7 +4,6 @@
       "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
       "openFolder": "Klasörü aç",
-      "cloudSyncDisabled": "Bulut eşitlemesi devre dışı",
       "unpinForMe": "Benim için sabitlemeyi kaldır",
       "showInMyView": "Görünümümde göster",
       "hideForMe": "Benim için gizle",
@@ -12,8 +11,6 @@
       "unpinForTeam": "Ekip için sabitlemeyi kaldır",
       "pinForTeam": "Ekip için sabitle",
       "exportFolder": "Klasörü dışa aktar",
-      "disableCloudSync": "Bulut eşitlemesini devre dışı bırak",
-      "enableCloudSync": "Bulut eşitlemesini etkinleştir",
       "deleteFolder": "Klasörü sil",
       "itemCount_one": "{{count}} öğe",
       "itemCount_other": "{{count}} öğe"

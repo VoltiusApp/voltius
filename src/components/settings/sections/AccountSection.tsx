@@ -78,6 +78,8 @@ const PLAN_FEATURES = [
   { id: "localVault",       free: true,  pro: true,  teams: true,  business: true  },
   { id: "auditLogs",        free: true,  pro: true,  teams: true,  business: true  },
   { id: "gistSync",         free: true,  pro: true,  teams: true,  business: true  },
+  { id: "localSync",        free: true,  pro: true,  teams: true,  business: true  },
+  { id: "deviceFiles",      free: true,  pro: true,  teams: true,  business: true  },
   { id: "realtimeSync",     free: false, pro: true,  teams: true,  business: true  },
   { id: "unlimitedVaults",  free: false, pro: true,  teams: true,  business: true  },
   { id: "terminalSharing",  free: false, pro: true,  teams: true,  business: true  },

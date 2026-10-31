@@ -22,12 +22,12 @@
       "vaultUnreadableRetry": "Essayer un autre mot de passe",
       "chooseHowToUse": "Choisissez comment utiliser Voltius",
       "getStarted": "Commencer",
-      "getStartedSub": "Sécurisé par le trousseau du système — aucun mot de passe requis",
+      "getStartedSub": "Sans compte — associez les appareils de votre réseau",
       "or": "ou",
       "cloudAccount": "Compte cloud",
-      "cloudAccountSub": "Synchronisez sur tous vos appareils — connectez-vous ou créez un compte",
+      "cloudAccountSub": "Appareils associés automatiquement · Pro ajoute le cloud et la sauvegarde",
       "back": "Retour",
-      "signupPrompt": "Créez un compte pour synchroniser sur tous vos appareils",
+      "signupPrompt": "Créez un compte pour associer vos appareils automatiquement",
       "signinPrompt": "Connectez-vous pour restaurer vos données synchronisées",
       "emailPlaceholder": "E-mail",
       "masterPasswordMinPlaceholder": "Mot de passe principal (8 caractères min.)",
@@ -52,8 +52,8 @@
     "cloudAuthModal": {
       "registerTitle": "Créer un compte cloud",
       "signinTitle": "Connexion au compte cloud",
-      "registerDesc": "Créez un compte pour synchroniser ce coffre et débloquer les fonctionnalités cloud. Vos données restent chiffrées de bout en bout.",
-      "signinDesc": "Connectez-vous pour activer la synchronisation, les abonnements, les fonctionnalités d'équipe et les coffres partagés.",
+      "registerDesc": "Créez un compte pour associer automatiquement vos appareils et débloquer les fonctionnalités cloud. Vos données restent chiffrées de bout en bout.",
+      "signinDesc": "Connectez-vous pour associer automatiquement vos appareils et utiliser la synchronisation cloud, les abonnements, les fonctionnalités d'équipe et les coffres partagés.",
       "addTitle": "Ajouter un autre compte",
       "addDesc": "Connectez-vous à un autre compte cloud ou créez-en un. Le compte actuel reste dans le menu du compte pour y revenir.",
       "createMasterPasswordPlaceholder": "Créer un mot de passe principal",
@@ -167,7 +167,6 @@
     },
     "sync": {
       "title": "Synchronisation",
-      "voltiusSync": "Synchronisation Voltius",
       "moreProviders": "Autres fournisseurs de synchronisation",
       "syncNow": "Synchroniser maintenant",
       "signInForSync": "Connectez-vous pour la synchronisation cloud",
@@ -221,7 +220,7 @@
           "keyChanged": "Impossible de vérifier cet appareil · Associez-le à nouveau pour le vérifier",
           "moved": "Passé sur un compte Voltius — connectez-vous là-bas pour continuer à synchroniser"
         },
-        "catchUp": "Les modifications leur parviendront la prochaine fois qu'ils seront sur le même réseau.",
+        "catchUp": "Les modifications leur parviendront la prochaine fois que les deux appareils seront en ligne et pourront se joindre.",
         "upsell": "Voltius Cloud garde vos appareils synchronisés même lorsqu'ils ne sont pas en ligne en même temps.",
         "tooltip": "Synchronisation avec les appareils proches",
         "toast": {

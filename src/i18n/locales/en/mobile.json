@@ -56,7 +56,7 @@
       "teamsTrialNote": "Card required · no charge during the trial",
       "manageBilling": "Manage billing",
       "viewAllPlans": "View all plans",
-      "signInToSync": "Sign in to sync",
+      "signInToSync": "Sign in to Voltius",
       "signOutConfirm": "Sign out? Your encrypted vault is removed from this device and re-synced when you sign back in.",
       "signOut": "Sign out"
     },
@@ -193,8 +193,6 @@
         "openFiles": "Open files",
         "copyAddress": "Copy address",
         "copiedAddress": "Copied {{host}}",
-        "enableCloudSync": "Enable cloud sync",
-        "disableCloudSync": "Disable cloud sync",
         "enableReachabilityCheck": "Enable reachability check",
         "disableReachabilityCheck": "Disable reachability check"
       },

@@ -32,7 +32,7 @@ export function buildFolderMenuItems(o: {
     ...vaultMenuItems(o.vaults, o.canEdit, o.onMoveToVault, o.onCopyToVault, t),
     ...o.clipboard,
     ...(o.canEdit ? [
-      { label: o.isSynced ? t("folders.card.disableCloudSync") : t("folders.card.enableCloudSync"), icon: o.isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: o.onToggleSync, divider: true as const },
+      { label: o.isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"), icon: o.isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: o.onToggleSync, divider: true as const },
       { label: t("folders.card.deleteFolder"), icon: "lucide:trash-2", onClick: o.onDelete, danger: true as const, shortcut: getShortcutHint("delete") },
     ] : []),
   ];

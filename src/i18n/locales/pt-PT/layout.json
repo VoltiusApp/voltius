@@ -22,12 +22,12 @@
       "vaultUnreadableRetry": "Tente outra palavra-passe",
       "chooseHowToUse": "Escolha como você quer usar o Voltius",
       "getStarted": "Começar",
-      "getStartedSub": "Protegido pelo keychain do SO — sem palavra-passe necessária",
+      "getStartedSub": "Sem conta — emparelhe dispositivos da sua rede",
       "or": "ou",
       "cloudAccount": "Conta na nuvem",
-      "cloudAccountSub": "Sincronizar entre dispositivos — entre ou crie uma",
+      "cloudAccountSub": "Dispositivos emparelhados automaticamente · Pro adiciona nuvem e cópias de segurança",
       "back": "Voltar",
-      "signupPrompt": "Crie uma conta para sincronizar entre dispositivos",
+      "signupPrompt": "Crie uma conta para emparelhar os seus dispositivos automaticamente",
       "signinPrompt": "Entre para restaurar seus dados sincronizados",
       "emailPlaceholder": "E-mail",
       "masterPasswordMinPlaceholder": "Palavra-passe mestre (mínimo 8 caracteres)",
@@ -52,8 +52,8 @@
     "cloudAuthModal": {
       "registerTitle": "Criar conta na nuvem",
       "signinTitle": "Entrar na conta na nuvem",
-      "registerDesc": "Crie uma conta para sincronizar este cofre e desbloquear recursos na nuvem. Seus dados permanecem encriptados ponta a ponta.",
-      "signinDesc": "Entre para ativar sincronização, assinaturas, recursos de equipe e cofres compartilhados.",
+      "registerDesc": "Crie uma conta para emparelhar os seus dispositivos automaticamente e desbloquear funcionalidades na nuvem. Os seus dados permanecem encriptados ponta a ponta.",
+      "signinDesc": "Inicie sessão para emparelhar os seus dispositivos automaticamente e usar a sincronização na nuvem, assinaturas, funcionalidades de equipe e cofres partilhados.",
       "addTitle": "Adicionar outra conta",
       "addDesc": "Entre ou crie outra conta na nuvem. A atual permanece no menu de contas para você voltar.",
       "createMasterPasswordPlaceholder": "Criar palavra-passe mestra",
@@ -167,7 +167,6 @@
     },
     "sync": {
       "title": "Sincronização",
-      "voltiusSync": "Sincronização Voltius",
       "moreProviders": "Mais provedores de sincronização",
       "syncNow": "Sincronizar agora",
       "signInForSync": "Entre para sincronização em nuvem",
@@ -221,7 +220,7 @@
           "keyChanged": "Não foi possível verificar este dispositivo · Emparelhe-o de novo para o verificar",
           "moved": "Mudou para uma conta Voltius — inicie sessão lá para continuar a sincronizar"
         },
-        "catchUp": "As alterações chegam-lhes na próxima vez que estiverem na mesma rede.",
+        "catchUp": "As alterações chegam-lhes na próxima vez que ambos os dispositivos estiverem online e se conseguirem alcançar.",
         "upsell": "O Voltius Cloud mantém os dispositivos sincronizados mesmo quando não estão online ao mesmo tempo.",
         "tooltip": "A sincronizar com dispositivos próximos",
         "toast": {

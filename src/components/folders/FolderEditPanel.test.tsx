@@ -67,7 +67,7 @@ test("the … menu holds Delete and cloud sync", () => {
   render(<FolderEditPanel folder={folder} onUpdate={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} />);
   fireEvent.click(screen.getByTitle("common.action.moreOptions"));
   expect(screen.getByText("folders.card.deleteFolder")).toBeTruthy();
-  expect(screen.getByText("folders.card.disableCloudSync")).toBeTruthy();
+  expect(screen.getByText("common.objectSync.disable")).toBeTruthy();
 });
 
 test("changing the parent saves it", () => {
@@ -130,12 +130,12 @@ test("a snippet folder's panel and card agree on cloud sync", () => {
   const snippetFolder = makeFolder("s1", "Snips", { object_type: "snippet" });
   const { container } = render(<FolderCard folder={snippetFolder} canEdit itemCount={0} layout="list" onOpen={vi.fn()} onRename={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} />);
   fireEvent.contextMenu(container.querySelector("[data-folder-card]")!);
-  expect(screen.getByText("folders.card.disableCloudSync")).toBeTruthy();
+  expect(screen.getByText("common.objectSync.disable")).toBeTruthy();
   cleanup();
 
   render(<FolderEditPanel folder={snippetFolder} onUpdate={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} onOpen={vi.fn()} onSelectSelf={vi.fn()} />);
   fireEvent.click(screen.getByTitle("common.action.moreOptions"));
-  expect(screen.getByText("folders.card.disableCloudSync")).toBeTruthy();
+  expect(screen.getByText("common.objectSync.disable")).toBeTruthy();
 });
 
 test("the panel's … menu is the card's right-click menu minus Rename/Edit", () => {

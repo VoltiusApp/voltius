@@ -28,7 +28,7 @@
     "trialExpiredModal": {
       "title": "Votre essai Pro est terminé",
       "subtitle": "Ces trois fonctionnalités s'arrêtent aujourd'hui :",
-      "freeNote": "Le coffre-fort local, les journaux d'audit et la synchronisation GitHub Gist restent gratuits, pour toujours.",
+      "freeNote": "Le coffre-fort local, les journaux d'audit, la synchronisation sur le réseau local, le transfert de fichiers entre vos appareils et la synchronisation GitHub Gist restent gratuits, pour toujours.",
       "teamsPrompt": "Vous travaillez à plusieurs ? Essayez Teams gratuitement pendant {{days}} jours (carte bancaire requise).",
       "upgradeButton": "Passer à Pro",
       "laterButton": "Plus tard"

@@ -52,8 +52,6 @@
       "openWebLink": "Open web link",
       "activateInSession": "Activate in session",
       "duplicate": "Duplicate",
-      "enableCloudSync": "Enable cloud sync",
-      "disableCloudSync": "Disable cloud sync",
       "pauseForwarding": "Pause forwarding",
       "resumeForwarding": "Resume forwarding",
       "active": "Active",
