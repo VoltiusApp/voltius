@@ -176,7 +176,7 @@ test("an own Teams plan at the guest cap is offered Business", () => {
 });
 
 test("a seat member at the guest cap gets no upgrade prompt", () => {
-  useSubscriptionStore.setState({ tier: "teams", billingTier: "free", seatTeam: { id: "t1", name: "Acme", trial: false } });
+  useSubscriptionStore.setState({ tier: "teams", billingTier: "free", seatTeam: { id: "t1", trial: false } });
   fullInviteLinkSession();
   renderMenu({ tier: "teams" });
   expect(screen.getByText("terminal.share.participantsRatio")).toBeTruthy();

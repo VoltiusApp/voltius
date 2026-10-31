@@ -6,6 +6,7 @@ import MobileMoreScreen from "./MobileMoreScreen";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { deriveTierFlags } from "@/stores/subscriptionTier";
+import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 import "@/i18n";
 
 vi.mock("../MobileHeader", () => ({ default: () => null }));
@@ -29,8 +30,9 @@ test("Vault settings for the active vault leads More", () => {
 
 test("the account row names a seat plan and the team it comes through", () => {
   const initial = useSubscriptionStore.getState();
+  nameSeatTeam();
   useSubscriptionStore.setState({
-    ...deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: { id: "t1", name: "Acme", trial: false } }, new Date()),
+    ...deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: acme }, new Date()),
     accountMode: "server",
   });
   try {
@@ -38,5 +40,6 @@ test("the account row names a seat plan and the team it comes through", () => {
     expect(container.querySelector("[data-more-plan]")!.textContent).toBe("Teams · through your seat in Acme");
   } finally {
     useSubscriptionStore.setState(initial, true);
+    forgetTeams();
   }
 });

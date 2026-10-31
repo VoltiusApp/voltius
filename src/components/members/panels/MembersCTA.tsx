@@ -32,7 +32,7 @@ export function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
 
 export function UpgradeToTeamsCTA() {
   const { t } = useTranslation();
-  const seat = usePlanDisplay().via !== null;
+  const { seat } = usePlanDisplay();
   const openCheckout = async () => {
     await openBillingCheckout("teams");
   };

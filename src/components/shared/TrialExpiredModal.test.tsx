@@ -1,7 +1,10 @@
 import { test, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-testid="icon">{icon}</span>,
 }));
@@ -62,7 +65,7 @@ test("stays hidden for a paying subscriber", () => {
 });
 
 test("stays hidden while a team seat applies", () => {
-  seed({ tier: "teams", isPro: true, seatTeam: { id: "t1", name: "Acme", trial: false } });
+  seed({ tier: "teams", isPro: true, seatTeam: { id: "t1", trial: false } });
   render(<TrialExpiredModal />);
   expect(screen.queryByText("shared.trialExpiredModal.title")).toBeNull();
 });

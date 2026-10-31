@@ -719,15 +719,9 @@ function TitleBarBtn({ onClick, title, children }: {
 
 
 export function SubscriptionBadge() {
-  const { t } = useTranslation();
   const openSettings = useUIStore((s) => s.openSettings);
   const plan = usePlanDisplay();
   const [hovered, setHovered] = useState(false);
-
-  const hoverLabel = plan.premium ? (plan.via ? plan.label : plan.line)
-    : plan.trialOffer ? t("layout.titleBar.plan.upgradeTrial")
-    : plan.showUpgrade ? t("layout.titleBar.plan.upgrade")
-    : plan.label;
 
   return (
     <div className="flex items-center px-1 shrink-0">
@@ -746,7 +740,7 @@ export function SubscriptionBadge() {
             : plan.premium ? "#f59e0b" : "var(--t-text-secondary)",
           background: hovered ? "var(--t-bg-elevated)" : "transparent",
         }}
-        title={plan.viaTooltip ?? hoverLabel}
+        title={plan.viaTooltip ?? plan.badge}
       >
         <Icon
           icon={plan.premium ? "lucide:crown" : "lucide:circle-fading-arrow-up"}
@@ -754,7 +748,7 @@ export function SubscriptionBadge() {
           className="shrink-0"
         />
         <span className="text-xs font-medium overflow-hidden" style={{ opacity: hovered ? 1 : 0, transition: "opacity 150ms ease" }}>
-          {hoverLabel}
+          {plan.badge}
         </span>
       </button>
     </div>

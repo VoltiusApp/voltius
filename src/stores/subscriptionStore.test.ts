@@ -112,7 +112,7 @@ test("a server that omits effective_seats leaves the cap unknown rather than fal
 });
 
 test("seat-only member (own plan free) skips the billing endpoint", async () => {
-  const seat = { id: "t", name: "Acme", trial: false };
+  const seat = { id: "t", trial: false };
   keychain({ mode: "server", jwt: makeJwt({ tier: "teams", billing_tier: "free", seat_team: seat }), server_url: "https://api.example" });
   await get().load();
   expect(h.appFetch).not.toHaveBeenCalled();

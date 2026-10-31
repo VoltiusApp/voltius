@@ -16,16 +16,19 @@ await import("@/i18n");
 const { PlansSection } = await import("./AccountSection");
 const { useSubscriptionStore } = await import("@/stores/subscriptionStore");
 const { deriveTierFlags } = await import("@/stores/subscriptionTier");
+const { acme, forgetTeams, nameSeatTeam } = await import("@/services/planDisplay.testHarness");
 
 const initial = useSubscriptionStore.getState();
 afterEach(() => {
   cleanup();
   useSubscriptionStore.setState(initial, true);
+  forgetTeams();
 });
 
-const acme = { id: "t1", name: "Acme", trial: false };
-const seed = (input: Parameters<typeof deriveTierFlags>[0]) =>
+const seed = (input: Parameters<typeof deriveTierFlags>[0]) => {
+  nameSeatTeam();
   useSubscriptionStore.setState({ ...deriveTierFlags(input, new Date()), subscriptionStatus: "active" });
+};
 
 test("a seat member sees the team plan and where it comes from, with no billing or upgrade", () => {
   seed({ tier: "teams", billing_tier: "free", seat_team: acme, trial_used: true });
@@ -35,6 +38,7 @@ test("a seat member sees the team plan and where it comes from, with no billing 
   expect(screen.queryByText("settings.account.plan.upgrade")).toBeNull();
   expect(screen.queryByText("settings.account.plan.teamsButton")).toBeNull();
   expect(screen.queryByText("settings.account.plan.subscription.active")).toBeNull();
+  expect(screen.queryByText("settings.account.plan.viewAllPlans")).toBeNull();
   expect(container.querySelector("[data-plan-own-line]")).toBeNull();
 });
 

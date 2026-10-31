@@ -13,10 +13,10 @@ vi.mock("@/services/distribution", () => ({
 import { planDisplay } from "./planDisplay";
 
 const NOW = new Date();
-const acme = { id: "t1", name: "Acme", trial: false };
+const acme = { id: "t1", trial: false };
 
-function display(input: TierFlagsInput, subscriptionStatus: string | null = null) {
-  return planDisplay({ ...deriveTierFlags(input, NOW), subscriptionStatus }, NOW);
+function display(input: TierFlagsInput, subscriptionStatus: string | null = null, teamName: string | null = "Acme") {
+  return planDisplay({ ...deriveTierFlags(input, NOW), subscriptionStatus }, teamName, NOW);
 }
 
 describe("planDisplay", () => {
@@ -24,6 +24,8 @@ describe("planDisplay", () => {
     expect(display({ tier: "free", trial_used: false })).toMatchObject({
       plan: "free",
       premium: false,
+      seat: false,
+      badge: "Upgrade · 14d Free Trial",
       label: "Free",
       via: null,
       trial: false,
@@ -54,6 +56,7 @@ describe("planDisplay", () => {
     expect(display({ tier: "pro", trial_ends_at: ends, trial_used: true })).toMatchObject({
       label: "Pro trial",
       line: "Pro trial — 3d left",
+      badge: "Pro trial — 3d left",
       trialDaysLeft: 3,
       trial: true,
       ownPaid: false,
@@ -96,7 +99,9 @@ describe("planDisplay", () => {
     expect(d).toMatchObject({
       plan: "teams",
       premium: true,
+      seat: true,
       label: "Teams",
+      badge: "Teams",
       via: "Acme",
       line: "Teams · through your seat in Acme",
       viaTooltip: "Through Acme",
@@ -107,6 +112,11 @@ describe("planDisplay", () => {
       showUpgrade: false,
       showTrialEnded: false,
     });
+  });
+
+  test("a seat whose team name is not loaded yet falls back to the plan name", () => {
+    const d = display({ tier: "teams", billing_tier: "free", seat_team: acme }, null, null);
+    expect(d).toMatchObject({ seat: true, via: null, line: "Teams", viaTooltip: null, badge: "Teams", upgradeTo: null, showManageBilling: false });
   });
 
   test("seat on an owner trial", () => {

@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { subscription } from "./account";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 describe("domaine account", () => {
   beforeEach(() => {
@@ -34,14 +36,21 @@ describe("domaine account", () => {
   });
 
   test("siège d'équipe : planSource seat, avec le nom de l'équipe", async () => {
-    useSubscriptionStore.setState({
-      load: vi.fn(async () => {}),
-      tier: "teams", billingTier: "free", seatTeam: { id: "t1", name: "Acme", trial: false },
-    });
+    nameSeatTeam();
+    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "teams", billingTier: "free", seatTeam: acme });
+
+    const view = await subscription();
+    forgetTeams();
+
+    expect(view).toMatchObject({ tier: "teams", planSource: "seat", seatTeam: "Acme" });
+  });
+
+  test("siège d'équipe pas encore chargée : planSource seat, nom null", async () => {
+    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "teams", billingTier: "free", seatTeam: acme });
 
     const view = await subscription();
 
-    expect(view).toMatchObject({ tier: "teams", planSource: "seat", seatTeam: "Acme" });
+    expect(view).toMatchObject({ planSource: "seat", seatTeam: null });
   });
 
   test("un échec d'enrichissement facturation (pro) signale stale=true", async () => {

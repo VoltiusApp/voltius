@@ -127,7 +127,7 @@ describe("LocalNetworkSection", () => {
   });
 
   test("no upsell for a seat member", () => {
-    useSubscriptionStore.setState({ tier: "teams", isPro: true, billingTier: "free", seatTeam: { id: "t1", name: "Acme", trial: false } });
+    useSubscriptionStore.setState({ tier: "teams", isPro: true, billingTier: "free", seatTeam: { id: "t1", trial: false } });
     h.rows = [live, behindMac];
     render(<LocalNetworkSection variant="dropdown" onClose={onClose} />);
     expect(q("[data-lan-upsell]")).toBeNull();

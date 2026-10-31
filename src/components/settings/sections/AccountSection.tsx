@@ -618,7 +618,7 @@ export function PlansSection() {
           })}
         </div>
 
-        {billingEnabled && (
+        {billingEnabled && !plan.seat && (
           <button
             onClick={() => openPortal()}
             className="text-xs w-full text-center text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors pt-1"

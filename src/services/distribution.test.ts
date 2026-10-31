@@ -33,6 +33,17 @@ describe("Google Play build", () => {
     const plan = planDisplay(deriveTierFlags({ tier: "free", trial_used: false }, new Date()));
     expect(plan).toMatchObject({ showUpgrade: false, upgradeTo: null, trialOffer: false });
   });
+
+  it("leaves a free account's Voltius sync without an upgrade action", async () => {
+    vi.stubEnv("VITE_DISTRIBUTION", "play");
+    const { useSubscriptionStore } = await import("@/stores/subscriptionStore");
+    const { readSyncProviderInputs } = await import("@/services/syncProviderInputs");
+    const { buildSyncProviders } = await import("@/services/syncProviders");
+    useSubscriptionStore.setState({ accountMode: "server", tier: "free", isPro: false, seatTeam: null });
+    const source = { loaded: () => [], isActive: () => false, exposed: () => undefined };
+    const [voltius] = buildSyncProviders(readSyncProviderInputs(source));
+    expect(voltius).toMatchObject({ availability: "needs_upgrade", action: null });
+  });
 });
 
 describe("other builds", () => {

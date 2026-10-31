@@ -27,7 +27,7 @@ afterEach(() => {
 
 const seatMember = () =>
   useSubscriptionStore.setState(
-    deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: { id: "t1", name: "Acme", trial: false } }, new Date()),
+    deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: { id: "t1", trial: false } }, new Date()),
   );
 
 test("a seat member is told converting needs their own Teams plan, with the upgrade action", () => {

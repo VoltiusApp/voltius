@@ -21,12 +21,14 @@ import "@/i18n";
 import MobileAccountPage from "./MobileAccountPage";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { deriveTierFlags, type TierFlagsInput } from "@/stores/subscriptionTier";
+import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 const initialSubscription = useSubscriptionStore.getState();
 afterEach(() => {
   cleanup();
   useMobileNavStore.setState({ sheet: null });
   useSubscriptionStore.setState(initialSubscription, true);
+  forgetTeams();
   billing.enabled = true;
 });
 
@@ -87,9 +89,10 @@ test("a billed business account keeps its billing link and seat count", () => {
   expect(queryByText("mobile.account.seatsUsed")).not.toBeNull();
 });
 
-const acme = { id: "t1", name: "Acme", trial: false };
-const signedIn = (input: TierFlagsInput) =>
+const signedIn = (input: TierFlagsInput) => {
+  nameSeatTeam();
   useSubscriptionStore.setState({ ...deriveTierFlags(input, new Date()), accountMode: "server", subscriptionStatus: "active" });
+};
 
 test("a seat member sees the team plan through the seat, with no upgrade or billing", () => {
   signedIn({ tier: "teams", billing_tier: "free", seat_team: acme, trial_used: true });
@@ -99,6 +102,7 @@ test("a seat member sees the team plan through the seat, with no upgrade or bill
   expect(container.querySelector("[data-account-upgrade-teams]")).toBeNull();
   expect(container.querySelector("[data-account-own-plan]")).toBeNull();
   expect(queryByText("mobile.account.manageBilling")).toBeNull();
+  expect(container.querySelector("[data-account-manage-billing]")).toBeNull();
   expect(queryByText("mobile.account.subscriptionActive")).toBeNull();
 });
 

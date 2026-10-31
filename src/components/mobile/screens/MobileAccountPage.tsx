@@ -142,7 +142,7 @@ export default function MobileAccountPage() {
               </>
             )}
 
-            {billingEnabled && CAN_OPEN_CHECKOUT && (
+            {billingEnabled && CAN_OPEN_CHECKOUT && (plan.showManageBilling || !plan.seat) && (
               <button
                 data-account-manage-billing
                 onClick={() => void openPortal()}

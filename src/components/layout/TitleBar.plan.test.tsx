@@ -2,6 +2,7 @@ import { test, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { deriveTierFlags, type TierFlagsInput } from "@/stores/subscriptionTier";
+import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ minimize: vi.fn(), toggleMaximize: vi.fn(), close: vi.fn(), startDragging: vi.fn() }),
@@ -24,10 +25,13 @@ const initial = useSubscriptionStore.getState();
 afterEach(() => {
   cleanup();
   useSubscriptionStore.setState(initial, true);
+  forgetTeams();
 });
 
-const acme = { id: "t1", name: "Acme", trial: false };
-const seed = (input: TierFlagsInput) => useSubscriptionStore.setState(deriveTierFlags(input, new Date()));
+const seed = (input: TierFlagsInput) => {
+  nameSeatTeam();
+  useSubscriptionStore.setState(deriveTierFlags(input, new Date()));
+};
 const badge = () => render(<SubscriptionBadge />).container.querySelector("button")!;
 
 test("a seat member's badge names the team plan with the team in the tooltip", () => {
@@ -44,10 +48,17 @@ test("own Pro plus a Business seat shows Business", () => {
 
 test("a free account is offered the trial", () => {
   seed({ tier: "free", trial_used: false });
-  expect(badge().textContent).toBe("layout.titleBar.plan.upgradeTrial");
+  expect(badge().textContent).toBe("Upgrade · 14d Free Trial");
 });
 
 test("an own Pro trial counts down", () => {
   seed({ tier: "pro", trial_ends_at: Math.floor(Date.now() / 1000) + 2 * 86_400 - 60 });
   expect(badge().textContent).toBe("Pro trial — 2d left");
+});
+
+test("before the team list loads, a seat badge shows the plan name alone", () => {
+  useSubscriptionStore.setState(deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: acme }, new Date()));
+  const b = badge();
+  expect(b.textContent).toBe("Teams");
+  expect(b.title).toBe("Teams");
 });

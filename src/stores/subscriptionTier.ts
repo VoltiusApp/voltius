@@ -17,7 +17,6 @@ export function teamLocked(teams: { id: string; owner_tier?: string }[], teamId:
 
 export interface SeatTeam {
   id: string;
-  name: string;
   trial: boolean;
 }
 
