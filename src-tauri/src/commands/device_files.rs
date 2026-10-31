@@ -49,7 +49,7 @@ pub(crate) async fn connect_inner(
     step: impl Fn(SftpStep),
     events: LinkEvents,
 ) -> Result<DeviceConnected, AppError> {
-    let epoch = links.epoch();
+    let ticket = links.ticket(&device_id);
     let closed = CancellationToken::new();
     let pass = relink
         .map(|id| links.pass(id, &device_id))
@@ -89,9 +89,9 @@ pub(crate) async fn connect_inner(
         _ => sftp.register_standalone(backend, closed).await,
     };
     link.bind(sftp_id.clone());
-    if !links.insert(epoch, sftp_id.clone(), &link) {
+    if let Err(e) = links.insert(ticket, sftp_id.clone(), &link) {
         sftp.close(&sftp_id).await;
-        return Err(AppError::Msg("The app reloaded while connecting".into()));
+        return Err(e);
     }
     Ok(DeviceConnected {
         sftp_id,
@@ -100,8 +100,8 @@ pub(crate) async fn connect_inner(
     })
 }
 
-pub(crate) async fn close_device_sessions(sftp: &SftpManager, links: &DeviceLinks) {
-    for sftp_id in links.drain() {
+pub(crate) async fn close_sessions(sftp: &SftpManager, ids: Vec<String>) {
+    for sftp_id in ids {
         sftp.close(&sftp_id).await;
     }
 }
@@ -325,7 +325,6 @@ mod tests {
     use crate::commands::sftp::resume::endpoint::LocalFs;
     use crate::commands::sftp::resume::engine_tests::noise;
     use crate::crypto::hex;
-    use crate::device_files::link::device_forgotten;
     use crate::device_files::policy::{self, AllowedDevice, Answer, FileAccessConfig, GRANT_IDLE};
     use crate::device_files::service::{FileService, CONFIG, REQUEST, SESSIONS};
     use crate::error::ErrorCode;
@@ -1012,7 +1011,7 @@ mod tests {
         let a = browser("dev-a", &s).await;
         let c = a.connect().await.unwrap();
         s.until_open(&["dev-a"]).await;
-        close_device_sessions(&a.sftp, &a.links).await;
+        close_sessions(&a.sftp, a.links.drain()).await;
         s.until_open(&[]).await;
         assert!(a.sftp.backend(&c.sftp_id).await.is_none());
     }
@@ -1023,7 +1022,7 @@ mod tests {
         let a = browser("dev-a", &s).await;
         let reload = async {
             s.until_pending(1).await;
-            close_device_sessions(&a.sftp, &a.links).await;
+            close_sessions(&a.sftp, a.links.drain()).await;
             s.approve(Answer::Once).await;
         };
         let (connected, ()) = tokio::join!(a.connect(), reload);
@@ -1032,14 +1031,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_connect_landing_after_its_device_is_forgotten_closes_its_session() {
+        let s = server(&[]).await;
+        let a = browser("dev-a", &s).await;
+        let forget = async {
+            s.until_pending(1).await;
+            a.links.forget("dev-b");
+            s.approve(Answer::Once).await;
+        };
+        let (connected, ()) = tokio::join!(a.connect(), forget);
+        assert_eq!(code(connected), Some(ErrorCode::DeviceForgotten));
+        s.until_open(&[]).await;
+        a.approved(&s).await;
+    }
+
+    #[tokio::test]
     async fn forgetting_a_device_ends_its_open_panes() {
         let s = server(&["dev-a"]).await;
         let a = browser("dev-a", &s).await;
         let c = a.connect().await.unwrap();
         s.until_open(&["dev-a"]).await;
-        a.links.end_device("dev-c", device_forgotten);
+        a.links.forget("dev-c");
         assert!(a.closed.lock().unwrap().is_empty());
-        a.links.end_device("dev-b", device_forgotten);
+        a.links.forget("dev-b");
         a.closes(&c, ErrorCode::DeviceForgotten).await;
         s.until_open(&[]).await;
     }

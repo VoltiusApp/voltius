@@ -1,5 +1,5 @@
 use super::raw_body;
-use crate::device_files::link::{device_forgotten, DeviceLinks};
+use crate::device_files::link::DeviceLinks;
 #[cfg(desktop)]
 use crate::device_files::{for_account, service::FileService, stop_where, Slot};
 use crate::lan_sync::addrs;
@@ -612,7 +612,9 @@ pub async fn lan_sync_forget(
 ) -> Result<bool, String> {
     let dir = crate::storage::config::config_dir();
     let forgotten = forget_inner(&state, &device_id, &scope, group, &dir, &emitter(app)).await?;
-    links.end_device(&device_id, device_forgotten);
+    if forgotten && !group {
+        links.forget(&device_id);
+    }
     Ok(forgotten)
 }
 

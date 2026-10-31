@@ -137,7 +137,7 @@ pub fn refused(reason: Refusal) -> AppError {
     AppError::coded(code, message)
 }
 
-pub fn device_forgotten() -> AppError {
+fn device_forgotten() -> AppError {
     AppError::coded(ErrorCode::DeviceForgotten, "This device was forgotten")
 }
 
@@ -239,7 +239,23 @@ impl DeviceLink {
 #[derive(Default)]
 struct Table {
     links: HashMap<String, Weak<DeviceLink>>,
-    epoch: u64,
+    reloads: u64,
+    forgets: HashMap<String, u64>,
+}
+
+impl Table {
+    fn ticket(&self, device_id: &str) -> Ticket {
+        Ticket {
+            reloads: self.reloads,
+            forgets: self.forgets.get(device_id).copied().unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Ticket {
+    reloads: u64,
+    forgets: u64,
 }
 
 #[derive(Default)]
@@ -260,13 +276,13 @@ impl DeviceLinks {
             .unwrap_or_default()
     }
 
-    pub fn epoch(&self) -> u64 {
-        self.lock().epoch
+    pub fn ticket(&self, device_id: &str) -> Ticket {
+        self.lock().ticket(device_id)
     }
 
     pub fn drain(&self) -> Vec<String> {
         let mut table = self.lock();
-        table.epoch += 1;
+        table.reloads += 1;
         table
             .links
             .drain()
@@ -275,20 +291,30 @@ impl DeviceLinks {
             .collect()
     }
 
-    /// False when a drain ran since `epoch`: the page that asked for this link is gone.
-    pub fn insert(&self, epoch: u64, sftp_id: String, link: &Arc<DeviceLink>) -> bool {
+    /// Refuses a link whose page reloaded or whose device was forgotten since `ticket` was taken.
+    pub fn insert(
+        &self,
+        ticket: Ticket,
+        sftp_id: String,
+        link: &Arc<DeviceLink>,
+    ) -> Result<(), AppError> {
         let mut table = self.lock();
-        if table.epoch != epoch {
-            return false;
+        let now = table.ticket(&link.device_id);
+        if now.forgets != ticket.forgets {
+            return Err(device_forgotten());
+        }
+        if now.reloads != ticket.reloads {
+            return Err(AppError::Msg("The app reloaded while connecting".into()));
         }
         table.links.retain(|_, l| l.strong_count() > 0);
         table.links.insert(sftp_id, Arc::downgrade(link));
-        true
+        Ok(())
     }
 
-    pub fn end_device(&self, device_id: &str, why: impl Fn() -> AppError) {
+    pub fn forget(&self, device_id: &str) {
         let ended: Vec<Arc<DeviceLink>> = {
             let mut table = self.lock();
+            *table.forgets.entry(device_id.to_string()).or_default() += 1;
             let mut ended = Vec::new();
             table.links.retain(|_, l| match l.upgrade() {
                 Some(link) if link.device_id == device_id => {
@@ -300,7 +326,7 @@ impl DeviceLinks {
             ended
         };
         for link in ended {
-            link.close_with(why());
+            link.close_with(device_forgotten());
         }
     }
 }
