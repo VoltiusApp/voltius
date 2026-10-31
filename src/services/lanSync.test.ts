@@ -115,6 +115,7 @@ vi.mock("@/services/sync", async () => {
 
 import {
   cancelPairing,
+  clearLanSyncScopes,
   closePairing,
   confirmPairing,
   forgetDevice,
@@ -675,6 +676,30 @@ describe("no-account groups", () => {
     expect(h.handlers.size).toBe(SESSION_EVENTS);
   });
 
+  test("only a group session exports the group's own state", async () => {
+    const exported = async () => {
+      nearby("N");
+      h.mutations.forEach((fn) => fn());
+      await settle();
+      return h.exportLocalBlob.mock.calls;
+    };
+    h.serverMode = true;
+    await started();
+    expect(await exported()).toEqual([[{ lanGroup: false }]]);
+    await stopLanSync();
+    h.serverMode = false;
+    h.group = GROUP;
+    await started();
+    expect(await exported()).toEqual([[{ lanGroup: true }]]);
+  });
+
+  test("a group holding no epoch secret starts no group manager", async () => {
+    h.group = { ...GROUP, secrets: [] };
+    await startLanSync();
+    expect(calls("lan_sync_start")).toHaveLength(0);
+    expect(await lanScope()).toBeNull();
+  });
+
   test("a members-only change updates the manager without restarting it", async () => {
     h.group = GROUP;
     await started();
@@ -692,6 +717,16 @@ describe("no-account groups", () => {
     expect(calls("lan_sync_set_members").map(([, a]) => a)).toEqual([
       { members: [...ms("self"), { deviceId: "A", deviceKey: "k-A2" }, ...ms("B")] },
     ]);
+  });
+
+  test("a member re-verified through a merge loses its can't-verify flag without ever linking", async () => {
+    h.group = GROUP;
+    await started();
+    emit("rejected", { deviceId: "A", reason: "keyChanged" });
+    emit("rejected", { deviceId: "B", reason: "keyChanged" });
+    h.group = withMembers(member("self"), member("A", { device_key: "k-A2" }), member("B"), GROUP.members[3]);
+    await mergeFrom("C");
+    expect(useLanSyncStore.getState().rejected).toEqual({ B: "keyChanged" });
   });
 
   test("a revived member is vouched again, and duplicate keys are retired after every group merge", async () => {
@@ -817,6 +852,23 @@ describe("no-account groups", () => {
     expect(h.forgetMember).toHaveBeenCalledWith("B");
     expect(calls("lan_sync_forget").map(([, a]) => a)).toEqual([{ deviceId: "B", scope: "grp-1", group: true }]);
     expect(calls("lan_sync_start")).toHaveLength(0);
+  });
+
+  test("a peer listed as paused reads as paused before any presence event", async () => {
+    h.group = GROUP;
+    await started();
+    emit("peers", [{ ...peer("A"), presence: "paused" }, { ...peer("B"), presence: "live" }, { ...peer("C"), presence: "left" }]);
+    expect(useLanSyncStore.getState().presence).toEqual({ A: "paused", B: "live" });
+  });
+
+  test("presence goes with the peer, except a move", async () => {
+    h.group = GROUP;
+    await started();
+    emit("presence", { deviceId: "M", state: "moved" });
+    emit("presence", { deviceId: "C", state: "paused" });
+    emit("peers", [{ ...peer("A"), presence: "paused" }, { ...peer("C"), presence: "live" }]);
+    emit("peers", [{ ...peer("C"), presence: "left" }]);
+    expect(useLanSyncStore.getState().presence).toEqual({ M: "moved" });
   });
 
   test("presence_and_rejected_reach_store", async () => {
@@ -1032,6 +1084,18 @@ describe("dial paths and file access by scope", () => {
     await merged("A");
     expect(h.startFiles).toHaveBeenCalledTimes(1);
     expect(calls("lan_sync_learn").map(([, a]) => a.deviceId)).toEqual(["A"]);
+  });
+
+  test("addresses learned under one account are not replayed into the next", async () => {
+    await merged("A");
+    await clearLanSyncScopes();
+    h.accountId = "acct-2";
+    await startLanSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls("lan_sync_start")).toHaveLength(1);
+    expect(calls("lan_sync_learn")).toHaveLength(0);
+    await merged("B");
+    expect(calls("lan_sync_learn").map(([, a]) => a.deviceId)).toEqual(["B"]);
   });
 
   test.each([

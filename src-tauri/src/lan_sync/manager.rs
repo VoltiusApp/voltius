@@ -80,6 +80,11 @@ const PROBE_EVERY: Duration = if cfg!(test) {
 } else {
     Duration::from_secs(300)
 };
+const PAIR_REDIAL: Duration = if cfg!(test) {
+    Duration::from_millis(50)
+} else {
+    Duration::from_secs(2)
+};
 
 pub type Probe = Arc<dyn Fn() -> std::io::Result<()> + Send + Sync>;
 type Save = Option<(PathBuf, Vec<u8>)>;
@@ -594,7 +599,10 @@ async fn dial_pair(shared: Arc<Shared>, addr: SocketAddr) {
     .await;
     match shaken {
         Some(shaken) => shared.pair_session(claim, shaken, true).await,
-        None => shared.free_session(claim.window),
+        None => {
+            shared.free_session(claim.window);
+            shared.redial_later(claim.window);
+        }
     }
 }
 
@@ -766,6 +774,7 @@ struct PairWindow {
     id: u64,
     info: PairInfo,
     attempts: u32,
+    redials: u32,
     instance: Option<String>,
     session: Option<mpsc::Sender<PairAction>>,
     _expiry: AbortOnDropHandle<()>,
@@ -1417,17 +1426,23 @@ impl Shared {
             id,
             info,
             attempts: 0,
+            redials: 0,
             instance,
             session: None,
             _expiry: AbortOnDropHandle::new(expiry),
         });
         drop(pairing);
+        self.dial_seen_windows();
+        Ok(())
+    }
+
+    // mdns-sd reports a window once, so a retry has to dial what it already saw.
+    fn dial_seen_windows(self: &Arc<Self>) {
         let seen = lock(&self.discovery)
             .as_ref()
             .map(|d| d.pairable_peers())
             .unwrap_or_default();
         self.pair_with_any(seen);
-        Ok(())
     }
 
     fn pair_with_any(self: &Arc<Self>, seen: impl IntoIterator<Item = Found>) {
@@ -1527,22 +1542,25 @@ impl Shared {
         self.finish_pair(claim.window, end, initiator).await;
     }
 
-    async fn finish_pair(&self, id: u64, end: PairEnd, initiator: bool) {
+    async fn finish_pair(self: &Arc<Self>, id: u64, end: PairEnd, initiator: bool) {
         let paired = end == PairEnd::Paired;
+        let lost = matches!(end, PairEnd::Dropped | PairEnd::Unanswered);
         let (ended, exhausted) = {
             let mut pairing = self.pairing();
             let Some(window) = pairing.as_mut().filter(|w| w.id == id) else {
                 return;
             };
             window.session = None;
+            let mut failed = |reason| {
+                window.attempts += 1;
+                (Some(reason), window.attempts >= PAIR_ATTEMPTS)
+            };
             match end {
                 PairEnd::Paired => (None, false),
                 PairEnd::Unanswered => (initiator.then_some(PairRefusal::Busy), false),
                 PairEnd::Refused(reason) => (Some(reason), false),
-                PairEnd::Failed(reason) => {
-                    window.attempts += 1;
-                    (Some(reason), window.attempts >= PAIR_ATTEMPTS)
-                }
+                PairEnd::Failed(reason) => failed(reason),
+                PairEnd::Dropped => failed(PairRefusal::Cancelled),
             }
         };
         if let Some(reason) = ended {
@@ -1552,7 +1570,31 @@ impl Shared {
             self.close_window(id, PairRefusal::TooManyAttempts).await;
         } else if paired {
             self.take_window(Some(id));
+        } else if lost {
+            self.redial_later(id);
         }
+    }
+
+    // A cancel is the user's "not this one", so only a lost link dials again.
+    fn redial_later(self: &Arc<Self>, id: u64) {
+        let open = move |shared: &Self| shared.pairing().as_ref().is_some_and(|w| w.id == id);
+        {
+            let mut pairing = self.pairing();
+            let Some(window) = pairing.as_mut().filter(|w| w.id == id) else {
+                return;
+            };
+            if window.redials >= PAIR_ATTEMPTS {
+                return;
+            }
+            window.redials += 1;
+        }
+        let shared = self.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(PAIR_REDIAL).await;
+            if open(&shared) {
+                shared.dial_seen_windows();
+            }
+        });
     }
 }
 
@@ -4633,6 +4675,71 @@ mod tests {
         a.open_pairing(pair_info(None, 1)).await.unwrap();
         pair_event(&mut ea, is_code).await;
         pair_event(&mut eb, is_code).await;
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_attempt_is_not_dialed_again() {
+        let (b, mut eb) = pairing("dev-b", pair_info(None, 0)).await;
+        let (a, mut ea) = idle_pairing("dev-a").await;
+        advertise(&a, "a-window", vec![sighting("b-window", local(&b))]);
+        a.open_pairing(pair_info(None, 1)).await.unwrap();
+        pair_event(&mut ea, is_code).await;
+        pair_event(&mut eb, is_code).await;
+        b.cancel_pairing();
+        let cancelled = ended(PairRefusal::Cancelled);
+        assert_eq!(pair_event(&mut ea, any_pair).await, cancelled);
+        assert_eq!(pair_event(&mut eb, any_pair).await, cancelled);
+        tokio::time::sleep(PAIR_REDIAL * 6).await;
+        assert!(no_pair_events(&mut ea) && no_pair_events(&mut eb));
+        assert!(a.shared.pairing_open() && b.shared.pairing_open());
+    }
+
+    #[tokio::test]
+    async fn a_dropped_attempt_dials_the_seen_window_again() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let (a, mut ea) = idle_pairing("dev-a").await;
+        let seen = sighting("b-window", listener.local_addr().unwrap());
+        advertise(&a, "a-window", vec![seen]);
+        a.open_pairing(pair_info(None, 1)).await.unwrap();
+        let (stream, _) = listener.accept().await.unwrap();
+        let accept = Mode::Accept {
+            keys: &[],
+            pairing: true,
+        };
+        let shaken = handshake_with(stream, false, &test_identity("dev-r"), accept).await;
+        let mut session = shaken.unwrap().session;
+        assert!(matches!(
+            session.recv().await.unwrap(),
+            Frame::Pair(Pair::Info(_))
+        ));
+        session
+            .send(&Frame::Pair(Pair::Info(pair_info(None, 0))))
+            .await
+            .unwrap();
+        pair_event(&mut ea, is_code).await;
+        drop(session);
+        assert_eq!(
+            pair_event(&mut ea, any_pair).await,
+            ended(PairRefusal::Cancelled)
+        );
+        let again = timeout(Duration::from_secs(5), listener.accept()).await;
+        assert!(again.is_ok_and(|r| r.is_ok()));
+    }
+
+    #[tokio::test]
+    async fn a_redial_is_dropped_once_its_window_is_replaced() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let (a, _ea) = idle_pairing("dev-a").await;
+        advertise(&a, "a-window", vec![]);
+        a.open_pairing(pair_info(None, 1)).await.unwrap();
+        let old = a.shared.pairing().as_ref().unwrap().id;
+        a.shared.redial_later(old);
+        a.close_pairing();
+        a.open_pairing(pair_info(None, 1)).await.unwrap();
+        let seen = sighting("b-window", listener.local_addr().unwrap());
+        advertise(&a, "a-window", vec![seen]);
+        let late = timeout(PAIR_REDIAL * 6, listener.accept()).await;
+        assert!(late.is_err(), "the old window's redial dialed the new one");
     }
 
     #[tokio::test]

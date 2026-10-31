@@ -22,11 +22,12 @@ import { bytesToHex, hexToBytes } from "@/utils/base64";
 import { getPlatformSync } from "@/utils/platform";
 import { isNoAccountMode, type NoAccountMode } from "@/utils/accountMode";
 import { LAN_FAREWELL_ENTRY as FAREWELL_ENTRY } from "@/services/accountCacheKeys";
+import { LAN_GROUP_FILE, LAN_GROUP_SECRET_PREFIX as SECRET_PREFIX } from "@/services/lanGroupFiles";
 
-export const LAN_GROUP_FILE = "lan_group.json";
+export { LAN_GROUP_FILE };
+
 export const MAX_GROUP_EPOCHS = 16;
 const MAX_HOST_NAME_BYTES = 128;
-const SECRET_PREFIX = "lan-group-secret:";
 const FAREWELL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const farewellWrites = createSerialQueue();
 
@@ -403,8 +404,9 @@ export function farewellSent(deviceId: string): Promise<void> {
     const kept = await readKeptFarewell();
     if (!kept?.pending?.includes(deviceId)) return;
     const pending = kept.pending.filter((id) => id !== deviceId);
-    await keepFarewell({ ...kept, pending });
-    if (pending.length === 0) await releaseLeftScope(kept);
+    if (pending.length > 0) return keepFarewell({ ...kept, pending });
+    await invoke("keychain_delete", { key: FAREWELL_ENTRY });
+    await releaseLeftScope(kept);
   });
 }
 

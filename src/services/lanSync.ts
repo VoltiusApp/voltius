@@ -33,7 +33,7 @@ import {
 } from "@/services/lanGroup";
 import { entityClocks, type PeerInfo } from "@/services/lanSyncDevices";
 import { startDeviceFiles, stopDeviceFiles } from "@/services/deviceFiles";
-import { ignorePeerAddresses, watchPeerAddresses } from "@/services/lanSyncAddresses";
+import { forgetPeerAddresses, ignorePeerAddresses, watchPeerAddresses } from "@/services/lanSyncAddresses";
 import { ensureLanSyncIntro } from "@/services/lanSyncIntro";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import {
@@ -103,8 +103,9 @@ const fail = (context: string) => logFailure(`lan-sync ${context}`);
 const covers = (held: number[][], keys: number[][]) => keys.every((k) => held.some((h) => sameKey(h, k)));
 const sameKeys = (a: number[][], b: number[][]) => a.length === b.length && covers(a, b);
 const memberTag = (m: LanMember) => `${m.deviceId}:${m.deviceKey}`;
-const sameMembers = (a: LanMember[] = [], b: LanMember[] = []) =>
-  a.length === b.length && a.map(memberTag).every((tag) => b.some((m) => memberTag(m) === tag));
+const newlyListed = (before: LanMember[] = [], after: LanMember[] = []) =>
+  after.filter((m) => !before.some((b) => memberTag(b) === memberTag(m))).map((m) => m.deviceId);
+const sameMembers = (a: LanMember[] = [], b: LanMember[] = []) => a.length === b.length && newlyListed(b, a).length === 0;
 const sameLink = (a: Trust, b: Trust) =>
   a.scope === b.scope &&
   a.farewell === b.farewell &&
@@ -147,7 +148,7 @@ async function resolveScope(): Promise<Resolved | null> {
     return { trust: { scope, authKeys, ...farewellTrust(farewell) }, alive: [] };
   }
   const group = await readGroup();
-  if (!group) return farewellOnly();
+  if (!group?.secrets.length) return farewellOnly();
   groupScope = group.groupId;
   const live = group.members.filter(isAlive);
   return {
@@ -173,7 +174,7 @@ export async function lanScope(): Promise<LanScope> {
 
 async function broadcastOwn(): Promise<void> {
   if (store().paused || Object.keys(store().known).length === 0) return;
-  const blob = await exportLocalBlob();
+  const blob = await exportLocalBlob({ lanGroup: !!session && !onAccount(session.trust) });
   store().setLocalClocks(entityClocks(await openRemoteBlob(sessionBlobKeys(), blob)));
   if (store().peers.length > 0) await invoke("lan_sync_broadcast", Uint8Array.from(blob));
 }
@@ -299,6 +300,7 @@ async function begin(wanted: number): Promise<void> {
   }
   const running = session;
   if (running) await forgetDeparted(running, next);
+  if (running && next) store().clearRejected(newlyListed(running.trust.members, next.trust.members));
   if (running && next && sameLink(running.trust, next.trust)) return updateMembers(running, next);
   if (running && !next) return end();
   detach();
@@ -409,6 +411,7 @@ export function startSessionSync(firstSync?: Promise<unknown>): void {
 }
 
 export async function clearLanSyncScopes(): Promise<void> {
+  forgetPeerAddresses();
   const scopes = [await getAccountId().catch(() => null), groupScope];
   groupScope = null;
   for (const scope of scopes) {

@@ -82,6 +82,7 @@ pub enum PairEnd {
     Refused(PairRefusal),
     Unanswered,
     Failed(PairRefusal),
+    Dropped,
 }
 
 pub struct PairCall<'a> {
@@ -297,7 +298,7 @@ async fn converse(
         tokio::select! {
             frame = talk.inbox.recv() => {
                 let Some(frame) = frame else {
-                    return PairEnd::Failed(PairRefusal::Cancelled);
+                    return PairEnd::Dropped;
                 };
                 match flow.on_frame(&frame) {
                     Ok(PairStep::Waiting) => {}
@@ -323,7 +324,7 @@ async fn converse(
                         for frame in flow.local_confirm() {
                             if !talk.send(&frame).await {
                                 let _ = reply.send(Err("the other device left".into()));
-                                return PairEnd::Failed(PairRefusal::Cancelled);
+                                return PairEnd::Dropped;
                             }
                         }
                         grant = grant.or(offered);
@@ -343,7 +344,7 @@ async fn converse(
         if flow.is_ready() {
             if let Some(grant) = grant.take() {
                 if !talk.part(&Frame::Group(grant)).await {
-                    return PairEnd::Failed(PairRefusal::Cancelled);
+                    return PairEnd::Dropped;
                 }
                 talk.emit(PairEvent::Done).await;
                 return PairEnd::Paired;

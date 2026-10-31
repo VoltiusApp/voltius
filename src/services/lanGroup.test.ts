@@ -660,6 +660,20 @@ test("farewell_key_expires_after_thirty_days", async () => {
   expect(keychain.lan_sync_farewell).toBeUndefined();
 });
 
+test("a group that lost every epoch secret is never replaced by a new one", async () => {
+  noPasswordDevice();
+  await createGroupIfNeeded();
+  delete disk.secrets["lan-group-secret:1"];
+  delete disk.clocks["lan-group-secret:1"];
+  const before = structuredClone(disk);
+
+  const group = await createGroupIfNeeded();
+
+  expect(group.secrets).toEqual([]);
+  expect(disk).toEqual(before);
+  expect((await pairInfo()).group).toBe(group.groupId);
+});
+
 test("ungrouped_device_reports_its_entities", async () => {
   noPasswordDevice();
   withData("mine", MINE);
@@ -1027,7 +1041,7 @@ test("a leave owes each member a farewell before its tombstone is written, until
   expect((await readFarewell())?.pending).toEqual([HOST, "phone"]);
   await farewellSent("stranger");
   await Promise.all([farewellSent("phone"), farewellSent(HOST)]);
-  expect(await readFarewell()).toMatchObject({ reason: "left", group: "group-1", pending: [] });
+  expect(await readFarewell()).toBeNull();
 });
 
 test("the last member to hear the farewell clears the left group's peer file, once", async () => {
@@ -1041,6 +1055,19 @@ test("the last member to hear the farewell clears the left group's peer file, on
   await farewellSent(HOST);
   await farewellSent(HOST);
   expect(calls("lan_sync_clear_scope")).toEqual([{ scope: "group-1" }]);
+});
+
+test("a farewell every member has heard keeps no secret behind", async () => {
+  noPasswordDevice(G);
+  groupOne({ device_key: SELF_KEY }, [entity("phone", { kind: "member", name: "Phone", platform: "android", device_key: "ef".repeat(32), joined_at: OLD })]);
+  holdEpochs({ 1: "11".repeat(32) });
+  await leaveGroup("left");
+
+  await farewellSent("phone");
+  expect(JSON.parse(keychain[LAN_FAREWELL_ENTRY]!).pending).toEqual([HOST]);
+  await farewellSent(HOST);
+  expect(keychain[LAN_FAREWELL_ENTRY]).toBeUndefined();
+  expect(await readFarewell()).toBeNull();
 });
 
 test("an expired farewell for a left group clears that group's peer file; a moved one clears nothing", async () => {

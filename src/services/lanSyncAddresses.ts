@@ -8,6 +8,7 @@ const MAX_ADDRS = 16;
 const latest = new Map<string, string[]>();
 let learning = false;
 let ignoring = false;
+let era = 0;
 
 export function addressesFrom(deviceId: string, selfId: string, payload: BlobPayload): string[] {
   const raw = payload.files[ADDRS_FILE];
@@ -27,9 +28,11 @@ function learn(deviceId: string, addrs: string[]): void {
 
 // Subscribed at import: launch-time pulls merge before any LAN session exists.
 onRemotePayloadMerged((deviceId, payload) => {
+  if (ignoring) return;
+  const at = era;
   getDeviceId()
     .then((selfId) => {
-      if (ignoring) return;
+      if (at !== era) return;
       const addrs = addressesFrom(deviceId, selfId, payload);
       if (addrs.length === 0) {
         latest.delete(deviceId);
@@ -44,10 +47,15 @@ onRemotePayloadMerged((deviceId, payload) => {
 // A group or farewell session: nothing merged before or during it may reach a later account manager.
 export function ignorePeerAddresses(): () => void {
   ignoring = true;
-  latest.clear();
+  forgetPeerAddresses();
   return () => {
     ignoring = false;
   };
+}
+
+export function forgetPeerAddresses(): void {
+  era++;
+  latest.clear();
 }
 
 export function watchPeerAddresses(): () => void {
