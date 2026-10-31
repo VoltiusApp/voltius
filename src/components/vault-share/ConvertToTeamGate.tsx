@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { convertVaultToTeam } from "@/services/vaultConvert";
 import { Modal, ModalCard } from "@/components/shared/Modal";
+import { UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 interface Props {
   vaultId: string;
@@ -24,9 +26,10 @@ const COSTS: { icon: string; color: string; key: string }[] = [
 export function ConvertToTeamGate({ vaultId, vaultName, onCancel, onConverted, inline = false }: Props) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
+  const ownsTeamsPlan = useSubscriptionStore((s) => s.ownsTeamsPlan);
 
   const go = async () => {
-    if (busy) return;
+    if (busy || !ownsTeamsPlan) return;
     setBusy(true);
     try {
       onConverted(await convertVaultToTeam(vaultId, vaultName));
@@ -36,7 +39,7 @@ export function ConvertToTeamGate({ vaultId, vaultName, onCancel, onConverted, i
     }
   };
 
-  const content = (
+  const content = !ownsTeamsPlan ? <UpgradeToTeamsCTA compact /> : (
     <>
       <div className="flex items-center gap-3">
         <div

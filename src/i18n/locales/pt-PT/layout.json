@@ -335,10 +335,6 @@
         "closeTab_many": "Fechar aba ({{count}} sessões)"
       },
       "plan": {
-        "proTrial": "Avaliação Pro — {{daysLeft}}d restantes",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "Atualizar · Avaliação Gratuita de 14d",
         "upgrade": "Atualizar"
       },

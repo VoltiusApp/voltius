@@ -156,6 +156,16 @@ describe("SyncSection Voltius group", () => {
     expect(runAction).toHaveBeenCalledWith({ kind: "upgrade" });
   });
 
+  test("with no upgrade on offer the requires-Pro row has no upgrade button", () => {
+    useSyncProvidersMock.mockImplementation(() => ({
+      providers: [view({ id: "voltius", label: "Voltius Sync", availability: "needs_upgrade", action: null })],
+      effective: { configured: false, status: "idle", lastSync: null, error: null, errorSource: null },
+    }));
+    const { getByText, queryByText } = render(<SyncSection />);
+    expect(getByText("settings.sync.requiresPro.title")).toBeTruthy();
+    expect(queryByText("settings.sync.requiresPro.upgrade")).toBeNull();
+  });
+
   test("a signed-out user's sign-in button routes through the shared provider action", () => {
     useSyncProvidersMock.mockImplementation(() => ({
       providers: [view({ id: "voltius", label: "Voltius Sync", availability: "locked", action: { kind: "signIn" } })],

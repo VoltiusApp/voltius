@@ -6,6 +6,7 @@ import MobileHeader from "../MobileHeader";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { getCurrentUserEmail } from "@/services/account";
 import type { MorePage } from "@/stores/mobileNavCore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -25,17 +26,11 @@ function getPages(t: TFunction): { page: MorePage; label: string; icon: string }
 export default function MobileMoreScreen() {
   const { t } = useTranslation();
   const PAGES = getPages(t);
-  const TIER_LABEL: Record<string, string> = {
-    free: t("mobile.account.tier.free"),
-    pro: t("mobile.account.tier.pro"),
-    teams: t("mobile.account.tier.teams"),
-    business: t("mobile.account.tier.business"),
-  };
   const push = useMobileNavStore((s) => s.push);
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const accountMode = useSubscriptionStore((s) => s.accountMode);
-  const tier = useSubscriptionStore((s) => s.tier);
+  const plan = usePlanDisplay();
   const [email, setEmail] = useState<string | null>(null);
 
   const activeVaultId = useVaultStore((s) => s.selectedVaultIds[0]);
@@ -74,7 +69,7 @@ export default function MobileMoreScreen() {
             </div>
             <span className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-medium text-(--t-text-primary) truncate">{email ?? t("mobile.account.title")}</span>
-              <span className="text-xs text-(--t-text-dim)">{t("mobile.more.planLabel", { tier: TIER_LABEL[tier] ?? tier })}</span>
+              <span data-more-plan className="text-xs text-(--t-text-dim) truncate">{plan.line}</span>
             </span>
             <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim)" />
           </button>

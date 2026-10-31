@@ -32,6 +32,7 @@ function inputs(over: Partial<SyncProviderInputs> = {}): SyncProviderInputs {
       state: { status: "success", lastSync: new Date("2026-09-01T09:00:00Z"), error: null, blobSizeBytes: null },
       accountMode: "server",
       isPro: true,
+      canUpgrade: true,
       paused: false,
       syncNow: vi.fn(async () => {}),
     },
@@ -64,6 +65,8 @@ describe("buildSyncProviders", () => {
     expect(signedOut).toMatchObject({ availability: "locked", action: { kind: "signIn" }, syncNow: null });
     const [free] = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, isPro: false } }));
     expect(free).toMatchObject({ availability: "needs_upgrade", action: { kind: "upgrade" }, syncNow: null });
+    const [noOffer] = buildSyncProviders(inputs({ voltius: { ...inputs().voltius, isPro: false, canUpgrade: false } }));
+    expect(noOffer).toMatchObject({ availability: "needs_upgrade", action: null });
     const [pro] = buildSyncProviders(inputs());
     expect(pro).toMatchObject({ availability: "active", action: null });
     expect(pro.state.configured).toBe(true);

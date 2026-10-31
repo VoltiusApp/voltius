@@ -245,8 +245,10 @@
       "signInDesc": "Les membres, invitations et l'accès partagé aux coffres-forts nécessitent un compte cloud avant de pouvoir mettre à niveau ou gérer une équipe.",
       "signInBtn": "Se connecter ou créer un compte cloud →",
       "upgradeTitle": "Les coffres-forts d'équipe nécessitent Teams",
+      "ownPlanTitle": "Convertir un coffre-fort en équipe nécessite votre propre forfait Teams",
       "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
       "upgradeBtn": "Essayer Teams gratuitement pendant {{days}} jours →",
+      "ownPlanBtn": "Prendre votre propre forfait Teams →",
       "trialNote": "Carte bancaire requise · aucun prélèvement pendant l'essai"
     },
     "joinLinks": {

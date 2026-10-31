@@ -323,10 +323,6 @@
         "closeTab_other": "关闭标签页（{{count}} 个会话）"
       },
       "plan": {
-        "proTrial": "Pro 试用——剩余 {{daysLeft}} 天",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "升级 · 14 天免费试用",
         "upgrade": "升级"
       },

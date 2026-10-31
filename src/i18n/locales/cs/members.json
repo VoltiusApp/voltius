@@ -251,8 +251,10 @@
       "signInDesc": "Pro zvaní členů a sdílený přístup k trezoru potřebujete cloudový účet. S ním můžete přejít na vyšší tarif a spravovat tým.",
       "signInBtn": "Přihlásit se nebo vytvořit cloudový účet →",
       "upgradeTitle": "Týmové trezory vyžadují Teams",
+      "ownPlanTitle": "Převedení trezoru na tým vyžaduje vlastní tarif Teams",
       "upgradeDesc": "Zvěte členy, přiřazujte role a bezpečně sdílejte přihlašovací údaje se svým týmem.",
       "upgradeBtn": "Vyzkoušejte Teams zdarma na {{days}} dní →",
+      "ownPlanBtn": "Pořídit vlastní tarif Teams →",
       "trialNote": "Vyžaduje kartu · během zkušební doby se nic neúčtuje"
     },
     "joinLinks": {

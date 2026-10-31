@@ -45,13 +45,6 @@
       "notSignedIn": "Não conectado",
       "plan": "Plano",
       "off": "Desligado",
-      "proTrial": "Avaliação Pro — {{days}}d restantes",
-      "tier": {
-        "free": "Gratuito",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "Cancela em {{date}}. Você mantém acesso até então.",
       "periodEnd": "o fim do período",
       "renewsOn": "Renova em {{date}}.",
@@ -68,8 +61,7 @@
       "signOut": "Sair"
     },
     "more": {
-      "settings": "Configurações",
-      "planLabel": "{{tier}} plano"
+      "settings": "Configurações"
     },
     "host": {
       "newTitle": "Novo host",

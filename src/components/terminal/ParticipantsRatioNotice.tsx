@@ -24,7 +24,7 @@ export function ParticipantsRatioNotice({
   atCap: boolean;
   countsInvites?: boolean;
   tier: ShareTier;
-  onUpgrade: () => void;
+  onUpgrade?: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -37,7 +37,7 @@ export function ParticipantsRatioNotice({
           guestCap,
         })}
       </span>
-      {atCap && tier !== "business" && (
+      {atCap && onUpgrade && (
         <button
           className="text-[10px] underline ml-auto"
           style={{ background: "none", border: "none", cursor: "pointer", color: "#f59e0b" }}

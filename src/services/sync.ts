@@ -15,6 +15,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
@@ -151,8 +152,27 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 
 export { getServerUrl };
 
+const SEAT_REFRESH_DEBOUNCE_MS = 1_000;
+// Spreads a whole team's refreshes so one office IP stays under the per-IP auth limit.
+const SEAT_REFRESH_JITTER_MS = 3_000;
+let seatRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSeatName: string | null = null;
+
+function scheduleSeatRefresh(): void {
+  const { seatTeam } = useSubscriptionStore.getState();
+  pendingSeatName ??= seatTeamName(useTeamStore.getState().teams, seatTeam);
+  if (seatRefreshTimer) clearTimeout(seatRefreshTimer);
+  seatRefreshTimer = setTimeout(() => {
+    seatRefreshTimer = null;
+    tryRefreshJwt().catch(logFailure("seat change: tryRefreshJwt"));
+  }, SEAT_REFRESH_DEBOUNCE_MS + Math.floor(Math.random() * SEAT_REFRESH_JITTER_MS));
+}
+
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
 async function tryRefreshJwt(): Promise<string | null> {
+  const before = useSubscriptionStore.getState();
+  const lostSeatName = seatTeamName(useTeamStore.getState().teams, before.seatTeam) ?? pendingSeatName;
+  pendingSeatName = null;
   const outcome = await refreshAccessToken({ fetchImpl: reachableFetch });
   if (typeof outcome === "string") return null;
   const jwt_token = outcome.jwt;
@@ -174,7 +194,9 @@ async function tryRefreshJwt(): Promise<string | null> {
     useNotificationStore.getState().addToast({
       source: APP_SOURCE,
       type: "toast",
-      message: i18n.t("common.toast.proSubscriptionEnded"),
+      message: before.seatTeam && lostSeatName
+        ? i18n.t("common.toast.seatEnded", { team: lostSeatName })
+        : i18n.t("common.toast.proSubscriptionEnded"),
       severity: "warning",
       duration: 0,
       action: {
@@ -1158,6 +1180,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
   } else if (eventData.startsWith("membership_changed:")) {
     const parsed = parseMembershipChangedEvent(eventData);
+    scheduleSeatRefresh();
     if (!parsed) return;
     if (parsed.kind === "added") {
       await useTeamStore.getState().loadTeams();
@@ -1167,6 +1190,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       await offboardFromTeam(parsed.teamId, teamName);
     }
   } else if (eventData === "membership_changed") {
+    scheduleSeatRefresh();
     // Compat: bare event from a server pod on an older build, carrying neither
     // a team id nor an added/removed kind — diff against the current team list
     // instead. Also fired at every recipient of a freshly wrapped vault key on
@@ -1204,6 +1228,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       if (parsed.inUse) store.addUser(parsed.connectionId, parsed.userId);
       else store.removeUser(parsed.connectionId, parsed.userId);
     }
+  } else if (eventData === "plan_changed") {
+    scheduleSeatRefresh();
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(logFailure("token_invalidated: tryRefreshJwt"));
   } else if (eventData.startsWith("session_shared:") || eventData.startsWith("session_ended:")) {

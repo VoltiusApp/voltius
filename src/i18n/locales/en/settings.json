@@ -476,14 +476,19 @@
       },
       "loading": "Working...",
       "plan": {
-        "title": "Plan",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Pro Trial — {{daysLeft}}d left",
+        "name": {
+          "free": "Free",
           "pro": "Pro",
-          "free": "Free"
+          "teams": "Teams",
+          "business": "Business"
         },
+        "trialName": "{{plan}} trial",
+        "trialLeft": "{{plan}} — {{daysLeft}}d left",
+        "viaSeat": "{{plan}} · through your seat in {{team}}",
+        "viaTooltip": "Through {{team}}",
+        "throughSeat": "Through your seat in {{team}}",
+        "ownLine": "Your {{plan}} subscription",
+        "title": "Plan",
         "manageBilling": "Manage billing →",
         "subscription": {
           "cancelled": "Cancels on {{date}}. You keep access until then.",

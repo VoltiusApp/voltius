@@ -5,6 +5,7 @@ import MobilePanelHeader from "../panels/MobilePanelHeader";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { SYNC_NEARBY_COLOR, SYNC_NEARBY_ICON, SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { isNearbyOnly } from "@/services/syncProviders";
@@ -13,9 +14,7 @@ import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
-import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
-import { useServerBillingEnabled } from "@/services/serverCapabilities";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { seatsUsedText } from "@/services/seatMath";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
@@ -23,22 +22,12 @@ import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
 
 export default function MobileAccountPage() {
   const { t } = useTranslation();
-  const TIER_LABEL: Record<string, string> = {
-    free: t("mobile.account.tier.free"),
-    pro: t("mobile.account.tier.pro"),
-    teams: t("mobile.account.tier.teams"),
-    business: t("mobile.account.tier.business"),
-  };
+  const plan = usePlanDisplay();
   const pop = useMobileNavStore((s) => s.pop);
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
-  const tier = useSubscriptionStore((s) => s.tier);
   const accountMode = useSubscriptionStore((s) => s.accountMode);
-  const trialEndsAt = useSubscriptionStore((s) => s.trialEndsAt);
-  const isTrialActive = useSubscriptionStore((s) => s.isTrialActive);
-  const isPro = useSubscriptionStore((s) => s.isPro);
-  const isTeams = useSubscriptionStore((s) => s.isTeams);
-  const billingEnabled = useServerBillingEnabled();
+  const ownsTeamsPlan = useSubscriptionStore((s) => s.ownsTeamsPlan);
   const seatsText = seatsUsedText(t, useSeatReadout(), "mobile.account.seatsUsed");
   const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
   const subscriptionCancelled = useSubscriptionStore((s) => s.subscriptionCancelled);
@@ -54,9 +43,6 @@ export default function MobileAccountPage() {
   useEffect(() => { void getCurrentUserEmail().then(setEmail); }, []);
 
   const signedIn = accountMode === "server";
-  const isPaidPro = isPro && !isTrialActive && billingEnabled;
-  const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000)) : 0;
-  const planValue = isTrialActive ? t("mobile.account.proTrial", { days: daysLeft }) : (TIER_LABEL[tier] ?? tier);
   const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
   const cancellationDate = formatOptionalDate(endsAt ?? renewsAt, SHORT_DATE);
 
@@ -66,7 +52,7 @@ export default function MobileAccountPage() {
     try { await openBillingCheckout(plan); } finally { setCheckoutBusy(false); }
   };
 
-  const Row = ({ icon, label, value, valueColor, onTap }: { icon: string; label: string; value: string; valueColor?: string; onTap?: () => void }) => {
+  const Row = ({ icon, label, value, valueColor, sub, onTap }: { icon: string; label: string; value: string; valueColor?: string; sub?: string | null; onTap?: () => void }) => {
     const Tag = onTap ? "button" : "div";
     return (
       <Tag
@@ -76,7 +62,10 @@ export default function MobileAccountPage() {
       >
         <Icon icon={icon} width={18} className="text-(--t-text-dim) shrink-0" />
         <span className="flex-1 text-sm text-(--t-text-primary)">{label}</span>
-        <span className="text-sm truncate max-w-[55%]" style={{ color: valueColor ?? "var(--t-text-dim)" }}>{value}</span>
+        <span className="flex flex-col items-end min-w-0 max-w-[55%]">
+          <span className="text-sm truncate max-w-full" style={{ color: valueColor ?? "var(--t-text-dim)" }}>{value}</span>
+          {sub && <span data-account-plan-via className="text-xs truncate max-w-full text-(--t-text-dim)" title={sub}>{sub}</span>}
+        </span>
         {onTap && <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim) shrink-0" />}
       </Tag>
     );
@@ -87,7 +76,7 @@ export default function MobileAccountPage() {
       <MobilePanelHeader title={t("mobile.account.title")} />
       <div className="flex-1 overflow-y-auto">
         <Row icon="lucide:mail" label={t("mobile.account.email")} value={email ?? (signedIn ? "—" : t("mobile.account.notSignedIn"))} />
-        <Row icon="lucide:badge-check" label={t("mobile.account.plan")} value={planValue} valueColor={isPro ? "#f59e0b" : undefined} />
+        <Row icon="lucide:badge-check" label={t("mobile.account.plan")} value={plan.via ? plan.label : plan.line} sub={plan.viaLine} valueColor={plan.premium ? "#f59e0b" : undefined} />
         <Row
           icon={nearbyOnly ? SYNC_NEARBY_ICON : sync.paused ? SYNC_PAUSED_ICON : syncStatusIcon(sync.status)}
           label={t("layout.sync.title")}
@@ -98,19 +87,22 @@ export default function MobileAccountPage() {
 
         {signedIn && (
           <div className="p-4 flex flex-col gap-3">
-            {isPaidPro && (
-              <div className="rounded-xl px-3 py-2.5 text-xs text-(--t-text-muted)" style={{ background: "var(--t-bg-input)" }}>
-                {subscriptionCancelled ? (
-                  <span>{t("mobile.account.cancelsOn", { date: cancellationDate ?? t("mobile.account.periodEnd") })}</span>
-                ) : subscriptionStatus === "active" && renewalDate ? (
-                  <span>{t("mobile.account.renewsOn", { date: renewalDate })}</span>
-                ) : (
-                  <span>{t("mobile.account.subscriptionActive")}</span>
+            {(plan.ownLine || plan.ownBilled) && (
+              <div data-account-own-plan-card className="rounded-xl px-3 py-2.5 flex flex-col gap-1 bg-(--t-bg-elevated) border border-(--t-border)">
+                {plan.ownLine && <span data-account-own-plan className="text-sm text-(--t-text-primary)">{plan.ownLine}</span>}
+                {plan.ownBilled && (
+                  <span className="text-xs text-(--t-text-muted)">
+                    {subscriptionCancelled
+                      ? t("mobile.account.cancelsOn", { date: cancellationDate ?? t("mobile.account.periodEnd") })
+                      : subscriptionStatus === "active" && renewalDate
+                        ? t("mobile.account.renewsOn", { date: renewalDate })
+                        : t("mobile.account.subscriptionActive")}
+                  </span>
                 )}
               </div>
             )}
 
-            {isTeams && seatsText && (
+            {ownsTeamsPlan && seatsText && (
               <div className="flex items-center justify-between text-xs px-1">
                 <span className="text-(--t-text-secondary)">{t("mobile.account.seats")}</span>
                 <span className="text-(--t-text-primary)" style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -119,9 +111,9 @@ export default function MobileAccountPage() {
               </div>
             )}
 
-            {!isPro && !CAN_OPEN_CHECKOUT && <AvailableWithPlan plan="Pro" />}
+            {!plan.premium && !plan.showUpgrade && <AvailableWithPlan plan="Pro" />}
 
-            {!isPro && CAN_OPEN_CHECKOUT && (
+            {plan.showUpgrade && (
               <button
                 data-account-upgrade-pro
                 disabled={checkoutBusy}
@@ -133,7 +125,7 @@ export default function MobileAccountPage() {
               </button>
             )}
 
-            {isPro && !isTeams && CAN_OPEN_CHECKOUT && (
+            {plan.upgradeTo === "teams" && (
               <>
                 <button
                   data-account-upgrade-teams
@@ -148,7 +140,7 @@ export default function MobileAccountPage() {
               </>
             )}
 
-            {billingEnabled && CAN_OPEN_CHECKOUT && (
+            {(plan.showManageBilling || plan.showAllPlans) && (
               <button
                 data-account-manage-billing
                 onClick={() => void openPortal()}
@@ -156,7 +148,7 @@ export default function MobileAccountPage() {
                 style={{ border: "1px solid var(--t-border)" }}
               >
                 <Icon icon="lucide:external-link" width={16} />
-                {isPro ? t("mobile.account.manageBilling") : t("mobile.account.viewAllPlans")}
+                {plan.showManageBilling ? t("mobile.account.manageBilling") : t("mobile.account.viewAllPlans")}
               </button>
             )}
           </div>

@@ -1,13 +1,18 @@
-import { test, expect, vi, afterEach } from "vitest";
+import { test, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import membersEn from "@/i18n/locales/en/members.json";
 
 const h = vi.hoisted(() => ({ convert: vi.fn(), t: vi.fn((k: string) => k) }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: h.t }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: h.t }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/vaultConvert", () => ({ convertVaultToTeam: h.convert }));
 
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { deriveTierFlags } from "@/stores/subscriptionTier";
 
 // Looks up the real English copy so the interpolating t below reproduces what
 // i18next actually does: substitute {{vars}} into the resource string, or
@@ -26,9 +31,23 @@ function interpolatingT(k: string, vars?: Record<string, unknown>): string {
     : template;
 }
 
+const initialSubscription = useSubscriptionStore.getState();
+beforeEach(() => useSubscriptionStore.setState(deriveTierFlags({ tier: "teams" }, new Date())));
 afterEach(() => {
   cleanup();
   h.t.mockImplementation((k: string) => k);
+  useSubscriptionStore.setState(initialSubscription, true);
+});
+
+test("a seat member without their own Teams plan is told so and cannot convert", () => {
+  useSubscriptionStore.setState(
+    deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: { id: "t1", trial: false } }, new Date()),
+  );
+  render(<ConvertToTeamGate vaultName="Personal" vaultId="v1" onCancel={vi.fn()} onConverted={vi.fn()} inline />);
+  expect(screen.getByText("members.cta.ownPlanTitle")).toBeTruthy();
+  expect(screen.queryByText("members.convert.confirm")).toBeNull();
+  fireEvent.keyDown(document, { key: "Enter" });
+  expect(h.convert).not.toHaveBeenCalled();
 });
 
 test("cancel converts nothing", () => {

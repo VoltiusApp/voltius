@@ -26,21 +26,22 @@ describe("Google Play build", () => {
     expect(openUrl).not.toHaveBeenCalled();
   });
 
-  it("offers no Voltius sync upgrade action", async () => {
+  it("offers no plan upgrade, so no Voltius sync upgrade action", async () => {
     vi.stubEnv("VITE_DISTRIBUTION", "play");
+    const { planDisplay } = await import("@/services/planDisplay");
+    const { deriveTierFlags } = await import("@/stores/subscriptionTier");
+    const plan = planDisplay(deriveTierFlags({ tier: "free", trial_used: false }, new Date()));
+    expect(plan).toMatchObject({ showUpgrade: false, upgradeTo: null, trialOffer: false });
+  });
+
+  it("leaves a free account's Voltius sync without an upgrade action", async () => {
+    vi.stubEnv("VITE_DISTRIBUTION", "play");
+    const { useSubscriptionStore } = await import("@/stores/subscriptionStore");
+    const { readSyncProviderInputs } = await import("@/services/syncProviderInputs");
     const { buildSyncProviders } = await import("@/services/syncProviders");
-    const [voltius] = buildSyncProviders({
-      voltius: {
-        label: "Voltius Sync",
-        state: { status: "idle", lastSync: null, error: null, blobSizeBytes: null },
-        accountMode: "server",
-        isPro: false,
-        paused: false,
-        syncNow: vi.fn(async () => {}),
-      },
-      plugins: [],
-      settingsPages: [],
-    });
+    useSubscriptionStore.setState({ accountMode: "server", tier: "free", isPro: false, seatTeam: null });
+    const source = { loaded: () => [], isActive: () => false, exposed: () => undefined };
+    const [voltius] = buildSyncProviders(readSyncProviderInputs(source));
     expect(voltius).toMatchObject({ availability: "needs_upgrade", action: null });
   });
 });

@@ -1,11 +1,13 @@
+// @vitest-environment jsdom
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { subscription } from "./account";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 describe("domaine account", () => {
   beforeEach(() => {
     useSubscriptionStore.setState({
-      tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false,
+      tier: "free", seatTeam: null, trialEndsAt: null, trialUsed: false, isTrialActive: false,
       accountMode: null, usedSeats: null, totalSeats: null,
       subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null,
       emailVerified: true, billingLoadFailed: false,
@@ -23,6 +25,32 @@ describe("domaine account", () => {
     expect(view.tier).toBe("teams");
     expect(view.usedSeats).toBe(3);
     expect(view.totalSeats).toBe(5);
+  });
+
+  test("plan propre : planSource own, sans équipe", async () => {
+    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "pro" });
+
+    const view = await subscription();
+
+    expect(view).toMatchObject({ tier: "pro", planSource: "own", seatTeam: null });
+  });
+
+  test("siège d'équipe : planSource seat, avec le nom de l'équipe", async () => {
+    nameSeatTeam();
+    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "teams", billingTier: "free", seatTeam: acme });
+
+    const view = await subscription();
+    forgetTeams();
+
+    expect(view).toMatchObject({ tier: "teams", planSource: "seat", seatTeam: "Acme" });
+  });
+
+  test("siège d'équipe pas encore chargée : planSource seat, nom null", async () => {
+    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "teams", billingTier: "free", seatTeam: acme });
+
+    const view = await subscription();
+
+    expect(view).toMatchObject({ planSource: "seat", seatTeam: null });
   });
 
   test("un échec d'enrichissement facturation (pro) signale stale=true", async () => {

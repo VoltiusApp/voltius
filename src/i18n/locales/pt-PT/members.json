@@ -249,8 +249,10 @@
       "signInDesc": "Membros, convites e acesso a cofres compartilhados exigem uma conta na nuvem antes de você poder atualizar ou gerenciar uma equipe.",
       "signInBtn": "Entrar ou criar conta na nuvem →",
       "upgradeTitle": "Cofres de Equipe exigem Teams",
+      "ownPlanTitle": "Converter um cofre numa equipa exige o seu próprio plano Teams",
       "upgradeDesc": "Convidar membros, atribuir funções e compartilhar credenciais com segurança com sua equipe.",
       "upgradeBtn": "Experimente Teams gratuitamente por {{days}} dias →",
+      "ownPlanBtn": "Subscrever o seu próprio plano Teams →",
       "trialNote": "Cartão necessário · sem cobrança durante a avaliação"
     },
     "joinLinks": {

@@ -343,10 +343,6 @@
         "closeTab_other": "Zavřít kartu ({{count}} relací)"
       },
       "plan": {
-        "proTrial": "Zkušební Pro — zbývá {{daysLeft}} d",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "Vyšší tarif · 14 dní na vyzkoušení zdarma",
         "upgrade": "Vyšší tarif"
       },

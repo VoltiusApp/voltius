@@ -1,5 +1,6 @@
 import { invoke } from "@/lib/invoke";
 import { appFetch } from "@/services/http";
+import { parseJwtPayload } from "@/utils/jwtPayload";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 export async function getJwt(): Promise<string | null> {
@@ -11,12 +12,8 @@ export async function getServerUrl(): Promise<string | null> {
 }
 
 export function isJwtExpiredOrExpiring(jwt: string): boolean {
-  try {
-    const payload = JSON.parse(atob(jwt.split(".")[1]));
-    return Date.now() > payload.exp * 1000 - 60_000; // refresh 60s before expiry
-  } catch {
-    return true;
-  }
+  const exp = parseJwtPayload<{ exp?: number }>(jwt)?.exp;
+  return typeof exp !== "number" || Date.now() > exp * 1000 - 60_000;
 }
 
 let revoked = false;

@@ -110,12 +110,14 @@ function VoltiusSyncGroup({ provider }: { provider: SyncProviderView }) {
           <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.sync.requiresPro.title")}</p>
           <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.sync.requiresPro.sub")}</p>
         </div>
-        <button
-          onClick={runAction}
-          className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
-        >
-          {t("settings.sync.requiresPro.upgrade")}
-        </button>
+        {provider.action && (
+          <button
+            onClick={runAction}
+            className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
+          >
+            {t("settings.sync.requiresPro.upgrade")}
+          </button>
+        )}
       </div>
     );
   }

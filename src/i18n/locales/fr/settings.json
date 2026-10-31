@@ -476,14 +476,19 @@
       },
       "loading": "Traitement…",
       "plan": {
-        "title": "Abonnement",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Essai Pro — {{daysLeft}}j restants",
+        "name": {
+          "free": "Gratuit",
           "pro": "Pro",
-          "free": "Gratuit"
+          "teams": "Teams",
+          "business": "Business"
         },
+        "trialName": "Essai {{plan}}",
+        "trialLeft": "{{plan}} — {{daysLeft}}j restants",
+        "viaSeat": "{{plan}} · via votre siège dans {{team}}",
+        "viaTooltip": "Via {{team}}",
+        "throughSeat": "Via votre siège dans {{team}}",
+        "ownLine": "Votre abonnement {{plan}}",
+        "title": "Abonnement",
         "manageBilling": "Gérer la facturation →",
         "subscription": {
           "cancelled": "Se termine le {{date}}. Vous conservez l'accès jusqu'à cette date.",

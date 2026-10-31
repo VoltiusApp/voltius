@@ -335,10 +335,6 @@
         "closeTab_other": "Fermer l'onglet ({{count}} sessions)"
       },
       "plan": {
-        "proTrial": "Essai Pro — {{daysLeft}}j restants",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
         "upgrade": "Mettre à niveau"
       },

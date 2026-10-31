@@ -1,13 +1,15 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { appFetch } from "@/services/http";
-import { parseJwtPayload } from "@/utils/emailVerification";
-import { deriveTierFlags, type Tier } from "@/stores/subscriptionTier";
+import { parseJwtPayload } from "@/utils/jwtPayload";
+import { deriveTierFlags, type SeatTeam, type Tier } from "@/stores/subscriptionTier";
 
 export type { Tier };
 
 interface JwtPayload {
   tier?: string;
+  billing_tier?: string;
+  seat_team?: SeatTeam;
   trial_ends_at?: number; // unix timestamp
   trial_used?: boolean;
   email_verified?: boolean;
@@ -19,6 +21,9 @@ async function keychainGet(key: string): Promise<string | null> {
 
 export interface SubscriptionState {
   tier: Tier;
+  billingTier: Tier;
+  seatTeam: SeatTeam | null;
+  ownsTeamsPlan: boolean;
   trialEndsAt: Date | null;
   trialUsed: boolean;
   trialKnown: boolean;
@@ -48,6 +53,9 @@ export interface SubscriptionState {
  *  left stale in another. */
 const CLEARED = {
   tier: "free" as Tier,
+  billingTier: "free" as Tier,
+  seatTeam: null as SeatTeam | null,
+  ownsTeamsPlan: false,
   trialEndsAt: null,
   trialUsed: false,
   trialKnown: false,
@@ -90,13 +98,12 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     }
 
     const now = new Date();
-    const { tier, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified } =
-      deriveTierFlags(payload, now);
+    const flags = deriveTierFlags(payload, now);
 
-    set({ ...CLEARED, tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, emailVerified });
+    set({ ...CLEARED, ...flags, accountMode: mode });
 
     // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
-    if (isPro) {
+    if (flags.billingTier !== "free") {
       try {
         const serverUrl = await keychainGet("server_url").catch(() => null);
         if (serverUrl) {

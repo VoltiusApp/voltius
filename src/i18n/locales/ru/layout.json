@@ -343,10 +343,6 @@
         "closeTab_other": "Закрыть вкладку ({{count}} сессии)"
       },
       "plan": {
-        "proTrial": "Pro триал — осталось {{daysLeft}} дн.",
-        "teams": "Teams",
-        "business": "Business",
-        "pro": "Pro",
         "upgradeTrial": "Улучшить · 14 дней бесплатно",
         "upgrade": "Улучшить"
       },

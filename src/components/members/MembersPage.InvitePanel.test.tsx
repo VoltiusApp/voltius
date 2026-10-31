@@ -58,7 +58,7 @@ vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
 vi.mock("@/stores/teamStore", () => {
-  const state = { assignMemberRole: h.assign };
+  const state = { assignMemberRole: h.assign, teams: [{ id: "t1", owner_id: "me" }] };
   const useTeamStore = Object.assign(
     (sel: (s: typeof state) => unknown) => sel(state),
     { getState: () => state },
@@ -68,13 +68,14 @@ vi.mock("@/stores/teamStore", () => {
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: Object.assign(
     (sel?: (s: object) => unknown) => {
-      const state = { usedSeats: h.usedSeats, effectiveSeats: h.effectiveSeats, totalSeats: 3, load: h.reload };
+      const state = { usedSeats: h.usedSeats, effectiveSeats: h.effectiveSeats, totalSeats: 3, ownsTeamsPlan: true, load: h.reload };
       return sel ? sel(state) : state;
     },
     { getState: () => ({ load: h.reload }) },
   ),
 }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => h.billingEnabled }));
+vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "me" }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({
     pendingUser,

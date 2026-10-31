@@ -45,13 +45,6 @@
       "notSignedIn": "Не выполнен вход",
       "plan": "Тариф",
       "off": "Выкл.",
-      "proTrial": "Pro пробный период — осталось {{days}} дн.",
-      "tier": {
-        "free": "Бесплатный",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "Отменяется {{date}}. До этого момента доступ сохраняется.",
       "periodEnd": "конец периода",
       "renewsOn": "Продление {{date}}.",
@@ -68,8 +61,7 @@
       "signOut": "Выйти"
     },
     "more": {
-      "settings": "Настройки",
-      "planLabel": "Тариф {{tier}}"
+      "settings": "Настройки"
     },
     "host": {
       "newTitle": "Новый хост",

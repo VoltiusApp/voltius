@@ -45,13 +45,6 @@
       "notSignedIn": "Oturum açılmadı",
       "plan": "Plan",
       "off": "Kapalı",
-      "proTrial": "Pro deneme — {{days}} gün kaldı",
-      "tier": {
-        "free": "Ücretsiz",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "{{date}} tarihinde iptal edilecek. O zamana kadar erişiminiz devam eder.",
       "periodEnd": "dönem sonu",
       "renewsOn": "Yenilenme tarihi: {{date}}.",
@@ -68,8 +61,7 @@
       "signOut": "Oturumu kapat"
     },
     "more": {
-      "settings": "Ayarlar",
-      "planLabel": "{{tier}} planı"
+      "settings": "Ayarlar"
     },
     "host": {
       "newTitle": "Yeni sunucu",

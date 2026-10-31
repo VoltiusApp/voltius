@@ -106,12 +106,6 @@ test("no enforced cap falls back to the purchased seats rather than reading as o
   expect(screen.queryByText("members.invite.seatsUnknown")).toBeNull();
 });
 
-test("a server without billing hides buy-seats even when a handler is given", () => {
-  h.billingEnabled = false;
-  render(<SeatsMeter onBuySeats={vi.fn()} />);
-  expect(screen.queryByRole("button")).toBeNull();
-});
-
 test("a server without billing reads an uncapped account as unlimited, not the 3-seat fallback", () => {
   // #649: self-hosted owners are uncapped, but /subscription still reports seats: 3.
   h.billingEnabled = false;

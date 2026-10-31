@@ -69,7 +69,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
             {inactiveRow.icon && <Icon icon={inactiveRow.icon} width={11} />}
             <span className="text-xs">{t(inactiveRow.labelKey)}</span>
           </div>
-          <SyncInlineAction onClick={act} label={t(inactiveRow.actionKey)} />
+          {provider.action && <SyncInlineAction onClick={act} label={t(inactiveRow.actionKey)} />}
         </div>
       )}
 

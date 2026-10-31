@@ -18,6 +18,7 @@ import { SpokenCodeRow } from "./SpokenCodeRow";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
+import { usePlanDisplay } from "@/services/planDisplay";
 
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
@@ -37,6 +38,7 @@ interface ShareMenuProps {
 
 export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, connectionVaultId, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
   const { t } = useTranslation();
+  const upgrade = usePlanDisplay().upgradeTo ? onUpgrade : undefined;
   const fade = useAnchoredPopover(open, onClose, anchorRef);
   const [pos, setPos] = useState({ top: 0, left: 0, originX: 140 });
   const [tab, setTab] = useState<"people" | "invite" | "team">("people");
@@ -288,15 +290,17 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
               </div>
             ))}
           </div>
-          <button
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-opacity"
-            style={{ background: "var(--t-accent)", color: "var(--t-accent-fg)", opacity: 1 }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-            onClick={onUpgrade}
-          >
-            {t("terminal.share.upgradeToPro")}
-          </button>
+          {upgrade && (
+            <button
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-opacity"
+              style={{ background: "var(--t-accent)", color: "var(--t-accent-fg)", opacity: 1 }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              onClick={upgrade}
+            >
+              {t("terminal.share.upgradeToPro")}
+            </button>
+          )}
         </div>
       ) : isSharing ? (
         /* ── Active sharing view ── */
@@ -313,7 +317,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           onInvite={handleInvite}
           onUninvite={handleUninvite}
           onStop={handleStopSharing}
-          onUpgrade={onUpgrade}
+          onUpgrade={upgrade}
         />
       ) : (
         /* ── Setup view ── */
@@ -370,7 +374,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
               invitedThisSession={invitedThisSession}
               guestCap={guestCap}
               tier={tier}
-              onUpgrade={onUpgrade}
+              onUpgrade={upgrade}
               onInvite={handleInvite}
             />
           ) : tab === "team" ? (
@@ -392,7 +396,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
               guestCap={guestCap}
               tier={tier}
               onGenerate={handleGenerateInviteLink}
-              onUpgrade={onUpgrade}
+              onUpgrade={upgrade}
             />
           )}
         </>
@@ -431,7 +435,7 @@ function ActiveSharingView({
   onInvite: (target: InviteTarget) => Promise<void>;
   onUninvite: (userId: string) => Promise<void>;
   onStop: () => void;
-  onUpgrade: () => void;
+  onUpgrade?: () => void;
 }) {
   const { t } = useTranslation();
   const participantCount = inviteSession.participantIds.length;
@@ -650,7 +654,7 @@ function InviteLinkTab({
   guestCap: number;
   tier: ShareTier;
   onGenerate: () => void;
-  onUpgrade: () => void;
+  onUpgrade?: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -688,7 +692,7 @@ function InviteLinkTab({
           <p className="text-[10px] mt-1.5 text-center" style={{ color: "var(--t-text-dim)" }}>
             {t("terminal.share.upToParticipants", { count: guestCap })}
           </p>
-          {tier === "pro" && (
+          {tier === "pro" && onUpgrade && (
             <button
               className="w-full text-[10px] mt-0.5 text-center underline"
               style={{ color: "var(--t-text-dim)", background: "none", border: "none", cursor: "pointer" }}

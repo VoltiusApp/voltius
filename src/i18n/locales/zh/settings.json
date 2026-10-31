@@ -355,14 +355,19 @@
       },
       "loading": "正在处理...",
       "plan": {
-        "title": "套餐",
-        "badge": {
-          "business": "Business",
-          "teams": "Teams",
-          "proTrial": "Pro 试用——剩余 {{daysLeft}} 天",
+        "name": {
+          "free": "免费",
           "pro": "Pro",
-          "free": "免费"
+          "teams": "Teams",
+          "business": "Business"
         },
+        "trialName": "{{plan}} 试用",
+        "trialLeft": "{{plan}}——剩余 {{daysLeft}} 天",
+        "viaSeat": "{{plan}} · 通过您在 {{team}} 的席位",
+        "viaTooltip": "通过 {{team}}",
+        "throughSeat": "通过您在 {{team}} 的席位",
+        "ownLine": "您的 {{plan}} 订阅",
+        "title": "套餐",
         "manageBilling": "管理账单 →",
         "subscription": {
           "cancelled": "于 {{date}} 取消。在此之前您仍可访问。",

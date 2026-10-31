@@ -1,7 +1,11 @@
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { planDisplay, seatTeamName } from "@/services/planDisplay";
 
 export interface SubscriptionView {
   tier: string;
+  planSource: "own" | "seat";
+  seatTeam: string | null;
   accountMode: string | null;
   emailVerified: boolean;
   trialEndsAt: string | null;
@@ -28,8 +32,11 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 export async function subscription(): Promise<SubscriptionView> {
   await useSubscriptionStore.getState().load();
   const s = useSubscriptionStore.getState();
+  const plan = planDisplay(s, { teamName: seatTeamName(useTeamStore.getState().teams, s.seatTeam) });
   return {
     tier: s.tier,
+    planSource: plan.seat ? "seat" : "own",
+    seatTeam: plan.via,
     accountMode: s.accountMode,
     emailVerified: s.emailVerified,
     trialEndsAt: iso(s.trialEndsAt),

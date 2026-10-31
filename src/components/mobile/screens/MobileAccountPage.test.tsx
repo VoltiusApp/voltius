@@ -17,20 +17,24 @@ vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ provider
 const billing = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => billing.enabled }));
 
+import "@/i18n";
 import MobileAccountPage from "./MobileAccountPage";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { deriveTierFlags, type TierFlagsInput } from "@/stores/subscriptionTier";
+import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 const initialSubscription = useSubscriptionStore.getState();
 afterEach(() => {
   cleanup();
   useMobileNavStore.setState({ sheet: null });
   useSubscriptionStore.setState(initialSubscription, true);
+  forgetTeams();
   billing.enabled = true;
 });
 
 const businessAccount = () =>
   useSubscriptionStore.setState({
-    accountMode: "server", tier: "business", isPro: true, isTeams: true, isBusiness: true,
+    accountMode: "server", tier: "business", billingTier: "business", ownsTeamsPlan: true, isPro: true, isTeams: true, isBusiness: true,
     usedSeats: 1, totalSeats: 3, effectiveSeats: null,
   });
 
@@ -83,4 +87,41 @@ test("a billed business account keeps its billing link and seat count", () => {
   const { container, queryByText } = render(<MobileAccountPage />);
   expect(container.querySelector("[data-account-manage-billing]")).not.toBeNull();
   expect(queryByText("mobile.account.seatsUsed")).not.toBeNull();
+});
+
+const signedIn = (input: TierFlagsInput) => {
+  nameSeatTeam();
+  useSubscriptionStore.setState({ ...deriveTierFlags(input, new Date()), accountMode: "server", subscriptionStatus: "active" });
+};
+
+test("a seat member sees the team plan through the seat, with no upgrade or billing", () => {
+  signedIn({ tier: "teams", billing_tier: "free", seat_team: acme, trial_used: true });
+  const { container, queryByText } = render(<MobileAccountPage />);
+  expect(queryByText("Teams")).not.toBeNull();
+  expect(container.querySelector("[data-account-plan-via]")!.textContent).toBe("Through your seat in Acme");
+  expect(container.querySelector("[data-account-upgrade-pro]")).toBeNull();
+  expect(container.querySelector("[data-account-upgrade-teams]")).toBeNull();
+  expect(container.querySelector("[data-account-own-plan]")).toBeNull();
+  expect(queryByText("mobile.account.manageBilling")).toBeNull();
+  expect(container.querySelector("[data-account-manage-billing]")).toBeNull();
+  expect(queryByText("mobile.account.subscriptionActive")).toBeNull();
+});
+
+test("own Pro plus a Business seat sees both lines and billing for the own plan", () => {
+  signedIn({ tier: "business", billing_tier: "pro", seat_team: acme });
+  const { container, queryByText } = render(<MobileAccountPage />);
+  expect(queryByText("Business")).not.toBeNull();
+  expect(container.querySelector("[data-account-plan-via]")!.getAttribute("title")).toBe("Through your seat in Acme");
+  const card = container.querySelector("[data-account-own-plan-card]")!;
+  expect(card.querySelector("[data-account-own-plan]")!.textContent).toBe("Your Pro subscription");
+  expect(card.textContent).toContain("mobile.account.subscriptionActive");
+  expect(queryByText("mobile.account.manageBilling")).not.toBeNull();
+  expect(container.querySelector("[data-account-upgrade-teams]")).toBeNull();
+});
+
+test("an own Pro trial counts down and has no billing to manage", () => {
+  signedIn({ tier: "pro", trial_ends_at: Math.floor(Date.now() / 1000) + 2 * 86_400 - 60, trial_used: true });
+  const { queryByText } = render(<MobileAccountPage />);
+  expect(queryByText("Pro trial — 2d left")).not.toBeNull();
+  expect(queryByText("mobile.account.manageBilling")).toBeNull();
 });

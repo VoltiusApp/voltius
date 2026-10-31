@@ -77,3 +77,34 @@ test("teamLocked reads the named team's owner tier; an unknown team is not locke
   expect(teamLocked(teams, "c")).toBe(false);
   expect(teamLocked(teams, "missing")).toBe(false);
 });
+
+test("seat member: benefit tier teams, own plan free", () => {
+  const seat = { id: "t1", trial: false };
+  const f = deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: seat }, NOW);
+  expect(f).toMatchObject({ tier: "teams", isTeams: true, billingTier: "free", ownsTeamsPlan: false, seatTeam: seat });
+});
+
+test("old token without billing_tier falls back to tier", () => {
+  const f = deriveTierFlags({ tier: "teams" }, NOW);
+  expect(f).toMatchObject({ billingTier: "teams", ownsTeamsPlan: true, seatTeam: null });
+});
+
+test("own pro plus business seat", () => {
+  const seat = { id: "t2", trial: true };
+  const f = deriveTierFlags({ tier: "business", billing_tier: "pro", seat_team: seat }, NOW);
+  expect(f).toMatchObject({ isBusiness: true, billingTier: "pro", ownsTeamsPlan: false, seatTeam: seat });
+});
+
+test("isTrialActive follows the own Pro trial, not the seat plan", () => {
+  const seat = { id: "t1", trial: false };
+  const f = deriveTierFlags({ tier: "teams", billing_tier: "pro", seat_team: seat, trial_ends_at: soon }, NOW);
+  expect(f).toMatchObject({ tier: "teams", isTrialActive: true });
+  expect(deriveTierFlags({ tier: "teams", billing_tier: "free", seat_team: seat, trial_ends_at: soon }, NOW).isTrialActive).toBe(false);
+});
+
+test("an unknown billing_tier or tier normalizes to free", () => {
+  const f = deriveTierFlags({ tier: "teams", billing_tier: "platinum" }, NOW);
+  expect(f.billingTier).toBe("free");
+  expect(f.ownsTeamsPlan).toBe(false);
+  expect(deriveTierFlags({ tier: "gold" }, NOW)).toMatchObject({ tier: "free", billingTier: "free" });
+});

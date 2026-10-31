@@ -45,13 +45,6 @@
       "notSignedIn": "未登录",
       "plan": "套餐",
       "off": "关闭",
-      "proTrial": "Pro 试用——剩余 {{days}} 天",
-      "tier": {
-        "free": "免费",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "于 {{date}} 取消。在此之前您仍可访问。",
       "periodEnd": "本期结束时",
       "renewsOn": "于 {{date}} 续订。",
@@ -68,8 +61,7 @@
       "signOut": "登出"
     },
     "more": {
-      "settings": "设置",
-      "planLabel": "{{tier}} 套餐"
+      "settings": "设置"
     },
     "host": {
       "newTitle": "新建主机",

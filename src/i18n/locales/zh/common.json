@@ -61,6 +61,7 @@
     },
     "toast": {
       "proSubscriptionEnded": "您的 Pro 订阅已结束——同步已暂停。",
+      "seatEnded": "您在 {{team}} 的席位已结束——同步已暂停。",
       "managePlan": "管理套餐 →",
       "undoFailed": "撤销失败：{{error}}",
       "redoFailed": "重做失败：{{error}}",

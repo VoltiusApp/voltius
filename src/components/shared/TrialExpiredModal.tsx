@@ -3,10 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePlanDisplay } from "@/services/planDisplay";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
-import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 
 const STORAGE_KEY = "voltius_trial_expired_shown";
@@ -19,21 +18,16 @@ const PRO_PERKS = [
 
 export function TrialExpiredModal() {
   const { t } = useTranslation();
-  const { tier, trialEndsAt, trialUsed } = useSubscriptionStore();
+  const { showTrialEnded, showUpgrade } = usePlanDisplay();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // The server clears trial_ends_at once a trial lapses, so a past date is a
-    // bonus signal, never a precondition — requiring it hid this modal from
-    // every expired account.
-    if (!trialUsed) return;
-    if (tier !== "free") return;
-    if (trialEndsAt && trialEndsAt > new Date()) return;
+    if (!showTrialEnded) return;
     if (localStorage.getItem(STORAGE_KEY)) return;
 
     localStorage.setItem(STORAGE_KEY, "1");
     setVisible(true);
-  }, [tier, trialEndsAt, trialUsed]);
+  }, [showTrialEnded]);
 
   if (!visible) return null;
 
@@ -67,7 +61,7 @@ export function TrialExpiredModal() {
           {t("shared.trialExpiredModal.freeNote")}
         </p>
 
-        {CAN_OPEN_CHECKOUT && (
+        {showUpgrade && (
         <UpgradeStrip
           variant="neutral"
           label={t("shared.trialExpiredModal.teamsPrompt", { days: TEAMS_TRIAL_DAYS })}
@@ -77,7 +71,7 @@ export function TrialExpiredModal() {
         )}
 
         <div className="flex items-center justify-between gap-3">
-          {CAN_OPEN_CHECKOUT ? (
+          {showUpgrade ? (
           <button
             onClick={() => upgrade("pro")}
             className="btn btn-primary px-4 py-2 rounded-lg text-sm font-semibold"

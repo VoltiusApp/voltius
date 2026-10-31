@@ -45,13 +45,6 @@
       "notSignedIn": "Non connecté",
       "plan": "Forfait",
       "off": "Désactivée",
-      "proTrial": "Essai Pro — {{days}} j restants",
-      "tier": {
-        "free": "Gratuit",
-        "pro": "Pro",
-        "teams": "Teams",
-        "business": "Business"
-      },
       "cancelsOn": "Résiliation le {{date}}. Vous conservez l'accès jusqu'à cette date.",
       "periodEnd": "la fin de la période",
       "renewsOn": "Renouvellement le {{date}}.",
@@ -68,8 +61,7 @@
       "signOut": "Se déconnecter"
     },
     "more": {
-      "settings": "Paramètres",
-      "planLabel": "Forfait {{tier}}"
+      "settings": "Paramètres"
     },
     "host": {
       "newTitle": "Nouvel hôte",
