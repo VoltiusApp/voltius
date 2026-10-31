@@ -92,3 +92,28 @@ test("seat loss with an unknown team falls back to the generic wording", async (
   await vi.advanceTimersByTimeAsync(1_100);
   expect(toastMessages()).toEqual(["Your Pro subscription has ended — sync has been paused."]);
 });
+
+test("the bare compat membership_changed event schedules a refresh", async () => {
+  await handleRealtimeEvent("membership_changed", "dev");
+  await vi.advanceTimersByTimeAsync(1_100);
+  expect(h.refresh).toHaveBeenCalledTimes(1);
+});
+
+test("an unparseable membership_changed event still schedules a refresh", async () => {
+  await handleRealtimeEvent("membership_changed:bogus", "dev");
+  await vi.advanceTimersByTimeAsync(1_100);
+  expect(h.refresh).toHaveBeenCalledTimes(1);
+});
+
+test("a failed refresh does not leave a stale team name for the next one", async () => {
+  h.refresh.mockResolvedValueOnce("failed");
+  await handleRealtimeEvent("plan_changed", "dev");
+  await vi.advanceTimersByTimeAsync(1_100);
+  useTeamStore.setState({ teams: [] });
+  h.load.mockImplementation(async () => {
+    useSubscriptionStore.setState({ isPro: false, isTeams: false, tier: "free", seatTeam: null } as never);
+  });
+  await handleRealtimeEvent("plan_changed", "dev");
+  await vi.advanceTimersByTimeAsync(1_100);
+  expect(toastMessages()).toEqual(["Your Pro subscription has ended — sync has been paused."]);
+});

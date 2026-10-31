@@ -6,7 +6,7 @@ import { isNavigateIntent } from "@/services/deepLinkUrl";
 import type { NavigateIntent, UnpromptedIntent, VerifiedIntent } from "@/services/deepLinkUrl";
 import { useUIStore } from "@/stores/uiStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
-import { parseJwtPayload } from "@/utils/emailVerification";
+import { parseJwtPayload } from "@/utils/jwtPayload";
 import type { ToastSeverity } from "@/plugins/api";
 import { openPortForwardingPage } from "@/services/portForwardingNav";
 import { requestHostConnect } from "@/services/launcherShortcuts";

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { appFetch } from "@/services/http";
-import { parseJwtPayload } from "@/utils/emailVerification";
+import { parseJwtPayload } from "@/utils/jwtPayload";
 import { deriveTierFlags, type SeatTeam, type Tier } from "@/stores/subscriptionTier";
 
 export type { Tier };

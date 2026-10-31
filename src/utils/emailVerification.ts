@@ -24,5 +24,3 @@ export function isEmailUndeliverable(status: number, body: unknown): boolean {
 }
 
 export class EmailUndeliverableError extends Error {}
-
-export { parseJwtPayload };

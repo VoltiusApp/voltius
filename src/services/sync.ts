@@ -167,13 +167,13 @@ function scheduleSeatRefresh(): void {
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
 async function tryRefreshJwt(): Promise<string | null> {
+  const before = useSubscriptionStore.getState();
+  const lostSeatName = seatTeamName(useTeamStore.getState().teams, before.seatTeam) ?? pendingSeatName;
+  pendingSeatName = null;
   const outcome = await refreshAccessToken({ fetchImpl: reachableFetch });
   if (typeof outcome === "string") return null;
   const jwt_token = outcome.jwt;
 
-  const before = useSubscriptionStore.getState();
-  const lostSeatName = seatTeamName(useTeamStore.getState().teams, before.seatTeam) ?? pendingSeatName;
-  pendingSeatName = null;
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;
   const wasTierBefore = useSubscriptionStore.getState().tier;
@@ -1175,8 +1175,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
   } else if (eventData.startsWith("membership_changed:")) {
     const parsed = parseMembershipChangedEvent(eventData);
-    if (!parsed) return;
     scheduleSeatRefresh();
+    if (!parsed) return;
     if (parsed.kind === "added") {
       await useTeamStore.getState().loadTeams();
       await onTeamMembershipAdded(parsed.teamId);
@@ -1185,6 +1185,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       await offboardFromTeam(parsed.teamId, teamName);
     }
   } else if (eventData === "membership_changed") {
+    scheduleSeatRefresh();
     // Compat: bare event from a server pod on an older build, carrying neither
     // a team id nor an added/removed kind — diff against the current team list
     // instead. Also fired at every recipient of a freshly wrapped vault key on
