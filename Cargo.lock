@@ -7992,6 +7992,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "voltius-cli"
+version = "0.1.0"
+
+[[package]]
 name = "voltius-crypto"
 version = "0.4.0"
 dependencies = [

@@ -89,7 +89,7 @@ fn plain(message: String) -> CliError {
 
 fn unusable(path: &Path, why: &str) -> CliError {
     plain(format!(
-        "{} {why}; fix it or run `voltius policy check`",
+        "{} {why}; fix it or run `voltius-cli policy check`",
         path.display()
     ))
 }
@@ -109,11 +109,8 @@ fn load_raw(path: &Path) -> Result<Raw, CliError> {
     let Ok(Value::Object(root)) = serde_json::from_str::<Value>(&text) else {
         return Err(unusable(path, "is not a valid policy file"));
     };
-    if root.get("version").and_then(Value::as_u64).unwrap_or(1) > 1 {
-        return Err(unusable(
-            path,
-            "has a newer version than this Voltius supports",
-        ));
+    if root.get("version").is_some_and(|v| v.as_u64() != Some(1)) {
+        return Err(unusable(path, "has an unsupported version"));
     }
     Ok(root)
 }
@@ -518,7 +515,15 @@ mod tests {
     fn set_on_unusable_file_exits_3_untouched() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
-        for content in ["{not json", "[1]", r#"{"version":2,"policy":{}}"#] {
+        for content in [
+            "{not json",
+            "[1]",
+            r#"{"version":2,"policy":{}}"#,
+            r#"{"version":"2","policy":{}}"#,
+            r#"{"version":0,"policy":{}}"#,
+            r#"{"version":1.5,"policy":{}}"#,
+            r#"{"version":null,"policy":{}}"#,
+        ] {
             std::fs::write(&path, content).unwrap();
             let err = set(&path, "server.url", "https://x", false).unwrap_err();
             assert_eq!(err.exit_code(), 3);

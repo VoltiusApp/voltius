@@ -9,16 +9,9 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-pub const CLI_SUBCOMMANDS: &[&str] = &[
-    "mcp",
-    "policy",
-    "completions",
-    "help",
-    "--help",
-    "-h",
-    "--version",
-    "-V",
-];
+pub const CLI_MARKER: &str = "__voltius_cli";
+
+const BIN_NAME: &str = "voltius-cli";
 
 #[derive(Debug)]
 pub enum CliError {
@@ -58,7 +51,7 @@ impl CliError {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "voltius", version, about = "Voltius command line")]
+#[command(name = "voltius-cli", version, about = "Voltius command line")]
 struct Cli {
     #[arg(long, global = true)]
     json: bool,
@@ -83,28 +76,21 @@ enum Command {
     Completions { shell: clap_complete::Shell },
 }
 
-const GLOBAL_FLAGS: &[&str] = &["--json", "--quiet", "-q", "--no-color"];
-
-fn command_word(args: &[OsString]) -> Option<&str> {
-    args.iter()
-        .skip(1)
-        .filter_map(|a| a.to_str())
-        .find(|a| !GLOBAL_FLAGS.contains(a))
-}
-
-pub fn is_cli_invocation(args: &[OsString]) -> bool {
-    command_word(args).is_some_and(|a| CLI_SUBCOMMANDS.contains(&a))
-}
-
-pub fn wants_console(args: &[OsString]) -> bool {
-    is_cli_invocation(args) && command_word(args) != Some("mcp")
+fn cli_args(args: &[OsString]) -> Option<Vec<OsString>> {
+    let rest = match args.get(1)?.to_str()? {
+        CLI_MARKER => &args[2..],
+        "mcp" => &args[1..],
+        _ => return None,
+    };
+    Some(
+        std::iter::once(OsString::from(BIN_NAME))
+            .chain(rest.iter().cloned())
+            .collect(),
+    )
 }
 
 pub fn dispatch(args: Vec<OsString>) -> Option<ExitCode> {
-    if !is_cli_invocation(&args) {
-        return None;
-    }
-    let cli = match Cli::try_parse_from(&args) {
+    let cli = match Cli::try_parse_from(cli_args(&args)?) {
         Ok(c) => c,
         Err(e) => {
             let code = e.exit_code();
@@ -129,14 +115,14 @@ fn run(cli: Cli) -> Result<(), CliError> {
     match cli.command {
         Command::Mcp => {
             if let Err(e) = crate::mcp::shim::run_shim() {
-                eprintln!("voltius mcp: {e}");
+                eprintln!("{BIN_NAME} mcp: {e}");
                 std::process::exit(1);
             }
             Ok(())
         }
         Command::Completions { shell } => {
             let mut cmd = Cli::command();
-            clap_complete::generate(shell, &mut cmd, "voltius", &mut std::io::stdout());
+            clap_complete::generate(shell, &mut cmd, BIN_NAME, &mut std::io::stdout());
             Ok(())
         }
         Command::Policy { cmd } => {
@@ -144,42 +130,6 @@ fn run(cli: Cli) -> Result<(), CliError> {
                 CliError::Usage("policy commands are not available on this platform".into())
             })?;
             policy_cmd::run(cmd, &path, &mut out)
-        }
-    }
-}
-
-#[cfg(windows)]
-pub fn attach_parent_console() {
-    use windows_sys::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE};
-    use windows_sys::Win32::Storage::FileSystem::{
-        CreateFileW, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
-    };
-    use windows_sys::Win32::System::Console::{
-        AttachConsole, GetStdHandle, SetStdHandle, ATTACH_PARENT_PROCESS, STD_ERROR_HANDLE,
-        STD_OUTPUT_HANDLE,
-    };
-    let conout: Vec<u16> = "CONOUT$\0".encode_utf16().collect();
-    // SAFETY: plain Win32 calls with valid arguments; handles are only replaced when unset.
-    unsafe {
-        if AttachConsole(ATTACH_PARENT_PROCESS) == 0 {
-            return;
-        }
-        for which in [STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
-            let h = GetStdHandle(which);
-            if h.is_null() || h == INVALID_HANDLE_VALUE {
-                let con = CreateFileW(
-                    conout.as_ptr(),
-                    GENERIC_READ | GENERIC_WRITE,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE,
-                    std::ptr::null(),
-                    OPEN_EXISTING,
-                    0,
-                    std::ptr::null_mut(),
-                );
-                if con != INVALID_HANDLE_VALUE {
-                    SetStdHandle(which, con);
-                }
-            }
         }
     }
 }
@@ -197,15 +147,21 @@ mod tests {
         assert!(dispatch(argv(&["voltius"])).is_none());
         assert!(dispatch(argv(&["voltius", "voltius://open?x"])).is_none());
         assert!(dispatch(argv(&["voltius", "--some-gfx-flag"])).is_none());
+        assert!(dispatch(argv(&["voltius", "policy", "show"])).is_none());
         assert!(dispatch(argv(&["voltius", "--json"])).is_none());
     }
 
     #[test]
-    fn global_flags_before_command_are_cli() {
-        assert!(is_cli_invocation(&argv(&[
-            "voltius", "--json", "policy", "show"
-        ])));
-        assert!(wants_console(&argv(&["voltius", "-q", "policy", "show"])));
-        assert!(!wants_console(&argv(&["voltius", "mcp"])));
+    fn marker_and_mcp_are_cli() {
+        assert!(dispatch(argv(&["voltius", CLI_MARKER, "policy", "path"])).is_some());
+        assert!(cli_args(&argv(&["voltius", "mcp"])).is_some());
+        assert!(cli_args(&argv(&["voltius", CLI_MARKER, "--json"])).is_some());
+    }
+
+    #[test]
+    fn parses_as_voltius_cli() {
+        let err = Cli::try_parse_from(["voltius-cli", "--help"]).unwrap_err();
+        assert!(err.to_string().contains("voltius-cli"));
+        assert!(Cli::try_parse_from(["voltius-cli", "mcp"]).is_ok());
     }
 }

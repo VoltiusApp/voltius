@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "src-tauri",
+  "crates/voltius-cli",
   "crates/voltius-crypto",
   "crates/voltius-crypto-wasm",
   "crates/voltius-diagnostics",
