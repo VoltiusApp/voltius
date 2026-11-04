@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { touchAppSetting } from "./appSettingsTimestampStore";
+import { lockedValue } from "./policyStore";
 
 type Overrides = Record<string, boolean>;
 
@@ -12,6 +13,16 @@ interface PluginRegistryStore {
   setEnabled(id: string, enabled: boolean): Promise<void>;
   /** Retourne l'état enabled, en appliquant l'override ou le defaultEnabled du manifest. */
   isEnabled(id: string, defaultEnabled: boolean): boolean;
+}
+
+function listed(key: string, id: string): boolean {
+  const lock = lockedValue(key);
+  return lock.locked && Array.isArray(lock.value) && lock.value.includes(id);
+}
+
+export function pluginLock(id: string): boolean | null {
+  if (listed("plugins.disabled", id)) return false;
+  return listed("plugins.enabled", id) ? true : null;
 }
 
 export const usePluginRegistryStore = create<PluginRegistryStore>((set, get) => ({
@@ -27,11 +38,12 @@ export const usePluginRegistryStore = create<PluginRegistryStore>((set, get) => 
   },
 
   setEnabled: async (id, enabled) => {
+    if (pluginLock(id) !== null) return;
     const overrides = { ...get().overrides, [id]: enabled };
     set({ overrides });
     touchAppSetting("appSettings.plugins.overrides");
     await invoke("plugin_registry_save", { overrides }).catch(() => {});
   },
 
-  isEnabled: (id, defaultEnabled) => get().overrides[id] ?? defaultEnabled,
+  isEnabled: (id, defaultEnabled) => pluginLock(id) ?? get().overrides[id] ?? defaultEnabled,
 }));

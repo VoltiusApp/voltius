@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { getSetting, listSettings, setSetting, settingConsequence } from "./settings";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 
 describe("domaine settings", () => {
@@ -105,5 +106,28 @@ describe("domaine settings", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error).toContain("read-only");
+  });
+
+  describe("clés verrouillées par la politique", () => {
+    const lock = (policy: Record<string, unknown>) =>
+      usePolicyStore.setState({ machine: { policy, defaults: {} }, server: { policy: {}, defaults: {} } });
+    afterEach(() => lock({}));
+
+    test("une bascule et un type de sync verrouillés sont lisibles mais non écrivables", () => {
+      lock({ "appSettings.toggles.scroll-minimap": false, "sync.types.connection": false });
+      for (const key of ["toggles.scroll-minimap", "sync.type.connection"]) {
+        expect(getSetting(key)).toMatchObject({ locked: true, writable: false });
+        expect(listSettings({ writableOnly: true }).some((v) => v.key === key)).toBe(false);
+        const res = setSetting(key, true);
+        expect(res.ok).toBe(false);
+        if (!res.ok) expect(res.error).toContain("managed by your organization");
+      }
+      expect(getSetting("toggles.scroll-minimap")!.value).toBe(false);
+    });
+
+    test("une clé non verrouillée reste écrivable", () => {
+      lock({ "appSettings.toggles.scroll-minimap": false });
+      expect(getSetting("terminal.scrollbackLines")).toMatchObject({ locked: false, writable: true });
+    });
   });
 });

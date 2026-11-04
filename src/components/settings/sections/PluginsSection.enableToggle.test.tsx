@@ -118,3 +118,17 @@ test("toggling an installed plugin off deactivates it and persists the override"
   expect(runtime.setPluginActive).toHaveBeenCalledWith("plugin-docker", false);
   expect(usePluginRegistryStore.getState().overrides["plugin-docker"]).toBe(false);
 });
+
+test("a plugin forced off by policy shows a disabled toggle with the managed note", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "plugins.disabled": ["plugin-docker"] }, defaults: {} } });
+  try {
+    asBundled(DOCKER);
+    render(<InstalledTab />);
+    expect(screen.getByText("common.policy.managed")).not.toBeNull();
+    expect(screen.getByTestId("enable-toggle").matches("fieldset:disabled *")).toBe(true);
+    expect(screen.getByTestId("enable-toggle").getAttribute("data-checked")).toBe("false");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+});

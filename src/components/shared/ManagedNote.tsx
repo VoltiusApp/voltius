@@ -14,8 +14,11 @@ export function ManagedNote() {
 }
 
 export function Managed({ policyKey, children }: { policyKey: string; children: ReactNode }) {
-  const lock = usePolicyLock(policyKey);
-  if (!lock.locked) return <>{children}</>;
+  return <ManagedWhen locked={usePolicyLock(policyKey).locked}>{children}</ManagedWhen>;
+}
+
+export function ManagedWhen({ locked, children }: { locked: boolean; children: ReactNode }) {
+  if (!locked) return <>{children}</>;
   return (
     <div className="flex items-center gap-2">
       <ManagedNote />

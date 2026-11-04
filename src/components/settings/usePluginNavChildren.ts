@@ -3,9 +3,10 @@ import type { SettingsPage } from "@/plugins/api";
 import { getLoadedPlugins } from "@/plugins/runtime";
 import { useUiLanguage } from "@/i18n";
 import { usePluginStore } from "@/stores/pluginStore";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
+import { usePolicyRefresh } from "@/stores/policyStore";
 import { useUIStore } from "@/stores/uiStore";
 import { pluginNavChildren, type NavChild } from "@/components/settings/settingsPluginNav";
 import { attributePage } from "@/plugins/attributePage";
@@ -15,6 +16,7 @@ export function usePluginNavChildren(): NavChild[] {
   const pages = usePluginStore((s) => s.settingsPages);
   // Subscribe to `overrides` rather than calling isEnabled(), so a toggle re-renders.
   const overrides = usePluginRegistryStore((s) => s.overrides);
+  usePolicyRefresh();
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
   // A function label resolves against the live locale, so the list must rebuild on switch.
   const locale = useUiLanguage();
@@ -24,7 +26,7 @@ export function usePluginNavChildren(): NavChild[] {
       id: m.id,
       defaultEnabled: pluginDefaultEnabled(m, installedMeta),
     }));
-    return pluginNavChildren([...pages.values()], plugins, (id, def) => overrides[id] ?? def);
+    return pluginNavChildren([...pages.values()], plugins, (id, def) => pluginLock(id) ?? overrides[id] ?? def);
   }, [pages, overrides, installedMeta, locale]);
 }
 

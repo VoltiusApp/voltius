@@ -1,10 +1,11 @@
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { getLoadedPlugins, setPluginActive, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
+import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
+import { getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { availableUpdate, availableSeededUpdate } from "@/plugins/updates";
 import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
-import { failed, type DomainResult } from "./result";
+import { failed, managedMessage, type DomainResult } from "./result";
 import type { PluginConfigField, PluginManifest } from "@/plugins/api";
 // Declared in the tool layer, not here: the MCP verbs pre-check these same
 // doomed calls (unknown id, non-deletable source) before the approval gate,
@@ -19,6 +20,7 @@ export interface PluginView {
   name: string;
   version: string;
   enabled: boolean;
+  locked: boolean;
   origin: "seeded" | "catalog" | "url" | "local";
   hash: string | null;
   permissions: string[];
@@ -67,6 +69,7 @@ export async function listPlugins(): Promise<PluginView[]> {
       name: m.name,
       version: m.version,
       enabled: registry.isEnabled(m.id, pluginDefaultEnabled(m, state.installedMeta)),
+      locked: pluginLock(m.id) !== null,
       origin,
       hash: meta?.hash ?? null,
       permissions: m.permissions ?? [],
@@ -122,9 +125,7 @@ export async function uninstallPlugin(id: string): Promise<DomainResult<{ id: st
 
 export async function setPluginEnabled(id: string, enabled: boolean): Promise<DomainResult<PluginView>> {
   if (!loadedManifest(id)) return noSuchPlugin(id);
-  // Same pair, same order, as the Settings toggle (PluginsSection handleToggle).
-  setPluginActive(id, enabled);
-  await usePluginRegistryStore.getState().setEnabled(id, enabled);
+  if (!(await applyPluginEnabled(id, enabled))) return failed(managedMessage(`plugin "${id}"`));
   const view = await findView(id);
   return view ? { ok: true, result: view } : failed(`"${id}" toggled but produced no loaded plugin`);
 }
