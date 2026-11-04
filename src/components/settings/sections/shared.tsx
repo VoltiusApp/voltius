@@ -7,6 +7,9 @@ import { setKeySync } from "@/services/user-data/syncChoice";
 import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
+import { Managed } from "@/components/shared/ManagedNote";
+import { isPolicyEnforced } from "@/services/policy/policyKeys";
+import { usePolicyLock } from "@/stores/policyStore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import RowActionsButton from "@/components/mobile/RowActionsButton";
@@ -57,7 +60,7 @@ export function SettingsGroup({ title, divided, className, children }: {
  * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
  * bordered card and stand alone.
  */
-export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, variant = "list", className, children }: {
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, variant = "list", className, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -68,14 +71,17 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   truncateDesc?: boolean;
   /** Dotted key from SETTING_KEYS: adds the per-setting cloud-sync control. */
   syncKey?: string;
+  /** Policy key whose admin lock disables this row's control; defaults to `syncKey`. */
+  policyKey?: string;
   variant?: "list" | "card";
   className?: string;
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
+  const managed = useRowManaged(policyKey ?? syncKey);
   if (isMobile) {
     return (
-      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey}>
+      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey} policyKey={policyKey}>
         {children}
       </MobileSettingRow>
     );
@@ -102,13 +108,24 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {syncKey && <SyncKeyButton path={syncKey} />}
-        {dirty && onReset && <ResetButton onReset={onReset} />}
+        {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
+        {dirty && onReset && !managed.locked && <ResetButton onReset={onReset} />}
         {dirty && <DirtyDot />}
-        {children}
+        <RowControl managed={managed}>{children}</RowControl>
       </div>
     </div>
   );
+}
+
+interface RowManaged { key: string | undefined; locked: boolean }
+
+function useRowManaged(key: string | undefined): RowManaged {
+  const lock = usePolicyLock(key ?? "");
+  return { key, locked: !!key && isPolicyEnforced(key) && lock.locked };
+}
+
+function RowControl({ managed, children }: { managed: RowManaged; children: ReactNode }) {
+  return managed.locked ? <Managed policyKey={managed.key!}>{children}</Managed> : <>{children}</>;
 }
 
 export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
@@ -288,7 +305,7 @@ export function SyncKeyButton({ path }: { path: string }) {
  * forwards it, see rowTapControl). Reset is a visible text button while the value is
  * off its default; a long-press opens the row's actions (reset, per-setting sync).
  */
-function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, children }: {
+function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -296,13 +313,15 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
   dimmed?: boolean;
   truncateDesc?: boolean;
   syncKey?: string;
+  policyKey?: string;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
   const inGroup = useContext(InSettingsGroup);
+  const managed = useRowManaged(policyKey ?? syncKey);
   const [sheet, setSheet] = useState(false);
-  const canReset = !!(dirty && onReset);
-  const hasActions = canReset || !!syncKey;
+  const canReset = !!(dirty && onReset) && !managed.locked;
+  const hasActions = canReset || (!!syncKey && !managed.locked);
   const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onClick } = useLongPress(() => setSheet(true));
   const ref = useRef<HTMLDivElement>(null);
   // Rows whose tap does something get the B5 ripple; a row holding only a text field doesn't.
@@ -340,7 +359,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
       <div className="flex items-center gap-1 shrink-0">
         <ListRowContext.Provider value={rowContext}>
           {canReset && <ResetButton onReset={onReset!} />}
-          {children}
+          <RowControl managed={managed}>{children}</RowControl>
         </ListRowContext.Provider>
       </div>
       {hasActions && (
@@ -362,7 +381,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
               it={{ icon: "lucide:rotate-ccw", label: t("settings.shared.resetToDefault"), slug: "reset", onTap: () => { onReset!(); setSheet(false); } }}
             />
           )}
-          {syncKey && <SyncSheetRow path={syncKey} />}
+          {syncKey && !managed.locked && <SyncSheetRow path={syncKey} />}
         </BottomSheet>
     )}
     </>

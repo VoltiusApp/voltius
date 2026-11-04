@@ -289,6 +289,7 @@
       "daysAgo": "{{count}} 天前"
     },
     "policy": {
+      "managed": "由您的组织管理",
       "issues_other": "贵组织的 Voltius 策略存在 {{count}} 个问题；其余部分仍然生效。"
     },
     "history": {
