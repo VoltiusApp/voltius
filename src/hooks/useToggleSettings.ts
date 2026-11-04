@@ -4,9 +4,10 @@ import { TOGGLE_DEFS, getToggle, useToggleSettingsStore, type ToggleDef, type To
 import { isLocked, usePolicyStore } from "@/stores/policyStore";
 import { useIsAndroid } from "@/utils/platform";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
-import { getLoadedPlugins, setPluginActive } from "@/plugins/runtime";
+import { getLoadedPlugins } from "@/plugins/runtime";
+import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
 
@@ -30,7 +31,6 @@ export function useToggleSettings(): ToggleItem[] {
   const { syncTypes, setSyncType, isTypeSynced } = useSyncPrefsStore();
   // Subscribe to overrides so plugin toggle values stay live as they're flipped.
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
-  const setPluginEnabled = usePluginRegistryStore((s) => s.setEnabled);
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
   const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
   const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
@@ -69,17 +69,18 @@ export function useToggleSettings(): ToggleItem[] {
       locked: isLocked(`sync.types.${st.id}`),
       onToggle: (v: boolean) => setSyncType(st.id, v),
     })),
-    ...getLoadedPlugins().map((m) => ({
-      id: `plugin:${m.id}`,
-      label: m.name,
-      icon: "lucide:puzzle",
-      description: t("settings.plugins.categoryLabel"),
-      keywords: ["plugin", "extension", m.name.toLowerCase(), m.id],
-      value: pluginOverrides[m.id] ?? pluginDefaultEnabled(m, installedMeta),
-      onToggle: (v: boolean) => {
-        setPluginActive(m.id, v);
-        void setPluginEnabled(m.id, v);
-      },
-    })),
-  ], [t, values, set, machinePolicy, serverPolicy, syncTypes, setSyncType, isTypeSynced, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
+    ...getLoadedPlugins().map((m) => {
+      const lock = pluginLock(m.id);
+      return {
+        id: `plugin:${m.id}`,
+        label: m.name,
+        icon: "lucide:puzzle",
+        description: lock === null ? t("settings.plugins.categoryLabel") : t("common.policy.managed"),
+        keywords: ["plugin", "extension", m.name.toLowerCase(), m.id],
+        value: lock ?? pluginOverrides[m.id] ?? pluginDefaultEnabled(m, installedMeta),
+        locked: lock !== null,
+        onToggle: (v: boolean) => void applyPluginEnabled(m.id, v),
+      };
+    }),
+  ], [t, values, set, machinePolicy, serverPolicy, syncTypes, setSyncType, isTypeSynced, pluginOverrides, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
 }

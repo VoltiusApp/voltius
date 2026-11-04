@@ -25,8 +25,10 @@ vi.mock("@/stores/marketplaceStore", () => ({
 }));
 
 const registry = { isEnabled: vi.fn(() => true), setEnabled: vi.fn(async () => {}) };
+const lock = vi.hoisted(() => ({ pluginLock: vi.fn((): boolean | null => null) }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => registry },
+  pluginLock: lock.pluginLock,
 }));
 
 const storage = new Map<string, unknown>();
@@ -57,7 +59,7 @@ import {
   removeSource, updatePlugin,
 } from "./plugins";
 
-beforeEach(() => { storage.clear(); vi.clearAllMocks(); });
+beforeEach(() => { storage.clear(); vi.clearAllMocks(); lock.pluginLock.mockReturnValue(null); });
 
 describe("plugin domain", () => {
   it("lists plugins with origin, hash and available update", async () => {
@@ -128,5 +130,18 @@ describe("plugin domain", () => {
     const r = await updatePlugin("acme");
     expect(r.ok).toBe(false);
     marketplace.installedMeta = [{ id: "acme", version: "1.0.0", sourceId: "voltius", hash: "abc" }];
+  });
+
+  it("reports a locked plugin and refuses to enable or disable it", async () => {
+    lock.pluginLock.mockReturnValue(false);
+    expect((await listPlugins()).every((p) => p.locked)).toBe(true);
+    const r = await setPluginEnabled("acme", true);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("managed by your organization");
+    expect(registry.setEnabled).not.toHaveBeenCalled();
+  });
+
+  it("does not flag an unlocked plugin", async () => {
+    expect((await listPlugins()).some((p) => p.locked)).toBe(false);
   });
 });

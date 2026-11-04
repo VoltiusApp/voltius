@@ -1,6 +1,8 @@
 import i18n from "@/i18n";
 import { settingDef, settingDefs, type SettingDef } from "./settingsManifest";
-import { failed, type DomainResult } from "./result";
+import { failed, managedMessage, type DomainResult } from "./result";
+import { isLocked } from "@/stores/policyStore";
+import { isPolicyEnforced } from "@/services/policy/policyKeys";
 import { unknownSetting } from "../settingMessages";
 
 export interface SettingView {
@@ -14,8 +16,12 @@ export interface SettingView {
   label: string;
   section: string;
   writable: boolean;
+  locked: boolean;
   consequence?: string;
 }
+
+const isManaged = (def: SettingDef): boolean =>
+  !!def.policyKey && isPolicyEnforced(def.policyKey) && isLocked(def.policyKey);
 
 function toView(def: SettingDef): SettingView {
   return {
@@ -28,7 +34,8 @@ function toView(def: SettingDef): SettingView {
     value: def.get(),
     label: i18n.t(def.labelKey),
     section: def.section,
-    writable: def.writable,
+    writable: def.writable && !isManaged(def),
+    locked: isManaged(def),
     consequence: def.consequence ? i18n.t(def.consequence.key) : undefined,
   };
 }
@@ -50,8 +57,8 @@ export function listSettings(
   return settingDefs()
     .filter((d) => !filter?.section || d.section === filter.section)
     .filter((d) => !filter?.prefix || d.key.startsWith(filter.prefix))
-    .filter((d) => !filter?.writableOnly || d.writable)
-    .map(toView);
+    .map(toView)
+    .filter((v) => !filter?.writableOnly || v.writable);
 }
 
 export function getSetting(key: string): SettingView | undefined {
@@ -94,6 +101,8 @@ export function setSetting(
   if (!def.writable || !def.set) {
     return { ok: false, error: `Setting "${key}" is read-only (structured value)` };
   }
+
+  if (isManaged(def)) return { ok: false, error: managedMessage(`Setting "${key}"`) };
 
   const invalid = validate(def, value);
   if (invalid) return { ok: false, error: invalid };

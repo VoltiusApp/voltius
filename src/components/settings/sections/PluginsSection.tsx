@@ -4,7 +4,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { catalogIcon, catalogEntryIcon } from "@/plugins/catalogIcon";
@@ -14,12 +14,14 @@ import { loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneSto
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
-import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
+import { getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/api";
 import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
-import { Managed } from "@/components/shared/ManagedNote";
+import { Managed, ManagedWhen } from "@/components/shared/ManagedNote";
+import { usePolicyRefresh } from "@/stores/policyStore";
+import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
 import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
@@ -167,7 +169,12 @@ function EnableToggle({ manifest, enabled, onToggle }: {
 }) {
   const themeOnly = manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
   if (themeOnly) return null;
-  return <Toggle checked={enabled} onChange={() => onToggle(manifest.id, enabled)} />;
+  usePolicyRefresh();
+  return (
+    <ManagedWhen locked={pluginLock(manifest.id) !== null}>
+      <Toggle checked={enabled} onChange={() => onToggle(manifest.id, enabled)} />
+    </ManagedWhen>
+  );
 }
 
 function PluginSettingsButton({ manifest, settingsPages, onOpenPage, onOpenConfig }: {
@@ -212,7 +219,8 @@ function bundledPluginManifests(excludeIds: Set<string>): PluginManifest[] {
 export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
-  const { setEnabled, isEnabled } = usePluginRegistryStore();
+  const { isEnabled } = usePluginRegistryStore();
+  usePolicyRefresh();
   const { installedMeta, catalog, uninstallPlugin, uninstallSeededPlugin, reloadPlugin, scanLocal, fetchCatalog, appVersion, loadAppVersion } = useMarketplaceStore();
   const { busy: updateBusy, startUpdate, modal: updateModal } = usePluginInstaller();
 
@@ -243,9 +251,7 @@ export function InstalledTab() {
     setLoadedIds(new Set(getLoadedPlugins().map((m) => m.id)));
 
   const handleToggle = (pluginId: string, currentlyEnabled: boolean) => {
-    setPluginActive(pluginId, !currentlyEnabled);
-    void setEnabled(pluginId, !currentlyEnabled);
-    refreshLoaded();
+    void applyPluginEnabled(pluginId, !currentlyEnabled).then(refreshLoaded);
   };
 
   const handleReload = async (id: string) => {

@@ -49,6 +49,8 @@ export interface SettingDef {
   /** Clé i18n, résolue à l'appel de `setting_list` — jamais au build. */
   labelKey: string;
   writable: boolean;
+  /** Clé de politique qui peut verrouiller cette entrée. */
+  policyKey?: string;
   /** Présente seulement sur les clés qui désarment un garde-fou. */
   consequence?: SettingConsequence;
   get(): unknown;
@@ -96,6 +98,7 @@ function toggleDefs(): SettingDef[] {
       section: def.section,
       labelKey: def.labelKey,
       writable: true,
+      policyKey: `appSettings.toggles.${id}`,
       consequence: GUARDED[key],
       get: () => getToggle(id),
       set: (v: unknown) => useToggleSettingsStore.getState().set(id, v as boolean),
@@ -111,6 +114,7 @@ function syncDefs(): SettingDef[] {
     section: "sync" as const,
     labelKey: `settings.sync.objectType.${t.id}.label`,
     writable: true,
+    policyKey: `sync.types.${t.id}`,
     get: () => useSyncPrefsStore.getState().isTypeSynced(t.id),
     set: (v: unknown) => useSyncPrefsStore.getState().setSyncType(t.id, v as boolean),
   }));
