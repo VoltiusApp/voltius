@@ -20,7 +20,7 @@ import type { Connection, ConnectionFormData, JumpHost } from "@/types";
 import { connectionFieldsOf, fingerprint, identityPaths, jumpHostsOf, keyExportsOf, keylessFingerprint, ownedFieldsOf, ownedFromHash, pickOwned, splitSupported, targetOf } from "./hostFields";
 import type { ParsedSshConfig, SshConfigHost } from "./parse";
 import { reconcile } from "./reconcile";
-import { joinedHere, loadSshConfigState, mergeSshConfigState, presentAt, SEEN_REFRESH_MS, updateSshConfigState, type ManagedEntry, type SshConfigState } from "./state";
+import { joinedHere, loadSshConfigState, mergeSshConfigState, presentAt, SEEN_REFRESH_MS, sshConfigImportLock, updateSshConfigState, type ManagedEntry, type SshConfigState } from "./state";
 
 export type SyncTrigger = "start" | "poll" | "focus" | "manual" | "mcp" | "switch";
 export interface SyncSummary { created: number; updated: number; removed: number; managed: number; skipped: SkippedAlias[] }
@@ -159,7 +159,7 @@ export function createSshConfigSync(overrides: Partial<SyncDeps> = {}) {
   async function runOnce(trigger: SyncTrigger): Promise<SyncSummary | null> {
     const forced = FORCED.has(trigger);
     const halted = () => (stopped && !forced) || isSyncHalted();
-    if (halted()) return null;
+    if (halted() || sshConfigImportLock() === false) return null;
     const state = unsaved ? await updateSshConfigState(unsaved) : await loadSshConfigState();
     unsaved = null;
     if (!state.sync?.on) return null;
@@ -317,6 +317,7 @@ export const sshConfigSync = createSshConfigSync();
 
 export async function sshConfigSyncNow(): Promise<DomainResult<SyncSummary>> {
   if (isMobilePlatform(await getPlatform())) return failed("~/.ssh/config sync runs on desktop only");
+  if (sshConfigImportLock() === false) return failed("~/.ssh/config sync is turned off by your organization");
   if (!(await loadSshConfigState()).sync?.on) return failed("Continuous sync is off; turn it on in Settings › Hosts");
   const summary = await sshConfigSync.request("mcp");
   return summary ? { ok: true, result: summary } : failed("the sync did not run: it is paused, this computer has not reviewed it yet, or ~/.ssh/config kept changing; see Settings › Hosts");
