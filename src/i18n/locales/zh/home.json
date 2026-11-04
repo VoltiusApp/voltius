@@ -17,10 +17,7 @@
     },
     "recentHosts": {
       "title": "最近的主机",
-      "seeAll": "查看全部",
-      "prevPage": "上一页",
-      "nextPage": "下一页",
-      "pageNumber": "第 {{number}} 页"
+      "seeAll": "查看全部"
     },
     "allHosts": {
       "back": "返回",

@@ -25,10 +25,7 @@
     },
     "recentHosts": {
       "title": "Hôtes récents",
-      "seeAll": "Tout voir",
-      "prevPage": "Page précédente",
-      "nextPage": "Page suivante",
-      "pageNumber": "Page {{number}}"
+      "seeAll": "Tout voir"
     },
     "allHosts": {
       "back": "Retour",

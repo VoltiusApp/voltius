@@ -29,10 +29,7 @@
     },
     "recentHosts": {
       "title": "Nedávno použité hosty",
-      "seeAll": "Zobrazit vše",
-      "prevPage": "Předchozí stránka",
-      "nextPage": "Další stránka",
-      "pageNumber": "Stránka {{number}}"
+      "seeAll": "Zobrazit vše"
     },
     "allHosts": {
       "back": "Zpět",

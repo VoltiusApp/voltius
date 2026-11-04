@@ -21,10 +21,7 @@
     },
     "recentHosts": {
       "title": "Son kullanılan sunucular",
-      "seeAll": "Tümünü gör",
-      "prevPage": "Önceki sayfa",
-      "nextPage": "Sonraki sayfa",
-      "pageNumber": "Sayfa {{number}}"
+      "seeAll": "Tümünü gör"
     },
     "allHosts": {
       "back": "Geri",

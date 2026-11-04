@@ -1,21 +1,14 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useSessionStore } from "@/stores/sessionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { vaultOverviewSections } from "./vaultOverviewSections";
+import { HostPingDot, hostAddress, hostDisplayName, useConnectFromHome } from "./hostDisplay";
 import type { Connection } from "@/types";
-
-function displayName(c: Connection): string {
-  if (c.name?.trim()) return c.name.trim();
-  if (c.connection_type === "serial" || c.serial_port) return c.serial_port ?? i18n.t("home.serialFallback");
-  return `${c.username}@${c.host}`;
-}
 
 interface VaultCardProps {
   name: string;
@@ -52,8 +45,12 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
               onClick={() => onConnect(conn)}
               className="group flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors w-full text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
             >
-              <ConnectionAvatar connection={conn} size={24} />
-              <span className="flex-1 text-xs font-medium truncate">{displayName(conn)}</span>
+              <span className="relative shrink-0">
+                <ConnectionAvatar connection={conn} size={24} />
+                <HostPingDot connection={conn} size="sm" />
+              </span>
+              <span className="max-w-[65%] text-xs font-medium truncate">{hostDisplayName(conn)}</span>
+              <span className="flex-1 min-w-0 font-mono text-[10px] text-right truncate text-(--t-text-dim)" title={hostAddress(conn)}>{hostAddress(conn)}</span>
               <Icon
                 icon="lucide:terminal"
                 width={12}
@@ -78,15 +75,9 @@ export function VaultsOverview() {
   const connections = useAllConnections();
   const vaults = useVaultStore((s) => s.vaults);
   const selectVaultOnly = useVaultStore((s) => s.selectVaultOnly);
-  const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setHomeView = useUIStore((s) => s.setHomeView);
-
-  const handleConnect = (conn: Connection) => {
-    connect(conn.id).catch(() => {});
-    setHomeView(false);
-    setActiveNav("terminal");
-  };
+  const handleConnect = useConnectFromHome();
 
   const openVault = (vaultId: string) => {
     selectVaultOnly(vaultId);
@@ -107,7 +98,7 @@ export function VaultsOverview() {
       >
         {t("common.entity.vaults")}
       </h2>
-      <div {...cardGridProps("grid", "card")}>
+      <div {...cardGridProps("grid", "card", "items-start")}>
         {sections.map(({ vault, hosts, totalHosts }) => (
           <VaultCard
             key={vault.id}

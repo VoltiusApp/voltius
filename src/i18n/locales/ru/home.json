@@ -29,10 +29,7 @@
     },
     "recentHosts": {
       "title": "Недавние хосты",
-      "seeAll": "Смотреть все",
-      "prevPage": "Предыдущая страница",
-      "nextPage": "Следующая страница",
-      "pageNumber": "Страница {{number}}"
+      "seeAll": "Смотреть все"
     },
     "allHosts": {
       "back": "Назад",

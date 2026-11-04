@@ -1,13 +1,8 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import type { Connection } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
-import { StatusDot } from "@/components/shared/StatusDot";
-import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useHostPingStore } from "@/stores/hostPingStore";
-import { useToggle } from "@/stores/toggleSettingsStore";
 import {
   useEffectivePinned,
   useEffectivePinSource,
@@ -15,16 +10,7 @@ import {
 } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
 import { useCanConnect } from "@/hooks/useCanConnect";
-
-function isSerialConn(c: Connection): boolean {
-  return c.connection_type === "serial" || !!c.serial_port;
-}
-
-function displayName(c: Connection): string {
-  if (c.name?.trim()) return c.name.trim();
-  if (isSerialConn(c)) return c.serial_port ?? i18n.t("home.serialFallback");
-  return `${c.username}@${c.host}`;
-}
+import { HostPingDot, hostAddress, hostDisplayName } from "./hostDisplay";
 
 interface Props {
   connection: Connection;
@@ -38,10 +24,6 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
   const pinSource = useEffectivePinSource(connection, "connection");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === connection.vault_id));
   const canConnect = useCanConnect(connection);
-  const [pingEnabled] = useToggle("reachability");
-  const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
-  const isSerial = isSerialConn(connection);
-  const showPingDot = pingEnabled && !connection.ping_disabled && !isSerial;
   const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
   const handlePinClick = () => {
     if (!isTeamVault) {
@@ -57,35 +39,26 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
       : pinSource === "team"
       ? "var(--t-text-secondary)"
       : "var(--t-text-dim)";
-  const name = displayName(connection);
+  const name = hostDisplayName(connection);
 
   return (
-    <div className="group relative shrink-0" style={{ width: "7.5rem" }}>
+    <div className="group relative min-w-0">
       <button
         type="button"
         disabled={!canConnect}
-        className="surface-glass surface-glass-interactive flex flex-col items-center gap-2 w-full px-1 py-3 rounded-xl cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        className="surface-glass surface-glass-interactive flex flex-col items-center gap-2 w-full px-2 py-3 rounded-xl cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
         title={canConnect ? undefined : t("common.error.connectNotAllowed")}
         onClick={() => onConnect(connection)}
       >
         <span className="relative">
           <ConnectionAvatar connection={connection} size={36} />
-          {showPingDot && (
-            <StatusDot
-              tone={pingStatusTone(pingStatus)}
-              motion={pingStatusMotion(pingStatus)}
-              hollow={pingStatus === "knock"}
-              halo="var(--t-bg-elevated)"
-              corner
-              label={t(`home.hostCard.status.${pingStatus ?? "unknown"}`)}
-            />
-          )}
+          <HostPingDot connection={connection} />
         </span>
         <span className="text-xs font-medium text-center w-full truncate text-(--t-text-primary)">
           {name}
         </span>
-        <span className="text-[10px] w-full truncate text-(--t-text-dim)">
-          {isSerial ? (connection.serial_baud ? t("home.hostCard.baud", { rate: connection.serial_baud }) : "") : connection.host}
+        <span className="font-mono text-[10px] w-full truncate text-(--t-text-dim)" title={hostAddress(connection)}>
+          {hostAddress(connection)}
         </span>
       </button>
       <button

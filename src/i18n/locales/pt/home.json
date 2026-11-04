@@ -25,10 +25,7 @@
     },
     "recentHosts": {
       "title": "Hosts Recentes",
-      "seeAll": "Ver todos",
-      "prevPage": "Página anterior",
-      "nextPage": "Próxima página",
-      "pageNumber": "Página {{number}}"
+      "seeAll": "Ver todos"
     },
     "allHosts": {
       "back": "Voltar",

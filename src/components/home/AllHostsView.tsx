@@ -1,13 +1,11 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
-import { useUIStore } from "@/stores/uiStore";
-import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
+import { useConnectFromHome } from "./hostDisplay";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { pinnedThenRecent } from "@/utils/recentHosts";
-import type { Connection } from "@/types";
 
 interface Props {
   onBack: () => void;
@@ -16,13 +14,7 @@ interface Props {
 export function AllHostsView({ onBack }: Props) {
   const { t } = useTranslation();
   const connections = useAllConnections();
-  const connect = useSessionStore((s) => s.connect);
-  const setActiveNav = useUIStore((s) => s.setActiveNav);
-
-  const handleConnect = (conn: Connection) => {
-    connect(conn.id).catch(() => {});
-    setActiveNav("terminal");
-  };
+  const handleConnect = useConnectFromHome();
 
   const isPinnedFn = useEffectivePinnedPredicate();
   const hosts = pinnedThenRecent(connections, (c) => isPinnedFn(c, "connection"));
@@ -51,7 +43,7 @@ export function AllHostsView({ onBack }: Props) {
             {t("home.allHosts.empty")}
           </p>
         ) : (
-          <div {...cardGridProps("grid", "compact")}>
+          <div {...cardGridProps("grid", "tile")}>
             {hosts.map((conn) => (
               <DashboardHostCard
                 key={conn.id}
