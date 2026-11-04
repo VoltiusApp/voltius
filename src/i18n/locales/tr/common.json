@@ -294,6 +294,7 @@
       "daysAgo": "{{count}} gün önce"
     },
     "policy": {
+      "managed": "Kuruluşunuz tarafından yönetiliyor",
       "issues_one": "Kuruluşunuzun Voltius ilkesinde {{count}} sorun var; geri kalanı uygulanmaya devam ediyor.",
       "issues_other": "Kuruluşunuzun Voltius ilkesinde {{count}} sorun var; geri kalanı uygulanmaya devam ediyor."
     },

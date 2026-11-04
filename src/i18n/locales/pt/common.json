@@ -307,6 +307,7 @@
       "daysAgo": "{{count}}d atrás"
     },
     "policy": {
+      "managed": "Gerenciado pela sua organização",
       "issues_one": "A política do Voltius da sua organização tem {{count}} problema; o resto continua a aplicar-se.",
       "issues_other": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se.",
       "issues_many": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se."

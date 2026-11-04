@@ -320,6 +320,7 @@
       "daysAgo": "před {{count}} d"
     },
     "policy": {
+      "managed": "Spravuje vaše organizace",
       "issues_one": "Zásady Voltius vaší organizace obsahují {{count}} problém; zbytek zásad se nadále uplatňuje.",
       "issues_few": "Zásady Voltius vaší organizace obsahují {{count}} problémy; zbytek zásad se nadále uplatňuje.",
       "issues_many": "Zásady Voltius vaší organizace obsahují {{count}} problému; zbytek zásad se nadále uplatňuje.",

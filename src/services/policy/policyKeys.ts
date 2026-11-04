@@ -53,3 +53,11 @@ const BY_ID = new Map(POLICY_KEYS.map((k) => [k.id, k]));
 export function policyKeyDef(id: string): PolicyKeyDef | undefined {
   return BY_ID.get(id);
 }
+
+const ENFORCED_PREFIXES = ["appSettings.toggles.", "sync."];
+const ENFORCED_KEYS = new Set(["server.url", "server.allowOther", "sshConfig.import", "plugins.enabled", "plugins.disabled"]);
+
+// Keys whose read path honours a lock; settings rows show "managed" only for these.
+export function isPolicyEnforced(key: string): boolean {
+  return ENFORCED_KEYS.has(key) || ENFORCED_PREFIXES.some((p) => key.startsWith(p));
+}

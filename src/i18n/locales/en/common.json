@@ -294,6 +294,7 @@
       "daysAgo": "{{count}}d ago"
     },
     "policy": {
+      "managed": "Managed by your organization",
       "issues_one": "Your organization's Voltius policy has {{count}} problem; the rest of it still applies.",
       "issues_other": "Your organization's Voltius policy has {{count}} problems; the rest of it still applies."
     },
