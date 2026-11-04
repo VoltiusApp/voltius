@@ -42,6 +42,7 @@ vi.mock("@/stores/vaultKeysStore", () => ({
   },
 }));
 
+import { usePolicyStore } from "@/stores/policyStore";
 import { autoLogin } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
 
@@ -338,4 +339,42 @@ test("autoLogin reports a sealed secret without prompting", async () => {
   h.store.master_password_sealed = "S:pw";
   expect(await autoLogin()).toBe("sealed");
   expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_get", expect.anything());
+});
+
+// ─── server policy ───────────────────────────────────────────────────────────
+
+const pinServer = (allowOther: boolean) =>
+  usePolicyStore.setState({
+    machine: { policy: { "server.url": "https://corp.example", "server.allowOther": allowOther }, defaults: {} },
+  });
+
+function serverSession(serverUrl: string) {
+  h.store.master_password = "pw";
+  h.store.mode = "server";
+  h.store.account_id = "acc";
+  h.store.server_url = serverUrl;
+}
+
+test("autoLogin declines a server account on a disallowed server and touches nothing", async () => {
+  serverSession("https://other.example");
+  pinServer(false);
+  const before = { ...h.store };
+  try {
+    expect(await autoLogin()).toBe("server-blocked");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
+});
+
+test("autoLogin still opens an allowed server account under the policy", async () => {
+  serverSession("https://corp.example");
+  pinServer(false);
+  try {
+    expect(await autoLogin()).toBe("ok");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.setVaultKey).toHaveBeenCalled();
 });
