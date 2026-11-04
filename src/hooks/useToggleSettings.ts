@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleDef, type ToggleId } from "@/stores/toggleSettingsStore";
+import { TOGGLE_DEFS, getToggle, useToggleSettingsStore, type ToggleDef, type ToggleId } from "@/stores/toggleSettingsStore";
+import { isLocked, usePolicyStore } from "@/stores/policyStore";
 import { useIsAndroid } from "@/utils/platform";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -16,6 +17,7 @@ export interface ToggleItem {
   description?: string;
   keywords?: string[];
   value: boolean;
+  locked?: boolean;
   onToggle: (v: boolean) => void;
 }
 
@@ -23,6 +25,8 @@ export function useToggleSettings(): ToggleItem[] {
   const { t } = useTranslation();
   const values = useToggleSettingsStore((s) => s.values);
   const set = useToggleSettingsStore((s) => s.set);
+  const machinePolicy = usePolicyStore((s) => s.machine);
+  const serverPolicy = usePolicyStore((s) => s.server);
   const { syncTypes, setSyncType } = useSyncPrefsStore();
   // Subscribe to overrides so plugin toggle values stay live as they're flipped.
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
@@ -42,15 +46,19 @@ export function useToggleSettings(): ToggleItem[] {
       value: autoUpdate,
       onToggle: setAutoUpdate,
     },
-    ...(Object.entries(TOGGLE_DEFS) as [ToggleId, ToggleDef][]).filter(([, def]) => isAndroid || !def.androidOnly).map(([id, def]) => ({
-      id,
-      label: t(def.labelKey),
-      icon: def.icon,
-      description: t(`settings.nav.${def.section}.label`),
-      keywords: [...def.keywords],
-      value: values[id] ?? def.default,
-      onToggle: (v: boolean) => set(id, v),
-    })),
+    ...(Object.entries(TOGGLE_DEFS) as [ToggleId, ToggleDef][]).filter(([, def]) => isAndroid || !def.androidOnly).map(([id, def]) => {
+      const locked = isLocked(`appSettings.toggles.${id}`);
+      return {
+        id,
+        label: t(def.labelKey),
+        icon: def.icon,
+        description: locked ? t("common.policy.managed") : t(`settings.nav.${def.section}.label`),
+        keywords: [...def.keywords],
+        value: getToggle(id),
+        locked,
+        onToggle: (v: boolean) => set(id, v),
+      };
+    }),
     ...SYNC_OBJECT_TYPES.map((st) => ({
       id: `sync-${st.id}`,
       label: t("settings.sync.quickToggleLabel", { label: t(`settings.sync.objectType.${st.id}.label`) }),
@@ -72,5 +80,5 @@ export function useToggleSettings(): ToggleItem[] {
         void setPluginEnabled(m.id, v);
       },
     })),
-  ], [t, values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
+  ], [t, values, set, machinePolicy, serverPolicy, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
 }

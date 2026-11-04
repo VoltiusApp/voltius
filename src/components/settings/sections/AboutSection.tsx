@@ -21,6 +21,7 @@ import {
   openDownloadPage,
 } from "@/services/updater";
 import { Toggle } from "@/components/shared/Toggle";
+import { Managed } from "@/components/shared/ManagedNote";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import LogoBadge from "@/components/layout/LogoBadge";
@@ -186,7 +187,7 @@ export default function AboutSection() {
                   {t("settings.about.whatsNew.desc")}
                 </p>
               </div>
-              <Toggle checked={changelogPopup} onChange={setChangelogPopup} />
+              <Managed policyKey="appSettings.toggles.changelog-popup"><Toggle checked={changelogPopup} onChange={setChangelogPopup} /></Managed>
             </div>
           </div>
         </div>

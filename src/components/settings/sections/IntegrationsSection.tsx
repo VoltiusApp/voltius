@@ -5,7 +5,7 @@ import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { StatusDot } from "@/components/shared/StatusDot";
-import { DirtyDot, ResetButton } from "./shared";
+import { DirtyDot, ResetButton, RowControl, useRowManaged } from "./shared";
 import { getMcpStatus } from "@/mcp/status";
 import { buildMcpClientSnippet, MCP_CLIENT_IDS, type McpClientId } from "@/mcp/clientSnippets";
 import { buildAddMcpCommand } from "@/mcp/registerCommand";
@@ -100,6 +100,7 @@ const CLIENT_HELP_KEYS: Record<McpClientId, string> = {
 export default function IntegrationsSection() {
   const { t } = useTranslation();
   const [mcpServer, setMcpServer] = useToggle("mcp-server");
+  const mcpManaged = useRowManaged("appSettings.toggles.mcp-server");
   const [status, setStatus] = useState<{ enabled: boolean; exePath: string; socketPath: string } | null>(null);
   const [clientId, setClientId] = useState<McpClientId>("claude-code");
   const [manualOpen, setManualOpen] = useState(false);
@@ -150,11 +151,11 @@ export default function IntegrationsSection() {
               <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.integrations.mcp.sub")}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {mcpServer !== TOGGLE_DEFS["mcp-server"].default && (
+              {mcpServer !== TOGGLE_DEFS["mcp-server"].default && !mcpManaged.locked && (
                 <ResetButton onReset={() => setMcpServer(TOGGLE_DEFS["mcp-server"].default)} />
               )}
               {mcpServer !== TOGGLE_DEFS["mcp-server"].default && <DirtyDot />}
-              <Toggle checked={mcpServer} onChange={setMcpServer} />
+              <RowControl managed={mcpManaged}><Toggle checked={mcpServer} onChange={setMcpServer} /></RowControl>
             </div>
           </div>
           {status && (

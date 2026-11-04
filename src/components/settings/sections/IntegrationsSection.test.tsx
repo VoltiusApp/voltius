@@ -15,6 +15,8 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
 vi.mock("@/mcp/status", () => ({ getMcpStatus: h.getMcpStatus }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -24,6 +26,7 @@ vi.mock("@/stores/toggleSettingsStore", () => ({
   TOGGLE_DEFS: { "mcp-server": { default: false } },
 }));
 
+import { usePolicyStore } from "@/stores/policyStore";
 import IntegrationsSection from "./IntegrationsSection";
 
 function renderSection() {
@@ -100,4 +103,18 @@ it("lists a contributing plugin's tools and toggles it off", async () => {
   const toggle = screen.getByRole("switch", { name: /docker/i });
   fireEvent.click(toggle);
   expect(isPluginExposed("plugin-docker")).toBe(false);
+});
+
+test("a policy-locked mcp-server toggle is disabled, noted as managed, and has no reset", async () => {
+  h.toggle = true;
+  usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.mcp-server": true }, defaults: {} } });
+  let view!: ReturnType<typeof render>;
+  await act(async () => {
+    view = render(<IntegrationsSection />);
+  });
+  const fieldset = view.container.querySelector("fieldset") as HTMLFieldSetElement;
+  expect(fieldset.disabled).toBe(true);
+  expect(view.container.textContent).toContain("common.policy.managed");
+  expect(screen.queryByLabelText("settings.shared.resetToDefault")).toBeNull();
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
 });

@@ -84,6 +84,8 @@ export const DEVICE_SCOPED_STORAGE_KEYS = [
   "voltius-sftp-settings",
   "voltius-terminal-settings",
   "voltius-toggle-settings",
+  // Marks which toggle values are admin defaults; it follows voltius-toggle-settings, which is device-scoped.
+  "voltius-admin-defaults",
   "voltius-connectivity-settings",
   "voltius-mcp-contributions",
   // Persists poll intervals only — the statuses it holds stay in memory.

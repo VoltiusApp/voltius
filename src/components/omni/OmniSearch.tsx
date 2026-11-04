@@ -76,7 +76,7 @@ type OmniItem =
   | { kind: "action"; id: string; label: string; icon: string; description?: string; keybinding?: string }
   | { kind: "snippet"; snippet: Snippet }
   | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
-  | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void }
+  | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; locked?: boolean; onToggle: (v: boolean) => void }
   | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
   | { kind: "join-code"; code: string }
   | { kind: "join-code-prompt" }
@@ -442,7 +442,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           broadcastSnippetInject([activeSession], resolved, true).catch(console.error);
         }
       } else if (item.kind === "toggle") {
-        item.onToggle(!item.value);
+        if (!item.locked) item.onToggle(!item.value);
       } else if (item.kind === "team-session") {
         const { session, alreadyIn } = item;
         if (alreadyIn) {
@@ -677,6 +677,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           <OmniRow
             {...row}
             checked={item.value}
+            disabled={item.locked}
             leading={<OmniTile icon={item.icon} />}
             label={item.label}
             detail={item.description}
