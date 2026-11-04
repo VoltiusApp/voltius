@@ -16,6 +16,7 @@ import { connectionFromForm } from "@/stores/connectionStore";
 import { prng } from "@/test/prng";
 import { fingerprint, identityOf } from "./hostFields";
 import type { SshConfigHost } from "./parse";
+import { usePolicyStore } from "@/stores/policyStore";
 import { reconcile } from "./reconcile";
 import { mergeSshConfigState, type ManagedEntry, type SshConfigState } from "./state";
 import { createSshConfigSync, sshConfigSync, sshConfigSyncNow, startSshConfigSyncEngine, type SyncDeps } from "./sync";
@@ -709,6 +710,28 @@ describe("ssh-config sync engine and MCP entry", () => {
     disk = JSON.stringify({ joined: JOINED, sync: { on: true, vault: "personal", at: 1 } });
     expect(await sshConfigSyncNow()).toMatchObject({ ok: true, result: { managed: 1 } });
     expect(request).toHaveBeenCalledWith("mcp");
+  });
+
+  it("refuses when the organization turned the import off, even with sync on", async () => {
+    const request = vi.spyOn(sshConfigSync, "request");
+    disk = JSON.stringify({ joined: JOINED, sync: { on: true, vault: "personal", at: 1 } });
+    usePolicyStore.setState({ machine: { policy: { "sshConfig.import": false }, defaults: {} } });
+    try {
+      expect(await sshConfigSyncNow()).toEqual({ ok: false, error: "~/.ssh/config sync is turned off by your organization" });
+      expect(request).not.toHaveBeenCalled();
+    } finally {
+      usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+    }
+  });
+
+  it("the engine skips a run before reading the state when the organization turned the import off", async () => {
+    usePolicyStore.setState({ machine: { policy: { "sshConfig.import": false }, defaults: {} } });
+    try {
+      disk = JSON.stringify({ joined: JOINED, sync: { on: true, vault: "personal", at: 1 } });
+      expect(await sshConfigSync.request("manual")).toBeNull();
+    } finally {
+      usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+    }
   });
 });
 

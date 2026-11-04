@@ -2,6 +2,7 @@ import "@/i18n";
 import { act, cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSshConfigStore } from "@/stores/sshConfigStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useVaultStore } from "@/stores/vaultStore";
 
 const request = vi.fn((..._a: unknown[]) => {});
@@ -18,6 +19,7 @@ afterEach(cleanup);
 beforeEach(() => {
   request.mockClear();
   change.mockClear();
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   useVaultStore.setState({ vaults: [] });
   useSshConfigStore.setState({ state: {}, status: { skipped: [] }, dialog: null });
 });
@@ -50,6 +52,31 @@ describe("SshConfigGroup", () => {
     await mount();
     expect(screen.queryByRole("switch", { name: /copy private keys/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Review…" }));
+    expect(useSshConfigStore.getState().dialog).toBe("activate");
+  });
+
+  it("shows an off switch that cannot be used when the organization turned the import off", async () => {
+    usePolicyStore.setState({ machine: { policy: { "sshConfig.import": false }, defaults: {} } });
+    useSshConfigStore.setState({ state: { sync: { on: true, vault: "personal", at: 1 } } });
+    await mount();
+    const toggle = screen.getByRole("switch");
+    expect(toggle.matches(":disabled")).toBe(true);
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText("Managed by your organization")).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: /copy private keys/i })).toBeNull();
+  });
+
+  it("cannot be switched off when the organization requires it, but can still be switched on", async () => {
+    usePolicyStore.setState({ machine: { policy: { "sshConfig.import": true }, defaults: {} } });
+    useSshConfigStore.setState({ state: { sync: { on: true, vault: "personal", at: 1 } } });
+    await mount();
+    expect(screen.getByRole("switch", { name: /Sync continuously/ }).matches(":disabled")).toBe(true);
+    cleanup();
+    useSshConfigStore.setState({ state: {} });
+    await mount();
+    const toggle = screen.getByRole("switch");
+    expect(toggle.matches(":disabled")).toBe(false);
+    fireEvent.click(toggle);
     expect(useSshConfigStore.getState().dialog).toBe("activate");
   });
 });

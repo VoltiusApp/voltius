@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@/lib/invoke";
 import { useSshConfigStore } from "@/stores/sshConfigStore";
-import { applyRemoteSshConfigState, joinedHere, loadSshConfigState, mergeSshConfigState, updateSshConfigState } from "./state";
+import { usePolicyStore } from "@/stores/policyStore";
+import { applyRemoteSshConfigState, joinedHere, loadSshConfigState, mergeSshConfigState, sshConfigImportLock, updateSshConfigState } from "./state";
 
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn() }));
 vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
@@ -163,5 +164,14 @@ describe("mergeSshConfigState, spec B fields", () => {
     await applyRemoteSshConfigState(JSON.stringify({ offer: "accepted" }));
     expect(current()).toEqual(JSON.parse(disk!));
     expect(current().offer).toBe("accepted");
+  });
+});
+
+describe("sshConfigImportLock", () => {
+  const policy = (policy: Record<string, unknown>) => usePolicyStore.setState({ machine: { policy, defaults: {} } });
+  it.each([[{}, null], [{ "sshConfig.import": false }, false], [{ "sshConfig.import": true }, true], [{ "sshConfig.import": "x" }, null]])("%j -> %s", (p, out) => {
+    policy(p);
+    expect(sshConfigImportLock()).toBe(out);
+    policy({});
   });
 });

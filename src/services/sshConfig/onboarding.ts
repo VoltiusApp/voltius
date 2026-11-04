@@ -7,7 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { getPlatform, isMobilePlatform } from "@/utils/platform";
 import { migrateFromPlugin } from "./migrate";
 import { showMigrationNotice } from "./notice";
-import { loadSshConfigState, updateSshConfigState, type SshConfigState } from "./state";
+import { loadSshConfigState, sshConfigImportLock, updateSshConfigState, type SshConfigState } from "./state";
 import { startSshConfigSyncEngine } from "./sync";
 
 export async function countSshConfigHosts(): Promise<number> {
@@ -39,7 +39,7 @@ export function startSshConfigOnboarding(): () => void {
     await whenLoginSyncSettled();
     if (disposed) return;
     await loadSshConfigState();
-    if (disposed || isMobilePlatform(await getPlatform())) return;
+    if (disposed || isMobilePlatform(await getPlatform()) || sshConfigImportLock() === false) return;
     await migrateFromPlugin().catch((e) => log.error("ssh-config migration failed", e));
     if (disposed) return;
     stopEngine = startSshConfigSyncEngine();
