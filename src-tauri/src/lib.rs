@@ -26,6 +26,7 @@ mod lan_sync;
 mod linux_gfx;
 mod local;
 pub mod mcp;
+pub mod policy;
 mod metrics;
 mod network_watch;
 mod passkey_loopback;
