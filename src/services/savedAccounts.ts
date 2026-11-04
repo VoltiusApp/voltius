@@ -299,7 +299,7 @@ const FINAL_PUSH_TIMEOUT_MS = 5000;
  */
 async function flushPendingChanges(): Promise<void> {
   const { push, isSyncPaused } = await import("@/services/sync");
-  if (isSyncPaused()) return;
+  if (isSyncPaused() || !serverAllowed(await keychainGet("server_url"))) return;
   const abort = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<void>((resolve) => {
