@@ -41,3 +41,12 @@ test("an explicit override still wins for an installed plugin", () => {
   usePluginRegistryStore.setState({ overrides: { installed: false } });
   expect(pluginValue("installed")).toBe(false);
 });
+
+test("a policy-locked toggle reads the policy value and is flagged locked", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.cursor-blink": true }, defaults: {} } });
+  const item = renderHook(() => useToggleSettings()).result.current.find((i) => i.id === "cursor-blink")!;
+  expect(item.locked).toBe(true);
+  expect(item.value).toBe(true);
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+});

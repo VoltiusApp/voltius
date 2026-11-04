@@ -19,6 +19,7 @@ import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/
 import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
+import { Managed } from "@/components/shared/ManagedNote";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
 import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
@@ -745,7 +746,9 @@ function BrowseTab() {
           </div>
         )}
         <div className="flex items-center gap-2">
-          <Toggle checked={reviewInstalls} onChange={() => setReviewInstalls(!reviewInstalls)} />
+          <Managed policyKey="appSettings.toggles.plugin-install-review">
+            <Toggle checked={reviewInstalls} onChange={() => setReviewInstalls(!reviewInstalls)} />
+          </Managed>
           <span className="text-xs text-(--t-text-dim)">{t("settings.toggleDefs.pluginInstallReview.label")}</span>
         </div>
       </div>

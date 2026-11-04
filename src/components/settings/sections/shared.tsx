@@ -119,12 +119,12 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
 
 interface RowManaged { key: string | undefined; locked: boolean }
 
-function useRowManaged(key: string | undefined): RowManaged {
+export function useRowManaged(key: string | undefined): RowManaged {
   const lock = usePolicyLock(key ?? "");
   return { key, locked: !!key && isPolicyEnforced(key) && lock.locked };
 }
 
-function RowControl({ managed, children }: { managed: RowManaged; children: ReactNode }) {
+export function RowControl({ managed, children }: { managed: RowManaged; children: ReactNode }) {
   return managed.locked ? <Managed policyKey={managed.key!}>{children}</Managed> : <>{children}</>;
 }
 

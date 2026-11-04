@@ -14,6 +14,7 @@ interface OmniRowProps {
   trailing?: ReactNode;
   notice?: RowNotice | null;
   checked?: boolean;
+  disabled?: boolean;
   onPick: () => void;
   onHover: (idx: number) => void;
 }
@@ -21,7 +22,7 @@ interface OmniRowProps {
 const tint = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 
 export function OmniRow({
-  id, idx, selected, leading, label, detail, detailMono, trailing, notice, checked, onPick, onHover,
+  id, idx, selected, leading, label, detail, detailMono, trailing, notice, checked, disabled, onPick, onHover,
 }: OmniRowProps) {
   const tone = notice?.tone === "danger" ? "var(--t-status-error)" : "var(--t-accent)";
   return (
@@ -30,11 +31,15 @@ export function OmniRow({
       id={id}
       aria-selected={selected}
       aria-checked={checked}
+      aria-disabled={disabled}
       data-idx={idx}
-      onClick={onPick}
+      onClick={disabled ? undefined : onPick}
       onMouseMove={selected ? undefined : () => onHover(idx)}
-      className="mx-1.5 flex items-center gap-3 px-2.5 py-2 rounded-[var(--r-sm)] cursor-pointer"
-      style={selected ? { background: tint(tone, 14), boxShadow: `inset 0 0 0 1px ${tint(tone, 34)}` } : undefined}
+      className={`mx-1.5 flex items-center gap-3 px-2.5 py-2 rounded-[var(--r-sm)] ${disabled ? "cursor-default" : "cursor-pointer"}`}
+      style={{
+        ...(selected ? { background: tint(tone, 14), boxShadow: `inset 0 0 0 1px ${tint(tone, 34)}` } : {}),
+        opacity: disabled ? 0.55 : undefined,
+      }}
     >
       {leading}
       <div className="flex-1 min-w-0">
