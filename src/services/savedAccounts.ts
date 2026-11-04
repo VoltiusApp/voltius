@@ -9,7 +9,7 @@ import {
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
 import { serverAllowed } from "./policy/serverPolicy";
-import { AccountNotSavedError, ServerBlockedError } from "./accountErrors";
+import { AccountAlreadyActiveError, AccountNotSavedError, ServerBlockedError } from "./accountErrors";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
@@ -203,13 +203,13 @@ export async function getSwitchTargets(active: ActiveAccount): Promise<SavedAcco
  * Rejects when the keychain does — the caller decides whether that is worth
  * telling the user about. Swallowing it here is what hid the size cap.
  */
-export async function saveCurrentAccount(): Promise<boolean> {
+export async function saveCurrentAccount(pendingSecret?: string): Promise<boolean> {
   const values = await Promise.all(SESSION_KEYS.map((key) => keychainGet(key)));
   const session = Object.fromEntries(
     SESSION_KEYS.map((key, i) => [key, values[i]]),
   ) as Record<SessionKey, string | null>;
 
-  const secret = await exportSecret();
+  const secret = (await exportSecret()) ?? (pendingSecret ? { kind: "plain" as const, value: pendingSecret } : null);
   const { account_id, mode } = session;
   if (!account_id || !mode || !secret) return false;
 
@@ -224,7 +224,6 @@ export async function saveCurrentAccount(): Promise<boolean> {
   await upsertSavedAccount(entry);
   return true;
 }
-
 
 /**
  * Merge an entry into the switcher, keeping fields the caller did not supply.
@@ -393,10 +392,10 @@ export function switchToAccount(account: SavedAccount): Promise<void> {
  * The current account is saved first, so a keychain that refuses it stops the add
  * before anything is torn down.
  */
-export async function addAccount(session: Omit<SavedAccount, "mode">): Promise<void> {
-  const saved = await saveCurrentAccount();
+export async function addAccount(session: Omit<SavedAccount, "mode">, pendingSecret?: string): Promise<void> {
+  if ((await keychainGet("account_id")) === session.account_id) throw new AccountAlreadyActiveError();
+  const saved = await saveCurrentAccount(pendingSecret);
   if (!saved && (await keychainGet("mode")) === "server") throw new AccountNotSavedError();
-  if ((await keychainGet("account_id")) === session.account_id) return;
   const entry: SavedAccount = { ...session, mode: "server" };
   await upsertSavedAccount(entry);
   await switchToAccount(entry);

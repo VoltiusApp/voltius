@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Не удалось экспортировать журнал аудита: {{status}}",
       "serverUnreachableTimeout": "Сервер недоступен (тайм-аут) — проверьте подключение к интернету и адрес сервера",
       "networkError": "Ошибка сети — {{message}}",
+      "accountAlreadyActive": "Вы уже вошли в эту учётную запись на этом устройстве",
       "emailAlreadyRegistered": "Этот email уже зарегистрирован",
       "registrationFailed": "Не удалось зарегистрироваться: {{status}}",
       "registrationDisabled": "Регистрация новых аккаунтов на этом сервере отключена. Попросите аккаунт у администратора.",

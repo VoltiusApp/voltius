@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "导出审计日志失败：{{status}}",
       "serverUnreachableTimeout": "服务器无法访问（超时）——请检查网络连接和服务器地址",
       "networkError": "网络错误——{{message}}",
+      "accountAlreadyActive": "你已在此设备上登录此账户",
       "emailAlreadyRegistered": "邮箱已被注册",
       "registrationFailed": "注册失败：{{status}}",
       "registrationDisabled": "此服务器已停用新账户注册。请向其管理员申请账户。",

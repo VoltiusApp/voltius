@@ -20,6 +20,7 @@ import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { canLockApp } from "@/utils/accountMode";
 import { instanceLabel } from "@/utils/serverInstance";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutValue } from "@/utils/sessionTimeout";
+import { accountErrorText } from "@/services/accountErrors";
 
 /**
  * An account on the official cloud keeps the plain user icon; a self-hosted one
@@ -88,7 +89,7 @@ export function SidebarAccountButton() {
     useNotificationStore.getState().addToast({
       source: APP_SOURCE,
       type: "toast",
-      message: t(`layout.sidebarAccount.${key}`, { error: e instanceof Error ? e.message : String(e) }),
+      message: t(`layout.sidebarAccount.${key}`, { error: accountErrorText(e, t) }),
       severity: "error",
       duration: 8000,
     });

@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Failed to export audit logs: {{status}}",
       "serverUnreachableTimeout": "Server unreachable (timeout) — check your internet connection and server URL",
       "networkError": "Network error — {{message}}",
+      "accountAlreadyActive": "You're already signed in to this account on this device",
       "emailAlreadyRegistered": "Email already registered",
       "registrationFailed": "Registration failed: {{status}}",
       "registrationDisabled": "New account registration is disabled on this server. Ask its administrator for an account.",

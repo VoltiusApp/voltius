@@ -54,7 +54,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
 }));
 
 import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, type SavedAccount } from "./savedAccounts";
-import { AccountNotSavedError } from "./accountErrors";
+import { AccountAlreadyActiveError, AccountNotSavedError } from "./accountErrors";
 import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
@@ -478,26 +478,52 @@ test("adding an account leaves the session alone when the current one cannot be 
   expect(h.reload).not.toHaveBeenCalled();
 });
 
-test("adding the pinned-server account from a blocked one parks the blocked account intact", async () => {
-  const blocked = { ...CLOUD_A, server_url: "https://other.example" };
-  activate(blocked);
+const pinCorp = () =>
   usePolicyStore.setState({
     machine: { policy: { "server.url": "https://corp.example", "server.allowOther": false }, defaults: {} },
   });
+const unpin = () => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+const BLOCKED_A = { ...CLOUD_A, server_url: "https://other.example" };
+const CORP_B = { ...SESSION_B, server_url: "https://corp.example" };
+
+test("adding the pinned-server account from a blocked one parks the blocked account intact", async () => {
+  activate(BLOCKED_A);
+  pinCorp();
   try {
-    await addAccount({ ...SESSION_B, server_url: "https://corp.example" });
+    await addAccount(CORP_B);
   } finally {
-    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+    unpin();
   }
   expect(h.push).not.toHaveBeenCalled();
   const saved = await getSavedAccounts();
   expect(saved.find((a) => a.account_id === "a")).toMatchObject({
-    master_password: blocked.master_password,
-    jwt: blocked.jwt,
-    wrapped_user_secrets: blocked.wrapped_user_secrets,
+    master_password: BLOCKED_A.master_password,
+    jwt: BLOCKED_A.jwt,
+    wrapped_user_secrets: BLOCKED_A.wrapped_user_secrets,
   });
   expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
   expect(h.store.account_id).toBe("b");
+});
+
+test("a locked blocked account is parked with the password proven in memory", async () => {
+  activate(BLOCKED_A);
+  delete h.store.master_password;
+  pinCorp();
+  try {
+    await addAccount(CORP_B, "proven-pw");
+  } finally {
+    unpin();
+  }
+  const saved = await getSavedAccounts();
+  expect(saved.find((a) => a.account_id === "a")?.master_password).toBe("proven-pw");
+  expect(h.store.account_id).toBe("b");
+  expect(h.store.master_password).toBe(CLOUD_B.master_password);
+});
+
+test("a secret already in the keychain is parked over the one held in memory", async () => {
+  activate(CLOUD_A);
+  await saveCurrentAccount("other-pw");
+  expect((await getSavedAccounts())[0].master_password).toBe(CLOUD_A.master_password);
 });
 
 test("adding an account refuses when the current server account cannot be snapshotted", async () => {
@@ -512,12 +538,14 @@ test("adding an account refuses when the current server account cannot be snapsh
   expect(h.reload).not.toHaveBeenCalled();
 });
 
-test("adding the account already signed in does not tear it down", async () => {
+test("adding the account already signed in says so and changes nothing", async () => {
   activate(CLOUD_A);
   const { mode: _m, ...sessionA } = CLOUD_A;
+  const before = { ...h.store };
 
-  await addAccount(sessionA);
+  await expect(addAccount(sessionA)).rejects.toBeInstanceOf(AccountAlreadyActiveError);
 
+  expect(h.store).toEqual(before);
   expect(h.swapAccountProfile).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });

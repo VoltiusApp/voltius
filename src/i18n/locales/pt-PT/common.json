@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Falha ao exportar registros de auditoria: {{status}}",
       "serverUnreachableTimeout": "Servidor inalcançável (tempo esgotado) — verifique sua conexão com a internet e a URL do servidor",
       "networkError": "Erro de rede — {{message}}",
+      "accountAlreadyActive": "Já tem sessão iniciada nesta conta neste dispositivo",
       "emailAlreadyRegistered": "E-mail já registrado",
       "registrationFailed": "Falha no registro: {{status}}",
       "registrationDisabled": "O registro de novas contas está desativado neste servidor. Peça uma conta ao administrador.",

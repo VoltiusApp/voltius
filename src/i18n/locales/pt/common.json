@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Falha ao exportar registros de auditoria: {{status}}",
       "serverUnreachableTimeout": "Servidor inalcançável (tempo esgotado) — verifique sua conexão com a internet e a URL do servidor",
       "networkError": "Erro de rede — {{message}}",
+      "accountAlreadyActive": "Você já está conectado a esta conta neste dispositivo",
       "emailAlreadyRegistered": "E-mail já registrado",
       "registrationFailed": "Falha no registro: {{status}}",
       "registrationDisabled": "O registro de novas contas está desativado neste servidor. Peça uma conta ao administrador.",
@@ -309,7 +310,7 @@
     "policy": {
       "managed": "Gerenciado pela sua organização",
       "serverBlocked": "Este servidor não é permitido pela sua organização",
-      "accountNotSaved": "Não foi possível guardar primeiro a conta atual, por isso nada foi alterado",
+      "accountNotSaved": "Não foi possível salvar a conta atual antes, então nada foi alterado",
       "issues_one": "A política do Voltius da sua organização tem {{count}} problema; o resto continua a aplicar-se.",
       "issues_other": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se.",
       "issues_many": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se."
