@@ -5,9 +5,6 @@
       "afternoon": "Bon après-midi",
       "evening": "Bonsoir"
     },
-    "search": {
-      "placeholder": "Rechercher des hôtes, sessions, extraits…"
-    },
     "stat": {
       "vaults_one": "coffre",
       "vaults_many": "coffres",

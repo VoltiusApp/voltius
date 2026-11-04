@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Fragment, useEffect, useRef, useState, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { useConnectionStore } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { englishLabel, resolveLabel } from "@/plugins/resolveLabel";
@@ -26,7 +25,6 @@ import { searchMatcher } from "@/utils/search";
 import { matchesSearch } from "@/utils/connectionFilter";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
-import { AvatarTile } from "@/components/shared/AvatarTile";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, sessionMatchesQuery } from "@/utils/sessionLabel";
@@ -42,8 +40,9 @@ import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
 import { sessionDisplayName } from "@/services/teamSharing";
-import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
-import { computeSectionBoundaries } from "./omniSections";
+import { isJoinInput, joinInputStrength, resolveJoinInput } from "@/services/resolveJoinInput";
+import { appToast } from "@/services/appToast";
+import { commandGuard } from "@/commands/defineCommand";
 import { recentlyUsed } from "@/utils/recentHosts";
 import {
   selectLocalShellItems,
@@ -56,6 +55,8 @@ import { useLocalShells } from "@/hooks/useLocalShells";
 import { useThemeStore } from "@/stores/themeStore";
 import OmniThemeSwitch from "@/components/omni/OmniThemeSwitch";
 import OmniThemeAutomation from "@/components/omni/OmniThemeAutomation";
+import { OmniRow, OmniTile, type RowNotice } from "@/components/omni/OmniRow";
+import { SCOPES, detectScope, type Category } from "@/components/omni/omniScope";
 import { suggestPlugins } from "@/components/omni/omniPlugins";
 import { useInstallablePlugins } from "@/hooks/useInstallablePlugins";
 import { catalogEntryIcon } from "@/plugins/catalogIcon";
@@ -68,7 +69,7 @@ interface OmniSearchProps {
 type OmniView = "root" | "theme-switch" | "theme-automation";
 
 type OmniItem =
-  | { kind: "host"; connection: Connection }
+  | { kind: "host"; connection: Connection; recent?: boolean }
   | { kind: "session"; session: TerminalSession; connection: Connection | undefined }
   | { kind: "key"; key: SshKey }
   | { kind: "identity"; identity: Identity }
@@ -77,43 +78,72 @@ type OmniItem =
   | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
   | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void }
   | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
-  | { kind: "join-code"; id: string; label: string; icon: string; code: string }
-  | { kind: "join-code-prompt"; id: string; label: string; icon: string }
+  | { kind: "join-code"; code: string }
+  | { kind: "join-code-prompt" }
   | { kind: "local-shell"; shell: ShellOption | null }
   | { kind: "plugin"; plugin: MarketplacePlugin };
 
-type Category = "all" | "snippets" | "marketplace" | "settings" | "join";
+const ADDRESS_RE = /^(\d{1,3}(\.\d{1,3}){3}|[a-z0-9-]+(\.[a-z0-9-]+)+)$/i;
 
-function getCategoryBadges(t: (key: string) => string): { category: Category; prefix: string; label: string }[] {
-  return [
-    { category: "all",         prefix: "",      label: t("omni.categoryBadges.all") },
-    { category: "join",        prefix: "join ", label: t("omni.categoryBadges.join") },
-    { category: "snippets",    prefix: "> ",    label: t("omni.categoryBadges.snippets") },
-    { category: "marketplace", prefix: "m> ",   label: t("omni.categoryBadges.marketplace") },
-    { category: "settings",    prefix: "@ ",    label: t("omni.categoryBadges.settings") },
-  ];
+function itemKey(item: OmniItem): string {
+  switch (item.kind) {
+    case "host": return `h-${item.connection.id}${item.recent ? "-r" : ""}`;
+    case "session": return `s-${item.session.id}`;
+    case "key": return `k-${item.key.id}`;
+    case "identity": return `i-${item.identity.id}`;
+    case "action": return `a-${item.id}`;
+    case "snippet": return `sn-${item.snippet.id}`;
+    case "team-session": return `ts-${item.session.id}`;
+    case "toggle": return `t-${item.id}`;
+    case "quick-connect": return "quick-connect";
+    case "join-code": return "join-code";
+    case "join-code-prompt": return "join-code-prompt";
+    case "local-shell": return item.shell ? `ls-${item.shell.path}` : "ls-default";
+    case "plugin": return `p-${item.plugin.id}`;
+  }
 }
 
-function detectCategory(raw: string): { category: Category; query: string } {
-  if (raw.startsWith("m> "))   return { category: "marketplace", query: raw.slice(3) };
-  if (raw.startsWith("> "))    return { category: "snippets",    query: raw.slice(2) };
-  if (raw.startsWith("@ "))    return { category: "settings",    query: raw.slice(2) };
-  if (raw.startsWith("join ")) return { category: "join",        query: raw.slice(5) };
-  return { category: "all", query: raw };
+function sectionOf(item: OmniItem): string {
+  switch (item.kind) {
+    case "join-code": return "joinByInviteCode";
+    case "quick-connect": return "quickConnect";
+    case "session": return "activeConnections";
+    case "team-session":
+    case "join-code-prompt": return "teamSessions";
+    case "host": return item.recent ? "recent" : "hosts";
+    case "local-shell": return "local";
+    case "key":
+    case "identity": return "keychain";
+    case "snippet": return "snippets";
+    case "toggle": return "quickSettings";
+    case "action": return item.id.startsWith("open-settings:") ? "settings" : "actions";
+    case "plugin": return "availablePlugins";
+  }
 }
 
+const rowId = (idx: number) => `omni-opt-${idx}`;
+
+function KeyHint({ keys, label }: { keys: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
+      <kbd className="font-mono text-(--t-text-secondary)">{keys}</kbd>
+      {label}
+    </span>
+  );
+}
 
 export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { t } = useTranslation();
+  const [scope, setScope] = useState<Category>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const [notice, setNotice] = useState<(RowNotice & { key: string; armed: boolean }) | null>(null);
   const [omniView, setOmniView] = useState<OmniView>("root");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const connections = useAllConnections();
   const shells = useLocalShells();
-  const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const { sessions, setActive } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);
   const { trackUsed, setGlobalPendingInject } = useSnippetStore();
@@ -134,7 +164,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const locale = useUiLanguage();
   const isAndroid = useIsAndroid();
   const nav = useMemo(() => (isAndroid ? mobileSettingsNav(getSettingsNav()) : getSettingsNav()), [locale, isAndroid]);
-  const categoryBadges = useMemo(() => getCategoryBadges(t), [locale, t]);
 
   const settingsItems = useMemo<OmniItem[]>(() => {
     const base = nav.map((n): OmniItem => ({
@@ -142,7 +171,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       id: `open-settings:${n.id}`,
       label: n.label,
       icon: n.icon,
-      description: t("omni.settingsDescription"),
     }));
     const pluginPages = [...settingsPagesMap.values()].map((p): OmniItem => ({
       kind: "action",
@@ -159,20 +187,21 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
   const setKeychainPendingAction = useUIStore((s) => s.setKeychainPendingAction);
 
-  // Toggle settings subscriptions
   const toggleSettings = useToggleSettings();
   const toggleItems = useMemo<OmniItem[]>(
     () => toggleSettings.map(({ id, ...d }) => ({ kind: "toggle" as const, id: `toggle:${id}`, ...d })),
     [toggleSettings],
   );
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    inputRef.current?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
+  }, []);
   useEffect(() => { fetchActiveSessions().catch(() => {}); }, [fetchActiveSessions]);
 
-  const { category, query: q } = useMemo(() => {
-    const parsed = detectCategory(query);
-    return { category: parsed.category, query: parsed.query.toLowerCase().trim() };
-  }, [query]);
+  const category = scope;
+  const q = useMemo(() => query.toLowerCase().trim(), [query]);
 
   const activeSessions = useMemo(
     () => sessions.filter((s) => s.status === "connected" || s.status === "connecting"),
@@ -213,101 +242,77 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         .map((plugin): OmniItem => ({ kind: "plugin", plugin }));
     if (category === "marketplace") return pluginItems(true);
     if (category === "join") {
-      if (isJoinInput(q)) {
-        return [{ kind: "join-code", id: "", label: "", icon: "", code: query.trim() }];
-      }
+      if (isJoinInput(q)) return [{ kind: "join-code", code: query.trim() }];
       const sessionItems = teamSessions
         .filter((s) => match(sessionDisplayName(s)))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) }));
-      return [...sessionItems, { kind: "join-code-prompt", id: "", label: "", icon: "" }];
+      return [...sessionItems, { kind: "join-code-prompt" }];
     }
 
     const result: OmniItem[] = [];
+    const joinStrength = joinInputStrength(query);
+    if (joinStrength === "strong") result.push({ kind: "join-code", code: query.trim() });
 
-    // A valid invite code cannot also be a host, so it outranks quick-connect.
-    if (isJoinInput(query)) {
-      result.push({ kind: "join-code", id: "", label: "", icon: "", code: query.trim() });
-    }
-
-    // Local shells are surfaced by the dedicated Local section below, so skip
-    // the redundant local Quick Connect row.
+    // Local shells are surfaced by the dedicated Local section below.
     const quickIntent = parseQuickConnect(query);
-    if (quickIntent && quickIntent.kind !== "local") {
-      result.push({ kind: "quick-connect", intent: quickIntent });
-    }
+    const hostMatches = connections.filter((c) =>
+      q ? matchesSearch(c, q) || match(...(c.tags ?? [])) : !activeConnectionIds.has(c.id) && !c.last_used_at,
+    );
+    const addressIntent = !quickIntent && hostMatches.length === 0 && ADDRESS_RE.test(q) ? parseQuickConnect(`ssh ${q}`) : null;
+    const connectIntent = quickIntent && quickIntent.kind !== "local" ? quickIntent : addressIntent;
+    if (connectIntent) result.push({ kind: "quick-connect", intent: connectIntent });
 
-    // Active SSH sessions
     result.push(
       ...activeSessions
         .filter((s) => sessionMatchesQuery(s, q))
         .map((s): OmniItem => ({ kind: "session", session: s, connection: connectionById.get(s.connectionId) })),
     );
 
-    // Active team sessions
     result.push(
       ...teamSessions
         .filter((s) => match(sessionDisplayName(s)))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) })),
     );
 
-    // Recent (only when no query)
-    if (!q) {
-      result.push(...recentConnections.map((c): OmniItem => ({ kind: "host", connection: c })));
-    }
+    if (!q) result.push(...recentConnections.map((c): OmniItem => ({ kind: "host", connection: c, recent: true })));
+    result.push(...hostMatches.map((c): OmniItem => ({ kind: "host", connection: c })));
 
-    // Hosts
-    const filteredHosts = connections.filter((c) =>
-      q ? matchesSearch(c, q) : !activeConnectionIds.has(c.id) && !c.last_used_at,
-    );
-    result.push(...filteredHosts.map((c): OmniItem => ({ kind: "host", connection: c })));
-
-    // Local shells — single entry when no query, expands to per-shell rows when query matches "local"/a shell name
     result.push(
       ...selectLocalShellItems(shells, q).map((it): OmniItem => ({ kind: "local-shell", shell: it.shell })),
     );
 
-    // SSH Keys
     result.push(
       ...keys
         .filter((k) => match(k.name, k.key_type))
         .map((k): OmniItem => ({ kind: "key", key: k })),
     );
 
-    // Identities
     result.push(
       ...identities
         .filter((i) => match(i.name, i.username))
         .map((i): OmniItem => ({ kind: "identity", identity: i })),
     );
 
-    // Snippets
-    if (q) {
-      result.push(
-        ...snippets.filter(snippetMatches).map((s): OmniItem => ({ kind: "snippet", snippet: s })),
-      );
-    }
+    if (q) result.push(...snippets.filter(snippetMatches).map((s): OmniItem => ({ kind: "snippet", snippet: s })));
 
-    // Plugin + core commands
-    const resolvedPluginCmds = pluginCommands.map((cmd) => ({ cmd, label: resolveLabel(cmd.label) }));
-    const filteredPluginCmds = resolvedPluginCmds.filter(({ cmd, label }) =>
-      match(label, englishLabel(cmd.label), ...(cmd.keywords ?? [])),
-    );
+    const actionsSection = t("omni.sections.actions");
+    const importExportSection = t("omni.sections.importExport");
     result.push(
-      ...filteredPluginCmds.map(({ cmd, label }): OmniItem => {
-        let keybinding = cmd.keybinding;
-        if (!keybinding && cmd.shortcutId) {
-          const sc = shortcuts.find((s) => s.id === cmd.shortcutId);
-          if (sc) keybinding = formatShortcut(sc);
-        }
-        return {
-          kind: "action",
-          id: `plugin:${cmd.id}`,
-          label,
-          icon: cmd.icon,
-          description: cmd.section === undefined ? undefined : resolveLabel(cmd.section),
-          keybinding,
-        };
-      }),
+      ...pluginCommands
+        .map((cmd) => ({ cmd, label: resolveLabel(cmd.label), section: cmd.section === undefined ? undefined : resolveLabel(cmd.section) }))
+        .filter(({ cmd, label, section }) =>
+          (q || section !== importExportSection) && match(label, englishLabel(cmd.label), ...(cmd.keywords ?? [])))
+        .map(({ cmd, label, section }): OmniItem => {
+          const sc = cmd.shortcutId ? shortcuts.find((s) => s.id === cmd.shortcutId) : undefined;
+          return {
+            kind: "action",
+            id: `plugin:${cmd.id}`,
+            label,
+            icon: cmd.icon,
+            description: section === actionsSection ? undefined : section,
+            keybinding: cmd.keybinding ?? (sc && formatShortcut(sc)),
+          };
+        }),
     );
 
     const themeActions: OmniItem[] = [
@@ -315,14 +320,12 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       { kind: "action", id: "theme:switch", label: t("omni.theme.switch"), icon: "lucide:palette", description: t("omni.theme.switchDesc") },
       { kind: "action", id: "theme:automation", label: t("omni.theme.automation"), icon: "lucide:clock", description: t("omni.theme.automationDesc") },
     ];
-    const filteredThemeActions = themeActions.filter((a) => a.kind === "action" && match(a.label, a.description));
-    result.push(...filteredThemeActions);
+    result.push(...themeActions.filter((a) => a.kind === "action" && match(a.label, a.description)));
 
-    // Toggle settings (only when query matches — avoids flooding the empty state)
     if (q) result.push(...toggleItems.filter(toggleMatches));
-
-    // Settings pages (only when query matches — avoids flooding the empty state)
     if (q) result.push(...settingsItems.filter(settingsMatches));
+
+    if (joinStrength === "weak") result.push({ kind: "join-code", code: query.trim() });
 
     result.push(...pluginItems(false));
 
@@ -336,12 +339,18 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     return localShellNeedsPath(shown);
   }, [items]);
 
-  const clamp = useCallback(
-    (idx: number) => Math.max(0, Math.min(idx, items.length - 1)),
-    [items.length],
-  );
+  useEffect(() => { setSelected(0); }, [query, scope]);
+  useEffect(() => { setNotice(null); }, [query, scope, selected]);
 
-  useEffect(() => { setSelected(0); }, [query]);
+  const editHost = useCallback((id: string) => {
+    setHomePendingAction({ action: "edit", id });
+    setActiveNav("hosts");
+    onClose();
+  }, [setHomePendingAction, setActiveNav, onClose]);
+
+  const failJoin = useCallback((e: unknown) => {
+    appToast("error", t("omni.joinFailed", { reason: e instanceof Error ? e.message : String(e) }));
+  }, [t]);
 
   const selectItem = useCallback(
     (item: OmniItem) => {
@@ -366,7 +375,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         if (item.id === "theme:automation") { setOmniView("theme-automation"); setQuery(""); return; }
         if (item.id.startsWith("plugin:")) {
           const cmdId = item.id.slice("plugin:".length);
-          pluginCommands.find((c) => c.id === cmdId)?.execute();
+          const cmd = pluginCommands.find((c) => c.id === cmdId);
+          const guard = cmd && commandGuard(cmd)?.();
+          const key = itemKey(item);
+          if (guard && !guard.proceed) { setNotice({ key, text: guard.message, tone: "info", armed: false }); return; }
+          if (guard && !(notice?.key === key && notice.armed)) {
+            setNotice({ key, text: guard.message, tone: "danger", armed: true });
+            return;
+          }
+          cmd?.execute();
         } else if (item.id.startsWith("open-settings:")) {
           const rest = item.id.slice("open-settings:".length);
           if (rest.startsWith("plugin:")) {
@@ -378,7 +395,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         onClose();
       } else if (item.kind === "snippet") {
         const activeSession = getActiveRunnableSession();
-        if (!activeSession) { onClose(); return; }
+        if (!activeSession) {
+          setNotice({ key: itemKey(item), text: t("omni.snippetNeedsSession"), tone: "info", armed: false });
+          return;
+        }
 
         if (item.snippet.steps.some((s) => s.kind !== "script")) {
           trackUsed(item.snippet.id);
@@ -423,7 +443,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         }
       } else if (item.kind === "toggle") {
         item.onToggle(!item.value);
-        // Stay in palette so the user can see the updated state
       } else if (item.kind === "team-session") {
         const { session, alreadyIn } = item;
         if (alreadyIn) {
@@ -441,16 +460,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               connectionName: sessionDisplayName(session),
             });
             setSidebarOpen(false);
-          })().catch(console.error);
+          })().catch(failJoin);
         }
         onClose();
       } else if (item.kind === "join-code-prompt") {
         inputRef.current?.focus();
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length);
-          }
-        }, 0);
       } else if (item.kind === "join-code") {
         (async () => {
           const { sessionId, inviteToken } = await resolveJoinInput(item.code);
@@ -460,7 +474,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             inviteToken,
           });
           setSidebarOpen(false);
-        })().catch(console.error);
+        })().catch(failJoin);
         onClose();
       } else if (item.kind === "local-shell") {
         launchLocalShell(item.shell?.path);
@@ -474,10 +488,30 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         onClose();
       }
     },
-    [setActive, setActiveNav, onClose, setSidebarOpen,
-     openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     connections, trackUsed, setGlobalPendingInject, t],
+    [setActive, setActiveNav, onClose, setSidebarOpen, openSettings, setKeychainPendingAction, pluginCommands,
+     connections, trackUsed, setGlobalPendingInject, notice, failJoin, t],
   );
+
+  const cycleScope = useCallback((step: number) => {
+    const i = SCOPES.findIndex((s) => s.category === scope);
+    setScope(SCOPES[(i + step + SCOPES.length) % SCOPES.length].category);
+  }, [scope]);
+
+  const onInputChange = (raw: string) => {
+    const detected = scope === "all" ? detectScope(raw) : null;
+    if (detected) {
+      setScope(detected.category);
+      setQuery(detected.rest);
+    } else {
+      setQuery(raw);
+    }
+  };
+
+  const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (omniView !== "root") return;
+    if (e.key === "Tab") { e.preventDefault(); cycleScope(e.shiftKey ? -1 : 1); return; }
+    if (e.key === "Backspace" && query === "" && scope !== "all") { e.preventDefault(); setScope("all"); }
+  };
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -486,469 +520,286 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         onClose();
         return;
       }
-      if (omniView !== "root") return; // sub-views manage their own keys (except Esc handled above)
-      if (e.key === "ArrowDown") { e.preventDefault(); setSelected((s) => clamp(s + 1)); }
-      if (e.key === "ArrowUp") { e.preventDefault(); setSelected((s) => clamp(s - 1)); }
+      if (omniView !== "root") return;
+      const n = items.length;
+      if (e.key === "ArrowDown" && n) { e.preventDefault(); setSelected((s) => (s + 1) % n); }
+      if (e.key === "ArrowUp" && n) { e.preventDefault(); setSelected((s) => (s - 1 + n) % n); }
       if (e.key === "Enter") {
         e.preventDefault();
         const item = items[selected];
-        if (item) selectItem(item);
+        if (!item) return;
+        if (e.shiftKey && item.kind === "host") editHost(item.connection.id);
+        else selectItem(item);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [items, selected, clamp, selectItem, onClose, omniView]);
+  }, [items, selected, selectItem, editHost, onClose, omniView]);
 
   useEffect(() => {
     const el = listRef.current?.querySelector(`[data-idx="${selected}"]`) as HTMLElement | null;
     el?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
-  const sectionBoundaries = useMemo(() => {
-    if (category !== "all") return null;
-    return computeSectionBoundaries(items, !q ? recentConnections.length : 0);
-  }, [category, items, q, recentConnections.length]);
+  const groups = useMemo(() => {
+    const out: { section: string; start: number; items: OmniItem[] }[] = [];
+    items.forEach((item, i) => {
+      const section = sectionOf(item);
+      const last = out[out.length - 1];
+      if (last?.section === section) last.items.push(item);
+      else out.push({ section, start: i, items: [item] });
+    });
+    return out;
+  }, [items]);
+
+  const selectedItem = items[selected];
+  const emptyText =
+    category === "snippets" ? t("omni.emptyState.noSnippets") :
+    category === "marketplace" ? (catalogLoading ? t("omni.emptyState.loadingPlugins") : q ? t("omni.emptyState.noResultsFor", { query: q }) : t("omni.emptyState.noPlugins")) :
+    category === "join" ? (q ? t("omni.emptyState.noSessionsMatch", { query: q }) : t("omni.emptyState.noActiveTeamSessions")) :
+    t("omni.emptyState.noResultsFor", { query: q });
+  const liveText = notice?.text ?? (items.length ? t("omni.resultCount", { count: items.length }) : emptyText);
 
   function renderItem(item: OmniItem, idx: number) {
-    const isSelected = selected === idx;
-    const baseBg = isSelected ? "var(--t-border-hover)" : "transparent";
+    const key = itemKey(item);
+    const row = {
+      key,
+      id: rowId(idx),
+      idx,
+      selected: selected === idx,
+      notice: notice?.key === key ? notice : null,
+      onPick: () => selectItem(item),
+      onHover: setSelected,
+    };
 
-    if (item.kind === "session") {
-      const conn = item.connection;
-      return (
-        <button
-          key={`s-${item.session.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          {conn ? (
-            <div className="relative shrink-0">
-              <ConnectionAvatar connection={conn} size={28} />
-              <StatusDot tone={sessionStatusTone(item.session.status)} size="sm" halo="var(--t-bg-modal)" corner />
-            </div>
-          ) : (
-            <StatusDot tone={sessionStatusTone(item.session.status)} />
-          )}
-          <span className="flex-1 min-w-0 text-sm font-semibold truncate"
-            style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-            {sessionLabel(item.session)}
-          </span>
-          <VaultBadge vaultId={item.connection?.vault_id} />
-          <span className="text-xs shrink-0 text-(--t-text-dim)">
-            {item.session.status}
-          </span>
-        </button>
-      );
-    }
-
-    if (item.kind === "host") {
-      const conn = item.connection;
-      return (
-        <button
-          key={`h-${conn.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors group/row"
-          style={{ background: baseBg }}
-        >
-          <ConnectionAvatar connection={conn} size={28} />
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {conn.name || `${conn.username}@${conn.host}`}
-            </span>
-          </div>
-          <VaultBadge vaultId={conn.vault_id} />
-          <span className="text-xs shrink-0 group-hover/row:hidden text-(--t-text-muted)">
-            ssh, {conn.username}
-          </span>
-          {/* Inline actions on hover */}
-          <div className="hidden group-hover/row:flex items-center gap-0.5 shrink-0">
-            <button
-              onClick={(e) => { e.stopPropagation(); setHomePendingAction({ action: "edit", id: conn.id }); setActiveNav("hosts"); onClose(); }}
-              className="p-1.5 rounded-md transition-colors text-(--t-text-dim)"
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
-              title={t("omni.editHost")}
-            >
-              <Icon icon="lucide:pencil" width={13} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id).catch(() => {}); }}
-              className="p-1.5 rounded-md transition-colors text-(--t-text-dim)"
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#3D1515"; e.currentTarget.style.color = "#F87171"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
-              title={t("omni.deleteHost")}
-            >
-              <Icon icon="lucide:trash-2" width={13} />
-            </button>
-          </div>
-        </button>
-      );
-    }
-
-    if (item.kind === "key") {
-      return (
-        <button
-          key={`k-${item.key.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <AvatarTile icon="lucide:key-round" iconSize={13} className="w-7 h-7 rounded-lg" />
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {item.key.name}
-            </span>
-          </div>
-          <VaultBadge vaultId={item.key.vault_id} />
-          {item.key.key_type && (
-            <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-accent)">
-              {item.key.key_type}
-            </span>
-          )}
-        </button>
-      );
-    }
-
-    if (item.kind === "identity") {
-      return (
-        <button
-          key={`i-${item.identity.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <AvatarTile icon="lucide:id-card" iconSize={13} className="w-7 h-7 rounded-lg" />
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {item.identity.name ?? item.identity.username}
-            </span>
-          </div>
-          <VaultBadge vaultId={item.identity.vault_id} />
-          <span className="text-xs shrink-0 text-(--t-text-muted)">
-            {item.identity.username}
-          </span>
-        </button>
-      );
-    }
-
-    if (item.kind === "action") {
-      return (
-        <button
-          key={`a-${item.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon={item.icon} width={13} className="text-(--t-text-muted)" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {item.label}
-            </span>
-            {item.description && (
-              <p className="text-xs mt-0.5 text-(--t-text-dim)">
-                {item.description}
-              </p>
+    switch (item.kind) {
+      case "session": {
+        const conn = item.connection;
+        return (
+          <OmniRow
+            {...row}
+            leading={conn ? (
+              <div className="relative shrink-0">
+                <ConnectionAvatar connection={conn} size={28} />
+                <StatusDot tone={sessionStatusTone(item.session.status)} size="sm" halo="var(--t-bg-card)" corner />
+              </div>
+            ) : <StatusDot tone={sessionStatusTone(item.session.status)} />}
+            label={sessionLabel(item.session)}
+            trailing={<>
+              <VaultBadge vaultId={conn?.vault_id} />
+              <span className="text-xs shrink-0 text-(--t-text-dim)">{item.session.status}</span>
+            </>}
+          />
+        );
+      }
+      case "host": {
+        const conn = item.connection;
+        const address = conn.username ? `${conn.username}@${conn.host}` : conn.host;
+        return (
+          <OmniRow
+            {...row}
+            leading={<ConnectionAvatar connection={conn} size={28} />}
+            label={conn.name || address}
+            trailing={<>
+              <VaultBadge vaultId={conn.vault_id} />
+              {conn.name && <span className="text-xs shrink-0 max-w-[12rem] truncate text-(--t-text-dim)">{address}</span>}
+              {row.selected && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={(e) => { e.stopPropagation(); editHost(conn.id); }}
+                  className="p-1 -my-1 rounded-md shrink-0 transition-colors text-(--t-text-dim) hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)"
+                  title={t("omni.editHost")}
+                >
+                  <Icon icon="lucide:pencil" width={13} />
+                </button>
+              )}
+            </>}
+          />
+        );
+      }
+      case "key":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon="lucide:key-round" />}
+            label={item.key.name}
+            trailing={<>
+              <VaultBadge vaultId={item.key.vault_id} />
+              {item.key.key_type && (
+                <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-accent)">
+                  {item.key.key_type}
+                </span>
+              )}
+            </>}
+          />
+        );
+      case "identity":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon="lucide:id-card" />}
+            label={item.identity.name ?? item.identity.username}
+            trailing={<>
+              <VaultBadge vaultId={item.identity.vault_id} />
+              <span className="text-xs shrink-0 text-(--t-text-dim)">{item.identity.username}</span>
+            </>}
+          />
+        );
+      case "action":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon={item.icon} />}
+            label={item.label}
+            detail={item.description}
+            trailing={item.keybinding && (
+              <kbd className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 font-mono bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
+                {item.keybinding}
+              </kbd>
             )}
-          </div>
-          {item.keybinding && (
-            <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 font-mono bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
-              {item.keybinding}
-            </span>
-          )}
-        </button>
-      );
+          />
+        );
+      case "snippet":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon="lucide:braces" accent />}
+            label={item.snippet.name}
+            detail={<SnippetPreview snippet={item.snippet} />}
+            detailMono
+            trailing={<>
+              <VaultBadge vaultId={item.snippet.vault_id} />
+              {item.snippet.tags.length > 0 && (
+                <span className="text-xs shrink-0 text-(--t-text-dim)">{item.snippet.tags[0]}</span>
+              )}
+            </>}
+          />
+        );
+      case "toggle":
+        return (
+          <OmniRow
+            {...row}
+            checked={item.value}
+            leading={<OmniTile icon={item.icon} />}
+            label={item.label}
+            detail={item.description}
+            trailing={
+              <span
+                aria-hidden="true"
+                className="shrink-0 rounded-full transition-colors relative border border-(--t-border)"
+                style={{ width: "2.4rem", height: "1.333rem", background: item.value ? "var(--t-accent)" : "var(--t-bg-input)" }}
+              >
+                <span
+                  className="absolute rounded-full bg-white transition-transform"
+                  style={{
+                    width: "1.067rem",
+                    height: "1.067rem",
+                    top: "1px",
+                    left: "0.067rem",
+                    transform: item.value ? "translateX(1.067rem)" : "translateX(0)",
+                  }}
+                />
+              </span>
+            }
+          />
+        );
+      case "team-session": {
+        const { session, alreadyIn } = item;
+        return (
+          <OmniRow
+            {...row}
+            leading={
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "color-mix(in srgb, var(--t-accent) 80%, #000)", color: "#fff" }}
+              >
+                <Icon icon="lucide:radio" width={13} />
+              </div>
+            }
+            label={sessionDisplayName(session)}
+            trailing={<>
+              <span className="text-xs shrink-0 text-(--t-text-dim)">
+                {t("omni.participantCount", { count: session.participant_count })}
+              </span>
+              <span
+                className="text-xs shrink-0 px-1.5 py-0.5 rounded-sm font-medium"
+                style={{
+                  background: alreadyIn ? "color-mix(in srgb, var(--t-accent) 20%, transparent)" : "var(--t-bg-elevated)",
+                  color: alreadyIn ? "var(--t-accent)" : "var(--t-text-dim)",
+                }}
+              >
+                {alreadyIn ? t("omni.resume") : t("omni.join")}
+              </span>
+            </>}
+          />
+        );
+      }
+      case "join-code-prompt":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon="lucide:link" />}
+            label={t("omni.joinCodePrompt.title")}
+            detail={t("omni.joinCodePrompt.subtitle")}
+          />
+        );
+      case "join-code":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon="lucide:log-in" accent />}
+            label={t("omni.joinCodeEntered.title")}
+            detail={item.code}
+            detailMono
+          />
+        );
+      case "local-shell": {
+        const shell = item.shell;
+        const label = shell ? shellLabel(shell.name) : t("omni.localShellDefault");
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} accent />}
+            label={label}
+            detail={shell && shellNeedsPath.has(label) ? shell.path : undefined}
+            detailMono
+          />
+        );
+      }
+      case "quick-connect": {
+        const intent = item.intent;
+        const { title, subtitle, icon } =
+          intent.kind === "ssh"
+            ? {
+                title: intent.user
+                  ? t("omni.quickConnect.connectTo", { user: intent.user, host: intent.host })
+                  : t("omni.quickConnect.connectToHost", { host: intent.host }),
+                subtitle: t("omni.quickConnect.portSsh", { port: intent.port }),
+                icon: "lucide:arrow-right",
+              }
+            : intent.kind === "serial"
+            ? { title: t("omni.quickConnect.serialConnection"), subtitle: intent.port ?? t("omni.quickConnect.configurePortAndBaud"), icon: "lucide:ethernet-port" }
+            : { title: intent.shell ? t("omni.quickConnect.localShellNamed", { shell: intent.shell }) : t("omni.quickConnect.localShell"), subtitle: t("omni.quickConnect.openLocalTerminal"), icon: "lucide:square-terminal" };
+        return <OmniRow {...row} leading={<OmniTile icon={icon} accent />} label={title} detail={subtitle} />;
+      }
+      case "plugin":
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon={catalogEntryIcon(item.plugin)} accent />}
+            label={item.plugin.name}
+            detail={item.plugin.description}
+            trailing={<span className="text-xs shrink-0 text-(--t-text-dim)">{t("omni.pluginNotInstalled")}</span>}
+          />
+        );
     }
-
-    if (item.kind === "snippet") {
-      return (
-        <button
-          key={`sn-${item.snippet.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <AvatarTile icon="lucide:braces" iconSize={13} className="w-7 h-7 rounded-lg" iconClassName="text-(--t-accent)" />
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {item.snippet.name}
-            </span>
-            <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">
-              <SnippetPreview snippet={item.snippet} />
-            </p>
-          </div>
-          <VaultBadge vaultId={item.snippet.vault_id} />
-          {item.snippet.tags.length > 0 && (
-            <span className="text-[10px] shrink-0 text-(--t-text-muted)">
-              {item.snippet.tags[0]}
-            </span>
-          )}
-        </button>
-      );
-    }
-
-    if (item.kind === "toggle") {
-      const isOn = item.value;
-      return (
-        <button
-          key={`t-${item.id}`}
-          data-idx={idx}
-          onClick={() => item.onToggle(!item.value)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon={item.icon} width={13} className="text-(--t-text-muted)" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {item.label}
-            </span>
-            {item.description && (
-              <p className="text-xs mt-0.5 text-(--t-text-dim)">{item.description}</p>
-            )}
-          </div>
-          <div
-            className="shrink-0 rounded-full transition-colors"
-            style={{
-              width: "2.4rem",
-              height: "1.333rem",
-              background: isOn ? "var(--t-accent)" : "var(--t-bg-input)",
-              border: "1px solid var(--t-border)",
-              position: "relative",
-            }}
-          >
-            <span
-              className="absolute rounded-full bg-white transition-transform"
-              style={{
-                width: "1.067rem",
-                height: "1.067rem",
-                top: "1px",
-                left: "0.067rem",
-                transform: isOn ? "translateX(1.067rem)" : "translateX(0)",
-              }}
-            />
-          </div>
-        </button>
-      );
-    }
-
-    if (item.kind === "team-session") {
-      const { session, alreadyIn } = item;
-      return (
-        <button
-          key={`ts-${session.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: "color-mix(in srgb, var(--t-accent) 80%, #000)", color: "#fff" }}
-          >
-            <Icon icon="lucide:radio" width={13} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium truncate"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {sessionDisplayName(session)}
-            </span>
-          </div>
-          <span className="text-xs shrink-0 text-(--t-text-dim)">
-            {t("omni.participantCount", { count: session.participant_count })}
-          </span>
-          <span
-            className="text-xs shrink-0 px-1.5 py-0.5 rounded-sm font-medium"
-            style={{
-              background: alreadyIn ? "color-mix(in srgb, var(--t-accent) 20%, transparent)" : "var(--t-bg-elevated)",
-              color: alreadyIn ? "var(--t-accent)" : "var(--t-text-dim)",
-            }}
-          >
-            {alreadyIn ? t("omni.resume") : t("omni.join")}
-          </span>
-        </button>
-      );
-    }
-
-    // join-code-prompt — always visible in join mode to surface the invite code flow
-    if (item.kind === "join-code-prompt") {
-      return (
-        <button
-          key="join-code-prompt"
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon="lucide:link" width={13} className="text-(--t-text-muted)" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {t("omni.joinCodePrompt.title")}
-            </span>
-            <p className="text-xs mt-0.5 text-(--t-text-dim)">
-              {t("omni.joinCodePrompt.subtitle")}
-            </p>
-          </div>
-        </button>
-      );
-    }
-
-    // join-code (an invite code, typed directly or via "join " prefix)
-    if (item.kind === "join-code") {
-      return (
-        <button
-          key="join-code"
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon="lucide:log-in" width={13} className="text-(--t-accent)" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {t("omni.joinCodeEntered.title")}
-            </span>
-            <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">
-              {item.code}
-            </p>
-          </div>
-        </button>
-      );
-    }
-
-    if (item.kind === "local-shell") {
-      const shell = item.shell;
-      const label = shell ? shellLabel(shell.name) : t("omni.localShellDefault");
-      const showPath = !!shell && shellNeedsPath.has(label);
-      return (
-        <button
-          key={shell ? `ls-${shell.path}` : "ls-default"}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} width={13} className="text-(--t-accent)" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium" style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>{label}</span>
-            {showPath && <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">{shell?.path}</p>}
-          </div>
-        </button>
-      );
-    }
-
-    if (item.kind === "quick-connect") {
-      const intent = item.intent;
-      const { title, subtitle, icon } =
-        intent.kind === "ssh"
-          ? { title: t("omni.quickConnect.connectTo", { user: intent.user, host: intent.host }), subtitle: t("omni.quickConnect.portSsh", { port: intent.port }), icon: "lucide:arrow-right" }
-          : intent.kind === "serial"
-          ? { title: t("omni.quickConnect.serialConnection"), subtitle: intent.port ?? t("omni.quickConnect.configurePortAndBaud"), icon: "lucide:ethernet-port" }
-          : { title: intent.shell ? t("omni.quickConnect.localShellNamed", { shell: intent.shell }) : t("omni.quickConnect.localShell"), subtitle: t("omni.quickConnect.openLocalTerminal"), icon: "lucide:square-terminal" };
-      return (
-        <button
-          key="quick-connect"
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon={icon} width={13} className="text-(--t-accent)" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {title}
-            </span>
-            <p className="text-xs mt-0.5 text-(--t-text-dim)">{subtitle}</p>
-          </div>
-        </button>
-      );
-    }
-
-    if (item.kind === "plugin") {
-      const { plugin } = item;
-      return (
-        <button
-          key={`p-${plugin.id}`}
-          data-idx={idx}
-          onClick={() => selectItem(item)}
-          onMouseEnter={() => setSelected(idx)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-          style={{ background: baseBg }}
-        >
-          <AvatarTile icon={catalogEntryIcon(plugin)} iconSize={13} className="w-7 h-7 rounded-lg" iconClassName="text-(--t-accent)" />
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium"
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              {plugin.name}
-            </span>
-            <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">{plugin.description}</p>
-          </div>
-          <span className="text-xs shrink-0 px-1.5 py-0.5 rounded-sm font-medium bg-(--t-bg-elevated) text-(--t-text-dim)">
-            {t("omni.pluginNotInstalled")}
-          </span>
-        </button>
-      );
-    }
-
-    return null;
   }
-
-  function sectionHeader(label: string, showDivider: boolean) {
-    return (
-      <>
-        {showDivider && (
-          <div className="border-t border-t-(--t-border) my-1" />
-        )}
-        <p className="px-4 pt-1 pb-1.5 text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-          {label}
-        </p>
-      </>
-    );
-  }
-
-  let runningIdx = 0;
-  const hasAbove = (...counts: number[]) => counts.some((c) => c > 0);
 
   return createPortal(
     <div
+      role="presentation"
       className="fixed inset-0 z-60 flex items-start justify-center pt-[20vh]"
       style={{
         background: "rgba(0,0,0,0.5)",
@@ -958,186 +809,93 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       onClick={onClose}
     >
       <div
-        className="surface-glass-modal w-full max-w-xl rounded-[var(--r-lg)] overflow-hidden animate-fadeIn mx-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("omni.dialogLabel")}
+        className="surface-glass-solid w-full max-w-xl rounded-[var(--r-lg)] overflow-hidden animate-fadeIn mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-b-(--t-border)">
-          <Icon icon="lucide:search" width={16}
-            className="text-(--t-accent) shrink-0" />
+          <Icon icon="lucide:search" width={16} className="text-(--t-accent) shrink-0" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onInputChange(e.target.value)}
+            onKeyDown={onInputKeyDown}
+            role="combobox"
+            aria-label={t("omni.dialogLabel")}
+            aria-expanded={omniView === "root"}
+            aria-controls={omniView === "root" ? "omni-listbox" : undefined}
+            aria-autocomplete="list"
+            aria-activedescendant={omniView === "root" && selectedItem ? rowId(selected) : undefined}
             placeholder={omniView === "theme-switch" ? t("omni.theme.searchThemes") : t("omni.searchPlaceholder")}
-            className="flex-1 bg-transparent text-sm outline-hidden placeholder-opacity-40 text-(--t-text-primary)"
+            className="flex-1 bg-transparent text-sm outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
           />
-          <span className="text-xs px-1.5 py-0.5 rounded-lg font-mono bg-(--t-bg-base) text-(--t-text-muted) border border-(--t-border-hover)">
-            Ctrl+K
-          </span>
         </div>
 
-        {/* Category badges */}
         {omniView === "root" && (
           <div className="flex items-center gap-1.5 px-4 py-2 border-b border-b-(--t-border)">
-            {categoryBadges.map((badge) => {
-              const isActive = category === badge.category;
+            {SCOPES.map((s) => {
+              const isActive = scope === s.category;
               return (
                 <button
-                  key={badge.category}
-                  onClick={() => {
-                    setQuery(badge.prefix);
-                    inputRef.current?.focus();
-                  }}
-                  className="px-2 py-0.5 rounded-sm text-xs font-mono transition-colors"
+                  key={s.category}
+                  type="button"
+                  tabIndex={-1}
+                  aria-pressed={isActive}
+                  onClick={() => { setScope(s.category); inputRef.current?.focus(); }}
+                  className="flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-sm text-xs transition-colors border"
                   style={{
                     background: isActive ? "var(--t-accent)" : "var(--t-bg-base)",
-                    color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-muted)",
-                    border: `1px solid ${isActive ? "var(--t-accent)" : "var(--t-border)"}`,
+                    color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-dim)",
+                    borderColor: isActive ? "var(--t-accent)" : "var(--t-border)",
                   }}
                 >
-                  {badge.label}
+                  {t(`omni.categoryBadges.${s.category}`)}
+                  {s.prefix && <span className="font-mono opacity-75">{s.prefix}</span>}
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Results */}
         {omniView === "theme-switch" ? (
           <OmniThemeSwitch query={q} onBack={() => { setOmniView("root"); setQuery(""); }} onClose={onClose} />
         ) : omniView === "theme-automation" ? (
           <OmniThemeAutomation onBack={() => { setOmniView("root"); setQuery(""); }} onClose={onClose} />
         ) : (
-        <div ref={listRef} className="overflow-y-auto py-2" style={{ maxHeight: "420px" }}>
-          {category === "all" && sectionBoundaries ? (
-            <>
-              {sectionBoundaries.joinCodeCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.joinByInviteCode"), false)}
-                  {items.slice(sectionBoundaries.joinCodeStart, sectionBoundaries.joinCodeStart + sectionBoundaries.joinCodeCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
+          <>
+            <div
+              ref={listRef}
+              id="omni-listbox"
+              role="listbox"
+              aria-label={t("omni.dialogLabel")}
+              className="overflow-y-auto py-1.5"
+              style={{ maxHeight: "420px" }}
+            >
+              {groups.map((g, gi) => (
+                <Fragment key={`${g.section}-${g.start}`}>
+                  {gi > 0 && <div role="presentation" className="border-t border-t-(--t-border) my-1.5" />}
+                  <p role="presentation" aria-hidden="true" className="px-4 pt-1 pb-1.5 text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
+                    {t(`omni.sections.${g.section}`)}
+                  </p>
+                  {g.items.map((item, j) => renderItem(item, g.start + j))}
+                </Fragment>
+              ))}
+              {items.length === 0 && (
+                <p className="px-4 py-6 text-sm text-center text-(--t-text-dim)">{emptyText}</p>
               )}
-
-              {sectionBoundaries.quickConnectCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.quickConnect"), sectionBoundaries.joinCodeCount > 0)}
-                  {items.slice(sectionBoundaries.quickConnectStart, sectionBoundaries.quickConnectStart + sectionBoundaries.quickConnectCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.activeCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.activeConnections"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount))}
-                  {items.slice(sectionBoundaries.activeStart, sectionBoundaries.activeStart + sectionBoundaries.activeCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.teamSessionCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.teamSessions"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount))}
-                  {items.slice(sectionBoundaries.teamSessionStart, sectionBoundaries.teamSessionStart + sectionBoundaries.teamSessionCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.recentCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.recent"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount))}
-                  {items.slice(sectionBoundaries.recentStart, sectionBoundaries.recentStart + sectionBoundaries.recentCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.hostCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.hosts"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount))}
-                  {items.slice(sectionBoundaries.hostStart, sectionBoundaries.hostStart + sectionBoundaries.hostCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.localCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.local"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
-                  {items.slice(sectionBoundaries.localStart, sectionBoundaries.localStart + sectionBoundaries.localCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {(sectionBoundaries.keyCount > 0 || sectionBoundaries.identityCount > 0) && (
-                <>
-                  {sectionHeader(t("omni.sections.keychain"), hasAbove(sectionBoundaries.joinCodeCount, sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount, sectionBoundaries.localCount))}
-                  {items.slice(sectionBoundaries.keyStart, sectionBoundaries.keyStart + sectionBoundaries.keyCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                  {items.slice(sectionBoundaries.identityStart, sectionBoundaries.identityStart + sectionBoundaries.identityCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.snippetCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.snippets"), runningIdx > 0)}
-                  {items.slice(sectionBoundaries.snippetStart, sectionBoundaries.snippetStart + sectionBoundaries.snippetCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.actionCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.actions"), runningIdx > 0)}
-                  {items.slice(sectionBoundaries.actionStart, sectionBoundaries.actionStart + sectionBoundaries.actionCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.toggleCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.quickSettings"), runningIdx > 0)}
-                  {items.slice(sectionBoundaries.toggleStart, sectionBoundaries.toggleStart + sectionBoundaries.toggleCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.settingsCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.settings"), runningIdx > 0)}
-                  {items.slice(sectionBoundaries.settingsStart, sectionBoundaries.settingsStart + sectionBoundaries.settingsCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-
-              {sectionBoundaries.pluginCount > 0 && (
-                <>
-                  {sectionHeader(t("omni.sections.availablePlugins"), runningIdx > 0)}
-                  {items.slice(sectionBoundaries.pluginStart, sectionBoundaries.pluginStart + sectionBoundaries.pluginCount)
-                    .map((item) => renderItem(item, runningIdx++))}
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              {category === "settings" && sectionHeader(t("omni.sections.settings"), false)}
-              {category === "marketplace" && items.length > 0 && sectionHeader(t("omni.sections.availablePlugins"), false)}
-              {category === "join" && items[0]?.kind === "join-code" && sectionHeader(t("omni.sections.joinByInviteCode"), false)}
-              {category === "join" && items[0]?.kind !== "join-code" && sectionHeader(t("omni.sections.teamSessions"), false)}
-              {items.map((item) => renderItem(item, runningIdx++))}
-            </>
-          )}
-
-          {items.length === 0 && (
-            <p className="px-4 py-6 text-sm text-center text-(--t-text-dim)">
-              {category === "snippets" ? t("omni.emptyState.noSnippets") :
-               category === "marketplace" ? (catalogLoading ? t("omni.emptyState.loadingPlugins") : q ? t("omni.emptyState.noResultsFor", { query: q }) : t("omni.emptyState.noPlugins")) :
-               category === "join" ? (q ? t("omni.emptyState.noSessionsMatch", { query: q }) : t("omni.emptyState.noActiveTeamSessions")) :
-               t("omni.emptyState.noResultsFor", { query: q || query })}
-            </p>
-          )}
-        </div>
+            </div>
+            <div className="border-t border-t-(--t-border) px-4 py-2 flex items-center gap-4 text-xs text-(--t-text-dim)">
+              <KeyHint keys="↑↓" label={t("omni.hints.move")} />
+              <KeyHint keys="↵" label={t("omni.hints.open")} />
+              {selectedItem?.kind === "host" && <KeyHint keys="⇧↵" label={t("omni.hints.edit")} />}
+              <KeyHint keys="Tab" label={t("omni.hints.scope")} />
+              <span className="ml-auto"><KeyHint keys="Esc" label={t("omni.hints.close")} /></span>
+            </div>
+          </>
         )}
+        <div className="sr-only" aria-live="polite">{omniView === "root" ? liveText : ""}</div>
       </div>
     </div>,
     document.body,

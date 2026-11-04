@@ -20,7 +20,8 @@ export function useKeyboard() {
 
       if (matchShortcut("omni", e)) {
         e.preventDefault();
-        useUIStore.getState().setOmniOpen(true);
+        const { omniOpen, setOmniOpen } = useUIStore.getState();
+        setOmniOpen(!omniOpen);
         return;
       }
 

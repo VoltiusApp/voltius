@@ -4,7 +4,7 @@ const redeemSessionCode = vi.hoisted(() => vi.fn());
 vi.mock("@/services/multiplayerService", () => ({ redeemSessionCode }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
-import { resolveJoinInput } from "./resolveJoinInput";
+import { resolveJoinInput, joinInputStrength } from "./resolveJoinInput";
 
 const SESSION = "8f3c1e0a-4b2d-47aa-9e11-2c6d5a7b8f90";
 
@@ -66,4 +66,20 @@ test("resolves an https invite link", async () => {
     sessionId: SESSION,
     inviteToken: "faketoken",
   });
+});
+
+test("links and grouped codes are strong join input", () => {
+  expect(joinInputStrength(`voltius://join?s=${SESSION}&t=faketoken`)).toBe("strong");
+  expect(joinInputStrength("K7M2-P9QX-3B")).toBe("strong");
+  expect(joinInputStrength("k7m2 p9qx 3b")).toBe("strong");
+});
+
+test("a bare ten-letter word is only weak join input", () => {
+  expect(joinInputStrength("disconnect")).toBe("weak");
+  expect(joinInputStrength("K7M2P9QX3B")).toBe("weak");
+});
+
+test("anything else is not join input", () => {
+  expect(joinInputStrength("prod-web-01")).toBeNull();
+  expect(joinInputStrength("")).toBeNull();
 });

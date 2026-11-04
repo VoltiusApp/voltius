@@ -5,9 +5,6 @@
       "afternoon": "下午好",
       "evening": "晚上好"
     },
-    "search": {
-      "placeholder": "搜索主机、会话、代码片段…"
-    },
     "stat": {
       "vaults_other": "保险库",
       "hosts_other": "主机",

@@ -5,9 +5,6 @@
       "afternoon": "Boa tarde",
       "evening": "Boa noite"
     },
-    "search": {
-      "placeholder": "Pesquisar hosts, sessões, snippets…"
-    },
     "stat": {
       "vaults_one": "cofre",
       "vaults_other": "cofres",
