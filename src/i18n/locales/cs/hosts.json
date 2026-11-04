@@ -127,7 +127,7 @@
     "teamSessions": {
       "title": "Týmové relace",
       "joinByCode": "Připojit se pomocí kódu",
-      "emptyHint": "Zde se zobrazí terminály, které sdílejí vaši kolegové. Máte kód pozvánky? Vložte ho do vyhledávání a připojte se.",
+      "emptyHint": "Zde se zobrazí terminály, které sdílejí vaši kolegové. Máte odkaz nebo kód pozvánky? Použijte „Připojit se pomocí kódu“.",
       "live": "ŽIVĚ",
       "pasteInviteCode": "Vložte odkaz nebo kód pozvánky a připojte se k soukromé relaci:",
       "inviteCodePlaceholder": "voltius://join?… nebo sessionId:token",
