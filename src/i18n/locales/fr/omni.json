@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Rechercher hôtes, clés, identités et commandes...",
+    "searchPlaceholder": "Rechercher hôtes, commandes et réglages, ou saisir user@host",
     "categoryBadges": {
       "all": "Tout",
-      "join": "join> Sessions",
-      "snippets": "> Extraits",
-      "marketplace": "m> Marketplace",
-      "settings": "@ Réglages"
+      "join": "Sessions d'équipe",
+      "snippets": "Extraits",
+      "marketplace": "Plugins",
+      "settings": "Réglages"
     },
     "sections": {
       "quickConnect": "Connexion rapide",
@@ -24,18 +24,16 @@
       "importExport": "Import / Export",
       "availablePlugins": "Plugins disponibles"
     },
-    "settingsDescription": "Réglages",
     "pluginSettingsDescription": "Réglages du plugin",
     "pluginNotInstalled": "Non installé",
     "editHost": "Modifier l'hôte",
-    "deleteHost": "Supprimer l'hôte",
     "resume": "Reprendre",
     "join": "Rejoindre",
     "participantCount_one": "{{count}} personne",
     "participantCount_many": "{{count}} personnes",
     "participantCount_other": "{{count}} personnes",
     "joinCodePrompt": {
-      "title": "Rejoindre avec un code d'invitation...",
+      "title": "Rejoindre avec un code d'invitation…",
       "subtitle": "Collez votre code d'invitation ici pour rejoindre une session privée"
     },
     "joinCodeEntered": {
@@ -48,7 +46,8 @@
       "configurePortAndBaud": "Configurer le port et le débit",
       "localShellNamed": "Terminal local ({{shell}})",
       "localShell": "Terminal local",
-      "openLocalTerminal": "Ouvrir un terminal local"
+      "openLocalTerminal": "Ouvrir un terminal local",
+      "connectToHost": "Se connecter à {{host}}"
     },
     "localShellDefault": "Terminal local",
     "emptyState": {
@@ -117,7 +116,24 @@
       "exportSnippets": "Exporter les snippets…",
       "exportPortForwarding": "Exporter les règles de redirection de ports…",
       "exportThemes": "Exporter les thèmes personnalisés…",
-      "importThemes": "Importer des thèmes…"
+      "importThemes": "Importer des thèmes…",
+      "disconnectAllNone": "Aucune session ouverte à déconnecter",
+      "disconnectAllConfirm_one": "Déconnecter {{count}} session ? Appuyez de nouveau sur Entrée pour confirmer",
+      "disconnectAllConfirm_many": "Déconnecter {{count}} sessions ? Appuyez de nouveau sur Entrée pour confirmer",
+      "disconnectAllConfirm_other": "Déconnecter {{count}} sessions ? Appuyez de nouveau sur Entrée pour confirmer"
+    },
+    "dialogLabel": "Palette de commandes",
+    "resultCount_one": "{{count}} résultat",
+    "resultCount_many": "{{count}} résultats",
+    "resultCount_other": "{{count}} résultats",
+    "snippetNeedsSession": "Ouvrez d'abord un terminal, puis lancez l'extrait d'ici",
+    "joinFailed": "Impossible de rejoindre la session : {{reason}}",
+    "hints": {
+      "move": "Naviguer",
+      "open": "Ouvrir",
+      "edit": "Modifier l'hôte",
+      "scope": "Portée",
+      "close": "Fermer"
     }
   }
 }

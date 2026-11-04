@@ -5,9 +5,6 @@
       "afternoon": "Добрый день",
       "evening": "Добрый вечер"
     },
-    "search": {
-      "placeholder": "Поиск хостов, сессий, сниппетов…"
-    },
     "stat": {
       "vaults_one": "хранилище",
       "vaults_few": "хранилища",

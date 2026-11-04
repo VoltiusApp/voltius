@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "搜索主机、密钥、身份和命令...",
+    "searchPlaceholder": "搜索主机、命令和设置，或输入 user@host",
     "categoryBadges": {
       "all": "全部",
-      "join": "join> 会话",
-      "snippets": "> 代码片段",
-      "marketplace": "m> 市场",
-      "settings": "@ 设置"
+      "join": "团队会话",
+      "snippets": "代码片段",
+      "marketplace": "插件",
+      "settings": "设置"
     },
     "sections": {
       "quickConnect": "快速连接",
@@ -24,17 +24,15 @@
       "importExport": "导入 / 导出",
       "availablePlugins": "可用插件"
     },
-    "settingsDescription": "设置",
     "pluginSettingsDescription": "插件设置",
     "pluginNotInstalled": "未安装",
     "editHost": "编辑主机",
-    "deleteHost": "删除主机",
     "resume": "继续",
     "join": "加入",
     "participantCount_one": "{{count}} 人",
     "participantCount_other": "{{count}} 人",
     "joinCodePrompt": {
-      "title": "通过邀请码加入...",
+      "title": "通过邀请码加入…",
       "subtitle": "在此粘贴邀请码以加入私有会话"
     },
     "joinCodeEntered": {
@@ -47,7 +45,8 @@
       "configurePortAndBaud": "配置端口和波特率",
       "localShellNamed": "本地 Shell ({{shell}})",
       "localShell": "本地 Shell",
-      "openLocalTerminal": "打开本地终端"
+      "openLocalTerminal": "打开本地终端",
+      "connectToHost": "连接到 {{host}}"
     },
     "localShellDefault": "本地 Shell",
     "emptyState": {
@@ -116,7 +115,22 @@
       "exportSnippets": "导出代码片段…",
       "exportPortForwarding": "导出端口转发规则…",
       "exportThemes": "导出自定义主题…",
-      "importThemes": "导入主题…"
+      "importThemes": "导入主题…",
+      "disconnectAllNone": "没有可断开的会话",
+      "disconnectAllConfirm_one": "断开 {{count}} 个会话？再次按 Enter 确认",
+      "disconnectAllConfirm_other": "断开 {{count}} 个会话？再次按 Enter 确认"
+    },
+    "dialogLabel": "命令面板",
+    "resultCount_one": "{{count}} 个结果",
+    "resultCount_other": "{{count}} 个结果",
+    "snippetNeedsSession": "请先打开终端，再从这里运行代码片段",
+    "joinFailed": "无法加入会话：{{reason}}",
+    "hints": {
+      "move": "移动",
+      "open": "打开",
+      "edit": "编辑主机",
+      "scope": "范围",
+      "close": "关闭"
     }
   }
 }

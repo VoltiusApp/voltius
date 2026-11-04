@@ -172,6 +172,6 @@ export function formatShortcut(sc: Shortcut): string {
   if (sc.ctrl) parts.push("Ctrl");
   if (sc.alt) parts.push("Alt");
   if (sc.shift) parts.push("Shift");
-  parts.push(sc.key === " " ? "Space" : sc.key);
+  parts.push(sc.key === " " ? "Space" : sc.key.length === 1 ? sc.key.toUpperCase() : sc.key);
   return parts.join("+");
 }

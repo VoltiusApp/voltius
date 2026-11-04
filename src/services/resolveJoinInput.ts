@@ -31,3 +31,13 @@ export function isJoinInput(input: string): boolean {
   const trimmed = input.trim();
   return isInviteCode(trimmed) || isShortCode(trimmed);
 }
+
+const GROUPED_CODE_RE = /^[0-9a-z]{4}[-\s][0-9a-z]{4}[-\s][0-9a-z]{2}$/i;
+
+/** "strong" for a link or a grouped XXXX-XXXX-XX code; "weak" for a bare 10-symbol word, which may be a search term. */
+export function joinInputStrength(input: string): "strong" | "weak" | null {
+  const trimmed = input.trim();
+  if (isInviteCode(trimmed)) return "strong";
+  if (!isShortCode(trimmed)) return null;
+  return GROUPED_CODE_RE.test(trimmed) ? "strong" : "weak";
+}

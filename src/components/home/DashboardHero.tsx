@@ -77,7 +77,7 @@ export function DashboardHero() {
         }}
       >
         <Icon icon="lucide:search" width={15} className="shrink-0" />
-        <span className="text-sm flex-1">{t("home.search.placeholder")}</span>
+        <span className="text-sm flex-1">{t("omni.searchPlaceholder")}</span>
         {omniHint && (
           <kbd
             className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-sm shrink-0"

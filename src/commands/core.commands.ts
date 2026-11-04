@@ -4,7 +4,10 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { checkForUpdate } from "@/services/updater";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
-import { lazyT } from "@/i18n";
+import i18n, { lazyT } from "@/i18n";
+
+const openSessions = () =>
+  useSessionStore.getState().sessions.filter((s) => s.status === "connected" || s.status === "connecting");
 
 export const commands: OmniCommand[] = [
   pendingActionCommand({
@@ -104,11 +107,16 @@ export const commands: OmniCommand[] = [
     label: lazyT("omni.commands.disconnectAll"),
     icon: "lucide:unplug",
     keywords: ["close", "end", "stop", "quit", "sessions", "all", "kill"],
+    guard: () => {
+      const count = openSessions().length;
+      return count === 0
+        ? { message: i18n.t("omni.commands.disconnectAllNone"), proceed: false }
+        : { message: i18n.t("omni.commands.disconnectAllConfirm", { count }), proceed: true };
+    },
     execute: () => {
-      const { sessions, disconnect, removeSession } = useSessionStore.getState();
+      const { disconnect, removeSession } = useSessionStore.getState();
       const mpStore = useTeamSessionStore.getState();
-      sessions
-        .filter((s) => s.status === "connected" || s.status === "connecting")
+      openSessions()
         .forEach((s) => {
           const mpConn = mpStore.connections[s.id];
           if (mpConn) {

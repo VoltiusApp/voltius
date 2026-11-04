@@ -5,9 +5,6 @@
       "afternoon": "Good afternoon",
       "evening": "Good evening"
     },
-    "search": {
-      "placeholder": "Search hosts, sessions, snippets…"
-    },
     "stat": {
       "vaults_one": "vault",
       "vaults_other": "vaults",

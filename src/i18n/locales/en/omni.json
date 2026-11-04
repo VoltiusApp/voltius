@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Search hosts, keys, identities & commands...",
+    "searchPlaceholder": "Search hosts, commands and settings, or type user@host",
     "categoryBadges": {
       "all": "All",
-      "join": "join> Sessions",
-      "snippets": "> Snippets",
-      "marketplace": "m> Marketplace",
-      "settings": "@ Settings"
+      "join": "Team sessions",
+      "snippets": "Snippets",
+      "marketplace": "Plugins",
+      "settings": "Settings"
     },
     "sections": {
       "quickConnect": "Quick Connect",
@@ -24,17 +24,15 @@
       "importExport": "Import / Export",
       "availablePlugins": "Available plugins"
     },
-    "settingsDescription": "Settings",
     "pluginSettingsDescription": "Plugin Settings",
     "pluginNotInstalled": "Not installed",
     "editHost": "Edit host",
-    "deleteHost": "Delete host",
     "resume": "Resume",
     "join": "Join",
     "participantCount_one": "{{count}} person",
     "participantCount_other": "{{count}} people",
     "joinCodePrompt": {
-      "title": "Join by invite code...",
+      "title": "Join by invite code…",
       "subtitle": "Paste your invite code here to join a private session"
     },
     "joinCodeEntered": {
@@ -47,7 +45,8 @@
       "configurePortAndBaud": "Configure port & baud",
       "localShellNamed": "Local shell ({{shell}})",
       "localShell": "Local shell",
-      "openLocalTerminal": "Open a local terminal"
+      "openLocalTerminal": "Open a local terminal",
+      "connectToHost": "Connect to {{host}}"
     },
     "localShellDefault": "Local shell",
     "emptyState": {
@@ -116,7 +115,22 @@
       "exportSnippets": "Export snippets…",
       "exportPortForwarding": "Export port forwarding rules…",
       "exportThemes": "Export custom themes…",
-      "importThemes": "Import themes…"
+      "importThemes": "Import themes…",
+      "disconnectAllNone": "No open sessions to disconnect",
+      "disconnectAllConfirm_one": "Disconnect {{count}} session? Press Enter again to confirm",
+      "disconnectAllConfirm_other": "Disconnect {{count}} sessions? Press Enter again to confirm"
+    },
+    "dialogLabel": "Command palette",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "snippetNeedsSession": "Open a terminal first, then run the snippet from here",
+    "joinFailed": "Couldn't join the session: {{reason}}",
+    "hints": {
+      "move": "Move",
+      "open": "Open",
+      "edit": "Edit host",
+      "scope": "Scope",
+      "close": "Close"
     }
   }
 }

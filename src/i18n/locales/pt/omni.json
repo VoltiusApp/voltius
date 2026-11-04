@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Buscar hosts, chaves, identidades e comandos…",
+    "searchPlaceholder": "Buscar hosts, comandos e configurações, ou digite user@host",
     "categoryBadges": {
       "all": "Todos",
-      "join": "participar> Sessões",
-      "snippets": "> Snippets",
-      "marketplace": "m> Marketplace",
-      "settings": "@ Configurações"
+      "join": "Sessões da equipe",
+      "snippets": "Snippets",
+      "marketplace": "Plugins",
+      "settings": "Configurações"
     },
     "sections": {
       "quickConnect": "Conexão Rápida",
@@ -24,11 +24,9 @@
       "importExport": "Importar / Exportar",
       "availablePlugins": "Plugins disponíveis"
     },
-    "settingsDescription": "Configurações",
     "pluginSettingsDescription": "Configurações de Plugin",
     "pluginNotInstalled": "Não instalado",
     "editHost": "Editar host",
-    "deleteHost": "Excluir host",
     "resume": "Retomar",
     "join": "Participar",
     "participantCount_one": "{{count}} pessoa",
@@ -48,7 +46,8 @@
       "configurePortAndBaud": "Configurar porta e baud",
       "localShellNamed": "Shell local ({{shell}})",
       "localShell": "Shell local",
-      "openLocalTerminal": "Abrir um terminal local"
+      "openLocalTerminal": "Abrir um terminal local",
+      "connectToHost": "Conectar a {{host}}"
     },
     "localShellDefault": "Shell local",
     "emptyState": {
@@ -117,7 +116,24 @@
       "exportSnippets": "Exportar snippets…",
       "exportPortForwarding": "Exportar regras de encaminhamento de porta…",
       "exportThemes": "Exportar temas personalizados…",
-      "importThemes": "Importar temas…"
+      "importThemes": "Importar temas…",
+      "disconnectAllNone": "Nenhuma sessão aberta para desconectar",
+      "disconnectAllConfirm_one": "Desconectar {{count}} sessão? Pressione Enter de novo para confirmar",
+      "disconnectAllConfirm_many": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar",
+      "disconnectAllConfirm_other": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar"
+    },
+    "dialogLabel": "Paleta de comandos",
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_many": "{{count}} resultados",
+    "resultCount_other": "{{count}} resultados",
+    "snippetNeedsSession": "Abra um terminal primeiro e depois execute o snippet daqui",
+    "joinFailed": "Não foi possível entrar na sessão: {{reason}}",
+    "hints": {
+      "move": "Mover",
+      "open": "Abrir",
+      "edit": "Editar host",
+      "scope": "Escopo",
+      "close": "Fechar"
     }
   }
 }

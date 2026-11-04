@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Поиск хостов, ключей, личностей и команд...",
+    "searchPlaceholder": "Поиск хостов, команд и настроек или введите user@host",
     "categoryBadges": {
       "all": "Все",
-      "join": "join> Сессии",
-      "snippets": "> Сниппеты",
-      "marketplace": "m> Маркетплейс",
-      "settings": "@ Настройки"
+      "join": "Командные сессии",
+      "snippets": "Сниппеты",
+      "marketplace": "Плагины",
+      "settings": "Настройки"
     },
     "sections": {
       "quickConnect": "Быстрое подключение",
@@ -24,11 +24,9 @@
       "importExport": "Импорт / Экспорт",
       "availablePlugins": "Доступные плагины"
     },
-    "settingsDescription": "Настройки",
     "pluginSettingsDescription": "Настройки плагина",
     "pluginNotInstalled": "Не установлен",
     "editHost": "Изменить хост",
-    "deleteHost": "Удалить хост",
     "resume": "Возобновить",
     "join": "Присоединиться",
     "participantCount_one": "{{count}} человек",
@@ -36,7 +34,7 @@
     "participantCount_many": "{{count}} человек",
     "participantCount_other": "{{count}} человек",
     "joinCodePrompt": {
-      "title": "Присоединиться по коду приглашения...",
+      "title": "Присоединиться по коду приглашения…",
       "subtitle": "Вставьте сюда код приглашения, чтобы присоединиться к приватной сессии"
     },
     "joinCodeEntered": {
@@ -49,7 +47,8 @@
       "configurePortAndBaud": "Настроить порт и скорость",
       "localShellNamed": "Локальная оболочка ({{shell}})",
       "localShell": "Локальная оболочка",
-      "openLocalTerminal": "Открыть локальный терминал"
+      "openLocalTerminal": "Открыть локальный терминал",
+      "connectToHost": "Подключиться к {{host}}"
     },
     "localShellDefault": "Локальная оболочка",
     "emptyState": {
@@ -118,7 +117,26 @@
       "exportSnippets": "Экспортировать сниппеты…",
       "exportPortForwarding": "Экспортировать правила проброса портов…",
       "exportThemes": "Экспортировать свои темы…",
-      "importThemes": "Импортировать темы…"
+      "importThemes": "Импортировать темы…",
+      "disconnectAllNone": "Нет открытых сессий для отключения",
+      "disconnectAllConfirm_one": "Отключить {{count}} сессию? Нажмите Enter ещё раз для подтверждения",
+      "disconnectAllConfirm_few": "Отключить {{count}} сессии? Нажмите Enter ещё раз для подтверждения",
+      "disconnectAllConfirm_many": "Отключить {{count}} сессий? Нажмите Enter ещё раз для подтверждения",
+      "disconnectAllConfirm_other": "Отключить {{count}} сессии? Нажмите Enter ещё раз для подтверждения"
+    },
+    "dialogLabel": "Палитра команд",
+    "resultCount_one": "{{count}} результат",
+    "resultCount_few": "{{count}} результата",
+    "resultCount_many": "{{count}} результатов",
+    "resultCount_other": "{{count}} результата",
+    "snippetNeedsSession": "Сначала откройте терминал, затем запустите сниппет отсюда",
+    "joinFailed": "Не удалось присоединиться к сессии: {{reason}}",
+    "hints": {
+      "move": "Перемещение",
+      "open": "Открыть",
+      "edit": "Изменить хост",
+      "scope": "Область",
+      "close": "Закрыть"
     }
   }
 }

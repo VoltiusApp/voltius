@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Hledat hosty, klíče, identity a příkazy...",
+    "searchPlaceholder": "Hledat hosty, příkazy a nastavení, nebo zadat user@host",
     "categoryBadges": {
       "all": "Vše",
-      "join": "join> Relace",
-      "snippets": "> Úryvky",
-      "marketplace": "m> Marketplace",
-      "settings": "@ Nastavení"
+      "join": "Týmové relace",
+      "snippets": "Úryvky",
+      "marketplace": "Pluginy",
+      "settings": "Nastavení"
     },
     "sections": {
       "quickConnect": "Rychlé připojení",
@@ -24,11 +24,9 @@
       "importExport": "Import / export",
       "availablePlugins": "Dostupné pluginy"
     },
-    "settingsDescription": "Nastavení",
     "pluginSettingsDescription": "Nastavení pluginu",
     "pluginNotInstalled": "Nenainstalováno",
     "editHost": "Upravit host",
-    "deleteHost": "Smazat host",
     "resume": "Pokračovat",
     "join": "Připojit se",
     "participantCount_one": "{{count}} osoba",
@@ -36,7 +34,7 @@
     "participantCount_many": "{{count}} osoby",
     "participantCount_other": "{{count}} osob",
     "joinCodePrompt": {
-      "title": "Připojit se pomocí kódu pozvánky...",
+      "title": "Připojit se pomocí kódu pozvánky…",
       "subtitle": "Vložte sem kód pozvánky a připojte se k soukromé relaci"
     },
     "joinCodeEntered": {
@@ -49,7 +47,8 @@
       "configurePortAndBaud": "Nastavit port a rychlost",
       "localShellNamed": "Lokální shell ({{shell}})",
       "localShell": "Lokální shell",
-      "openLocalTerminal": "Otevřít lokální terminál"
+      "openLocalTerminal": "Otevřít lokální terminál",
+      "connectToHost": "Připojit k {{host}}"
     },
     "localShellDefault": "Lokální shell",
     "emptyState": {
@@ -118,7 +117,26 @@
       "exportSnippets": "Exportovat úryvky…",
       "exportPortForwarding": "Exportovat pravidla přesměrování portů…",
       "exportThemes": "Exportovat vlastní motivy…",
-      "importThemes": "Importovat motivy…"
+      "importThemes": "Importovat motivy…",
+      "disconnectAllNone": "Žádné otevřené relace k odpojení",
+      "disconnectAllConfirm_one": "Odpojit {{count}} relaci? Potvrďte dalším stiskem Enter",
+      "disconnectAllConfirm_few": "Odpojit {{count}} relace? Potvrďte dalším stiskem Enter",
+      "disconnectAllConfirm_many": "Odpojit {{count}} relace? Potvrďte dalším stiskem Enter",
+      "disconnectAllConfirm_other": "Odpojit {{count}} relací? Potvrďte dalším stiskem Enter"
+    },
+    "dialogLabel": "Paleta příkazů",
+    "resultCount_one": "{{count}} výsledek",
+    "resultCount_few": "{{count}} výsledky",
+    "resultCount_many": "{{count}} výsledku",
+    "resultCount_other": "{{count}} výsledků",
+    "snippetNeedsSession": "Nejdřív otevřete terminál a pak odsud spusťte úryvek",
+    "joinFailed": "Nepodařilo se připojit k relaci: {{reason}}",
+    "hints": {
+      "move": "Pohyb",
+      "open": "Otevřít",
+      "edit": "Upravit host",
+      "scope": "Rozsah",
+      "close": "Zavřít"
     }
   }
 }

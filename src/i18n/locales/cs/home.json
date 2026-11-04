@@ -5,9 +5,6 @@
       "afternoon": "Dobré odpoledne",
       "evening": "Dobrý večer"
     },
-    "search": {
-      "placeholder": "Hledat hosty, relace, úryvky…"
-    },
     "stat": {
       "vaults_one": "trezor",
       "vaults_few": "trezory",
