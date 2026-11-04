@@ -21,10 +21,7 @@
     },
     "recentHosts": {
       "title": "Son kullanılan sunucular",
-      "seeAll": "Tümünü gör",
-      "prevPage": "Önceki sayfa",
-      "nextPage": "Sonraki sayfa",
-      "pageNumber": "Sayfa {{number}}"
+      "seeAll": "Tümünü gör"
     },
     "allHosts": {
       "back": "Geri",
@@ -35,7 +32,15 @@
       "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
       "serial": "seri",
-      "baud": "{{rate}} baud"
+      "baud": "{{rate}} baud",
+      "pinHost": "{{name}} sabitle",
+      "unpinHost": "{{name}} sabitlemesini kaldır",
+      "status": {
+        "up": "Erişilebilir",
+        "down": "Erişilemiyor",
+        "unknown": "Durum bilinmiyor",
+        "knock": "Port knocking yapılana kadar kapalı"
+      }
     },
     "serialFallback": "Seri",
     "vaultCard": {

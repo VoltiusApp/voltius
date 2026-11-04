@@ -21,10 +21,7 @@
     },
     "recentHosts": {
       "title": "Recent Hosts",
-      "seeAll": "See all",
-      "prevPage": "Previous page",
-      "nextPage": "Next page",
-      "pageNumber": "Page {{number}}"
+      "seeAll": "See all"
     },
     "allHosts": {
       "back": "Back",
@@ -35,7 +32,15 @@
       "pin": "Pin",
       "unpin": "Unpin",
       "serial": "serial",
-      "baud": "{{rate}} baud"
+      "baud": "{{rate}} baud",
+      "pinHost": "Pin {{name}}",
+      "unpinHost": "Unpin {{name}}",
+      "status": {
+        "up": "Reachable",
+        "down": "Unreachable",
+        "unknown": "Status unknown",
+        "knock": "Closed until port knock"
+      }
     },
     "serialFallback": "Serial",
     "vaultCard": {

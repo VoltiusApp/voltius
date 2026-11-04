@@ -17,10 +17,7 @@
     },
     "recentHosts": {
       "title": "最近的主机",
-      "seeAll": "查看全部",
-      "prevPage": "上一页",
-      "nextPage": "下一页",
-      "pageNumber": "第 {{number}} 页"
+      "seeAll": "查看全部"
     },
     "allHosts": {
       "back": "返回",
@@ -31,7 +28,15 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "serial": "串口",
-      "baud": "{{rate}} 波特"
+      "baud": "{{rate}} 波特",
+      "pinHost": "置顶 {{name}}",
+      "unpinHost": "取消置顶 {{name}}",
+      "status": {
+        "up": "可访问",
+        "down": "无法访问",
+        "unknown": "状态未知",
+        "knock": "端口敲门前关闭"
+      }
     },
     "serialFallback": "串口",
     "vaultCard": {

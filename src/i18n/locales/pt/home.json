@@ -25,10 +25,7 @@
     },
     "recentHosts": {
       "title": "Hosts Recentes",
-      "seeAll": "Ver todos",
-      "prevPage": "Página anterior",
-      "nextPage": "Próxima página",
-      "pageNumber": "Página {{number}}"
+      "seeAll": "Ver todos"
     },
     "allHosts": {
       "back": "Voltar",
@@ -39,7 +36,15 @@
       "pin": "Fixar",
       "unpin": "Desfixar",
       "serial": "serial",
-      "baud": "{{rate}} baud"
+      "baud": "{{rate}} baud",
+      "pinHost": "Fixar {{name}}",
+      "unpinHost": "Desfixar {{name}}",
+      "status": {
+        "up": "Acessível",
+        "down": "Inacessível",
+        "unknown": "Estado desconhecido",
+        "knock": "Fechado até o port knocking"
+      }
     },
     "serialFallback": "Serial",
     "vaultCard": {

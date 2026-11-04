@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 
-export type CardSize = "compact" | "card" | "wide";
+export type CardSize = "tile" | "compact" | "card" | "wide";
 
-const MIN_WIDTH: Record<CardSize, string> = { compact: "11rem", card: "16rem", wide: "20rem" };
+const MIN_WIDTH: Record<CardSize, string> = { tile: "8.5rem", compact: "11rem", card: "16rem", wide: "20rem" };
 
 export function cardGridProps(layout: LayoutMode, size: CardSize, extraClass = ""): { className: string; style?: CSSProperties } {
   return layout === "grid"
