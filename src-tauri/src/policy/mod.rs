@@ -282,12 +282,6 @@ pub fn load_machine() -> LoadedPolicy {
     }
 }
 
-pub fn write_atomic(path: &Path, doc: &PolicyDoc) -> std::io::Result<()> {
-    let mut text = serde_json::to_string_pretty(doc).map_err(std::io::Error::other)?;
-    text.push('\n');
-    write_text_atomic(path, &text)
-}
-
 pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -412,7 +406,7 @@ mod tests {
         };
         doc.policy.insert("server.url".into(), json!("https://a"));
         doc.defaults.insert("sshConfig.import".into(), json!(true));
-        write_atomic(&path, &doc).unwrap();
+        write_text_atomic(&path, &serde_json::to_string_pretty(&doc).unwrap()).unwrap();
         let loaded = load_from(&path);
         assert_eq!(loaded.doc, doc);
         assert!(loaded.issues.is_empty());
@@ -420,21 +414,21 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn write_atomic_sets_0644() {
+    fn write_text_atomic_sets_0644() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
-        write_atomic(&path, &PolicyDoc::default()).unwrap();
+        write_text_atomic(&path, "{}\n").unwrap();
         let mode = std::fs::metadata(&path).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o644);
     }
 
     #[test]
-    fn write_atomic_cleans_tmp_on_failure() {
+    fn write_text_atomic_cleans_tmp_on_failure() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
         std::fs::create_dir(&path).unwrap();
-        assert!(write_atomic(&path, &PolicyDoc::default()).is_err());
+        assert!(write_text_atomic(&path, "{}\n").is_err());
         assert!(!dir.path().join("policy.json.tmp").exists());
     }
 }

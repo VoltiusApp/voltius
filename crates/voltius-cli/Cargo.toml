@@ -1,0 +1,10 @@
+[package]
+name = "voltius-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Console launcher that runs the Voltius app binary in CLI mode"
+license = "AGPL-3.0"
+
+[[bin]]
+name = "voltius-cli"
+path = "src/main.rs"
