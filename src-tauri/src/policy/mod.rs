@@ -287,13 +287,27 @@ pub fn write_atomic(path: &Path, doc: &PolicyDoc) -> std::io::Result<()> {
     let tmp = PathBuf::from(tmp);
     let mut text = serde_json::to_string_pretty(doc).map_err(std::io::Error::other)?;
     text.push('\n');
-    std::fs::write(&tmp, text)?;
+    let result = write_tmp(&tmp, text.as_bytes()).and_then(|()| std::fs::rename(&tmp, path));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
+
+fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o644);
+    let mut file = opts.open(tmp)?;
+    file.write_all(bytes)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o644))?;
+        file.set_permissions(std::fs::Permissions::from_mode(0o644))?;
     }
-    std::fs::rename(&tmp, path)
+    file.sync_all()
 }
 
 #[cfg(test)]
@@ -394,5 +408,25 @@ mod tests {
         let loaded = load_from(&path);
         assert_eq!(loaded.doc, doc);
         assert!(loaded.issues.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_atomic_sets_0644() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        write_atomic(&path, &PolicyDoc::default()).unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o644);
+    }
+
+    #[test]
+    fn write_atomic_cleans_tmp_on_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::create_dir(&path).unwrap();
+        assert!(write_atomic(&path, &PolicyDoc::default()).is_err());
+        assert!(!dir.path().join("policy.json.tmp").exists());
     }
 }
