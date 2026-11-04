@@ -118,7 +118,7 @@
     "teamSessions": {
       "title": "Sessões da Equipe",
       "joinByCode": "Participar por código",
-      "emptyHint": "Terminais que seus colegas compartilham aparecem aqui. Tem um código de convite? Cole-o na pesquisa para participar.",
+      "emptyHint": "Terminais que seus colegas compartilham aparecem aqui. Tem um link ou código de convite? Use “Participar por código”.",
       "live": "AO VIVO",
       "pasteInviteCode": "Cole um link ou código de convite para participar de uma sessão privada:",
       "inviteCodePlaceholder": "voltius://join?… ou sessionId:token",

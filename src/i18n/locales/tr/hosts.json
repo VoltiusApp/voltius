@@ -109,7 +109,7 @@
     "teamSessions": {
       "title": "Ekip oturumları",
       "joinByCode": "Kodla katıl",
-      "emptyHint": "Ekip arkadaşlarınızın paylaştığı terminaller burada görünür. Davet kodunuz mu var? Katılmak için arama alanına yapıştırın.",
+      "emptyHint": "Ekip arkadaşlarınızın paylaştığı terminaller burada görünür. Davet bağlantınız veya kodunuz mu var? “Kodla katıl”ı kullanın.",
       "live": "CANLI",
       "pasteInviteCode": "Özel bir oturuma katılmak için davet bağlantısını veya kodunu yapıştırın:",
       "inviteCodePlaceholder": "voltius://join?… veya sessionId:token",

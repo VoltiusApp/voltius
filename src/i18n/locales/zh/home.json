@@ -5,12 +5,6 @@
       "afternoon": "下午好",
       "evening": "晚上好"
     },
-    "stat": {
-      "vaults_other": "保险库",
-      "hosts_other": "主机",
-      "activeSessions_other": "活跃会话",
-      "portForwards_other": "端口转发"
-    },
     "quickActions": {
       "export": "导出",
       "import": "导入"
@@ -56,6 +50,12 @@
       "localTerminal": "打开本地终端",
       "importSshConfig_one": "从 ~/.ssh/config 导入 {{count}} 台主机",
       "importSshConfig_other": "从 ~/.ssh/config 导入 {{count}} 台主机"
+    },
+    "connect": {
+      "label": "连接到服务器",
+      "placeholder": "user@host、主机名或邀请码",
+      "search": "搜索",
+      "searchEverything": "全局搜索"
     }
   }
 }

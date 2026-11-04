@@ -91,6 +91,7 @@ interface UIStore {
   activeNav: NavItem;
   lastPageNav: PageNavItem;
   omniOpen: boolean;
+  omniSeed: string;
   globalPanelOpen: Record<string, boolean>;
   setGlobalPanelOpen: (id: string, open: boolean) => void;
   toggleGlobalPanel: (id: string) => void;
@@ -154,6 +155,7 @@ interface UIStore {
   /** From the terminal view, go back to the page shown before it. */
   leaveTerminal: () => void;
   setOmniOpen: (open: boolean) => void;
+  openOmniWith: (query: string) => void;
   setSettingsOpen: (open: boolean) => void;
   setNotificationCenterOpen: (open: boolean) => void;
   openNotificationCenter: (focusId?: string | null) => void;
@@ -230,6 +232,7 @@ export const useUIStore = create<UIStore>()(
         activeNav: "hosts" as NavItem,
         lastPageNav: "hosts" as PageNavItem,
         omniOpen: false,
+        omniSeed: "",
         globalPanelOpen: {},
         dockedPanelWidth: 0,
         settingsOpen: false,
@@ -286,7 +289,8 @@ export const useUIStore = create<UIStore>()(
         setHomeView: (v) => set({ homeView: v }),
         setActiveNav: (nav) => set(navTo(nav)),
         leaveTerminal: () => set((s) => (s.activeNav === "terminal" ? { activeNav: s.lastPageNav } : {})),
-        setOmniOpen: (open) => set({ omniOpen: open }),
+        setOmniOpen: (open) => set({ omniOpen: open, ...(open ? {} : { omniSeed: "" }) }),
+        openOmniWith: (query) => set({ omniOpen: true, omniSeed: query }),
         setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
         toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
         setDockedPanelWidth: (width) => set({ dockedPanelWidth: width }),

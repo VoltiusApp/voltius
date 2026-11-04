@@ -5,20 +5,6 @@
       "afternoon": "Bon après-midi",
       "evening": "Bonsoir"
     },
-    "stat": {
-      "vaults_one": "coffre",
-      "vaults_many": "coffres",
-      "vaults_other": "coffres",
-      "hosts_one": "hôte",
-      "hosts_many": "hôtes",
-      "hosts_other": "hôtes",
-      "activeSessions_one": "session active",
-      "activeSessions_many": "sessions actives",
-      "activeSessions_other": "sessions actives",
-      "portForwards_one": "redirection de port",
-      "portForwards_many": "redirections de port",
-      "portForwards_other": "redirections de port"
-    },
     "quickActions": {
       "export": "Exporter",
       "import": "Importer"
@@ -66,6 +52,12 @@
       "importSshConfig_one": "Importer {{count}} hôte depuis ~/.ssh/config",
       "importSshConfig_many": "Importer {{count}} hôtes depuis ~/.ssh/config",
       "importSshConfig_other": "Importer {{count}} hôtes depuis ~/.ssh/config"
+    },
+    "connect": {
+      "label": "Se connecter à un serveur",
+      "placeholder": "user@host, un nom d'hôte ou un code d'invitation",
+      "search": "Rechercher",
+      "searchEverything": "Tout rechercher"
     }
   }
 }

@@ -5,16 +5,6 @@
       "afternoon": "Good afternoon",
       "evening": "Good evening"
     },
-    "stat": {
-      "vaults_one": "vault",
-      "vaults_other": "vaults",
-      "hosts_one": "host",
-      "hosts_other": "hosts",
-      "activeSessions_one": "active session",
-      "activeSessions_other": "active sessions",
-      "portForwards_one": "port forward",
-      "portForwards_other": "port forwards"
-    },
     "quickActions": {
       "export": "Export",
       "import": "Import"
@@ -60,6 +50,12 @@
       "localTerminal": "Open local terminal",
       "importSshConfig_one": "Import {{count}} host from ~/.ssh/config",
       "importSshConfig_other": "Import {{count}} hosts from ~/.ssh/config"
+    },
+    "connect": {
+      "label": "Connect to a server",
+      "placeholder": "user@host, a host name or an invite code",
+      "search": "Search",
+      "searchEverything": "Search everything"
     }
   }
 }
