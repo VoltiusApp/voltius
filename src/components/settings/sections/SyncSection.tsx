@@ -15,6 +15,8 @@ import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/st
 import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
+import { Managed } from "@/components/shared/ManagedNote";
+import { usePolicyRefresh } from "@/stores/policyStore";
 import { SettingsGroup } from "./shared";
 import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
@@ -146,9 +148,10 @@ function VoltiusSyncGroup({ provider }: { provider: SyncProviderView }) {
   );
 }
 
-function SyncToggleRow({ domain, label, sub, ariaLabel, checked, onChange }: {
+function SyncToggleRow({ domain, policyKey, label, sub, ariaLabel, checked, onChange }: {
   /** Stable hook for tests and UI automation; also the handler key for settings rows. */
   domain: string;
+  policyKey?: string;
   label: string;
   sub: string;
   /** Defaults to "Sync <label>", which is wrong for a row that does not switch a kind of data. */
@@ -157,13 +160,14 @@ function SyncToggleRow({ domain, label, sub, ariaLabel, checked, onChange }: {
   onChange: (v: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const toggle = <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />;
   return (
     <div data-sync-domain={domain} data-setting-row data-ripple className="relative flex items-center justify-between gap-3 px-4 py-3">
       <div>
         <p className="text-sm font-medium text-(--t-text-primary)">{label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
       </div>
-      <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />
+      {policyKey ? <Managed policyKey={policyKey}>{toggle}</Managed> : toggle}
     </div>
   );
 }
@@ -269,7 +273,8 @@ function LocalNetworkGroup() {
 
 export default function SyncSection() {
   const { t } = useTranslation();
-  const { syncTypes, setSyncType, isDomainSynced } = useSyncPrefsStore();
+  const { setSyncType, isTypeSynced, isDomainSynced } = useSyncPrefsStore();
+  usePolicyRefresh();
 
   const providers = useSyncProviders().providers;
   const voltiusProvider = providers.find((p) => p.id === VOLTIUS_PROVIDER_ID);
@@ -307,9 +312,10 @@ export default function SyncSection() {
             <SyncToggleRow
               key={id}
               domain={id}
+              policyKey={`sync.types.${id}`}
               label={t(`settings.sync.objectType.${id}.label`)}
               sub={t(`settings.sync.objectType.${id}.sub`)}
-              checked={syncTypes[id] ?? true}
+              checked={isTypeSynced(id)}
               onChange={(v) => setSyncType(id, v)}
             />
           ))}
@@ -325,6 +331,7 @@ export default function SyncSection() {
             <div key={id}>
               <SyncToggleRow
                 domain={id}
+                policyKey={`sync.domains.${id}`}
                 label={t(`settings.sync.settingDomain.${id}.label`)}
                 sub={t(`settings.sync.settingDomain.${id}.sub`)}
                 checked={isDomainSynced(id)}

@@ -27,7 +27,7 @@ export function useToggleSettings(): ToggleItem[] {
   const set = useToggleSettingsStore((s) => s.set);
   const machinePolicy = usePolicyStore((s) => s.machine);
   const serverPolicy = usePolicyStore((s) => s.server);
-  const { syncTypes, setSyncType } = useSyncPrefsStore();
+  const { syncTypes, setSyncType, isTypeSynced } = useSyncPrefsStore();
   // Subscribe to overrides so plugin toggle values stay live as they're flipped.
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
   const setPluginEnabled = usePluginRegistryStore((s) => s.setEnabled);
@@ -65,7 +65,8 @@ export function useToggleSettings(): ToggleItem[] {
       icon: "lucide:cloud",
       description: t("settings.nav.sync.label"),
       keywords: ["sync", "cloud", "backup", st.id],
-      value: syncTypes[st.id] ?? true,
+      value: isTypeSynced(st.id),
+      locked: isLocked(`sync.types.${st.id}`),
       onToggle: (v: boolean) => setSyncType(st.id, v),
     })),
     ...getLoadedPlugins().map((m) => ({
@@ -80,5 +81,5 @@ export function useToggleSettings(): ToggleItem[] {
         void setPluginEnabled(m.id, v);
       },
     })),
-  ], [t, values, set, machinePolicy, serverPolicy, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
+  ], [t, values, set, machinePolicy, serverPolicy, syncTypes, setSyncType, isTypeSynced, pluginOverrides, setPluginEnabled, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
 }

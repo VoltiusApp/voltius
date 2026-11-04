@@ -1,11 +1,17 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { domainOf, settingKey } from "@/services/user-data/settingKeys";
+import { isLocked, lockedValue } from "./policyStore";
 import { SYNC_SETTING_DOMAINS } from "./syncDomains";
 
 export * from "./syncDomains";
 
 const TOGGLEABLE_DOMAINS = new Set(SYNC_SETTING_DOMAINS.map((d) => d.id));
+
+function lockedFlag(key: string): boolean | undefined {
+  const lock = lockedValue(key);
+  return lock.locked ? lock.value === true : undefined;
+}
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -44,6 +50,7 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
       paused: false,
 
       setSyncType: (typeId, v) =>
+        !isLocked(`sync.types.${typeId}`) &&
         set((s) => ({ syncTypes: { ...s.syncTypes, [typeId]: v } })),
 
       toggleExcluded: (id) =>
@@ -55,32 +62,38 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
 
       isExcluded: (id) => get().excludedIds.includes(id),
 
-      isTypeSynced: (typeId) => get().syncTypes[typeId] ?? true,
+      isTypeSynced: (typeId) => lockedFlag(`sync.types.${typeId}`) ?? get().syncTypes[typeId] ?? true,
 
       isObjectSynced: (id, typeId) => {
         const s = get();
-        if ((s.syncTypes[typeId] ?? true) === false) return false;
+        if (!s.isTypeSynced(typeId)) return false;
         return !s.excludedIds.includes(id);
       },
 
       setSyncSettingDomain: (id, v) =>
+        !isLocked(`sync.domains.${id}`) &&
         set((s) => ({ syncSettingDomains: { ...s.syncSettingDomains, [id]: v } })),
 
       isDomainSynced: (id) => {
         if (!TOGGLEABLE_DOMAINS.has(id)) return true;
-        return get().syncSettingDomains[id] ?? true;
+        return lockedFlag(`sync.domains.${id}`) ?? get().syncSettingDomains[id] ?? true;
       },
 
       // Not folded into setSyncType/setSyncSettingDomain: a computed-key
       // generic setter needs an `as Pick<SyncPrefsStore, K>` cast, which
       // costs more than the three explicit one-liners it would replace.
       setSettingSync: (path, v) =>
+        !isLocked(`sync.settings.${path}`) &&
         set((s) => ({ settingSyncOverrides: { ...s.settingSyncOverrides, [path]: v } })),
 
       isSettingSynced: (path) => {
         const s = get();
         if (!s.isDomainSynced(domainOf(path))) return false;
-        return (s.settingSyncOverrides ?? {})[path] ?? !settingKey(path)?.deviceScoped;
+        return (
+          lockedFlag(`sync.settings.${path}`) ??
+          (s.settingSyncOverrides ?? {})[path] ??
+          !settingKey(path)?.deviceScoped
+        );
       },
 
       setPaused: (v) => set({ paused: v }),
