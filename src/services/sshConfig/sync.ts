@@ -158,8 +158,8 @@ export function createSshConfigSync(overrides: Partial<SyncDeps> = {}) {
 
   async function runOnce(trigger: SyncTrigger): Promise<SyncSummary | null> {
     const forced = FORCED.has(trigger);
-    const halted = () => (stopped && !forced) || isSyncHalted();
-    if (halted() || sshConfigImportLock() === false) return null;
+    const halted = () => (stopped && !forced) || isSyncHalted() || sshConfigImportLock() === false;
+    if (halted()) return null;
     const state = unsaved ? await updateSshConfigState(unsaved) : await loadSshConfigState();
     unsaved = null;
     if (!state.sync?.on) return null;
