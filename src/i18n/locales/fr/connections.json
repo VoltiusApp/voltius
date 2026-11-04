@@ -101,7 +101,8 @@
       "connectAsYours": "{{username}} · la vôtre, vous seul",
       "connectAsTeam": "{{username}} · identité d'équipe",
       "connectAsAsk": "Il vous sera demandé à la connexion",
-      "connectAsUnavailable": "Votre identité choisie n'est pas disponible"
+      "connectAsUnavailable": "Votre identité choisie n'est pas disponible",
+      "connectNeedsHost": "Saisissez un hôte pour vous connecter"
     },
     "distroIconPicker": {
       "title": "Icône",

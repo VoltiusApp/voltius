@@ -5,11 +5,13 @@ const SIZES = {
   section: { wrap: "py-12 gap-3", tile: "w-12 h-12 rounded-xl", icon: 20, button: "px-3 py-1.5 text-xs", plus: 12 },
 };
 
-export function EmptyState({ icon, title, body, action, size = "page" }: {
+export function EmptyState({ icon, title, body, action, primary, links, size = "page" }: {
   icon: string;
   title: string;
   body?: string;
   action?: { label: string; onClick: () => void; icon?: string };
+  primary?: boolean;
+  links?: { label: string; onClick: () => void; hint?: string }[];
   size?: keyof typeof SIZES;
 }) {
   const s = SIZES[size];
@@ -25,11 +27,21 @@ export function EmptyState({ icon, title, body, action, size = "page" }: {
       {action && (
         <button
           onClick={action.onClick}
-          className={`flex items-center gap-2 rounded-lg font-medium transition-colors bg-(--t-bg-elevated) hover:bg-(--t-border-hover) text-(--t-accent) border border-(--t-border-hover) ${s.button}`}
+          className={`flex items-center gap-2 rounded-lg font-medium ${primary ? "btn btn-primary" : "transition-colors bg-(--t-bg-elevated) hover:bg-(--t-border-hover) text-(--t-accent) border border-(--t-border-hover)"} ${s.button}`}
         >
           <Icon icon={action.icon ?? "lucide:plus"} width={s.plus} />
           {action.label}
         </button>
+      )}
+      {links && links.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+          {links.map((l) => (
+            <button key={l.label} type="button" onClick={l.onClick} className="flex items-center gap-1.5 text-xs text-(--t-text-secondary) hover:text-(--t-accent) transition-colors">
+              {l.label}
+              {l.hint && <kbd className="text-[10px] px-1 rounded-sm border border-(--t-border) text-(--t-text-dim)">{l.hint}</kbd>}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

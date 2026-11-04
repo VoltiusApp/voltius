@@ -77,12 +77,8 @@ export default function SplashScreen({ onReady }: Props) {
     async function init() {
       // The Rust manager outlives a webview reload: stop it until this session starts its own.
       void stopLanSync();
-      setStep("init", "running");
-      await delay(300);
       setStep("init", "done");
-
       setStep("vault", "running");
-      await delay(200);
 
       if (((await getAppLock()) ?? (await lockOnLaunchIfIdle().catch(() => null))) === "vault") {
         const sealed = (await secretState().catch(() => "none")) === "sealed";
@@ -137,7 +133,6 @@ export default function SplashScreen({ onReady }: Props) {
 
   const finishLoading = async () => {
     setStep("connections", "running");
-    await delay(150);
     try {
       await Promise.all([
         // Populate stores from local cache so tabs paint at boot, before sync lands.
@@ -181,7 +176,6 @@ export default function SplashScreen({ onReady }: Props) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
     await useAppLockStore.getState().hydrate();
-    await delay(400);
     setExiting(true);
     await delay(400);
     onReady();
@@ -205,14 +199,14 @@ export default function SplashScreen({ onReady }: Props) {
       <div className="mb-10 text-center">
         <LogoBadge size={14} className="mb-4" />
         <h1 className="text-xl font-bold tracking-wide text-(--t-text-bright)">Voltius</h1>
-        <p className="text-xs mt-1 text-(--t-text-muted)">{t("layout.splash.sshClient")}</p>
+        <p className="text-xs mt-1 text-(--t-text-secondary)">{t("layout.splash.sshClient")}</p>
       </div>
 
       <div className="w-64 space-y-2.5">
         {steps.map((step) => <StepRow key={step.id} step={step} />)}
       </div>
       {keychainHint && (
-        <p className="w-72 mt-6 text-xs text-center text-(--t-text-muted)">{t("layout.splash.keychainHint")}</p>
+        <p className="w-72 mt-6 text-xs text-center text-(--t-text-secondary)">{t("layout.splash.keychainHint")}</p>
       )}
     </div>
   );

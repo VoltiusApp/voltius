@@ -24,7 +24,9 @@
       "pin": "Закрепить",
       "unpin": "Открепить",
       "moreOptions": "Дополнительные параметры",
-      "closePanel": "Закрыть панель"
+      "closePanel": "Закрыть панель",
+      "showPassword": "Показать пароль",
+      "hidePassword": "Скрыть пароль"
     },
     "entity": {
       "host": "Хост",

@@ -74,15 +74,15 @@ describe("ProxyFields", () => {
     render(
       <ProxyFields modes={modes} value={{ mode: "socks5", host: "h" }} onChange={() => {}} password="" passwordSaved onPasswordChange={() => {}} />,
     );
-    expect((screen.getByLabelText(/password/i) as HTMLInputElement).value).toBe("");
-    expect((screen.getByLabelText(/password/i) as HTMLInputElement).placeholder).toMatch(/saved/i);
+    expect((screen.getByLabelText("connections.form.proxy.password") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("connections.form.proxy.password") as HTMLInputElement).placeholder).toMatch(/saved/i);
   });
 
   it("disables every control when disabled", () => {
     render(
       <ProxyFields modes={modes} value={{ mode: "socks5", host: "h" }} onChange={() => {}} password="" passwordSaved={false} onPasswordChange={() => {}} disabled />,
     );
-    for (const label of [/host/i, /port/i, /username/i, /password/i]) {
+    for (const label of [/host/i, /port/i, /username/i, "connections.form.proxy.password"]) {
       expect((screen.getByLabelText(label) as HTMLInputElement).disabled).toBe(true);
     }
     expect((screen.getByRole("button", { name: "connections.form.proxy.label" }) as HTMLButtonElement).disabled).toBe(true);

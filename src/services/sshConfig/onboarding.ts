@@ -10,17 +10,30 @@ import { showMigrationNotice } from "./notice";
 import { loadSshConfigState, updateSshConfigState, type SshConfigState } from "./state";
 import { startSshConfigSyncEngine } from "./sync";
 
-async function hostCount(): Promise<number> {
+export async function countSshConfigHosts(): Promise<number> {
   return parseOpensshFiles(await readOpensshFiles()).hosts.length;
+}
+
+let bannerId: string | undefined;
+
+const dismissOffer = () => {
+  if (bannerId) useNotificationStore.getState().dismissBanner(bannerId);
+  bannerId = undefined;
+};
+
+const answer = (offer: SshConfigState["offer"]) => {
+  dismissOffer();
+  return updateSshConfigState({ offer }).catch((e) => log.error("ssh-config offer answer not saved", e));
+};
+
+export function importSshConfigHosts(): void {
+  void answer("accepted");
+  useUIStore.getState().openImportExport("import", { source: "openssh", autoTrigger: true });
 }
 
 export function startSshConfigOnboarding(): () => void {
   let disposed = false;
-  let bannerId: string | undefined;
   let stopEngine: (() => void) | undefined;
-  const dismiss = () => { if (bannerId) useNotificationStore.getState().dismissBanner(bannerId); };
-  const answer = (offer: SshConfigState["offer"]) =>
-    updateSshConfigState({ offer }).catch((e) => log.error("ssh-config offer answer not saved", e));
 
   void (async () => {
     await whenLoginSyncSettled();
@@ -34,7 +47,7 @@ export function startSshConfigOnboarding(): () => void {
     if (disposed) return;
     if (current.notice === "pending") showMigrationNotice();
     if (current.offer || current.sync?.on) return;
-    const count = await hostCount().catch(() => 0);
+    const count = await countSshConfigHosts().catch(() => 0);
     if (disposed || count === 0) return;
     bannerId = useNotificationStore.getState().addBanner({
       source: APP_SOURCE,
@@ -42,10 +55,7 @@ export function startSshConfigOnboarding(): () => void {
       severity: "info",
       dismissable: true,
       actions: [
-        { label: i18n.t("notifications.sshConfigOffer.import"), onClick: () => {
-          void answer("accepted");
-          useUIStore.getState().openImportExport("import", { source: "openssh", autoTrigger: true });
-        } },
+        { label: i18n.t("notifications.sshConfigOffer.import"), onClick: importSshConfigHosts },
         { label: i18n.t("notifications.sshConfigOffer.skip"), onClick: () => void answer("declined") },
       ],
     });
@@ -53,7 +63,7 @@ export function startSshConfigOnboarding(): () => void {
 
   return () => {
     disposed = true;
-    dismiss();
+    dismissOffer();
     stopEngine?.();
   };
 }

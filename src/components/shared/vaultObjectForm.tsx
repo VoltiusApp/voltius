@@ -182,16 +182,23 @@ export function SecretInput({
         placeholder={placeholder}
         autoComplete={autoComplete}
       />
-      <button
-        type="button"
-        onClick={onToggleShow}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-        tabIndex={-1}
-      >
-        <Icon icon={show ? "lucide:eye-off" : "lucide:eye"} width={14} />
-      </button>
+      <RevealToggle show={show} onToggle={onToggleShow} />
     </div>
+  );
+}
+
+export function RevealToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={t(show ? "common.action.hidePassword" : "common.action.showPassword")}
+      aria-pressed={show}
+      className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
+      tabIndex={-1}
+    >
+      <Icon icon={show ? "lucide:eye-off" : "lucide:eye"} width={14} />
+    </button>
   );
 }

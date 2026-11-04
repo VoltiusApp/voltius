@@ -14,6 +14,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { useShortcutHint } from "@/stores/shortcutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { storeSecret, getSecret } from "@/services/vault";
@@ -80,6 +81,7 @@ import { describeError } from "@/services/backendErrors";
 
 export default function HostsPage() {
   const { t } = useTranslation();
+  const omniHint = useShortcutHint("omni");
   const { loadConnections, saveConnection, updateConnection, deleteConnection, renameTag, deleteTag } =
     useConnectionStore();
   const connections = useAllConnections();
@@ -1002,7 +1004,12 @@ export default function HostsPage() {
               icon="lucide:monitor"
               title={t("hosts.page.emptyState.title")}
               body={t("hosts.page.emptyState.subtitle")}
-              action={canCreate ? { label: t("hosts.page.addHost"), onClick: () => openNew() } : undefined}
+              action={canCreate ? { label: t("hosts.toolbar.newHost"), onClick: () => openNew() } : undefined}
+              primary
+              links={[
+                ...(canCreate ? [{ label: t("hosts.page.emptyState.import"), onClick: () => useUIStore.getState().openImportExport("import") }] : []),
+                { label: t("hosts.page.emptyState.quickConnect"), hint: omniHint, onClick: () => useUIStore.getState().setOmniOpen(true) },
+              ]}
             />
           ) : (
             <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6">
@@ -1113,7 +1120,7 @@ export default function HostsPage() {
                   size="section"
                   icon="lucide:folder-open"
                   title={t("hosts.page.folderEmpty")}
-                  action={canCreate ? { label: t("hosts.page.addHost"), onClick: () => openNew() } : undefined}
+                  action={canCreate ? { label: t("hosts.toolbar.newHost"), onClick: () => openNew() } : undefined}
                 />
               )}
 

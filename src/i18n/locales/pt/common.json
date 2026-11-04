@@ -24,7 +24,9 @@
       "pin": "Fixar",
       "unpin": "Desfixar",
       "moreOptions": "Mais opções",
-      "closePanel": "Fechar painel"
+      "closePanel": "Fechar painel",
+      "showPassword": "Mostrar senha",
+      "hidePassword": "Ocultar senha"
     },
     "entity": {
       "host": "Host",

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, SubmitBtn, SystemAuthButton } from "./authParts";
+import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, MIN_PASSWORD_LENGTH, SubmitBtn, SystemAuthButton, emailError } from "./authParts";
 import {
   createLocalAccountNoPassword,
   createServerAccount,
@@ -120,7 +120,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         <p className="text-sm mb-2 text-center text-(--t-text-bright)">
           {t("layout.auth.vaultUnreadableTitle")}
         </p>
-        <p className="text-xs mb-4 text-center leading-relaxed text-(--t-text-muted)">
+        <p className="text-xs mb-4 text-center leading-relaxed text-(--t-text-secondary)">
           {t(noPassword ? "layout.auth.vaultUnreadableBodyNoPassword" : "layout.auth.vaultUnreadableBody")}
         </p>
         <ErrorMsg msg={error} />
@@ -172,7 +172,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     };
     return (
       <Layout>
-        <p className="text-xs mb-4 text-center text-(--t-text-muted)">
+        <p className="text-xs mb-4 text-center text-(--t-text-secondary)">
           {t("layout.auth.unlockPrompt")}
         </p>
         <SystemAuthButton auth={auth} loading={loading} />
@@ -202,7 +202,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   if (view === "home") {
     return (
       <Layout>
-        <p className="text-xs mb-6 text-center text-(--t-text-muted)">
+        <p className="text-xs mb-6 text-center text-(--t-text-secondary)">
           {t("layout.auth.chooseHowToUse")}
         </p>
 
@@ -227,6 +227,11 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
           sub={t("layout.auth.cloudAccountSub", { context: lanContext })}
           onClick={() => reset("cloud", "signup")}
         />
+
+        <p className="mt-4 text-xs text-center text-(--t-text-secondary)">
+          {t("layout.auth.addAccountLater")}
+        </p>
+        <SwitchModeLink prompt={t("layout.auth.alreadyHaveAccount")} label={t("layout.auth.signIn")} onClick={() => reset("cloud", "signin")} />
       </Layout>
     );
   }
@@ -238,10 +243,11 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
 
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!email.includes("@")) { setError(t("layout.auth.errorInvalidEmail")); return; }
+      const invalidEmail = emailError(email, t);
+      if (invalidEmail) { setError(invalidEmail); return; }
       const normalizedUrl = serverUrl.replace(/\/+$/, "");
       if (isSignup) {
-        if (password.length < 8) { setError(t("layout.auth.errorMinLength8")); return; }
+        if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
         if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
         await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
@@ -260,7 +266,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
 
     return (
       <Layout onBack={() => reset("home")}>
-        <p className="text-xs mb-4 text-center text-(--t-text-muted)">
+        <p className="text-xs mb-4 text-center text-(--t-text-secondary)">
           {isSignup ? t("layout.auth.signupPrompt", { context: lanContext }) : t("layout.auth.signinPrompt")}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
@@ -268,41 +274,22 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
           <Input type="password" placeholder={isSignup ? t("layout.auth.masterPasswordMinPlaceholder") : t("layout.auth.masterPasswordPlaceholder")}
             value={password} onChange={setPassword} />
           {isSignup && (
-            <Input type="password" placeholder={t("layout.auth.confirmPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
+            <>
+              <Input type="password" placeholder={t("layout.auth.confirmPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
+              <MasterPasswordNote />
+            </>
           )}
           <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} />
           <ErrorMsg msg={error} />
           <SubmitBtn loading={loading} label={isSignup ? t("layout.auth.createAccount") : t("layout.auth.signIn")} />
         </form>
 
-        <div className="mt-3 text-center">
-          {isSignup ? (
-            <>
-              <span className="text-xs text-(--t-text-dim)">{t("layout.auth.alreadyHaveAccount")}</span>
-              <button
-                type="button"
-                onClick={() => { setCloudMode("signin"); setError(""); setConfirm(""); }}
-                className="text-xs text-(--t-accent) hover:underline"
-              >
-                {t("layout.auth.signIn")}
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-xs text-(--t-text-dim)">{t("layout.auth.newHere")}</span>
-              <button
-                type="button"
-                onClick={() => { setCloudMode("signup"); setError(""); }}
-                className="text-xs text-(--t-accent) hover:underline"
-              >
-                {t("layout.auth.createAccount")}
-              </button>
-            </>
-          )}
-        </div>
+        {isSignup
+          ? <SwitchModeLink prompt={t("layout.auth.alreadyHaveAccount")} label={t("layout.auth.signIn")} onClick={() => { setCloudMode("signin"); setError(""); setConfirm(""); }} />
+          : <SwitchModeLink prompt={t("layout.auth.newHere")} label={t("layout.auth.createAccount")} onClick={() => { setCloudMode("signup"); setError(""); }} />}
 
         {isSignup && (
-          <p className="mt-2 text-xs text-center text-(--t-text-dim) leading-relaxed">
+          <p className="mt-2 text-xs text-center text-(--t-text-secondary) leading-relaxed">
             {t("layout.auth.e2eeNotice")}{" "}
             <button type="button" onClick={() => void openUrl("https://github.com/VoltiusApp/voltius")}
               className="text-(--t-accent) hover:underline">
@@ -323,4 +310,13 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   }
 
   return null;
+}
+
+function SwitchModeLink({ prompt, label, onClick }: { prompt: string; label: string; onClick: () => void }) {
+  return (
+    <p className="mt-3 text-center text-xs text-(--t-text-secondary)">
+      {prompt}
+      <button type="button" onClick={onClick} className="focus-ring text-(--t-accent) hover:underline">{label}</button>
+    </p>
+  );
 }

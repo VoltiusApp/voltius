@@ -101,7 +101,8 @@
       "connectAsYours": "{{username}} · sizin, yalnızca siz",
       "connectAsTeam": "{{username}} · ekip kimliği",
       "connectAsAsk": "Bağlanırken sorulacak",
-      "connectAsUnavailable": "Seçtiğiniz kimlik kullanılamıyor"
+      "connectAsUnavailable": "Seçtiğiniz kimlik kullanılamıyor",
+      "connectNeedsHost": "Bağlanmak için bir sunucu girin"
     },
     "distroIconPicker": {
       "title": "Simge",

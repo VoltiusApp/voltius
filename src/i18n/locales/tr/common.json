@@ -24,7 +24,9 @@
       "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
       "moreOptions": "Diğer seçenekler",
-      "closePanel": "Paneli kapat"
+      "closePanel": "Paneli kapat",
+      "showPassword": "Parolayı göster",
+      "hidePassword": "Parolayı gizle"
     },
     "entity": {
       "host": "Sunucu",

@@ -53,6 +53,20 @@
       "hostCount_other": "{{count}} hostů",
       "empty": "Zatím žádné hosty",
       "more": "+{{count}} navíc"
+    },
+    "firstRun": {
+      "title": "Připojte se k prvnímu serveru",
+      "body": "Zadejte adresu a hned otevřete terminál, nebo ji přidejte jako host a mějte ji uloženou.",
+      "addressPlaceholder": "uživatel@host nebo uživatel@host:2222",
+      "addressLabel": "Adresa serveru",
+      "addressHint": "Použijte uživatel@host, s :port, pokud to není 22. Fungují tu i kódy pozvánek do relace.",
+      "join": "Připojit se",
+      "importOther": "Importovat z jiné aplikace",
+      "localTerminal": "Otevřít místní terminál",
+      "importSshConfig_one": "Importovat {{count}} host z ~/.ssh/config",
+      "importSshConfig_few": "Importovat {{count}} hosty z ~/.ssh/config",
+      "importSshConfig_many": "Importovat {{count}} hostu z ~/.ssh/config",
+      "importSshConfig_other": "Importovat {{count}} hostů z ~/.ssh/config"
     }
   }
 }

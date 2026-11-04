@@ -26,7 +26,7 @@
       "getStartedSub_ios": "İşletim sistemi anahtar zinciriyle korunur — parola gerekmez",
       "or": "veya",
       "cloudAccount": "Bulut hesabı",
-      "cloudAccountSub": "Cihazlar otomatik eşlenir · Pro bulut eşitleme ve yedek ekler",
+      "cloudAccountSub": "Ücretsiz · cihazlar otomatik eşlenir. Pro bulut eşitleme ve yedek ekler.",
       "cloudAccountSub_ios": "Cihazlar arasında eşitleyin — oturum açın veya hesap oluşturun",
       "back": "Geri",
       "signupPrompt": "Cihazlarınızın otomatik eşlenmesi için bir hesap oluşturun",
@@ -47,10 +47,13 @@
       "e2eeNotice": "Verileriniz uçtan uca şifrelenir — sunucu bunları okuyamaz.",
       "openSource": "Açık kaynak.",
       "agreeToTerms": "Hesap oluşturarak <terms>Hizmet Şartları</terms>'nı ve <privacy>Gizlilik Politikası</privacy>'nı kabul etmiş olursunuz.",
-      "accountCreatedToast": "Hesap oluşturuldu! Doğrulamak için e-postanızı kontrol edin.",
+      "accountCreatedToast": "Hesap oluşturuldu. Doğrulamak için e-postanızı kontrol edin.",
       "vaultUnreadableBodyNoPassword": "Bu cihazdaki gizli bilgiler dosyası, bu makinede saklanan anahtarla açılamıyor. Hiçbir şey silinmedi. Boş bir kasayla başlamak için dosyayı kenara ayırın veya aşağıdaki yedeklerden birini geri yükleyin.",
       "vaultSetAsideLocal": "Kenara ayır ve sıfırdan başla",
-      "vaultSetAsideLocalSub": "Bu cihazda bir yedek kopya saklanır"
+      "vaultSetAsideLocalSub": "Bu cihazda bir yedek kopya saklanır",
+      "addAccountLater": "Daha sonra hesap oluşturabilir ve sunucularınızı koruyabilirsiniz.",
+      "errorEmailRequired": "E-posta adresinizi girin",
+      "masterPasswordNote": "Bu parola verilerinizi şifreler. Sıfırlanamaz veya kurtarılamaz, bu yüzden güvenli bir yerde saklayın."
     },
     "cloudAuthModal": {
       "registerTitle": "Bulut hesabı oluştur",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "Ana parola oluşturun",
       "confirmMasterPasswordPlaceholder": "Ana parolayı onaylayın",
       "errorPasswordRequired": "Parola gerekli",
-      "errorMinLength4": "En az 4 karakter",
       "pleaseWait": "Lütfen bekleyin…",
       "reauthTitle": "Yeniden oturum açın",
       "reauthDesc": "Bu cihazdaki oturumunuz sona erdi. Yeniden bağlanmak için ana parolanızı girin."

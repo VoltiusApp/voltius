@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Zabezpečeno systémovou klíčenkou — bez hesla",
       "or": "nebo",
       "cloudAccount": "Cloudový účet",
-      "cloudAccountSub": "Zařízení se spárují automaticky · Pro přidá cloud a zálohu",
+      "cloudAccountSub": "Zdarma · zařízení se spárují automaticky. Pro přidá cloud a zálohu.",
       "cloudAccountSub_ios": "Synchronizace mezi zařízeními — přihlaste se nebo si účet vytvořte",
       "back": "Zpět",
       "signupPrompt": "Vytvořte si účet a zařízení se spárují automaticky",
@@ -47,10 +47,13 @@
       "e2eeNotice": "Vaše data jsou end-to-end šifrovaná — server je nemůže přečíst.",
       "openSource": "Open source.",
       "agreeToTerms": "Vytvořením účtu souhlasíte s našimi <terms>podmínkami používání</terms> a <privacy>zásadami ochrany soukromí</privacy>.",
-      "accountCreatedToast": "Účet vytvořen! Ověřte ho pomocí e-mailu.",
+      "accountCreatedToast": "Účet vytvořen. Ověřte ho pomocí e-mailu.",
       "vaultUnreadableBodyNoPassword": "Soubor s tajemstvími na tomto zařízení nelze otevřít klíčem uloženým v tomto počítači. Nic nebylo smazáno. Odložte ho stranou a začněte s prázdným trezorem, nebo obnovte některou ze záloh níže.",
       "vaultSetAsideLocal": "Odložit a začít znovu",
-      "vaultSetAsideLocalSub": "Ponechá záložní kopii na tomto zařízení"
+      "vaultSetAsideLocalSub": "Ponechá záložní kopii na tomto zařízení",
+      "addAccountLater": "Účet si můžete vytvořit později a hosty vám zůstanou.",
+      "errorEmailRequired": "Zadejte svůj e-mail",
+      "masterPasswordNote": "Toto heslo šifruje vaše data. Nelze ho resetovat ani obnovit, proto si ho bezpečně uložte."
     },
     "cloudAuthModal": {
       "registerTitle": "Vytvořit cloudový účet",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "Vytvořte hlavní heslo",
       "confirmMasterPasswordPlaceholder": "Potvrďte hlavní heslo",
       "errorPasswordRequired": "Heslo je povinné",
-      "errorMinLength4": "Alespoň 4 znaky",
       "pleaseWait": "Čekejte prosím…",
       "reauthTitle": "Přihlaste se znovu",
       "reauthDesc": "Relace na tomto zařízení skončila. Zadejte hlavní heslo a připojte se znovu."

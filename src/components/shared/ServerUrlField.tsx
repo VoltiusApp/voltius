@@ -1,3 +1,4 @@
+import { Icon } from "@iconify/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DEFAULT_SERVER_URL, instanceLabel, isDefaultServer } from "@/utils/serverInstance";
@@ -31,9 +32,10 @@ export function ServerUrlField({
       <button
         type="button"
         onClick={() => setShown((v) => !v)}
-        className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
+        aria-expanded={shown}
+        className="focus-ring flex items-center gap-1 text-xs w-full text-left transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
       >
-        {shown ? "▾" : "▸"}{" "}
+        <Icon icon={shown ? "lucide:chevron-down" : "lucide:chevron-right"} width={12} />
         {host ? t("layout.auth.serverNamed", { host }) : t("layout.auth.customServerUrl")}
       </button>
       {shown && (

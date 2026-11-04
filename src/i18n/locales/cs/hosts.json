@@ -51,13 +51,14 @@
       "new": "Nový",
       "pinned": "Připnuté",
       "folderEmpty": "Tato složka je prázdná",
-      "addHost": "Přidat host",
       "noSearchResults": "Výrazu „{{search}}“ neodpovídá žádný host",
       "ejectMoveTo": "Přesunout do {{name}}",
       "ejectRemoveFromFolder": "Odebrat ze složky",
       "emptyState": {
         "title": "Zatím žádné hosty",
-        "subtitle": "Začněte přidáním prvního SSH hostu"
+        "subtitle": "Přidejte server a připojujte se k němu jedním kliknutím.",
+        "import": "Importovat hosty",
+        "quickConnect": "Připojit bez uložení"
       },
       "draft": {
         "unsaved": "Neuloženo"

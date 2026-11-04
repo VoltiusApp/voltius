@@ -43,6 +43,18 @@
       "hostCount_other": "{{count}} hosts",
       "empty": "No hosts yet",
       "more": "+{{count}} more"
+    },
+    "firstRun": {
+      "title": "Connect to your first server",
+      "body": "Type an address to open a terminal now, or add it as a host to keep it.",
+      "addressPlaceholder": "user@host or user@host:2222",
+      "addressLabel": "Server address",
+      "addressHint": "Use user@host, with :port if it isn't 22. Session invite codes work here too.",
+      "join": "Join",
+      "importOther": "Import from another app",
+      "localTerminal": "Open local terminal",
+      "importSshConfig_one": "Import {{count}} host from ~/.ssh/config",
+      "importSshConfig_other": "Import {{count}} hosts from ~/.ssh/config"
     }
   }
 }

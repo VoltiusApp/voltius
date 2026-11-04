@@ -50,13 +50,14 @@
       "new": "Novo",
       "pinned": "Fixados",
       "folderEmpty": "Esta pasta está vazia",
-      "addHost": "Adicionar Host",
       "noSearchResults": "Nenhum host corresponde a \"{{search}}\"",
       "ejectMoveTo": "Mover para {{name}}",
       "ejectRemoveFromFolder": "Remover da pasta",
       "emptyState": {
         "title": "Nenhum host ainda",
-        "subtitle": "Adicione seu primeiro host SSH para começar"
+        "subtitle": "Adicione um servidor para se ligar com um clique.",
+        "import": "Importar hosts",
+        "quickConnect": "Ligar sem guardar"
       },
       "draft": {
         "unsaved": "Não guardado"

@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Secured by OS keychain — no password needed",
       "or": "or",
       "cloudAccount": "Cloud account",
-      "cloudAccountSub": "Devices pair automatically · Pro adds cloud sync and backup",
+      "cloudAccountSub": "Free · devices pair automatically. Pro adds cloud sync and backup.",
       "cloudAccountSub_ios": "Sync across devices — sign in or create one",
       "back": "Back",
       "signupPrompt": "Create an account to pair your devices automatically",
@@ -47,10 +47,13 @@
       "e2eeNotice": "Your data is E2E encrypted — the server cannot read it.",
       "openSource": "Open source.",
       "agreeToTerms": "By creating an account you agree to our <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.",
-      "accountCreatedToast": "Account created! Check your email to verify.",
+      "accountCreatedToast": "Account created. Check your email to verify it.",
       "vaultUnreadableBodyNoPassword": "This device's secrets file cannot be opened with the key stored on this machine. Nothing has been deleted. Set it aside to start with an empty vault, or restore one of the backups below.",
       "vaultSetAsideLocal": "Set aside and start fresh",
-      "vaultSetAsideLocalSub": "Keeps a backup copy on this device"
+      "vaultSetAsideLocalSub": "Keeps a backup copy on this device",
+      "addAccountLater": "You can create an account later and keep your hosts.",
+      "errorEmailRequired": "Enter your email",
+      "masterPasswordNote": "This password encrypts your data. It can't be reset or recovered, so keep it somewhere safe."
     },
     "cloudAuthModal": {
       "registerTitle": "Create cloud account",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "Create master password",
       "confirmMasterPasswordPlaceholder": "Confirm master password",
       "errorPasswordRequired": "Password required",
-      "errorMinLength4": "At least 4 characters",
       "pleaseWait": "Please wait…",
       "reauthTitle": "Sign in again",
       "reauthDesc": "Your session on this device has ended. Enter your master password to reconnect."

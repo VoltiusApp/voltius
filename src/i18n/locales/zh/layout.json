@@ -26,7 +26,7 @@
       "getStartedSub_ios": "由操作系统密钥链保护——无需密码",
       "or": "或",
       "cloudAccount": "云账户",
-      "cloudAccountSub": "设备自动配对 · Pro 增加云同步和备份",
+      "cloudAccountSub": "免费 · 设备自动配对。Pro 增加云同步和备份",
       "cloudAccountSub_ios": "跨设备同步——登录或创建一个",
       "back": "返回",
       "signupPrompt": "创建账户，让您的设备自动配对",
@@ -47,10 +47,13 @@
       "e2eeNotice": "您的数据已端到端加密——服务器无法读取。",
       "openSource": "开源。",
       "agreeToTerms": "创建账户即表示您同意我们的<terms>服务条款</terms>和<privacy>隐私政策</privacy>。",
-      "accountCreatedToast": "账户已创建！请查收邮件进行验证。",
+      "accountCreatedToast": "账户已创建。请查收邮件进行验证。",
       "vaultUnreadableBodyNoPassword": "无法用本机保存的密钥打开此设备的密钥文件。没有删除任何内容。可以将其搁置以从空保管库开始，或恢复下方的某个备份。",
       "vaultSetAsideLocal": "搁置并重新开始",
-      "vaultSetAsideLocalSub": "在此设备上保留备份副本"
+      "vaultSetAsideLocalSub": "在此设备上保留备份副本",
+      "addAccountLater": "你可以稍后再创建账户，主机不会丢失。",
+      "errorEmailRequired": "请输入邮箱",
+      "masterPasswordNote": "此密码用于加密你的数据，无法重置或找回，请妥善保管。"
     },
     "cloudAuthModal": {
       "registerTitle": "创建云账户",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "创建主密码",
       "confirmMasterPasswordPlaceholder": "确认主密码",
       "errorPasswordRequired": "需要密码",
-      "errorMinLength4": "至少 4 个字符",
       "pleaseWait": "请稍候…",
       "reauthTitle": "重新登录",
       "reauthDesc": "此设备上的会话已结束。请输入主密码以重新连接。"

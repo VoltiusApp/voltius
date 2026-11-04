@@ -24,7 +24,9 @@
       "pin": "Pin",
       "unpin": "Unpin",
       "moreOptions": "More options",
-      "closePanel": "Close panel"
+      "closePanel": "Close panel",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
     },
     "entity": {
       "host": "Host",
