@@ -29,6 +29,10 @@ static KEYS: LazyLock<HashMap<String, KeyType>> = LazyLock::new(|| {
     entries.into_iter().map(|e| (e.id, e.ty)).collect()
 });
 
+pub fn key_ids() -> impl Iterator<Item = &'static str> {
+    KEYS.keys().map(String::as_str)
+}
+
 pub fn key_type(id: &str) -> Option<KeyType> {
     KEYS.get(id).copied()
 }
@@ -48,7 +52,7 @@ pub enum Layer {
 }
 
 impl Layer {
-    fn name(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Layer::Policy => "policy",
             Layer::Defaults => "defaults",

@@ -8,6 +8,7 @@
 mod android_ctx;
 mod app_lock;
 mod clock;
+pub mod cli;
 mod commands;
 mod crypto;
 mod device_files;
