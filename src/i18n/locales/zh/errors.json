@@ -15,6 +15,8 @@
     "port-in-use": "端口 {{port}} 及其后续端口均已被占用（已尝试 {{attempts}} 个）",
     "bind-address-unavailable": "此计算机没有地址 {{address}}",
     "remote-forward-denied": "服务器拒绝了远程转发——该端口可能已在服务器上被占用，或不允许转发",
+    "ssh-legacy-algorithms-required": "服务器只提供默认关闭的旧算法（{{offered}}）。请为此主机开启“传统算法”以连接。",
+    "ssh-no-common-algorithm": "服务器只提供 Voltius 不支持的算法：{{offered}}。",
     "ssh-key-rejected": "公钥认证被拒绝",
     "ssh-password-rejected": "密码认证被拒绝——请检查用户名和密码",
     "ssh-password-expired": "服务器要求设置新密码——请先从终端登录一次并在那里修改密码",

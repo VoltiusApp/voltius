@@ -249,6 +249,7 @@
       "connectionError": {
         "title": "Connection failed",
         "retry": "Retry",
+        "enableLegacyAndRetry": "Turn on Legacy Algorithms and retry",
         "dismiss": "Dismiss"
       },
       "hostKeyConflict": {

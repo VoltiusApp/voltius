@@ -1385,13 +1385,43 @@ fn legacy_preferred() -> russh::Preferred {
     }
 }
 
+/// Whether turning on legacy algorithms would give `kind` a match among `theirs`.
+pub(crate) fn legacy_algorithms_match(kind: &russh::AlgorithmKind, theirs: &[String]) -> bool {
+    use russh::AlgorithmKind as K;
+    let legacy = legacy_preferred();
+    let ours: Vec<&str> = match kind {
+        K::Kex => legacy.kex.iter().map(AsRef::as_ref).collect(),
+        K::Cipher => legacy.cipher.iter().map(AsRef::as_ref).collect(),
+        K::Mac => legacy.mac.iter().map(AsRef::as_ref).collect(),
+        K::Key | K::Compression => return false,
+    };
+    theirs.iter().any(|t| ours.contains(&t.as_str()))
+}
+
+/// `theirs` without the protocol markers a KEX list carries beside real algorithms.
+pub(crate) fn offered_algorithms(theirs: &[String]) -> String {
+    use russh::kex;
+    let markers = [
+        kex::EXTENSION_SUPPORT_AS_CLIENT,
+        kex::EXTENSION_SUPPORT_AS_SERVER,
+        kex::EXTENSION_OPENSSH_STRICT_KEX_AS_CLIENT,
+        kex::EXTENSION_OPENSSH_STRICT_KEX_AS_SERVER,
+    ];
+    theirs
+        .iter()
+        .map(String::as_str)
+        .filter(|name| !markers.iter().any(|m| m.as_ref() == *name))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         answer_prompts, authenticate_handle, choose_rsa_hash, client, client_config,
-        connect_first_hop_retrying, legacy_preferred, open_agent_channel, platform_from_sshid, Arc,
-        HopRoute, PersistentSession, SshClient, AUTH_TIMEOUT, KBD_INT_REJECTED, KEY_REJECTED,
-        PASSWORD_EXPIRED, PASSWORD_REJECTED,
+        connect_first_hop_retrying, legacy_algorithms_match, legacy_preferred, open_agent_channel,
+        platform_from_sshid, Arc, HopError, HopRoute, PersistentSession, SshClient, AUTH_TIMEOUT,
+        KBD_INT_REJECTED, KEY_REJECTED, PASSWORD_EXPIRED, PASSWORD_REJECTED,
     };
 
     #[test]
@@ -1736,6 +1766,60 @@ mod tests {
             })
         ));
         assert!(connect(true).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn sha1_only_kex_names_the_legacy_toggle() {
+        use crate::error::{AppError, ErrorCode};
+        use crate::port_forward::test_ssh::{connect_to_server, Behavior};
+        use russh::kex;
+        use std::borrow::Cow;
+
+        let fiberhome_olt = russh::Preferred {
+            kex: Cow::Borrowed(&[
+                kex::DH_GEX_SHA1,
+                kex::DH_G14_SHA1,
+                kex::DH_G1_SHA1,
+                kex::EXTENSION_SUPPORT_AS_SERVER,
+                kex::EXTENSION_OPENSSH_STRICT_KEX_AS_SERVER,
+            ]),
+            ..Default::default()
+        };
+        let err = connect_to_server(
+            client_config(0, 3, false),
+            fiberhome_olt,
+            Behavior::GreetThenClose,
+        )
+        .await
+        .err()
+        .map(HopError::Ssh)
+        .expect("default algorithms must not negotiate");
+        let AppError::Coded { code, params, .. } = AppError::caused("Connection failed", &err)
+        else {
+            panic!("expected a coded error");
+        };
+        assert_eq!(code, ErrorCode::SshLegacyAlgorithmsRequired);
+        assert_eq!(
+            params.get("offered").map(String::as_str),
+            Some("diffie-hellman-group-exchange-sha1, diffie-hellman-group14-sha1, diffie-hellman-group1-sha1")
+        );
+    }
+
+    #[test]
+    fn unsupported_algorithms_are_not_blamed_on_the_legacy_toggle() {
+        let theirs = vec!["hmac-md5".to_string()];
+        assert!(!legacy_algorithms_match(
+            &russh::AlgorithmKind::Mac,
+            &theirs
+        ));
+        assert!(!legacy_algorithms_match(
+            &russh::AlgorithmKind::Key,
+            &["ssh-dss".to_string()]
+        ));
+        assert!(legacy_algorithms_match(
+            &russh::AlgorithmKind::Cipher,
+            &["3des-cbc".to_string()]
+        ));
     }
 
     #[test]

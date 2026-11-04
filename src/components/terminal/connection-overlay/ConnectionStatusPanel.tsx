@@ -58,10 +58,12 @@ export function ReconnectWaitPanel({
 
 export function ConnectionErrorPanel({
   errorMessage,
+  retryLabel,
   onRetry,
   onDismiss,
 }: {
   errorMessage?: string;
+  retryLabel?: string;
   onRetry?: () => void;
   onDismiss?: () => void;
 }) {
@@ -73,7 +75,7 @@ export function ConnectionErrorPanel({
         <p className="text-status-error/80 text-xs mt-1 wrap-break-word">{errorMessage}</p>
       )}
       <PanelActions
-        retryLabel={t("terminal.overlay.connectionError.retry")}
+        retryLabel={retryLabel ?? t("terminal.overlay.connectionError.retry")}
         onRetry={onRetry}
         onDismiss={onDismiss}
       />

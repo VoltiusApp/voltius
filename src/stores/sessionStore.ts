@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
+import type { Connection, ConnectionFormData, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -74,6 +74,8 @@ interface SessionStore {
   reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<ReconnectAttemptResult>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
+  /** Saves Legacy Algorithms on the session's host, then reconnects. */
+  enableLegacyAlgorithms: (sessionId: string) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
   markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
@@ -107,6 +109,14 @@ function findConnection(connectionId: string): Connection | undefined {
 /** The saved, team or ephemeral connection a session was opened from. */
 export function connectionForSession(session: TerminalSession): Connection | undefined {
   return session.connectionId ? findConnection(session.connectionId) : undefined;
+}
+
+async function patchConnection(connection: Connection, patch: Partial<ConnectionFormData>): Promise<void> {
+  if (ephemeralConnections.has(connection.id)) {
+    ephemeralConnections.set(connection.id, { ...connection, ...patch });
+    return;
+  }
+  await useConnectionStore.getState().updateConnection(connection.id, { ...connectionToFormData(connection), ...patch });
 }
 
 function reportConnectionAudit(connection: Connection, action: ClientAuditAction, creds?: ResolvedCredentials): void {
@@ -788,10 +798,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!session) return;
     const connection = connectionForSession(session);
     if (connection) {
-      await useConnectionStore.getState().updateConnection(connection.id, {
-        ...connectionToFormData(connection),
-        serial_auto_reconnect: enabled,
-      });
+      await patchConnection(connection, { serial_auto_reconnect: enabled });
       return;
     }
     patchSession(set, sessionId, { autoReconnect: enabled });
@@ -1072,6 +1079,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     } catch (err) {
       markSessionError(set, sessionId, err);
     }
+  },
+
+  enableLegacyAlgorithms: async (sessionId) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    const connection = session && connectionForSession(session);
+    if (!connection) return;
+    try {
+      await patchConnection(connection, { legacy_algorithms: true });
+    } catch (err) {
+      markSessionError(set, sessionId, err);
+      return;
+    }
+    await get().reconnect(sessionId);
   },
 
   retryConnect: async (sessionId, override, save) => {

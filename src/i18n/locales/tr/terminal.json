@@ -249,6 +249,7 @@
       "connectionError": {
         "title": "Bağlantı başarısız",
         "retry": "Tekrar dene",
+        "enableLegacyAndRetry": "Eski algoritmaları aç ve tekrar dene",
         "dismiss": "Kapat"
       },
       "hostKeyConflict": {
