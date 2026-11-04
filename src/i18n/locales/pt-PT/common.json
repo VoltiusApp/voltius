@@ -306,6 +306,11 @@
       "hoursAgo": "{{count}}h atrás",
       "daysAgo": "{{count}}d atrás"
     },
+    "policy": {
+      "issues_one": "A política do Voltius da sua organização tem {{count}} problema; o resto continua a aplicar-se.",
+      "issues_other": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se.",
+      "issues_many": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se."
+    },
     "history": {
       "movedItems_one": "Movido {{count}} item",
       "movedItems_other": "Movidos {{count}} itens",

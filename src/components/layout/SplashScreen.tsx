@@ -24,6 +24,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlatform } from "@/utils/platform";
 import { canLockVault } from "@/utils/accountMode";
+import { usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
@@ -163,6 +164,8 @@ export default function SplashScreen({ onReady }: Props) {
       startSessionSync();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
+    await usePolicyStore.getState().load();
+    watchPolicyVisibility();
     // Plugin loading must never freeze startup: a single rejected invoke here
     // (e.g. a storage command failing on a locked-down platform) would leave the
     // splash spinning forever. Swallow and continue to the main UI.

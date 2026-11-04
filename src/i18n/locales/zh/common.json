@@ -288,6 +288,9 @@
       "hoursAgo": "{{count}} 小时前",
       "daysAgo": "{{count}} 天前"
     },
+    "policy": {
+      "issues_other": "贵组织的 Voltius 策略存在 {{count}} 个问题；其余部分仍然生效。"
+    },
     "history": {
       "movedItems_other": "已移动 {{count}} 个项目",
       "pastedItems_other": "已粘贴 {{count}} 个项目",

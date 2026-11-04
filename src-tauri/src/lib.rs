@@ -410,6 +410,7 @@ pub fn run() {
             commands::sync::ssh_config_state_load,
             commands::sync::ssh_config_state_save,
             commands::sync::device_hostname,
+            commands::policy::policy_load,
             commands::lan_sync::lan_sync_start,
             commands::lan_sync::lan_sync_stop,
             commands::lan_sync::lan_sync_forget,

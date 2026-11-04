@@ -319,6 +319,12 @@
       "hoursAgo": "před {{count}} h",
       "daysAgo": "před {{count}} d"
     },
+    "policy": {
+      "issues_one": "Zásady Voltius vaší organizace obsahují {{count}} problém; zbytek zásad se nadále uplatňuje.",
+      "issues_few": "Zásady Voltius vaší organizace obsahují {{count}} problémy; zbytek zásad se nadále uplatňuje.",
+      "issues_many": "Zásady Voltius vaší organizace obsahují {{count}} problému; zbytek zásad se nadále uplatňuje.",
+      "issues_other": "Zásady Voltius vaší organizace obsahují {{count}} problémů; zbytek zásad se nadále uplatňuje."
+    },
     "history": {
       "movedItems_one": "Přesunuta {{count}} položka",
       "movedItems_few": "Přesunuty {{count}} položky",

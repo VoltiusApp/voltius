@@ -306,6 +306,11 @@
       "hoursAgo": "il y a {{count}} h",
       "daysAgo": "il y a {{count}} j"
     },
+    "policy": {
+      "issues_one": "La politique Voltius de votre organisation comporte {{count}} problème ; le reste s'applique toujours.",
+      "issues_many": "La politique Voltius de votre organisation comporte {{count}} problèmes ; le reste s'applique toujours.",
+      "issues_other": "La politique Voltius de votre organisation comporte {{count}} problèmes ; le reste s'applique toujours."
+    },
     "history": {
       "movedItems_one": "{{count}} élément déplacé",
       "movedItems_many": "{{count}} éléments déplacés",
