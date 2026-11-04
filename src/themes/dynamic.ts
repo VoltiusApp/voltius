@@ -17,9 +17,9 @@ export const DYNAMIC_THEME_NAME = "Material You";
 /** Minimum contrasts the generated theme guarantees (checked by the unit tests). */
 export const DYNAMIC_CONTRAST = {
   textPrimary: 7,
-  textSecondary: 4.5,
-  textDim: 4.5,
-  textMuted: 3,
+  textSecondary: 5.5,
+  textDim: 5,
+  textMuted: 4.5,
   accent: 3,
   ansi: 4.5,
   brightBlack: 3,
