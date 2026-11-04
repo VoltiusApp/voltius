@@ -256,6 +256,7 @@
       "connectionError": {
         "title": "Falha na conexão",
         "retry": "Tentar novamente",
+        "enableLegacyAndRetry": "Ativar Algoritmos Legados e tentar novamente",
         "dismiss": "Dispensar"
       },
       "hostKeyConflict": {

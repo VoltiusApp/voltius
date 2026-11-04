@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
 import { ConnectionErrorPanel, ReconnectWaitPanel } from "./ConnectionStatusPanel";
 import { ConnectionSteps } from "./ConnectionSteps";
@@ -35,8 +36,10 @@ export default function ConnectionOverlay({
   onRetryWithAuth,
   identityPick,
   onUseHostCredential,
+  onEnableLegacyAlgorithms,
 }: ConnectionOverlayProps) {
-  const { steps, visible } = useConnectionSteps({ status, stepConfigs, stepEventName });
+  const { t } = useTranslation();
+  const { steps, visible } = useConnectionSteps({ status, errorCode, stepConfigs, stepEventName });
   const { conflict, resolving, resolveConflict } = useHostKeyConflict({
     sessionId,
     status,
@@ -60,6 +63,7 @@ export default function ConnectionOverlay({
   const showPassphrasePrompt = prompting && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
   const showUsernamePrompt = prompting && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
+  const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
   const showSpecialPanel =
     (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
@@ -127,7 +131,8 @@ export default function ConnectionOverlay({
             {isError && (
               <ConnectionErrorPanel
                 errorMessage={errorMessage}
-                onRetry={onRetry}
+                retryLabel={legacyFix && t("terminal.overlay.connectionError.enableLegacyAndRetry")}
+                onRetry={legacyFix ?? onRetry}
                 onDismiss={onDismiss}
               />
             )}

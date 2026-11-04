@@ -247,6 +247,7 @@
       "connectionError": {
         "title": "连接失败",
         "retry": "重试",
+        "enableLegacyAndRetry": "开启传统算法并重试",
         "dismiss": "忽略"
       },
       "hostKeyConflict": {

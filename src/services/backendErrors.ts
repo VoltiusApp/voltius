@@ -21,6 +21,8 @@ export const BACKEND_ERROR_CODES = [
   "port-in-use",
   "bind-address-unavailable",
   "remote-forward-denied",
+  "ssh-legacy-algorithms-required",
+  "ssh-no-common-algorithm",
   "ssh-key-rejected",
   "ssh-password-rejected",
   "ssh-password-expired",

@@ -263,6 +263,7 @@
       "connectionError": {
         "title": "Připojení se nezdařilo",
         "retry": "Zkusit znovu",
+        "enableLegacyAndRetry": "Zapnout zastaralé algoritmy a zkusit znovu",
         "dismiss": "Zavřít"
       },
       "hostKeyConflict": {

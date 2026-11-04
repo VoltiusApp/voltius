@@ -263,6 +263,7 @@
       "connectionError": {
         "title": "Ошибка подключения",
         "retry": "Повторить",
+        "enableLegacyAndRetry": "Включить устаревшие алгоритмы и повторить",
         "dismiss": "Закрыть"
       },
       "hostKeyConflict": {

@@ -58,6 +58,8 @@ export interface ConnectionOverlayProps {
   onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
   identityPick?: IdentityPickIssue;
   onUseHostCredential?: () => void;
+  /** Offered in place of Retry when only legacy algorithms would negotiate. */
+  onEnableLegacyAlgorithms?: () => void;
 }
 
 export interface DecisionPanelAction {
