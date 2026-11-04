@@ -26,6 +26,7 @@ pub mod ping;
 pub mod plugin_registry;
 pub mod plugin_storage;
 pub mod plugins;
+pub mod policy;
 pub mod port_forwarding_rules;
 pub mod port_forwarding_tunnels;
 pub mod processes;

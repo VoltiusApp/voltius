@@ -293,6 +293,10 @@
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
     },
+    "policy": {
+      "issues_one": "Your organization's Voltius policy has {{count}} problem; the rest of it still applies.",
+      "issues_other": "Your organization's Voltius policy has {{count}} problems; the rest of it still applies."
+    },
     "history": {
       "movedItems_one": "Moved {{count}} item",
       "movedItems_other": "Moved {{count}} items",
