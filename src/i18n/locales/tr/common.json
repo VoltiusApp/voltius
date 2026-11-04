@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Denetim günlükleri dışa aktarılamadı: {{status}}",
       "serverUnreachableTimeout": "Sunucuya ulaşılamıyor (zaman aşımı) — internet bağlantınızı ve sunucu URL'sini kontrol edin",
       "networkError": "Ağ hatası — {{message}}",
+      "accountAlreadyActive": "Bu cihazda bu hesapta zaten oturum açtınız",
       "emailAlreadyRegistered": "Bu e-posta zaten kayıtlı",
       "registrationFailed": "Kayıt başarısız: {{status}}",
       "registrationDisabled": "Bu sunucuda yeni hesap kaydı devre dışı. Hesap için yöneticisine başvurun.",

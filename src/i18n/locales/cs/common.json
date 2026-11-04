@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Auditní logy se nepodařilo exportovat: {{status}}",
       "serverUnreachableTimeout": "Server je nedostupný (vypršel časový limit) — zkontrolujte připojení k internetu a URL serveru",
       "networkError": "Chyba sítě — {{message}}",
+      "accountAlreadyActive": "K tomuto účtu už jste na tomto zařízení přihlášeni",
       "emailAlreadyRegistered": "E-mail je již zaregistrován",
       "registrationFailed": "Registrace se nezdařila: {{status}}",
       "registrationDisabled": "Registrace nových účtů je na tomto serveru vypnutá. Požádejte jeho správce o účet.",

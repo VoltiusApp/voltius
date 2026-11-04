@@ -103,6 +103,7 @@
       "failedToExportAuditLogs": "Échec de l'exportation des journaux d'audit : {{status}}",
       "serverUnreachableTimeout": "Serveur injoignable (délai dépassé) — vérifiez votre connexion internet et l'URL du serveur",
       "networkError": "Erreur réseau — {{message}}",
+      "accountAlreadyActive": "Vous êtes déjà connecté à ce compte sur cet appareil",
       "emailAlreadyRegistered": "Cet e-mail est déjà enregistré",
       "registrationFailed": "Échec de l'inscription : {{status}}",
       "registrationDisabled": "La création de comptes est désactivée sur ce serveur. Demandez un compte à son administrateur.",

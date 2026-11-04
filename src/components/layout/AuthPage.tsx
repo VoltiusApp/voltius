@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, MIN_PASSWORD_LENGTH, SubmitBtn, SystemAuthButton, emailError } from "./authParts";
@@ -45,6 +45,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   const lanContext = localSyncContext(usePlatform());
   const [view, setView] = useState<View>(cloudOnly ? "cloud" : "home");
   const [blocked, setBlocked] = useState(false);
+  const pendingSecret = useRef<string | undefined>(undefined);
   const addOnly = cloudOnly || blocked;
   const [cloudMode, setCloudMode] = useState<CloudMode>(cloudOnly ? "signin" : "signup");
   const [loading, setLoading] = useState(false);
@@ -70,8 +71,9 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
 
   const twoFactor = useTwoFactorChallenge();
 
-  const blockServer = () => {
+  const blockServer = (pending?: string) => {
     twoFactor.cancel();
+    pendingSecret.current = pending;
     setBlocked(true);
     setCloudMode("signin");
     setView("cloud");
@@ -84,7 +86,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
     try {
       await work();
     } catch (e) {
-      if (e instanceof ServerBlockedError) return blockServer();
+      if (e instanceof ServerBlockedError) return blockServer(e.pendingSecret);
       if (!(e instanceof VaultUnreadableError)) throw e;
       twoFactor.cancel();
       setUnreadable("wrong-key");
@@ -285,7 +287,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
       if (addOnly) {
         await wrap(
           () => authenticateServerAccount(isSignup ? "register" : "signin", email, password, normalizedUrl),
-          addAccount,
+          (session) => addAccount(session, pendingSecret.current),
           false,
         );
       }

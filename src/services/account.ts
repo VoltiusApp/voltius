@@ -166,6 +166,19 @@ async function passwordVaultKey(kek: number[], recoverFromServer: boolean): Prom
   return opened;
 }
 
+async function storedWrappedKey(kek: number[], entry: string): Promise<number[] | null> {
+  const wrapped = await keychainGet(entry);
+  return wrapped ? wrappedVaultKey(kek, wrapped) : null;
+}
+
+/** Read-only: the vault opens, or with no vault the cached wrapped secrets unwrap. */
+async function passwordProvenOffline(kek: number[]): Promise<boolean> {
+  const dek = await storedWrappedKey(kek, "wrapped_user_secrets");
+  if (!(await getVaultStatus()).exists) return !!dek;
+  const prior = await storedWrappedKey(kek, PRIOR_WRAPPED_KEY);
+  return !!(await keyThatOpensVault(...[dek, kek, prior].filter((k): k is number[] => !!k)));
+}
+
 async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -410,17 +423,16 @@ export async function login(password: string, email?: string, serverUrl?: string
     if (!(await keyThatOpensVault(encKey))) throw new Error(i18n.t("common.error.incorrectPassword"));
   } else {
     const { enc_key: kek } = await deriveKeys(password, accountId);
+    if (blocked) {
+      if (!(await passwordProvenOffline(kek))) throw new Error(i18n.t("common.error.incorrectPassword"));
+      throw new ServerBlockedError(password);
+    }
     const opened = await passwordVaultKey(kek, false);
     // Without a cached dek only the server can supply a cloud vault's key.
-    if (!opened && (!reauth || blocked)) throw new Error(i18n.t("common.error.incorrectPassword"));
+    if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
     // Only the dek unwrapped from this device's cached secrets proves the password without the server.
     cachedSecretsOpen = !!opened && opened !== kek;
     encKey = opened ?? kek;
-  }
-
-  if (blocked) {
-    await rememberPassword(password);
-    throw new ServerBlockedError();
   }
 
   const openLocally = async () => {
@@ -1063,8 +1075,7 @@ export async function settleVaultOnDek(): Promise<void> {
 
 /** Whether this device already knew this password: its cached secrets are wrapped under its kek. */
 async function cachedSecretsUnwrapWith(kek: number[]): Promise<boolean> {
-  const cached = await keychainGet("wrapped_user_secrets");
-  return !!cached && (await unwrapUserSecrets(kek, cached).then(() => true, () => false));
+  return !!(await storedWrappedKey(kek, "wrapped_user_secrets"));
 }
 
 /** `rememberPassword` keeps a sealed secret, so a password changed elsewhere must be sealed anew. */
