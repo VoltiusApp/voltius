@@ -193,6 +193,10 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: bash scripts/import-macos-signing-cert.sh
 
+      - name: Build the voltius-cli sidecar
+        shell: bash
+        run: bash scripts/stage-cli-sidecar.sh ${{ matrix.target }}
+
       - name: Build and Release Tauri App
         uses: tauri-apps/tauri-action@v1
         env:
@@ -213,7 +217,7 @@ jobs:
           # An id, not a tag: the action then uploads to exactly this release and
           # never looks one up or creates one. See the create-release job.
           releaseId: ${{ needs.create-release.outputs.id }}
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
           uploadPlainBinary: true
           updaterJsonPreferNsis: true
           # Don't write latest.json here — concurrent jobs would race on the

@@ -41,3 +41,4 @@ package-lock.json
 # by a container running as root, so it is also awkward to clean up by accident.
 packaging/flatpak/build-dir/
 packaging/flatpak/.flatpak-builder/
+src-tauri/binaries/
