@@ -9,6 +9,7 @@ import {
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
 import { serverAllowed } from "./policy/serverPolicy";
+import { AccountNotSavedError, ServerBlockedError } from "./accountErrors";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
@@ -202,7 +203,7 @@ export async function getSwitchTargets(active: ActiveAccount): Promise<SavedAcco
  * Rejects when the keychain does — the caller decides whether that is worth
  * telling the user about. Swallowing it here is what hid the size cap.
  */
-export async function saveCurrentAccount(): Promise<void> {
+export async function saveCurrentAccount(): Promise<boolean> {
   const values = await Promise.all(SESSION_KEYS.map((key) => keychainGet(key)));
   const session = Object.fromEntries(
     SESSION_KEYS.map((key, i) => [key, values[i]]),
@@ -210,7 +211,7 @@ export async function saveCurrentAccount(): Promise<void> {
 
   const secret = await exportSecret();
   const { account_id, mode } = session;
-  if (!account_id || !mode || !secret) return;
+  if (!account_id || !mode || !secret) return false;
 
   const entry: SavedAccount = {
     ...session,
@@ -218,10 +219,12 @@ export async function saveCurrentAccount(): Promise<void> {
     mode,
     ...(secret.kind === "plain" ? { master_password: secret.value } : { master_password_sealed: secret.value }),
   };
-  if (!isSwitchable(entry)) return;
+  if (!isSwitchable(entry)) return false;
 
   await upsertSavedAccount(entry);
+  return true;
 }
+
 
 /**
  * Merge an entry into the switcher, keeping fields the caller did not supply.
@@ -299,7 +302,7 @@ const FINAL_PUSH_TIMEOUT_MS = 5000;
  */
 async function flushPendingChanges(): Promise<void> {
   const { push, isSyncPaused } = await import("@/services/sync");
-  if (isSyncPaused() || !serverAllowed(await keychainGet("server_url"))) return;
+  if (isSyncPaused() || !serverAllowed(await keychainGet("server_url").catch(() => null))) return;
   const abort = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<void>((resolve) => {
@@ -377,7 +380,7 @@ let switchInFlight: Promise<void> | null = null;
  * write its keychain entries and UI state, then reload so autoLogin picks it up.
  */
 export function switchToAccount(account: SavedAccount): Promise<void> {
-  if (!serverAllowed(account.server_url)) return Promise.reject(new Error("Account server is not allowed by policy"));
+  if (!serverAllowed(account.server_url)) return Promise.reject(new ServerBlockedError());
   // A second run would park the incoming account's data under the outgoing id.
   switchInFlight ??= runSwitch(account).finally(() => {
     switchInFlight = null;
@@ -391,7 +394,8 @@ export function switchToAccount(account: SavedAccount): Promise<void> {
  * before anything is torn down.
  */
 export async function addAccount(session: Omit<SavedAccount, "mode">): Promise<void> {
-  await saveCurrentAccount();
+  const saved = await saveCurrentAccount();
+  if (!saved && (await keychainGet("mode")) === "server") throw new AccountNotSavedError();
   if ((await keychainGet("account_id")) === session.account_id) return;
   const entry: SavedAccount = { ...session, mode: "server" };
   await upsertSavedAccount(entry);

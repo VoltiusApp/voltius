@@ -42,7 +42,7 @@ vi.mock("@/stores/vaultKeysStore", () => ({
   },
 }));
 
-import { ServerBlockedError } from "@/services/policy/serverPolicy";
+import { ServerBlockedError } from "@/services/accountErrors";
 import { usePolicyStore } from "@/stores/policyStore";
 import { autoLogin, login } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
@@ -380,9 +380,28 @@ test("autoLogin still opens an allowed server account under the policy", async (
   expect(h.setVaultKey).toHaveBeenCalled();
 });
 
-test("password unlock of a disallowed-server account is refused and touches nothing", async () => {
+function lockedBlockedSession() {
   serverSession("https://other.example");
+  delete h.store.master_password;
   pinServer(false);
+}
+
+test("a wrong password on a disallowed-server lock screen gets the normal error and changes nothing", async () => {
+  lockedBlockedSession();
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(wrongKey());
+  const before = { ...h.store };
+  try {
+    await expect(login("nope")).rejects.toThrow("common.error.incorrectPassword");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
+});
+
+test("the right password on a disallowed-server lock screen keeps the secret for the snapshot and stays locked", async () => {
+  lockedBlockedSession();
   const before = { ...h.store };
   try {
     await expect(login("pw")).rejects.toBeInstanceOf(ServerBlockedError);
@@ -390,5 +409,5 @@ test("password unlock of a disallowed-server account is refused and touches noth
     usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   }
   expect(h.setVaultKey).not.toHaveBeenCalled();
-  expect(h.store).toEqual(before);
+  expect(h.store).toEqual({ ...before, master_password: "pw" });
 });

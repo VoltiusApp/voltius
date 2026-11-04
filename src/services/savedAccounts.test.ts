@@ -54,6 +54,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
 }));
 
 import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, type SavedAccount } from "./savedAccounts";
+import { AccountNotSavedError } from "./accountErrors";
 import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
@@ -497,6 +498,18 @@ test("adding the pinned-server account from a blocked one parks the blocked acco
   });
   expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
   expect(h.store.account_id).toBe("b");
+});
+
+test("adding an account refuses when the current server account cannot be snapshotted", async () => {
+  activate(CLOUD_A);
+  delete h.store.master_password;
+  const before = { ...h.store };
+
+  await expect(addAccount(SESSION_B)).rejects.toBeInstanceOf(AccountNotSavedError);
+
+  expect(h.store).toEqual(before);
+  expect(h.swapAccountProfile).not.toHaveBeenCalled();
+  expect(h.reload).not.toHaveBeenCalled();
 });
 
 test("adding the account already signed in does not tear it down", async () => {

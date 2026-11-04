@@ -308,6 +308,8 @@
     },
     "policy": {
       "managed": "Gerido pela sua organização",
+      "serverBlocked": "Este servidor não é permitido pela sua organização",
+      "accountNotSaved": "Não foi possível guardar primeiro a conta atual, por isso nada foi alterado",
       "issues_one": "A política do Voltius da sua organização tem {{count}} problema; o resto continua a aplicar-se.",
       "issues_other": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se.",
       "issues_many": "A política do Voltius da sua organização tem {{count}} problemas; o resto continua a aplicar-se."
