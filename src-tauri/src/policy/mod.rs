@@ -283,14 +283,18 @@ pub fn load_machine() -> LoadedPolicy {
 }
 
 pub fn write_atomic(path: &Path, doc: &PolicyDoc) -> std::io::Result<()> {
+    let mut text = serde_json::to_string_pretty(doc).map_err(std::io::Error::other)?;
+    text.push('\n');
+    write_text_atomic(path, &text)
+}
+
+pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
     let tmp = PathBuf::from(tmp);
-    let mut text = serde_json::to_string_pretty(doc).map_err(std::io::Error::other)?;
-    text.push('\n');
     let result = write_tmp(&tmp, text.as_bytes()).and_then(|()| std::fs::rename(&tmp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
