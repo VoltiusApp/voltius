@@ -90,6 +90,11 @@ export function usePolicyLock(key: string): PolicyLock {
   return lockedValue(key);
 }
 
+export function usePolicyRefresh(): void {
+  usePolicyStore((s) => s.machine);
+  usePolicyStore((s) => s.server);
+}
+
 export const adminDefault = (key: string): unknown | undefined => firstLayerWith(key, "defaults")?.value;
 
 export function watchPolicyVisibility() {

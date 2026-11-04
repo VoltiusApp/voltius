@@ -1,3 +1,5 @@
+import { isAdminDefaulted } from "@/stores/adminDefaultsStore";
+import { isLocked } from "@/stores/policyStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { deletePath, getPath, hasPath, setPath } from "@/utils/dotPath";
 import { USER_DATA_HANDLERS } from "./registry";
@@ -32,20 +34,27 @@ function editableSections(bundle: UserDataBundle, domains: Iterable<string>): Us
 
 function notSyncedKeys(): SettingKeyDef[] {
   const { isSettingSynced } = useSyncPrefsStore.getState();
-  return SETTING_KEYS.filter((k) => !isSettingSynced(k.id));
+  return SETTING_KEYS.filter((k) => !isSettingSynced(k.id) || isLocked(k.id));
+}
+
+function adminDefaultedKeys(): SettingKeyDef[] {
+  return SETTING_KEYS.filter((k) => isAdminDefaulted(k.id));
 }
 
 // Shared by stripHeldBackKeys and restoreLocal: select the not-synced keys
 // whose domain is present in the bundle, and make those domains' sections
 // editable. Both callers then walk `keys` to apply their own per-key rule.
-function heldBackEntries(bundle: UserDataBundle): { keys: SettingKeyDef[]; out: UserDataBundle } {
-  const keys = notSyncedKeys().filter((k) => bundle.sections[domainOf(k.id)]);
+function heldBackEntries(
+  bundle: UserDataBundle,
+  held: SettingKeyDef[] = notSyncedKeys(),
+): { keys: SettingKeyDef[]; out: UserDataBundle } {
+  const keys = held.filter((k) => bundle.sections[domainOf(k.id)]);
   const out = keys.length === 0 ? bundle : editableSections(bundle, new Set(keys.map((k) => domainOf(k.id))));
   return { keys, out };
 }
 
-function stripHeldBackKeys(bundle: UserDataBundle): UserDataBundle {
-  const { keys, out } = heldBackEntries(bundle);
+function stripHeldBackKeys(bundle: UserDataBundle, held?: SettingKeyDef[]): UserDataBundle {
+  const { keys, out } = heldBackEntries(bundle, held);
   for (const key of keys) deletePath(out.sections[domainOf(key.id)].data, relPath(key.id));
   return out;
 }
@@ -54,10 +63,11 @@ function stripHeldBackKeys(bundle: UserDataBundle): UserDataBundle {
  * The bundle as it may leave this device. Written to settings.json before
  * `backup_export` reads it, so a switched-off domain — and any individual
  * setting held back inside a domain that is still syncing — never enters the
- * blob. The guarantee is the filter, not the push trigger.
+ * blob. The guarantee is the filter, not the push trigger. Admin-defaulted
+ * keys are withheld too, so a company default never spreads to other devices.
  */
 export function filterOutgoing(bundle: UserDataBundle): UserDataBundle {
-  return stripHeldBackKeys(keepSyncedSections(bundle));
+  return stripHeldBackKeys(keepSyncedSections(bundle), [...notSyncedKeys(), ...adminDefaultedKeys()]);
 }
 
 /**

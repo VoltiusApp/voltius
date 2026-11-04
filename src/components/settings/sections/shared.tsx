@@ -9,7 +9,7 @@ import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
 import { Managed } from "@/components/shared/ManagedNote";
 import { isPolicyEnforced } from "@/services/policy/policyKeys";
-import { usePolicyLock } from "@/stores/policyStore";
+import { usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import RowActionsButton from "@/components/mobile/RowActionsButton";
@@ -258,10 +258,19 @@ function useKeySync(path: string) {
   const domainSynced = useSyncPrefsStore((s) => s.isDomainSynced(domainOf(path)));
   const synced = useSyncPrefsStore((s) => s.isSettingSynced(path));
   const deviceDefault = useSyncPrefsStore((s) => isDeviceScopedDefault(path, s.settingSyncOverrides ?? {}));
+  usePolicyRefresh();
   return { domainSynced, synced, deviceDefault };
 }
 
 export function SyncKeyButton({ path }: { path: string }) {
+  return (
+    <Managed policyKey={`sync.settings.${path}`}>
+      <SyncKeyButtonInner path={path} />
+    </Managed>
+  );
+}
+
+function SyncKeyButtonInner({ path }: { path: string }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { domainSynced, synced, deviceDefault } = useKeySync(path);
@@ -398,6 +407,14 @@ function HeldBackMark({ path }: { path: string }) {
 
 /** "Sync this setting" switch inside the Android row actions sheet. */
 function SyncSheetRow({ path }: { path: string }) {
+  return (
+    <Managed policyKey={`sync.settings.${path}`}>
+      <SyncSheetRowInner path={path} />
+    </Managed>
+  );
+}
+
+function SyncSheetRowInner({ path }: { path: string }) {
   const { t } = useTranslation();
   const { domainSynced, synced, deviceDefault } = useKeySync(path);
   const sub = !domainSynced
@@ -408,7 +425,7 @@ function SyncSheetRow({ path }: { path: string }) {
         ? t("settings.shared.sync.deviceDefault")
         : t("settings.shared.sync.off");
   return (
-    <div {...{ [ROW_ATTR]: "" }} data-ripple data-setting-sync={path} className="relative flex items-center gap-3 px-3 py-3 rounded-xl">
+    <div {...{ [ROW_ATTR]: "" }} data-ripple data-setting-sync={path} className="relative flex w-full items-center gap-3 px-3 py-3 rounded-xl">
       <Icon icon={synced ? "lucide:cloud" : "lucide:cloud-off"} width={18} className="shrink-0 text-(--t-text-primary)" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.shared.sync.label")}</p>
