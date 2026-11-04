@@ -5,16 +5,6 @@
       "afternoon": "İyi günler",
       "evening": "İyi akşamlar"
     },
-    "stat": {
-      "vaults_one": "kasa",
-      "vaults_other": "kasa",
-      "hosts_one": "sunucu",
-      "hosts_other": "sunucu",
-      "activeSessions_one": "etkin oturum",
-      "activeSessions_other": "etkin oturum",
-      "portForwards_one": "port yönlendirme",
-      "portForwards_other": "port yönlendirme"
-    },
     "quickActions": {
       "export": "Dışa aktar",
       "import": "İçe aktar"
@@ -60,6 +50,12 @@
       "localTerminal": "Yerel terminal aç",
       "importSshConfig_one": "~/.ssh/config dosyasından {{count}} sunucuyu içe aktar",
       "importSshConfig_other": "~/.ssh/config dosyasından {{count}} sunucuyu içe aktar"
+    },
+    "connect": {
+      "label": "Bir sunucuya bağlan",
+      "placeholder": "user@host, sunucu adı veya davet kodu",
+      "search": "Ara",
+      "searchEverything": "Her yerde ara"
     }
   }
 }

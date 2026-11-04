@@ -135,7 +135,7 @@ function KeyHint({ keys, label }: { keys: string; label: string }) {
 export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { t } = useTranslation();
   const [scope, setScope] = useState<Category>("all");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => useUIStore.getState().omniSeed);
   const [selected, setSelected] = useState(0);
   const [notice, setNotice] = useState<(RowNotice & { key: string; armed: boolean }) | null>(null);
   const [omniView, setOmniView] = useState<OmniView>("root");

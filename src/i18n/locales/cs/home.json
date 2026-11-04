@@ -5,24 +5,6 @@
       "afternoon": "Dobré odpoledne",
       "evening": "Dobrý večer"
     },
-    "stat": {
-      "vaults_one": "trezor",
-      "vaults_few": "trezory",
-      "vaults_many": "trezoru",
-      "vaults_other": "trezorů",
-      "hosts_one": "host",
-      "hosts_few": "hosty",
-      "hosts_many": "hostu",
-      "hosts_other": "hostů",
-      "activeSessions_one": "aktivní relace",
-      "activeSessions_few": "aktivní relace",
-      "activeSessions_many": "aktivní relace",
-      "activeSessions_other": "aktivních relací",
-      "portForwards_one": "přesměrování portu",
-      "portForwards_few": "přesměrování portů",
-      "portForwards_many": "přesměrování portu",
-      "portForwards_other": "přesměrování portů"
-    },
     "quickActions": {
       "export": "Export",
       "import": "Import"
@@ -72,6 +54,12 @@
       "importSshConfig_few": "Importovat {{count}} hosty z ~/.ssh/config",
       "importSshConfig_many": "Importovat {{count}} hostu z ~/.ssh/config",
       "importSshConfig_other": "Importovat {{count}} hostů z ~/.ssh/config"
+    },
+    "connect": {
+      "label": "Připojit se k serveru",
+      "placeholder": "user@host, název hostitele nebo kód pozvánky",
+      "search": "Hledat",
+      "searchEverything": "Hledat všude"
     }
   }
 }
