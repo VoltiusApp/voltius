@@ -8,6 +8,7 @@ import { useRipple } from "@/hooks/useRipple";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { getAccountMode, getMyHandle } from "@/services/account";
 import { lockApp } from "@/services/appLock";
+import { serverAllowed } from "@/services/policy/serverPolicy";
 import { getSwitchTargets, saveCurrentAccount, switchToAccount, removeSavedAccount, type ActiveAccount, type SavedAccount } from "@/services/savedAccounts";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
@@ -285,14 +286,16 @@ export function SidebarAccountButton() {
                 </div>
                 {switchTargets.map((account) => {
                   const instance = instanceLabel(account.server_url);
+                  const blocked = !serverAllowed(account.server_url);
                   return (
                     <DropdownMenuItem
                       key={account.account_id}
                       icon={accountIcon(instance)}
                       iconSize={16}
                       label={account.email ?? t("layout.sidebarAccount.localAccountFallback")}
-                      sublabel={instance ?? (account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal"))}
+                      sublabel={blocked ? t("common.policy.managed") : instance ?? (account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal"))}
                       title={instance ? account.server_url ?? undefined : undefined}
+                      disabled={blocked}
                       onClick={() => requestSwitch(account)}
                       trailing={
                         <button

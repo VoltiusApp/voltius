@@ -49,7 +49,11 @@ export function rememberServer(url: string): void {
   globalThis.localStorage?.setItem(LAST_SERVER_KEY, url);
 }
 
-export function lastServerUrl(): string {
+export function storedServerUrl(): string {
   const stored = globalThis.localStorage?.getItem(LAST_SERVER_KEY);
-  return parse(stored) ? stored! : DEFAULT_SERVER_URL;
+  return parse(stored) ? stored! : "";
+}
+
+export function lastServerUrl(): string {
+  return storedServerUrl() || DEFAULT_SERVER_URL;
 }

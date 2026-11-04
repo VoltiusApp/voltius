@@ -8,6 +8,7 @@ import {
   type PersistedAccountUiState,
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
+import { serverAllowed } from "./policy/serverPolicy";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
@@ -376,6 +377,7 @@ let switchInFlight: Promise<void> | null = null;
  * write its keychain entries and UI state, then reload so autoLogin picks it up.
  */
 export function switchToAccount(account: SavedAccount): Promise<void> {
+  if (!serverAllowed(account.server_url)) return Promise.reject(new Error("Account server is not allowed by policy"));
   // A second run would park the incoming account's data under the outgoing id.
   switchInFlight ??= runSwitch(account).finally(() => {
     switchInFlight = null;

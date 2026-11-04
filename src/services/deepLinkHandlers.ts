@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { refreshVerificationState } from "@/services/account";
 import { getJwt } from "@/services/authTokens";
+import { serverAllowed } from "@/services/policy/serverPolicy";
 import { getSavedAccounts, switchToAccount, type SavedAccount } from "@/services/savedAccounts";
 import { isNavigateIntent } from "@/services/deepLinkUrl";
 import type { NavigateIntent, UnpromptedIntent, VerifiedIntent } from "@/services/deepLinkUrl";
@@ -56,16 +57,19 @@ async function handleVerified(intent: VerifiedIntent): Promise<void> {
     return;
   }
 
+  const switchAction = serverAllowed(match.server_url)
+    ? {
+        label: i18n.t("notifications.emailVerification.toast.verifiedSwitch"),
+        // switchToAccount saves the outgoing account and reloads the window.
+        onClick: () => void switchToAccount(match),
+      }
+    : undefined;
   toast(
     match.email
       ? i18n.t("notifications.emailVerification.toast.verifiedOther", { email: match.email })
       : i18n.t("notifications.emailVerification.toast.verified"),
     "success",
-    {
-      label: i18n.t("notifications.emailVerification.toast.verifiedSwitch"),
-      // switchToAccount saves the outgoing account and reloads the window.
-      onClick: () => void switchToAccount(match),
-    },
+    switchAction,
   );
 }
 

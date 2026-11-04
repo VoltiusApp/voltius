@@ -12,7 +12,8 @@ import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
-import { lastServerUrl } from "@/utils/serverInstance";
+import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { usePolicyLock } from "@/stores/policyStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
@@ -48,7 +49,8 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
-  const [serverUrl, setServerUrl] = useState(lastServerUrl);
+  const [serverUrl, setServerUrl] = useState(startingServerUrl);
+  const serverLocked = usePolicyLock("server.url").locked;
   const addToast = useNotificationStore((s) => s.addToast);
 
   const reset = (v: View, mode?: CloudMode) => {
@@ -245,7 +247,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
       e.preventDefault();
       const invalidEmail = emailError(email, t);
       if (invalidEmail) { setError(invalidEmail); return; }
-      const normalizedUrl = serverUrl.replace(/\/+$/, "");
+      const normalizedUrl = resolveServerUrl(serverUrl);
       if (isSignup) {
         if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
         if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
@@ -279,7 +281,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
               <MasterPasswordNote />
             </>
           )}
-          <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} />
+          <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} locked={serverLocked} />
           <ErrorMsg msg={error} />
           <SubmitBtn loading={loading} label={isSignup ? t("layout.auth.createAccount") : t("layout.auth.signIn")} />
         </form>
