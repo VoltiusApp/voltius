@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ManagedNote } from "@/components/shared/ManagedNote";
 import { DEFAULT_SERVER_URL, instanceLabel, isDefaultServer } from "@/utils/serverInstance";
 
 /**
@@ -18,14 +19,25 @@ export function ServerUrlField({
   value,
   onChange,
   inputClassName,
+  locked = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
+  locked?: boolean;
 }) {
   const { t } = useTranslation();
   const [shown, setShown] = useState(() => !isDefaultServer(value));
   const host = instanceLabel(value);
+
+  if (locked) {
+    return (
+      <div className="flex items-center justify-between gap-2 text-xs text-(--t-text-dim)">
+        <span className="truncate">{host ? t("layout.auth.serverNamed", { host }) : DEFAULT_SERVER_URL}</span>
+        <ManagedNote />
+      </div>
+    );
+  }
 
   return (
     <>

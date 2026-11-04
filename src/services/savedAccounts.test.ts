@@ -31,6 +31,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("./vault", () => ({
   lockVault: h.lockVault,
   readLocalSecrets: h.readLocalSecrets,
@@ -54,6 +55,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
 }));
 
 import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, type SavedAccount } from "./savedAccounts";
+import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
@@ -201,6 +203,19 @@ test("switchToAccount restores the target's own wrapped secrets", async () => {
   await switchToAccount(CLOUD_B);
 
   expect(h.store.wrapped_user_secrets).toBe(fake("wrapped", "b"));
+});
+
+test("switchToAccount refuses an account whose server policy disallows", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  usePolicyStore.setState({
+    machine: { policy: { "server.url": "https://corp.example", "server.allowOther": false }, defaults: {} },
+  });
+  try {
+    await expect(switchToAccount({ ...CLOUD_B, server_url: "https://other.example" })).rejects.toThrow();
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
 });
 
 test("a vault key move left half done survives parking the account and switching back", async () => {

@@ -22,19 +22,22 @@ interface Props {
    * carry the same hook the button did.
    */
   dataAttrs?: Record<string, string>;
+  disabled?: boolean;
 }
 
-export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, title, trailing, dataAttrs }: Props) {
+export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20, sublabel, title, trailing, dataAttrs, disabled }: Props) {
   const { createRipple, rippleEls } = useRipple();
   const item = (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       onPointerDown={createRipple}
       title={title}
       {...dataAttrs}
-      className="w-full shrink-0 flex items-center gap-2.5 p-3 rounded-lg text-md font-medium-bold transition-colors whitespace-nowrap text-(--t-text-secondary) bg-transparent relative overflow-hidden"
+      className="w-full shrink-0 flex items-center gap-2.5 p-3 rounded-lg text-md font-medium-bold transition-colors whitespace-nowrap text-(--t-text-secondary) bg-transparent relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
       onMouseEnter={(e) => {
+        if (disabled) return;
         (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";
         (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
       }}

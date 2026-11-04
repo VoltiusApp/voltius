@@ -12,7 +12,8 @@ import { syncNow, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
 import { leaveLanGroup, startSessionSync } from "@/services/lanSync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
-import { lastServerUrl } from "@/utils/serverInstance";
+import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { usePolicyLock } from "@/stores/policyStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
 
@@ -36,7 +37,8 @@ export default function CloudAuthModal() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [serverUrl, setServerUrl] = useState(lastServerUrl);
+  const [serverUrl, setServerUrl] = useState(startingServerUrl);
+  const serverLocked = usePolicyLock("server.url").locked;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const twoFactor = useTwoFactorChallenge();
@@ -67,7 +69,7 @@ export default function CloudAuthModal() {
     e.preventDefault();
     const invalidEmail = emailError(email, t);
     if (invalidEmail) { setError(invalidEmail); return; }
-    const normalizedUrl = serverUrl.replace(/\/+$/, "");
+    const normalizedUrl = resolveServerUrl(serverUrl);
 
     if (!isRegister && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
     if (needsNewPassword) {
@@ -183,7 +185,7 @@ export default function CloudAuthModal() {
             </>
           )}
 
-          {!isReauth && <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={AUTH_INPUT_CLASS} />}
+          {!isReauth && <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={AUTH_INPUT_CLASS} locked={serverLocked} />}
 
           {error && <p role="alert" className="text-xs px-1 text-(--t-status-error)">{error}</p>}
 
