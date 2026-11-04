@@ -21,12 +21,16 @@ struct KeyEntry {
     id: String,
     #[serde(rename = "type")]
     ty: KeyType,
+    enforced: bool,
 }
 
-static KEYS: LazyLock<HashMap<String, KeyType>> = LazyLock::new(|| {
+static KEYS: LazyLock<HashMap<String, (KeyType, bool)>> = LazyLock::new(|| {
     let entries: Vec<KeyEntry> =
         serde_json::from_str(include_str!("keys.json")).expect("policy/keys.json is valid");
-    entries.into_iter().map(|e| (e.id, e.ty)).collect()
+    entries
+        .into_iter()
+        .map(|e| (e.id, (e.ty, e.enforced)))
+        .collect()
 });
 
 pub fn key_ids() -> impl Iterator<Item = &'static str> {
@@ -34,7 +38,11 @@ pub fn key_ids() -> impl Iterator<Item = &'static str> {
 }
 
 pub fn key_type(id: &str) -> Option<KeyType> {
-    KEYS.get(id).copied()
+    KEYS.get(id).map(|k| k.0)
+}
+
+pub fn is_enforced(key: &str) -> bool {
+    KEYS.get(key).is_some_and(|k| k.1)
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
