@@ -31,7 +31,15 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "serial": "串口",
-      "baud": "{{rate}} 波特"
+      "baud": "{{rate}} 波特",
+      "pinHost": "置顶 {{name}}",
+      "unpinHost": "取消置顶 {{name}}",
+      "status": {
+        "up": "可访问",
+        "down": "无法访问",
+        "unknown": "状态未知",
+        "knock": "端口敲门前关闭"
+      }
     },
     "serialFallback": "串口",
     "vaultCard": {

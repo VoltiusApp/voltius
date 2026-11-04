@@ -43,7 +43,15 @@
       "pin": "Закрепить",
       "unpin": "Открепить",
       "serial": "последовательный",
-      "baud": "{{rate}} бод"
+      "baud": "{{rate}} бод",
+      "pinHost": "Закрепить {{name}}",
+      "unpinHost": "Открепить {{name}}",
+      "status": {
+        "up": "Доступен",
+        "down": "Недоступен",
+        "unknown": "Статус неизвестен",
+        "knock": "Закрыт до port knocking"
+      }
     },
     "serialFallback": "Последовательный",
     "vaultCard": {

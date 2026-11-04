@@ -50,21 +50,14 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
             <button
               key={conn.id}
               onClick={() => onConnect(conn)}
-              className="group flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors w-full"
-              style={{ color: "var(--t-text-primary)" }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              }}
+              className="group flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors w-full text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
             >
               <ConnectionAvatar connection={conn} size={24} />
               <span className="flex-1 text-xs font-medium truncate">{displayName(conn)}</span>
               <Icon
                 icon="lucide:terminal"
                 width={12}
-                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                className="opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity shrink-0"
                 style={{ color: "var(--t-text-dim)" }}
               />
             </button>

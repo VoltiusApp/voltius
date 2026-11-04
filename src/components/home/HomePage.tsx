@@ -41,7 +41,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto chrome-canvas">
+    <div className="h-full overflow-y-auto chrome-canvas focus-ring-scope">
       <div className="max-w-4xl mx-auto px-8 py-8">
         <DashboardHero />
         <QuickActions />

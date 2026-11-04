@@ -223,6 +223,23 @@ test("clicking a card I'm already in resumes (setActive) and does not join", asy
   expect(teamState.joinSession).not.toHaveBeenCalled();
 });
 
+test("opening join-by-code with no sessions keeps the empty state (no LIVE badge)", () => {
+  teamState.activeSessions = [];
+  render(<TeamSessions />);
+  fireEvent.click(screen.getByText("hosts.teamSessions.joinByCode"));
+  expect(screen.queryByText("hosts.teamSessions.live")).toBeNull();
+  expect(screen.getByText("hosts.teamSessions.emptyHint")).toBeTruthy();
+});
+
+test("typing in the invite input keeps the same input element", () => {
+  teamState.activeSessions = [];
+  render(<TeamSessions />);
+  fireEvent.click(screen.getByText("hosts.teamSessions.joinByCode"));
+  const input = screen.getByPlaceholderText("hosts.teamSessions.inviteCodePlaceholder");
+  fireEvent.change(input, { target: { value: "abc" } });
+  expect(screen.getByPlaceholderText("hosts.teamSessions.inviteCodePlaceholder")).toBe(input);
+});
+
 test("renders exactly one join affordance and an empty-state hint when no sessions are live", () => {
   teamState.activeSessions = [];
   render(<TeamSessions />);

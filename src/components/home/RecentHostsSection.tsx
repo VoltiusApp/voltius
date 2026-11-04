@@ -15,6 +15,20 @@ interface Props {
   onSeeAll: () => void;
 }
 
+function PageChevron({ dir, enabled, label, onClick }: { dir: "left" | "right"; enabled: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      className={`flex items-center justify-center w-6 h-6 rounded-lg transition-opacity shrink-0 text-(--t-text-dim) ${enabled ? "" : "opacity-0 pointer-events-none"}`}
+      tabIndex={enabled ? 0 : -1}
+      aria-hidden={!enabled}
+      onClick={onClick}
+      aria-label={label}
+    >
+      <Icon icon={dir === "left" ? "lucide:chevron-left" : "lucide:chevron-right"} width={16} />
+    </button>
+  );
+}
+
 export function RecentHostsSection({ onSeeAll }: Props) {
   const { t } = useTranslation();
   const connections = useAllConnections();
@@ -46,10 +60,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
           {t("home.recentHosts.title")}
         </h2>
         <button
-          className="text-xs transition-colors"
-          style={{ color: "var(--t-text-dim)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+          className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-accent)"
           onClick={onSeeAll}
         >
           {t("home.recentHosts.seeAll")}
@@ -57,18 +68,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          className="flex items-center justify-center w-6 h-6 rounded-lg transition-opacity shrink-0"
-          style={{
-            color: "var(--t-text-dim)",
-            opacity: canPrev ? 1 : 0,
-            pointerEvents: canPrev ? "auto" : "none",
-          }}
-          onClick={() => setPage((p) => p - 1)}
-          aria-label={t("home.recentHosts.prevPage")}
-        >
-          <Icon icon="lucide:chevron-left" width={16} />
-        </button>
+        <PageChevron dir="left" enabled={canPrev} label={t("home.recentHosts.prevPage")} onClick={() => setPage((p) => p - 1)} />
 
         <div className="flex gap-3 flex-1">
           {pageHosts.map((conn) => (
@@ -80,18 +80,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
           ))}
         </div>
 
-        <button
-          className="flex items-center justify-center w-6 h-6 rounded-lg transition-opacity shrink-0"
-          style={{
-            color: "var(--t-text-dim)",
-            opacity: canNext ? 1 : 0,
-            pointerEvents: canNext ? "auto" : "none",
-          }}
-          onClick={() => setPage((p) => p + 1)}
-          aria-label={t("home.recentHosts.nextPage")}
-        >
-          <Icon icon="lucide:chevron-right" width={16} />
-        </button>
+        <PageChevron dir="right" enabled={canNext} label={t("home.recentHosts.nextPage")} onClick={() => setPage((p) => p + 1)} />
       </div>
 
       {totalPages > 1 && (

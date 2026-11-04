@@ -35,7 +35,15 @@
       "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
       "serial": "seri",
-      "baud": "{{rate}} baud"
+      "baud": "{{rate}} baud",
+      "pinHost": "{{name}} sabitle",
+      "unpinHost": "{{name}} sabitlemesini kaldır",
+      "status": {
+        "up": "Erişilebilir",
+        "down": "Erişilemiyor",
+        "unknown": "Durum bilinmiyor",
+        "knock": "Port knocking yapılana kadar kapalı"
+      }
     },
     "serialFallback": "Seri",
     "vaultCard": {

@@ -379,6 +379,17 @@
     box-shadow: var(--t-ring), var(--t-elev-1), var(--t-highlight);
   }
 
+  /* Mirrors BaseCard's GLASS_*_HOVER inline styles so plain buttons get the hover without JS. */
+  .surface-glass-interactive {
+    transition: background 150ms, box-shadow 150ms;
+  }
+  .surface-glass-interactive:hover:not(:disabled) {
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.03) 45%, transparent 100%),
+      color-mix(in srgb, var(--t-bg-card) 80%, transparent);
+    box-shadow: var(--t-ring-strong), var(--t-elev-1-hover), var(--t-highlight-strong);
+  }
+
   .surface-glass-modal {
     background:
       linear-gradient(150deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 40%, transparent 100%),
@@ -776,6 +787,7 @@ fieldset:disabled :is(input, textarea, button) { cursor: default; }
   .checkbox-box[data-mixed]::after { content: ""; width: 0.5rem; height: 2px; border-radius: 1px; background: var(--t-on-accent); }
   input[type="checkbox"]:disabled { cursor: default; opacity: 0.6; }
   input[type="checkbox"]:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 1px; }
+  .focus-ring-scope :focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
 }
 
 /* ── Android shell: stop looking like a web page (A7) ─────────────────────────────

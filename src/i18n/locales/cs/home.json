@@ -43,7 +43,15 @@
       "pin": "Připnout",
       "unpin": "Odepnout",
       "serial": "sériový",
-      "baud": "{{rate}} Bd"
+      "baud": "{{rate}} Bd",
+      "pinHost": "Připnout {{name}}",
+      "unpinHost": "Odepnout {{name}}",
+      "status": {
+        "up": "Dostupný",
+        "down": "Nedostupný",
+        "unknown": "Stav neznámý",
+        "knock": "Zavřeno do port knockingu"
+      }
     },
     "serialFallback": "Sériový port",
     "vaultCard": {

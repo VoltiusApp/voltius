@@ -28,14 +28,11 @@ export function AllHostsView({ onBack }: Props) {
   const hosts = pinnedThenRecent(connections, (c) => isPinnedFn(c, "connection"));
 
   return (
-    <div className="h-full overflow-y-auto chrome-canvas">
+    <div className="h-full overflow-y-auto chrome-canvas focus-ring-scope">
       <div className="max-w-4xl mx-auto px-8 py-8">
         <div className="flex items-center gap-3 mb-8">
           <button
-            className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
-            style={{ color: "var(--t-text-dim)", background: "var(--t-bg-card)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+            className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors bg-(--t-bg-card) text-(--t-text-dim) hover:text-(--t-text-primary)"
             onClick={onBack}
             aria-label={t("home.allHosts.back")}
           >

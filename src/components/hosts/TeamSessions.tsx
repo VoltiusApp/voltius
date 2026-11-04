@@ -20,10 +20,7 @@ function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
   return (
     <button
-      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
-      style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
+      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors border border-(--t-border) text-(--t-text-dim) hover:text-(--t-text-primary)"
       onClick={onClick}
     >
       <Icon icon="lucide:link" width={11} />
@@ -133,25 +130,25 @@ export function TeamSessions() {
     }
   };
 
-  if (activeSessions.length === 0 && !showJoinModal) {
+  if (activeSessions.length === 0) {
     // Show minimal "Join by code" entry point even when no public sessions visible
     return (
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
             {t("hosts.teamSessions.title")}
-          </p>
+          </h2>
           <JoinByCodeButton onClick={() => setShowJoinModal(true)} />
         </div>
         <p className="text-xs mb-3 text-(--t-text-dim)">
           {t("hosts.teamSessions.emptyHint")}
         </p>
-        {showJoinModal && <JoinByCodeModal />}
+        {showJoinModal && renderJoinPanel()}
       </div>
     );
   }
 
-  function JoinByCodeModal() {
+  function renderJoinPanel() {
     return (
       <div
         className="mb-3 p-3 rounded-xl"
@@ -167,6 +164,7 @@ export function TeamSessions() {
             onChange={(e) => { setInviteCode(e.target.value); setJoinError(null); }}
             onKeyDown={(e) => { if (e.key === "Enter") void handleJoinByCode(); if (e.key === "Escape") setShowJoinModal(false); }}
             placeholder={t("hosts.teamSessions.inviteCodePlaceholder")}
+            aria-label={t("hosts.teamSessions.pasteInviteCode")}
             className="flex-1 text-xs px-2.5 py-1.5 rounded-lg outline-hidden"
             style={{
               background: "var(--t-bg-elevated)",
@@ -189,13 +187,14 @@ export function TeamSessions() {
           <button
             onClick={() => setShowJoinModal(false)}
             className="px-2 py-1.5 rounded-lg text-xs transition-opacity"
+            aria-label={t("common.action.close")}
             style={{ color: "var(--t-text-dim)" }}
           >
             <Icon icon="lucide:x" width={13} />
           </button>
         </div>
         {joinError && (
-          <p className="mt-1.5 text-[11px]" style={{ color: "#f87171" }}>{joinError}</p>
+          <p role="alert" className="mt-1.5 text-[11px] text-(--t-status-error)">{joinError}</p>
         )}
       </div>
     );
@@ -204,9 +203,9 @@ export function TeamSessions() {
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
           {t("hosts.teamSessions.title")}
-        </p>
+        </h2>
         <span
           className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
           style={{
@@ -222,7 +221,7 @@ export function TeamSessions() {
         </div>
       </div>
 
-      {showJoinModal && <JoinByCodeModal />}
+      {showJoinModal && renderJoinPanel()}
 
       <div className="flex gap-3 overflow-x-auto p-8 -m-8" style={{ scrollbarWidth: "none" }}>
         {activeSessions.map((session) => {

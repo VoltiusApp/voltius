@@ -39,7 +39,15 @@
       "pin": "Épingler",
       "unpin": "Désépingler",
       "serial": "série",
-      "baud": "{{rate}} bauds"
+      "baud": "{{rate}} bauds",
+      "pinHost": "Épingler {{name}}",
+      "unpinHost": "Désépingler {{name}}",
+      "status": {
+        "up": "Joignable",
+        "down": "Injoignable",
+        "unknown": "Statut inconnu",
+        "knock": "Fermé jusqu'au port knocking"
+      }
     },
     "serialFallback": "Série",
     "vaultCard": {
