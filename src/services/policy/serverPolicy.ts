@@ -19,6 +19,12 @@ export function resolveServerUrl(input: string): string {
   return policyServerUrl() ?? trimSlash(input);
 }
 
+export class ServerBlockedError extends Error {
+  constructor() {
+    super("Account server is not allowed by policy");
+  }
+}
+
 export function serverAllowed(serverUrl: string | null): boolean {
   const pinned = policyServerUrl();
   const other = lockedValue("server.allowOther");

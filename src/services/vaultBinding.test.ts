@@ -220,3 +220,11 @@ test("the password is readable only behind a prompt the device can show", async 
   h.store.master_password_sealed = "S:pw";
   expect(await canReadPasswordWithSystemAuth()).toBe(true);
 });
+
+test("a server-blocked open is reported, not folded into declined or failed", async () => {
+  h.store.master_password = "pw";
+  h.openResult = "server-blocked";
+  expect(await unlockWithSystemAuth("r")).toBe("server-blocked");
+  h.store = { mode: "local", master_password_sealed: "S:pw" };
+  expect(await unlockWithSystemAuth("r")).toBe("server-blocked");
+});

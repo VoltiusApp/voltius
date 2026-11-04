@@ -42,8 +42,9 @@ vi.mock("@/stores/vaultKeysStore", () => ({
   },
 }));
 
+import { ServerBlockedError } from "@/services/policy/serverPolicy";
 import { usePolicyStore } from "@/stores/policyStore";
-import { autoLogin } from "./account";
+import { autoLogin, login } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
 
 /** What vault.ts raises for a key that does not decrypt the file. */
@@ -377,4 +378,17 @@ test("autoLogin still opens an allowed server account under the policy", async (
     usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   }
   expect(h.setVaultKey).toHaveBeenCalled();
+});
+
+test("password unlock of a disallowed-server account is refused and touches nothing", async () => {
+  serverSession("https://other.example");
+  pinServer(false);
+  const before = { ...h.store };
+  try {
+    await expect(login("pw")).rejects.toBeInstanceOf(ServerBlockedError);
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
 });

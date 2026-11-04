@@ -477,6 +477,28 @@ test("adding an account leaves the session alone when the current one cannot be 
   expect(h.reload).not.toHaveBeenCalled();
 });
 
+test("adding the pinned-server account from a blocked one parks the blocked account intact", async () => {
+  const blocked = { ...CLOUD_A, server_url: "https://other.example" };
+  activate(blocked);
+  usePolicyStore.setState({
+    machine: { policy: { "server.url": "https://corp.example", "server.allowOther": false }, defaults: {} },
+  });
+  try {
+    await addAccount({ ...SESSION_B, server_url: "https://corp.example" });
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.push).not.toHaveBeenCalled();
+  const saved = await getSavedAccounts();
+  expect(saved.find((a) => a.account_id === "a")).toMatchObject({
+    master_password: blocked.master_password,
+    jwt: blocked.jwt,
+    wrapped_user_secrets: blocked.wrapped_user_secrets,
+  });
+  expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
+  expect(h.store.account_id).toBe("b");
+});
+
 test("adding the account already signed in does not tear it down", async () => {
   activate(CLOUD_A);
   const { mode: _m, ...sessionA } = CLOUD_A;

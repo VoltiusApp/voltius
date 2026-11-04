@@ -218,3 +218,13 @@ test("a server-blocked login lands on cloud sign-in only", async () => {
   await advance(2000);
   expect(h.authProps).toMatchObject({ isLocked: false, cloudOnly: true });
 });
+
+test("policy loads on the vault-locked path too", async () => {
+  h.lock = "vault";
+  const load = vi.spyOn(usePolicyStore.getState(), "load").mockResolvedValue(undefined);
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(h.autoLogin).not.toHaveBeenCalled();
+  load.mockRestore();
+});

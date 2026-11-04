@@ -12,7 +12,7 @@ import { sameKey } from "./vaultKeyCandidates";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
-import { serverAllowed } from "@/services/policy/serverPolicy";
+import { ServerBlockedError, serverAllowed } from "@/services/policy/serverPolicy";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
@@ -390,6 +390,7 @@ export async function login(password: string, email?: string, serverUrl?: string
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
 
   const mode = await keychainGet("mode");
+  if (!serverUrl && (await storedServerBlocked(mode))) throw new ServerBlockedError();
 
   // Re-authenticate with server if in server mode (e.g. after logout deleted the JWT)
   const resolvedEmail = email ?? await keychainGet("email");
@@ -505,6 +506,10 @@ export async function autoLogin(): Promise<AutoLoginOutcome> {
   return openWithStoredSecret(password);
 }
 
+async function storedServerBlocked(mode: string | null): Promise<boolean> {
+  return mode === "server" && !serverAllowed(await keychainGet("server_url"));
+}
+
 /** The launch-time unlock, given the stored secret however it was obtained. */
 export async function openWithStoredSecret(password: string): Promise<AutoLoginOutcome> {
   let accountId: string | null, mode: string | null;
@@ -535,7 +540,7 @@ export async function openWithStoredSecret(password: string): Promise<AutoLoginO
       }
     } else {
       if (!accountId) return "declined";
-      if (mode === "server" && !serverAllowed(await keychainGet("server_url"))) return "server-blocked";
+      if (await storedServerBlocked(mode)) return "server-blocked";
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only, except a cloud account missing its wrapped

@@ -78,6 +78,8 @@ export default function SplashScreen({ onReady }: Props) {
     async function init() {
       // The Rust manager outlives a webview reload: stop it until this session starts its own.
       void stopLanSync();
+      watchPolicyVisibility();
+      await usePolicyStore.getState().load();
       setStep("init", "done");
       setStep("vault", "running");
 
@@ -93,7 +95,6 @@ export default function SplashScreen({ onReady }: Props) {
         return;
       }
 
-      await usePolicyStore.getState().load();
       const outcome = await autoLogin();
       if (outcome === "server-blocked") {
         setStep("vault", "done", t("common.policy.managed"));
@@ -170,7 +171,6 @@ export default function SplashScreen({ onReady }: Props) {
       startSessionSync();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
-    watchPolicyVisibility();
     // Plugin loading must never freeze startup: a single rejected invoke here
     // (e.g. a storage command failing on a locked-down platform) would leave the
     // splash spinning forever. Swallow and continue to the main UI.

@@ -3,6 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, MIN_PASSWORD_LENGTH, SubmitBtn, SystemAuthButton, emailError } from "./authParts";
 import {
+  authenticateServerAccount,
   createLocalAccountNoPassword,
   createServerAccount,
   login,
@@ -12,7 +13,8 @@ import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
-import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { addAccount } from "@/services/savedAccounts";
+import { ServerBlockedError, resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
 import { usePolicyLock } from "@/stores/policyStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
@@ -41,6 +43,8 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   const { t } = useTranslation();
   const lanContext = localSyncContext(usePlatform());
   const [view, setView] = useState<View>(cloudOnly ? "cloud" : "home");
+  const [blocked, setBlocked] = useState(false);
+  const addOnly = cloudOnly || blocked;
   const [cloudMode, setCloudMode] = useState<CloudMode>(cloudOnly ? "signin" : "signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -66,22 +70,32 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   const twoFactor = useTwoFactorChallenge();
 
   // Not a bad password, so not the password form.
+  const blockServer = () => {
+    twoFactor.cancel();
+    setBlocked(true);
+    setCloudMode("signin");
+    setView("cloud");
+    setError("");
+    setPassword("");
+  };
+
   const unlessUnreadable = async (work: () => Promise<void>) => {
     try {
       await work();
     } catch (e) {
+      if (e instanceof ServerBlockedError) return blockServer();
       if (!(e instanceof VaultUnreadableError)) throw e;
       twoFactor.cancel();
       setUnreadable("wrong-key");
     }
   };
 
-  const wrap = async (fn: () => Promise<void>, after?: () => Promise<void>) => {
+  const wrap = async <T,>(fn: () => Promise<T>, after?: (result: T) => Promise<void>) => {
     setLoading(true);
     setError("");
     try {
-      await unlessUnreadable(() => twoFactor.run(fn, async () => {
-        await after?.();
+      await unlessUnreadable(() => twoFactor.run(fn, async (result) => {
+        await after?.(result);
         onReady();
       }));
     } catch (e) {
@@ -92,8 +106,9 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   };
 
   const [bindingLost, setBindingLost] = useState(false);
-  const auth = useSystemAuthPrompt(isLocked && !!systemAuth, async (reason) => {
+  const auth = useSystemAuthPrompt(isLocked && !addOnly && !!systemAuth, async (reason) => {
     const r = await unlockWithSystemAuth(reason);
+    if (r === "server-blocked") blockServer();
     if (r === "invalidated") setBindingLost(true);
     return r;
   }, onReady);
@@ -167,7 +182,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
 
   // ── Locked (vault exists, need password) ─────────────────────────────────
 
-  if (isLocked) {
+  if (isLocked && !addOnly) {
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
       await wrap(() => login(password), async () => {
@@ -253,6 +268,10 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
       if (isSignup) {
         if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
         if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
+        if (addOnly) {
+          await wrap(() => authenticateServerAccount("register", email, password, normalizedUrl), addAccount);
+          return;
+        }
         await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
           addToast({
@@ -263,13 +282,15 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
             duration: 5000,
           });
         });
+      } else if (addOnly) {
+        await wrap(() => authenticateServerAccount("signin", email, password, normalizedUrl), addAccount);
       } else {
         await wrap(() => login(password, email, normalizedUrl));
       }
     };
 
     return (
-      <Layout onBack={cloudOnly ? undefined : () => reset("home")}>
+      <Layout onBack={addOnly ? undefined : () => reset("home")}>
         <p className="text-xs mb-4 text-center text-(--t-text-secondary)">
           {isSignup ? t("layout.auth.signupPrompt", { context: lanContext }) : t("layout.auth.signinPrompt")}
         </p>
