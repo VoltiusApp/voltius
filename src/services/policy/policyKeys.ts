@@ -1,0 +1,55 @@
+import { SETTING_KEYS } from "@/services/user-data/settingKeys";
+import { SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
+
+export type PolicyKeyType = "bool" | "string" | "number" | "stringList" | "json";
+
+export interface PolicyKeyDef {
+  id: string;
+  type: PolicyKeyType;
+}
+
+const SETTING_TYPES: Record<string, PolicyKeyType> = {
+  "appSettings.terminal.preferredShell": "string",
+  "appSettings.terminal.cursorStyle": "string",
+  "appSettings.terminal.keywordRules": "json",
+  "appSettings.sftp.autoRefreshIntervalMs": "number",
+  "appSettings.plugins.overrides": "json",
+  "appSettings.keepalivePreset": "string",
+  "appSettings.detachedTtlHours": "number",
+  "appSettings.locale": "string",
+  "appSettings.proxy": "json",
+  "themes.location": "json",
+};
+
+const TOGGLE_PREFIX = "appSettings.toggles.";
+
+// An unmapped setting key is left out (default-deny); the registry test fails for it.
+function settingType(id: string): PolicyKeyType | undefined {
+  return id.startsWith(TOGGLE_PREFIX) ? "bool" : SETTING_TYPES[id];
+}
+
+const bools = (prefix: string, ids: string[]): PolicyKeyDef[] =>
+  ids.map((id) => ({ id: `${prefix}${id}`, type: "bool" }));
+
+const typedSettings: PolicyKeyDef[] = SETTING_KEYS.flatMap((k) => {
+  const type = settingType(k.id);
+  return type ? [{ id: k.id, type }] : [];
+});
+
+export const POLICY_KEYS: PolicyKeyDef[] = [
+  { id: "server.url", type: "string" },
+  { id: "server.allowOther", type: "bool" },
+  { id: "plugins.enabled", type: "stringList" },
+  { id: "plugins.disabled", type: "stringList" },
+  { id: "sshConfig.import", type: "bool" },
+  ...bools("sync.domains.", SYNC_SETTING_DOMAINS.map((d) => d.id)),
+  ...bools("sync.types.", SYNC_OBJECT_TYPES.map((t) => t.id)),
+  ...bools("sync.settings.", SETTING_KEYS.map((k) => k.id)),
+  ...typedSettings,
+];
+
+const BY_ID = new Map(POLICY_KEYS.map((k) => [k.id, k]));
+
+export function policyKeyDef(id: string): PolicyKeyDef | undefined {
+  return BY_ID.get(id);
+}
