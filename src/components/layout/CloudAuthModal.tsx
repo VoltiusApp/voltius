@@ -13,6 +13,7 @@ import { leaveLanGroup, startSessionSync } from "@/services/lanSync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
@@ -111,7 +112,7 @@ export default function CloudAuthModal() {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(accountErrorText(err, t));
     } finally {
       setLoading(false);
     }

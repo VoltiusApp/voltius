@@ -36,7 +36,7 @@ vi.mock("@/services/vaultBinding", () => ({
   unlockWithSystemAuth: vi.fn(),
 }));
 
-import { ServerBlockedError } from "@/services/policy/serverPolicy";
+import { ServerBlockedError } from "@/services/accountErrors";
 import AuthPage from "./AuthPage";
 
 beforeEach(() => {
@@ -58,12 +58,14 @@ test("cloud-only sign-in adds a new account instead of overwriting the session",
   const session = { account_id: "n" };
   h.authenticate.mockResolvedValue(session);
   h.addAccount.mockResolvedValue(undefined);
-  const { container } = render(<AuthPage isLocked={false} cloudOnly onReady={vi.fn()} />);
+  const onReady = vi.fn();
+  const { container } = render(<AuthPage isLocked={false} cloudOnly onReady={onReady} />);
   fireEvent.change(screen.getByPlaceholderText("layout.auth.emailPlaceholder"), { target: { value: "a@b.c" } });
   fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: "pw" } });
   fireEvent.submit(container.querySelector("form")!);
   await waitFor(() => expect(h.addAccount).toHaveBeenCalledWith(session));
   expect(h.authenticate.mock.calls[0][0]).toBe("signin");
+  expect(onReady).not.toHaveBeenCalled();
   expect(h.login).not.toHaveBeenCalled();
   expect(h.createServerAccount).not.toHaveBeenCalled();
 });

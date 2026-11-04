@@ -290,6 +290,8 @@
     },
     "policy": {
       "managed": "由您的组织管理",
+      "serverBlocked": "您的组织不允许使用此服务器",
+      "accountNotSaved": "无法先保存当前账户，因此未做任何更改",
       "issues_other": "贵组织的 Voltius 策略存在 {{count}} 个问题；其余部分仍然生效。"
     },
     "history": {

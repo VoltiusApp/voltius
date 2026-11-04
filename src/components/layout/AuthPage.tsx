@@ -14,7 +14,8 @@ import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { addAccount } from "@/services/savedAccounts";
-import { ServerBlockedError, resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { ServerBlockedError, accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
@@ -69,7 +70,6 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
 
   const twoFactor = useTwoFactorChallenge();
 
-  // Not a bad password, so not the password form.
   const blockServer = () => {
     twoFactor.cancel();
     setBlocked(true);
@@ -79,6 +79,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
     setPassword("");
   };
 
+  // Not a bad password, so not the password form.
   const unlessUnreadable = async (work: () => Promise<void>) => {
     try {
       await work();
@@ -90,16 +91,16 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
     }
   };
 
-  const wrap = async <T,>(fn: () => Promise<T>, after?: (result: T) => Promise<void>) => {
+  const wrap = async <T,>(fn: () => Promise<T>, after?: (result: T) => Promise<void>, ready = true) => {
     setLoading(true);
     setError("");
     try {
       await unlessUnreadable(() => twoFactor.run(fn, async (result) => {
         await after?.(result);
-        onReady();
+        if (ready) onReady();
       }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(accountErrorText(e, t));
     } finally {
       setLoading(false);
     }
@@ -268,11 +269,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
       if (isSignup) {
         if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
         if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
-        if (addOnly) {
-          await wrap(() => authenticateServerAccount("register", email, password, normalizedUrl), addAccount);
-          return;
-        }
-        await wrap(async () => {
+        if (!addOnly) await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
           addToast({
             source: APP_SOURCE,
@@ -282,10 +279,15 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
             duration: 5000,
           });
         });
-      } else if (addOnly) {
-        await wrap(() => authenticateServerAccount("signin", email, password, normalizedUrl), addAccount);
-      } else {
+      } else if (!addOnly) {
         await wrap(() => login(password, email, normalizedUrl));
+      }
+      if (addOnly) {
+        await wrap(
+          () => authenticateServerAccount(isSignup ? "register" : "signin", email, password, normalizedUrl),
+          addAccount,
+          false,
+        );
       }
     };
 

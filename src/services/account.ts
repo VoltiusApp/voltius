@@ -12,7 +12,8 @@ import { sameKey } from "./vaultKeyCandidates";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
-import { ServerBlockedError, serverAllowed } from "@/services/policy/serverPolicy";
+import { serverAllowed } from "@/services/policy/serverPolicy";
+import { ServerBlockedError } from "@/services/accountErrors";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
@@ -390,7 +391,7 @@ export async function login(password: string, email?: string, serverUrl?: string
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
 
   const mode = await keychainGet("mode");
-  if (!serverUrl && (await storedServerBlocked(mode))) throw new ServerBlockedError();
+  const blocked = !serverUrl && (await storedServerBlocked(mode));
 
   // Re-authenticate with server if in server mode (e.g. after logout deleted the JWT)
   const resolvedEmail = email ?? await keychainGet("email");
@@ -411,10 +412,15 @@ export async function login(password: string, email?: string, serverUrl?: string
     const { enc_key: kek } = await deriveKeys(password, accountId);
     const opened = await passwordVaultKey(kek, false);
     // Without a cached dek only the server can supply a cloud vault's key.
-    if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
+    if (!opened && (!reauth || blocked)) throw new Error(i18n.t("common.error.incorrectPassword"));
     // Only the dek unwrapped from this device's cached secrets proves the password without the server.
     cachedSecretsOpen = !!opened && opened !== kek;
     encKey = opened ?? kek;
+  }
+
+  if (blocked) {
+    await rememberPassword(password);
+    throw new ServerBlockedError();
   }
 
   const openLocally = async () => {

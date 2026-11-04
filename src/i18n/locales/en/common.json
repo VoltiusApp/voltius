@@ -295,6 +295,8 @@
     },
     "policy": {
       "managed": "Managed by your organization",
+      "serverBlocked": "This server isn't allowed by your organization",
+      "accountNotSaved": "The current account could not be saved first, so nothing was changed",
       "issues_one": "Your organization's Voltius policy has {{count}} problem; the rest of it still applies.",
       "issues_other": "Your organization's Voltius policy has {{count}} problems; the rest of it still applies."
     },
