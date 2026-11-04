@@ -24,7 +24,9 @@
       "pin": "Připnout",
       "unpin": "Odepnout",
       "moreOptions": "Další možnosti",
-      "closePanel": "Zavřít panel"
+      "closePanel": "Zavřít panel",
+      "showPassword": "Zobrazit heslo",
+      "hidePassword": "Skrýt heslo"
     },
     "entity": {
       "host": "Host",

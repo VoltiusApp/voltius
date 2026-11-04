@@ -101,7 +101,8 @@
       "connectAsYours": "{{username}} · ваша, только вы",
       "connectAsTeam": "{{username}} · личность команды",
       "connectAsAsk": "Будет запрошено при подключении",
-      "connectAsUnavailable": "Выбранная личность недоступна"
+      "connectAsUnavailable": "Выбранная личность недоступна",
+      "connectNeedsHost": "Введите хост для подключения"
     },
     "distroIconPicker": {
       "title": "Значок",

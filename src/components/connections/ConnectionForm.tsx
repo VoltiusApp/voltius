@@ -91,6 +91,15 @@ const DEFAULT_PORT: Record<Exclude<Protocol, "webdav">, number> = { ssh: 22, ftp
 const DEFAULT_USERNAME: Record<Protocol, string> = { ssh: "root", ftp: "", webdav: "" };
 const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || type === "webdav" ? type : "ssh");
 
+const USER_HOST_RE = /^([^\s@]+)@([^\s@:]+)(?::(\d{1,5}))?$/;
+
+function splitUserHost(value: string): { user: string; host: string; port?: number } | null {
+  const m = USER_HOST_RE.exec(value.trim());
+  if (!m) return null;
+  const port = m[3] ? Number(m[3]) : undefined;
+  return { user: m[1], host: m[2], port: port && port <= 65535 ? port : undefined };
+}
+
 const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, revealErrors, onBlockedChange, onMoveToVault, onCopyToVault, readOnly }, ref) {
   const { t } = useTranslation();
   const owned = useManagedOwned(initial?.id);
@@ -324,6 +333,19 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const handleClose = () => flushAndClose(onClose);
 
+  const applyHostInput = (value: string) => {
+    const target = protocol === "ssh" ? splitUserHost(value) : null;
+    if (!target) { setHost(value); return; }
+    setHost(target.host);
+    if (!identityId) setUsername(target.user);
+    if (target.port) setPort(target.port);
+  };
+
+  const connectNow = () => {
+    flush();
+    onConnect?.();
+  };
+
   const knockOverride = (): KnockOverride => ({
     settings: portKnock,
     sequence: editedKnockSequence() ?? undefined,
@@ -498,47 +520,6 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           <ManagedBanner id={initial?.id} />
 
           <ReadOnlyFields readOnly={readOnly} className="space-y-3">
-          <FormSection label={t("connections.common.general")}>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.labelField")}</label>
-              <div ref={iconRowRef} className="relative flex gap-2.5">
-                <IconTileButton
-                  icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"}
-                  base={visibleIcon ? getConnectionIconColor(visibleIcon) : undefined}
-                  title={visibleIcon ? t("connections.form.changeIconWithLabel", { label: getConnectionIconLabel(visibleIcon) }) : t("connections.form.changeIcon")}
-                  ariaLabel={t("connections.form.changeIconAriaLabel")}
-                  onClick={() => setShowDistroPicker((v) => !v)}
-                />
-                <input
-                  className={formInputClass}
-                  style={formInputStyle}
-                  value={name}
-                  onChange={(e) => { markDirty(); setName(e.target.value); }}
-                  placeholder={t("connections.form.namePlaceholder")}
-                />
-                <DistroIconPicker
-                  open={showDistroPicker}
-                  onClose={() => setShowDistroPicker(false)}
-                  anchorRef={iconRowRef}
-                  selectedIcon={visibleIcon}
-                  onPick={(id) => { applyIcon(id); }}
-                  detectingDistro={detectingDistro}
-                  distroError={distroError}
-                  onDetectDistro={() => void detectDistroFromForm()}
-                  canDetect={!!(host.trim() && username.trim())}
-                />
-              </div>
-            </div>
-            <TagsAndFolderFields
-              shell={shell}
-              tPrefix="connections.common"
-              folderType="connection"
-              tags={tags}
-              onChangeTags={setTags}
-              markDirty={markDirty}
-            />
-          </FormSection>
-
           <FormSection label={t("connections.form.sectionConnection")}>
             <LockedField label={t("connections.form.protocol")} locked={locks("connection_type")}>
               <FormSelect
@@ -588,8 +569,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                     className={formInputClass}
                     style={formInputStyle}
                     value={host}
-                    onChange={(e) => { markDirty(); setHost(e.target.value); }}
+                    onChange={(e) => { markDirty(); applyHostInput(e.target.value); }}
                     placeholder={t("connections.form.hostPlaceholder")}
+                    autoFocus={!initial && !hideChrome}
                     inputMode="url"
                     {...formIdentifierProps}
                     {...hostField.fieldProps}
@@ -748,27 +730,14 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                         <label className={formLabelClass} style={formLabelStyle}>
                           {t("connections.form.passphrase")} <span className="text-(--t-text-dim) font-normal">{t("connections.form.optional")}</span>
                         </label>
-                        <div className="relative">
-                          <input
-                            type={showPassphrase ? "text" : "password"}
-                            className={`${formInputClass} pr-9`}
-                            style={formInputStyle}
-                            value={passphrase}
-                            onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
-                            placeholder={t("connections.form.keyPassphrasePlaceholder")}
-                            autoComplete="new-password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassphrase((v) => !v)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-                            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-                            tabIndex={-1}
-                          >
-                            <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
-                          </button>
-                        </div>
+                        <SecretInput
+                          value={passphrase}
+                          onChange={(v) => { markDirty(); passphraseDirty.current = true; setPassphrase(v); }}
+                          placeholder={t("connections.form.keyPassphrasePlaceholder")}
+                          show={showPassphrase}
+                          onToggleShow={() => setShowPassphrase((v) => !v)}
+                          autoComplete="new-password"
+                        />
                       </div>
                     </>
                   )}
@@ -795,12 +764,67 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
             {initial && !fileOnly && <YouConnectAsRow connection={initial} credential={credential} />}
           </FormSection>
+
+          <FormSection label={t("connections.common.general")}>
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.labelField")}</label>
+              <div ref={iconRowRef} className="relative flex gap-2.5">
+                <IconTileButton
+                  icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"}
+                  base={visibleIcon ? getConnectionIconColor(visibleIcon) : undefined}
+                  title={visibleIcon ? t("connections.form.changeIconWithLabel", { label: getConnectionIconLabel(visibleIcon) }) : t("connections.form.changeIcon")}
+                  ariaLabel={t("connections.form.changeIconAriaLabel")}
+                  onClick={() => setShowDistroPicker((v) => !v)}
+                />
+                <input
+                  className={formInputClass}
+                  style={formInputStyle}
+                  value={name}
+                  onChange={(e) => { markDirty(); setName(e.target.value); }}
+                  placeholder={t("connections.form.namePlaceholder")}
+                />
+                <DistroIconPicker
+                  open={showDistroPicker}
+                  onClose={() => setShowDistroPicker(false)}
+                  anchorRef={iconRowRef}
+                  selectedIcon={visibleIcon}
+                  onPick={(id) => { applyIcon(id); }}
+                  detectingDistro={detectingDistro}
+                  distroError={distroError}
+                  onDetectDistro={() => void detectDistroFromForm()}
+                  canDetect={!!(host.trim() && username.trim())}
+                />
+              </div>
+            </div>
+            <TagsAndFolderFields
+              shell={shell}
+              tPrefix="connections.common"
+              folderType="connection"
+              tags={tags}
+              onChangeTags={setTags}
+              markDirty={markDirty}
+            />
+          </FormSection>
           </ReadOnlyFields>
 
           <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={readOnly} />
           {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="connection" />}
         </div>
       </div>
+      {!hideChrome && (
+        <div className="shrink-0 px-4 py-3 border-t border-(--t-border)">
+          <button
+            type="button"
+            disabled={!initial || !canConnect || !onConnect}
+            title={initial ? undefined : t("connections.form.connectNeedsHost")}
+            onClick={connectNow}
+            className="btn btn-primary w-full h-9 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+          >
+            <Icon icon="lucide:terminal" width={14} />
+            {t("common.action.connect")}
+          </button>
+        </div>
+      )}
     </PanelShell>
 
       <SlideOver open={showChaining}>

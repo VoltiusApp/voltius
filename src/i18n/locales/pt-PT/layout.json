@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Protegido pelo keychain do SO — sem palavra-passe necessária",
       "or": "ou",
       "cloudAccount": "Conta na nuvem",
-      "cloudAccountSub": "Dispositivos emparelhados automaticamente · Pro adiciona nuvem e cópias de segurança",
+      "cloudAccountSub": "Grátis · dispositivos emparelhados automaticamente. Pro adiciona nuvem e cópias de segurança.",
       "cloudAccountSub_ios": "Sincronizar entre dispositivos — entre ou crie uma",
       "back": "Voltar",
       "signupPrompt": "Crie uma conta para emparelhar os seus dispositivos automaticamente",
@@ -47,10 +47,13 @@
       "e2eeNotice": "Seus dados são encriptados ponta a ponta — o servidor não pode lê-los.",
       "openSource": "Código aberto.",
       "agreeToTerms": "Ao criar uma conta, você concorda com nossos <terms>Termos de Serviço</terms> e <privacy>Política de Privacidade</privacy>.",
-      "accountCreatedToast": "Conta criada! Verifique seu e-mail para confirmar.",
+      "accountCreatedToast": "Conta criada. Verifique seu e-mail para confirmar.",
       "vaultUnreadableBodyNoPassword": "O ficheiro de segredos deste dispositivo não pode ser aberto com a chave armazenada nesta máquina. Nada foi eliminado. Deixe-o de lado para começar com um cofre vazio, ou restaure um dos cópias de segurança abaixo.",
       "vaultSetAsideLocal": "Deixar de lado e começar do zero",
-      "vaultSetAsideLocalSub": "Mantém uma cópia de cópia de segurança neste dispositivo"
+      "vaultSetAsideLocalSub": "Mantém uma cópia de cópia de segurança neste dispositivo",
+      "addAccountLater": "Pode criar uma conta mais tarde e manter os seus hosts.",
+      "errorEmailRequired": "Introduza o seu e-mail",
+      "masterPasswordNote": "Esta palavra-passe encripta os seus dados. Não pode ser redefinida nem recuperada, por isso guarde-a num local seguro."
     },
     "cloudAuthModal": {
       "registerTitle": "Criar conta na nuvem",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "Criar palavra-passe mestra",
       "confirmMasterPasswordPlaceholder": "Confirmar palavra-passe mestra",
       "errorPasswordRequired": "Palavra-passe necessária",
-      "errorMinLength4": "Pelo menos 4 caracteres",
       "pleaseWait": "Aguarde…",
       "reauthTitle": "Entrar novamente",
       "reauthDesc": "Sua sessão neste dispositivo terminou. Digite sua palavra-passe mestra para se reconectar."

@@ -48,6 +48,19 @@
       "hostCount_many": "{{count}} hosts",
       "empty": "Nenhum host ainda",
       "more": "+{{count}} mais"
+    },
+    "firstRun": {
+      "title": "Conecte-se ao seu primeiro servidor",
+      "body": "Digite um endereço para abrir um terminal agora, ou adicione-o como host para mantê-lo.",
+      "addressPlaceholder": "usuario@host ou usuario@host:2222",
+      "addressLabel": "Endereço do servidor",
+      "addressHint": "Use usuario@host, com :porta se não for a 22. Códigos de convite de sessão também funcionam aqui.",
+      "join": "Entrar",
+      "importOther": "Importar de outro aplicativo",
+      "localTerminal": "Abrir terminal local",
+      "importSshConfig_one": "Importar {{count}} host do ~/.ssh/config",
+      "importSshConfig_many": "Importar {{count}} hosts do ~/.ssh/config",
+      "importSshConfig_other": "Importar {{count}} hosts do ~/.ssh/config"
     }
   }
 }

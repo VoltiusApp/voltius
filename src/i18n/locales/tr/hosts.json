@@ -49,13 +49,14 @@
       "new": "Yeni",
       "pinned": "Sabitlenenler",
       "folderEmpty": "Bu klasör boş",
-      "addHost": "Sunucu ekle",
       "noSearchResults": "\"{{search}}\" ile eşleşen sunucu yok",
       "ejectMoveTo": "{{name}} klasörüne taşı",
       "ejectRemoveFromFolder": "Klasörden çıkar",
       "emptyState": {
         "title": "Henüz sunucu yok",
-        "subtitle": "Başlamak için ilk SSH sunucunuzu ekleyin"
+        "subtitle": "Tek tıkla bağlanmak için bir sunucu ekleyin.",
+        "import": "Sunucuları içe aktar",
+        "quickConnect": "Kaydetmeden bağlan"
       },
       "draft": {
         "unsaved": "Kaydedilmedi"

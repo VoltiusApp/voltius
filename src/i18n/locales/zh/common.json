@@ -24,7 +24,9 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "moreOptions": "更多选项",
-      "closePanel": "关闭面板"
+      "closePanel": "关闭面板",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码"
     },
     "entity": {
       "host": "主机",

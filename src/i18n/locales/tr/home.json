@@ -43,6 +43,18 @@
       "hostCount_other": "{{count}} sunucu",
       "empty": "Henüz sunucu yok",
       "more": "+{{count}} daha"
+    },
+    "firstRun": {
+      "title": "İlk sunucunuza bağlanın",
+      "body": "Hemen bir terminal açmak için bir adres yazın veya saklamak için sunucu olarak ekleyin.",
+      "addressPlaceholder": "kullanici@sunucu veya kullanici@sunucu:2222",
+      "addressLabel": "Sunucu adresi",
+      "addressHint": "kullanici@sunucu biçimini kullanın; port 22 değilse :port ekleyin. Oturum davet kodları da burada çalışır.",
+      "join": "Katıl",
+      "importOther": "Başka bir uygulamadan içe aktar",
+      "localTerminal": "Yerel terminal aç",
+      "importSshConfig_one": "~/.ssh/config dosyasından {{count}} sunucuyu içe aktar",
+      "importSshConfig_other": "~/.ssh/config dosyasından {{count}} sunucuyu içe aktar"
     }
   }
 }

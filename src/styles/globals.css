@@ -650,6 +650,11 @@ button svg *,
   opacity: 0.45;
   cursor: not-allowed;
 }
+.btn:focus-visible,
+.focus-ring:focus-visible {
+  outline: 2px solid var(--t-accent);
+  outline-offset: 2px;
+}
 
 /* Flat button treatment — accent / elevated fill + the core ring, no gradient
    sheen, inset highlight, or colored glow. One calm look for every button,

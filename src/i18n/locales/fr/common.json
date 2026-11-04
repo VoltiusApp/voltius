@@ -24,7 +24,9 @@
       "pin": "Épingler",
       "unpin": "Désépingler",
       "moreOptions": "Plus d'options",
-      "closePanel": "Fermer le panneau"
+      "closePanel": "Fermer le panneau",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe"
     },
     "entity": {
       "host": "Hôte",

@@ -101,7 +101,8 @@
       "connectAsYours": "{{username}} · 你的，仅你可见",
       "connectAsTeam": "{{username}} · 团队身份",
       "connectAsAsk": "连接时会询问你",
-      "connectAsUnavailable": "你选择的身份不可用"
+      "connectAsUnavailable": "你选择的身份不可用",
+      "connectNeedsHost": "输入主机后即可连接"
     },
     "distroIconPicker": {
       "title": "图标",

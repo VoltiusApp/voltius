@@ -49,13 +49,14 @@
       "new": "New",
       "pinned": "Pinned",
       "folderEmpty": "This folder is empty",
-      "addHost": "Add Host",
       "noSearchResults": "No hosts match \"{{search}}\"",
       "ejectMoveTo": "Move to {{name}}",
       "ejectRemoveFromFolder": "Remove from folder",
       "emptyState": {
         "title": "No hosts yet",
-        "subtitle": "Add your first SSH host to get started"
+        "subtitle": "Add a server to connect to it in one click.",
+        "import": "Import hosts",
+        "quickConnect": "Connect without saving"
       },
       "draft": {
         "unsaved": "Unsaved"

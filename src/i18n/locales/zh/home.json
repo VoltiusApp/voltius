@@ -39,6 +39,18 @@
       "hostCount_other": "{{count}} 台主机",
       "empty": "暂无主机",
       "more": "+{{count}} 更多"
+    },
+    "firstRun": {
+      "title": "连接到你的第一台服务器",
+      "body": "输入地址即可立即打开终端，或将其添加为主机以便保存。",
+      "addressPlaceholder": "user@host 或 user@host:2222",
+      "addressLabel": "服务器地址",
+      "addressHint": "请使用 user@host 格式，端口不是 22 时加上 :端口。也可以粘贴会话邀请码。",
+      "join": "加入",
+      "importOther": "从其他应用导入",
+      "localTerminal": "打开本地终端",
+      "importSshConfig_one": "从 ~/.ssh/config 导入 {{count}} 台主机",
+      "importSshConfig_other": "从 ~/.ssh/config 导入 {{count}} 台主机"
     }
   }
 }

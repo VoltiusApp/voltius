@@ -7,6 +7,7 @@ import { Pills, type PillOption } from "@/components/shared/Pills";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { Toggle } from "@/components/shared/Toggle";
 import { useRipple } from "@/hooks/useRipple";
+import { RevealToggle } from "@/components/shared/vaultObjectForm";
 
 // ─────────────────────────────────────────────────────────────────
 // Generate-mode config
@@ -116,16 +117,7 @@ export function KeyGenFields({
             placeholder={t("keychain.genFields.passphrasePlaceholder")}
             autoComplete="new-password"
           />
-          <button
-            type="button"
-            onClick={() => setShowPassphrase((v) => !v)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-            tabIndex={-1}
-          >
-            <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
-          </button>
+          <RevealToggle show={showPassphrase} onToggle={() => setShowPassphrase((v) => !v)} />
         </div>
 
         <div className="flex items-center justify-between py-1">

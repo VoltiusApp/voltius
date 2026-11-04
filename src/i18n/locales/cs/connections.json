@@ -101,7 +101,8 @@
       "connectAsYours": "{{username}} · vaše, jen pro vás",
       "connectAsTeam": "{{username}} · týmová identita",
       "connectAsAsk": "Přihlašovací údaje zadáte při připojení",
-      "connectAsUnavailable": "Vámi zvolená identita není k dispozici"
+      "connectAsUnavailable": "Vámi zvolená identita není k dispozici",
+      "connectNeedsHost": "Pro připojení zadejte host"
     },
     "distroIconPicker": {
       "title": "Ikona",

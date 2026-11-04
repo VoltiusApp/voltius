@@ -39,7 +39,7 @@ function StatChip({ icon, label, value }: StatChipProps) {
   );
 }
 
-export function DashboardHero() {
+export function DashboardHero({ firstRun }: { firstRun: boolean }) {
   const { t } = useTranslation();
   const vaultCount = useVaultStore((s) => s.vaults.length);
   const hostCount = useAllConnections().length;
@@ -52,6 +52,12 @@ export function DashboardHero() {
   const omniHint = useShortcutHint("omni");
 
   useEffect(() => { loadRules().catch(() => {}); }, [loadRules]);
+
+  if (firstRun) {
+    return (
+      <h1 className="text-2xl font-semibold mb-6 text-(--t-text-primary)">{t(greetingKey())}</h1>
+    );
+  }
 
   return (
     <div className="mb-8">

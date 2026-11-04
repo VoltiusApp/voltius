@@ -50,13 +50,14 @@
       "new": "Nouveau",
       "pinned": "Épinglés",
       "folderEmpty": "Ce dossier est vide",
-      "addHost": "Ajouter un hôte",
       "noSearchResults": "Aucun hôte ne correspond à \"{{search}}\"",
       "ejectMoveTo": "Déplacer vers {{name}}",
       "ejectRemoveFromFolder": "Retirer du dossier",
       "emptyState": {
         "title": "Aucun hôte pour l'instant",
-        "subtitle": "Ajoutez votre premier hôte SSH pour commencer"
+        "subtitle": "Ajoutez un serveur pour vous y connecter en un clic.",
+        "import": "Importer des hôtes",
+        "quickConnect": "Se connecter sans enregistrer"
       },
       "draft": {
         "unsaved": "Non enregistré"

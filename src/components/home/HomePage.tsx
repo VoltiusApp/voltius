@@ -6,7 +6,10 @@ import { RecentHostsSection } from "./RecentHostsSection";
 import { VaultsOverview } from "./VaultsOverview";
 import { TeamSessions } from "@/components/hosts/TeamSessions";
 import { AllHostsView } from "./AllHostsView";
+import { FirstRunPanel } from "./FirstRunPanel";
 import { useUIStore } from "@/stores/uiStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 
 function QuickActions() {
   const { t } = useTranslation();
@@ -35,6 +38,8 @@ function QuickActions() {
 
 export default function HomePage() {
   const [subView, setSubView] = useState<"all-hosts" | null>(null);
+  const firstRun = useAllConnections().length === 0;
+  const inTeam = useTeamStore((s) => s.teams.length > 0);
 
   if (subView === "all-hosts") {
     return <AllHostsView onBack={() => setSubView(null)} />;
@@ -43,11 +48,11 @@ export default function HomePage() {
   return (
     <div className="h-full overflow-y-auto chrome-canvas">
       <div className="max-w-4xl mx-auto px-8 py-8">
-        <DashboardHero />
-        <QuickActions />
-        <TeamSessions />
+        <DashboardHero firstRun={firstRun} />
+        {firstRun ? <FirstRunPanel /> : <QuickActions />}
+        {(!firstRun || inTeam) && <TeamSessions />}
         <RecentHostsSection onSeeAll={() => setSubView("all-hosts")} />
-        <VaultsOverview />
+        {(!firstRun || inTeam) && <VaultsOverview />}
       </div>
     </div>
   );

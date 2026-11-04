@@ -49,13 +49,14 @@
       "new": "新建",
       "pinned": "已置顶",
       "folderEmpty": "此文件夹为空",
-      "addHost": "添加主机",
       "noSearchResults": "没有匹配 \"{{search}}\" 的主机",
       "ejectMoveTo": "移动到 {{name}}",
       "ejectRemoveFromFolder": "从文件夹中移除",
       "emptyState": {
         "title": "暂无主机",
-        "subtitle": "添加您的第一台 SSH 主机开始使用"
+        "subtitle": "添加服务器，一键即可连接。",
+        "import": "导入主机",
+        "quickConnect": "直接连接（不保存）"
       },
       "draft": {
         "unsaved": "未保存"

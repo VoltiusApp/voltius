@@ -35,12 +35,12 @@ import { useUiLanguage } from "@/i18n";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
-import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
+import { joinSessionByCode, joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
 import { sessionDisplayName } from "@/services/teamSharing";
-import { isJoinInput, joinInputStrength, resolveJoinInput } from "@/services/resolveJoinInput";
+import { isJoinInput, joinInputStrength } from "@/services/resolveJoinInput";
 import { appToast } from "@/services/appToast";
 import { commandGuard } from "@/commands/defineCommand";
 import { recentlyUsed } from "@/utils/recentHosts";
@@ -467,12 +467,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         inputRef.current?.focus();
       } else if (item.kind === "join-code") {
         (async () => {
-          const { sessionId, inviteToken } = await resolveJoinInput(item.code);
-          await joinTeamSessionAndOpenTab({
-            sessionId,
-            connectionName: t("hosts.teamSessions.sharedTerminalFallback"),
-            inviteToken,
-          });
+          await joinSessionByCode(item.code);
           setSidebarOpen(false);
         })().catch(failJoin);
         onClose();

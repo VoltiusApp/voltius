@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Protegido pelo keychain do SO — sem senha necessária",
       "or": "ou",
       "cloudAccount": "Conta na nuvem",
-      "cloudAccountSub": "Dispositivos pareados automaticamente · Pro adiciona nuvem e backup",
+      "cloudAccountSub": "Grátis · dispositivos pareados automaticamente. Pro adiciona nuvem e backup.",
       "cloudAccountSub_ios": "Sincronizar entre dispositivos — entre ou crie uma",
       "back": "Voltar",
       "signupPrompt": "Crie uma conta para parear seus dispositivos automaticamente",
@@ -47,10 +47,13 @@
       "e2eeNotice": "Seus dados são criptografados ponta a ponta — o servidor não pode lê-los.",
       "openSource": "Código aberto.",
       "agreeToTerms": "Ao criar uma conta, você concorda com nossos <terms>Termos de Serviço</terms> e <privacy>Política de Privacidade</privacy>.",
-      "accountCreatedToast": "Conta criada! Verifique seu e-mail para confirmar.",
+      "accountCreatedToast": "Conta criada. Verifique seu e-mail para confirmar.",
       "vaultUnreadableBodyNoPassword": "O arquivo de segredos deste dispositivo não pode ser aberto com a chave armazenada nesta máquina. Nada foi excluído. Deixe-o de lado para começar com um cofre vazio, ou restaure um dos backups abaixo.",
       "vaultSetAsideLocal": "Deixar de lado e começar do zero",
-      "vaultSetAsideLocalSub": "Mantém uma cópia de backup neste dispositivo"
+      "vaultSetAsideLocalSub": "Mantém uma cópia de backup neste dispositivo",
+      "addAccountLater": "Você pode criar uma conta depois e manter seus hosts.",
+      "errorEmailRequired": "Digite seu e-mail",
+      "masterPasswordNote": "Esta senha criptografa seus dados. Ela não pode ser redefinida nem recuperada, então guarde-a em um lugar seguro."
     },
     "cloudAuthModal": {
       "registerTitle": "Criar conta na nuvem",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "Criar senha mestre",
       "confirmMasterPasswordPlaceholder": "Confirmar senha mestre",
       "errorPasswordRequired": "Senha necessária",
-      "errorMinLength4": "Pelo menos 4 caracteres",
       "pleaseWait": "Aguarde…",
       "reauthTitle": "Entrar novamente",
       "reauthDesc": "Sua sessão neste dispositivo terminou. Digite sua senha mestre para se reconectar."

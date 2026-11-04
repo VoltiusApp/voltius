@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Sécurisé par le trousseau du système — aucun mot de passe requis",
       "or": "ou",
       "cloudAccount": "Compte cloud",
-      "cloudAccountSub": "Appareils associés automatiquement · Pro ajoute le cloud et la sauvegarde",
+      "cloudAccountSub": "Gratuit · appareils associés automatiquement. Pro ajoute le cloud et la sauvegarde.",
       "cloudAccountSub_ios": "Synchronisez sur tous vos appareils — connectez-vous ou créez un compte",
       "back": "Retour",
       "signupPrompt": "Créez un compte pour associer vos appareils automatiquement",
@@ -47,10 +47,13 @@
       "e2eeNotice": "Vos données sont chiffrées de bout en bout — le serveur ne peut pas les lire.",
       "openSource": "Open source.",
       "agreeToTerms": "En créant un compte, vous acceptez nos <terms>conditions d'utilisation</terms> et notre <privacy>politique de confidentialité</privacy>.",
-      "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer.",
+      "accountCreatedToast": "Compte créé. Vérifiez votre e-mail pour le confirmer.",
       "vaultUnreadableBodyNoPassword": "Le fichier de secrets de cet appareil ne peut pas être ouvert avec la clé enregistrée sur cette machine. Rien n'a été supprimé. Mettez-le de côté pour repartir d'un coffre vide, ou restaurez une des sauvegardes ci-dessous.",
       "vaultSetAsideLocal": "Mettre de côté et repartir à zéro",
-      "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil"
+      "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil",
+      "addAccountLater": "Vous pourrez créer un compte plus tard en conservant vos hôtes.",
+      "errorEmailRequired": "Saisissez votre e-mail",
+      "masterPasswordNote": "Ce mot de passe chiffre vos données. Il ne peut être ni réinitialisé ni récupéré : conservez-le en lieu sûr."
     },
     "cloudAuthModal": {
       "registerTitle": "Créer un compte cloud",
@@ -64,7 +67,6 @@
       "createMasterPasswordPlaceholder": "Créer un mot de passe principal",
       "confirmMasterPasswordPlaceholder": "Confirmer le mot de passe principal",
       "errorPasswordRequired": "Mot de passe requis",
-      "errorMinLength4": "Au moins 4 caractères",
       "pleaseWait": "Veuillez patienter…",
       "reauthTitle": "Se reconnecter",
       "reauthDesc": "Votre session sur cet appareil a pris fin. Saisissez votre mot de passe principal pour vous reconnecter."

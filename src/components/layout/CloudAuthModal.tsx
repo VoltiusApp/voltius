@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ComponentProps, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
@@ -14,9 +14,10 @@ import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { lastServerUrl } from "@/utils/serverInstance";
 import { localSyncContext, usePlatform } from "@/utils/platform";
+import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
 
 const AUTH_INPUT_CLASS =
-  "w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-muted) focus:border-(--t-accent)";
+  "w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)";
 
 export default function CloudAuthModal() {
   const { t } = useTranslation();
@@ -54,9 +55,6 @@ export default function CloudAuthModal() {
   const isLocalNoPassword = accountMode === "local-nopassword";
   // Adding creates an account from nothing, so it needs a password of its own.
   const needsNewPassword = isRegister && (isAdd || isLocalNoPassword);
-  const [minLength, minLengthError] = isAdd
-    ? [8, "layout.auth.errorMinLength8"]
-    : [4, "layout.cloudAuthModal.errorMinLength4"];
 
   const switchMode = (next: CloudAuthMode) => {
     setMode(next);
@@ -67,12 +65,13 @@ export default function CloudAuthModal() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) { setError(t("layout.auth.errorInvalidEmail")); return; }
+    const invalidEmail = emailError(email, t);
+    if (invalidEmail) { setError(invalidEmail); return; }
     const normalizedUrl = serverUrl.replace(/\/+$/, "");
 
     if (!isRegister && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
     if (needsNewPassword) {
-      if (password.length < minLength) { setError(t(minLengthError)); return; }
+      if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
       if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
     }
 
@@ -161,7 +160,7 @@ export default function CloudAuthModal() {
                 type="button"
                 onClick={() => switchMode(next)}
                 className="flex-1 py-1.5 text-xs font-medium transition-colors"
-                style={{ background: active ? "var(--t-accent)" : "var(--t-bg-elevated)", color: active ? "var(--t-on-accent)" : "var(--t-text-muted)" }}
+                style={{ background: active ? "var(--t-accent)" : "var(--t-bg-elevated)", color: active ? "var(--t-on-accent)" : "var(--t-text-secondary)" }}
               >
                 {next === "signin" ? t("layout.auth.signIn") : t("layout.auth.createAccount")}
               </button>
@@ -180,12 +179,13 @@ export default function CloudAuthModal() {
             <>
               <AuthInput type="password" placeholder={t("layout.cloudAuthModal.createMasterPasswordPlaceholder")} value={password} onChange={setPassword} />
               <AuthInput type="password" placeholder={t("layout.cloudAuthModal.confirmMasterPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
+              <MasterPasswordNote />
             </>
           )}
 
           {!isReauth && <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={AUTH_INPUT_CLASS} />}
 
-          {error && <p className="text-xs px-1 text-(--t-status-error)">{error}</p>}
+          {error && <p role="alert" className="text-xs px-1 text-(--t-status-error)">{error}</p>}
 
           <button
             type="submit"
@@ -208,30 +208,6 @@ export default function CloudAuthModal() {
   );
 }
 
-function AuthInput({
-  type,
-  placeholder,
-  value,
-  onChange,
-  autoFocus,
-  disabled,
-}: {
-  type: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  autoFocus?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      autoFocus={autoFocus}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-      className={AUTH_INPUT_CLASS}
-    />
-  );
+function AuthInput(props: Omit<ComponentProps<typeof Input>, "className">) {
+  return <Input {...props} className={AUTH_INPUT_CLASS} />;
 }

@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
+import { RevealToggle } from "@/components/shared/vaultObjectForm";
 import LogoBadge from "./LogoBadge";
 import { systemAuthMethodKey, type SystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { usePlatform } from "@/utils/platform";
@@ -7,10 +10,10 @@ import { usePlatform } from "@/utils/platform";
 export function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center bg-(--t-bg-terminal)">
+    <div className="h-full w-full flex flex-col items-center overflow-y-auto pt-[max(4rem,16vh)] pb-8 bg-(--t-bg-terminal)">
       {onBack && (
         <button onClick={onBack}
-          className="absolute top-6 left-6 flex items-center gap-1.5 text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary)"
+          className="focus-ring absolute top-[max(1.5rem,env(safe-area-inset-top))] left-6 flex items-center gap-1.5 text-xs transition-colors text-(--t-text-secondary) hover:text-(--t-text-primary)"
         >
           <Icon icon="lucide:arrow-left" width={13} /> {t("layout.auth.back")}
         </button>
@@ -34,14 +37,14 @@ export function ActionButton({ icon, label, sub, primary, loading, onClick }: {
     <button
       onClick={onClick}
       disabled={loading}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 text-left transition-all"
+      className="focus-ring w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 text-left transition-all"
       style={{
         background: primary ? "var(--t-accent)" : "var(--t-bg-elevated)",
         border: `1px solid ${primary ? "var(--t-accent)" : "var(--t-border)"}`,
         opacity: loading ? 0.7 : 1,
       }}
       onMouseEnter={(e) => {
-        if (!primary) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border-hover)";
+        if (!primary) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-accent)";
       }}
       onMouseLeave={(e) => {
         if (!primary) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)";
@@ -55,7 +58,7 @@ export function ActionButton({ icon, label, sub, primary, loading, onClick }: {
           {label}
         </p>
         {sub && (
-          <p className="text-xs" style={{ color: primary ? "color-mix(in srgb, var(--t-on-accent) 70%, transparent)" : "var(--t-text-muted)" }}>
+          <p className="text-xs" style={{ color: primary ? "color-mix(in srgb, var(--t-on-accent) 80%, transparent)" : "var(--t-text-secondary)" }}>
             {sub}
           </p>
         )}
@@ -67,25 +70,54 @@ export function ActionButton({ icon, label, sub, primary, loading, onClick }: {
 export const INPUT_CLASS =
   "form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)";
 
-export function Input({ type, placeholder, value, onChange, autoFocus }: {
+export function Input({ type, placeholder, value, onChange, autoFocus, invalid, disabled, className = INPUT_CLASS }: {
   type: string; placeholder: string; value: string;
-  onChange: (v: string) => void; autoFocus?: boolean;
+  onChange: (v: string) => void; autoFocus?: boolean; invalid?: boolean; disabled?: boolean; className?: string;
 }) {
-  return (
+  const [shown, setShown] = useState(false);
+  const secret = type === "password";
+  const input = (
     <input
-      type={type}
+      type={secret && shown ? "text" : type}
       placeholder={placeholder}
+      aria-label={placeholder}
+      aria-invalid={invalid || undefined}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       autoFocus={autoFocus}
-      className={INPUT_CLASS}
+      disabled={disabled}
+      className={secret ? `${className} pr-9` : className}
     />
+  );
+  if (!secret) return input;
+  return (
+    <div className="relative">
+      {input}
+      <RevealToggle show={shown} onToggle={() => setShown((v) => !v)} />
+    </div>
+  );
+}
+
+export const MIN_PASSWORD_LENGTH = 8;
+
+export function emailError(email: string, t: TFunction): string {
+  if (!email.trim()) return t("layout.auth.errorEmailRequired");
+  return email.includes("@") ? "" : t("layout.auth.errorInvalidEmail");
+}
+
+export function MasterPasswordNote() {
+  const { t } = useTranslation();
+  return (
+    <p className="flex gap-2 text-xs leading-relaxed text-(--t-text-secondary) py-1">
+      <Icon icon="lucide:key-round" width={13} className="shrink-0 mt-0.5 text-(--t-text-dim)" />
+      {t("layout.auth.masterPasswordNote")}
+    </p>
   );
 }
 
 export function ErrorMsg({ msg }: { msg: string }) {
   if (!msg) return null;
-  return <p className="text-xs text-center py-1 text-(--t-status-error)">{msg}</p>;
+  return <p role="alert" className="text-xs text-center py-1 text-(--t-status-error)">{msg}</p>;
 }
 
 export function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
