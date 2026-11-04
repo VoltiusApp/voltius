@@ -61,3 +61,7 @@ const ENFORCED_KEYS = new Set(["server.url", "server.allowOther", "sshConfig.imp
 export function isPolicyEnforced(key: string): boolean {
   return ENFORCED_KEYS.has(key) || ENFORCED_PREFIXES.some((p) => key.startsWith(p));
 }
+
+export function policyKeysSnapshot(): Array<PolicyKeyDef & { enforced: boolean }> {
+  return POLICY_KEYS.map((k) => ({ ...k, enforced: isPolicyEnforced(k.id) }));
+}

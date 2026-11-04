@@ -1,6 +1,6 @@
 use super::output::Output;
 use super::CliError;
-use crate::policy::{self, Issue, Layer};
+use crate::policy::{self, Issue, Layer, PolicyDoc};
 use clap::Subcommand;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -173,6 +173,20 @@ fn unknown_key_message(key: &str) -> String {
     }
 }
 
+fn not_enforced_message(key: &str) -> String {
+    format!("{key} is saved but this version of Voltius does not enforce it yet")
+}
+
+fn unenforced<'a>(keys: impl Iterator<Item = &'a String>) -> impl Iterator<Item = &'a String> {
+    keys.filter(|k| !policy::is_enforced(k))
+}
+
+fn warn_unenforced<'a>(out: &mut Output, keys: impl Iterator<Item = &'a String>) {
+    for key in unenforced(keys) {
+        out.warn(not_enforced_message(key));
+    }
+}
+
 fn set(key: &str, raw: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
     let ty = policy::key_type(key).ok_or_else(|| plain(unknown_key_message(key)))?;
     let value = policy::parse_cli_value(ty, raw).map_err(|m| plain(format!("{key}: {m}")))?;
@@ -181,6 +195,7 @@ fn set(key: &str, raw: &str, layer: Layer, path: &Path, out: &mut Output) -> Res
         Ok(true)
     })?;
     out.line(format!("Set {key} in {}", layer.name()));
+    warn_unenforced(out, std::iter::once(&key.to_string()));
     Ok(())
 }
 
@@ -245,13 +260,32 @@ pub fn describe(i: &Issue) -> String {
 
 fn check(file: Option<&Path>, machine: &Path, out: &mut Output) -> Result<(), CliError> {
     let target = file.unwrap_or(machine);
-    let issues = match read_text(target)? {
-        Some(t) => policy::parse(&t).1,
-        None if file.is_none() => Vec::new(),
+    let (doc, issues) = match read_text(target)? {
+        Some(t) => policy::parse(&t),
+        None if file.is_none() => (PolicyDoc::default(), Vec::new()),
         None => return Err(not_found(target)),
     };
+    let warnings: Vec<Value> = [
+        (Layer::Policy, &doc.policy),
+        (Layer::Defaults, &doc.defaults),
+    ]
+    .into_iter()
+    .flat_map(|(layer, map)| {
+        unenforced(map.keys()).map(move |key| {
+                json!({ "layer": layer.name(), "key": key, "message": not_enforced_message(key) })
+            })
+    })
+    .collect();
     if out.json {
-        out.json(&json!({ "path": target.display().to_string(), "issues": issues }));
+        out.json(&json!({
+            "path": target.display().to_string(),
+            "issues": issues,
+            "warnings": warnings,
+        }));
+    } else {
+        for w in &warnings {
+            out.warn(w["message"].as_str().unwrap_or_default());
+        }
     }
     if issues.is_empty() {
         if out.json {
@@ -271,6 +305,12 @@ fn import(file: &Path, machine: &Path, out: &mut Output) -> Result<(), CliError>
     if !issues.is_empty() {
         return Err(CliError::Validation(issues));
     }
+    let keys: Vec<String> = incoming
+        .policy
+        .keys()
+        .chain(incoming.defaults.keys())
+        .cloned()
+        .collect();
     edit_raw(machine, |root| {
         for (layer, entries) in [
             (Layer::Policy, incoming.policy),
@@ -285,6 +325,7 @@ fn import(file: &Path, machine: &Path, out: &mut Output) -> Result<(), CliError>
         file.display(),
         machine.display()
     ));
+    warn_unenforced(out, keys.iter());
     Ok(())
 }
 
@@ -300,7 +341,6 @@ fn export(path: &Path, out: &mut Output) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy::PolicyDoc;
     use std::sync::{Arc, Mutex};
 
     struct Buf(Arc<Mutex<Vec<u8>>>);
@@ -556,5 +596,106 @@ mod tests {
         run(PolicyCmd::Export, &path, &mut sink).unwrap();
         let v: Value = serde_json::from_str(&captured(&buf)).unwrap();
         assert_eq!(v["policy"]["future.key"], Value::from(7));
+    }
+
+    fn capture_split(
+        json: bool,
+        quiet: bool,
+    ) -> (Output, Arc<Mutex<Vec<u8>>>, Arc<Mutex<Vec<u8>>>) {
+        let (o, e) = (
+            Arc::new(Mutex::new(Vec::new())),
+            Arc::new(Mutex::new(Vec::new())),
+        );
+        let out = Output::with_sinks(
+            json,
+            quiet,
+            Box::new(Buf(o.clone())),
+            Box::new(Buf(e.clone())),
+        );
+        (out, o, e)
+    }
+
+    fn set_with(out: &mut Output, path: &Path, key: &str, value: &str) {
+        run(
+            PolicyCmd::Set {
+                key: key.into(),
+                value: value.into(),
+                defaults: false,
+            },
+            path,
+            out,
+        )
+        .unwrap();
+    }
+
+    const NOT_ENFORCED: &str =
+        "appSettings.locale is saved but this version of Voltius does not enforce it yet";
+
+    #[test]
+    fn set_unenforced_key_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let (mut sink, stdout, stderr) = capture_split(false, false);
+        set_with(&mut sink, &path, "appSettings.locale", "fr");
+        assert!(captured(&stderr).contains(NOT_ENFORCED));
+        assert!(!captured(&stdout).contains("does not enforce"));
+        assert_eq!(read(&path).policy["appSettings.locale"], Value::from("fr"));
+    }
+
+    #[test]
+    fn set_enforced_key_no_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let (mut sink, _, stderr) = capture_split(false, false);
+        set_with(&mut sink, &path, "server.url", "https://x");
+        assert_eq!(captured(&stderr), "");
+    }
+
+    #[test]
+    fn quiet_suppresses_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let (mut sink, _, stderr) = capture_split(false, true);
+        set_with(&mut sink, &path, "appSettings.locale", "fr");
+        assert_eq!(captured(&stderr), "");
+    }
+
+    #[test]
+    fn import_unenforced_key_warns_json_stdout_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let file = dir.path().join("in.json");
+        std::fs::write(
+            &file,
+            r#"{"version":1,"defaults":{"appSettings.locale":"fr"}}"#,
+        )
+        .unwrap();
+        let (mut sink, stdout, stderr) = capture_split(true, false);
+        run(PolicyCmd::Import { file }, &path, &mut sink).unwrap();
+        assert!(captured(&stderr).contains(NOT_ENFORCED));
+        assert!(!captured(&stdout).contains("does not enforce"));
+    }
+
+    #[test]
+    fn check_json_lists_warnings() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("good.json");
+        std::fs::write(
+            &file,
+            r#"{"version":1,"policy":{"appSettings.locale":"fr","server.url":"https://x"}}"#,
+        )
+        .unwrap();
+        let (mut sink, stdout, _) = capture_split(true, false);
+        run(
+            PolicyCmd::Check { file: Some(file) },
+            &dir.path().join("m.json"),
+            &mut sink,
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["warnings"].as_array().unwrap().len(), 1);
+        assert_eq!(v["warnings"][0]["key"], "appSettings.locale");
+        assert_eq!(v["warnings"][0]["layer"], "policy");
+        assert_eq!(v["warnings"][0]["message"], NOT_ENFORCED);
     }
 }
