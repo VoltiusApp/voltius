@@ -67,7 +67,7 @@ export function DashboardHero() {
         <span className="text-sm flex-1">{t("omni.searchPlaceholder")}</span>
         {omniHint && (
           <kbd
-            className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-sm shrink-0"
+            className="flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-sm shrink-0"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
           >
             {omniHint}

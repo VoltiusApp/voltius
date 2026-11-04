@@ -20,7 +20,7 @@ function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
   return (
     <button
-      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors border border-(--t-border) text-(--t-text-dim) hover:text-(--t-text-primary)"
+      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium transition-colors border border-(--t-border) text-(--t-text-dim) hover:text-(--t-text-primary)"
       onClick={onClick}
     >
       <Icon icon="lucide:link" width={11} />
@@ -194,7 +194,7 @@ export function TeamSessions() {
           </button>
         </div>
         {joinError && (
-          <p role="alert" className="mt-1.5 text-[11px] text-(--t-status-error)">{joinError}</p>
+          <p role="alert" className="mt-1.5 text-xs text-(--t-status-error)">{joinError}</p>
         )}
       </div>
     );
@@ -207,7 +207,7 @@ export function TeamSessions() {
           {t("hosts.teamSessions.title")}
         </h2>
         <span
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-xs font-semibold"
           style={{
             background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
             color: "var(--t-accent)",

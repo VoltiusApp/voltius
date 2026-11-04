@@ -25,10 +25,10 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
     <div className="surface-glass flex flex-col rounded-2xl p-4 gap-3">
       <button onClick={onOpen} className="group flex items-center gap-2 text-left">
         <Icon icon="lucide:vault" width={13} style={{ color: "var(--t-text-dim)" }} />
-        <span className="text-xs font-semibold text-(--t-text-secondary) group-hover:text-(--t-text-primary) group-hover:underline">
+        <span className="text-sm font-semibold text-(--t-text-primary) group-hover:underline">
           {name}
         </span>
-        <span className="ml-auto text-[10px]" style={{ color: "var(--t-text-dim)" }}>
+        <span className="ml-auto text-xs" style={{ color: "var(--t-text-dim)" }}>
           {t("home.vaultCard.hostCount", { count: totalHosts })}
         </span>
       </button>
@@ -49,8 +49,8 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
                 <ConnectionAvatar connection={conn} size={24} />
                 <HostPingDot connection={conn} size="sm" />
               </span>
-              <span className="max-w-[65%] text-xs font-medium truncate">{hostDisplayName(conn)}</span>
-              <span className="flex-1 min-w-0 font-mono text-[10px] text-right truncate text-(--t-text-dim)" title={hostAddress(conn)}>{hostAddress(conn)}</span>
+              <span className="max-w-[65%] text-sm font-medium truncate">{hostDisplayName(conn)}</span>
+              <span className="flex-1 min-w-0 font-mono text-xs text-right truncate text-(--t-text-dim)" title={hostAddress(conn)}>{hostAddress(conn)}</span>
               <Icon
                 icon="lucide:terminal"
                 width={12}
@@ -60,7 +60,7 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
             </button>
           ))}
           {hidden > 0 && (
-            <button onClick={onOpen} className="self-start text-[10px] px-2 pt-1 text-(--t-text-dim) hover:text-(--t-accent) hover:underline">
+            <button onClick={onOpen} className="self-start text-xs px-2 pt-1 text-(--t-text-dim) hover:text-(--t-accent) hover:underline">
               {t("home.vaultCard.more", { count: hidden })}
             </button>
           )}
@@ -98,7 +98,7 @@ export function VaultsOverview() {
       >
         {t("common.entity.vaults")}
       </h2>
-      <div {...cardGridProps("grid", "card", "items-start")}>
+      <div {...cardGridProps("grid", "wide", "items-start")}>
         {sections.map(({ vault, hosts, totalHosts }) => (
           <VaultCard
             key={vault.id}

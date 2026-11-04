@@ -54,10 +54,10 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
           <ConnectionAvatar connection={connection} size={36} />
           <HostPingDot connection={connection} />
         </span>
-        <span className="text-xs font-medium text-center w-full truncate text-(--t-text-primary)">
+        <span className="text-sm font-medium text-center w-full truncate text-(--t-text-primary)">
           {name}
         </span>
-        <span className="font-mono text-[10px] w-full truncate text-(--t-text-dim)" title={hostAddress(connection)}>
+        <span className="font-mono text-xs w-full truncate text-(--t-text-dim)" title={hostAddress(connection)}>
           {hostAddress(connection)}
         </span>
       </button>

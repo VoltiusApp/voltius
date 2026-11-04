@@ -30,10 +30,7 @@ export function AllHostsView({ onBack }: Props) {
           >
             <Icon icon="lucide:chevron-left" width={16} />
           </button>
-          <h1
-            className="text-sm font-bold uppercase tracking-widest"
-            style={{ color: "var(--t-text-dim)" }}
-          >
+          <h1 className="text-xl font-semibold text-(--t-text-primary)">
             {t("home.allHosts.title")}
           </h1>
         </div>
