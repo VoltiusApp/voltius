@@ -35,7 +35,7 @@ No account required. Everything below is free, forever.
 - **Persistent Sessions & Workspace Restore** — Sessions survive disconnects via tmux/screen on the host, and the whole workspace (tabs, splits, running processes, scrollback) survives full app restarts. With cloud sync, live sessions are shared across your devices — open the same terminal on a second device and both stay live, mirrored in real time. [Cross-device sessions →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
-- **MCP Server** — Let Claude Code, Claude Desktop, Cursor or VS Code drive your fleet: 52 tools covering hosts, keys, identities, sessions, commands, files, vaults, folders, the audit log and your installed plugins. Off by default, one toggle in Settings → Integrations, and it never leaves your machine. [How it works →](https://voltius.app/blog/mcp-server) *(written for 0.19.0, when the surface was 41 tools — the design and the security model still hold, the tool list has grown)*
+- **MCP Server** — Let Claude Code, Claude Desktop, Cursor or VS Code drive your fleet: 94 tools covering hosts, keys, identities, sessions, panes, commands, files, transfers, port forwards, snippets, vaults, folders, team members, settings, the audit log and your plugins. Off by default, one toggle in Settings → Integrations, and it never leaves your machine. [How it works →](https://voltius.app/blog/mcp-server) *(written for 0.19.0, when the surface was 41 tools — the design and the security model still hold, the tool list has grown)*
 - **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
 - **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
 - **Process Manager** — View and kill processes on connected hosts.
@@ -158,44 +158,52 @@ on macOS and Windows after installation.
 
 ## ⚖️ Comparison
 
-✅ yes · ❌ no · 🟡 partial or paid-tier · ? not tested
+✅ yes · ❌ no · 🟡 partial or paid-tier · ? not tested · Checked against each project's source or official docs in November 2026
 
 | Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
 | --- | --- | --- | --- | --- | --- |
-| **Engine** | **Rust + Tauri** 🦀 | likely Electron (closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
+| **Engine** | **Rust + Tauri** 🦀 | Electron (closed-source) | **Rust + Tauri** 🦀 | Web + Electron (React + Node.js) | Electron / Node.js |
 | **RAM Usage** | ~300MB | ~500MB+ | ~300MB | ? | ? |
 | **Installed Size** | ~40MB | ~1GB | ~40MB | ? | ? |
-| **Sync** | Local network + Gist + Cloudflare + S3 (Free) / Voltius Cloud (Pro) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
-| **Import/Export** | ✅ Import from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC, CSV; JSON/CSV Export | 🟡 Strong Import Integrations but no Export | ✅ | ? | ? |
-| **Port Forwarding** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec | ✅ + multi-exec | ? |
-| **Command Palette** | ✅ | ✅ | ? | ? | ✅ |
+| **Sync** | Local network + Gist + Cloudflare + S3 (Free) / Voltius Cloud (Pro) | 🟡 Only Pro | 🟡 Via Turso (own account) | ✅ Through your self-hosted server | 🟡 Tabby Web server (E2EE opt-in) or community plugins |
+| **Import/Export** | ✅ Import from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC, `~/.ssh/config` (optional two-way sync), CSV; JSON/CSV Export | 🟡 Import from `~/.ssh/config`, CSV, PuTTY, MobaXterm, SecureCRT; no export | 🟡 `~/.ssh/config` import; own encrypted backup | 🟡 `~/.ssh/config` + JSON import; JSON export | 🟡 `~/.ssh/config` import only |
+| **Port Forwarding** | ✅ | ✅ | 🟡 Remote forwards only via `~/.ssh/config` | ✅ | ✅ |
+| **SOCKS / HTTP proxy** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Port knocking** | ✅ | ❌ (dropped) | ❌ | ✅ | ❌ |
+| **Snippets** | ✅ + multi-exec | ✅ + multi-exec (startup snippets Pro) | ✅ (no multi-exec) | ✅ + multi-exec | 🟡 Broadcast built in, snippets via community plugin |
+| **Command Palette** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Split panes** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **X11 Forwarding** | ❌ | ? | ❌ | ? | ✅ |
-| **MCP server (AI agents)** | ✅ Built in, 52 tools, off by default | ? | ? | ? | ? |
-| **Docker Integration** | ✅ | ? | ? | ? | 🟡 (community plugin) |
-| **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **System Monitoring** | ✅ | ? | ✅ | ✅ | ? |
-| **Jump Hosts** | ✅ | ✅ | ✅ | ? | ✅ |
-| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex | ? | ? |
-| **Audit logs** | ✅ | 🟡 Teams plan | ? | ? | ? |
-| **Custom Themes** | ✅ | ? | ? | ✅ | ✅ |
-| **Folders &amp; Tags** | ✅ | ✅ | ✅ | ✅ | ? |
-| **Auto-Updates** | ✅ | ✅ | ✅ | ? | ? |
+| **X11 Forwarding** | ❌ | ? | ✅ | ❌ | ✅ |
+| **MCP server (AI agents)** | ✅ Built in, 94 tools, off by default | ? | ✅ | ❌ | 🟡 (community plugin) |
+| **Docker Integration** | ✅ | ? | ✅ | ✅ | 🟡 (community plugin) |
+| **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **System Monitoring** | ✅ | ? | ✅ | ✅ | 🟡 (community plugin) |
+| **Jump Hosts** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free, through your own Turso database | ✅ Self-hosted, share with users or roles | ❌ |
+| **Audit logs** | ✅ | 🟡 Teams plan | ❌ | ✅ | ❌ |
+| **Custom Themes** | ✅ | ? | ✅ | ✅ | ✅ |
+| **Keyword highlighting** | ✅ Editable rules | ✅ | ❌ | 🟡 Fixed categories | 🟡 (community plugin) |
+| **Folders &amp; Tags** | ✅ | ✅ | ✅ | ✅ | 🟡 Folders only |
+| **Auto-Updates** | ✅ | 🟡 Manual on desktop | ✅ | ✅ | ✅ |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
-| **AI assistant** | ❌ | ✅ | ✅ | ? | ? |
-| **Permissions** | ✅ Teams built-in roles / Business custom roles, per-member & per-object | ✅ Granular perms | ? | ? | ? |
-| **Terminal sharing** | ✅ Pro (1 session · 1 guest) / Teams (5 · 10) / Business (20 · 50) | ✅ needs Teams plan | ? | ? | ? |
-| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | ? | Local Only / Manual |
-| **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ | ? | ❌ |
-| **Serial Console** | ✅ | ✅ | ✅ | ? | ✅ |
-| **Persistent sessions** | ✅ uses tmux/screen, default behavior | 🟡 (via Mosh, must be installed on the host; not built-in) | ❌ | ❌ | ❌ |
-| **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ❌ | ❌ |
+| **AI assistant** | ❌ | ✅ | ✅ | ✅ (plugin, bring your own model) | 🟡 (community plugin) |
+| **Permissions** | ✅ Teams built-in roles / Business custom roles, per-member & per-object | 🟡 Business: can edit / can view per vault | 🟡 Roles not enforced | ✅ Roles, per-host sharing levels | ❌ |
+| **Terminal sharing** | ✅ Pro (1 session · 1 guest) / Teams (5 · 10) / Business (20 · 50) | ✅ Every plan | ✅ Peer-to-peer | ✅ (plugin) | 🟡 (community plugin) |
+| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | Encrypted at rest, server holds the key | Local; optional encrypted vault |
+| **Account 2FA** | ✅ Authenticator app + passkeys, free | ✅ Authenticator app; SAML SSO paid | — (no accounts) | ✅ Authenticator app, passkeys, OIDC | — (no accounts) |
+| **App lock (biometrics)** | ✅ Desktop + Android | 🟡 Mobile only | ✅ | 🟡 Mobile only | 🟡 Passphrase only |
+| **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ | ✅ | ❌ |
+| **FTP &amp; WebDAV** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Resumable transfers** | ✅ SFTP, FTP, WebDAV, Docker | ? | ❌ | 🟡 Host↔host only | ❌ |
+| **Serial Console** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Persistent sessions** | ✅ uses tmux/screen, default behavior | 🟡 (via Mosh, must be installed on the host; not built-in) | ❌ | ✅ Kept on the server, optional tmux | 🟡 (community plugin) |
+| **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ✅ Sessions run on the server | ❌ |
 | **Local-first** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ |
-| **Platforms** | Windows, Linux, MacOS, Android (iOS coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web |
-| **License** | **AGPLv3** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT |
-| **OS Detection** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Plugins** | ✅ | ❌ | ✅ | ✅ | ✅ |
+| **Platforms** | Windows, Linux, MacOS, Android (iOS coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | Web, Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Web |
+| **Languages** | 7 | English only | 9 | 42 | 24 |
+| **License** | **AGPLv3** | Commercial / Paid | MIT | Apache 2.0 | MIT |
+| **OS Detection** | ✅ | ✅ | ✅ | 🟡 Text only, in metrics | ❌ |
 
 ## 🛡️ Architecture & Security
 Voltius is built on a **Local-First, Zero-Knowledge** architecture. Your sensitive data (private keys, passwords, and server metadata) is encrypted on your machine before it ever touches a disk or a network.
