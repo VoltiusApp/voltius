@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
   accountId: "acc-1" as string | null,
   launchLock: null as string | null,
   secret: "plain",
-  authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean },
+  authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean; cloudOnly?: boolean },
   stopLanSync: vi.fn(async () => {}),
   startSessionSync: vi.fn(),
   startLanSyncInBackground: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock("@/stores/securityStore", () => ({
 }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: h.exists })) }));
 vi.mock("./AuthPage", () => ({
-  default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
+  default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean; cloudOnly?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
 vi.mock("@/services/lanSync", () => ({
@@ -50,6 +50,7 @@ vi.mock("@/services/lanSync", () => ({
   stopLanSync: h.stopLanSync,
 }));
 
+import { usePolicyStore } from "@/stores/policyStore";
 import SplashScreen from "./SplashScreen";
 
 beforeEach(() => {
@@ -201,4 +202,19 @@ test("a no-account install starts lan sync once it has loaded", async () => {
   await advance(10_000);
   expect(h.startLanSyncInBackground).toHaveBeenCalledTimes(1);
   expect(h.startSessionSync).not.toHaveBeenCalled();
+});
+
+test("policy loads before auto-login so a disallowed server is seen", async () => {
+  const load = vi.spyOn(usePolicyStore.getState(), "load").mockResolvedValue(undefined);
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(load.mock.invocationCallOrder[0]).toBeLessThan(h.autoLogin.mock.invocationCallOrder[0]);
+  load.mockRestore();
+});
+
+test("a server-blocked login lands on cloud sign-in only", async () => {
+  h.autoLogin.mockResolvedValueOnce("server-blocked");
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: false, cloudOnly: true });
 });

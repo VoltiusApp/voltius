@@ -29,17 +29,19 @@ interface Props {
   vaultUnreadable?: boolean;
   /** Offer the OS prompt: the vault key was kept in the keychain when it was locked. */
   systemAuth?: boolean;
+  /** Start on cloud sign-in with no way back to the local-account home. */
+  cloudOnly?: boolean;
   onReady: () => void;
 }
 
 /** Which way the vault turned out to be unreadable — they offer different exits. */
 type Unreadable = "no-password" | "wrong-key";
 
-export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onReady }: Props) {
+export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudOnly, onReady }: Props) {
   const { t } = useTranslation();
   const lanContext = localSyncContext(usePlatform());
-  const [view, setView] = useState<View>("home");
-  const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
+  const [view, setView] = useState<View>(cloudOnly ? "cloud" : "home");
+  const [cloudMode, setCloudMode] = useState<CloudMode>(cloudOnly ? "signin" : "signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unreadable, setUnreadable] = useState<Unreadable | null>(
@@ -267,7 +269,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     };
 
     return (
-      <Layout onBack={() => reset("home")}>
+      <Layout onBack={cloudOnly ? undefined : () => reset("home")}>
         <p className="text-xs mb-4 text-center text-(--t-text-secondary)">
           {isSignup ? t("layout.auth.signupPrompt", { context: lanContext }) : t("layout.auth.signinPrompt")}
         </p>

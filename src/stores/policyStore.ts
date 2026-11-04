@@ -1,7 +1,5 @@
 import { create } from "zustand";
-import i18n from "@/i18n";
 import { invoke } from "@/lib/invoke";
-import { notify } from "@/services/saveFile";
 
 export type PolicySource = "server" | "machine";
 export interface PolicyLayer {
@@ -41,11 +39,13 @@ export const onPolicyLoaded = (fn: () => void): (() => void) => {
   };
 };
 
-function notifyIssuesOnce(issues: PolicyIssue[]) {
+async function notifyIssuesOnce(issues: PolicyIssue[]) {
   const signature = issues.length ? JSON.stringify(issues) : "";
   if (signature === notifiedIssues) return;
   notifiedIssues = signature;
-  if (issues.length) notify("error", i18n.t("common.policy.issues", { count: issues.length }));
+  if (!issues.length) return;
+  const [{ default: i18n }, { notify }] = await Promise.all([import("@/i18n"), import("@/services/saveFile")]);
+  notify("error", i18n.t("common.policy.issues", { count: issues.length }));
 }
 
 export const usePolicyStore = create<PolicyState>((set) => ({
@@ -64,8 +64,8 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       machine: { policy: loaded.doc.policy, defaults: loaded.doc.defaults },
       issues: loaded.issues,
     });
-    notifyIssuesOnce(loaded.issues);
     loadedListeners.forEach((fn) => fn());
+    void notifyIssuesOnce(loaded.issues).catch(() => {});
   },
 }));
 

@@ -52,7 +52,7 @@ beforeEach(() => {
     Promise.resolve(cmd === "keychain_get" ? (keychain[args.key] ?? null) : null);
   refreshVerificationState.mockReset().mockResolvedValue(true);
   getSavedAccounts.mockReset().mockResolvedValue([]);
-  switchToAccount.mockReset();
+  switchToAccount.mockReset().mockResolvedValue(undefined);
   addToast.mockReset();
 });
 

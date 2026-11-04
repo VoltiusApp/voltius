@@ -12,6 +12,7 @@ import { sameKey } from "./vaultKeyCandidates";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
+import { serverAllowed } from "@/services/policy/serverPolicy";
 import { rememberServer } from "@/utils/serverInstance";
 import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
@@ -486,7 +487,7 @@ async function sessionStillHonoured(): Promise<boolean> {
  * the account has no master password to retype, so the unlock prompt cannot help
  * and the caller must offer the vault recovery screen instead.
  */
-export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed" | "wrong-key";
+export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed" | "wrong-key" | "server-blocked";
 
 /** Auto-login from keychain — instant (no secret access). */
 export async function autoLogin(): Promise<AutoLoginOutcome> {
@@ -534,6 +535,7 @@ export async function openWithStoredSecret(password: string): Promise<AutoLoginO
       }
     } else {
       if (!accountId) return "declined";
+      if (mode === "server" && !serverAllowed(await keychainGet("server_url"))) return "server-blocked";
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only, except a cloud account missing its wrapped

@@ -31,7 +31,6 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
-vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("./vault", () => ({
   lockVault: h.lockVault,
   readLocalSecrets: h.readLocalSecrets,

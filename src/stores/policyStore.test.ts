@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 
 import { adminDefault, isLocked, lockedValue, onPolicyLoaded, usePolicyStore } from "./policyStore";
@@ -49,8 +50,9 @@ describe("policyStore", () => {
     mocks.invoke.mockResolvedValue(loaded({}, {}, [issue]));
     await usePolicyStore.getState().load();
     expect(usePolicyStore.getState().issues).toHaveLength(1);
-    expect(mocks.notify).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(1));
     await usePolicyStore.getState().load();
+    await new Promise((r) => setTimeout(r, 20));
     expect(mocks.notify).toHaveBeenCalledTimes(1);
   });
 
@@ -58,11 +60,12 @@ describe("policyStore", () => {
     const issue = { layer: "policy", key: "x", message: "unknown key; ignored" };
     mocks.invoke.mockResolvedValueOnce(loaded({}, {}, [issue]));
     await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(1));
     mocks.invoke.mockResolvedValueOnce(loaded());
     await usePolicyStore.getState().load();
     mocks.invoke.mockResolvedValueOnce(loaded({}, {}, [issue]));
     await usePolicyStore.getState().load();
-    expect(mocks.notify).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(2));
   });
 
   it("runs onPolicyLoaded subscribers after each load", async () => {

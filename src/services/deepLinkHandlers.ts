@@ -61,7 +61,10 @@ async function handleVerified(intent: VerifiedIntent): Promise<void> {
     ? {
         label: i18n.t("notifications.emailVerification.toast.verifiedSwitch"),
         // switchToAccount saves the outgoing account and reloads the window.
-        onClick: () => void switchToAccount(match),
+        onClick: () =>
+          void switchToAccount(match).catch((e) =>
+            toast(i18n.t("layout.sidebarAccount.switchFailed", { error: e instanceof Error ? e.message : String(e) }), "error"),
+          ),
       }
     : undefined;
   toast(

@@ -28,7 +28,7 @@ import { usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
-type Phase = "loading" | "auth-first-launch" | "auth-locked" | "auth-unreadable" | "finishing" | "done";
+type Phase = "loading" | "auth-server-blocked" | "auth-first-launch" | "auth-locked" | "auth-unreadable" | "finishing" | "done";
 type StepStatus = "pending" | "running" | "done" | "error";
 
 interface Step { id: string; label: string; status: StepStatus; }
@@ -93,7 +93,13 @@ export default function SplashScreen({ onReady }: Props) {
         return;
       }
 
+      await usePolicyStore.getState().load();
       const outcome = await autoLogin();
+      if (outcome === "server-blocked") {
+        setStep("vault", "done", t("common.policy.managed"));
+        setPhase("auth-server-blocked");
+        return;
+      }
       if (outcome === "sealed") {
         setSystemAuth(true);
         setStep("vault", "done", t("layout.splash.vaultLocked"));
@@ -164,7 +170,6 @@ export default function SplashScreen({ onReady }: Props) {
       startSessionSync();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
-    await usePolicyStore.getState().load();
     watchPolicyVisibility();
     // Plugin loading must never freeze startup: a single rejected invoke here
     // (e.g. a storage command failing on a locked-down platform) would leave the
@@ -192,6 +197,7 @@ export default function SplashScreen({ onReady }: Props) {
   };
 
   if (phase === "auth-first-launch") return <AuthPage isLocked={false} onReady={handleAuthReady} />;
+  if (phase === "auth-server-blocked") return <AuthPage isLocked={false} cloudOnly onReady={handleAuthReady} />;
   if (phase === "auth-locked") return <AuthPage isLocked={true} systemAuth={systemAuth} onReady={handleAuthReady} />;
   if (phase === "auth-unreadable") return <AuthPage isLocked={true} vaultUnreadable onReady={handleAuthReady} />;
 
