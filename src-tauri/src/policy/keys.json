@@ -1,0 +1,330 @@
+[
+  {
+    "id": "server.url",
+    "type": "string"
+  },
+  {
+    "id": "server.allowOther",
+    "type": "bool"
+  },
+  {
+    "id": "plugins.enabled",
+    "type": "stringList"
+  },
+  {
+    "id": "plugins.disabled",
+    "type": "stringList"
+  },
+  {
+    "id": "sshConfig.import",
+    "type": "bool"
+  },
+  {
+    "id": "sync.domains.themes",
+    "type": "bool"
+  },
+  {
+    "id": "sync.domains.uiPreferences",
+    "type": "bool"
+  },
+  {
+    "id": "sync.domains.shortcuts",
+    "type": "bool"
+  },
+  {
+    "id": "sync.domains.appSettings",
+    "type": "bool"
+  },
+  {
+    "id": "sync.domains.recentPeople",
+    "type": "bool"
+  },
+  {
+    "id": "sync.types.connection",
+    "type": "bool"
+  },
+  {
+    "id": "sync.types.identity",
+    "type": "bool"
+  },
+  {
+    "id": "sync.types.key",
+    "type": "bool"
+  },
+  {
+    "id": "sync.types.folder",
+    "type": "bool"
+  },
+  {
+    "id": "sync.types.snippet",
+    "type": "bool"
+  },
+  {
+    "id": "sync.types.port-forwarding-rule",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.terminal.preferredShell",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.terminal.cursorStyle",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.terminal.keywordRules",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.sftp.autoRefreshIntervalMs",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.plugins.overrides",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.keepalivePreset",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.detachedTtlHours",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.locale",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.proxy",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.themes.location",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.cursor-blink",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.scroll-minimap",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.select-to-copy",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.drag-selects-text",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.group-tabs-by-host",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.ignore-bracketed-paste",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.paste-image-as-path",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.volume-down-ctrl",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.keyword-highlight",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.auto-forward",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.forwarding-notifications",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.sftp-tar",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.sftp-autorefresh",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.reachability",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.team-presence",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.shell-integration",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.persistent-sessions",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.detached-session-ttl",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.restore-workspace",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.cross-device-sessions",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.changelog-popup",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.plugin-install-review",
+    "type": "bool"
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.mcp-server",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.terminal.preferredShell",
+    "type": "string"
+  },
+  {
+    "id": "appSettings.terminal.cursorStyle",
+    "type": "string"
+  },
+  {
+    "id": "appSettings.terminal.keywordRules",
+    "type": "json"
+  },
+  {
+    "id": "appSettings.sftp.autoRefreshIntervalMs",
+    "type": "number"
+  },
+  {
+    "id": "appSettings.plugins.overrides",
+    "type": "json"
+  },
+  {
+    "id": "appSettings.keepalivePreset",
+    "type": "string"
+  },
+  {
+    "id": "appSettings.detachedTtlHours",
+    "type": "number"
+  },
+  {
+    "id": "appSettings.locale",
+    "type": "string"
+  },
+  {
+    "id": "appSettings.proxy",
+    "type": "json"
+  },
+  {
+    "id": "themes.location",
+    "type": "json"
+  },
+  {
+    "id": "appSettings.toggles.cursor-blink",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.scroll-minimap",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.select-to-copy",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.drag-selects-text",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.group-tabs-by-host",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.ignore-bracketed-paste",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.paste-image-as-path",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.volume-down-ctrl",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.keyword-highlight",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.auto-forward",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.forwarding-notifications",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.sftp-tar",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.sftp-autorefresh",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.reachability",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.team-presence",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.shell-integration",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.persistent-sessions",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.detached-session-ttl",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.restore-workspace",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.cross-device-sessions",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.changelog-popup",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.plugin-install-review",
+    "type": "bool"
+  },
+  {
+    "id": "appSettings.toggles.mcp-server",
+    "type": "bool"
+  }
+]
