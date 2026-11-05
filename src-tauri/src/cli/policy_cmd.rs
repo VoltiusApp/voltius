@@ -70,7 +70,7 @@ fn print_path(machine: Option<&Path>, out: &mut Output) -> Result<(), CliError> 
     Ok(())
 }
 
-fn layer_of(defaults: bool) -> Layer {
+pub(super) fn layer_of(defaults: bool) -> Layer {
     if defaults {
         Layer::Defaults
     } else {
@@ -112,7 +112,7 @@ fn read_text(path: &Path) -> Result<Option<String>, CliError> {
 
 type Raw = serde_json::Map<String, Value>;
 
-fn plain(kind: IssueKind, message: String) -> CliError {
+pub(super) fn plain(kind: IssueKind, message: String) -> CliError {
     CliError::Validation(vec![Issue::general(kind, message)])
 }
 
@@ -193,7 +193,7 @@ fn edit_distance(a: &str, b: &str) -> usize {
     row[b.len()]
 }
 
-fn unknown_key_message(key: &str) -> String {
+pub(super) fn unknown_key_message(key: &str) -> String {
     let closest = policy::key_ids()
         .map(|id| (edit_distance(key, id), id))
         .min();
@@ -231,12 +231,22 @@ fn warn_not_honoured<'a>(out: &mut Output, entries: impl IntoIterator<Item = (La
     }
 }
 
-fn set(key: &str, raw: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
+pub(super) fn typed_value(key: &str, ty: policy::KeyType, raw: &str) -> Result<Value, CliError> {
+    policy::parse_cli_value(ty, raw)
+        .and_then(|v| policy::value_problem(key, ty, &v).map_or(Ok(v), Err))
+        .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))
+}
+
+pub(super) fn set(
+    key: &str,
+    raw: &str,
+    layer: Layer,
+    path: &Path,
+    out: &mut Output,
+) -> Result<(), CliError> {
     let ty = policy::key_type(key)
         .ok_or_else(|| plain(IssueKind::UnknownKey, unknown_key_message(key)))?;
-    let value = policy::parse_cli_value(ty, raw)
-        .and_then(|v| policy::value_problem(key, ty, &v).map_or(Ok(v), Err))
-        .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))?;
+    let value = typed_value(key, ty, raw)?;
     edit_raw(path, |root| {
         layer_entries(root, layer, path)?.insert(key.to_string(), value);
         Ok(true)
@@ -374,33 +384,8 @@ fn export(path: &Path, out: &mut Output) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::output::testing::{capture, captured, Buf, Shared};
     use std::sync::{Arc, Mutex};
-
-    type Shared = Arc<Mutex<Vec<u8>>>;
-
-    struct Buf(Shared);
-
-    impl std::io::Write for Buf {
-        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(b);
-            Ok(b.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-
-    fn capture(json: bool) -> (Output, Shared) {
-        let buf = Arc::new(Mutex::new(Vec::new()));
-        (
-            Output::with_sink(json, false, Box::new(Buf(buf.clone()))),
-            buf,
-        )
-    }
-
-    fn captured(buf: &Shared) -> String {
-        String::from_utf8(buf.lock().unwrap().clone()).unwrap()
-    }
 
     fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError> {
         super::run(cmd, Some(path), out)

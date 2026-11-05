@@ -51,3 +51,35 @@ impl Output {
         let _ = writeln!(self.sink, "{text}");
     }
 }
+
+#[cfg(test)]
+pub mod testing {
+    use super::Output;
+    use std::sync::{Arc, Mutex};
+
+    pub type Shared = Arc<Mutex<Vec<u8>>>;
+
+    pub struct Buf(pub Shared);
+
+    impl std::io::Write for Buf {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(b);
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    pub fn capture(json: bool) -> (Output, Shared) {
+        let buf = Arc::new(Mutex::new(Vec::new()));
+        (
+            Output::with_sink(json, false, Box::new(Buf(buf.clone()))),
+            buf,
+        )
+    }
+
+    pub fn captured(buf: &Shared) -> String {
+        String::from_utf8(buf.lock().unwrap().clone()).unwrap()
+    }
+}

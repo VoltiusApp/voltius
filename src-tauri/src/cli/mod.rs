@@ -1,11 +1,15 @@
+mod config_cmd;
 mod output;
 mod policy_cmd;
+mod server_cmd;
 pub mod user;
 
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
+use config_cmd::ConfigCmd;
 use output::Output;
 use policy_cmd::PolicyCmd;
+use server_cmd::ServerCmd;
 use std::ffi::OsString;
 use std::fmt;
 use std::io::IsTerminal;
@@ -105,6 +109,16 @@ enum Command {
         #[command(subcommand)]
         cmd: PolicyCmd,
     },
+    /// Read and queue per-user settings
+    Config {
+        #[command(subcommand)]
+        cmd: ConfigCmd,
+    },
+    /// Show or set the sync server URL
+    Server {
+        #[command(subcommand)]
+        cmd: ServerCmd,
+    },
     /// Print a shell completion script
     Completions { shell: clap_complete::Shell },
 }
@@ -151,7 +165,7 @@ pub fn dispatch(args: Vec<OsString>) -> Option<ExitCode> {
 
 fn run(cli: Cli) -> Result<(), CliError> {
     let mut out = Output::stdout(cli.json, cli.quiet);
-    let ctx = Ctx {
+    let mut ctx = Ctx {
         out: &mut out,
         yes: cli.yes,
         interactive: std::io::stdin().is_terminal() && std::io::stdout().is_terminal(),
@@ -169,6 +183,8 @@ fn run(cli: Cli) -> Result<(), CliError> {
             clap_complete::generate(shell, &mut cmd, BIN_NAME, &mut std::io::stdout());
             Ok(())
         }
+        Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
+        Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {
             policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), ctx.out)
         }
