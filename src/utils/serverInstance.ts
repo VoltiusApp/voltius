@@ -54,6 +54,4 @@ export function storedServerUrl(): string {
   return parse(stored) ? stored! : "";
 }
 
-export function lastServerUrl(): string {
-  return storedServerUrl() || DEFAULT_SERVER_URL;
-}
+export const normalizeServerUrl = (url: string): string => url.replace(/\/+$/, "");

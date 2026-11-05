@@ -1,11 +1,9 @@
-import { adminDefault, lockedValue } from "@/stores/policyStore";
-import { DEFAULT_SERVER_URL, instanceLabel, storedServerUrl } from "@/utils/serverInstance";
-
-const trimSlash = (url: string) => url.replace(/\/+$/, "");
+import { adminDefault, lockedBool, lockedString } from "@/stores/policyStore";
+import { DEFAULT_SERVER_URL, instanceLabel, normalizeServerUrl, storedServerUrl } from "@/utils/serverInstance";
 
 export function policyServerUrl(): string | null {
-  const lock = lockedValue("server.url");
-  return lock.locked && typeof lock.value === "string" ? trimSlash(lock.value) : null;
+  const pinned = lockedString("server.url");
+  return pinned === undefined ? null : normalizeServerUrl(pinned);
 }
 
 export function initialServerUrl(last: string): string {
@@ -16,12 +14,11 @@ export function initialServerUrl(last: string): string {
 export const startingServerUrl = (): string => initialServerUrl(storedServerUrl()) || DEFAULT_SERVER_URL;
 
 export function resolveServerUrl(input: string): string {
-  return policyServerUrl() ?? trimSlash(input);
+  return policyServerUrl() ?? normalizeServerUrl(input);
 }
 
 export function serverAllowed(serverUrl: string | null): boolean {
   const pinned = policyServerUrl();
-  const other = lockedValue("server.allowOther");
-  if (!serverUrl || !pinned || !other.locked || other.value !== false) return true;
+  if (!serverUrl || !pinned || lockedBool("server.allowOther") !== false) return true;
   return instanceLabel(serverUrl) === instanceLabel(pinned);
 }

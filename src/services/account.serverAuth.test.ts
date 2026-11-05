@@ -82,7 +82,7 @@ import { VaultUnreadableError } from "./vaultErrors";
 import { clearSessionRevoked, tryRefreshJwt } from "./authTokens";
 import { TwoFactorRequiredError } from "./twoFactorProof";
 import { EmailUndeliverableError } from "@/utils/emailVerification";
-import { DEFAULT_SERVER_URL, lastServerUrl } from "@/utils/serverInstance";
+import { storedServerUrl } from "@/utils/serverInstance";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
 const S = "https://srv";
@@ -289,13 +289,13 @@ test("a link whose rekey fails keeps the vault on the kek and still links", asyn
 test("createServerAccount remembers the instance for the next auth screen", async () => {
   h.http["/auth/register"] = ok(TOKENS);
   await createServerAccount("a@b.co", "pw", S);
-  expect(lastServerUrl()).toBe(S);
+  expect(storedServerUrl()).toBe(S);
 });
 
 test("a failed registration leaves the remembered instance alone", async () => {
   h.http["/auth/register"] = err(500);
   await expect(createServerAccount("a@b.co", "pw", S)).rejects.toThrow();
-  expect(lastServerUrl()).toBe(DEFAULT_SERVER_URL);
+  expect(storedServerUrl()).toBe("");
 });
 
 // ─── login ───────────────────────────────────────────────────────────────────

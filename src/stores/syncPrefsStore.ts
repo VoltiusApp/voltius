@@ -1,17 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { domainOf, settingKey } from "@/services/user-data/settingKeys";
-import { isLocked, lockedValue } from "./policyStore";
+import { isLocked, lockedBool } from "./policyStore";
 import { SYNC_SETTING_DOMAINS } from "./syncDomains";
 
 export * from "./syncDomains";
 
 const TOGGLEABLE_DOMAINS = new Set(SYNC_SETTING_DOMAINS.map((d) => d.id));
-
-function lockedFlag(key: string): boolean | undefined {
-  const lock = lockedValue(key);
-  return lock.locked ? lock.value === true : undefined;
-}
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -62,7 +57,7 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
 
       isExcluded: (id) => get().excludedIds.includes(id),
 
-      isTypeSynced: (typeId) => lockedFlag(`sync.types.${typeId}`) ?? get().syncTypes[typeId] ?? true,
+      isTypeSynced: (typeId) => lockedBool(`sync.types.${typeId}`) ?? get().syncTypes[typeId] ?? true,
 
       isObjectSynced: (id, typeId) => {
         const s = get();
@@ -76,7 +71,7 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
 
       isDomainSynced: (id) => {
         if (!TOGGLEABLE_DOMAINS.has(id)) return true;
-        return lockedFlag(`sync.domains.${id}`) ?? get().syncSettingDomains[id] ?? true;
+        return lockedBool(`sync.domains.${id}`) ?? get().syncSettingDomains[id] ?? true;
       },
 
       // Not folded into setSyncType/setSyncSettingDomain: a computed-key
@@ -90,7 +85,7 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
         const s = get();
         if (!s.isDomainSynced(domainOf(path))) return false;
         return (
-          lockedFlag(`sync.settings.${path}`) ??
+          lockedBool(`sync.settings.${path}`) ??
           (s.settingSyncOverrides ?? {})[path] ??
           !settingKey(path)?.deviceScoped
         );
