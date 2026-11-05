@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, ExitStatus};
 
 const CLI_MARKER: &str = "__voltius_cli";
 
@@ -13,9 +13,17 @@ fn sibling_app(launcher: &Path) -> PathBuf {
     launcher.with_file_name(name)
 }
 
+fn status_code(status: ExitStatus) -> i32 {
+    #[cfg(unix)]
+    if let Some(signal) = std::os::unix::process::ExitStatusExt::signal(&status) {
+        return 128 + signal;
+    }
+    status.code().unwrap_or(1)
+}
+
 fn run(app: &Path, args: &[OsString]) -> i32 {
     match Command::new(app).arg(CLI_MARKER).args(args).status() {
-        Ok(status) => status.code().unwrap_or(1),
+        Ok(status) => status_code(status),
         Err(e) => {
             eprintln!("error: cannot run {}: {e}", app.display());
             5
@@ -65,6 +73,19 @@ mod tests {
         .unwrap();
         std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(run(&app, &[OsString::from("x")]), 7);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn signal_exit_is_128_plus_signal() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("voltius-cli-sig-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let app = dir.join("voltius");
+        std::fs::write(&app, "#!/bin/sh\nkill -TERM $$\n").unwrap();
+        std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(run(&app, &[]), 128 + 15);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
