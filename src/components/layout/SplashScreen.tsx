@@ -24,7 +24,8 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlatform } from "@/utils/platform";
 import { canLockVault } from "@/utils/accountMode";
-import { usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
+import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
+import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
@@ -180,6 +181,8 @@ export default function SplashScreen({ onReady }: Props) {
       await supersedeStaleFirstPartyShadows();
       await loadSeededPlugins();
       await loadInstalledPlugins();
+      applyPluginPolicy();
+      onPolicyLoaded(applyPluginPolicy);
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
