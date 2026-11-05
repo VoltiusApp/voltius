@@ -15,8 +15,8 @@ import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/st
 import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
-import { Managed } from "@/components/shared/ManagedNote";
-import { isEnforcedLock, usePolicyRefresh } from "@/stores/policyStore";
+import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
+import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
 import { SettingsGroup } from "./shared";
 import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
@@ -161,13 +161,15 @@ function SyncToggleRow({ domain, policyKey, label, sub, ariaLabel, checked, onCh
 }) {
   const { t } = useTranslation();
   const toggle = <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />;
+  const locked = usePolicyLock(policyKey ?? "").locked;
   return (
     <div data-sync-domain={domain} data-setting-row data-ripple className="relative flex items-center justify-between gap-3 px-4 py-3">
       <div>
         <p className="text-sm font-medium text-(--t-text-primary)">{label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
+        {locked && <ManagedNote className="mt-1" />}
       </div>
-      {policyKey ? <Managed policyKey={policyKey}>{toggle}</Managed> : toggle}
+      <ManagedWhen locked={locked} note={false}>{toggle}</ManagedWhen>
     </div>
   );
 }
