@@ -1,4 +1,4 @@
-use super::acl::{self, Ace, POLICY_DIR_SDDL};
+use super::acl::{self, Ace, FolderAction, POLICY_DIR_SDDL};
 use super::{Blocked, Entry, Guard};
 use crate::win_security::{
     create_new_with, current_user_sid, sid_string, wide, SecurityDescriptor,
@@ -15,10 +15,10 @@ use windows_sys::Win32::Foundation::{
 use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
 use windows_sys::Win32::Security::{
     GetAce, SetKernelObjectSecurity, ACCESS_ALLOWED_ACE, ACL, DACL_SECURITY_INFORMATION,
-    OWNER_SECURITY_INFORMATION, PSID,
+    OBJECT_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSID,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateDirectoryW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    CreateDirectoryW, GetFileInformationByHandle, MoveFileExW, BY_HANDLE_FILE_INFORMATION,
     FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
     FILE_READ_ATTRIBUTES, READ_CONTROL, WRITE_DAC, WRITE_OWNER,
 };
@@ -52,6 +52,17 @@ fn file_info(f: &File) -> io::Result<BY_HANDLE_FILE_INFORMATION> {
     Ok(info)
 }
 
+fn open_unlinked(path: &Path, access: u32) -> Result<File, Blocked> {
+    let f = open_entry(path, access).map_err(io_at(path))?;
+    let info = file_info(&f).map_err(io_at(path))?;
+    if acl::is_reparse(info.dwFileAttributes)
+        || acl::is_hard_linked(info.dwFileAttributes, info.nNumberOfLinks)
+    {
+        return Err(Blocked::Link(path.to_path_buf()));
+    }
+    Ok(f)
+}
+
 pub fn probe(path: &Path) -> io::Result<Entry> {
     let mut f = match open_entry(path, FILE_GENERIC_READ) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Entry::new(Guard::Missing)),
@@ -68,13 +79,11 @@ pub fn probe(path: &Path) -> io::Result<Entry> {
             ..Entry::new(Guard::Unprotected)
         });
     }
-    let text = if acl::is_dir(info.dwFileAttributes) {
-        None
-    } else {
+    let text = (!acl::is_dir(info.dwFileAttributes)).then(|| {
         let mut bytes = Vec::new();
         f.read_to_end(&mut bytes)?;
-        Some(String::from_utf8_lossy(&bytes).into_owned())
-    };
+        acl::decode_text(bytes)
+    });
     Ok(Entry {
         guard: Guard::Protected,
         hard_linked,
@@ -88,14 +97,41 @@ pub fn harden_dir(policy_file: &Path) -> Result<(), Blocked> {
         std::fs::create_dir_all(parent).map_err(io_at(parent))?;
     }
     let sd = SecurityDescriptor::from_sddl(POLICY_DIR_SDDL).map_err(io_at(dir))?;
-    let sa = sd.attributes();
-    if unsafe { CreateDirectoryW(wide(dir).as_ptr(), &sa) } == 0 {
-        let e = io::Error::last_os_error();
-        if e.kind() != io::ErrorKind::AlreadyExists {
-            return Err(io_at(dir)(e));
+    if !create_dir(dir, &sd).map_err(io_at(dir))? {
+        let owner = owner_of(&open_unlinked(dir, READ_CONTROL)?).map_err(io_at(dir))?;
+        if acl::folder_action(owner.as_deref()) == FolderAction::Replace {
+            move_aside(dir, &sd)?;
         }
     }
     apply(dir, &sd, |_| Ok(true))
+}
+
+fn create_dir(dir: &Path, sd: &SecurityDescriptor) -> io::Result<bool> {
+    let sa = sd.attributes();
+    if unsafe { CreateDirectoryW(wide(dir).as_ptr(), &sa) } != 0 {
+        return Ok(true);
+    }
+    match io::Error::last_os_error() {
+        e if e.kind() == io::ErrorKind::AlreadyExists => Ok(false),
+        e => Err(e),
+    }
+}
+
+fn move_aside(dir: &Path, sd: &SecurityDescriptor) -> Result<(), Blocked> {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let aside = acl::untrusted_sibling(dir, secs);
+    let held = || Blocked::Held(dir.to_path_buf());
+    // Flags 0: never replace an existing entry; a link is renamed itself, not its target.
+    if unsafe { MoveFileExW(wide(dir).as_ptr(), wide(&aside).as_ptr(), 0) } == 0 {
+        return Err(held());
+    }
+    match create_dir(dir, sd) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(held()),
+        Err(e) => Err(io_at(dir)(e)),
+    }
 }
 
 pub fn write(policy_file: &Path, text: &str) -> io::Result<()> {
@@ -118,15 +154,8 @@ fn apply(
     sd: &SecurityDescriptor,
     accept: impl FnOnce(&File) -> io::Result<bool>,
 ) -> Result<(), Blocked> {
-    let io_err = io_at(path);
-    let f = open_entry(path, READ_CONTROL | WRITE_DAC | WRITE_OWNER).map_err(&io_err)?;
-    let info = file_info(&f).map_err(&io_err)?;
-    if acl::is_reparse(info.dwFileAttributes)
-        || acl::is_hard_linked(info.dwFileAttributes, info.nNumberOfLinks)
-    {
-        return Err(Blocked::Link(path.to_path_buf()));
-    }
-    if !accept(&f).map_err(&io_err)? {
+    let f = open_unlinked(path, READ_CONTROL | WRITE_DAC | WRITE_OWNER)?;
+    if !accept(&f).map_err(io_at(path))? {
         return Err(Blocked::Unprotected(path.to_path_buf()));
     }
     let ok = unsafe {
@@ -137,32 +166,51 @@ fn apply(
         )
     };
     if ok == 0 {
-        return Err(io_err(io::Error::last_os_error()));
+        return Err(io_at(path)(io::Error::last_os_error()));
     }
     Ok(())
 }
 
-fn read_acl(f: &File) -> io::Result<Option<(String, Vec<Ace>)>> {
+// The returned SID and ACL point into the descriptor, which must outlive them.
+fn security(
+    f: &File,
+    info: OBJECT_SECURITY_INFORMATION,
+) -> io::Result<(PSID, *mut ACL, SecurityDescriptor)> {
     let mut owner: PSID = ptr::null_mut();
     let mut dacl: *mut ACL = ptr::null_mut();
     let mut sd = SecurityDescriptor::null();
-    unsafe {
-        let code = GetSecurityInfo(
+    let code = unsafe {
+        GetSecurityInfo(
             f.as_raw_handle(),
             SE_FILE_OBJECT,
-            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+            info,
             &mut owner,
             ptr::null_mut(),
             &mut dacl,
             ptr::null_mut(),
             sd.out(),
-        );
-        if code != ERROR_SUCCESS {
-            return Err(io::Error::from_raw_os_error(code as i32));
-        }
-        if owner.is_null() || dacl.is_null() {
-            return Ok(None);
-        }
+        )
+    };
+    if code != ERROR_SUCCESS {
+        return Err(io::Error::from_raw_os_error(code as i32));
+    }
+    Ok((owner, dacl, sd))
+}
+
+fn owner_of(f: &File) -> io::Result<Option<String>> {
+    let (owner, _, _sd) = security(f, OWNER_SECURITY_INFORMATION)?;
+    if owner.is_null() {
+        return Ok(None);
+    }
+    unsafe { sid_string(owner) }.map(Some)
+}
+
+fn read_acl(f: &File) -> io::Result<Option<(String, Vec<Ace>)>> {
+    let (owner, dacl, _sd) = security(f, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)?;
+    if owner.is_null() || dacl.is_null() {
+        return Ok(None);
+    }
+    unsafe {
         let mut aces = Vec::new();
         for i in 0..(*dacl).AceCount {
             let mut raw = ptr::null_mut();

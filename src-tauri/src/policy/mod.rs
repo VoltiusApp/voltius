@@ -365,7 +365,7 @@ pub enum Guard {
 pub struct Entry {
     pub guard: Guard,
     pub hard_linked: bool,
-    pub text: Option<String>,
+    pub text: Option<std::io::Result<String>>,
 }
 
 impl Entry {
@@ -384,6 +384,7 @@ pub type Probe = fn(&Path) -> std::io::Result<Entry>;
 pub enum Blocked {
     Link(PathBuf),
     Unprotected(PathBuf),
+    Held(PathBuf),
     Io(PathBuf, std::io::Error),
 }
 
@@ -444,7 +445,10 @@ pub fn trust(path: &Path, probe: Probe) -> Trust {
             (_, Guard::Link) => "it is a link".to_string(),
             (_, Guard::Missing) => return Trust::Absent,
             (Guard::Protected, Guard::Protected) => {
-                return Trust::Trusted(file.text.unwrap_or_default())
+                return match file.text.transpose() {
+                    Ok(text) => Trust::Trusted(text.unwrap_or_default()),
+                    Err(e) => Trust::Ignored(read_issue(path, &e)),
+                }
             }
             _ => "standard users can change it".to_string(),
         },
@@ -465,7 +469,10 @@ pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<St
         (_, Guard::Link) => Err(Blocked::Link(path.to_path_buf())),
         _ if file.hard_linked => Err(Blocked::Link(path.to_path_buf())),
         (_, Guard::Unprotected) if !replace => Err(Blocked::Unprotected(path.to_path_buf())),
-        _ => Ok(file.text),
+        _ => file
+            .text
+            .transpose()
+            .map_err(|e| Blocked::Io(path.to_path_buf(), e)),
     }
 }
 
@@ -566,7 +573,7 @@ pub(crate) mod test_probes {
         Ok(Entry {
             guard,
             hard_linked: false,
-            text: (is_file(p) && guard == Guard::Protected).then(|| CHECKED.to_string()),
+            text: (is_file(p) && guard == Guard::Protected).then(|| Ok(CHECKED.to_string())),
         })
     }
 
@@ -608,11 +615,41 @@ pub(crate) mod test_probes {
         Ok(e)
     }
 
+    pub fn unreadable_content(p: &Path) -> io::Result<Entry> {
+        let mut e = all_protected(p)?;
+        if is_file(p) {
+            e.text = Some(Err(io::ErrorKind::InvalidData.into()));
+        }
+        Ok(e)
+    }
+
+    pub fn on_disk(p: &Path) -> io::Result<Entry> {
+        if !p.exists() {
+            return Ok(Entry::new(Guard::Missing));
+        }
+        Ok(Entry {
+            text: is_file(p).then(|| std::fs::read_to_string(p)),
+            ..Entry::new(Guard::Protected)
+        })
+    }
+
     pub fn harden_denied(p: &Path) -> Result<(), Blocked> {
         Err(Blocked::Io(
             p.to_path_buf(),
             io::ErrorKind::PermissionDenied.into(),
         ))
+    }
+
+    pub fn harden_held(p: &Path) -> Result<(), Blocked> {
+        Err(Blocked::Held(super::dir_of(p).to_path_buf()))
+    }
+
+    pub fn harden_replacing(p: &Path) -> Result<(), Blocked> {
+        record("harden_dir");
+        let dir = super::dir_of(p);
+        let at = |e| Blocked::Io(dir.to_path_buf(), e);
+        std::fs::rename(dir, super::acl::untrusted_sibling(dir, 1)).map_err(at)?;
+        std::fs::create_dir(dir).map_err(at)
     }
 
     thread_local! {
@@ -848,6 +885,22 @@ mod tests {
                 Err(Blocked::Link(p)) if p == path
             ));
         }
+    }
+
+    #[test]
+    fn a_content_read_error_is_not_a_permissions_problem() {
+        let (_dir, path) = policy_file();
+        let loaded = load_with(&path, Some(unreadable_content));
+        assert_eq!(loaded.doc, PolicyDoc::default());
+        assert_eq!(loaded.issues.len(), 1);
+        let issue = &loaded.issues[0];
+        assert_eq!(issue.kind, IssueKind::File);
+        assert!(!issue.message.contains("permissions"), "{}", issue.message);
+        assert!(issue.message.contains(path.to_str().unwrap()));
+        assert!(matches!(
+            write_check(&path, unreadable_content, false),
+            Err(Blocked::Io(p, e)) if p == path && e.kind() == std::io::ErrorKind::InvalidData
+        ));
     }
 
     #[test]

@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ace {
     pub sid: String,
@@ -76,6 +78,31 @@ pub fn is_reparse(attributes: u32) -> bool {
 
 pub fn is_hard_linked(attributes: u32, links: u32) -> bool {
     !is_dir(attributes) && links > 1
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FolderAction {
+    Adopt,
+    Replace,
+}
+
+// A non-admin owner may still hold a WRITE_DAC handle that re-hardening can't revoke.
+pub fn folder_action(owner: Option<&str>) -> FolderAction {
+    if owner.is_some_and(is_admin) {
+        FolderAction::Adopt
+    } else {
+        FolderAction::Replace
+    }
+}
+
+pub fn untrusted_sibling(dir: &Path, unix_secs: u64) -> PathBuf {
+    let mut name = dir.file_name().unwrap_or_default().to_owned();
+    name.push(format!(".untrusted-{unix_secs}"));
+    dir.with_file_name(name)
+}
+
+pub fn decode_text(bytes: Vec<u8>) -> std::io::Result<String> {
+    String::from_utf8(bytes).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }
 
 pub fn file_sddl() -> String {
@@ -209,5 +236,31 @@ mod tests {
             file_sddl(),
             "O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;0x1200a9;;;BU)"
         );
+    }
+
+    #[test]
+    fn only_admin_owned_folders_are_adopted() {
+        for owner in ADMIN_SIDS {
+            assert_eq!(folder_action(Some(owner)), FolderAction::Adopt, "{owner}");
+        }
+        for owner in [SOME_USER, USERS, CREATOR_OWNER, EVERYONE] {
+            assert_eq!(folder_action(Some(owner)), FolderAction::Replace, "{owner}");
+        }
+        assert_eq!(folder_action(None), FolderAction::Replace);
+    }
+
+    #[test]
+    fn untrusted_folder_moves_to_a_timestamped_sibling() {
+        assert_eq!(
+            untrusted_sibling(Path::new("/data/ProgramData/Voltius"), 1_762_300_000),
+            Path::new("/data/ProgramData/Voltius.untrusted-1762300000")
+        );
+    }
+
+    #[test]
+    fn invalid_utf8_is_refused_not_replaced() {
+        assert_eq!(decode_text(b"{}".to_vec()).unwrap(), "{}");
+        let err = decode_text(vec![b'{', 0xff, b'}']).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     }
 }

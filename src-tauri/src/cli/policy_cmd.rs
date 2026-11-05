@@ -184,6 +184,11 @@ fn blocked(b: Blocked) -> CliError {
                 p.display()
             ),
         ),
+        Blocked::Held(p) => CliError::Denied(format!(
+            "{} is held open or not owned by Administrators; \
+             close other programs or remove it, then run again",
+            p.display()
+        )),
         Blocked::Io(p, e) => io_error(&p, Access::Write, e),
     }
 }
@@ -827,12 +832,7 @@ mod tests {
     #[test]
     fn writers_keep_the_content_of_the_checked_handle_not_the_path() {
         let (_dir, path) = planted();
-        edit_raw_with(&path, Some(acl(all_protected)), false, |root| {
-            layer_entries(root, Layer::Defaults, Path::new("policy.json"))?
-                .insert("sshConfig.import".into(), json!(true));
-            Ok(true)
-        })
-        .unwrap();
+        edit_raw_with(&path, Some(acl(all_protected)), false, add_default).unwrap();
         let doc = read(&path);
         assert_eq!(doc.policy["server.url"], json!("https://checked.example"));
         assert_eq!(doc.defaults["sshConfig.import"], json!(true));
@@ -849,6 +849,51 @@ mod tests {
             assert!(err.to_string().contains("is a link"), "{err}");
         }
         assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+    }
+
+    fn add_default(root: &mut Raw) -> Result<bool, CliError> {
+        layer_entries(root, Layer::Defaults, Path::new("policy.json"))?
+            .insert("sshConfig.import".into(), json!(true));
+        Ok(true)
+    }
+
+    #[test]
+    fn a_replaced_folder_never_contributes_its_old_file() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("Voltius");
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("policy.json");
+        std::fs::write(&path, PLANTED).unwrap();
+        let replacing = policy::MachineAcl {
+            harden_dir: harden_replacing,
+            ..acl(on_disk)
+        };
+        edit_raw_with(&path, Some(replacing), false, add_default).unwrap();
+        let doc = read(&path);
+        assert!(doc.policy.is_empty(), "{:?}", doc.policy);
+        assert_eq!(doc.defaults["sshConfig.import"], json!(true));
+        let aside = policy::acl::untrusted_sibling(&dir, 1).join("policy.json");
+        assert_eq!(std::fs::read_to_string(aside).unwrap(), PLANTED);
+        assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_replaced_exits_4() {
+        let (dir, path) = planted();
+        let held = policy::MachineAcl {
+            harden_dir: harden_held,
+            ..acl(all_protected)
+        };
+        let err = edit_raw_with(&path, Some(held), false, insert_key).unwrap_err();
+        assert_eq!(err.exit_code(), 4, "{err}");
+        let expected = format!(
+            "{} is held open or not owned by Administrators; \
+             close other programs or remove it, then run again",
+            dir.path().display()
+        );
+        assert_eq!(err.to_string(), expected);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+        assert!(calls().is_empty(), "{:?}", calls());
     }
 
     #[test]
