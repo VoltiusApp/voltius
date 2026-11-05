@@ -1,8 +1,9 @@
 use super::output::Output;
-use super::CliError;
-use crate::policy::{self, Issue, Layer, PolicyDoc};
+use super::{Access, CliError};
+use crate::policy::{self, Issue, IssueKind, Layer, PolicyDoc};
 use clap::Subcommand;
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug)]
@@ -29,9 +30,19 @@ pub enum PolicyCmd {
     Import { file: PathBuf },
     /// Print the machine policy file
     Export,
+    /// Print where the machine policy file lives
+    Path,
 }
 
-pub fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError> {
+pub fn run(cmd: PolicyCmd, machine: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
+    let Some(path) = machine else {
+        return match cmd {
+            PolicyCmd::Path => print_path(None, out),
+            _ => Err(CliError::Usage(
+                "policy commands are not available on this platform".into(),
+            )),
+        };
+    };
     match cmd {
         PolicyCmd::Set {
             key,
@@ -43,7 +54,20 @@ pub fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError
         PolicyCmd::Check { file } => check(file.as_deref(), path, out),
         PolicyCmd::Import { file } => import(&file, path, out),
         PolicyCmd::Export => export(path, out),
+        PolicyCmd::Path => print_path(Some(path), out),
     }
+}
+
+fn print_path(machine: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
+    if out.json {
+        out.json(&json!({ "path": machine.map(|p| p.display().to_string()) }));
+    } else {
+        match machine {
+            Some(p) => out.line(p.display()),
+            None => out.line("no machine policy on this platform"),
+        }
+    }
+    Ok(())
 }
 
 fn layer_of(defaults: bool) -> Layer {
@@ -54,9 +78,22 @@ fn layer_of(defaults: bool) -> Layer {
     }
 }
 
-fn io_error(path: &Path, e: std::io::Error) -> CliError {
+fn layers(doc: &PolicyDoc) -> [(Layer, &BTreeMap<String, Value>); 2] {
+    [
+        (Layer::Policy, &doc.policy),
+        (Layer::Defaults, &doc.defaults),
+    ]
+}
+
+fn entries(doc: &PolicyDoc) -> impl Iterator<Item = (Layer, &str)> {
+    layers(doc)
+        .into_iter()
+        .flat_map(|(layer, map)| map.keys().map(move |k| (layer, k.as_str())))
+}
+
+fn io_error(path: &Path, access: Access, e: std::io::Error) -> CliError {
     if e.kind() == std::io::ErrorKind::PermissionDenied {
-        CliError::Permission(path.to_path_buf())
+        CliError::Permission(access, path.to_path_buf())
     } else {
         CliError::Io(e)
     }
@@ -70,28 +107,23 @@ fn not_found(path: &Path) -> CliError {
 }
 
 fn read_text(path: &Path) -> Result<Option<String>, CliError> {
-    match std::fs::read_to_string(path) {
-        Ok(t) => Ok(Some(t)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(io_error(path, e)),
-    }
+    policy::read_optional(path).map_err(|e| io_error(path, Access::Read, e))
 }
 
 type Raw = serde_json::Map<String, Value>;
 
-fn plain(message: String) -> CliError {
-    CliError::Validation(vec![Issue {
-        layer: None,
-        key: None,
-        message,
-    }])
+fn plain(kind: IssueKind, message: String) -> CliError {
+    CliError::Validation(vec![Issue::general(kind, message)])
 }
 
 fn unusable(path: &Path, why: &str) -> CliError {
-    plain(format!(
-        "{} {why}; fix it or run `voltius-cli policy check`",
-        path.display()
-    ))
+    plain(
+        IssueKind::File,
+        format!(
+            "{} {why}; fix it or run `voltius-cli policy check`",
+            path.display()
+        ),
+    )
 }
 
 fn empty_root() -> Raw {
@@ -109,7 +141,7 @@ fn load_raw(path: &Path) -> Result<Raw, CliError> {
     let Ok(Value::Object(root)) = serde_json::from_str::<Value>(&text) else {
         return Err(unusable(path, "is not a valid policy file"));
     };
-    if root.get("version").is_some_and(|v| v.as_u64() != Some(1)) {
+    if policy::version_issue(&root).is_some() {
         return Err(unusable(path, "has an unsupported version"));
     }
     Ok(root)
@@ -141,7 +173,7 @@ fn edit_raw(
     if changed {
         let mut text = serde_json::to_string_pretty(&root).map_err(|e| CliError::Io(e.into()))?;
         text.push('\n');
-        policy::write_text_atomic(path, &text).map_err(|e| io_error(path, e))?;
+        policy::write_text_atomic(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
     }
     Ok(changed)
 }
@@ -173,29 +205,44 @@ fn unknown_key_message(key: &str) -> String {
     }
 }
 
-fn not_enforced_message(key: &str) -> String {
-    format!("{key} is saved but this version of Voltius does not enforce it yet")
+fn not_honoured_message(layer: Layer, key: &str) -> Option<String> {
+    match layer {
+        Layer::Policy if !policy::is_enforced(key) => Some(format!(
+            "{key} is saved but this version of Voltius does not enforce it yet"
+        )),
+        Layer::Defaults if !policy::is_default_applied(key) => Some(format!(
+            "{key} is saved as a default but this version of Voltius does not apply defaults for it yet"
+        )),
+        _ => None,
+    }
 }
 
-fn unenforced<'a>(keys: impl Iterator<Item = &'a String>) -> impl Iterator<Item = &'a String> {
-    keys.filter(|k| !policy::is_enforced(k))
+fn not_honoured<'a>(
+    entries: impl IntoIterator<Item = (Layer, &'a str)>,
+) -> impl Iterator<Item = (Layer, &'a str, String)> {
+    entries
+        .into_iter()
+        .filter_map(|(layer, key)| not_honoured_message(layer, key).map(|m| (layer, key, m)))
 }
 
-fn warn_unenforced<'a>(out: &mut Output, keys: impl Iterator<Item = &'a String>) {
-    for key in unenforced(keys) {
-        out.warn(not_enforced_message(key));
+fn warn_not_honoured<'a>(out: &mut Output, entries: impl IntoIterator<Item = (Layer, &'a str)>) {
+    for (_, _, message) in not_honoured(entries) {
+        out.warn(message);
     }
 }
 
 fn set(key: &str, raw: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
-    let ty = policy::key_type(key).ok_or_else(|| plain(unknown_key_message(key)))?;
-    let value = policy::parse_cli_value(ty, raw).map_err(|m| plain(format!("{key}: {m}")))?;
+    let ty = policy::key_type(key)
+        .ok_or_else(|| plain(IssueKind::UnknownKey, unknown_key_message(key)))?;
+    let value = policy::parse_cli_value(ty, raw)
+        .and_then(|v| policy::value_problem(key, ty, &v).map_or(Ok(v), Err))
+        .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))?;
     edit_raw(path, |root| {
         layer_entries(root, layer, path)?.insert(key.to_string(), value);
         Ok(true)
     })?;
     out.line(format!("Set {key} in {}", layer.name()));
-    warn_unenforced(out, std::iter::once(&key.to_string()));
+    warn_not_honoured(out, [(layer, key)]);
     Ok(())
 }
 
@@ -228,10 +275,7 @@ fn show(path: &Path, out: &mut Output) -> Result<(), CliError> {
         "{bold}Machine policy{bold:#} {dim}{}{dim:#}",
         path.display()
     ));
-    for (title, map) in [
-        (Layer::Policy, &loaded.doc.policy),
-        (Layer::Defaults, &loaded.doc.defaults),
-    ] {
+    for (title, map) in layers(&loaded.doc) {
         out.line(format!(
             "\n{bold}{}{bold:#} {dim}(source: machine){dim:#}",
             title.name()
@@ -260,22 +304,20 @@ pub fn describe(i: &Issue) -> String {
 
 fn check(file: Option<&Path>, machine: &Path, out: &mut Output) -> Result<(), CliError> {
     let target = file.unwrap_or(machine);
-    let (doc, issues) = match read_text(target)? {
-        Some(t) => policy::parse(&t),
-        None if file.is_none() => (PolicyDoc::default(), Vec::new()),
-        None => return Err(not_found(target)),
+    let (doc, issues) = match policy::read_optional(target) {
+        Ok(Some(t)) => policy::parse(&t),
+        Ok(None) if file.is_none() => (PolicyDoc::default(), Vec::new()),
+        Ok(None) => return Err(not_found(target)),
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            (PolicyDoc::default(), vec![policy::read_issue(target, &e)])
+        }
+        Err(e) => return Err(io_error(target, Access::Read, e)),
     };
-    let warnings: Vec<Value> = [
-        (Layer::Policy, &doc.policy),
-        (Layer::Defaults, &doc.defaults),
-    ]
-    .into_iter()
-    .flat_map(|(layer, map)| {
-        unenforced(map.keys()).map(move |key| {
-                json!({ "layer": layer.name(), "key": key, "message": not_enforced_message(key) })
-            })
-    })
-    .collect();
+    let warnings: Vec<Value> = not_honoured(entries(&doc))
+        .map(|(layer, key, message)| {
+            json!({ "layer": layer.name(), "key": key, "message": message })
+        })
+        .collect();
     if out.json {
         out.json(&json!({
             "path": target.display().to_string(),
@@ -305,18 +347,9 @@ fn import(file: &Path, machine: &Path, out: &mut Output) -> Result<(), CliError>
     if !issues.is_empty() {
         return Err(CliError::Validation(issues));
     }
-    let keys: Vec<String> = incoming
-        .policy
-        .keys()
-        .chain(incoming.defaults.keys())
-        .cloned()
-        .collect();
     edit_raw(machine, |root| {
-        for (layer, entries) in [
-            (Layer::Policy, incoming.policy),
-            (Layer::Defaults, incoming.defaults),
-        ] {
-            layer_entries(root, layer, machine)?.extend(entries);
+        for (layer, map) in layers(&incoming) {
+            layer_entries(root, layer, machine)?.extend(map.clone());
         }
         Ok(true)
     })?;
@@ -325,7 +358,7 @@ fn import(file: &Path, machine: &Path, out: &mut Output) -> Result<(), CliError>
         file.display(),
         machine.display()
     ));
-    warn_unenforced(out, keys.iter());
+    warn_not_honoured(out, entries(&incoming));
     Ok(())
 }
 
@@ -343,7 +376,9 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    struct Buf(Arc<Mutex<Vec<u8>>>);
+    type Shared = Arc<Mutex<Vec<u8>>>;
+
+    struct Buf(Shared);
 
     impl std::io::Write for Buf {
         fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
@@ -355,7 +390,7 @@ mod tests {
         }
     }
 
-    fn capture(json: bool) -> (Output, Arc<Mutex<Vec<u8>>>) {
+    fn capture(json: bool) -> (Output, Shared) {
         let buf = Arc::new(Mutex::new(Vec::new()));
         (
             Output::with_sink(json, false, Box::new(Buf(buf.clone()))),
@@ -363,8 +398,12 @@ mod tests {
         )
     }
 
-    fn captured(buf: &Arc<Mutex<Vec<u8>>>) -> String {
+    fn captured(buf: &Shared) -> String {
         String::from_utf8(buf.lock().unwrap().clone()).unwrap()
+    }
+
+    fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError> {
+        super::run(cmd, Some(path), out)
     }
 
     fn out() -> Output {
@@ -449,7 +488,7 @@ mod tests {
             return;
         }
         let err = set(&sub.join("policy.json"), "server.url", "https://x", false).unwrap_err();
-        assert!(matches!(err, CliError::Permission(_)));
+        assert!(matches!(err, CliError::Permission(Access::Write, _)));
         assert_eq!(err.exit_code(), 4);
     }
 
@@ -598,10 +637,7 @@ mod tests {
         assert_eq!(v["policy"]["future.key"], Value::from(7));
     }
 
-    fn capture_split(
-        json: bool,
-        quiet: bool,
-    ) -> (Output, Arc<Mutex<Vec<u8>>>, Arc<Mutex<Vec<u8>>>) {
+    fn capture_split(json: bool, quiet: bool) -> (Output, Shared, Shared) {
         let (o, e) = (
             Arc::new(Mutex::new(Vec::new())),
             Arc::new(Mutex::new(Vec::new())),
@@ -667,13 +703,150 @@ mod tests {
         let file = dir.path().join("in.json");
         std::fs::write(
             &file,
-            r#"{"version":1,"defaults":{"appSettings.locale":"fr"}}"#,
+            r#"{"version":1,"policy":{"appSettings.locale":"fr"}}"#,
         )
         .unwrap();
         let (mut sink, stdout, stderr) = capture_split(true, false);
         run(PolicyCmd::Import { file }, &path, &mut sink).unwrap();
         assert!(captured(&stderr).contains(NOT_ENFORCED));
         assert!(!captured(&stdout).contains("does not enforce"));
+    }
+
+    #[test]
+    fn set_schemeless_server_url_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let err = set(&path, "server.url", "voltius.acme.com", false).unwrap_err();
+        assert_eq!(err.exit_code(), 3);
+        assert!(!path.exists());
+        set(&path, "server.url", "https://voltius.acme.com", false).unwrap();
+    }
+
+    #[cfg(unix)]
+    fn unreadable(dir: &Path, name: &str) -> Option<PathBuf> {
+        use std::os::unix::fs::PermissionsExt;
+        let file = dir.join(name);
+        std::fs::write(&file, r#"{"version":1}"#).unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o000)).unwrap();
+        std::fs::read(&file).is_err().then_some(file)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn check_unreadable_file_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let Some(file) = unreadable(dir.path(), "locked.json") else {
+            return;
+        };
+        let err = run(
+            PolicyCmd::Check {
+                file: Some(file.clone()),
+            },
+            &dir.path().join("m.json"),
+            &mut out(),
+        )
+        .unwrap_err();
+        assert_eq!(err.exit_code(), 3);
+        let CliError::Validation(issues) = err else {
+            unreachable!()
+        };
+        assert_eq!(
+            issues[0].message,
+            format!("cannot read {}: permission denied", file.display())
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn import_unreadable_source_says_reading() {
+        let dir = tempfile::tempdir().unwrap();
+        let Some(file) = unreadable(dir.path(), "in.json") else {
+            return;
+        };
+        let err = run(
+            PolicyCmd::Import { file: file.clone() },
+            &dir.path().join("m.json"),
+            &mut out(),
+        )
+        .unwrap_err();
+        assert_eq!(err.exit_code(), 4);
+        let text = err.to_string();
+        assert!(text.starts_with("Reading "), "{text}");
+        assert!(text.contains(file.to_str().unwrap()), "{text}");
+    }
+
+    const NOT_APPLIED: &str = "appSettings.locale is saved as a default but this version of Voltius does not apply defaults for it yet";
+
+    #[test]
+    fn set_defaults_for_unapplied_key_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let (mut sink, _, stderr) = capture_split(false, false);
+        run(
+            PolicyCmd::Set {
+                key: "appSettings.locale".into(),
+                value: "fr".into(),
+                defaults: true,
+            },
+            &path,
+            &mut sink,
+        )
+        .unwrap();
+        assert!(captured(&stderr).contains(NOT_APPLIED));
+        let (mut sink, _, stderr) = capture_split(false, false);
+        run(
+            PolicyCmd::Set {
+                key: "appSettings.toggles.cursor-blink".into(),
+                value: "false".into(),
+                defaults: true,
+            },
+            &path,
+            &mut sink,
+        )
+        .unwrap();
+        assert_eq!(captured(&stderr), "");
+    }
+
+    #[test]
+    fn check_json_lists_default_warnings() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("good.json");
+        std::fs::write(
+            &file,
+            r#"{"version":1,"defaults":{"appSettings.locale":"fr","server.url":"https://x"}}"#,
+        )
+        .unwrap();
+        let (mut sink, stdout, _) = capture_split(true, false);
+        run(
+            PolicyCmd::Check { file: Some(file) },
+            &dir.path().join("m.json"),
+            &mut sink,
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["warnings"].as_array().unwrap().len(), 1);
+        assert_eq!(v["warnings"][0]["layer"], "defaults");
+        assert_eq!(v["warnings"][0]["message"], NOT_APPLIED);
+    }
+
+    #[test]
+    fn path_prints_machine_path() {
+        let (mut sink, stdout, _) = capture_split(true, false);
+        run(
+            PolicyCmd::Path,
+            Path::new("/etc/voltius/policy.json"),
+            &mut sink,
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["path"], "/etc/voltius/policy.json");
+        let (mut sink, stdout, _) = capture_split(true, false);
+        super::run(PolicyCmd::Path, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["path"], Value::Null);
+        let (mut sink, stdout, _) = capture_split(false, false);
+        super::run(PolicyCmd::Path, None, &mut sink).unwrap();
+        assert_eq!(captured(&stdout), "no machine policy on this platform\n");
     }
 
     #[test]

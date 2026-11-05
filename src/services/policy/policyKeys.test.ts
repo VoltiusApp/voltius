@@ -25,6 +25,15 @@ test("keys.json entries carry enforced", () => {
   expect(enforced("appSettings.locale")).toBe(false);
 });
 
+test("keys.json entries carry defaultApplied", () => {
+  const applied = (id: string) => policyKeysSnapshot().find((k) => k.id === id)?.defaultApplied;
+  expect(applied("appSettings.toggles.cursor-blink")).toBe(true);
+  expect(applied("server.url")).toBe(true);
+  expect(applied("appSettings.locale")).toBe(false);
+  expect(applied("sync.domains.themes")).toBe(false);
+  expect(applied("sshConfig.import")).toBe(false);
+});
+
 test("keys.json mirrors the registry", async () => {
   await expect(JSON.stringify(policyKeysSnapshot(), null, 2) + "\n").toMatchFileSnapshot("../../../src-tauri/src/policy/keys.json");
 });
