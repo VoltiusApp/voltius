@@ -841,6 +841,7 @@
         "sourceLocal": "Local",
         "sourceUrl": "URL",
         "sourceInstalled": "Installed",
+        "sourceOrganization": "Installed by your organization",
         "unverified": "Unverified",
         "update": "Update",
         "updating": "Updating…",

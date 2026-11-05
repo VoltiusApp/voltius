@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { touchAppSetting } from "./appSettingsTimestampStore";
-import { lockedList } from "./policyStore";
+import { adminDefault, lockedBool, lockedList, usePolicyLock } from "./policyStore";
 
 type Overrides = Record<string, boolean>;
 
@@ -21,6 +21,23 @@ const listed = (key: (typeof PLUGIN_LIST_KEYS)[number] | "plugins.install", id: 
   !!lockedList(key)?.includes(id);
 
 export const installLocked = (id: string): boolean => listed("plugins.install", id);
+
+const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+export const policyInstallList = (): string[] => [
+  ...stringList(lockedList("plugins.install")),
+  ...stringList(adminDefault("plugins.install")),
+];
+
+export function installAllowed(id: string, alreadyInstalled = false): boolean {
+  return lockedBool("plugins.allowInstall") !== false || alreadyInstalled || policyInstallList().includes(id);
+}
+
+export function useInstallAllowed(id: string, alreadyInstalled = false): boolean {
+  usePolicyLock("plugins.allowInstall");
+  usePolicyLock("plugins.install");
+  return installAllowed(id, alreadyInstalled);
+}
 
 export function pluginLock(id: string): boolean | null {
   if (listed("plugins.disabled", id)) return false;

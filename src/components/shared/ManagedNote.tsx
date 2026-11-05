@@ -1,7 +1,8 @@
 import { Icon } from "@iconify/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { usePolicyLock } from "@/stores/policyStore";
+import { usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
+import { installLocked, useInstallAllowed } from "@/stores/pluginRegistryStore";
 
 export function ManagedNote({ className = "" }: { className?: string }) {
   const { t } = useTranslation();
@@ -33,4 +34,13 @@ export function ManagedWhen({ locked, note = true, children }: ManagedProps & { 
       {control}
     </div>
   );
+}
+
+export function ManagedInstall({ id, installed = false, children }: ManagedProps & { id: string; installed?: boolean }) {
+  return <ManagedWhen locked={!useInstallAllowed(id, installed)}>{children}</ManagedWhen>;
+}
+
+export function ManagedUninstall({ id, children }: ManagedProps & { id: string }) {
+  usePolicyRefresh();
+  return <ManagedWhen locked={installLocked(id)}>{children}</ManagedWhen>;
 }

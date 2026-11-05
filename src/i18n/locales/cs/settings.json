@@ -868,6 +868,7 @@
         "sourceLocal": "Lokální",
         "sourceUrl": "URL",
         "sourceInstalled": "Nainstalovaný",
+        "sourceOrganization": "Nainstalováno vaší organizací",
         "unverified": "Neověřený",
         "update": "Aktualizovat",
         "updating": "Aktualizace…",

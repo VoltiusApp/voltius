@@ -853,6 +853,7 @@
         "sourceLocal": "Локальный",
         "sourceUrl": "URL",
         "sourceInstalled": "Установлен",
+        "sourceOrganization": "Установлено вашей организацией",
         "update": "Обновить",
         "updating": "Обновление…",
         "updateTitle": "Обновить до v{{version}}",

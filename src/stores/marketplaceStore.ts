@@ -5,14 +5,16 @@ import { getVersion } from "@tauri-apps/api/app";
 import { loadPlugin, unloadPlugin, getLoadedPlugins } from "@/plugins/runtime";
 import { importPluginModule, pluginRegisterOf, injectPluginStyle, type PluginModule } from "@/plugins/importPluginModule";
 import type { PluginManifest } from "@/plugins/api";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { installAllowed, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { PluginHashMismatchError, resolveVerifiedHash } from "@/plugins/integrity";
 import { assertValidPluginId } from "@/plugins/pluginId";
 import { isRetiredPlugin } from "@/plugins/retired";
-import { PluginInstallInProgressError } from "@/plugins/installErrors";
+import { PluginInstallInProgressError, PluginInstallManagedError } from "@/plugins/installErrors";
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
+
+export { PluginInstallManagedError };
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -427,6 +429,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     assertValidPluginId(plugin.id);
     if (isRetiredPlugin(plugin.id)) throw new Error(`Plugin "${plugin.id}" is retired`);
     const { installing, installedMeta } = get();
+    const alreadyInstalled = installedMeta.some((m) => m.id === plugin.id) || getLoadedPlugins().some((m) => m.id === plugin.id);
+    if (!installAllowed(plugin.id, alreadyInstalled)) throw new PluginInstallManagedError(plugin.id);
     // Refused, not silently skipped: resolving here told every caller the install
     // succeeded — a deep-link confirm sheet accepted while the Settings tab was
     // installing the same id closed reporting success having written nothing.

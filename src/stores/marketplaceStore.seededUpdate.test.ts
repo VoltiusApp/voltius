@@ -23,6 +23,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
+  installAllowed: () => true,
 }));
 
 import { useMarketplaceStore, FIRST_PARTY_SOURCE, type MarketplacePlugin } from "./marketplaceStore";

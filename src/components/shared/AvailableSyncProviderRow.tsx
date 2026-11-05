@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { catalogIcon } from "@/plugins/catalogIcon";
 import { satisfiesMinAppVersion } from "@/plugins/version";
+import { ManagedInstall } from "@/components/shared/ManagedNote";
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 
 export function AvailableSyncProviderRow({ plugin, appVersion, busy, onInstall, compact = false }: {
@@ -30,17 +31,19 @@ export function AvailableSyncProviderRow({ plugin, appVersion, busy, onInstall, 
           {t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion })}
         </span>
       ) : (
-        <button
-          onClick={onInstall}
-          disabled={busy}
-          className={compact
-            ? "flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium shrink-0 bg-(--t-bg-elevated) text-(--t-text-secondary) hover:text-(--t-text-primary) transition-colors"
-            : "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 bg-(--t-accent) text-(--t-bg-base) transition-opacity hover:opacity-85"}
-          style={{ opacity: busy ? 0.6 : undefined }}
-        >
-          <Icon icon={busy ? "lucide:loader" : "lucide:download"} width={compact ? 10 : 12} className={busy ? "animate-spin" : undefined} />
-          {t(busy ? "settings.plugins.browse.installing" : "settings.plugins.browse.install")}
-        </button>
+        <ManagedInstall id={plugin.id}>
+          <button
+            onClick={onInstall}
+            disabled={busy}
+            className={compact
+              ? "flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium shrink-0 bg-(--t-bg-elevated) text-(--t-text-secondary) hover:text-(--t-text-primary) transition-colors"
+              : "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 bg-(--t-accent) text-(--t-bg-base) transition-opacity hover:opacity-85"}
+            style={{ opacity: busy ? 0.6 : undefined }}
+          >
+            <Icon icon={busy ? "lucide:loader" : "lucide:download"} width={compact ? 10 : 12} className={busy ? "animate-spin" : undefined} />
+            {t(busy ? "settings.plugins.browse.installing" : "settings.plugins.browse.install")}
+          </button>
+        </ManagedInstall>
       )}
     </div>
   );

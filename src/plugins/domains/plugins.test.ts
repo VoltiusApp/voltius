@@ -58,6 +58,7 @@ import {
   listPlugins, setPluginEnabled, readPluginConfig, writePluginConfig,
   removeSource, updatePlugin, installVettedPlugin,
 } from "./plugins";
+import { PluginInstallManagedError } from "@/plugins/installErrors";
 
 beforeEach(() => { storage.clear(); vi.clearAllMocks(); lock.pluginLock.mockReturnValue(null); });
 
@@ -151,5 +152,12 @@ describe("plugin domain", () => {
     expect(vet).toHaveBeenCalledWith(expect.objectContaining({ id: "acme" }));
     expect(marketplace.installPlugin).not.toHaveBeenCalled();
     expect(marketplace.fetchManifest).toHaveBeenCalledTimes(1);
+  });
+
+  it("domain_install_reports_managed", async () => {
+    marketplace.installPlugin.mockRejectedValueOnce(new PluginInstallManagedError("widget"));
+    const r = await installVettedPlugin("widget", () => null);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("managed by your organization");
   });
 });

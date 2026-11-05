@@ -4,7 +4,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
-import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { pluginLock, policyInstallList, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { catalogIcon, catalogEntryIcon } from "@/plugins/catalogIcon";
@@ -19,7 +19,7 @@ import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/
 import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
-import { Managed, ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
+import { Managed, ManagedInstall, ManagedNote, ManagedUninstall, ManagedWhen } from "@/components/shared/ManagedNote";
 import { usePolicyRefresh } from "@/stores/policyStore";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
@@ -425,16 +425,18 @@ export function InstalledTab() {
                   onOpenPage={selectPluginPage}
                   onOpenConfig={setAutoConfigManifest}
                 />
-                <button
-                  onClick={() => setConfirmUninstallSeeded(manifest)}
-                  disabled={isUninstalling}
-                  className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-                  title={t("settings.plugins.installed.uninstallTitle")}
-                >
-                  <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
-                </button>
+                <ManagedUninstall id={manifest.id}>
+                  <button
+                    onClick={() => setConfirmUninstallSeeded(manifest)}
+                    disabled={isUninstalling}
+                    className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                    title={t("settings.plugins.installed.uninstallTitle")}
+                  >
+                    <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
+                  </button>
+                </ManagedUninstall>
                 <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />
               </div>
               <MobileManagedLine manifest={manifest} />
@@ -481,7 +483,9 @@ export function InstalledTab() {
                       {manifest?.name ?? meta.id}
                     </p>
                     <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
-                      {meta.sourceId === "local"
+                      {policyInstallList().includes(meta.id)
+                        ? t("settings.plugins.installed.sourceOrganization")
+                        : meta.sourceId === "local"
                         ? t("settings.plugins.installed.sourceLocal")
                         : meta.sourceId === "url"
                           ? t("settings.plugins.installed.sourceUrl")
@@ -536,16 +540,18 @@ export function InstalledTab() {
                 >
                   <Icon icon="lucide:refresh-cw" width={14} className={isReloading ? "animate-spin" : ""} />
                 </button>
-                <button
-                  onClick={() => void handleUninstall(meta.id)}
-                  disabled={isUninstalling}
-                  className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-                  title={t("settings.plugins.installed.uninstallTitle")}
-                >
-                  <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
-                </button>
+                <ManagedUninstall id={meta.id}>
+                  <button
+                    onClick={() => void handleUninstall(meta.id)}
+                    disabled={isUninstalling}
+                    className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                    title={t("settings.plugins.installed.uninstallTitle")}
+                  >
+                    <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
+                  </button>
+                </ManagedUninstall>
                 {manifest && <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />}
               </div>
               <MobileManagedLine manifest={manifest} />
@@ -841,18 +847,20 @@ function BrowseTab() {
                     )}
                   </div>
                   {!isInstalled ? (
-                    <button
-                      onClick={() => startInstall(plugin)}
-                      disabled={isBusy || versionUnsatisfied}
-                      title={versionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion }) : undefined}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
-                    >
-                      {isBusy
-                        ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
-                        : <><Icon icon="lucide:download" width={12} /> {t("settings.plugins.browse.install")}</>
-                      }
-                    </button>
+                    <ManagedInstall id={plugin.id}>
+                      <button
+                        onClick={() => startInstall(plugin)}
+                        disabled={isBusy || versionUnsatisfied}
+                        title={versionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion }) : undefined}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
+                        style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
+                      >
+                        {isBusy
+                          ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
+                          : <><Icon icon="lucide:download" width={12} /> {t("settings.plugins.browse.install")}</>
+                        }
+                      </button>
+                    </ManagedInstall>
                   ) : update ? (
                     <button
                       onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === plugin.id)?.permissions ?? [])}
@@ -867,17 +875,19 @@ function BrowseTab() {
                       }
                     </button>
                   ) : isPureSeededActive ? null : (
-                    <button
-                      onClick={() => void handleUninstall(plugin.id)}
-                      disabled={isUninstalling}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "color-mix(in srgb, var(--t-status-error) 15%, transparent)", color: "var(--t-status-error)", opacity: isUninstalling ? 0.6 : 1 }}
-                    >
-                      {isUninstalling
-                        ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.removing")}</>
-                        : <><Icon icon="lucide:trash-2" width={12} /> {t("settings.plugins.browse.uninstall")}</>
-                      }
-                    </button>
+                    <ManagedUninstall id={plugin.id}>
+                      <button
+                        onClick={() => void handleUninstall(plugin.id)}
+                        disabled={isUninstalling}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
+                        style={{ background: "color-mix(in srgb, var(--t-status-error) 15%, transparent)", color: "var(--t-status-error)", opacity: isUninstalling ? 0.6 : 1 }}
+                      >
+                        {isUninstalling
+                          ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.removing")}</>
+                          : <><Icon icon="lucide:trash-2" width={12} /> {t("settings.plugins.browse.uninstall")}</>
+                        }
+                      </button>
+                    </ManagedUninstall>
                   )}
                 </div>
               </div>

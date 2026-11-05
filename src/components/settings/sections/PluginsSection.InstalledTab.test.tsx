@@ -215,3 +215,21 @@ test("a loaded id with NO real seeded artifact never shows the seeded Update but
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(screen.queryByTitle("settings.plugins.installed.updateTitle")).toBeNull();
 });
+
+test("an organization-installed plugin shows the organization label and no uninstall", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "plugins.install": ["plugin-ext"] }, defaults: {} } });
+  loaded.list = [manifest("plugin-ext"), manifest("plugin-other")];
+  marketplaceState.installedMeta = [installed("plugin-ext"), installed("plugin-other")];
+  usePluginStore.setState({ settingsPages: new Map() });
+  try {
+    render(<InstalledTab />);
+    expect(screen.getByText("settings.plugins.installed.sourceOrganization")).toBeTruthy();
+    const uninstalls = screen.getAllByTitle("settings.plugins.installed.uninstallTitle") as HTMLButtonElement[];
+    expect(uninstalls).toHaveLength(2);
+    expect(uninstalls.filter((b) => b.closest("fieldset[disabled]"))).toHaveLength(1);
+    expect(screen.getAllByText("common.policy.managed").length).toBeGreaterThan(0);
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+});

@@ -1273,6 +1273,7 @@
         "sourceLocal": "Yerel",
         "sourceUrl": "URL",
         "sourceInstalled": "Kurulu",
+        "sourceOrganization": "Kuruluşunuz tarafından kuruldu",
         "unverified": "Doğrulanmamış",
         "update": "Güncelle",
         "updating": "Güncelleniyor…",
