@@ -360,7 +360,25 @@ pub enum Guard {
     Unprotected,
 }
 
-pub type Probe = fn(&Path) -> std::io::Result<Guard>;
+/// `text` is read from the same handle the guard was decided on, and only for a protected file.
+#[derive(Debug)]
+pub struct Entry {
+    pub guard: Guard,
+    pub hard_linked: bool,
+    pub text: Option<String>,
+}
+
+impl Entry {
+    pub fn new(guard: Guard) -> Self {
+        Entry {
+            guard,
+            hard_linked: false,
+            text: None,
+        }
+    }
+}
+
+pub type Probe = fn(&Path) -> std::io::Result<Entry>;
 
 #[derive(Debug)]
 pub enum Blocked {
@@ -373,6 +391,7 @@ pub enum Blocked {
 pub struct MachineAcl {
     pub probe: Probe,
     pub harden_dir: fn(&Path) -> Result<(), Blocked>,
+    pub write: fn(&Path, &str) -> std::io::Result<()>,
     pub adopt_written: fn(&Path) -> Result<(), Blocked>,
 }
 
@@ -380,6 +399,7 @@ pub struct MachineAcl {
 const OS_ACL: Option<MachineAcl> = Some(MachineAcl {
     probe: acl_windows::probe,
     harden_dir: acl_windows::harden_dir,
+    write: acl_windows::write,
     adopt_written: acl_windows::adopt_written,
 });
 #[cfg(not(windows))]
@@ -405,25 +425,29 @@ fn dir_of(path: &Path) -> &Path {
     path.parent().unwrap_or(path)
 }
 
-fn probe_both(path: &Path, probe: Probe) -> Result<(Guard, Guard), (PathBuf, std::io::Error)> {
+fn probe_both(path: &Path, probe: Probe) -> Result<(Entry, Entry), (PathBuf, std::io::Error)> {
     let at = |p: &Path| probe(p).map_err(|e| (p.to_path_buf(), e));
     Ok((at(dir_of(path))?, at(path)?))
 }
 
 pub enum Trust {
     Absent,
-    Trusted,
+    Trusted(String),
     Ignored(Issue),
 }
 
 pub fn trust(path: &Path, probe: Probe) -> Trust {
     let why = match probe_both(path, probe) {
         Err((_, e)) => format!("its permissions could not be read ({e})"),
-        Ok((Guard::Link, _)) => "its folder is a link".to_string(),
-        Ok((_, Guard::Link)) => "it is a link".to_string(),
-        Ok((_, Guard::Missing)) => return Trust::Absent,
-        Ok((Guard::Protected, Guard::Protected)) => return Trust::Trusted,
-        Ok(_) => "standard users can change it".to_string(),
+        Ok((dir, file)) => match (dir.guard, file.guard) {
+            (Guard::Link, _) => "its folder is a link".to_string(),
+            (_, Guard::Link) => "it is a link".to_string(),
+            (_, Guard::Missing) => return Trust::Absent,
+            (Guard::Protected, Guard::Protected) => {
+                return Trust::Trusted(file.text.unwrap_or_default())
+            }
+            _ => "standard users can change it".to_string(),
+        },
     };
     Trust::Ignored(Issue::general(
         IssueKind::Unprotected,
@@ -434,12 +458,14 @@ pub fn trust(path: &Path, probe: Probe) -> Trust {
     ))
 }
 
-pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<(), Blocked> {
-    match probe_both(path, probe).map_err(|(p, e)| Blocked::Io(p, e))? {
+pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<String>, Blocked> {
+    let (dir, file) = probe_both(path, probe).map_err(|(p, e)| Blocked::Io(p, e))?;
+    match (dir.guard, file.guard) {
         (Guard::Link, _) => Err(Blocked::Link(dir_of(path).to_path_buf())),
         (_, Guard::Link) => Err(Blocked::Link(path.to_path_buf())),
+        _ if file.hard_linked => Err(Blocked::Link(path.to_path_buf())),
         (_, Guard::Unprotected) if !replace => Err(Blocked::Unprotected(path.to_path_buf())),
-        _ => Ok(()),
+        _ => Ok(file.text),
     }
 }
 
@@ -448,14 +474,16 @@ pub fn load_from(path: &Path) -> LoadedPolicy {
 }
 
 fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
-    let (doc, issues) = match probe.map_or(Trust::Trusted, |p| trust(path, p)) {
-        Trust::Absent => (PolicyDoc::default(), Vec::new()),
-        Trust::Ignored(issue) => (PolicyDoc::default(), vec![issue]),
-        Trust::Trusted => match read_optional(path) {
-            Ok(Some(text)) => parse(&text),
-            Ok(None) => (PolicyDoc::default(), Vec::new()),
-            Err(e) => (PolicyDoc::default(), vec![read_issue(path, &e)]),
-        },
+    let read = match probe.map(|p| trust(path, p)) {
+        Some(Trust::Absent) => Ok(None),
+        Some(Trust::Ignored(issue)) => Err(issue),
+        Some(Trust::Trusted(text)) => Ok(Some(text)),
+        None => read_optional(path).map_err(|e| read_issue(path, &e)),
+    };
+    let (doc, issues) = match read {
+        Ok(Some(text)) => parse(&text),
+        Ok(None) => (PolicyDoc::default(), Vec::new()),
+        Err(issue) => (PolicyDoc::default(), vec![issue]),
     };
     LoadedPolicy {
         path: Some(path.display().to_string()),
@@ -476,6 +504,14 @@ pub fn load_machine() -> LoadedPolicy {
 }
 
 pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
+    write_text_atomic_via(path, text, create_tmp)
+}
+
+pub fn write_text_atomic_via(
+    path: &Path,
+    text: &str,
+    create: impl FnOnce(&Path) -> std::io::Result<std::fs::File>,
+) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -485,23 +521,24 @@ pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(format!(".{}-{nanos}.tmp", std::process::id()));
     let tmp = PathBuf::from(tmp);
-    let result = match write_tmp(&tmp, text.as_bytes()) {
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => return Err(e),
-        r => r.and_then(|()| std::fs::rename(&tmp, path)),
-    };
+    let file = create(&tmp)?;
+    let result = write_tmp(file, text.as_bytes()).and_then(|()| std::fs::rename(&tmp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
     result
 }
 
-fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    use std::io::Write;
+fn create_tmp(tmp: &Path) -> std::io::Result<std::fs::File> {
     let mut opts = std::fs::OpenOptions::new();
     opts.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o644);
-    let mut file = opts.open(tmp)?;
+    opts.open(tmp)
+}
+
+fn write_tmp(mut file: std::fs::File, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
     file.write_all(bytes)?;
     #[cfg(unix)]
     {
@@ -513,70 +550,68 @@ fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
 
 #[cfg(test)]
 pub(crate) mod test_probes {
-    use super::{Blocked, Guard, MachineAcl, Probe};
+    use super::{Blocked, Entry, Guard, MachineAcl, Probe};
     use std::cell::{Cell, RefCell};
+    use std::io;
     use std::path::Path;
+
+    pub const CHECKED: &str = r#"{"version":1,"policy":{"server.url":"https://checked.example"}}"#;
 
     fn is_file(p: &Path) -> bool {
         p.extension().is_some()
     }
 
-    pub fn all_unprotected(_: &Path) -> std::io::Result<Guard> {
-        Ok(Guard::Unprotected)
-    }
-
-    pub fn file_unprotected(p: &Path) -> std::io::Result<Guard> {
-        Ok(if is_file(p) {
-            Guard::Unprotected
-        } else {
-            Guard::Protected
+    fn entry(p: &Path, dir: Guard, file: Guard) -> io::Result<Entry> {
+        let guard = if is_file(p) { file } else { dir };
+        Ok(Entry {
+            guard,
+            hard_linked: false,
+            text: (is_file(p) && guard == Guard::Protected).then(|| CHECKED.to_string()),
         })
     }
 
-    pub fn dir_unprotected(p: &Path) -> std::io::Result<Guard> {
-        Ok(if is_file(p) {
-            Guard::Protected
-        } else {
-            Guard::Unprotected
-        })
+    pub fn all_unprotected(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Unprotected, Guard::Unprotected)
     }
 
-    pub fn file_link(p: &Path) -> std::io::Result<Guard> {
-        Ok(if is_file(p) {
-            Guard::Link
-        } else {
-            Guard::Protected
-        })
+    pub fn file_unprotected(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Protected, Guard::Unprotected)
     }
 
-    pub fn dir_link_no_file(p: &Path) -> std::io::Result<Guard> {
-        Ok(if is_file(p) {
-            Guard::Missing
-        } else {
-            Guard::Link
-        })
+    pub fn dir_unprotected(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Unprotected, Guard::Protected)
     }
 
-    pub fn unprotected_dir_no_file(p: &Path) -> std::io::Result<Guard> {
-        Ok(if is_file(p) {
-            Guard::Missing
-        } else {
-            Guard::Unprotected
-        })
+    pub fn file_link(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Protected, Guard::Link)
     }
 
-    pub fn unreadable_acl(_: &Path) -> std::io::Result<Guard> {
-        Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+    pub fn dir_link_no_file(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Link, Guard::Missing)
     }
 
-    pub fn all_protected(_: &Path) -> std::io::Result<Guard> {
-        Ok(Guard::Protected)
+    pub fn unprotected_dir_no_file(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Unprotected, Guard::Missing)
+    }
+
+    pub fn unreadable_acl(_: &Path) -> io::Result<Entry> {
+        Err(io::ErrorKind::PermissionDenied.into())
+    }
+
+    pub fn all_protected(p: &Path) -> io::Result<Entry> {
+        entry(p, Guard::Protected, Guard::Protected)
+    }
+
+    pub fn hard_linked_protected(p: &Path) -> io::Result<Entry> {
+        let mut e = all_protected(p)?;
+        e.hard_linked = is_file(p);
+        Ok(e)
     }
 
     pub fn harden_denied(p: &Path) -> Result<(), Blocked> {
         Err(Blocked::Io(
             p.to_path_buf(),
-            std::io::ErrorKind::PermissionDenied.into(),
+            io::ErrorKind::PermissionDenied.into(),
         ))
     }
 
@@ -585,25 +620,24 @@ pub(crate) mod test_probes {
         static FILE_PROBES: Cell<u32> = const { Cell::new(0) };
     }
 
-    fn record(call: &'static str) -> Result<(), Blocked> {
+    fn record(call: &'static str) {
         CALLS.with_borrow_mut(|c| c.push(call));
-        Ok(())
     }
 
     pub fn calls() -> Vec<&'static str> {
         CALLS.with_borrow(Clone::clone)
     }
 
-    pub fn appears_after_first_probe(p: &Path) -> std::io::Result<Guard> {
+    pub fn appears_after_first_probe(p: &Path) -> io::Result<Entry> {
         if !is_file(p) {
-            return Ok(Guard::Protected);
+            return Ok(Entry::new(Guard::Protected));
         }
         let n = FILE_PROBES.replace(FILE_PROBES.get() + 1);
-        Ok(if n == 0 {
+        Ok(Entry::new(if n == 0 {
             Guard::Missing
         } else {
             Guard::Unprotected
-        })
+        }))
     }
 
     pub fn acl(probe: Probe) -> MachineAcl {
@@ -611,8 +645,18 @@ pub(crate) mod test_probes {
         FILE_PROBES.set(0);
         MachineAcl {
             probe,
-            harden_dir: |_| record("harden_dir"),
-            adopt_written: |_| record("adopt_written"),
+            harden_dir: |_| {
+                record("harden_dir");
+                Ok(())
+            },
+            write: |p, text| {
+                record("write");
+                super::write_text_atomic(p, text)
+            },
+            adopt_written: |_| {
+                record("adopt_written");
+                Ok(())
+            },
         }
     }
 }
@@ -782,8 +826,28 @@ mod tests {
             assert_eq!(loaded.issues[0].kind, IssueKind::Unprotected);
             assert!(loaded.issues[0].message.contains(path.to_str().unwrap()));
         }
-        assert_eq!(load_with(&path, Some(all_protected)).doc.policy.len(), 1);
         assert_eq!(load_with(&path, None).doc.policy.len(), 1);
+    }
+
+    #[test]
+    fn app_reads_the_checked_handle_not_the_path() {
+        let (_dir, path) = policy_file();
+        let doc = load_with(&path, Some(all_protected)).doc;
+        assert_eq!(doc.policy.len(), 1, "{:?}", doc.policy);
+        assert_eq!(doc.policy["server.url"], json!("https://checked.example"));
+    }
+
+    #[test]
+    fn app_trusts_a_hard_linked_protected_file_but_the_cli_refuses_it() {
+        let (_dir, path) = policy_file();
+        let doc = load_with(&path, Some(hard_linked_protected)).doc;
+        assert_eq!(doc.policy["server.url"], json!("https://checked.example"));
+        for replace in [false, true] {
+            assert!(matches!(
+                write_check(&path, hard_linked_protected, replace),
+                Err(Blocked::Link(p)) if p == path
+            ));
+        }
     }
 
     #[test]
@@ -805,7 +869,7 @@ mod tests {
             trust(path, unprotected_dir_no_file),
             Trust::Absent
         ));
-        assert!(matches!(trust(path, all_protected), Trust::Trusted));
+        assert!(matches!(trust(path, all_protected), Trust::Trusted(t) if t == CHECKED));
     }
 
     #[test]
@@ -827,7 +891,10 @@ mod tests {
         assert!(check(file_unprotected, true).is_ok());
         assert!(check(dir_unprotected, false).is_ok());
         assert!(check(unprotected_dir_no_file, false).is_ok());
-        assert!(check(all_protected, false).is_ok());
+        assert_eq!(
+            check(all_protected, false).unwrap().as_deref(),
+            Some(CHECKED)
+        );
     }
 
     #[test]
@@ -931,6 +998,27 @@ mod tests {
         write_text_atomic(&path, "{}\n").unwrap();
         assert!(!held.contains(&std::fs::metadata(&path).unwrap().ino()));
         assert_eq!(std::fs::read_to_string(&planted).unwrap(), "planted");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}\n");
+    }
+
+    #[test]
+    fn write_text_atomic_via_creates_the_tmp_through_the_given_creator() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let mut seen = None;
+        write_text_atomic_via(&path, "{}\n", |tmp| {
+            seen = Some(tmp.to_path_buf());
+            std::fs::File::create_new(tmp)
+        })
+        .unwrap();
+        let seen = seen.unwrap();
+        assert_eq!(seen.parent(), Some(dir.path()));
+        assert!(!seen.exists());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}\n");
+        let refused = write_text_atomic_via(&path, "x", |_| {
+            Err(std::io::ErrorKind::PermissionDenied.into())
+        });
+        assert!(refused.is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}\n");
     }
 }

@@ -66,9 +66,20 @@ pub fn written_by_us(owner: &str, aces: &[Ace], our_sid: &str) -> bool {
 const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x10;
 const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
 
-pub fn is_linked(attributes: u32, links: u32) -> bool {
+pub fn is_dir(attributes: u32) -> bool {
+    attributes & FILE_ATTRIBUTE_DIRECTORY != 0
+}
+
+pub fn is_reparse(attributes: u32) -> bool {
     attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
-        || (attributes & FILE_ATTRIBUTE_DIRECTORY == 0 && links > 1)
+}
+
+pub fn is_hard_linked(attributes: u32, links: u32) -> bool {
+    !is_dir(attributes) && links > 1
+}
+
+pub fn file_sddl() -> String {
+    POLICY_DIR_SDDL.replace(";OICI;", ";;")
 }
 
 #[cfg(test)]
@@ -183,11 +194,20 @@ mod tests {
     }
 
     #[test]
-    fn reparse_points_and_hard_links_count_as_links() {
-        assert!(!is_linked(0x20, 1));
-        assert!(is_linked(0x20 | 0x400, 1));
-        assert!(is_linked(0x20, 2));
-        assert!(!is_linked(0x10, 3));
-        assert!(is_linked(0x10 | 0x400, 1));
+    fn reparse_points_and_hard_links_are_told_apart() {
+        assert!(!is_reparse(0x20) && !is_hard_linked(0x20, 1));
+        assert!(is_reparse(0x20 | 0x400));
+        assert!(is_reparse(0x10 | 0x400));
+        assert!(is_hard_linked(0x20, 2) && !is_reparse(0x20));
+        assert!(!is_hard_linked(0x10, 3));
+        assert!(is_dir(0x10) && !is_dir(0x20));
+    }
+
+    #[test]
+    fn file_descriptor_is_the_folder_one_without_inheritance() {
+        assert_eq!(
+            file_sddl(),
+            "O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;0x1200a9;;;BU)"
+        );
     }
 }

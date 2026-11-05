@@ -141,8 +141,8 @@ fn empty_root() -> Raw {
     root
 }
 
-fn load_raw(path: &Path) -> Result<Raw, CliError> {
-    let Some(text) = read_text(path)? else {
+fn parse_raw(path: &Path, text: Option<String>) -> Result<Raw, CliError> {
+    let Some(text) = text else {
         return Ok(empty_root());
     };
     let Ok(Value::Object(root)) = serde_json::from_str::<Value>(&text) else {
@@ -201,26 +201,32 @@ fn edit_raw_with(
     replace: bool,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
-    if let Some(a) = acl {
-        let check = || policy::write_check(path, a.probe, replace).map_err(blocked);
-        check()?;
-        (a.harden_dir)(path).map_err(blocked)?;
-        // Re-check once standard users can no longer add or swap entries in the folder.
-        check()?;
-    }
+    let existing = match acl {
+        Some(a) => {
+            let check = || policy::write_check(path, a.probe, replace).map_err(blocked);
+            check()?;
+            (a.harden_dir)(path).map_err(blocked)?;
+            // Re-check once the folder is locked; the text comes from the handle this check passed.
+            check()?
+        }
+        None if replace => None,
+        None => read_text(path)?,
+    };
     let mut root = if replace {
         empty_root()
     } else {
-        load_raw(path)?
+        parse_raw(path, existing)?
     };
     root.entry("version").or_insert_with(|| json!(1));
     let changed = edit(&mut root)?;
     if changed {
         let mut text = serde_json::to_string_pretty(&root).map_err(|e| CliError::Io(e.into()))?;
         text.push('\n');
-        policy::write_text_atomic(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
+        let write = acl.map_or(policy::write_text_atomic as fn(&Path, &str) -> _, |a| {
+            a.write
+        });
+        write(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
         if let Some(a) = acl {
-            // The renamed-in file is owned by the caller's token owner, which may not be an admin SID.
             (a.adopt_written)(path).map_err(blocked)?;
         }
     }
@@ -773,7 +779,7 @@ mod tests {
         let doc = read(&path);
         assert!(doc.policy.is_empty(), "{:?}", doc.policy);
         assert_eq!(doc.defaults["sshConfig.import"], Value::Bool(true));
-        assert_eq!(calls(), ["harden_dir", "adopt_written"]);
+        assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
     }
 
     #[test]
@@ -800,7 +806,7 @@ mod tests {
         std::fs::write(path.join("planted"), PLANTED).unwrap();
         let err = edit_raw_with(&path, Some(acl(file_unprotected)), true, insert_key).unwrap_err();
         assert!(matches!(err, CliError::Io(_)), "{err:?}");
-        assert_eq!(calls(), ["harden_dir"]);
+        assert_eq!(calls(), ["harden_dir", "write"]);
     }
 
     #[test]
@@ -814,6 +820,33 @@ mod tests {
                     .contains("is a link; delete it and run again"),
                 "{err}"
             );
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+    }
+
+    #[test]
+    fn writers_keep_the_content_of_the_checked_handle_not_the_path() {
+        let (_dir, path) = planted();
+        edit_raw_with(&path, Some(acl(all_protected)), false, |root| {
+            layer_entries(root, Layer::Defaults, Path::new("policy.json"))?
+                .insert("sshConfig.import".into(), json!(true));
+            Ok(true)
+        })
+        .unwrap();
+        let doc = read(&path);
+        assert_eq!(doc.policy["server.url"], json!("https://checked.example"));
+        assert_eq!(doc.defaults["sshConfig.import"], json!(true));
+        assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
+    }
+
+    #[test]
+    fn writers_refuse_a_hard_linked_policy_file() {
+        let (_dir, path) = planted();
+        for replace in [false, true] {
+            let err = edit_raw_with(&path, Some(acl(hard_linked_protected)), replace, insert_key)
+                .unwrap_err();
+            assert_eq!(err.exit_code(), 4);
+            assert!(err.to_string().contains("is a link"), "{err}");
         }
         assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
     }

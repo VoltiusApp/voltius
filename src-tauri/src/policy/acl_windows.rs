@@ -1,8 +1,10 @@
 use super::acl::{self, Ace, POLICY_DIR_SDDL};
-use super::{Blocked, Guard};
-use crate::win_security::{current_user_sid, sid_string, wide, SecurityDescriptor};
+use super::{Blocked, Entry, Guard};
+use crate::win_security::{
+    create_new_with, current_user_sid, sid_string, wide, SecurityDescriptor,
+};
 use std::fs::File;
-use std::io;
+use std::io::{self, Read};
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::Path;
@@ -17,8 +19,8 @@ use windows_sys::Win32::Security::{
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateDirectoryW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
-    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, READ_CONTROL,
-    WRITE_DAC, WRITE_OWNER,
+    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
+    FILE_READ_ATTRIBUTES, READ_CONTROL, WRITE_DAC, WRITE_OWNER,
 };
 
 fn denied_if_not_admin(e: io::Error) -> io::Error {
@@ -42,27 +44,41 @@ fn open_entry(path: &Path, access: u32) -> io::Result<File> {
         .open(path)
 }
 
-fn is_linked(f: &File) -> io::Result<bool> {
+fn file_info(f: &File) -> io::Result<BY_HANDLE_FILE_INFORMATION> {
     let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
     if unsafe { GetFileInformationByHandle(f.as_raw_handle(), &mut info) } == 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(acl::is_linked(info.dwFileAttributes, info.nNumberOfLinks))
+    Ok(info)
 }
 
-pub fn probe(path: &Path) -> io::Result<Guard> {
-    let f = match open_entry(path, READ_CONTROL) {
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Guard::Missing),
+pub fn probe(path: &Path) -> io::Result<Entry> {
+    let mut f = match open_entry(path, FILE_GENERIC_READ) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Entry::new(Guard::Missing)),
         r => r?,
     };
-    if is_linked(&f)? {
-        return Ok(Guard::Link);
+    let info = file_info(&f)?;
+    if acl::is_reparse(info.dwFileAttributes) {
+        return Ok(Entry::new(Guard::Link));
     }
-    let protected = read_acl(&f)?.is_some_and(|(owner, aces)| acl::admin_protected(&owner, &aces));
-    Ok(if protected {
-        Guard::Protected
+    let hard_linked = acl::is_hard_linked(info.dwFileAttributes, info.nNumberOfLinks);
+    if !read_acl(&f)?.is_some_and(|(owner, aces)| acl::admin_protected(&owner, &aces)) {
+        return Ok(Entry {
+            hard_linked,
+            ..Entry::new(Guard::Unprotected)
+        });
+    }
+    let text = if acl::is_dir(info.dwFileAttributes) {
+        None
     } else {
-        Guard::Unprotected
+        let mut bytes = Vec::new();
+        f.read_to_end(&mut bytes)?;
+        Some(String::from_utf8_lossy(&bytes).into_owned())
+    };
+    Ok(Entry {
+        guard: Guard::Protected,
+        hard_linked,
+        text,
     })
 }
 
@@ -82,8 +98,14 @@ pub fn harden_dir(policy_file: &Path) -> Result<(), Blocked> {
     apply(dir, &sd, |_| Ok(true))
 }
 
+pub fn write(policy_file: &Path, text: &str) -> io::Result<()> {
+    let sd = SecurityDescriptor::from_sddl(&acl::file_sddl())?;
+    super::write_text_atomic_via(policy_file, text, |tmp| create_new_with(tmp, &sd))
+        .map_err(denied_if_not_admin)
+}
+
 pub fn adopt_written(policy_file: &Path) -> Result<(), Blocked> {
-    let sd = SecurityDescriptor::from_sddl(POLICY_DIR_SDDL).map_err(io_at(policy_file))?;
+    let sd = SecurityDescriptor::from_sddl(&acl::file_sddl()).map_err(io_at(policy_file))?;
     let us = current_user_sid().map_err(io_at(policy_file))?;
     apply(policy_file, &sd, |f| {
         Ok(read_acl(f)?.is_some_and(|(owner, aces)| acl::written_by_us(&owner, &aces, &us)))
@@ -98,7 +120,10 @@ fn apply(
 ) -> Result<(), Blocked> {
     let io_err = io_at(path);
     let f = open_entry(path, READ_CONTROL | WRITE_DAC | WRITE_OWNER).map_err(&io_err)?;
-    if is_linked(&f).map_err(&io_err)? {
+    let info = file_info(&f).map_err(&io_err)?;
+    if acl::is_reparse(info.dwFileAttributes)
+        || acl::is_hard_linked(info.dwFileAttributes, info.nNumberOfLinks)
+    {
         return Err(Blocked::Link(path.to_path_buf()));
     }
     if !accept(&f).map_err(&io_err)? {

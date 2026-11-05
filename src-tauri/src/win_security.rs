@@ -71,6 +71,32 @@ impl Drop for SecurityDescriptor {
     }
 }
 
+pub fn create_new_with(
+    path: &std::path::Path,
+    sd: &SecurityDescriptor,
+) -> io::Result<std::fs::File> {
+    use std::os::windows::io::FromRawHandle;
+    use windows_sys::Win32::Foundation::{GENERIC_WRITE, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{CreateFileW, CREATE_NEW, FILE_ATTRIBUTE_NORMAL};
+
+    let sa = sd.attributes();
+    let handle = unsafe {
+        CreateFileW(
+            wide(path).as_ptr(),
+            GENERIC_WRITE,
+            0,
+            &sa,
+            CREATE_NEW,
+            FILE_ATTRIBUTE_NORMAL,
+            ptr::null_mut(),
+        )
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(unsafe { std::fs::File::from_raw_handle(handle) })
+}
+
 /// # Safety
 /// `sid` must point to a valid SID.
 pub unsafe fn sid_string(sid: PSID) -> io::Result<String> {
