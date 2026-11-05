@@ -1,5 +1,6 @@
 mod config_cmd;
 mod output;
+mod plugins_cmd;
 mod policy_cmd;
 mod server_cmd;
 pub mod user;
@@ -8,6 +9,7 @@ use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
 use config_cmd::ConfigCmd;
 use output::Output;
+use plugins_cmd::PluginsCmd;
 use policy_cmd::PolicyCmd;
 use server_cmd::ServerCmd;
 use std::ffi::OsString;
@@ -119,6 +121,11 @@ enum Command {
         #[command(subcommand)]
         cmd: ServerCmd,
     },
+    /// List, install, enable, disable or remove plugins
+    Plugins {
+        #[command(subcommand)]
+        cmd: PluginsCmd,
+    },
     /// Print a shell completion script
     Completions { shell: clap_complete::Shell },
 }
@@ -185,6 +192,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         }
         Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
+        Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {
             policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), ctx.out)
         }

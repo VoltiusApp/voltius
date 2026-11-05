@@ -58,6 +58,17 @@ pub struct Settled {
     pub error: Option<String>,
 }
 
+impl PluginAction {
+    pub fn name(self) -> &'static str {
+        match self {
+            PluginAction::Install => "install",
+            PluginAction::Enable => "enable",
+            PluginAction::Disable => "disable",
+            PluginAction::Remove => "remove",
+        }
+    }
+}
+
 impl Change {
     pub fn target(&self) -> String {
         match self {

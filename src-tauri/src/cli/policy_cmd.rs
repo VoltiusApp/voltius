@@ -111,13 +111,13 @@ fn read_text(path: &Path) -> Result<Option<String>, CliError> {
     policy::read_optional(path).map_err(|e| io_error(path, Access::Read, e))
 }
 
-type Raw = serde_json::Map<String, Value>;
+pub(super) type Raw = serde_json::Map<String, Value>;
 
 pub(super) fn plain(kind: IssueKind, message: String) -> CliError {
     CliError::Validation(vec![Issue::general(kind, message)])
 }
 
-fn unusable(path: &Path, why: &str) -> CliError {
+pub(super) fn unusable(path: &Path, why: &str) -> CliError {
     plain(
         IssueKind::File,
         format!(
@@ -148,7 +148,7 @@ fn load_raw(path: &Path) -> Result<Raw, CliError> {
     Ok(root)
 }
 
-fn layer_entries<'a>(
+pub(super) fn layer_entries<'a>(
     root: &'a mut Raw,
     layer: Layer,
     path: &Path,
@@ -164,7 +164,7 @@ fn layer_entries<'a>(
         })
 }
 
-fn edit_raw(
+pub(super) fn edit_raw(
     path: &Path,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
@@ -194,16 +194,27 @@ fn edit_distance(a: &str, b: &str) -> usize {
     row[b.len()]
 }
 
-pub(super) fn unknown_key_message(key: &str) -> String {
-    let closest = policy::key_ids()
-        .map(|id| (edit_distance(key, id), id))
-        .min();
+pub(super) fn unknown_message<'a>(
+    what: &str,
+    key: &str,
+    candidates: impl Iterator<Item = &'a str>,
+) -> String {
+    let closest = candidates.map(|id| (edit_distance(key, id), id)).min();
     match closest {
         Some((d, id)) if d <= key.len() / 3 + 2 => {
-            format!("unknown key \"{key}\"; did you mean \"{id}\"?")
+            format!("unknown {what} \"{key}\"; did you mean \"{id}\"?")
         }
-        _ => format!("unknown key \"{key}\""),
+        _ => format!("unknown {what} \"{key}\""),
     }
+}
+
+pub(super) fn unknown_key_message(key: &str) -> String {
+    unknown_message("key", key, policy::key_ids())
+}
+
+pub(super) fn machine_path(machine: Option<&Path>) -> Result<&Path, CliError> {
+    machine
+        .ok_or_else(|| CliError::Usage("machine policy is not available on this platform".into()))
 }
 
 fn not_honoured_message(layer: Layer, key: &str) -> Option<String> {

@@ -1,5 +1,5 @@
 use super::output::Output;
-use super::policy_cmd::{layer_of, plain, set, typed_value};
+use super::policy_cmd::{layer_of, machine_path, plain, set, typed_value};
 use super::user::require_user_account;
 use super::{CliError, Ctx};
 use crate::cli_state::{mirror, pending};
@@ -50,12 +50,13 @@ pub(super) fn run_server(
             url,
             lock,
             defaults,
-        } if lock || defaults => {
-            let path = machine.ok_or_else(|| {
-                CliError::Usage("machine policy is not available on this platform".into())
-            })?;
-            set(KEY, &url, layer_of(defaults), path, ctx.out)
-        }
+        } if lock || defaults => set(
+            KEY,
+            &url,
+            layer_of(defaults),
+            machine_path(machine)?,
+            ctx.out,
+        ),
         ServerCmd::Set { url, .. } => {
             let ty = policy::key_type(KEY)
                 .ok_or_else(|| plain(IssueKind::UnknownKey, format!("unknown key \"{KEY}\"")))?;
