@@ -152,9 +152,11 @@ export default function IntegrationsSection() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {mcpServer !== TOGGLE_DEFS["mcp-server"].default && !mcpManaged.locked && (
-                <ResetButton onReset={() => setMcpServer(TOGGLE_DEFS["mcp-server"].default)} />
+                <>
+                  <ResetButton onReset={() => setMcpServer(TOGGLE_DEFS["mcp-server"].default)} />
+                  <DirtyDot />
+                </>
               )}
-              {mcpServer !== TOGGLE_DEFS["mcp-server"].default && <DirtyDot />}
               <RowControl managed={mcpManaged}><Toggle checked={mcpServer} onChange={setMcpServer} /></RowControl>
             </div>
           </div>
