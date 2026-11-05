@@ -272,19 +272,24 @@ fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), C
 struct Row {
     value: Value,
     source: &'static str,
-    user_value: Option<Value>,
+    default_value: Option<Value>,
+}
+
+impl Row {
+    fn new(value: Value, source: &'static str) -> Self {
+        Row {
+            value,
+            source,
+            default_value: None,
+        }
+    }
 }
 
 fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
     let mut rows = BTreeMap::new();
     let mut as_of = None;
     let mut put = |key: String, value: Value, source: &'static str| {
-        let row = Row {
-            value,
-            source,
-            user_value: None,
-        };
-        rows.insert(key, row);
+        rows.insert(key, Row::new(value, source));
     };
     if let Some(m) = mirror::read(dir) {
         for (k, v) in m.values() {
@@ -299,22 +304,16 @@ fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
 }
 
 fn effective_rows(doc: &PolicyDoc, mut rows: BTreeMap<String, Row>) -> BTreeMap<String, Row> {
-    for (layer, source, map) in [
-        (Layer::Defaults, "machine default", &doc.defaults),
-        (Layer::Policy, "machine policy", &doc.policy),
-    ] {
-        for (k, v) in map {
-            let user_value = rows
-                .remove(k)
-                .filter(|r| layer == Layer::Defaults && r.value != *v)
-                .map(|r| r.value);
-            let row = Row {
-                value: v.clone(),
-                source,
-                user_value,
-            };
-            rows.insert(k.clone(), row);
+    for (k, v) in &doc.defaults {
+        match rows.get_mut(k) {
+            Some(r) if r.value != *v => r.default_value = Some(v.clone()),
+            _ => {
+                rows.insert(k.clone(), Row::new(v.clone(), "machine default"));
+            }
         }
+    }
+    for (k, v) in &doc.policy {
+        rows.insert(k.clone(), Row::new(v.clone(), "machine policy"));
     }
     rows
 }
@@ -328,8 +327,8 @@ fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), Cl
             .iter()
             .map(|(k, r)| {
                 let mut e = json!({ "key": k, "value": r.value, "source": r.source });
-                if let Some(u) = &r.user_value {
-                    e["userValue"] = u.clone();
+                if let Some(u) = &r.default_value {
+                    e["defaultValue"] = u.clone();
                 }
                 e
             })
@@ -352,8 +351,8 @@ fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), Cl
         out.line(format!("  {dim}none{dim:#}"));
     }
     for (k, r) in &rows {
-        let note = match &r.user_value {
-            Some(u) => format!(", user changed it to {u}"),
+        let note = match &r.default_value {
+            Some(u) => format!(", machine default: {u}"),
             None => String::new(),
         };
         out.line(format!(
@@ -756,7 +755,7 @@ mod tests {
         let v = show_json(&path, Some(user.path()));
         assert_eq!(source_of(&v, CURSOR), "machine policy");
         assert_eq!(source_of(&v, "server.url"), "machine policy");
-        assert_eq!(source_of(&v, BLINK), "machine default");
+        assert_eq!(source_of(&v, BLINK), "app");
         assert_eq!(source_of(&v, "appSettings.fontSize"), "app");
         let cursor = v["entries"]
             .as_array()
@@ -796,16 +795,63 @@ mod tests {
         assert!(captured(&buf).contains("underline"));
     }
 
+    fn entry<'a>(v: &'a Value, key: &str) -> &'a Value {
+        v["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["key"] == key)
+            .unwrap()
+    }
+
     #[test]
-    fn show_notes_user_changed_default() {
+    fn show_user_value_beats_default_with_note() {
         let user = user_dir(json!({ BLINK: true }), Value::Null);
         let m = tempfile::tempdir().unwrap();
         let path = machine(m.path(), json!({}), json!({ BLINK: false }));
         let (mut sink, buf) = capture(false);
         show(&path, Some(user.path()), &mut sink).unwrap();
-        assert!(captured(&buf).contains("user changed it"));
+        assert!(captured(&buf).contains("(app, machine default: false)"));
         let v = show_json(&path, Some(user.path()));
-        assert_eq!(source_of(&v, BLINK), "machine default");
+        let e = entry(&v, BLINK);
+        assert_eq!(e["source"], "app");
+        assert_eq!(e["value"], true);
+        assert_eq!(e["defaultValue"], false);
+        assert!(e.get("userValue").is_none());
+    }
+
+    #[test]
+    fn show_pending_overrides_default() {
+        let user = user_dir(json!({ BLINK: false }), Value::Null);
+        pending::append(
+            user.path(),
+            pending::Change::Setting {
+                key: BLINK.into(),
+                value: json!(true),
+            },
+        )
+        .unwrap();
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ BLINK: false }));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, BLINK);
+        assert_eq!(e["source"], "pending");
+        assert_eq!(e["value"], true);
+        assert_eq!(e["defaultValue"], false);
+    }
+
+    #[test]
+    fn show_user_value_equal_to_default_is_machine_default() {
+        let user = user_dir(json!({ BLINK: false }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ BLINK: false }));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, BLINK);
+        assert_eq!(e["source"], "machine default");
+        assert!(e.get("defaultValue").is_none());
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(!captured(&buf).contains("machine default: "));
     }
 
     #[test]

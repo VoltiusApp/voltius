@@ -344,6 +344,27 @@ mod tests {
     }
 
     #[test]
+    fn config_get_server_url_sees_queued_change() {
+        let dir = tempfile::tempdir().unwrap();
+        write_mirror(dir.path());
+        pending::append(
+            dir.path(),
+            pending::Change::Server {
+                url: "https://queued".into(),
+            },
+        )
+        .unwrap();
+        let cmd = ConfigCmd::Get {
+            key: "server.url".into(),
+        };
+        let (r, text) = run(cmd, None, dir.path(), true);
+        r.unwrap();
+        let v: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["value"], "https://queued");
+        assert_eq!(v["source"], "pending");
+    }
+
+    #[test]
     fn config_get_json_from_app() {
         let dir = tempfile::tempdir().unwrap();
         write_mirror(dir.path());

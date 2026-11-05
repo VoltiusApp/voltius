@@ -501,7 +501,7 @@ mod tests {
     fn default_applied_comes_from_keys_json() {
         assert!(is_default_applied("server.url"));
         assert!(is_default_applied("appSettings.toggles.cursor-blink"));
-        assert!(!is_default_applied("appSettings.locale"));
+        assert!(!is_default_applied("sshConfig.import"));
     }
 
     #[test]
