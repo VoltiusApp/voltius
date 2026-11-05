@@ -115,6 +115,14 @@ test("changing what this device syncs downloads every blob again", async () => {
   expect(blobPulls()).toBe(2);
 });
 
+test("a policy lock change downloads every blob again", async () => {
+  await sync.syncNow();
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "sync.types.connection": false }, defaults: {} } });
+  await sync.syncNow();
+  expect(blobPulls()).toBe(2);
+});
+
 test("swapping out the session's local data downloads every blob again", async () => {
   await sync.syncNow();
   sync.haltSync();

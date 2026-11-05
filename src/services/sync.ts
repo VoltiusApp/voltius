@@ -26,6 +26,7 @@ import { deviceScopedSecretIds } from "@/services/deviceScopedSecrets";
 import { LAN_GROUP_FILE, LAN_GROUP_SECRET_PREFIX } from "@/services/lanGroupFiles";
 import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
 import { publishMyPublicKey } from "@/services/multiplayerService";
@@ -702,8 +703,9 @@ export const mergeRemotePayload = (remoteDeviceId: string, remotePayload: BlobPa
 function settledBlobsForCurrentInputs(): typeof settledBlobs {
   const { syncTypes, syncSettingDomains, settingSyncOverrides } = useSyncPrefsStore.getState();
   const { kek, dek } = useVaultKeysStore.getState();
+  const { machine, server } = usePolicyStore.getState();
   settledBlobs.useInputs(
-    JSON.stringify([syncTypes, syncSettingDomains, settingSyncOverrides, getExcludedObjectIds()]),
+    JSON.stringify([syncTypes, syncSettingDomains, settingSyncOverrides, getExcludedObjectIds(), machine.policy, server.policy]),
     [getVaultKey(), kek, dek],
   );
   return settledBlobs;
