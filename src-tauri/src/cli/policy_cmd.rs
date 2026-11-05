@@ -969,7 +969,7 @@ mod tests {
         assert!(text.contains(file.to_str().unwrap()), "{text}");
     }
 
-    const NOT_APPLIED: &str = "appSettings.locale is saved as a default but this version of Voltius does not apply defaults for it yet";
+    const NOT_APPLIED: &str = "sshConfig.import is saved as a default but this version of Voltius does not apply defaults for it yet";
 
     #[test]
     fn set_defaults_for_unapplied_key_warns() {
@@ -978,8 +978,8 @@ mod tests {
         let (mut sink, _, stderr) = capture_split(false, false);
         run(
             PolicyCmd::Set {
-                key: "appSettings.locale".into(),
-                value: "fr".into(),
+                key: "sshConfig.import".into(),
+                value: "true".into(),
                 defaults: true,
             },
             &path,
@@ -1007,7 +1007,7 @@ mod tests {
         let file = dir.path().join("good.json");
         std::fs::write(
             &file,
-            r#"{"version":1,"defaults":{"appSettings.locale":"fr","server.url":"https://x"}}"#,
+            r#"{"version":1,"defaults":{"sshConfig.import":true,"server.url":"https://x"}}"#,
         )
         .unwrap();
         let (mut sink, stdout, _) = capture_split(true, false);
