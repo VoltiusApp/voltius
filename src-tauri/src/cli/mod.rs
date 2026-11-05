@@ -72,10 +72,13 @@ impl fmt::Display for CliError {
 #[derive(Parser, Debug)]
 #[command(name = "voltius-cli", version, about = "Voltius command line")]
 struct Cli {
+    /// Print machine-readable JSON
     #[arg(long, global = true)]
     json: bool,
+    /// Print only errors
     #[arg(long, short, global = true)]
     quiet: bool,
+    /// Disable colours
     #[arg(long, global = true)]
     no_color: bool,
     #[command(subcommand)]
@@ -182,5 +185,17 @@ mod tests {
         let err = Cli::try_parse_from(["voltius-cli", "--help"]).unwrap_err();
         assert!(err.to_string().contains("voltius-cli"));
         assert!(Cli::try_parse_from(["voltius-cli", "mcp"]).is_ok());
+    }
+
+    #[test]
+    fn global_flags_have_help() {
+        let help = Cli::command().render_help().to_string();
+        for line in [
+            "Print machine-readable JSON",
+            "Print only errors",
+            "Disable colours",
+        ] {
+            assert!(help.contains(line), "missing {line:?} in:\n{help}");
+        }
     }
 }
