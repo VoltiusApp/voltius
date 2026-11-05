@@ -12,13 +12,19 @@ export async function applyPluginEnabled(id: string, enabled: boolean): Promise<
   return true;
 }
 
+let lockedAtLastApply = new Set<string>();
+
 function syncActiveWithLocks(): void {
   const { installedMeta } = useMarketplaceStore.getState();
   const registry = usePluginRegistryStore.getState();
-  for (const m of getLoadedPlugins()) {
+  const loaded = getLoadedPlugins();
+  const lockedNow = new Set(loaded.filter((m) => pluginLock(m.id) !== null).map((m) => m.id));
+  for (const m of loaded) {
+    if (!lockedNow.has(m.id) && !lockedAtLastApply.has(m.id)) continue;
     const enabled = registry.isEnabled(m.id, pluginDefaultEnabled(m, installedMeta));
     if (enabled !== isPluginActive(m.id)) setPluginActive(m.id, enabled);
   }
+  lockedAtLastApply = lockedNow;
 }
 
 async function warnUnknownPluginIds(): Promise<void> {
