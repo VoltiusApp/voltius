@@ -109,7 +109,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
       <div className="flex items-center gap-2 shrink-0">
         {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
         {dirty && onReset && !managed.locked && <ResetButton onReset={onReset} />}
-        {dirty && <DirtyDot />}
+        {dirty && !managed.locked && <DirtyDot />}
         <RowControl managed={managed}>{children}</RowControl>
       </div>
     </div>
@@ -355,7 +355,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 text-base text-(--t-text-primary)" style={style}>
           <span className="min-w-0">{title}</span>
-          {dirty && <DirtyDot />}
+          {dirty && !managed.locked && <DirtyDot />}
           {syncKey && <HeldBackMark path={syncKey} />}
         </div>
         {desc !== undefined && (

@@ -41,6 +41,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Managed } from "@/components/shared/ManagedNote";
 import { toggleKey, useToggle } from "@/stores/toggleSettingsStore";
+import { usePolicyLock } from "@/stores/policyStore";
 import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
 import { knockSequenceKey, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "./ProxyFields";
@@ -140,6 +141,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
   const [globalPersist] = useToggle("persistent-sessions");
+  const shellLock = usePolicyLock(toggleKey("shell-integration"));
+  const persistLock = usePolicyLock(toggleKey("persistent-sessions"));
   const [globalProxy] = useGlobalProxy();
   const [proxyOverride, setProxyOverride] = useState<ProxyOverride | null>(initial?.proxy ?? null);
   const [proxyPassword, setProxyPassword] = useState("");
@@ -626,7 +629,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   <Managed policyKey={toggleKey("shell-integration")}>
                     <FormSelect
                       className="w-36"
-                      value={shellIntegration}
+                      value={shellLock.locked ? "" : shellIntegration}
                       title={t("connections.form.shellIntegration")}
                       options={shellIntegrationOptions}
                       onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
@@ -647,7 +650,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   <Managed policyKey={toggleKey("persistent-sessions")}>
                     <FormSelect
                       className="w-36"
-                      value={persistSession}
+                      value={persistLock.locked ? "" : persistSession}
                       title={t("connections.form.persistentSession")}
                       options={persistOptions}
                       onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
