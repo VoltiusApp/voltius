@@ -303,6 +303,7 @@
       "serverBlocked": "This server isn't allowed by your organization",
       "accountNotSaved": "The current account could not be saved first, so nothing was changed",
       "fileError": "Your organization's Voltius policy file couldn't be read, so none of it applies.",
+      "unprotected": "Your organization's Voltius policy file was ignored because standard users can change it. Ask your IT team to set it with voltius-cli.",
       "issues_one": "Your organization's Voltius policy has {{count}} problem; the rest of it still applies.",
       "issues_other": "Your organization's Voltius policy has {{count}} problems; the rest of it still applies."
     },

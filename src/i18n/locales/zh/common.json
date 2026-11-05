@@ -298,6 +298,7 @@
       "serverBlocked": "您的组织不允许使用此服务器",
       "accountNotSaved": "无法先保存当前账户，因此未做任何更改",
       "fileError": "无法读取您的组织的 Voltius 策略文件，因此其中的任何设置均不生效。",
+      "unprotected": "您的组织的 Voltius 策略文件已被忽略，因为标准用户可以修改它。请让您的 IT 团队使用 voltius-cli 进行设置。",
       "issues_other": "贵组织的 Voltius 策略存在 {{count}} 个问题；其余部分仍然生效。"
     },
     "history": {

@@ -6,8 +6,7 @@ use std::time::Duration;
 #[cfg(windows)]
 fn current_user_sid() -> std::io::Result<String> {
     use std::ptr;
-    use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE};
-    use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
     use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
@@ -32,17 +31,7 @@ fn current_user_sid() -> std::io::Result<String> {
         }
 
         let user: *const TOKEN_USER = buf.as_ptr().cast();
-        let mut raw: *mut u16 = ptr::null_mut();
-        if ConvertSidToStringSidW((*user).User.Sid, &mut raw) == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        let mut n = 0usize;
-        while *raw.add(n) != 0 {
-            n += 1;
-        }
-        let sid = String::from_utf16_lossy(std::slice::from_raw_parts(raw, n));
-        LocalFree(raw.cast());
-        Ok(sid)
+        crate::win_security::sid_string((*user).User.Sid)
     }
 }
 
@@ -55,49 +44,22 @@ fn create_instance(
     addr: &std::ffi::OsStr,
     first: bool,
 ) -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeServer> {
-    use std::os::windows::ffi::OsStrExt;
-    use std::ptr;
     use tokio::net::windows::named_pipe::ServerOptions;
-    use windows_sys::Win32::Foundation::LocalFree;
-    use windows_sys::Win32::Security::Authorization::{
-        ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
-    };
-    use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
+    use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
 
     // The SID comes from our own process token, never from user input:
     // `owner_only_sddl` interpolates it without escaping.
     let sddl = super::shared::owner_only_sddl(&current_user_sid()?);
-    let wide: Vec<u16> = std::ffi::OsStr::new(&sddl)
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
+    let sd = crate::win_security::SecurityDescriptor::from_sddl(&sddl)?;
+    let mut sa = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: sd.0,
+        bInheritHandle: 0,
+    };
     unsafe {
-        let mut psd: PSECURITY_DESCRIPTOR = ptr::null_mut();
-        if ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            wide.as_ptr(),
-            SDDL_REVISION_1,
-            &mut psd,
-            ptr::null_mut(),
-        ) == 0
-        {
-            return Err(std::io::Error::last_os_error());
-        }
-        let mut sa = SECURITY_ATTRIBUTES {
-            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-            lpSecurityDescriptor: psd,
-            bInheritHandle: 0,
-        };
-        let res = ServerOptions::new()
+        ServerOptions::new()
             .first_pipe_instance(first)
-            .create_with_security_attributes_raw(
-                addr,
-                (&mut sa) as *mut _ as *mut std::ffi::c_void,
-            );
-        // Freed on both paths: the descriptor is copied into the pipe's kernel
-        // object by create, so holding it past this point leaks.
-        LocalFree(psd.cast());
-        res
+            .create_with_security_attributes_raw(addr, (&mut sa) as *mut _ as *mut std::ffi::c_void)
     }
 }
 

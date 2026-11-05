@@ -111,6 +111,13 @@ describe("policyStore", () => {
     await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledWith("error", "common.policy.fileError"));
   });
 
+  it("says the file was ignored when standard users can change it", async () => {
+    const unprotected = { kind: "unprotected", layer: null, key: null, message: "standard users can change it" };
+    mocks.invoke.mockResolvedValue(loaded({}, {}, [unprotected]));
+    await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledWith("error", "common.policy.unprotected"));
+  });
+
   it("keeps the partial message for type issues and for a bad layer beside a good one", async () => {
     const type = { kind: "type", layer: "policy", key: "x", message: "value does not match type bool; ignored" };
     mocks.invoke.mockResolvedValueOnce(loaded({}, {}, [type]));

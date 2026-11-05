@@ -52,7 +52,9 @@ pub fn run(cmd: PolicyCmd, machine: Option<&Path>, out: &mut Output) -> Result<(
         } => set(&key, &value, layer_of(defaults), path, out),
         PolicyCmd::Unset { key, defaults } => unset(&key, layer_of(defaults), path, out),
         PolicyCmd::Show => show(path, user_dir().as_deref(), out),
-        PolicyCmd::Check { file } => check(file.as_deref(), path, out),
+        PolicyCmd::Check { file } => {
+            check(file.as_deref(), path, policy::machine_protection(path), out)
+        }
         PolicyCmd::Import { file } => import(&file, path, out),
         PolicyCmd::Export => export(path, out),
         PolicyCmd::Path => print_path(Some(path), out),
@@ -168,6 +170,11 @@ pub(super) fn edit_raw(
     path: &Path,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
+    let harden = || {
+        policy::harden_machine_file(path)
+            .map_err(|e| io_error(path.parent().unwrap_or(path), Access::Write, e))
+    };
+    harden()?;
     let mut root = load_raw(path)?;
     root.entry("version").or_insert_with(|| json!(1));
     let changed = edit(&mut root)?;
@@ -175,6 +182,8 @@ pub(super) fn edit_raw(
         let mut text = serde_json::to_string_pretty(&root).map_err(|e| CliError::Io(e.into()))?;
         text.push('\n');
         policy::write_text_atomic(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
+        // The renamed-in file is owned by the caller's token owner, which may not be an admin SID.
+        harden()?;
     }
     Ok(changed)
 }
@@ -399,10 +408,23 @@ pub fn describe(i: &Issue) -> String {
     }
 }
 
-fn check(file: Option<&Path>, machine: &Path, out: &mut Output) -> Result<(), CliError> {
+fn check(
+    file: Option<&Path>,
+    machine: &Path,
+    protected: Option<policy::ProtectionCheck>,
+    out: &mut Output,
+) -> Result<(), CliError> {
     let target = file.unwrap_or(machine);
     let (doc, issues) = match policy::read_optional(target) {
-        Ok(Some(t)) => policy::parse(&t),
+        Ok(Some(t)) => {
+            let (doc, mut issues) = policy::parse(&t);
+            issues.extend(
+                protected
+                    .filter(|_| file.is_none())
+                    .and_then(|p| policy::protection_issue(target, p)),
+            );
+            (doc, issues)
+        }
         Ok(None) if file.is_none() => (PolicyDoc::default(), Vec::new()),
         Ok(None) => return Err(not_found(target)),
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
@@ -618,6 +640,26 @@ mod tests {
             &mut out(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn check_reports_unprotected() {
+        fn unprotected(_: &Path) -> std::io::Result<bool> {
+            Ok(false)
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        set(&path, "sshConfig.import", "true", false).unwrap();
+        let err = check(None, &path, Some(unprotected), &mut out()).unwrap_err();
+        assert_eq!(err.exit_code(), 3);
+        let CliError::Validation(issues) = err else {
+            unreachable!()
+        };
+        assert!(issues.iter().any(|i| i.kind == IssueKind::Unprotected));
+        check(None, &path, None, &mut out()).unwrap();
+        let other = dir.path().join("other.json");
+        std::fs::copy(&path, &other).unwrap();
+        check(Some(&other), &path, Some(unprotected), &mut out()).unwrap();
     }
 
     #[test]

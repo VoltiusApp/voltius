@@ -4,6 +4,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
+pub mod acl;
+#[cfg(windows)]
+mod acl_windows;
+
 const SUPPORTED_VERSION: u32 = 1;
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -100,6 +104,7 @@ pub enum IssueKind {
     UnknownKey,
     NewerVersion,
     Range,
+    Unprotected,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -300,6 +305,10 @@ pub fn machine_policy_path() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("VOLTIUS_POLICY_PATH") {
         return Some(PathBuf::from(p));
     }
+    default_machine_policy_path()
+}
+
+fn default_machine_policy_path() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let base = std::env::var_os("ProgramData")
@@ -343,9 +352,58 @@ pub fn read_optional(path: &Path) -> std::io::Result<Option<String>> {
     }
 }
 
+pub type ProtectionCheck = fn(&Path) -> std::io::Result<bool>;
+type Hardener = fn(&Path) -> std::io::Result<()>;
+
+#[cfg(windows)]
+const OS_ACL: Option<(ProtectionCheck, Hardener)> = Some((
+    acl_windows::is_admin_protected as ProtectionCheck,
+    acl_windows::harden as Hardener,
+));
+#[cfg(not(windows))]
+const OS_ACL: Option<(ProtectionCheck, Hardener)> = None;
+
+fn machine_acl(path: &Path) -> Option<(ProtectionCheck, Hardener)> {
+    OS_ACL.filter(|_| default_machine_policy_path().as_deref() == Some(path))
+}
+
+pub fn machine_protection(path: &Path) -> Option<ProtectionCheck> {
+    machine_acl(path).map(|(check, _)| check)
+}
+
+pub fn harden_machine_file(path: &Path) -> std::io::Result<()> {
+    machine_acl(path).map_or(Ok(()), |(_, harden)| harden(path))
+}
+
+pub fn protection_issue(path: &Path, protected: ProtectionCheck) -> Option<Issue> {
+    let checked = path
+        .parent()
+        .map_or(Ok(true), protected)
+        .and_then(|dir_ok| Ok(dir_ok && protected(path)?));
+    let why = match checked {
+        Ok(true) => return None,
+        Ok(false) => "standard users can change it".to_string(),
+        Err(e) => format!("its permissions could not be read ({e})"),
+    };
+    Some(Issue::general(
+        IssueKind::Unprotected,
+        format!(
+            "{} ignored because {why}; set it again with voltius-cli run as Administrator",
+            path.display()
+        ),
+    ))
+}
+
 pub fn load_from(path: &Path) -> LoadedPolicy {
+    load_with(path, machine_protection(path))
+}
+
+fn load_with(path: &Path, protected: Option<ProtectionCheck>) -> LoadedPolicy {
     let (doc, issues) = match read_optional(path) {
-        Ok(Some(text)) => parse(&text),
+        Ok(Some(text)) => match protected.and_then(|p| protection_issue(path, p)) {
+            Some(issue) => (PolicyDoc::default(), vec![issue]),
+            None => parse(&text),
+        },
         Ok(None) => (PolicyDoc::default(), Vec::new()),
         Err(e) => (PolicyDoc::default(), vec![read_issue(path, &e)]),
     };
@@ -531,6 +589,63 @@ mod tests {
             Ok(json!(["a"]))
         );
         assert_eq!(parse_cli_value(KeyType::Number, "12"), Ok(json!(12.0)));
+    }
+
+    fn deny_all(_: &Path) -> std::io::Result<bool> {
+        Ok(false)
+    }
+
+    fn deny_file_only(p: &Path) -> std::io::Result<bool> {
+        Ok(p.extension().is_none())
+    }
+
+    fn unreadable_acl(_: &Path) -> std::io::Result<bool> {
+        Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+    }
+
+    fn allow_all(_: &Path) -> std::io::Result<bool> {
+        Ok(true)
+    }
+
+    #[test]
+    fn load_ignores_unprotected_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::write(
+            &path,
+            r#"{"version":1,"policy":{"sshConfig.import":false}}"#,
+        )
+        .unwrap();
+        for check in [deny_all as ProtectionCheck, deny_file_only, unreadable_acl] {
+            let loaded = load_with(&path, Some(check));
+            assert_eq!(loaded.doc, PolicyDoc::default());
+            assert_eq!(loaded.issues.len(), 1);
+            assert_eq!(loaded.issues[0].kind, IssueKind::Unprotected);
+            assert!(loaded.issues[0].message.contains(path.to_str().unwrap()));
+        }
+        assert_eq!(load_with(&path, Some(allow_all)).doc.policy.len(), 1);
+        assert_eq!(load_with(&path, None).doc.policy.len(), 1);
+    }
+
+    #[test]
+    fn missing_file_needs_no_protection() {
+        let dir = tempfile::tempdir().unwrap();
+        let loaded = load_with(&dir.path().join("policy.json"), Some(deny_all));
+        assert!(loaded.issues.is_empty());
+    }
+
+    #[test]
+    fn non_default_path_skips_acl() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        assert!(machine_protection(&path).is_none());
+        harden_machine_file(&path).unwrap();
+    }
+
+    #[test]
+    fn unprotected_issue_serializes_camel_case() {
+        let issue = protection_issue(Path::new("/x/policy.json"), deny_all).unwrap();
+        assert_eq!(serde_json::to_value(&issue).unwrap()["kind"], "unprotected");
     }
 
     #[test]

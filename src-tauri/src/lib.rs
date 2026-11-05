@@ -51,6 +51,8 @@ mod tls;
 mod updater;
 mod vault_auth;
 mod webdav;
+#[cfg(windows)]
+mod win_security;
 
 use commands::http::HttpSseStreamManager;
 use docker::stream::DockerLogStreamManager;
