@@ -1,5 +1,6 @@
 use super::output::Output;
 use super::{Access, CliError};
+use crate::cli_state::{mirror, pending};
 use crate::policy::{self, Issue, IssueKind, Layer, PolicyDoc};
 use clap::Subcommand;
 use serde_json::{json, Value};
@@ -22,7 +23,7 @@ pub enum PolicyCmd {
         #[arg(long)]
         defaults: bool,
     },
-    /// Show the machine policy file contents
+    /// Show each setting's effective value and where it comes from
     Show,
     /// Validate a policy file (default: the machine file)
     Check { file: Option<PathBuf> },
@@ -50,7 +51,7 @@ pub fn run(cmd: PolicyCmd, machine: Option<&Path>, out: &mut Output) -> Result<(
             defaults,
         } => set(&key, &value, layer_of(defaults), path, out),
         PolicyCmd::Unset { key, defaults } => unset(&key, layer_of(defaults), path, out),
-        PolicyCmd::Show => show(path, out),
+        PolicyCmd::Show => show(path, user_dir().as_deref(), out),
         PolicyCmd::Check { file } => check(file.as_deref(), path, out),
         PolicyCmd::Import { file } => import(&file, path, out),
         PolicyCmd::Export => export(path, out),
@@ -268,40 +269,116 @@ fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), C
     Ok(())
 }
 
-fn show(path: &Path, out: &mut Output) -> Result<(), CliError> {
+struct Row {
+    value: Value,
+    source: &'static str,
+    user_value: Option<Value>,
+}
+
+fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
+    let mut rows = BTreeMap::new();
+    let mut as_of = None;
+    let mut put = |key: String, value: Value, source: &'static str| {
+        let row = Row {
+            value,
+            source,
+            user_value: None,
+        };
+        rows.insert(key, row);
+    };
+    if let Some(m) = mirror::read(dir) {
+        for (k, v) in m.values() {
+            put(k, v, "app");
+        }
+        as_of = Some(m.written_at);
+    }
+    for (k, (v, _)) in pending::load(dir).0.queued_values() {
+        put(k, v, "pending");
+    }
+    (rows, as_of)
+}
+
+fn effective_rows(doc: &PolicyDoc, mut rows: BTreeMap<String, Row>) -> BTreeMap<String, Row> {
+    for (layer, source, map) in [
+        (Layer::Defaults, "machine default", &doc.defaults),
+        (Layer::Policy, "machine policy", &doc.policy),
+    ] {
+        for (k, v) in map {
+            let user_value = rows
+                .remove(k)
+                .filter(|r| layer == Layer::Defaults && r.value != *v)
+                .map(|r| r.value);
+            let row = Row {
+                value: v.clone(),
+                source,
+                user_value,
+            };
+            rows.insert(k.clone(), row);
+        }
+    }
+    rows
+}
+
+fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
     let loaded = policy::load_from(path);
+    let (user, as_of) = user_dir.map_or_else(Default::default, user_values);
+    let rows = effective_rows(&loaded.doc, user);
     if out.json {
+        let entries: Vec<Value> = rows
+            .iter()
+            .map(|(k, r)| {
+                let mut e = json!({ "key": k, "value": r.value, "source": r.source });
+                if let Some(u) = &r.user_value {
+                    e["userValue"] = u.clone();
+                }
+                e
+            })
+            .collect();
         out.json(&json!({
             "path": loaded.path,
-            "policy": loaded.doc.policy,
-            "defaults": loaded.doc.defaults,
+            "entries": entries,
             "issues": loaded.issues,
+            "mirrorAsOf": as_of,
         }));
         return Ok(());
     }
     let bold = anstyle::Style::new().bold();
     let dim = anstyle::Style::new().dimmed();
     out.line(format!(
-        "{bold}Machine policy{bold:#} {dim}{}{dim:#}",
+        "{bold}Effective settings{bold:#} {dim}{}{dim:#}",
         path.display()
     ));
-    for (title, map) in layers(&loaded.doc) {
+    if rows.is_empty() {
+        out.line(format!("  {dim}none{dim:#}"));
+    }
+    for (k, r) in &rows {
+        let note = match &r.user_value {
+            Some(u) => format!(", user changed it to {u}"),
+            None => String::new(),
+        };
         out.line(format!(
-            "\n{bold}{}{bold:#} {dim}(source: machine){dim:#}",
-            title.name()
+            "  {k} = {} {dim}({}{note}){dim:#}",
+            r.value, r.source
         ));
-        if map.is_empty() {
-            out.line(format!("  {dim}none{dim:#}"));
-        }
-        for (k, v) in map {
-            out.line(format!("  {k} = {v}"));
-        }
+    }
+    match (user_dir, &as_of) {
+        (None, _) => out.line(format!(
+            "\n{dim}user values not shown when run as root{dim:#}"
+        )),
+        (Some(_), Some(t)) => out.line(format!("\n{dim}app values as of {t}{dim:#}")),
+        (Some(_), None) => out.line(format!(
+            "\n{dim}Voltius has not run yet for this user{dim:#}"
+        )),
     }
     let warn = anstyle::AnsiColor::Yellow.on_default();
     for i in &loaded.issues {
         out.line(format!("{warn}warning{warn:#}: {}", describe(i)));
     }
     Ok(())
+}
+
+fn user_dir() -> Option<PathBuf> {
+    (!super::user::is_system_account()).then(crate::storage::config::config_dir_peek)
 }
 
 pub fn describe(i: &Issue) -> String {
@@ -385,6 +462,7 @@ fn export(path: &Path, out: &mut Output) -> Result<(), CliError> {
 mod tests {
     use super::*;
     use crate::cli::output::testing::{capture, captured, Buf, Shared};
+    use crate::cli_state::{mirror, pending};
     use std::sync::{Arc, Mutex};
 
     fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError> {
@@ -437,7 +515,7 @@ mod tests {
         assert_eq!(doc.policy.len(), 1);
         assert_eq!(doc.defaults.len(), 1);
         let (mut sink, buf) = capture(false);
-        run(PolicyCmd::Show, &path, &mut sink).unwrap();
+        show(&path, None, &mut sink).unwrap();
         assert!(captured(&buf).contains("server.url"));
     }
 
@@ -620,6 +698,137 @@ mod tests {
         run(PolicyCmd::Export, &path, &mut sink).unwrap();
         let v: Value = serde_json::from_str(&captured(&buf)).unwrap();
         assert_eq!(v["policy"]["future.key"], Value::from(7));
+    }
+
+    const CURSOR: &str = "appSettings.terminal.cursorStyle";
+    const BLINK: &str = "appSettings.toggles.cursor-blink";
+
+    fn user_dir(settings: Value, server: Value) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        mirror::write(
+            dir.path(),
+            &json!({
+                "writtenAt": "2026-11-05T10:00:00Z", "appVersion": "1", "serverUrl": server,
+                "plugins": [], "settings": settings
+            }),
+        )
+        .unwrap();
+        dir
+    }
+
+    fn show_json(path: &Path, dir: Option<&Path>) -> Value {
+        let (mut sink, buf) = capture(true);
+        show(path, dir, &mut sink).unwrap();
+        serde_json::from_str(&captured(&buf)).unwrap()
+    }
+
+    fn source_of(v: &Value, key: &str) -> Value {
+        v["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["key"] == key)
+            .map_or(Value::Null, |e| e["source"].clone())
+    }
+
+    fn machine(dir: &Path, policy: Value, defaults: Value) -> PathBuf {
+        let path = dir.join("policy.json");
+        std::fs::write(
+            &path,
+            json!({"version":1,"policy":policy,"defaults":defaults}).to_string(),
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn show_merges_sources_in_precedence() {
+        let user = user_dir(
+            json!({ CURSOR: "bar", BLINK: true, "appSettings.fontSize": 14 }),
+            json!("https://app"),
+        );
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(
+            m.path(),
+            json!({ CURSOR: "block", "server.url": "https://locked" }),
+            json!({ BLINK: false }),
+        );
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, CURSOR), "machine policy");
+        assert_eq!(source_of(&v, "server.url"), "machine policy");
+        assert_eq!(source_of(&v, BLINK), "machine default");
+        assert_eq!(source_of(&v, "appSettings.fontSize"), "app");
+        let cursor = v["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["key"] == CURSOR)
+            .unwrap();
+        assert_eq!(cursor["value"], "block");
+        assert_eq!(v["mirrorAsOf"], "2026-11-05T10:00:00Z");
+    }
+
+    #[test]
+    fn show_marks_pending() {
+        let user = user_dir(json!({ CURSOR: "bar" }), Value::Null);
+        pending::append(
+            user.path(),
+            pending::Change::Setting {
+                key: CURSOR.into(),
+                value: json!("underline"),
+            },
+        )
+        .unwrap();
+        pending::append(
+            user.path(),
+            pending::Change::Server {
+                url: "https://queued".into(),
+            },
+        )
+        .unwrap();
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({}));
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, CURSOR), "pending");
+        assert_eq!(source_of(&v, "server.url"), "pending");
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(captured(&buf).contains("underline"));
+    }
+
+    #[test]
+    fn show_notes_user_changed_default() {
+        let user = user_dir(json!({ BLINK: true }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ BLINK: false }));
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(captured(&buf).contains("user changed it"));
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, BLINK), "machine default");
+    }
+
+    #[test]
+    fn show_as_system_skips_user_values() {
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ CURSOR: "block" }), json!({}));
+        let v = show_json(&path, None);
+        assert_eq!(v["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(v["mirrorAsOf"], Value::Null);
+        let (mut sink, buf) = capture(false);
+        show(&path, None, &mut sink).unwrap();
+        assert!(captured(&buf).contains("user values not shown when run as root"));
+    }
+
+    #[test]
+    fn show_json_shape() {
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ "nope.key": 1 }), json!({}));
+        let v = show_json(&path, None);
+        assert!(v["path"].is_string());
+        assert!(v["entries"].is_array());
+        assert_eq!(v["issues"].as_array().unwrap().len(), 1);
+        assert!(v.get("mirrorAsOf").is_some());
     }
 
     fn capture_split(json: bool, quiet: bool) -> (Output, Shared, Shared) {

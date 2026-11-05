@@ -27,6 +27,16 @@ pub struct MirrorPlugin {
     pub locked: Option<bool>,
 }
 
+impl Mirror {
+    pub fn values(&self) -> BTreeMap<String, Value> {
+        let mut map = self.settings.clone();
+        if let Some(url) = &self.server_url {
+            map.insert("server.url".into(), Value::from(url.as_str()));
+        }
+        map
+    }
+}
+
 pub fn read(dir: &Path) -> Option<Mirror> {
     let text = std::fs::read_to_string(dir.join(MIRROR_FILE)).ok()?;
     serde_json::from_str(&text).ok()

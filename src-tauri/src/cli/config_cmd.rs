@@ -109,15 +109,11 @@ fn get(key: &str, dir: &Path, out: &mut Output) -> Result<(), CliError> {
     if policy::key_type(key).is_none() {
         return Err(plain(IssueKind::UnknownKey, unknown_key_message(key)));
     }
-    let (doc, _) = pending::load(dir);
-    let queued = doc.changes.iter().rev().find_map(|e| match &e.change {
-        pending::Change::Setting { key: k, value } if k == key => Some((value.clone(), &e.at)),
-        _ => None,
-    });
+    let queued = pending::load(dir).0.queued_values().remove(key);
     let (value, source, as_of) = match (queued, mirror::read(dir)) {
-        (Some((v, at)), _) => (v, "pending", at.clone()),
+        (Some((v, at)), _) => (v, "pending", at),
         (None, Some(m)) => (
-            m.settings.get(key).cloned().unwrap_or(Value::Null),
+            m.values().remove(key).unwrap_or(Value::Null),
             "app",
             m.written_at,
         ),

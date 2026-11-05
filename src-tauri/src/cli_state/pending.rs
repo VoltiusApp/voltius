@@ -1,6 +1,7 @@
 use crate::policy::write_text_atomic;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::io;
 use std::path::Path;
 
@@ -64,6 +65,21 @@ impl Change {
             Change::Server { .. } => "server".into(),
             Change::Plugin { id, .. } => format!("plugin:{id}"),
         }
+    }
+}
+
+impl PendingDoc {
+    pub fn queued_values(&self) -> BTreeMap<String, (Value, String)> {
+        let mut map = BTreeMap::new();
+        for e in &self.changes {
+            let (key, value) = match &e.change {
+                Change::Setting { key, value } => (key.clone(), value.clone()),
+                Change::Server { url } => ("server.url".to_string(), Value::from(url.as_str())),
+                Change::Plugin { .. } => continue,
+            };
+            map.insert(key, (value, e.at.clone()));
+        }
+        map
     }
 }
 
