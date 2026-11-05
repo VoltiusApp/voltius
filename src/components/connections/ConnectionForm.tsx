@@ -39,7 +39,8 @@ import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
-import { useToggle } from "@/stores/toggleSettingsStore";
+import { Managed } from "@/components/shared/ManagedNote";
+import { toggleKey, useToggle } from "@/stores/toggleSettingsStore";
 import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
 import { knockSequenceKey, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "./ProxyFields";
@@ -622,13 +623,15 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   <Toggle checked={legacyAlgorithms} onChange={(v) => { markDirty(); setLegacyAlgorithms(v); }} />
                 </SettingRow>
                 <SettingRow icon="lucide:terminal" label={t("connections.form.shellIntegration")}>
-                  <FormSelect
-                    className="w-36"
-                    value={shellIntegration}
-                    title={t("connections.form.shellIntegration")}
-                    options={shellIntegrationOptions}
-                    onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
-                  />
+                  <Managed policyKey={toggleKey("shell-integration")}>
+                    <FormSelect
+                      className="w-36"
+                      value={shellIntegration}
+                      title={t("connections.form.shellIntegration")}
+                      options={shellIntegrationOptions}
+                      onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
+                    />
+                  </Managed>
                 </SettingRow>
                 <SettingRow icon="lucide:heart-pulse" label={t("connections.form.keepalive")}>
                   <FormSelect
@@ -641,13 +644,15 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                 </SettingRow>
                 {proxyFields}
                 <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")}>
-                  <FormSelect
-                    className="w-36"
-                    value={persistSession}
-                    title={t("connections.form.persistentSession")}
-                    options={persistOptions}
-                    onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
-                  />
+                  <Managed policyKey={toggleKey("persistent-sessions")}>
+                    <FormSelect
+                      className="w-36"
+                      value={persistSession}
+                      title={t("connections.form.persistentSession")}
+                      options={persistOptions}
+                      onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
+                    />
+                  </Managed>
                 </SettingRow>
 
             </AdvancedDisclosure>

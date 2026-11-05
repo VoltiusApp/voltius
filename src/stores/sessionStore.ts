@@ -25,7 +25,7 @@ import { useConnectionStore, connectionToFormData } from "./connectionStore";
 import { findSavedHostMatch } from "./savedHostMatch";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
-import { getToggle } from "./toggleSettingsStore";
+import { getToggle, hostToggle } from "./toggleSettingsStore";
 import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
@@ -172,7 +172,7 @@ async function buildSshConnectOptions(
     legacyAlgorithms: connection.legacy_algorithms ?? false,
     preCommand: inlineCommandForBackend(connection, "pre"),
     autoForward: getToggle("auto-forward"),
-    shellIntegration: connection.shell_integration ?? getToggle("shell-integration"),
+    shellIntegration: hostToggle("shell-integration", connection.shell_integration),
     keepaliveIntervalSecs: intervalSecs,
     keepaliveMax: max,
     persist: resolvePersistSession(connection.persist_session),

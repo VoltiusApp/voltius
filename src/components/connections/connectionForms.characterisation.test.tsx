@@ -96,7 +96,7 @@ vi.mock("@/stores/uiStore", () => ({
   },
   findAnyConnection: () => undefined,
 }));
-vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()] }));
+vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()], toggleKey: (id: string) => `appSettings.toggles.${id}` }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({
   useGlobalKeepalivePreset: () => ["balanced", vi.fn()],
   useGlobalProxy: () => [{ mode: "none" }, vi.fn()],

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useAdminDefaultsStore } from "./adminDefaultsStore";
 import { touchAppSetting } from "./appSettingsTimestampStore";
-import { adminDefault, lockedValue, onPolicyLoaded, usePolicyStore } from "./policyStore";
+import { adminDefault, lockedBool, onPolicyLoaded, usePolicyLock } from "./policyStore";
 import { TOGGLE_DEFS, type ToggleDef, type ToggleId } from "./toggleDefs";
 
 export { TOGGLE_DEFS, type ToggleDef, type ToggleId };
@@ -13,12 +13,9 @@ interface ToggleSettingsState {
   set: (id: ToggleId, value: boolean) => void;
 }
 
-const toggleKey = (id: ToggleId) => `appSettings.toggles.${id}`;
+export const toggleKey = (id: ToggleId) => `appSettings.toggles.${id}`;
 
-function policyToggle(id: ToggleId): boolean | undefined {
-  const lock = lockedValue(toggleKey(id));
-  return lock.locked && typeof lock.value === "boolean" ? lock.value : undefined;
-}
+const policyToggle = (id: ToggleId): boolean | undefined => lockedBool(toggleKey(id));
 
 export const useToggleSettingsStore = create<ToggleSettingsState>()(
   persist(
@@ -40,14 +37,18 @@ export function getToggle(id: ToggleId): boolean {
   return policyToggle(id) ?? useToggleSettingsStore.getState().values[id] ?? TOGGLE_DEFS[id].default;
 }
 
+/** A per-host override of a global toggle; a locked toggle still wins. */
+export function hostToggle(id: ToggleId, perHost: boolean | undefined): boolean {
+  return policyToggle(id) ?? perHost ?? getToggle(id);
+}
+
 /** React hook — returns [value, setter]. */
 export function useToggle(id: ToggleId): [boolean, (v: boolean) => void] {
-  const locked = usePolicyStore((s) => s.server.policy[toggleKey(id)] ?? s.machine.policy[toggleKey(id)]);
+  usePolicyLock(toggleKey(id));
   const stored = useToggleSettingsStore((s) => s.values[id]);
   const set = useToggleSettingsStore((s) => s.set);
   const setter = useCallback((v: boolean) => set(id, v), [set, id]);
-  const policy = typeof locked === "boolean" ? locked : undefined;
-  return [policy ?? stored ?? TOGGLE_DEFS[id].default, setter];
+  return [policyToggle(id) ?? stored ?? TOGGLE_DEFS[id].default, setter];
 }
 
 // Written without a sync clock so a value chosen on another device wins the merge.

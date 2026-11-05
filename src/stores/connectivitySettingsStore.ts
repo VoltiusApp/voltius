@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { touchAppSetting } from "./appSettingsTimestampStore";
-import { getToggle } from "./toggleSettingsStore";
+import { getToggle, hostToggle } from "./toggleSettingsStore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
 import type { CustomProxyMode, ProxyMode } from "@/types";
 import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
@@ -90,9 +90,8 @@ export function useDetachedTtlHours(): [DetachedTtlHours, (h: DetachedTtlHours) 
   return useConnectivitySetting("detachedTtlHours", (s) => s.setDetachedTtlHours);
 }
 
-/** Per-host value wins; otherwise the global `persistent-sessions` toggle. */
 export function resolvePersistSession(perHost: boolean | undefined): boolean {
-  return perHost ?? getToggle("persistent-sessions");
+  return hostToggle("persistent-sessions", perHost);
 }
 
 export function getGlobalProxy(): GlobalProxy {

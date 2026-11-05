@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { TOGGLE_DEFS, getToggle, useToggleSettingsStore, type ToggleDef, type ToggleId } from "@/stores/toggleSettingsStore";
-import { isLocked, usePolicyStore } from "@/stores/policyStore";
+import { TOGGLE_DEFS, getToggle, toggleKey, useToggleSettingsStore, type ToggleDef, type ToggleId } from "@/stores/toggleSettingsStore";
+import { isLocked, usePolicyRefresh } from "@/stores/policyStore";
 import { useIsAndroid } from "@/utils/platform";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -26,8 +26,7 @@ export function useToggleSettings(): ToggleItem[] {
   const { t } = useTranslation();
   const values = useToggleSettingsStore((s) => s.values);
   const set = useToggleSettingsStore((s) => s.set);
-  const machinePolicy = usePolicyStore((s) => s.machine);
-  const serverPolicy = usePolicyStore((s) => s.server);
+  const [machinePolicy, serverPolicy] = usePolicyRefresh();
   const { syncTypes, setSyncType, isTypeSynced } = useSyncPrefsStore();
   // Subscribe to overrides so plugin toggle values stay live as they're flipped.
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
@@ -47,7 +46,7 @@ export function useToggleSettings(): ToggleItem[] {
       onToggle: setAutoUpdate,
     },
     ...(Object.entries(TOGGLE_DEFS) as [ToggleId, ToggleDef][]).filter(([, def]) => isAndroid || !def.androidOnly).map(([id, def]) => {
-      const locked = isLocked(`appSettings.toggles.${id}`);
+      const locked = isLocked(toggleKey(id));
       return {
         id,
         label: t(def.labelKey),

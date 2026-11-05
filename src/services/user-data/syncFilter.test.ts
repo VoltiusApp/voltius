@@ -262,6 +262,18 @@ describe("policy", () => {
     expect("cursor-blink" in toggles(restoreLocal(appBundle()))).toBe(false);
   });
 
+  test("a lock this version does not enforce keeps syncing", () => {
+    usePolicyStore.setState({ machine: { policy: { "appSettings.terminal.cursorStyle": "block" }, defaults: {} } });
+    const data = filterOutgoing(appBundle()).sections.appSettings.data as Record<string, Record<string, unknown>>;
+    expect(data.terminal.cursorStyle).toBe("bar");
+    expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain("appSettings.terminal.cursorStyle");
+  });
+
+  test("heldBackKeys lists an enforced lock", () => {
+    lockKey();
+    expect(heldBackKeys("appSettings").map((k) => k.id)).toContain(KEY);
+  });
+
   test("outgoing bundle omits admin-defaulted keys", () => {
     useAdminDefaultsStore.setState({ applied: { [KEY]: true } });
     expect("cursor-blink" in toggles(filterOutgoing(appBundle()))).toBe(false);
