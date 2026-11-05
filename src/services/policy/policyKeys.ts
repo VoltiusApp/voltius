@@ -57,7 +57,15 @@ export function policyKeyDef(id: string): PolicyKeyDef | undefined {
 }
 
 const ENFORCED_PREFIXES = ["appSettings.toggles.", "sync."];
-const ENFORCED_KEYS = new Set(["server.url", "server.allowOther", "sshConfig.import", "plugins.enabled", "plugins.disabled", "plugins.install", "plugins.allowInstall"]);
+const ENFORCED_KEYS = new Set([
+  "server.url",
+  "server.allowOther",
+  "sshConfig.import",
+  "plugins.enabled",
+  "plugins.disabled",
+  "plugins.install",
+  "plugins.allowInstall",
+]);
 
 // Keys whose read path honours a lock; settings rows show "managed" only for these.
 export function isPolicyEnforced(key: string): boolean {

@@ -53,7 +53,7 @@ pub fn is_gated_permission(perm: &str) -> bool {
     GATED_PERMISSIONS.contains(perm)
 }
 
-pub fn key_ids()-> impl Iterator<Item = &'static str> {
+pub fn key_ids() -> impl Iterator<Item = &'static str> {
     KEYS.keys().map(String::as_str)
 }
 
