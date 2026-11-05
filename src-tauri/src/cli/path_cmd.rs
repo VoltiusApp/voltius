@@ -41,6 +41,11 @@ pub fn path_without(current: &str, dir: &str) -> Option<String> {
     Some(kept.join(";"))
 }
 
+#[cfg(any(target_os = "windows", test))]
+fn is_not_found(hresult: i32) -> bool {
+    hresult == 0x8007_0002_u32 as i32
+}
+
 #[cfg(target_os = "windows")]
 pub fn run(cmd: PathCmd, _ctx: &mut Ctx) -> Result<(), CliError> {
     use windows_registry::{Type, CURRENT_USER};
@@ -50,7 +55,11 @@ pub fn run(cmd: PathCmd, _ctx: &mut Ctx) -> Result<(), CliError> {
     };
     let io = |e: &dyn std::fmt::Display| CliError::Io(std::io::Error::other(e.to_string()));
     let key = CURRENT_USER.create("Environment").map_err(|e| io(&e))?;
-    let existing = key.get_value("Path").ok();
+    let existing = match key.get_value("Path") {
+        Ok(v) => Some(v),
+        Err(e) if is_not_found(e.code().0) => None,
+        Err(e) => return Err(io(&e)),
+    };
     let expand = existing
         .as_ref()
         .is_none_or(|v| v.ty() == Type::ExpandString);
@@ -66,7 +75,9 @@ pub fn run(cmd: PathCmd, _ctx: &mut Ctx) -> Result<(), CliError> {
     let Some(next) = next else {
         return Ok(());
     };
-    if expand {
+    if next.is_empty() {
+        key.remove_value("Path").map_err(|e| io(&e))?;
+    } else if expand {
         key.set_expand_string("Path", &next).map_err(|e| io(&e))?;
     } else {
         key.set_string("Path", &next).map_err(|e| io(&e))?;
@@ -142,5 +153,29 @@ mod tests {
         assert!(long.len() > 3000);
         let added = path_with(&long, r"C:\V").unwrap();
         assert_eq!(path_without(&added, r"C:\V").unwrap(), long);
+    }
+
+    #[test]
+    fn only_file_not_found_means_absent() {
+        assert!(is_not_found(0x8007_0002_u32 as i32));
+        assert!(!is_not_found(0x8007_0005_u32 as i32));
+        assert!(!is_not_found(0));
+    }
+
+    #[test]
+    fn removing_the_only_entry_yields_empty() {
+        assert_eq!(path_without(r"C:\V", r"C:\V").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn empty_middle_segment_is_preserved() {
+        assert_eq!(
+            path_without(r"C:\a;;C:\V;C:\b", r"C:\V").as_deref(),
+            Some(r"C:\a;;C:\b")
+        );
+        assert_eq!(
+            path_with(r"C:\a;;C:\b", r"C:\V").as_deref(),
+            Some(r"C:\a;;C:\b;C:\V")
+        );
     }
 }
