@@ -105,6 +105,24 @@ describe("policyStore", () => {
     vi.mocked(console.warn).mockRestore();
   });
 
+  it("says none of it applies when the file could not be read", async () => {
+    mocks.invoke.mockResolvedValue(loaded({}, {}, [{ kind: "file", layer: null, key: null, message: "invalid JSON" }]));
+    await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledWith("error", "common.policy.fileError"));
+  });
+
+  it("keeps the partial message for type issues and for a bad layer beside a good one", async () => {
+    const type = { kind: "type", layer: "policy", key: "x", message: "value does not match type bool; ignored" };
+    mocks.invoke.mockResolvedValueOnce(loaded({}, {}, [type]));
+    await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenLastCalledWith("error", "common.policy.issues"));
+    const layer = { kind: "file", layer: "policy", key: null, message: "\"policy\" must be an object" };
+    mocks.invoke.mockResolvedValueOnce(loaded({}, { "appSettings.locale": "fr" }, [layer]));
+    await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(2));
+    expect(mocks.notify).toHaveBeenLastCalledWith("error", "common.policy.issues");
+  });
+
   it("a failed load leaves the state alone and does not throw", async () => {
     usePolicyStore.setState({ machine: { policy: { k: true }, defaults: {} } });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
