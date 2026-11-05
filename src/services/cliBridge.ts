@@ -4,7 +4,8 @@ import { notify } from "@/services/saveFile";
 import { clientVersion } from "@/services/clientHeaders";
 import { USER_DATA_HANDLERS } from "@/services/user-data/registry";
 import { SETTING_KEYS, domainOf, relPath } from "@/services/user-data/settingKeys";
-import { getPath, setPath } from "@/utils/dotPath";
+import { importSetting, readSetting, sameValue } from "@/services/user-data/settingAccess";
+import { getPath } from "@/utils/dotPath";
 import { rememberServer, storedServerUrl } from "@/utils/serverInstance";
 import { isEnforcedLock, isLocked } from "@/stores/policyStore";
 
@@ -18,27 +19,12 @@ const LOCKED = "locked by policy";
 const INVALID = "invalid value";
 const SERVER_LOCK_KEY = "server.url";
 
-const canonical = (v: unknown): string =>
-  JSON.stringify(v, (_, x) =>
-    x && typeof x === "object" && !Array.isArray(x)
-      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1)))
-      : x,
-  );
-const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
-
-export function settingPatch(key: string, value: unknown): { domain: string; data: Record<string, unknown> } {
-  const data: Record<string, unknown> = {};
-  setPath(data, relPath(key), value);
-  return { domain: domainOf(key), data };
-}
-
 async function applySetting(key: string, value: unknown): Promise<string | null> {
   if (isEnforcedLock(key)) return LOCKED;
-  const { domain, data } = settingPatch(key, value);
-  const handler = USER_DATA_HANDLERS.find((h) => h.key === domain);
-  if (!handler) return `unknown setting ${key}`;
-  await handler.import(data);
-  return same(getPath(handler.export(), relPath(key)), value) ? null : INVALID;
+  const pending = importSetting(key, value);
+  if (!pending) return `unknown setting ${key}`;
+  await pending;
+  return sameValue(readSetting(key), value) ? null : INVALID;
 }
 
 function applyServer(url: string): string | null {

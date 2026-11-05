@@ -1,9 +1,8 @@
 import { useCallback } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useAdminDefaultsStore } from "./adminDefaultsStore";
 import { touchAppSetting } from "./appSettingsTimestampStore";
-import { adminDefault, lockedBool, onPolicyLoaded, usePolicyLock } from "./policyStore";
+import { lockedBool, usePolicyLock } from "./policyStore";
 import { TOGGLE_DEFS, type ToggleDef, type ToggleId } from "./toggleDefs";
 
 export { TOGGLE_DEFS, type ToggleDef, type ToggleId };
@@ -24,7 +23,6 @@ export const useToggleSettingsStore = create<ToggleSettingsState>()(
       set: (id, value) => {
         if (policyToggle(id) !== undefined) return;
         set((s) => ({ values: { ...s.values, [id]: value } }));
-        useAdminDefaultsStore.getState().clear(toggleKey(id));
         touchAppSetting(toggleKey(id));
       },
     }),
@@ -50,19 +48,3 @@ export function useToggle(id: ToggleId): [boolean, (v: boolean) => void] {
   const setter = useCallback((v: boolean) => set(id, v), [set, id]);
   return [policyToggle(id) ?? stored ?? TOGGLE_DEFS[id].default, setter];
 }
-
-// Written without a sync clock so a value chosen on another device wins the merge.
-export function applyToggleDefaults(): void {
-  const { values } = useToggleSettingsStore.getState();
-  const fresh: Partial<Record<ToggleId, boolean>> = {};
-  for (const id of Object.keys(TOGGLE_DEFS) as ToggleId[]) {
-    const value = adminDefault(toggleKey(id));
-    if (typeof value === "boolean" && values[id] === undefined) fresh[id] = value;
-  }
-  const ids = Object.keys(fresh) as ToggleId[];
-  if (!ids.length) return;
-  useToggleSettingsStore.setState((s) => ({ values: { ...s.values, ...fresh } }));
-  ids.forEach((id) => useAdminDefaultsStore.getState().markApplied(toggleKey(id)));
-}
-
-onPolicyLoaded(applyToggleDefaults);

@@ -1,4 +1,4 @@
-import { SETTING_KEYS } from "@/services/user-data/settingKeys";
+import { SETTING_KEYS, settingKey } from "@/services/user-data/settingKeys";
 import { SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
 
 export type PolicyKeyType = "bool" | "string" | "number" | "stringList" | "json";
@@ -74,7 +74,7 @@ export function isPolicyEnforced(key: string): boolean {
 
 // Keys whose admin default the app applies; the CLI warns about the rest.
 const DEFAULT_APPLIED_KEYS = new Set(["server.url", "plugins.install", "plugins.enabled", "plugins.disabled"]);
-export const isDefaultApplied = (key: string): boolean => DEFAULT_APPLIED_KEYS.has(key) || key.startsWith(TOGGLE_PREFIX);
+export const isDefaultApplied = (key: string): boolean => DEFAULT_APPLIED_KEYS.has(key) || settingKey(key) !== undefined;
 
 export function policyKeysSnapshot(): Array<PolicyKeyDef & { enforced: boolean; defaultApplied: boolean }> {
   return POLICY_KEYS.map((k) => ({ ...k, enforced: isPolicyEnforced(k.id), defaultApplied: isDefaultApplied(k.id) }));

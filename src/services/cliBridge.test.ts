@@ -7,7 +7,8 @@ vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "9.9.9" }));
 
-import { applyCliPending, settingPatch, writeCliMirror } from "./cliBridge";
+import { applyCliPending, writeCliMirror } from "./cliBridge";
+import { settingPatch } from "./user-data/settingAccess";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";

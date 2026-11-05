@@ -27,6 +27,7 @@ import { canLockVault } from "@/utils/accountMode";
 import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
 import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
 import { applyCliPending } from "@/services/cliBridge";
+import "@/services/policy/adminDefaults";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 

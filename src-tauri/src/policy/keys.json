@@ -309,61 +309,61 @@
     "id": "appSettings.terminal.preferredShell",
     "type": "string",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.terminal.cursorStyle",
     "type": "string",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.terminal.keywordRules",
     "type": "json",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.sftp.autoRefreshIntervalMs",
     "type": "number",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.plugins.overrides",
     "type": "json",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.keepalivePreset",
     "type": "string",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.detachedTtlHours",
     "type": "number",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.locale",
     "type": "string",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.proxy",
     "type": "json",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "themes.location",
     "type": "json",
     "enforced": false,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "appSettings.toggles.cursor-blink",

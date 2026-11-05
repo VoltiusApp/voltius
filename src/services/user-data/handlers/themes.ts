@@ -54,7 +54,7 @@ export const themesHandler: UserDataHandler = {
     }
     if (Object.keys(patch).length === 0) return;
     useThemeStore.setState(patch);
-    useThemeStore.getState().persist();
+    if (Object.keys(patch).some((k) => k !== "location")) useThemeStore.getState().persist();
   },
 
   merge: lastWriteWins,

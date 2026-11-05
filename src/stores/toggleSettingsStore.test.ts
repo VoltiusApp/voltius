@@ -7,8 +7,8 @@ vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
 
 import { usePolicyStore } from "./policyStore";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
-import { isAdminDefaulted, useAdminDefaultsStore } from "./adminDefaultsStore";
-import { applyToggleDefaults, getToggle, hostToggle, useToggleSettingsStore } from "./toggleSettingsStore";
+import { useAdminDefaultsStore } from "./adminDefaultsStore";
+import { getToggle, hostToggle, useToggleSettingsStore } from "./toggleSettingsStore";
 import { resolvePersistSession } from "./connectivitySettingsStore";
 
 const ID = "cursor-blink" as const;
@@ -48,31 +48,5 @@ describe("toggle settings under policy", () => {
     expect(getToggle(ID)).toBe(true);
     machine();
     expect(getToggle(ID)).toBe(false);
-  });
-
-  it("defaults apply once", () => {
-    machine({}, { [KEY]: true });
-    applyToggleDefaults();
-    expect(useToggleSettingsStore.getState().values[ID]).toBe(true);
-    useToggleSettingsStore.getState().set(ID, false);
-    applyToggleDefaults();
-    expect(useToggleSettingsStore.getState().values[ID]).toBe(false);
-  });
-
-  it("leaves an existing user value untouched", () => {
-    useToggleSettingsStore.getState().set(ID, false);
-    machine({}, { [KEY]: true });
-    applyToggleDefaults();
-    expect(useToggleSettingsStore.getState().values[ID]).toBe(false);
-    expect(isAdminDefaulted(KEY)).toBe(false);
-  });
-
-  it("writes the default without a sync clock and a user edit clears the mark", () => {
-    machine({}, { [KEY]: true });
-    applyToggleDefaults();
-    expect(useAppSettingsTimestampStore.getState().clocks[`toggles.${ID}`]).toBeUndefined();
-    expect(isAdminDefaulted(KEY)).toBe(true);
-    useToggleSettingsStore.getState().set(ID, false);
-    expect(isAdminDefaulted(KEY)).toBe(false);
   });
 });
