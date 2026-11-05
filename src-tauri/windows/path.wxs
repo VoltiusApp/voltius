@@ -3,7 +3,7 @@
   <Fragment>
     <DirectoryRef Id="INSTALLDIR">
       <Component Id="VoltiusCliPath" Guid="*">
-        <CreateFolder />
+        <RegistryValue Root="HKLM" Key="Software\Voltius" Name="CliPath" Type="integer" Value="1" KeyPath="yes" />
         <Environment Id="VoltiusPath" Name="PATH" Value="[INSTALLDIR]" Part="last" Action="set" System="yes" Permanent="no" />
       </Component>
     </DirectoryRef>
