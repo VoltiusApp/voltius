@@ -12,7 +12,10 @@ import { useLocaleStore } from "@/stores/localeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
-import { applySettingDefaults } from "./adminDefaults";
+import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import { SETTING_KEYS } from "@/services/user-data/settingKeys";
+import { applySettingDefaults, builtIn } from "./adminDefaults";
+import { applySetting as applyCliSetting } from "@/services/cliBridge";
 
 const TOGGLE = "cursor-blink" as const;
 const TOGGLE_KEY = `appSettings.toggles.${TOGGLE}`;
@@ -24,11 +27,12 @@ describe("applySettingDefaults", () => {
   beforeEach(() => {
     usePolicyStore.setState({ machine: NONE, server: NONE });
     useToggleSettingsStore.setState({ values: {} });
-    useAdminDefaultsStore.setState({ applied: {} });
+    useAdminDefaultsStore.setState({ applied: {}, touched: {} });
     useAppSettingsTimestampStore.setState({ clocks: {} });
     useLocaleStore.setState(useLocaleStore.getInitialState());
     useTerminalSettingsStore.setState(useTerminalSettingsStore.getInitialState());
     useThemeStore.setState({ location: null });
+    useConnectivitySettingsStore.setState(useConnectivitySettingsStore.getInitialState());
   });
 
   it("applies_locale_default_once", () => {
@@ -40,6 +44,31 @@ describe("applySettingDefaults", () => {
     useLocaleStore.getState().setLocale("cs");
     applySettingDefaults();
     expect(useLocaleStore.getState().locale).toBe("cs");
+  });
+
+  it("a reset to the built-in value is not overridden again", () => {
+    const initial = useLocaleStore.getInitialState().locale;
+    machine({}, { "appSettings.locale": "fr" });
+    applySettingDefaults();
+    useLocaleStore.getState().setLocale(initial);
+    applySettingDefaults();
+    expect(useLocaleStore.getState().locale).toBe(initial);
+  });
+
+  it("a cli edit ends default status", async () => {
+    machine({}, { "appSettings.proxy": { mode: "system" } });
+    applySettingDefaults();
+    expect(isAdminDefaulted("appSettings.proxy")).toBe(true);
+    await applyCliSetting("appSettings.proxy", { mode: "none" });
+    expect(isAdminDefaulted("appSettings.proxy")).toBe(false);
+    applySettingDefaults();
+    expect(useConnectivitySettingsStore.getState().proxy).toEqual({ mode: "none" });
+  });
+
+  it("every non-toggle setting key has a built-in", () => {
+    for (const { id } of SETTING_KEYS) {
+      if (!id.startsWith("appSettings.toggles.")) expect(builtIn(id), id).not.toBeUndefined();
+    }
   });
 
   it("user_value_is_not_overwritten", () => {
@@ -66,12 +95,15 @@ describe("applySettingDefaults", () => {
     expect(isAdminDefaulted("themes.location")).toBe(true);
     useThemeStore.getState().setLocation(null);
     expect(isAdminDefaulted("themes.location")).toBe(false);
+    applySettingDefaults();
+    expect(useThemeStore.getState().location).toBeNull();
   });
 
   it("locked_key_is_skipped", () => {
     machine({ "appSettings.locale": "fr" }, { "appSettings.locale": "cs" });
+    const before = useLocaleStore.getState().locale;
     applySettingDefaults();
-    expect(useLocaleStore.getState().locale).not.toBe("cs");
+    expect(useLocaleStore.getState().locale).toBe(before);
     expect(isAdminDefaulted("appSettings.locale")).toBe(false);
   });
 

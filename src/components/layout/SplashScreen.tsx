@@ -27,7 +27,7 @@ import { canLockVault } from "@/utils/accountMode";
 import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
 import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
 import { applyCliPending } from "@/services/cliBridge";
-import "@/services/policy/adminDefaults";
+import { applySettingDefaults } from "@/services/policy/adminDefaults";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
@@ -185,6 +185,8 @@ export default function SplashScreen({ onReady }: Props) {
       await loadInstalledPlugins();
       applyPluginPolicy();
       onPolicyLoaded(applyPluginPolicy);
+      applySettingDefaults();
+      onPolicyLoaded(applySettingDefaults);
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }

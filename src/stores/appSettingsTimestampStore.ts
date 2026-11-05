@@ -56,6 +56,8 @@ export const useAppSettingsTimestampStore = create<AppSettingsTimestampStore>()(
 
 let adminWriteDepth = 0;
 
+export const isAdminDefaultWrite = (): boolean => adminWriteDepth > 0;
+
 // Covers only fn's synchronous part, like withRemoteApply.
 export function withAdminDefaultWrite<T>(fn: () => T): T {
   adminWriteDepth++;
@@ -69,7 +71,7 @@ export function withAdminDefaultWrite<T>(fn: () => T): T {
 // Only a leaf this device syncs moves the clocks; unsynced leaves would republish stale values as newest.
 export function touchAppSetting(id: string): void {
   if (adminWriteDepth > 0) return;
-  useAdminDefaultsStore.getState().clear(id);
   const synced = settingKey(id) !== undefined && useSyncPrefsStore.getState().isSettingSynced(id);
+  if (remoteApplyTimestamp() === null || synced) useAdminDefaultsStore.getState().clear(id);
   if (synced || remoteApplyTimestamp() !== null) useAppSettingsTimestampStore.getState().touch([relPath(id)]);
 }

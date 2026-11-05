@@ -7,6 +7,7 @@ import { SETTING_KEYS, domainOf, relPath } from "@/services/user-data/settingKey
 import { importSetting, readSetting, sameValue } from "@/services/user-data/settingAccess";
 import { getPath } from "@/utils/dotPath";
 import { rememberServer, storedServerUrl } from "@/utils/serverInstance";
+import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { isEnforcedLock, isLocked } from "@/stores/policyStore";
 
 type CliChange = { id: string; kind: string } & Record<string, unknown>;
@@ -19,12 +20,14 @@ const LOCKED = "locked by policy";
 const INVALID = "invalid value";
 const SERVER_LOCK_KEY = "server.url";
 
-async function applySetting(key: string, value: unknown): Promise<string | null> {
+export async function applySetting(key: string, value: unknown): Promise<string | null> {
   if (isEnforcedLock(key)) return LOCKED;
   const pending = importSetting(key, value);
   if (!pending) return `unknown setting ${key}`;
   await pending;
-  return sameValue(readSetting(key), value) ? null : INVALID;
+  if (!sameValue(readSetting(key), value)) return INVALID;
+  useAdminDefaultsStore.getState().clear(key);
+  return null;
 }
 
 function applyServer(url: string): string | null {

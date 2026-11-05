@@ -20,7 +20,7 @@ describe("toggle settings under policy", () => {
   beforeEach(() => {
     usePolicyStore.setState({ machine: NONE, server: NONE });
     useToggleSettingsStore.setState({ values: {} });
-    useAdminDefaultsStore.setState({ applied: {} });
+    useAdminDefaultsStore.setState({ applied: {}, touched: {} });
     useAppSettingsTimestampStore.setState({ clocks: {} });
   });
 

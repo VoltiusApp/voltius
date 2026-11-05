@@ -2,7 +2,7 @@ import { useAdminDefaultsStore, isAdminDefaulted } from "@/stores/adminDefaultsS
 import { useAppSettingsTimestampStore, withAdminDefaultWrite } from "@/stores/appSettingsTimestampStore";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 import { useLocaleStore } from "@/stores/localeStore";
-import { adminDefault, isLocked, onPolicyLoaded } from "@/stores/policyStore";
+import { adminDefault, isLocked } from "@/stores/policyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -24,10 +24,11 @@ const BUILT_IN: Record<string, () => unknown> = {
 };
 
 // An unset toggle is absent from the export, so it has no entry and its built-in is undefined.
-const builtIn = (id: string): unknown => BUILT_IN[id]?.();
+export const builtIn = (id: string): unknown => BUILT_IN[id]?.();
 
 const neverSet = (id: string): boolean =>
   !isAdminDefaulted(id) &&
+  !useAdminDefaultsStore.getState().touched[id] &&
   !isLocked(id) &&
   (domainOf(id) !== "appSettings" || !useAppSettingsTimestampStore.getState().clocks[relPath(id)]) &&
   sameValue(readSetting(id), builtIn(id));
@@ -38,7 +39,7 @@ export function applySettingDefaults(): void {
     const value = adminDefault(id);
     if (value === undefined || !neverSet(id)) continue;
     try {
-      withAdminDefaultWrite(() => void importSetting(id, value)?.catch(() => {}));
+      withAdminDefaultWrite(() => void importSetting(id, value)?.catch((e) => console.warn("[policy] default not applied:", id, e)));
     } catch (e) {
       console.warn("[policy] default not applied:", id, e);
       continue;
@@ -46,5 +47,3 @@ export function applySettingDefaults(): void {
     if (sameValue(readSetting(id), value)) useAdminDefaultsStore.getState().markApplied(id);
   }
 }
-
-onPolicyLoaded(applySettingDefaults);
