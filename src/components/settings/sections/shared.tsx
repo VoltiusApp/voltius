@@ -8,8 +8,7 @@ import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
 import { Managed } from "@/components/shared/ManagedNote";
-import { isPolicyEnforced } from "@/services/policy/policyKeys";
-import { usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
+import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import RowActionsButton from "@/components/mobile/RowActionsButton";
@@ -120,8 +119,8 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
 interface RowManaged { key: string | undefined; locked: boolean }
 
 export function useRowManaged(key: string | undefined): RowManaged {
-  const lock = usePolicyLock(key ?? "");
-  return { key, locked: !!key && isPolicyEnforced(key) && lock.locked };
+  usePolicyLock(key ?? "");
+  return { key, locked: !!key && isEnforcedLock(key) };
 }
 
 export function RowControl({ managed, children }: { managed: RowManaged; children: ReactNode }) {

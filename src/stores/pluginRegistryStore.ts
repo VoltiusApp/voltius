@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { touchAppSetting } from "./appSettingsTimestampStore";
-import { lockedValue } from "./policyStore";
+import { lockedList } from "./policyStore";
 
 type Overrides = Record<string, boolean>;
 
@@ -15,10 +15,7 @@ interface PluginRegistryStore {
   isEnabled(id: string, defaultEnabled: boolean): boolean;
 }
 
-function listed(key: string, id: string): boolean {
-  const lock = lockedValue(key);
-  return lock.locked && Array.isArray(lock.value) && lock.value.includes(id);
-}
+const listed = (key: string, id: string): boolean => !!lockedList(key)?.includes(id);
 
 export function pluginLock(id: string): boolean | null {
   if (listed("plugins.disabled", id)) return false;

@@ -169,7 +169,6 @@ function EnableToggle({ manifest, enabled, onToggle }: {
 }) {
   const themeOnly = manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
   if (themeOnly) return null;
-  usePolicyRefresh();
   return (
     <ManagedWhen locked={pluginLock(manifest.id) !== null}>
       <Toggle checked={enabled} onChange={() => onToggle(manifest.id, enabled)} />

@@ -1,12 +1,15 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
+import { isPolicyEnforced } from "@/services/policy/policyKeys";
 
 export type PolicySource = "server" | "machine";
 export interface PolicyLayer {
   policy: Record<string, unknown>;
   defaults: Record<string, unknown>;
 }
+export type PolicyIssueKind = "file" | "type" | "unknownKey" | "newerVersion" | "range";
 export interface PolicyIssue {
+  kind: PolicyIssueKind;
   layer: "policy" | "defaults" | null;
   key: string | null;
   message: string;
@@ -39,13 +42,17 @@ export const onPolicyLoaded = (fn: () => void): (() => void) => {
   };
 };
 
-async function notifyIssuesOnce(issues: PolicyIssue[]) {
+const TOASTED_KINDS: ReadonlySet<PolicyIssueKind> = new Set(["file", "type"]);
+
+async function reportIssuesOnce(issues: PolicyIssue[]) {
   const signature = issues.length ? JSON.stringify(issues) : "";
   if (signature === notifiedIssues) return;
   notifiedIssues = signature;
-  if (!issues.length) return;
+  const errors = issues.filter((i) => TOASTED_KINDS.has(i.kind));
+  for (const i of issues) if (!TOASTED_KINDS.has(i.kind)) console.warn("[policy]", [i.layer, i.key].filter(Boolean).join("."), i.message);
+  if (!errors.length) return;
   const [{ default: i18n }, { notify }] = await Promise.all([import("@/i18n"), import("@/services/saveFile")]);
-  notify("error", i18n.t("common.policy.issues", { count: issues.length }));
+  notify("error", i18n.t("common.policy.issues", { count: errors.length }));
 }
 
 export const usePolicyStore = create<PolicyState>((set) => ({
@@ -65,7 +72,7 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       issues: loaded.issues,
     });
     loadedListeners.forEach((fn) => fn());
-    void notifyIssuesOnce(loaded.issues).catch(() => {});
+    void reportIssuesOnce(loaded.issues).catch(() => {});
   },
 }));
 
@@ -85,14 +92,25 @@ export function lockedValue(key: string): PolicyLock {
 
 export const isLocked = (key: string): boolean => lockedValue(key).locked;
 
+function lockedAs<T>(key: string, is: (v: unknown) => v is T): T | undefined {
+  const lock = lockedValue(key);
+  return lock.locked && is(lock.value) ? lock.value : undefined;
+}
+
+export const lockedBool = (key: string) => lockedAs(key, (v): v is boolean => typeof v === "boolean");
+export const lockedString = (key: string) => lockedAs(key, (v): v is string => typeof v === "string");
+export const lockedList = (key: string) => lockedAs(key, (v): v is unknown[] => Array.isArray(v));
+
+// Only an enforced key's lock is honoured by its read path, so only it may hold a value back.
+export const isEnforcedLock = (key: string): boolean => isPolicyEnforced(key) && isLocked(key);
+
 export function usePolicyLock(key: string): PolicyLock {
   usePolicyStore((s) => s.server.policy[key] ?? s.machine.policy[key]);
   return lockedValue(key);
 }
 
-export function usePolicyRefresh(): void {
-  usePolicyStore((s) => s.machine);
-  usePolicyStore((s) => s.server);
+export function usePolicyRefresh(): readonly [PolicyLayer, PolicyLayer] {
+  return [usePolicyStore((s) => s.machine), usePolicyStore((s) => s.server)];
 }
 
 export const adminDefault = (key: string): unknown | undefined => firstLayerWith(key, "defaults")?.value;

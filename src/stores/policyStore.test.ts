@@ -6,7 +6,17 @@ vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 
-import { adminDefault, isLocked, lockedValue, onPolicyLoaded, usePolicyStore } from "./policyStore";
+import {
+  adminDefault,
+  isEnforcedLock,
+  isLocked,
+  lockedBool,
+  lockedList,
+  lockedValue,
+  onPolicyLoaded,
+  usePolicyStore,
+  watchPolicyVisibility,
+} from "./policyStore";
 
 const empty = { policy: {}, defaults: {} };
 const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
@@ -46,7 +56,7 @@ describe("policyStore", () => {
   });
 
   it("load surfaces a broken file as an issue and notifies once per issue set", async () => {
-    const issue = { layer: null, key: null, message: "invalid JSON" };
+    const issue = { kind: "file", layer: null, key: null, message: "invalid JSON" };
     mocks.invoke.mockResolvedValue(loaded({}, {}, [issue]));
     await usePolicyStore.getState().load();
     expect(usePolicyStore.getState().issues).toHaveLength(1);
@@ -57,7 +67,7 @@ describe("policyStore", () => {
   });
 
   it("notifies again when issues clear and return", async () => {
-    const issue = { layer: "policy", key: "x", message: "unknown key; ignored" };
+    const issue = { kind: "type", layer: "policy", key: "x", message: "value does not match type bool; ignored" };
     mocks.invoke.mockResolvedValueOnce(loaded({}, {}, [issue]));
     await usePolicyStore.getState().load();
     await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(1));
@@ -66,6 +76,68 @@ describe("policyStore", () => {
     mocks.invoke.mockResolvedValueOnce(loaded({}, {}, [issue]));
     await usePolicyStore.getState().load();
     await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(2));
+  });
+
+  it("only logs unknown keys, newer versions and range entries", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const issues = [
+      { kind: "unknownKey", layer: "policy", key: "nope", message: "unknown key; ignored" },
+      { kind: "newerVersion", layer: null, key: null, message: "policy version 2 is newer" },
+      { kind: "range", layer: "policy", key: "k", message: "range entries need a newer Voltius; ignored" },
+    ];
+    mocks.invoke.mockResolvedValue(loaded({}, {}, issues));
+    await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(3));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.notify).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("toasts with the count of real file errors only", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const issues = [
+      { kind: "unknownKey", layer: "policy", key: "nope", message: "unknown key; ignored" },
+      { kind: "type", layer: "policy", key: "sshConfig.import", message: "value does not match type bool; ignored" },
+    ];
+    mocks.invoke.mockResolvedValue(loaded({}, {}, issues));
+    await usePolicyStore.getState().load();
+    await vi.waitFor(() => expect(mocks.notify).toHaveBeenCalledTimes(1));
+    vi.mocked(console.warn).mockRestore();
+  });
+
+  it("a failed load leaves the state alone and does not throw", async () => {
+    usePolicyStore.setState({ machine: { policy: { k: true }, defaults: {} } });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.invoke.mockRejectedValue(new Error("boom"));
+    await expect(usePolicyStore.getState().load()).resolves.toBeUndefined();
+    expect(usePolicyStore.getState().machine.policy).toEqual({ k: true });
+    warn.mockRestore();
+  });
+
+  it("watchPolicyVisibility installs one listener", () => {
+    const add = vi.spyOn(document, "addEventListener");
+    watchPolicyVisibility();
+    watchPolicyVisibility();
+    expect(add.mock.calls.filter(([type]) => type === "visibilitychange")).toHaveLength(1);
+    add.mockRestore();
+  });
+
+  it("typed lock readers ignore values of the wrong type", () => {
+    usePolicyStore.setState({ machine: { policy: { b: false, l: ["x"], s: "str" }, defaults: {} } });
+    expect(lockedBool("b")).toBe(false);
+    expect(lockedBool("s")).toBeUndefined();
+    expect(lockedList("l")).toEqual(["x"]);
+    expect(lockedList("b")).toBeUndefined();
+    expect(lockedBool("missing")).toBeUndefined();
+  });
+
+  it("isEnforcedLock needs both a lock and an enforced key", () => {
+    usePolicyStore.setState({
+      machine: { policy: { "appSettings.toggles.cursor-blink": true, "appSettings.locale": "fr" }, defaults: {} },
+    });
+    expect(isEnforcedLock("appSettings.toggles.cursor-blink")).toBe(true);
+    expect(isEnforcedLock("appSettings.locale")).toBe(false);
+    expect(isEnforcedLock("appSettings.toggles.select-to-copy")).toBe(false);
   });
 
   it("runs onPolicyLoaded subscribers after each load", async () => {

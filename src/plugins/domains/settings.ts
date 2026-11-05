@@ -1,8 +1,7 @@
 import i18n from "@/i18n";
 import { settingDef, settingDefs, type SettingDef } from "./settingsManifest";
 import { failed, managedMessage, type DomainResult } from "./result";
-import { isLocked } from "@/stores/policyStore";
-import { isPolicyEnforced } from "@/services/policy/policyKeys";
+import { isEnforcedLock } from "@/stores/policyStore";
 import { unknownSetting } from "../settingMessages";
 
 export interface SettingView {
@@ -20,8 +19,7 @@ export interface SettingView {
   consequence?: string;
 }
 
-const isManaged = (def: SettingDef): boolean =>
-  !!def.policyKey && isPolicyEnforced(def.policyKey) && isLocked(def.policyKey);
+const isManaged = (def: SettingDef): boolean => !!def.policyKey && isEnforcedLock(def.policyKey);
 
 function toView(def: SettingDef): SettingView {
   return {

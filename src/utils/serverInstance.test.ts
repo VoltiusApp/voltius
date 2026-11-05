@@ -4,8 +4,9 @@ import {
   DEFAULT_SERVER_URL,
   instanceLabel,
   isDefaultServer,
-  lastServerUrl,
+  normalizeServerUrl,
   rememberServer,
+  storedServerUrl,
 } from "./serverInstance";
 
 describe("isDefaultServer", () => {
@@ -62,17 +63,24 @@ describe("instanceLabel", () => {
 describe("the last server signed in to", () => {
   beforeEach(() => localStorage.clear());
 
-  it("is the official cloud until something else is used", () => {
-    expect(lastServerUrl()).toBe(DEFAULT_SERVER_URL);
+  it("is empty until a server is used", () => {
+    expect(storedServerUrl()).toBe("");
   });
 
   it("is remembered across the sign-out that adding an account performs", () => {
     rememberServer("https://stackdome.example.tld");
-    expect(lastServerUrl()).toBe("https://stackdome.example.tld");
+    expect(storedServerUrl()).toBe("https://stackdome.example.tld");
   });
 
   it("ignores a value it could not parse rather than seeding a broken field", () => {
     rememberServer("not a url");
-    expect(lastServerUrl()).toBe(DEFAULT_SERVER_URL);
+    expect(storedServerUrl()).toBe("");
+  });
+});
+
+describe("normalizeServerUrl", () => {
+  it("drops trailing slashes", () => {
+    expect(normalizeServerUrl("https://a.example//")).toBe("https://a.example");
+    expect(normalizeServerUrl("https://a.example")).toBe("https://a.example");
   });
 });
