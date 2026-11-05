@@ -15,11 +15,23 @@
     "id": "plugins.enabled",
     "type": "stringList",
     "enforced": true,
-    "defaultApplied": false
+    "defaultApplied": true
   },
   {
     "id": "plugins.disabled",
     "type": "stringList",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "plugins.install",
+    "type": "stringList",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "plugins.allowInstall",
+    "type": "bool",
     "enforced": true,
     "defaultApplied": false
   },

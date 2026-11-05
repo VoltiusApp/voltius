@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -44,7 +44,16 @@ static KEYS: LazyLock<HashMap<String, KeyEntry>> = LazyLock::new(|| {
     entries.into_iter().map(|e| (e.id.clone(), e)).collect()
 });
 
-pub fn key_ids() -> impl Iterator<Item = &'static str> {
+static GATED_PERMISSIONS: LazyLock<HashSet<String>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("gated_permissions.json"))
+        .expect("policy/gated_permissions.json is valid")
+});
+
+pub fn is_gated_permission(perm: &str) -> bool {
+    GATED_PERMISSIONS.contains(perm)
+}
+
+pub fn key_ids()-> impl Iterator<Item = &'static str> {
     KEYS.keys().map(String::as_str)
 }
 
@@ -392,6 +401,12 @@ fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn gated_permissions_mirror_the_plugin_list() {
+        assert!(is_gated_permission("docker:manage"));
+        assert!(!is_gated_permission("sessions:read"));
+    }
 
     #[test]
     fn parse_keeps_valid_and_drops_unknown() {
