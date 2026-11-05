@@ -8,6 +8,7 @@
 mod android_ctx;
 mod app_lock;
 pub mod cli;
+pub mod cli_state;
 mod clock;
 mod commands;
 mod crypto;
@@ -411,6 +412,9 @@ pub fn run() {
             commands::sync::ssh_config_state_save,
             commands::sync::device_hostname,
             commands::policy::policy_load,
+            commands::cli_state::cli_pending_load,
+            commands::cli_state::cli_pending_settle,
+            commands::cli_state::cli_mirror_save,
             commands::lan_sync::lan_sync_start,
             commands::lan_sync::lan_sync_stop,
             commands::lan_sync::lan_sync_forget,

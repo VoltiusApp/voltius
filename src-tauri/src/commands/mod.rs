@@ -1,3 +1,4 @@
+pub mod cli_state;
 pub mod clipboard;
 pub mod connections;
 pub mod crdt;
