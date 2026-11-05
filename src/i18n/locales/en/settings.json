@@ -1195,73 +1195,73 @@
     },
     "toggleDefs": {
       "cursorBlink": {
-        "label": "Cursor Blink"
+        "label": "Cursor blink"
       },
       "scrollMinimap": {
-        "label": "Scroll Minimap"
+        "label": "Scroll minimap"
       },
       "selectToCopy": {
-        "label": "Select to Copy"
+        "label": "Select to copy"
       },
       "dragSelectsText": {
-        "label": "Drag Selects Text"
+        "label": "Drag selects text"
       },
       "groupTabsByHost": {
-        "label": "Group Tabs by Host"
+        "label": "Group tabs by host"
       },
       "ignoreBracketedPaste": {
-        "label": "Plain Paste (No Bracketed Paste)"
+        "label": "Plain paste (no bracketed paste)"
       },
       "pasteImageAsPath": {
-        "label": "Paste Images as a File Path"
+        "label": "Paste images as a file path"
       },
       "volumeDownCtrl": {
         "label": "Use Volume Down as Ctrl"
       },
       "keywordHighlight": {
-        "label": "Keyword Highlighting"
+        "label": "Keyword highlighting"
       },
       "autoForward": {
-        "label": "Automatic Port Forwarding"
+        "label": "Automatic port forwarding"
       },
       "forwardingNotifications": {
-        "label": "Port Forwarding Notifications"
+        "label": "Port forwarding notifications"
       },
       "sftpTar": {
-        "label": "SFTP Tar Acceleration"
+        "label": "SFTP tar acceleration"
       },
       "sftpAutoRefresh": {
-        "label": "SFTP Auto-Refresh"
+        "label": "SFTP auto-refresh"
       },
       "reachability": {
-        "label": "Reachability Check"
+        "label": "Reachability check"
       },
       "teamPresence": {
-        "label": "Team Presence"
+        "label": "Team presence"
       },
       "shellIntegration": {
-        "label": "Shell Integration"
+        "label": "Shell integration"
       },
       "persistentSessions": {
-        "label": "Persistent Sessions"
+        "label": "Persistent sessions"
       },
       "detachedSessionTtl": {
-        "label": "Close Idle Detached Sessions"
+        "label": "Close idle detached sessions"
       },
       "restoreWorkspace": {
-        "label": "Restore Workspace on Launch"
+        "label": "Restore workspace on launch"
       },
       "crossDeviceSessions": {
-        "label": "Cross-Device Sessions"
+        "label": "Cross-device sessions"
       },
       "changelogPopup": {
-        "label": "Show What's New After Updates"
+        "label": "Show what's new after updates"
       },
       "pluginInstallReview": {
         "label": "Review permissions before installing plugins"
       },
       "mcpServer": {
-        "label": "MCP Server"
+        "label": "MCP server"
       }
     },
     "shortcuts": {
