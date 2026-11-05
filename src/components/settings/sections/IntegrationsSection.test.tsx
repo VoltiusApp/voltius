@@ -105,7 +105,7 @@ it("lists a contributing plugin's tools and toggles it off", async () => {
   expect(isPluginExposed("plugin-docker")).toBe(false);
 });
 
-test("a policy-locked mcp-server toggle is disabled, noted as managed, and has no reset", async () => {
+test("a policy-locked mcp-server toggle is disabled, noted as managed, and has no reset or dirty dot", async () => {
   h.toggle = true;
   usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.mcp-server": true }, defaults: {} } });
   let view!: ReturnType<typeof render>;
@@ -116,5 +116,6 @@ test("a policy-locked mcp-server toggle is disabled, noted as managed, and has n
   expect(fieldset.disabled).toBe(true);
   expect(view.container.textContent).toContain("common.policy.managed");
   expect(screen.queryByLabelText("settings.shared.resetToDefault")).toBeNull();
+  expect(view.container.querySelector('[title="settings.shared.modifiedFromDefault"]')).toBeNull();
   usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
 });
