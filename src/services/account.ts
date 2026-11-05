@@ -14,7 +14,7 @@ import { VaultUnreadableError } from "./vaultErrors";
 import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
 import { serverAllowed } from "@/services/policy/serverPolicy";
 import { ServerBlockedError } from "@/services/accountErrors";
-import { rememberServer } from "@/utils/serverInstance";
+import { normalizeServerUrl, rememberServer } from "@/utils/serverInstance";
 import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import { deleteAccountFailure } from "@/utils/deleteAccount";
@@ -88,10 +88,6 @@ async function registerOnServer(args: {
   return res.json();
 }
 
-function normalizeServerUrl(url: string): string {
-  return url.replace(/\/+$/, "");
-}
-
 /** Unwrap cached user secrets into the vault-keys store; null when unusable. */
 async function adoptUserSecrets(kek: number[], wrapped: string | null): Promise<number[] | null> {
   if (!wrapped) return null;
@@ -108,8 +104,9 @@ async function adoptUserSecrets(kek: number[], wrapped: string | null): Promise<
   }
 }
 
-/** First candidate that opens secrets.enc; the first one when no vault exists yet. */
-async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | null> {
+/** First present candidate that opens secrets.enc; the first one when no vault exists yet. */
+async function keyThatOpensVault(...maybe: Array<number[] | null | undefined>): Promise<number[] | null> {
+  const candidates = maybe.filter((k): k is number[] => !!k);
   const { exists } = await getVaultStatus();
   if (!exists) return candidates[0] ?? null;
   for (const key of candidates) {
@@ -159,7 +156,7 @@ async function passwordVaultKey(kek: number[], recoverFromServer: boolean): Prom
   }
   const prior = await keychainGet(PRIOR_WRAPPED_KEY);
   const priorKey = prior ? await wrappedVaultKey(kek, prior) : null;
-  const opened = await keyThatOpensVault(...[dek, kek, priorKey].filter((k): k is number[] => !!k));
+  const opened = await keyThatOpensVault(dek, kek, priorKey);
   // A password-mode vault never needs it; left behind, it outlives the password's seal.
   if (opened && (await keychainGet(PENDING_VAULT_KEY))) await keychainDelete(PENDING_VAULT_KEY);
   if (opened && prior) await settlePriorWrapped(kek, prior, opened);
@@ -176,7 +173,7 @@ async function passwordProvenOffline(kek: number[]): Promise<boolean> {
   const dek = await storedWrappedKey(kek, "wrapped_user_secrets");
   if (!(await getVaultStatus()).exists) return !!dek;
   const prior = await storedWrappedKey(kek, PRIOR_WRAPPED_KEY);
-  return !!(await keyThatOpensVault(...[dek, kek, prior].filter((k): k is number[] => !!k)));
+  return !!(await keyThatOpensVault(dek, kek, prior));
 }
 
 async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
@@ -515,7 +512,9 @@ export async function autoLogin(): Promise<AutoLoginOutcome> {
   // splash init and freeze the app on its loading screen.
   let password: string | null;
   try {
-    if ((await secretState()) === "sealed") return "sealed";
+    if ((await secretState()) === "sealed") {
+      return (await storedServerBlocked(await keychainGet("mode"))) ? "server-blocked" : "sealed";
+    }
     password = await readPlainSecret();
   } catch {
     return "declined";

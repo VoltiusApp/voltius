@@ -369,6 +369,19 @@ test("autoLogin declines a server account on a disallowed server and touches not
   expect(h.store).toEqual(before);
 });
 
+test("autoLogin reports a sealed secret on a disallowed server as blocked, before any biometric prompt", async () => {
+  serverSession("https://other.example");
+  delete h.store.master_password;
+  h.store.master_password_sealed = "S:pw";
+  pinServer(false);
+  try {
+    expect(await autoLogin()).toBe("server-blocked");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_get", expect.anything());
+});
+
 test("autoLogin still opens an allowed server account under the policy", async () => {
   serverSession("https://corp.example");
   pinServer(false);

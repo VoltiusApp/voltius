@@ -1,6 +1,13 @@
 export class ServerBlockedError extends Error {
-  constructor(readonly pendingSecret?: string) {
+  readonly #pendingSecret?: string;
+
+  constructor(pendingSecret?: string) {
     super("Account server is not allowed by policy");
+    this.#pendingSecret = pendingSecret;
+  }
+
+  get pendingSecret(): string | undefined {
+    return this.#pendingSecret;
   }
 }
 
