@@ -16,21 +16,32 @@ pub enum KeyType {
     Json,
 }
 
+impl KeyType {
+    pub fn name(self) -> &'static str {
+        match self {
+            KeyType::Bool => "bool",
+            KeyType::String => "string",
+            KeyType::Number => "number",
+            KeyType::StringList => "stringList",
+            KeyType::Json => "json",
+        }
+    }
+}
+
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct KeyEntry {
     id: String,
     #[serde(rename = "type")]
     ty: KeyType,
     enforced: bool,
+    default_applied: bool,
 }
 
-static KEYS: LazyLock<HashMap<String, (KeyType, bool)>> = LazyLock::new(|| {
+static KEYS: LazyLock<HashMap<String, KeyEntry>> = LazyLock::new(|| {
     let entries: Vec<KeyEntry> =
         serde_json::from_str(include_str!("keys.json")).expect("policy/keys.json is valid");
-    entries
-        .into_iter()
-        .map(|e| (e.id, (e.ty, e.enforced)))
-        .collect()
+    entries.into_iter().map(|e| (e.id.clone(), e)).collect()
 });
 
 pub fn key_ids() -> impl Iterator<Item = &'static str> {
@@ -38,11 +49,15 @@ pub fn key_ids() -> impl Iterator<Item = &'static str> {
 }
 
 pub fn key_type(id: &str) -> Option<KeyType> {
-    KEYS.get(id).map(|k| k.0)
+    KEYS.get(id).map(|k| k.ty)
 }
 
 pub fn is_enforced(key: &str) -> bool {
-    KEYS.get(key).is_some_and(|k| k.1)
+    KEYS.get(key).is_some_and(|k| k.enforced)
+}
+
+pub fn is_default_applied(key: &str) -> bool {
+    KEYS.get(key).is_some_and(|k| k.default_applied)
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
@@ -68,20 +83,59 @@ impl Layer {
     }
 }
 
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum IssueKind {
+    File,
+    Type,
+    UnknownKey,
+    NewerVersion,
+    Range,
+}
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Issue {
+    pub kind: IssueKind,
     pub layer: Option<Layer>,
     pub key: Option<String>,
     pub message: String,
 }
 
 impl Issue {
-    fn general(message: String) -> Self {
+    pub fn general(kind: IssueKind, message: String) -> Self {
         Issue {
+            kind,
             layer: None,
             key: None,
             message,
         }
+    }
+}
+
+pub fn read_issue(path: &Path, e: &std::io::Error) -> Issue {
+    let why = match e.kind() {
+        std::io::ErrorKind::PermissionDenied => "permission denied".to_string(),
+        _ => e.to_string(),
+    };
+    Issue::general(
+        IssueKind::File,
+        format!("cannot read {}: {why}", path.display()),
+    )
+}
+
+pub fn version_issue(root: &serde_json::Map<String, Value>) -> Option<Issue> {
+    let raw = root.get("version")?;
+    let supported = u64::from(SUPPORTED_VERSION);
+    match raw.as_u64() {
+        Some(v) if v == supported => None,
+        Some(v) if v > supported => Some(Issue::general(
+            IssueKind::NewerVersion,
+            format!("policy version {v} is newer than supported version {SUPPORTED_VERSION}; unknown content ignored"),
+        )),
+        _ => Some(Issue::general(
+            IssueKind::File,
+            format!("policy version {raw} is invalid; expected {SUPPORTED_VERSION}"),
+        )),
     }
 }
 
@@ -92,6 +146,22 @@ fn value_matches(ty: KeyType, v: &Value) -> bool {
         KeyType::Number => v.is_number(),
         KeyType::StringList => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
         KeyType::Json => true,
+    }
+}
+
+fn is_http_url(s: &str) -> bool {
+    url::Url::parse(s).is_ok_and(|u| matches!(u.scheme(), "http" | "https") && u.has_host())
+}
+
+pub fn value_problem(key: &str, ty: KeyType, v: &Value) -> Option<String> {
+    if !value_matches(ty, v) {
+        return Some(format!("value does not match type {}", ty.name()));
+    }
+    match (key, v) {
+        ("server.url", Value::String(s)) if !is_http_url(s) => {
+            Some("must be an absolute http(s) URL".to_string())
+        }
+        _ => None,
     }
 }
 
@@ -109,6 +179,7 @@ fn validate_layer(
     let Some(raw) = raw else { return out };
     let Some(map) = raw.as_object() else {
         issues.push(Issue {
+            kind: IssueKind::File,
             layer: Some(layer),
             key: None,
             message: format!("\"{}\" must be an object", layer.name()),
@@ -117,21 +188,22 @@ fn validate_layer(
     };
     for (key, value) in map {
         let problem = if is_range_entry(value) {
-            Some("range entries need a newer Voltius; ignored".to_string())
+            Some((
+                IssueKind::Range,
+                "range entries need a newer Voltius".into(),
+            ))
         } else {
             match key_type(key) {
-                None => Some("unknown key; ignored".to_string()),
-                Some(ty) if !value_matches(ty, value) => {
-                    Some(format!("value does not match type {ty:?}; ignored"))
-                }
-                Some(_) => None,
+                None => Some((IssueKind::UnknownKey, "unknown key".into())),
+                Some(ty) => value_problem(key, ty, value).map(|m| (IssueKind::Type, m)),
             }
         };
         match problem {
-            Some(message) => issues.push(Issue {
+            Some((kind, message)) => issues.push(Issue {
+                kind,
                 layer: Some(layer),
                 key: Some(key.clone()),
-                message,
+                message: format!("{message}; ignored"),
             }),
             None => {
                 out.insert(key.clone(), value.clone());
@@ -146,23 +218,25 @@ pub fn parse(text: &str) -> (PolicyDoc, Vec<Issue>) {
     let root: Value = match serde_json::from_str(text) {
         Ok(v) => v,
         Err(e) => {
-            issues.push(Issue::general(format!("invalid JSON: {e}")));
+            issues.push(Issue::general(
+                IssueKind::File,
+                format!("invalid JSON: {e}"),
+            ));
             return (PolicyDoc::default(), issues);
         }
     };
     let Some(obj) = root.as_object() else {
-        issues.push(Issue::general("policy file must be a JSON object".into()));
+        issues.push(Issue::general(
+            IssueKind::File,
+            "policy file must be a JSON object".into(),
+        ));
         return (PolicyDoc::default(), issues);
     };
+    issues.extend(version_issue(obj));
     let version = obj
         .get("version")
         .and_then(Value::as_u64)
         .map_or(SUPPORTED_VERSION, |v| u32::try_from(v).unwrap_or(u32::MAX));
-    if version > SUPPORTED_VERSION {
-        issues.push(Issue::general(format!(
-            "policy version {version} is newer than supported version {SUPPORTED_VERSION}; unknown content ignored"
-        )));
-    }
     let policy = validate_layer(Layer::Policy, obj.get("policy"), &mut issues);
     let defaults = validate_layer(Layer::Defaults, obj.get("defaults"), &mut issues);
     (
@@ -252,30 +326,24 @@ pub struct LoadedPolicy {
     pub issues: Vec<Issue>,
 }
 
-pub fn load_from(path: &Path) -> LoadedPolicy {
-    let path_str = Some(path.display().to_string());
+pub fn read_optional(path: &Path) -> std::io::Result<Option<String>> {
     match std::fs::read_to_string(path) {
-        Ok(text) => {
-            let (doc, issues) = parse(&text);
-            LoadedPolicy {
-                path: path_str,
-                doc,
-                issues,
-            }
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => LoadedPolicy {
-            path: path_str,
-            doc: PolicyDoc::default(),
-            issues: Vec::new(),
-        },
-        Err(e) => LoadedPolicy {
-            path: path_str,
-            doc: PolicyDoc::default(),
-            issues: vec![Issue::general(format!(
-                "cannot read {}: {e}",
-                path.display()
-            ))],
-        },
+        Ok(t) => Ok(Some(t)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn load_from(path: &Path) -> LoadedPolicy {
+    let (doc, issues) = match read_optional(path) {
+        Ok(Some(text)) => parse(&text),
+        Ok(None) => (PolicyDoc::default(), Vec::new()),
+        Err(e) => (PolicyDoc::default(), vec![read_issue(path, &e)]),
+    };
+    LoadedPolicy {
+        path: Some(path.display().to_string()),
+        doc,
+        issues,
     }
 }
 
@@ -362,6 +430,77 @@ mod tests {
         let (doc, issues) = parse(r#"{"version":2,"policy":{"server.url":"https://a"}}"#);
         assert!(doc.policy.contains_key("server.url"));
         assert_eq!(issues.len(), 1);
+    }
+
+    #[test]
+    fn parse_rejects_schemeless_server_url() {
+        let (doc, issues) = parse(r#"{"policy":{"server.url":"voltius.acme.com"}}"#);
+        assert!(doc.policy.is_empty());
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].key.as_deref(), Some("server.url"));
+        let (doc, issues) = parse(r#"{"defaults":{"server.url":"ftp://voltius.acme.com"}}"#);
+        assert!(doc.defaults.is_empty());
+        assert_eq!(issues.len(), 1);
+        let (doc, issues) = parse(r#"{"policy":{"server.url":"https://voltius.acme.com"}}"#);
+        assert_eq!(doc.policy.len(), 1);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn parse_flags_invalid_version() {
+        for text in [
+            r#"{"version":"1"}"#,
+            r#"{"version":0}"#,
+            r#"{"version":1.5}"#,
+            r#"{"version":null}"#,
+        ] {
+            assert_eq!(parse(text).1.len(), 1, "{text}");
+        }
+        assert!(parse(r#"{"version":1}"#).1.is_empty());
+        assert!(parse("{}").1.is_empty());
+    }
+
+    #[test]
+    fn issues_carry_kind() {
+        let kinds =
+            |text: &str| -> Vec<IssueKind> { parse(text).1.iter().map(|i| i.kind).collect() };
+        assert_eq!(kinds("{"), [IssueKind::File]);
+        assert_eq!(kinds("[]"), [IssueKind::File]);
+        assert_eq!(kinds(r#"{"policy":[]}"#), [IssueKind::File]);
+        assert_eq!(kinds(r#"{"version":"x"}"#), [IssueKind::File]);
+        assert_eq!(kinds(r#"{"version":2}"#), [IssueKind::NewerVersion]);
+        assert_eq!(kinds(r#"{"policy":{"nope":1}}"#), [IssueKind::UnknownKey]);
+        assert_eq!(
+            kinds(r#"{"policy":{"sshConfig.import":1}}"#),
+            [IssueKind::Type]
+        );
+        assert_eq!(
+            kinds(r#"{"policy":{"server.url":{"$range":[1]}}}"#),
+            [IssueKind::Range]
+        );
+        let issue = serde_json::to_value(&parse(r#"{"policy":{"nope":1}}"#).1[0]).unwrap();
+        assert_eq!(issue["kind"], "unknownKey");
+    }
+
+    #[test]
+    fn default_applied_comes_from_keys_json() {
+        assert!(is_default_applied("server.url"));
+        assert!(is_default_applied("appSettings.toggles.cursor-blink"));
+        assert!(!is_default_applied("appSettings.locale"));
+    }
+
+    #[test]
+    fn type_mismatch_names_keys_json_type() {
+        let (_, issues) = parse(r#"{"policy":{"plugins.enabled":"x","sshConfig.import":1}}"#);
+        let messages: Vec<&str> = issues.iter().map(|i| i.message.as_str()).collect();
+        assert!(
+            messages.iter().any(|m| m.contains("stringList")),
+            "{messages:?}"
+        );
+        assert!(
+            messages.iter().any(|m| m.contains("type bool")),
+            "{messages:?}"
+        );
     }
 
     #[test]

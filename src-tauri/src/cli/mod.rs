@@ -6,6 +6,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use output::Output;
 use policy_cmd::PolicyCmd;
 use std::ffi::OsString;
+use std::fmt;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -13,11 +14,17 @@ pub const CLI_MARKER: &str = "__voltius_cli";
 
 const BIN_NAME: &str = "voltius-cli";
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Access {
+    Read,
+    Write,
+}
+
 #[derive(Debug)]
 pub enum CliError {
     Usage(String),
     Validation(Vec<Issue>),
-    Permission(PathBuf),
+    Permission(Access, PathBuf),
     Io(std::io::Error),
 }
 
@@ -26,26 +33,38 @@ impl CliError {
         match self {
             CliError::Usage(_) => 2,
             CliError::Validation(_) => 3,
-            CliError::Permission(_) => 4,
+            CliError::Permission(..) => 4,
             CliError::Io(_) => 5,
         }
     }
 
     fn report(&self) {
+        for line in self.to_string().lines() {
+            eprintln!("error: {line}");
+        }
+    }
+}
+
+impl fmt::Display for CliError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CliError::Usage(m) => eprintln!("error: {m}"),
+            CliError::Usage(m) => f.write_str(m),
             CliError::Validation(issues) => {
-                for i in issues {
-                    eprintln!("error: {}", policy_cmd::describe(i));
-                }
+                let lines: Vec<String> = issues.iter().map(policy_cmd::describe).collect();
+                f.write_str(&lines.join("\n"))
             }
-            CliError::Permission(p) => {
-                eprintln!(
-                    "error: Writing {} needs root (sudo) / Administrator.",
+            CliError::Permission(access, p) => {
+                let verb = match access {
+                    Access::Read => "Reading",
+                    Access::Write => "Writing",
+                };
+                write!(
+                    f,
+                    "{verb} {} needs root (sudo) / Administrator.",
                     p.display()
-                );
+                )
             }
-            CliError::Io(e) => eprintln!("error: {e}"),
+            CliError::Io(e) => write!(f, "{e}"),
         }
     }
 }
@@ -126,10 +145,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
             Ok(())
         }
         Command::Policy { cmd } => {
-            let path = policy::machine_policy_path().ok_or_else(|| {
-                CliError::Usage("policy commands are not available on this platform".into())
-            })?;
-            policy_cmd::run(cmd, &path, &mut out)
+            policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), &mut out)
         }
     }
 }
@@ -153,7 +169,10 @@ mod tests {
 
     #[test]
     fn marker_and_mcp_are_cli() {
-        assert!(dispatch(argv(&["voltius", CLI_MARKER, "policy", "path"])).is_some());
+        assert_eq!(
+            dispatch(argv(&["voltius", CLI_MARKER, "-q", "policy", "path"])),
+            Some(ExitCode::SUCCESS)
+        );
         assert!(cli_args(&argv(&["voltius", "mcp"])).is_some());
         assert!(cli_args(&argv(&["voltius", CLI_MARKER, "--json"])).is_some());
     }

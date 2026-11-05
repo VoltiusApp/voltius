@@ -19,6 +19,7 @@ impl Output {
         )
     }
 
+    #[cfg(test)]
     pub fn with_sink(json: bool, quiet: bool, sink: Box<dyn Write>) -> Self {
         Self::with_sinks(json, quiet, sink, Box::new(std::io::sink()))
     }

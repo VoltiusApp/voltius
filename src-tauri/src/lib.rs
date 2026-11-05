@@ -7,8 +7,8 @@
 #[cfg(target_os = "android")]
 mod android_ctx;
 mod app_lock;
-mod clock;
 pub mod cli;
+mod clock;
 mod commands;
 mod crypto;
 mod device_files;
@@ -27,10 +27,10 @@ mod lan_sync;
 mod linux_gfx;
 mod local;
 pub mod mcp;
-pub mod policy;
 mod metrics;
 mod network_watch;
 mod passkey_loopback;
+pub mod policy;
 mod port_forward;
 mod processes;
 mod proxmox;
