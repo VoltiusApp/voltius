@@ -16,7 +16,7 @@ import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { Managed } from "@/components/shared/ManagedNote";
-import { usePolicyRefresh } from "@/stores/policyStore";
+import { isEnforcedLock, usePolicyRefresh } from "@/stores/policyStore";
 import { SettingsGroup } from "./shared";
 import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
@@ -179,6 +179,7 @@ function HeldBackKeys({ domain }: { domain: string }) {
   // back from a settings page while this panel is mounted.
   const overrides = useSyncPrefsStore((s) => s.settingSyncOverrides);
   void useSyncPrefsStore((s) => s.syncSettingDomains);
+  usePolicyRefresh();
   const keys = heldBackKeys(domain);
   if (keys.length === 0) return null;
 
@@ -194,26 +195,33 @@ function HeldBackKeys({ domain }: { domain: string }) {
       </button>
       {open && (
         <ul className="mt-2 space-y-1">
-          {keys.map((k) => (
-            <li key={k.id} className="flex items-center justify-between gap-3">
-              <span className="text-xs text-(--t-text-dim)">
-                {t(k.labelKey)}
-                {" · "}
-                {t(
-                  isDeviceScopedDefault(k.id, overrides ?? {})
-                    ? "settings.sync.heldBack.deviceDefault"
-                    : "settings.sync.heldBack.yourChoice",
+          {keys.map((k) => {
+            const managed = isEnforcedLock(k.id);
+            return (
+              <li key={k.id} data-testid={`held-${k.id}`} className="flex items-center justify-between gap-3">
+                <span className="text-xs text-(--t-text-dim)">
+                  {t(k.labelKey)}
+                  {" · "}
+                  {t(
+                    managed
+                      ? "common.policy.managed"
+                      : isDeviceScopedDefault(k.id, overrides ?? {})
+                        ? "settings.sync.heldBack.deviceDefault"
+                        : "settings.sync.heldBack.yourChoice",
+                  )}
+                </span>
+                {!managed && (
+                  <button
+                    data-testid={`resume-${k.id}`}
+                    onClick={() => setKeySync(k.id, true)}
+                    className="text-xs shrink-0 text-(--t-accent) hover:opacity-75 transition-opacity"
+                  >
+                    {t("settings.sync.heldBack.resume")}
+                  </button>
                 )}
-              </span>
-              <button
-                data-testid={`resume-${k.id}`}
-                onClick={() => setKeySync(k.id, true)}
-                className="text-xs shrink-0 text-(--t-accent) hover:opacity-75 transition-opacity"
-              >
-                {t("settings.sync.heldBack.resume")}
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
