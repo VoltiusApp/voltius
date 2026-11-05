@@ -8,7 +8,8 @@ import { importSetting, readSetting, sameValue } from "@/services/user-data/sett
 import { getPath } from "@/utils/dotPath";
 import { rememberServer, storedServerUrl } from "@/utils/serverInstance";
 import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
-import { isEnforcedLock, isLocked } from "@/stores/policyStore";
+import { LOCKED, isEnforcedLock, isLocked } from "@/stores/policyStore";
+import type { CliPluginAction } from "./cliPlugins";
 
 type CliChange = { id: string; kind: string } & Record<string, unknown>;
 interface Settled {
@@ -16,7 +17,7 @@ interface Settled {
   error: string | null;
 }
 
-const LOCKED = "locked by policy";
+const cliPlugins = () => import("./cliPlugins");
 const INVALID = "invalid value";
 const SERVER_LOCK_KEY = "server.url";
 
@@ -40,6 +41,14 @@ async function applyChange(c: CliChange): Promise<Settled | null> {
   try {
     if (c.kind === "setting") return { id: c.id, error: await applySetting(c.key as string, c.value) };
     if (c.kind === "server") return { id: c.id, error: applyServer(c.url as string) };
+    if (c.kind === "plugin") {
+      const change = {
+        action: c.action as CliPluginAction,
+        id: c.pluginId as string,
+        consentedPermissions: (c.consentedPermissions as string[] | undefined) ?? [],
+      };
+      return { id: c.id, error: await (await cliPlugins()).applyPluginChange(change) };
+    }
   } catch (e) {
     return { id: c.id, error: e instanceof Error ? e.message : String(e) };
   }
@@ -91,7 +100,7 @@ export async function writeCliMirror(): Promise<void> {
       appVersion: (await clientVersion()) ?? "",
       settings,
       serverUrl: storedServerUrl() || null,
-      plugins: [],
+      plugins: await (await cliPlugins()).mirrorPlugins(),
     };
     await invoke("cli_mirror_save", { mirror });
   } catch (e) {

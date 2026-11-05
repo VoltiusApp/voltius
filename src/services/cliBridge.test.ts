@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn(), applyPluginChange: vi.fn(), mirrorPlugins: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "9.9.9" }));
+vi.mock("./cliPlugins", () => ({
+  applyPluginChange: mocks.applyPluginChange,
+  mirrorPlugins: mocks.mirrorPlugins,
+}));
 
 import { applyCliPending, writeCliMirror } from "./cliBridge";
 import { settingPatch } from "./user-data/settingAccess";
@@ -32,6 +36,8 @@ describe("cliBridge", () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
     mocks.notify.mockReset();
+    mocks.applyPluginChange.mockReset();
+    mocks.mirrorPlugins.mockReset().mockResolvedValue([]);
     usePolicyStore.setState({ machine: NONE, server: NONE });
     useTerminalSettingsStore.getState().setCursorStyle("block");
     useAppSettingsTimestampStore.setState({ clocks: {} });
@@ -102,10 +108,21 @@ describe("cliBridge", () => {
     expect(calls("cli_pending_settle")[0][1]).toEqual({ results: [{ id: "e1", error: "locked by policy" }] });
   });
 
-  it("plugin_entries_are_left_pending", async () => {
-    pending(entry({ kind: "plugin", action: "install", pluginId: "plugin-docker", consentedPermissions: [] }));
+  it("plugin_entries_are_applied_and_settled", async () => {
+    mocks.applyPluginChange.mockResolvedValueOnce(null).mockResolvedValueOnce("HTTP 404");
+    pending(
+      entry({ kind: "plugin", action: "install", pluginId: "plugin-docker", consentedPermissions: ["docker:manage"] }),
+      entry({ id: "e2", kind: "plugin", action: "remove", pluginId: "plugin-x" }),
+    );
     await applyCliPending();
-    expect(calls("cli_pending_settle")).toHaveLength(0);
+    expect(mocks.applyPluginChange.mock.calls).toEqual([
+      [{ action: "install", id: "plugin-docker", consentedPermissions: ["docker:manage"] }],
+      [{ action: "remove", id: "plugin-x", consentedPermissions: [] }],
+    ]);
+    expect(calls("cli_pending_settle")[0][1]).toEqual({
+      results: [{ id: "e1", error: null }, { id: "e2", error: "HTTP 404" }],
+    });
+    expect(mocks.notify).toHaveBeenCalledTimes(1);
   });
 
   it("corrupt_pending_does_not_throw", async () => {
@@ -131,5 +148,13 @@ describe("cliBridge", () => {
     expect(Object.keys(mirror.settings).sort()).toEqual(SETTING_KEYS.map((k) => k.id).sort());
     expect(mirror).toMatchObject({ appVersion: "9.9.9", serverUrl: null, plugins: [] });
     expect(typeof mirror.writtenAt).toBe("string");
+  });
+
+  it("mirror_lists_loaded_plugins", async () => {
+    const plugin = { id: "plugin-docker", version: "1.2.0", enabled: true, origin: "seeded", locked: null };
+    mocks.mirrorPlugins.mockResolvedValue([plugin]);
+    mocks.invoke.mockResolvedValue(null);
+    await writeCliMirror();
+    expect(calls("cli_mirror_save")[0][1].mirror.plugins).toEqual([plugin]);
   });
 });

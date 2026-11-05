@@ -56,7 +56,7 @@ vi.mock("@/stores/seededTombstoneStore", () => ({
 
 import {
   listPlugins, setPluginEnabled, readPluginConfig, writePluginConfig,
-  removeSource, updatePlugin,
+  removeSource, updatePlugin, installVettedPlugin,
 } from "./plugins";
 
 beforeEach(() => { storage.clear(); vi.clearAllMocks(); lock.pluginLock.mockReturnValue(null); });
@@ -143,5 +143,13 @@ describe("plugin domain", () => {
 
   it("does not flag an unlocked plugin", async () => {
     expect((await listPlugins()).some((p) => p.locked)).toBe(false);
+  });
+
+  it("installs nothing when the vet refuses the fetched manifest", async () => {
+    const vet = vi.fn(() => "no");
+    expect(await installVettedPlugin("acme", vet)).toEqual({ ok: false, error: "no" });
+    expect(vet).toHaveBeenCalledWith(expect.objectContaining({ id: "acme" }));
+    expect(marketplace.installPlugin).not.toHaveBeenCalled();
+    expect(marketplace.fetchManifest).toHaveBeenCalledTimes(1);
   });
 });

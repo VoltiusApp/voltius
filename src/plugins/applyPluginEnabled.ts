@@ -3,6 +3,7 @@ import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { lockedList } from "@/stores/policyStore";
+import { applyPluginInstallPolicy } from "@/services/cliPlugins";
 import { PLUGIN_LIST_KEYS, pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 
 export async function applyPluginEnabled(id: string, enabled: boolean): Promise<boolean> {
@@ -41,4 +42,5 @@ async function warnUnknownPluginIds(): Promise<void> {
 export function applyPluginPolicy(): void {
   syncActiveWithLocks();
   void warnUnknownPluginIds().catch(() => {});
+  void applyPluginInstallPolicy();
 }

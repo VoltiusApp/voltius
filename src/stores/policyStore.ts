@@ -14,6 +14,7 @@ export interface PolicyIssue {
   key: string | null;
   message: string;
 }
+export const LOCKED = "locked by policy";
 export type PolicyLock = { locked: true; value: unknown; source: PolicySource } | { locked: false };
 
 interface LoadedPolicy {

@@ -17,7 +17,10 @@ interface PluginRegistryStore {
 
 export const PLUGIN_LIST_KEYS = ["plugins.disabled", "plugins.enabled"] as const;
 
-const listed = (key: (typeof PLUGIN_LIST_KEYS)[number], id: string): boolean => !!lockedList(key)?.includes(id);
+const listed = (key: (typeof PLUGIN_LIST_KEYS)[number] | "plugins.install", id: string): boolean =>
+  !!lockedList(key)?.includes(id);
+
+export const installLocked = (id: string): boolean => listed("plugins.install", id);
 
 export function pluginLock(id: string): boolean | null {
   if (listed("plugins.disabled", id)) return false;

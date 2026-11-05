@@ -1,4 +1,4 @@
-import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { useMarketplaceStore, type InstalledPluginMeta, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
@@ -44,19 +44,28 @@ async function catalogEntry(id: string): Promise<MarketplacePlugin | undefined> 
   return market().catalog.find((p) => p.id === id);
 }
 
+export function pluginState(
+  m: PluginManifest,
+  installedMeta: readonly InstalledPluginMeta[],
+  seeded: { has(id: string): boolean },
+) {
+  const meta = installedMeta.find((i) => i.id === m.id);
+  const isSeeded = !meta && seeded.has(m.id);
+  const origin: PluginView["origin"] = meta
+    ? (meta.sourceId === "local" ? "local" : meta.sourceId === "url" ? "url" : "catalog")
+    : isSeeded ? "seeded" : "local";
+  const enabled = usePluginRegistryStore.getState().isEnabled(m.id, pluginDefaultEnabled(m, installedMeta));
+  return { meta, isSeeded, origin, enabled, lock: pluginLock(m.id) };
+}
+
 export async function listPlugins(): Promise<PluginView[]> {
   const s = market();
   await Promise.all([s.loadAppVersion(), s.loadInstalledMeta(), s.loadSources(), s.fetchCatalog()]);
   const state = market();
   const seeded = await loadSeededEntries();
-  const registry = usePluginRegistryStore.getState();
 
   return getLoadedPlugins().map((m) => {
-    const meta = state.installedMeta.find((i) => i.id === m.id);
-    const isSeeded = !meta && seeded.has(m.id);
-    const origin: PluginView["origin"] = meta
-      ? (meta.sourceId === "local" ? "local" : meta.sourceId === "url" ? "url" : "catalog")
-      : isSeeded ? "seeded" : "local";
+    const { meta, isSeeded, origin, enabled, lock } = pluginState(m, state.installedMeta, seeded);
     // Reuses the same update-detection rules (semver + hash + minAppVersion, source-scoped)
     // the Browse tab and the seeded-update banner already apply — see updates.ts.
     const update = meta
@@ -68,8 +77,8 @@ export async function listPlugins(): Promise<PluginView[]> {
       id: m.id,
       name: m.name,
       version: m.version,
-      enabled: registry.isEnabled(m.id, pluginDefaultEnabled(m, state.installedMeta)),
-      locked: pluginLock(m.id) !== null,
+      enabled,
+      locked: lock !== null,
       origin,
       hash: meta?.hash ?? null,
       permissions: m.permissions ?? [],
@@ -101,11 +110,19 @@ async function tryStoreCall(fn: () => Promise<void>): Promise<DomainResult<void>
   }
 }
 
-export async function installPlugin(id: string): Promise<DomainResult<PluginView>> {
+export const installPlugin = (id: string): Promise<DomainResult<PluginView>> => installVettedPlugin(id, () => null);
+
+/** `vet` sees the manifest that will be installed and returns a refusal, or null to proceed. */
+export async function installVettedPlugin(
+  id: string,
+  vet: (manifest: PluginManifest) => string | null,
+): Promise<DomainResult<PluginView>> {
   const entry = await catalogEntry(id);
   if (!entry) return failed(`no catalog plugin "${id}"; call marketplace_search for available ids`);
   const attempt = await tryStoreCall(async () => {
-    const { manifestText } = await market().fetchManifest(entry);
+    const { manifest, manifestText } = await market().fetchManifest(entry);
+    const refusal = vet(manifest);
+    if (refusal) throw new Error(refusal);
     await market().installPlugin(entry, manifestText);
   });
   if (!attempt.ok) return attempt;
