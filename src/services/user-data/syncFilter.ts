@@ -1,5 +1,5 @@
 import { isAdminDefaulted } from "@/stores/adminDefaultsStore";
-import { isLocked } from "@/stores/policyStore";
+import { isEnforcedLock } from "@/stores/policyStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { deletePath, getPath, hasPath, setPath } from "@/utils/dotPath";
 import { USER_DATA_HANDLERS } from "./registry";
@@ -32,10 +32,12 @@ function editableSections(bundle: UserDataBundle, domains: Iterable<string>): Us
   return { ...bundle, sections };
 }
 
-function notSyncedKeys(): SettingKeyDef[] {
+function heldBack(keys: SettingKeyDef[]): SettingKeyDef[] {
   const { isSettingSynced } = useSyncPrefsStore.getState();
-  return SETTING_KEYS.filter((k) => !isSettingSynced(k.id) || isLocked(k.id));
+  return keys.filter((k) => !isSettingSynced(k.id) || isEnforcedLock(k.id));
 }
+
+const notSyncedKeys = (): SettingKeyDef[] => heldBack(SETTING_KEYS);
 
 function adminDefaultedKeys(): SettingKeyDef[] {
   return SETTING_KEYS.filter((k) => isAdminDefaulted(k.id));
@@ -121,7 +123,6 @@ export function restoreLocal(bundle: UserDataBundle): UserDataBundle {
  * back" means.
  */
 export function heldBackKeys(domain: string): SettingKeyDef[] {
-  const { isDomainSynced, isSettingSynced } = useSyncPrefsStore.getState();
-  if (!isDomainSynced(domain)) return [];
-  return keysForDomain(domain).filter((k) => !isSettingSynced(k.id));
+  if (!useSyncPrefsStore.getState().isDomainSynced(domain)) return [];
+  return heldBack(keysForDomain(domain));
 }

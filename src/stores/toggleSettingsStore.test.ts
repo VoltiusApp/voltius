@@ -8,7 +8,8 @@ vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
 import { usePolicyStore } from "./policyStore";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
 import { isAdminDefaulted, useAdminDefaultsStore } from "./adminDefaultsStore";
-import { applyToggleDefaults, getToggle, useToggleSettingsStore } from "./toggleSettingsStore";
+import { applyToggleDefaults, getToggle, hostToggle, useToggleSettingsStore } from "./toggleSettingsStore";
+import { resolvePersistSession } from "./connectivitySettingsStore";
 
 const ID = "cursor-blink" as const;
 const KEY = `appSettings.toggles.${ID}`;
@@ -28,6 +29,17 @@ describe("toggle settings under policy", () => {
     useToggleSettingsStore.getState().set(ID, false);
     expect(getToggle(ID)).toBe(true);
     expect(useToggleSettingsStore.getState().values[ID]).toBeUndefined();
+  });
+
+  it("a per-host override wins unless the global toggle is locked", () => {
+    expect(hostToggle("shell-integration", false)).toBe(false);
+    expect(resolvePersistSession(true)).toBe(true);
+    machine({ "appSettings.toggles.shell-integration": true, "appSettings.toggles.persistent-sessions": false });
+    expect(hostToggle("shell-integration", false)).toBe(true);
+    expect(resolvePersistSession(true)).toBe(false);
+    machine();
+    useToggleSettingsStore.setState({ values: { "shell-integration": false } });
+    expect(hostToggle("shell-integration", undefined)).toBe(false);
   });
 
   it("unlocking restores the user's own value", () => {
