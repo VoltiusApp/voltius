@@ -1,5 +1,5 @@
 import { useMarketplaceStore, type InstalledPluginMeta, type MarketplacePlugin } from "@/stores/marketplaceStore";
-import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { installLocked, pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
@@ -131,6 +131,7 @@ export async function installVettedPlugin(
 }
 
 export async function uninstallPlugin(id: string): Promise<DomainResult<{ id: string }>> {
+  if (installLocked(id)) return failed(managedMessage(`plugin "${id}"`));
   const view = await findView(id);
   if (!view) return noSuchPlugin(id);
   const attempt = await tryStoreCall(() =>

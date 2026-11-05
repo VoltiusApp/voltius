@@ -130,11 +130,29 @@ async function reloadThenApplyCli() {
   await applyCliPending();
 }
 
+async function writeMirror() {
+  const { writeCliMirror } = await import("@/services/cliBridge");
+  await writeCliMirror();
+}
+
+// Focus and visibility usually fire together; the second call joins the first.
+function coalesced(run: () => Promise<void>): () => void {
+  let inFlight: Promise<void> | null = null;
+  return () => {
+    inFlight ??= run()
+      .catch((e) => console.warn("[policy] refresh failed:", e))
+      .finally(() => {
+        inFlight = null;
+      });
+  };
+}
+
 export function watchPolicyVisibility() {
   if (watching) return;
   watching = true;
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void reloadThenApplyCli();
-    else void import("@/services/cliBridge").then((m) => m.writeCliMirror());
-  });
+  const onActive = coalesced(reloadThenApplyCli);
+  const onInactive = coalesced(writeMirror);
+  document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? onActive() : onInactive()));
+  window.addEventListener("focus", onActive);
+  window.addEventListener("blur", onInactive);
 }

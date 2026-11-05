@@ -26,7 +26,7 @@ import { usePlatform } from "@/utils/platform";
 import { canLockVault } from "@/utils/accountMode";
 import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
 import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
-import { applyCliPending } from "@/services/cliBridge";
+import { applyCliPending, markCliReady } from "@/services/cliBridge";
 import { applySettingDefaults } from "@/services/policy/adminDefaults";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
@@ -179,17 +179,22 @@ export default function SplashScreen({ onReady }: Props) {
     // splash spinning forever. Swallow and continue to the main UI.
     try {
       await usePluginRegistryStore.getState().load();
+      applySettingDefaults();
+      onPolicyLoaded(applySettingDefaults);
+    } catch (e) {
+      console.warn("[splash] setting defaults failed, continuing to app:", e);
+    }
+    try {
       await loadPluginMeta();
       await supersedeStaleFirstPartyShadows();
       await loadSeededPlugins();
       await loadInstalledPlugins();
       applyPluginPolicy();
       onPolicyLoaded(applyPluginPolicy);
-      applySettingDefaults();
-      onPolicyLoaded(applySettingDefaults);
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
+    markCliReady();
     void applyCliPending();
     await useAppLockStore.getState().hydrate();
     setExiting(true);

@@ -7,6 +7,8 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { TOGGLE_DEFS, type ToggleId } from "@/stores/toggleDefs";
+import { toggleKey } from "@/stores/toggleSettingsStore";
 import { importSetting, readSetting, sameValue } from "@/services/user-data/settingAccess";
 import { SETTING_KEYS, domainOf, relPath } from "@/services/user-data/settingKeys";
 
@@ -25,6 +27,13 @@ const BUILT_IN: Record<string, () => unknown> = {
 
 // An unset toggle is absent from the export, so it has no entry and its built-in is undefined.
 export const builtIn = (id: string): unknown => BUILT_IN[id]?.();
+
+const TOGGLE_BUILT_INS = new Map<string, boolean>(
+  Object.entries(TOGGLE_DEFS).map(([id, def]) => [toggleKey(id as ToggleId), def.default]),
+);
+
+// What the app shows for a setting nobody has set, toggles included.
+export const effectiveBuiltIn = (id: string): unknown => (TOGGLE_BUILT_INS.has(id) ? TOGGLE_BUILT_INS.get(id) : builtIn(id));
 
 const neverSet = (id: string): boolean =>
   !isAdminDefaulted(id) &&

@@ -25,10 +25,11 @@ vi.mock("@/stores/marketplaceStore", () => ({
 }));
 
 const registry = { isEnabled: vi.fn(() => true), setEnabled: vi.fn(async () => {}) };
-const lock = vi.hoisted(() => ({ pluginLock: vi.fn((): boolean | null => null) }));
+const lock = vi.hoisted(() => ({ pluginLock: vi.fn((): boolean | null => null), installLocked: vi.fn(() => false) }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => registry },
   pluginLock: lock.pluginLock,
+  installLocked: lock.installLocked,
 }));
 
 const storage = new Map<string, unknown>();
@@ -56,13 +57,30 @@ vi.mock("@/stores/seededTombstoneStore", () => ({
 
 import {
   listPlugins, setPluginEnabled, readPluginConfig, writePluginConfig,
-  removeSource, updatePlugin, installVettedPlugin,
+  removeSource, updatePlugin, installVettedPlugin, uninstallPlugin,
 } from "./plugins";
 import { PluginInstallManagedError } from "@/plugins/installErrors";
 
-beforeEach(() => { storage.clear(); vi.clearAllMocks(); lock.pluginLock.mockReturnValue(null); });
+beforeEach(() => {
+  storage.clear();
+  vi.clearAllMocks();
+  lock.pluginLock.mockReturnValue(null);
+  lock.installLocked.mockReturnValue(false);
+});
 
 describe("plugin domain", () => {
+  it("refuses to uninstall a plugin the organization installs", async () => {
+    lock.installLocked.mockReturnValue(true);
+    expect(await uninstallPlugin("acme")).toEqual({
+      ok: false,
+      error: 'plugin "acme" is managed by your organization and cannot be changed',
+    });
+    expect(marketplace.uninstallPlugin).not.toHaveBeenCalled();
+    lock.installLocked.mockReturnValue(false);
+    expect((await uninstallPlugin("acme")).ok).toBe(true);
+    expect(marketplace.uninstallPlugin).toHaveBeenCalledWith("acme");
+  });
+
   it("lists plugins with origin, hash and available update", async () => {
     const list = await listPlugins();
     const acme = list.find((p) => p.id === "acme")!;

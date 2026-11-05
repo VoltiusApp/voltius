@@ -25,6 +25,7 @@ import { applyPluginChange, applyPluginInstallPolicy, pluginInstallPolicyIdle } 
 import { usePolicyStore } from "@/stores/policyStore";
 import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 
 const NONE = { policy: {}, defaults: {} };
 const OK = { ok: true, result: {} };
@@ -41,6 +42,7 @@ describe("cliPlugins", () => {
     machine({});
     useAdminDefaultsStore.setState({ applied: {}, touched: {} });
     usePluginRegistryStore.setState({ overrides: {} });
+    useToggleSettingsStore.setState({ values: {} });
     mocks.installVettedPlugin.mockImplementation(async (_id: string, vet: (m: PluginManifest) => string | null) => {
       const refusal = vet({ permissions: mocks.manifestPermissions } as PluginManifest);
       return refusal ? { ok: false, error: refusal } : OK;
@@ -51,10 +53,17 @@ describe("cliPlugins", () => {
     mocks.applyPluginEnabled.mockResolvedValue(true);
   });
 
-  it("install_applies_with_matching_consent", async () => {
+  it("review_off_needs_only_gated_consent", async () => {
+    useToggleSettingsStore.setState({ values: { "plugin-install-review": false } });
     mocks.manifestPermissions = ["docker:manage", "storage"];
     expect(await install(["docker:manage"])).toBeNull();
     expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function));
+  });
+
+  it("review_on_needs_every_permission_consented", async () => {
+    mocks.manifestPermissions = ["docker:manage", "storage"];
+    expect(await install(["docker:manage"])).toBe("permissions changed since you confirmed; run the command again");
+    expect(await install(["docker:manage", "storage"])).toBeNull();
   });
 
   it("install_refused_when_permissions_grew", async () => {
@@ -129,15 +138,14 @@ describe("cliPlugins", () => {
     expect(mocks.installPlugin).toHaveBeenCalledTimes(2);
   });
 
-  it("unlisted_lock_becomes_removable", async () => {
+  it("unlisted_lock_is_not_uninstalled_by_policy", async () => {
     mocks.loaded = [{ id: "plugin-docker", version: "1.0.0" }];
     machine({ "plugins.install": ["plugin-docker"] });
-    const remove = () => applyPluginChange({ action: "remove", id: "plugin-docker", consentedPermissions: [] });
-    expect(await remove()).toBe("locked by policy");
+    await applyPluginInstallPolicy();
     machine({});
     await applyPluginInstallPolicy();
     expect(mocks.uninstallPlugin).not.toHaveBeenCalled();
-    expect(await remove()).toBeNull();
+    expect(await applyPluginChange({ action: "remove", id: "plugin-docker", consentedPermissions: [] })).toBeNull();
     expect(mocks.uninstallPlugin).toHaveBeenCalledWith("plugin-docker");
   });
 

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn(), applyCliPending: vi.fn(), writeCliMirror: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
+vi.mock("@/services/cliBridge", () => ({ applyCliPending: mocks.applyCliPending, writeCliMirror: mocks.writeCliMirror }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 
@@ -145,6 +146,36 @@ describe("policyStore", () => {
     watchPolicyVisibility();
     expect(add.mock.calls.filter(([type]) => type === "visibilitychange")).toHaveLength(1);
     add.mockRestore();
+  });
+
+  it("a refocus reloads policy and applies CLI changes once per focus/visibility pair", async () => {
+    mocks.invoke.mockResolvedValue(loaded());
+    mocks.applyCliPending.mockResolvedValue(undefined);
+    mocks.writeCliMirror.mockResolvedValue(undefined);
+    watchPolicyVisibility();
+    const settle = () => new Promise((r) => setTimeout(r, 10));
+    const visibility = (v: string) => Object.defineProperty(document, "visibilityState", { configurable: true, get: () => v });
+    const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
+
+    visibility("visible");
+    window.dispatchEvent(new Event("focus"));
+    await vi.waitFor(() => expect(mocks.applyCliPending).toHaveBeenCalledTimes(1));
+    await settle();
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.waitFor(() => expect(mocks.applyCliPending).toHaveBeenCalledTimes(2));
+    await settle();
+    expect(loads()).toBe(2);
+    expect(mocks.applyCliPending).toHaveBeenCalledTimes(2);
+
+    visibility("hidden");
+    window.dispatchEvent(new Event("blur"));
+    await vi.waitFor(() => expect(mocks.writeCliMirror).toHaveBeenCalledTimes(1));
+    await settle();
+    window.dispatchEvent(new Event("blur"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(mocks.writeCliMirror).toHaveBeenCalledTimes(2);
   });
 
   it("typed lock readers ignore values of the wrong type", () => {

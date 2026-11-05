@@ -22,7 +22,7 @@ const listed = (key: (typeof PLUGIN_LIST_KEYS)[number] | "plugins.install", id: 
 
 export const installLocked = (id: string): boolean => listed("plugins.install", id);
 
-const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+export const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
 export const policyInstallList = (): string[] => [
   ...stringList(lockedList("plugins.install")),

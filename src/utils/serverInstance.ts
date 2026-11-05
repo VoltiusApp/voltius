@@ -44,9 +44,10 @@ export function instanceLabel(url: string | null | undefined): string | null {
  */
 const LAST_SERVER_KEY = "voltius.last-server-url";
 
-export function rememberServer(url: string): void {
-  if (!parse(url)) return;
+export function rememberServer(url: string): boolean {
+  if (!parse(url)) return false;
   globalThis.localStorage?.setItem(LAST_SERVER_KEY, url);
+  return true;
 }
 
 export function storedServerUrl(): string {
