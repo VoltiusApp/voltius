@@ -28,13 +28,13 @@ const lock = (policy: Record<string, unknown>) => {
 
 describe("applyPluginPolicy", () => {
   beforeEach(() => {
-    vi.mocked(setPluginActive).mockClear();
     mocks.active = new Map([["plugin-docker", true], ["plugin-off", false]]);
     mocks.manifests = [{ id: "plugin-docker" }, { id: "plugin-off", defaultEnabled: false }];
     mocks.market = { installedMeta: [], catalog: [] };
     mocks.seeded = new Map();
     usePluginRegistryStore.setState({ overrides: {} });
-    usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, server: { policy: {}, defaults: {} } });
+    lock({});
+    vi.mocked(setPluginActive).mockClear();
   });
 
   it("deactivates an active plugin the policy forces off", () => {
@@ -67,11 +67,21 @@ describe("applyPluginPolicy", () => {
     expect(setPluginActive).not.toHaveBeenCalled();
   });
 
-  it("treats an installed plugin as on by default whatever its manifest says", () => {
+  it("leaves an unlocked plugin alone even when its runtime state differs from its setting", () => {
     mocks.active.set("plugin-off", true);
-    mocks.market.installedMeta = [{ id: "plugin-off" }];
+    usePluginRegistryStore.setState({ overrides: { "plugin-docker": false } });
+    mocks.market.catalog = [{ id: "other" }];
+    lock({ "plugins.disabled": ["other"] });
     lock({});
     expect(setPluginActive).not.toHaveBeenCalled();
+  });
+
+  it("turns an installed plugin back on when its lock is lifted, whatever its manifest default", () => {
+    mocks.active.set("plugin-off", true);
+    mocks.market.installedMeta = [{ id: "plugin-off" }];
+    lock({ "plugins.disabled": ["plugin-off"] });
+    lock({});
+    expect(vi.mocked(setPluginActive).mock.calls).toEqual([["plugin-off", false], ["plugin-off", true]]);
   });
 
   it("warns once per load about ids no plugin is known by", async () => {
