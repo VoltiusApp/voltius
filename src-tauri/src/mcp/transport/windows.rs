@@ -45,17 +45,12 @@ fn create_instance(
     first: bool,
 ) -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeServer> {
     use tokio::net::windows::named_pipe::ServerOptions;
-    use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
 
     // The SID comes from our own process token, never from user input:
     // `owner_only_sddl` interpolates it without escaping.
     let sddl = super::shared::owner_only_sddl(&current_user_sid()?);
     let sd = crate::win_security::SecurityDescriptor::from_sddl(&sddl)?;
-    let mut sa = SECURITY_ATTRIBUTES {
-        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-        lpSecurityDescriptor: sd.0,
-        bInheritHandle: 0,
-    };
+    let mut sa = sd.attributes();
     unsafe {
         ServerOptions::new()
             .first_pipe_instance(first)

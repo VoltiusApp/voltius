@@ -311,8 +311,8 @@ pub fn machine_policy_path() -> Option<PathBuf> {
 fn default_machine_policy_path() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
-        let base = std::env::var_os("ProgramData")
-            .map_or_else(|| PathBuf::from(r"C:\ProgramData"), PathBuf::from);
+        let base =
+            crate::win_security::program_data().unwrap_or_else(|| PathBuf::from(r"C:\ProgramData"));
         Some(base.join("Voltius").join("policy.json"))
     }
     #[cfg(target_os = "macos")]
@@ -352,40 +352,66 @@ pub fn read_optional(path: &Path) -> std::io::Result<Option<String>> {
     }
 }
 
-pub type ProtectionCheck = fn(&Path) -> std::io::Result<bool>;
-type Hardener = fn(&Path) -> std::io::Result<()>;
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Guard {
+    Missing,
+    Link,
+    Protected,
+    Unprotected,
+}
+
+pub type Probe = fn(&Path) -> std::io::Result<Guard>;
+
+#[derive(Debug)]
+pub enum Blocked {
+    Link(PathBuf),
+    Unprotected(PathBuf),
+    Io(PathBuf, std::io::Error),
+}
+
+#[derive(Clone, Copy)]
+pub struct MachineAcl {
+    pub probe: Probe,
+    pub harden: fn(&Path) -> Result<(), Blocked>,
+}
 
 #[cfg(windows)]
-const OS_ACL: Option<(ProtectionCheck, Hardener)> = Some((
-    acl_windows::is_admin_protected as ProtectionCheck,
-    acl_windows::harden as Hardener,
-));
+const OS_ACL: Option<MachineAcl> = Some(MachineAcl {
+    probe: acl_windows::probe,
+    harden: acl_windows::harden,
+});
 #[cfg(not(windows))]
-const OS_ACL: Option<(ProtectionCheck, Hardener)> = None;
+const OS_ACL: Option<MachineAcl> = None;
 
-fn machine_acl(path: &Path) -> Option<(ProtectionCheck, Hardener)> {
+pub fn machine_acl(path: &Path) -> Option<MachineAcl> {
     OS_ACL.filter(|_| default_machine_policy_path().as_deref() == Some(path))
 }
 
-pub fn machine_protection(path: &Path) -> Option<ProtectionCheck> {
-    machine_acl(path).map(|(check, _)| check)
+fn dir_of(path: &Path) -> &Path {
+    path.parent().unwrap_or(path)
 }
 
-pub fn harden_machine_file(path: &Path) -> std::io::Result<()> {
-    machine_acl(path).map_or(Ok(()), |(_, harden)| harden(path))
+fn probe_both(path: &Path, probe: Probe) -> Result<(Guard, Guard), (PathBuf, std::io::Error)> {
+    let at = |p: &Path| probe(p).map_err(|e| (p.to_path_buf(), e));
+    Ok((at(dir_of(path))?, at(path)?))
 }
 
-pub fn protection_issue(path: &Path, protected: ProtectionCheck) -> Option<Issue> {
-    let checked = path
-        .parent()
-        .map_or(Ok(true), protected)
-        .and_then(|dir_ok| Ok(dir_ok && protected(path)?));
-    let why = match checked {
-        Ok(true) => return None,
-        Ok(false) => "standard users can change it".to_string(),
-        Err(e) => format!("its permissions could not be read ({e})"),
+pub enum Trust {
+    Absent,
+    Trusted,
+    Ignored(Issue),
+}
+
+pub fn trust(path: &Path, probe: Probe) -> Trust {
+    let why = match probe_both(path, probe) {
+        Err((_, e)) => format!("its permissions could not be read ({e})"),
+        Ok((Guard::Link, _)) => "its folder is a link".to_string(),
+        Ok((_, Guard::Link)) => "it is a link".to_string(),
+        Ok((_, Guard::Missing)) => return Trust::Absent,
+        Ok((Guard::Protected, Guard::Protected)) => return Trust::Trusted,
+        Ok(_) => "standard users can change it".to_string(),
     };
-    Some(Issue::general(
+    Trust::Ignored(Issue::general(
         IssueKind::Unprotected,
         format!(
             "{} ignored because {why}; set it again with voltius-cli run as Administrator",
@@ -394,18 +420,28 @@ pub fn protection_issue(path: &Path, protected: ProtectionCheck) -> Option<Issue
     ))
 }
 
-pub fn load_from(path: &Path) -> LoadedPolicy {
-    load_with(path, machine_protection(path))
+pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<(), Blocked> {
+    match probe_both(path, probe).map_err(|(p, e)| Blocked::Io(p, e))? {
+        (Guard::Link, _) => Err(Blocked::Link(dir_of(path).to_path_buf())),
+        (_, Guard::Link) => Err(Blocked::Link(path.to_path_buf())),
+        (_, Guard::Unprotected) if !replace => Err(Blocked::Unprotected(path.to_path_buf())),
+        _ => Ok(()),
+    }
 }
 
-fn load_with(path: &Path, protected: Option<ProtectionCheck>) -> LoadedPolicy {
-    let (doc, issues) = match read_optional(path) {
-        Ok(Some(text)) => match protected.and_then(|p| protection_issue(path, p)) {
-            Some(issue) => (PolicyDoc::default(), vec![issue]),
-            None => parse(&text),
+pub fn load_from(path: &Path) -> LoadedPolicy {
+    load_with(path, machine_acl(path).map(|a| a.probe))
+}
+
+fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
+    let (doc, issues) = match probe.map_or(Trust::Trusted, |p| trust(path, p)) {
+        Trust::Absent => (PolicyDoc::default(), Vec::new()),
+        Trust::Ignored(issue) => (PolicyDoc::default(), vec![issue]),
+        Trust::Trusted => match read_optional(path) {
+            Ok(Some(text)) => parse(&text),
+            Ok(None) => (PolicyDoc::default(), Vec::new()),
+            Err(e) => (PolicyDoc::default(), vec![read_issue(path, &e)]),
         },
-        Ok(None) => (PolicyDoc::default(), Vec::new()),
-        Err(e) => (PolicyDoc::default(), vec![read_issue(path, &e)]),
     };
     LoadedPolicy {
         path: Some(path.display().to_string()),
@@ -429,11 +465,17 @@ pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
     let mut tmp = path.as_os_str().to_owned();
-    tmp.push(".tmp");
+    tmp.push(format!(".{}-{nanos}.tmp", std::process::id()));
     let tmp = PathBuf::from(tmp);
     let result = write_tmp(&tmp, text.as_bytes()).and_then(|()| std::fs::rename(&tmp, path));
-    if result.is_err() {
+    if result
+        .as_ref()
+        .is_err_and(|e| e.kind() != std::io::ErrorKind::AlreadyExists)
+    {
         let _ = std::fs::remove_file(&tmp);
     }
     result
@@ -442,7 +484,7 @@ pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
 fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
     let mut opts = std::fs::OpenOptions::new();
-    opts.write(true).create(true).truncate(true);
+    opts.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o644);
     let mut file = opts.open(tmp)?;
@@ -456,7 +498,84 @@ fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
+pub(crate) mod test_probes {
+    use super::{Blocked, Guard, MachineAcl, Probe};
+    use std::path::Path;
+
+    fn is_file(p: &Path) -> bool {
+        p.extension().is_some()
+    }
+
+    pub fn all_unprotected(_: &Path) -> std::io::Result<Guard> {
+        Ok(Guard::Unprotected)
+    }
+
+    pub fn file_unprotected(p: &Path) -> std::io::Result<Guard> {
+        Ok(if is_file(p) {
+            Guard::Unprotected
+        } else {
+            Guard::Protected
+        })
+    }
+
+    pub fn dir_unprotected(p: &Path) -> std::io::Result<Guard> {
+        Ok(if is_file(p) {
+            Guard::Protected
+        } else {
+            Guard::Unprotected
+        })
+    }
+
+    pub fn file_link(p: &Path) -> std::io::Result<Guard> {
+        Ok(if is_file(p) {
+            Guard::Link
+        } else {
+            Guard::Protected
+        })
+    }
+
+    pub fn dir_link_no_file(p: &Path) -> std::io::Result<Guard> {
+        Ok(if is_file(p) {
+            Guard::Missing
+        } else {
+            Guard::Link
+        })
+    }
+
+    pub fn unprotected_dir_no_file(p: &Path) -> std::io::Result<Guard> {
+        Ok(if is_file(p) {
+            Guard::Missing
+        } else {
+            Guard::Unprotected
+        })
+    }
+
+    pub fn unreadable_acl(_: &Path) -> std::io::Result<Guard> {
+        Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+    }
+
+    pub fn all_protected(_: &Path) -> std::io::Result<Guard> {
+        Ok(Guard::Protected)
+    }
+
+    pub fn harden_denied(p: &Path) -> Result<(), Blocked> {
+        Err(Blocked::Io(
+            p.to_path_buf(),
+            std::io::ErrorKind::PermissionDenied.into(),
+        ))
+    }
+
+    pub fn acl(probe: Probe) -> MachineAcl {
+        MachineAcl {
+            probe,
+            harden: |_| Ok(()),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::test_probes::*;
     use super::*;
     use serde_json::json;
 
@@ -591,24 +710,7 @@ mod tests {
         assert_eq!(parse_cli_value(KeyType::Number, "12"), Ok(json!(12.0)));
     }
 
-    fn deny_all(_: &Path) -> std::io::Result<bool> {
-        Ok(false)
-    }
-
-    fn deny_file_only(p: &Path) -> std::io::Result<bool> {
-        Ok(p.extension().is_none())
-    }
-
-    fn unreadable_acl(_: &Path) -> std::io::Result<bool> {
-        Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
-    }
-
-    fn allow_all(_: &Path) -> std::io::Result<bool> {
-        Ok(true)
-    }
-
-    #[test]
-    fn load_ignores_unprotected_file() {
+    fn policy_file() -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
         std::fs::write(
@@ -616,35 +718,85 @@ mod tests {
             r#"{"version":1,"policy":{"sshConfig.import":false}}"#,
         )
         .unwrap();
-        for check in [deny_all as ProtectionCheck, deny_file_only, unreadable_acl] {
-            let loaded = load_with(&path, Some(check));
+        (dir, path)
+    }
+
+    #[test]
+    fn load_ignores_unprotected_file() {
+        let (_dir, path) = policy_file();
+        for probe in [
+            all_unprotected as Probe,
+            file_unprotected,
+            dir_unprotected,
+            file_link,
+            dir_link_no_file,
+            unreadable_acl,
+        ] {
+            let loaded = load_with(&path, Some(probe));
             assert_eq!(loaded.doc, PolicyDoc::default());
             assert_eq!(loaded.issues.len(), 1);
             assert_eq!(loaded.issues[0].kind, IssueKind::Unprotected);
             assert!(loaded.issues[0].message.contains(path.to_str().unwrap()));
         }
-        assert_eq!(load_with(&path, Some(allow_all)).doc.policy.len(), 1);
+        assert_eq!(load_with(&path, Some(all_protected)).doc.policy.len(), 1);
         assert_eq!(load_with(&path, None).doc.policy.len(), 1);
     }
 
     #[test]
-    fn missing_file_needs_no_protection() {
-        let dir = tempfile::tempdir().unwrap();
-        let loaded = load_with(&dir.path().join("policy.json"), Some(deny_all));
+    fn missing_file_is_not_read_even_if_it_appears() {
+        let (_dir, path) = policy_file();
+        let loaded = load_with(&path, Some(unprotected_dir_no_file));
+        assert_eq!(loaded.doc, PolicyDoc::default());
         assert!(loaded.issues.is_empty());
+    }
+
+    #[test]
+    fn linked_folder_is_reported_without_a_file() {
+        let path = Path::new("/x/Voltius/policy.json");
+        let Trust::Ignored(issue) = trust(path, dir_link_no_file) else {
+            panic!("a linked folder must be reported");
+        };
+        assert!(issue.message.contains("link"), "{}", issue.message);
+        assert!(matches!(
+            trust(path, unprotected_dir_no_file),
+            Trust::Absent
+        ));
+        assert!(matches!(trust(path, all_protected), Trust::Trusted));
+    }
+
+    #[test]
+    fn write_check_refuses_links_and_unprotected_files() {
+        let path = Path::new("/x/Voltius/policy.json");
+        let check = |probe, replace| write_check(path, probe, replace);
+        assert!(
+            matches!(check(dir_link_no_file, true), Err(Blocked::Link(p)) if p == Path::new("/x/Voltius"))
+        );
+        assert!(matches!(check(file_link, true), Err(Blocked::Link(p)) if p == path));
+        assert!(
+            matches!(check(file_unprotected, false), Err(Blocked::Unprotected(p)) if p == path)
+        );
+        assert!(matches!(
+            check(all_unprotected, false),
+            Err(Blocked::Unprotected(_))
+        ));
+        assert!(matches!(check(unreadable_acl, false), Err(Blocked::Io(..))));
+        assert!(check(file_unprotected, true).is_ok());
+        assert!(check(dir_unprotected, false).is_ok());
+        assert!(check(unprotected_dir_no_file, false).is_ok());
+        assert!(check(all_protected, false).is_ok());
     }
 
     #[test]
     fn non_default_path_skips_acl() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("policy.json");
-        assert!(machine_protection(&path).is_none());
-        harden_machine_file(&path).unwrap();
+        assert!(machine_acl(&dir.path().join("policy.json")).is_none());
     }
 
     #[test]
     fn unprotected_issue_serializes_camel_case() {
-        let issue = protection_issue(Path::new("/x/policy.json"), deny_all).unwrap();
+        let Trust::Ignored(issue) = trust(Path::new("/x/policy.json"), all_unprotected) else {
+            panic!("expected an issue");
+        };
         assert_eq!(serde_json::to_value(&issue).unwrap()["kind"], "unprotected");
     }
 
@@ -706,6 +858,26 @@ mod tests {
         let path = dir.path().join("policy.json");
         std::fs::create_dir(&path).unwrap();
         assert!(write_text_atomic(&path, "{}\n").is_err());
-        assert!(!dir.path().join("policy.json.tmp").exists());
+        let names: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, ["policy.json"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_text_atomic_never_reuses_a_planted_file() {
+        use std::os::unix::fs::MetadataExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let planted = dir.path().join("policy.json.tmp");
+        std::fs::write(&path, "old").unwrap();
+        std::fs::write(&planted, "planted").unwrap();
+        let held = [&path, &planted].map(|p| std::fs::metadata(p).unwrap().ino());
+        write_text_atomic(&path, "{}\n").unwrap();
+        assert!(!held.contains(&std::fs::metadata(&path).unwrap().ino()));
+        assert_eq!(std::fs::read_to_string(&planted).unwrap(), "planted");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}\n");
     }
 }

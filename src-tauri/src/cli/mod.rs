@@ -33,6 +33,7 @@ pub enum CliError {
     Usage(String),
     Validation(Vec<Issue>),
     Permission(Access, PathBuf),
+    Denied(String),
     Io(std::io::Error),
 }
 
@@ -41,7 +42,7 @@ impl CliError {
         match self {
             CliError::Usage(_) => 2,
             CliError::Validation(_) => 3,
-            CliError::Permission(..) => 4,
+            CliError::Permission(..) | CliError::Denied(_) => 4,
             CliError::Io(_) => 5,
         }
     }
@@ -56,7 +57,7 @@ impl CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CliError::Usage(m) => f.write_str(m),
+            CliError::Usage(m) | CliError::Denied(m) => f.write_str(m),
             CliError::Validation(issues) => {
                 let lines: Vec<String> = issues.iter().map(policy_cmd::describe).collect();
                 f.write_str(&lines.join("\n"))
