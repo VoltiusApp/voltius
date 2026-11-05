@@ -44,7 +44,9 @@ export const onPolicyLoaded = (fn: () => void): (() => void) => {
 
 const TOASTED_KINDS: ReadonlySet<PolicyIssueKind> = new Set(["file", "type"]);
 
-async function reportIssuesOnce(issues: PolicyIssue[]) {
+const isEmptyLayer = (l: PolicyLayer) => !Object.keys(l.policy).length && !Object.keys(l.defaults).length;
+
+async function reportIssuesOnce({ doc, issues }: LoadedPolicy) {
   const signature = issues.length ? JSON.stringify(issues) : "";
   if (signature === notifiedIssues) return;
   notifiedIssues = signature;
@@ -52,7 +54,8 @@ async function reportIssuesOnce(issues: PolicyIssue[]) {
   for (const i of issues) if (!TOASTED_KINDS.has(i.kind)) console.warn("[policy]", [i.layer, i.key].filter(Boolean).join("."), i.message);
   if (!errors.length) return;
   const [{ default: i18n }, { notify }] = await Promise.all([import("@/i18n"), import("@/services/saveFile")]);
-  notify("error", i18n.t("common.policy.issues", { count: errors.length }));
+  const unreadable = isEmptyLayer(doc) && errors.some((i) => i.kind === "file");
+  notify("error", unreadable ? i18n.t("common.policy.fileError") : i18n.t("common.policy.issues", { count: errors.length }));
 }
 
 export const usePolicyStore = create<PolicyState>((set) => ({
@@ -72,7 +75,7 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       issues: loaded.issues,
     });
     loadedListeners.forEach((fn) => fn());
-    void reportIssuesOnce(loaded.issues).catch(() => {});
+    void reportIssuesOnce(loaded).catch(() => {});
   },
 }));
 
