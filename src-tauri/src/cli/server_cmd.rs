@@ -1,7 +1,9 @@
 use super::output::Output;
-use super::policy_cmd::{layer_of, machine_path, plain, set, typed_value};
+use super::policy_cmd::{
+    layer_of, locked_message, machine_doc, machine_path, plain, set, typed_value,
+};
 use super::user::require_user_account;
-use super::{CliError, Ctx};
+use super::{queue, CliError, Ctx};
 use crate::cli_state::{mirror, pending};
 use crate::policy::{self, IssueKind};
 use clap::Subcommand;
@@ -58,36 +60,35 @@ pub(super) fn run_server(
             ctx.out,
         ),
         ServerCmd::Set { url, .. } => {
+            if machine_doc(machine).policy.contains_key(KEY) {
+                return Err(plain(IssueKind::Type, locked_message(KEY)));
+            }
             let ty = policy::key_type(KEY)
                 .ok_or_else(|| plain(IssueKind::UnknownKey, format!("unknown key \"{KEY}\"")))?;
             let url = typed_value(KEY, ty, &url)?;
             let url = url.as_str().unwrap_or_default().to_string();
-            pending::append(user_dir, pending::Change::Server { url: url.clone() })
-                .map_err(CliError::Io)?;
-            ctx.out.line(format!(
-                "Queued server {url}; Voltius applies it the next time it runs"
-            ));
+            queue(
+                user_dir,
+                pending::Change::Server { url: url.clone() },
+                ctx.out,
+            )?;
+            ctx.out
+                .line(format!("Voltius will use {url} at the next sign-in."));
             Ok(())
         }
     }
 }
 
 fn show(machine: Option<&Path>, dir: &Path, out: &mut Output) -> Result<(), CliError> {
-    let doc = machine
-        .map(|p| policy::load_from(p).doc)
-        .unwrap_or_default();
+    let doc = machine_doc(machine);
     let locked = doc.policy.get(KEY).cloned();
     let default = doc.defaults.get(KEY).cloned();
     let current = mirror::read(dir).and_then(|m| m.server_url);
     let queued = pending::load(dir)
         .0
-        .changes
-        .into_iter()
-        .rev()
-        .find_map(|e| match e.change {
-            pending::Change::Server { url } => Some(url),
-            _ => None,
-        });
+        .queued_values()
+        .remove(KEY)
+        .and_then(|(v, _)| v.as_str().map(str::to_string));
     if out.json {
         out.json(&json!({
             "locked": locked,
@@ -182,6 +183,47 @@ mod tests {
             pending::Change::Server {
                 url: "https://v.acme.com".into()
             }
+        );
+    }
+
+    #[test]
+    fn plain_server_set_refuses_a_locked_url() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine = dir.path().join("policy.json");
+        std::fs::write(
+            &machine,
+            r#"{"version":1,"policy":{"server.url":"https://corp.example"}}"#,
+        )
+        .unwrap();
+        let e = run(
+            set_cmd("https://v.acme.com", false, false),
+            Some(&machine),
+            dir.path(),
+            false,
+        )
+        .0
+        .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert_eq!(
+            e.to_string(),
+            "server.url is locked by your organization's policy"
+        );
+        assert!(pending::load(dir.path()).0.changes.is_empty());
+    }
+
+    #[test]
+    fn server_set_says_when_it_applies() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, text) = run(
+            set_cmd("https://v.acme.com", false, false),
+            None,
+            dir.path(),
+            false,
+        );
+        assert_eq!(
+            text,
+            "Queued: server https://v.acme.com. Applies when Voltius next opens or regains focus.\n\
+             Voltius will use https://v.acme.com at the next sign-in.\n"
         );
     }
 

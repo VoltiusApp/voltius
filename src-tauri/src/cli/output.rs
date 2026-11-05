@@ -40,6 +40,10 @@ impl Output {
         }
     }
 
+    pub fn notice(&mut self, message: impl Display) {
+        let _ = writeln!(self.err, "{message}");
+    }
+
     pub fn line(&mut self, styled: impl Display) {
         if !self.quiet {
             let _ = writeln!(self.sink, "{styled}");

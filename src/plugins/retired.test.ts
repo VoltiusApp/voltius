@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { isRetiredPlugin } from "./retired";
+import { RETIRED_PLUGIN_IDS, isRetiredPlugin } from "./retired";
 import { loadPlugin, getLoadedPlugins } from "./runtime";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn(async () => null) }));
 
 describe("retired plugins", () => {
+  it("retired_plugins.json mirrors RETIRED_PLUGIN_IDS", async () => {
+    await expect(JSON.stringify([...RETIRED_PLUGIN_IDS].sort(), null, 2) + "\n")
+      .toMatchFileSnapshot("../../src-tauri/src/policy/retired_plugins.json");
+  });
+
   it("knows plugin-ssh-config", () => {
     expect(isRetiredPlugin("plugin-ssh-config")).toBe(true);
     expect(isRetiredPlugin("plugin-docker")).toBe(false);

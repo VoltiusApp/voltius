@@ -1,11 +1,13 @@
 use super::output::Output;
-use super::policy_cmd::{plain, typed_value, unknown_key_message};
+use super::policy_cmd::{
+    effective_row, locked_message, machine_doc, plain, print_row, typed_value, unknown_key_message,
+};
 use super::user::require_user_account;
-use super::{CliError, Ctx};
-use crate::cli_state::{mirror, pending};
+use super::{queue, CliError, Ctx};
+use crate::cli_state::pending::Change;
 use crate::policy::{self, Issue, IssueKind, KeyType};
 use clap::Subcommand;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug)]
@@ -34,9 +36,7 @@ pub fn run(cmd: ConfigCmd, ctx: &mut Ctx) -> Result<(), CliError> {
 }
 
 fn locked_keys(machine: Option<&Path>) -> Vec<String> {
-    machine
-        .map(|p| policy::load_from(p).doc.policy.into_keys().collect())
-        .unwrap_or_default()
+    machine_doc(machine).policy.into_keys().collect()
 }
 
 fn rejected(key: &str, message: String) -> Issue {
@@ -64,27 +64,13 @@ fn setting_type(key: &str, locked: &[String]) -> Result<KeyType, Issue> {
         ));
     }
     if locked.iter().any(|k| k == key) {
-        return Err(rejected(
-            key,
-            format!("{key} is locked by your organization's policy"),
-        ));
+        return Err(rejected(key, locked_message(key)));
     }
     Ok(ty)
 }
 
-fn queue(dir: &Path, key: &str, value: Value, out: &mut Output) -> Result<(), CliError> {
-    pending::append(
-        dir,
-        pending::Change::Setting {
-            key: key.to_string(),
-            value,
-        },
-    )
-    .map_err(CliError::Io)?;
-    out.line(format!(
-        "Queued {key}; Voltius applies it the next time it runs"
-    ));
-    Ok(())
+fn queue_setting(dir: &Path, key: String, value: Value, out: &mut Output) -> Result<(), CliError> {
+    queue(dir, Change::Setting { key, value }, out)
 }
 
 pub(super) fn run_config(
@@ -94,42 +80,27 @@ pub(super) fn run_config(
     ctx: &mut Ctx,
 ) -> Result<(), CliError> {
     match cmd {
-        ConfigCmd::Get { key } => get(&key, user_dir, ctx.out),
+        ConfigCmd::Get { key } => get(&key, machine, user_dir, ctx.out),
         ConfigCmd::Set { key, value } => {
             let ty = setting_type(&key, &locked_keys(machine))
                 .map_err(|i| CliError::Validation(vec![i]))?;
             let value = typed_value(&key, ty, &value)?;
-            queue(user_dir, &key, value, ctx.out)
+            queue_setting(user_dir, key, value, ctx.out)
         }
         ConfigCmd::Import { file, data } => import(file, data, machine, user_dir, ctx.out),
     }
 }
 
-fn get(key: &str, dir: &Path, out: &mut Output) -> Result<(), CliError> {
+fn get(key: &str, machine: Option<&Path>, dir: &Path, out: &mut Output) -> Result<(), CliError> {
     if policy::key_type(key).is_none() {
         return Err(plain(IssueKind::UnknownKey, unknown_key_message(key)));
     }
-    let queued = pending::load(dir).0.queued_values().remove(key);
-    let (value, source, as_of) = match (queued, mirror::read(dir)) {
-        (Some((v, at)), _) => (v, "pending", at),
-        (None, Some(m)) => (
-            m.values().remove(key).unwrap_or(Value::Null),
-            "app",
-            m.written_at,
-        ),
-        (None, None) => {
-            return Err(CliError::Io(std::io::Error::other(
-                "Voltius has not run yet for this user",
-            )))
-        }
-    };
-    if out.json {
-        out.json(&json!({ "key": key, "value": value, "source": source, "asOf": as_of }));
-    } else if source == "pending" {
-        out.line(format!("{value} (pending)"));
-    } else {
-        out.line(format!("{value} (as of {as_of})"));
-    }
+    let row = effective_row(&machine_doc(machine), dir, key).ok_or_else(|| {
+        CliError::Io(std::io::Error::other(
+            "Voltius has not run yet for this user",
+        ))
+    })?;
+    print_row(key, &row, out);
     Ok(())
 }
 
@@ -167,7 +138,7 @@ fn import(
         return Err(CliError::Validation(issues));
     }
     for (key, value) in map {
-        queue(dir, &key, value, out)?;
+        queue_setting(dir, key, value, out)?;
     }
     Ok(())
 }
@@ -176,6 +147,8 @@ fn import(
 mod tests {
     use super::*;
     use crate::cli::output::testing::{capture, captured};
+    use crate::cli_state::{mirror, pending};
+    use serde_json::json;
 
     const CURSOR: &str = "appSettings.terminal.cursorStyle";
 
@@ -329,7 +302,7 @@ mod tests {
         write_mirror(dir.path());
         let (r, text) = run(get_cmd(), None, dir.path(), false);
         r.unwrap();
-        assert_eq!(text.trim(), "\"block\" (as of 2026-11-05T10:00:00Z)");
+        assert_eq!(text.trim(), "\"block\" (app, as of 2026-11-05T10:00:00Z)");
 
         run(set(CURSOR, "bar"), None, dir.path(), false).0.unwrap();
         let (_, text) = run(get_cmd(), None, dir.path(), false);
@@ -372,6 +345,54 @@ mod tests {
         let v: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(v["source"], "app");
         assert_eq!(v["asOf"], "2026-11-05T10:00:00Z");
+    }
+
+    fn machine(dir: &Path, doc: Value) -> PathBuf {
+        let path = dir.join("policy.json");
+        std::fs::write(&path, doc.to_string()).unwrap();
+        path
+    }
+
+    #[test]
+    fn config_get_machine_policy_beats_pending() {
+        let dir = tempfile::tempdir().unwrap();
+        write_mirror(dir.path());
+        run(set(CURSOR, "bar"), None, dir.path(), false).0.unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { CURSOR: "underline" }}),
+        );
+        let (r, text) = run(get_cmd(), Some(&m), dir.path(), true);
+        r.unwrap();
+        let v: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["value"], "underline");
+        assert_eq!(v["source"], "machine policy");
+    }
+
+    #[test]
+    fn config_get_machine_default_without_mirror() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "defaults": { CURSOR: "bar" }}),
+        );
+        let (r, text) = run(get_cmd(), Some(&m), dir.path(), false);
+        r.unwrap();
+        assert_eq!(text.trim(), "\"bar\" (machine default)");
+    }
+
+    #[test]
+    fn config_get_app_value_over_default_carries_note() {
+        let dir = tempfile::tempdir().unwrap();
+        write_mirror(dir.path());
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "defaults": { CURSOR: "bar" }}),
+        );
+        let (_, text) = run(get_cmd(), Some(&m), dir.path(), true);
+        let v: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["source"], "app");
+        assert_eq!(v["defaultValue"], "bar");
     }
 
     #[test]

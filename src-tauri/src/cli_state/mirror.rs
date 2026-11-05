@@ -15,6 +15,8 @@ pub struct Mirror {
     pub settings: BTreeMap<String, Value>,
     pub server_url: Option<String>,
     pub plugins: Vec<MirrorPlugin>,
+    #[serde(default)]
+    pub built_ins: BTreeMap<String, Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -68,6 +70,19 @@ mod tests {
         assert_eq!(m.settings["fontSize"], json!(14));
         assert_eq!(m.server_url, None);
         assert_eq!(m.plugins[0].id, "plugin-docker");
+        assert!(m.built_ins.is_empty());
+    }
+
+    #[test]
+    fn reads_built_ins() {
+        let dir = tempfile::tempdir().unwrap();
+        let doc = json!({
+            "writtenAt": "t", "appVersion": "1", "settings": {}, "serverUrl": null, "plugins": [],
+            "builtIns": {"appSettings.toggles.cursor-blink": true},
+        });
+        write(dir.path(), &doc).unwrap();
+        let m = read(dir.path()).unwrap();
+        assert_eq!(m.built_ins["appSettings.toggles.cursor-blink"], json!(true));
     }
 
     #[test]

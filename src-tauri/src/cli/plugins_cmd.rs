@@ -1,9 +1,10 @@
 use super::output::Output;
 use super::policy_cmd::{
-    edit_raw, layer_entries, layer_of, machine_path, plain, unknown_message, unusable, Raw,
+    edit_raw, effective_row, layer_entries, layer_of, locked_message, machine_doc, machine_path,
+    plain, unknown_message, unusable, Raw,
 };
 use super::user::{confirm, require_user_account};
-use super::{CliError, Ctx};
+use super::{queue, CliError, Ctx};
 use crate::cli_state::mirror;
 use crate::cli_state::pending::{self, Change, PluginAction};
 use crate::policy::{self, IssueKind, Layer, PolicyDoc};
@@ -20,6 +21,7 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 const INSTALL: &str = "plugins.install";
 const ENABLED: &str = "plugins.enabled";
 const DISABLED: &str = "plugins.disabled";
+const INSTALL_REVIEW: &str = "appSettings.toggles.plugin-install-review";
 
 #[derive(Subcommand, Debug)]
 pub enum PluginsCmd {
@@ -156,9 +158,16 @@ pub(super) fn run_plugins(
     };
     crate::commands::plugins::validate_id(&t.id)
         .map_err(|_| plain(IssueKind::Type, format!("invalid plugin id \"{}\"", t.id)))?;
+    if action == PluginAction::Install && policy::is_retired_plugin(&t.id) {
+        return Err(plain(
+            IssueKind::Type,
+            format!("{} is retired and can no longer be installed", t.id),
+        ));
+    }
     let by_admin = t.lock || t.defaults;
+    let doc = machine_doc(machine);
     if !by_admin {
-        if let Some(why) = user_refusal(action, &t.id, &machine_doc(machine), user_dir) {
+        if let Some(why) = user_refusal(action, &t.id, &doc, user_dir) {
             return Err(plain(IssueKind::Type, why));
         }
     }
@@ -177,34 +186,28 @@ pub(super) fn run_plugins(
     }
     let consented_permissions = match listed {
         None => Vec::new(),
-        Some(Listed::Checked(Some(permissions))) => consent(&t.id, permissions, ctx)?,
+        Some(Listed::Checked(Some(permissions))) => {
+            let review_all = reviews_every_install(&doc, user_dir);
+            consent(&t.id, permissions, review_all, ctx)?
+        }
         Some(_) => {
             return Err(CliError::Io(std::io::Error::other(
                 "could not reach the plugin catalogue to show this plugin's permissions; try again when online",
             )))
         }
     };
-    pending::append(
-        user_dir,
-        Change::Plugin {
-            action,
-            id: t.id.clone(),
-            consented_permissions,
-        },
-    )
-    .map_err(CliError::Io)?;
-    ctx.out.line(format!(
-        "Queued: {} {}. Applies when Voltius next opens or regains focus.",
-        action.name(),
-        t.id
-    ));
-    Ok(())
+    let change = Change::Plugin {
+        action,
+        id: t.id.clone(),
+        consented_permissions,
+    };
+    queue(user_dir, change, ctx.out)
 }
 
-fn machine_doc(machine: Option<&Path>) -> PolicyDoc {
-    machine
-        .map(|p| policy::load_from(p).doc)
-        .unwrap_or_default()
+fn reviews_every_install(doc: &PolicyDoc, dir: &Path) -> bool {
+    effective_row(doc, dir, INSTALL_REVIEW)
+        .and_then(|r| r.value.as_bool())
+        .unwrap_or(true)
 }
 
 fn listed_ids<'a>(layer: &'a BTreeMap<String, Value>, key: &str) -> impl Iterator<Item = &'a str> {
@@ -243,7 +246,7 @@ fn user_refusal(action: PluginAction, id: &str, doc: &PolicyDoc, dir: &Path) -> 
         PluginAction::Remove => locked(&[INSTALL, ENABLED]),
         PluginAction::Enable | PluginAction::Disable => locked(&[ENABLED, DISABLED]),
     };
-    refused.then(|| format!("{id} is locked by your organization's policy"))
+    refused.then(|| locked_message(id))
 }
 
 fn check_listed(id: &str, catalogue: &Catalogue) -> Result<Listed, CliError> {
@@ -266,22 +269,31 @@ fn check_listed(id: &str, catalogue: &Catalogue) -> Result<Listed, CliError> {
     }
 }
 
-fn consent(id: &str, permissions: Vec<String>, ctx: &mut Ctx) -> Result<Vec<String>, CliError> {
-    let gated: Vec<String> = permissions
+fn consent(
+    id: &str,
+    permissions: Vec<String>,
+    review_all: bool,
+    ctx: &mut Ctx,
+) -> Result<Vec<String>, CliError> {
+    let shown: Vec<String> = permissions
         .into_iter()
-        .filter(|p| policy::is_gated_permission(p))
+        .filter(|p| review_all || policy::is_gated_permission(p))
         .collect();
-    if gated.is_empty() {
-        return Ok(gated);
+    if shown.is_empty() && !review_all {
+        return Ok(shown);
     }
-    ctx.out.line(format!("{id} asks for these permissions:"));
-    for p in &gated {
-        ctx.out.line(format!("  {p}"));
+    if shown.is_empty() {
+        ctx.out.notice(format!("{id} asks for no permissions."));
+    } else {
+        ctx.out.notice(format!("{id} asks for these permissions:"));
+        for p in &shown {
+            ctx.out.notice(format!("  {p}"));
+        }
     }
-    if !confirm(ctx, "Allow these permissions?")? {
+    if !confirm(ctx, "Install it?")? {
         return Err(CliError::Usage("not confirmed; nothing was queued".into()));
     }
-    Ok(gated)
+    Ok(shown)
 }
 
 fn list_edits(action: PluginAction) -> (Option<&'static str>, &'static [&'static str]) {
@@ -326,7 +338,7 @@ fn save_to_layer(
         .iter()
         .map(|k| (*k, false))
         .chain(add.map(|k| (k, true)));
-    let changed = edit_raw(path, |root| {
+    let changed = edit_raw(path, out, |root| {
         let entries = layer_entries(root, layer, path)?;
         let mut changed = false;
         for (key, on) in edits {
@@ -757,8 +769,138 @@ mod tests {
         let e = r.result.unwrap_err();
         assert_eq!(e.exit_code(), 2);
         assert!(e.to_string().contains("--yes"), "{e}");
-        assert!(r.out.contains("docker:manage"), "{}", r.out);
+        assert!(r.err.contains("docker:manage"), "{}", r.err);
         assert!(queued(dir.path()).is_empty());
+    }
+
+    fn review(dir: &Path, on: bool) {
+        mirror::write(
+            dir,
+            &json!({
+                "writtenAt": "t", "appVersion": "1", "serverUrl": null, "plugins": [],
+                "settings": { INSTALL_REVIEW: on }
+            }),
+        )
+        .unwrap();
+    }
+
+    fn consented(dir: &Path) -> Vec<String> {
+        match queued(dir).pop() {
+            Some(Change::Plugin {
+                consented_permissions,
+                ..
+            }) => consented_permissions,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn review_off_prompts_and_records_only_gated_permissions() {
+        let (dir, machine) = setup();
+        review(dir.path(), false);
+        let r = exec(
+            PluginsCmd::Install(target("plugin-docker", false, false)),
+            &machine,
+            dir.path(),
+            true,
+            &catalogue,
+        );
+        r.result.unwrap();
+        assert!(!r.err.contains("storage"), "{}", r.err);
+        assert_eq!(consented(dir.path()), vec!["docker:manage".to_string()]);
+
+        let r = exec(
+            PluginsCmd::Install(target("plugin-theme", false, false)),
+            &machine,
+            dir.path(),
+            false,
+            &catalogue,
+        );
+        r.result.unwrap();
+        assert!(consented(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn review_on_needs_consent_for_an_ungated_plugin() {
+        let (dir, machine) = setup();
+        review(dir.path(), true);
+        let r = exec(
+            PluginsCmd::Install(target("plugin-theme", false, false)),
+            &machine,
+            dir.path(),
+            false,
+            &catalogue,
+        );
+        assert_eq!(r.result.unwrap_err().exit_code(), 2);
+        assert!(r.err.contains("  themes"), "{}", r.err);
+        assert!(queued(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn locked_review_policy_beats_the_app_value() {
+        let (dir, machine) = setup();
+        review(dir.path(), true);
+        write_policy(
+            &machine,
+            json!({"version": 1, "policy": { INSTALL_REVIEW: false }}),
+        );
+        exec(
+            PluginsCmd::Install(target("plugin-theme", false, false)),
+            &machine,
+            dir.path(),
+            false,
+            &catalogue,
+        )
+        .result
+        .unwrap();
+        assert!(consented(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn permission_list_survives_quiet() {
+        let (dir, machine) = setup();
+        let err: Shared = Arc::new(Mutex::new(Vec::new()));
+        let mut out = Output::with_sinks(
+            false,
+            true,
+            Box::new(std::io::sink()),
+            Box::new(Buf(err.clone())),
+        );
+        let mut ctx = Ctx {
+            out: &mut out,
+            yes: true,
+            interactive: false,
+        };
+        let catalogue = Catalogue {
+            seeded: vec![DOCKER],
+            fetch: &offline,
+        };
+        let cmd = PluginsCmd::Install(target("plugin-docker", false, false));
+        run_plugins(cmd, Some(&machine), dir.path(), &catalogue, &mut ctx).unwrap();
+        assert!(
+            captured(&err).contains("  docker:manage"),
+            "{}",
+            captured(&err)
+        );
+    }
+
+    #[test]
+    fn retired_plugin_install_is_refused() {
+        let (dir, machine) = setup();
+        for (lock, defaults) in [(false, false), (true, false), (false, true)] {
+            let r = exec(
+                PluginsCmd::Install(target("plugin-ssh-config", lock, defaults)),
+                &machine,
+                dir.path(),
+                true,
+                &catalogue,
+            );
+            let e = r.result.unwrap_err();
+            assert_eq!(e.exit_code(), 3);
+            assert!(e.to_string().contains("is retired"), "{e}");
+        }
+        assert!(queued(dir.path()).is_empty());
+        assert!(!machine.exists());
     }
 
     #[test]
@@ -784,7 +926,7 @@ mod tests {
             vec![Change::Plugin {
                 action: PluginAction::Install,
                 id: "plugin-docker".into(),
-                consented_permissions: vec!["docker:manage".into()],
+                consented_permissions: vec!["docker:manage".into(), "storage".into()],
             }]
         );
     }
@@ -913,13 +1055,13 @@ mod tests {
             &no_network,
         );
         r.result.unwrap();
-        assert!(r.err.is_empty(), "{}", r.err);
+        assert!(!r.err.contains("warning"), "{}", r.err);
         assert_eq!(
             queued(dir.path()),
             vec![Change::Plugin {
                 action: PluginAction::Install,
                 id: "plugin-docker".into(),
-                consented_permissions: vec!["docker:manage".into()],
+                consented_permissions: vec!["docker:manage".into(), "storage".into()],
             }]
         );
     }

@@ -57,6 +57,15 @@ pub fn is_gated_permission(perm: &str) -> bool {
     GATED_PERMISSIONS.contains(perm)
 }
 
+static RETIRED_PLUGINS: LazyLock<HashSet<String>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("retired_plugins.json"))
+        .expect("policy/retired_plugins.json is valid")
+});
+
+pub fn is_retired_plugin(id: &str) -> bool {
+    RETIRED_PLUGINS.contains(id)
+}
+
 pub fn key_ids() -> impl Iterator<Item = &'static str> {
     KEYS.keys().map(String::as_str)
 }
@@ -391,7 +400,7 @@ pub enum Blocked {
 #[derive(Clone, Copy)]
 pub struct MachineAcl {
     pub probe: Probe,
-    pub harden_dir: fn(&Path) -> Result<(), Blocked>,
+    pub harden_dir: fn(&Path) -> Result<Option<PathBuf>, Blocked>,
     pub write: fn(&Path, &str) -> std::io::Result<()>,
     pub adopt_written: fn(&Path) -> Result<(), Blocked>,
 }
@@ -560,7 +569,7 @@ pub(crate) mod test_probes {
     use super::{Blocked, Entry, Guard, MachineAcl, Probe};
     use std::cell::{Cell, RefCell};
     use std::io;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     pub const CHECKED: &str = r#"{"version":1,"policy":{"server.url":"https://checked.example"}}"#;
 
@@ -633,23 +642,25 @@ pub(crate) mod test_probes {
         })
     }
 
-    pub fn harden_denied(p: &Path) -> Result<(), Blocked> {
+    pub fn harden_denied(p: &Path) -> Result<Option<PathBuf>, Blocked> {
         Err(Blocked::Io(
             p.to_path_buf(),
             io::ErrorKind::PermissionDenied.into(),
         ))
     }
 
-    pub fn harden_held(p: &Path) -> Result<(), Blocked> {
+    pub fn harden_held(p: &Path) -> Result<Option<PathBuf>, Blocked> {
         Err(Blocked::Held(super::dir_of(p).to_path_buf()))
     }
 
-    pub fn harden_replacing(p: &Path) -> Result<(), Blocked> {
+    pub fn harden_replacing(p: &Path) -> Result<Option<PathBuf>, Blocked> {
         record("harden_dir");
         let dir = super::dir_of(p);
         let at = |e| Blocked::Io(dir.to_path_buf(), e);
-        std::fs::rename(dir, super::acl::untrusted_sibling(dir, 1)).map_err(at)?;
-        std::fs::create_dir(dir).map_err(at)
+        let aside = super::acl::untrusted_sibling(dir, 1);
+        std::fs::rename(dir, &aside).map_err(at)?;
+        std::fs::create_dir(dir).map_err(at)?;
+        Ok(Some(aside))
     }
 
     thread_local! {
@@ -684,7 +695,7 @@ pub(crate) mod test_probes {
             probe,
             harden_dir: |_| {
                 record("harden_dir");
-                Ok(())
+                Ok(None)
             },
             write: |p, text| {
                 record("write");
@@ -708,6 +719,12 @@ mod tests {
     fn gated_permissions_mirror_the_plugin_list() {
         assert!(is_gated_permission("docker:manage"));
         assert!(!is_gated_permission("sessions:read"));
+    }
+
+    #[test]
+    fn retired_plugins_mirror_the_app_list() {
+        assert!(is_retired_plugin("plugin-ssh-config"));
+        assert!(!is_retired_plugin("plugin-docker"));
     }
 
     #[test]

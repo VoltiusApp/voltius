@@ -9,34 +9,13 @@ pub fn is_system_account() -> bool {
 
 #[cfg(windows)]
 pub fn is_system_account() -> bool {
-    use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::Security::{
-        GetTokenInformation, IsWellKnownSid, TokenUser, WinLocalSystemSid, TOKEN_QUERY, TOKEN_USER,
-    };
-    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    is_system_sid(crate::win_security::current_user_sid())
+}
 
-    unsafe {
-        let mut token = std::ptr::null_mut();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return false;
-        }
-        let mut needed = 0u32;
-        GetTokenInformation(token, TokenUser, std::ptr::null_mut(), 0, &mut needed);
-        let mut buf = vec![0u64; (needed as usize).div_ceil(8).max(1)];
-        let ok = GetTokenInformation(
-            token,
-            TokenUser,
-            buf.as_mut_ptr().cast(),
-            needed,
-            &mut needed,
-        ) != 0
-            && IsWellKnownSid(
-                (*buf.as_ptr().cast::<TOKEN_USER>()).User.Sid,
-                WinLocalSystemSid,
-            ) != 0;
-        CloseHandle(token);
-        ok
-    }
+// An unreadable token counts as SYSTEM so a per-user write never lands in the wrong profile.
+#[cfg(any(windows, test))]
+fn is_system_sid(sid: std::io::Result<String>) -> bool {
+    sid.map_or(true, |s| s == "S-1-5-18")
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -100,6 +79,13 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert!(confirm(&mut ctx(&mut out, true), "Proceed?").unwrap());
+    }
+
+    #[test]
+    fn system_check_fails_closed() {
+        assert!(is_system_sid(Ok("S-1-5-18".into())));
+        assert!(!is_system_sid(Ok("S-1-5-21-1-2-3-1001".into())));
+        assert!(is_system_sid(Err(std::io::Error::other("token"))));
     }
 
     #[cfg(unix)]

@@ -6,6 +6,7 @@ mod policy_cmd;
 mod server_cmd;
 pub mod user;
 
+use crate::cli_state::pending::{self, Change};
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
 use config_cmd::ConfigCmd;
@@ -17,7 +18,7 @@ use server_cmd::ServerCmd;
 use std::ffi::OsString;
 use std::fmt;
 use std::io::IsTerminal;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 pub const CLI_MARKER: &str = "__voltius_cli";
@@ -84,6 +85,19 @@ pub struct Ctx<'a> {
     pub out: &'a mut Output,
     pub yes: bool,
     pub interactive: bool,
+}
+
+fn queue(dir: &Path, change: Change, out: &mut Output) -> Result<(), CliError> {
+    let what = match &change {
+        Change::Setting { key, value } => format!("set {key} = {value}"),
+        Change::Server { url } => format!("server {url}"),
+        Change::Plugin { action, id, .. } => format!("{} {id}", action.name()),
+    };
+    pending::append(dir, change).map_err(CliError::Io)?;
+    out.line(format!(
+        "Queued: {what}. Applies when Voltius next opens or regains focus."
+    ));
+    Ok(())
 }
 
 #[derive(Parser, Debug)]

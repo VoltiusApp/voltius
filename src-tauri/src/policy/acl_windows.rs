@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr;
 use windows_sys::Win32::Foundation::{
     ERROR_INVALID_OWNER, ERROR_PRIVILEGE_NOT_HELD, ERROR_SUCCESS, WIN32_ERROR,
@@ -91,19 +91,21 @@ pub fn probe(path: &Path) -> io::Result<Entry> {
     })
 }
 
-pub fn harden_dir(policy_file: &Path) -> Result<(), Blocked> {
+pub fn harden_dir(policy_file: &Path) -> Result<Option<PathBuf>, Blocked> {
     let dir = policy_file.parent().unwrap_or(policy_file);
     if let Some(parent) = dir.parent() {
         std::fs::create_dir_all(parent).map_err(io_at(parent))?;
     }
     let sd = SecurityDescriptor::from_sddl(POLICY_DIR_SDDL).map_err(io_at(dir))?;
+    let mut moved = None;
     if !create_dir(dir, &sd).map_err(io_at(dir))? {
         let owner = owner_of(&open_unlinked(dir, READ_CONTROL)?).map_err(io_at(dir))?;
         if acl::folder_action(owner.as_deref()) == FolderAction::Replace {
-            move_aside(dir, &sd)?;
+            moved = Some(move_aside(dir, &sd)?);
         }
     }
-    apply(dir, &sd, |_| Ok(true))
+    apply(dir, &sd, |_| Ok(true))?;
+    Ok(moved)
 }
 
 fn create_dir(dir: &Path, sd: &SecurityDescriptor) -> io::Result<bool> {
@@ -117,7 +119,7 @@ fn create_dir(dir: &Path, sd: &SecurityDescriptor) -> io::Result<bool> {
     }
 }
 
-fn move_aside(dir: &Path, sd: &SecurityDescriptor) -> Result<(), Blocked> {
+fn move_aside(dir: &Path, sd: &SecurityDescriptor) -> Result<PathBuf, Blocked> {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
@@ -128,7 +130,7 @@ fn move_aside(dir: &Path, sd: &SecurityDescriptor) -> Result<(), Blocked> {
         return Err(held());
     }
     match create_dir(dir, sd) {
-        Ok(true) => Ok(()),
+        Ok(true) => Ok(aside),
         Ok(false) => Err(held()),
         Err(e) => Err(io_at(dir)(e)),
     }

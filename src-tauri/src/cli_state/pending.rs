@@ -74,7 +74,10 @@ impl Change {
         match self {
             Change::Setting { key, .. } => format!("setting:{key}"),
             Change::Server { .. } => "server".into(),
-            Change::Plugin { id, .. } => format!("plugin:{id}"),
+            Change::Plugin { action, id, .. } => match action {
+                PluginAction::Install | PluginAction::Remove => format!("plugin-presence:{id}"),
+                PluginAction::Enable | PluginAction::Disable => format!("plugin-enabled:{id}"),
+            },
         }
     }
 }
@@ -224,6 +227,28 @@ mod tests {
         assert_eq!(doc.changes[1].change, plugin(PluginAction::Remove, "p"));
     }
 
+    fn queued_plugins(dir: &Path) -> Vec<Change> {
+        load(dir).0.changes.into_iter().map(|e| e.change).collect()
+    }
+
+    #[test]
+    fn plugin_presence_and_enabled_coalesce_separately() {
+        use PluginAction::*;
+        let dir = tempfile::tempdir().unwrap();
+        append(dir.path(), plugin(Install, "p")).unwrap();
+        append(dir.path(), plugin(Enable, "p")).unwrap();
+        assert_eq!(
+            queued_plugins(dir.path()),
+            vec![plugin(Install, "p"), plugin(Enable, "p")]
+        );
+        append(dir.path(), plugin(Disable, "p")).unwrap();
+        append(dir.path(), plugin(Remove, "p")).unwrap();
+        assert_eq!(
+            queued_plugins(dir.path()),
+            vec![plugin(Disable, "p"), plugin(Remove, "p")]
+        );
+    }
+
     #[test]
     fn settle_removes_ok_and_marks_failed() {
         let dir = tempfile::tempdir().unwrap();
@@ -277,9 +302,64 @@ mod tests {
     }
 
     #[test]
+    fn golden_pending_file_matches_fixture() {
+        let entry = |id: &str, change: Change, error: Option<&str>| Entry {
+            id: id.into(),
+            at: "2026-11-05T10:00:00Z".into(),
+            change,
+            error: error.map(Into::into),
+        };
+        let doc = PendingDoc {
+            version: 1,
+            changes: vec![
+                entry(
+                    "setting-1",
+                    Change::Setting {
+                        key: "appSettings.terminal.cursorStyle".into(),
+                        value: json!("bar"),
+                    },
+                    None,
+                ),
+                entry(
+                    "server-1",
+                    Change::Server {
+                        url: "https://voltius.example.com".into(),
+                    },
+                    None,
+                ),
+                entry(
+                    "plugin-1",
+                    Change::Plugin {
+                        action: PluginAction::Install,
+                        id: "plugin-docker".into(),
+                        consented_permissions: vec!["docker:manage".into(), "storage".into()],
+                    },
+                    Some("HTTP 404"),
+                ),
+            ],
+        };
+        let text = serde_json::to_string_pretty(&doc).unwrap() + "\n";
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/cli_state/fixtures/pending.golden.json");
+        if !path.exists() {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, &text).unwrap();
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+        assert_eq!(serde_json::from_str::<PendingDoc>(&text).unwrap(), doc);
+    }
+
+    #[test]
     fn targets() {
         assert_eq!(setting("k", 1).target(), "setting:k");
         assert_eq!(Change::Server { url: "u".into() }.target(), "server");
-        assert_eq!(plugin(PluginAction::Enable, "p").target(), "plugin:p");
+        assert_eq!(
+            plugin(PluginAction::Enable, "p").target(),
+            "plugin-enabled:p"
+        );
+        assert_eq!(
+            plugin(PluginAction::Install, "p").target(),
+            "plugin-presence:p"
+        );
     }
 }

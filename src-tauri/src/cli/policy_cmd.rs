@@ -195,22 +195,31 @@ fn blocked(b: Blocked) -> CliError {
 
 pub(super) fn edit_raw(
     path: &Path,
+    out: &mut Output,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
-    edit_raw_with(path, policy::machine_acl(path), false, edit)
+    edit_raw_with(path, policy::machine_acl(path), false, out, edit)
 }
 
 fn edit_raw_with(
     path: &Path,
     acl: Option<MachineAcl>,
     replace: bool,
+    out: &mut Output,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
     let existing = match acl {
         Some(a) => {
             let check = || policy::write_check(path, a.probe, replace).map_err(blocked);
             check()?;
-            (a.harden_dir)(path).map_err(blocked)?;
+            if let Some(aside) = (a.harden_dir)(path).map_err(blocked)? {
+                let dir = path.parent().unwrap_or(path);
+                out.notice(format!(
+                    "moved {} to {}; its contents were not kept",
+                    dir.display(),
+                    aside.display()
+                ));
+            }
             // Re-check once the folder is locked; the text comes from the handle this check passed.
             check()?
         }
@@ -271,6 +280,16 @@ pub(super) fn unknown_key_message(key: &str) -> String {
     unknown_message("key", key, policy::key_ids())
 }
 
+pub(super) fn locked_message(what: &str) -> String {
+    format!("{what} is locked by your organization's policy")
+}
+
+pub(super) fn machine_doc(machine: Option<&Path>) -> PolicyDoc {
+    machine
+        .map(|p| policy::load_from(p).doc)
+        .unwrap_or_default()
+}
+
 pub(super) fn machine_path(machine: Option<&Path>) -> Result<&Path, CliError> {
     machine
         .ok_or_else(|| CliError::Usage("machine policy is not available on this platform".into()))
@@ -318,7 +337,7 @@ pub(super) fn set(
     let ty = policy::key_type(key)
         .ok_or_else(|| plain(IssueKind::UnknownKey, unknown_key_message(key)))?;
     let value = typed_value(key, ty, raw)?;
-    edit_raw(path, |root| {
+    edit_raw(path, out, |root| {
         layer_entries(root, layer, path)?.insert(key.to_string(), value);
         Ok(true)
     })?;
@@ -328,7 +347,7 @@ pub(super) fn set(
 }
 
 fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
-    let removed = edit_raw(path, |root| {
+    let removed = edit_raw(path, out, |root| {
         Ok(layer_entries(root, layer, path)?.remove(key).is_some())
     })?;
     if removed {
@@ -339,36 +358,57 @@ fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), C
     Ok(())
 }
 
-struct Row {
-    value: Value,
-    source: &'static str,
+const BUILT_IN: &str = "built-in";
+
+pub(super) struct Row {
+    pub value: Value,
+    pub source: &'static str,
     default_value: Option<Value>,
+    at: Option<String>,
 }
 
 impl Row {
-    fn new(value: Value, source: &'static str) -> Self {
+    fn new(value: Value, source: &'static str, at: Option<String>) -> Self {
         Row {
             value,
             source,
             default_value: None,
+            at,
         }
+    }
+
+    fn note(&self) -> String {
+        match &self.default_value {
+            Some(d) => format!("{}, machine default: {d}", self.source),
+            None => self.source.to_string(),
+        }
+    }
+
+    fn json(&self, key: &str) -> Value {
+        let mut e = json!({ "key": key, "value": self.value, "source": self.source });
+        if let Some(d) = &self.default_value {
+            e["defaultValue"] = d.clone();
+        }
+        e
     }
 }
 
 fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
     let mut rows = BTreeMap::new();
     let mut as_of = None;
-    let mut put = |key: String, value: Value, source: &'static str| {
-        rows.insert(key, Row::new(value, source));
-    };
     if let Some(m) = mirror::read(dir) {
         for (k, v) in m.values() {
-            put(k, v, "app");
+            let source = if m.built_ins.get(&k) == Some(&v) {
+                BUILT_IN
+            } else {
+                "app"
+            };
+            rows.insert(k, Row::new(v, source, Some(m.written_at.clone())));
         }
         as_of = Some(m.written_at);
     }
-    for (k, (v, _)) in pending::load(dir).0.queued_values() {
-        put(k, v, "pending");
+    for (k, (v, at)) in pending::load(dir).0.queued_values() {
+        rows.insert(k, Row::new(v, "pending", Some(at)));
     }
     (rows, as_of)
 }
@@ -376,33 +416,48 @@ fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
 fn effective_rows(doc: &PolicyDoc, mut rows: BTreeMap<String, Row>) -> BTreeMap<String, Row> {
     for (k, v) in &doc.defaults {
         match rows.get_mut(k) {
-            Some(r) if r.value != *v => r.default_value = Some(v.clone()),
+            Some(r) if r.source != BUILT_IN && r.value != *v => r.default_value = Some(v.clone()),
             _ => {
-                rows.insert(k.clone(), Row::new(v.clone(), "machine default"));
+                rows.insert(k.clone(), Row::new(v.clone(), "machine default", None));
             }
         }
     }
     for (k, v) in &doc.policy {
-        rows.insert(k.clone(), Row::new(v.clone(), "machine policy"));
+        rows.insert(k.clone(), Row::new(v.clone(), "machine policy", None));
     }
     rows
+}
+
+// Precedence: machine policy > pending > app > machine default > built-in.
+pub(super) fn effective_row(doc: &PolicyDoc, dir: &Path, key: &str) -> Option<Row> {
+    let (mut user, as_of) = user_values(dir);
+    user.retain(|k, _| k == key);
+    effective_rows(doc, user)
+        .remove(key)
+        .or_else(|| as_of.map(|at| Row::new(Value::Null, "app", Some(at))))
+}
+
+pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
+    if out.json {
+        let mut e = r.json(key);
+        e["asOf"] = json!(r.at);
+        out.json(&e);
+        return;
+    }
+    let at = match (&r.at, r.source) {
+        (Some(at), "app" | BUILT_IN) => format!(", as of {at}"),
+        _ => String::new(),
+    };
+    out.line(format!("{} ({}{at})", r.value, r.note()));
 }
 
 fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
     let loaded = policy::load_from(path);
     let (user, as_of) = user_dir.map_or_else(Default::default, user_values);
-    let rows = effective_rows(&loaded.doc, user);
+    let mut rows = effective_rows(&loaded.doc, user);
+    rows.retain(|_, r| r.source != BUILT_IN);
     if out.json {
-        let entries: Vec<Value> = rows
-            .iter()
-            .map(|(k, r)| {
-                let mut e = json!({ "key": k, "value": r.value, "source": r.source });
-                if let Some(u) = &r.default_value {
-                    e["defaultValue"] = u.clone();
-                }
-                e
-            })
-            .collect();
+        let entries: Vec<Value> = rows.iter().map(|(k, r)| r.json(k)).collect();
         out.json(&json!({
             "path": loaded.path,
             "entries": entries,
@@ -421,14 +476,7 @@ fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), Cl
         out.line(format!("  {dim}none{dim:#}"));
     }
     for (k, r) in &rows {
-        let note = match &r.default_value {
-            Some(u) => format!(", machine default: {u}"),
-            None => String::new(),
-        };
-        out.line(format!(
-            "  {k} = {} {dim}({}{note}){dim:#}",
-            r.value, r.source
-        ));
+        out.line(format!("  {k} = {} {dim}({}){dim:#}", r.value, r.note()));
     }
     match (user_dir, &as_of) {
         (None, _) => out.line(format!(
@@ -520,7 +568,7 @@ fn import(
     if !issues.is_empty() {
         return Err(CliError::Validation(issues));
     }
-    edit_raw_with(machine, acl, replace, |root| {
+    edit_raw_with(machine, acl, replace, out, |root| {
         for (layer, map) in layers(&incoming) {
             layer_entries(root, layer, machine)?.extend(map.clone());
         }
@@ -754,7 +802,8 @@ mod tests {
     fn writers_never_adopt_an_unprotected_file() {
         let (_dir, path) = planted();
         for probe in [all_unprotected as policy::Probe, file_unprotected] {
-            let err = edit_raw_with(&path, Some(acl(probe)), false, insert_key).unwrap_err();
+            let err =
+                edit_raw_with(&path, Some(acl(probe)), false, &mut out(), insert_key).unwrap_err();
             assert_eq!(err.exit_code(), 3);
             let message = &unprotected_issue(&err).unwrap().message;
             assert!(
@@ -764,7 +813,14 @@ mod tests {
             assert!(message.contains("policy import --replace"), "{message}");
             assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
         }
-        edit_raw_with(&path, Some(acl(dir_unprotected)), false, insert_key).unwrap();
+        edit_raw_with(
+            &path,
+            Some(acl(dir_unprotected)),
+            false,
+            &mut out(),
+            insert_key,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -794,6 +850,7 @@ mod tests {
             &path,
             Some(acl(appears_after_first_probe)),
             false,
+            &mut out(),
             insert_key,
         )
         .unwrap_err();
@@ -809,7 +866,14 @@ mod tests {
         let path = dir.path().join("policy.json");
         std::fs::create_dir(&path).unwrap();
         std::fs::write(path.join("planted"), PLANTED).unwrap();
-        let err = edit_raw_with(&path, Some(acl(file_unprotected)), true, insert_key).unwrap_err();
+        let err = edit_raw_with(
+            &path,
+            Some(acl(file_unprotected)),
+            true,
+            &mut out(),
+            insert_key,
+        )
+        .unwrap_err();
         assert!(matches!(err, CliError::Io(_)), "{err:?}");
         assert_eq!(calls(), ["harden_dir", "write"]);
     }
@@ -818,7 +882,8 @@ mod tests {
     fn links_are_refused_with_exit_4() {
         let (_dir, path) = planted();
         for probe in [file_link as policy::Probe, dir_link_no_file] {
-            let err = edit_raw_with(&path, Some(acl(probe)), true, insert_key).unwrap_err();
+            let err =
+                edit_raw_with(&path, Some(acl(probe)), true, &mut out(), insert_key).unwrap_err();
             assert_eq!(err.exit_code(), 4);
             assert!(
                 err.to_string()
@@ -832,7 +897,14 @@ mod tests {
     #[test]
     fn writers_keep_the_content_of_the_checked_handle_not_the_path() {
         let (_dir, path) = planted();
-        edit_raw_with(&path, Some(acl(all_protected)), false, add_default).unwrap();
+        edit_raw_with(
+            &path,
+            Some(acl(all_protected)),
+            false,
+            &mut out(),
+            add_default,
+        )
+        .unwrap();
         let doc = read(&path);
         assert_eq!(doc.policy["server.url"], json!("https://checked.example"));
         assert_eq!(doc.defaults["sshConfig.import"], json!(true));
@@ -843,8 +915,14 @@ mod tests {
     fn writers_refuse_a_hard_linked_policy_file() {
         let (_dir, path) = planted();
         for replace in [false, true] {
-            let err = edit_raw_with(&path, Some(acl(hard_linked_protected)), replace, insert_key)
-                .unwrap_err();
+            let err = edit_raw_with(
+                &path,
+                Some(acl(hard_linked_protected)),
+                replace,
+                &mut out(),
+                insert_key,
+            )
+            .unwrap_err();
             assert_eq!(err.exit_code(), 4);
             assert!(err.to_string().contains("is a link"), "{err}");
         }
@@ -868,11 +946,21 @@ mod tests {
             harden_dir: harden_replacing,
             ..acl(on_disk)
         };
-        edit_raw_with(&path, Some(replacing), false, add_default).unwrap();
+        let (mut o, _, err) = capture_split(false, false);
+        edit_raw_with(&path, Some(replacing), false, &mut o, add_default).unwrap();
         let doc = read(&path);
         assert!(doc.policy.is_empty(), "{:?}", doc.policy);
         assert_eq!(doc.defaults["sshConfig.import"], json!(true));
-        let aside = policy::acl::untrusted_sibling(&dir, 1).join("policy.json");
+        let aside_dir = policy::acl::untrusted_sibling(&dir, 1);
+        assert_eq!(
+            captured(&err).trim(),
+            format!(
+                "moved {} to {}; its contents were not kept",
+                dir.display(),
+                aside_dir.display()
+            )
+        );
+        let aside = aside_dir.join("policy.json");
         assert_eq!(std::fs::read_to_string(aside).unwrap(), PLANTED);
         assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
     }
@@ -884,7 +972,7 @@ mod tests {
             harden_dir: harden_held,
             ..acl(all_protected)
         };
-        let err = edit_raw_with(&path, Some(held), false, insert_key).unwrap_err();
+        let err = edit_raw_with(&path, Some(held), false, &mut out(), insert_key).unwrap_err();
         assert_eq!(err.exit_code(), 4, "{err}");
         let expected = format!(
             "{} is held open or not owned by Administrators; \
@@ -903,7 +991,7 @@ mod tests {
             harden_dir: harden_denied,
             ..acl(all_protected)
         };
-        let err = edit_raw_with(&path, Some(denied), false, insert_key).unwrap_err();
+        let err = edit_raw_with(&path, Some(denied), false, &mut out(), insert_key).unwrap_err();
         assert!(matches!(err, CliError::Permission(Access::Write, _)));
     }
 
@@ -1001,12 +1089,20 @@ mod tests {
     const BLINK: &str = "appSettings.toggles.cursor-blink";
 
     fn user_dir(settings: Value, server: Value) -> tempfile::TempDir {
+        user_dir_with_built_ins(settings, server, json!({}))
+    }
+
+    fn user_dir_with_built_ins(
+        settings: Value,
+        server: Value,
+        built_ins: Value,
+    ) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         mirror::write(
             dir.path(),
             &json!({
                 "writtenAt": "2026-11-05T10:00:00Z", "appVersion": "1", "serverUrl": server,
-                "plugins": [], "settings": settings
+                "plugins": [], "settings": settings, "builtIns": built_ins
             }),
         )
         .unwrap();
@@ -1150,6 +1246,35 @@ mod tests {
         let (mut sink, buf) = capture(false);
         show(&path, Some(user.path()), &mut sink).unwrap();
         assert!(!captured(&buf).contains("machine default: "));
+    }
+
+    #[test]
+    fn show_omits_app_values_at_built_in() {
+        let user = user_dir_with_built_ins(
+            json!({ CURSOR: "block", BLINK: false }),
+            Value::Null,
+            json!({ CURSOR: "block", BLINK: true }),
+        );
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({}));
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, CURSOR), Value::Null);
+        assert_eq!(source_of(&v, BLINK), "app");
+    }
+
+    #[test]
+    fn machine_default_beats_a_built_in_app_value() {
+        let user = user_dir_with_built_ins(
+            json!({ CURSOR: "block" }),
+            Value::Null,
+            json!({ CURSOR: "block" }),
+        );
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ CURSOR: "bar" }));
+        let e = entry(&show_json(&path, Some(user.path())), CURSOR).clone();
+        assert_eq!(e["source"], "machine default");
+        assert_eq!(e["value"], "bar");
+        assert!(e.get("defaultValue").is_none());
     }
 
     #[test]
