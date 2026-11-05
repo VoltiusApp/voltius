@@ -21,7 +21,7 @@ vi.mock("@/plugins/domains/plugins", () => ({
   setPluginEnabled: mocks.setPluginEnabled,
 }));
 
-import { applyPluginChange, applyPluginInstallPolicy } from "./cliPlugins";
+import { applyPluginChange, applyPluginInstallPolicy, pluginInstallPolicyIdle } from "./cliPlugins";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -79,6 +79,26 @@ describe("cliPlugins", () => {
     expect(mocks.setPluginEnabled).toHaveBeenCalledWith("plugin-docker", false);
     mocks.uninstallPlugin.mockResolvedValue({ ok: false, error: "busy" });
     expect(await applyPluginChange({ action: "remove", id: "plugin-docker", consentedPermissions: [] })).toBe("busy");
+  });
+
+  it("unknown_action_is_an_error", async () => {
+    const c = { action: "upgrade", id: "plugin-docker", consentedPermissions: [] } as unknown as Parameters<typeof applyPluginChange>[0];
+    expect(await applyPluginChange(c)).toBe("unknown plugin action upgrade");
+  });
+
+  it("idle_waits_for_an_in_flight_install_policy", async () => {
+    machine({ "plugins.install": ["plugin-docker"] });
+    let finish = (_: unknown) => {};
+    mocks.installPlugin.mockReturnValue(new Promise((r) => (finish = r)));
+    const run = applyPluginInstallPolicy();
+    let idle = false;
+    const waiting = pluginInstallPolicyIdle().then(() => (idle = true));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(idle).toBe(false);
+    finish(OK);
+    await Promise.all([run, waiting]);
+    expect(idle).toBe(true);
+    await expect(pluginInstallPolicyIdle()).resolves.toBeUndefined();
   });
 
   it("locked_install_runs_without_consent", async () => {

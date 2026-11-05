@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn(), applyPluginChange: vi.fn(), mirrorPlugins: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), notify: vi.fn(), applyPluginChange: vi.fn(), mirrorPlugins: vi.fn(), pluginInstallPolicyIdle: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
@@ -9,6 +9,7 @@ vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "9.9.9" }));
 vi.mock("./cliPlugins", () => ({
   applyPluginChange: mocks.applyPluginChange,
   mirrorPlugins: mocks.mirrorPlugins,
+  pluginInstallPolicyIdle: mocks.pluginInstallPolicyIdle,
 }));
 
 import { applyCliPending, writeCliMirror } from "./cliBridge";
@@ -38,6 +39,7 @@ describe("cliBridge", () => {
     mocks.notify.mockReset();
     mocks.applyPluginChange.mockReset();
     mocks.mirrorPlugins.mockReset().mockResolvedValue([]);
+    mocks.pluginInstallPolicyIdle.mockReset().mockResolvedValue(undefined);
     usePolicyStore.setState({ machine: NONE, server: NONE });
     useTerminalSettingsStore.getState().setCursorStyle("block");
     useAppSettingsTimestampStore.setState({ clocks: {} });
@@ -106,6 +108,19 @@ describe("cliBridge", () => {
     await applyCliPending();
     expect(storedServerUrl()).toBe("");
     expect(calls("cli_pending_settle")[0][1]).toEqual({ results: [{ id: "e1", error: "locked by policy" }] });
+  });
+
+  it("plugin_entries_wait_for_the_install_policy", async () => {
+    let finishPolicy = () => {};
+    mocks.pluginInstallPolicyIdle.mockReturnValue(new Promise<void>((r) => (finishPolicy = r)));
+    mocks.applyPluginChange.mockResolvedValue(null);
+    pending(entry({ kind: "plugin", action: "remove", pluginId: "plugin-x", consentedPermissions: [] }));
+    const done = applyCliPending();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.applyPluginChange).not.toHaveBeenCalled();
+    finishPolicy();
+    await done;
+    expect(mocks.applyPluginChange).toHaveBeenCalledTimes(1);
   });
 
   it("plugin_entries_are_applied_and_settled", async () => {

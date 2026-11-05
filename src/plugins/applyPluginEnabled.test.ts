@@ -100,9 +100,11 @@ describe("applyPluginPolicy", () => {
     warn.mockRestore();
   });
 
-  it("also applies the plugin install policy", () => {
+  it("also applies the plugin install policy", async () => {
+    await vi.dynamicImportSettled();
     mocks.installPolicy.mockClear();
     lock({ "plugins.install": ["plugin-docker"] });
+    await vi.dynamicImportSettled();
     expect(mocks.installPolicy).toHaveBeenCalledTimes(1);
   });
 });

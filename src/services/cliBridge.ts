@@ -65,6 +65,7 @@ async function runPending(): Promise<void> {
     console.warn("[cli] pending changes unreadable:", e);
     return;
   }
+  if (changes.some((c) => c.kind === "plugin")) await (await cliPlugins()).pluginInstallPolicyIdle();
   const results: Settled[] = [];
   let failed = 0;
   for (const change of changes) {

@@ -73,8 +73,12 @@ struct Listing {
     id: String,
     #[serde(default)]
     name: String,
-    #[serde(default)]
-    permissions: Vec<String>,
+    permissions: Option<Vec<String>>,
+}
+
+enum Listed {
+    Checked(Option<Vec<String>>),
+    Unreachable,
 }
 
 impl Catalogue<'_> {
@@ -158,15 +162,28 @@ pub(super) fn run_plugins(
             return Err(plain(IssueKind::Type, why));
         }
     }
-    let permissions = match action {
-        PluginAction::Install => check_listed(&t.id, catalogue, ctx.out)?,
+    let listed = match action {
+        PluginAction::Install => Some(check_listed(&t.id, catalogue)?),
         _ => None,
     };
     if by_admin {
+        if let Some(Listed::Unreachable) = listed {
+            ctx.out.warn(
+                "could not reach the plugin catalogue; added to policy without checking the id",
+            );
+        }
         let layer = layer_of(t.defaults);
         return save_to_layer(action, &t.id, layer, machine_path(machine)?, ctx.out);
     }
-    let consented_permissions = consent(&t.id, permissions.unwrap_or_default(), ctx)?;
+    let consented_permissions = match listed {
+        None => Vec::new(),
+        Some(Listed::Checked(Some(permissions))) => consent(&t.id, permissions, ctx)?,
+        Some(_) => {
+            return Err(CliError::Io(std::io::Error::other(
+                "could not reach the plugin catalogue to show this plugin's permissions; try again when online",
+            )))
+        }
+    };
     pending::append(
         user_dir,
         Change::Plugin {
@@ -229,24 +246,19 @@ fn user_refusal(action: PluginAction, id: &str, doc: &PolicyDoc, dir: &Path) -> 
     refused.then(|| format!("{id} is locked by your organization's policy"))
 }
 
-fn check_listed(
-    id: &str,
-    catalogue: &Catalogue,
-    out: &mut Output,
-) -> Result<Option<Vec<String>>, CliError> {
+fn check_listed(id: &str, catalogue: &Catalogue) -> Result<Listed, CliError> {
     if let Some(l) = catalogue.seeded(id) {
-        return Ok(Some(l.permissions));
+        return Ok(Listed::Checked(Some(l.permissions.unwrap_or_default())));
     }
     let mut list = match catalogue.remote() {
         Ok(list) => list,
         Err(e) => {
             log::warn!("plugin catalogue unavailable: {e}");
-            out.warn("could not reach the plugin catalogue; queued without checking");
-            return Ok(None);
+            return Ok(Listed::Unreachable);
         }
     };
     match list.iter().position(|l| l.id == id) {
-        Some(i) => Ok(Some(list.swap_remove(i).permissions)),
+        Some(i) => Ok(Listed::Checked(list.swap_remove(i).permissions)),
         None => Err(plain(
             IssueKind::UnknownKey,
             unknown_message("plugin", id, list.iter().map(|l| l.id.as_str())),
@@ -684,10 +696,34 @@ mod tests {
     }
 
     #[test]
-    fn install_queues_when_catalogue_unreachable() {
+    fn per_user_install_needs_the_catalogue_to_show_permissions() {
+        let (dir, machine) = setup();
+        let unlisted_permissions = || -> Result<String, String> {
+            Ok(r#"[{"id":"plugin-docker","name":"Docker"}]"#.into())
+        };
+        let sources: [&dyn Fn() -> Result<String, String>; 2] = [&offline, &unlisted_permissions];
+        for fetch in sources {
+            let r = exec(
+                PluginsCmd::Install(target("plugin-docker", false, false)),
+                &machine,
+                dir.path(),
+                true,
+                fetch,
+            );
+            let e = r.result.unwrap_err();
+            assert_eq!(e.exit_code(), 5);
+            assert!(e.to_string().contains(
+                "could not reach the plugin catalogue to show this plugin's permissions; try again when online"
+            ), "{e}");
+        }
+        assert!(queued(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn lock_install_offline_warns_and_saves() {
         let (dir, machine) = setup();
         let r = exec(
-            PluginsCmd::Install(target("plugin-docker", false, false)),
+            PluginsCmd::Install(target("plugin-docker", true, false)),
             &machine,
             dir.path(),
             false,
@@ -695,25 +731,16 @@ mod tests {
         );
         r.result.unwrap();
         assert!(
-            r.err
-                .contains("could not reach the plugin catalogue; queued without checking"),
-            "{}",
-            r.err
-        );
-        assert!(
-            r.out.contains(
-                "Queued: install plugin-docker. Applies when Voltius next opens or regains focus."
+            r.err.contains(
+                "could not reach the plugin catalogue; added to policy without checking the id"
             ),
             "{}",
-            r.out
+            r.err
         );
+        assert!(!r.err.contains("queued"), "{}", r.err);
         assert_eq!(
-            queued(dir.path()),
-            vec![Change::Plugin {
-                action: PluginAction::Install,
-                id: "plugin-docker".into(),
-                consented_permissions: vec![],
-            }]
+            layer(&machine, "policy")["plugins.install"],
+            json!(["plugin-docker"])
         );
     }
 
@@ -737,15 +764,21 @@ mod tests {
     #[test]
     fn gated_install_with_yes_records_consent() {
         let (dir, machine) = setup();
-        exec(
+        let r = exec(
             PluginsCmd::Install(target("plugin-docker", false, false)),
             &machine,
             dir.path(),
             true,
             &catalogue,
-        )
-        .result
-        .unwrap();
+        );
+        r.result.unwrap();
+        assert!(
+            r.out.contains(
+                "Queued: install plugin-docker. Applies when Voltius next opens or regains focus."
+            ),
+            "{}",
+            r.out
+        );
         assert_eq!(
             queued(dir.path()),
             vec![Change::Plugin {

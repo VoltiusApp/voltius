@@ -37,6 +37,8 @@ export async function applyPluginChange(c: CliPluginChange): Promise<string | nu
     case "remove":
       if (installLocked(c.id)) return LOCKED;
       return isLoaded(c.id) ? errorOf(await uninstallPlugin(c.id)) : null;
+    default:
+      return `unknown plugin action ${String(c.action)}`;
   }
 }
 
@@ -74,6 +76,8 @@ export function applyPluginInstallPolicy(): Promise<void> {
     });
   return running;
 }
+
+export const pluginInstallPolicyIdle = (): Promise<void> => running ?? Promise.resolve();
 
 export async function mirrorPlugins() {
   const { installedMeta } = useMarketplaceStore.getState();
