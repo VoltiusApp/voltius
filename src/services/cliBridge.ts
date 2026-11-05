@@ -15,7 +15,16 @@ interface Settled {
 }
 
 const LOCKED = "locked by policy";
+const INVALID = "invalid value";
 const SERVER_LOCK_KEY = "server.url";
+
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_, x) =>
+    x && typeof x === "object" && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1)))
+      : x,
+  );
+const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
 
 export function settingPatch(key: string, value: unknown): { domain: string; data: Record<string, unknown> } {
   const data: Record<string, unknown> = {};
@@ -29,7 +38,7 @@ async function applySetting(key: string, value: unknown): Promise<string | null>
   const handler = USER_DATA_HANDLERS.find((h) => h.key === domain);
   if (!handler) return `unknown setting ${key}`;
   await handler.import(data);
-  return null;
+  return same(getPath(handler.export(), relPath(key)), value) ? null : INVALID;
 }
 
 function applyServer(url: string): string | null {
@@ -59,13 +68,15 @@ async function runPending(): Promise<void> {
     return;
   }
   const results: Settled[] = [];
+  let failed = 0;
   for (const change of changes) {
     const settled = await applyChange(change);
-    if (settled) results.push(settled);
+    if (!settled) continue;
+    results.push(settled);
+    if (settled.error !== null && settled.error !== change.error) failed++;
   }
   if (!results.length) return;
   await invoke("cli_pending_settle", { results });
-  const failed = results.filter((r) => r.error !== null).length;
   if (failed) notify("error", i18n.t("common.cliPending.failed", { count: failed }));
 }
 
@@ -81,7 +92,8 @@ export function applyCliPending(): Promise<void> {
 
 export async function writeCliMirror(): Promise<void> {
   try {
-    const exported = new Map(USER_DATA_HANDLERS.map((h) => [h.key, h.export()]));
+    const domains = new Set(SETTING_KEYS.map((k) => domainOf(k.id)));
+    const exported = new Map(USER_DATA_HANDLERS.filter((h) => domains.has(h.key)).map((h) => [h.key, h.export()]));
     const settings = Object.fromEntries(
       SETTING_KEYS.map(({ id }) => [id, getPath(exported.get(domainOf(id)), relPath(id)) ?? null]),
     );

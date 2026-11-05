@@ -62,6 +62,30 @@ describe("cliBridge", () => {
     expect(mocks.notify).toHaveBeenCalledTimes(1);
   });
 
+  it("repeated_failure_toasts_once", async () => {
+    usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.cursor-blink": false }, defaults: {} }, server: NONE });
+    const e = { kind: "setting", key: "appSettings.toggles.cursor-blink", value: true };
+    pending(entry(e));
+    await applyCliPending();
+    pending(entry({ ...e, error: "locked by policy" }));
+    await applyCliPending();
+    expect(mocks.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it("changed_error_toasts_again", async () => {
+    usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.cursor-blink": false }, defaults: {} }, server: NONE });
+    pending(entry({ kind: "setting", key: "appSettings.toggles.cursor-blink", value: true, error: "invalid value" }));
+    await applyCliPending();
+    expect(mocks.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalid_value_is_rejected", async () => {
+    pending(entry({ kind: "setting", key: "appSettings.terminal.cursorStyle", value: "nope" }));
+    await applyCliPending();
+    expect(useTerminalSettingsStore.getState().cursorStyle).toBe("block");
+    expect(calls("cli_pending_settle")[0][1]).toEqual({ results: [{ id: "e1", error: "invalid value" }] });
+  });
+
   it("server_change_remembers_url", async () => {
     pending(entry({ kind: "server", url: "https://voltius.example.com" }));
     await applyCliPending();
