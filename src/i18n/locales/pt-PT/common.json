@@ -307,6 +307,11 @@
       "hoursAgo": "{{count}}h atrás",
       "daysAgo": "{{count}}d atrás"
     },
+    "cliPending": {
+      "failed_one": "Não foi possível aplicar {{count}} alteração do voltius-cli; será tentada novamente.",
+      "failed_many": "Não foi possível aplicar {{count}} alterações do voltius-cli; serão tentadas novamente.",
+      "failed_other": "Não foi possível aplicar {{count}} alterações do voltius-cli; serão tentadas novamente."
+    },
     "policy": {
       "managed": "Gerido pela sua organização",
       "serverBlocked": "Este servidor não é permitido pela sua organização",

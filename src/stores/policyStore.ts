@@ -118,10 +118,17 @@ export function usePolicyRefresh(): readonly [PolicyLayer, PolicyLayer] {
 
 export const adminDefault = (key: string): unknown | undefined => firstLayerWith(key, "defaults")?.value;
 
+async function reloadThenApplyCli() {
+  await usePolicyStore.getState().load();
+  const { applyCliPending } = await import("@/services/cliBridge");
+  await applyCliPending();
+}
+
 export function watchPolicyVisibility() {
   if (watching) return;
   watching = true;
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void usePolicyStore.getState().load();
+    if (document.visibilityState === "visible") void reloadThenApplyCli();
+    else void import("@/services/cliBridge").then((m) => m.writeCliMirror());
   });
 }

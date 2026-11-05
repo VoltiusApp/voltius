@@ -289,6 +289,10 @@
       "hoursAgo": "{{count}} 小时前",
       "daysAgo": "{{count}} 天前"
     },
+    "cliPending": {
+      "failed_one": "来自 voltius-cli 的 {{count}} 项更改无法应用，将会重试。",
+      "failed_other": "来自 voltius-cli 的 {{count}} 项更改无法应用，将会重试。"
+    },
     "policy": {
       "managed": "由您的组织管理",
       "serverBlocked": "您的组织不允许使用此服务器",

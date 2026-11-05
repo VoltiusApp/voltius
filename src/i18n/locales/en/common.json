@@ -294,6 +294,10 @@
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
     },
+    "cliPending": {
+      "failed_one": "{{count}} change from voltius-cli couldn't be applied; it will be retried.",
+      "failed_other": "{{count}} changes from voltius-cli couldn't be applied; they will be retried."
+    },
     "policy": {
       "managed": "Managed by your organization",
       "serverBlocked": "This server isn't allowed by your organization",

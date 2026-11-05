@@ -294,6 +294,10 @@
       "hoursAgo": "{{count}} sa önce",
       "daysAgo": "{{count}} gün önce"
     },
+    "cliPending": {
+      "failed_one": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı; yeniden denenecek.",
+      "failed_other": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı; yeniden denenecek."
+    },
     "policy": {
       "managed": "Kuruluşunuz tarafından yönetiliyor",
       "serverBlocked": "Bu sunucuya kuruluşunuz izin vermiyor",
