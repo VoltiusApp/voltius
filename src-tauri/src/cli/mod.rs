@@ -1,5 +1,6 @@
 mod output;
 mod policy_cmd;
+pub mod user;
 
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
@@ -7,6 +8,7 @@ use output::Output;
 use policy_cmd::PolicyCmd;
 use std::ffi::OsString;
 use std::fmt;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -69,6 +71,12 @@ impl fmt::Display for CliError {
     }
 }
 
+pub struct Ctx<'a> {
+    pub out: &'a mut Output,
+    pub yes: bool,
+    pub interactive: bool,
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "voltius-cli", version, about = "Voltius command line")]
 struct Cli {
@@ -81,6 +89,9 @@ struct Cli {
     /// Disable colours
     #[arg(long, global = true)]
     no_color: bool,
+    /// Never prompt; assume yes where a confirmation is needed
+    #[arg(long, short = 'y', global = true)]
+    yes: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -98,10 +109,16 @@ enum Command {
     Completions { shell: clap_complete::Shell },
 }
 
+#[cfg(target_os = "linux")]
+const BARE_SUBCOMMANDS: [&str; 5] = ["policy", "config", "plugins", "server", "completions"];
+#[cfg(not(target_os = "linux"))]
+const BARE_SUBCOMMANDS: [&str; 0] = [];
+
 fn cli_args(args: &[OsString]) -> Option<Vec<OsString>> {
     let rest = match args.get(1)?.to_str()? {
         CLI_MARKER => &args[2..],
         "mcp" => &args[1..],
+        name if BARE_SUBCOMMANDS.contains(&name) => &args[1..],
         _ => return None,
     };
     Some(
@@ -134,6 +151,11 @@ pub fn dispatch(args: Vec<OsString>) -> Option<ExitCode> {
 
 fn run(cli: Cli) -> Result<(), CliError> {
     let mut out = Output::stdout(cli.json, cli.quiet);
+    let ctx = Ctx {
+        out: &mut out,
+        yes: cli.yes,
+        interactive: std::io::stdin().is_terminal() && std::io::stdout().is_terminal(),
+    };
     match cli.command {
         Command::Mcp => {
             if let Err(e) = crate::mcp::shim::run_shim() {
@@ -148,7 +170,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
             Ok(())
         }
         Command::Policy { cmd } => {
-            policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), &mut out)
+            policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), ctx.out)
         }
     }
 }
@@ -166,6 +188,7 @@ mod tests {
         assert!(dispatch(argv(&["voltius"])).is_none());
         assert!(dispatch(argv(&["voltius", "voltius://open?x"])).is_none());
         assert!(dispatch(argv(&["voltius", "--some-gfx-flag"])).is_none());
+        #[cfg(not(target_os = "linux"))]
         assert!(dispatch(argv(&["voltius", "policy", "show"])).is_none());
         assert!(dispatch(argv(&["voltius", "--json"])).is_none());
     }
@@ -178,6 +201,20 @@ mod tests {
         );
         assert!(cli_args(&argv(&["voltius", "mcp"])).is_some());
         assert!(cli_args(&argv(&["voltius", CLI_MARKER, "--json"])).is_some());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn subcommand_names_are_cli_on_linux() {
+        assert!(cli_args(&argv(&["voltius", "policy", "show"])).is_some());
+        assert!(cli_args(&argv(&["voltius", "voltius://x"])).is_none());
+    }
+
+    #[test]
+    fn yes_flag_parses() {
+        assert!(Cli::try_parse_from(["voltius-cli", "--yes", "policy", "path"]).is_ok());
+        let help = Cli::command().render_help().to_string();
+        assert!(help.contains("Never prompt"), "{help}");
     }
 
     #[test]
