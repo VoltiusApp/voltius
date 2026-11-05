@@ -8,6 +8,11 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn(async () => "linux") }));
 vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
 vi.mock("@/services/sync", () => ({ scheduleSync: vi.fn() }));
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  useIsMobile: () => platform.mobile,
+}));
 
 import { usePolicyStore } from "@/stores/policyStore";
 import { SettingRow } from "@/components/settings/sections/shared";
@@ -23,7 +28,10 @@ const body = () => (
   </Managed>
 );
 
-beforeEach(() => usePolicyStore.setState({ machine: NONE, server: NONE }));
+beforeEach(() => {
+  platform.mobile = false;
+  usePolicyStore.setState({ machine: NONE, server: NONE });
+});
 afterEach(cleanup);
 
 describe("Managed", () => {
@@ -53,6 +61,17 @@ describe("SettingRow policy lock", () => {
     const c = row("appSettings.toggles.cursor-blink");
     expect(c.textContent).toContain("common.policy.managed");
     expect(syncButton(c)).toBeNull();
+  });
+
+  it.each([false, true])("puts the note beside the control only on desktop (mobile=%s)", (mobile) => {
+    platform.mobile = mobile;
+    lock("appSettings.toggles.cursor-blink");
+    const c = render(
+      <SettingRow title="x" desc="d" syncKey="appSettings.toggles.cursor-blink"><button type="button">c</button></SettingRow>,
+    ).container;
+    const note = [...c.querySelectorAll("span")].find((el) => el.textContent === "common.policy.managed")!;
+    expect(note.parentElement!.contains(c.querySelector("button"))).toBe(!mobile);
+    expect(c.querySelector("fieldset:disabled button")).not.toBeNull();
   });
 
   it("does not show an unenforced key as managed", () => {

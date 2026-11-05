@@ -32,8 +32,10 @@ export function ServerUrlField({
 
   if (locked) {
     return (
-      <div className="flex items-center justify-between gap-2 text-xs text-(--t-text-dim)">
-        <span className="truncate">{host ? t("layout.auth.serverNamed", { host }) : DEFAULT_SERVER_URL}</span>
+      <div className="flex flex-col items-start gap-1 min-w-0 text-xs text-(--t-text-dim)">
+        <span className="max-w-full truncate" title={value}>
+          {host ? t("layout.auth.serverNamed", { host }) : DEFAULT_SERVER_URL}
+        </span>
         <ManagedNote />
       </div>
     );
