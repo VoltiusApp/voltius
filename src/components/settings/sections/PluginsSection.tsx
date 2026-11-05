@@ -19,7 +19,7 @@ import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/
 import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
-import { Managed, ManagedWhen } from "@/components/shared/ManagedNote";
+import { Managed, ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
 import { usePolicyRefresh } from "@/stores/policyStore";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
@@ -153,6 +153,11 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
+const isThemeOnly = (manifest: PluginManifest) =>
+  manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
+
+const isToggleLocked = (manifest: PluginManifest) => !isThemeOnly(manifest) && pluginLock(manifest.id) !== null;
+
 /**
  * The enable/disable control, and the one rule for whether a plugin gets one.
  *
@@ -167,13 +172,20 @@ function EnableToggle({ manifest, enabled, onToggle }: {
   enabled: boolean;
   onToggle: (id: string, enabled: boolean) => void;
 }) {
-  const themeOnly = manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
-  if (themeOnly) return null;
+  const isMobile = useIsMobile();
+  if (isThemeOnly(manifest)) return null;
   return (
-    <ManagedWhen locked={pluginLock(manifest.id) !== null}>
+    <ManagedWhen locked={isToggleLocked(manifest)} note={!isMobile}>
       <Toggle checked={enabled} onChange={() => onToggle(manifest.id, enabled)} />
     </ManagedWhen>
   );
+}
+
+/** On mobile the header row has no room for the note, so it gets a line of its own. */
+function MobileManagedLine({ manifest }: { manifest: PluginManifest | undefined }) {
+  const isMobile = useIsMobile();
+  if (!isMobile || !manifest || !isToggleLocked(manifest)) return null;
+  return <div className="px-4 pb-2.5"><ManagedNote /></div>;
 }
 
 function PluginSettingsButton({ manifest, settingsPages, onOpenPage, onOpenConfig }: {
@@ -425,6 +437,7 @@ export function InstalledTab() {
                 </button>
                 <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />
               </div>
+              <MobileManagedLine manifest={manifest} />
               {manifest.permissions.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-4 py-2 border-t border-t-(--t-border)">
                   {manifest.permissions.map((perm) => (
@@ -535,6 +548,7 @@ export function InstalledTab() {
                 </button>
                 {manifest && <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />}
               </div>
+              <MobileManagedLine manifest={manifest} />
               {manifest && manifest.permissions.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-4 py-2 border-t border-t-(--t-border)">
                   {manifest.permissions.map((perm) => (

@@ -7,7 +7,7 @@ import { setKeySync } from "@/services/user-data/syncChoice";
 import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
-import { Managed } from "@/components/shared/ManagedNote";
+import { Managed, ManagedNote } from "@/components/shared/ManagedNote";
 import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
@@ -123,8 +123,8 @@ export function useRowManaged(key: string | undefined): RowManaged {
   return { key, locked: !!key && isEnforcedLock(key) };
 }
 
-export function RowControl({ managed, children }: { managed: RowManaged; children: ReactNode }) {
-  return managed.locked ? <Managed policyKey={managed.key!}>{children}</Managed> : <>{children}</>;
+export function RowControl({ managed, note, children }: { managed: RowManaged; note?: boolean; children: ReactNode }) {
+  return managed.locked ? <Managed policyKey={managed.key!} note={note}>{children}</Managed> : <>{children}</>;
 }
 
 export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
@@ -363,11 +363,12 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
             {desc}
           </div>
         )}
+        {managed.locked && <ManagedNote className="mt-1" />}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <ListRowContext.Provider value={rowContext}>
           {canReset && <ResetButton onReset={onReset!} />}
-          <RowControl managed={managed}>{children}</RowControl>
+          <RowControl managed={managed} note={false}>{children}</RowControl>
         </ListRowContext.Provider>
       </div>
       {hasActions && (

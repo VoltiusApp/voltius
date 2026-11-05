@@ -45,7 +45,8 @@ vi.mock("@/components/shared/Toggle", () => ({
   ),
 }));
 vi.mock("@/components/settings/sections/PluginPermissionModal", () => ({ PluginPermissionModal: () => null }));
-vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => false }));
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => platform.mobile }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -84,6 +85,7 @@ beforeEach(() => {
   usePluginStore.setState({ settingsPages: new Map() });
   marketplaceState.catalog = [];
   marketplaceState.appVersion = null;
+  platform.mobile = false;
 });
 afterEach(cleanup);
 
@@ -128,6 +130,22 @@ test("a plugin forced off by policy shows a disabled toggle with the managed not
     expect(screen.getByText("common.policy.managed")).not.toBeNull();
     expect(screen.getByTestId("enable-toggle").matches("fieldset:disabled *")).toBe(true);
     expect(screen.getByTestId("enable-toggle").getAttribute("data-checked")).toBe("false");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+});
+
+test.each([false, true])("a locked plugin row puts the managed note beside the toggle only on desktop (mobile=%s)", async (mobile) => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "plugins.disabled": ["plugin-docker"] }, defaults: {} } });
+  platform.mobile = mobile;
+  try {
+    asInstalled(DOCKER);
+    render(<InstalledTab />);
+    const note = screen.getByText("common.policy.managed");
+    const toggle = screen.getByTestId("enable-toggle");
+    expect(toggle.matches("fieldset:disabled *")).toBe(true);
+    expect(note.parentElement!.contains(toggle)).toBe(!mobile);
   } finally {
     usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   }
