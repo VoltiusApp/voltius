@@ -196,7 +196,7 @@ function HeldBackKeys({ domain }: { domain: string }) {
       {open && (
         <ul className="mt-2 space-y-1">
           {keys.map((k) => {
-            const managed = isEnforcedLock(k.id);
+            const managed = isEnforcedLock(k.id) || isEnforcedLock(`sync.settings.${k.id}`);
             return (
               <li key={k.id} data-testid={`held-${k.id}`} className="flex items-center justify-between gap-3">
                 <span className="text-xs text-(--t-text-dim)">
