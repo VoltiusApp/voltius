@@ -1,5 +1,6 @@
 mod config_cmd;
 mod output;
+mod path_cmd;
 mod plugins_cmd;
 mod policy_cmd;
 mod server_cmd;
@@ -9,6 +10,7 @@ use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
 use config_cmd::ConfigCmd;
 use output::Output;
+use path_cmd::PathCmd;
 use plugins_cmd::PluginsCmd;
 use policy_cmd::PolicyCmd;
 use server_cmd::ServerCmd;
@@ -129,6 +131,11 @@ enum Command {
     },
     /// Print a shell completion script
     Completions { shell: clap_complete::Shell },
+    #[command(name = "__path", hide = true)]
+    Path {
+        #[command(subcommand)]
+        cmd: PathCmd,
+    },
 }
 
 #[cfg(target_os = "linux")]
@@ -191,6 +198,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
             clap_complete::generate(shell, &mut cmd, BIN_NAME, &mut std::io::stdout());
             Ok(())
         }
+        Command::Path { cmd } => path_cmd::run(cmd, &mut ctx),
         Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),

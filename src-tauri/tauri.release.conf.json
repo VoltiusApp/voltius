@@ -1,5 +1,12 @@
 {
   "bundle": {
-    "externalBin": ["binaries/voltius-cli"]
+    "externalBin": ["binaries/voltius-cli"],
+    "windows": {
+      "nsis": { "installerHooks": "windows/hooks.nsh" },
+      "wix": {
+        "fragmentPaths": ["windows/path.wxs"],
+        "componentRefs": ["VoltiusCliPath"]
+      }
+    }
   }
 }
