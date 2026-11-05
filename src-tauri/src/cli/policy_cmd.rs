@@ -201,11 +201,13 @@ fn edit_raw_with(
     replace: bool,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
-    let harden = || acl.map_or(Ok(()), |a| (a.harden)(path)).map_err(blocked);
     if let Some(a) = acl {
-        policy::write_check(path, a.probe, replace).map_err(blocked)?;
+        let check = || policy::write_check(path, a.probe, replace).map_err(blocked);
+        check()?;
+        (a.harden_dir)(path).map_err(blocked)?;
+        // Re-check once standard users can no longer add or swap entries in the folder.
+        check()?;
     }
-    harden()?;
     let mut root = if replace {
         empty_root()
     } else {
@@ -217,8 +219,10 @@ fn edit_raw_with(
         let mut text = serde_json::to_string_pretty(&root).map_err(|e| CliError::Io(e.into()))?;
         text.push('\n');
         policy::write_text_atomic(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
-        // The renamed-in file is owned by the caller's token owner, which may not be an admin SID.
-        harden()?;
+        if let Some(a) = acl {
+            // The renamed-in file is owned by the caller's token owner, which may not be an admin SID.
+            (a.adopt_written)(path).map_err(blocked)?;
+        }
     }
     Ok(changed)
 }
@@ -460,7 +464,7 @@ fn check(
         Err(e) => return Err(io_error(target, Access::Read, e)),
     };
     if let Some(Trust::Ignored(issue)) = probe
-        .filter(|_| target == machine)
+        .filter(|_| policy::same_path(target, machine))
         .map(|p| policy::trust(target, p))
     {
         issues.push(issue);
@@ -769,6 +773,34 @@ mod tests {
         let doc = read(&path);
         assert!(doc.policy.is_empty(), "{:?}", doc.policy);
         assert_eq!(doc.defaults["sshConfig.import"], Value::Bool(true));
+        assert_eq!(calls(), ["harden_dir", "adopt_written"]);
+    }
+
+    #[test]
+    fn a_file_appearing_after_the_first_check_is_refused() {
+        let (_dir, path) = planted();
+        let err = edit_raw_with(
+            &path,
+            Some(acl(appears_after_first_probe)),
+            false,
+            insert_key,
+        )
+        .unwrap_err();
+        assert_eq!(err.exit_code(), 3, "{err}");
+        assert!(unprotected_issue(&err).is_some());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+        assert_eq!(calls(), ["harden_dir"]);
+    }
+
+    #[test]
+    fn replace_never_adopts_the_old_file_even_if_the_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("planted"), PLANTED).unwrap();
+        let err = edit_raw_with(&path, Some(acl(file_unprotected)), true, insert_key).unwrap_err();
+        assert!(matches!(err, CliError::Io(_)), "{err:?}");
+        assert_eq!(calls(), ["harden_dir"]);
     }
 
     #[test]
@@ -790,7 +822,7 @@ mod tests {
     fn harden_access_denied_exits_4() {
         let (_dir, path) = planted();
         let denied = policy::MachineAcl {
-            harden: harden_denied,
+            harden_dir: harden_denied,
             ..acl(all_protected)
         };
         let err = edit_raw_with(&path, Some(denied), false, insert_key).unwrap_err();

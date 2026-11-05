@@ -372,19 +372,33 @@ pub enum Blocked {
 #[derive(Clone, Copy)]
 pub struct MachineAcl {
     pub probe: Probe,
-    pub harden: fn(&Path) -> Result<(), Blocked>,
+    pub harden_dir: fn(&Path) -> Result<(), Blocked>,
+    pub adopt_written: fn(&Path) -> Result<(), Blocked>,
 }
 
 #[cfg(windows)]
 const OS_ACL: Option<MachineAcl> = Some(MachineAcl {
     probe: acl_windows::probe,
-    harden: acl_windows::harden,
+    harden_dir: acl_windows::harden_dir,
+    adopt_written: acl_windows::adopt_written,
 });
 #[cfg(not(windows))]
 const OS_ACL: Option<MachineAcl> = None;
 
+fn paths_equal(a: &Path, b: &Path, ignore_case: bool) -> bool {
+    if ignore_case {
+        a.as_os_str().eq_ignore_ascii_case(b.as_os_str())
+    } else {
+        a == b
+    }
+}
+
+pub fn same_path(a: &Path, b: &Path) -> bool {
+    paths_equal(a, b, cfg!(windows))
+}
+
 pub fn machine_acl(path: &Path) -> Option<MachineAcl> {
-    OS_ACL.filter(|_| default_machine_policy_path().as_deref() == Some(path))
+    OS_ACL.filter(|_| default_machine_policy_path().is_some_and(|d| same_path(&d, path)))
 }
 
 fn dir_of(path: &Path) -> &Path {
@@ -471,11 +485,11 @@ pub fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(format!(".{}-{nanos}.tmp", std::process::id()));
     let tmp = PathBuf::from(tmp);
-    let result = write_tmp(&tmp, text.as_bytes()).and_then(|()| std::fs::rename(&tmp, path));
-    if result
-        .as_ref()
-        .is_err_and(|e| e.kind() != std::io::ErrorKind::AlreadyExists)
-    {
+    let result = match write_tmp(&tmp, text.as_bytes()) {
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => return Err(e),
+        r => r.and_then(|()| std::fs::rename(&tmp, path)),
+    };
+    if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
     result
@@ -500,6 +514,7 @@ fn write_tmp(tmp: &Path, bytes: &[u8]) -> std::io::Result<()> {
 #[cfg(test)]
 pub(crate) mod test_probes {
     use super::{Blocked, Guard, MachineAcl, Probe};
+    use std::cell::{Cell, RefCell};
     use std::path::Path;
 
     fn is_file(p: &Path) -> bool {
@@ -565,10 +580,39 @@ pub(crate) mod test_probes {
         ))
     }
 
+    thread_local! {
+        static CALLS: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
+        static FILE_PROBES: Cell<u32> = const { Cell::new(0) };
+    }
+
+    fn record(call: &'static str) -> Result<(), Blocked> {
+        CALLS.with_borrow_mut(|c| c.push(call));
+        Ok(())
+    }
+
+    pub fn calls() -> Vec<&'static str> {
+        CALLS.with_borrow(Clone::clone)
+    }
+
+    pub fn appears_after_first_probe(p: &Path) -> std::io::Result<Guard> {
+        if !is_file(p) {
+            return Ok(Guard::Protected);
+        }
+        let n = FILE_PROBES.replace(FILE_PROBES.get() + 1);
+        Ok(if n == 0 {
+            Guard::Missing
+        } else {
+            Guard::Unprotected
+        })
+    }
+
     pub fn acl(probe: Probe) -> MachineAcl {
+        CALLS.with_borrow_mut(Vec::clear);
+        FILE_PROBES.set(0);
         MachineAcl {
             probe,
-            harden: |_| Ok(()),
+            harden_dir: |_| record("harden_dir"),
+            adopt_written: |_| record("adopt_written"),
         }
     }
 }
@@ -784,6 +828,15 @@ mod tests {
         assert!(check(dir_unprotected, false).is_ok());
         assert!(check(unprotected_dir_no_file, false).is_ok());
         assert!(check(all_protected, false).is_ok());
+    }
+
+    #[test]
+    fn machine_path_comparison_can_ignore_case() {
+        let a = Path::new(r"C:\ProgramData\Voltius\policy.json");
+        let b = Path::new(r"c:\programdata\VOLTIUS\Policy.json");
+        assert!(paths_equal(a, b, true));
+        assert!(!paths_equal(a, b, false));
+        assert!(paths_equal(a, a, false));
     }
 
     #[test]

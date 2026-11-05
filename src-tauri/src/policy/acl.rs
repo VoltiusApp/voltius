@@ -49,11 +49,26 @@ fn is_admin(sid: &str) -> bool {
     ADMIN_SIDS.contains(&sid)
 }
 
+fn only_admins_write(aces: &[Ace]) -> bool {
+    !aces
+        .iter()
+        .any(|a| a.allow && !a.inherit_only && a.mask & WRITE_MASK != 0 && !is_admin(&a.sid))
+}
+
 pub fn admin_protected(owner: &str, aces: &[Ace]) -> bool {
-    is_admin(owner)
-        && !aces
-            .iter()
-            .any(|a| a.allow && !a.inherit_only && a.mask & WRITE_MASK != 0 && !is_admin(&a.sid))
+    is_admin(owner) && only_admins_write(aces)
+}
+
+pub fn written_by_us(owner: &str, aces: &[Ace], our_sid: &str) -> bool {
+    (is_admin(owner) || owner == our_sid) && only_admins_write(aces)
+}
+
+const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x10;
+const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+
+pub fn is_linked(attributes: u32, links: u32) -> bool {
+    attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+        || (attributes & FILE_ATTRIBUTE_DIRECTORY == 0 && links > 1)
 }
 
 #[cfg(test)]
@@ -151,5 +166,28 @@ mod tests {
         assert_eq!(ace(0, 0).unwrap().sid, USERS);
         let unknown = Ace::from_raw(5, 0, FULL, || panic!("SID read for an object ACE"));
         assert_eq!(unknown.unwrap(), None);
+    }
+
+    #[test]
+    fn written_by_us_accepts_our_own_sid_but_not_a_stranger() {
+        assert!(written_by_us(SOME_USER, &hardened(), SOME_USER));
+        assert!(written_by_us(ADMINS, &hardened(), SOME_USER));
+        assert!(!written_by_us(
+            SOME_USER,
+            &hardened(),
+            "S-1-5-21-9-9-9-1002"
+        ));
+        let mut aces = hardened();
+        aces.push(allow(USERS, 0x0002));
+        assert!(!written_by_us(SOME_USER, &aces, SOME_USER));
+    }
+
+    #[test]
+    fn reparse_points_and_hard_links_count_as_links() {
+        assert!(!is_linked(0x20, 1));
+        assert!(is_linked(0x20 | 0x400, 1));
+        assert!(is_linked(0x20, 2));
+        assert!(!is_linked(0x10, 3));
+        assert!(is_linked(0x10 | 0x400, 1));
     }
 }

@@ -83,6 +83,36 @@ pub unsafe fn sid_string(sid: PSID) -> io::Result<String> {
     Ok(s)
 }
 
+/// The process token's user SID in string form (`S-1-5-21-…`).
+pub fn current_user_sid() -> io::Result<String> {
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    unsafe {
+        let mut token: HANDLE = ptr::null_mut();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // Two calls, deliberately: the first learns the size. A single call
+        // with a guessed size returns ERROR_INSUFFICIENT_BUFFER and no SID.
+        let mut len = 0u32;
+        GetTokenInformation(token, TokenUser, ptr::null_mut(), 0, &mut len);
+        // u64, not u8: TOKEN_USER needs 8-byte alignment and a Vec<u8> is
+        // align-1, so reading `(*user).User.Sid` out of it is a misaligned
+        // deref — UB by Rust's rules even where the hardware tolerates it.
+        let mut buf = vec![0u64; (len as usize).div_ceil(8)];
+        let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
+        let err = io::Error::last_os_error();
+        CloseHandle(token);
+        if !ok {
+            return Err(err);
+        }
+        let user: *const TOKEN_USER = buf.as_ptr().cast();
+        sid_string((*user).User.Sid)
+    }
+}
+
 pub fn program_data() -> Option<PathBuf> {
     let mut raw: *mut u16 = ptr::null_mut();
     unsafe {

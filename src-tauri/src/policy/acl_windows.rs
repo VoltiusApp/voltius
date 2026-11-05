@@ -1,9 +1,9 @@
 use super::acl::{self, Ace, POLICY_DIR_SDDL};
 use super::{Blocked, Guard};
-use crate::win_security::{sid_string, wide, SecurityDescriptor};
+use crate::win_security::{current_user_sid, sid_string, wide, SecurityDescriptor};
 use std::fs::File;
 use std::io;
-use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::Path;
 use std::ptr;
@@ -16,8 +16,9 @@ use windows_sys::Win32::Security::{
     OWNER_SECURITY_INFORMATION, PSID,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateDirectoryW, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
-    FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, READ_CONTROL, WRITE_DAC, WRITE_OWNER,
+    CreateDirectoryW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, READ_CONTROL,
+    WRITE_DAC, WRITE_OWNER,
 };
 
 fn denied_if_not_admin(e: io::Error) -> io::Error {
@@ -29,6 +30,10 @@ fn denied_if_not_admin(e: io::Error) -> io::Error {
     }
 }
 
+fn io_at(path: &Path) -> impl Fn(io::Error) -> Blocked + '_ {
+    move |e| Blocked::Io(path.to_path_buf(), denied_if_not_admin(e))
+}
+
 // Opens the entry itself, never a reparse target, so the link check and the ACL call see one object.
 fn open_entry(path: &Path, access: u32) -> io::Result<File> {
     std::fs::OpenOptions::new()
@@ -37,8 +42,12 @@ fn open_entry(path: &Path, access: u32) -> io::Result<File> {
         .open(path)
 }
 
-fn is_link(f: &File) -> io::Result<bool> {
-    Ok(f.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0)
+fn is_linked(f: &File) -> io::Result<bool> {
+    let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+    if unsafe { GetFileInformationByHandle(f.as_raw_handle(), &mut info) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(acl::is_linked(info.dwFileAttributes, info.nNumberOfLinks))
 }
 
 pub fn probe(path: &Path) -> io::Result<Guard> {
@@ -46,20 +55,18 @@ pub fn probe(path: &Path) -> io::Result<Guard> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Guard::Missing),
         r => r?,
     };
-    Ok(if is_link(&f)? {
-        Guard::Link
-    } else if is_admin_protected(&f)? {
+    if is_linked(&f)? {
+        return Ok(Guard::Link);
+    }
+    let protected = read_acl(&f)?.is_some_and(|(owner, aces)| acl::admin_protected(&owner, &aces));
+    Ok(if protected {
         Guard::Protected
     } else {
         Guard::Unprotected
     })
 }
 
-pub fn harden(policy_file: &Path) -> Result<(), Blocked> {
-    let io_at = |p: &Path| {
-        let p = p.to_path_buf();
-        move |e: io::Error| Blocked::Io(p, denied_if_not_admin(e))
-    };
+pub fn harden_dir(policy_file: &Path) -> Result<(), Blocked> {
     let dir = policy_file.parent().unwrap_or(policy_file);
     if let Some(parent) = dir.parent() {
         std::fs::create_dir_all(parent).map_err(io_at(parent))?;
@@ -72,19 +79,30 @@ pub fn harden(policy_file: &Path) -> Result<(), Blocked> {
             return Err(io_at(dir)(e));
         }
     }
-    apply(dir, &sd)?;
-    match apply(policy_file, &sd) {
-        Err(Blocked::Io(_, e)) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-        r => r,
-    }
+    apply(dir, &sd, |_| Ok(true))
+}
+
+pub fn adopt_written(policy_file: &Path) -> Result<(), Blocked> {
+    let sd = SecurityDescriptor::from_sddl(POLICY_DIR_SDDL).map_err(io_at(policy_file))?;
+    let us = current_user_sid().map_err(io_at(policy_file))?;
+    apply(policy_file, &sd, |f| {
+        Ok(read_acl(f)?.is_some_and(|(owner, aces)| acl::written_by_us(&owner, &aces, &us)))
+    })
 }
 
 // SetKernelObjectSecurity does not propagate to children, so links planted inside the folder are never followed.
-fn apply(path: &Path, sd: &SecurityDescriptor) -> Result<(), Blocked> {
-    let io_err = |e: io::Error| Blocked::Io(path.to_path_buf(), denied_if_not_admin(e));
-    let f = open_entry(path, READ_CONTROL | WRITE_DAC | WRITE_OWNER).map_err(io_err)?;
-    if is_link(&f).map_err(io_err)? {
+fn apply(
+    path: &Path,
+    sd: &SecurityDescriptor,
+    accept: impl FnOnce(&File) -> io::Result<bool>,
+) -> Result<(), Blocked> {
+    let io_err = io_at(path);
+    let f = open_entry(path, READ_CONTROL | WRITE_DAC | WRITE_OWNER).map_err(&io_err)?;
+    if is_linked(&f).map_err(&io_err)? {
         return Err(Blocked::Link(path.to_path_buf()));
+    }
+    if !accept(&f).map_err(&io_err)? {
+        return Err(Blocked::Unprotected(path.to_path_buf()));
     }
     let ok = unsafe {
         SetKernelObjectSecurity(
@@ -99,7 +117,7 @@ fn apply(path: &Path, sd: &SecurityDescriptor) -> Result<(), Blocked> {
     Ok(())
 }
 
-fn is_admin_protected(f: &File) -> io::Result<bool> {
+fn read_acl(f: &File) -> io::Result<Option<(String, Vec<Ace>)>> {
     let mut owner: PSID = ptr::null_mut();
     let mut dacl: *mut ACL = ptr::null_mut();
     let mut sd = SecurityDescriptor::null();
@@ -118,7 +136,7 @@ fn is_admin_protected(f: &File) -> io::Result<bool> {
             return Err(io::Error::from_raw_os_error(code as i32));
         }
         if owner.is_null() || dacl.is_null() {
-            return Ok(false);
+            return Ok(None);
         }
         let mut aces = Vec::new();
         for i in 0..(*dacl).AceCount {
@@ -131,9 +149,9 @@ fn is_admin_protected(f: &File) -> io::Result<bool> {
             let sid = || sid_string(ptr::addr_of!((*ace).SidStart).cast_mut().cast());
             match Ace::from_raw(header.AceType, header.AceFlags, (*ace).Mask, sid)? {
                 Some(entry) => aces.push(entry),
-                None => return Ok(false),
+                None => return Ok(None),
             }
         }
-        Ok(acl::admin_protected(&sid_string(owner)?, &aces))
+        Ok(Some((sid_string(owner)?, aces)))
     }
 }

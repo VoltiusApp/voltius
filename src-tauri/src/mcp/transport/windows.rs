@@ -2,39 +2,6 @@ use crate::mcp::McpState;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// The process token's user SID in string form (`S-1-5-21-…`), for the pipe's DACL.
-#[cfg(windows)]
-fn current_user_sid() -> std::io::Result<String> {
-    use std::ptr;
-    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
-    use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
-    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
-
-    unsafe {
-        let mut token: HANDLE = ptr::null_mut();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        // Two calls, deliberately: the first learns the size. A single call
-        // with a guessed size returns ERROR_INSUFFICIENT_BUFFER and no SID.
-        let mut len = 0u32;
-        GetTokenInformation(token, TokenUser, ptr::null_mut(), 0, &mut len);
-        // u64, not u8: TOKEN_USER needs 8-byte alignment and a Vec<u8> is
-        // align-1, so reading `(*user).User.Sid` out of it is a misaligned
-        // deref — UB by Rust's rules even where the hardware tolerates it.
-        let mut buf = vec![0u64; (len as usize).div_ceil(8)];
-        let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
-        let err = std::io::Error::last_os_error();
-        CloseHandle(token);
-        if !ok {
-            return Err(err);
-        }
-
-        let user: *const TOKEN_USER = buf.as_ptr().cast();
-        crate::win_security::sid_string((*user).User.Sid)
-    }
-}
-
 /// One pipe server instance. `first` sets FILE_FLAG_FIRST_PIPE_INSTANCE, which
 /// makes a squatted pipe name fail loudly here instead of silently handing the
 /// name to another process. It must be set on the first instance only —
@@ -48,7 +15,7 @@ fn create_instance(
 
     // The SID comes from our own process token, never from user input:
     // `owner_only_sddl` interpolates it without escaping.
-    let sddl = super::shared::owner_only_sddl(&current_user_sid()?);
+    let sddl = super::shared::owner_only_sddl(&crate::win_security::current_user_sid()?);
     let sd = crate::win_security::SecurityDescriptor::from_sddl(&sddl)?;
     let mut sa = sd.attributes();
     unsafe {
