@@ -2,6 +2,7 @@ name: verify-windows-policy
 
 on:
   push:
+    branches: ['**']
     paths:
       - 'src-tauri/src/policy/**'
       - 'src-tauri/src/cli/**'
@@ -34,6 +35,7 @@ jobs:
   verify:
     needs: build
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

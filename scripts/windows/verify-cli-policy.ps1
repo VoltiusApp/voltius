@@ -51,9 +51,8 @@ function Assert-True([string]$Id, [bool]$Condition, [string]$Observed, [string]$
     throw "FAIL $Id"
 }
 
-function Assert-Code([string]$Id, $Expected, $Result) {
-    $ok = if ("$Expected" -eq 'non-zero') { $Result.Code -ne 0 } else { $Result.Code -eq $Expected }
-    Assert-True $Id $ok "code=$($Result.Code)" "code=$Expected" "stdout: $($Result.Out)`nstderr: $($Result.Err)"
+function Assert-Code([string]$Id, [long[]]$Expected, $Result) {
+    Assert-True $Id ($Result.Code -in $Expected) "code=$($Result.Code)" "code=$($Expected -join ',')" "stdout: $($Result.Out)`nstderr: $($Result.Err)"
 }
 
 function Wait-Until([int]$Seconds, [scriptblock]$Condition) {
@@ -145,12 +144,20 @@ function New-StartArgs([string]$Base, [string]$FilePath, [string]$ArgumentList, 
     $start
 }
 
+function Wait-Exit($Process, [string]$Line, [int]$Seconds) {
+    if (-not $Process) { throw "did not start: $Line" }
+    if (-not $Process.WaitForExit($Seconds * 1000)) {
+        taskkill /pid $Process.Id /t /f | Out-Host
+        throw "timed out after $Seconds s and killed: $Line"
+    }
+    $Process.ExitCode
+}
+
 function Invoke-Process([string]$Who, [string]$Line, [pscredential]$Credential) {
     $base = New-LogBase $Who
     $start = New-StartArgs $base $env:ComSpec "/d /s /c `"$Line`"" $Credential
-    $proc = Start-Process @start -Wait
-    if (-not $proc) { throw "[$Who] did not start: $Line" }
-    Read-Result $Who $Line $proc.ExitCode $base
+    $code = Wait-Exit (Start-Process @start) "[$Who] $Line" 120
+    Read-Result $Who $Line $code $base
 }
 
 function Invoke-ViaTask([string]$Who, [string]$Line, [hashtable]$Principal) {
@@ -165,7 +172,10 @@ function Invoke-ViaTask([string]$Who, [string]$Line, [hashtable]$Principal) {
             (Get-ScheduledTask -TaskName $name).State -eq 'Ready' -and
             (Get-ScheduledTaskInfo -TaskName $name).LastTaskResult -notin $TaskPending
         }
-        if (-not $done) { throw "[$Who] scheduled task did not finish within 180 s: $Line" }
+        if (-not $done) {
+            Stop-ScheduledTask -TaskName $name
+            throw "[$Who] scheduled task did not finish within 180 s: $Line"
+        }
         Read-Result $Who $Line (Get-ScheduledTaskInfo -TaskName $name).LastTaskResult $base
     }
     finally {
@@ -190,8 +200,9 @@ function Invoke-AsSystem([string[]]$ArgumentList) {
 }
 
 function Invoke-Installer([string]$File, [string[]]$ArgumentList) {
-    $proc = Start-Process -FilePath $File -ArgumentList $ArgumentList -Wait -PassThru
-    Read-Result 'installer' "$File $ArgumentList" $proc.ExitCode ''
+    $line = "$File $ArgumentList"
+    $code = Wait-Exit (Start-Process -FilePath $File -ArgumentList $ArgumentList -PassThru) $line 600
+    Read-Result 'installer' $line $code ''
 }
 
 function Start-Holder([string]$Path, [ValidateSet('File', 'Dir')][string]$Kind) {
@@ -333,7 +344,9 @@ function New-StandardUser {
     $user = $computer.Create('User', $StdName)
     $user.SetPassword($password)
     $user.SetInfo()
-    ([ADSI]"WinNT://$env:COMPUTERNAME/Users,group").Add("WinNT://$env:COMPUTERNAME/$StdName,user")
+    $users = [ADSI]"WinNT://$env:COMPUTERNAME/Users,group"
+    $member = "WinNT://$env:COMPUTERNAME/$StdName,user"
+    if (-not $users.IsMember($member)) { $users.Add($member) }
     $script:UserCreated = $true
     $script:StdCred = [pscredential]::new($StdName, (ConvertTo-SecureString $password -AsPlainText -Force))
     $script:StdSid = ([System.Security.Principal.NTAccount]$StdName).Translate([System.Security.Principal.SecurityIdentifier]).Value
@@ -446,7 +459,9 @@ $Scenarios = [ordered]@{
         Copy-AsUser $EvilFixture (Join-Path $target 'policy.json')
         Assert-Code 'J.user-junction' 0 (Invoke-AsUser mklink, '/J', $PolicyDir, $target)
         $before = Get-Snapshot $target
-        Assert-Code 'J.user-check' 3 (Invoke-UserCheck)
+        $check = Invoke-UserCheck
+        Assert-Code 'J.user-check' 3 $check
+        Assert-True 'J.user-link' ($check.Err -match 'link') $check.Err.Trim() 'link'
         Assert-Code 'J.admin-set' 4 (Invoke-AdminSet)
         Assert-Unchanged 'J.target-unchanged' $target $before
     }
@@ -490,7 +505,7 @@ $Scenarios = [ordered]@{
         $before = Get-Snapshot $PolicyDir
         try {
             Start-Holder $PolicyFile File
-            Assert-Code 'O.admin-set' 'non-zero' (Invoke-AdminSet 'true')
+            Assert-Code 'O.admin-set' 4, 5 (Invoke-AdminSet 'true')
         }
         finally {
             Stop-AllHolders
