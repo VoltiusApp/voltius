@@ -12,8 +12,8 @@ fail() { echo "check-cli-in-bundle: $*" >&2; exit 1; }
 each() {
   local glob="$1" f
   shift
-  local matches
-  mapfile -t matches < <(compgen -G "$bundle/$glob" || true)
+  # shellcheck disable=SC2206
+  local matches=("$bundle"/$glob)
   ((${#matches[@]})) || fail "no $glob in $bundle"
   for f in "${matches[@]}"; do
     "$@" "$f" || fail "$f does not contain voltius-cli"
@@ -22,10 +22,16 @@ each() {
 }
 
 listing() {
-  local pattern="$1" out
+  local pattern="$1" out rc=0
   shift
-  out=$("$@" | tr -d '\r')
-  grep -Eq "$pattern" <<< "$out"
+  out=$("$@" 2>&1) || rc=$?
+  out=$(tr -d '\r' <<< "$out")
+  grep -Eq "$pattern" <<< "$out" && return 0
+  {
+    echo "--- '$*' exited $rc; lines mentioning voltius (or the first 40):"
+    grep -i voltius <<< "$out" || head -n 40 <<< "$out"
+  } >&2
+  return 1
 }
 
 appimage() {
@@ -33,8 +39,13 @@ appimage() {
   abs=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
   work=$(mktemp -d)
   chmod +x "$abs"
-  (cd "$work" && "$abs" --appimage-extract > /dev/null) && [ -f "$work/squashfs-root/usr/bin/voltius-cli" ]
-  local rc=$?
+  local rc=0
+  (cd "$work" && "$abs" --appimage-extract > /dev/null) || rc=$?
+  [ -f "$work/squashfs-root/usr/bin/voltius-cli" ] || {
+    echo "--- --appimage-extract exited $rc; squashfs-root/usr/bin holds:" >&2
+    ls "$work/squashfs-root/usr/bin" >&2 || true
+    rc=1
+  }
   rm -rf "$work"
   return $rc
 }
@@ -46,7 +57,11 @@ msi() {
   MSI=$(cygpath -w "$1") DIR=$(cygpath -w "$dir") powershell.exe -NoProfile -Command \
     '$p = Start-Process msiexec -Wait -PassThru -ArgumentList "/a","`"$env:MSI`"","/qn","TARGETDIR=`"$env:DIR`""; exit $p.ExitCode' \
     || return 1
-  [ -n "$(find "$dir" -iname 'voltius-cli.exe' -print -quit)" ]
+  [ -n "$(find "$dir" -iname 'voltius-cli.exe' | head -n 1)" ] || {
+    echo "--- no voltius-cli.exe in the extracted MSI; files named voltius*:" >&2
+    find "$dir" -iname 'voltius*' >&2
+    return 1
+  }
 }
 
 case "$triple" in
