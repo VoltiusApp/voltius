@@ -65,7 +65,7 @@ function Wait-Until([int]$Seconds, [scriptblock]$Condition) {
 }
 
 function Get-RegistryPath([ValidateSet('User', 'Machine')][string]$Scope) {
-    [string](Get-Item -LiteralPath $EnvKeys[$Scope]).GetValue('Path', '', 'DoNotExpandEnvironmentNames')
+    ConvertTo-Text (Get-Item -LiteralPath $EnvKeys[$Scope]).GetValue('Path', '', 'DoNotExpandEnvironmentNames')
 }
 
 function Update-SessionPath {
@@ -110,16 +110,21 @@ function New-LogBase([string]$Who) {
     Join-Path $Logs ('{0:D3}-{1}-{2}' -f $script:Seq, $script:Scenario, $Who)
 }
 
+function ConvertTo-Text($Value) {
+    if ($null -eq $Value) { '' } else { [string]$Value }
+}
+
 function Read-Log([string]$Path) {
-    if (Test-Path -LiteralPath $Path) { [string](Get-Content -LiteralPath $Path -Raw) } else { '' }
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return '' }
+    ConvertTo-Text (Get-Content -LiteralPath $Path -Raw)
 }
 
 function Read-Result([string]$Who, [string]$Line, $Code, [string]$Base) {
     if ($null -eq $Code) { throw "[$Who] returned no exit code: $Line" }
     $result = [pscustomobject]@{
         Code = [long]$Code
-        Out  = if ($Base) { Read-Log "$Base.out" } else { '' }
-        Err  = if ($Base) { Read-Log "$Base.err" } else { '' }
+        Out  = Read-Log $(if ($Base) { "$Base.out" })
+        Err  = Read-Log $(if ($Base) { "$Base.err" })
     }
     Write-Host "  [$Who] $Line -> $($result.Code)"
     if ($result.Err.Trim()) { Write-Host "    stderr: $($result.Err.Trim())" }
@@ -283,7 +288,8 @@ function Get-OwnerSid([string]$Path) {
 }
 
 function Get-Layers([string]$Text) {
-    $doc = ConvertFrom-Json $Text -AsHashtable
+    $doc = try { ConvertFrom-Json $Text -AsHashtable } catch { $null }
+    if ($null -eq $doc) { return "<unparseable: $Text>" }
     $entries = foreach ($layer in 'policy', 'defaults') {
         $map = $doc[$layer]
         if ($map) { foreach ($key in $map.Keys) { "$layer.$key=$(ConvertTo-Json $map[$key] -Compress)" } }
@@ -292,8 +298,8 @@ function Get-Layers([string]$Text) {
 }
 
 function Assert-Layers([string]$Id, [string]$Path, [string]$Fixture) {
-    $want = Get-Layers (Get-Content -LiteralPath $Fixture -Raw)
-    $got = Get-Layers (Get-Content -LiteralPath $Path -Raw)
+    $want = Get-Layers (Read-Log $Fixture)
+    $got = Get-Layers (Read-Log $Path)
     Assert-True $Id ($got -eq $want) $got $want
 }
 
@@ -487,7 +493,7 @@ $Scenarios = [ordered]@{
         Copy-AsUser $EvilFixture (Join-Path $fake 'Voltius\policy.json')
         $check = Invoke-AsUser 'set', "ProgramData=$fake&&", 'voltius-cli', 'policy', 'check', '--json'
         Assert-Code 'L.user-check' 0 $check
-        $path = try { [string]($check.Out | ConvertFrom-Json).path } catch { '<unparseable>' }
+        $path = try { ConvertTo-Text ($check.Out | ConvertFrom-Json).path } catch { '<unparseable>' }
         Assert-True 'L.path' ($path -eq $PolicyFile) $path $PolicyFile
     }
     M  = {
@@ -527,7 +533,7 @@ $Scenarios = [ordered]@{
 function Get-MsiInstallDir {
     foreach ($key in 'HKLM:\Software\Voltius', 'HKLM:\Software\Voltius\Voltius', 'HKCU:\Software\Voltius\Voltius') {
         $item = Get-Item -LiteralPath $key -ErrorAction SilentlyContinue
-        $dir = if ($item) { [string]$item.GetValue('InstallDir') } else { '' }
+        $dir = if ($item) { ConvertTo-Text $item.GetValue('InstallDir') } else { '' }
         if ($dir) { return $dir.TrimEnd('\') }
     }
     Join-Path $env:ProgramFiles 'Voltius'
