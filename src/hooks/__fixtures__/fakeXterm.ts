@@ -34,7 +34,7 @@ export class FakeTerminal {
   rows = 24;
   modes = { applicationCursorKeysMode: false, mouseTrackingMode: "none" };
   buffer = {
-    active: { length: 0, viewportY: 0, baseY: 0, cursorY: 0, type: "normal", getLine: () => null },
+    active: { length: 0, viewportY: 0, baseY: 0, cursorX: 0, cursorY: 0, type: "normal", getLine: () => null },
     onBufferChange: () => ({ dispose() {} }),
   };
   open(container: HTMLElement) {
@@ -58,6 +58,7 @@ export class FakeTerminal {
   onWriteParsed() { return { dispose() {} }; }
   registerLinkProvider() { return { dispose() {} }; }
   registerDecoration() { return null; }
+  registerMarker() { return undefined; }
 }
 
 export class FakeFitAddon {

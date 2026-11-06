@@ -90,6 +90,7 @@ export default function TerminalSection() {
         <ToggleCard id="drag-selects-text" i18nKey="dragSelectsText" />
         <ToggleCard id="ignore-bracketed-paste" i18nKey="ignoreBracketedPaste" />
         <ToggleCard id="paste-image-as-path" i18nKey="pasteImageAsPath" />
+        <ToggleCard id="command-history" i18nKey="commandHistory" />
         {isAndroid && <ToggleCard id="volume-down-ctrl" i18nKey="volumeDownCtrl" />}
         <SettingRow
           variant="card"

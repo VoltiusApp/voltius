@@ -26,7 +26,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { broadcastActiveForSession, findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { broadcastTargets } from "@/services/broadcast";
-import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import { forgetSession, useCommandHistoryStore, type EchoProbe } from "@/stores/commandHistoryStore";
+import { terminalEchoProbe } from "@/components/terminal/inputEcho";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import { wheelToRows } from "@/components/terminal/terminalWheelCore";
@@ -174,6 +175,7 @@ type CacheEntry = CachedTerminal & {
   minimap: MinimapState;
   commands: CommandTracker;
   highlighter: KeywordHighlighter | null;
+  echoProbe: EchoProbe;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
@@ -488,13 +490,15 @@ export function sessionAcceptsInput(sessionId: string): boolean {
   return entry.connectedRef.current;
 }
 
+function feedHistory(sessionId: string, probe: EchoProbe, kind: "addInput" | "addShellMark", data: string): void {
+  const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  if (sess) useCommandHistoryStore.getState()[kind](sessionId, sess.connectionName, sess.connectionId, data, probe);
+}
+
 export function writeToSession(sessionId: string, data: string): void {
   const entry = terminalCache.get(sessionId);
   if (!entry || !sessionAcceptsInput(sessionId)) return;
-  const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-  if (sess) {
-    useCommandHistoryStore.getState().addInput(sessionId, sess.connectionName, sess.connectionId, data);
-  }
+  feedHistory(sessionId, entry.echoProbe, "addInput", data);
   sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
 }
 
@@ -857,6 +861,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           now: Date.now,
         }),
         highlighter: null,
+        echoProbe: terminalEchoProbe(term),
         sessionType,
         // Serial is live the moment its port opens (the store marks it
         // connected before the terminal mounts); ssh and local flip in the
@@ -1051,6 +1056,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const oscMarkDispose = term.parser.registerOscHandler(133, (data) => {
         entry.commands.handle(data);
+        feedHistory(sessionId, entry.echoProbe, "addShellMark", data);
         return true;
       });
 
@@ -1080,13 +1086,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const latched = consumeLatchForChar(data);
         if (latched !== null) data = latched;
 
-        const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-        if (sess) {
-          useCommandHistoryStore
-            .getState()
-            .addInput(sessionId, sess.connectionName, sess.connectionId, data);
-        }
-
+        feedHistory(sessionId, entry.echoProbe, "addInput", data);
         routeInput(data);
       });
 
@@ -1168,6 +1168,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         onResizeDispose.dispose();
         oscCwdDispose.dispose();
         oscMarkDispose.dispose();
+        forgetSession(sessionId);
         eraseDispose.dispose();
         searchResultsDispose.dispose();
         scrollDispose.dispose();

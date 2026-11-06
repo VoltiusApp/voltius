@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Histórico de comandos",
+        "desc": "Lembra os comandos executados nos terminais. Uma linha só é guardada quando o terminal a exibe de volta, então senhas digitadas em prompts ocultos nunca são salvas. Linhas que começam com espaço nunca são salvas. Desativar interrompe o registro; o que já foi salvo permanece até você limpá-lo no painel Histórico."
+      },
       "heading": "Comportamento do terminal",
       "preferredShell": {
         "title": "Shell preferido"
@@ -1214,6 +1218,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Histórico de comandos"
+      },
       "cursorBlink": {
         "label": "Cursor piscante"
       },

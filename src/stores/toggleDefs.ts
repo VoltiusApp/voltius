@@ -71,6 +71,13 @@ export const TOGGLE_DEFS = {
     keywords: ["paste", "bracketed", "clipboard", "terminal", "sudo", "garbage", "200~"],
     default: false,
   },
+  "command-history": {
+    labelKey: "settings.toggleDefs.commandHistory.label",
+    icon: "lucide:history",
+    section: "terminal",
+    keywords: ["history", "command", "record", "remember", "typed", "password", "privacy", "terminal"],
+    default: true,
+  },
   "paste-image-as-path": {
     labelKey: "settings.toggleDefs.pasteImageAsPath.label",
     icon: "lucide:image-up",

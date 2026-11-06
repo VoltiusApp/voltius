@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "命令历史",
+        "desc": "记录在终端中运行的命令。只有终端回显的行才会保存，因此在隐藏输入的提示符处键入的密码永远不会被保存。以空格开头的行不会被保存。关闭后停止记录；已保存的内容会保留，直到你在历史面板中清除。"
+      },
       "heading": "终端行为",
       "preferredShell": {
         "title": "首选 Shell"
@@ -1242,6 +1246,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "命令历史"
+      },
       "cursorBlink": { "label": "光标闪烁" },
       "scrollMinimap": { "label": "滚动小地图" },
       "selectToCopy": { "label": "选择即复制" },

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useCommandHistoryStore, type CommandHistoryEntry } from "@/stores/commandHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { broadcastSnippetInject } from "@/services/snippetInject";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { formatRelative } from "@/utils/localeFormat";
@@ -110,6 +111,7 @@ export function HistoryPanel() {
   const entries = useCommandHistoryStore((s) => s.entries);
   const clear = useCommandHistoryStore((s) => s.clear);
   const remove = useCommandHistoryStore((s) => s.remove);
+  const [recording] = useToggle("command-history");
   const { sessions, activeSessionId } = useSessionStore();
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
@@ -206,7 +208,9 @@ export function HistoryPanel() {
           <div className="flex flex-col items-center justify-center h-full gap-3 px-4 py-8 opacity-40">
             <Icon icon="lucide:clock" width={24} style={{ color: "var(--t-text-muted)" }} />
             <p className="text-xs text-center" style={{ color: "var(--t-text-muted)" }}>
-              {query
+              {!recording
+                ? t("terminal.historyPanel.historyOff")
+                : query
                 ? t("terminal.historyPanel.noCommandsMatch")
                 : filterCurrent
                 ? t("terminal.historyPanel.noHistoryForConnection")

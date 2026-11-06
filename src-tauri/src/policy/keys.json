@@ -204,6 +204,12 @@
     "defaultApplied": false
   },
   {
+    "id": "sync.settings.appSettings.toggles.command-history",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "sync.settings.appSettings.toggles.paste-image-as-path",
     "type": "bool",
     "enforced": true,
@@ -397,6 +403,12 @@
   },
   {
     "id": "appSettings.toggles.ignore-bracketed-paste",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.command-history",
     "type": "bool",
     "enforced": true,
     "defaultApplied": true

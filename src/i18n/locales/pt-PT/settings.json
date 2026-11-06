@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Histórico de comandos",
+        "desc": "Memoriza os comandos executados nos terminais. Uma linha só é guardada quando o terminal a mostra de volta, pelo que as palavras-passe introduzidas em pedidos ocultos nunca são guardadas. As linhas que começam com um espaço nunca são guardadas. Desativar interrompe o registo; o que já foi guardado mantém-se até o limpar no painel Histórico."
+      },
       "heading": "Comportamento do terminal",
       "preferredShell": {
         "title": "Shell preferido"
@@ -1436,6 +1440,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Histórico de comandos"
+      },
       "cursorBlink": {
         "label": "Cursor piscante"
       },
