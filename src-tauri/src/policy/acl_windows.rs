@@ -1,7 +1,7 @@
 use super::acl::{self, Ace, FolderAction, POLICY_DIR_SDDL};
 use super::{Blocked, Entry, Guard};
 use crate::win_security::{
-    create_new_with, current_user_sid, sid_string, wide, SecurityDescriptor,
+    create_new_with, current_user_sid, security_info, sid_string, wide, SecurityDescriptor,
 };
 use std::fs::File;
 use std::io::{self, Read};
@@ -9,10 +9,8 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
 use std::ptr;
-use windows_sys::Win32::Foundation::{
-    ERROR_INVALID_OWNER, ERROR_PRIVILEGE_NOT_HELD, ERROR_SUCCESS, WIN32_ERROR,
-};
-use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
+use windows_sys::Win32::Foundation::{ERROR_INVALID_OWNER, ERROR_PRIVILEGE_NOT_HELD, WIN32_ERROR};
+use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
 use windows_sys::Win32::Security::{
     GetAce, SetKernelObjectSecurity, ACCESS_ALLOWED_ACE, ACL, DACL_SECURITY_INFORMATION,
     OBJECT_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSID,
@@ -173,30 +171,11 @@ fn apply(
     Ok(())
 }
 
-// The returned SID and ACL point into the descriptor, which must outlive them.
 fn security(
     f: &File,
     info: OBJECT_SECURITY_INFORMATION,
 ) -> io::Result<(PSID, *mut ACL, SecurityDescriptor)> {
-    let mut owner: PSID = ptr::null_mut();
-    let mut dacl: *mut ACL = ptr::null_mut();
-    let mut sd = SecurityDescriptor::null();
-    let code = unsafe {
-        GetSecurityInfo(
-            f.as_raw_handle(),
-            SE_FILE_OBJECT,
-            info,
-            &mut owner,
-            ptr::null_mut(),
-            &mut dacl,
-            ptr::null_mut(),
-            sd.out(),
-        )
-    };
-    if code != ERROR_SUCCESS {
-        return Err(io::Error::from_raw_os_error(code as i32));
-    }
-    Ok((owner, dacl, sd))
+    security_info(f.as_raw_handle(), SE_FILE_OBJECT, info)
 }
 
 fn owner_of(f: &File) -> io::Result<Option<String>> {

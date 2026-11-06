@@ -133,3 +133,57 @@ async fn run_pipe_server(
         ));
     }
 }
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use crate::policy::acl::sddl;
+    use crate::win_security::{current_user_sid, sddl_of};
+    use std::collections::BTreeSet;
+    use std::ffi::OsString;
+    use std::os::windows::io::AsRawHandle;
+    use tokio::net::windows::named_pipe::ClientOptions;
+    use windows_sys::Win32::Foundation::HANDLE;
+    use windows_sys::Win32::Security::Authorization::SE_KERNEL_OBJECT;
+
+    fn unique_addr() -> OsString {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        format!(r"\\.\pipe\voltius-mcp-test-{}-{nanos}", std::process::id()).into()
+    }
+
+    #[tokio::test]
+    async fn pipe_grants_only_system_and_the_current_user() {
+        let server = create_first_instance(&unique_addr()).await.unwrap();
+        let text = sddl_of(server.as_raw_handle() as HANDLE, SE_KERNEL_OBJECT).unwrap();
+        let alias = |sid: String| if sid == "S-1-5-18" { "SY".into() } else { sid };
+        let sids: BTreeSet<String> = sddl::aces(&text)
+            .into_iter()
+            .map(|a| alias(a.sid))
+            .collect();
+        let want: BTreeSet<String> = ["SY".to_string(), alias(current_user_sid().unwrap())].into();
+        assert_eq!(sids, want, "{text}");
+    }
+
+    #[tokio::test]
+    async fn a_client_connects_to_the_first_instance() {
+        let addr = unique_addr();
+        let server = create_first_instance(&addr).await.unwrap();
+        let accept = tokio::spawn(async move { server.connect().await });
+        ClientOptions::new().open(&addr).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), accept)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_second_first_instance_is_refused() {
+        let addr = unique_addr();
+        let _server = create_first_instance(&addr).await.unwrap();
+        assert!(create_instance(&addr, true).is_err());
+    }
+}

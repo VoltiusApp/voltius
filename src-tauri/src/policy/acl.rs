@@ -264,3 +264,48 @@ mod tests {
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     }
 }
+
+#[cfg(test)]
+pub(crate) mod sddl {
+    #[derive(Debug)]
+    pub struct Ace {
+        pub flags: String,
+        pub sid: String,
+    }
+
+    pub fn owner(sddl: &str) -> &str {
+        let rest = sddl.strip_prefix("O:").unwrap_or("");
+        &rest[..rest
+            .find("G:")
+            .or_else(|| rest.find("D:"))
+            .unwrap_or(rest.len())]
+    }
+
+    pub fn aces(sddl: &str) -> Vec<Ace> {
+        let Some(at) = sddl.find("D:") else {
+            return Vec::new();
+        };
+        sddl[at..]
+            .split('(')
+            .skip(1)
+            .map(|entry| {
+                let f: Vec<&str> = entry.trim_end_matches(')').split(';').collect();
+                Ace {
+                    flags: f[1].to_string(),
+                    sid: f[5].to_string(),
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn parses_owner_and_aces() {
+        let s = "O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;0x1200a9;;;BU)";
+        assert_eq!(owner(s), "BA");
+        let a = aces(s);
+        let sids: Vec<&str> = a.iter().map(|a| a.sid.as_str()).collect();
+        assert_eq!(sids, ["SY", "BA", "BU"]);
+        assert!(a.iter().all(|a| a.flags.is_empty()));
+        assert_eq!(aces("D:(A;ID;FA;;;SY)")[0].flags, "ID");
+    }
+}

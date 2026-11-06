@@ -3,11 +3,14 @@ use std::io;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::PathBuf;
 use std::ptr;
-use windows_sys::Win32::Foundation::LocalFree;
+use windows_sys::Win32::Foundation::{LocalFree, ERROR_SUCCESS, HANDLE};
 use windows_sys::Win32::Security::Authorization::{
-    ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+    ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo,
+    SDDL_REVISION_1, SE_OBJECT_TYPE,
 };
-use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES};
+use windows_sys::Win32::Security::{
+    ACL, OBJECT_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
+};
 use windows_sys::Win32::System::Com::CoTaskMemFree;
 use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath};
 
@@ -95,6 +98,58 @@ pub fn create_new_with(
         return Err(io::Error::last_os_error());
     }
     Ok(unsafe { std::fs::File::from_raw_handle(handle) })
+}
+
+/// The returned SID and ACL point into the descriptor, which must outlive them.
+pub fn security_info(
+    handle: HANDLE,
+    kind: SE_OBJECT_TYPE,
+    info: OBJECT_SECURITY_INFORMATION,
+) -> io::Result<(PSID, *mut ACL, SecurityDescriptor)> {
+    let mut owner: PSID = ptr::null_mut();
+    let mut dacl: *mut ACL = ptr::null_mut();
+    let mut sd = SecurityDescriptor::null();
+    let code = unsafe {
+        GetSecurityInfo(
+            handle,
+            kind,
+            info,
+            &mut owner,
+            ptr::null_mut(),
+            &mut dacl,
+            ptr::null_mut(),
+            sd.out(),
+        )
+    };
+    if code != ERROR_SUCCESS {
+        return Err(io::Error::from_raw_os_error(code as i32));
+    }
+    Ok((owner, dacl, sd))
+}
+
+#[cfg(test)]
+pub fn sddl_of(handle: HANDLE, kind: SE_OBJECT_TYPE) -> io::Result<String> {
+    use windows_sys::Win32::Security::Authorization::ConvertSecurityDescriptorToStringSecurityDescriptorW;
+    use windows_sys::Win32::Security::{DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION};
+
+    let info = OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+    let (_, _, sd) = security_info(handle, kind, info)?;
+    let mut raw: *mut u16 = ptr::null_mut();
+    let ok = unsafe {
+        ConvertSecurityDescriptorToStringSecurityDescriptorW(
+            sd.as_ptr(),
+            SDDL_REVISION_1,
+            info,
+            &mut raw,
+            ptr::null_mut(),
+        )
+    };
+    if ok == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let s = unsafe { from_wide_ptr(raw) }.to_string_lossy().into_owned();
+    unsafe { LocalFree(raw.cast()) };
+    Ok(s)
 }
 
 /// # Safety
