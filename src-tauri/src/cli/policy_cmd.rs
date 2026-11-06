@@ -1,6 +1,7 @@
 use super::output::Output;
 use super::{Access, CliError};
-use crate::policy::{self, Issue, IssueKind, Layer, PolicyDoc};
+use crate::cli_state::{mirror, pending};
+use crate::policy::{self, Blocked, Issue, IssueKind, Layer, MachineAcl, PolicyDoc, Trust};
 use clap::Subcommand;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -22,12 +23,17 @@ pub enum PolicyCmd {
         #[arg(long)]
         defaults: bool,
     },
-    /// Show the machine policy file contents
+    /// Show each setting's effective value and where it comes from
     Show,
     /// Validate a policy file (default: the machine file)
     Check { file: Option<PathBuf> },
     /// Merge a policy file into the machine file; nothing is written if it has any issue
-    Import { file: PathBuf },
+    Import {
+        file: PathBuf,
+        /// Discard the machine file's current content and write exactly this file
+        #[arg(long)]
+        replace: bool,
+    },
     /// Print the machine policy file
     Export,
     /// Print where the machine policy file lives
@@ -43,6 +49,7 @@ pub fn run(cmd: PolicyCmd, machine: Option<&Path>, out: &mut Output) -> Result<(
             )),
         };
     };
+    let acl = policy::machine_acl(path);
     match cmd {
         PolicyCmd::Set {
             key,
@@ -50,9 +57,9 @@ pub fn run(cmd: PolicyCmd, machine: Option<&Path>, out: &mut Output) -> Result<(
             defaults,
         } => set(&key, &value, layer_of(defaults), path, out),
         PolicyCmd::Unset { key, defaults } => unset(&key, layer_of(defaults), path, out),
-        PolicyCmd::Show => show(path, out),
-        PolicyCmd::Check { file } => check(file.as_deref(), path, out),
-        PolicyCmd::Import { file } => import(&file, path, out),
+        PolicyCmd::Show => show(path, user_dir().as_deref(), out),
+        PolicyCmd::Check { file } => check(file.as_deref(), path, acl.map(|a| a.probe), out),
+        PolicyCmd::Import { file, replace } => import(&file, path, acl, replace, out),
         PolicyCmd::Export => export(path, out),
         PolicyCmd::Path => print_path(Some(path), out),
     }
@@ -70,7 +77,7 @@ fn print_path(machine: Option<&Path>, out: &mut Output) -> Result<(), CliError> 
     Ok(())
 }
 
-fn layer_of(defaults: bool) -> Layer {
+pub(super) fn layer_of(defaults: bool) -> Layer {
     if defaults {
         Layer::Defaults
     } else {
@@ -110,13 +117,13 @@ fn read_text(path: &Path) -> Result<Option<String>, CliError> {
     policy::read_optional(path).map_err(|e| io_error(path, Access::Read, e))
 }
 
-type Raw = serde_json::Map<String, Value>;
+pub(super) type Raw = serde_json::Map<String, Value>;
 
-fn plain(kind: IssueKind, message: String) -> CliError {
+pub(super) fn plain(kind: IssueKind, message: String) -> CliError {
     CliError::Validation(vec![Issue::general(kind, message)])
 }
 
-fn unusable(path: &Path, why: &str) -> CliError {
+pub(super) fn unusable(path: &Path, why: &str) -> CliError {
     plain(
         IssueKind::File,
         format!(
@@ -134,8 +141,8 @@ fn empty_root() -> Raw {
     root
 }
 
-fn load_raw(path: &Path) -> Result<Raw, CliError> {
-    let Some(text) = read_text(path)? else {
+fn parse_raw(path: &Path, text: Option<String>) -> Result<Raw, CliError> {
+    let Some(text) = text else {
         return Ok(empty_root());
     };
     let Ok(Value::Object(root)) = serde_json::from_str::<Value>(&text) else {
@@ -147,7 +154,7 @@ fn load_raw(path: &Path) -> Result<Raw, CliError> {
     Ok(root)
 }
 
-fn layer_entries<'a>(
+pub(super) fn layer_entries<'a>(
     root: &'a mut Raw,
     layer: Layer,
     path: &Path,
@@ -163,17 +170,79 @@ fn layer_entries<'a>(
         })
 }
 
-fn edit_raw(
+fn blocked(b: Blocked) -> CliError {
+    match b {
+        Blocked::Link(p) => CliError::Denied(format!(
+            "{} is a link; delete it and run again",
+            p.display()
+        )),
+        Blocked::Unprotected(p) => plain(
+            IssueKind::Unprotected,
+            format!(
+                "{} was writable by standard users; review it, then run \
+                 `voltius-cli policy import --replace <reviewed file>` or delete it",
+                p.display()
+            ),
+        ),
+        Blocked::Held(p) => CliError::Denied(format!(
+            "{} is held open or not owned by Administrators; \
+             close other programs or remove it, then run again",
+            p.display()
+        )),
+        Blocked::Io(p, e) => io_error(&p, Access::Write, e),
+    }
+}
+
+pub(super) fn edit_raw(
     path: &Path,
+    out: &mut Output,
     edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
 ) -> Result<bool, CliError> {
-    let mut root = load_raw(path)?;
+    edit_raw_with(path, policy::machine_acl(path), false, out, edit)
+}
+
+fn edit_raw_with(
+    path: &Path,
+    acl: Option<MachineAcl>,
+    replace: bool,
+    out: &mut Output,
+    edit: impl FnOnce(&mut Raw) -> Result<bool, CliError>,
+) -> Result<bool, CliError> {
+    let existing = match acl {
+        Some(a) => {
+            let check = || policy::write_check(path, a.probe, replace).map_err(blocked);
+            check()?;
+            if let Some(aside) = (a.harden_dir)(path).map_err(blocked)? {
+                let dir = path.parent().unwrap_or(path);
+                out.notice(format!(
+                    "moved {} to {}; its contents were not kept",
+                    dir.display(),
+                    aside.display()
+                ));
+            }
+            // Re-check once the folder is locked; the text comes from the handle this check passed.
+            check()?
+        }
+        None if replace => None,
+        None => read_text(path)?,
+    };
+    let mut root = if replace {
+        empty_root()
+    } else {
+        parse_raw(path, existing)?
+    };
     root.entry("version").or_insert_with(|| json!(1));
     let changed = edit(&mut root)?;
     if changed {
         let mut text = serde_json::to_string_pretty(&root).map_err(|e| CliError::Io(e.into()))?;
         text.push('\n');
-        policy::write_text_atomic(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
+        let write = acl.map_or(policy::write_text_atomic as fn(&Path, &str) -> _, |a| {
+            a.write
+        });
+        write(path, &text).map_err(|e| io_error(path, Access::Write, e))?;
+        if let Some(a) = acl {
+            (a.adopt_written)(path).map_err(blocked)?;
+        }
     }
     Ok(changed)
 }
@@ -193,16 +262,37 @@ fn edit_distance(a: &str, b: &str) -> usize {
     row[b.len()]
 }
 
-fn unknown_key_message(key: &str) -> String {
-    let closest = policy::key_ids()
-        .map(|id| (edit_distance(key, id), id))
-        .min();
+pub(super) fn unknown_message<'a>(
+    what: &str,
+    key: &str,
+    candidates: impl Iterator<Item = &'a str>,
+) -> String {
+    let closest = candidates.map(|id| (edit_distance(key, id), id)).min();
     match closest {
         Some((d, id)) if d <= key.len() / 3 + 2 => {
-            format!("unknown key \"{key}\"; did you mean \"{id}\"?")
+            format!("unknown {what} \"{key}\"; did you mean \"{id}\"?")
         }
-        _ => format!("unknown key \"{key}\""),
+        _ => format!("unknown {what} \"{key}\""),
     }
+}
+
+pub(super) fn unknown_key_message(key: &str) -> String {
+    unknown_message("key", key, policy::key_ids())
+}
+
+pub(super) fn locked_message(what: &str) -> String {
+    format!("{what} is locked by your organization's policy")
+}
+
+pub(super) fn machine_doc(machine: Option<&Path>) -> PolicyDoc {
+    machine
+        .map(|p| policy::load_from(p).doc)
+        .unwrap_or_default()
+}
+
+pub(super) fn machine_path(machine: Option<&Path>) -> Result<&Path, CliError> {
+    machine
+        .ok_or_else(|| CliError::Usage("machine policy is not available on this platform".into()))
 }
 
 fn not_honoured_message(layer: Layer, key: &str) -> Option<String> {
@@ -231,13 +321,23 @@ fn warn_not_honoured<'a>(out: &mut Output, entries: impl IntoIterator<Item = (La
     }
 }
 
-fn set(key: &str, raw: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
+pub(super) fn typed_value(key: &str, ty: policy::KeyType, raw: &str) -> Result<Value, CliError> {
+    policy::parse_cli_value(ty, raw)
+        .and_then(|v| policy::value_problem(key, ty, &v).map_or(Ok(v), Err))
+        .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))
+}
+
+pub(super) fn set(
+    key: &str,
+    raw: &str,
+    layer: Layer,
+    path: &Path,
+    out: &mut Output,
+) -> Result<(), CliError> {
     let ty = policy::key_type(key)
         .ok_or_else(|| plain(IssueKind::UnknownKey, unknown_key_message(key)))?;
-    let value = policy::parse_cli_value(ty, raw)
-        .and_then(|v| policy::value_problem(key, ty, &v).map_or(Ok(v), Err))
-        .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))?;
-    edit_raw(path, |root| {
+    let value = typed_value(key, ty, raw)?;
+    edit_raw(path, out, |root| {
         layer_entries(root, layer, path)?.insert(key.to_string(), value);
         Ok(true)
     })?;
@@ -247,7 +347,7 @@ fn set(key: &str, raw: &str, layer: Layer, path: &Path, out: &mut Output) -> Res
 }
 
 fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
-    let removed = edit_raw(path, |root| {
+    let removed = edit_raw(path, out, |root| {
         Ok(layer_entries(root, layer, path)?.remove(key).is_some())
     })?;
     if removed {
@@ -258,40 +358,144 @@ fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), C
     Ok(())
 }
 
-fn show(path: &Path, out: &mut Output) -> Result<(), CliError> {
-    let loaded = policy::load_from(path);
+const BUILT_IN: &str = "built-in";
+
+pub(super) struct Row {
+    pub value: Value,
+    pub source: &'static str,
+    default_value: Option<Value>,
+    at: Option<String>,
+}
+
+impl Row {
+    fn new(value: Value, source: &'static str, at: Option<String>) -> Self {
+        Row {
+            value,
+            source,
+            default_value: None,
+            at,
+        }
+    }
+
+    fn note(&self) -> String {
+        match &self.default_value {
+            Some(d) => format!("{}, machine default: {d}", self.source),
+            None => self.source.to_string(),
+        }
+    }
+
+    fn json(&self, key: &str) -> Value {
+        let mut e = json!({ "key": key, "value": self.value, "source": self.source });
+        if let Some(d) = &self.default_value {
+            e["defaultValue"] = d.clone();
+        }
+        e
+    }
+}
+
+fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
+    let mut rows = BTreeMap::new();
+    let mut as_of = None;
+    if let Some(m) = mirror::read(dir) {
+        for (k, v) in m.values() {
+            let source = if m.built_ins.get(&k) == Some(&v) {
+                BUILT_IN
+            } else {
+                "app"
+            };
+            rows.insert(k, Row::new(v, source, Some(m.written_at.clone())));
+        }
+        as_of = Some(m.written_at);
+    }
+    for (k, (v, at)) in pending::load(dir).0.queued_values() {
+        rows.insert(k, Row::new(v, "pending", Some(at)));
+    }
+    (rows, as_of)
+}
+
+fn effective_rows(doc: &PolicyDoc, mut rows: BTreeMap<String, Row>) -> BTreeMap<String, Row> {
+    for (k, v) in &doc.defaults {
+        match rows.get_mut(k) {
+            Some(r) if r.source != BUILT_IN && r.value != *v => r.default_value = Some(v.clone()),
+            _ => {
+                rows.insert(k.clone(), Row::new(v.clone(), "machine default", None));
+            }
+        }
+    }
+    for (k, v) in &doc.policy {
+        rows.insert(k.clone(), Row::new(v.clone(), "machine policy", None));
+    }
+    rows
+}
+
+// Precedence: machine policy > pending > app > machine default > built-in.
+pub(super) fn effective_row(doc: &PolicyDoc, dir: &Path, key: &str) -> Option<Row> {
+    let (mut user, as_of) = user_values(dir);
+    user.retain(|k, _| k == key);
+    effective_rows(doc, user)
+        .remove(key)
+        .or_else(|| as_of.map(|at| Row::new(Value::Null, "app", Some(at))))
+}
+
+pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
     if out.json {
+        let mut e = r.json(key);
+        e["asOf"] = json!(r.at);
+        out.json(&e);
+        return;
+    }
+    let at = match (&r.at, r.source) {
+        (Some(at), "app" | BUILT_IN) => format!(", as of {at}"),
+        _ => String::new(),
+    };
+    out.line(format!("{} ({}{at})", r.value, r.note()));
+}
+
+fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
+    let loaded = policy::load_from(path);
+    let (user, as_of) = user_dir.map_or_else(Default::default, user_values);
+    let mut rows = effective_rows(&loaded.doc, user);
+    rows.retain(|_, r| r.source != BUILT_IN);
+    if out.json {
+        let entries: Vec<Value> = rows.iter().map(|(k, r)| r.json(k)).collect();
         out.json(&json!({
             "path": loaded.path,
-            "policy": loaded.doc.policy,
-            "defaults": loaded.doc.defaults,
+            "entries": entries,
             "issues": loaded.issues,
+            "mirrorAsOf": as_of,
         }));
         return Ok(());
     }
     let bold = anstyle::Style::new().bold();
     let dim = anstyle::Style::new().dimmed();
     out.line(format!(
-        "{bold}Machine policy{bold:#} {dim}{}{dim:#}",
+        "{bold}Effective settings{bold:#} {dim}{}{dim:#}",
         path.display()
     ));
-    for (title, map) in layers(&loaded.doc) {
-        out.line(format!(
-            "\n{bold}{}{bold:#} {dim}(source: machine){dim:#}",
-            title.name()
-        ));
-        if map.is_empty() {
-            out.line(format!("  {dim}none{dim:#}"));
-        }
-        for (k, v) in map {
-            out.line(format!("  {k} = {v}"));
-        }
+    if rows.is_empty() {
+        out.line(format!("  {dim}none{dim:#}"));
+    }
+    for (k, r) in &rows {
+        out.line(format!("  {k} = {} {dim}({}){dim:#}", r.value, r.note()));
+    }
+    match (user_dir, &as_of) {
+        (None, _) => out.line(format!(
+            "\n{dim}user values not shown when run as root{dim:#}"
+        )),
+        (Some(_), Some(t)) => out.line(format!("\n{dim}app values as of {t}{dim:#}")),
+        (Some(_), None) => out.line(format!(
+            "\n{dim}Voltius has not run yet for this user{dim:#}"
+        )),
     }
     let warn = anstyle::AnsiColor::Yellow.on_default();
     for i in &loaded.issues {
         out.line(format!("{warn}warning{warn:#}: {}", describe(i)));
     }
     Ok(())
+}
+
+fn user_dir() -> Option<PathBuf> {
+    (!super::user::is_system_account()).then(crate::storage::config::config_dir_peek)
 }
 
 pub fn describe(i: &Issue) -> String {
@@ -302,9 +506,14 @@ pub fn describe(i: &Issue) -> String {
     }
 }
 
-fn check(file: Option<&Path>, machine: &Path, out: &mut Output) -> Result<(), CliError> {
+fn check(
+    file: Option<&Path>,
+    machine: &Path,
+    probe: Option<policy::Probe>,
+    out: &mut Output,
+) -> Result<(), CliError> {
     let target = file.unwrap_or(machine);
-    let (doc, issues) = match policy::read_optional(target) {
+    let (doc, mut issues) = match policy::read_optional(target) {
         Ok(Some(t)) => policy::parse(&t),
         Ok(None) if file.is_none() => (PolicyDoc::default(), Vec::new()),
         Ok(None) => return Err(not_found(target)),
@@ -313,6 +522,12 @@ fn check(file: Option<&Path>, machine: &Path, out: &mut Output) -> Result<(), Cl
         }
         Err(e) => return Err(io_error(target, Access::Read, e)),
     };
+    if let Some(Trust::Ignored(issue)) = probe
+        .filter(|_| policy::same_path(target, machine))
+        .map(|p| policy::trust(target, p))
+    {
+        issues.push(issue);
+    }
     let warnings: Vec<Value> = not_honoured(entries(&doc))
         .map(|(layer, key, message)| {
             json!({ "layer": layer.name(), "key": key, "message": message })
@@ -341,13 +556,19 @@ fn check(file: Option<&Path>, machine: &Path, out: &mut Output) -> Result<(), Cl
     }
 }
 
-fn import(file: &Path, machine: &Path, out: &mut Output) -> Result<(), CliError> {
+fn import(
+    file: &Path,
+    machine: &Path,
+    acl: Option<MachineAcl>,
+    replace: bool,
+    out: &mut Output,
+) -> Result<(), CliError> {
     let text = read_text(file)?.ok_or_else(|| not_found(file))?;
     let (incoming, issues) = policy::parse(&text);
     if !issues.is_empty() {
         return Err(CliError::Validation(issues));
     }
-    edit_raw(machine, |root| {
+    edit_raw_with(machine, acl, replace, out, |root| {
         for (layer, map) in layers(&incoming) {
             layer_entries(root, layer, machine)?.extend(map.clone());
         }
@@ -374,33 +595,10 @@ fn export(path: &Path, out: &mut Output) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::output::testing::{capture, captured, Buf, Shared};
+    use crate::cli_state::{mirror, pending};
+    use crate::policy::test_probes::*;
     use std::sync::{Arc, Mutex};
-
-    type Shared = Arc<Mutex<Vec<u8>>>;
-
-    struct Buf(Shared);
-
-    impl std::io::Write for Buf {
-        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(b);
-            Ok(b.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-
-    fn capture(json: bool) -> (Output, Shared) {
-        let buf = Arc::new(Mutex::new(Vec::new()));
-        (
-            Output::with_sink(json, false, Box::new(Buf(buf.clone()))),
-            buf,
-        )
-    }
-
-    fn captured(buf: &Shared) -> String {
-        String::from_utf8(buf.lock().unwrap().clone()).unwrap()
-    }
 
     fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError> {
         super::run(cmd, Some(path), out)
@@ -452,7 +650,7 @@ mod tests {
         assert_eq!(doc.policy.len(), 1);
         assert_eq!(doc.defaults.len(), 1);
         let (mut sink, buf) = capture(false);
-        run(PolicyCmd::Show, &path, &mut sink).unwrap();
+        show(&path, None, &mut sink).unwrap();
         assert!(captured(&buf).contains("server.url"));
     }
 
@@ -504,7 +702,15 @@ mod tests {
             r#"{"version":1,"policy":{"sshConfig.import":true,"nope.key":1}}"#,
         )
         .unwrap();
-        let err = run(PolicyCmd::Import { file }, &path, &mut out()).unwrap_err();
+        let err = run(
+            PolicyCmd::Import {
+                file,
+                replace: false,
+            },
+            &path,
+            &mut out(),
+        )
+        .unwrap_err();
         assert!(matches!(err, CliError::Validation(_)));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
     }
@@ -516,7 +722,15 @@ mod tests {
         set(&path, "server.url", "https://x", false).unwrap();
         let file = dir.path().join("in.json");
         std::fs::write(&file, r#"{"version":1,"policy":{"sshConfig.import":true}}"#).unwrap();
-        run(PolicyCmd::Import { file }, &path, &mut out()).unwrap();
+        run(
+            PolicyCmd::Import {
+                file,
+                replace: false,
+            },
+            &path,
+            &mut out(),
+        )
+        .unwrap();
         assert_eq!(read(&path).policy.len(), 2);
     }
 
@@ -545,6 +759,240 @@ mod tests {
             &mut out(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn check_reports_unprotected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        set(&path, "sshConfig.import", "true", false).unwrap();
+        for file in [None, Some(path.as_path())] {
+            let err = check(file, &path, Some(all_unprotected), &mut out()).unwrap_err();
+            assert_eq!(err.exit_code(), 3);
+            assert!(unprotected_issue(&err).is_some());
+        }
+        check(None, &path, None, &mut out()).unwrap();
+        let other = dir.path().join("other.json");
+        std::fs::copy(&path, &other).unwrap();
+        check(Some(&other), &path, Some(all_unprotected), &mut out()).unwrap();
+    }
+
+    fn unprotected_issue(err: &CliError) -> Option<&Issue> {
+        let CliError::Validation(issues) = err else {
+            return None;
+        };
+        issues.iter().find(|i| i.kind == IssueKind::Unprotected)
+    }
+
+    const PLANTED: &str = r#"{"version":1,"policy":{"server.url":"https://evil.example"}}"#;
+
+    fn planted() -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::write(&path, PLANTED).unwrap();
+        (dir, path)
+    }
+
+    fn insert_key(root: &mut Raw) -> Result<bool, CliError> {
+        root.insert("policy".into(), json!({ "sshConfig.import": true }));
+        Ok(true)
+    }
+
+    #[test]
+    fn writers_never_adopt_an_unprotected_file() {
+        let (_dir, path) = planted();
+        for probe in [all_unprotected as policy::Probe, file_unprotected] {
+            let err =
+                edit_raw_with(&path, Some(acl(probe)), false, &mut out(), insert_key).unwrap_err();
+            assert_eq!(err.exit_code(), 3);
+            let message = &unprotected_issue(&err).unwrap().message;
+            assert!(
+                message.contains("was writable by standard users"),
+                "{message}"
+            );
+            assert!(message.contains("policy import --replace"), "{message}");
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+        }
+        edit_raw_with(
+            &path,
+            Some(acl(dir_unprotected)),
+            false,
+            &mut out(),
+            insert_key,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn import_replace_writes_exactly_the_reviewed_file() {
+        let (dir, path) = planted();
+        let file = dir.path().join("reviewed.json");
+        std::fs::write(
+            &file,
+            r#"{"version":1,"defaults":{"sshConfig.import":true}}"#,
+        )
+        .unwrap();
+        let unprotected = Some(acl(file_unprotected));
+        let err = import(&file, &path, unprotected, false, &mut out()).unwrap_err();
+        assert!(unprotected_issue(&err).is_some());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+        import(&file, &path, unprotected, true, &mut out()).unwrap();
+        let doc = read(&path);
+        assert!(doc.policy.is_empty(), "{:?}", doc.policy);
+        assert_eq!(doc.defaults["sshConfig.import"], Value::Bool(true));
+        assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
+    }
+
+    #[test]
+    fn a_file_appearing_after_the_first_check_is_refused() {
+        let (_dir, path) = planted();
+        let err = edit_raw_with(
+            &path,
+            Some(acl(appears_after_first_probe)),
+            false,
+            &mut out(),
+            insert_key,
+        )
+        .unwrap_err();
+        assert_eq!(err.exit_code(), 3, "{err}");
+        assert!(unprotected_issue(&err).is_some());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+        assert_eq!(calls(), ["harden_dir"]);
+    }
+
+    #[test]
+    fn replace_never_adopts_the_old_file_even_if_the_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("planted"), PLANTED).unwrap();
+        let err = edit_raw_with(
+            &path,
+            Some(acl(file_unprotected)),
+            true,
+            &mut out(),
+            insert_key,
+        )
+        .unwrap_err();
+        assert!(matches!(err, CliError::Io(_)), "{err:?}");
+        assert_eq!(calls(), ["harden_dir", "write"]);
+    }
+
+    #[test]
+    fn links_are_refused_with_exit_4() {
+        let (_dir, path) = planted();
+        for probe in [file_link as policy::Probe, dir_link_no_file] {
+            let err =
+                edit_raw_with(&path, Some(acl(probe)), true, &mut out(), insert_key).unwrap_err();
+            assert_eq!(err.exit_code(), 4);
+            assert!(
+                err.to_string()
+                    .contains("is a link; delete it and run again"),
+                "{err}"
+            );
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+    }
+
+    #[test]
+    fn writers_keep_the_content_of_the_checked_handle_not_the_path() {
+        let (_dir, path) = planted();
+        edit_raw_with(
+            &path,
+            Some(acl(all_protected)),
+            false,
+            &mut out(),
+            add_default,
+        )
+        .unwrap();
+        let doc = read(&path);
+        assert_eq!(doc.policy["server.url"], json!("https://checked.example"));
+        assert_eq!(doc.defaults["sshConfig.import"], json!(true));
+        assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
+    }
+
+    #[test]
+    fn writers_refuse_a_hard_linked_policy_file() {
+        let (_dir, path) = planted();
+        for replace in [false, true] {
+            let err = edit_raw_with(
+                &path,
+                Some(acl(hard_linked_protected)),
+                replace,
+                &mut out(),
+                insert_key,
+            )
+            .unwrap_err();
+            assert_eq!(err.exit_code(), 4);
+            assert!(err.to_string().contains("is a link"), "{err}");
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+    }
+
+    fn add_default(root: &mut Raw) -> Result<bool, CliError> {
+        layer_entries(root, Layer::Defaults, Path::new("policy.json"))?
+            .insert("sshConfig.import".into(), json!(true));
+        Ok(true)
+    }
+
+    #[test]
+    fn a_replaced_folder_never_contributes_its_old_file() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("Voltius");
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("policy.json");
+        std::fs::write(&path, PLANTED).unwrap();
+        let replacing = policy::MachineAcl {
+            harden_dir: harden_replacing,
+            ..acl(on_disk)
+        };
+        let (mut o, _, err) = capture_split(false, false);
+        edit_raw_with(&path, Some(replacing), false, &mut o, add_default).unwrap();
+        let doc = read(&path);
+        assert!(doc.policy.is_empty(), "{:?}", doc.policy);
+        assert_eq!(doc.defaults["sshConfig.import"], json!(true));
+        let aside_dir = policy::acl::untrusted_sibling(&dir, 1);
+        assert_eq!(
+            captured(&err).trim(),
+            format!(
+                "moved {} to {}; its contents were not kept",
+                dir.display(),
+                aside_dir.display()
+            )
+        );
+        let aside = aside_dir.join("policy.json");
+        assert_eq!(std::fs::read_to_string(aside).unwrap(), PLANTED);
+        assert_eq!(calls(), ["harden_dir", "write", "adopt_written"]);
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_replaced_exits_4() {
+        let (dir, path) = planted();
+        let held = policy::MachineAcl {
+            harden_dir: harden_held,
+            ..acl(all_protected)
+        };
+        let err = edit_raw_with(&path, Some(held), false, &mut out(), insert_key).unwrap_err();
+        assert_eq!(err.exit_code(), 4, "{err}");
+        let expected = format!(
+            "{} is held open or not owned by Administrators; \
+             close other programs or remove it, then run again",
+            dir.path().display()
+        );
+        assert_eq!(err.to_string(), expected);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PLANTED);
+        assert!(calls().is_empty(), "{:?}", calls());
+    }
+
+    #[test]
+    fn harden_access_denied_exits_4() {
+        let (_dir, path) = planted();
+        let denied = policy::MachineAcl {
+            harden_dir: harden_denied,
+            ..acl(all_protected)
+        };
+        let err = edit_raw_with(&path, Some(denied), false, &mut out(), insert_key).unwrap_err();
+        assert!(matches!(err, CliError::Permission(Access::Write, _)));
     }
 
     #[test]
@@ -637,6 +1085,221 @@ mod tests {
         assert_eq!(v["policy"]["future.key"], Value::from(7));
     }
 
+    const CURSOR: &str = "appSettings.terminal.cursorStyle";
+    const BLINK: &str = "appSettings.toggles.cursor-blink";
+
+    fn user_dir(settings: Value, server: Value) -> tempfile::TempDir {
+        user_dir_with_built_ins(settings, server, json!({}))
+    }
+
+    fn user_dir_with_built_ins(
+        settings: Value,
+        server: Value,
+        built_ins: Value,
+    ) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        mirror::write(
+            dir.path(),
+            &json!({
+                "writtenAt": "2026-11-05T10:00:00Z", "appVersion": "1", "serverUrl": server,
+                "plugins": [], "settings": settings, "builtIns": built_ins
+            }),
+        )
+        .unwrap();
+        dir
+    }
+
+    fn show_json(path: &Path, dir: Option<&Path>) -> Value {
+        let (mut sink, buf) = capture(true);
+        show(path, dir, &mut sink).unwrap();
+        serde_json::from_str(&captured(&buf)).unwrap()
+    }
+
+    fn source_of(v: &Value, key: &str) -> Value {
+        v["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["key"] == key)
+            .map_or(Value::Null, |e| e["source"].clone())
+    }
+
+    fn machine(dir: &Path, policy: Value, defaults: Value) -> PathBuf {
+        let path = dir.join("policy.json");
+        std::fs::write(
+            &path,
+            json!({"version":1,"policy":policy,"defaults":defaults}).to_string(),
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn show_merges_sources_in_precedence() {
+        let user = user_dir(
+            json!({ CURSOR: "bar", BLINK: true, "appSettings.fontSize": 14 }),
+            json!("https://app"),
+        );
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(
+            m.path(),
+            json!({ CURSOR: "block", "server.url": "https://locked" }),
+            json!({ BLINK: false }),
+        );
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, CURSOR), "machine policy");
+        assert_eq!(source_of(&v, "server.url"), "machine policy");
+        assert_eq!(source_of(&v, BLINK), "app");
+        assert_eq!(source_of(&v, "appSettings.fontSize"), "app");
+        let cursor = v["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["key"] == CURSOR)
+            .unwrap();
+        assert_eq!(cursor["value"], "block");
+        assert_eq!(v["mirrorAsOf"], "2026-11-05T10:00:00Z");
+    }
+
+    #[test]
+    fn show_marks_pending() {
+        let user = user_dir(json!({ CURSOR: "bar" }), Value::Null);
+        pending::append(
+            user.path(),
+            pending::Change::Setting {
+                key: CURSOR.into(),
+                value: json!("underline"),
+            },
+        )
+        .unwrap();
+        pending::append(
+            user.path(),
+            pending::Change::Server {
+                url: "https://queued".into(),
+            },
+        )
+        .unwrap();
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({}));
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, CURSOR), "pending");
+        assert_eq!(source_of(&v, "server.url"), "pending");
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(captured(&buf).contains("underline"));
+    }
+
+    fn entry<'a>(v: &'a Value, key: &str) -> &'a Value {
+        v["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["key"] == key)
+            .unwrap()
+    }
+
+    #[test]
+    fn show_user_value_beats_default_with_note() {
+        let user = user_dir(json!({ BLINK: true }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ BLINK: false }));
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(captured(&buf).contains("(app, machine default: false)"));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, BLINK);
+        assert_eq!(e["source"], "app");
+        assert_eq!(e["value"], true);
+        assert_eq!(e["defaultValue"], false);
+        assert!(e.get("userValue").is_none());
+    }
+
+    #[test]
+    fn show_pending_overrides_default() {
+        let user = user_dir(json!({ BLINK: false }), Value::Null);
+        pending::append(
+            user.path(),
+            pending::Change::Setting {
+                key: BLINK.into(),
+                value: json!(true),
+            },
+        )
+        .unwrap();
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ BLINK: false }));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, BLINK);
+        assert_eq!(e["source"], "pending");
+        assert_eq!(e["value"], true);
+        assert_eq!(e["defaultValue"], false);
+    }
+
+    #[test]
+    fn show_user_value_equal_to_default_is_machine_default() {
+        let user = user_dir(json!({ BLINK: false }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ BLINK: false }));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, BLINK);
+        assert_eq!(e["source"], "machine default");
+        assert!(e.get("defaultValue").is_none());
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(!captured(&buf).contains("machine default: "));
+    }
+
+    #[test]
+    fn show_omits_app_values_at_built_in() {
+        let user = user_dir_with_built_ins(
+            json!({ CURSOR: "block", BLINK: false }),
+            Value::Null,
+            json!({ CURSOR: "block", BLINK: true }),
+        );
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({}));
+        let v = show_json(&path, Some(user.path()));
+        assert_eq!(source_of(&v, CURSOR), Value::Null);
+        assert_eq!(source_of(&v, BLINK), "app");
+    }
+
+    #[test]
+    fn machine_default_beats_a_built_in_app_value() {
+        let user = user_dir_with_built_ins(
+            json!({ CURSOR: "block" }),
+            Value::Null,
+            json!({ CURSOR: "block" }),
+        );
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({}), json!({ CURSOR: "bar" }));
+        let e = entry(&show_json(&path, Some(user.path())), CURSOR).clone();
+        assert_eq!(e["source"], "machine default");
+        assert_eq!(e["value"], "bar");
+        assert!(e.get("defaultValue").is_none());
+    }
+
+    #[test]
+    fn show_as_system_skips_user_values() {
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ CURSOR: "block" }), json!({}));
+        let v = show_json(&path, None);
+        assert_eq!(v["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(v["mirrorAsOf"], Value::Null);
+        let (mut sink, buf) = capture(false);
+        show(&path, None, &mut sink).unwrap();
+        assert!(captured(&buf).contains("user values not shown when run as root"));
+    }
+
+    #[test]
+    fn show_json_shape() {
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ "nope.key": 1 }), json!({}));
+        let v = show_json(&path, None);
+        assert!(v["path"].is_string());
+        assert!(v["entries"].is_array());
+        assert_eq!(v["issues"].as_array().unwrap().len(), 1);
+        assert!(v.get("mirrorAsOf").is_some());
+    }
+
     fn capture_split(json: bool, quiet: bool) -> (Output, Shared, Shared) {
         let (o, e) = (
             Arc::new(Mutex::new(Vec::new())),
@@ -707,7 +1370,15 @@ mod tests {
         )
         .unwrap();
         let (mut sink, stdout, stderr) = capture_split(true, false);
-        run(PolicyCmd::Import { file }, &path, &mut sink).unwrap();
+        run(
+            PolicyCmd::Import {
+                file,
+                replace: false,
+            },
+            &path,
+            &mut sink,
+        )
+        .unwrap();
         assert!(captured(&stderr).contains(NOT_ENFORCED));
         assert!(!captured(&stdout).contains("does not enforce"));
     }
@@ -764,7 +1435,10 @@ mod tests {
             return;
         };
         let err = run(
-            PolicyCmd::Import { file: file.clone() },
+            PolicyCmd::Import {
+                file: file.clone(),
+                replace: false,
+            },
             &dir.path().join("m.json"),
             &mut out(),
         )
@@ -775,7 +1449,7 @@ mod tests {
         assert!(text.contains(file.to_str().unwrap()), "{text}");
     }
 
-    const NOT_APPLIED: &str = "appSettings.locale is saved as a default but this version of Voltius does not apply defaults for it yet";
+    const NOT_APPLIED: &str = "sshConfig.import is saved as a default but this version of Voltius does not apply defaults for it yet";
 
     #[test]
     fn set_defaults_for_unapplied_key_warns() {
@@ -784,8 +1458,8 @@ mod tests {
         let (mut sink, _, stderr) = capture_split(false, false);
         run(
             PolicyCmd::Set {
-                key: "appSettings.locale".into(),
-                value: "fr".into(),
+                key: "sshConfig.import".into(),
+                value: "true".into(),
                 defaults: true,
             },
             &path,
@@ -813,7 +1487,7 @@ mod tests {
         let file = dir.path().join("good.json");
         std::fs::write(
             &file,
-            r#"{"version":1,"defaults":{"appSettings.locale":"fr","server.url":"https://x"}}"#,
+            r#"{"version":1,"defaults":{"sshConfig.import":true,"server.url":"https://x"}}"#,
         )
         .unwrap();
         let (mut sink, stdout, _) = capture_split(true, false);

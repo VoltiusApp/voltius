@@ -16,6 +16,9 @@ const h = vi.hoisted(() => ({
   startSessionSync: vi.fn(),
   startLanSyncInBackground: vi.fn(),
   getAppLock: vi.fn(async () => null as string | null),
+  applySettingDefaults: vi.fn(),
+  markCliReady: vi.fn(),
+  applyCliPending: vi.fn(async () => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -44,6 +47,14 @@ vi.mock("./AuthPage", () => ({
   default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean; cloudOnly?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
+vi.mock("@/services/policy/adminDefaults", () => ({ applySettingDefaults: h.applySettingDefaults }));
+vi.mock("@/services/cliBridge", () => ({ markCliReady: h.markCliReady, applyCliPending: h.applyCliPending }));
+vi.mock("@/stores/marketplaceStore", async (orig) => ({
+  ...(await orig<typeof import("@/stores/marketplaceStore")>()),
+  loadPluginMeta: vi.fn(async () => {
+    throw new Error("plugin loader broke");
+  }),
+}));
 vi.mock("@/services/lanSync", () => ({
   startSessionSync: h.startSessionSync,
   startLanSyncInBackground: h.startLanSyncInBackground,
@@ -68,6 +79,9 @@ beforeEach(() => {
   h.startSessionSync.mockClear();
   h.startLanSyncInBackground.mockClear();
   h.getAppLock.mockReset().mockImplementation(async () => h.lock);
+  h.applySettingDefaults.mockClear();
+  h.markCliReady.mockClear();
+  h.applyCliPending.mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -227,4 +241,20 @@ test("policy loads on the vault-locked path too", async () => {
   expect(load).toHaveBeenCalledTimes(1);
   expect(h.autoLogin).not.toHaveBeenCalled();
   load.mockRestore();
+});
+
+test("setting defaults still apply when plugin loading throws, and the CLI bridge opens once loading is done", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.applySettingDefaults).toHaveBeenCalled();
+  expect(h.markCliReady).toHaveBeenCalledTimes(1);
+  expect(h.markCliReady.mock.invocationCallOrder[0]).toBeLessThan(h.applyCliPending.mock.invocationCallOrder[0]);
+});
+
+test("a vault lock keeps the CLI bridge closed", async () => {
+  h.lock = "vault";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.markCliReady).not.toHaveBeenCalled();
 });

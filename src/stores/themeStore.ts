@@ -5,6 +5,7 @@ import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/the
 import type { AppTheme } from "@/themes/types";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useAdminDefaultsStore } from "./adminDefaultsStore";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
 import { DYNAMIC_THEME_ID, dynamicThemeFor } from "@/themes/dynamic";
@@ -146,6 +147,7 @@ export const useThemeStore = create<ThemeStore>()(
       },
       setLocation: (loc) => {
         set({ location: loc });
+        useAdminDefaultsStore.getState().clear("themes.location");
         get().persist();
       },
       setResolvedPhase: (phase) => set({ resolvedPhase: phase }), // device-local, no persist/sync

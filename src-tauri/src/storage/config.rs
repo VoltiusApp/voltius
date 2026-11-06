@@ -498,11 +498,15 @@ pub fn plain_leaf(name: &str) -> Option<&str> {
     ok.then_some(name)
 }
 
-pub fn config_dir() -> PathBuf {
-    let dir = match CONFIG_DIR_OVERRIDE.get() {
+pub fn config_dir_peek() -> PathBuf {
+    match CONFIG_DIR_OVERRIDE.get() {
         Some(base) => base.clone(),
         None => default_config_dir(),
-    };
+    }
+}
+
+pub fn config_dir() -> PathBuf {
+    let dir = config_dir_peek();
     fs::create_dir_all(&dir).ok();
     dir
 }

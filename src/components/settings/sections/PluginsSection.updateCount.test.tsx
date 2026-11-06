@@ -150,3 +150,20 @@ test("a browse request arriving while the Installed tab is open switches to Brow
   expect(await screen.findByDisplayValue("Proxmox")).toBeTruthy();
   expect(screen.queryByText("Docker")).toBeNull();
 });
+
+test("with installs turned off, Browse shows one notice and locks each Install button without a per-row note", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "plugins.allowInstall": false }, defaults: {} } });
+  marketplaceState.catalog = [catalogEntry("plugin-proxmox", "Proxmox"), catalogEntry("plugin-docker", "Docker")];
+  useUIStore.setState({ pluginBrowseQuery: "" });
+  try {
+    render(<PluginsSection />);
+    expect(await screen.findByText("settings.plugins.browse.installsOff")).toBeTruthy();
+    const installs = screen.getAllByText("settings.plugins.browse.install").map((el) => el.closest("button")!);
+    expect(installs).toHaveLength(2);
+    expect(installs.every((b) => b.closest("fieldset[disabled]"))).toBe(true);
+    expect(screen.queryByText("common.policy.managed")).toBeNull();
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+});

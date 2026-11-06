@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "changes": [
+    {
+      "id": "setting-1",
+      "at": "2026-11-05T10:00:00Z",
+      "kind": "setting",
+      "key": "appSettings.terminal.cursorStyle",
+      "value": "bar",
+      "error": null
+    },
+    {
+      "id": "server-1",
+      "at": "2026-11-05T10:00:00Z",
+      "kind": "server",
+      "url": "https://voltius.example.com",
+      "error": null
+    },
+    {
+      "id": "plugin-1",
+      "at": "2026-11-05T10:00:00Z",
+      "kind": "plugin",
+      "action": "install",
+      "pluginId": "plugin-docker",
+      "consentedPermissions": [
+        "docker:manage",
+        "storage"
+      ],
+      "error": "HTTP 404"
+    }
+  ]
+}

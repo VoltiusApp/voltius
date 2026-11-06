@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { SETTING_KEYS } from "@/services/user-data/settingKeys";
-import { POLICY_KEYS, policyKeyDef, policyKeysSnapshot } from "./policyKeys";
+import { POLICY_KEYS, isDefaultApplied, isPolicyEnforced, policyKeyDef, policyKeysSnapshot } from "./policyKeys";
 
 test("every setting key has a policy type", () => {
   for (const k of SETTING_KEYS) expect(policyKeyDef(k.id)?.type).toBeDefined();
@@ -29,9 +29,17 @@ test("keys.json entries carry defaultApplied", () => {
   const applied = (id: string) => policyKeysSnapshot().find((k) => k.id === id)?.defaultApplied;
   expect(applied("appSettings.toggles.cursor-blink")).toBe(true);
   expect(applied("server.url")).toBe(true);
-  expect(applied("appSettings.locale")).toBe(false);
+  expect(applied("appSettings.locale")).toBe(true);
   expect(applied("sync.domains.themes")).toBe(false);
   expect(applied("sshConfig.import")).toBe(false);
+});
+
+test("plugin install keys are registered and enforced", () => {
+  expect(policyKeyDef("plugins.install")?.type).toBe("stringList");
+  expect(policyKeyDef("plugins.allowInstall")?.type).toBe("bool");
+  expect(isPolicyEnforced("plugins.install")).toBe(true);
+  expect(isPolicyEnforced("plugins.allowInstall")).toBe(true);
+  for (const k of ["plugins.install", "plugins.enabled", "plugins.disabled"]) expect(isDefaultApplied(k)).toBe(true);
 });
 
 test("keys.json mirrors the registry", async () => {

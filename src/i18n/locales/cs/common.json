@@ -320,11 +320,18 @@
       "hoursAgo": "před {{count}} h",
       "daysAgo": "před {{count}} d"
     },
+    "cliPending": {
+      "failed_one": "{{count}} změnu z voltius-cli se nepodařilo použít.",
+      "failed_few": "{{count}} změny z voltius-cli se nepodařilo použít.",
+      "failed_many": "{{count}} změny z voltius-cli se nepodařilo použít.",
+      "failed_other": "{{count}} změn z voltius-cli se nepodařilo použít."
+    },
     "policy": {
       "managed": "Spravuje vaše organizace",
       "serverBlocked": "Tento server vaše organizace nepovoluje",
       "accountNotSaved": "Aktuální účet se nepodařilo nejprve uložit, a proto nebylo nic změněno",
       "fileError": "Soubor zásad Voltius vaší organizace nelze přečíst, proto se z něj nic neuplatňuje.",
+      "unprotected": "Soubor zásad Voltius vaší organizace byl ignorován, protože ho mohou měnit běžní uživatelé. Požádejte IT oddělení, aby ho nastavilo pomocí voltius-cli.",
       "issues_one": "Zásady Voltius vaší organizace obsahují {{count}} problém; zbytek zásad se nadále uplatňuje.",
       "issues_few": "Zásady Voltius vaší organizace obsahují {{count}} problémy; zbytek zásad se nadále uplatňuje.",
       "issues_many": "Zásady Voltius vaší organizace obsahují {{count}} problému; zbytek zásad se nadále uplatňuje.",

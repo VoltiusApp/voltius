@@ -69,7 +69,7 @@ const mergeAppSettings: UserDataHandler["merge"] = (local, remote, localTs, remo
 
 // Sync input is untrusted: rebuild a fresh object field-by-field instead of
 // trusting the sender's types, so a bad host/port never reaches the Rust IPC.
-function normalizeGlobalProxy(raw: unknown): GlobalProxy | null {
+export function normalizeGlobalProxy(raw: unknown): GlobalProxy | null {
   if (!raw || typeof raw !== "object") return null;
   const { mode, host, port, username } = raw as Record<string, unknown>;
   if (typeof mode !== "string" || !GLOBAL_PROXY_MODES.includes(mode as GlobalProxyMode)) return null;

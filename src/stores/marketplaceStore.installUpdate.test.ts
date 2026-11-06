@@ -25,6 +25,7 @@ vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
 const registryState = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => registryState.enabled }) },
+  installAllowed: () => true,
 }));
 
 import { useMarketplaceStore, type MarketplacePlugin } from "./marketplaceStore";

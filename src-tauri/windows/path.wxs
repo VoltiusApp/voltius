@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="VoltiusCliPath" Guid="*">
+        <RegistryValue Root="HKLM" Key="Software\Voltius" Name="CliPath" Type="integer" Value="1" KeyPath="yes" />
+        <Environment Id="VoltiusPath" Name="PATH" Value="[INSTALLDIR]" Part="last" Action="set" System="yes" Permanent="no" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

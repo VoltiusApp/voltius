@@ -1,13 +1,24 @@
+mod config_cmd;
 mod output;
+mod path_cmd;
+mod plugins_cmd;
 mod policy_cmd;
+mod server_cmd;
+pub mod user;
 
+use crate::cli_state::pending::{self, Change};
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
+use config_cmd::ConfigCmd;
 use output::Output;
+use path_cmd::PathCmd;
+use plugins_cmd::PluginsCmd;
 use policy_cmd::PolicyCmd;
+use server_cmd::ServerCmd;
 use std::ffi::OsString;
 use std::fmt;
-use std::path::PathBuf;
+use std::io::IsTerminal;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 pub const CLI_MARKER: &str = "__voltius_cli";
@@ -25,6 +36,7 @@ pub enum CliError {
     Usage(String),
     Validation(Vec<Issue>),
     Permission(Access, PathBuf),
+    Denied(String),
     Io(std::io::Error),
 }
 
@@ -33,7 +45,7 @@ impl CliError {
         match self {
             CliError::Usage(_) => 2,
             CliError::Validation(_) => 3,
-            CliError::Permission(..) => 4,
+            CliError::Permission(..) | CliError::Denied(_) => 4,
             CliError::Io(_) => 5,
         }
     }
@@ -48,7 +60,7 @@ impl CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CliError::Usage(m) => f.write_str(m),
+            CliError::Usage(m) | CliError::Denied(m) => f.write_str(m),
             CliError::Validation(issues) => {
                 let lines: Vec<String> = issues.iter().map(policy_cmd::describe).collect();
                 f.write_str(&lines.join("\n"))
@@ -69,6 +81,25 @@ impl fmt::Display for CliError {
     }
 }
 
+pub struct Ctx<'a> {
+    pub out: &'a mut Output,
+    pub yes: bool,
+    pub interactive: bool,
+}
+
+fn queue(dir: &Path, change: Change, out: &mut Output) -> Result<(), CliError> {
+    let what = match &change {
+        Change::Setting { key, value } => format!("set {key} = {value}"),
+        Change::Server { url } => format!("server {url}"),
+        Change::Plugin { action, id, .. } => format!("{} {id}", action.name()),
+    };
+    pending::append(dir, change).map_err(CliError::Io)?;
+    out.line(format!(
+        "Queued: {what}. Applies when Voltius next opens or regains focus."
+    ));
+    Ok(())
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "voltius-cli", version, about = "Voltius command line")]
 struct Cli {
@@ -81,6 +112,9 @@ struct Cli {
     /// Disable colours
     #[arg(long, global = true)]
     no_color: bool,
+    /// Never prompt; assume yes where a confirmation is needed
+    #[arg(long, short = 'y', global = true)]
+    yes: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -94,14 +128,40 @@ enum Command {
         #[command(subcommand)]
         cmd: PolicyCmd,
     },
+    /// Read and queue per-user settings
+    Config {
+        #[command(subcommand)]
+        cmd: ConfigCmd,
+    },
+    /// Show or set the sync server URL
+    Server {
+        #[command(subcommand)]
+        cmd: ServerCmd,
+    },
+    /// List, install, enable, disable or remove plugins
+    Plugins {
+        #[command(subcommand)]
+        cmd: PluginsCmd,
+    },
     /// Print a shell completion script
     Completions { shell: clap_complete::Shell },
+    #[command(name = "__path", hide = true)]
+    Path {
+        #[command(subcommand)]
+        cmd: PathCmd,
+    },
 }
+
+#[cfg(target_os = "linux")]
+const BARE_SUBCOMMANDS: [&str; 5] = ["policy", "config", "plugins", "server", "completions"];
+#[cfg(not(target_os = "linux"))]
+const BARE_SUBCOMMANDS: [&str; 0] = [];
 
 fn cli_args(args: &[OsString]) -> Option<Vec<OsString>> {
     let rest = match args.get(1)?.to_str()? {
         CLI_MARKER => &args[2..],
         "mcp" => &args[1..],
+        name if BARE_SUBCOMMANDS.contains(&name) => &args[1..],
         _ => return None,
     };
     Some(
@@ -134,6 +194,11 @@ pub fn dispatch(args: Vec<OsString>) -> Option<ExitCode> {
 
 fn run(cli: Cli) -> Result<(), CliError> {
     let mut out = Output::stdout(cli.json, cli.quiet);
+    let mut ctx = Ctx {
+        out: &mut out,
+        yes: cli.yes,
+        interactive: std::io::stdin().is_terminal() && std::io::stdout().is_terminal(),
+    };
     match cli.command {
         Command::Mcp => {
             if let Err(e) = crate::mcp::shim::run_shim() {
@@ -147,8 +212,12 @@ fn run(cli: Cli) -> Result<(), CliError> {
             clap_complete::generate(shell, &mut cmd, BIN_NAME, &mut std::io::stdout());
             Ok(())
         }
+        Command::Path { cmd } => path_cmd::run(cmd, &mut ctx),
+        Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
+        Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
+        Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {
-            policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), &mut out)
+            policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), ctx.out)
         }
     }
 }
@@ -166,6 +235,7 @@ mod tests {
         assert!(dispatch(argv(&["voltius"])).is_none());
         assert!(dispatch(argv(&["voltius", "voltius://open?x"])).is_none());
         assert!(dispatch(argv(&["voltius", "--some-gfx-flag"])).is_none());
+        #[cfg(not(target_os = "linux"))]
         assert!(dispatch(argv(&["voltius", "policy", "show"])).is_none());
         assert!(dispatch(argv(&["voltius", "--json"])).is_none());
     }
@@ -178,6 +248,20 @@ mod tests {
         );
         assert!(cli_args(&argv(&["voltius", "mcp"])).is_some());
         assert!(cli_args(&argv(&["voltius", CLI_MARKER, "--json"])).is_some());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn subcommand_names_are_cli_on_linux() {
+        assert!(cli_args(&argv(&["voltius", "policy", "show"])).is_some());
+        assert!(cli_args(&argv(&["voltius", "voltius://x"])).is_none());
+    }
+
+    #[test]
+    fn yes_flag_parses() {
+        assert!(Cli::try_parse_from(["voltius-cli", "--yes", "policy", "path"]).is_ok());
+        let help = Cli::command().render_help().to_string();
+        assert!(help.contains("Never prompt"), "{help}");
     }
 
     #[test]

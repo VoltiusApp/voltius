@@ -7,13 +7,14 @@ export interface PolicyLayer {
   policy: Record<string, unknown>;
   defaults: Record<string, unknown>;
 }
-export type PolicyIssueKind = "file" | "type" | "unknownKey" | "newerVersion" | "range";
+export type PolicyIssueKind = "file" | "type" | "unknownKey" | "newerVersion" | "range" | "unprotected";
 export interface PolicyIssue {
   kind: PolicyIssueKind;
   layer: "policy" | "defaults" | null;
   key: string | null;
   message: string;
 }
+export const LOCKED = "locked by policy";
 export type PolicyLock = { locked: true; value: unknown; source: PolicySource } | { locked: false };
 
 interface LoadedPolicy {
@@ -42,7 +43,7 @@ export const onPolicyLoaded = (fn: () => void): (() => void) => {
   };
 };
 
-const TOASTED_KINDS: ReadonlySet<PolicyIssueKind> = new Set(["file", "type"]);
+const TOASTED_KINDS: ReadonlySet<PolicyIssueKind> = new Set(["file", "type", "unprotected"]);
 
 const isEmptyLayer = (l: PolicyLayer) => !Object.keys(l.policy).length && !Object.keys(l.defaults).length;
 
@@ -55,7 +56,12 @@ async function reportIssuesOnce({ doc, issues }: LoadedPolicy) {
   if (!errors.length) return;
   const [{ default: i18n }, { notify }] = await Promise.all([import("@/i18n"), import("@/services/saveFile")]);
   const unreadable = isEmptyLayer(doc) && errors.some((i) => i.kind === "file");
-  notify("error", unreadable ? i18n.t("common.policy.fileError") : i18n.t("common.policy.issues", { count: errors.length }));
+  const message = errors.some((i) => i.kind === "unprotected")
+    ? i18n.t("common.policy.unprotected")
+    : unreadable
+      ? i18n.t("common.policy.fileError")
+      : i18n.t("common.policy.issues", { count: errors.length });
+  notify("error", message);
 }
 
 export const usePolicyStore = create<PolicyState>((set) => ({
@@ -118,10 +124,35 @@ export function usePolicyRefresh(): readonly [PolicyLayer, PolicyLayer] {
 
 export const adminDefault = (key: string): unknown | undefined => firstLayerWith(key, "defaults")?.value;
 
+async function reloadThenApplyCli() {
+  await usePolicyStore.getState().load();
+  const { applyCliPending } = await import("@/services/cliBridge");
+  await applyCliPending();
+}
+
+async function writeMirror() {
+  const { writeCliMirror } = await import("@/services/cliBridge");
+  await writeCliMirror();
+}
+
+// Focus and visibility usually fire together; the second call joins the first.
+function coalesced(run: () => Promise<void>): () => void {
+  let inFlight: Promise<void> | null = null;
+  return () => {
+    inFlight ??= run()
+      .catch((e) => console.warn("[policy] refresh failed:", e))
+      .finally(() => {
+        inFlight = null;
+      });
+  };
+}
+
 export function watchPolicyVisibility() {
   if (watching) return;
   watching = true;
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void usePolicyStore.getState().load();
-  });
+  const onActive = coalesced(reloadThenApplyCli);
+  const onInactive = coalesced(writeMirror);
+  document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? onActive() : onInactive()));
+  window.addEventListener("focus", onActive);
+  window.addEventListener("blur", onInactive);
 }

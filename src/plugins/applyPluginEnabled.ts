@@ -41,4 +41,5 @@ async function warnUnknownPluginIds(): Promise<void> {
 export function applyPluginPolicy(): void {
   syncActiveWithLocks();
   void warnUnknownPluginIds().catch(() => {});
+  void import("@/services/cliPlugins").then((m) => m.applyPluginInstallPolicy());
 }

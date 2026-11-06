@@ -25,10 +25,11 @@ vi.mock("@/stores/marketplaceStore", () => ({
 }));
 
 const registry = { isEnabled: vi.fn(() => true), setEnabled: vi.fn(async () => {}) };
-const lock = vi.hoisted(() => ({ pluginLock: vi.fn((): boolean | null => null) }));
+const lock = vi.hoisted(() => ({ pluginLock: vi.fn((): boolean | null => null), installLocked: vi.fn(() => false) }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => registry },
   pluginLock: lock.pluginLock,
+  installLocked: lock.installLocked,
 }));
 
 const storage = new Map<string, unknown>();
@@ -56,12 +57,30 @@ vi.mock("@/stores/seededTombstoneStore", () => ({
 
 import {
   listPlugins, setPluginEnabled, readPluginConfig, writePluginConfig,
-  removeSource, updatePlugin,
+  removeSource, updatePlugin, installVettedPlugin, uninstallPlugin,
 } from "./plugins";
+import { PluginInstallManagedError } from "@/plugins/installErrors";
 
-beforeEach(() => { storage.clear(); vi.clearAllMocks(); lock.pluginLock.mockReturnValue(null); });
+beforeEach(() => {
+  storage.clear();
+  vi.clearAllMocks();
+  lock.pluginLock.mockReturnValue(null);
+  lock.installLocked.mockReturnValue(false);
+});
 
 describe("plugin domain", () => {
+  it("refuses to uninstall a plugin the organization installs", async () => {
+    lock.installLocked.mockReturnValue(true);
+    expect(await uninstallPlugin("acme")).toEqual({
+      ok: false,
+      error: 'plugin "acme" is managed by your organization and cannot be changed',
+    });
+    expect(marketplace.uninstallPlugin).not.toHaveBeenCalled();
+    lock.installLocked.mockReturnValue(false);
+    expect((await uninstallPlugin("acme")).ok).toBe(true);
+    expect(marketplace.uninstallPlugin).toHaveBeenCalledWith("acme");
+  });
+
   it("lists plugins with origin, hash and available update", async () => {
     const list = await listPlugins();
     const acme = list.find((p) => p.id === "acme")!;
@@ -143,5 +162,20 @@ describe("plugin domain", () => {
 
   it("does not flag an unlocked plugin", async () => {
     expect((await listPlugins()).some((p) => p.locked)).toBe(false);
+  });
+
+  it("installs nothing when the vet refuses the fetched manifest", async () => {
+    const vet = vi.fn(() => "no");
+    expect(await installVettedPlugin("acme", vet)).toEqual({ ok: false, error: "no" });
+    expect(vet).toHaveBeenCalledWith(expect.objectContaining({ id: "acme" }));
+    expect(marketplace.installPlugin).not.toHaveBeenCalled();
+    expect(marketplace.fetchManifest).toHaveBeenCalledTimes(1);
+  });
+
+  it("domain_install_reports_managed", async () => {
+    marketplace.installPlugin.mockRejectedValueOnce(new PluginInstallManagedError("widget"));
+    const r = await installVettedPlugin("widget", () => null);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("managed by your organization");
   });
 });

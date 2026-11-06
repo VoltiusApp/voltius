@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { touchAppSetting } from "./appSettingsTimestampStore";
-import { lockedList } from "./policyStore";
+import { adminDefault, lockedBool, lockedList, usePolicyRefresh } from "./policyStore";
 
 type Overrides = Record<string, boolean>;
 
@@ -17,7 +17,28 @@ interface PluginRegistryStore {
 
 export const PLUGIN_LIST_KEYS = ["plugins.disabled", "plugins.enabled"] as const;
 
-const listed = (key: (typeof PLUGIN_LIST_KEYS)[number], id: string): boolean => !!lockedList(key)?.includes(id);
+const listed = (key: (typeof PLUGIN_LIST_KEYS)[number] | "plugins.install", id: string): boolean =>
+  !!lockedList(key)?.includes(id);
+
+export const installLocked = (id: string): boolean => listed("plugins.install", id);
+
+export const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+export const policyInstallList = (): string[] => [
+  ...stringList(lockedList("plugins.install")),
+  ...stringList(adminDefault("plugins.install")),
+];
+
+export const installsBlocked = (): boolean => lockedBool("plugins.allowInstall") === false;
+
+export function installAllowed(id: string, alreadyInstalled = false): boolean {
+  return !installsBlocked() || alreadyInstalled || policyInstallList().includes(id);
+}
+
+export function useInstallPolicy(): typeof installAllowed {
+  usePolicyRefresh();
+  return installAllowed;
+}
 
 export function pluginLock(id: string): boolean | null {
   if (listed("plugins.disabled", id)) return false;

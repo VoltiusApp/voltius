@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   manifests: [] as { id: string; defaultEnabled?: boolean }[],
   market: { installedMeta: [] as { id: string }[], catalog: [] as { id: string }[] },
   seeded: new Map<string, unknown>(),
+  installPolicy: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/plugins/runtime", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/plugins/runtime", () => ({
 }));
 vi.mock("@/stores/marketplaceStore", () => ({ useMarketplaceStore: { getState: () => mocks.market } }));
 vi.mock("@/stores/seededTombstoneStore", () => ({ loadSeededEntries: async () => mocks.seeded }));
+vi.mock("@/services/cliPlugins", () => ({ applyPluginInstallPolicy: mocks.installPolicy }));
 
 import { setPluginActive } from "@/plugins/runtime";
 import { applyPluginPolicy } from "./applyPluginEnabled";
@@ -96,5 +98,13 @@ describe("applyPluginPolicy", () => {
     expect(warn).toHaveBeenCalledWith("[policy] plugins.disabled: unknown plugin id docker");
     expect(warn).toHaveBeenCalledWith("[policy] plugins.enabled: unknown plugin id nope");
     warn.mockRestore();
+  });
+
+  it("also applies the plugin install policy", async () => {
+    await vi.dynamicImportSettled();
+    mocks.installPolicy.mockClear();
+    lock({ "plugins.install": ["plugin-docker"] });
+    await vi.dynamicImportSettled();
+    expect(mocks.installPolicy).toHaveBeenCalledTimes(1);
   });
 });

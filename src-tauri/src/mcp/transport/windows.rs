@@ -2,50 +2,6 @@ use crate::mcp::McpState;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// The process token's user SID in string form (`S-1-5-21-…`), for the pipe's DACL.
-#[cfg(windows)]
-fn current_user_sid() -> std::io::Result<String> {
-    use std::ptr;
-    use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE};
-    use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
-    use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
-    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
-
-    unsafe {
-        let mut token: HANDLE = ptr::null_mut();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        // Two calls, deliberately: the first learns the size. A single call
-        // with a guessed size returns ERROR_INSUFFICIENT_BUFFER and no SID.
-        let mut len = 0u32;
-        GetTokenInformation(token, TokenUser, ptr::null_mut(), 0, &mut len);
-        // u64, not u8: TOKEN_USER needs 8-byte alignment and a Vec<u8> is
-        // align-1, so reading `(*user).User.Sid` out of it is a misaligned
-        // deref — UB by Rust's rules even where the hardware tolerates it.
-        let mut buf = vec![0u64; (len as usize).div_ceil(8)];
-        let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
-        let err = std::io::Error::last_os_error();
-        CloseHandle(token);
-        if !ok {
-            return Err(err);
-        }
-
-        let user: *const TOKEN_USER = buf.as_ptr().cast();
-        let mut raw: *mut u16 = ptr::null_mut();
-        if ConvertSidToStringSidW((*user).User.Sid, &mut raw) == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        let mut n = 0usize;
-        while *raw.add(n) != 0 {
-            n += 1;
-        }
-        let sid = String::from_utf16_lossy(std::slice::from_raw_parts(raw, n));
-        LocalFree(raw.cast());
-        Ok(sid)
-    }
-}
-
 /// One pipe server instance. `first` sets FILE_FLAG_FIRST_PIPE_INSTANCE, which
 /// makes a squatted pipe name fail loudly here instead of silently handing the
 /// name to another process. It must be set on the first instance only —
@@ -55,49 +11,17 @@ fn create_instance(
     addr: &std::ffi::OsStr,
     first: bool,
 ) -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeServer> {
-    use std::os::windows::ffi::OsStrExt;
-    use std::ptr;
     use tokio::net::windows::named_pipe::ServerOptions;
-    use windows_sys::Win32::Foundation::LocalFree;
-    use windows_sys::Win32::Security::Authorization::{
-        ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
-    };
-    use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 
     // The SID comes from our own process token, never from user input:
     // `owner_only_sddl` interpolates it without escaping.
-    let sddl = super::shared::owner_only_sddl(&current_user_sid()?);
-    let wide: Vec<u16> = std::ffi::OsStr::new(&sddl)
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
+    let sddl = super::shared::owner_only_sddl(&crate::win_security::current_user_sid()?);
+    let sd = crate::win_security::SecurityDescriptor::from_sddl(&sddl)?;
+    let mut sa = sd.attributes();
     unsafe {
-        let mut psd: PSECURITY_DESCRIPTOR = ptr::null_mut();
-        if ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            wide.as_ptr(),
-            SDDL_REVISION_1,
-            &mut psd,
-            ptr::null_mut(),
-        ) == 0
-        {
-            return Err(std::io::Error::last_os_error());
-        }
-        let mut sa = SECURITY_ATTRIBUTES {
-            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-            lpSecurityDescriptor: psd,
-            bInheritHandle: 0,
-        };
-        let res = ServerOptions::new()
+        ServerOptions::new()
             .first_pipe_instance(first)
-            .create_with_security_attributes_raw(
-                addr,
-                (&mut sa) as *mut _ as *mut std::ffi::c_void,
-            );
-        // Freed on both paths: the descriptor is copied into the pipe's kernel
-        // object by create, so holding it past this point leaks.
-        LocalFree(psd.cast());
-        res
+            .create_with_security_attributes_raw(addr, (&mut sa) as *mut _ as *mut std::ffi::c_void)
     }
 }
 
