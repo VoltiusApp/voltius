@@ -191,7 +191,127 @@ fn read_acl(f: &File) -> io::Result<Option<(String, Vec<Ace>)>> {
     if owner.is_null() || dacl.is_null() {
         return Ok(None);
     }
-    let aces = map_dacl(dacl, |t, f, m, sid| Ace::from_raw(t, f, m, sid))?;
+    let aces = unsafe { map_dacl(dacl, |t, f, m, sid| Ace::from_raw(t, f, m, sid)) }?;
     aces.map(|aces| Ok((unsafe { sid_string(owner) }?, aces)))
         .transpose()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::win_security::{security_of, SecurityInfo};
+    use std::collections::BTreeSet;
+
+    const SYSTEM: &str = "S-1-5-18";
+    const ADMINS: &str = "S-1-5-32-544";
+    const USERS: &str = "S-1-5-32-545";
+    const INHERITED_ACE: u8 = 0x10;
+    const CONTENT: &str = "{\"version\":1}";
+
+    struct Scratch(tempfile::TempDir);
+
+    impl Scratch {
+        fn new(name: &str) -> Self {
+            Scratch(
+                tempfile::Builder::new()
+                    .prefix(&format!("voltius-acl-{name}-"))
+                    .tempdir()
+                    .unwrap(),
+            )
+        }
+
+        fn policy_file(&self) -> PathBuf {
+            self.0.path().join("Voltius").join("policy.json")
+        }
+
+        fn junction(&self, link: &Path, target: &Path) {
+            let status = std::process::Command::new("cmd")
+                .args(["/c", "mklink", "/J"])
+                .arg(link)
+                .arg(target)
+                .output()
+                .unwrap()
+                .status;
+            assert!(status.success(), "mklink /J failed");
+        }
+    }
+
+    fn security_at(path: &Path) -> SecurityInfo {
+        let f = open_entry(path, READ_CONTROL).unwrap();
+        security_of(f.as_raw_handle(), SE_FILE_OBJECT).unwrap()
+    }
+
+    fn assert_admin_only(path: &Path) {
+        let info = security_at(path);
+        assert!(
+            [ADMINS, SYSTEM].contains(&info.owner.as_str()),
+            "owner {}",
+            info.owner
+        );
+        assert!(info.protected, "DACL not protected: {info:?}");
+        assert!(info.aces.iter().all(|a| a.ace_type == 0), "{info:?}");
+        assert!(
+            info.aces.iter().all(|a| a.flags & INHERITED_ACE == 0),
+            "{info:?}"
+        );
+        let sids: BTreeSet<&str> = info.aces.iter().map(|a| a.sid.as_str()).collect();
+        assert_eq!(sids, BTreeSet::from([SYSTEM, ADMINS, USERS]), "{info:?}");
+    }
+
+    #[test]
+    fn hardened_folder_is_protected_and_admin_owned() {
+        let s = Scratch::new("harden");
+        let policy_file = s.policy_file();
+        assert!(matches!(harden_dir(&policy_file), Ok(None)));
+        let dir = policy_file.parent().unwrap();
+        assert_eq!(probe(dir).unwrap().guard, Guard::Protected);
+        assert_admin_only(dir);
+    }
+
+    #[test]
+    fn written_file_is_adopted_and_read_back() {
+        let s = Scratch::new("adopt");
+        let policy_file = s.policy_file();
+        assert!(matches!(harden_dir(&policy_file), Ok(None)));
+        write(&policy_file, CONTENT).unwrap();
+        assert!(adopt_written(&policy_file).is_ok());
+        let entry = probe(&policy_file).unwrap();
+        assert_eq!(entry.guard, Guard::Protected);
+        assert_eq!(entry.text.unwrap().unwrap(), CONTENT);
+        assert_admin_only(&policy_file);
+    }
+
+    #[test]
+    fn links_are_seen_on_the_entry_itself() {
+        let s = Scratch::new("links");
+        let target_dir = s.0.path().join("target-dir");
+        std::fs::create_dir(&target_dir).unwrap();
+        let junction = s.0.path().join("junction");
+        s.junction(&junction, &target_dir);
+        assert_eq!(probe(&junction).unwrap().guard, Guard::Link);
+
+        let plain = s.0.path().join("plain.txt");
+        std::fs::write(&plain, "x").unwrap();
+        let symlink = s.0.path().join("symlink.txt");
+        std::os::windows::fs::symlink_file(&plain, &symlink).unwrap();
+        assert_eq!(probe(&symlink).unwrap().guard, Guard::Link);
+
+        let hard = s.0.path().join("hard.txt");
+        std::fs::hard_link(&plain, &hard).unwrap();
+        assert!(probe(&hard).unwrap().hard_linked);
+    }
+
+    #[test]
+    fn harden_refuses_a_linked_folder() {
+        let s = Scratch::new("refuse");
+        let target_dir = s.0.path().join("target-dir");
+        std::fs::create_dir(&target_dir).unwrap();
+        let policy_file = s.policy_file();
+        std::fs::create_dir_all(policy_file.parent().unwrap().parent().unwrap()).unwrap();
+        s.junction(policy_file.parent().unwrap(), &target_dir);
+
+        let before = security_at(&target_dir);
+        assert!(matches!(harden_dir(&policy_file), Err(Blocked::Link(_))));
+        assert_eq!(security_at(&target_dir), before);
+    }
 }

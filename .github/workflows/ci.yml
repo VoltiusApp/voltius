@@ -74,10 +74,10 @@ jobs:
       - name: Cargo check
         run: cargo check --workspace
 
-      # The device-files path jail has cfg(windows) tests that only a Windows run executes.
-      - name: Device file tests (Windows)
+      # These modules have cfg(windows) tests that only a Windows run executes.
+      - name: Windows-only tests
         if: runner.os == 'Windows'
-        run: cargo test -p voltius --lib device_files
+        run: cargo test -p voltius --lib -- device_files policy::acl_windows mcp::transport::windows win_security
 
   frontend-tests:
     runs-on: ubuntu-latest

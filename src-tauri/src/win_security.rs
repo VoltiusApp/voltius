@@ -128,7 +128,10 @@ pub fn security_info(
 }
 
 /// `f` gets (type, flags, mask, lazy SID read); `None` from it aborts the walk with `None`.
-pub fn map_dacl<T>(
+///
+/// # Safety
+/// `dacl` must be non-null and valid, and its descriptor must outlive the call.
+pub unsafe fn map_dacl<T>(
     dacl: *mut ACL,
     mut f: impl FnMut(u8, u8, u32, &dyn Fn() -> io::Result<String>) -> io::Result<Option<T>>,
 ) -> io::Result<Option<Vec<T>>> {
@@ -157,7 +160,7 @@ pub fn map_dacl<T>(
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
+#[derive(PartialEq, Debug)]
 pub struct RawAce {
     pub ace_type: u8,
     pub flags: u8,
@@ -166,7 +169,7 @@ pub struct RawAce {
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
+#[derive(PartialEq, Debug)]
 pub struct SecurityInfo {
     pub owner: String,
     pub protected: bool,
@@ -195,14 +198,22 @@ pub fn security_of(handle: HANDLE, kind: SE_OBJECT_TYPE) -> io::Result<SecurityI
     if unsafe { GetSecurityDescriptorControl(sd.as_ptr(), &mut control, &mut revision) } == 0 {
         return Err(io::Error::last_os_error());
     }
-    let aces = map_dacl(dacl, |ace_type, flags, mask, sid| {
-        Ok(Some(RawAce {
-            ace_type,
-            flags,
-            mask,
-            sid: sid()?,
-        }))
-    })?
+    let aces = unsafe {
+        map_dacl(dacl, |ace_type, flags, mask, sid| {
+            if !matches!(ace_type, 0 | 1 | 9 | 10) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("ACE type {ace_type} has no plain SID at the expected offset"),
+                ));
+            }
+            Ok(Some(RawAce {
+                ace_type,
+                flags,
+                mask,
+                sid: sid()?,
+            }))
+        })
+    }?
     .unwrap_or_default();
     Ok(SecurityInfo {
         owner: unsafe { sid_string(owner) }?,
@@ -260,5 +271,33 @@ pub fn program_data() -> Option<PathBuf> {
         let path = (hr >= 0 && !raw.is_null()).then(|| PathBuf::from(from_wide_ptr(raw)));
         CoTaskMemFree(raw.cast());
         path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::program_data;
+
+    struct EnvRestore(Option<std::ffi::OsString>);
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            match self.0.take() {
+                Some(v) => std::env::set_var("ProgramData", v),
+                None => std::env::remove_var("ProgramData"),
+            }
+        }
+    }
+
+    #[test]
+    fn program_data_ignores_the_environment() {
+        let _restore = EnvRestore(std::env::var_os("ProgramData"));
+        std::env::set_var("ProgramData", r"Z:\not-program-data");
+        let path = program_data().expect("known folder resolves");
+        assert!(
+            path.to_string_lossy()
+                .eq_ignore_ascii_case(r"C:\ProgramData"),
+            "{path:?}"
+        );
     }
 }
