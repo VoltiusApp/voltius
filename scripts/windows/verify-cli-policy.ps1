@@ -136,7 +136,6 @@ function New-StartArgs([string]$Base, [string]$FilePath, [string]$ArgumentList, 
         WorkingDirectory       = $Work
         RedirectStandardOutput = "$Base.out"
         RedirectStandardError  = "$Base.err"
-        PassThru               = $true
     }
     # Without -UseNewEnvironment the user inherits this session's environment (PATH, TEMP, profile dirs).
     if ($Credential) { $start += @{ Credential = $Credential; LoadUserProfile = $true; UseNewEnvironment = $true } }
@@ -144,8 +143,15 @@ function New-StartArgs([string]$Base, [string]$FilePath, [string]$ArgumentList, 
     $start
 }
 
+function Start-Tracked([hashtable]$Start) {
+    $process = Start-Process @Start -PassThru
+    if (-not $process) { throw "did not start: $($Start.FilePath) $($Start.ArgumentList)" }
+    # Open the handle now; a PID-only Process loses ExitCode once a short-lived child has exited.
+    $null = $process.Handle
+    $process
+}
+
 function Wait-Exit($Process, [string]$Line, [int]$Seconds) {
-    if (-not $Process) { throw "did not start: $Line" }
     if (-not $Process.WaitForExit($Seconds * 1000)) {
         taskkill /pid $Process.Id /t /f | Out-Host
         throw "timed out after $Seconds s and killed: $Line"
@@ -156,7 +162,7 @@ function Wait-Exit($Process, [string]$Line, [int]$Seconds) {
 function Invoke-Process([string]$Who, [string]$Line, [pscredential]$Credential) {
     $base = New-LogBase $Who
     $start = New-StartArgs $base $env:ComSpec "/d /s /c `"$Line`"" $Credential
-    $code = Wait-Exit (Start-Process @start) "[$Who] $Line" 120
+    $code = Wait-Exit (Start-Tracked $start) "[$Who] $Line" 120
     Read-Result $Who $Line $code $base
 }
 
@@ -201,7 +207,7 @@ function Invoke-AsSystem([string[]]$ArgumentList) {
 
 function Invoke-Installer([string]$File, [string[]]$ArgumentList) {
     $line = "$File $ArgumentList"
-    $code = Wait-Exit (Start-Process -FilePath $File -ArgumentList $ArgumentList -PassThru) $line 600
+    $code = Wait-Exit (Start-Tracked @{ FilePath = $File; ArgumentList = $ArgumentList }) $line 600
     Read-Result 'installer' $line $code ''
 }
 
@@ -211,7 +217,7 @@ function Start-Holder([string]$Path, [ValidateSet('File', 'Dir')][string]$Kind) 
     $pwsh = Join-Path $PSHOME 'pwsh.exe'
     $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$HolderScript`" -Path `"$Path`" -Kind $Kind -Signal `"$signal`""
     $start = New-StartArgs $base $pwsh $arguments $StdCred
-    $proc = Start-Process @start
+    $proc = Start-Tracked $start
     $script:Holders.Add([pscustomobject]@{ Process = $proc; Signal = $signal })
     $ready = Wait-Until 120 { (Test-Path -LiteralPath "$signal.ready") -or $proc.HasExited }
     if (-not $ready -or $proc.HasExited) {
