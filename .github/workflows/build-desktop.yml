@@ -8,10 +8,15 @@ on:
         required: true
         type: string
       release-id:
-        description: 'Draft release id to upload into; empty builds without signing or publishing'
+        description: 'Draft release id to upload into; empty builds without publishing'
         required: false
         type: string
         default: ''
+      signed:
+        description: 'Sign like a release; false skips all signing so the build needs no secrets'
+        required: false
+        type: boolean
+        default: true
       targets:
         description: 'JSON array of target triples to build; empty builds all six'
         required: false
@@ -105,7 +110,7 @@ jobs:
       # Developer ID certificate + App Store Connect API key: the bundler signs,
       # notarizes and staples the .app, so a downloaded copy opens with no warning.
       - name: Import the macOS signing certificate
-        if: matrix.platform == 'macos-latest' && inputs.release-id != ''
+        if: matrix.platform == 'macos-latest' && inputs.signed
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -120,11 +125,11 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.release-id != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.release-id != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.signed && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.signed && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
           # Notarization; APPLE_API_KEY_PATH comes from the import step (macOS only).
-          APPLE_API_ISSUER: ${{ inputs.release-id != '' && secrets.APPLE_API_ISSUER || '' }}
-          APPLE_API_KEY: ${{ inputs.release-id != '' && secrets.APPLE_API_KEY || '' }}
+          APPLE_API_ISSUER: ${{ inputs.signed && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_API_KEY: ${{ inputs.signed && secrets.APPLE_API_KEY || '' }}
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
           # Fail the build rather than ship a binary with missing built-in plugins.
@@ -135,7 +140,7 @@ jobs:
         with:
           # An id, not a tag: the action never looks up or creates a release.
           releaseId: ${{ inputs.release-id }}
-          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json${{ inputs.release-id == '' && ' --config src-tauri/tauri.dryrun.conf.json' || '' }}
+          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json${{ !inputs.signed && ' --config src-tauri/tauri.dryrun.conf.json' || '' }}
           uploadPlainBinary: true
           updaterJsonPreferNsis: true
           # Don't write latest.json here — concurrent jobs would race on the
@@ -159,7 +164,7 @@ jobs:
           esac
 
       - name: Check the macOS app is signed and notarized
-        if: matrix.platform == 'macos-latest' && inputs.release-id != ''
+        if: matrix.platform == 'macos-latest' && inputs.signed
         run: bash scripts/check-macos-signature.sh --notarized "${{ steps.bundle.outputs.dir }}/macos/Voltius.app"
 
       - name: Check every package contains voltius-cli

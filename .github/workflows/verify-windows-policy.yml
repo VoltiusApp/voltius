@@ -31,6 +31,7 @@ jobs:
       ref: ${{ github.sha }}
       targets: '["x86_64-pc-windows-msvc"]'
       upload-artifacts: true
+      signed: false
 
   verify:
     needs: build
