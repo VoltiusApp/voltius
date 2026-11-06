@@ -290,6 +290,15 @@
         "unknown": "Unknown"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Remember master password",
+          "desc": "Opens your vault at launch without asking for it. While this is on, the password is stored in this device's system keychain, where on Linux and Windows other programs running as you can read it. Turn it off to type it at every launch.",
+          "enableTitle": "Remember your master password",
+          "enableBody": "Enter your master password to store it in this device's system keychain.",
+          "systemAuthNeedsIt": "Needs Remember master password on this device. Without it, Voltius asks for your master password at launch and after the vault locks; only the lock screen opens with system authentication.",
+          "removeFailed": "The stored master password could not be removed from the system keychain.",
+          "storeFailed": "The master password could not be stored in the system keychain."
+        },
         "title": "Session Security",
         "autoLockLabel": "Auto-lock after inactivity",
         "autoLockDesc": "Locks Voltius after this much inactivity, or as soon as you leave the app.",

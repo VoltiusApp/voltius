@@ -296,6 +296,15 @@
         "unknown": "Bilinmiyor"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Ana parolayı hatırla",
+          "desc": "Kasanızı açılışta parola sormadan açar. Bu açıkken parola bu cihazın sistem anahtar zincirinde saklanır; Linux ve Windows'ta sizin hesabınızla çalışan diğer programlar onu oradan okuyabilir. Her açılışta yazmak için kapatın.",
+          "enableTitle": "Ana parolanızı hatırlayın",
+          "enableBody": "Ana parolanızı bu cihazın sistem anahtar zincirinde saklamak için girin.",
+          "systemAuthNeedsIt": "Bu cihazda \"Ana parolayı hatırla\" gerekir. Bu olmadan Voltius ana parolanızı açılışta ve kasa kilitlendikten sonra sorar; sistem kimlik doğrulamasıyla yalnızca kilit ekranı açılır.",
+          "removeFailed": "Kayıtlı ana parola sistem anahtar zincirinden kaldırılamadı.",
+          "storeFailed": "Ana parola sistem anahtar zincirine kaydedilemedi."
+        },
         "title": "Oturum Güvenliği",
         "autoLockLabel": "Hareketsizlikten sonra otomatik kilitle",
         "autoLockDesc": "Voltius'u bu kadar hareketsizlikten sonra ya da uygulamadan ayrıldığınız anda kilitler.",

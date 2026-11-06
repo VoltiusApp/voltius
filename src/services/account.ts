@@ -11,7 +11,10 @@ import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { sameKey } from "./vaultKeyCandidates";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
-import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
+import {
+  clearSecret, keepsPlainPassword, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storeDeviceKey,
+  storePassword,
+} from "./vaultSecret";
 import { serverAllowed } from "@/services/policy/serverPolicy";
 import { ServerBlockedError } from "@/services/accountErrors";
 import { normalizeServerUrl, rememberServer } from "@/utils/serverInstance";
@@ -334,7 +337,7 @@ export async function createLocalAccountNoPassword(): Promise<void> {
 
   setVaultKey(keyBytes);
 
-  await storePassword(bytesToHex(keyBytes)); // hex = "password" for this mode
+  await storeDeviceKey(bytesToHex(keyBytes)); // hex = "password" for this mode
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local-nopassword");
 }
@@ -432,9 +435,10 @@ export async function login(password: string, email?: string, serverUrl?: string
     encKey = opened ?? kek;
   }
 
+  const deviceKey = mode === "local-nopassword" || (!mode && isHexEncoded32ByteKey(password));
   const openLocally = async () => {
     setVaultKey(encKey);
-    await rememberPassword(password);
+    await (deviceKey ? storeDeviceKey(password) : rememberPassword(password));
     await keychainSet("account_id", accountId);
     if (!mode) {
       // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss).
@@ -742,8 +746,14 @@ export async function setMasterPassword(password: string): Promise<void> {
   await withPendingVaultKey(groupKey ?? enc_key, async () => {
     if (groupKey) (await wrapVaultKey(enc_key, groupKey))();
     else await invoke("secrets_reencrypt", { newEncKey: enc_key });
-    await storePassword(password);
-    await keychainSet("mode", "local");
+    // Crash-safe order: a stored password opens through the pending key; with none, a password mode asks for it.
+    if (await keepsPlainPassword()) {
+      await storePassword(password);
+      await keychainSet("mode", "local");
+    } else {
+      await keychainSet("mode", "local");
+      await storePassword(password);
+    }
   });
 
   if (!groupKey) setVaultKey(enc_key);
@@ -868,16 +878,20 @@ export async function linkToCloud(
   email: string,
   serverUrl: string,
   beforeKeyChange?: BeforeKeyChange,
+  typedPassword?: string,
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
   const accountId = await keychainGet("account_id");
   const mode = await keychainGet("mode");
-  const read = mode === "local-nopassword" ? null : await readSecret(i18n.t("layout.appLock.sealReason"));
-  const password = read?.outcome === "ok" ? read.value : null;
+  const read = mode === "local-nopassword" || typedPassword ? null : await readSecret(i18n.t("layout.appLock.sealReason"));
+  const password = typedPassword || (read?.outcome === "ok" ? read.value : null);
 
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
   if (mode === "local-nopassword") throw new Error(i18n.t("common.error.setMasterPasswordBeforeLinking"));
   if (!password) throw new Error(i18n.t("common.error.masterPasswordRequired"));
+  if (typedPassword && !(await isCurrentMasterPassword(typedPassword))) {
+    throw new Error(i18n.t("common.error.incorrectPassword"));
+  }
   await unlockVaultIfNeeded();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
@@ -1015,7 +1029,7 @@ async function noPasswordVaultKey(stored: string): Promise<number[] | null> {
   const keys = [stored, pending].filter((k): k is string => !!k && isHexEncoded32ByteKey(k));
   const opened = keys.length > 0 ? await keyThatOpensVault(...keys.map(hexToBytes)) : null;
   if (pending) {
-    if (opened && bytesToHex(opened) !== stored.toLowerCase()) await storePassword(bytesToHex(opened));
+    if (opened && bytesToHex(opened) !== stored.toLowerCase()) await storeDeviceKey(bytesToHex(opened));
     await keychainDelete(PENDING_VAULT_KEY);
   }
   return opened;
@@ -1051,7 +1065,7 @@ export async function adoptVaultKey(key: number[]): Promise<void> {
   await withPendingVaultKey(key, async () => {
     const undo = await moveVaultToKey(current, key);
     try {
-      await storePassword(bytesToHex(key));
+      await storeDeviceKey(bytesToHex(key));
     } catch (e) {
       await undo?.().catch((u) => console.warn("Putting the vault back on its old key failed:", u));
       throw e;

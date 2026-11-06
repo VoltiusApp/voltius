@@ -1,5 +1,5 @@
-import { test, expect, vi, beforeEach } from "vitest";
-import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { test, expect, vi, beforeEach, describe } from "vitest";
+import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -53,7 +53,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   dropAccountUiState: h.dropAccountUiState,
 }));
 
-import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, type SavedAccount } from "./savedAccounts";
+import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, forgetSavedPlainPasswords, type SavedAccount } from "./savedAccounts";
 import { AccountAlreadyActiveError, AccountNotSavedError } from "./accountErrors";
 import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
@@ -701,4 +701,53 @@ test("a bound account's entry stores no empty secret field and fits under the Wi
   const raw = h.store[entryKey("a")];
   expect(raw).not.toContain("master_password\":null");
   expect(JSON.parse(raw).master_password_sealed).toBe(blob);
+});
+
+describe("with Remember master password off, the switcher keeps no plain copy", () => {
+  beforeEach(() => {
+    h.store[FORGET] = "1";
+  });
+
+  test("the current account is saved without one, so switching back asks for it", async () => {
+    const { master_password: _pw, ...withoutPassword } = CLOUD_A;
+    activate(withoutPassword as SavedAccount);
+    expect(await saveCurrentAccount(CLOUD_A.master_password!)).toBe(true);
+    const saved = JSON.parse(h.store[entryKey("a")]);
+    expect(saved.jwt).toBe(CLOUD_A.jwt);
+    expect(saved.master_password).toBeUndefined();
+  });
+
+  test("an added account and the switch into it leave no plain password in the keychain", async () => {
+    const { master_password: _pw, ...withoutPassword } = CLOUD_A;
+    activate(withoutPassword as SavedAccount);
+    await addAccount(SESSION_B);
+    expect(h.store.account_id).toBe("b");
+    expect(Object.values(h.store).some((v) => String(v).includes(CLOUD_B.master_password!))).toBe(false);
+    expect(Object.values(h.store).some((v) => String(v).includes(CLOUD_A.master_password!))).toBe(false);
+  });
+
+  test("an entry saved before the option went off is switched into without its password", async () => {
+    seed(CLOUD_B);
+    await switchToAccount(CLOUD_B);
+    expect(h.store.account_id).toBe("b");
+    expect(h.store.master_password).toBeUndefined();
+  });
+
+  test("a sealed copy is still saved and restored", async () => {
+    h.store = { account_id: "a1", mode: "server", master_password_sealed: "S:pw" };
+    await saveCurrentAccount();
+    const saved = JSON.parse(h.store[entryKey("a1")]);
+    expect(saved.master_password_sealed).toBe("S:pw");
+    await switchToAccount(saved);
+    expect(h.store.master_password_sealed).toBe("S:pw");
+  });
+});
+
+test("turning remembering off drops every saved account's plain password, the current one's too", async () => {
+  seed(CLOUD_A, CLOUD_B);
+  h.store.account_id = "a";
+  await forgetSavedPlainPasswords();
+  expect(JSON.parse(h.store[entryKey("a")]).master_password).toBeUndefined();
+  expect(JSON.parse(h.store[entryKey("b")]).master_password).toBeUndefined();
+  expect(JSON.parse(h.store[entryKey("b")]).jwt).toBe(CLOUD_B.jwt);
 });

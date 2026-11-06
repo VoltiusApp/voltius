@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach } from "vitest";
-import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -227,4 +227,28 @@ test("a server-blocked open is reported, not folded into declined or failed", as
   expect(await unlockWithSystemAuth("r")).toBe("server-blocked");
   h.store = { mode: "local", master_password_sealed: "S:pw" };
   expect(await unlockWithSystemAuth("r")).toBe("server-blocked");
+});
+
+test("with Remember master password off, disabling drops the sealed copy without an unseal prompt", async () => {
+  h.store[FORGET] = "1";
+  h.store.master_password_sealed = "S:pw";
+  expect(await disableBinding("r")).toBe("ok");
+  expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_unbind", expect.anything());
+  expect(h.store.master_password_sealed).toBeUndefined();
+  expect(h.store.master_password).toBeUndefined();
+});
+
+test("with Remember master password off, unsealing to open the vault leaves no plain copy", async () => {
+  h.store[FORGET] = "1";
+  h.systemAuthUnlock = false;
+  h.store.master_password_sealed = "S:pw";
+  expect(await unlockWithSystemAuth("r")).toBe("ok");
+  expect(h.store.master_password).toBeUndefined();
+});
+
+test("with Remember master password off, disabling with the password stores nothing", async () => {
+  h.store[FORGET] = "1";
+  h.store.master_password_sealed = "S:pw";
+  expect(await disableWithPassword("pw")).toBe(true);
+  expect(h.store.master_password).toBeUndefined();
 });

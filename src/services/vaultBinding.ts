@@ -4,7 +4,8 @@ import { useSecurityStore } from "@/stores/securityStore";
 import { canLockVault } from "@/utils/accountMode";
 import { forgetOtherPlainPasswords } from "@/services/savedAccounts";
 import {
-  bindSecret, clearSecret, importSecret, readPlainSecret, readSecret, sealAvailable, secretState, unbindSecret,
+  bindSecret, clearSecret, importSecret, keepsPlainPassword, readPlainSecret, readSecret, sealAvailable, secretState,
+  unbindSecret,
 } from "@/services/vaultSecret";
 
 export type UnlockOutcome = "ok" | "declined" | "cancelled" | "failed" | "invalidated" | "unavailable" | "server-blocked";
@@ -115,6 +116,11 @@ export async function enableBinding(password: string, reason: string): Promise<"
 
 export async function disableBinding(reason: string): Promise<UnlockOutcome> {
   if ((await secretState().catch(() => "sealed")) !== "sealed") return "ok";
+  // Unsealing would only yield a plain copy this device refuses to keep, so skip the prompt.
+  if (!(await keepsPlainPassword())) {
+    await clearSecret();
+    return "ok";
+  }
   return (await unbindSecret(reason)) as UnlockOutcome;
 }
 

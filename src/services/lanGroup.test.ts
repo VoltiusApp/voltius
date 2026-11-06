@@ -334,7 +334,7 @@ test("join_replace_uses_replace_flow", async () => {
 });
 
 const persistFails = {
-  "local-nopassword": (cmd: string) => cmd === "vault_secret_import",
+  "local-nopassword": (cmd: string) => cmd === "vault_secret_store_device_key",
   local: (cmd: string, args: Record<string, unknown>) => cmd === "keychain_set" && args.key === "wrapped_user_secrets",
 };
 const devices = { "local-nopassword": noPasswordDevice, local: passwordDevice };
@@ -739,9 +739,9 @@ test("set_master_password_crash_after_the_mode_write_leaves_no_pending_key_behin
 test("join_keeps_the_pending_key_when_the_undo_also_fails", async () => {
   noPasswordDevice();
   withData("mine", MINE);
-  failing = (cmd, args) => cmd === "vault_secret_import" || (cmd === "secrets_rekey" && same(args.oldEncKey, G));
+  failing = (cmd, args) => cmd === "vault_secret_store_device_key" || (cmd === "secrets_rekey" && same(args.oldEncKey, G));
 
-  await expect(joinGroup(grant, "combine", [HOST, hostPayload()])).rejects.toThrow(/injected vault_secret_import/);
+  await expect(joinGroup(grant, "combine", [HOST, hostPayload()])).rejects.toThrow(/injected vault_secret_store_device_key/);
 
   expect(disk.key).toEqual(G);
   expect(keychain.master_password).toBe(hex(K));

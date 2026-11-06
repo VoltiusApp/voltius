@@ -15,6 +15,8 @@ import { useTeamStore } from "@/stores/teamStore";
 import {
   bindNow, bindingStatus, disableBinding, disableWithPassword, enableBinding, type BindingStatus,
 } from "@/services/vaultBinding";
+import { startRememberingMasterPassword, stopRememberingMasterPassword } from "@/services/masterPasswordMemory";
+import { keepsPlainPassword } from "@/services/vaultSecret";
 import { BindPasswordDialog } from "./BindPasswordDialog";
 
 export function SessionSecuritySettings({ mode }: { mode: string | null }) {
@@ -30,11 +32,23 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const [providerAvailable, setProviderAvailable] = useState(false);
 
   const [status, setStatus] = useState<BindingStatus | null>(null);
-  const [dialog, setDialog] = useState<"enable" | "disable" | null>(null);
+  const [dialog, setDialog] = useState<"enable" | "disable" | "remember" | null>(null);
+  const [rememberError, setRememberError] = useState("");
+  const [rememberPassword, setRememberPassword] = useState<boolean | null>(null);
+  const refreshRemember = () => { void keepsPlainPassword().then(setRememberPassword); };
+  useEffect(refreshRemember, []);
 
   useEffect(() => { void systemAuthAvailable().then(setProviderAvailable); }, []);
   const refreshStatus = () => { void bindingStatus(mode).then(setStatus); };
   useEffect(refreshStatus, [mode, systemAuthUnlock]);
+
+  const onRememberToggle = async (on: boolean) => {
+    setRememberError("");
+    if (on) return setDialog("remember");
+    await stopRememberingMasterPassword().catch(() =>
+      setRememberError(t("settings.account.sessionSecurity.rememberPassword.removeFailed")));
+    refreshRemember();
+  };
 
   const reason = t("layout.appLock.sealReason");
   const finish = (on: boolean) => {
@@ -54,6 +68,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
 
   const lockable = canLockApp(mode, systemAuthUnlock);
   const vaultLockable = canLockVault(mode);
+  const systemAuthNeedsRemembered = vaultLockable && rememberPassword === false && status === "os-login";
   const effectiveAction: LockAction = vaultLockable ? lockAction : "screen";
   const actionOptions = [
     ...(vaultLockable ? [{ value: "vault", label: t("settings.account.sessionSecurity.lockAction.vault") }] : []),
@@ -143,6 +158,21 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
         )}
       </div>
 
+      {vaultLockable && rememberPassword !== null && (
+        <div data-setting-row className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.sessionSecurity.rememberPassword.toggle")}</p>
+            <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.account.sessionSecurity.rememberPassword.desc")}</p>
+            {rememberError && <p role="alert" className="text-xs mt-1 text-(--t-status-error)">{rememberError}</p>}
+          </div>
+          <Toggle
+            checked={rememberPassword}
+            onChange={(on) => void onRememberToggle(on)}
+            aria-label={t("settings.account.sessionSecurity.rememberPassword.toggle")}
+          />
+        </div>
+      )}
+
       <div data-setting-row className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.sessionSecurity.systemAuth.toggle")}</p>
@@ -151,14 +181,18 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
               ? t("settings.account.sessionSecurity.systemAuth.desc", { method: t(systemAuthMethodKey(platform)) })
               : t("settings.account.sessionSecurity.systemAuth.unavailable")}
           </p>
-          {systemAuthUnlock && status && (
+          {systemAuthNeedsRemembered && providerAvailable ? (
+            <p className="text-xs mt-1 text-(--t-status-warning)">
+              {t("settings.account.sessionSecurity.rememberPassword.systemAuthNeedsIt")}
+            </p>
+          ) : systemAuthUnlock && status && (
             <p className="text-xs mt-1 text-(--t-text-muted)">
               {t(`settings.account.sessionSecurity.systemAuth.status.${status}`)}
               {status === "unbound" && (
                 <button
                   type="button"
                   className="ml-1 underline hover:text-(--t-text-primary)"
-                  onClick={() => void bindNow(reason).then(refreshStatus)}
+                  onClick={() => (rememberPassword === false ? setDialog("enable") : void bindNow(reason).then(refreshStatus))}
                 >
                   {t("settings.account.sessionSecurity.systemAuth.bindNow")}
                 </button>
@@ -185,6 +219,21 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             if (r === "cancelled") return null;
             if (r !== "ok") return t("layout.appLock.systemAuthFailed");
             finish(true);
+            return null;
+          }}
+        />
+      )}
+      {dialog === "remember" && (
+        <BindPasswordDialog
+          title={t("settings.account.sessionSecurity.rememberPassword.enableTitle")}
+          body={t("settings.account.sessionSecurity.rememberPassword.enableBody")}
+          onClose={() => setDialog(null)}
+          onSubmit={async (password) => {
+            const ok = await startRememberingMasterPassword(password).catch(() => null);
+            if (ok === null) return t("settings.account.sessionSecurity.rememberPassword.storeFailed");
+            if (!ok) return t("layout.appLock.wrongPassword");
+            refreshRemember();
+            setDialog(null);
             return null;
           }}
         />

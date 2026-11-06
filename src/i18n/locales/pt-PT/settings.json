@@ -290,6 +290,15 @@
         "unknown": "Desconhecido"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Memorizar palavra-passe mestra",
+          "desc": "Abre o seu cofre no arranque sem pedir a palavra-passe. Enquanto esta opção estiver ativada, a palavra-passe fica guardada no porta-chaves do sistema deste dispositivo, onde, no Linux e no Windows, outros programas executados com a sua conta a podem ler. Desative-a para a introduzir em cada arranque.",
+          "enableTitle": "Memorizar a sua palavra-passe mestra",
+          "enableBody": "Introduza a sua palavra-passe mestra para a guardar no porta-chaves do sistema deste dispositivo.",
+          "systemAuthNeedsIt": "Requer \"Memorizar palavra-passe mestra\" neste dispositivo. Sem isso, o Voltius pede a sua palavra-passe mestra no arranque e depois de o cofre ser bloqueado; só o ecrã de bloqueio abre com a autenticação do sistema.",
+          "removeFailed": "Não foi possível remover a palavra-passe mestra guardada do porta-chaves do sistema.",
+          "storeFailed": "Não foi possível guardar a palavra-passe mestra no porta-chaves do sistema."
+        },
         "title": "Segurança da sessão",
         "autoLockLabel": "Bloqueio automático após inatividade",
         "autoLockDesc": "Bloqueia o Voltius após esse período de inatividade, ou assim que você sai do aplicativo.",

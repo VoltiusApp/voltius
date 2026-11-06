@@ -5,6 +5,7 @@ use zeroize::Zeroizing;
 
 pub(crate) const PLAIN: &str = "master_password";
 pub(crate) const SEALED: &str = "master_password_sealed";
+pub(crate) const FORGET: &str = "master_password_forget";
 
 pub trait Store {
     fn get(&self, key: &str) -> Result<Option<String>, String>;
@@ -61,6 +62,28 @@ async fn seal_to_string(
     }
 }
 
+/// An unreadable marker is an error, so a plain copy is neither written nor dropped on a guess.
+pub fn remembers(store: &impl Store) -> Result<bool, String> {
+    Ok(store.get(FORGET)?.is_none())
+}
+
+pub fn set_remembers(store: &impl Store, on: bool) -> Result<(), String> {
+    if on {
+        store.delete(FORGET)
+    } else {
+        store.set(FORGET, "1")
+    }
+}
+
+fn replace_with_plain(store: &impl Store, value: &str, keep: bool) -> Result<(), String> {
+    if keep {
+        store.set(PLAIN, value)?;
+    } else {
+        store.delete(PLAIN)?;
+    }
+    store.delete(SEALED)
+}
+
 pub async fn get(store: &impl Store, sealer: &impl Sealer, reason: &str) -> Read {
     match state(store) {
         Err(_) => read(SealStatus::Failed, None),
@@ -104,7 +127,7 @@ pub async fn set(
         Err(_) => return SealStatus::Failed,
         Ok(State::Sealed) => {}
         Ok(_) => {
-            return match store.set(PLAIN, value) {
+            return match remembers(store).and_then(|keep| replace_with_plain(store, value, keep)) {
                 Ok(()) => SealStatus::Ok,
                 Err(_) => SealStatus::Failed,
             }
@@ -171,13 +194,19 @@ pub fn export(store: &impl Store) -> Result<Option<Exported>, String> {
 }
 
 pub fn import(store: &impl Store, kind: State, value: &str) -> Result<(), String> {
-    let (write, drop) = match kind {
-        State::Plain => (PLAIN, SEALED),
-        State::Sealed => (SEALED, PLAIN),
-        State::None => return clear(store),
-    };
-    store.set(write, value)?;
-    store.delete(drop)
+    match kind {
+        State::Plain => replace_with_plain(store, value, remembers(store)?),
+        State::Sealed => {
+            store.set(SEALED, value)?;
+            store.delete(PLAIN)
+        }
+        State::None => clear(store),
+    }
+}
+
+/// A no-password account's key is the only copy of its vault key, so it is kept whatever `remembers` says.
+pub fn store_device_key(store: &impl Store, value: &str) -> Result<(), String> {
+    replace_with_plain(store, value, true)
 }
 
 struct Keychain;
@@ -251,6 +280,21 @@ pub async fn vault_secret_export() -> Result<Option<Exported>, String> {
 #[tauri::command]
 pub async fn vault_secret_import(kind: State, value: String) -> Result<(), String> {
     import(&Keychain, kind, &value)
+}
+
+#[tauri::command]
+pub async fn vault_secret_store_device_key(value: String) -> Result<(), String> {
+    store_device_key(&Keychain, &value)
+}
+
+#[tauri::command]
+pub async fn vault_secret_remembers() -> Result<bool, String> {
+    remembers(&Keychain)
+}
+
+#[tauri::command]
+pub async fn vault_secret_set_remembers(on: bool) -> Result<(), String> {
+    set_remembers(&Keychain, on)
 }
 
 #[cfg(test)]
@@ -457,6 +501,85 @@ mod tests {
         assert_eq!(run(unbind(&s, &W, "r")), SealStatus::Ok);
         assert_eq!(s.get(PLAIN).unwrap().as_deref(), Some("pw"));
         assert_eq!(s.get(SEALED).unwrap(), None);
+    }
+
+    fn forgetting() -> MemStore {
+        let s = MemStore::default();
+        set_remembers(&s, false).unwrap();
+        s
+    }
+
+    #[test]
+    fn remembering_is_on_until_turned_off() {
+        let s = MemStore::default();
+        assert_eq!(remembers(&s), Ok(true));
+        set_remembers(&s, false).unwrap();
+        assert_eq!(remembers(&s), Ok(false));
+        set_remembers(&s, true).unwrap();
+        assert_eq!(remembers(&s), Ok(true));
+    }
+
+    #[test]
+    fn an_unreadable_marker_leaves_the_stored_copy_as_it_is() {
+        let s = MemStore::default();
+        s.set(PLAIN, "old").unwrap();
+        s.fail_get(FORGET);
+        assert_eq!(run(set(&s, &W, "r", "new")), SealStatus::Failed);
+        assert!(import(&s, State::Plain, "new").is_err());
+        assert_eq!(s.raw(PLAIN).as_deref(), Some("old"));
+    }
+
+    #[test]
+    fn forgetting_set_drops_the_plain_copy() {
+        let s = forgetting();
+        s.set(PLAIN, "old").unwrap();
+        assert_eq!(run(set(&s, &W, "r", "new")), SealStatus::Ok);
+        assert_eq!(state(&s), Ok(State::None));
+    }
+
+    #[test]
+    fn forgetting_import_of_a_plain_secret_clears_both_forms() {
+        let s = forgetting();
+        s.set(SEALED, "S:old").unwrap();
+        import(&s, State::Plain, "pw").unwrap();
+        assert_eq!(state(&s), Ok(State::None));
+    }
+
+    #[test]
+    fn forgetting_still_imports_a_sealed_secret() {
+        let s = forgetting();
+        import(&s, State::Sealed, "S:pw").unwrap();
+        assert_eq!(state(&s), Ok(State::Sealed));
+    }
+
+    #[test]
+    fn forgetting_a_failed_reseal_leaves_no_plain_copy() {
+        let s = forgetting();
+        run(bind(&s, &W, "r", "a"));
+        assert_eq!(run(set(&s, &C, "r", "b")), SealStatus::Cancelled);
+        assert_eq!(state(&s), Ok(State::None));
+    }
+
+    #[test]
+    fn forgetting_unbind_leaves_no_plain_copy() {
+        let s = forgetting();
+        run(bind(&s, &W, "r", "pw"));
+        assert_eq!(run(unbind(&s, &W, "r")), SealStatus::Ok);
+        assert_eq!(state(&s), Ok(State::None));
+    }
+
+    #[test]
+    fn a_device_key_is_stored_while_forgetting() {
+        let s = forgetting();
+        store_device_key(&s, "key").unwrap();
+        assert_eq!(s.raw(PLAIN).as_deref(), Some("key"));
+    }
+
+    #[test]
+    fn clearing_keeps_the_choice() {
+        let s = forgetting();
+        clear(&s).unwrap();
+        assert_eq!(remembers(&s), Ok(false));
     }
 
     #[test]
