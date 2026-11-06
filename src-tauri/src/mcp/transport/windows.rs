@@ -137,8 +137,7 @@ async fn run_pipe_server(
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
-    use crate::policy::acl::sddl;
-    use crate::win_security::{current_user_sid, sddl_of};
+    use crate::win_security::{current_user_sid, security_of};
     use std::collections::BTreeSet;
     use std::ffi::OsString;
     use std::os::windows::io::AsRawHandle;
@@ -157,14 +156,12 @@ mod tests {
     #[tokio::test]
     async fn pipe_grants_only_system_and_the_current_user() {
         let server = create_first_instance(&unique_addr()).await.unwrap();
-        let text = sddl_of(server.as_raw_handle() as HANDLE, SE_KERNEL_OBJECT).unwrap();
-        let alias = |sid: String| if sid == "S-1-5-18" { "SY".into() } else { sid };
-        let sids: BTreeSet<String> = sddl::aces(&text)
-            .into_iter()
-            .map(|a| alias(a.sid))
-            .collect();
-        let want: BTreeSet<String> = ["SY".to_string(), alias(current_user_sid().unwrap())].into();
-        assert_eq!(sids, want, "{text}");
+        let sec = security_of(server.as_raw_handle() as HANDLE, SE_KERNEL_OBJECT).unwrap();
+        assert!(sec.protected);
+        assert!(sec.aces.iter().all(|a| a.ace_type == 0));
+        let sids: BTreeSet<String> = sec.aces.into_iter().map(|a| a.sid).collect();
+        let want: BTreeSet<String> = ["S-1-5-18".to_string(), current_user_sid().unwrap()].into();
+        assert_eq!(sids, want);
     }
 
     #[tokio::test]
@@ -172,7 +169,7 @@ mod tests {
         let addr = unique_addr();
         let server = create_first_instance(&addr).await.unwrap();
         let accept = tokio::spawn(async move { server.connect().await });
-        ClientOptions::new().open(&addr).unwrap();
+        let _client = ClientOptions::new().open(&addr).unwrap();
         tokio::time::timeout(Duration::from_secs(5), accept)
             .await
             .unwrap()

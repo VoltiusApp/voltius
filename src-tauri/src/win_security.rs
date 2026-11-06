@@ -127,29 +127,88 @@ pub fn security_info(
     Ok((owner, dacl, sd))
 }
 
+/// `f` gets (type, flags, mask, lazy SID read); `None` from it aborts the walk with `None`.
+pub fn map_dacl<T>(
+    dacl: *mut ACL,
+    mut f: impl FnMut(u8, u8, u32, &dyn Fn() -> io::Result<String>) -> io::Result<Option<T>>,
+) -> io::Result<Option<Vec<T>>> {
+    use windows_sys::Win32::Security::{GetAce, ACCESS_ALLOWED_ACE};
+
+    let mut out = Vec::new();
+    for i in 0..unsafe { (*dacl).AceCount } {
+        let mut raw = ptr::null_mut();
+        if unsafe { GetAce(dacl, i.into(), &mut raw) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let ace = raw.cast::<ACCESS_ALLOWED_ACE>();
+        let header = unsafe { (*ace).Header };
+        let sid = || unsafe { sid_string(ptr::addr_of!((*ace).SidStart).cast_mut().cast()) };
+        match f(
+            header.AceType,
+            header.AceFlags,
+            unsafe { (*ace).Mask },
+            &sid,
+        )? {
+            Some(item) => out.push(item),
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(out))
+}
+
 #[cfg(test)]
-pub fn sddl_of(handle: HANDLE, kind: SE_OBJECT_TYPE) -> io::Result<String> {
-    use windows_sys::Win32::Security::Authorization::ConvertSecurityDescriptorToStringSecurityDescriptorW;
-    use windows_sys::Win32::Security::{DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION};
+#[allow(dead_code)]
+pub struct RawAce {
+    pub ace_type: u8,
+    pub flags: u8,
+    pub mask: u32,
+    pub sid: String,
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+pub struct SecurityInfo {
+    pub owner: String,
+    pub protected: bool,
+    pub aces: Vec<RawAce>,
+}
+
+#[cfg(test)]
+pub fn security_of(handle: HANDLE, kind: SE_OBJECT_TYPE) -> io::Result<SecurityInfo> {
+    use windows_sys::Win32::Security::{
+        GetSecurityDescriptorControl, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
+        SE_DACL_PROTECTED,
+    };
 
     let info = OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
-    let (_, _, sd) = security_info(handle, kind, info)?;
-    let mut raw: *mut u16 = ptr::null_mut();
-    let ok = unsafe {
-        ConvertSecurityDescriptorToStringSecurityDescriptorW(
-            sd.as_ptr(),
-            SDDL_REVISION_1,
-            info,
-            &mut raw,
-            ptr::null_mut(),
+    let (owner, dacl, sd) = security_info(handle, kind, info)?;
+    let no_dacl = || {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "descriptor has no owner or DACL",
         )
     };
-    if ok == 0 {
+    if owner.is_null() || dacl.is_null() {
+        return Err(no_dacl());
+    }
+    let (mut control, mut revision) = (0u16, 0u32);
+    if unsafe { GetSecurityDescriptorControl(sd.as_ptr(), &mut control, &mut revision) } == 0 {
         return Err(io::Error::last_os_error());
     }
-    let s = unsafe { from_wide_ptr(raw) }.to_string_lossy().into_owned();
-    unsafe { LocalFree(raw.cast()) };
-    Ok(s)
+    let aces = map_dacl(dacl, |ace_type, flags, mask, sid| {
+        Ok(Some(RawAce {
+            ace_type,
+            flags,
+            mask,
+            sid: sid()?,
+        }))
+    })?
+    .unwrap_or_default();
+    Ok(SecurityInfo {
+        owner: unsafe { sid_string(owner) }?,
+        protected: control & SE_DACL_PROTECTED != 0,
+        aces,
+    })
 }
 
 /// # Safety

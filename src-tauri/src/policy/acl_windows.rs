@@ -1,19 +1,19 @@
 use super::acl::{self, Ace, FolderAction, POLICY_DIR_SDDL};
 use super::{Blocked, Entry, Guard};
 use crate::win_security::{
-    create_new_with, current_user_sid, security_info, sid_string, wide, SecurityDescriptor,
+    create_new_with, current_user_sid, map_dacl, security_info, sid_string, wide,
+    SecurityDescriptor,
 };
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
-use std::ptr;
 use windows_sys::Win32::Foundation::{ERROR_INVALID_OWNER, ERROR_PRIVILEGE_NOT_HELD, WIN32_ERROR};
 use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
 use windows_sys::Win32::Security::{
-    GetAce, SetKernelObjectSecurity, ACCESS_ALLOWED_ACE, ACL, DACL_SECURITY_INFORMATION,
-    OBJECT_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSID,
+    SetKernelObjectSecurity, ACL, DACL_SECURITY_INFORMATION, OBJECT_SECURITY_INFORMATION,
+    OWNER_SECURITY_INFORMATION, PSID,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateDirectoryW, GetFileInformationByHandle, MoveFileExW, BY_HANDLE_FILE_INFORMATION,
@@ -191,21 +191,7 @@ fn read_acl(f: &File) -> io::Result<Option<(String, Vec<Ace>)>> {
     if owner.is_null() || dacl.is_null() {
         return Ok(None);
     }
-    unsafe {
-        let mut aces = Vec::new();
-        for i in 0..(*dacl).AceCount {
-            let mut raw = ptr::null_mut();
-            if GetAce(dacl, i.into(), &mut raw) == 0 {
-                return Err(io::Error::last_os_error());
-            }
-            let ace = raw.cast::<ACCESS_ALLOWED_ACE>();
-            let header = (*ace).Header;
-            let sid = || sid_string(ptr::addr_of!((*ace).SidStart).cast_mut().cast());
-            match Ace::from_raw(header.AceType, header.AceFlags, (*ace).Mask, sid)? {
-                Some(entry) => aces.push(entry),
-                None => return Ok(None),
-            }
-        }
-        Ok(Some((sid_string(owner)?, aces)))
-    }
+    let aces = map_dacl(dacl, |t, f, m, sid| Ace::from_raw(t, f, m, sid))?;
+    aces.map(|aces| Ok((unsafe { sid_string(owner) }?, aces)))
+        .transpose()
 }
