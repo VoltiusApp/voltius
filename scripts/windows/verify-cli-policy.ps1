@@ -411,10 +411,13 @@ $Scenarios = [ordered]@{
         $gone = Wait-Until 60 { -not (Test-Path -LiteralPath $uninstaller) }
         Assert-True 'B.removed' $gone "gone=$gone"
         Assert-PathEntry 'B.user-path' User $NsisDir $false
+        Clear-InstallState
     }
     C  = {
         Assert-Code 'C.install' 0 (Invoke-Installer msiexec.exe '/i', "`"$Msi`"", '/qn', '/l*v', "`"$Work\msi-install.log`"")
         $script:MsiDir = Get-MsiInstallDir
+        $perMachine = (ConvertTo-PathKey $script:MsiDir).StartsWith((ConvertTo-PathKey $env:ProgramFiles) + '\')
+        Assert-True 'C.per-machine' $perMachine $script:MsiDir "under $env:ProgramFiles"
         Assert-PathEntry 'C.machine-path' Machine $script:MsiDir $true
         Assert-Installed 'C' $script:MsiDir
         Assert-Code 'C.admin-version' 0 (Invoke-AsAdmin '--version')
@@ -528,6 +531,18 @@ $Scenarios = [ordered]@{
         Assert-Code 'D.uninstall' 0 (Invoke-Installer msiexec.exe '/x', "`"$Msi`"", '/qn', '/l*v', "`"$Work\msi-uninstall.log`"")
         Assert-PathEntry 'D.machine-path' Machine $script:MsiDir $false
     }
+}
+
+function Clear-InstallState {
+    $key = 'HKCU:\Software\Voltius'
+    if (-not (Test-Path -LiteralPath $key)) {
+        Write-Host "  [observe] nothing left under $key"
+        return
+    }
+    Write-Host "  [observe] left under $key`:"
+    Get-Item -LiteralPath $key | Out-Host
+    Get-ChildItem -LiteralPath $key -Recurse | Out-Host
+    Remove-Item -LiteralPath $key -Recurse -Force
 }
 
 function Get-MsiInstallDir {
