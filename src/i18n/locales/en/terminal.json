@@ -7,6 +7,7 @@
       "noActiveSession": "No active session"
     },
     "historyPanel": {
+      "historyOff": "Command history is off.\nTurn it on in Settings › Terminal.",
       "removeFromHistory": "Remove from history",
       "searchPlaceholder": "Search history…",
       "showCurrentOnly": "Showing current connection only",

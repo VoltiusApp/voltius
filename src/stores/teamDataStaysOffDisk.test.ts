@@ -4,6 +4,7 @@ import { test, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({ teamIds: new Set<string>() }));
 vi.mock("@/services/teamConnectionIds", () => ({ isTeamConnection: (id: string) => h.teamIds.has(id) }));
 
+import { echoedAs } from "@/test/echoProbe";
 import { useCommandHistoryStore } from "./commandHistoryStore";
 import { rememberVars, rememberedVars, useHostCommandVarsStore } from "./hostCommandVarsStore";
 import { buildSnapshot } from "./workspaceSnapshotCore";
@@ -18,8 +19,8 @@ beforeEach(() => {
 });
 
 test("commands typed on a team host stay in memory only", () => {
-  useCommandHistoryStore.getState().addInput("s1", "prod", "team-host", "cat /etc/team-secret\r");
-  useCommandHistoryStore.getState().addInput("s2", "mine", "own-host", "ls\r");
+  useCommandHistoryStore.getState().addInput("s1", "prod", "team-host", "cat /etc/team-secret\r", echoedAs("cat /etc/team-secret"));
+  useCommandHistoryStore.getState().addInput("s2", "mine", "own-host", "ls\r", echoedAs("ls"));
 
   expect(useCommandHistoryStore.getState().entries.map((e) => e.command)).toEqual(["cat /etc/team-secret", "ls"]);
   expect(persisted(useCommandHistoryStore)).not.toContain("team-secret");

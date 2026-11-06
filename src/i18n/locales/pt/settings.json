@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Histórico de comandos",
+        "desc": "Lembra os comandos executados nos terminais. Uma linha só é guardada quando o terminal a exibe de volta, então senhas digitadas em prompts ocultos nunca são salvas. Desativar apaga o histórico já salvo."
+      },
       "heading": "Comportamento do terminal",
       "preferredShell": {
         "title": "Shell preferido"
@@ -1205,6 +1209,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Histórico de comandos"
+      },
       "cursorBlink": {
         "label": "Cursor piscante"
       },

@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Historie příkazů",
+        "desc": "Pamatuje si příkazy spuštěné v terminálech. Řádek se uloží, jen když ho terminál zobrazí zpět, takže hesla zadaná do skrytých výzev se nikdy neuloží. Vypnutím se smaže již uložená historie."
+      },
       "heading": "Chování terminálu",
       "preferredShell": {
         "title": "Preferovaný shell"
@@ -1436,6 +1440,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Historie příkazů"
+      },
       "cursorBlink": {
         "label": "Blikání kurzoru"
       },

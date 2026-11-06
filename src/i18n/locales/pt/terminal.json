@@ -7,6 +7,7 @@
       "noActiveSession": "Nenhuma sessão ativa"
     },
     "historyPanel": {
+      "historyOff": "O histórico de comandos está desativado.\nAtive-o em Configurações › Terminal.",
       "removeFromHistory": "Remover do histórico",
       "searchPlaceholder": "Pesquisar histórico…",
       "showCurrentOnly": "Mostrando apenas a conexão atual",

@@ -7,6 +7,7 @@
       "noActiveSession": "没有活跃会话"
     },
     "historyPanel": {
+      "historyOff": "命令历史已关闭。\n可在“设置 › 终端”中开启。",
       "removeFromHistory": "从历史中移除",
       "searchPlaceholder": "搜索历史…",
       "showCurrentOnly": "仅显示当前连接",

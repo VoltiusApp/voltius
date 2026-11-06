@@ -7,6 +7,7 @@
       "noActiveSession": "Žádná aktivní relace"
     },
     "historyPanel": {
+      "historyOff": "Historie příkazů je vypnutá.\nZapněte ji v Nastavení › Terminál.",
       "removeFromHistory": "Odebrat z historie",
       "searchPlaceholder": "Hledat v historii…",
       "showCurrentOnly": "Zobrazuje se jen aktuální připojení",

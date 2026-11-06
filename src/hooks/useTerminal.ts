@@ -26,7 +26,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { broadcastActiveForSession, findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { broadcastTargets } from "@/services/broadcast";
-import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import { useCommandHistoryStore, type EchoProbe } from "@/stores/commandHistoryStore";
+import { terminalEchoProbe } from "@/components/terminal/inputEcho";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import { wheelToRows } from "@/components/terminal/terminalWheelCore";
@@ -174,6 +175,8 @@ type CacheEntry = CachedTerminal & {
   minimap: MinimapState;
   commands: CommandTracker;
   highlighter: KeywordHighlighter | null;
+  /** What the command history checks a typed line against: it keeps only lines the terminal echoed. */
+  echoProbe: EchoProbe;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
@@ -493,7 +496,7 @@ export function writeToSession(sessionId: string, data: string): void {
   if (!entry || !sessionAcceptsInput(sessionId)) return;
   const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
   if (sess) {
-    useCommandHistoryStore.getState().addInput(sessionId, sess.connectionName, sess.connectionId, data);
+    useCommandHistoryStore.getState().addInput(sessionId, sess.connectionName, sess.connectionId, data, entry.echoProbe);
   }
   sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
 }
@@ -857,6 +860,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           now: Date.now,
         }),
         highlighter: null,
+        echoProbe: terminalEchoProbe(term),
         sessionType,
         // Serial is live the moment its port opens (the store marks it
         // connected before the terminal mounts); ssh and local flip in the
@@ -1084,7 +1088,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         if (sess) {
           useCommandHistoryStore
             .getState()
-            .addInput(sessionId, sess.connectionName, sess.connectionId, data);
+            .addInput(sessionId, sess.connectionName, sess.connectionId, data, entry.echoProbe);
         }
 
         routeInput(data);

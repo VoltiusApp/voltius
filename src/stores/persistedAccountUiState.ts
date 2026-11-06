@@ -174,6 +174,31 @@ export function restoreAccountUiState(
   storage.removeItem(parkedKey(accountId));
 }
 
+/** Take one store's copy out of every parked account: data this device has stopped keeping for anyone. */
+export function dropParkedKey(
+  key: string,
+  storage: (PersistedAccountStorage & { readonly length: number; key(index: number): string | null }) | undefined = globalThis.localStorage,
+): void {
+  if (!storage) return;
+  const parked: string[] = [];
+  for (let i = 0; i < storage.length; i += 1) {
+    const name = storage.key(i);
+    if (name?.startsWith(PARKED_PREFIX)) parked.push(name);
+  }
+  for (const name of parked) {
+    const raw = storage.getItem(name);
+    if (!raw) continue;
+    try {
+      const state = JSON.parse(raw) as PersistedAccountUiState;
+      if (!(key in state)) continue;
+      delete state[key];
+      storage.setItem(name, JSON.stringify(state));
+    } catch {
+      // Unparseable park: restoreAccountUiState drops it unread, so nothing in it comes back.
+    }
+  }
+}
+
 export function dropAccountUiState(
   accountId: string,
   storage: PersistedAccountStorage | undefined = globalThis.localStorage,
