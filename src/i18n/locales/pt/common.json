@@ -308,9 +308,9 @@
       "daysAgo": "{{count}}d atrás"
     },
     "cliPending": {
-      "failed_one": "Não foi possível aplicar {{count}} alteração do voltius-cli; ela será tentada novamente.",
-      "failed_many": "Não foi possível aplicar {{count}} alterações do voltius-cli; elas serão tentadas novamente.",
-      "failed_other": "Não foi possível aplicar {{count}} alterações do voltius-cli; elas serão tentadas novamente."
+      "failed_one": "Não foi possível aplicar {{count}} alteração do voltius-cli.",
+      "failed_many": "Não foi possível aplicar {{count}} alterações do voltius-cli.",
+      "failed_other": "Não foi possível aplicar {{count}} alterações do voltius-cli."
     },
     "policy": {
       "managed": "Gerenciado pela sua organização",

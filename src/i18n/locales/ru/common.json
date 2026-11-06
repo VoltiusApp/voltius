@@ -321,10 +321,10 @@
       "daysAgo": "{{count}} дн. назад"
     },
     "cliPending": {
-      "failed_one": "Не удалось применить {{count}} изменение из voltius-cli; попытка будет повторена.",
-      "failed_few": "Не удалось применить {{count}} изменения из voltius-cli; попытка будет повторена.",
-      "failed_many": "Не удалось применить {{count}} изменений из voltius-cli; попытка будет повторена.",
-      "failed_other": "Не удалось применить {{count}} изменения из voltius-cli; попытка будет повторена."
+      "failed_one": "Не удалось применить {{count}} изменение из voltius-cli.",
+      "failed_few": "Не удалось применить {{count}} изменения из voltius-cli.",
+      "failed_many": "Не удалось применить {{count}} изменений из voltius-cli.",
+      "failed_other": "Не удалось применить {{count}} изменения из voltius-cli."
     },
     "policy": {
       "managed": "Управляется вашей организацией",

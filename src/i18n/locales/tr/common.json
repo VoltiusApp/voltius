@@ -295,8 +295,8 @@
       "daysAgo": "{{count}} gün önce"
     },
     "cliPending": {
-      "failed_one": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı; yeniden denenecek.",
-      "failed_other": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı; yeniden denenecek."
+      "failed_one": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı.",
+      "failed_other": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı."
     },
     "policy": {
       "managed": "Kuruluşunuz tarafından yönetiliyor",

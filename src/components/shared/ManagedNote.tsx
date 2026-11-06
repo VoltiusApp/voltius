@@ -2,14 +2,14 @@ import { Icon } from "@iconify/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
-import { installLocked, useInstallAllowed } from "@/stores/pluginRegistryStore";
+import { installLocked } from "@/stores/pluginRegistryStore";
 
-export function ManagedNote({ className = "" }: { className?: string }) {
+export function ManagedNote({ className = "", children }: { className?: string; children?: ReactNode }) {
   const { t } = useTranslation();
   return (
     <span className={`inline-flex items-center gap-1 text-xs text-(--t-text-dim) ${className}`}>
       <Icon icon="lucide:building-2" width={12} height={12} className="shrink-0" />
-      {t("common.policy.managed")}
+      {children ?? t("common.policy.managed")}
     </span>
   );
 }
@@ -26,7 +26,11 @@ export function Managed({ policyKey, ...rest }: ManagedProps & { policyKey: stri
 
 export function ManagedWhen({ locked, note = true, children }: ManagedProps & { locked: boolean }) {
   if (!locked) return <>{children}</>;
-  const control = <fieldset disabled className="contents">{children}</fieldset>;
+  const control = (
+    <fieldset disabled className="contents [&_:disabled]:opacity-40 [&_:disabled]:cursor-not-allowed [&_:disabled]:pointer-events-none">
+      {children}
+    </fieldset>
+  );
   if (!note) return control;
   return (
     <div className="flex items-center gap-2">
@@ -36,11 +40,8 @@ export function ManagedWhen({ locked, note = true, children }: ManagedProps & { 
   );
 }
 
-export function ManagedInstall({ id, installed = false, children }: ManagedProps & { id: string; installed?: boolean }) {
-  return <ManagedWhen locked={!useInstallAllowed(id, installed)}>{children}</ManagedWhen>;
-}
-
-export function ManagedUninstall({ id, children }: ManagedProps & { id: string }) {
+// No note: the row's "Organization" badge already explains the lock.
+export function ManagedUninstall({ id, children }: { id: string; children: ReactNode }) {
   usePolicyRefresh();
-  return <ManagedWhen locked={installLocked(id)}>{children}</ManagedWhen>;
+  return <ManagedWhen locked={installLocked(id)} note={false}>{children}</ManagedWhen>;
 }

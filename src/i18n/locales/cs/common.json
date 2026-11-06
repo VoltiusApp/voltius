@@ -321,10 +321,10 @@
       "daysAgo": "před {{count}} d"
     },
     "cliPending": {
-      "failed_one": "{{count}} změnu z voltius-cli se nepodařilo použít; zkusí se to znovu.",
-      "failed_few": "{{count}} změny z voltius-cli se nepodařilo použít; zkusí se to znovu.",
-      "failed_many": "{{count}} změny z voltius-cli se nepodařilo použít; zkusí se to znovu.",
-      "failed_other": "{{count}} změn z voltius-cli se nepodařilo použít; zkusí se to znovu."
+      "failed_one": "{{count}} změnu z voltius-cli se nepodařilo použít.",
+      "failed_few": "{{count}} změny z voltius-cli se nepodařilo použít.",
+      "failed_many": "{{count}} změny z voltius-cli se nepodařilo použít.",
+      "failed_other": "{{count}} změn z voltius-cli se nepodařilo použít."
     },
     "policy": {
       "managed": "Spravuje vaše organizace",

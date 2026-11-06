@@ -295,8 +295,8 @@
       "daysAgo": "{{count}}d ago"
     },
     "cliPending": {
-      "failed_one": "{{count}} change from voltius-cli couldn't be applied; it will be retried.",
-      "failed_other": "{{count}} changes from voltius-cli couldn't be applied; they will be retried."
+      "failed_one": "{{count}} change from voltius-cli couldn't be applied.",
+      "failed_other": "{{count}} changes from voltius-cli couldn't be applied."
     },
     "policy": {
       "managed": "Managed by your organization",

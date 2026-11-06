@@ -4,7 +4,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
-import { pluginLock, policyInstallList, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { installsBlocked, pluginLock, policyInstallList, useInstallPolicy, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { catalogIcon, catalogEntryIcon } from "@/plugins/catalogIcon";
@@ -19,7 +19,7 @@ import type { PluginManifest, PluginConfigField, SettingsPage } from "@/plugins/
 import { attributePage } from "@/plugins/attributePage";
 import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
-import { Managed, ManagedInstall, ManagedNote, ManagedUninstall, ManagedWhen } from "@/components/shared/ManagedNote";
+import { Managed, ManagedNote, ManagedUninstall, ManagedWhen } from "@/components/shared/ManagedNote";
 import { usePolicyRefresh } from "@/stores/policyStore";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { DirtyDot, ResetButton, SettingRow } from "./shared";
@@ -180,6 +180,9 @@ function EnableToggle({ manifest, enabled, onToggle }: {
     </ManagedWhen>
   );
 }
+
+const sourceBadgeKey = (id: string, fallback: string): string =>
+  policyInstallList().includes(id) ? "settings.plugins.installed.sourceOrganization" : fallback;
 
 /** On mobile the header row has no room for the note, so it gets a line of its own. */
 function MobileManagedLine({ manifest }: { manifest: PluginManifest | undefined }) {
@@ -397,10 +400,10 @@ export function InstalledTab() {
                   <Icon icon={catalogIcon(manifest.icon, "lucide:puzzle")} width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <p className="text-sm font-medium truncate text-(--t-text-primary)">{manifest.name}</p>
                     <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
-                      {t("settings.plugins.installed.bundledBadge")}
+                      {t(sourceBadgeKey(manifest.id, "settings.plugins.installed.bundledBadge"))}
                     </span>
                   </div>
                   <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">
@@ -478,18 +481,16 @@ export function InstalledTab() {
                   <Icon icon={catalogIcon(catalogEntry?.icon ?? manifest?.icon, "lucide:puzzle")} width={15} style={{ color: enabled ? "var(--t-accent)" : "var(--t-text-dim)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <p className="text-sm font-medium truncate text-(--t-text-primary)">
                       {manifest?.name ?? meta.id}
                     </p>
                     <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
-                      {policyInstallList().includes(meta.id)
-                        ? t("settings.plugins.installed.sourceOrganization")
-                        : meta.sourceId === "local"
-                        ? t("settings.plugins.installed.sourceLocal")
+                      {t(sourceBadgeKey(meta.id, meta.sourceId === "local"
+                        ? "settings.plugins.installed.sourceLocal"
                         : meta.sourceId === "url"
-                          ? t("settings.plugins.installed.sourceUrl")
-                          : t("settings.plugins.installed.sourceInstalled")}
+                          ? "settings.plugins.installed.sourceUrl"
+                          : "settings.plugins.installed.sourceInstalled"))}
                     </span>
                     <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-base) text-(--t-text-dim)">
                       {update ? `v${meta.version} → ${update.version}` : `v${meta.version}`}
@@ -605,6 +606,7 @@ function BrowseTab() {
   const { busy, startInstall, startUpdate, modal } = usePluginInstaller();
   const { merged, installedIds, seededActive, seededEntries, appVersion } = useBrowseCatalog();
   const [reviewInstalls, setReviewInstalls] = useToggle("plugin-install-review");
+  const installAllowed = useInstallPolicy();
 
   const [search, setSearch] = useState("");
   const browseQuery = useUIStore((s) => s.pluginBrowseQuery);
@@ -770,12 +772,16 @@ function BrowseTab() {
             ))}
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <Managed policyKey="appSettings.toggles.plugin-install-review">
-            <Toggle checked={reviewInstalls} onChange={() => setReviewInstalls(!reviewInstalls)} />
-          </Managed>
-          <span className="text-xs text-(--t-text-dim)">{t("settings.toggleDefs.pluginInstallReview.label")}</span>
-        </div>
+        {installsBlocked() ? (
+          <ManagedNote>{t("settings.plugins.browse.installsOff")}</ManagedNote>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Managed policyKey="appSettings.toggles.plugin-install-review">
+              <Toggle checked={reviewInstalls} onChange={() => setReviewInstalls(!reviewInstalls)} />
+            </Managed>
+            <span className="text-xs text-(--t-text-dim)">{t("settings.toggleDefs.pluginInstallReview.label")}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -830,7 +836,7 @@ function BrowseTab() {
                       </span>
                       {isInstalled && (
                         <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0" style={{ background: "color-mix(in srgb, var(--t-accent) 15%, transparent)", color: "var(--t-accent)" }}>
-                          {update ? t("settings.plugins.browse.updateBadge") : t("settings.plugins.browse.installedBadge")}
+                          {update ? t("settings.plugins.browse.updateBadge") : t(sourceBadgeKey(plugin.id, "settings.plugins.browse.installedBadge"))}
                         </span>
                       )}
                     </div>
@@ -847,20 +853,20 @@ function BrowseTab() {
                     )}
                   </div>
                   {!isInstalled ? (
-                    <ManagedInstall id={plugin.id}>
+                    <ManagedWhen locked={!installAllowed(plugin.id)} note={false}>
                       <button
                         onClick={() => startInstall(plugin)}
                         disabled={isBusy || versionUnsatisfied}
                         title={versionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion }) : undefined}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                        style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
+                        style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: isBusy || versionUnsatisfied ? 0.6 : undefined }}
                       >
                         {isBusy
                           ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
                           : <><Icon icon="lucide:download" width={12} /> {t("settings.plugins.browse.install")}</>
                         }
                       </button>
-                    </ManagedInstall>
+                    </ManagedWhen>
                   ) : update ? (
                     <button
                       onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === plugin.id)?.permissions ?? [])}
@@ -880,7 +886,7 @@ function BrowseTab() {
                         onClick={() => void handleUninstall(plugin.id)}
                         disabled={isUninstalling}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                        style={{ background: "color-mix(in srgb, var(--t-status-error) 15%, transparent)", color: "var(--t-status-error)", opacity: isUninstalling ? 0.6 : 1 }}
+                        style={{ background: "color-mix(in srgb, var(--t-status-error) 15%, transparent)", color: "var(--t-status-error)", opacity: isUninstalling ? 0.6 : undefined }}
                       >
                         {isUninstalling
                           ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.removing")}</>

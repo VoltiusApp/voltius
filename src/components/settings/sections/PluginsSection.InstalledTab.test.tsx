@@ -216,7 +216,7 @@ test("a loaded id with NO real seeded artifact never shows the seeded Update but
   expect(screen.queryByTitle("settings.plugins.installed.updateTitle")).toBeNull();
 });
 
-test("an organization-installed plugin shows the organization label and no uninstall", async () => {
+test("an organization-installed plugin shows the organization badge and a locked uninstall without a separate note", async () => {
   const { usePolicyStore } = await import("@/stores/policyStore");
   usePolicyStore.setState({ machine: { policy: { "plugins.install": ["plugin-ext"] }, defaults: {} } });
   loaded.list = [manifest("plugin-ext"), manifest("plugin-other")];
@@ -228,7 +228,7 @@ test("an organization-installed plugin shows the organization label and no unins
     const uninstalls = screen.getAllByTitle("settings.plugins.installed.uninstallTitle") as HTMLButtonElement[];
     expect(uninstalls).toHaveLength(2);
     expect(uninstalls.filter((b) => b.closest("fieldset[disabled]"))).toHaveLength(1);
-    expect(screen.getAllByText("common.policy.managed").length).toBeGreaterThan(0);
+    expect(screen.queryByText("common.policy.managed")).toBeNull();
   } finally {
     usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   }

@@ -1,7 +1,9 @@
 import { availableCatalogProviders } from "@/services/syncProviders";
 import { useInstallablePlugins } from "@/hooks/useInstallablePlugins";
+import { useInstallPolicy } from "@/stores/pluginRegistryStore";
 
 export function useAvailableSyncProviders() {
   const { merged, taken, appVersion } = useInstallablePlugins();
-  return { available: availableCatalogProviders(merged, taken), appVersion };
+  const allowed = useInstallPolicy();
+  return { available: availableCatalogProviders(merged, taken).filter((p) => allowed(p.id)), appVersion };
 }
