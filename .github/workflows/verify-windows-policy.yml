@@ -1,0 +1,72 @@
+name: verify-windows-policy
+
+on:
+  push:
+    paths:
+      - 'src-tauri/src/policy/**'
+      - 'src-tauri/src/cli/**'
+      - 'src-tauri/src/win_security.rs'
+      - 'src-tauri/src/mcp/transport/**'
+      - 'crates/voltius-cli/**'
+      - 'src-tauri/windows/**'
+      - 'src-tauri/tauri.release.conf.json'
+      - 'scripts/stage-cli-sidecar.sh'
+      - 'scripts/windows/**'
+      - '.github/workflows/verify-windows-policy.yml'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: verify-windows-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-desktop.yml
+    with:
+      ref: ${{ github.sha }}
+      targets: '["x86_64-pc-windows-msvc"]'
+      upload-artifacts: true
+
+  verify:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download the installers
+        uses: actions/download-artifact@v8
+        with:
+          name: desktop-x86_64-pc-windows-msvc
+          path: installers
+
+      - name: Find the installers
+        id: installers
+        shell: pwsh
+        run: |
+          function Find-One([string]$Filter) {
+            $found = @(Get-ChildItem -LiteralPath installers -Recurse -File -Filter $Filter)
+            if ($found.Count -ne 1) { throw "expected one $Filter, found $($found.Count): $($found.FullName -join ', ')" }
+            $found[0].FullName
+          }
+          "nsis=$(Find-One '*-setup.exe')" >> $env:GITHUB_OUTPUT
+          "msi=$(Find-One '*.msi')" >> $env:GITHUB_OUTPUT
+
+      - name: Verify the PATH hooks and the policy folder
+        shell: pwsh
+        env:
+          NSIS: ${{ steps.installers.outputs.nsis }}
+          MSI: ${{ steps.installers.outputs.msi }}
+        run: pwsh -NoProfile -File scripts/windows/verify-cli-policy.ps1 -Nsis $env:NSIS -Msi $env:MSI
+
+      - name: Upload the logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verify-logs
+          path: C:\Users\Public\voltius-verify
+          if-no-files-found: ignore
