@@ -3,7 +3,7 @@
     "terminal": {
       "commandHistory": {
         "title": "Historique des commandes",
-        "desc": "Mémorise les commandes exécutées dans les terminaux. Une ligne n'est conservée que si le terminal l'affiche en retour : les mots de passe saisis à une invite masquée ne sont jamais enregistrés. La désactivation supprime l'historique déjà enregistré."
+        "desc": "Mémorise les commandes exécutées dans les terminaux. Une ligne n'est conservée que si le terminal l'affiche en retour : les mots de passe saisis à une invite masquée ne sont jamais enregistrés. Les lignes commençant par une espace ne sont jamais enregistrées. La désactivation arrête l'enregistrement ; ce qui a été enregistré reste jusqu'à ce que vous l'effaciez depuis le panneau Historique."
       },
       "heading": "Comportement du terminal",
       "preferredShell": {

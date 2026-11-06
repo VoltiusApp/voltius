@@ -3,7 +3,7 @@
     "terminal": {
       "commandHistory": {
         "title": "Command history",
-        "desc": "Remember the commands you run in terminals. A line is kept only when the terminal shows it back, so passwords typed at hidden prompts are never saved. Turning this off deletes the history already saved."
+        "desc": "Remember the commands you run in terminals. A line is kept only when the terminal shows it back, so passwords typed at hidden prompts are never saved. Lines starting with a space are never saved. Turning this off stops recording; what was saved stays until you clear it from the History panel."
       },
       "heading": "Terminal behavior",
       "preferredShell": {

@@ -3,7 +3,7 @@
     "terminal": {
       "commandHistory": {
         "title": "Komut Geçmişi",
-        "desc": "Terminallerde çalıştırdığınız komutları hatırlar. Bir satır yalnızca terminal onu geri gösterdiğinde saklanır; bu nedenle gizli istemlere yazılan parolalar asla kaydedilmez. Kapatmak, kaydedilmiş geçmişi siler."
+        "desc": "Terminallerde çalıştırdığınız komutları hatırlar. Bir satır yalnızca terminal onu geri gösterdiğinde saklanır; bu nedenle gizli istemlere yazılan parolalar asla kaydedilmez. Boşlukla başlayan satırlar asla kaydedilmez. Kapatmak kaydı durdurur; kaydedilenler, Geçmiş panelinden temizleyene kadar kalır."
       },
       "heading": "Terminal davranışı",
       "preferredShell": {

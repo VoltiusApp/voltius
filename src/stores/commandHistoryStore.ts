@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { isTeamConnection } from "@/services/teamConnectionIds";
-import { dropParkedKey } from "./persistedAccountUiState";
 import { usePolicyStore } from "./policyStore";
 import { getToggle, useToggleSettingsStore } from "./toggleSettingsStore";
 
@@ -16,92 +15,87 @@ export interface CommandHistoryEntry {
   team?: true;
 }
 
-/** A spot in a terminal where a typed line's echo would start. */
+/** Where a typed line's echo would start. `text` is null once that line is gone. */
 export interface EchoAnchor {
-  /** What the terminal shows from the anchor to the end of its (wrapped) line; null once that line is gone. */
   text(): string | null;
-  /** Whether the cursor has moved off the anchor's line. */
   left(): boolean;
   dispose(): void;
 }
 
-/** The slice of a session's terminal the history needs to see what it echoed. */
+/** Where the shell's prompt ends. `command` reads the line the shell is about to run, or null when unsure. */
+export interface PromptAnchor {
+  command(): string | null;
+  dispose(): void;
+}
+
 export interface EchoProbe {
-  /** Anchor at the cursor, or null where an echo could not be told from other output. */
   anchor(): EchoAnchor | null;
-  /** Calls back each time the terminal has parsed more output. Returns the unsubscribe. */
+  /** `ahead`: keys typed before the prompt appeared, which the shell redraws after it. */
+  promptAnchor(ahead: string): PromptAnchor | null;
   onOutput(cb: () => void): () => void;
 }
 
 interface CommandHistoryStore {
   entries: CommandHistoryEntry[];
   buffers: Record<string, string>;
-  /**
-   * Feed what was typed or pasted into a session. A line is kept only once the
-   * terminal has shown it back: a prompt that hides input (sudo, su, passwd, an
-   * ssh passphrase) never echoes, so what was typed there never becomes history.
-   */
-  addInput: (
-    sessionId: string,
-    sessionName: string,
-    connectionId: string,
-    data: string,
-    echo: EchoProbe,
-  ) => void;
+  /** A typed line is kept only once the terminal shows it back: hidden prompts (sudo, ssh passphrases) never do. */
+  addInput: (sessionId: string, sessionName: string, connectionId: string, data: string, echo: EchoProbe) => void;
+  /** An OSC 133 mark from the session's shell: at C the line it runs is read off the screen. */
+  addShellMark: (sessionId: string, sessionName: string, connectionId: string, payload: string, echo: EchoProbe) => void;
   clear: () => void;
   remove: (id: string) => void;
 }
 
 const MAX_HISTORY = 500;
-const STORAGE_KEY = "voltius-command-history";
 
-/** How long a line may wait for its echo on a slow link before it is dropped. */
 export const ECHO_WAIT_MS = 2000;
 
-// Drop input events that are pure ANSI escape sequences (arrow keys, function
-// keys, paste bracket markers, etc.). These get sent verbatim by xterm.js and
-// would otherwise pollute the line buffer.
+// Arrow keys, function keys, paste bracket markers: not line content.
 function isEscapeSequence(data: string): boolean {
   return data.charCodeAt(0) === 0x1b;
 }
 
-export const historyEnabled = () => getToggle("command-history");
+const historyEnabled = () => getToggle("command-history");
 
-/** Where the line being typed in each session would be echoed, if anywhere yet. */
 const anchors = new Map<string, EchoAnchor>();
 /** Sessions with an entered line still waiting for its echo: what is typed meanwhile has no prompt to land after. */
 const awaiting = new Map<string, () => void>();
+
+interface ShellPrompt {
+  anchor: PromptAnchor | null;
+  touched: boolean;
+  /** The echo-checked typed line, used when the screen cannot be read at C. */
+  typed: string | null;
+  phase: "typing" | "waiting" | "done";
+}
+
+/** Each session's prompt since its last A mark. */
+const prompts = new Map<string, ShellPrompt>();
+/** Sessions whose shell sends C: their commands are read at C, not at Enter. */
+const sendsC = new Set<string>();
 
 function dropAnchor(sessionId: string): void {
   anchors.get(sessionId)?.dispose();
   anchors.delete(sessionId);
 }
 
-/** The terminal shows the line as typed. Trailing text set apart by a gap (a right prompt) is allowed. */
+function dropPrompt(sessionId: string): void {
+  prompts.get(sessionId)?.anchor?.dispose();
+  prompts.delete(sessionId);
+}
+
+/** Trailing text set apart by a gap (a right prompt) is allowed. */
 function echoes(shown: string, command: string): boolean {
   const line = shown.trim();
   return line === command || line.startsWith(`${command}  `);
 }
 
-// `sudo -S` with pwfeedback, and many TUIs, echo one mask character per key: matching
-// "****" against "****" would store a password that is itself only mask characters.
+// pwfeedback and many TUIs echo one mask character per key.
 const MASK_ONLY = /^[*•●·]+$/u;
 
-/**
- * Keep `command` once the terminal echoes it at `anchor`. Settles on the first
- * output that shows it, and drops it when the cursor leaves the line without it,
- * the line disappears, or the wait runs out: a lost command is acceptable, a
- * stored password is not.
- */
-function awaitEcho(
-  sessionId: string,
-  command: string,
-  anchor: EchoAnchor | undefined,
-  echo: EchoProbe,
-  keep: () => void,
-): void {
+/** Settles on the first output that shows `command` at `anchor`; a lost command is acceptable, a stored password is not. */
+function awaitEcho(sessionId: string, command: string, anchor: EchoAnchor | undefined, echo: EchoProbe, keep: () => void): void {
   if (!anchor) return;
-  if (MASK_ONLY.test(command)) return anchor.dispose();
   let unsubscribe: (() => void) | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const finish = () => {
@@ -114,7 +108,7 @@ function awaitEcho(
     const shown = anchor.text();
     if (shown !== null && echoes(shown, command)) {
       finish();
-      if (historyEnabled()) keep();
+      keep();
       return true;
     }
     if (shown === null || anchor.left()) {
@@ -132,100 +126,156 @@ function awaitEcho(
 
 export const useCommandHistoryStore = create<CommandHistoryStore>()(
   persist(
-    (set, get) => ({
-      entries: [],
-      buffers: {},
-
-      addInput: (sessionId, sessionName, connectionId, data, echo) => {
-        if (isEscapeSequence(data)) return;
-        if (!historyEnabled()) {
-          dropAnchor(sessionId);
-          if (get().buffers[sessionId]) set((s) => ({ buffers: { ...s.buffers, [sessionId]: "" } }));
-          return;
-        }
-
-        const keep = (command: string) => () => {
-          const entry: CommandHistoryEntry = {
-            id: crypto.randomUUID(),
-            command,
-            timestamp: Date.now(),
-            sessionId,
-            sessionName,
-            connectionId,
-            ...(isTeamConnection(connectionId) ? { team: true as const } : {}),
-          };
-          set((s) => ({ entries: dedupeTail([...s.entries, entry]).slice(-MAX_HISTORY) }));
+    (set, get) => {
+      // A leading space keeps a line out of history, as with HISTCONTROL=ignorespace.
+      const record = (sessionId: string, sessionName: string, connectionId: string, line: string) => {
+        if (!historyEnabled() || /^\s/.test(line)) return;
+        const command = line.trim();
+        if (!command || MASK_ONLY.test(command)) return;
+        const entry: CommandHistoryEntry = {
+          id: crypto.randomUUID(),
+          command,
+          timestamp: Date.now(),
+          sessionId,
+          sessionName,
+          connectionId,
+          ...(isTeamConnection(connectionId) ? { team: true as const } : {}),
         };
+        set((s) => ({ entries: dedupeTail([...s.entries, entry]).slice(-MAX_HISTORY) }));
+      };
 
-        let buf = get().buffers[sessionId] ?? "";
-        // A line typed after an Enter in this same input has no prompt of its own on screen yet.
-        let enteredHere = false;
+      return {
+        entries: [],
+        buffers: {},
 
-        for (const ch of data) {
-          const code = ch.charCodeAt(0);
-
-          if (ch === "\r" || ch === "\n") {
-            const cmd = buf.trim();
-            const anchor = anchors.get(sessionId);
-            anchors.delete(sessionId);
-            if (cmd.length > 0) awaitEcho(sessionId, cmd, anchor, echo, keep(cmd));
-            else anchor?.dispose();
-            buf = "";
-            enteredHere = true;
-          } else if (ch === "\x7f" || ch === "\b") {
-            buf = buf.slice(0, -1);
-          } else if (code === 0x03) {
-            // Ctrl+C — abandon the line; the shell draws a fresh prompt on a new row
-            buf = "";
+        addInput: (sessionId, sessionName, connectionId, data, echo) => {
+          if (!historyEnabled()) {
             dropAnchor(sessionId);
-          } else if (code === 0x15) {
-            // Ctrl+U — abandon the line; the shell erases back to the same prompt
-            buf = "";
-          } else if (code >= 0x20 && code !== 0x7f) {
-            if (buf === "" && !anchors.has(sessionId) && !enteredHere && !awaiting.has(sessionId)) {
-              const anchor = echo.anchor();
-              if (anchor) anchors.set(sessionId, anchor);
-            }
-            buf += ch;
+            if (get().buffers[sessionId]) set((s) => ({ buffers: { ...s.buffers, [sessionId]: "" } }));
+            return;
           }
-          // Tabs, other control chars: skip (won't match what shell does with them anyway)
-        }
+          const prompt = prompts.get(sessionId);
+          // Ctrl+L redraws the prompt elsewhere: anchor on the next key instead.
+          if (prompt?.phase === "typing" && !prompt.touched && data !== "\x0c") {
+            prompt.touched = true;
+            prompt.anchor = echo.promptAnchor(get().buffers[sessionId] ?? "");
+          }
+          if (isEscapeSequence(data)) return;
 
-        set((s) => ({ buffers: { ...s.buffers, [sessionId]: buf } }));
-      },
+          // At a marked prompt the C mark has the final say; until a C is seen the echo check settles it.
+          const keep = (line: string, shell: ShellPrompt | undefined) => () => {
+            if (shell?.phase === "typing" && sendsC.has(sessionId)) {
+              shell.typed = line;
+              return;
+            }
+            if (shell?.phase === "done") return;
+            if (shell) shell.phase = "done";
+            record(sessionId, sessionName, connectionId, line);
+          };
 
-      clear: () => set({ entries: [] }),
-      remove: (id) => set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
-    }),
+          let buf = get().buffers[sessionId] ?? "";
+          // A line typed after an Enter in this same input has no prompt of its own on screen yet.
+          let enteredHere = false;
+
+          for (const ch of data) {
+            const code = ch.charCodeAt(0);
+
+            if (ch === "\r" || ch === "\n") {
+              const anchor = anchors.get(sessionId);
+              anchors.delete(sessionId);
+              const shell = prompts.get(sessionId);
+              if (buf.trim()) awaitEcho(sessionId, buf.trim(), anchor, echo, keep(buf, shell?.phase === "typing" ? shell : undefined));
+              else anchor?.dispose();
+              buf = "";
+              enteredHere = true;
+            } else if (ch === "\x7f" || ch === "\b") {
+              buf = buf.slice(0, -1);
+            } else if (code === 0x03) {
+              // Ctrl+C: the shell draws a fresh prompt on a new row.
+              buf = "";
+              dropAnchor(sessionId);
+            } else if (code === 0x15) {
+              // Ctrl+U: the shell erases back to the same prompt.
+              buf = "";
+            } else if (code >= 0x20 && code !== 0x7f) {
+              if (buf === "" && !anchors.has(sessionId) && !enteredHere && !awaiting.has(sessionId)) {
+                const anchor = echo.anchor();
+                if (anchor) anchors.set(sessionId, anchor);
+              }
+              buf += ch;
+            }
+            // Tabs and other control keys change the line in ways the buffer cannot follow.
+          }
+
+          set((s) => ({ buffers: { ...s.buffers, [sessionId]: buf } }));
+        },
+
+        addShellMark: (sessionId, sessionName, connectionId, payload, echo) => {
+          const kind = payload.split(";", 1)[0];
+          const prompt = prompts.get(sessionId);
+          if (kind === "A") {
+            // Two prompts with no C between: this shell does not send C, so the echo check decides.
+            if (prompt?.phase === "typing" && prompt.typed !== null) {
+              sendsC.delete(sessionId);
+              record(sessionId, sessionName, connectionId, prompt.typed);
+            }
+            dropPrompt(sessionId);
+            if (historyEnabled()) prompts.set(sessionId, { anchor: null, touched: false, typed: null, phase: "typing" });
+          } else if (kind === "B") {
+            if (prompt?.phase !== "typing") return;
+            prompt.anchor?.dispose();
+            prompt.anchor = echo.promptAnchor("");
+            prompt.touched = true;
+          } else if (kind === "C") {
+            sendsC.add(sessionId);
+            if (prompt?.phase !== "typing") return;
+            const shown = prompt.anchor?.command() ?? null;
+            prompt.anchor?.dispose();
+            prompt.anchor = null;
+            const line = shown?.trim() ? shown : prompt.typed;
+            if (line === null) {
+              prompt.phase = "waiting";
+              return;
+            }
+            prompt.phase = "done";
+            record(sessionId, sessionName, connectionId, line);
+          }
+        },
+
+        clear: () => set({ entries: [] }),
+        remove: (id) => set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
+      };
+    },
     {
-      name: STORAGE_KEY,
+      name: "voltius-command-history",
       partialize: (s) => ({ entries: s.entries.filter((e) => !e.team) }),
     },
   ),
 );
 
-/**
- * With history turned off — by the user, a synced choice or a team policy —
- * nothing recorded may stay behind: not the live entries, not the half-typed
- * lines, and not the copies parked for this device's other accounts.
- */
-export function enforceHistoryToggle(): void {
-  if (historyEnabled()) return;
-  for (const finish of [...awaiting.values()]) finish();
-  for (const id of [...anchors.keys()]) dropAnchor(id);
-  const { entries, buffers } = useCommandHistoryStore.getState();
-  if (entries.length > 0 || Object.keys(buffers).length > 0) {
-    useCommandHistoryStore.setState({ entries: [], buffers: {} });
-  }
-  dropParkedKey(STORAGE_KEY);
+/** Drops a session's half-typed line and pending checks. */
+export function forgetSession(sessionId: string): void {
+  awaiting.get(sessionId)?.();
+  dropAnchor(sessionId);
+  dropPrompt(sessionId);
+  sendsC.delete(sessionId);
+  const buffers = { ...useCommandHistoryStore.getState().buffers };
+  delete buffers[sessionId];
+  useCommandHistoryStore.setState({ buffers });
 }
 
-enforceHistoryToggle();
-useToggleSettingsStore.subscribe(enforceHistoryToggle);
-usePolicyStore.subscribe(enforceHistoryToggle);
+// Turning history off stops recording, including lines still waiting to be kept; what was saved stays until cleared.
+function stopWhenOff(): void {
+  if (historyEnabled()) return;
+  const ids = new Set([...awaiting.keys(), ...anchors.keys(), ...prompts.keys()]);
+  for (const id of ids) forgetSession(id);
+  if (Object.keys(useCommandHistoryStore.getState().buffers).length > 0) useCommandHistoryStore.setState({ buffers: {} });
+}
 
-// Collapse immediately repeated commands (same text back-to-back within the
-// same session) into a single entry — matches typical shell history behavior.
+useToggleSettingsStore.subscribe(stopWhenOff);
+usePolicyStore.subscribe(stopWhenOff);
+
+// Same text back-to-back in one session is one entry, as in shell history.
 function dedupeTail(entries: CommandHistoryEntry[]): CommandHistoryEntry[] {
   const out: CommandHistoryEntry[] = [];
   for (const e of entries) {

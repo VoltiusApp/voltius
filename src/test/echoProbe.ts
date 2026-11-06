@@ -1,13 +1,10 @@
 import type { EchoProbe } from "@/stores/commandHistoryStore";
 
-/**
- * A terminal that shows `line` after the prompt: the history's echo check for
- * tests that are about something else and need a typed line to be kept. The
- * echo check itself is exercised against a real xterm in commandHistoryStore.test.ts.
- */
+/** A terminal that echoes `line` after the prompt, for tests that need a typed line kept. */
 export function echoedAs(line: string): EchoProbe {
   return {
     anchor: () => ({ text: () => line, left: () => false, dispose() {} }),
+    promptAnchor: () => null,
     onOutput: () => () => {},
   };
 }
