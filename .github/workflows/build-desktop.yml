@@ -54,11 +54,6 @@ jobs:
     needs: matrix
     strategy:
       fail-fast: false
-      # Builds run concurrently. The shared-file race that forced serialization
-      # is gone: each job turns the updater JSON off (below), so no job touches
-      # latest.json. Per-platform installers + .sig files have unique names and
-      # never collide. The updater-manifest job assembles latest.json once, after
-      # all builds — single writer, no race.
       matrix:
         include: ${{ fromJSON(needs.matrix.outputs.include) }}
 
@@ -138,8 +133,7 @@ jobs:
           # the debug profile where the assertion would otherwise be disabled.
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
         with:
-          # An id, not a tag: the action then uploads to exactly this release and
-          # never looks one up or creates one. See the create-release job.
+          # An id, not a tag: the action never looks up or creates a release.
           releaseId: ${{ inputs.release-id }}
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json${{ inputs.release-id == '' && ' --config src-tauri/tauri.dryrun.conf.json' || '' }}
           uploadPlainBinary: true
@@ -169,6 +163,7 @@ jobs:
         run: bash scripts/check-macos-signature.sh --notarized "${{ steps.bundle.outputs.dir }}/macos/Voltius.app"
 
       - name: Check every package contains voltius-cli
+        if: inputs.release-id == ''
         shell: bash
         run: bash scripts/check-cli-in-bundle.sh "${{ matrix.target }}" "${{ steps.bundle.outputs.dir }}"
 
