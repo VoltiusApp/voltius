@@ -1,0 +1,187 @@
+name: build-desktop
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to build'
+        required: true
+        type: string
+      release-id:
+        description: 'Draft release id to upload into; empty builds without publishing'
+        required: false
+        type: string
+        default: ''
+      signed:
+        description: 'Sign like a release; false skips all signing so the build needs no secrets'
+        required: false
+        type: boolean
+        default: true
+      targets:
+        description: 'JSON array of target triples to build; empty builds all six'
+        required: false
+        type: string
+        default: ''
+      upload-artifacts:
+        description: 'Upload the installers as desktop-<target> workflow artifacts'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.filter.outputs.include }}
+    steps:
+      - name: Select the build targets
+        id: filter
+        env:
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          all='[
+            {"platform":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","args":""},
+            {"platform":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","args":""},
+            {"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""},
+            {"platform":"windows-latest","target":"aarch64-pc-windows-msvc","args":"--target aarch64-pc-windows-msvc"},
+            {"platform":"macos-latest","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},
+            {"platform":"macos-latest","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"}
+          ]'
+          include=$(jq -c --argjson want "${TARGETS:-null}" \
+            'if $want == null then . else map(select(.target as $t | $want | index($t))) end' <<< "$all")
+          if [ "$(jq length <<< "$include")" -eq 0 ]; then
+            echo "::error::No build target matches '$TARGETS'"
+            exit 1
+          fi
+          echo "include=$include" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        shell: bash
+        run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          workspaces: '. -> target'
+
+      - name: Install dependencies (Ubuntu native)
+        if: matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsecret-1-dev xdg-utils rpm
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Install sccache
+        uses: mozilla/sccache-action@v0.0.11
+
+      # Developer ID certificate + App Store Connect API key: the bundler signs,
+      # notarizes and staples the .app, so a downloaded copy opens with no warning.
+      - name: Import the macOS signing certificate
+        if: matrix.platform == 'macos-latest' && inputs.signed
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: bash scripts/import-macos-signing-cert.sh
+
+      - name: Build the voltius-cli sidecar
+        shell: bash
+        run: bash scripts/stage-cli-sidecar.sh ${{ matrix.target }}
+
+      - name: Build and Release Tauri App
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.signed && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.signed && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # Notarization; APPLE_API_KEY_PATH comes from the import step (macOS only).
+          APPLE_API_ISSUER: ${{ inputs.signed && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_API_KEY: ${{ inputs.signed && secrets.APPLE_API_KEY || '' }}
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+          # Fail the build rather than ship a binary with missing built-in plugins.
+          # PROFILE=release already forces this; set explicitly so the guard survives
+          # a switch to `tauri build --debug`, which bundles a real installer under
+          # the debug profile where the assertion would otherwise be disabled.
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
+        with:
+          # An id, not a tag: the action never looks up or creates a release.
+          releaseId: ${{ inputs.release-id }}
+          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json${{ !inputs.signed && ' --config src-tauri/tauri.dryrun.conf.json' || '' }}
+          uploadPlainBinary: true
+          updaterJsonPreferNsis: true
+          # Don't write latest.json here — concurrent jobs would race on the
+          # shared file. The .sig files still upload as bundle artifacts; the
+          # updater-manifest job builds latest.json from them once all builds
+          # finish. The input is named `includeUpdaterJson` in tauri-action v0
+          # and `uploadUpdaterJson` in v1 — it must match the pinned major above,
+          # or the action ignores it and defaults back to writing the file.
+          uploadUpdaterJson: false
+
+      - name: Locate the bundle directory
+        id: bundle
+        shell: bash
+        env:
+          BUILD_ARGS: ${{ matrix.args }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$BUILD_ARGS" in
+            *--target*) echo "dir=target/$TARGET/release/bundle" >> "$GITHUB_OUTPUT" ;;
+            *) echo "dir=target/release/bundle" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Check the macOS app is signed and notarized
+        if: matrix.platform == 'macos-latest' && inputs.signed
+        run: bash scripts/check-macos-signature.sh --notarized "${{ steps.bundle.outputs.dir }}/macos/Voltius.app"
+
+      - name: Check every package contains voltius-cli
+        if: inputs.release-id == ''
+        shell: bash
+        run: bash scripts/check-cli-in-bundle.sh "${{ matrix.target }}" "${{ steps.bundle.outputs.dir }}"
+
+      - name: Upload the installers
+        if: inputs.upload-artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            ${{ steps.bundle.outputs.dir }}/nsis/*.exe
+            ${{ steps.bundle.outputs.dir }}/msi/*.msi
+            ${{ steps.bundle.outputs.dir }}/deb/*.deb
+            ${{ steps.bundle.outputs.dir }}/rpm/*.rpm
+            ${{ steps.bundle.outputs.dir }}/appimage/*.AppImage
+            ${{ steps.bundle.outputs.dir }}/dmg/*.dmg

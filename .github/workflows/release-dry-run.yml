@@ -1,0 +1,22 @@
+name: release-dry-run
+
+on:
+  push:
+    branches: [ci/windows-policy-verify]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build'
+        required: true
+        type: string
+        default: dev
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-desktop.yml
+    secrets: inherit
+    with:
+      ref: ${{ inputs.ref || github.sha }}

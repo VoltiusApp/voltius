@@ -3,11 +3,14 @@ use std::io;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::PathBuf;
 use std::ptr;
-use windows_sys::Win32::Foundation::LocalFree;
+use windows_sys::Win32::Foundation::{LocalFree, ERROR_SUCCESS, HANDLE};
 use windows_sys::Win32::Security::Authorization::{
-    ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+    ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo,
+    SDDL_REVISION_1, SE_OBJECT_TYPE,
 };
-use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES};
+use windows_sys::Win32::Security::{
+    ACL, OBJECT_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
+};
 use windows_sys::Win32::System::Com::CoTaskMemFree;
 use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath};
 
@@ -97,6 +100,128 @@ pub fn create_new_with(
     Ok(unsafe { std::fs::File::from_raw_handle(handle) })
 }
 
+/// The returned SID and ACL point into the descriptor, which must outlive them.
+pub fn security_info(
+    handle: HANDLE,
+    kind: SE_OBJECT_TYPE,
+    info: OBJECT_SECURITY_INFORMATION,
+) -> io::Result<(PSID, *mut ACL, SecurityDescriptor)> {
+    let mut owner: PSID = ptr::null_mut();
+    let mut dacl: *mut ACL = ptr::null_mut();
+    let mut sd = SecurityDescriptor::null();
+    let code = unsafe {
+        GetSecurityInfo(
+            handle,
+            kind,
+            info,
+            &mut owner,
+            ptr::null_mut(),
+            &mut dacl,
+            ptr::null_mut(),
+            sd.out(),
+        )
+    };
+    if code != ERROR_SUCCESS {
+        return Err(io::Error::from_raw_os_error(code as i32));
+    }
+    Ok((owner, dacl, sd))
+}
+
+/// `f` gets (type, flags, mask, lazy SID read); `None` from it aborts the walk with `None`.
+///
+/// # Safety
+/// `dacl` must be non-null and valid, and its descriptor must outlive the call.
+pub unsafe fn map_dacl<T>(
+    dacl: *mut ACL,
+    mut f: impl FnMut(u8, u8, u32, &dyn Fn() -> io::Result<String>) -> io::Result<Option<T>>,
+) -> io::Result<Option<Vec<T>>> {
+    use windows_sys::Win32::Security::{GetAce, ACCESS_ALLOWED_ACE};
+
+    let mut out = Vec::new();
+    for i in 0..unsafe { (*dacl).AceCount } {
+        let mut raw = ptr::null_mut();
+        if unsafe { GetAce(dacl, i.into(), &mut raw) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let ace = raw.cast::<ACCESS_ALLOWED_ACE>();
+        let header = unsafe { (*ace).Header };
+        let sid = || unsafe { sid_string(ptr::addr_of!((*ace).SidStart).cast_mut().cast()) };
+        match f(
+            header.AceType,
+            header.AceFlags,
+            unsafe { (*ace).Mask },
+            &sid,
+        )? {
+            Some(item) => out.push(item),
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(out))
+}
+
+#[cfg(test)]
+#[derive(PartialEq, Debug)]
+pub struct RawAce {
+    pub ace_type: u8,
+    pub flags: u8,
+    pub mask: u32,
+    pub sid: String,
+}
+
+#[cfg(test)]
+#[derive(PartialEq, Debug)]
+pub struct SecurityInfo {
+    pub owner: String,
+    pub protected: bool,
+    pub aces: Vec<RawAce>,
+}
+
+#[cfg(test)]
+pub fn security_of(handle: HANDLE, kind: SE_OBJECT_TYPE) -> io::Result<SecurityInfo> {
+    use windows_sys::Win32::Security::{
+        GetSecurityDescriptorControl, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
+        SE_DACL_PROTECTED,
+    };
+
+    let info = OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+    let (owner, dacl, sd) = security_info(handle, kind, info)?;
+    let no_dacl = || {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "descriptor has no owner or DACL",
+        )
+    };
+    if owner.is_null() || dacl.is_null() {
+        return Err(no_dacl());
+    }
+    let (mut control, mut revision) = (0u16, 0u32);
+    if unsafe { GetSecurityDescriptorControl(sd.as_ptr(), &mut control, &mut revision) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let aces = unsafe {
+        map_dacl(dacl, |ace_type, flags, mask, sid| {
+            if !matches!(ace_type, 0 | 1 | 9 | 10) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("ACE type {ace_type} has no plain SID at the expected offset"),
+                ));
+            }
+            Ok(Some(RawAce {
+                ace_type,
+                flags,
+                mask,
+                sid: sid()?,
+            }))
+        })
+    }?
+    .unwrap_or_default();
+    Ok(SecurityInfo {
+        owner: unsafe { sid_string(owner) }?,
+        protected: control & SE_DACL_PROTECTED != 0,
+        aces,
+    })
+}
+
 /// # Safety
 /// `sid` must point to a valid SID.
 pub unsafe fn sid_string(sid: PSID) -> io::Result<String> {
@@ -146,5 +271,33 @@ pub fn program_data() -> Option<PathBuf> {
         let path = (hr >= 0 && !raw.is_null()).then(|| PathBuf::from(from_wide_ptr(raw)));
         CoTaskMemFree(raw.cast());
         path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::program_data;
+
+    struct EnvRestore(Option<std::ffi::OsString>);
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            match self.0.take() {
+                Some(v) => std::env::set_var("ProgramData", v),
+                None => std::env::remove_var("ProgramData"),
+            }
+        }
+    }
+
+    #[test]
+    fn program_data_ignores_the_environment() {
+        let _restore = EnvRestore(std::env::var_os("ProgramData"));
+        std::env::set_var("ProgramData", r"Z:\not-program-data");
+        let path = program_data().expect("known folder resolves");
+        assert!(
+            path.to_string_lossy()
+                .eq_ignore_ascii_case(r"C:\ProgramData"),
+            "{path:?}"
+        );
     }
 }
