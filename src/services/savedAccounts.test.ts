@@ -1,5 +1,5 @@
-import { test, expect, vi, beforeEach, afterEach, describe } from "vitest";
-import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { test, expect, vi, beforeEach, describe } from "vitest";
+import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -54,7 +54,6 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
 }));
 
 import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, forgetSavedPlainPasswords, type SavedAccount } from "./savedAccounts";
-import { useSecurityStore } from "@/stores/securityStore";
 import { AccountAlreadyActiveError, AccountNotSavedError } from "./accountErrors";
 import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
@@ -705,8 +704,9 @@ test("a bound account's entry stores no empty secret field and fits under the Wi
 });
 
 describe("with Remember master password off, the switcher keeps no plain copy", () => {
-  beforeEach(() => useSecurityStore.setState({ rememberMasterPassword: false }));
-  afterEach(() => useSecurityStore.setState({ rememberMasterPassword: true }));
+  beforeEach(() => {
+    h.store[FORGET] = "1";
+  });
 
   test("the current account is saved without one, so switching back asks for it", async () => {
     const { master_password: _pw, ...withoutPassword } = CLOUD_A;

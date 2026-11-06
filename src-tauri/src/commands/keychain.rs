@@ -24,8 +24,8 @@ pub(crate) fn read(key: &str) -> keyring_core::Result<Option<String>> {
 }
 
 pub(crate) fn guard(key: &str) -> Result<(), String> {
-    use crate::commands::vault_secret::{PLAIN, SEALED};
-    if key == PLAIN || key == SEALED {
+    use crate::commands::vault_secret::{FORGET, PLAIN, SEALED};
+    if key == PLAIN || key == SEALED || key == FORGET {
         return Err(format!("{key} is only reachable through vault_secret_*"));
     }
     Ok(())

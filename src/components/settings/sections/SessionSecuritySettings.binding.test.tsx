@@ -16,6 +16,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => true }));
+vi.mock("@/services/vaultSecret", () => ({ keepsPlainPassword: async () => true }));
 vi.mock("@/services/vaultBinding", () => ({
   bindingStatus: vi.fn(async () => h.status),
   enableBinding: h.enable,

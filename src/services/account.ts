@@ -12,8 +12,8 @@ import { sameKey } from "./vaultKeyCandidates";
 import { appFetch, isAbortError } from "@/services/http";
 import { VaultUnreadableError } from "./vaultErrors";
 import {
-  clearSecret, keepsPlainPassword, readPlainSecret, readSecret, rememberDeviceKey, rememberPassword, replacePassword,
-  secretState, storeDeviceKey, storePassword,
+  clearSecret, keepsPlainPassword, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storeDeviceKey,
+  storePassword,
 } from "./vaultSecret";
 import { serverAllowed } from "@/services/policy/serverPolicy";
 import { ServerBlockedError } from "@/services/accountErrors";
@@ -435,11 +435,10 @@ export async function login(password: string, email?: string, serverUrl?: string
     encKey = opened ?? kek;
   }
 
-  // A no-password account's "password" is its key, kept whatever the user chose about master passwords.
   const deviceKey = mode === "local-nopassword" || (!mode && isHexEncoded32ByteKey(password));
   const openLocally = async () => {
     setVaultKey(encKey);
-    await (deviceKey ? rememberDeviceKey(password) : rememberPassword(password));
+    await (deviceKey ? storeDeviceKey(password) : rememberPassword(password));
     await keychainSet("account_id", accountId);
     if (!mode) {
       // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss).
@@ -747,14 +746,13 @@ export async function setMasterPassword(password: string): Promise<void> {
   await withPendingVaultKey(groupKey ?? enc_key, async () => {
     if (groupKey) (await wrapVaultKey(enc_key, groupKey))();
     else await invoke("secrets_reencrypt", { newEncKey: enc_key });
-    if (keepsPlainPassword()) {
+    // Crash-safe order: a stored password opens through the pending key; with none, a password mode asks for it.
+    if (await keepsPlainPassword()) {
       await storePassword(password);
       await keychainSet("mode", "local");
     } else {
-      // Mode first: a crash between the writes then leaves the old key under a password
-      // mode, which declines it and asks for the password that now opens the vault.
       await keychainSet("mode", "local");
-      await clearSecret();
+      await storePassword(password);
     }
   });
 
@@ -875,11 +873,7 @@ export async function authenticateServerAccount(
     saved(accountId, data, data.wrapped_user_secrets ?? null));
 }
 
-/**
- * Link an existing local account to a cloud server — registers and enables sync.
- * `typedPassword` is for a device that does not remember the master password; it
- * must be the current one, since the server account is derived from it.
- */
+/** Link an existing local account to a cloud server — registers and enables sync. */
 export async function linkToCloud(
   email: string,
   serverUrl: string,

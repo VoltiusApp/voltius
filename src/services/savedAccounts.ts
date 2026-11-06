@@ -209,19 +209,17 @@ export async function saveCurrentAccount(pendingSecret?: string): Promise<boolea
     SESSION_KEYS.map((key, i) => [key, values[i]]),
   ) as Record<SessionKey, string | null>;
 
-  const keepsPlain = keepsPlainPassword();
-  const exported = await exportSecret();
-  const stored = exported?.kind === "plain" && !keepsPlain ? null : exported;
-  const secret = stored ?? (pendingSecret && keepsPlain ? { kind: "plain" as const, value: pendingSecret } : null);
+  const secret = (await exportSecret()) ?? (pendingSecret ? { kind: "plain" as const, value: pendingSecret } : null);
   const { account_id, mode } = session;
-  // Without a remembered password the entry is still worth saving: switching back then asks for it.
-  if (!account_id || !mode || (!secret && keepsPlain)) return false;
+  // Without a remembered password the entry still saves: switching back asks for it.
+  if (!account_id || !mode || (!secret && (await keepsPlainPassword()))) return false;
 
   const entry: SavedAccount = {
     ...session,
     account_id,
     mode,
-    ...(!secret ? {} : secret.kind === "plain" ? { master_password: secret.value } : { master_password_sealed: secret.value }),
+    ...(secret?.kind === "plain" && { master_password: secret.value }),
+    ...(secret?.kind === "sealed" && { master_password_sealed: secret.value }),
   };
   if (!isSwitchable(entry)) return false;
 
@@ -245,8 +243,7 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
   // The secret is held in one form at a time; the other form from an older snapshot must not outlive it.
   if (entry.master_password) delete merged.master_password_sealed;
   if (entry.master_password_sealed) delete merged.master_password;
-  // Each entry is a keychain item of its own, so the switcher must not keep the copy the session may not.
-  if (!keepsPlainPassword()) delete merged.master_password;
+  if (!(await keepsPlainPassword())) delete merged.master_password;
   await keychainSet(entryKey(entry.account_id), JSON.stringify(merged));
   if (existing) return;
   await keychainSet(

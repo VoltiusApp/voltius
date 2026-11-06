@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -15,19 +15,17 @@ vi.mock("@/services/account", () => ({
 vi.mock("@/services/savedAccounts", () => ({ forgetSavedPlainPasswords: h.forgetSaved }));
 
 import { startRememberingMasterPassword, stopRememberingMasterPassword } from "./masterPasswordMemory";
-import { useSecurityStore } from "@/stores/securityStore";
 
 beforeEach(() => {
   vi.clearAllMocks();
   h.store = {};
-  useSecurityStore.setState({ rememberMasterPassword: true });
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => routeVaultSecret(h.store, cmd, args).value);
 });
 
 test("turning it off deletes this account's plain copy and the switcher's", async () => {
   h.store = { mode: "server", master_password: "pw" };
   await stopRememberingMasterPassword();
-  expect(useSecurityStore.getState().rememberMasterPassword).toBe(false);
+  expect(h.store[FORGET]).toBe("1");
   expect(h.store.master_password).toBeUndefined();
   expect(h.forgetSaved).toHaveBeenCalledTimes(1);
 });
@@ -45,12 +43,11 @@ test("turning it off never touches a no-password account's key", async () => {
 });
 
 test("turning it on stores the password only once it is proven current", async () => {
-  useSecurityStore.setState({ rememberMasterPassword: false });
-  h.store = { mode: "local" };
+  h.store = { mode: "local", [FORGET]: "1" };
   expect(await startRememberingMasterPassword("nope")).toBe(false);
-  expect(useSecurityStore.getState().rememberMasterPassword).toBe(false);
+  expect(h.store[FORGET]).toBe("1");
   expect(h.store.master_password).toBeUndefined();
   expect(await startRememberingMasterPassword("pw")).toBe(true);
-  expect(useSecurityStore.getState().rememberMasterPassword).toBe(true);
+  expect(h.store[FORGET]).toBeUndefined();
   expect(h.store.master_password).toBe("pw");
 });

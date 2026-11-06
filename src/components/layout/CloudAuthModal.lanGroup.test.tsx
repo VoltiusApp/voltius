@@ -7,6 +7,7 @@ const h = vi.hoisted(() => {
   return {
     order,
     mode: "local",
+    secret: "plain",
     step: (name: string) => vi.fn(async (..._args: unknown[]) => { order.push(name); }),
   };
 });
@@ -26,6 +27,7 @@ vi.mock("@/services/account", () => ({
   signInToCloud: h.step("signInToCloud"),
 }));
 vi.mock("@/services/savedAccounts", () => ({ addAccount: vi.fn() }));
+vi.mock("@/services/vaultSecret", () => ({ secretState: async () => h.secret }));
 vi.mock("@/services/lanSync", () => ({ startSessionSync: vi.fn(), leaveLanGroup: h.step("leaveLanGroup") }));
 vi.mock("@/services/sync", () => ({
   syncNow: vi.fn(async () => {}),
@@ -43,6 +45,7 @@ beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
   h.order.length = 0;
+  h.secret = "plain";
 });
 
 const submit = () => userEvent.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
@@ -90,43 +93,34 @@ test("signing in to an existing account leaves the group only through the sign-i
   await hookOf("signInToCloud", 3);
 });
 
-test("a device that does not remember the master password asks for it to link, and passes it on", async () => {
-  const { useSecurityStore } = await import("@/stores/securityStore");
-  useSecurityStore.setState({ rememberMasterPassword: false });
-  try {
-    h.mode = "local";
-    useUIStore.getState().openCloudAuth("register");
-    render(<CloudAuthModal />);
-    type("layout.auth.emailPlaceholder", "a@x.io");
-    await submit();
-    expect(await screen.findByText("layout.cloudAuthModal.errorPasswordRequired")).toBeTruthy();
-    expect(h.order).toEqual([]);
-    type("layout.auth.masterPasswordPlaceholder", "pw");
-    await submit();
-    await waitFor(() => expect(h.order).toEqual(["linkToCloud"]));
-    const account = await import("@/services/account");
-    expect(vi.mocked(account.linkToCloud).mock.calls[0][3]).toBe("pw");
-  } finally {
-    useSecurityStore.setState({ rememberMasterPassword: true });
-  }
+test("a device holding no copy of the master password asks for it to link, and passes it on", async () => {
+  h.mode = "local";
+  h.secret = "none";
+  useUIStore.getState().openCloudAuth("register");
+  render(<CloudAuthModal />);
+  await screen.findByPlaceholderText("layout.auth.masterPasswordPlaceholder");
+  type("layout.auth.emailPlaceholder", "a@x.io");
+  await submit();
+  expect(await screen.findByText("layout.cloudAuthModal.errorPasswordRequired")).toBeTruthy();
+  expect(h.order).toEqual([]);
+  type("layout.auth.masterPasswordPlaceholder", "pw");
+  await submit();
+  await waitFor(() => expect(h.order).toEqual(["linkToCloud"]));
+  const account = await import("@/services/account");
+  expect(vi.mocked(account.linkToCloud).mock.calls[0][3]).toBe("pw");
 });
 
-test("a no-password device that does not remember passwords hands its new one to the link", async () => {
-  const { useSecurityStore } = await import("@/stores/securityStore");
-  useSecurityStore.setState({ rememberMasterPassword: false });
-  try {
-    h.mode = "local-nopassword";
-    useUIStore.getState().openCloudAuth("register");
-    render(<CloudAuthModal />);
-    type("layout.auth.emailPlaceholder", "a@x.io");
-    await screen.findByPlaceholderText("layout.cloudAuthModal.createMasterPasswordPlaceholder");
-    type("layout.cloudAuthModal.createMasterPasswordPlaceholder", "longpass");
-    type("layout.cloudAuthModal.confirmMasterPasswordPlaceholder", "longpass");
-    await submit();
-    await waitFor(() => expect(h.order).toEqual(["setMasterPassword", "linkToCloud"]));
-    const account = await import("@/services/account");
-    expect(vi.mocked(account.linkToCloud).mock.calls[0][3]).toBe("longpass");
-  } finally {
-    useSecurityStore.setState({ rememberMasterPassword: true });
-  }
+test("a no-password device hands its new password to the link", async () => {
+  h.mode = "local-nopassword";
+  h.secret = "none";
+  useUIStore.getState().openCloudAuth("register");
+  render(<CloudAuthModal />);
+  type("layout.auth.emailPlaceholder", "a@x.io");
+  await screen.findByPlaceholderText("layout.cloudAuthModal.createMasterPasswordPlaceholder");
+  type("layout.cloudAuthModal.createMasterPasswordPlaceholder", "longpass");
+  type("layout.cloudAuthModal.confirmMasterPasswordPlaceholder", "longpass");
+  await submit();
+  await waitFor(() => expect(h.order).toEqual(["setMasterPassword", "linkToCloud"]));
+  const account = await import("@/services/account");
+  expect(vi.mocked(account.linkToCloud).mock.calls[0][3]).toBe("longpass");
 });

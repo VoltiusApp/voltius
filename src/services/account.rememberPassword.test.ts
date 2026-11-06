@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -55,7 +55,6 @@ import {
   setMasterPassword,
   signInToCloud,
 } from "./account";
-import { useSecurityStore } from "@/stores/securityStore";
 
 const S = "https://srv";
 const TOKENS = { jwt_token: "JWT", refresh_token: "RT" };
@@ -116,10 +115,6 @@ beforeEach(() => {
   routeHttp();
 });
 
-afterEach(() => {
-  useSecurityStore.setState({ rememberMasterPassword: true });
-});
-
 describe("Remember master password on (the default) keeps today's behaviour", () => {
   test("a new local account's password waits in the keychain", async () => {
     await createLocalAccount("pw");
@@ -129,7 +124,7 @@ describe("Remember master password on (the default) keeps today's behaviour", ()
 
 describe("Remember master password off: no plain copy on any path", () => {
   beforeEach(() => {
-    useSecurityStore.setState({ rememberMasterPassword: false });
+    h.store[FORGET] = "1";
   });
 
   test("creating a local account", async () => {
@@ -236,7 +231,7 @@ describe("Remember master password off: no plain copy on any path", () => {
 
 describe("the no-password (OS keychain) mode is not affected", () => {
   beforeEach(() => {
-    useSecurityStore.setState({ rememberMasterPassword: false });
+    h.store[FORGET] = "1";
   });
 
   test("its key is stored on creation and kept on unlock", async () => {

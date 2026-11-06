@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   rebind: vi.fn(async (_password: string, _reason: string) => undefined),
   login: vi.fn(async (_password: string) => undefined),
   onReady: vi.fn(),
+  keepsPlain: true,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -18,6 +19,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 vi.mock("./LogoBadge", () => ({ default: () => null }));
 vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => true }));
 vi.mock("@/services/vaultBinding", () => ({ unlockWithSystemAuth: h.unlock, rebindAfterPassword: h.rebind }));
+vi.mock("@/services/vaultSecret", () => ({ keepsPlainPassword: async () => h.keepsPlain }));
 vi.mock("@/services/account", () => ({
   login: h.login,
   createLocalAccountNoPassword: vi.fn(),
@@ -35,6 +37,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(document, "hasFocus").mockReturnValue(true);
   h.unlock.mockResolvedValue("ok");
+  h.keepsPlain = true;
 });
 afterEach(() => cleanup());
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
@@ -105,18 +108,12 @@ test("a plain password unlock does not bind", async () => {
 });
 
 test("without a remembered password, a password unlock offers the typed one for binding", async () => {
-  const { useSecurityStore } = await import("@/stores/securityStore");
-  useSecurityStore.setState({ rememberMasterPassword: false });
-  try {
-    render(<AuthPage isLocked onReady={h.onReady} />);
-    await flush();
-    fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: "pw" } });
-    fireEvent.click(screen.getByText("layout.auth.unlock"));
-    await flush();
-    await flush();
-    // rebindAfterPassword itself does nothing unless the device can seal and the user wants binding.
-    expect(h.rebind).toHaveBeenCalledWith("pw", "layout.appLock.sealReason");
-  } finally {
-    useSecurityStore.setState({ rememberMasterPassword: true });
-  }
+  h.keepsPlain = false;
+  render(<AuthPage isLocked onReady={h.onReady} />);
+  await flush();
+  fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: "pw" } });
+  fireEvent.click(screen.getByText("layout.auth.unlock"));
+  await flush();
+  await flush();
+  expect(h.rebind).toHaveBeenCalledWith("pw", "layout.appLock.sealReason");
 });

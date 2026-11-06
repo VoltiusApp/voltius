@@ -16,6 +16,7 @@ import {
   bindNow, bindingStatus, disableBinding, disableWithPassword, enableBinding, type BindingStatus,
 } from "@/services/vaultBinding";
 import { startRememberingMasterPassword, stopRememberingMasterPassword } from "@/services/masterPasswordMemory";
+import { keepsPlainPassword } from "@/services/vaultSecret";
 import { BindPasswordDialog } from "./BindPasswordDialog";
 
 export function SessionSecuritySettings({ mode }: { mode: string | null }) {
@@ -28,12 +29,14 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const setLockAction = useSecurityStore((s) => s.setLockAction);
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
   const setSystemAuthUnlock = useSecurityStore((s) => s.setSystemAuthUnlock);
-  const rememberPassword = useSecurityStore((s) => s.rememberMasterPassword);
   const [providerAvailable, setProviderAvailable] = useState(false);
 
   const [status, setStatus] = useState<BindingStatus | null>(null);
   const [dialog, setDialog] = useState<"enable" | "disable" | "remember" | null>(null);
   const [rememberError, setRememberError] = useState("");
+  const [rememberPassword, setRememberPassword] = useState<boolean | null>(null);
+  const refreshRemember = () => { void keepsPlainPassword().then(setRememberPassword); };
+  useEffect(refreshRemember, []);
 
   useEffect(() => { void systemAuthAvailable().then(setProviderAvailable); }, []);
   const refreshStatus = () => { void bindingStatus(mode).then(setStatus); };
@@ -44,6 +47,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
     if (on) return setDialog("remember");
     await stopRememberingMasterPassword().catch(() =>
       setRememberError(t("settings.account.sessionSecurity.rememberPassword.removeFailed")));
+    refreshRemember();
   };
 
   const reason = t("layout.appLock.sealReason");
@@ -64,8 +68,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
 
   const lockable = canLockApp(mode, systemAuthUnlock);
   const vaultLockable = canLockVault(mode);
-  // Unlocking the vault with system authentication reads the remembered copy, except where it is sealed instead.
-  const systemAuthNeedsRemembered = vaultLockable && !rememberPassword && status === "os-login";
+  const systemAuthNeedsRemembered = vaultLockable && rememberPassword === false && status === "os-login";
   const effectiveAction: LockAction = vaultLockable ? lockAction : "screen";
   const actionOptions = [
     ...(vaultLockable ? [{ value: "vault", label: t("settings.account.sessionSecurity.lockAction.vault") }] : []),
@@ -155,7 +158,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
         )}
       </div>
 
-      {vaultLockable && (
+      {vaultLockable && rememberPassword !== null && (
         <div data-setting-row className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.sessionSecurity.rememberPassword.toggle")}</p>
@@ -189,8 +192,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
                 <button
                   type="button"
                   className="ml-1 underline hover:text-(--t-text-primary)"
-                  // Binding seals the remembered copy; without one it needs the password typed.
-                  onClick={() => (rememberPassword ? void bindNow(reason).then(refreshStatus) : setDialog("enable"))}
+                  onClick={() => (rememberPassword === false ? setDialog("enable") : void bindNow(reason).then(refreshStatus))}
                 >
                   {t("settings.account.sessionSecurity.systemAuth.bindNow")}
                 </button>
@@ -230,6 +232,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             const ok = await startRememberingMasterPassword(password).catch(() => null);
             if (ok === null) return t("settings.account.sessionSecurity.rememberPassword.storeFailed");
             if (!ok) return t("layout.appLock.wrongPassword");
+            refreshRemember();
             setDialog(null);
             return null;
           }}

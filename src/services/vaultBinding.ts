@@ -116,8 +116,8 @@ export async function enableBinding(password: string, reason: string): Promise<"
 
 export async function disableBinding(reason: string): Promise<UnlockOutcome> {
   if ((await secretState().catch(() => "sealed")) !== "sealed") return "ok";
-  // Unsealing only yields the plain copy this device does not keep: no reason to prompt for it.
-  if (!keepsPlainPassword()) {
+  // Unsealing would only yield a plain copy this device refuses to keep, so skip the prompt.
+  if (!(await keepsPlainPassword())) {
     await clearSecret();
     return "ok";
   }

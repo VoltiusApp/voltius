@@ -15,7 +15,7 @@ import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFac
 import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
 import { accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
-import { useSecurityStore } from "@/stores/securityStore";
+import { secretState } from "@/services/vaultSecret";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
 
@@ -44,11 +44,12 @@ export default function CloudAuthModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const twoFactor = useTwoFactorChallenge();
-  const remembersPassword = useSecurityStore((s) => s.rememberMasterPassword);
+  const [hasStoredPassword, setHasStoredPassword] = useState(true);
 
   useEffect(() => {
     if (!open) return;
     getAccountMode().then(setAccountMode).catch(() => setAccountMode(null));
+    secretState().then((s) => setHasStoredPassword(s !== "none")).catch(() => setHasStoredPassword(false));
     if (isReauth) getCurrentUserEmail().then((current) => setEmail(current ?? "")).catch(() => {});
     setError("");
     twoFactor.cancel();
@@ -60,8 +61,8 @@ export default function CloudAuthModal() {
   const isLocalNoPassword = accountMode === "local-nopassword";
   // Adding creates an account from nothing, so it needs a password of its own.
   const needsNewPassword = isRegister && (isAdd || isLocalNoPassword);
-  // Linking derives the cloud account from the master password; a device that does not remember it has to be told.
-  const needsCurrentPassword = isRegister && !isAdd && !isLocalNoPassword && !remembersPassword;
+  // Linking derives the cloud account from the master password, so ask when this device holds no copy.
+  const needsCurrentPassword = isRegister && !isAdd && !isLocalNoPassword && !hasStoredPassword;
 
   const switchMode = (next: CloudAuthMode) => {
     setMode(next);
