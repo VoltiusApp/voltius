@@ -290,6 +290,15 @@
         "unknown": "Neznámý"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Pamatovat si hlavní heslo",
+          "desc": "Otevře trezor při spuštění bez ptaní. Dokud je volba zapnutá, heslo je uložené v systémové klíčence tohoto zařízení, kde ho v Linuxu a Windows mohou přečíst jiné programy spuštěné pod vaším účtem. Vypněte ji, chcete-li heslo zadávat při každém spuštění.",
+          "enableTitle": "Zapamatovat hlavní heslo",
+          "enableBody": "Zadejte hlavní heslo, aby se uložilo do systémové klíčenky tohoto zařízení.",
+          "systemAuthNeedsIt": "Vyžaduje volbu „Pamatovat si hlavní heslo“ na tomto zařízení. Bez ní se Voltius ptá na hlavní heslo při spuštění a po zamčení trezoru; systémovým ověřením se odemyká jen zamykací obrazovka.",
+          "removeFailed": "Uložené hlavní heslo se nepodařilo odebrat ze systémové klíčenky.",
+          "storeFailed": "Hlavní heslo se nepodařilo uložit do systémové klíčenky."
+        },
         "title": "Zabezpečení relace",
         "autoLockLabel": "Automaticky zamknout po nečinnosti",
         "autoLockDesc": "Zamkne Voltius po zvolené době nečinnosti nebo ihned při opuštění aplikace.",

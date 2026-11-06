@@ -117,6 +117,15 @@ test("the unlock page offers system auth when it was on at lock time", async () 
   expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: true });
 });
 
+test("without a remembered password the unlock page asks for it instead of offering system auth", async () => {
+  h.lock = "vault";
+  h.systemAuthUnlock = true;
+  h.secret = "none";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: false });
+});
+
 test("a screen lock that survived a restart is up before the shell shows", async () => {
   h.lock = "screen";
   const { useAppLockStore } = await import("@/stores/appLockStore");

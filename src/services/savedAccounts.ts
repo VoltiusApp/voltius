@@ -13,7 +13,7 @@ import { AccountAlreadyActiveError, AccountNotSavedError, ServerBlockedError } f
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
-import { clearSecret, exportSecret, importSecret } from "./vaultSecret";
+import { clearSecret, exportSecret, importSecret, keepsPlainPassword } from "./vaultSecret";
 
 /**
  * The keychain entries that make up an account session. A SavedAccount is a
@@ -209,15 +209,19 @@ export async function saveCurrentAccount(pendingSecret?: string): Promise<boolea
     SESSION_KEYS.map((key, i) => [key, values[i]]),
   ) as Record<SessionKey, string | null>;
 
-  const secret = (await exportSecret()) ?? (pendingSecret ? { kind: "plain" as const, value: pendingSecret } : null);
+  const keepsPlain = keepsPlainPassword();
+  const exported = await exportSecret();
+  const stored = exported?.kind === "plain" && !keepsPlain ? null : exported;
+  const secret = stored ?? (pendingSecret && keepsPlain ? { kind: "plain" as const, value: pendingSecret } : null);
   const { account_id, mode } = session;
-  if (!account_id || !mode || !secret) return false;
+  // Without a remembered password the entry is still worth saving: switching back then asks for it.
+  if (!account_id || !mode || (!secret && keepsPlain)) return false;
 
   const entry: SavedAccount = {
     ...session,
     account_id,
     mode,
-    ...(secret.kind === "plain" ? { master_password: secret.value } : { master_password_sealed: secret.value }),
+    ...(!secret ? {} : secret.kind === "plain" ? { master_password: secret.value } : { master_password_sealed: secret.value }),
   };
   if (!isSwitchable(entry)) return false;
 
@@ -241,6 +245,8 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
   // The secret is held in one form at a time; the other form from an older snapshot must not outlive it.
   if (entry.master_password) delete merged.master_password_sealed;
   if (entry.master_password_sealed) delete merged.master_password;
+  // Each entry is a keychain item of its own, so the switcher must not keep the copy the session may not.
+  if (!keepsPlainPassword()) delete merged.master_password;
   await keychainSet(entryKey(entry.account_id), JSON.stringify(merged));
   if (existing) return;
   await keychainSet(
@@ -268,14 +274,23 @@ async function stashUiStateForCurrentAccount(): Promise<string | null> {
   return account_id;
 }
 
-/** Other accounts' passwords stay readable in plain form unless dropped; switching to one then asks for it. */
-export async function forgetOtherPlainPasswords(): Promise<void> {
-  const [{ ok, accounts }, current] = await Promise.all([loadSavedAccounts(), keychainGet("account_id")]);
+async function forgetPlainPasswords(except: string | null): Promise<void> {
+  const { ok, accounts } = await loadSavedAccounts();
   if (!ok) return;
   for (const { master_password, ...rest } of accounts) {
-    if (rest.account_id === current || !master_password) continue;
+    if (rest.account_id === except || !master_password) continue;
     await keychainSet(entryKey(rest.account_id), JSON.stringify(rest));
   }
+}
+
+/** Other accounts' passwords stay readable in plain form unless dropped; switching to one then asks for it. */
+export async function forgetOtherPlainPasswords(): Promise<void> {
+  await forgetPlainPasswords(await keychainGet("account_id"));
+}
+
+/** Every saved account's plain password, for a device that stops remembering them. */
+export async function forgetSavedPlainPasswords(): Promise<void> {
+  await forgetPlainPasswords(null);
 }
 
 export async function removeSavedAccount(account_id: string): Promise<void> {

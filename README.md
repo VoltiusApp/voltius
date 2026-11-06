@@ -213,7 +213,7 @@ We offer three levels of security to fit your workflow:
 
 - **OS Keychain (No Account)**: Uses your system's native secure storage (macOS Keychain, Windows Credential Manager, or Secret Service via keytar/libsecret). No master password required. Devices on the same network can still be paired by comparing a 6-digit code, then sync directly.
 
-- **Master Password:** Encrypts your vault using a user-defined passphrase. Uses Argon2id for key derivation and XChaCha20-Poly1305 for data encryption.
+- **Master Password:** Encrypts your vault using a user-defined passphrase. Uses Argon2id for key derivation and XChaCha20-Poly1305 for data encryption. By default Voltius remembers the password in the OS keychain so the vault opens at launch without asking; on Linux and Windows, other programs running as you can read it there. Turn off **Remember master password** in Settings › Account to be asked at every launch.
 
 - **Voltius Account:** A free account pairs your devices automatically for local network sync and enables My Devices file transfer. Voltius Cloud (Pro) adds E2EE sync through the Voltius server, so your devices stay in sync even when they are never online together, plus an encrypted backup.
 

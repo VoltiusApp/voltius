@@ -89,3 +89,44 @@ test("signing in to an existing account leaves the group only through the sign-i
   await waitFor(() => expect(h.order).toEqual(["signInToCloud"]));
   await hookOf("signInToCloud", 3);
 });
+
+test("a device that does not remember the master password asks for it to link, and passes it on", async () => {
+  const { useSecurityStore } = await import("@/stores/securityStore");
+  useSecurityStore.setState({ rememberMasterPassword: false });
+  try {
+    h.mode = "local";
+    useUIStore.getState().openCloudAuth("register");
+    render(<CloudAuthModal />);
+    type("layout.auth.emailPlaceholder", "a@x.io");
+    await submit();
+    expect(await screen.findByText("layout.cloudAuthModal.errorPasswordRequired")).toBeTruthy();
+    expect(h.order).toEqual([]);
+    type("layout.auth.masterPasswordPlaceholder", "pw");
+    await submit();
+    await waitFor(() => expect(h.order).toEqual(["linkToCloud"]));
+    const account = await import("@/services/account");
+    expect(vi.mocked(account.linkToCloud).mock.calls[0][3]).toBe("pw");
+  } finally {
+    useSecurityStore.setState({ rememberMasterPassword: true });
+  }
+});
+
+test("a no-password device that does not remember passwords hands its new one to the link", async () => {
+  const { useSecurityStore } = await import("@/stores/securityStore");
+  useSecurityStore.setState({ rememberMasterPassword: false });
+  try {
+    h.mode = "local-nopassword";
+    useUIStore.getState().openCloudAuth("register");
+    render(<CloudAuthModal />);
+    type("layout.auth.emailPlaceholder", "a@x.io");
+    await screen.findByPlaceholderText("layout.cloudAuthModal.createMasterPasswordPlaceholder");
+    type("layout.cloudAuthModal.createMasterPasswordPlaceholder", "longpass");
+    type("layout.cloudAuthModal.confirmMasterPasswordPlaceholder", "longpass");
+    await submit();
+    await waitFor(() => expect(h.order).toEqual(["setMasterPassword", "linkToCloud"]));
+    const account = await import("@/services/account");
+    expect(vi.mocked(account.linkToCloud).mock.calls[0][3]).toBe("longpass");
+  } finally {
+    useSecurityStore.setState({ rememberMasterPassword: true });
+  }
+});

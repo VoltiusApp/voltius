@@ -103,3 +103,20 @@ test("a plain password unlock does not bind", async () => {
   expect(h.login).toHaveBeenCalledWith("pw");
   expect(h.rebind).not.toHaveBeenCalled();
 });
+
+test("without a remembered password, a password unlock offers the typed one for binding", async () => {
+  const { useSecurityStore } = await import("@/stores/securityStore");
+  useSecurityStore.setState({ rememberMasterPassword: false });
+  try {
+    render(<AuthPage isLocked onReady={h.onReady} />);
+    await flush();
+    fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: "pw" } });
+    fireEvent.click(screen.getByText("layout.auth.unlock"));
+    await flush();
+    await flush();
+    // rebindAfterPassword itself does nothing unless the device can seal and the user wants binding.
+    expect(h.rebind).toHaveBeenCalledWith("pw", "layout.appLock.sealReason");
+  } finally {
+    useSecurityStore.setState({ rememberMasterPassword: true });
+  }
+});

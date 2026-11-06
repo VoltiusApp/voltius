@@ -290,6 +290,15 @@
         "unknown": "Inconnu"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Mémoriser le mot de passe principal",
+          "desc": "Ouvre votre coffre au lancement sans le demander. Tant que l'option est activée, le mot de passe est enregistré dans le trousseau système de cet appareil, où, sous Linux et Windows, d'autres programmes exécutés sous votre compte peuvent le lire. Désactivez-la pour le saisir à chaque lancement.",
+          "enableTitle": "Mémoriser votre mot de passe principal",
+          "enableBody": "Saisissez votre mot de passe principal pour l'enregistrer dans le trousseau système de cet appareil.",
+          "systemAuthNeedsIt": "Nécessite « Mémoriser le mot de passe principal » sur cet appareil. Sinon, Voltius demande votre mot de passe principal au lancement et après le verrouillage du coffre ; seul l'écran de verrouillage s'ouvre avec l'authentification système.",
+          "removeFailed": "Impossible de retirer le mot de passe principal du trousseau système.",
+          "storeFailed": "Impossible d'enregistrer le mot de passe principal dans le trousseau système."
+        },
         "title": "Sécurité de session",
         "autoLockLabel": "Verrouillage automatique après inactivité",
         "autoLockDesc": "Verrouille Voltius après cette durée d'inactivité, ou dès que vous quittez l'application.",

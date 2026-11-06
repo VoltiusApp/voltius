@@ -17,6 +17,7 @@ import { addAccount } from "@/services/savedAccounts";
 import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
 import { ServerBlockedError, accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
+import { useSecurityStore } from "@/stores/securityStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
@@ -189,7 +190,10 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
       await wrap(() => login(password), async () => {
-        if (bindingLost) await rebindAfterPassword(password, t("layout.appLock.sealReason"));
+        // Without a remembered plain copy there is nothing to seal later, so a bindable device seals the typed one now.
+        if (bindingLost || !useSecurityStore.getState().rememberMasterPassword) {
+          await rebindAfterPassword(password, t("layout.appLock.sealReason"));
+        }
       });
     };
     return (

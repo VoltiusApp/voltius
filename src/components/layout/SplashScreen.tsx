@@ -87,8 +87,10 @@ export default function SplashScreen({ onReady }: Props) {
       setStep("vault", "running");
 
       if (((await getAppLock()) ?? (await lockOnLaunchIfIdle().catch(() => null))) === "vault") {
-        const sealed = (await secretState().catch(() => "none")) === "sealed";
-        setSystemAuth(sealed || (useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
+        const state = await secretState().catch(() => "none" as const);
+        // Without a stored copy (remembering is off) the OS prompt has nothing to hand back: ask for the password.
+        setSystemAuth(state === "sealed"
+          || (state === "plain" && useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
         try {
           showUnlockPhase(await unlockPhase(), t("layout.splash.vaultLocked"));
         } catch {

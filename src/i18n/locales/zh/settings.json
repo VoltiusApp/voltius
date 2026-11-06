@@ -160,6 +160,15 @@
         "unknown": "未知"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "记住主密码",
+          "desc": "启动时无需输入即可打开保险库。开启期间，密码保存在此设备的系统钥匙串中；在 Linux 和 Windows 上，以您的身份运行的其他程序可以读取它。关闭后每次启动都需要输入。",
+          "enableTitle": "记住主密码",
+          "enableBody": "输入主密码，将其保存到此设备的系统钥匙串中。",
+          "systemAuthNeedsIt": "需要在此设备上开启“记住主密码”。否则 Voltius 会在启动时和保险库锁定后要求输入主密码；只有锁屏可以通过系统身份验证解锁。",
+          "removeFailed": "无法从系统钥匙串中移除已保存的主密码。",
+          "storeFailed": "无法将主密码保存到系统钥匙串中。"
+        },
         "title": "会话安全",
         "autoLockLabel": "闲置后自动锁定",
         "autoLockDesc": "闲置达到此时长后锁定 Voltius，或在你离开应用时立即锁定。",

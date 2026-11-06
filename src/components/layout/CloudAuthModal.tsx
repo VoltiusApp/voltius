@@ -15,6 +15,7 @@ import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFac
 import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
 import { accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
+import { useSecurityStore } from "@/stores/securityStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
 
@@ -43,6 +44,7 @@ export default function CloudAuthModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const twoFactor = useTwoFactorChallenge();
+  const remembersPassword = useSecurityStore((s) => s.rememberMasterPassword);
 
   useEffect(() => {
     if (!open) return;
@@ -58,6 +60,8 @@ export default function CloudAuthModal() {
   const isLocalNoPassword = accountMode === "local-nopassword";
   // Adding creates an account from nothing, so it needs a password of its own.
   const needsNewPassword = isRegister && (isAdd || isLocalNoPassword);
+  // Linking derives the cloud account from the master password; a device that does not remember it has to be told.
+  const needsCurrentPassword = isRegister && !isAdd && !isLocalNoPassword && !remembersPassword;
 
   const switchMode = (next: CloudAuthMode) => {
     setMode(next);
@@ -72,7 +76,7 @@ export default function CloudAuthModal() {
     if (invalidEmail) { setError(invalidEmail); return; }
     const normalizedUrl = resolveServerUrl(serverUrl);
 
-    if (!isRegister && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
+    if ((!isRegister || needsCurrentPassword) && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
     if (needsNewPassword) {
       if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
       if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
@@ -103,7 +107,7 @@ export default function CloudAuthModal() {
         );
       } else if (isRegister) {
         if (isLocalNoPassword) await setMasterPassword(password);
-        await linkToCloud(email, normalizedUrl, leaveLanGroup);
+        await linkToCloud(email, normalizedUrl, leaveLanGroup, isLocalNoPassword || needsCurrentPassword ? password : undefined);
         await connected(syncOnLogin);
       } else {
         await twoFactor.run(
@@ -174,7 +178,7 @@ export default function CloudAuthModal() {
         <form onSubmit={submit} className="space-y-2">
           <AuthInput type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail}
             autoFocus={!isReauth} disabled={isReauth} />
-          {!isRegister && (
+          {(!isRegister || needsCurrentPassword) && (
             <AuthInput type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password} onChange={setPassword}
               autoFocus={isReauth} />
           )}

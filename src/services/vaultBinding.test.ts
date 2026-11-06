@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   verify: vi.fn(async () => "ok"),
   systemAuthAvailable: true,
   systemAuthUnlock: true,
+  rememberMasterPassword: true,
   forgetOthers: vi.fn(async () => undefined),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -24,7 +25,7 @@ vi.mock("@/services/appLock", () => ({
 }));
 vi.mock("@/services/savedAccounts", () => ({ forgetOtherPlainPasswords: h.forgetOthers }));
 vi.mock("@/stores/securityStore", () => ({
-  useSecurityStore: { getState: () => ({ systemAuthUnlock: h.systemAuthUnlock }) },
+  useSecurityStore: { getState: () => ({ systemAuthUnlock: h.systemAuthUnlock, rememberMasterPassword: h.rememberMasterPassword }) },
 }));
 
 import {
@@ -38,6 +39,7 @@ beforeEach(() => {
   h.bindResult = "ok";
   h.openResult = "ok";
   h.systemAuthUnlock = true;
+  h.rememberMasterPassword = true;
   h.systemAuthAvailable = true;
   h.verify.mockReset();
   h.verify.mockResolvedValue("ok");
@@ -227,4 +229,28 @@ test("a server-blocked open is reported, not folded into declined or failed", as
   expect(await unlockWithSystemAuth("r")).toBe("server-blocked");
   h.store = { mode: "local", master_password_sealed: "S:pw" };
   expect(await unlockWithSystemAuth("r")).toBe("server-blocked");
+});
+
+test("with Remember master password off, disabling drops the sealed copy without an unseal prompt", async () => {
+  h.rememberMasterPassword = false;
+  h.store.master_password_sealed = "S:pw";
+  expect(await disableBinding("r")).toBe("ok");
+  expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_unbind", expect.anything());
+  expect(h.store.master_password_sealed).toBeUndefined();
+  expect(h.store.master_password).toBeUndefined();
+});
+
+test("with Remember master password off, unsealing to open the vault leaves no plain copy", async () => {
+  h.rememberMasterPassword = false;
+  h.systemAuthUnlock = false;
+  h.store.master_password_sealed = "S:pw";
+  expect(await unlockWithSystemAuth("r")).toBe("ok");
+  expect(h.store.master_password).toBeUndefined();
+});
+
+test("with Remember master password off, disabling with the password stores nothing", async () => {
+  h.rememberMasterPassword = false;
+  h.store.master_password_sealed = "S:pw";
+  expect(await disableWithPassword("pw")).toBe(true);
+  expect(h.store.master_password).toBeUndefined();
 });
