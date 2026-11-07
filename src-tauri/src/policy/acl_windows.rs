@@ -1,21 +1,19 @@
 use super::acl::{self, Ace, FolderAction, POLICY_DIR_SDDL};
 use super::{Blocked, Entry, Guard};
 use crate::win_security::{
-    create_new_with, current_user_sid, sid_string, wide, SecurityDescriptor,
+    create_new_with, current_user_sid, map_dacl, security_info, sid_string, wide,
+    SecurityDescriptor,
 };
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
-use std::ptr;
-use windows_sys::Win32::Foundation::{
-    ERROR_INVALID_OWNER, ERROR_PRIVILEGE_NOT_HELD, ERROR_SUCCESS, WIN32_ERROR,
-};
-use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
+use windows_sys::Win32::Foundation::{ERROR_INVALID_OWNER, ERROR_PRIVILEGE_NOT_HELD, WIN32_ERROR};
+use windows_sys::Win32::Security::Authorization::SE_FILE_OBJECT;
 use windows_sys::Win32::Security::{
-    GetAce, SetKernelObjectSecurity, ACCESS_ALLOWED_ACE, ACL, DACL_SECURITY_INFORMATION,
-    OBJECT_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSID,
+    SetKernelObjectSecurity, ACL, DACL_SECURITY_INFORMATION, OBJECT_SECURITY_INFORMATION,
+    OWNER_SECURITY_INFORMATION, PSID,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateDirectoryW, GetFileInformationByHandle, MoveFileExW, BY_HANDLE_FILE_INFORMATION,
@@ -173,30 +171,11 @@ fn apply(
     Ok(())
 }
 
-// The returned SID and ACL point into the descriptor, which must outlive them.
 fn security(
     f: &File,
     info: OBJECT_SECURITY_INFORMATION,
 ) -> io::Result<(PSID, *mut ACL, SecurityDescriptor)> {
-    let mut owner: PSID = ptr::null_mut();
-    let mut dacl: *mut ACL = ptr::null_mut();
-    let mut sd = SecurityDescriptor::null();
-    let code = unsafe {
-        GetSecurityInfo(
-            f.as_raw_handle(),
-            SE_FILE_OBJECT,
-            info,
-            &mut owner,
-            ptr::null_mut(),
-            &mut dacl,
-            ptr::null_mut(),
-            sd.out(),
-        )
-    };
-    if code != ERROR_SUCCESS {
-        return Err(io::Error::from_raw_os_error(code as i32));
-    }
-    Ok((owner, dacl, sd))
+    security_info(f.as_raw_handle(), SE_FILE_OBJECT, info)
 }
 
 fn owner_of(f: &File) -> io::Result<Option<String>> {
@@ -212,21 +191,131 @@ fn read_acl(f: &File) -> io::Result<Option<(String, Vec<Ace>)>> {
     if owner.is_null() || dacl.is_null() {
         return Ok(None);
     }
-    unsafe {
-        let mut aces = Vec::new();
-        for i in 0..(*dacl).AceCount {
-            let mut raw = ptr::null_mut();
-            if GetAce(dacl, i.into(), &mut raw) == 0 {
-                return Err(io::Error::last_os_error());
-            }
-            let ace = raw.cast::<ACCESS_ALLOWED_ACE>();
-            let header = (*ace).Header;
-            let sid = || sid_string(ptr::addr_of!((*ace).SidStart).cast_mut().cast());
-            match Ace::from_raw(header.AceType, header.AceFlags, (*ace).Mask, sid)? {
-                Some(entry) => aces.push(entry),
-                None => return Ok(None),
-            }
+    let aces = unsafe { map_dacl(dacl, |t, f, m, sid| Ace::from_raw(t, f, m, sid)) }?;
+    aces.map(|aces| Ok((unsafe { sid_string(owner) }?, aces)))
+        .transpose()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::win_security::{security_of, SecurityInfo};
+    use std::collections::BTreeSet;
+
+    const SYSTEM: &str = "S-1-5-18";
+    const ADMINS: &str = "S-1-5-32-544";
+    const USERS: &str = "S-1-5-32-545";
+    const INHERITED_ACE: u8 = 0x10;
+    const CONTENT: &str = "{\"version\":1}";
+
+    struct Scratch(tempfile::TempDir);
+
+    impl Scratch {
+        fn new(name: &str) -> Self {
+            Scratch(
+                tempfile::Builder::new()
+                    .prefix(&format!("voltius-acl-{name}-"))
+                    .tempdir()
+                    .unwrap(),
+            )
         }
-        Ok(Some((sid_string(owner)?, aces)))
+
+        fn policy_file(&self) -> PathBuf {
+            self.0.path().join("Voltius").join("policy.json")
+        }
+
+        fn dir(&self, name: &str) -> PathBuf {
+            let dir = self.0.path().join(name);
+            std::fs::create_dir(&dir).unwrap();
+            dir
+        }
+    }
+
+    fn junction(link: &Path, target: &Path) {
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap()
+            .status;
+        assert!(status.success(), "mklink /J failed");
+    }
+
+    fn security_at(path: &Path) -> SecurityInfo {
+        let f = open_entry(path, READ_CONTROL).unwrap();
+        security_of(f.as_raw_handle(), SE_FILE_OBJECT).unwrap()
+    }
+
+    fn assert_admin_only(path: &Path) {
+        let info = security_at(path);
+        assert!(
+            [ADMINS, SYSTEM].contains(&info.owner.as_str()),
+            "owner {}",
+            info.owner
+        );
+        assert!(info.protected, "DACL not protected: {info:?}");
+        assert!(info.aces.iter().all(|a| a.ace_type == 0), "{info:?}");
+        assert!(
+            info.aces.iter().all(|a| a.flags & INHERITED_ACE == 0),
+            "{info:?}"
+        );
+        let sids: BTreeSet<&str> = info.aces.iter().map(|a| a.sid.as_str()).collect();
+        assert_eq!(sids, BTreeSet::from([SYSTEM, ADMINS, USERS]), "{info:?}");
+    }
+
+    #[test]
+    fn hardened_folder_is_protected_and_admin_owned() {
+        let s = Scratch::new("harden");
+        let policy_file = s.policy_file();
+        assert!(matches!(harden_dir(&policy_file), Ok(None)));
+        let dir = policy_file.parent().unwrap();
+        assert_eq!(probe(dir).unwrap().guard, Guard::Protected);
+        assert_admin_only(dir);
+    }
+
+    #[test]
+    fn written_file_is_adopted_and_read_back() {
+        let s = Scratch::new("adopt");
+        let policy_file = s.policy_file();
+        assert!(matches!(harden_dir(&policy_file), Ok(None)));
+        write(&policy_file, CONTENT).unwrap();
+        assert!(adopt_written(&policy_file).is_ok());
+        let entry = probe(&policy_file).unwrap();
+        assert_eq!(entry.guard, Guard::Protected);
+        assert_eq!(entry.text.unwrap().unwrap(), CONTENT);
+        assert_admin_only(&policy_file);
+    }
+
+    #[test]
+    fn links_are_seen_on_the_entry_itself() {
+        let s = Scratch::new("links");
+        let target_dir = s.dir("target-dir");
+        let link = s.0.path().join("junction");
+        junction(&link, &target_dir);
+        assert_eq!(probe(&link).unwrap().guard, Guard::Link);
+
+        let plain = s.0.path().join("plain.txt");
+        std::fs::write(&plain, "x").unwrap();
+        let symlink = s.0.path().join("symlink.txt");
+        std::os::windows::fs::symlink_file(&plain, &symlink).unwrap();
+        assert_eq!(probe(&symlink).unwrap().guard, Guard::Link);
+
+        let hard = s.0.path().join("hard.txt");
+        std::fs::hard_link(&plain, &hard).unwrap();
+        assert!(probe(&hard).unwrap().hard_linked);
+    }
+
+    #[test]
+    fn harden_refuses_a_linked_folder() {
+        let s = Scratch::new("refuse");
+        let target_dir = s.dir("target-dir");
+        let policy_file = s.policy_file();
+        std::fs::create_dir_all(policy_file.parent().unwrap().parent().unwrap()).unwrap();
+        junction(policy_file.parent().unwrap(), &target_dir);
+
+        let before = security_at(&target_dir);
+        assert!(matches!(harden_dir(&policy_file), Err(Blocked::Link(_))));
+        assert_eq!(security_at(&target_dir), before);
     }
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- On Windows, Voltius only trusts a machine policy file written by `voltius-cli` as Administrator or SYSTEM. A file copied into `%ProgramData%\Voltius` by hand, or a policy folder a standard user could write to, is ignored until you re-import it with `voltius-cli policy import --replace` (#757)
+
 ## [0.66.0] - 2026-10-31
 
 ### Changed
