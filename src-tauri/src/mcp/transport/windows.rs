@@ -181,6 +181,7 @@ mod tests {
     async fn a_second_first_instance_is_refused() {
         let addr = unique_addr();
         let _server = create_first_instance(&addr).await.unwrap();
-        assert!(create_instance(&addr, true).is_err());
+        let err = create_instance(&addr, true).err().unwrap();
+        assert_eq!(err.raw_os_error(), Some(5), "{err}");
     }
 }
