@@ -251,82 +251,91 @@ fn in_range_num(v: Option<&Value>, lo: f64, hi: f64) -> bool {
         .is_some_and(|n| (lo..=hi).contains(&n))
 }
 
-fn shell_problem(v: &Value) -> Option<String> {
-    (!non_empty_str(Some(v))).then(|| "must be a non-empty string".to_string())
+type Check = Result<(), String>;
+
+fn fail<T>(msg: impl Into<String>) -> Result<T, String> {
+    Err(msg.into())
 }
 
-fn proxy_problem(d: &Domain, v: &Value) -> Option<String> {
-    let o = match object_with(
+fn shell_check(v: &Value) -> Check {
+    if non_empty_str(Some(v)) {
+        Ok(())
+    } else {
+        fail("must be a non-empty string")
+    }
+}
+
+fn proxy_check(d: &Domain, v: &Value) -> Check {
+    let o = object_with(
         v,
         "proxy",
         &["mode", "host", "port", "username", "password"],
-    ) {
-        Ok(o) => o,
-        Err(e) => return Some(e),
-    };
+    )?;
     if o.contains_key("password") {
-        return Some("the policy file never carries a password; each user keeps their own".into());
+        return fail("the policy file never carries a password; each user keeps their own");
     }
     let modes = d.values.as_deref().unwrap_or_default();
     let mode = o.get("mode").and_then(Value::as_str);
     let Some(mode) = mode.filter(|m| modes.iter().any(|x| x.as_str() == Some(m))) else {
-        return Some(values_problem(modes));
+        return fail(values_problem(modes));
     };
-    if !matches!(mode, "none" | "system") {
-        if !non_empty_str(o.get("host")) {
-            return Some("host must be a non-empty string".into());
-        }
-        let port = o.get("port");
-        if !in_range_num(port, 1.0, 65535.0)
-            || port.is_some_and(|p| p.as_f64().is_some_and(|n| n.fract() != 0.0))
-        {
-            return Some("port must be an integer from 1 to 65535".into());
-        }
+    let needs_host = !matches!(mode, "none" | "system");
+    let host = o.get("host");
+    if host.map_or(needs_host, |h| !non_empty_str(Some(h))) {
+        return fail("host must be a non-empty string");
     }
-    o.get("username")
-        .is_some_and(|u| !u.is_string())
-        .then(|| "username must be a string".into())
+    let port = o.get("port");
+    let valid_port = |p: &Value| p.as_u64().is_some_and(|n| (1..=65535).contains(&n));
+    if port.map_or(needs_host, |p| !valid_port(p)) {
+        return fail("port must be an integer from 1 to 65535");
+    }
+    if o.get("username").is_some_and(|u| !u.is_string()) {
+        return fail("username must be a string");
+    }
+    Ok(())
 }
 
-fn location_problem(v: &Value) -> Option<String> {
-    let o = match object_with(v, "location", &["lat", "lng", "label", "source"]) {
-        Ok(o) => o,
-        Err(e) => return Some(e),
-    };
+fn location_check(v: &Value) -> Check {
+    let o = object_with(v, "location", &["lat", "lng", "label", "source"])?;
     if !in_range_num(o.get("lat"), -90.0, 90.0) {
-        return Some("lat must be a number from -90 to 90".into());
+        return fail("lat must be a number from -90 to 90");
     }
     if !in_range_num(o.get("lng"), -180.0, 180.0) {
-        return Some("lng must be a number from -180 to 180".into());
+        return fail("lng must be a number from -180 to 180");
     }
     if o.get("label").is_some_and(|l| !l.is_string()) {
-        return Some("label must be a string".into());
+        return fail("label must be a string");
     }
-    o.get("source")
+    if o.get("source")
         .is_some_and(|s| !matches!(s.as_str(), Some("manual" | "geo")))
-        .then(|| "source must be manual or geo".into())
+    {
+        return fail("source must be manual or geo");
+    }
+    Ok(())
 }
 
-fn keyword_text_problem(s: Option<&Value>, what: &str, max_len: usize) -> Option<String> {
+// UTF-16 units, matching the app sanitizer's string length.
+fn keyword_text_check(s: Option<&Value>, what: &str, max_len: usize) -> Check {
     let ok = s
         .and_then(Value::as_str)
-        .is_some_and(|s| !s.trim().is_empty() && s.chars().count() <= max_len);
-    (!ok).then(|| format!("{what} must be a non-empty string of at most {max_len} characters"))
+        .is_some_and(|s| !s.trim().is_empty() && s.encode_utf16().count() <= max_len);
+    if ok {
+        Ok(())
+    } else {
+        fail(format!(
+            "{what} must be a non-empty string of at most {max_len} characters"
+        ))
+    }
 }
 
-fn keyword_rule_problem(d: &Domain, rule: &Value, seen: &mut HashSet<String>) -> Option<String> {
+fn keyword_rule_check(d: &Domain, rule: &Value, seen: &mut HashSet<String>) -> Check {
     let max_len = d.max_length.unwrap_or(usize::MAX);
     let max_words = d.max_words.unwrap_or(usize::MAX);
-    let o = match object_with(rule, "a rule", &["id", "color", "words", "enabled"]) {
-        Ok(o) => o,
-        Err(e) => return Some(e),
-    };
-    if let Some(p) = keyword_text_problem(o.get("id"), "id", max_len) {
-        return Some(p);
-    }
+    let o = object_with(rule, "a rule", &["id", "color", "words", "enabled"])?;
+    keyword_text_check(o.get("id"), "id", max_len)?;
     let id = o["id"].as_str().unwrap_or_default();
     if !seen.insert(id.to_string()) {
-        return Some(format!("duplicate rule id {id}"));
+        return fail(format!("duplicate rule id {id}"));
     }
     let colors = d.colors.as_deref().unwrap_or_default();
     if !o
@@ -334,37 +343,35 @@ fn keyword_rule_problem(d: &Domain, rule: &Value, seen: &mut HashSet<String>) ->
         .and_then(Value::as_str)
         .is_some_and(|c| colors.iter().any(|x| x == c))
     {
-        return Some(format!("color must be one of: {}", colors.join(", ")));
+        return fail(format!("color must be one of: {}", colors.join(", ")));
     }
     let Some(words) = o
         .get("words")
         .and_then(Value::as_array)
         .filter(|w| (1..=max_words).contains(&w.len()))
     else {
-        return Some(format!("words must be a list of 1 to {max_words} strings"));
+        return fail(format!("words must be a list of 1 to {max_words} strings"));
     };
-    if let Some(p) = words
-        .iter()
-        .find_map(|w| keyword_text_problem(Some(w), "a word", max_len))
-    {
-        return Some(p);
+    for w in words {
+        keyword_text_check(Some(w), "a word", max_len)?;
     }
-    o.get("enabled")
-        .is_some_and(|e| !e.is_boolean())
-        .then(|| "enabled must be a boolean".into())
+    if o.get("enabled").is_some_and(|e| !e.is_boolean()) {
+        return fail("enabled must be a boolean");
+    }
+    Ok(())
 }
 
-fn keyword_rules_problem(d: &Domain, v: &Value) -> Option<String> {
+fn keyword_rules_check(d: &Domain, v: &Value) -> Check {
     let Some(rules) = v.as_array() else {
-        return Some("must be a list of keyword rules".into());
+        return fail("must be a list of keyword rules");
     };
     if let Some(max) = d.max_rules.filter(|m| rules.len() > *m) {
-        return Some(format!("at most {max} rules are allowed"));
+        return fail(format!("at most {max} rules are allowed"));
     }
     let mut seen = HashSet::new();
     rules
         .iter()
-        .find_map(|r| keyword_rule_problem(d, r, &mut seen))
+        .try_for_each(|r| keyword_rule_check(d, r, &mut seen))
 }
 
 fn values_problem(values: &[Value]) -> String {
@@ -380,10 +387,10 @@ fn min_problem(d: &Domain, n: f64) -> Option<String> {
 
 fn domain_problem(d: &Domain, v: &Value) -> Option<String> {
     match d.shape.as_deref() {
-        Some("shell") => return shell_problem(v),
-        Some("proxy") => return proxy_problem(d, v),
-        Some("location") => return location_problem(v),
-        Some("keywordRules") => return keyword_rules_problem(d, v),
+        Some("shell") => return shell_check(v).err(),
+        Some("proxy") => return proxy_check(d, v).err(),
+        Some("location") => return location_check(v).err(),
+        Some("keywordRules") => return keyword_rules_check(d, v).err(),
         _ => {}
     }
     if let Some(values) = &d.values {
@@ -419,21 +426,31 @@ pub struct Range {
     pub allowed: Option<Vec<Value>>,
 }
 
-pub fn range_of(v: &Value) -> Option<Range> {
-    let o = v.as_object()?.get("$range")?.as_object()?;
+pub fn parse_range(v: &Value) -> Result<Range, String> {
+    let inner = v.as_object().and_then(|o| o.get("$range"));
+    let o = object_with(
+        inner.unwrap_or(&Value::Null),
+        "a range",
+        &["min", "max", "allowed"],
+    )?;
+    let malformed = || "min and max must be numbers and allowed a list".to_string();
     let bound = |k: &str| match o.get(k) {
-        None => Some(None),
-        Some(n) => n.as_f64().map(Some),
+        None => Ok(None),
+        Some(n) => n.as_f64().map(Some).ok_or_else(malformed),
     };
     let allowed = match o.get("allowed") {
         None => None,
-        Some(a) => Some(a.as_array()?.clone()),
+        Some(a) => Some(a.as_array().ok_or_else(malformed)?.clone()),
     };
-    Some(Range {
+    Ok(Range {
         min: bound("min")?,
         max: bound("max")?,
         allowed,
     })
+}
+
+pub fn range_of(v: &Value) -> Option<Range> {
+    parse_range(v).ok()
 }
 
 pub fn within(_key: &str, r: &Range, v: &Value) -> bool {
@@ -516,9 +533,9 @@ fn entry_problem(layer: Layer, key: &str, value: &Value) -> Option<(IssueKind, S
     let problem = if layer == Layer::Defaults {
         Some("ranges belong under policy".to_string())
     } else {
-        match range_of(value) {
-            Some(r) => range_problem(key, &r),
-            None => Some("a range needs min, max or allowed".to_string()),
+        match parse_range(value) {
+            Ok(r) => range_problem(key, &r),
+            Err(m) => Some(m),
         }
     };
     problem.map(|m| (IssueKind::Range, m))
@@ -1128,6 +1145,12 @@ mod tests {
             ("policy", "appSettings.proxy".into(), r#"{"mode":"http"}"#.into(), "host"),
             ("policy", "appSettings.proxy".into(), r#"{"mode":"http","host":"p","port":70000}"#.into(), "port"),
             ("policy", "appSettings.proxy".into(), r#"{"mode":"ftp"}"#.into(), "must be one of"),
+            ("policy", "appSettings.proxy".into(), r#"{"mode":"none","host":5,"port":"abc"}"#.into(), "host must be a non-empty string"),
+            ("policy", "appSettings.proxy".into(), r#"{"mode":"system","port":"abc"}"#.into(), "port must be an integer"),
+            ("policy", "appSettings.detachedTtlHours".into(), r#"{"$range":{"max":24,"alowed":[6]}}"#.into(), "unknown field alowed"),
+            ("policy", "appSettings.detachedTtlHours".into(), r#"{"$range":{"max":"24"}}"#.into(), "min and max must be numbers and allowed a list"),
+            ("policy", "appSettings.detachedTtlHours".into(), r#"{"$range":[1]}"#.into(), "a range must be an object"),
+            ("policy", "appSettings.terminal.keywordRules".into(), json!([{"id":"a","color":"red","words":["\u{1F600}".repeat(33)]}]).to_string(), "at most 64"),
             ("policy", "appSettings.proxy".into(), r#"{"mode":"none","extra":1}"#.into(), "unknown field extra"),
             ("policy", "appSettings.terminal.keywordRules".into(), rules(21), "at most 20"),
             ("policy", "appSettings.terminal.keywordRules".into(), dup, "duplicate"),
