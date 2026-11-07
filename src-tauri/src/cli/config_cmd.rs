@@ -36,9 +36,9 @@ pub fn run(cmd: ConfigCmd, ctx: &mut Ctx) -> Result<(), CliError> {
     run_config(cmd, policy::machine_policy_path().as_deref(), &dir, ctx)
 }
 
-fn rejected(key: &str, message: String) -> Issue {
+fn rejected(key: &str, kind: IssueKind, message: String) -> Issue {
     Issue {
-        kind: IssueKind::Type,
+        kind,
         layer: None,
         key: Some(key.to_string()),
         message,
@@ -47,7 +47,7 @@ fn rejected(key: &str, message: String) -> Issue {
 
 fn setting_type(key: &str, doc: &PolicyDoc) -> Result<KeyType, Issue> {
     let Some(ty) = policy::key_type(key) else {
-        return Err(rejected(key, unknown_key_message(key)));
+        return Err(rejected(key, IssueKind::Type, unknown_key_message(key)));
     };
     if !(key.starts_with("appSettings.") || key.starts_with("themes.")) {
         let hint = if key == "server.url" {
@@ -57,11 +57,12 @@ fn setting_type(key: &str, doc: &PolicyDoc) -> Result<KeyType, Issue> {
         };
         return Err(rejected(
             key,
+            IssueKind::Type,
             format!("{key} is not a user setting; {hint}"),
         ));
     }
     if policy::blocks_user_write(doc, key) {
-        return Err(rejected(key, locked_message(key)));
+        return Err(rejected(key, IssueKind::Type, locked_message(key)));
     }
     Ok(ty)
 }
@@ -129,10 +130,10 @@ fn import(
             Err(i) => issues.push(i),
             Ok(ty) => {
                 let problem = policy::value_problem(key, ty, value)
-                    .map(|m| format!("{key}: {m}"))
-                    .or_else(|| range_violation(&doc, key, value));
-                if let Some(m) = problem {
-                    issues.push(rejected(key, m));
+                    .map(|m| (IssueKind::Type, format!("{key}: {m}")))
+                    .or_else(|| range_violation(&doc, key, value).map(|m| (IssueKind::Range, m)));
+                if let Some((kind, m)) = problem {
+                    issues.push(rejected(key, kind, m));
                 }
             }
         }

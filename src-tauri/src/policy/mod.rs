@@ -594,14 +594,15 @@ pub fn blocks_user_write(doc: &PolicyDoc, key: &str) -> bool {
     fixed_replace || implied_lock(doc, key).is_some()
 }
 
-pub fn conflicts(doc: &PolicyDoc) -> Vec<String> {
+pub fn conflicts(doc: &PolicyDoc) -> Vec<(&str, String)> {
     doc.policy
         .iter()
         .filter(|(_, v)| **v == Value::Bool(false))
         .filter_map(|(toggle, _)| {
             let by = implied_lock(doc, toggle)?;
-            Some(format!(
-                "{toggle} is locked off but {by} forces it on; {by} wins"
+            Some((
+                toggle.as_str(),
+                format!("{toggle} is locked off but {by} forces it on; {by} wins"),
             ))
         })
         .collect()
@@ -1714,8 +1715,9 @@ mod tests {
         let doc = doc_with(json!({TTL: {"$range": {"max": 24}}, TTL_TOGGLE: false}));
         assert_eq!(
             conflicts(&doc),
-            vec![format!(
-                "{TTL_TOGGLE} is locked off but {TTL} forces it on; {TTL} wins"
+            vec![(
+                TTL_TOGGLE,
+                format!("{TTL_TOGGLE} is locked off but {TTL} forces it on; {TTL} wins")
             )]
         );
         let on = doc_with(json!({TTL: {"$range": {"max": 24}}, TTL_TOGGLE: true}));

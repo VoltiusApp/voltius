@@ -349,7 +349,11 @@ fn warn_not_honoured<'a>(out: &mut Output, entries: impl IntoIterator<Item = (La
 pub(super) fn typed_value(key: &str, ty: policy::KeyType, raw: &str) -> Result<Value, CliError> {
     policy::parse_cli_value(ty, raw)
         .and_then(|v| policy::value_problem(key, ty, &v).map_or(Ok(v), Err))
-        .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))
+        .map_err(|m| keyed(key, IssueKind::Type, m))
+}
+
+fn keyed(key: &str, kind: IssueKind, message: String) -> CliError {
+    plain(kind, format!("{key}: {message}"))
 }
 
 #[derive(Default)]
@@ -365,18 +369,28 @@ fn built_range(key: &str, ty: policy::KeyType, a: &SetArgs) -> Result<Value, Cli
         None
     } else {
         let parse = |raw: &String| {
-            policy::parse_cli_value(ty, raw)
-                .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))
+            policy::parse_cli_value(ty, raw).map_err(|m| keyed(key, IssueKind::Type, m))
         };
         Some(a.allow.iter().map(parse).collect::<Result<Vec<_>, _>>()?)
     };
+    if let Some(bound) = [a.min, a.max]
+        .into_iter()
+        .flatten()
+        .find(|n| !n.is_finite())
+    {
+        return Err(keyed(
+            key,
+            IssueKind::Type,
+            format!("expected a finite number, got {bound}"),
+        ));
+    }
     let range = Range {
         min: a.min,
         max: a.max,
         allowed,
     };
     match policy::range_problem(key, &range) {
-        Some(m) => Err(plain(IssueKind::Range, format!("{key}: {m}"))),
+        Some(m) => Err(keyed(key, IssueKind::Range, m)),
         None => Ok(json!({ "$range": range_json(&range) })),
     }
 }
@@ -478,7 +492,12 @@ impl Row {
                 .user_value
                 .as_ref()
                 .map_or(String::new(), |u| format!("; user value {u} is outside it"));
-            return format!("{} range: {}{moved}", self.source, range_text(r));
+            let by = if self.source == POLICY {
+                POLICY.to_string()
+            } else {
+                format!("{}, {POLICY}", self.source)
+            };
+            return format!("{by} range: {}{moved}", range_text(r));
         }
         match &self.default_value {
             Some(d) => format!("{}, machine default: {d}", self.source),
@@ -541,6 +560,7 @@ pub(super) fn range_violation(doc: &PolicyDoc, key: &str, value: &Value) -> Opti
     })
 }
 
+#[derive(Default)]
 struct UserState {
     rows: BTreeMap<String, Row>,
     as_of: Option<String>,
@@ -548,11 +568,7 @@ struct UserState {
 }
 
 fn user_values(dir: &Path) -> UserState {
-    let mut state = UserState {
-        rows: BTreeMap::new(),
-        as_of: None,
-        built_ins: BTreeMap::new(),
-    };
+    let mut state = UserState::default();
     if let Some(m) = mirror::read(dir) {
         for (k, v) in m.values() {
             let source = if m.built_ins.get(&k) == Some(&v) {
@@ -573,19 +589,23 @@ fn user_values(dir: &Path) -> UserState {
     state
 }
 
+type Stored = (Value, &'static str, Option<String>);
+
 fn range_row(
     key: &str,
     range: Range,
-    stored: Option<&(Value, &'static str)>,
+    stored: Option<&Stored>,
     admin_default: Option<&Value>,
     built_in: Option<&Value>,
 ) -> Row {
     let value = policy::bounded(key, &range, stored.map(|s| &s.0), admin_default, built_in);
-    let moved = stored
-        .filter(|(v, source)| *source != BUILT_IN && !policy::within(key, &range, v))
-        .map(|(v, _)| v.clone());
-    let mut row = Row::new(value, POLICY, None);
-    row.user_value = moved;
+    let user = stored.filter(|(_, source, _)| *source != BUILT_IN);
+    let inside = |v: &Value| policy::within(key, &range, v);
+    let mut row = match user.filter(|(v, ..)| inside(v)) {
+        Some((_, source, at)) => Row::new(value, source, at.clone()),
+        None => Row::new(value, POLICY, None),
+    };
+    row.user_value = user.map(|(v, ..)| v).filter(|v| !inside(v)).cloned();
     row.range = Some(range);
     row
 }
@@ -610,9 +630,9 @@ fn effective_rows(
     mut rows: BTreeMap<String, Row>,
     built_ins: &BTreeMap<String, Value>,
 ) -> BTreeMap<String, Row> {
-    let stored: BTreeMap<String, (Value, &'static str)> = rows
+    let stored: BTreeMap<String, Stored> = rows
         .iter()
-        .map(|(k, r)| (k.clone(), (r.value.clone(), r.source)))
+        .map(|(k, r)| (k.clone(), (r.value.clone(), r.source, r.at.clone())))
         .collect();
     for (k, v) in &doc.defaults {
         match rows.get_mut(k) {
@@ -664,14 +684,7 @@ pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
 
 fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
     let loaded = policy::load_from(path);
-    let user = user_dir.map_or_else(
-        || UserState {
-            rows: BTreeMap::new(),
-            as_of: None,
-            built_ins: BTreeMap::new(),
-        },
-        user_values,
-    );
+    let user = user_dir.map_or_else(Default::default, user_values);
     let as_of = user.as_of.clone();
     let mut rows = effective_rows(&loaded.doc, user.rows, &user.built_ins);
     rows.retain(|_, r| r.source != BUILT_IN);
@@ -793,9 +806,9 @@ fn check(
     {
         issues.push(issue);
     }
-    let conflicts = policy::conflicts(&doc)
-        .into_iter()
-        .map(|message| json!({ "layer": Layer::Policy.name(), "message": message }));
+    let conflicts = policy::conflicts(&doc).into_iter().map(
+        |(key, message)| json!({ "layer": Layer::Policy.name(), "key": key, "message": message }),
+    );
     let warnings: Vec<Value> = not_honoured(entries(&doc))
         .map(|(layer, key, message)| {
             json!({ "layer": layer.name(), "key": key, "message": message })
@@ -873,26 +886,29 @@ mod tests {
         super::run(cmd, Some(path), out)
     }
 
-    fn set_cmd(key: &str, value: Option<&str>, defaults: bool) -> PolicyCmd {
+    fn set_all(
+        key: &str,
+        value: Option<&str>,
+        defaults: bool,
+        (min, max): (Option<f64>, Option<f64>),
+        allow: &[&str],
+    ) -> PolicyCmd {
         PolicyCmd::Set {
             key: key.into(),
             value: value.map(Into::into),
             defaults,
-            min: None,
-            max: None,
-            allow: Vec::new(),
-        }
-    }
-
-    fn range_cmd(key: &str, min: Option<f64>, max: Option<f64>, allow: &[&str]) -> PolicyCmd {
-        PolicyCmd::Set {
-            key: key.into(),
-            value: None,
-            defaults: false,
             min,
             max,
             allow: allow.iter().map(|a| a.to_string()).collect(),
         }
+    }
+
+    fn set_cmd(key: &str, value: Option<&str>, defaults: bool) -> PolicyCmd {
+        set_all(key, value, defaults, (None, None), &[])
+    }
+
+    fn range_cmd(key: &str, min: Option<f64>, max: Option<f64>, allow: &[&str]) -> PolicyCmd {
+        set_all(key, None, false, (min, max), allow)
     }
 
     fn out() -> Output {
@@ -1602,7 +1618,7 @@ mod tests {
     }
 
     #[test]
-    fn set_unenforced_key_warns() {
+    fn set_enforced_locale_no_warning() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
         let (mut sink, stdout, stderr) = capture_split(false, false);
@@ -1823,10 +1839,7 @@ mod tests {
     fn set_range_and_value_is_usage_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
-        let mut cmd = range_cmd(TTL, None, Some(24.0), &[]);
-        if let PolicyCmd::Set { value, .. } = &mut cmd {
-            *value = Some("12".into());
-        }
+        let cmd = set_all(TTL, Some("12"), false, (None, Some(24.0)), &[]);
         let err = run_range(&path, cmd).unwrap_err();
         assert_eq!(err.exit_code(), 2);
         assert_eq!(
@@ -1842,10 +1855,7 @@ mod tests {
     fn set_range_under_defaults_is_usage_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
-        let mut cmd = range_cmd(TTL, None, Some(24.0), &[]);
-        if let PolicyCmd::Set { defaults, .. } = &mut cmd {
-            *defaults = true;
-        }
+        let cmd = set_all(TTL, None, true, (None, Some(24.0)), &[]);
         let err = run_range(&path, cmd).unwrap_err();
         assert_eq!(err.exit_code(), 2);
         assert_eq!(err.to_string(), "ranges belong under policy");
@@ -1871,6 +1881,22 @@ mod tests {
             raw_policy(&path)[TTL],
             json!({"$range": {"allowed": [6, 12]}})
         );
+    }
+
+    #[test]
+    fn set_non_finite_bound_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        for (min, max) in [
+            (None, Some(f64::INFINITY)),
+            (Some(f64::NEG_INFINITY), None),
+            (Some(f64::NAN), None),
+        ] {
+            let err = run_range(&path, range_cmd(TTL, min, max, &[])).unwrap_err();
+            assert_eq!(err.exit_code(), 3);
+            assert!(err.to_string().contains("finite"), "{err}");
+        }
+        assert!(!path.exists());
     }
 
     #[test]
@@ -1920,7 +1946,12 @@ mod tests {
         let v = show_json(&path, Some(user.path()));
         let e = entry(&v, TTL);
         assert_eq!(e["value"], 12);
+        assert_eq!(e["source"], "app");
+        assert_eq!(e["range"], json!({"max": 24}));
         assert!(e.get("userValue").is_none());
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(captured(&buf).contains("app, machine policy range: max 24"));
     }
 
     #[test]
@@ -2011,5 +2042,6 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("forces it on"));
+        assert_eq!(v["warnings"][0]["key"], TTL_TOGGLE);
     }
 }
