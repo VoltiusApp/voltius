@@ -1,8 +1,6 @@
 name: release-dry-run
 
 on:
-  push:
-    branches: [ci/windows-policy-verify]
   workflow_dispatch:
     inputs:
       ref:
@@ -19,4 +17,4 @@ jobs:
     uses: ./.github/workflows/build-desktop.yml
     secrets: inherit
     with:
-      ref: ${{ inputs.ref || github.sha }}
+      ref: ${{ inputs.ref }}
