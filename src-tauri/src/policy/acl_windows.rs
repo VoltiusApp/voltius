@@ -224,16 +224,22 @@ mod tests {
             self.0.path().join("Voltius").join("policy.json")
         }
 
-        fn junction(&self, link: &Path, target: &Path) {
-            let status = std::process::Command::new("cmd")
-                .args(["/c", "mklink", "/J"])
-                .arg(link)
-                .arg(target)
-                .output()
-                .unwrap()
-                .status;
-            assert!(status.success(), "mklink /J failed");
+        fn dir(&self, name: &str) -> PathBuf {
+            let dir = self.0.path().join(name);
+            std::fs::create_dir(&dir).unwrap();
+            dir
         }
+    }
+
+    fn junction(link: &Path, target: &Path) {
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap()
+            .status;
+        assert!(status.success(), "mklink /J failed");
     }
 
     fn security_at(path: &Path) -> SecurityInfo {
@@ -284,11 +290,10 @@ mod tests {
     #[test]
     fn links_are_seen_on_the_entry_itself() {
         let s = Scratch::new("links");
-        let target_dir = s.0.path().join("target-dir");
-        std::fs::create_dir(&target_dir).unwrap();
-        let junction = s.0.path().join("junction");
-        s.junction(&junction, &target_dir);
-        assert_eq!(probe(&junction).unwrap().guard, Guard::Link);
+        let target_dir = s.dir("target-dir");
+        let link = s.0.path().join("junction");
+        junction(&link, &target_dir);
+        assert_eq!(probe(&link).unwrap().guard, Guard::Link);
 
         let plain = s.0.path().join("plain.txt");
         std::fs::write(&plain, "x").unwrap();
@@ -304,11 +309,10 @@ mod tests {
     #[test]
     fn harden_refuses_a_linked_folder() {
         let s = Scratch::new("refuse");
-        let target_dir = s.0.path().join("target-dir");
-        std::fs::create_dir(&target_dir).unwrap();
+        let target_dir = s.dir("target-dir");
         let policy_file = s.policy_file();
         std::fs::create_dir_all(policy_file.parent().unwrap().parent().unwrap()).unwrap();
-        s.junction(policy_file.parent().unwrap(), &target_dir);
+        junction(policy_file.parent().unwrap(), &target_dir);
 
         let before = security_at(&target_dir);
         assert!(matches!(harden_dir(&policy_file), Err(Blocked::Link(_))));
