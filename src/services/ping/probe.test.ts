@@ -6,7 +6,7 @@ vi.mock("@/services/credentials", () => ({ resolveJumpHosts: async () => [{ host
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 const getSecret = vi.fn(async (_k: string): Promise<string | null> => null);
 vi.mock("@/services/vault", () => ({ getSecret: (k: string) => getSecret(k) }));
-vi.mock("@/stores/connectivitySettingsStore", () => ({ getGlobalProxy: () => ({ mode: "none" }) }));
+vi.mock("@/stores/connectivitySettingsStore", async (importOriginal) => ({ ...(await importOriginal<object>()), getGlobalProxy: () => ({ mode: "none" }) }));
 
 const { probeTarget, PROBE_TIMEOUT_MS } = await import("./probe");
 import type { PingTarget } from "./pingTargets";

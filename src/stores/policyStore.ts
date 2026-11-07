@@ -157,6 +157,10 @@ export const lockedList = (key: string) => lockedAs(key, (v): v is unknown[] => 
 export const isEnforcedLock = (key: string): boolean =>
   isPolicyEnforced(key) && policyKeyDef(key)?.lock !== "add" && isLocked(key);
 
+export function writeUnlessLocked(key: string, write: () => void): void {
+  if (!isEnforcedLock(key)) write();
+}
+
 export function usePolicyLock(key: string): PolicyLock {
   usePolicyStore(() => JSON.stringify(lockedValue(key)));
   return lockedValue(key);

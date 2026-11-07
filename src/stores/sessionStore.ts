@@ -4,7 +4,7 @@ import type { Connection, ConnectionFormData, ConnectRetryOverride, IdentitySave
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
-import { getGlobalKeepalivePreset, resolveDetachedTtlSecs, resolvePersistSession } from "@/stores/connectivitySettingsStore";
+import { resolveHostKeepalive, resolveDetachedTtlSecs, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect, serialSetLine } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
@@ -155,7 +155,7 @@ async function buildSshConnectOptions(
 }> {
   const [jumpHosts, route] = await Promise.all([resolveJumpHosts(connection), resolveFirstHop(connection)]);
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
-  const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
+  const { intervalSecs, max } = resolveKeepalive(resolveHostKeepalive(connection.keepalive_preset));
 
   let dims: { cols: number; rows: number } | Record<string, never> = {};
   try {

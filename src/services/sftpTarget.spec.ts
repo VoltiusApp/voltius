@@ -16,11 +16,12 @@ vi.mock("@/services/credentials", () => ({
   resolveJumpHosts: vi.fn(async () => []),
   findConnection: vi.fn(() => undefined),
 }));
-vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
+vi.mock("@/utils/keepalive", async (importOriginal) => ({ ...(await importOriginal<object>()), resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
 
 let connectivityState = { proxy: { mode: "none" } };
-vi.mock("@/stores/connectivitySettingsStore", () => ({
-  getGlobalKeepalivePreset: () => null,
+vi.mock("@/stores/connectivitySettingsStore", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveHostKeepalive: () => null,
   getGlobalProxy: () => connectivityState.proxy,
   useConnectivitySettingsStore: {
     setState: (partial: Partial<typeof connectivityState>) => {
@@ -30,7 +31,7 @@ vi.mock("@/stores/connectivitySettingsStore", () => ({
   },
 }));
 vi.mock("@/services/vault", () => ({ getSecret: vi.fn(async () => null) }));
-vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "gen" }));
+vi.mock("@/components/filetransfer/SFTPTypes", async (importOriginal) => ({ ...(await importOriginal<object>()), genId: () => "gen" }));
 
 import { connectFileBackend, resolveSftpIdForTarget, sftpConnectToConnection } from "./sftpTarget";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";

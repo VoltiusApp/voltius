@@ -35,12 +35,12 @@ vi.mock("@/services/credentials", () => ({
   resolveConnectionCredentials: vi.fn(async () => ({ username: "u", password: "p" })),
   resolveJumpHosts: vi.fn(async () => []),
 }));
-vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
+vi.mock("@/utils/keepalive", async (importOriginal) => ({ ...(await importOriginal<object>()), resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
 vi.mock("@/services/proxy", () => ({
   resolveFirstHop: vi.fn(async () => ({ proxy: null, knock: null })),
   firstHopProxy: vi.fn(async () => null),
 }));
-vi.mock("@/stores/connectivitySettingsStore", () => ({ getGlobalKeepalivePreset: () => "default" }));
+vi.mock("@/stores/connectivitySettingsStore", async (importOriginal) => ({ ...(await importOriginal<object>()), resolveHostKeepalive: () => "default" }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/path", () => ({ appCacheDir: vi.fn(async () => "/cache") }));
 
