@@ -262,13 +262,14 @@ describe("policy", () => {
     expect("cursor-blink" in toggles(restoreLocal(appBundle()))).toBe(false);
   });
 
-  test("a lock this version does not enforce keeps syncing", () => {
+  test("an additive lock keeps syncing", () => {
     const key = "appSettings.terminal.keywordRules";
-    usePolicyStore.setState({ machine: { policy: { [key]: [] }, defaults: {} } });
+    const USER_RULES = [{ id: "mine", color: "green", words: ["ok"], enabled: true }];
+    usePolicyStore.setState({ machine: { policy: { [key]: [{ id: "admin", color: "red", words: ["panic"], enabled: true }] }, defaults: {} } });
     const bundle = appBundle();
-    (bundle.sections.appSettings.data as Record<string, Record<string, unknown>>).terminal.keywordRules = [];
+    (bundle.sections.appSettings.data as Record<string, Record<string, unknown>>).terminal.keywordRules = USER_RULES;
     const data = filterOutgoing(bundle).sections.appSettings.data as Record<string, Record<string, unknown>>;
-    expect(data.terminal.keywordRules).toEqual([]);
+    expect(data.terminal.keywordRules).toEqual(USER_RULES);
     expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain(key);
   });
 

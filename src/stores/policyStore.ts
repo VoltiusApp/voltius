@@ -101,7 +101,9 @@ export interface PolicyRange {
 }
 
 const rangeOf = (v: unknown): PolicyRange | undefined =>
-  v !== null && typeof v === "object" && "$range" in v ? (v as { $range: PolicyRange }).$range : undefined;
+  v !== null && typeof v === "object" && Object.keys(v).length === 1 && "$range" in v
+    ? (v as { $range: PolicyRange }).$range
+    : undefined;
 
 let impliers: Map<string, string[]> | undefined;
 

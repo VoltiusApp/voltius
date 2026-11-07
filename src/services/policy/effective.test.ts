@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import fixture from "../../../src-tauri/src/policy/fixtures/effective.json?raw";
-import { boundedValue, effectiveSetting } from "./effective";
+import { boundedValue, effectiveSetting, useEffectiveSetting } from "./effective";
 import { usePolicyStore } from "@/stores/policyStore";
 
 interface Row {
@@ -60,5 +61,13 @@ describe("effective", () => {
   it("location lock fills label and source", () => {
     withPolicy({ "themes.location": { lat: 1, lng: 2 } });
     expect(effectiveSetting("themes.location", null)).toEqual({ label: "manual", source: "manual", lat: 1, lng: 2 });
+  });
+
+  it("the hook re-renders an implied toggle when a TTL range loads", () => {
+    const toggle = "appSettings.toggles.detached-session-ttl";
+    const { result } = renderHook(() => useEffectiveSetting(toggle, false));
+    expect(result.current).toBe(false);
+    act(() => withPolicy({ [TTL]: { $range: { max: 24 } } }));
+    expect(result.current).toBe(true);
   });
 });
