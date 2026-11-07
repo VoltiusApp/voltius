@@ -1,14 +1,14 @@
 import { expect, test } from "vitest";
 import { SETTING_KEYS } from "@/services/user-data/settingKeys";
 import { ANSI_SLOTS } from "@/utils/keywordMatcher";
-import { POLICY_KEYS, isDefaultApplied, isPolicyEnforced, policyKeyDef, policyKeysSnapshot } from "./policyKeys";
+import { policyKeys, isDefaultApplied, isPolicyEnforced, policyKeyDef, policyKeysSnapshot } from "./policyKeys";
 
 test("every setting key has a policy type", () => {
   for (const k of SETTING_KEYS) expect(policyKeyDef(k.id)?.type).toBeDefined();
 });
 
 test("ids are unique", () => {
-  expect(new Set(POLICY_KEYS.map((k) => k.id)).size).toBe(POLICY_KEYS.length);
+  expect(new Set(policyKeys().map((k) => k.id)).size).toBe(policyKeys().length);
 });
 
 test("toggles are bool and sync switches exist", () => {

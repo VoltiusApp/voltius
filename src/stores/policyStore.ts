@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
-import { isPolicyEnforced } from "@/services/policy/policyKeys";
+import { policyKeys, isPolicyEnforced, policyKeyDef } from "@/services/policy/policyKeys";
 
 export type PolicySource = "server" | "machine";
 export interface PolicyLayer {
@@ -94,10 +94,51 @@ function firstLayerWith(key: string, kind: keyof PolicyLayer): { source: PolicyS
   return undefined;
 }
 
-export function lockedValue(key: string): PolicyLock {
-  const hit = firstLayerWith(key, "policy");
-  return hit ? { locked: true, ...hit } : { locked: false };
+export interface PolicyRange {
+  min?: number;
+  max?: number;
+  allowed?: unknown[];
 }
+
+const rangeOf = (v: unknown): PolicyRange | undefined =>
+  v !== null && typeof v === "object" && "$range" in v ? (v as { $range: PolicyRange }).$range : undefined;
+
+let impliers: Map<string, string[]> | undefined;
+
+// Built on first use: the registry imports stores that import this one.
+function impliersOf(key: string): string[] {
+  if (!impliers) {
+    impliers = new Map();
+    for (const { id, implies } of policyKeys()) if (implies) impliers.set(implies, [...(impliers.get(implies) ?? []), id].sort());
+  }
+  return impliers.get(key) ?? [];
+}
+
+function impliedLock(key: string): PolicyLock {
+  for (const id of impliersOf(key)) {
+    const hit = firstLayerWith(id, "policy");
+    if (hit) return { locked: true, value: true, source: hit.source };
+  }
+  return { locked: false };
+}
+
+export function lockedValue(key: string): PolicyLock {
+  const implied = impliedLock(key);
+  if (implied.locked) return implied;
+  const hit = firstLayerWith(key, "policy");
+  return hit && !rangeOf(hit.value) ? { locked: true, ...hit } : { locked: false };
+}
+
+export const policyRange = (key: string): PolicyRange | undefined => rangeOf(firstLayerWith(key, "policy")?.value);
+
+export const inPolicyRange = (range: PolicyRange | undefined, v: unknown): boolean =>
+  !range ||
+  ((range.min === undefined || (typeof v === "number" && v >= range.min)) &&
+    (range.max === undefined || (typeof v === "number" && v <= range.max)) &&
+    (range.allowed === undefined || range.allowed.includes(v)));
+
+export const clampToRange = (range: PolicyRange | undefined, v: number): number =>
+  Math.min(Math.max(v, range?.min ?? v), range?.max ?? v);
 
 export const isLocked = (key: string): boolean => lockedValue(key).locked;
 
@@ -111,11 +152,17 @@ export const lockedString = (key: string) => lockedAs(key, (v): v is string => t
 export const lockedList = (key: string) => lockedAs(key, (v): v is unknown[] => Array.isArray(v));
 
 // Only an enforced key's lock is honoured by its read path, so only it may hold a value back.
-export const isEnforcedLock = (key: string): boolean => isPolicyEnforced(key) && isLocked(key);
+export const isEnforcedLock = (key: string): boolean =>
+  isPolicyEnforced(key) && policyKeyDef(key)?.lock !== "add" && isLocked(key);
 
 export function usePolicyLock(key: string): PolicyLock {
-  usePolicyStore((s) => s.server.policy[key] ?? s.machine.policy[key]);
+  usePolicyStore(() => JSON.stringify(lockedValue(key)));
   return lockedValue(key);
+}
+
+export function usePolicyRange(key: string): PolicyRange | undefined {
+  usePolicyStore((s) => s.server.policy[key] ?? s.machine.policy[key]);
+  return policyRange(key);
 }
 
 export function usePolicyRefresh(): readonly [PolicyLayer, PolicyLayer] {

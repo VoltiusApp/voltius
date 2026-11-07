@@ -10,5 +10,7 @@
   { "name": "locale allowed falls to first allowed", "key": "appSettings.locale", "range": { "allowed": ["en", "fr"] }, "stored": "ru", "builtIn": "ru", "expect": "en" },
   { "name": "locale admin default within range", "key": "appSettings.locale", "range": { "allowed": ["fr"] }, "stored": "ru", "adminDefault": "fr", "builtIn": "ru", "expect": "fr" },
   { "name": "keepalive built-in within range", "key": "appSettings.keepalivePreset", "range": { "allowed": ["balanced", "tolerant"] }, "stored": "off", "builtIn": "balanced", "expect": "balanced" },
-  { "name": "shell without domain takes first allowed", "key": "appSettings.terminal.preferredShell", "range": { "allowed": ["/bin/zsh"] }, "stored": "/bin/bash", "builtIn": null, "expect": "/bin/zsh" }
+  { "name": "shell without domain takes first allowed", "key": "appSettings.terminal.preferredShell", "range": { "allowed": ["/bin/zsh"] }, "stored": "/bin/bash", "builtIn": null, "expect": "/bin/zsh" },
+  { "name": "ttl non-numeric stored takes first candidate", "key": "appSettings.detachedTtlHours", "range": { "min": 30, "max": 100 }, "stored": "abc", "builtIn": null, "expect": 72 },
+  { "name": "sftp non-numeric stored clamps built-in", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000, "max": 30000 }, "stored": "abc", "builtIn": 2000, "expect": 5000 }
 ]

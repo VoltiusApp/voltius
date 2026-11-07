@@ -263,10 +263,13 @@ describe("policy", () => {
   });
 
   test("a lock this version does not enforce keeps syncing", () => {
-    usePolicyStore.setState({ machine: { policy: { "appSettings.terminal.cursorStyle": "block" }, defaults: {} } });
-    const data = filterOutgoing(appBundle()).sections.appSettings.data as Record<string, Record<string, unknown>>;
-    expect(data.terminal.cursorStyle).toBe("bar");
-    expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain("appSettings.terminal.cursorStyle");
+    const key = "appSettings.terminal.keywordRules";
+    usePolicyStore.setState({ machine: { policy: { [key]: [] }, defaults: {} } });
+    const bundle = appBundle();
+    (bundle.sections.appSettings.data as Record<string, Record<string, unknown>>).terminal.keywordRules = [];
+    const data = filterOutgoing(bundle).sections.appSettings.data as Record<string, Record<string, unknown>>;
+    expect(data.terminal.keywordRules).toEqual([]);
+    expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain(key);
   });
 
   test("heldBackKeys lists an enforced lock", () => {

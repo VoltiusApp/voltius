@@ -32,7 +32,7 @@ export interface PolicyKeyDef {
 
 type KeyExtras = Omit<PolicyKeyDef, "id" | "type">;
 
-const KEY_EXTRAS: Record<string, KeyExtras> = {
+const keyExtras = (): Record<string, KeyExtras> => ({
   "appSettings.terminal.cursorStyle": { domain: { values: [...CURSOR_STYLES] }, range: ["allowed"] },
   "appSettings.locale": { domain: { values: SUPPORTED_LOCALES.map((l) => l.value) }, range: ["allowed"] },
   "appSettings.keepalivePreset": { domain: { values: Object.keys(KEEPALIVE_PRESETS) }, range: ["allowed"] },
@@ -57,7 +57,7 @@ const KEY_EXTRAS: Record<string, KeyExtras> = {
   },
   "themes.location": { domain: { shape: "location" } },
   "appSettings.plugins.overrides": { lock: "never" },
-};
+});
 
 const SETTING_TYPES: Record<string, PolicyKeyType> = {
   "appSettings.terminal.preferredShell": "string",
@@ -82,29 +82,37 @@ function settingType(id: string): PolicyKeyType | undefined {
 const bools = (prefix: string, ids: string[]): PolicyKeyDef[] =>
   ids.map((id) => ({ id: `${prefix}${id}`, type: "bool" }));
 
-const typedSettings: PolicyKeyDef[] = SETTING_KEYS.flatMap((k) => {
-  const type = settingType(k.id);
-  return type ? [{ id: k.id, type, ...KEY_EXTRAS[k.id] }] : [];
-});
+let registry: { keys: PolicyKeyDef[]; byId: Map<string, PolicyKeyDef> } | undefined;
 
-export const POLICY_KEYS: PolicyKeyDef[] = [
-  { id: "server.url", type: "string" },
-  { id: "server.allowOther", type: "bool" },
-  { id: "plugins.enabled", type: "stringList" },
-  { id: "plugins.disabled", type: "stringList" },
-  { id: "plugins.install", type: "stringList" },
-  { id: "plugins.allowInstall", type: "bool" },
-  { id: "sshConfig.import", type: "bool" },
-  ...bools("sync.domains.", SYNC_SETTING_DOMAINS.map((d) => d.id)),
-  ...bools("sync.types.", SYNC_OBJECT_TYPES.map((t) => t.id)),
-  ...bools("sync.settings.", SETTING_KEYS.map((k) => k.id)),
-  ...typedSettings,
-];
+// Built on first use: the domain constants live in stores that import the policy store.
+function build() {
+  const extras = keyExtras();
+  const typedSettings: PolicyKeyDef[] = SETTING_KEYS.flatMap((k) => {
+    const type = settingType(k.id);
+    return type ? [{ id: k.id, type, ...extras[k.id] }] : [];
+  });
+  const keys: PolicyKeyDef[] = [
+    { id: "server.url", type: "string" },
+    { id: "server.allowOther", type: "bool" },
+    { id: "plugins.enabled", type: "stringList" },
+    { id: "plugins.disabled", type: "stringList" },
+    { id: "plugins.install", type: "stringList" },
+    { id: "plugins.allowInstall", type: "bool" },
+    { id: "sshConfig.import", type: "bool" },
+    ...bools("sync.domains.", SYNC_SETTING_DOMAINS.map((d) => d.id)),
+    ...bools("sync.types.", SYNC_OBJECT_TYPES.map((t) => t.id)),
+    ...bools("sync.settings.", SETTING_KEYS.map((k) => k.id)),
+    ...typedSettings,
+  ];
+  return { keys, byId: new Map(keys.map((k) => [k.id, k])) };
+}
 
-const BY_ID = new Map(POLICY_KEYS.map((k) => [k.id, k]));
+const reg = () => (registry ??= build());
+
+export const policyKeys = (): PolicyKeyDef[] => reg().keys;
 
 export function policyKeyDef(id: string): PolicyKeyDef | undefined {
-  return BY_ID.get(id);
+  return reg().byId.get(id);
 }
 
 const ENFORCED_PREFIXES = ["appSettings.toggles.", "sync."];
@@ -137,5 +145,5 @@ const DEFAULT_APPLIED_KEYS = new Set(["server.url", "plugins.install", "plugins.
 export const isDefaultApplied = (key: string): boolean => DEFAULT_APPLIED_KEYS.has(key) || settingKey(key) !== undefined;
 
 export function policyKeysSnapshot(): Array<PolicyKeyDef & { enforced: boolean; defaultApplied: boolean }> {
-  return POLICY_KEYS.map((k) => ({ ...k, enforced: isPolicyEnforced(k.id), defaultApplied: isDefaultApplied(k.id) }));
+  return policyKeys().map((k) => ({ ...k, enforced: isPolicyEnforced(k.id), defaultApplied: isDefaultApplied(k.id) }));
 }

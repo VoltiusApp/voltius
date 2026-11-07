@@ -13,7 +13,7 @@ vi.mock("./cliPlugins", () => ({
 }));
 
 import goldenPending from "../../src-tauri/src/cli_state/fixtures/pending.golden.json?raw";
-import { applyCliPending, markCliReady, writeCliMirror } from "./cliBridge";
+import { applyCliPending, applySetting, markCliReady, writeCliMirror } from "./cliBridge";
 import { settingPatch } from "./user-data/settingAccess";
 import { usePolicyStore } from "@/stores/policyStore";
 import { DEFAULT_CURSOR_STYLE, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -273,5 +273,15 @@ describe("cliBridge", () => {
     mocks.invoke.mockResolvedValue(null);
     await writeCliMirror();
     expect(calls("cli_mirror_save")[0][1].mirror.plugins).toEqual([plugin]);
+  });
+
+  it("cli bridge accepts an out-of-range value", async () => {
+    usePolicyStore.setState({ machine: { policy: { "appSettings.detachedTtlHours": { $range: { max: 24 } } }, defaults: {} }, server: NONE });
+    expect(await applySetting("appSettings.detachedTtlHours", 72)).toBeNull();
+  });
+
+  it("cli bridge refuses an implied toggle", async () => {
+    usePolicyStore.setState({ machine: { policy: { "appSettings.detachedTtlHours": { $range: { max: 24 } } }, defaults: {} }, server: NONE });
+    expect(await applySetting("appSettings.toggles.detached-session-ttl", false)).toBe("locked by policy");
   });
 });
