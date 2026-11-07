@@ -132,10 +132,7 @@ jobs:
           APPLE_API_KEY: ${{ inputs.signed && secrets.APPLE_API_KEY || '' }}
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
-          # Fail the build rather than ship a binary with missing built-in plugins.
-          # PROFILE=release already forces this; set explicitly so the guard survives
-          # a switch to `tauri build --debug`, which bundles a real installer under
-          # the debug profile where the assertion would otherwise be disabled.
+          # Explicit so the guard survives a `--debug` build.
           VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
         with:
           # An id, not a tag: the action never looks up or creates a release.
@@ -143,12 +140,7 @@ jobs:
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json${{ !inputs.signed && ' --config src-tauri/tauri.dryrun.conf.json' || '' }}
           uploadPlainBinary: true
           updaterJsonPreferNsis: true
-          # Don't write latest.json here — concurrent jobs would race on the
-          # shared file. The .sig files still upload as bundle artifacts; the
-          # updater-manifest job builds latest.json from them once all builds
-          # finish. The input is named `includeUpdaterJson` in tauri-action v0
-          # and `uploadUpdaterJson` in v1 — it must match the pinned major above,
-          # or the action ignores it and defaults back to writing the file.
+          # Single writer: updater-manifest assembles latest.json.
           uploadUpdaterJson: false
 
       - name: Locate the bundle directory
