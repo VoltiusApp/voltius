@@ -168,7 +168,6 @@ jobs:
         run: bash scripts/check-macos-signature.sh --notarized "${{ steps.bundle.outputs.dir }}/macos/Voltius.app"
 
       - name: Check every package contains voltius-cli
-        if: inputs.release-id == ''
         shell: bash
         run: bash scripts/check-cli-in-bundle.sh "${{ matrix.target }}" "${{ steps.bundle.outputs.dir }}"
 

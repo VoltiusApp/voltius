@@ -26,7 +26,7 @@ for line in '-rwxr-xr-x 0/0 1 2026-11-06 22:19 usr/bin/voltius-cli' \
             '/usr/bin/voltius-cli'; do
   expect 0 "accepts '$line'" env LISTING="$line" bash "$here/check-cli-in-bundle.sh" x86_64-unknown-linux-gnu "$linux"
 done
-for line in 'usr/bin/voltius-cli-x86_64-unknown-linux-gnu' 'usr/bin/voltius' 'usr/lib/voltius/usr/bin/voltius-clix'; do
+for line in 'usr/bin/voltius-cli-x86_64-unknown-linux-gnu' 'usr/bin/voltius' 'usr/bin/voltius-cli.bak'; do
   expect 1 "rejects '$line'" env LISTING="$line" bash "$here/check-cli-in-bundle.sh" x86_64-unknown-linux-gnu "$linux"
 done
 exit $status
