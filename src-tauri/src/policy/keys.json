@@ -314,61 +314,167 @@
   {
     "id": "appSettings.terminal.preferredShell",
     "type": "string",
-    "enforced": false,
+    "domain": {
+      "shape": "shell"
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.terminal.cursorStyle",
     "type": "string",
-    "enforced": false,
+    "domain": {
+      "values": [
+        "bar",
+        "block",
+        "underline"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.terminal.keywordRules",
     "type": "json",
-    "enforced": false,
+    "domain": {
+      "shape": "keywordRules",
+      "colors": [
+        "black",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white",
+        "brightBlack",
+        "brightRed",
+        "brightGreen",
+        "brightYellow",
+        "brightBlue",
+        "brightMagenta",
+        "brightCyan",
+        "brightWhite"
+      ],
+      "maxRules": 20,
+      "maxWords": 50,
+      "maxLength": 64
+    },
+    "lock": "add",
+    "implies": "appSettings.toggles.keyword-highlight",
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.sftp.autoRefreshIntervalMs",
     "type": "number",
-    "enforced": false,
+    "domain": {
+      "min": 500
+    },
+    "range": [
+      "min",
+      "max"
+    ],
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.plugins.overrides",
     "type": "json",
+    "lock": "never",
     "enforced": false,
     "defaultApplied": true
   },
   {
     "id": "appSettings.keepalivePreset",
     "type": "string",
-    "enforced": false,
+    "domain": {
+      "values": [
+        "fast",
+        "balanced",
+        "tolerant",
+        "off"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.detachedTtlHours",
     "type": "number",
-    "enforced": false,
+    "domain": {
+      "values": [
+        1,
+        6,
+        12,
+        24,
+        72,
+        168
+      ]
+    },
+    "range": [
+      "allowed",
+      "min",
+      "max"
+    ],
+    "implies": "appSettings.toggles.detached-session-ttl",
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.locale",
     "type": "string",
-    "enforced": false,
+    "domain": {
+      "values": [
+        "en",
+        "fr",
+        "ru",
+        "zh",
+        "tr",
+        "cs",
+        "pt",
+        "pt-BR",
+        "pt-PT"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "appSettings.proxy",
     "type": "json",
-    "enforced": false,
+    "domain": {
+      "shape": "proxy",
+      "values": [
+        "none",
+        "system",
+        "socks5",
+        "http",
+        "https"
+      ]
+    },
+    "enforced": true,
     "defaultApplied": true
   },
   {
     "id": "themes.location",
     "type": "json",
-    "enforced": false,
+    "domain": {
+      "shape": "location"
+    },
+    "enforced": true,
     "defaultApplied": true
   },
   {

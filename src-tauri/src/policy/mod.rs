@@ -32,14 +32,51 @@ impl KeyType {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase")]
-struct KeyEntry {
-    id: String,
+pub enum RangeField {
+    Min,
+    Max,
+    Allowed,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum LockKind {
+    #[default]
+    #[serde(skip)]
+    Replace,
+    Add,
+    Never,
+}
+
+#[derive(Deserialize, Clone, Default, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Domain {
+    pub values: Option<Vec<Value>>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub shape: Option<String>,
+    pub colors: Option<Vec<String>>,
+    pub max_rules: Option<usize>,
+    pub max_words: Option<usize>,
+    pub max_length: Option<usize>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyEntry {
+    pub id: String,
     #[serde(rename = "type")]
-    ty: KeyType,
-    enforced: bool,
-    default_applied: bool,
+    pub ty: KeyType,
+    pub enforced: bool,
+    pub default_applied: bool,
+    pub domain: Option<Domain>,
+    #[serde(default)]
+    pub range: Vec<RangeField>,
+    #[serde(default)]
+    pub lock: LockKind,
+    pub implies: Option<String>,
 }
 
 static KEYS: LazyLock<HashMap<String, KeyEntry>> = LazyLock::new(|| {
@@ -68,6 +105,10 @@ pub fn is_retired_plugin(id: &str) -> bool {
 
 pub fn key_ids() -> impl Iterator<Item = &'static str> {
     KEYS.keys().map(String::as_str)
+}
+
+pub fn key_def(id: &str) -> Option<&'static KeyEntry> {
+    KEYS.get(id)
 }
 
 pub fn key_type(id: &str) -> Option<KeyType> {
@@ -719,6 +760,32 @@ mod tests {
     fn gated_permissions_mirror_the_plugin_list() {
         assert!(is_gated_permission("docker:manage"));
         assert!(!is_gated_permission("sessions:read"));
+    }
+
+    #[test]
+    fn keys_json_domains_load() {
+        let ttl = key_def("appSettings.detachedTtlHours").unwrap();
+        assert_eq!(
+            ttl.domain.as_ref().unwrap().values.as_ref().unwrap().len(),
+            6
+        );
+        assert_eq!(
+            ttl.implies.as_deref(),
+            Some("appSettings.toggles.detached-session-ttl")
+        );
+        assert_eq!(
+            ttl.range,
+            [RangeField::Allowed, RangeField::Min, RangeField::Max]
+        );
+        assert_eq!(
+            key_def("appSettings.terminal.keywordRules").unwrap().lock,
+            LockKind::Add
+        );
+        assert_eq!(
+            key_def("appSettings.plugins.overrides").unwrap().lock,
+            LockKind::Never
+        );
+        assert_eq!(key_def("server.url").unwrap().lock, LockKind::Replace);
     }
 
     #[test]

@@ -1,12 +1,63 @@
 import { SETTING_KEYS, settingKey } from "@/services/user-data/settingKeys";
 import { SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
+import { CURSOR_STYLES } from "@/stores/terminalSettingsStore";
+import { SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { DETACHED_TTL_HOURS, GLOBAL_PROXY_MODES } from "@/stores/connectivitySettingsStore";
+import { KEEPALIVE_PRESETS } from "@/utils/keepalive";
+import { ANSI_SLOTS, MAX_KEYWORD_LENGTH, MAX_KEYWORD_RULES, MAX_KEYWORD_WORDS } from "@/utils/keywordMatcher";
 
 export type PolicyKeyType = "bool" | "string" | "number" | "stringList" | "json";
+
+export type RangeField = "min" | "max" | "allowed";
+
+export interface PolicyDomain {
+  values?: Array<string | number>;
+  min?: number;
+  max?: number;
+  shape?: "shell" | "proxy" | "keywordRules" | "location";
+  colors?: string[];
+  maxRules?: number;
+  maxWords?: number;
+  maxLength?: number;
+}
 
 export interface PolicyKeyDef {
   id: string;
   type: PolicyKeyType;
+  domain?: PolicyDomain;
+  range?: RangeField[];
+  lock?: "add" | "never";
+  implies?: string;
 }
+
+type KeyExtras = Omit<PolicyKeyDef, "id" | "type">;
+
+const KEY_EXTRAS: Record<string, KeyExtras> = {
+  "appSettings.terminal.cursorStyle": { domain: { values: [...CURSOR_STYLES] }, range: ["allowed"] },
+  "appSettings.locale": { domain: { values: SUPPORTED_LOCALES.map((l) => l.value) }, range: ["allowed"] },
+  "appSettings.keepalivePreset": { domain: { values: Object.keys(KEEPALIVE_PRESETS) }, range: ["allowed"] },
+  "appSettings.detachedTtlHours": {
+    domain: { values: [...DETACHED_TTL_HOURS] },
+    range: ["allowed", "min", "max"],
+    implies: "appSettings.toggles.detached-session-ttl",
+  },
+  "appSettings.sftp.autoRefreshIntervalMs": { domain: { min: 500 }, range: ["min", "max"] },
+  "appSettings.terminal.preferredShell": { domain: { shape: "shell" }, range: ["allowed"] },
+  "appSettings.proxy": { domain: { shape: "proxy", values: [...GLOBAL_PROXY_MODES] } },
+  "appSettings.terminal.keywordRules": {
+    domain: {
+      shape: "keywordRules",
+      colors: [...ANSI_SLOTS],
+      maxRules: MAX_KEYWORD_RULES,
+      maxWords: MAX_KEYWORD_WORDS,
+      maxLength: MAX_KEYWORD_LENGTH,
+    },
+    lock: "add",
+    implies: "appSettings.toggles.keyword-highlight",
+  },
+  "themes.location": { domain: { shape: "location" } },
+  "appSettings.plugins.overrides": { lock: "never" },
+};
 
 const SETTING_TYPES: Record<string, PolicyKeyType> = {
   "appSettings.terminal.preferredShell": "string",
@@ -33,7 +84,7 @@ const bools = (prefix: string, ids: string[]): PolicyKeyDef[] =>
 
 const typedSettings: PolicyKeyDef[] = SETTING_KEYS.flatMap((k) => {
   const type = settingType(k.id);
-  return type ? [{ id: k.id, type }] : [];
+  return type ? [{ id: k.id, type, ...KEY_EXTRAS[k.id] }] : [];
 });
 
 export const POLICY_KEYS: PolicyKeyDef[] = [
@@ -58,6 +109,15 @@ export function policyKeyDef(id: string): PolicyKeyDef | undefined {
 
 const ENFORCED_PREFIXES = ["appSettings.toggles.", "sync."];
 const ENFORCED_KEYS = new Set([
+  "appSettings.terminal.cursorStyle",
+  "appSettings.locale",
+  "appSettings.keepalivePreset",
+  "appSettings.detachedTtlHours",
+  "appSettings.sftp.autoRefreshIntervalMs",
+  "appSettings.terminal.preferredShell",
+  "appSettings.proxy",
+  "appSettings.terminal.keywordRules",
+  "themes.location",
   "server.url",
   "server.allowOther",
   "sshConfig.import",

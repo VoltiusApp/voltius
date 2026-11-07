@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { SETTING_KEYS } from "@/services/user-data/settingKeys";
+import { ANSI_SLOTS } from "@/utils/keywordMatcher";
 import { POLICY_KEYS, isDefaultApplied, isPolicyEnforced, policyKeyDef, policyKeysSnapshot } from "./policyKeys";
 
 test("every setting key has a policy type", () => {
@@ -22,7 +23,8 @@ test("keys.json entries carry enforced", () => {
   const enforced = (id: string) => policyKeysSnapshot().find((k) => k.id === id)?.enforced;
   expect(enforced("appSettings.toggles.cursor-blink")).toBe(true);
   expect(enforced("server.url")).toBe(true);
-  expect(enforced("appSettings.locale")).toBe(false);
+  expect(enforced("appSettings.locale")).toBe(true);
+  expect(enforced("appSettings.plugins.overrides")).toBe(false);
 });
 
 test("keys.json entries carry defaultApplied", () => {
@@ -40,6 +42,16 @@ test("plugin install keys are registered and enforced", () => {
   expect(isPolicyEnforced("plugins.install")).toBe(true);
   expect(isPolicyEnforced("plugins.allowInstall")).toBe(true);
   for (const k of ["plugins.install", "plugins.enabled", "plugins.disabled"]) expect(isDefaultApplied(k)).toBe(true);
+});
+
+test("registry carries domains, ranges, locks and implied toggles", () => {
+  const ttl = policyKeyDef("appSettings.detachedTtlHours");
+  expect(ttl?.range).toEqual(["allowed", "min", "max"]);
+  expect(ttl?.implies).toBe("appSettings.toggles.detached-session-ttl");
+  const rules = policyKeyDef("appSettings.terminal.keywordRules");
+  expect(rules?.lock).toBe("add");
+  expect(rules?.domain?.colors).toEqual([...ANSI_SLOTS]);
+  expect(policyKeyDef("appSettings.plugins.overrides")?.lock).toBe("never");
 });
 
 test("keys.json mirrors the registry", async () => {
