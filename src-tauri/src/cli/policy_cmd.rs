@@ -1,10 +1,11 @@
 use super::output::Output;
 use super::{Access, CliError};
 use crate::cli_state::{mirror, pending};
-use crate::policy::{self, Blocked, Issue, IssueKind, Layer, MachineAcl, PolicyDoc, Trust};
+use crate::commands::local::ShellOption;
+use crate::policy::{self, Blocked, Issue, IssueKind, Layer, MachineAcl, PolicyDoc, Range, Trust};
 use clap::Subcommand;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug)]
@@ -12,10 +13,20 @@ pub enum PolicyCmd {
     /// Lock a setting to a value on this machine
     Set {
         key: String,
-        value: String,
+        /// Omit when giving --min, --max or --allow
+        value: Option<String>,
         /// Set a default users may override instead of a locked value
         #[arg(long)]
         defaults: bool,
+        /// Lowest value users may choose
+        #[arg(long)]
+        min: Option<f64>,
+        /// Highest value users may choose
+        #[arg(long)]
+        max: Option<f64>,
+        /// A value users may choose; repeat for several
+        #[arg(long = "allow")]
+        allow: Vec<String>,
     },
     /// Remove a setting from the machine policy file
     Unset {
@@ -55,7 +66,21 @@ pub fn run(cmd: PolicyCmd, machine: Option<&Path>, out: &mut Output) -> Result<(
             key,
             value,
             defaults,
-        } => set(&key, &value, layer_of(defaults), path, out),
+            min,
+            max,
+            allow,
+        } => write_setting(
+            &key,
+            SetArgs {
+                value,
+                min,
+                max,
+                allow,
+            },
+            layer_of(defaults),
+            path,
+            out,
+        ),
         PolicyCmd::Unset { key, defaults } => unset(&key, layer_of(defaults), path, out),
         PolicyCmd::Show => show(path, user_dir().as_deref(), out),
         PolicyCmd::Check { file } => check(file.as_deref(), path, acl.map(|a| a.probe), out),
@@ -327,6 +352,49 @@ pub(super) fn typed_value(key: &str, ty: policy::KeyType, raw: &str) -> Result<V
         .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))
 }
 
+#[derive(Default)]
+struct SetArgs {
+    value: Option<String>,
+    min: Option<f64>,
+    max: Option<f64>,
+    allow: Vec<String>,
+}
+
+fn built_range(key: &str, ty: policy::KeyType, a: &SetArgs) -> Result<Value, CliError> {
+    let allowed = if a.allow.is_empty() {
+        None
+    } else {
+        let parse = |raw: &String| {
+            policy::parse_cli_value(ty, raw)
+                .map_err(|m| plain(IssueKind::Type, format!("{key}: {m}")))
+        };
+        Some(a.allow.iter().map(parse).collect::<Result<Vec<_>, _>>()?)
+    };
+    let range = Range {
+        min: a.min,
+        max: a.max,
+        allowed,
+    };
+    match policy::range_problem(key, &range) {
+        Some(m) => Err(plain(IssueKind::Range, format!("{key}: {m}"))),
+        None => Ok(json!({ "$range": range_json(&range) })),
+    }
+}
+
+fn set_value(key: &str, ty: policy::KeyType, layer: Layer, a: &SetArgs) -> Result<Value, CliError> {
+    let is_range = a.min.is_some() || a.max.is_some() || !a.allow.is_empty();
+    match (&a.value, is_range) {
+        (Some(_), true) | (None, false) => Err(CliError::Usage(
+            "give a value or --min/--max/--allow, not both".into(),
+        )),
+        (None, true) if layer == Layer::Defaults => {
+            Err(CliError::Usage("ranges belong under policy".into()))
+        }
+        (None, true) => built_range(key, ty, a),
+        (Some(raw), false) => typed_value(key, ty, raw),
+    }
+}
+
 pub(super) fn set(
     key: &str,
     raw: &str,
@@ -334,9 +402,26 @@ pub(super) fn set(
     path: &Path,
     out: &mut Output,
 ) -> Result<(), CliError> {
+    let args = SetArgs {
+        value: Some(raw.to_string()),
+        ..Default::default()
+    };
+    write_setting(key, args, layer, path, out)
+}
+
+fn write_setting(
+    key: &str,
+    args: SetArgs,
+    layer: Layer,
+    path: &Path,
+    out: &mut Output,
+) -> Result<(), CliError> {
     let ty = policy::key_type(key)
         .ok_or_else(|| plain(IssueKind::UnknownKey, unknown_key_message(key)))?;
-    let value = typed_value(key, ty, raw)?;
+    if let Some(m) = policy::lock_problem(layer, key) {
+        return Err(plain(IssueKind::Type, m));
+    }
+    let value = set_value(key, ty, layer, &args)?;
     edit_raw(path, out, |root| {
         layer_entries(root, layer, path)?.insert(key.to_string(), value);
         Ok(true)
@@ -359,12 +444,16 @@ fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), C
 }
 
 const BUILT_IN: &str = "built-in";
+const POLICY: &str = "machine policy";
 
 pub(super) struct Row {
     pub value: Value,
     pub source: &'static str,
     default_value: Option<Value>,
     at: Option<String>,
+    range: Option<Range>,
+    user_value: Option<Value>,
+    forced_by: Option<&'static str>,
 }
 
 impl Row {
@@ -374,10 +463,23 @@ impl Row {
             source,
             default_value: None,
             at,
+            range: None,
+            user_value: None,
+            forced_by: None,
         }
     }
 
     fn note(&self) -> String {
+        if let Some(by) = self.forced_by {
+            return format!("{}, forced on by {by}", self.source);
+        }
+        if let Some(r) = &self.range {
+            let moved = self
+                .user_value
+                .as_ref()
+                .map_or(String::new(), |u| format!("; user value {u} is outside it"));
+            return format!("{} range: {}{moved}", self.source, range_text(r));
+        }
         match &self.default_value {
             Some(d) => format!("{}, machine default: {d}", self.source),
             None => self.source.to_string(),
@@ -389,13 +491,68 @@ impl Row {
         if let Some(d) = &self.default_value {
             e["defaultValue"] = d.clone();
         }
+        if let Some(r) = &self.range {
+            e["range"] = range_json(r);
+        }
+        if let Some(u) = &self.user_value {
+            e["userValue"] = u.clone();
+        }
+        if let Some(by) = self.forced_by {
+            e["forcedBy"] = json!(by);
+        }
         e
     }
 }
 
-fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
-    let mut rows = BTreeMap::new();
-    let mut as_of = None;
+fn range_json(r: &Range) -> Value {
+    let mut o = serde_json::Map::new();
+    if let Some(n) = r.min {
+        o.insert("min".into(), policy::number_value(n));
+    }
+    if let Some(n) = r.max {
+        o.insert("max".into(), policy::number_value(n));
+    }
+    if let Some(a) = &r.allowed {
+        o.insert("allowed".into(), Value::Array(a.clone()));
+    }
+    Value::Object(o)
+}
+
+pub(super) fn range_text(r: &Range) -> String {
+    let shown = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
+    let parts = [
+        r.min.map(|n| format!("min {}", policy::number_value(n))),
+        r.max.map(|n| format!("max {}", policy::number_value(n))),
+        r.allowed.as_ref().map(|a| {
+            let items: Vec<String> = a.iter().map(shown).collect();
+            format!("allowed {}", items.join(", "))
+        }),
+    ];
+    parts.into_iter().flatten().collect::<Vec<_>>().join(", ")
+}
+
+pub(super) fn range_violation(doc: &PolicyDoc, key: &str, value: &Value) -> Option<String> {
+    let range = doc.policy.get(key).and_then(policy::range_of)?;
+    (!policy::within(key, &range, value)).then(|| {
+        format!(
+            "{key}: outside the range your organization allows ({})",
+            range_text(&range)
+        )
+    })
+}
+
+struct UserState {
+    rows: BTreeMap<String, Row>,
+    as_of: Option<String>,
+    built_ins: BTreeMap<String, Value>,
+}
+
+fn user_values(dir: &Path) -> UserState {
+    let mut state = UserState {
+        rows: BTreeMap::new(),
+        as_of: None,
+        built_ins: BTreeMap::new(),
+    };
     if let Some(m) = mirror::read(dir) {
         for (k, v) in m.values() {
             let source = if m.built_ins.get(&k) == Some(&v) {
@@ -403,17 +560,60 @@ fn user_values(dir: &Path) -> (BTreeMap<String, Row>, Option<String>) {
             } else {
                 "app"
             };
-            rows.insert(k, Row::new(v, source, Some(m.written_at.clone())));
+            state
+                .rows
+                .insert(k, Row::new(v, source, Some(m.written_at.clone())));
         }
-        as_of = Some(m.written_at);
+        state.as_of = Some(m.written_at);
+        state.built_ins = m.built_ins;
     }
     for (k, (v, at)) in pending::load(dir).0.queued_values() {
-        rows.insert(k, Row::new(v, "pending", Some(at)));
+        state.rows.insert(k, Row::new(v, "pending", Some(at)));
     }
-    (rows, as_of)
+    state
 }
 
-fn effective_rows(doc: &PolicyDoc, mut rows: BTreeMap<String, Row>) -> BTreeMap<String, Row> {
+fn range_row(
+    key: &str,
+    range: Range,
+    stored: Option<&(Value, &'static str)>,
+    admin_default: Option<&Value>,
+    built_in: Option<&Value>,
+) -> Row {
+    let value = policy::bounded(key, &range, stored.map(|s| &s.0), admin_default, built_in);
+    let moved = stored
+        .filter(|(v, source)| *source != BUILT_IN && !policy::within(key, &range, v))
+        .map(|(v, _)| v.clone());
+    let mut row = Row::new(value, POLICY, None);
+    row.user_value = moved;
+    row.range = Some(range);
+    row
+}
+
+fn forced_toggle_rows(doc: &PolicyDoc, rows: &mut BTreeMap<String, Row>) {
+    let toggles: BTreeSet<&str> = doc
+        .policy
+        .keys()
+        .filter_map(|k| policy::key_def(k)?.implies.as_deref())
+        .collect();
+    for toggle in toggles {
+        if let Some(by) = policy::implied_lock(doc, toggle) {
+            let mut row = Row::new(Value::Bool(true), POLICY, None);
+            row.forced_by = Some(by);
+            rows.insert(toggle.to_string(), row);
+        }
+    }
+}
+
+fn effective_rows(
+    doc: &PolicyDoc,
+    mut rows: BTreeMap<String, Row>,
+    built_ins: &BTreeMap<String, Value>,
+) -> BTreeMap<String, Row> {
+    let stored: BTreeMap<String, (Value, &'static str)> = rows
+        .iter()
+        .map(|(k, r)| (k.clone(), (r.value.clone(), r.source)))
+        .collect();
     for (k, v) in &doc.defaults {
         match rows.get_mut(k) {
             Some(r) if r.source != BUILT_IN && r.value != *v => r.default_value = Some(v.clone()),
@@ -423,18 +623,29 @@ fn effective_rows(doc: &PolicyDoc, mut rows: BTreeMap<String, Row>) -> BTreeMap<
         }
     }
     for (k, v) in &doc.policy {
-        rows.insert(k.clone(), Row::new(v.clone(), "machine policy", None));
+        let row = match policy::range_of(v) {
+            Some(range) => range_row(
+                k,
+                range,
+                stored.get(k),
+                doc.defaults.get(k),
+                built_ins.get(k),
+            ),
+            None => Row::new(v.clone(), POLICY, None),
+        };
+        rows.insert(k.clone(), row);
     }
+    forced_toggle_rows(doc, &mut rows);
     rows
 }
 
 // Precedence: machine policy > pending > app > machine default > built-in.
 pub(super) fn effective_row(doc: &PolicyDoc, dir: &Path, key: &str) -> Option<Row> {
-    let (mut user, as_of) = user_values(dir);
-    user.retain(|k, _| k == key);
-    effective_rows(doc, user)
+    let mut user = user_values(dir);
+    user.rows.retain(|k, _| k == key);
+    effective_rows(doc, user.rows, &user.built_ins)
         .remove(key)
-        .or_else(|| as_of.map(|at| Row::new(Value::Null, "app", Some(at))))
+        .or_else(|| user.as_of.map(|at| Row::new(Value::Null, "app", Some(at))))
 }
 
 pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
@@ -453,15 +664,25 @@ pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
 
 fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
     let loaded = policy::load_from(path);
-    let (user, as_of) = user_dir.map_or_else(Default::default, user_values);
-    let mut rows = effective_rows(&loaded.doc, user);
+    let user = user_dir.map_or_else(
+        || UserState {
+            rows: BTreeMap::new(),
+            as_of: None,
+            built_ins: BTreeMap::new(),
+        },
+        user_values,
+    );
+    let as_of = user.as_of.clone();
+    let mut rows = effective_rows(&loaded.doc, user.rows, &user.built_ins);
     rows.retain(|_, r| r.source != BUILT_IN);
+    let warnings = detected_shell_warnings(&loaded.doc);
     if out.json {
         let entries: Vec<Value> = rows.iter().map(|(k, r)| r.json(k)).collect();
         out.json(&json!({
             "path": loaded.path,
             "entries": entries,
             "issues": loaded.issues,
+            "warnings": warnings,
             "mirrorAsOf": as_of,
         }));
         return Ok(());
@@ -491,7 +712,51 @@ fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), Cl
     for i in &loaded.issues {
         out.line(format!("{warn}warning{warn:#}: {}", describe(i)));
     }
+    for w in warnings {
+        out.warn(w);
+    }
     Ok(())
+}
+
+const SHELL_KEY: &str = "appSettings.terminal.preferredShell";
+const SYSTEM_DEFAULT: &str = "new terminals use the system default";
+
+fn shell_warnings(doc: &PolicyDoc, shells: &[ShellOption]) -> Vec<String> {
+    let installed = |entry: &str| {
+        shells
+            .iter()
+            .any(|s| s.path == entry || s.name.eq_ignore_ascii_case(entry))
+    };
+    let Some(v) = doc.policy.get(SHELL_KEY) else {
+        return Vec::new();
+    };
+    if let Some(range) = policy::range_of(v) {
+        let allowed = range.allowed.unwrap_or_default();
+        if !allowed.iter().filter_map(Value::as_str).any(installed) {
+            return vec![format!(
+                "none of the allowed shells is installed; {SYSTEM_DEFAULT}"
+            )];
+        }
+        return Vec::new();
+    }
+    match v.as_str() {
+        Some(s) if !installed(s) => vec![format!("locked shell {s} not found; {SYSTEM_DEFAULT}")],
+        _ => Vec::new(),
+    }
+}
+
+fn detected_shell_warnings(doc: &PolicyDoc) -> Vec<String> {
+    if !doc.policy.contains_key(SHELL_KEY) {
+        return Vec::new();
+    }
+    let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return Vec::new();
+    };
+    let shells = rt.block_on(crate::commands::local::detected_shells());
+    shell_warnings(doc, &shells)
 }
 
 fn user_dir() -> Option<PathBuf> {
@@ -528,10 +793,14 @@ fn check(
     {
         issues.push(issue);
     }
+    let conflicts = policy::conflicts(&doc)
+        .into_iter()
+        .map(|message| json!({ "layer": Layer::Policy.name(), "message": message }));
     let warnings: Vec<Value> = not_honoured(entries(&doc))
         .map(|(layer, key, message)| {
             json!({ "layer": layer.name(), "key": key, "message": message })
         })
+        .chain(conflicts)
         .collect();
     if out.json {
         out.json(&json!({
@@ -604,6 +873,28 @@ mod tests {
         super::run(cmd, Some(path), out)
     }
 
+    fn set_cmd(key: &str, value: Option<&str>, defaults: bool) -> PolicyCmd {
+        PolicyCmd::Set {
+            key: key.into(),
+            value: value.map(Into::into),
+            defaults,
+            min: None,
+            max: None,
+            allow: Vec::new(),
+        }
+    }
+
+    fn range_cmd(key: &str, min: Option<f64>, max: Option<f64>, allow: &[&str]) -> PolicyCmd {
+        PolicyCmd::Set {
+            key: key.into(),
+            value: None,
+            defaults: false,
+            min,
+            max,
+            allow: allow.iter().map(|a| a.to_string()).collect(),
+        }
+    }
+
     fn out() -> Output {
         Output::with_sink(false, true, Box::new(std::io::sink()))
     }
@@ -620,15 +911,7 @@ mod tests {
     }
 
     fn set(path: &Path, key: &str, value: &str, defaults: bool) -> Result<(), CliError> {
-        run(
-            PolicyCmd::Set {
-                key: key.into(),
-                value: value.into(),
-                defaults,
-            },
-            path,
-            &mut out(),
-        )
+        run(set_cmd(key, Some(value), defaults), path, &mut out())
     }
 
     fn read(path: &Path) -> PolicyDoc {
@@ -1315,20 +1598,8 @@ mod tests {
     }
 
     fn set_with(out: &mut Output, path: &Path, key: &str, value: &str) {
-        run(
-            PolicyCmd::Set {
-                key: key.into(),
-                value: value.into(),
-                defaults: false,
-            },
-            path,
-            out,
-        )
-        .unwrap();
+        run(set_cmd(key, Some(value), false), path, out).unwrap();
     }
-
-    const NOT_ENFORCED: &str =
-        "appSettings.locale is saved but this version of Voltius does not enforce it yet";
 
     #[test]
     fn set_unenforced_key_warns() {
@@ -1336,7 +1607,7 @@ mod tests {
         let path = dir.path().join("policy.json");
         let (mut sink, stdout, stderr) = capture_split(false, false);
         set_with(&mut sink, &path, "appSettings.locale", "fr");
-        assert!(captured(&stderr).contains(NOT_ENFORCED));
+        assert_eq!(captured(&stderr), "");
         assert!(!captured(&stdout).contains("does not enforce"));
         assert_eq!(read(&path).policy["appSettings.locale"], Value::from("fr"));
     }
@@ -1355,18 +1626,23 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
         let (mut sink, _, stderr) = capture_split(false, true);
-        set_with(&mut sink, &path, "appSettings.locale", "fr");
+        run(
+            set_cmd("sshConfig.import", Some("true"), true),
+            &path,
+            &mut sink,
+        )
+        .unwrap();
         assert_eq!(captured(&stderr), "");
     }
 
     #[test]
-    fn import_unenforced_key_warns_json_stdout_unchanged() {
+    fn import_unapplied_default_warns_json_stdout_unchanged() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("policy.json");
         let file = dir.path().join("in.json");
         std::fs::write(
             &file,
-            r#"{"version":1,"policy":{"appSettings.locale":"fr"}}"#,
+            r#"{"version":1,"defaults":{"sshConfig.import":true}}"#,
         )
         .unwrap();
         let (mut sink, stdout, stderr) = capture_split(true, false);
@@ -1379,8 +1655,8 @@ mod tests {
             &mut sink,
         )
         .unwrap();
-        assert!(captured(&stderr).contains(NOT_ENFORCED));
-        assert!(!captured(&stdout).contains("does not enforce"));
+        assert!(captured(&stderr).contains(NOT_APPLIED));
+        assert!(!captured(&stdout).contains("does not apply"));
     }
 
     #[test]
@@ -1457,11 +1733,7 @@ mod tests {
         let path = dir.path().join("policy.json");
         let (mut sink, _, stderr) = capture_split(false, false);
         run(
-            PolicyCmd::Set {
-                key: "sshConfig.import".into(),
-                value: "true".into(),
-                defaults: true,
-            },
+            set_cmd("sshConfig.import", Some("true"), true),
             &path,
             &mut sink,
         )
@@ -1469,11 +1741,7 @@ mod tests {
         assert!(captured(&stderr).contains(NOT_APPLIED));
         let (mut sink, _, stderr) = capture_split(false, false);
         run(
-            PolicyCmd::Set {
-                key: "appSettings.toggles.cursor-blink".into(),
-                value: "false".into(),
-                defaults: true,
-            },
+            set_cmd("appSettings.toggles.cursor-blink", Some("false"), true),
             &path,
             &mut sink,
         )
@@ -1524,25 +1792,224 @@ mod tests {
     }
 
     #[test]
-    fn check_json_lists_warnings() {
+    fn policy_layer_warning_for_unenforced_key() {
+        assert!(not_honoured_message(Layer::Policy, "appSettings.plugins.overrides").is_some());
+        assert!(not_honoured_message(Layer::Policy, "appSettings.locale").is_none());
+    }
+
+    const TTL: &str = "appSettings.detachedTtlHours";
+    const TTL_TOGGLE: &str = "appSettings.toggles.detached-session-ttl";
+    const SHELL: &str = "appSettings.terminal.preferredShell";
+
+    fn run_range(path: &Path, cmd: PolicyCmd) -> Result<(), CliError> {
+        run(cmd, path, &mut out())
+    }
+
+    fn raw_policy(path: &Path) -> Value {
+        let root: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        root["policy"].clone()
+    }
+
+    #[test]
+    fn set_range_writes_wrapper() {
         let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("good.json");
+        let path = dir.path().join("policy.json");
+        run_range(&path, range_cmd(TTL, None, Some(24.0), &[])).unwrap();
+        assert_eq!(raw_policy(&path)[TTL], json!({"$range": {"max": 24}}));
+        assert!(!std::fs::read_to_string(&path).unwrap().contains("24.0"));
+    }
+
+    #[test]
+    fn set_range_and_value_is_usage_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let mut cmd = range_cmd(TTL, None, Some(24.0), &[]);
+        if let PolicyCmd::Set { value, .. } = &mut cmd {
+            *value = Some("12".into());
+        }
+        let err = run_range(&path, cmd).unwrap_err();
+        assert_eq!(err.exit_code(), 2);
+        assert_eq!(
+            err.to_string(),
+            "give a value or --min/--max/--allow, not both"
+        );
+        let err = run_range(&path, set_cmd(TTL, None, false)).unwrap_err();
+        assert_eq!(err.exit_code(), 2);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn set_range_under_defaults_is_usage_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let mut cmd = range_cmd(TTL, None, Some(24.0), &[]);
+        if let PolicyCmd::Set { defaults, .. } = &mut cmd {
+            *defaults = true;
+        }
+        let err = run_range(&path, cmd).unwrap_err();
+        assert_eq!(err.exit_code(), 2);
+        assert_eq!(err.to_string(), "ranges belong under policy");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn set_empty_range_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let err = run_range(&path, range_cmd(TTL, Some(25.0), Some(30.0), &[])).unwrap_err();
+        assert_eq!(err.exit_code(), 3);
+        assert_eq!(err.to_string(), format!("{TTL}: leaves no allowed value"));
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn set_allow_parses_numbers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        run_range(&path, range_cmd(TTL, None, None, &["6", "12"])).unwrap();
+        assert_eq!(
+            raw_policy(&path)[TTL],
+            json!({"$range": {"allowed": [6, 12]}})
+        );
+    }
+
+    #[test]
+    fn set_bad_locale_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let err = set(&path, "appSettings.locale", "xx", false).unwrap_err();
+        assert_eq!(err.exit_code(), 3);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn set_overrides_under_policy_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        let key = "appSettings.plugins.overrides";
+        let err = set(&path, key, "{}", false).unwrap_err();
+        assert_eq!(err.exit_code(), 3);
+        assert!(err.to_string().contains("cannot be locked"));
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn show_bounds_user_value_with_note() {
+        let user = user_dir(json!({ TTL: 72 }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ TTL: {"$range": {"max": 24}} }), json!({}));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, TTL);
+        assert_eq!(e["value"], 24);
+        assert_eq!(e["userValue"], 72);
+        assert_eq!(e["range"], json!({"max": 24}));
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        let text = captured(&buf);
+        assert!(
+            text.contains("machine policy range: max 24; user value 72 is outside it"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn show_range_inside_keeps_user_value() {
+        let user = user_dir(json!({ TTL: 12 }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ TTL: {"$range": {"max": 24}} }), json!({}));
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, TTL);
+        assert_eq!(e["value"], 12);
+        assert!(e.get("userValue").is_none());
+    }
+
+    #[test]
+    fn range_text_formats() {
+        let r = |v: Value| policy::range_of(&json!({"$range": v})).unwrap();
+        assert_eq!(range_text(&r(json!({"max": 24}))), "max 24");
+        assert_eq!(
+            range_text(&r(json!({"min": 5000.0, "max": 30000}))),
+            "min 5000, max 30000"
+        );
+        assert_eq!(
+            range_text(&r(json!({"allowed": ["en", "fr"]}))),
+            "allowed en, fr"
+        );
+    }
+
+    #[test]
+    fn show_implied_toggle_forced_on() {
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(m.path(), json!({ TTL: {"$range": {"max": 24}} }), json!({}));
+        let (mut sink, buf) = capture(false);
+        show(&path, None, &mut sink).unwrap();
+        let text = captured(&buf);
+        assert!(text.contains(&format!("{TTL_TOGGLE} = true ")), "{text}");
+        assert!(
+            text.contains(&format!("machine policy, forced on by {TTL}")),
+            "{text}"
+        );
+    }
+
+    fn shells(names: &[(&str, &str)]) -> Vec<crate::commands::local::ShellOption> {
+        names
+            .iter()
+            .map(|(name, path)| crate::commands::local::ShellOption {
+                name: name.to_string(),
+                path: path.to_string(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn shell_warnings_follow_matching_rule() {
+        let found = shells(&[("zsh", "/bin/zsh"), ("PowerShell", "/usr/bin/pwsh")]);
+        let doc = |v: Value| {
+            let m = tempfile::tempdir().unwrap();
+            policy::load_from(&machine(m.path(), json!({ SHELL: v }), json!({}))).doc
+        };
+        assert!(shell_warnings(&doc(json!("/bin/zsh")), &found).is_empty());
+        assert!(shell_warnings(&doc(json!("ZSH")), &found).is_empty());
+        assert_eq!(
+            shell_warnings(&doc(json!("fish")), &found),
+            vec!["locked shell fish not found; new terminals use the system default"]
+        );
+        assert!(shell_warnings(
+            &doc(json!({"$range": {"allowed": ["bash", "zsh"]}})),
+            &found
+        )
+        .is_empty());
+        assert_eq!(
+            shell_warnings(
+                &doc(json!({"$range": {"allowed": ["bash", "fish"]}})),
+                &found
+            ),
+            vec!["none of the allowed shells is installed; new terminals use the system default"]
+        );
+    }
+
+    #[test]
+    fn check_reports_conflict_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("c.json");
         std::fs::write(
             &file,
-            r#"{"version":1,"policy":{"appSettings.locale":"fr","server.url":"https://x"}}"#,
+            json!({"version":1,"policy":{TTL: {"$range": {"max": 24}}, TTL_TOGGLE: false}})
+                .to_string(),
         )
         .unwrap();
+        let machine = dir.path().join("none.json");
+        let (mut sink, _, stderr) = capture_split(false, false);
+        check(Some(&file), &machine, None, &mut sink).unwrap();
+        assert!(captured(&stderr).contains(&format!(
+            "{TTL_TOGGLE} is locked off but {TTL} forces it on; {TTL} wins"
+        )));
         let (mut sink, stdout, _) = capture_split(true, false);
-        run(
-            PolicyCmd::Check { file: Some(file) },
-            &dir.path().join("m.json"),
-            &mut sink,
-        )
-        .unwrap();
+        check(Some(&file), &machine, None, &mut sink).unwrap();
         let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
-        assert_eq!(v["warnings"].as_array().unwrap().len(), 1);
-        assert_eq!(v["warnings"][0]["key"], "appSettings.locale");
-        assert_eq!(v["warnings"][0]["layer"], "policy");
-        assert_eq!(v["warnings"][0]["message"], NOT_ENFORCED);
+        assert!(v["warnings"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("forces it on"));
     }
 }

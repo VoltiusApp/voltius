@@ -1,11 +1,12 @@
 use super::output::Output;
 use super::policy_cmd::{
-    effective_row, locked_message, machine_doc, plain, print_row, typed_value, unknown_key_message,
+    effective_row, locked_message, machine_doc, plain, print_row, range_violation, typed_value,
+    unknown_key_message,
 };
 use super::user::require_user_account;
 use super::{queue, CliError, Ctx};
 use crate::cli_state::pending::Change;
-use crate::policy::{self, Issue, IssueKind, KeyType};
+use crate::policy::{self, Issue, IssueKind, KeyType, PolicyDoc};
 use clap::Subcommand;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -35,10 +36,6 @@ pub fn run(cmd: ConfigCmd, ctx: &mut Ctx) -> Result<(), CliError> {
     run_config(cmd, policy::machine_policy_path().as_deref(), &dir, ctx)
 }
 
-fn locked_keys(machine: Option<&Path>) -> Vec<String> {
-    machine_doc(machine).policy.into_keys().collect()
-}
-
 fn rejected(key: &str, message: String) -> Issue {
     Issue {
         kind: IssueKind::Type,
@@ -48,7 +45,7 @@ fn rejected(key: &str, message: String) -> Issue {
     }
 }
 
-fn setting_type(key: &str, locked: &[String]) -> Result<KeyType, Issue> {
+fn setting_type(key: &str, doc: &PolicyDoc) -> Result<KeyType, Issue> {
     let Some(ty) = policy::key_type(key) else {
         return Err(rejected(key, unknown_key_message(key)));
     };
@@ -63,7 +60,7 @@ fn setting_type(key: &str, locked: &[String]) -> Result<KeyType, Issue> {
             format!("{key} is not a user setting; {hint}"),
         ));
     }
-    if locked.iter().any(|k| k == key) {
+    if policy::blocks_user_write(doc, key) {
         return Err(rejected(key, locked_message(key)));
     }
     Ok(ty)
@@ -82,9 +79,12 @@ pub(super) fn run_config(
     match cmd {
         ConfigCmd::Get { key } => get(&key, machine, user_dir, ctx.out),
         ConfigCmd::Set { key, value } => {
-            let ty = setting_type(&key, &locked_keys(machine))
-                .map_err(|i| CliError::Validation(vec![i]))?;
+            let doc = machine_doc(machine);
+            let ty = setting_type(&key, &doc).map_err(|i| CliError::Validation(vec![i]))?;
             let value = typed_value(&key, ty, &value)?;
+            if let Some(m) = range_violation(&doc, &key, &value) {
+                return Err(plain(IssueKind::Range, m));
+            }
             queue_setting(user_dir, key, value, ctx.out)
         }
         ConfigCmd::Import { file, data } => import(file, data, machine, user_dir, ctx.out),
@@ -122,14 +122,17 @@ fn import(
             "expected a JSON object of key to value".into(),
         ));
     };
-    let locked = locked_keys(machine);
+    let doc = machine_doc(machine);
     let mut issues = Vec::new();
     for (key, value) in &map {
-        match setting_type(key, &locked) {
+        match setting_type(key, &doc) {
             Err(i) => issues.push(i),
             Ok(ty) => {
-                if let Some(m) = policy::value_problem(key, ty, value) {
-                    issues.push(rejected(key, format!("{key}: {m}")));
+                let problem = policy::value_problem(key, ty, value)
+                    .map(|m| format!("{key}: {m}"))
+                    .or_else(|| range_violation(&doc, key, value));
+                if let Some(m) = problem {
+                    issues.push(rejected(key, m));
                 }
             }
         }
@@ -401,5 +404,83 @@ mod tests {
         let e = run(get_cmd(), None, dir.path(), false).0.unwrap_err();
         assert_eq!(e.exit_code(), 5);
         assert!(e.to_string().contains("has not run yet"));
+    }
+
+    const TTL: &str = "appSettings.detachedTtlHours";
+    const RULES: &str = "appSettings.terminal.keywordRules";
+
+    #[test]
+    fn config_set_outside_range_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { TTL: {"$range": {"max": 24}} }}),
+        );
+        let e = run(set(TTL, "72"), Some(&m), dir.path(), false)
+            .0
+            .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert_eq!(
+            e.to_string(),
+            format!("{TTL}: outside the range your organization allows (max 24)")
+        );
+        assert!(queued(dir.path()).is_empty());
+        let bad = format!(r#"{{"{TTL}":72}}"#);
+        let e = run(import_data(&bad), Some(&m), dir.path(), false)
+            .0
+            .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert!(e.to_string().contains("outside the range"));
+        assert!(queued(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn config_set_inside_range_queues() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { TTL: {"$range": {"max": 24}} }}),
+        );
+        run(set(TTL, "12"), Some(&m), dir.path(), false).0.unwrap();
+        assert_eq!(
+            queued(dir.path()),
+            vec![pending::Change::Setting {
+                key: TTL.into(),
+                value: json!(12)
+            }]
+        );
+    }
+
+    #[test]
+    fn config_set_keyword_rules_allowed_under_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(dir.path(), json!({"version": 1, "policy": { RULES: [] }}));
+        let rules = r#"[{"id":"a","color":"red","words":["x"]}]"#;
+        run(set(RULES, rules), Some(&m), dir.path(), false)
+            .0
+            .unwrap();
+        assert_eq!(queued(dir.path()).len(), 1);
+    }
+
+    #[test]
+    fn config_set_implied_toggle_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { TTL: {"$range": {"max": 24}} }}),
+        );
+        let e = run(
+            set("appSettings.toggles.detached-session-ttl", "false"),
+            Some(&m),
+            dir.path(),
+            false,
+        )
+        .0
+        .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert!(e
+            .to_string()
+            .contains("is locked by your organization's policy"));
+        assert!(queued(dir.path()).is_empty());
     }
 }

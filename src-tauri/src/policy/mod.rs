@@ -564,13 +564,21 @@ pub fn bounded(
             .or(built_in.and_then(Value::as_f64));
         if let Some(n) = base {
             let n = r.min.map_or(n, |m| n.max(m));
-            return Value::from(r.max.map_or(n, |m| n.min(m)));
+            return number_value(r.max.map_or(n, |m| n.min(m)));
         }
     }
     allowed_in_domain()
         .or(r.allowed.as_ref().and_then(|a| a.first()))
         .cloned()
         .unwrap_or(Value::Null)
+}
+
+pub fn number_value(n: f64) -> Value {
+    if n.fract() == 0.0 && n.abs() < 9e15 {
+        Value::from(n as i64)
+    } else {
+        Value::from(n)
+    }
 }
 
 pub fn implied_lock(doc: &PolicyDoc, toggle_key: &str) -> Option<&'static str> {
@@ -604,15 +612,19 @@ fn is_range_entry(v: &Value) -> bool {
         .is_some_and(|o| o.len() == 1 && o.contains_key("$range"))
 }
 
+pub fn lock_problem(layer: Layer, key: &str) -> Option<String> {
+    (layer == Layer::Policy && key_def(key).is_some_and(|d| d.lock == LockKind::Never)).then(|| {
+        "appSettings.plugins.overrides cannot be locked; use plugins.enabled / plugins.disabled"
+            .to_string()
+    })
+}
+
 fn entry_problem(layer: Layer, key: &str, value: &Value) -> Option<(IssueKind, String)> {
     let Some(def) = key_def(key) else {
         return Some((IssueKind::UnknownKey, "unknown key".to_string()));
     };
-    if def.lock == LockKind::Never && layer == Layer::Policy {
-        return Some((
-            IssueKind::Type,
-            "appSettings.plugins.overrides cannot be locked; use plugins.enabled / plugins.disabled".into(),
-        ));
+    if let Some(m) = lock_problem(layer, key) {
+        return Some((IssueKind::Type, m));
     }
     if !is_range_entry(value) {
         return value_problem(key, def.ty, value).map(|m| (IssueKind::Type, m));
@@ -707,8 +719,8 @@ pub fn parse_cli_value(ty: KeyType, raw: &str) -> Result<Value, String> {
             .trim()
             .parse::<f64>()
             .ok()
-            .and_then(serde_json::Number::from_f64)
-            .map(Value::Number)
+            .filter(|n| n.is_finite())
+            .map(number_value)
             .ok_or_else(|| format!("expected a number, got \"{raw}\"")),
         KeyType::String => Ok(Value::String(raw.to_string())),
         KeyType::StringList => {
@@ -1394,7 +1406,8 @@ mod tests {
             parse_cli_value(KeyType::StringList, "[\"a\"]"),
             Ok(json!(["a"]))
         );
-        assert_eq!(parse_cli_value(KeyType::Number, "12"), Ok(json!(12.0)));
+        assert_eq!(parse_cli_value(KeyType::Number, "12"), Ok(json!(12)));
+        assert_eq!(parse_cli_value(KeyType::Number, "2.5"), Ok(json!(2.5)));
     }
 
     fn policy_file() -> (tempfile::TempDir, PathBuf) {
@@ -1707,5 +1720,18 @@ mod tests {
         );
         let on = doc_with(json!({TTL: {"$range": {"max": 24}}, TTL_TOGGLE: true}));
         assert!(conflicts(&on).is_empty());
+    }
+
+    #[test]
+    fn bounded_clamp_returns_whole_numbers_as_integers() {
+        let key = "appSettings.sftp.autoRefreshIntervalMs";
+        let r = Range {
+            min: Some(5000.0),
+            max: None,
+            allowed: None,
+        };
+        let v = bounded(key, &r, Some(&json!(1000)), None, None);
+        assert_eq!(v.to_string(), "5000");
+        assert_eq!(number_value(2.5).to_string(), "2.5");
     }
 }

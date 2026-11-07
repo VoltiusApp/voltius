@@ -56,6 +56,10 @@ fn push_shell(shells: &mut Vec<ShellOption>, name: &str, path: Option<String>) {
 
 #[tauri::command]
 pub async fn local_list_shells() -> Vec<ShellOption> {
+    detected_shells().await
+}
+
+pub async fn detected_shells() -> Vec<ShellOption> {
     let mut shells: Vec<ShellOption> = Vec::new();
 
     #[cfg(windows)]
