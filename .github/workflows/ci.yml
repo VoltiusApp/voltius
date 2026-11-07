@@ -39,6 +39,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # macOS ships bash 3.2, the oldest shell the release bundle check must run under.
+      - name: Bundle check self-test
+        if: runner.os == 'macOS'
+        run: bash scripts/test-check-cli-in-bundle.sh
+
       - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v7

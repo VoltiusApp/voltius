@@ -66,9 +66,10 @@ msi() {
 
 case "$triple" in
   *linux*)
-    each 'deb/*.deb' listing '/usr/bin/voltius-cli$' dpkg -c
+    linux_cli='(^|[ /])usr/bin/voltius-cli$'
+    each 'deb/*.deb' listing "$linux_cli" dpkg -c
     command -v rpm > /dev/null || fail "rpm is required to inspect the .rpm"
-    each 'rpm/*.rpm' listing '/usr/bin/voltius-cli$' rpm -qlp
+    each 'rpm/*.rpm' listing "$linux_cli" rpm -qlp
     each 'appimage/*.AppImage' appimage
     ;;
   *darwin*)
