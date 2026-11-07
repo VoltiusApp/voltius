@@ -82,7 +82,14 @@ jobs:
       # These modules have cfg(windows) tests that only a Windows run executes.
       - name: Windows-only tests
         if: runner.os == 'Windows'
-        run: cargo test -p voltius --lib -- device_files policy::acl_windows mcp::transport::windows win_security
+        shell: bash
+        run: |
+          filters=(device_files policy::acl_windows mcp::transport::windows win_security)
+          list=$(cargo test -p voltius --lib -- --list)
+          for f in "${filters[@]}"; do
+            grep -q "$f.*: test" <<< "$list" || { echo "::error::filter '$f' matches no test"; exit 1; }
+          done
+          cargo test -p voltius --lib -- "${filters[@]}"
 
   frontend-tests:
     runs-on: ubuntu-latest
