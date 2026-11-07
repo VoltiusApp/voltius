@@ -512,6 +512,93 @@ pub fn range_problem(key: &str, r: &Range) -> Option<String> {
     empty.then(|| "leaves no allowed value".into())
 }
 
+fn nearest_to(candidates: Vec<&Value>, target: Option<f64>) -> Option<&Value> {
+    let Some(t) = target else {
+        return candidates.into_iter().next();
+    };
+    candidates.into_iter().min_by(|a, b| {
+        let key = |v: &Value| {
+            let n = v.as_f64().unwrap_or(f64::INFINITY);
+            ((n - t).abs(), n)
+        };
+        key(a)
+            .partial_cmp(&key(b))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
+}
+
+pub fn bounded(
+    key: &str,
+    r: &Range,
+    stored: Option<&Value>,
+    admin_default: Option<&Value>,
+    built_in: Option<&Value>,
+) -> Value {
+    let sources = [stored, admin_default, built_in];
+    if let Some(v) = sources.into_iter().flatten().find(|v| within(key, r, v)) {
+        return v.clone();
+    }
+    let def = key_def(key);
+    let is_number = def.is_some_and(|d| d.ty == KeyType::Number);
+    let domain = def.and_then(|d| d.domain.as_ref()?.values.as_ref());
+    let allowed_in_domain = || {
+        let allowed = r.allowed.as_ref()?;
+        allowed
+            .iter()
+            .find(|a| domain.is_none_or(|d| d.iter().any(|x| nums_equal(x, a))))
+    };
+    if let Some(values) = domain {
+        let picked = if is_number {
+            let candidates = values.iter().filter(|v| within(key, r, v)).collect();
+            nearest_to(candidates, stored.and_then(Value::as_f64))
+        } else {
+            allowed_in_domain()
+        };
+        if let Some(v) = picked {
+            return v.clone();
+        }
+    }
+    if is_number {
+        let base = stored
+            .and_then(Value::as_f64)
+            .or(built_in.and_then(Value::as_f64));
+        if let Some(n) = base {
+            let n = r.min.map_or(n, |m| n.max(m));
+            return Value::from(r.max.map_or(n, |m| n.min(m)));
+        }
+    }
+    allowed_in_domain()
+        .or(r.allowed.as_ref().and_then(|a| a.first()))
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+pub fn implied_lock(doc: &PolicyDoc, toggle_key: &str) -> Option<&'static str> {
+    key_ids()
+        .filter(|id| doc.policy.contains_key(*id))
+        .filter(|id| key_def(id).and_then(|d| d.implies.as_deref()) == Some(toggle_key))
+        .min()
+}
+
+pub fn blocks_user_write(doc: &PolicyDoc, key: &str) -> bool {
+    let fixed_replace = doc.policy.get(key).is_some_and(|v| !is_range_entry(v))
+        && key_def(key).is_some_and(|d| d.lock == LockKind::Replace);
+    fixed_replace || implied_lock(doc, key).is_some()
+}
+
+pub fn conflicts(doc: &PolicyDoc) -> Vec<String> {
+    doc.policy
+        .iter()
+        .filter(|(_, v)| **v == Value::Bool(false))
+        .filter_map(|(toggle, _)| {
+            let by = implied_lock(doc, toggle)?;
+            Some(format!(
+                "{toggle} is locked off but {by} forces it on; {by} wins"
+            ))
+        })
+        .collect()
+}
+
 fn is_range_entry(v: &Value) -> bool {
     v.as_object()
         .is_some_and(|o| o.len() == 1 && o.contains_key("$range"))
@@ -1548,5 +1635,77 @@ mod tests {
         });
         assert!(refused.is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}\n");
+    }
+
+    const TTL: &str = "appSettings.detachedTtlHours";
+    const TTL_TOGGLE: &str = "appSettings.toggles.detached-session-ttl";
+
+    fn doc_with(policy: Value) -> PolicyDoc {
+        let (doc, issues) = parse(&json!({"version": 1, "policy": policy}).to_string());
+        assert!(issues.is_empty(), "{issues:?}");
+        doc
+    }
+
+    #[test]
+    fn effective_fixture() {
+        let rows: Vec<Value> =
+            serde_json::from_str(include_str!("fixtures/effective.json")).unwrap();
+        assert!(rows.len() >= 12);
+        for row in rows {
+            let name = row["name"].as_str().unwrap();
+            let range = parse_range(&json!({"$range": row["range"]})).unwrap();
+            let key = row["key"].as_str().unwrap();
+            let opt = |k: &str| row.get(k).filter(|v| !v.is_null());
+            let got = bounded(
+                key,
+                &range,
+                opt("stored"),
+                opt("adminDefault"),
+                opt("builtIn"),
+            );
+            assert!(nums_equal(&got, &row["expect"]), "{name}: got {got}");
+        }
+    }
+
+    #[test]
+    fn implied_toggle_from_ttl_range() {
+        let doc = doc_with(json!({TTL: {"$range": {"max": 24}}}));
+        assert_eq!(implied_lock(&doc, TTL_TOGGLE), Some(TTL));
+        assert_eq!(implied_lock(&doc_with(json!({})), TTL_TOGGLE), None);
+    }
+
+    #[test]
+    fn keyword_lock_does_not_block_user_rules() {
+        let doc = doc_with(json!({"appSettings.terminal.keywordRules": []}));
+        assert!(!blocks_user_write(
+            &doc,
+            "appSettings.terminal.keywordRules"
+        ));
+        assert!(blocks_user_write(
+            &doc,
+            "appSettings.toggles.keyword-highlight"
+        ));
+    }
+
+    #[test]
+    fn range_does_not_block_writes() {
+        let doc = doc_with(json!({TTL: {"$range": {"max": 24}}}));
+        assert!(!blocks_user_write(&doc, TTL));
+        assert!(blocks_user_write(&doc, TTL_TOGGLE));
+        let fixed = doc_with(json!({TTL: 12}));
+        assert!(blocks_user_write(&fixed, TTL));
+    }
+
+    #[test]
+    fn conflict_reported() {
+        let doc = doc_with(json!({TTL: {"$range": {"max": 24}}, TTL_TOGGLE: false}));
+        assert_eq!(
+            conflicts(&doc),
+            vec![format!(
+                "{TTL_TOGGLE} is locked off but {TTL} forces it on; {TTL} wins"
+            )]
+        );
+        let on = doc_with(json!({TTL: {"$range": {"max": 24}}, TTL_TOGGLE: true}));
+        assert!(conflicts(&on).is_empty());
     }
 }
