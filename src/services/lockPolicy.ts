@@ -1,4 +1,4 @@
-import type { Team } from "@/services/teamService";
+import type { Team, TeamLockPolicy } from "@/services/teamService";
 import type { LockAction } from "@/stores/securityStore";
 
 export interface LockPolicy {
@@ -37,5 +37,12 @@ export function policyTeamNames(
   return {
     timeout: teams.filter((t) => t.lock_policy?.max_minutes === policy.maxMinutes).map((t) => t.name),
     vault: teams.filter((t) => t.lock_policy?.force_vault).map((t) => t.name),
+  };
+}
+
+export function lockPolicyDoc(lp: TeamLockPolicy): Record<string, unknown> {
+  return {
+    "security.lockTimeoutMinutes": { $range: { max: lp.max_minutes } },
+    ...(lp.force_vault ? { "security.lockAction": "vault" } : {}),
   };
 }

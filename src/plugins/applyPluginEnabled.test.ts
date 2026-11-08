@@ -21,7 +21,9 @@ vi.mock("@/services/cliPlugins", () => ({ applyPluginInstallPolicy: mocks.instal
 import { setPluginActive } from "@/plugins/runtime";
 import { applyPluginPolicy } from "./applyPluginEnabled";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { usePolicyStore } from "@/stores/policyStore";
+import { onPolicyLoaded, usePolicyStore } from "@/stores/policyStore";
+import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
+import { withTeamPolicy } from "@/test/policy";
 
 const lock = (policy: Record<string, unknown>) => {
   usePolicyStore.setState({ machine: { policy, defaults: {} }, server: { policy: {}, defaults: {} } });
@@ -48,6 +50,16 @@ describe("applyPluginPolicy", () => {
     usePluginRegistryStore.setState({ overrides: { "plugin-docker": true } });
     lock({ "plugins.disabled": ["plugin-docker"] });
     lock({});
+    expect(vi.mocked(setPluginActive).mock.calls).toEqual([["plugin-docker", false], ["plugin-docker", true]]);
+    expect(usePluginRegistryStore.getState().overrides).toEqual({ "plugin-docker": true });
+  });
+
+  it("brings back the user's own choice when a team lock is lifted", () => {
+    const off = onPolicyLoaded(applyPluginPolicy);
+    usePluginRegistryStore.setState({ overrides: { "plugin-docker": true } });
+    withTeamPolicy({ "plugins.disabled": ["plugin-docker"] });
+    useTeamPolicyStore.getState().setLayer(null, "");
+    off();
     expect(vi.mocked(setPluginActive).mock.calls).toEqual([["plugin-docker", false], ["plugin-docker", true]]);
     expect(usePluginRegistryStore.getState().overrides).toEqual({ "plugin-docker": true });
   });

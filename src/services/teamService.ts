@@ -12,6 +12,11 @@ export interface TeamLockPolicy {
   force_vault: boolean;
 }
 
+export interface TeamPolicyDoc {
+  version: number;
+  policy: Record<string, unknown>;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -22,6 +27,9 @@ export interface Team {
   permission_allow?: number;
   permission_deny?: number;
   lock_policy?: TeamLockPolicy | null;
+  policy?: TeamPolicyDoc | null;
+  policy_revision?: number;
+  joined_at?: string;
 }
 
 export type CreatedTeam = Pick<Team, "id" | "name" | "owner_id" | "created_at">;

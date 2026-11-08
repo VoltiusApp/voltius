@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { policyKeys, isPolicyEnforced, policyKeyDef } from "@/services/policy/policyKeys";
 import { rangeOf, inPolicyRange, clampToRange, type PolicyRange } from "@/services/policy/range";
+import { mergeMachineAndTeam, type MergedLayer } from "@/services/policy/mergeLayers";
+import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 
 export { rangeOf, inPolicyRange, clampToRange, type PolicyRange };
 
@@ -18,7 +20,7 @@ export interface PolicyIssue {
   message: string;
 }
 export const LOCKED = "locked by policy";
-export type PolicyLock = { locked: true; value: unknown; source: PolicySource } | { locked: false };
+export type PolicyLock = { locked: true; value: unknown; source: PolicySource; teams: string[] } | { locked: false };
 
 interface LoadedPolicy {
   doc: PolicyLayer;
@@ -33,10 +35,10 @@ interface PolicyState {
 }
 
 const EMPTY_LAYER: PolicyLayer = { policy: {}, defaults: {} };
-const SOURCES: PolicySource[] = ["server", "machine"];
+const NO_TEAM_LAYER: MergedLayer = { policy: {}, teams: {}, issues: [] };
+const serverLayer = (team: MergedLayer | null): PolicyLayer => ({ policy: team?.policy ?? {}, defaults: {} });
 
 const loadedListeners = new Set<() => void>();
-let notifiedIssues = "";
 let watching = false;
 
 export const onPolicyLoaded = (fn: () => void): (() => void) => {
@@ -48,14 +50,29 @@ export const onPolicyLoaded = (fn: () => void): (() => void) => {
 
 const TOASTED_KINDS: ReadonlySet<PolicyIssueKind> = new Set(["file", "type", "unprotected"]);
 
+const has = (o: object, key: string) => Object.prototype.hasOwnProperty.call(o, key);
+
 const isEmptyLayer = (l: PolicyLayer) => !Object.keys(l.policy).length && !Object.keys(l.defaults).length;
 
+const warnIssue = (i: PolicyIssue) => console.warn("[policy]", [i.layer, i.key].filter(Boolean).join("."), i.message);
+
+function changedIssues(): (issues: PolicyIssue[]) => boolean {
+  let last = "";
+  return (issues) => {
+    const signature = issues.length ? JSON.stringify(issues) : "";
+    if (signature === last) return false;
+    last = signature;
+    return true;
+  };
+}
+
+const machineIssuesChanged = changedIssues();
+const teamIssuesChanged = changedIssues();
+
 async function reportIssuesOnce({ doc, issues }: LoadedPolicy) {
-  const signature = issues.length ? JSON.stringify(issues) : "";
-  if (signature === notifiedIssues) return;
-  notifiedIssues = signature;
+  if (!machineIssuesChanged(issues)) return;
   const errors = issues.filter((i) => TOASTED_KINDS.has(i.kind));
-  for (const i of issues) if (!TOASTED_KINDS.has(i.kind)) console.warn("[policy]", [i.layer, i.key].filter(Boolean).join("."), i.message);
+  for (const i of issues) if (!TOASTED_KINDS.has(i.kind)) warnIssue(i);
   if (!errors.length) return;
   const [{ default: i18n }, { notify }] = await Promise.all([import("@/i18n"), import("@/services/saveFile")]);
   const unreadable = isEmptyLayer(doc) && errors.some((i) => i.kind === "file");
@@ -69,7 +86,7 @@ async function reportIssuesOnce({ doc, issues }: LoadedPolicy) {
 
 export const usePolicyStore = create<PolicyState>((set) => ({
   machine: EMPTY_LAYER,
-  server: EMPTY_LAYER,
+  server: serverLayer(useTeamPolicyStore.getState().layer),
   issues: [],
   async load() {
     let loaded: LoadedPolicy;
@@ -85,16 +102,43 @@ export const usePolicyStore = create<PolicyState>((set) => ({
     });
     loadedListeners.forEach((fn) => fn());
     void reportIssuesOnce(loaded).catch(() => {});
+    logTeamIssues();
   },
 }));
 
-function firstLayerWith(key: string, kind: keyof PolicyLayer): { source: PolicySource; value: unknown } | undefined {
-  const state = usePolicyStore.getState();
-  for (const source of SOURCES) {
-    const entries = state[source][kind];
-    if (Object.prototype.hasOwnProperty.call(entries, key)) return { source, value: entries[key] };
+type EffectivePolicy = ReturnType<typeof mergeMachineAndTeam>;
+let effective: { machine: Record<string, unknown>; team: MergedLayer | null; view: EffectivePolicy } | undefined;
+
+// Derived on read so a machine layer set straight into the store is merged too.
+function effectivePolicy(): EffectivePolicy {
+  const machine = usePolicyStore.getState().machine.policy;
+  const team = useTeamPolicyStore.getState().layer;
+  if (effective?.machine !== machine || effective.team !== team) {
+    effective = { machine, team, view: mergeMachineAndTeam(machine, team ?? NO_TEAM_LAYER) };
   }
-  return undefined;
+  return effective.view;
+}
+
+function logTeamIssues() {
+  const issues = [...(useTeamPolicyStore.getState().layer?.issues ?? []), ...effectivePolicy().issues];
+  if (teamIssuesChanged(issues)) issues.forEach(warnIssue);
+}
+
+useTeamPolicyStore.subscribe((s, prev) => {
+  if (s.layer === prev.layer) return;
+  usePolicyStore.setState({ server: serverLayer(s.layer) });
+  logTeamIssues();
+  loadedListeners.forEach((fn) => fn());
+});
+
+function policyEntry(key: string): { source: PolicySource; teams: string[]; value: unknown } | undefined {
+  const { policy, sources } = effectivePolicy();
+  return has(policy, key) ? { value: policy[key], ...sources[key] } : undefined;
+}
+
+export function policySourceOf(key: string): { source: PolicySource; teams: string[] } | undefined {
+  const hit = policyEntry(key);
+  return hit && { source: hit.source, teams: hit.teams };
 }
 
 let impliers: Map<string, string[]> | undefined;
@@ -110,8 +154,8 @@ function impliersOf(key: string): string[] {
 
 function impliedLock(key: string): PolicyLock {
   for (const id of impliersOf(key)) {
-    const hit = firstLayerWith(id, "policy");
-    if (hit) return { locked: true, value: true, source: hit.source };
+    const hit = policyEntry(id);
+    if (hit) return { locked: true, value: true, source: hit.source, teams: hit.teams };
   }
   return { locked: false };
 }
@@ -119,11 +163,11 @@ function impliedLock(key: string): PolicyLock {
 export function lockedValue(key: string): PolicyLock {
   const implied = impliedLock(key);
   if (implied.locked) return implied;
-  const hit = firstLayerWith(key, "policy");
+  const hit = policyEntry(key);
   return hit && !rangeOf(hit.value) ? { locked: true, ...hit } : { locked: false };
 }
 
-export const policyRange = (key: string): PolicyRange | undefined => rangeOf(firstLayerWith(key, "policy")?.value);
+export const policyRange = (key: string): PolicyRange | undefined => rangeOf(policyEntry(key)?.value);
 
 export const isLocked = (key: string): boolean => lockedValue(key).locked;
 
@@ -150,7 +194,7 @@ export function usePolicyLock(key: string): PolicyLock {
 }
 
 export function usePolicyRange(key: string): PolicyRange | undefined {
-  usePolicyStore((s) => s.server.policy[key] ?? s.machine.policy[key]);
+  usePolicyStore(() => effectivePolicy().policy[key]);
   return policyRange(key);
 }
 
@@ -158,7 +202,10 @@ export function usePolicyRefresh(): readonly [PolicyLayer, PolicyLayer] {
   return [usePolicyStore((s) => s.machine), usePolicyStore((s) => s.server)];
 }
 
-export const adminDefault = (key: string): unknown | undefined => firstLayerWith(key, "defaults")?.value;
+export const adminDefault = (key: string): unknown | undefined => {
+  const { defaults } = usePolicyStore.getState().machine;
+  return has(defaults, key) ? defaults[key] : undefined;
+};
 
 async function reloadThenApplyCli() {
   await usePolicyStore.getState().load();

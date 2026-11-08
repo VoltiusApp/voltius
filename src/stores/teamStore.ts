@@ -4,6 +4,7 @@ import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
 import { combineLockPolicies } from "@/services/lockPolicy";
+import { refreshTeamPolicy } from "@/services/policy/teamPolicy";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
@@ -125,9 +126,13 @@ export const useTeamStore = create<TeamStore>()(
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
           JSON.stringify(t.lock_policy ?? null) === JSON.stringify(prev[i].lock_policy ?? null) &&
+          t.policy_revision === prev[i].policy_revision &&
+          t.joined_at === prev[i].joined_at &&
+          JSON.stringify(t.policy ?? null) === JSON.stringify(prev[i].policy ?? null) &&
           JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
+      void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
       runTeamsLoadedHook(prev);
       useOrgLockPolicyStore.getState().setPolicy(combineLockPolicies(teams));
       if (teams.length > 0 && !get().activeTeamId) {
