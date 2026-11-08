@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { policyKeys, isPolicyEnforced, policyKeyDef } from "@/services/policy/policyKeys";
+import { rangeOf, inPolicyRange, clampToRange, type PolicyRange } from "@/services/policy/range";
+
+export { rangeOf, inPolicyRange, clampToRange, type PolicyRange };
 
 export type PolicySource = "server" | "machine";
 export interface PolicyLayer {
@@ -94,17 +97,6 @@ function firstLayerWith(key: string, kind: keyof PolicyLayer): { source: PolicyS
   return undefined;
 }
 
-export interface PolicyRange {
-  min?: number;
-  max?: number;
-  allowed?: unknown[];
-}
-
-const rangeOf = (v: unknown): PolicyRange | undefined =>
-  v !== null && typeof v === "object" && Object.keys(v).length === 1 && "$range" in v
-    ? (v as { $range: PolicyRange }).$range
-    : undefined;
-
 let impliers: Map<string, string[]> | undefined;
 
 // Built on first use: the registry imports stores that import this one.
@@ -132,15 +124,6 @@ export function lockedValue(key: string): PolicyLock {
 }
 
 export const policyRange = (key: string): PolicyRange | undefined => rangeOf(firstLayerWith(key, "policy")?.value);
-
-export const inPolicyRange = (range: PolicyRange | undefined, v: unknown): boolean =>
-  !range ||
-  ((range.min === undefined || (typeof v === "number" && v >= range.min)) &&
-    (range.max === undefined || (typeof v === "number" && v <= range.max)) &&
-    (range.allowed === undefined || range.allowed.includes(v)));
-
-export const clampToRange = (range: PolicyRange | undefined, v: number): number =>
-  Math.max(range?.min ?? -Infinity, Math.min(v, range?.max ?? Infinity));
 
 export const isLocked = (key: string): boolean => lockedValue(key).locked;
 
