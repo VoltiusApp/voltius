@@ -1,4 +1,4 @@
-import { adminDefault, lockedBool, lockedString } from "@/stores/policyStore";
+import { adminDefault, lockedBool, lockedList, lockedString } from "@/stores/policyStore";
 import { DEFAULT_SERVER_URL, normalizeServerUrl, sameServer, storedServerUrl } from "@/utils/serverInstance";
 
 export function policyServerUrl(): string | null {
@@ -21,4 +21,11 @@ export function serverAllowed(serverUrl: string | null): boolean {
   const pinned = policyServerUrl();
   if (!serverUrl || !pinned || lockedBool("server.allowOther") !== false) return true;
   return sameServer(serverUrl, pinned);
+}
+
+export function serverMove(): ((url: string | null) => string | null) | null {
+  const pinned = policyServerUrl();
+  const previous = (lockedList("server.previousUrls") ?? []).filter((u): u is string => typeof u === "string");
+  if (!pinned || previous.length === 0) return null;
+  return (url) => (previous.some((old) => sameServer(url, old)) ? pinned : null);
 }

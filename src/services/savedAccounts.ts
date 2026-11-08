@@ -8,7 +8,7 @@ import {
   type PersistedAccountUiState,
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
-import { serverAllowed } from "./policy/serverPolicy";
+import { serverAllowed, serverMove } from "./policy/serverPolicy";
 import { AccountAlreadyActiveError, AccountNotSavedError, ServerBlockedError } from "./accountErrors";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
@@ -151,6 +151,23 @@ async function migrateLegacyList(
     return { ok: false, accounts };
   }
   return { ok: true, accounts };
+}
+
+export async function adoptServerMove(): Promise<void> {
+  const movedServerUrl = serverMove();
+  if (!movedServerUrl) return;
+  try {
+    const active = movedServerUrl(await keychainGet("server_url"));
+    if (active) await keychainSet("server_url", active);
+    const { ok, accounts } = await loadSavedAccounts();
+    if (!ok) return;
+    for (const account of accounts) {
+      const server_url = movedServerUrl(account.server_url);
+      if (server_url) await keychainSet(entryKey(account.account_id), JSON.stringify({ ...account, server_url }));
+    }
+  } catch {
+    // A failed move leaves the account blocked, as before; launch goes on.
+  }
 }
 
 export async function getSavedAccounts(): Promise<SavedAccount[]> {

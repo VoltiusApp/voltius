@@ -36,6 +36,12 @@ test("keys.json entries carry defaultApplied", () => {
   expect(applied("sshConfig.import")).toBe(false);
 });
 
+test("previous server urls are a lock-only list", () => {
+  expect(policyKeyDef("server.previousUrls")?.type).toBe("stringList");
+  expect(isPolicyEnforced("server.previousUrls")).toBe(true);
+  expect(isDefaultApplied("server.previousUrls")).toBe(false);
+});
+
 test("plugin install keys are registered and enforced", () => {
   expect(policyKeyDef("plugins.install")?.type).toBe("stringList");
   expect(policyKeyDef("plugins.allowInstall")?.type).toBe("bool");
