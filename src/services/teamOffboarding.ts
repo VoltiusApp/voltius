@@ -73,6 +73,13 @@ export function departConsequences(mode: DepartMode, names: string[]): DepartCon
   };
 }
 
+/** The builtin role an invitation can restore exactly, or null when the member's roles don't fit in one. */
+function invitableRole(teamId: string, roleIds: string[]): string | null {
+  if (roleIds.length !== 1) return null;
+  const role = (useTeamStore.getState().rolesByTeam[teamId] ?? []).find((r) => r.id === roleIds[0]);
+  return role?.is_builtin && role.name !== "owner" ? role.name : null;
+}
+
 /**
  * The single removal path. Every call site — detail panel, context menu, bulk
  * selection and leave — routes through here, so the confirmation copy, the undo
@@ -85,9 +92,9 @@ export async function departMembers(
 ): Promise<void> {
   if (members.length === 0) return;
 
-  const snapshots = members.map((m) => ({ user_id: m.user_id, role_ids: [...m.role_ids] }));
+  const snapshots = members.map((m) => ({ user_id: m.user_id, role: invitableRole(teamId, m.role_ids), label: memberLabel(m, "") }));
   const count = members.length;
-  const names = members.map((m) => memberLabel(m, "")).join(", ");
+  const names = snapshots.map((s) => s.label).join(", ");
   const store = () => useTeamStore.getState();
 
   if (opts.mode === "leave") markSelfDeparture(teamId, "leave");
@@ -114,12 +121,12 @@ export async function departMembers(
     useHistoryStore.getState().push({
       label: i18n.t("members.history.remove", { name: names, count }),
       undo: async () => {
-        for (const s of snapshots) {
-          await store().addMemberById(teamId, s.user_id);
-          for (const rid of s.role_ids) {
-            await store().assignMemberRole(teamId, s.user_id, rid).catch(() => {});
-          }
+        // An invitation carries one builtin role, applied on accept; anything else would come back as the default.
+        const unrestorable = snapshots.filter((s) => !s.role).map((s) => s.label);
+        if (unrestorable.length > 0) {
+          throw new Error(i18n.t("members.error.undoRolesNotRestorable", { name: unrestorable.join(", ") }));
         }
+        for (const s of snapshots) if (s.role) await store().addMemberById(teamId, s.user_id, s.role);
         await store().loadMembers(teamId);
       },
       redo: async () => {

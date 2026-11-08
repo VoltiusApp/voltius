@@ -15,7 +15,8 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useFolderStore } from "@/stores/folderStore";
-import { useTeamStore } from "@/stores/teamStore";
+import { useTeamStore, type Team } from "@/stores/teamStore";
+import { setTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
@@ -1198,6 +1199,47 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   });
 }
 
+const offboarding = new Map<string, Promise<void>>();
+
+export async function offboardingSettled(): Promise<void> {
+  await Promise.allSettled([...offboarding.values()]);
+}
+
+function offboardOnce(tid: string, teamName: string): Promise<void> {
+  const running = offboarding.get(tid);
+  if (running) return running;
+  const done = offboardFromTeam(tid, teamName).finally(() => offboarding.delete(tid));
+  offboarding.set(tid, done);
+  return done;
+}
+
+/**
+ * Offboards every team that was listed, or still has data here, but is gone from
+ * the server's list and confirmed gone by the server. Any list refresh can be the
+ * one that drops a team; a missed membership_changed event otherwise leaves its
+ * secrets on this device (#790).
+ */
+async function offboardDroppedTeams(prev: Team[]): Promise<void> {
+  const [{ teamIdsWithLocalData }, { isStillMember }] = await Promise.all([
+    import("@/services/teamVaultSync"),
+    import("@/services/teamService"),
+  ]);
+  const held = await teamIdsWithLocalData();
+  // Read after the await: a team joined meanwhile is listed before any of its data loads.
+  const kept = new Set(useTeamStore.getState().teams.map((t) => t.id));
+  const names = new Map(prev.map((t) => [t.id, t.name] as const));
+  const dropped = new Set([...names.keys(), ...held].filter((tid) => !kept.has(tid)));
+  await Promise.all([...dropped].map(async (tid) => {
+    // A list that is wrong must never cost a member their local secrets.
+    if (await isStillMember(tid).catch(() => true)) return;
+    await offboardOnce(tid, names.get(tid) ?? tid);
+  }));
+}
+
+setTeamsLoadedHook((prev) => {
+  offboardDroppedTeams(prev).catch(logFailure("offboard dropped teams"));
+});
+
 export async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
   if (eventData.startsWith("team:")) {
     const teamId = eventData.slice(5);
@@ -1238,7 +1280,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       await onTeamMembershipAdded(parsed.teamId);
     } else {
       const teamName = useTeamStore.getState().teams.find((t) => t.id === parsed.teamId)?.name ?? parsed.teamId;
-      await offboardFromTeam(parsed.teamId, teamName);
+      await offboardOnce(parsed.teamId, teamName);
     }
   } else if (eventData === "membership_changed") {
     scheduleSeatRefresh();
@@ -1250,18 +1292,11 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
     refreshAwaitingKeyTeams().catch(logFailure("membership_changed: refreshAwaitingKeyTeams"));
 
-    // Snapshot the names BEFORE loadTeams() runs: the removal is detected by
-    // diffing against a reloaded list, so by the time onTeamRemoved fires the
-    // departed team is already gone from the store and only its id remains.
-    const teamNamesBefore = new Map(
-      useTeamStore.getState().teams.map((t) => [t.id, t.name] as const),
-    );
-
+    // Removals are offboarded by the teams-loaded hook as soon as the list drops them.
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),
       onTeamAdded: onTeamMembershipAdded,
-      onTeamRemoved: (tid) => offboardFromTeam(tid, teamNamesBefore.get(tid) ?? tid),
     }).catch(logFailure("membership_changed"));
   } else if (eventData === "vault_key_changed") {
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");

@@ -36,6 +36,7 @@ vi.mock("@/services/teamSecretOwnership", async (importOriginal) => {
 vi.mock("@/services/teamService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/teamService")>()),
   listTeams: vi.fn(async () => []),
+  isStillMember: vi.fn(async () => false),
 }));
 
 vi.mock("@/services/teamDataManager", () => ({
@@ -69,7 +70,7 @@ vi.mock("@/stores/vaultStore", () => ({
   },
 }));
 
-import { handleRealtimeEvent } from "./sync";
+import { handleRealtimeEvent, offboardingSettled } from "./sync";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { usePendingSecretWipeStore } from "@/stores/pendingSecretWipeStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -78,7 +79,8 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { notifyMembershipEnded, notifySecretsNotWiped } from "@/services/teamInbox";
 
-beforeEach(() => {
+beforeEach(async () => {
+  await offboardingSettled();
   h.deleted = [];
   h.failing = new Set();
   h.notWiped = [];

@@ -200,6 +200,7 @@
       "convertFailed": "Não foi transformar {{vault}} em um cofre de equipe — {{reason}}",
       "serverUnreachable": "o servidor de sincronização não pôde ser alcançado",
       "removeFailed": "Não foi remover {{name}} — {{reason}}",
+      "undoRolesNotRestorable": "Não é possível restaurar exatamente as funções de {{name}}. Convide-os novamente e defina as funções manualmente.",
       "revokeFailed": "Não foi revogar o convite para {{name}} — {{reason}}",
       "grantKeyFailed": "Não foi conceder acesso ao cofre para {{name}} — {{reason}}",
       "memberHasNoPublicKey": "Eles não publicaram uma chave ainda — peça para eles entrarem uma vez.",

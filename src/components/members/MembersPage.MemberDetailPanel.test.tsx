@@ -33,6 +33,7 @@ vi.mock("@/components/members/panels/RolesPanel", () => ({
 vi.mock("@/stores/teamStore", () => {
   const state = {
     membersByTeam: {} as Record<string, TeamMember[]>,
+    rolesByTeam: {} as Record<string, TeamRole[]>,
     teams: [] as { id: string; owner_id: string }[],
     assignMemberRole: h.assign,
     removeMemberRole: h.remove,
@@ -70,7 +71,10 @@ vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 import { useTeamStore } from "@/stores/teamStore";
 
-const mockStore = useTeamStore.getState() as unknown as { membersByTeam: Record<string, TeamMember[]> };
+const mockStore = useTeamStore.getState() as unknown as {
+  membersByTeam: Record<string, TeamMember[]>;
+  rolesByTeam: Record<string, TeamRole[]>;
+};
 
 const baseMember: TeamMember = {
   team_id: "t1",
@@ -110,6 +114,7 @@ beforeEach(() => {
   h.setPerms.mockResolvedValue(undefined);
   h.rotate.mockResolvedValue(undefined);
   mockStore.membersByTeam = {};
+  mockStore.rolesByTeam = { t1: teamRoles };
   lock.value = { locked: false, isOwner: true };
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
@@ -201,7 +206,7 @@ test("does not offer Leave team to the owner", () => {
   expect(screen.queryByRole("button", { name: "members.leaveTeam" })).toBeNull();
 });
 
-test("remove undo closure: re-adds member, reassigns each snapshot role, reloads", async () => {
+test("remove undo closure: re-invites with the member's builtin role, then reloads", async () => {
   render(<MemberDetailPanel {...baseProps} />);
   fireEvent.click(screen.getByRole("button", { name: "members.removeFromTeam" }));
   fireEvent.click(await screen.findByRole("button", { name: "members.offboarding.removeConfirm" }));
@@ -210,12 +215,10 @@ test("remove undo closure: re-adds member, reassigns each snapshot role, reloads
   const entry = h.push.mock.calls[0][0] as { undo: () => Promise<void> };
   await entry.undo();
 
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1");
-  expect(h.assign).toHaveBeenCalledTimes(1);
-  expect(h.assign).toHaveBeenCalledWith("t1", "u1", "r-mem");
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "member");
+  expect(h.assign).not.toHaveBeenCalled();
   expect(h.loadMembers).toHaveBeenCalledWith("t1");
-  expect(h.addMemberById.mock.invocationCallOrder[0]).toBeLessThan(h.assign.mock.invocationCallOrder[0]);
-  expect(h.assign.mock.invocationCallOrder[0]).toBeLessThan(h.loadMembers.mock.invocationCallOrder[0]);
+  expect(h.addMemberById.mock.invocationCallOrder[0]).toBeLessThan(h.loadMembers.mock.invocationCallOrder[0]);
 });
 
 // ── Permission overrides ──────────────────────────────────────────────────

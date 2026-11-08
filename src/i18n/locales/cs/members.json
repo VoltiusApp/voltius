@@ -205,6 +205,7 @@
       "convertFailed": "{{vault}} se nepodařilo změnit na týmový trezor — {{reason}}",
       "serverUnreachable": "synchronizační server není dostupný",
       "removeFailed": "{{name}} se nepodařilo odebrat — {{reason}}",
+      "undoRolesNotRestorable": "Zpět nedokáže přesně obnovit role pro {{name}}. Pozvěte je znovu a role nastavte ručně.",
       "revokeFailed": "Pozvánku pro {{name}} se nepodařilo zrušit — {{reason}}",
       "grantKeyFailed": "Přístup k trezoru pro {{name}} se nepodařilo udělit — {{reason}}",
       "memberHasNoPublicKey": "Zatím nezveřejnil(a) klíč — požádejte ho/ji, aby se jednou přihlásil(a).",
