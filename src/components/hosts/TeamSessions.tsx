@@ -235,9 +235,12 @@ export function TeamSessions() {
           const liveParticipants = liveLocalId
             ? useMpStore.getState().connections[liveLocalId]?.participants
             : undefined;
-          const participants = (liveParticipants ?? session.participants)?.map((p) => ({
-            name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
-          }));
+          // The sharer already has the big avatar on the left, so list only the people who joined.
+          const participants = (liveParticipants ?? session.participants)
+            ?.filter((p) => p.user_id !== session.host_user_id)
+            .map((p) => ({
+              name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
+            }));
 
           const host = peer(session.host_user_id);
           const hostLabel = avatarLabel(host);

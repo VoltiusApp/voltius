@@ -280,6 +280,23 @@ test("falls back to server participants when not in the session", () => {
   expect(screen.getByTestId("avatars").textContent).toBe("2/0");
 });
 
+test("the sharer is not listed among the participants", () => {
+  uiState.homeView = true;
+  teamState.activeSessions = [
+    active({
+      id: "s1",
+      host_user_id: "host-1",
+      participants: [
+        { user_id: "host-1", handle: "alice" },
+        { user_id: "u2", handle: "bob" },
+      ],
+    }),
+  ];
+  teamState.connections = {};
+  render(<TeamSessions />);
+  expect(screen.getByTestId("avatars").textContent).toBe("1/0");
+});
+
 // ── Polling effect ──────────────────────────────────────────────────────────
 
 test("mounts and calls fetchActiveSessions on mount", async () => {
