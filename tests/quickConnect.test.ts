@@ -61,3 +61,54 @@ test("buildQuickConnectConnection: maps ssh intent to an ephemeral personal conn
   expect(typeof c.id).toBe("string");
   expect(c.id.length > 0).toBeTruthy();
 });
+
+test("ssh: IPv6 literals, bare and bracketed (#787)", () => {
+  const v6 = (port: number) => ({ kind: "ssh", user: "admin", host: "2001:db8::10", port });
+  expect(parseQuickConnect("ssh admin@2001:db8::10")).toEqual(v6(22));
+  expect(parseQuickConnect("ssh admin@[2001:db8::10]")).toEqual(v6(22));
+  expect(parseQuickConnect("ssh -p 2222 admin@2001:db8::10")).toEqual(v6(2222));
+  expect(parseQuickConnect("ssh admin@[2001:db8::10]:2222")).toEqual(v6(2222));
+  expect(parseQuickConnect("admin@[2001:db8::10]:2222")).toEqual(v6(2222));
+  expect(parseQuickConnect("ssh ::1")).toEqual({ kind: "ssh", user: "root", host: "::1", port: 22 });
+  expect(parseQuickConnect("ssh [fe80::1%eth0]:22")).toEqual({ kind: "ssh", user: "root", host: "fe80::1%eth0", port: 22 });
+});
+
+test("ssh: IPv4 and DNS forms are unchanged by IPv6 support", () => {
+  expect(parseQuickConnect("ssh admin@192.0.2.1:2222")).toEqual({ kind: "ssh", user: "admin", host: "192.0.2.1", port: 2222 });
+  expect(parseQuickConnect("ssh admin@db.example.com")).toEqual({ kind: "ssh", user: "admin", host: "db.example.com", port: 22 });
+});
+
+test("ssh: malformed brackets are not a target", () => {
+  for (const s of ["ssh admin@[2001:db8::10", "ssh admin@[]", "ssh admin@[2001:db8::10]x"]) {
+    expect(parseQuickConnect(s), s).toBe(null);
+  }
+});
+
+test("ssh: ports 1 and 65535 are accepted (#788)", () => {
+  expect(parseQuickConnect("ssh admin@host:1")).toMatchObject({ kind: "ssh", port: 1 });
+  expect(parseQuickConnect("ssh -p 65535 admin@host")).toMatchObject({ kind: "ssh", port: 65535 });
+});
+
+test("ssh: an explicit invalid port is reported, never replaced by 22 (#788)", () => {
+  const cases: [string, string][] = [
+    ["ssh admin@host:22abc", "22abc"],
+    ["ssh admin@host:abc", "abc"],
+    ["ssh admin@host:", ""],
+    ["ssh admin@host:0", "0"],
+    ["ssh admin@host:65536", "65536"],
+    ["ssh -p 22x admin@host", "22x"],
+    ["ssh -p 70000 admin@host", "70000"],
+    ["ssh -p -1 admin@host", "-1"],
+    ["ssh -p 0 admin@host", "0"],
+    ["ssh admin@[2001:db8::10]:99999", "99999"],
+    ["host:22abc", "22abc"],
+    ["-p 2222 bob@host:9999x", "9999x"],
+  ];
+  for (const [input, port] of cases) {
+    expect(parseQuickConnect(input), input).toEqual({ kind: "invalid-port", port });
+  }
+});
+
+test("ssh: a trailing -p with no value is an invalid port", () => {
+  expect(parseQuickConnect("ssh admin@host -p")).toEqual({ kind: "invalid-port", port: "" });
+});

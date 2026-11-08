@@ -120,10 +120,6 @@
       "sectionLocal": "Yerel",
       "noHostsMatch": "\"{{query}}\" ile eşleşen sunucu yok",
       "noHostsYet": "Henüz sunucu yok",
-      "connectTo": "Bağlan: {{user}}@{{host}}",
-      "portSsh": "Port {{port}} · SSH",
-      "serialConnection": "Seri bağlantı",
-      "configurePortBaud": "Port ve baud hızını yapılandır",
       "localShellFallback": "Yerel kabuk"
     },
     "sidebarAccount": {

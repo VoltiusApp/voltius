@@ -37,7 +37,8 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { joinSessionByCode, joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
-import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
+import { parseQuickConnect } from "@/services/quickConnect";
+import { quickConnectLabel, type QuickConnectRowIntent } from "./quickConnectLabel";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { isJoinInput, joinInputStrength } from "@/services/resolveJoinInput";
@@ -77,7 +78,7 @@ type OmniItem =
   | { kind: "snippet"; snippet: Snippet }
   | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
   | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; locked?: boolean; onToggle: (v: boolean) => void }
-  | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
+  | { kind: "quick-connect"; intent: QuickConnectRowIntent }
   | { kind: "join-code"; code: string }
   | { kind: "join-code-prompt" }
   | { kind: "local-shell"; shell: ShellOption | null }
@@ -475,6 +476,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         launchLocalShell(item.shell?.path);
         onClose();
       } else if (item.kind === "quick-connect") {
+        if (item.intent.kind === "invalid-port") {
+          inputRef.current?.focus();
+          return;
+        }
         launchQuickConnect(item.intent);
         onClose();
       } else if (item.kind === "plugin") {
@@ -765,20 +770,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         );
       }
       case "quick-connect": {
-        const intent = item.intent;
-        const { title, subtitle, icon } =
-          intent.kind === "ssh"
-            ? {
-                title: intent.user
-                  ? t("omni.quickConnect.connectTo", { user: intent.user, host: intent.host })
-                  : t("omni.quickConnect.connectToHost", { host: intent.host }),
-                subtitle: t("omni.quickConnect.portSsh", { port: intent.port }),
-                icon: "lucide:arrow-right",
-              }
-            : intent.kind === "serial"
-            ? { title: t("omni.quickConnect.serialConnection"), subtitle: intent.port ?? t("omni.quickConnect.configurePortAndBaud"), icon: "lucide:ethernet-port" }
-            : { title: intent.shell ? t("omni.quickConnect.localShellNamed", { shell: intent.shell }) : t("omni.quickConnect.localShell"), subtitle: t("omni.quickConnect.openLocalTerminal"), icon: "lucide:square-terminal" };
-        return <OmniRow {...row} leading={<OmniTile icon={icon} accent />} label={title} detail={subtitle} />;
+        const { title, subtitle, icon, invalid } = quickConnectLabel(item.intent, t);
+        return <OmniRow {...row} leading={<OmniTile icon={icon} accent={!invalid} />} label={title} detail={subtitle} />;
       }
       case "plugin":
         return (

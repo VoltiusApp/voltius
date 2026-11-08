@@ -120,10 +120,6 @@
       "sectionLocal": "Локально",
       "noHostsMatch": "Нет хостов, соответствующих \"{{query}}\"",
       "noHostsYet": "Пока нет хостов",
-      "connectTo": "Подключиться к {{user}}@{{host}}",
-      "portSsh": "Порт {{port}} · SSH",
-      "serialConnection": "Последовательное подключение",
-      "configurePortBaud": "Настроить порт и скорость",
       "localShellFallback": "Локальная оболочка"
     },
     "sidebarAccount": {

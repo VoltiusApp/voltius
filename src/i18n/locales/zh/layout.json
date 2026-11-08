@@ -120,10 +120,6 @@
       "sectionLocal": "本地",
       "noHostsMatch": "没有匹配 \"{{query}}\" 的主机",
       "noHostsYet": "暂无主机",
-      "connectTo": "连接到 {{user}}@{{host}}",
-      "portSsh": "端口 {{port}} · SSH",
-      "serialConnection": "串口连接",
-      "configurePortBaud": "配置端口和波特率",
       "localShellFallback": "本地 Shell"
     },
     "sidebarAccount": {

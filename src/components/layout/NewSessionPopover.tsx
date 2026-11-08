@@ -7,7 +7,8 @@ import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { VaultBadge } from "@/components/shared/VaultBadge";
 import { pingStatusTone } from "@/utils/statusTone";
-import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
+import { parseQuickConnect } from "@/services/quickConnect";
+import { quickConnectLabel, type QuickConnectRowIntent } from "@/components/omni/quickConnectLabel";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
 import { partitionRecentHosts } from "@/utils/recentHosts";
 import {
@@ -29,7 +30,7 @@ interface NewSessionPopoverProps {
 }
 
 type Row =
-  | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
+  | { kind: "quick-connect"; intent: QuickConnectRowIntent }
   | { kind: "host"; connection: Connection }
   | { kind: "local-shell"; shell: ShellOption | null };
 
@@ -91,8 +92,10 @@ function NewSessionPanel({ popover, anchorRef, onClose }: {
   }, [quickIntent, recent, hosts, localShells]);
 
   const activate = useCallback((row: Row) => {
-    if (row.kind === "quick-connect") launchQuickConnect(row.intent);
-    else if (row.kind === "host") launchHost(row.connection.id);
+    if (row.kind === "quick-connect") {
+      if (row.intent.kind === "invalid-port") return;
+      launchQuickConnect(row.intent);
+    } else if (row.kind === "host") launchHost(row.connection.id);
     else launchLocalShell(row.shell?.path);
     onClose();
   }, [onClose]);
@@ -172,11 +175,7 @@ function NewSessionPanel({ popover, anchorRef, onClose }: {
     </>
   );
 
-  const quickLabel = quickIntent && (
-    quickIntent.kind === "ssh"
-      ? { t: t("layout.newSession.connectTo", { user: quickIntent.user, host: quickIntent.host }), s: t("layout.newSession.portSsh", { port: quickIntent.port }), i: "lucide:arrow-right" }
-      : { t: t("layout.newSession.serialConnection"), s: quickIntent.port ?? t("layout.newSession.configurePortBaud"), i: "lucide:ethernet-port" }
-  );
+  const quickLabel = quickIntent && quickConnectLabel(quickIntent, t);
 
   return createPortal(
     <div
@@ -207,11 +206,11 @@ function NewSessionPanel({ popover, anchorRef, onClose }: {
               style={{ background: selected === quickIdx ? "var(--t-border-hover)" : "transparent" }}
             >
               <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-                <Icon icon={quickLabel.i} width={13} className="text-(--t-accent)" />
+                <Icon icon={quickLabel.icon} width={13} className={quickLabel.invalid ? "text-(--t-text-dim)" : "text-(--t-accent)"} />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium" style={{ color: selected === quickIdx ? "var(--t-accent)" : "var(--t-text-primary)" }}>{quickLabel.t}</span>
-                <p className="text-xs mt-0.5 text-(--t-text-dim)">{quickLabel.s}</p>
+                <span className="text-sm font-medium" style={{ color: selected === quickIdx ? "var(--t-accent)" : "var(--t-text-primary)" }}>{quickLabel.title}</span>
+                <p className="text-xs mt-0.5 text-(--t-text-dim)">{quickLabel.subtitle}</p>
               </div>
             </button>
           </>

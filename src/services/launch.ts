@@ -1,6 +1,6 @@
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { buildQuickConnectConnection, type QuickConnectIntent } from "@/services/quickConnect";
+import { buildQuickConnectConnection, type QuickConnectTarget } from "@/services/quickConnect";
 
 /** Bring the terminal view forward, closing the panels that would cover it. */
 export function goToTerminal(): void {
@@ -17,7 +17,7 @@ export function launchHost(connectionId: string): void {
 }
 
 /** Launch an SSH/serial/local quick-connect intent, then switch to the terminal view. */
-export function launchQuickConnect(intent: Exclude<QuickConnectIntent, null>): void {
+export function launchQuickConnect(intent: QuickConnectTarget): void {
   const s = useSessionStore.getState();
   if (intent.kind === "ssh") {
     s.connectDirect(buildQuickConnectConnection(intent)).catch(() => {});
