@@ -16,18 +16,19 @@ import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPan
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 import { FieldError, useRequiredField } from "@/components/shared/fieldValidation";
 import { formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
-import type { Snippet, SnippetFormData, SnippetStep } from "@/types";
+import type { NewObjectPlacement, Snippet, SnippetFormData, SnippetStep } from "@/types";
 
-export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
+export default function MobileSnippetEditScreen({ snippetId, placement }: { snippetId?: string; placement?: NewObjectPlacement }) {
   const pop = useMobileNavStore((s) => s.pop);
   const snippets = useAllSnippets();
   const editing = snippetId ? snippets.find((s) => s.id === snippetId) ?? null : null;
   useCloseWhenGone(snippetId, editing !== null, pop);
-  return <MobileSnippetEditor editing={editing} />;
+  return <MobileSnippetEditor editing={editing} placement={placement} />;
 }
 
 interface EditorProps {
   editing: Snippet | null;
+  placement?: NewObjectPlacement;
 }
 
 const MobileSnippetEditor = withEditAccess("snippet", (p: EditorProps) => p.editing ?? undefined, MobileSnippetEditorFields);
@@ -40,7 +41,7 @@ const NEW_STEPS: SnippetStep[] = [{ kind: "script", content: "" }];
  * synced half-typed. So it keeps a single Save action, and Back over unsaved changes
  * asks first (Save / Keep editing / Discard).
  */
-function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAccessProps) {
+function MobileSnippetEditorFields({ editing, placement, readOnly }: EditorProps & EditAccessProps) {
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const snippets = useAllSnippets();
@@ -81,7 +82,8 @@ function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAcce
         name: name.trim(), steps,
         tags: [], favorite: false,
         only_for_connection_tags: [], only_for_distros: [],
-        vault_id: createVaultId,
+        folder_id: placement?.folderId,
+        vault_id: placement?.vaultId ?? createVaultId,
       };
       await createSnippet(data);
     }

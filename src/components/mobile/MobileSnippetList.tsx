@@ -21,13 +21,33 @@ import { snippetMatcher } from "@/services/snippetSteps";
 import { SnippetPreview } from "@/components/snippets/HighlightedScript";
 import { compareStrings } from "@/utils/localeFormat";
 
-export default function MobileSnippetList({
-  currentSessionId, addFolderOpen = false, onCloseAddFolder,
-}: { currentSessionId?: string; addFolderOpen?: boolean; onCloseAddFolder?: () => void }) {
+export function useMobileSnippetScope() {
+  return useMobileFolderScope(useAllSnippetFolders(), "snippet");
+}
+
+type MobileSnippetScope = ReturnType<typeof useMobileSnippetScope>;
+
+interface ListProps {
+  currentSessionId?: string;
+  addFolderOpen?: boolean;
+  onCloseAddFolder?: () => void;
+}
+
+/** Pass `scope` when the caller also needs the open folder, e.g. to create inside it. */
+export default function MobileSnippetList({ scope, ...props }: ListProps & { scope?: MobileSnippetScope }) {
+  return scope ? <SnippetList {...props} scope={scope} /> : <OwnScopeSnippetList {...props} />;
+}
+
+function OwnScopeSnippetList(props: ListProps) {
+  return <SnippetList {...props} scope={useMobileSnippetScope()} />;
+}
+
+function SnippetList({
+  currentSessionId, addFolderOpen = false, onCloseAddFolder, scope,
+}: ListProps & { scope: MobileSnippetScope }) {
   const { t } = useTranslation();
   const snippets = useAllSnippets();
-  const allSnippetFolders = useAllSnippetFolders();
-  const { inScope, nav, axisRef, openPath, folders: snFolders, folderIds: snFolderIds, targetVaultId, canEditFolder } = useMobileFolderScope(allSnippetFolders, "snippet");
+  const { inScope, nav, axisRef, openPath, folders: snFolders, folderIds: snFolderIds, targetVaultId, canEditFolder } = scope;
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const setTab = useMobileNavStore((s) => s.setTab);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);

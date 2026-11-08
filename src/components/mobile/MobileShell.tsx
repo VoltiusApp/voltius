@@ -144,7 +144,7 @@ export default function MobileShell() {
     return (
       <>
         {screen.kind === "host-edit" && <MobileHostEditScreen hostId={screen.hostId} placement={screen.placement} />}
-        {screen.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={screen.snippetId} />}
+        {screen.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={screen.snippetId} placement={screen.placement} />}
         {screen.kind === "key-edit" && <MobileKeyEditScreen keyId={screen.keyId} mode={screen.mode} />}
         {screen.kind === "identity-edit" && <MobileIdentityEditScreen identityId={screen.identityId} />}
         {screen.kind === "more-page" && screen.page === "keychain" && <MobileKeychainScreen />}
