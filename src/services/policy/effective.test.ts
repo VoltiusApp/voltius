@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import fixture from "../../../src-tauri/src/policy/fixtures/effective.json?raw";
 import { boundedValue, effectiveSetting, useEffectiveSetting } from "./effective";
-import { usePolicyStore } from "@/stores/policyStore";
+import { resetPolicy, withPolicy } from "@/test/policy";
 
 interface Row {
   name: string;
@@ -16,15 +16,12 @@ interface Row {
 }
 
 const rows: Row[] = JSON.parse(fixture);
-const empty = { policy: {}, defaults: {} };
-const withPolicy = (policy: Record<string, unknown>) =>
-  usePolicyStore.setState({ machine: { policy, defaults: {} }, server: empty });
 
 const TTL = "appSettings.detachedTtlHours";
 const PROXY = "appSettings.proxy";
 
 describe("effective", () => {
-  beforeEach(() => usePolicyStore.setState({ machine: empty, server: empty, issues: [] }));
+  beforeEach(resetPolicy);
 
   it("matches the shared fixture", () => {
     for (const r of rows) {

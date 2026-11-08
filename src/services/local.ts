@@ -2,9 +2,10 @@ import { invoke } from "@/lib/invoke";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
 import { isEnforcedLock, lockedValue, policyRange } from "@/stores/policyStore";
+import { preferredShellSetting } from "@/stores/terminalSettingsStore";
 import type { ShellOption } from "@/components/layout/newSessionItems";
 
-const SHELL_KEY = "appSettings.terminal.preferredShell";
+const SHELL_KEY = preferredShellSetting.key;
 
 let shellsMemo: Promise<ShellOption[]> | undefined;
 let shellsPending = false;
@@ -38,12 +39,14 @@ export function allowedShells(shells: ShellOption[], entries = shellPolicyEntrie
   return entries ? shells.filter((s) => entries.some((e) => matchesEntry(s, e))) : shells;
 }
 
+export function pickShell(allowed: ShellOption[], requested: string | null | undefined): ShellOption | undefined {
+  return (requested ? allowed.find((s) => matchesEntry(s, requested)) : undefined) ?? allowed[0];
+}
+
 export async function policyShell(requested: string | undefined): Promise<string | undefined> {
   const entries = shellPolicyEntries();
   if (!entries) return requested;
-  const allowed = allowedShells(await listLocalShells(), entries);
-  const match = requested === undefined ? undefined : allowed.find((s) => matchesEntry(s, requested));
-  return (match ?? allowed[0])?.path;
+  return pickShell(allowedShells(await listLocalShells(), entries), requested)?.path;
 }
 
 export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<string | undefined> {

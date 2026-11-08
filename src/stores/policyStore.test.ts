@@ -21,6 +21,7 @@ import {
   usePolicyStore,
   watchPolicyVisibility,
 } from "./policyStore";
+import { withPolicy } from "@/test/policy";
 
 const empty = { policy: {}, defaults: {} };
 const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
@@ -215,8 +216,6 @@ describe("policyStore", () => {
     const TTL = "appSettings.detachedTtlHours";
     const TTL_TOGGLE = "appSettings.toggles.detached-session-ttl";
     const KEYWORDS = "appSettings.terminal.keywordRules";
-    const withPolicy = (policy: Record<string, unknown>) =>
-      usePolicyStore.setState({ machine: { policy, defaults: {} }, server: empty });
 
     it("a range entry is not a lock", () => {
       withPolicy({ [TTL]: { $range: { max: 24 } } });

@@ -1,5 +1,4 @@
-import { localeSetting, useLocaleStore } from "@/stores/localeStore";
-import { usePolicyStore } from "@/stores/policyStore";
+import { localeSetting } from "@/stores/localeStore";
 import type { I18nAPI, PluginI18nCatalog, PluginLocale } from "../api";
 
 function interpolate(template: string, vars?: Record<string, string | number>): string {
@@ -67,13 +66,7 @@ export function createI18nAPI(initial: PluginI18nCatalog = {}): I18nAPI {
       return locale();
     },
     onLocaleChange(cb) {
-      const notify = () => cb(locale());
-      const offPolicy = usePolicyStore.subscribe(notify);
-      const offStore = useLocaleStore.subscribe(notify);
-      return () => {
-        offPolicy();
-        offStore();
-      };
+      return localeSetting.subscribe(cb);
     },
   };
 }

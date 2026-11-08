@@ -7,7 +7,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k} ${JSON.stringify(o)}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
 vi.mock("@/components/shared/ToolbarViewControls", () => ({ ToolbarViewControls: () => null }));
 vi.mock("@/lib/invoke", () => ({
@@ -68,6 +68,33 @@ test("toolbar menu disabled with tooltip under a shell lock", async () => {
   expect(screen.queryByText("zsh")).toBeNull();
   fireEvent.click(screen.getByText("hosts.toolbar.terminal"));
   expect(onOpenLocalTerminal).toHaveBeenCalled();
+});
+
+test("the user's allowed path choice stays selected under a name-based list", async () => {
+  policy({ "appSettings.terminal.preferredShell": { $range: { allowed: ["fish", "zsh"] } } });
+  useTerminalSettingsStore.setState({ preferredShell: "/bin/zsh" });
+  renderToolbar();
+  const terminal = screen.getByText("hosts.toolbar.terminal").closest("button")!.parentElement!;
+  fireEvent.click(await within(terminal).findByTitle("common.action.moreOptions"));
+  const zsh = (await screen.findByText("zsh")).closest("button")!;
+  const fish = screen.getByText("fish").closest("button")!;
+  const checked = (b: Element) => !!b.querySelector('[data-icon="lucide:check"]');
+  expect([checked(zsh), checked(fish)]).toEqual([true, false]);
+});
+
+test("with no allowed shell installed the menu offers the system default and keeps the note", async () => {
+  policy({ "appSettings.terminal.preferredShell": { $range: { allowed: ["tcsh"] } } });
+  renderToolbar();
+  const terminal = screen.getByText("hosts.toolbar.terminal").closest("button")!.parentElement!;
+  fireEvent.click(await within(terminal).findByTitle("common.action.moreOptions"));
+  expect(await screen.findByText("hosts.toolbar.systemShell")).toBeTruthy();
+  expect(screen.getByText('common.policy.rangeAllowed {"values":"tcsh"}')).toBeTruthy();
+});
+
+test("with a locked shell not installed the chevron keeps its managed tooltip", async () => {
+  policy({ "appSettings.terminal.preferredShell": "tcsh" });
+  renderToolbar();
+  expect(await screen.findByRole("button", { name: "common.policy.managed" })).toBeTruthy();
 });
 
 test("toolbar menu lists the allowed shells and names them in a note", async () => {

@@ -11,7 +11,8 @@
       "importFrom": "Şuradan içe aktar",
       "newHost": "Yeni sunucu",
       "newSerialHost": "Yeni seri sunucu",
-      "newFolder": "Yeni klasör"
+      "newFolder": "Yeni klasör",
+      "systemShell": "Sistem varsayılanı"
     },
     "card": {
       "pin": "Sabitle",

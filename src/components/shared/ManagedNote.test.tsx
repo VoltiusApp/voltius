@@ -90,6 +90,7 @@ describe("RangeNote", () => {
     [{ min: 5 }, 'common.policy.rangeMin {"value":"5"}'],
     [{ min: 5, max: 30 }, 'common.policy.rangeBetween {"min":"5","max":"30"}'],
     [{ allowed: ["en", "fr"] }, 'common.policy.rangeAllowed {"values":"en, fr"}'],
+    [{ allowed: [1, 12, 24, 72], max: 24 }, 'common.policy.rangeAllowed {"values":"1, 12, 24"}'],
   ])("picks the right sentence for %j", (range, text) => {
     expect(render(<RangeNote range={range} />).container.textContent).toBe(text);
   });
@@ -97,6 +98,23 @@ describe("RangeNote", () => {
   it("formats each value and appends the unit", () => {
     const c = render(<RangeNote range={{ min: 1000, max: 30000 }} format={(v) => String((v as number) / 1000)} unit=" s" />).container;
     expect(c.textContent).toBe('common.policy.rangeBetween {"min":"1 s","max":"30 s"}');
+  });
+});
+
+describe("SettingRow reset under a range", () => {
+  const KEY = "appSettings.detachedTtlHours";
+  const resetIn = (range: unknown) => {
+    usePolicyStore.setState({ machine: { policy: { [KEY]: range }, defaults: {} } });
+    const c = render(<SettingRow title="x" syncKey={KEY} dirty onReset={() => {}}><button type="button">c</button></SettingRow>).container;
+    return c.querySelector('[title="settings.shared.resetToDefault"]');
+  };
+
+  it("hides reset when the built-in default is outside the range", () => {
+    expect(resetIn({ $range: { min: 48 } })).toBeNull();
+  });
+
+  it("keeps reset when the built-in default is inside the range", () => {
+    expect(resetIn({ $range: { max: 48 } })).not.toBeNull();
   });
 });
 

@@ -11,7 +11,8 @@
       "importFrom": "Import from",
       "newHost": "New Host",
       "newSerialHost": "New Serial Host",
-      "newFolder": "New Folder"
+      "newFolder": "New Folder",
+      "systemShell": "System default"
     },
     "card": {
       "pin": "Pin",

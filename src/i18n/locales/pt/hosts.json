@@ -11,7 +11,8 @@
       "importFrom": "Importar de",
       "newHost": "Novo Host",
       "newSerialHost": "Novo Host Serial",
-      "newFolder": "Nova Pasta"
+      "newFolder": "Nova Pasta",
+      "systemShell": "Padrão do sistema"
     },
     "card": {
       "pin": "Fixar",

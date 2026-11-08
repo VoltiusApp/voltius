@@ -48,7 +48,7 @@ export default function AppearanceSection() {
   const { t } = useTranslation();
   const locale = localeSetting.use();
   const setLocale = useLocaleStore((s) => s.setLocale);
-  const localeSelect = useRangeSelect("appSettings.locale", LOCALE_VALUES, localeLabel);
+  const localeSelect = useRangeSelect(localeSetting.key, LOCALE_VALUES, localeLabel);
   const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
   const isAndroid = useIsAndroid();
   const isMobile = useIsMobile();
@@ -78,7 +78,7 @@ export default function AppearanceSection() {
         <div className="mt-4">
           <TerminalFontSizeSection />
         </div>
-        <SettingRow variant="card" className="mt-4" syncKey="appSettings.locale" title={t("settings.appearance.language.title")} note={localeSelect.note}>
+        <SettingRow variant="card" className="mt-4" syncKey={localeSetting.key} title={t("settings.appearance.language.title")} note={localeSelect.note}>
           <FormSelect
             className="w-44 shrink-0"
             value={locale}

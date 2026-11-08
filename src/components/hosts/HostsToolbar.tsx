@@ -5,7 +5,7 @@ import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
 import { preferredShellSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { allowedShells } from "@/services/local";
+import { allowedShells, pickShell } from "@/services/local";
 import { usePolicyLock, usePolicyRange } from "@/stores/policyStore";
 import { RangeNote } from "@/components/shared/ManagedNote";
 import { useUIContributions } from "@/hooks/useUIContributions";
@@ -13,7 +13,7 @@ import { useLocalShells } from "@/hooks/useLocalShells";
 import { IMPORTERS } from "@/services/import-export/importers";
 import { useIsMobile } from "@/utils/platform";
 
-const SHELL_KEY = "appSettings.terminal.preferredShell";
+const SYSTEM_SHELL = "";
 
 interface HomeToolbarProps {
   search: string;
@@ -74,9 +74,14 @@ export function HomeToolbar({
   const shells = useLocalShells();
   const preferredShell = preferredShellSetting.use();
   const setPreferredShell = useTerminalSettingsStore((s) => s.setPreferredShell);
-  const shellLocked = usePolicyLock(SHELL_KEY).locked;
-  const shellRange = usePolicyRange(SHELL_KEY);
+  const shellLocked = usePolicyLock(preferredShellSetting.key).locked;
+  const shellRange = usePolicyRange(preferredShellSetting.key);
   const shellNamed = (entry: string) => allowedShells(shells, [entry])[0];
+  const shellOptions = shells.length
+    ? shells.map((s) => ({ value: s.path, label: s.name }))
+    : shellLocked || shellRange
+      ? [{ value: SYSTEM_SHELL, label: t("hosts.toolbar.systemShell") }]
+      : [];
   // Android sandbox can't spawn a local PTY — hide the local-terminal launcher.
   const isMobile = useIsMobile();
 
@@ -125,14 +130,14 @@ export function HomeToolbar({
             <ToolbarDropdown
               icon="lucide:terminal"
               label={compact ? undefined : t("hosts.toolbar.terminal")}
-              value={(preferredShell && shellNamed(preferredShell)?.path) || shells[0]?.path || ""}
-              options={shells.map((s) => ({ value: s.path, label: s.name }))}
+              value={pickShell(shells, preferredShell)?.path ?? SYSTEM_SHELL}
+              options={shellOptions}
               menuNote={shellRange && <RangeNote range={shellRange} format={(e) => shellNamed(String(e))?.name ?? String(e)} />}
               menuLocked={shellLocked ? t("common.policy.managed") : undefined}
               menuWidth={200}
               align="right"
               onAction={onOpenLocalTerminal}
-              onChange={setPreferredShell}
+              onChange={(v) => v !== SYSTEM_SHELL && setPreferredShell(v)}
             />
           )}
 

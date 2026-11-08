@@ -4,7 +4,7 @@ import { ANSI_SLOTS, compileKeywordRules, type AnsiSlot, type KeywordMatcher } f
 import { opaqueHex } from "@/utils/terminalColors";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { keywordRulesSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { usePolicyStore } from "@/stores/policyStore";
+import { onEffectiveChange } from "@/services/policy/effectiveCore";
 import { useThemeStore } from "@/stores/themeStore";
 
 const PAINT_INTERVAL_MS = 50;
@@ -236,24 +236,12 @@ export function createKeywordHighlighter({ term, spans, isVisible }: HighlightTa
 
 export function attachKeywordHighlighter(target: HighlightTarget): KeywordHighlighter {
   const highlighter = createKeywordHighlighter(target);
-  let enabled: boolean | undefined;
-  let signature: string | undefined;
-
-  const followSettings = () => {
-    const nextEnabled = getToggle("keyword-highlight");
-    const nextRules = keywordRulesSetting.get();
-    const nextSignature = JSON.stringify(nextRules);
-    if (nextEnabled === enabled && nextSignature === signature) return;
-    enabled = nextEnabled;
-    signature = nextSignature;
-    highlighter.setMatcher(enabled ? compileKeywordRules(nextRules) : null);
-  };
-  followSettings();
+  const read = () => ({ enabled: getToggle("keyword-highlight"), rules: keywordRulesSetting.get() });
+  const follow = ({ enabled, rules }: ReturnType<typeof read>) => highlighter.setMatcher(enabled ? compileKeywordRules(rules) : null);
+  follow(read());
 
   const unsubscribe = [
-    useToggleSettingsStore.subscribe(followSettings),
-    useTerminalSettingsStore.subscribe(followSettings),
-    usePolicyStore.subscribe(followSettings),
+    onEffectiveChange(read, [useToggleSettingsStore, useTerminalSettingsStore], follow),
     useThemeStore.subscribe(highlighter.refresh),
   ];
   window.addEventListener("theme-preview", highlighter.refresh);

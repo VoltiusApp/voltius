@@ -766,8 +766,6 @@ test.each([
   expect(screen.getByText("connections.common.sessionCommandsHint")).toBeTruthy();
 });
 
-// ── machine policy ──────────────────────────────────────────────────────────
-
 const keepaliveRow = () => screen.getByText("connections.form.keepalive").closest("[data-form-setting-row]") as HTMLElement;
 
 test("host editor keepalive disables options outside the range", () => {

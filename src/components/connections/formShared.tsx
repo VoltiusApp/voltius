@@ -143,7 +143,6 @@ export function SettingRow({
   );
 }
 
-/** An inherit-or-override select; under a lock it shows the inherited value. */
 export function OverrideRow({ icon, label, locked, note, value, options, onChange }: {
   icon: string;
   label: string;

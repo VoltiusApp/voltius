@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
-import { cursorStyleSetting, keywordRulesSetting, useTerminalSettingsStore } from "./terminalSettingsStore";
-import { usePolicyStore } from "./policyStore";
-
-const empty = { policy: {}, defaults: {} };
-const withPolicy = (policy: Record<string, unknown>) =>
-  usePolicyStore.setState({ machine: { policy, defaults: {} }, server: empty });
+import { cursorStyleSetting, keywordRulesSetting, preferredShellSetting, useTerminalSettingsStore } from "./terminalSettingsStore";
+import { resetPolicy, withPolicy } from "@/test/policy";
 const CURSOR = "appSettings.terminal.cursorStyle";
 
 describe("terminal settings under policy", () => {
   beforeEach(() => {
-    usePolicyStore.setState({ machine: empty, server: empty, issues: [] });
+    resetPolicy();
     useTerminalSettingsStore.setState({ cursorStyle: "bar", preferredShell: null, keywordRules: [] });
   });
 
@@ -27,6 +23,12 @@ describe("terminal settings under policy", () => {
     useTerminalSettingsStore.setState({ cursorStyle: "underline" });
     withPolicy({ [CURSOR]: { $range: { allowed: ["bar", "block"] } } });
     expect(cursorStyleSetting.get()).toBe("bar");
+  });
+
+  it("a stored shell path stays under a name-based allowed list", () => {
+    withPolicy({ [preferredShellSetting.key]: { $range: { allowed: ["fish", "zsh"] } } });
+    useTerminalSettingsStore.getState().setPreferredShell("/bin/zsh");
+    expect(preferredShellSetting.get()).toBe("/bin/zsh");
   });
 
   it("keyword rules stay editable and follow admin rules", () => {

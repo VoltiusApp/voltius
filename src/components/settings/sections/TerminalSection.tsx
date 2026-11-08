@@ -39,7 +39,7 @@ export default function TerminalSection() {
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
   const cursorStyle = cursorStyleSetting.use();
   const setCursorStyle = useTerminalSettingsStore((s) => s.setCursorStyle);
-  const cursorSelect = useRangeSelect("appSettings.terminal.cursorStyle", CURSOR_STYLES, (v) => t(`settings.terminal.cursorStyle.${v}`));
+  const cursorSelect = useRangeSelect(cursorStyleSetting.key, CURSOR_STYLES, (v) => t(`settings.terminal.cursorStyle.${v}`));
   const [keywordHighlight, setKeywordHighlight] = useToggle("keyword-highlight");
   const keywordRules = useTerminalSettingsStore((s) => s.keywordRules);
   const setKeywordRules = useTerminalSettingsStore((s) => s.setKeywordRules);
@@ -73,7 +73,7 @@ export default function TerminalSection() {
         <SettingRow
           variant="card"
           className="mt-4"
-          syncKey="appSettings.terminal.cursorStyle"
+          syncKey={cursorStyleSetting.key}
           title={t("settings.terminal.cursorStyle.title")}
           desc={t("settings.terminal.cursorStyle.desc")}
           note={cursorSelect.note}

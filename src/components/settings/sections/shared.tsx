@@ -8,7 +8,8 @@ import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
 import { Managed, ManagedNote } from "@/components/shared/ManagedNote";
-import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
+import { inPolicyRange, isEnforcedLock, usePolicyLock, usePolicyRange, usePolicyRefresh } from "@/stores/policyStore";
+import { builtIn } from "@/services/policy/adminDefaults";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import RowActionsButton from "@/components/mobile/RowActionsButton";
@@ -72,7 +73,6 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   syncKey?: string;
   /** Policy key whose admin lock disables this row's control; defaults to `syncKey`. */
   policyKey?: string;
-  /** Under the control, e.g. the admin's range for this setting. */
   note?: ReactNode;
   variant?: "list" | "card";
   className?: string;
@@ -111,7 +111,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
       <div className="flex flex-col items-end gap-1.5 shrink-0">
         <div className="flex items-center gap-2">
           {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
-          {dirty && onReset && !managed.locked && <ResetButton onReset={onReset} />}
+          {dirty && onReset && managed.resettable && <ResetButton onReset={onReset} />}
           {dirty && !managed.locked && <DirtyDot />}
           <RowControl managed={managed}>{children}</RowControl>
         </div>
@@ -121,11 +121,13 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   );
 }
 
-interface RowManaged { key: string | undefined; locked: boolean }
+interface RowManaged { key: string | undefined; locked: boolean; resettable: boolean }
 
 export function useRowManaged(key: string | undefined): RowManaged {
   usePolicyLock(key ?? "");
-  return { key, locked: !!key && isEnforcedLock(key) };
+  const range = usePolicyRange(key ?? "");
+  const locked = !!key && isEnforcedLock(key);
+  return { key, locked, resettable: !locked && (!range || inPolicyRange(range, builtIn(key!))) };
 }
 
 export function RowControl({ managed, note, children }: { managed: RowManaged; note?: boolean; children: ReactNode }) {
@@ -334,7 +336,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
   const inGroup = useContext(InSettingsGroup);
   const managed = useRowManaged(policyKey ?? syncKey);
   const [sheet, setSheet] = useState(false);
-  const canReset = !!(dirty && onReset) && !managed.locked;
+  const canReset = !!(dirty && onReset) && managed.resettable;
   const hasActions = canReset || (!!syncKey && !managed.locked);
   const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onClick } = useLongPress(() => setSheet(true));
   const ref = useRef<HTMLDivElement>(null);

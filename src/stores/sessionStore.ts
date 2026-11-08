@@ -211,19 +211,23 @@ export async function spawnLocalSession(sessionId: string, shell: string | undef
   });
 }
 
+export async function settleLocalSpawn(sessionId: string, spawn: Promise<unknown>): Promise<void> {
+  try {
+    await spawn;
+  } catch (err) {
+    markSessionError(useSessionStore.setState as SessionSetter, sessionId, err);
+    throw err;
+  }
+  useSessionStore.getState().markConnected(sessionId);
+}
+
 async function startLocalSession(set: SessionSetter, cwd?: string): Promise<void> {
   const sessionId = crypto.randomUUID();
   const shell = await policyShell(preferredShellSetting.get() ?? undefined);
   addSession(set, localSessionDraft(sessionId, shell));
-  try {
-    await spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"));
-    patchSession(set, sessionId, { status: "connected" });
-    useUIStore.getState().setActiveNav("terminal");
-    useUIStore.getState().setSidebarOpen(false);
-  } catch (err) {
-    patchSession(set, sessionId, { status: "error" });
-    throw err;
-  }
+  await settleLocalSpawn(sessionId, spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration")));
+  useUIStore.getState().setActiveNav("terminal");
+  useUIStore.getState().setSidebarOpen(false);
 }
 
 async function startSession(
@@ -412,18 +416,17 @@ function markSessionError(
   const msg = describeError(err, i18n.t);
   const errorCode = code ?? backendErrorCode(err) ?? undefined;
   const pick = identityPick ?? identityPickIssueOf(err);
-  set((s) => ({
-    sessions: s.sessions.map((sess) =>
-      sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
-        ? { ...sess, status: "error" as const, errorMessage: msg, errorCode, identityPick: pick }
-        : sess,
-    ),
-  }));
+  patchSession(
+    set,
+    sessionId,
+    { status: "error", errorMessage: msg, errorCode, identityPick: pick },
+    (sess) => !onlyIfConnecting || sess.status === "connecting",
+  );
 }
 
-function patchSession(set: SessionSetter, sessionId: string, patch: Partial<TerminalSession>) {
+function patchSession(set: SessionSetter, sessionId: string, patch: Partial<TerminalSession>, onlyIf?: (sess: TerminalSession) => boolean) {
   set((s) => ({
-    sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, ...patch } : sess)),
+    sessions: s.sessions.map((sess) => (sess.id === sessionId && (!onlyIf || onlyIf(sess)) ? { ...sess, ...patch } : sess)),
   }));
 }
 
@@ -684,9 +687,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   beginLocalSession: (shell, cwd) => {
     const sessionId = crypto.randomUUID();
     addSession(set as SessionSetter, localSessionDraft(sessionId, shell));
-    spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"))
-      .then(() => patchSession(set as SessionSetter, sessionId, { status: "connected" }))
-      .catch((err) => markSessionError(set, sessionId, err));
+    settleLocalSpawn(sessionId, spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"))).catch(() => {});
     return sessionId;
   },
 
@@ -879,13 +880,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })),
 
   markConnected: (sessionId) =>
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId
-          ? { ...sess, status: "connected" as const, errorMessage: undefined, errorCode: undefined, reconnectWait: undefined, everConnected: true }
-          : sess,
-      ),
-    })),
+    patchSession(set as SessionSetter, sessionId, {
+      status: "connected",
+      errorMessage: undefined,
+      errorCode: undefined,
+      reconnectWait: undefined,
+      everConnected: true,
+    }),
 
   markError: (sessionId, message, code, identityPick) => markSessionError(set, sessionId, message, { code, identityPick }),
 

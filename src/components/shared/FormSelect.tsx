@@ -11,7 +11,6 @@ export interface FormSelectOption {
   value: string;
   label: string;
   disabled?: boolean;
-  /** Tooltip on a disabled option: why it can't be picked. */
   disabledTitle?: string;
 }
 

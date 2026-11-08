@@ -6,7 +6,7 @@ import {
 import { getToggle } from "./toggleSettingsStore";
 import { resolveRemoteSessions } from "./liveSessionManifestCore";
 import { useCrossDeviceSessionsStore } from "./crossDeviceSessionsStore";
-import { useSessionStore, spawnLocalSession } from "./sessionStore";
+import { useSessionStore, settleLocalSpawn, spawnLocalSession } from "./sessionStore";
 import { resumeIfStranded } from "./reconnectBackoff";
 import { useLayoutStore, getPaneSessionIds, type SplitTab } from "./layoutStore";
 import { useUIStore } from "./uiStore";
@@ -103,7 +103,7 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
   // (same session id → same key) and replays history (restore flag). Vault
   // unlock happens lazily inside credential resolution; failures land in the
   // existing per-session error overlay (retry affordances included).
-  const { reconnect, markConnected, markError } = useSessionStore.getState();
+  const { reconnect } = useSessionStore.getState();
   for (const s of snapshot.sessions) {
     if (s.scrollLinesFromBottom) setRestoreScrollOffset(s.id, s.scrollLinesFromBottom);
   }
@@ -129,12 +129,7 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
         // Launched offline, the `online` event may never come: the loop must own the retry.
         resumeIfStranded(s.id, { restore: s.persist });
       } else {
-        try {
-          await spawnLocalSession(s.id, s.localShell, s.cwd, getToggle("shell-integration"));
-          markConnected(s.id);
-        } catch (err) {
-          markError(s.id, err instanceof Error ? err.message : String(err));
-        }
+        await settleLocalSpawn(s.id, spawnLocalSession(s.id, s.localShell, s.cwd, getToggle("shell-integration")));
       }
     }),
   );

@@ -5,8 +5,8 @@ import { terminalFontStack } from "@/utils/fontStack";
 import { cursorStyleSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { usePolicyStore } from "@/stores/policyStore";
 import { useUIStore } from "@/stores/uiStore";
+import { onEffectiveChange } from "@/services/policy/effectiveCore";
 
 export const MIN_TERMINAL_LINE_HEIGHT = 1;
 export const MAX_TERMINAL_LINE_HEIGHT = 2;
@@ -21,6 +21,7 @@ export function clampTerminalLineHeight(value: number | undefined | null): numbe
 
 export function terminalOptionsFor(theme: AppTheme): ITerminalOptions {
   return {
+    // macOS has no Shift bypass for mouse-reporting apps; Alt+click is the only one.
     macOptionClickForcesSelection: true,
     cursorBlink: getToggle("cursor-blink"),
     cursorStyle: cursorStyleSetting.get(),
@@ -66,17 +67,16 @@ export function subscribeTerminalTheme(
  *  The two call sites reach their terminal differently (cache lookup vs ref),
  *  hence the getter. */
 export function subscribeTerminalCursor(getTerm: () => Terminal | null | undefined): () => void {
-  const applyStyle = () => {
+  const unsubStyle = cursorStyleSetting.subscribe((style) => {
     const term = getTerm();
-    if (term) term.options.cursorStyle = cursorStyleSetting.get();
-  };
-  const unsubStyle = [useTerminalSettingsStore.subscribe(applyStyle), usePolicyStore.subscribe(applyStyle)];
-  const unsubBlink = useToggleSettingsStore.subscribe(() => {
+    if (term) term.options.cursorStyle = style;
+  });
+  const unsubBlink = onEffectiveChange(() => getToggle("cursor-blink"), [useToggleSettingsStore], (blink) => {
     const term = getTerm();
-    if (term) term.options.cursorBlink = getToggle("cursor-blink");
+    if (term) term.options.cursorBlink = blink;
   });
   return () => {
-    unsubStyle.forEach((off) => off());
+    unsubStyle();
     unsubBlink();
   };
 }

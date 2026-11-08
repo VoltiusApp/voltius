@@ -70,6 +70,26 @@ describe("local shell policy on session tabs", () => {
     expect(useSessionStore.getState().sessions.find((x) => x.id === id)!.connectionName).toBe("deploy");
   });
 
+  test("every local spawn settles connected the same way", async () => {
+    const id = useSessionStore.getState().beginLocalSession("/bin/zsh");
+    await flush();
+    await useSessionStore.getState().connectLocal();
+    for (const s of useSessionStore.getState().sessions) expect([s.status, s.everConnected], s.id).toEqual(["connected", true]);
+    expect(id).toBeTruthy();
+  });
+
+  test("a failed local spawn keeps its error message", async () => {
+    invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "local_list_shells") return shells;
+      if (cmd === "local_connect") throw new Error("pty refused");
+    });
+    await expect(useSessionStore.getState().connectLocal()).rejects.toThrow("pty refused");
+    const id = useSessionStore.getState().beginLocalSession("/bin/zsh");
+    await flush();
+    for (const s of useSessionStore.getState().sessions) expect([s.status, s.errorMessage], s.id).toEqual(["error", "pty refused"]);
+    expect(id).toBeTruthy();
+  });
+
   test("workspace restore of a bash snapshot under a zsh lock ends with zsh", async () => {
     const { formatLocalShellTitle } = await import("@/utils/localShellTitle");
     h.snapshot.sessions[0].connectionName = formatLocalShellTitle("/bin/bash");

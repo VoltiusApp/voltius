@@ -11,7 +11,8 @@
       "importFrom": "Importovat z",
       "newHost": "Nový host",
       "newSerialHost": "Nový sériový host",
-      "newFolder": "Nová složka"
+      "newFolder": "Nová složka",
+      "systemShell": "Výchozí systémový shell"
     },
     "card": {
       "pin": "Připnout",

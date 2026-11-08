@@ -26,7 +26,7 @@ import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { NotificationSource } from "@/stores/notificationStore";
-import { useSessionStore, addSession, localSessionDraft, spawnLocalSession } from "@/stores/sessionStore";
+import { useSessionStore, addSession, localSessionDraft, settleLocalSpawn, spawnLocalSession } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -2139,16 +2139,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
 
           const newSessionId = crypto.randomUUID();
-          const { markConnected, markError } = useSessionStore.getState();
           addSession(useSessionStore.setState, localSessionDraft(newSessionId, target.localShell ?? undefined, label));
-          try {
-            await spawnLocalSession(newSessionId, target.localShell ?? undefined);
-            await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
-            markConnected(newSessionId);
-          } catch (e) {
-            markError(newSessionId, e instanceof Error ? e.message : String(e));
-            throw e;
-          }
+          await settleLocalSpawn(
+            newSessionId,
+            spawnLocalSession(newSessionId, target.localShell ?? undefined).then(() =>
+              localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`)),
+            ),
+          );
           return newSessionId;
         },
       },

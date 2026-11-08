@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { autoRefreshIntervalSetting, DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { clampToRange, usePolicyRange } from "@/stores/policyStore";
+import { policyKeyDef } from "@/services/policy/policyKeys";
 import { RangeNote } from "@/components/shared/ManagedNote";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
@@ -9,14 +10,14 @@ import { SettingRow, SettingsGroup } from "./shared";
 import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, type DownloadDirInfo } from "@/services/downloads";
 
-const MIN_INTERVAL_SECONDS = 0.5;
+const MIN_INTERVAL_SECONDS = (policyKeyDef(autoRefreshIntervalSetting.key)?.domain?.min ?? 0) / 1000;
 
 export default function SFTPSection() {
   const { t } = useTranslation();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useToggle("sftp-autorefresh");
   const [tarTransferEnabled, setTarTransferEnabled] = useToggle("sftp-tar");
   const autoRefreshIntervalMs = autoRefreshIntervalSetting.use();
-  const intervalRange = usePolicyRange("appSettings.sftp.autoRefreshIntervalMs");
+  const intervalRange = usePolicyRange(autoRefreshIntervalSetting.key);
   const setAutoRefreshIntervalMs = useSftpSettingsStore((s) => s.setAutoRefreshIntervalMs);
   const editorAutoSave = useSftpSettingsStore((s) => s.editorAutoSave);
   const setEditorAutoSave = useSftpSettingsStore((s) => s.setEditorAutoSave);
@@ -87,7 +88,7 @@ export default function SFTPSection() {
           <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
         </SettingRow>
         <SettingRow
-          syncKey="appSettings.sftp.autoRefreshIntervalMs"
+          syncKey={autoRefreshIntervalSetting.key}
           title={t("settings.sftp.filePanel.refreshInterval.title")}
           desc={intervalRange ? undefined : t("settings.sftp.filePanel.refreshInterval.desc")}
           dimmed={!autoRefreshEnabled}

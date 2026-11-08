@@ -7,16 +7,14 @@ import {
   useConnectivitySettingsStore,
 } from "./connectivitySettingsStore";
 import { useToggleSettingsStore } from "./toggleSettingsStore";
-import { usePolicyStore, writeUnlessLocked } from "./policyStore";
+import { writeUnlessLocked } from "./policyStore";
+import { resetPolicy, withPolicy } from "@/test/policy";
 
-const empty = { policy: {}, defaults: {} };
-const withPolicy = (policy: Record<string, unknown>) =>
-  usePolicyStore.setState({ machine: { policy, defaults: {} }, server: empty });
 const KA = "appSettings.keepalivePreset";
 
 describe("connectivity readers under policy", () => {
   beforeEach(() => {
-    usePolicyStore.setState({ machine: empty, server: empty, issues: [] });
+    resetPolicy();
     useConnectivitySettingsStore.setState({ keepalivePreset: "balanced", detachedTtlHours: 72 } as never);
     useToggleSettingsStore.setState({ values: { "detached-session-ttl": false } } as never);
   });

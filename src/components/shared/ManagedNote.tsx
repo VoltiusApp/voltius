@@ -22,7 +22,7 @@ function useRangeText(range: PolicyRange | undefined, format: Format = String, u
   const show = (v: unknown) => `${format(v)}${unit}`;
   const { min, max, allowed } = range;
   return allowed
-    ? t("common.policy.rangeAllowed", { values: allowed.map(show).join(", ") })
+    ? t("common.policy.rangeAllowed", { values: allowed.filter((v) => inPolicyRange(range, v)).map(show).join(", ") })
     : min !== undefined && max !== undefined
       ? t("common.policy.rangeBetween", { min: show(min), max: show(max) })
       : max !== undefined

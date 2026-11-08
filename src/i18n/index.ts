@@ -1,7 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
-import { useLocaleStore, localeSetting } from "@/stores/localeStore";
-import { usePolicyStore } from "@/stores/policyStore";
+import { localeSetting } from "@/stores/localeStore";
 import { englishBundle, loadLocaleBundle } from "./bundles";
 
 // No async backend: i18n.changeLanguage() mutates i18n.language synchronously, which
@@ -43,14 +42,12 @@ function followLocaleSetting() {
   document.documentElement.lang = locale;
 }
 
-function followLocale() {
-  const locale = localeSetting.get();
+function followLocale(locale: string) {
   if (loaded.has(locale)) followLocaleSetting();
   else void ensureLocale(locale).then(followLocaleSetting);
 }
 
-useLocaleStore.subscribe(followLocale);
-usePolicyStore.subscribe(followLocale);
+localeSetting.subscribe(followLocale);
 
 /** The language the UI strings are in; trails the locale setting while its strings load. */
 export function useUiLanguage(): string {

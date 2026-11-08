@@ -1,16 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 import { autoRefreshIntervalSetting, useSftpSettingsStore } from "./sftpSettingsStore";
-import { usePolicyStore } from "./policyStore";
+import { resetPolicy, withPolicy } from "@/test/policy";
 
-const empty = { policy: {}, defaults: {} };
-const withPolicy = (policy: Record<string, unknown>) =>
-  usePolicyStore.setState({ machine: { policy, defaults: {} }, server: empty });
 const KEY = "appSettings.sftp.autoRefreshIntervalMs";
 
 describe("sftp settings under policy", () => {
   beforeEach(() => {
-    usePolicyStore.setState({ machine: empty, server: empty, issues: [] });
+    resetPolicy();
     useSftpSettingsStore.setState({ autoRefreshIntervalMs: 2000 });
   });
 

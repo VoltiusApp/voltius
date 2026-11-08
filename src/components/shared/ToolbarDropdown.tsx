@@ -28,7 +28,6 @@ interface BaseProps<T extends string> {
   disabled?: boolean;
   variant?: "default" | "accent";
   searchable?: boolean;
-  /** Under the options, e.g. the admin's limit on them. */
   menuNote?: ReactNode;
   /** Disables only the chevron, with this text as its tooltip; the main action still runs. */
   menuLocked?: string;
