@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { cursorStyleSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
 import { mobileSettingsNav, MOBILE_HIDDEN_SECTIONS, rowTapControl } from "@/components/settings/settingsMobileCore";
@@ -22,7 +22,7 @@ const NO_TITLE = { current: null };
 function useNavSummaries(): Partial<Record<string, string>> {
   const { t } = useTranslation();
   const themeName = useThemeStore((s) => s.getActiveTheme().name);
-  const cursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
+  const cursorStyle = cursorStyleSetting.use();
   const scrollback = useTerminalSettingsStore((s) => s.scrollbackLines);
   return {
     appearance: themeName,

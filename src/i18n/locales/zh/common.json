@@ -295,6 +295,10 @@
     },
     "policy": {
       "managed": "由您的组织管理",
+      "rangeMax": "您的组织最多允许 {{value}}",
+      "rangeMin": "您的组织允许 {{value}} 或以上",
+      "rangeBetween": "您的组织允许 {{min}}–{{max}}",
+      "rangeAllowed": "您的组织允许：{{values}}",
       "serverBlocked": "您的组织不允许使用此服务器",
       "accountNotSaved": "无法先保存当前账户，因此未做任何更改",
       "fileError": "无法读取您的组织的 Voltius 策略文件，因此其中的任何设置均不生效。",

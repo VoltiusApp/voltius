@@ -1,13 +1,13 @@
 import i18n from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
-import { useLocaleStore } from "@/stores/localeStore";
+import { localeSetting } from "@/stores/localeStore";
 import { englishBundle, loadLocaleBundle } from "./bundles";
 
 // No async backend: i18n.changeLanguage() mutates i18n.language synchronously, which
 // non-component callers (e.g. getSettingsNav()) rely on. Only a locale not loaded yet switches late.
 i18n.use(initReactI18next).init({
   resources: { en: { translation: englishBundle } },
-  lng: useLocaleStore.getState().locale,
+  lng: localeSetting.get(),
   fallbackLng: { "pt-BR": ["pt", "en"], "pt-PT": ["pt", "en"], default: ["en"] },
   interpolation: { escapeValue: false },
   returnNull: false,
@@ -34,24 +34,26 @@ export function ensureLocale(locale: string): Promise<void> {
 }
 
 /** Resolves once the persisted locale's strings are in, so the first render is already translated. */
-export const i18nReady = ensureLocale(useLocaleStore.getState().locale);
+export const i18nReady = ensureLocale(localeSetting.get());
 
 function followLocaleSetting() {
-  const { locale } = useLocaleStore.getState();
+  const locale = localeSetting.get();
   if (i18n.language !== locale) i18n.changeLanguage(locale);
   document.documentElement.lang = locale;
 }
 
-useLocaleStore.subscribe((state) => {
-  if (loaded.has(state.locale)) followLocaleSetting();
-  else void ensureLocale(state.locale).then(followLocaleSetting);
-});
+function followLocale(locale: string) {
+  if (loaded.has(locale)) followLocaleSetting();
+  else void ensureLocale(locale).then(followLocaleSetting);
+}
+
+localeSetting.subscribe(followLocale);
 
 /** The language the UI strings are in; trails the locale setting while its strings load. */
 export function useUiLanguage(): string {
   return (useTranslation().i18n ?? i18n).language;
 }
-document.documentElement.lang = useLocaleStore.getState().locale;
+document.documentElement.lang = localeSetting.get();
 
 /** A label that translates on every read, plus its English text for search. */
 export interface LazyLabel {

@@ -1,9 +1,10 @@
 import type { IBufferCell, IDecoration, IMarker, ITheme, Terminal } from "@xterm/xterm";
 import type { OutputSpan } from "./commandMarks";
-import { ANSI_SLOTS, compileKeywordRules, type AnsiSlot, type KeywordMatcher, type KeywordRule } from "@/utils/keywordMatcher";
+import { ANSI_SLOTS, compileKeywordRules, type AnsiSlot, type KeywordMatcher } from "@/utils/keywordMatcher";
 import { opaqueHex } from "@/utils/terminalColors";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { keywordRulesSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { onEffectiveChange } from "@/services/policy/effectiveCore";
 import { useThemeStore } from "@/stores/themeStore";
 
 const PAINT_INTERVAL_MS = 50;
@@ -235,22 +236,12 @@ export function createKeywordHighlighter({ term, spans, isVisible }: HighlightTa
 
 export function attachKeywordHighlighter(target: HighlightTarget): KeywordHighlighter {
   const highlighter = createKeywordHighlighter(target);
-  let enabled: boolean | undefined;
-  let rules: KeywordRule[] | undefined;
-
-  const followSettings = () => {
-    const nextEnabled = getToggle("keyword-highlight");
-    const nextRules = useTerminalSettingsStore.getState().keywordRules;
-    if (nextEnabled === enabled && nextRules === rules) return;
-    enabled = nextEnabled;
-    rules = nextRules;
-    highlighter.setMatcher(enabled ? compileKeywordRules(rules) : null);
-  };
-  followSettings();
+  const read = () => ({ enabled: getToggle("keyword-highlight"), rules: keywordRulesSetting.get() });
+  const follow = ({ enabled, rules }: ReturnType<typeof read>) => highlighter.setMatcher(enabled ? compileKeywordRules(rules) : null);
+  follow(read());
 
   const unsubscribe = [
-    useToggleSettingsStore.subscribe(followSettings),
-    useTerminalSettingsStore.subscribe(followSettings),
+    onEffectiveChange(read, [useToggleSettingsStore, useTerminalSettingsStore], follow),
     useThemeStore.subscribe(highlighter.refresh),
   ];
   window.addEventListener("theme-preview", highlighter.refresh);

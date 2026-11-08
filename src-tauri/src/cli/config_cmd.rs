@@ -1,11 +1,12 @@
 use super::output::Output;
 use super::policy_cmd::{
-    effective_row, locked_message, machine_doc, plain, print_row, typed_value, unknown_key_message,
+    effective_row, locked_message, machine_doc, plain, print_row, range_violation, typed_value,
+    unknown_key_message,
 };
 use super::user::require_user_account;
 use super::{queue, CliError, Ctx};
 use crate::cli_state::pending::Change;
-use crate::policy::{self, Issue, IssueKind, KeyType};
+use crate::policy::{self, Issue, IssueKind, KeyType, PolicyDoc};
 use clap::Subcommand;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -35,22 +36,18 @@ pub fn run(cmd: ConfigCmd, ctx: &mut Ctx) -> Result<(), CliError> {
     run_config(cmd, policy::machine_policy_path().as_deref(), &dir, ctx)
 }
 
-fn locked_keys(machine: Option<&Path>) -> Vec<String> {
-    machine_doc(machine).policy.into_keys().collect()
-}
-
-fn rejected(key: &str, message: String) -> Issue {
+fn rejected(key: &str, kind: IssueKind, message: String) -> Issue {
     Issue {
-        kind: IssueKind::Type,
+        kind,
         layer: None,
         key: Some(key.to_string()),
         message,
     }
 }
 
-fn setting_type(key: &str, locked: &[String]) -> Result<KeyType, Issue> {
+fn setting_type(key: &str, doc: &PolicyDoc) -> Result<KeyType, Issue> {
     let Some(ty) = policy::key_type(key) else {
-        return Err(rejected(key, unknown_key_message(key)));
+        return Err(rejected(key, IssueKind::Type, unknown_key_message(key)));
     };
     if !(key.starts_with("appSettings.") || key.starts_with("themes.")) {
         let hint = if key == "server.url" {
@@ -60,11 +57,12 @@ fn setting_type(key: &str, locked: &[String]) -> Result<KeyType, Issue> {
         };
         return Err(rejected(
             key,
+            IssueKind::Type,
             format!("{key} is not a user setting; {hint}"),
         ));
     }
-    if locked.iter().any(|k| k == key) {
-        return Err(rejected(key, locked_message(key)));
+    if policy::blocks_user_write(doc, key) {
+        return Err(rejected(key, IssueKind::Type, locked_message(key)));
     }
     Ok(ty)
 }
@@ -82,9 +80,12 @@ pub(super) fn run_config(
     match cmd {
         ConfigCmd::Get { key } => get(&key, machine, user_dir, ctx.out),
         ConfigCmd::Set { key, value } => {
-            let ty = setting_type(&key, &locked_keys(machine))
-                .map_err(|i| CliError::Validation(vec![i]))?;
+            let doc = machine_doc(machine);
+            let ty = setting_type(&key, &doc).map_err(|i| CliError::Validation(vec![i]))?;
             let value = typed_value(&key, ty, &value)?;
+            if let Some(m) = range_violation(&doc, &key, &value) {
+                return Err(plain(IssueKind::Range, m));
+            }
             queue_setting(user_dir, key, value, ctx.out)
         }
         ConfigCmd::Import { file, data } => import(file, data, machine, user_dir, ctx.out),
@@ -122,14 +123,17 @@ fn import(
             "expected a JSON object of key to value".into(),
         ));
     };
-    let locked = locked_keys(machine);
+    let doc = machine_doc(machine);
     let mut issues = Vec::new();
     for (key, value) in &map {
-        match setting_type(key, &locked) {
+        match setting_type(key, &doc) {
             Err(i) => issues.push(i),
             Ok(ty) => {
-                if let Some(m) = policy::value_problem(key, ty, value) {
-                    issues.push(rejected(key, format!("{key}: {m}")));
+                let problem = policy::value_problem(key, ty, value)
+                    .map(|m| (IssueKind::Type, format!("{key}: {m}")))
+                    .or_else(|| range_violation(&doc, key, value).map(|m| (IssueKind::Range, m)));
+                if let Some((kind, m)) = problem {
+                    issues.push(rejected(key, kind, m));
                 }
             }
         }
@@ -186,7 +190,11 @@ mod tests {
     }
 
     fn get_cmd() -> ConfigCmd {
-        ConfigCmd::Get { key: CURSOR.into() }
+        get_key(CURSOR)
+    }
+
+    fn get_key(key: &str) -> ConfigCmd {
+        ConfigCmd::Get { key: key.into() }
     }
 
     fn import_data(data: &str) -> ConfigCmd {
@@ -206,11 +214,15 @@ mod tests {
     }
 
     fn write_mirror(dir: &Path) {
+        mirror_with(dir, json!({ CURSOR: "block" }));
+    }
+
+    fn mirror_with(dir: &Path, settings: Value) {
         mirror::write(
             dir,
             &json!({
                 "writtenAt": "2026-11-05T10:00:00Z", "appVersion": "1", "serverUrl": null,
-                "plugins": [], "settings": { CURSOR: "block" }
+                "plugins": [], "settings": settings
             }),
         )
         .unwrap();
@@ -401,5 +413,141 @@ mod tests {
         let e = run(get_cmd(), None, dir.path(), false).0.unwrap_err();
         assert_eq!(e.exit_code(), 5);
         assert!(e.to_string().contains("has not run yet"));
+    }
+
+    const TTL: &str = "appSettings.detachedTtlHours";
+    const RULES: &str = "appSettings.terminal.keywordRules";
+
+    #[test]
+    fn config_set_outside_range_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { TTL: {"$range": {"max": 24}} }}),
+        );
+        let e = run(set(TTL, "72"), Some(&m), dir.path(), false)
+            .0
+            .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert_eq!(
+            e.to_string(),
+            format!("{TTL}: outside the range your organization allows (max 24)")
+        );
+        assert!(queued(dir.path()).is_empty());
+        let bad = format!(r#"{{"{TTL}":72}}"#);
+        let e = run(import_data(&bad), Some(&m), dir.path(), false)
+            .0
+            .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert!(e.to_string().contains("outside the range"));
+        assert!(queued(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn config_set_inside_range_queues() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { TTL: {"$range": {"max": 24}} }}),
+        );
+        run(set(TTL, "12"), Some(&m), dir.path(), false).0.unwrap();
+        assert_eq!(
+            queued(dir.path()),
+            vec![pending::Change::Setting {
+                key: TTL.into(),
+                value: json!(12)
+            }]
+        );
+    }
+
+    #[test]
+    fn config_set_keyword_rules_allowed_under_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(dir.path(), json!({"version": 1, "policy": { RULES: [] }}));
+        let rules = r#"[{"id":"a","color":"red","words":["x"]}]"#;
+        run(set(RULES, rules), Some(&m), dir.path(), false)
+            .0
+            .unwrap();
+        assert_eq!(queued(dir.path()).len(), 1);
+    }
+
+    #[test]
+    fn config_set_implied_toggle_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { TTL: {"$range": {"max": 24}} }}),
+        );
+        let e = run(
+            set("appSettings.toggles.detached-session-ttl", "false"),
+            Some(&m),
+            dir.path(),
+            false,
+        )
+        .0
+        .unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert!(e
+            .to_string()
+            .contains("is locked by your organization's policy"));
+        assert!(queued(dir.path()).is_empty());
+    }
+
+    const SHELL: &str = "appSettings.terminal.preferredShell";
+    const PROXY: &str = "appSettings.proxy";
+
+    #[test]
+    fn config_set_shell_path_under_a_name_list_queues() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { SHELL: {"$range": {"allowed": ["zsh"]}} }}),
+        );
+        run(set(SHELL, "/bin/zsh"), Some(&m), dir.path(), false)
+            .0
+            .unwrap();
+        assert_eq!(queued(dir.path()).len(), 1);
+    }
+
+    fn get_json(key: &str, m: &Path, dir: &Path) -> Value {
+        let (r, text) = run(get_key(key), Some(m), dir, true);
+        r.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn config_get_keyword_lock_lists_admin_rules_then_the_users() {
+        let dir = tempfile::tempdir().unwrap();
+        let admin = json!({"id": "a", "color": "red", "words": ["panic"], "enabled": true});
+        let mine = json!({"id": "u", "color": "green", "words": ["ok"], "enabled": true});
+        mirror_with(dir.path(), json!({ RULES: [mine] }));
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { RULES: [admin] }}),
+        );
+        assert_eq!(
+            get_json(RULES, &m, dir.path())["value"],
+            json!([admin, mine])
+        );
+    }
+
+    #[test]
+    fn config_get_proxy_lock_keeps_the_users_username() {
+        let dir = tempfile::tempdir().unwrap();
+        mirror_with(
+            dir.path(),
+            json!({ PROXY: {"mode": "none", "username": "bob"} }),
+        );
+        let lock = |p: Value| machine(dir.path(), json!({"version": 1, "policy": { PROXY: p }}));
+        let m = lock(json!({"mode": "http", "host": "p", "port": 1}));
+        assert_eq!(
+            get_json(PROXY, &m, dir.path())["value"],
+            json!({"mode": "http", "host": "p", "port": 1, "username": "bob"})
+        );
+        let m = lock(json!({"mode": "system"}));
+        assert_eq!(
+            get_json(PROXY, &m, dir.path())["value"],
+            json!({"mode": "system"})
+        );
     }
 }

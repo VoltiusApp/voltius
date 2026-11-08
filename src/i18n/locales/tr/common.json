@@ -300,6 +300,10 @@
     },
     "policy": {
       "managed": "Kuruluşunuz tarafından yönetiliyor",
+      "rangeMax": "Kuruluşunuz en fazla {{value}} değerine izin veriyor",
+      "rangeMin": "Kuruluşunuz {{value}} veya üzerine izin veriyor",
+      "rangeBetween": "Kuruluşunuz {{min}}–{{max}} aralığına izin veriyor",
+      "rangeAllowed": "Kuruluşunuzun izin verdikleri: {{values}}",
       "serverBlocked": "Bu sunucuya kuruluşunuz izin vermiyor",
       "accountNotSaved": "Geçerli hesap önce kaydedilemedi, bu yüzden hiçbir şey değiştirilmedi",
       "fileError": "Kuruluşunuzun Voltius ilke dosyası okunamadı, bu nedenle hiçbir kısmı uygulanmıyor.",

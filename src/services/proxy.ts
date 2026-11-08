@@ -4,6 +4,7 @@ import i18n from "@/i18n";
 import { getSecret } from "@/services/vault";
 import { firstHopConnection, resolveKnock, type KnockOverride, type KnockSpec } from "@/services/portKnock";
 import { getGlobalProxy } from "@/stores/connectivitySettingsStore";
+import { isEnforcedLock } from "@/stores/policyStore";
 import { GLOBAL_PROXY_PASSWORD_KEY, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 
 export type ProxySpec =
@@ -20,7 +21,9 @@ export async function resolveProxy(
   conn: Pick<Connection, "id" | "proxy">,
   overrides?: { proxy?: ProxyOverride | null; password?: string },
 ): Promise<ProxySpec | null> {
-  const perHost = overrides?.proxy !== undefined ? overrides.proxy : conn.proxy;
+  const requested = overrides?.proxy !== undefined ? overrides.proxy : conn.proxy;
+  const locked = isEnforcedLock("appSettings.proxy");
+  const perHost = locked ? undefined : requested;
   const source = perHost ?? getGlobalProxy();
   const secretKey = perHost ? proxyPasswordKey(conn.id) : GLOBAL_PROXY_PASSWORD_KEY;
   switch (source.mode) {
@@ -37,7 +40,7 @@ export async function resolveProxy(
       if (!host) {
         throw new Error(i18n.t("connections.form.proxy.hostMissing", { kind: i18n.t(`connections.form.proxy.modes.${source.mode}`) }));
       }
-      const password = overrides?.password ?? (await getSecret(secretKey).catch(() => null)) ?? undefined;
+      const password = (locked ? undefined : overrides?.password) ?? (await getSecret(secretKey).catch(() => null)) ?? undefined;
       return {
         kind: source.mode,
         host,

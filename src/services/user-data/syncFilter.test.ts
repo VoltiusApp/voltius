@@ -262,11 +262,15 @@ describe("policy", () => {
     expect("cursor-blink" in toggles(restoreLocal(appBundle()))).toBe(false);
   });
 
-  test("a lock this version does not enforce keeps syncing", () => {
-    usePolicyStore.setState({ machine: { policy: { "appSettings.terminal.cursorStyle": "block" }, defaults: {} } });
-    const data = filterOutgoing(appBundle()).sections.appSettings.data as Record<string, Record<string, unknown>>;
-    expect(data.terminal.cursorStyle).toBe("bar");
-    expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain("appSettings.terminal.cursorStyle");
+  test("an additive lock keeps syncing", () => {
+    const key = "appSettings.terminal.keywordRules";
+    const USER_RULES = [{ id: "mine", color: "green", words: ["ok"], enabled: true }];
+    usePolicyStore.setState({ machine: { policy: { [key]: [{ id: "admin", color: "red", words: ["panic"], enabled: true }] }, defaults: {} } });
+    const bundle = appBundle();
+    (bundle.sections.appSettings.data as Record<string, Record<string, unknown>>).terminal.keywordRules = USER_RULES;
+    const data = filterOutgoing(bundle).sections.appSettings.data as Record<string, Record<string, unknown>>;
+    expect(data.terminal.keywordRules).toEqual(USER_RULES);
+    expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain(key);
   });
 
   test("heldBackKeys lists an enforced lock", () => {

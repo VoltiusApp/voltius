@@ -1,5 +1,6 @@
-import { test, expect, beforeEach, vi } from "vitest";
+import { test, expect, beforeEach, afterEach, vi } from "vitest";
 import { useThemeStore } from "./themeStore";
+import { usePolicyStore } from "./policyStore";
 import { DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "./uiStore";
 
@@ -123,4 +124,16 @@ test("the override is clamped to a size xterm can render", () => {
   useUIStore.getState().setTerminalFontSize(0);
   expect(useThemeStore.getState().getActiveTheme().terminalFontSize).toBe(MIN_TERMINAL_FONT_SIZE);
   useUIStore.getState().setTerminalFontSize(null);
+});
+
+afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, server: { policy: {}, defaults: {} } }));
+
+test("setLocation is a no-op under a lock and automation uses the locked location", () => {
+  const empty = { policy: {}, defaults: {} };
+  const locked = { lat: 48.85, lng: 2.35, label: "Paris", source: "manual" as const };
+  usePolicyStore.setState({ machine: { policy: { "themes.location": locked }, defaults: {} }, server: empty });
+  useThemeStore.setState({ location: null });
+  useThemeStore.getState().setLocation({ lat: 1, lng: 2, label: "x", source: "manual" });
+  expect(useThemeStore.getState().location).toBeNull();
+  expect(useThemeStore.getState().getAutomationConfig().location).toMatchObject(locked);
 });

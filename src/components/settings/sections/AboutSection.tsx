@@ -22,6 +22,7 @@ import {
 } from "@/services/updater";
 import { Toggle } from "@/components/shared/Toggle";
 import { Managed } from "@/components/shared/ManagedNote";
+import { SETTINGS_SURFACE } from "./shared";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import LogoBadge from "@/components/layout/LogoBadge";
@@ -61,7 +62,7 @@ export default function AboutSection() {
         </h3>
         <div
           data-settings-card
-          className="rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border)"
+          className={`${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3`}
         >
           <LogoBadge size={10} />
           <div>
@@ -79,7 +80,7 @@ export default function AboutSection() {
             {t("settings.about.updatesTitle")}
           </h3>
           <div
-            className="rounded-lg px-4 py-3 space-y-3 bg-(--t-bg-elevated) border border-(--t-border)"
+            className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}
           >
             {/* Status line */}
             <div className="flex items-center justify-between gap-3">
@@ -205,7 +206,7 @@ export default function AboutSection() {
               onClick={() => void openUrl(href)}
               data-settings-card
               data-about-link={key}
-              className="w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
+              className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover:border-(--t-border-hover)`}
             >
               <Icon icon={icon} width={20} className="text-(--t-text-primary) shrink-0" />
               <div>
@@ -219,7 +220,7 @@ export default function AboutSection() {
             type="button"
             onClick={() => useUIStore.getState().openSettings("diagnostics")}
             data-settings-card
-            className="w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
+            className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover:border-(--t-border-hover)`}
           >
             <Icon icon="lucide:bug" width={20} className="text-(--t-text-primary) shrink-0" />
             <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.about.reportBug")}</p>

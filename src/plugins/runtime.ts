@@ -15,7 +15,7 @@ import i18n from "@/i18n";
 import { useConnectionStore, connectionToFormData, findAnyConnection } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { localConnect, localSendInput } from "@/services/local";
+import { localSendInput } from "@/services/local";
 import { onSessionOutput, sendSessionInput } from "@/services/sessionInput";
 import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
@@ -26,7 +26,7 @@ import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { NotificationSource } from "@/stores/notificationStore";
-import { useSessionStore } from "@/stores/sessionStore";
+import { useSessionStore, addSession, localSessionDraft, settleLocalSpawn, spawnLocalSession } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -2139,36 +2139,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
 
           const newSessionId = crypto.randomUUID();
-          useSessionStore.setState((s) => ({
-            sessions: [
-              ...s.sessions,
-              {
-                id: newSessionId,
-                connectionId: "local",
-                connectionName: label,
-                status: "connecting" as const,
-                type: "local" as const,
-                localShell: target.localShell ?? undefined,
-              },
-            ],
-            activeSessionId: newSessionId,
-          }));
-          try {
-            await localConnect(newSessionId, 80, 24, target.localShell ?? undefined);
-            await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
-            useSessionStore.setState((s) => ({
-              sessions: s.sessions.map((sess) =>
-                sess.id === newSessionId ? { ...sess, status: "connected" as const } : sess,
-              ),
-            }));
-          } catch (e) {
-            useSessionStore.setState((s) => ({
-              sessions: s.sessions.map((sess) =>
-                sess.id === newSessionId ? { ...sess, status: "error" as const } : sess,
-              ),
-            }));
-            throw e;
-          }
+          addSession(useSessionStore.setState, localSessionDraft(newSessionId, target.localShell ?? undefined, label));
+          await settleLocalSpawn(
+            newSessionId,
+            spawnLocalSession(newSessionId, target.localShell ?? undefined).then(() =>
+              localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`)),
+            ),
+          );
           return newSessionId;
         },
       },

@@ -1,14 +1,63 @@
 import { invoke } from "@/lib/invoke";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
+import { isEnforcedLock, lockedValue, policyRange } from "@/stores/policyStore";
+import { preferredShellSetting } from "@/stores/terminalSettingsStore";
+import type { ShellOption } from "@/components/layout/newSessionItems";
 
-export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<void> {
-  return invoke("local_connect", {
+const SHELL_KEY = preferredShellSetting.key;
+
+let shellsMemo: Promise<ShellOption[]> | undefined;
+let shellsPending = false;
+
+export function listLocalShells(refresh = false): Promise<ShellOption[]> {
+  if (!shellsMemo || (refresh && !shellsPending)) {
+    shellsPending = true;
+    const fetched = invoke<ShellOption[]>("local_list_shells")
+      .catch((e) => {
+        if (shellsMemo === fetched) shellsMemo = undefined;
+        throw e;
+      })
+      .finally(() => {
+        shellsPending = false;
+      });
+    shellsMemo = fetched;
+  }
+  return shellsMemo;
+}
+
+export function shellPolicyEntries(): string[] | undefined {
+  const lock = lockedValue(SHELL_KEY);
+  if (isEnforcedLock(SHELL_KEY) && lock.locked) return typeof lock.value === "string" ? [lock.value] : undefined;
+  return policyRange(SHELL_KEY)?.allowed?.filter((e): e is string => typeof e === "string");
+}
+
+const matchesEntry = (shell: ShellOption, entry: string) =>
+  shell.path === entry || shell.name.toLowerCase() === entry.toLowerCase();
+
+export function allowedShells(shells: ShellOption[], entries = shellPolicyEntries()): ShellOption[] {
+  return entries ? shells.filter((s) => entries.some((e) => matchesEntry(s, e))) : shells;
+}
+
+export function pickShell(allowed: ShellOption[], requested: string | null | undefined): ShellOption | undefined {
+  return (requested ? allowed.find((s) => matchesEntry(s, requested)) : undefined) ?? allowed[0];
+}
+
+export async function policyShell(requested: string | undefined): Promise<string | undefined> {
+  const entries = shellPolicyEntries();
+  if (!entries) return requested;
+  return pickShell(allowedShells(await listLocalShells(), entries), requested)?.path;
+}
+
+export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<string | undefined> {
+  const spawned = await policyShell(shell);
+  await invoke("local_connect", {
     sessionId, cols, rows,
-    shell: shell ?? null,
+    shell: spawned ?? null,
     cwd: cwd ?? null,
     shellIntegration: shellIntegration ?? null,
   });
+  return spawned;
 }
 
 /** Acknowledge that the terminal has subscribed to this session's output.

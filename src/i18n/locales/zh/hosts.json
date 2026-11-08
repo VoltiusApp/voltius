@@ -11,7 +11,8 @@
       "importFrom": "导入自",
       "newHost": "新建主机",
       "newSerialHost": "新建串口主机",
-      "newFolder": "新建文件夹"
+      "newFolder": "新建文件夹",
+      "systemShell": "系统默认"
     },
     "card": {
       "pin": "置顶",

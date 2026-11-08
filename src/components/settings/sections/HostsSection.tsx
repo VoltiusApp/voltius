@@ -13,6 +13,7 @@ import {
   DEFAULT_GLOBAL_PROXY,
   DETACHED_TTL_HOURS,
   GLOBAL_PROXY_MODES,
+  useConnectivitySettingsStore,
   useDetachedTtlHours,
   useGlobalKeepalivePreset,
   useGlobalProxy,
@@ -24,6 +25,8 @@ import { detectSystemProxy, type DetectedProxy } from "@/services/proxy";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "@/components/connections/ProxyFields";
 import { DEFAULT_KEEPALIVE_PRESET, KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
+import { useKeepaliveSelect } from "@/hooks/useKeepaliveSelect";
+import { useRangeSelect } from "@/components/shared/ManagedNote";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { SshConfigGroup } from "@/components/sshConfig/SshConfigGroup";
@@ -37,23 +40,13 @@ const HOURS_PER_DAY = 24;
 
 export default function HostsSection() {
   const { t } = useTranslation();
-  const keepaliveOptions = useMemo(
-    () => (Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map(
-      (p) => ({ value: p, label: t(KEEPALIVE_PRESETS[p].labelKey) }),
-    ),
-    [t],
-  );
+  const keepalive = useKeepaliveSelect();
   const [detachedTtlOn, setDetachedTtlOn] = useToggle("detached-session-ttl");
   const [detachedTtlHours, setDetachedTtlHours] = useDetachedTtlHours();
-  const detachedTtlOptions = useMemo(
-    () => DETACHED_TTL_HOURS.map((h) => ({
-      value: String(h),
-      label: h > HOURS_PER_DAY && h % HOURS_PER_DAY === 0
-        ? t("settings.hosts.detachedTtl.days", { count: h / HOURS_PER_DAY })
-        : t("settings.hosts.detachedTtl.hours", { count: h }),
-    })),
-    [t],
-  );
+  const detachedTtl = useRangeSelect("appSettings.detachedTtlHours", DETACHED_TTL_HOURS, (h: number) =>
+    h > HOURS_PER_DAY && h % HOURS_PER_DAY === 0
+      ? t("settings.hosts.detachedTtl.days", { count: h / HOURS_PER_DAY })
+      : t("settings.hosts.detachedTtl.hours", { count: h }));
   const [enabled, setEnabled] = useToggle("reachability");
   const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
   const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
@@ -64,11 +57,12 @@ export default function HostsSection() {
     () => GLOBAL_PROXY_MODES.map((m) => ({ value: m, label: t(`settings.hosts.proxy.modes.${m}`) })),
     [t],
   );
-  const [proxyDraft, setProxyDraft] = useState(globalProxy);
+  const ownProxy = useConnectivitySettingsStore((s) => s.proxy);
+  const [proxyDraft, setProxyDraft] = useState(ownProxy);
   const pendingProxy = useRef<GlobalProxy | null>(null);
   useEffect(() => {
-    if (pendingProxy.current === null) setProxyDraft(globalProxy);
-  }, [globalProxy]);
+    if (pendingProxy.current === null) setProxyDraft(ownProxy);
+  }, [ownProxy]);
   const commitProxy = useCallback(() => {
     const next = pendingProxy.current;
     if (next === null) return;
@@ -189,13 +183,14 @@ export default function HostsSection() {
           syncKey="appSettings.keepalivePreset"
           title={t("settings.hosts.keepalive.title")}
           desc={t("settings.hosts.keepalive.desc", { detail: t(KEEPALIVE_PRESETS[keepalivePreset].detailKey) })}
+          note={keepalive.note}
           dirty={keepalivePreset !== DEFAULT_KEEPALIVE_PRESET}
           onReset={() => setKeepalivePreset(DEFAULT_KEEPALIVE_PRESET)}
         >
           <FormSelect
             className="w-36 shrink-0"
             value={keepalivePreset}
-            options={keepaliveOptions}
+            options={keepalive.options}
             onChange={(v) => setKeepalivePreset(v as KeepalivePreset)}
           />
         </SettingRow>
@@ -257,13 +252,14 @@ export default function HostsSection() {
           <SettingRow
             syncKey="appSettings.detachedTtlHours"
             title={t("settings.hosts.detachedTtl.durationTitle")}
+            note={detachedTtl.note}
             dirty={detachedTtlHours !== DEFAULT_DETACHED_TTL_HOURS}
             onReset={() => setDetachedTtlHours(DEFAULT_DETACHED_TTL_HOURS)}
           >
             <FormSelect
               className="w-36 shrink-0"
               value={String(detachedTtlHours)}
-              options={detachedTtlOptions}
+              options={detachedTtl.options}
               onChange={(v) => setDetachedTtlHours(Number(v) as DetachedTtlHours)}
             />
           </SettingRow>

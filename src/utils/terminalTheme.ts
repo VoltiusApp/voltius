@@ -1,11 +1,12 @@
-import type { Terminal } from "@xterm/xterm";
+import type { ITerminalOptions, Terminal } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { AppTheme } from "@/themes/types";
 import { terminalFontStack } from "@/utils/fontStack";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { cursorStyleSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
+import { onEffectiveChange } from "@/services/policy/effectiveCore";
 
 export const MIN_TERMINAL_LINE_HEIGHT = 1;
 export const MAX_TERMINAL_LINE_HEIGHT = 2;
@@ -16,6 +17,21 @@ export const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
 export function clampTerminalLineHeight(value: number | undefined | null): number {
   if (value == null || !Number.isFinite(value)) return DEFAULT_TERMINAL_LINE_HEIGHT;
   return Math.max(MIN_TERMINAL_LINE_HEIGHT, Math.min(MAX_TERMINAL_LINE_HEIGHT, value));
+}
+
+export function terminalOptionsFor(theme: AppTheme): ITerminalOptions {
+  return {
+    // macOS has no Shift bypass for mouse-reporting apps; Alt+click is the only one.
+    macOptionClickForcesSelection: true,
+    cursorBlink: getToggle("cursor-blink"),
+    cursorStyle: cursorStyleSetting.get(),
+    fontSize: theme.terminalFontSize,
+    lineHeight: clampTerminalLineHeight(theme.terminalLineHeight),
+    fontFamily: terminalFontStack(theme.terminalFontFamily),
+    scrollback: useTerminalSettingsStore.getState().scrollbackLines,
+    theme: theme.terminal,
+    allowProposedApi: true,
+  };
 }
 
 /** Applies a theme to a live terminal, refitting only when cell metrics change. */
@@ -51,13 +67,13 @@ export function subscribeTerminalTheme(
  *  The two call sites reach their terminal differently (cache lookup vs ref),
  *  hence the getter. */
 export function subscribeTerminalCursor(getTerm: () => Terminal | null | undefined): () => void {
-  const unsubStyle = useTerminalSettingsStore.subscribe((s) => {
+  const unsubStyle = cursorStyleSetting.subscribe((style) => {
     const term = getTerm();
-    if (term) term.options.cursorStyle = s.cursorStyle;
+    if (term) term.options.cursorStyle = style;
   });
-  const unsubBlink = useToggleSettingsStore.subscribe(() => {
+  const unsubBlink = onEffectiveChange(() => getToggle("cursor-blink"), [useToggleSettingsStore], (blink) => {
     const term = getTerm();
-    if (term) term.options.cursorBlink = getToggle("cursor-blink");
+    if (term) term.options.cursorBlink = blink;
   });
   return () => {
     unsubStyle();

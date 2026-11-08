@@ -6,7 +6,10 @@ import { PickerSurface } from "@/components/shared/PickerSurface";
 import { Toggle } from "@/components/shared/Toggle";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { ANSI_SLOTS, MAX_KEYWORD_RULES, type AnsiSlot, type KeywordRule } from "@/utils/keywordMatcher";
+import { ANSI_SLOTS, MAX_KEYWORD_RULES, sanitizeKeywordRules, type AnsiSlot, type KeywordRule } from "@/utils/keywordMatcher";
+import { ManagedNote } from "@/components/shared/ManagedNote";
+import { usePolicyLock } from "@/stores/policyStore";
+import { SETTINGS_SURFACE } from "./shared";
 
 const K = "settings.terminal.keywordHighlight";
 const NEW_RULE_COLORS: AnsiSlot[] = ["red", "yellow", "green", "blue", "magenta", "cyan"];
@@ -49,7 +52,7 @@ function RuleRow({ rule, onChange, onDelete }: {
         onClick={() => setPicking((open) => !open)}
         className="mt-1.5 shrink-0 rounded-md p-1 border border-(--t-border) hover:border-(--t-border-hover) transition-colors"
       >
-        <Swatch slot={rule.color} className="block w-4 h-4 rounded-sm" />
+        <RuleSwatch slot={rule.color} />
       </button>
       <PickerSurface open={picking} onClose={() => setPicking(false)} anchorRef={swatchRef} title={t(`${K}.color`)} width="content">
         <div role="listbox" aria-label={t(`${K}.color`)} className="grid grid-cols-8 gap-1.5 p-2">
@@ -102,8 +105,31 @@ function RuleRow({ rule, onChange, onDelete }: {
   );
 }
 
+function RuleSwatch({ slot }: { slot: AnsiSlot }) {
+  return <Swatch slot={slot} className="block w-4 h-4 rounded-sm" />;
+}
+
+function AdminRuleRow({ rule }: { rule: KeywordRule }) {
+  return (
+    <div data-testid="keyword-rule-admin" className={`flex items-start gap-2${rule.enabled ? "" : " opacity-45"}`}>
+      <span className="mt-1.5 shrink-0 rounded-md p-1 border border-(--t-border)">
+        <RuleSwatch slot={rule.color} />
+      </span>
+      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg min-h-[38px] border border-(--t-border) bg-(--t-bg-base)">
+        {rule.words.map((word) => <WordChip key={word} slot={rule.color}>{word}</WordChip>)}
+      </div>
+    </div>
+  );
+}
+
+function useAdminRules(): KeywordRule[] {
+  const lock = usePolicyLock("appSettings.terminal.keywordRules");
+  return lock.locked ? sanitizeKeywordRules(lock.value) : [];
+}
+
 export function KeywordRulesEditor() {
   const { t } = useTranslation();
+  const adminRules = useAdminRules();
   const rules = useTerminalSettingsStore((s) => s.keywordRules);
   const setRules = useTerminalSettingsStore((s) => s.setKeywordRules);
 
@@ -113,10 +139,16 @@ export function KeywordRulesEditor() {
   };
 
   return (
-    <div className="mt-2 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 space-y-3">
+    <div className={`mt-2 ${SETTINGS_SURFACE} p-4 space-y-3`}>
+      {adminRules.length > 0 && (
+        <div className="space-y-3 pb-3 border-b border-(--t-border)">
+          <ManagedNote />
+          {adminRules.map((rule) => <AdminRuleRow key={`admin-${rule.id}`} rule={rule} />)}
+        </div>
+      )}
       {rules.map((rule) => (
         <RuleRow
-          key={rule.id}
+          key={`user-${rule.id}`}
           rule={rule}
           onChange={(next) => setRules(rules.map((r) => (r.id === next.id ? next : r)))}
           onDelete={() => setRules(rules.filter((r) => r.id !== rule.id))}

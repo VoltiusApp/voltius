@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - On Windows, Voltius only trusts a machine policy file written by `voltius-cli` as Administrator or SYSTEM. A file copied into `%ProgramData%\Voltius` by hand, or a policy folder a standard user could write to, is ignored until you re-import it with `voltius-cli policy import --replace` (#757)
+- A machine policy can now lock every setting it accepts: language, proxy, terminal shell, cursor style, keyword highlight rules, SFTP refresh interval, keepalive, detached session lifetime and theme location. It can also limit a setting to a range instead, such as a session lifetime of at most 24 hours or a choice of English and French. Settings shows "Managed by your organization" or the allowed range, and greys out choices outside it. Admin keyword rules are added above the user's own. `voltius-cli policy set` takes `--min`, `--max` and `--allow` (#757)
+
+### Changed
+
+- A machine policy can no longer lock `appSettings.plugins.overrides`. Such an entry is now reported as an error and ignored; use `plugins.enabled` and `plugins.disabled` instead. As a default it still works (#757)
+
+### Fixed
+
+- Settings › Appearance and Settings › Terminal now use the same card background as the other Settings pages. Their cards had a different colour, most visible in light themes
 
 ## [0.66.0] - 2026-10-31
 

@@ -8,12 +8,15 @@ import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
 import { Managed, ManagedNote } from "@/components/shared/ManagedNote";
-import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
+import { inPolicyRange, isEnforcedLock, usePolicyLock, usePolicyRange, usePolicyRefresh } from "@/stores/policyStore";
+import { builtIn } from "@/services/policy/adminDefaults";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import RowActionsButton from "@/components/mobile/RowActionsButton";
 import { useLongPress } from "@/components/mobile/useLongPress";
 import { ROW_ATTR, ROW_CONTROL_ATTR } from "@/components/settings/settingsMobileCore";
+
+export const SETTINGS_SURFACE = "rounded-lg bg-(--t-bg-elevated) border border-(--t-border)";
 
 /** Android: rows inside a SettingsGroup already sit in a full-bleed list. */
 const InSettingsGroup = createContext(false);
@@ -44,7 +47,7 @@ export function SettingsGroup({ title, divided, className, children }: {
         {title}
       </h3>
       <div
-        className={`rounded-lg bg-(--t-bg-elevated) border border-(--t-border)${divided ? " divide-y divide-(--t-border)" : ""}`}
+        className={`${SETTINGS_SURFACE}${divided ? " divide-y divide-(--t-border)" : ""}`}
       >
         {children}
       </div>
@@ -59,7 +62,7 @@ export function SettingsGroup({ title, divided, className, children }: {
  * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
  * bordered card and stand alone.
  */
-export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, variant = "list", className, children }: {
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, variant = "list", className, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -72,6 +75,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   syncKey?: string;
   /** Policy key whose admin lock disables this row's control; defaults to `syncKey`. */
   policyKey?: string;
+  note?: ReactNode;
   variant?: "list" | "card";
   className?: string;
   children: ReactNode;
@@ -80,14 +84,14 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   const managed = useRowManaged(policyKey ?? syncKey);
   if (isMobile) {
     return (
-      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey} policyKey={policyKey}>
+      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey} policyKey={policyKey} note={note}>
         {children}
       </MobileSettingRow>
     );
   }
   const card = variant === "card";
   const base = card
-    ? "group rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4"
+    ? `group ${SETTINGS_SURFACE} p-4 flex items-center justify-between gap-4`
     : "group flex items-center justify-between px-4 py-3 gap-4";
   const style = dimmed ? { opacity: 0.45 } : undefined;
 
@@ -106,21 +110,26 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
-        {dirty && onReset && !managed.locked && <ResetButton onReset={onReset} />}
-        {dirty && !managed.locked && <DirtyDot />}
-        <RowControl managed={managed}>{children}</RowControl>
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <div className="flex items-center gap-2">
+          {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
+          {dirty && onReset && managed.resettable && <ResetButton onReset={onReset} />}
+          {dirty && !managed.locked && <DirtyDot />}
+          <RowControl managed={managed}>{children}</RowControl>
+        </div>
+        {note}
       </div>
     </div>
   );
 }
 
-interface RowManaged { key: string | undefined; locked: boolean }
+interface RowManaged { key: string | undefined; locked: boolean; resettable: boolean }
 
 export function useRowManaged(key: string | undefined): RowManaged {
   usePolicyLock(key ?? "");
-  return { key, locked: !!key && isEnforcedLock(key) };
+  const range = usePolicyRange(key ?? "");
+  const locked = !!key && isEnforcedLock(key);
+  return { key, locked, resettable: !locked && (!range || inPolicyRange(range, builtIn(key!))) };
 }
 
 export function RowControl({ managed, note, children }: { managed: RowManaged; note?: boolean; children: ReactNode }) {
@@ -160,7 +169,7 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-(--t-bg-elevated) border border-(--t-border) hover:bg-(--t-bg-card-hover)"
+      className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${SETTINGS_SURFACE} hover:bg-(--t-bg-card-hover)`}
       style={{
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
@@ -313,7 +322,7 @@ function SyncKeyButtonInner({ path }: { path: string }) {
  * forwards it, see rowTapControl). Reset is a visible text button while the value is
  * off its default; a long-press opens the row's actions (reset, per-setting sync).
  */
-function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, children }: {
+function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -322,13 +331,14 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
   truncateDesc?: boolean;
   syncKey?: string;
   policyKey?: string;
+  note?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
   const inGroup = useContext(InSettingsGroup);
   const managed = useRowManaged(policyKey ?? syncKey);
   const [sheet, setSheet] = useState(false);
-  const canReset = !!(dirty && onReset) && !managed.locked;
+  const canReset = !!(dirty && onReset) && managed.resettable;
   const hasActions = canReset || (!!syncKey && !managed.locked);
   const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onClick } = useLongPress(() => setSheet(true));
   const ref = useRef<HTMLDivElement>(null);
@@ -364,6 +374,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
           </div>
         )}
         {managed.locked && <ManagedNote className="mt-1" />}
+        {note && <div className="mt-1">{note}</div>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <ListRowContext.Provider value={rowContext}>

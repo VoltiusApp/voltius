@@ -98,6 +98,8 @@ vi.mock("@/stores/uiStore", () => ({
 }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()], toggleKey: (id: string) => `appSettings.toggles.${id}` }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({
+  DETACHED_TTL_HOURS: [1, 6, 12, 24, 72, 168],
+  GLOBAL_PROXY_MODES: ["none", "system", "socks5", "http", "https"],
   useGlobalKeepalivePreset: () => ["balanced", vi.fn()],
   useGlobalProxy: () => [{ mode: "none" }, vi.fn()],
   HOST_PROXY_MODES: ["direct", "system", "socks5", "http", "https"],
@@ -196,6 +198,7 @@ vi.mock("./JumpHostsPanel", () => ({ default: () => null }));
 vi.mock("./EnvVarsPanel", () => ({ default: () => null }));
 
 import { useSshConfigStore } from "@/stores/sshConfigStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { fingerprint } from "@/services/sshConfig/hostFields";
 const { default: ConnectionForm } = await import("./ConnectionForm");
 const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
@@ -229,6 +232,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   useSshConfigStore.setState({ state: {} });
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, server: { policy: {}, defaults: {} } });
   cleanup();
   vi.useRealTimers();
 });
@@ -760,4 +764,36 @@ test.each([
   mount();
   expect(screen.getByText("connections.common.sessionCommands")).toBeTruthy();
   expect(screen.getByText("connections.common.sessionCommandsHint")).toBeTruthy();
+});
+
+const keepaliveRow = () => screen.getByText("connections.form.keepalive").closest("[data-form-setting-row]") as HTMLElement;
+
+test("host editor keepalive disables options outside the range", () => {
+  usePolicyStore.setState({ machine: { policy: { "appSettings.keepalivePreset": { $range: { allowed: ["fast", "balanced"] } } }, defaults: {} } });
+  renderSsh({ initial: conn({ keepalive_preset: "fast" }) });
+  expect(keepaliveRow().parentElement!.textContent).toContain("common.policy.rangeAllowed");
+  fireEvent.click(keepaliveRow().querySelector("[data-form-select]")!);
+  const option = (label: string) => screen.getAllByText(label).slice(-1)[0].closest("button")!;
+  expect(option("settings.hosts.keepalivePresets.balanced.label").disabled).toBe(false);
+  expect(option("settings.hosts.keepalivePresets.off.label").disabled).toBe(true);
+  expect(option("connections.form.inheritKeepalive").disabled).toBe(false);
+});
+
+test("host editor keepalive and proxy show the managed state under a lock", () => {
+  usePolicyStore.setState({
+    machine: { policy: { "appSettings.keepalivePreset": "fast", "appSettings.proxy": { mode: "socks5", host: "corp", port: 3128 } }, defaults: {} },
+  });
+  renderSsh({ initial: conn({ keepalive_preset: "off" }) });
+  expect(keepaliveRow().querySelector("[data-form-select]")!.matches(":disabled")).toBe(true);
+  expect(keepaliveRow().parentElement!.textContent).toContain("common.policy.managed");
+  expect(screen.getByLabelText("connections.form.proxy.label").matches(":disabled")).toBe(true);
+  expect(screen.getByLabelText("connections.form.proxy.host").matches(":disabled")).toBe(true);
+  expect(screen.getByLabelText("connections.form.proxy.username").matches(":disabled")).toBe(true);
+  expect(screen.getByLabelText("connections.form.proxy.password").matches(":disabled")).toBe(true);
+});
+
+test("host editor keepalive shows inherit when the stored preset is outside the range", () => {
+  usePolicyStore.setState({ machine: { policy: { "appSettings.keepalivePreset": { $range: { allowed: ["fast", "balanced"] } } }, defaults: {} } });
+  renderSsh({ initial: conn({ keepalive_preset: "off" }) });
+  expect(keepaliveRow().querySelector("[data-form-select]")!.textContent).toBe("connections.form.inheritKeepalive");
 });

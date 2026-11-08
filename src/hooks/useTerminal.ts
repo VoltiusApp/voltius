@@ -18,7 +18,6 @@ import { sendSessionInput as sendSessionInputRaw, sendSessionResize } from "@/se
 import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
@@ -36,7 +35,7 @@ import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { terminalFontStack } from "@/utils/fontStack";
-import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
+import { applyTerminalTheme, subscribeTerminalCursor, terminalOptionsFor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 import i18n from "@/i18n";
@@ -752,20 +751,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
-      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
+        ...terminalOptionsFor(activeTheme),
         altClickMovesCursor: false,
-        // macOS has no Shift bypass for mouse-reporting apps; Alt+click is the only one.
-        macOptionClickForcesSelection: true,
-        cursorBlink: getToggle("cursor-blink"),
-        cursorStyle,
-        fontSize: activeTheme.terminalFontSize,
-        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
-        fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
-        scrollback,
-        theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
-        allowProposedApi: true,
         // Some remote prompts/programs (e.g. sudo password entry) don't
         // support bracketed paste and echo the \x1b[200~/201~ markers back
         // literally, corrupting the buffer. Let users opt out entirely.

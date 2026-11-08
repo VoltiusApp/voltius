@@ -1,0 +1,18 @@
+[
+  { "name": "ttl max clamps stored to built-in", "key": "appSettings.detachedTtlHours", "range": { "max": 24 }, "stored": 72, "builtIn": 24, "expect": 24 },
+  { "name": "ttl stored within range kept", "key": "appSettings.detachedTtlHours", "range": { "max": 24 }, "stored": 6, "builtIn": 24, "expect": 6 },
+  { "name": "ttl admin default beats out-of-range stored", "key": "appSettings.detachedTtlHours", "range": { "max": 24 }, "stored": 168, "adminDefault": 12, "builtIn": 24, "expect": 12 },
+  { "name": "ttl min and max pick the only domain value", "key": "appSettings.detachedTtlHours", "range": { "min": 30, "max": 100 }, "stored": 1, "builtIn": 24, "expect": 72 },
+  { "name": "ttl allowed picks nearest", "key": "appSettings.detachedTtlHours", "range": { "allowed": [6, 12] }, "stored": 24, "builtIn": 24, "expect": 12 },
+  { "name": "ttl allowed tie picks smaller", "key": "appSettings.detachedTtlHours", "range": { "allowed": [6, 12] }, "stored": 9, "builtIn": 24, "expect": 6 },
+  { "name": "sftp below min clamps up", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000, "max": 30000 }, "stored": 2000, "builtIn": 2000, "expect": 5000 },
+  { "name": "sftp min only clamps up", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000 }, "stored": 1000, "builtIn": null, "expect": 5000 },
+  { "name": "sftp above max clamps down", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "max": 30000 }, "stored": 60000, "builtIn": null, "expect": 30000 },
+  { "name": "locale allowed falls to first allowed", "key": "appSettings.locale", "range": { "allowed": ["en", "fr"] }, "stored": "ru", "builtIn": "ru", "expect": "en" },
+  { "name": "locale admin default within range", "key": "appSettings.locale", "range": { "allowed": ["fr"] }, "stored": "ru", "adminDefault": "fr", "builtIn": "ru", "expect": "fr" },
+  { "name": "keepalive built-in within range", "key": "appSettings.keepalivePreset", "range": { "allowed": ["balanced", "tolerant"] }, "stored": "off", "builtIn": "balanced", "expect": "balanced" },
+  { "name": "shell is bounded at spawn, not here", "key": "appSettings.terminal.preferredShell", "range": { "allowed": ["/bin/zsh"] }, "stored": "/bin/bash", "builtIn": null, "expect": "/bin/bash" },
+  { "name": "shell path kept under a name-based allowed list", "key": "appSettings.terminal.preferredShell", "range": { "allowed": ["fish", "zsh"] }, "stored": "/bin/zsh", "builtIn": null, "expect": "/bin/zsh" },
+  { "name": "ttl non-numeric stored takes first candidate", "key": "appSettings.detachedTtlHours", "range": { "allowed": [12, 24] }, "stored": "abc", "builtIn": null, "expect": 12 },
+  { "name": "sftp non-numeric stored clamps built-in", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000, "max": 30000 }, "stored": "abc", "builtIn": 2000, "expect": 5000 }
+]

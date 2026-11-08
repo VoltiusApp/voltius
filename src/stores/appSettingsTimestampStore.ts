@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import { useAdminDefaultsStore } from "./adminDefaultsStore";
 import { useSyncPrefsStore } from "./syncPrefsStore";
+import { writeUnlessLocked } from "./policyStore";
 import { keysForDomain, relPath, settingKey } from "@/services/user-data/settingKeys";
 
 const APP_SETTING_LEAVES = () => keysForDomain("appSettings").map((k) => relPath(k.id));
@@ -75,3 +76,11 @@ export function touchAppSetting(id: string): void {
   if (remoteApplyTimestamp() === null || synced) useAdminDefaultsStore.getState().clear(id);
   if (synced || remoteApplyTimestamp() !== null) useAppSettingsTimestampStore.getState().touch([relPath(id)]);
 }
+
+export function writeAndTouch(id: string, write: () => void): void {
+  write();
+  touchAppSetting(id);
+}
+
+export const writeAndTouchUnlessLocked = (id: string, write: () => void): void =>
+  writeUnlessLocked(id, () => writeAndTouch(id, write));

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "@/stores/themeStore";
 import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
+import { useLocationFields } from "@/hooks/useLocationFields";
+import { ManagedWhen } from "@/components/shared/ManagedNote";
 
 const MODES: { id: ThemeMode; icon: string; labelKey: string; descKey: string }[] = [
   { id: "manual", icon: "lucide:hand", labelKey: "omni.theme.modeManual", descKey: "omni.theme.modeManualDesc" },
@@ -14,38 +15,11 @@ const MODES: { id: ThemeMode; icon: string; labelKey: string; descKey: string }[
 
 export default function OmniThemeAutomation({ onBack, onClose: _onClose }: { onBack: () => void; onClose: () => void }) {
   const { t } = useTranslation();
-  const { mode, setMode, scheduleLightStart, scheduleDarkStart, setSchedule, location, setLocation } = useThemeStore();
-  const [geoBusy, setGeoBusy] = useState(false);
-  const [latText, setLatText] = useState(location ? String(location.lat) : "");
-  const [lngText, setLngText] = useState(location ? String(location.lng) : "");
+  const { mode, setMode, scheduleLightStart, scheduleDarkStart, setSchedule } = useThemeStore();
+  const loc = useLocationFields();
 
-  const useMyLocation = () => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    setGeoBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: t("omni.theme.useMyLocation"), source: "geo" });
-        setLatText(String(pos.coords.latitude));
-        setLngText(String(pos.coords.longitude));
-        setGeoBusy(false);
-      },
-      () => setGeoBusy(false),
-      { enableHighAccuracy: false, timeout: 10000 },
-    );
-  };
-
-  const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
+  const sun = loc.location ? sunTimes(new Date(), loc.location.lat, loc.location.lng) : null;
   const fmt = (d: Date) => formatTime(d, HOUR_MINUTE);
-
-  const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
-
-  useEffect(() => {
-    if (!location) return;
-    if (parse(latText) !== location.lat || parse(lngText) !== location.lng) {
-      setLatText(String(location.lat));
-      setLngText(String(location.lng));
-    }
-  }, [location?.lat, location?.lng]);
 
   const inputCls = "w-24 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none";
 
@@ -92,21 +66,15 @@ export default function OmniThemeAutomation({ onBack, onClose: _onClose }: { onB
             {active && m.id === "sunset" && (
               <div className="px-4 pb-3 pl-14 flex flex-col gap-2 text-xs text-(--t-text-dim)">
                 <div className="flex items-center gap-2">
-                  <button onClick={useMyLocation} disabled={geoBusy} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-(--t-bg-input) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
-                    <Icon icon="lucide:map-pin" width={12} /> {t("omni.theme.useMyLocation")}
-                  </button>
-                  <input type="number" step="0.0001" placeholder={t("omni.theme.latitude")} value={latText} onChange={(e) => {
-                    setLatText(e.target.value);
-                    const lat = parse(e.target.value);
-                    const lng = parse(lngText);
-                    if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: t("omni.theme.latitude"), source: "manual" });
-                  }} className={inputCls} />
-                  <input type="number" step="0.0001" placeholder={t("omni.theme.longitude")} value={lngText} onChange={(e) => {
-                    setLngText(e.target.value);
-                    const lng = parse(e.target.value);
-                    const lat = parse(latText);
-                    if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: t("omni.theme.longitude"), source: "manual" });
-                  }} className={inputCls} />
+                  {!loc.locked && (
+                    <button onClick={() => loc.locateMe(t("omni.theme.useMyLocation"))} disabled={loc.geoBusy} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-(--t-bg-input) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
+                      <Icon icon="lucide:map-pin" width={12} /> {t("omni.theme.useMyLocation")}
+                    </button>
+                  )}
+                  <ManagedWhen locked={loc.locked}>
+                    <input type="number" step="0.0001" placeholder={t("omni.theme.latitude")} value={loc.latText} onChange={(e) => loc.setLat(e.target.value)} className={inputCls} />
+                    <input type="number" step="0.0001" placeholder={t("omni.theme.longitude")} value={loc.lngText} onChange={(e) => loc.setLng(e.target.value)} className={inputCls} />
+                  </ManagedWhen>
                 </div>
                 {sun ? (
                   <span>{t("omni.theme.sunToday", { sunrise: fmt(sun.sunrise), sunset: fmt(sun.sunset) })}</span>

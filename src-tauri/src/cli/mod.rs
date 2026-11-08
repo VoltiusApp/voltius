@@ -282,4 +282,19 @@ mod tests {
             assert!(help.contains(line), "missing {line:?} in:\n{help}");
         }
     }
+
+    #[test]
+    fn completions_include_range_flags() {
+        let mut buf = Vec::new();
+        clap_complete::generate(
+            clap_complete::Shell::Bash,
+            &mut Cli::command(),
+            BIN_NAME,
+            &mut buf,
+        );
+        let text = String::from_utf8(buf).unwrap();
+        for flag in ["--allow", "--min", "--max"] {
+            assert!(text.contains(flag), "missing {flag}");
+        }
+    }
 }

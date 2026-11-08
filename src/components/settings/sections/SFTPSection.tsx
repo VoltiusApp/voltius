@@ -1,22 +1,28 @@
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { autoRefreshIntervalSetting, DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { clampToRange, usePolicyRange } from "@/stores/policyStore";
+import { policyKeyDef } from "@/services/policy/policyKeys";
+import { RangeNote } from "@/components/shared/ManagedNote";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SettingsGroup } from "./shared";
 import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, type DownloadDirInfo } from "@/services/downloads";
 
+const MIN_INTERVAL_SECONDS = (policyKeyDef(autoRefreshIntervalSetting.key)?.domain?.min ?? 0) / 1000;
+
 export default function SFTPSection() {
   const { t } = useTranslation();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useToggle("sftp-autorefresh");
   const [tarTransferEnabled, setTarTransferEnabled] = useToggle("sftp-tar");
-  const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
+  const autoRefreshIntervalMs = autoRefreshIntervalSetting.use();
+  const intervalRange = usePolicyRange(autoRefreshIntervalSetting.key);
   const setAutoRefreshIntervalMs = useSftpSettingsStore((s) => s.setAutoRefreshIntervalMs);
   const editorAutoSave = useSftpSettingsStore((s) => s.editorAutoSave);
   const setEditorAutoSave = useSftpSettingsStore((s) => s.setEditorAutoSave);
 
-  const intervalSeconds = autoRefreshIntervalMs / 1000;
+  const toSeconds = (ms: number) => ms / 1000;
 
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
@@ -29,10 +35,12 @@ export default function SFTPSection() {
     if (picked) setDownloadDir(picked);
   };
 
-  const handleIntervalChange = (raw: string) => {
-    const val = parseFloat(raw);
-    if (!Number.isFinite(val) || val < 0.5) return;
-    setAutoRefreshIntervalMs(Math.round(val * 1000));
+  const [intervalDraft, setIntervalDraft] = useState<string | null>(null);
+  const commitInterval = () => {
+    if (intervalDraft === null) return;
+    const val = parseFloat(intervalDraft);
+    if (Number.isFinite(val) && val >= MIN_INTERVAL_SECONDS) setAutoRefreshIntervalMs(clampToRange(intervalRange, Math.round(val * 1000)));
+    setIntervalDraft(null);
   };
 
   return (
@@ -80,20 +88,24 @@ export default function SFTPSection() {
           <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
         </SettingRow>
         <SettingRow
-          syncKey="appSettings.sftp.autoRefreshIntervalMs"
+          syncKey={autoRefreshIntervalSetting.key}
           title={t("settings.sftp.filePanel.refreshInterval.title")}
-          desc={t("settings.sftp.filePanel.refreshInterval.desc")}
+          desc={intervalRange ? undefined : t("settings.sftp.filePanel.refreshInterval.desc")}
           dimmed={!autoRefreshEnabled}
+          note={intervalRange && <RangeNote range={intervalRange} format={(ms) => String(toSeconds(ms as number))} unit={` ${t("settings.sftp.filePanel.refreshInterval.unit")}`} />}
           dirty={autoRefreshIntervalMs !== DEFAULT_AUTO_REFRESH_INTERVAL_MS}
           onReset={() => setAutoRefreshIntervalMs(DEFAULT_AUTO_REFRESH_INTERVAL_MS)}
         >
           <input
             type="number"
-            min={0.5}
+            min={Math.max(MIN_INTERVAL_SECONDS, toSeconds(intervalRange?.min ?? 0))}
+            max={intervalRange?.max === undefined ? undefined : toSeconds(intervalRange.max)}
             step={0.5}
-            value={intervalSeconds}
+            value={intervalDraft ?? toSeconds(autoRefreshIntervalMs)}
             disabled={!autoRefreshEnabled}
-            onChange={(e) => handleIntervalChange(e.target.value)}
+            onChange={(e) => setIntervalDraft(e.target.value)}
+            onBlur={commitInterval}
+            onKeyDown={(e) => e.key === "Enter" && commitInterval()}
             className="form-input w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
           />

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const secrets: Record<string, string> = {};
 vi.mock("@/services/vault", () => ({ getSecret: async (k: string) => secrets[k] ?? null }));
@@ -7,6 +7,7 @@ vi.mock("@/services/vault", () => ({ getSecret: async (k: string) => secrets[k] 
 import { DEFAULT_PROXY_PORT, firstHopProxy, resolveDirectHop, resolveFirstHop, resolveProxy } from "./proxy";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import type { Connection, JumpHost } from "@/types";
 
 const TYPED_PW = ["typed", "pw"].join("-");
@@ -161,5 +162,35 @@ describe("resolveFirstHop knock", () => {
     secrets["knock_sequence:t"] = "1/tcp";
     const route = await resolveDirectHop(conn("t"), { knock: { settings: { enabled: true, settle_ms: 0 }, sequence: "9/tcp" } });
     expect(route.knock).toEqual({ steps: [{ port: 9, protocol: "tcp" }], delay_ms: 200, settle_ms: 0 });
+  });
+});
+
+describe("resolveProxy under a proxy lock", () => {
+  const lockProxy = (proxy: object) =>
+    usePolicyStore.setState({ machine: { policy: { "appSettings.proxy": proxy }, defaults: {} }, server: { policy: {}, defaults: {} } });
+  beforeEach(() => {
+    for (const k of Object.keys(secrets)) delete secrets[k];
+    setGlobal({ mode: "none" });
+  });
+  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, server: { policy: {}, defaults: {} } }));
+
+  it("host proxy cannot bypass a locked proxy", async () => {
+    lockProxy({ mode: "http", host: "p", port: 3128 });
+    expect(await resolveProxy({ id: "c", proxy: { mode: "direct" } })).toEqual({ kind: "http", host: "p", port: 3128 });
+  });
+
+  it("locked proxy keeps the user's username and global password", async () => {
+    lockProxy({ mode: "http", host: "p", port: 3128 });
+    setGlobal({ mode: "none", username: "alice" });
+    secrets["proxy_password:__global__"] = "gp";
+    expect(await resolveProxy({ id: "c", proxy: { mode: "socks5", host: "h" } })).toEqual({
+      kind: "http", host: "p", port: 3128, username: "alice", password: "gp",
+    });
+  });
+
+  it("a typed per-host password is not sent to the locked proxy", async () => {
+    lockProxy({ mode: "http", host: "p", port: 3128 });
+    secrets["proxy_password:__global__"] = "gp";
+    expect(await resolveProxy({ id: "c" }, { password: "x" })).toEqual({ kind: "http", host: "p", port: 3128, password: "gp" });
   });
 });

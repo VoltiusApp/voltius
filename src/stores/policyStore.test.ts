@@ -9,15 +9,19 @@ vi.mock("@/services/saveFile", () => ({ notify: mocks.notify }));
 
 import {
   adminDefault,
+  clampToRange,
+  inPolicyRange,
   isEnforcedLock,
   isLocked,
   lockedBool,
   lockedList,
   lockedValue,
   onPolicyLoaded,
+  policyRange,
   usePolicyStore,
   watchPolicyVisibility,
 } from "./policyStore";
+import { withPolicy } from "@/test/policy";
 
 const empty = { policy: {}, defaults: {} };
 const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
@@ -189,10 +193,10 @@ describe("policyStore", () => {
 
   it("isEnforcedLock needs both a lock and an enforced key", () => {
     usePolicyStore.setState({
-      machine: { policy: { "appSettings.toggles.cursor-blink": true, "appSettings.locale": "fr" }, defaults: {} },
+      machine: { policy: { "appSettings.toggles.cursor-blink": true, "appSettings.plugins.overrides": {} }, defaults: {} },
     });
     expect(isEnforcedLock("appSettings.toggles.cursor-blink")).toBe(true);
-    expect(isEnforcedLock("appSettings.locale")).toBe(false);
+    expect(isEnforcedLock("appSettings.plugins.overrides")).toBe(false);
     expect(isEnforcedLock("appSettings.toggles.select-to-copy")).toBe(false);
   });
 
@@ -206,5 +210,44 @@ describe("policyStore", () => {
     off();
     await usePolicyStore.getState().load();
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  describe("ranges and implied locks", () => {
+    const TTL = "appSettings.detachedTtlHours";
+    const TTL_TOGGLE = "appSettings.toggles.detached-session-ttl";
+    const KEYWORDS = "appSettings.terminal.keywordRules";
+
+    it("a range entry is not a lock", () => {
+      withPolicy({ [TTL]: { $range: { max: 24 } } });
+      expect(lockedValue(TTL)).toEqual({ locked: false });
+      expect(policyRange(TTL)).toEqual({ max: 24 });
+      expect(inPolicyRange(policyRange(TTL), 72)).toBe(false);
+      expect(inPolicyRange(policyRange(TTL), 12)).toBe(true);
+    });
+
+    it("TTL range implies the detached-session-ttl toggle", () => {
+      withPolicy({ [TTL]: { $range: { max: 24 } } });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine" });
+    });
+
+    it("implied lock beats an explicit off", () => {
+      withPolicy({ [TTL]: { $range: { max: 24 } }, [TTL_TOGGLE]: false });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine" });
+    });
+
+    it("keyword lock is not an enforced lock", () => {
+      withPolicy({ [KEYWORDS]: [] });
+      expect(isLocked(KEYWORDS)).toBe(true);
+      expect(isEnforcedLock(KEYWORDS)).toBe(false);
+      expect(lockedValue("appSettings.toggles.keyword-highlight").locked).toBe(true);
+    });
+
+    it("clampToRange pins a number into the bounds", () => {
+      expect(clampToRange({ min: 5, max: 10 }, 1)).toBe(5);
+      expect(clampToRange({ min: 5, max: 10 }, 99)).toBe(10);
+      expect(clampToRange(undefined, 7)).toBe(7);
+      expect(clampToRange({ min: 5 }, 1)).toBe(5);
+      expect(clampToRange({ max: 5 }, 9)).toBe(5);
+    });
   });
 });

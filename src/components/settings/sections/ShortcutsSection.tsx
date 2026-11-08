@@ -9,7 +9,7 @@ import {
   type Shortcut,
 } from "@/stores/shortcutStore";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
-import { DirtyDot, ResetButton } from "./shared";
+import { DirtyDot, ResetButton, SETTINGS_SURFACE } from "./shared";
 import { searchMatcher } from "@/utils/search";
 
 const BLOCKED_KEYS = new Set(["Escape", "Tab"]);
@@ -205,8 +205,7 @@ export default function ShortcutsSection() {
                 {t(`settings.shortcuts.group.${group.id}`)}
               </h3>
               <div
-                className="rounded-xl overflow-hidden border bg-(--t-bg-card)"
-                style={{ borderColor: "var(--t-border)" }}
+                className={`overflow-hidden ${SETTINGS_SURFACE}`}
               >
                 {group.items.map((sc, idx) => {
                   const isRecording = recording === sc.id;

@@ -25,7 +25,7 @@ afterEach(cleanup);
 describe("Group tabs by host setting", () => {
   it("is off by default and turns on from the Appearance card", () => {
     render(<AppearanceSection />);
-    const card = screen.getByText("settings.appearance.groupTabsByHost.title").closest("[class*='rounded-xl']")!;
+    const card = screen.getByText("settings.appearance.groupTabsByHost.title").closest("[class*='rounded-lg']")!;
     const toggle = card.querySelector("[role='switch']") as HTMLElement;
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(toggle);

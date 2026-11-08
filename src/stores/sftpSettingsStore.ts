@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
+import { touchAppSetting, writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
+import { storeSetting } from "@/services/policy/effectiveCore";
 import {
   DEFAULT_COLUMN_WIDTHS, DEFAULT_VISIBLE_COLS, LEGACY_DEFAULT_SIZE_WIDTH,
   type ColumnWidths, type VisibleCols,
@@ -37,7 +38,8 @@ const applyUpdate = <T,>(update: Updater<T>, prev: T): T =>
   typeof update === "function" ? (update as (p: T) => T)(prev) : update;
 
 // Every setter reports its leaf; the settings registry decides whether it syncs.
-const touchSftp = (key: keyof SftpSettingsStore) => touchAppSetting(`appSettings.sftp.${key}`);
+const sftpKey = (key: keyof SftpSettingsStore) => `appSettings.sftp.${key}`;
+const touchSftp = (key: keyof SftpSettingsStore) => touchAppSetting(sftpKey(key));
 
 export function migrateSftpSettings(persisted: unknown, version: number): unknown {
   const state = (persisted ?? {}) as { columnWidths?: ColumnWidths };
@@ -51,7 +53,8 @@ export const useSftpSettingsStore = create<SftpSettingsStore>()(
   persist(
     (set) => ({
       autoRefreshIntervalMs: DEFAULT_AUTO_REFRESH_INTERVAL_MS,
-      setAutoRefreshIntervalMs: (v) => { set({ autoRefreshIntervalMs: v }); touchSftp("autoRefreshIntervalMs"); },
+      setAutoRefreshIntervalMs: (v) =>
+        writeAndTouchUnlessLocked(sftpKey("autoRefreshIntervalMs"), () => set({ autoRefreshIntervalMs: v })),
       editorAutoSave: false,
       setEditorAutoSave: (v) => { set({ editorAutoSave: v }); touchSftp("editorAutoSave"); },
       editorMaxBytes: DEFAULT_EDITOR_MAX_BYTES,
@@ -70,3 +73,5 @@ export const useSftpSettingsStore = create<SftpSettingsStore>()(
     },
   ),
 );
+
+export const autoRefreshIntervalSetting = storeSetting(useSftpSettingsStore, "autoRefreshIntervalMs", sftpKey("autoRefreshIntervalMs"));

@@ -11,7 +11,8 @@
       "importFrom": "Importer depuis",
       "newHost": "Nouvel hôte",
       "newSerialHost": "Nouvel hôte série",
-      "newFolder": "Nouveau dossier"
+      "newFolder": "Nouveau dossier",
+      "systemShell": "Shell par défaut du système"
     },
     "card": {
       "pin": "Épingler",

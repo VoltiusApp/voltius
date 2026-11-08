@@ -2,7 +2,7 @@ import { sftpOpen, sftpConnect, ftpConnect, webdavConnect } from "@/services/sft
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { firstHopProxy, resolveFirstHop } from "@/services/proxy";
 import { resolveKeepalive } from "@/utils/keepalive";
-import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { resolveHostKeepalive } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
 import type { Connection, TerminalSession } from "@/types";
 import type { DynamicContext } from "@/services/snippetParser";
@@ -47,7 +47,7 @@ export async function sftpConnectToConnection(conn: Connection, connectId: strin
     resolveJumpHosts(conn),
     resolveFirstHop(conn),
   ]);
-  const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
+  const ka = resolveKeepalive(resolveHostKeepalive(conn.keepalive_preset));
   return sftpConnect({
     connectId,
     host: conn.host,

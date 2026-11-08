@@ -4,6 +4,8 @@ import { SYNC_OBJECT_TYPES, useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import {
   CURSOR_STYLES,
   DEFAULT_CURSOR_STYLE,
+  cursorStyleSetting,
+  preferredShellSetting,
   useTerminalSettingsStore,
   type TerminalCursorStyle,
 } from "@/stores/terminalSettingsStore";
@@ -11,10 +13,13 @@ import { DEFAULT_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES } 
 import {
   useSftpSettingsStore,
   DEFAULT_AUTO_REFRESH_INTERVAL_MS,
+  autoRefreshIntervalSetting,
   DEFAULT_EDITOR_MAX_BYTES,
 } from "@/stores/sftpSettingsStore";
 import {
   useConnectivitySettingsStore,
+  getGlobalKeepalivePreset,
+  getGlobalDetachedTtlHours,
   DETACHED_TTL_HOURS,
   DEFAULT_DETACHED_TTL_HOURS,
   type DetachedTtlHours,
@@ -23,7 +28,7 @@ import { KEEPALIVE_PRESETS, DEFAULT_KEEPALIVE_PRESET } from "@/utils/keepalive";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
-import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { localeSetting, useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
 import { useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
@@ -162,7 +167,8 @@ function explicitDefs(): SettingDef[] {
       type: "enum", values: CURSOR_STYLES,
       default: DEFAULT_CURSOR_STYLE,
       section: "terminal", labelKey: "settings.terminal.cursorStyle.title", writable: true,
-      get: () => terminal().cursorStyle,
+      policyKey: "appSettings.terminal.cursorStyle",
+      get: () => cursorStyleSetting.get(),
       set: (v) => terminal().setCursorStyle(v as TerminalCursorStyle),
     },
     {
@@ -171,7 +177,8 @@ function explicitDefs(): SettingDef[] {
       // async with no synchronous accessor, so it can't feed this manifest's synchronous read.
       type: "string", default: null,
       section: "terminal", labelKey: "settings.terminal.preferredShell.title", writable: true,
-      get: () => terminal().preferredShell,
+      policyKey: "appSettings.terminal.preferredShell",
+      get: () => preferredShellSetting.get(),
       set: (v) => terminal().setPreferredShell(v === null ? null : String(v)),
     },
     {
@@ -179,7 +186,8 @@ function explicitDefs(): SettingDef[] {
       type: "number", min: 250, max: 60_000,
       default: DEFAULT_AUTO_REFRESH_INTERVAL_MS,
       section: "sftp", labelKey: "settings.sftp.filePanel.refreshInterval.title", writable: true,
-      get: () => sftp().autoRefreshIntervalMs,
+      policyKey: "appSettings.sftp.autoRefreshIntervalMs",
+      get: () => autoRefreshIntervalSetting.get(),
       set: (v) => sftp().setAutoRefreshIntervalMs(v as number),
     },
     {
@@ -209,7 +217,8 @@ function explicitDefs(): SettingDef[] {
       type: "enum", values: Object.keys(KEEPALIVE_PRESETS),
       default: DEFAULT_KEEPALIVE_PRESET,
       section: "hosts", labelKey: "settings.hosts.keepalive.title", writable: true,
-      get: () => useConnectivitySettingsStore.getState().keepalivePreset,
+      policyKey: "appSettings.keepalivePreset",
+      get: () => getGlobalKeepalivePreset(),
       set: (v) => useConnectivitySettingsStore.getState().setKeepalivePreset(v as never),
     },
     {
@@ -217,7 +226,8 @@ function explicitDefs(): SettingDef[] {
       type: "enum", values: DETACHED_TTL_HOURS.map(String),
       default: String(DEFAULT_DETACHED_TTL_HOURS),
       section: "hosts", labelKey: "settings.hosts.detachedTtl.durationTitle", writable: true,
-      get: () => String(useConnectivitySettingsStore.getState().detachedTtlHours),
+      policyKey: "appSettings.detachedTtlHours",
+      get: () => String(getGlobalDetachedTtlHours()),
       set: (v) => useConnectivitySettingsStore.getState().setDetachedTtlHours(Number(v) as DetachedTtlHours),
     },
     {
@@ -254,7 +264,8 @@ function explicitDefs(): SettingDef[] {
       key: "locale.language",
       type: "enum", values: SUPPORTED_LOCALES.map((l) => l.value), default: "en",
       section: "appearance", labelKey: "settings.appearance.language.title", writable: true,
-      get: () => useLocaleStore.getState().locale,
+      policyKey: "appSettings.locale",
+      get: () => localeSetting.get(),
       set: (v) => useLocaleStore.getState().setLocale(v as never),
     },
     {

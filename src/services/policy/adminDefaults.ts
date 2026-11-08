@@ -28,12 +28,12 @@ const BUILT_IN: Record<string, () => unknown> = {
 // An unset toggle is absent from the export, so it has no entry and its built-in is undefined.
 export const builtIn = (id: string): unknown => BUILT_IN[id]?.();
 
-const TOGGLE_BUILT_INS = new Map<string, boolean>(
-  Object.entries(TOGGLE_DEFS).map(([id, def]) => [toggleKey(id as ToggleId), def.default]),
-);
+let toggleBuiltIns: Map<string, boolean> | undefined;
+const toggleBuiltIn = (id: string) =>
+  (toggleBuiltIns ??= new Map(Object.entries(TOGGLE_DEFS).map(([t, def]) => [toggleKey(t as ToggleId), def.default]))).get(id);
 
 // What the app shows for a setting nobody has set, toggles included.
-export const effectiveBuiltIn = (id: string): unknown => (TOGGLE_BUILT_INS.has(id) ? TOGGLE_BUILT_INS.get(id) : builtIn(id));
+export const effectiveBuiltIn = (id: string): unknown => toggleBuiltIn(id) ?? builtIn(id);
 
 const neverSet = (id: string): boolean =>
   !isAdminDefaulted(id) &&
