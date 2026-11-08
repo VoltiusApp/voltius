@@ -190,20 +190,21 @@ export function ToolbarDropdown<T extends string>({
           <Icon icon={icon} width={20} />
           {label}
         </button>
-        {hasContent && <span title={menuLocked} className="flex"><button
+        {hasContent && <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
-          disabled={!!menuLocked}
-          className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden border rounded-tr-[0.533rem] rounded-br-[0.533rem] disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+          onClick={() => { if (!menuLocked) setOpen((o) => !o); }}
+          aria-disabled={menuLocked ? true : undefined}
+          aria-label={menuLocked}
+          className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden border rounded-tr-[0.533rem] rounded-br-[0.533rem] aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
           style={{ background: chevronBg, color: actionText, borderColor: actionBorder }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = chevronBgHover)}
+          onMouseEnter={(e) => { if (!menuLocked) e.currentTarget.style.background = chevronBgHover; }}
           onMouseLeave={(e) => (e.currentTarget.style.background = chevronBg)}
-          title={menuLocked ? undefined : t("common.action.moreOptions")}
+          title={menuLocked ?? t("common.action.moreOptions")}
         >
           <span className="[&_path]:stroke-3">
             <Icon icon="lucide:chevron-down" width={20} style={chevronRotateStyle(open)} />
           </span>
-        </button></span>}
+        </button>}
         {menuEl}
       </div>
     );

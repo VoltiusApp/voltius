@@ -790,5 +790,12 @@ test("host editor keepalive and proxy show the managed state under a lock", () =
   expect(keepaliveRow().parentElement!.textContent).toContain("common.policy.managed");
   expect(screen.getByLabelText("connections.form.proxy.label").matches(":disabled")).toBe(true);
   expect(screen.getByLabelText("connections.form.proxy.host").matches(":disabled")).toBe(true);
-  expect(screen.getByLabelText("connections.form.proxy.username").matches(":disabled")).toBe(false);
+  expect(screen.getByLabelText("connections.form.proxy.username").matches(":disabled")).toBe(true);
+  expect(screen.getByLabelText("connections.form.proxy.password").matches(":disabled")).toBe(true);
+});
+
+test("host editor keepalive shows inherit when the stored preset is outside the range", () => {
+  usePolicyStore.setState({ machine: { policy: { "appSettings.keepalivePreset": { $range: { allowed: ["fast", "balanced"] } } }, defaults: {} } });
+  renderSsh({ initial: conn({ keepalive_preset: "off" }) });
+  expect(keepaliveRow().querySelector("[data-form-select]")!.textContent).toBe("connections.form.inheritKeepalive");
 });

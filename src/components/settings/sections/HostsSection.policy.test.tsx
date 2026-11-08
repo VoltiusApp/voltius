@@ -55,3 +55,14 @@ test("proxy lock disables mode, host and port but not username", () => {
   expect(isDisabled(screen.getByLabelText("connections.form.proxy.password"))).toBe(false);
   expect(screen.getAllByText("common.policy.managed").length).toBeGreaterThan(0);
 });
+
+test("editing the username under a proxy lock keeps the user's own mode, host and port", () => {
+  useConnectivitySettingsStore.setState({ proxy: { mode: "http", host: "mine", port: 8080 } });
+  policy({ "appSettings.proxy": { mode: "socks5", host: "corp.proxy", port: 3128 } });
+  render(<HostsSection />);
+  const user = screen.getByLabelText("connections.form.proxy.username");
+  fireEvent.change(user, { target: { value: "bob" } });
+  fireEvent.blur(user);
+  expect(useConnectivitySettingsStore.getState().proxy).toEqual({ mode: "http", host: "mine", port: 8080, username: "bob" });
+  expect((screen.getByLabelText("connections.form.proxy.host") as HTMLInputElement).value).toBe("corp.proxy");
+});

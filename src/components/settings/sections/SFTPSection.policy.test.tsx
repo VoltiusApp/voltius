@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 
@@ -40,4 +40,23 @@ test("without a range the input keeps its floor and the minimum line", () => {
   expect(input().min).toBe("0.5");
   expect(input().max).toBe("");
   expect(screen.getByText("settings.sftp.filePanel.refreshInterval.desc")).toBeTruthy();
+});
+
+test("a typed interval commits on blur, clamped to the range", () => {
+  usePolicyStore.setState({
+    machine: { policy: { "appSettings.sftp.autoRefreshIntervalMs": { $range: { min: 5000, max: 30000 } } }, defaults: {} },
+  });
+  render(<SFTPSection />);
+  fireEvent.change(input(), { target: { value: "1" } });
+  expect(input().value).toBe("1");
+  fireEvent.change(input(), { target: { value: "10" } });
+  expect(useSftpSettingsStore.getState().autoRefreshIntervalMs).toBe(2000);
+  fireEvent.blur(input());
+  expect(useSftpSettingsStore.getState().autoRefreshIntervalMs).toBe(10000);
+  expect(input().value).toBe("10");
+
+  fireEvent.change(input(), { target: { value: "90" } });
+  fireEvent.keyDown(input(), { key: "Enter" });
+  expect(useSftpSettingsStore.getState().autoRefreshIntervalMs).toBe(30000);
+  expect(input().value).toBe("30");
 });

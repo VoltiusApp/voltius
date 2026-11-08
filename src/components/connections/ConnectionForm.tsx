@@ -71,6 +71,7 @@ import { normalizeNotes } from "@/components/notes/notesText";
 import {
   AdvancedDisclosure,
   DrillInRow,
+  OverrideRow,
   SettingRow,
   HostCommandFields,
   NotesSection,
@@ -493,6 +494,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     onPasswordChange={(pw) => { markDirty(); proxyPasswordDirty.current = true; setProxyPassword(pw); }}
     disabled={readOnly}
     className="pb-1"
+    scope="host"
     renderRow={(select, locked) => (
       <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")} locked={locked}>{select}</SettingRow>
     )}
@@ -626,34 +628,32 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                 >
                   <Toggle checked={legacyAlgorithms} onChange={(v) => { markDirty(); setLegacyAlgorithms(v); }} />
                 </SettingRow>
-                <SettingRow icon="lucide:terminal" label={t("connections.form.shellIntegration")} locked={shellLock.locked}>
-                  <FormSelect
-                    className="w-36"
-                    value={shellLock.locked ? "" : shellIntegration}
-                    title={t("connections.form.shellIntegration")}
-                    options={shellIntegrationOptions}
-                    onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
-                  />
-                </SettingRow>
-                <SettingRow icon="lucide:heart-pulse" label={t("connections.form.keepalive")} locked={keepalive.locked} note={keepalive.note}>
-                  <FormSelect
-                    className="w-36"
-                    value={keepalive.locked ? "" : keepalivePreset}
-                    title={t("connections.form.keepalive")}
-                    options={keepaliveOptions}
-                    onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
-                  />
-                </SettingRow>
+                <OverrideRow
+                  icon="lucide:terminal"
+                  label={t("connections.form.shellIntegration")}
+                  locked={shellLock.locked}
+                  value={shellIntegration}
+                  options={shellIntegrationOptions}
+                  onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
+                />
+                <OverrideRow
+                  icon="lucide:heart-pulse"
+                  label={t("connections.form.keepalive")}
+                  locked={keepalive.locked}
+                  note={keepalive.note}
+                  value={keepalive.hostValue(keepalivePreset)}
+                  options={keepaliveOptions}
+                  onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
+                />
                 {proxyFields}
-                <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")} locked={persistLock.locked}>
-                  <FormSelect
-                    className="w-36"
-                    value={persistLock.locked ? "" : persistSession}
-                    title={t("connections.form.persistentSession")}
-                    options={persistOptions}
-                    onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
-                  />
-                </SettingRow>
+                <OverrideRow
+                  icon="lucide:layers"
+                  label={t("connections.form.persistentSession")}
+                  locked={persistLock.locked}
+                  value={persistSession}
+                  options={persistOptions}
+                  onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
+                />
 
             </AdvancedDisclosure>
             </>)}

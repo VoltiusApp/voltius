@@ -33,7 +33,7 @@ function exportTheme(theme: AppTheme) {
 }
 
 const LOCALE_VALUES = SUPPORTED_LOCALES.map((l) => l.value);
-const localeLabel = (v: Locale) => SUPPORTED_LOCALES.find((l) => l.value === v)!.label;
+const localeLabel = (v: Locale) => SUPPORTED_LOCALES.find((l) => l.value === v)?.label ?? v;
 
 export default function AppearanceSection() {
   const {

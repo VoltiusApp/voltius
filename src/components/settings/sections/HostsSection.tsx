@@ -13,6 +13,7 @@ import {
   DEFAULT_GLOBAL_PROXY,
   DETACHED_TTL_HOURS,
   GLOBAL_PROXY_MODES,
+  useConnectivitySettingsStore,
   useDetachedTtlHours,
   useGlobalKeepalivePreset,
   useGlobalProxy,
@@ -56,11 +57,12 @@ export default function HostsSection() {
     () => GLOBAL_PROXY_MODES.map((m) => ({ value: m, label: t(`settings.hosts.proxy.modes.${m}`) })),
     [t],
   );
-  const [proxyDraft, setProxyDraft] = useState(globalProxy);
+  const ownProxy = useConnectivitySettingsStore((s) => s.proxy);
+  const [proxyDraft, setProxyDraft] = useState(ownProxy);
   const pendingProxy = useRef<GlobalProxy | null>(null);
   useEffect(() => {
-    if (pendingProxy.current === null) setProxyDraft(globalProxy);
-  }, [globalProxy]);
+    if (pendingProxy.current === null) setProxyDraft(ownProxy);
+  }, [ownProxy]);
   const commitProxy = useCallback(() => {
     const next = pendingProxy.current;
     if (next === null) return;

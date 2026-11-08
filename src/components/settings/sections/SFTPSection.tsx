@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { autoRefreshIntervalSetting, DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { usePolicyRange } from "@/stores/policyStore";
+import { clampToRange, usePolicyRange } from "@/stores/policyStore";
 import { RangeNote } from "@/components/shared/ManagedNote";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
@@ -34,10 +34,12 @@ export default function SFTPSection() {
     if (picked) setDownloadDir(picked);
   };
 
-  const handleIntervalChange = (raw: string) => {
-    const val = parseFloat(raw);
-    if (!Number.isFinite(val) || val < MIN_INTERVAL_SECONDS) return;
-    setAutoRefreshIntervalMs(Math.round(val * 1000));
+  const [intervalDraft, setIntervalDraft] = useState<string | null>(null);
+  const commitInterval = () => {
+    if (intervalDraft === null) return;
+    const val = parseFloat(intervalDraft);
+    if (Number.isFinite(val) && val >= MIN_INTERVAL_SECONDS) setAutoRefreshIntervalMs(clampToRange(intervalRange, Math.round(val * 1000)));
+    setIntervalDraft(null);
   };
 
   return (
@@ -98,9 +100,11 @@ export default function SFTPSection() {
             min={Math.max(MIN_INTERVAL_SECONDS, toSeconds(intervalRange?.min ?? 0))}
             max={intervalRange?.max === undefined ? undefined : toSeconds(intervalRange.max)}
             step={0.5}
-            value={toSeconds(autoRefreshIntervalMs)}
+            value={intervalDraft ?? toSeconds(autoRefreshIntervalMs)}
             disabled={!autoRefreshEnabled}
-            onChange={(e) => handleIntervalChange(e.target.value)}
+            onChange={(e) => setIntervalDraft(e.target.value)}
+            onBlur={commitInterval}
+            onKeyDown={(e) => e.key === "Enter" && commitInterval()}
             className="form-input w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
           />

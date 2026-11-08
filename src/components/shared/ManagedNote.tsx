@@ -14,30 +14,40 @@ export function ManagedNote({ className = "", children }: { className?: string; 
   );
 }
 
-export function RangeNote({ range, format = String, unit = "", className }: {
-  range: PolicyRange;
-  format?: (v: unknown) => string;
-  unit?: string;
-  className?: string;
-}) {
+type Format = (v: unknown) => string;
+
+function useRangeText(range: PolicyRange | undefined, format: Format = String, unit = ""): string | undefined {
   const { t } = useTranslation();
+  if (!range) return undefined;
   const show = (v: unknown) => `${format(v)}${unit}`;
   const { min, max, allowed } = range;
-  const text = allowed
+  return allowed
     ? t("common.policy.rangeAllowed", { values: allowed.map(show).join(", ") })
     : min !== undefined && max !== undefined
       ? t("common.policy.rangeBetween", { min: show(min), max: show(max) })
       : max !== undefined
         ? t("common.policy.rangeMax", { value: show(max) })
         : t("common.policy.rangeMin", { value: show(min) });
-  return <ManagedNote className={className}>{text}</ManagedNote>;
+}
+
+export function RangeNote({ range, format, unit, className }: {
+  range: PolicyRange;
+  format?: Format;
+  unit?: string;
+  className?: string;
+}) {
+  return <ManagedNote className={className}>{useRangeText(range, format, unit)}</ManagedNote>;
 }
 
 export function useRangeSelect<V extends string | number>(key: string, values: readonly V[], label: (v: V) => string) {
   const range = usePolicyRange(key);
+  const format = (v: unknown) => label(v as V);
+  const text = useRangeText(range, format);
+  const allows = (v: V) => inPolicyRange(range, v);
   return {
-    options: values.map((v) => ({ value: String(v), label: label(v), disabled: !inPolicyRange(range, v) })),
-    note: range && <RangeNote range={range} format={(v) => label(v as V)} />,
+    allows,
+    options: values.map((v) => ({ value: String(v), label: label(v), disabled: !allows(v), disabledTitle: text })),
+    note: range && <ManagedNote>{text}</ManagedNote>,
   };
 }
 

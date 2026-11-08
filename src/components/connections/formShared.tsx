@@ -19,6 +19,7 @@ import { LockMark } from "@/components/sshConfig/ManagedHost";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { useIsMobile } from "@/utils/platform";
 import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
+import { FormSelect, type FormSelectOption } from "@/components/shared/FormSelect";
 
 export interface ConnectionFormProps {
   initial?: Connection;
@@ -139,6 +140,23 @@ export function SettingRow({
       {row}
       <div className="flex justify-end text-right pb-1">{shownNote}</div>
     </div>
+  );
+}
+
+/** An inherit-or-override select; under a lock it shows the inherited value. */
+export function OverrideRow({ icon, label, locked, note, value, options, onChange }: {
+  icon: string;
+  label: string;
+  locked: boolean;
+  note?: ReactNode;
+  value: string;
+  options: FormSelectOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <SettingRow icon={icon} label={label} locked={locked} note={note}>
+      <FormSelect className="w-36" value={locked ? "" : value} title={label} options={options} onChange={onChange} />
+    </SettingRow>
   );
 }
 

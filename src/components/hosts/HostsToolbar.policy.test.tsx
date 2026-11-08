@@ -57,9 +57,15 @@ afterEach(cleanup);
 test("toolbar menu disabled with tooltip under a shell lock", async () => {
   policy({ "appSettings.terminal.preferredShell": "/bin/zsh" });
   renderToolbar();
-  const wrap = await screen.findByTitle("common.policy.managed");
-  const chevron = wrap.querySelector("button")!;
-  expect(chevron.disabled).toBe(true);
+  const chevron = (await screen.findByRole("button", { name: "common.policy.managed" })) as HTMLButtonElement;
+  expect(chevron.getAttribute("title")).toBe("common.policy.managed");
+  expect(chevron.getAttribute("aria-disabled")).toBe("true");
+  expect(chevron.disabled).toBe(false);
+  chevron.focus();
+  expect(document.activeElement).toBe(chevron);
+  fireEvent.click(chevron);
+  fireEvent.keyDown(chevron, { key: "Enter" });
+  expect(screen.queryByText("zsh")).toBeNull();
   fireEvent.click(screen.getByText("hosts.toolbar.terminal"));
   expect(onOpenLocalTerminal).toHaveBeenCalled();
 });

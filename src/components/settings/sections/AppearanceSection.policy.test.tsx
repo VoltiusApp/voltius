@@ -61,4 +61,6 @@ test("language options outside the allowed list are disabled", () => {
   const option = (label: string) => screen.getAllByText(label).slice(-1)[0].closest("button")!;
   expect(option("Français").matches(":disabled")).toBe(false);
   expect(option("Русский").matches(":disabled")).toBe(true);
+  expect(option("Русский").getAttribute("title")).toBe('common.policy.rangeAllowed {"values":"English, Français"}');
+  expect(option("Français").getAttribute("title")).toBeNull();
 });

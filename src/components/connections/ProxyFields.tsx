@@ -25,6 +25,8 @@ interface ProxyFieldsProps {
   onTextBlur?: () => void;
   passwordError?: string;
   disabled?: boolean;
+  /** "host": a lock disables every field, since a host's own proxy is ignored under it. */
+  scope?: "global" | "host";
   /** `locked`: the admin's proxy lock applies; the row shows its note. */
   renderRow?: (select: ReactNode, locked: boolean) => ReactNode;
   className?: string;
@@ -59,14 +61,16 @@ export default function ProxyFields({
   onTextBlur,
   passwordError,
   disabled,
+  scope = "global",
   renderRow = (select) => select,
   className = "",
 }: ProxyFieldsProps) {
   const { t } = useTranslation();
   const lock = useProxyLock(modes);
   const value = lock ? { ...own, ...lock } : own;
-  const lockable = (field: keyof ProxyFieldsValue, control: ReactNode) => (
-    <ManagedWhen locked={!!lock && field in lock} note={false}>{control}</ManagedWhen>
+  const patch = (fields: Partial<ProxyFieldsValue>) => onChange({ ...own, ...fields });
+  const lockable = (field: string, control: ReactNode) => (
+    <ManagedWhen locked={!!lock && (scope === "host" || field in lock)} note={false}>{control}</ManagedWhen>
   );
   const id = useId();
   const [badPort, setBadPort] = useState<string | null>(null);
@@ -80,7 +84,7 @@ export default function ProxyFields({
       return;
     }
     setBadPort(null);
-    onChange({ ...value, port });
+    patch({ port });
   };
 
   const label = (field: string) => (
@@ -94,7 +98,7 @@ export default function ProxyFields({
       value={value.mode}
       options={modes}
       disabled={disabled}
-      onChange={(mode) => { setBadPort(null); onChange({ ...value, mode }); }}
+      onChange={(mode) => { setBadPort(null); patch({ mode }); }}
     />,
   );
 
@@ -114,7 +118,7 @@ export default function ProxyFields({
                 value={value.host ?? ""}
                 placeholder="proxy.example.com"
                 disabled={disabled}
-                onChange={(e) => onChange({ ...value, host: e.target.value.trim() || undefined })}
+                onChange={(e) => patch({ host: e.target.value.trim() || undefined })}
                 onBlur={onTextBlur}
                 {...formIdentifierProps}
               />)}
@@ -150,13 +154,14 @@ export default function ProxyFields({
                 value={value.username ?? ""}
                 placeholder={t("connections.form.optional")}
                 disabled={disabled}
-                onChange={(e) => onChange({ ...value, username: e.target.value || undefined })}
+                onChange={(e) => patch({ username: e.target.value || undefined })}
                 onBlur={onTextBlur}
                 {...formIdentifierProps}
               />)}
             </div>
             <div className="min-w-0">
               {label("password")}
+              {lockable("password",
               <SecretInput
                 id={`${id}-password`}
                 value={password}
@@ -167,7 +172,7 @@ export default function ProxyFields({
                 onToggleShow={() => setShowPassword((v) => !v)}
                 autoComplete="new-password"
                 disabled={disabled}
-              />
+              />)}
             </div>
           </div>
           {passwordError && <FieldError>{passwordError}</FieldError>}

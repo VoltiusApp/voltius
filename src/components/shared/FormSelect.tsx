@@ -7,15 +7,17 @@ import { PickerSurface } from "./PickerSurface";
 import { chevronRotateStyle } from "@/utils/icons";
 import { useInListRow, useListRowLabel } from "./listRowContext";
 
-interface Option {
+export interface FormSelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Tooltip on a disabled option: why it can't be picked. */
+  disabledTitle?: string;
 }
 
 interface Props {
   value: string;
-  options: Option[];
+  options: FormSelectOption[];
   onChange: (value: string) => void;
   className?: string;
   /** Accessible name when no visible <label> points at the trigger. */
@@ -83,6 +85,7 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
             iconSize={15}
             checked={value === opt.value}
             disabled={opt.disabled}
+            title={opt.disabled ? opt.disabledTitle : undefined}
             onClick={() => { onChange(opt.value); setOpen(false); }}
           />
         ))}
