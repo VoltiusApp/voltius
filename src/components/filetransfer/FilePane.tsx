@@ -970,7 +970,7 @@ function InlineFileNameRow({ isDir, value, placeholder, onCommit, onCancel }: {
         maxLength={255}
         onCommit={onCommit}
         onCancel={onCancel}
-        className="flex-1 min-w-0 bg-transparent outline-hidden placeholder:text-(--t-text-dim)"
+        className="flex-1 min-w-0 bg-transparent outline-hidden"
       />
     </div>
   );

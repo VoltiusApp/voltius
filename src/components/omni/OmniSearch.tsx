@@ -818,7 +818,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             aria-autocomplete="list"
             aria-activedescendant={omniView === "root" && selectedItem ? rowId(selected) : undefined}
             placeholder={omniView === "theme-switch" ? t("omni.theme.searchThemes") : t("omni.searchPlaceholder")}
-            className="flex-1 bg-transparent text-sm outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
+            className="flex-1 bg-transparent text-sm outline-hidden text-(--t-text-primary)"
           />
         </div>
 

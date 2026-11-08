@@ -93,7 +93,7 @@ export function ChipInput({
           onBlur={() => setBorder("var(--t-border)")}
           onKeyDown={handleKeyDown}
           placeholder={keepPlaceholder || value.length === 0 ? placeholder : ""}
-          className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
+          className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) min-w-0"
         />
       </div>
     </div>

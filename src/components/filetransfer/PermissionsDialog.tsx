@@ -17,7 +17,7 @@ import {
 type Scope = NonNullable<AttrChange["recurse"]>;
 
 const INPUT_CLASS =
-  "form-input px-2 rounded-md outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-dim) disabled:opacity-50";
+  "form-input px-2 rounded-md outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) disabled:opacity-50";
 
 function shared<K extends keyof OwnerInfo>(owners: OwnerInfo[] | null | "loading", key: K): OwnerInfo[K] | null {
   return Array.isArray(owners) ? commonValue(owners.map((o) => o[key])) : null;
