@@ -183,6 +183,7 @@
       "userAdded": "{{name}} eklendi",
       "invitingEmail": "Davet ediliyor: {{email}}...",
       "invitationSentToEmail": "Davet gönderildi: {{email}}",
+      "invitationEmailNotSent": "Davet kaydedildi ancak {{email}} adresine e-posta gönderilemedi. Bu adresle kaydolduğunda ekibe katılacak.",
       "invitingToSession": "Oturuma davet ediliyor: {{name}}...",
       "invitedToSession": "Oturuma davet edildi: {{name}}",
       "convertingVault": "Ekip kasasına dönüştürülüyor: {{vault}}...",

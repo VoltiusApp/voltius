@@ -180,6 +180,7 @@
       "userAdded": "{{name}} adicionado",
       "invitingEmail": "Convidando {{email}}...",
       "invitationSentToEmail": "Convite enviado para {{email}}",
+      "invitationEmailNotSent": "Convite salvo, mas não foi possível enviar o e-mail para {{email}}. A pessoa entra na equipe ao criar uma conta com este endereço.",
       "invitingToSession": "Convidando {{name}} para a sessão...",
       "invitedToSession": "Convidado {{name}} para a sessão",
       "convertingVault": "Transformando {{vault}} em um cofre de equipe...",

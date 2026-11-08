@@ -179,6 +179,7 @@
       "userAdded": "已添加 {{name}}",
       "invitingEmail": "正在邀请 {{email}}…",
       "invitationSentToEmail": "已发送邀请给 {{email}}",
+      "invitationEmailNotSent": "邀请已保存，但无法向 {{email}} 发送邮件。对方使用此地址注册后即会加入团队。",
       "invitingToSession": "正在邀请 {{name}} 加入会话…",
       "invitedToSession": "已邀请 {{name}} 加入会话",
       "convertingVault": "正在将 {{vault}} 转换为团队保险库…",

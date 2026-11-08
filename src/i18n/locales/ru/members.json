@@ -181,6 +181,7 @@
       "userAdded": "{{name}} добавлен",
       "invitingEmail": "Приглашение {{email}}...",
       "invitationSentToEmail": "Приглашение отправлено на {{email}}",
+      "invitationEmailNotSent": "Приглашение сохранено, но письмо на {{email}} отправить не удалось. Пользователь присоединится к команде, когда зарегистрируется с этим адресом.",
       "invitingToSession": "Приглашение {{name}} в сессию...",
       "invitedToSession": "{{name}} приглашён в сессию",
       "convertingVault": "Преобразование {{vault}} в командное хранилище...",

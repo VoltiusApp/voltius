@@ -12,7 +12,7 @@ import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { RoleToggleChip } from "@/components/members/roleChips";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
-import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason } from "@/services/vaultShare";
+import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, emailNotSentWarning } from "@/services/vaultShare";
 import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
 
 export function isValidEmail(s: string) {
@@ -37,7 +37,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   const [adding, setAdding] = useState<string | null>(null);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [memberName, setMemberName] = useState("");
-  const [success, setSuccess] = useState("");
+  const [success, setSuccess] = useState<{ text: string; warn?: boolean } | null>(null);
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<UserSearchResult | null | undefined>(undefined);
   const canBuySeats = useCanBuySeats(teamId);
@@ -92,7 +92,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   const handleAdd = async (user: UserSearchResult) => {
     if (!hasRoleSelected) return;
     if (isAtSeatLimit) { onSeatLimit(user); return; }
-    setAdding(user.user_id); setError(""); setSuccess("");
+    setAdding(user.user_id); setError(""); setSuccess(null);
     try {
       const result = await inviteUserWithRoles({
         teamId,
@@ -104,9 +104,9 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
       });
       reset();
       setMemberName("");
-      setSuccess(result.status === "pending"
+      setSuccess({ text: result.status === "pending"
         ? t("members.toast.invitationSentToUser", { name: user.handle })
-        : t("members.toast.userAdded", { name: user.handle }));
+        : t("members.toast.userAdded", { name: user.handle }) });
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
@@ -123,13 +123,16 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   const handleEmailInvite = async () => {
     if (!isValidEmail(query) || !hasRoleSelected) return;
     if (isAtSeatLimit) { onSeatLimit(null); return; }
-    setSendingInvite(true); setError(""); setSuccess("");
+    setSendingInvite(true); setError(""); setSuccess(null);
     try {
       const invitedEmail = query;
-      await inviteByEmailAddress({ teamId, email: invitedEmail, roleName: primaryRoleName, memberName: nameToSend });
+      const result = await inviteByEmailAddress({ teamId, email: invitedEmail, roleName: primaryRoleName, memberName: nameToSend });
       reset();
       setMemberName("");
-      setSuccess(t("members.toast.invitationSentToEmail", { email: invitedEmail }));
+      const warning = emailNotSentWarning(result, invitedEmail);
+      setSuccess(warning
+        ? { text: warning, warn: true }
+        : { text: t("members.toast.invitationSentToEmail", { email: invitedEmail }) });
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
@@ -143,6 +146,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } finally { setSendingInvite(false); }
   };
 
+  const noticeColor = success?.warn ? "var(--t-status-warning)" : "#34d399";
   const showEmailInviteOption = open && results.length === 0 && !searching && isValidEmail(query);
 
   return (
@@ -199,8 +203,8 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
             <UserSearchField
               placeholder={t("members.invite.searchUserPlaceholder")}
               query={query}
-              onQueryChange={(v) => { setQuery(v); setSuccess(""); }}
-              onClear={() => { reset(); setSuccess(""); }}
+              onQueryChange={(v) => { setQuery(v); setSuccess(null); }}
+              onClear={() => { reset(); setSuccess(null); }}
               onSubmitQuery={() => { if (isValidEmail(query) && results.length === 0) void handleEmailInvite(); }}
               results={results}
               searching={searching}
@@ -236,9 +240,13 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
 
           {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
           {success && (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
-              <Icon icon="lucide:circle-check" width={14} style={{ color: "#34d399" }} />
-              <p className="text-xs" style={{ color: "#34d399" }}>{success}</p>
+            <div
+              role={success.warn ? "alert" : undefined}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+              style={{ background: `color-mix(in srgb, ${noticeColor} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${noticeColor} 20%, transparent)` }}
+            >
+              <Icon icon={success.warn ? "lucide:triangle-alert" : "lucide:circle-check"} width={14} className="shrink-0" style={{ color: noticeColor }} />
+              <p className="text-xs" style={{ color: noticeColor }}>{success.text}</p>
             </div>
           )}
         </div>

@@ -179,6 +179,7 @@
       "userAdded": "{{name}} added",
       "invitingEmail": "Inviting {{email}}...",
       "invitationSentToEmail": "Invitation sent to {{email}}",
+      "invitationEmailNotSent": "Invitation saved, but the email to {{email}} could not be sent. They join the team when they sign up with this address.",
       "invitingToSession": "Inviting {{name}} to session...",
       "invitedToSession": "Invited {{name}} to session",
       "convertingVault": "Turning {{vault}} into a team vault...",

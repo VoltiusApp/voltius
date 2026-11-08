@@ -505,12 +505,18 @@ export interface PendingInvitation {
   status?: "pending" | "expired";
 }
 
+/** `email_sent` is absent from older servers and from invites that needed no email. */
+export interface EmailInviteResult {
+  status: "added" | "invited";
+  email_sent?: boolean;
+}
+
 export async function inviteByEmail(
   teamId: string,
   email: string,
   role?: string,
   name?: string,
-): Promise<{ status: "added" | "invited" }> {
+): Promise<EmailInviteResult> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/invite`, {

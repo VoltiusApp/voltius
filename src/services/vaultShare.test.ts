@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   addMemberById: vi.fn(),
   assignMemberRole: vi.fn(),
   inviteByEmail: vi.fn(),
+  action: undefined as undefined | { warning?: (r: unknown) => string | null },
 }));
 
 vi.mock("@/stores/teamStore", () => ({
@@ -14,7 +15,10 @@ vi.mock("@/stores/teamStore", () => ({
 }));
 vi.mock("@/services/teamService", () => ({ inviteByEmail: h.inviteByEmail }));
 vi.mock("@/services/teamActionFeedback", () => ({
-  runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
+  runTeamAction: async (o: { run: () => Promise<unknown>; warning?: (r: unknown) => string | null }) => {
+    h.action = o;
+    return o.run();
+  },
 }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
@@ -55,6 +59,15 @@ test("email invites carry the role too", async () => {
   h.inviteByEmail.mockResolvedValue({ status: "invited" });
   await inviteByEmailAddress({ teamId: "t1", email: "dave@example.com", roleName: "connect-only" });
   expect(h.inviteByEmail).toHaveBeenCalledWith("t1", "dave@example.com", "connect-only", undefined);
+});
+
+test("an email invite the server could not send warns instead of claiming it was sent", async () => {
+  h.inviteByEmail.mockResolvedValue({ status: "invited", email_sent: false });
+  await inviteByEmailAddress({ teamId: "t1", email: "dave@example.com", roleName: "member" });
+  expect(h.action?.warning?.({ status: "invited", email_sent: false })).toBe("members.toast.invitationEmailNotSent");
+  expect(h.action?.warning?.({ status: "invited", email_sent: true })).toBeNull();
+  expect(h.action?.warning?.({ status: "invited" })).toBeNull();
+  expect(h.action?.warning?.({ status: "added" })).toBeNull();
 });
 
 test("a transport failure's raw URL is never returned as the reason", () => {

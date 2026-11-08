@@ -185,6 +185,7 @@
       "userAdded": "{{name}} přidán(a)",
       "invitingEmail": "Zvaní {{email}}...",
       "invitationSentToEmail": "Pozvánka odeslána na {{email}}",
+      "invitationEmailNotSent": "Pozvánka je uložena, ale e-mail na {{email}} se nepodařilo odeslat. Do týmu se připojí, až se zaregistruje s touto adresou.",
       "invitingToSession": "Zvaní {{name}} do relace...",
       "invitedToSession": "{{name}} pozván(a) do relace",
       "convertingVault": "Změna {{vault}} na týmový trezor...",

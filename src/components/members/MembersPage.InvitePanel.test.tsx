@@ -355,6 +355,22 @@ test("email invite success (not at limit): inviteByEmailAddress(default role) + 
   expect(h.reload).toHaveBeenCalled();
 });
 
+test("email invite the server could not email: the panel warns instead of reporting it sent", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([]);
+  h.inviteByEmailAddress.mockResolvedValue({ status: "invited", email_sent: false });
+  render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("a@b.com");
+  vi.useRealTimers();
+  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toBe(interpolatingT("members.toast.invitationEmailNotSent", { email: "a@b.com" }));
+  expect(screen.queryByText("members.toast.invitationSentToEmail")).toBeNull();
+  expect(baseProps.onMemberAdded).toHaveBeenCalled();
+});
+
 test("email invite at seat limit: BuySeatsModal(null); inviteByEmailAddress NOT called", async () => {
   h.usedSeats = 3;
   h.effectiveSeats = 3;
