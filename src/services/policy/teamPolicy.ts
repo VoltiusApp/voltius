@@ -1,4 +1,5 @@
 import { invoke } from "@/lib/invoke";
+import { clientVersion } from "@/services/clientHeaders";
 import { lockPolicyDoc } from "@/services/lockPolicy";
 import type { Team, TeamPolicyDoc } from "@/services/teamService";
 import type { PolicyIssue } from "@/stores/policyStore";
@@ -36,11 +37,17 @@ async function checkDoc({ team, text }: TeamDoc): Promise<{ input: TeamPolicyInp
 
 let refreshSeq = 0;
 
+export function clearTeamPolicy(): void {
+  refreshSeq++;
+  useTeamPolicyStore.getState().setLayer(null, "");
+}
+
 export async function refreshTeamPolicy(teams: Team[]): Promise<void> {
-  const docs = teamDocsFrom(teams);
-  const inputs = JSON.stringify(docs.map(({ team, text }) => [team.id, team.name, team.joined_at ?? "", team.policy_revision ?? null, text]));
-  if (inputs === useTeamPolicyStore.getState().inputs) return;
   const seq = ++refreshSeq;
+  const docs = teamDocsFrom(teams);
+  const rows = docs.map(({ team, text }) => [team.id, team.name, team.joined_at ?? "", team.policy_revision ?? null, text]);
+  const inputs = JSON.stringify([await clientVersion(), ...rows]);
+  if (seq !== refreshSeq || inputs === useTeamPolicyStore.getState().inputs) return;
   const checked = await Promise.all(docs.map(checkDoc));
   if (seq !== refreshSeq) return;
   const merged = mergeTeamDocs(checked.map((c) => c.input));

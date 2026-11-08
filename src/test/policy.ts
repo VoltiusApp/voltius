@@ -4,11 +4,11 @@ import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 const EMPTY = { policy: {}, defaults: {} };
 
 export const withPolicy = (policy: Record<string, unknown>) =>
-  usePolicyStore.setState({ machine: { policy, defaults: {} }, server: EMPTY });
+  usePolicyStore.setState({ machine: { policy, defaults: {} } });
 
 export const resetPolicy = () => {
   useTeamPolicyStore.setState({ layer: null, inputs: "" });
-  usePolicyStore.setState({ machine: EMPTY, server: EMPTY, issues: [] });
+  usePolicyStore.setState({ machine: EMPTY, issues: [] });
 };
 
 export const echoTeamDoc = async (cmd: string, args?: unknown) =>

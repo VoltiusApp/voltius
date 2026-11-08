@@ -26,7 +26,7 @@ import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 import { withTeamPolicy } from "@/test/policy";
 
 const lock = (policy: Record<string, unknown>) => {
-  usePolicyStore.setState({ machine: { policy, defaults: {} }, server: { policy: {}, defaults: {} } });
+  usePolicyStore.setState({ machine: { policy, defaults: {} } });
   applyPluginPolicy();
 };
 

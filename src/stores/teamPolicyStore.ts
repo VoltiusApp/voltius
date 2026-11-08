@@ -15,6 +15,6 @@ export const useTeamPolicyStore = create<TeamPolicyStore>()(
       inputs: "",
       setLayer: (layer, inputs) => set({ layer, inputs }),
     }),
-    { name: "voltius-team-policy", partialize: (s) => ({ layer: s.layer, inputs: s.inputs }) },
+    { name: "voltius-team-policy", version: 1, partialize: (s) => ({ layer: s.layer, inputs: s.inputs }) },
   ),
 );

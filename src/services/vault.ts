@@ -2,7 +2,7 @@ import { notifyAccountModeChanged } from "@/utils/accountMode";
 import { invoke } from "@/lib/invoke";
 import { logFailure } from "@/lib/logger";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
-import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
+import { clearTeamPolicy } from "@/services/policy/teamPolicy";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 import { VAULT_RESET_KEYS } from "./accountCacheKeys";
 import { backendErrorCode } from "./backendErrors";
@@ -198,7 +198,7 @@ export async function readLocalSecrets(keys: string[]): Promise<Record<string, s
 // Memory before storage: a persisted store writes itself back to localStorage on its next set.
 export async function clearAccountUiState(): Promise<void> {
   useOrgLockPolicyStore.getState().setPolicy(null);
-  useTeamPolicyStore.getState().setLayer(null, "");
+  clearTeamPolicy();
   const { useLanSyncStore } = await import("@/stores/lanSyncStore");
   useLanSyncStore.getState().forgetAccount();
   clearPersistedAccountUiState();

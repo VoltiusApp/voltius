@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), version: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
+vi.mock("@/services/clientHeaders", () => ({ clientVersion: mocks.version }));
 vi.mock("@/services/lanSync", () => ({ clearLanSyncScopes: async () => {} }));
 
 import type { Team } from "@/services/teamService";
@@ -36,6 +37,7 @@ describe("team policy", () => {
     localStorage.clear();
     mocks.invoke.mockReset();
     mocks.invoke.mockImplementation(echoTeamDoc);
+    mocks.version.mockResolvedValue("0.66.0");
     resetPolicy();
   });
 
@@ -68,6 +70,44 @@ describe("team policy", () => {
     expect(checkCalls()).toBe(1);
     await refreshTeamPolicy([vaultLock("a", 2)]);
     expect(checkCalls()).toBe(2);
+  });
+
+  it("an app upgrade re-validates the cached documents", async () => {
+    await refreshTeamPolicy([vaultLock("a")]);
+    mocks.version.mockResolvedValue("0.67.0");
+    await refreshTeamPolicy([vaultLock("a")]);
+    expect(checkCalls()).toBe(2);
+  });
+
+  const holdChecks = () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    mocks.invoke.mockImplementation(async (cmd: string, args?: unknown) => {
+      await gate;
+      return echoTeamDoc(cmd, args);
+    });
+    return release;
+  };
+
+  it("an older refresh landing after a newer unchanged one is dropped", async () => {
+    await refreshTeamPolicy([vaultLock("a")]);
+    const release = holdChecks();
+    const stale = refreshTeamPolicy([vaultLock("a"), team("b", { policy: { version: 1, policy: { [TIMEOUT]: { $range: { max: 5 } } } } })]);
+    await refreshTeamPolicy([vaultLock("a")]);
+    release();
+    await stale;
+    expect(useTeamPolicyStore.getState().layer?.policy).toEqual({ [ACTION]: "vault" });
+  });
+
+  it("a refresh still validating when the account is cleared does not bring the layer back", async () => {
+    const release = holdChecks();
+    const pending = refreshTeamPolicy([vaultLock("a")]);
+    await vi.waitFor(() => expect(checkCalls()).toBe(1));
+    await clearAccountUiState();
+    release();
+    await pending;
+    expect(useTeamPolicyStore.getState().layer).toBeNull();
+    expect(lockedValue(ACTION)).toEqual({ locked: false });
   });
 
   it("logs a team document's issues under the team's name instead of toasting", async () => {
