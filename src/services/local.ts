@@ -42,8 +42,8 @@ export async function policyShell(requested: string | undefined): Promise<string
   const entries = shellPolicyEntries();
   if (!entries) return requested;
   const allowed = allowedShells(await listLocalShells(), entries);
-  if (requested !== undefined && allowedShells(allowed, [requested]).length) return requested;
-  return allowed[0]?.path;
+  const match = requested === undefined ? undefined : allowed.find((s) => matchesEntry(s, requested));
+  return (match ?? allowed[0])?.path;
 }
 
 export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<string | undefined> {

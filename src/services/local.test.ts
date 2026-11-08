@@ -48,6 +48,12 @@ describe("shell policy", () => {
     expect(await local.policyShell("/bin/zsh")).toBe("/bin/zsh");
   });
 
+  test("a name entry resolves to the detected path", async () => {
+    await setPolicy("ZSH");
+    expect(await local.policyShell(undefined)).toBe("/bin/zsh");
+    expect(await local.policyShell("zsh")).toBe("/bin/zsh");
+  });
+
   test("no policy leaves the request alone", async () => {
     expect(await local.policyShell("/opt/x")).toBe("/opt/x");
     expect(await local.policyShell(undefined)).toBeUndefined();

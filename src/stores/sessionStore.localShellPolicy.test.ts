@@ -50,10 +50,16 @@ describe("local shell policy on session tabs", () => {
     expect(s.status).toBe("connected");
   });
 
+  test("connectLocal under a name lock spawns the detected path", async () => {
+    setPolicy("ZSH");
+    await useSessionStore.getState().connectLocal();
+    expect(useSessionStore.getState().sessions[0].localShell).toBe("/bin/zsh");
+  });
+
   test("connectLocal names the shell that runs", async () => {
     await useSessionStore.getState().connectLocal();
     const s = useSessionStore.getState().sessions[0];
-    expect(s.localShell).toMatch(/zsh$/);
+    expect(s.localShell).toBe("/bin/zsh");
     expect(s.connectionName).toMatch(/zsh/i);
   });
 
