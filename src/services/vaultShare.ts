@@ -1,7 +1,7 @@
 import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
-import { inviteByEmail, revokePendingInvitation } from "@/services/teamService";
+import { inviteByEmail, revokePendingInvitation, type EmailInviteResult } from "@/services/teamService";
 import { buildDeepLink } from "@/services/deepLinkUrl";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
@@ -90,16 +90,21 @@ export async function inviteUserWithRoles(args: {
   return result;
 }
 
+export function emailNotSentWarning(result: EmailInviteResult, email: string): string | null {
+  return result.email_sent === false ? i18n.t("members.toast.invitationEmailNotSent", { email }) : null;
+}
+
 export async function inviteByEmailAddress(args: {
   teamId: string;
   email: string;
   roleName: string;
   memberName?: string;
-}): Promise<{ status: "added" | "invited" }> {
+}): Promise<EmailInviteResult> {
   const { teamId, email, roleName, memberName } = args;
   return runTeamAction({
     pending: i18n.t("members.toast.invitingUser", { name: email }),
     success: i18n.t("members.toast.invitationSentToUser", { name: email }),
+    warning: (result) => emailNotSentWarning(result, email),
     error: (e: Error) => i18n.t("members.error.inviteFailed", { name: email, reason: inviteFailureReason(e) }),
     run: () => inviteByEmail(teamId, email, roleName, memberName),
   });

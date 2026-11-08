@@ -184,6 +184,7 @@
       "userAdded": "{{name}} adicionado",
       "invitingEmail": "A convidar {{email}}...",
       "invitationSentToEmail": "Convite enviado para {{email}}",
+      "invitationEmailNotSent": "Convite guardado, mas não foi possível enviar o e-mail para {{email}}. A pessoa junta-se à equipa ao criar uma conta com este endereço.",
       "invitingToSession": "A convidar {{name}} para a sessão...",
       "invitedToSession": "Convidado {{name}} para a sessão",
       "convertingVault": "Transformando {{vault}} em um cofre de equipe...",
