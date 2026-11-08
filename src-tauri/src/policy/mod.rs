@@ -826,23 +826,36 @@ pub const TEAM_REFUSED_KEYS: [&str; 5] = [
 ];
 
 pub fn check_team_doc(text: &str) -> (PolicyDoc, Vec<Issue>) {
-    let (mut doc, mut issues) = parse(text);
-    let mut drop = |layer: Layer, key: String, reason: &str| {
-        issues.push(Issue {
+    let mut dropped: Vec<(Layer, String, &str)> = Vec::new();
+    let mut root = serde_json::from_str::<Value>(text).ok();
+    for layer in [Layer::Policy, Layer::Defaults] {
+        let mut map = root
+            .as_mut()
+            .and_then(|r| r.get_mut(layer.name()))
+            .and_then(Value::as_object_mut);
+        for key in TEAM_REFUSED_KEYS {
+            if map.as_mut().is_some_and(|m| m.remove(key).is_some()) {
+                dropped.push((layer, key.to_string(), "is machine-only"));
+            }
+        }
+    }
+    let stripped = root.map_or_else(|| text.to_string(), |r| r.to_string());
+    let (mut doc, parse_issues) = parse(&stripped);
+    dropped.extend(
+        std::mem::take(&mut doc.defaults)
+            .into_keys()
+            .map(|k| (Layer::Defaults, k, "cannot be a team default")),
+    );
+    let mut issues: Vec<Issue> = dropped
+        .into_iter()
+        .map(|(layer, key, reason)| Issue {
             kind: IssueKind::NotForTeam,
             layer: Some(layer),
             message: format!("{key} {reason}; dropped"),
             key: Some(key),
-        });
-    };
-    for key in TEAM_REFUSED_KEYS {
-        if doc.policy.remove(key).is_some() {
-            drop(Layer::Policy, key.to_string(), "is machine-only");
-        }
-    }
-    for key in std::mem::take(&mut doc.defaults).into_keys() {
-        drop(Layer::Defaults, key, "cannot be a team default");
-    }
+        })
+        .collect();
+    issues.extend(parse_issues);
     (doc, issues)
 }
 
@@ -1838,23 +1851,15 @@ mod tests {
     fn check_team_doc_drops_machine_only_keys_and_defaults() {
         let text = json!({
             "version": 1,
-            "policy": {"server.url": "https://a.example", "plugins.install": ["x"], "sync.types.key": true},
+            "policy": {"server.url": "https://a.example", "plugins.install": ["x"], "enrollment.token": "t", "sync.types.key": true},
             "defaults": {"appSettings.locale": "fr"}
         })
         .to_string();
         let (doc, issues) = check_team_doc(&text);
         assert_eq!(doc.policy.keys().collect::<Vec<_>>(), ["sync.types.key"]);
         assert!(doc.defaults.is_empty());
-        assert_eq!(issues.len(), 3);
+        assert_eq!(issues.len(), 4);
         assert!(issues.iter().all(|i| i.kind == IssueKind::NotForTeam));
-    }
-
-    #[test]
-    fn check_team_doc_drops_refused_keys_by_name_even_unregistered() {
-        let text = json!({"version": 1, "policy": {"enrollment.token": "t"}}).to_string();
-        let (doc, issues) = check_team_doc(&text);
-        assert!(doc.policy.is_empty());
-        assert_eq!(issues.len(), 1);
     }
 
     #[test]
