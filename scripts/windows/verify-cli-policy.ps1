@@ -411,8 +411,8 @@ $Scenarios = [ordered]@{
         $gone = Wait-Until 60 { -not (Test-Path -LiteralPath $uninstaller) }
         Assert-True 'B.removed' $gone "gone=$gone"
         Assert-PathEntry 'B.user-path' User $NsisDir $false
-        $left = Get-RegText 'HKCU:\Software\Voltius\Voltius' ''
-        Assert-True 'B.install-dir-forgotten' (-not $left) "left=$left" 'no NSIS install dir for a later MSI'
+        $forgotten = Wait-Until 60 { -not (Get-RegText 'HKCU:\Software\Voltius\Voltius' '') }
+        Assert-True 'B.install-dir-forgotten' $forgotten "left=$(Get-RegText 'HKCU:\Software\Voltius\Voltius' '')" 'no NSIS install dir for a later MSI'
     }
     C  = {
         Assert-Code 'C.install' 0 (Invoke-Installer msiexec.exe '/i', "`"$Msi`"", '/qn', '/l*v', "`"$Work\msi-install.log`"")
