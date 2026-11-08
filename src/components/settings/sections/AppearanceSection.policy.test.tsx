@@ -56,7 +56,7 @@ test("language options outside the allowed list are disabled", () => {
   policy({ "appSettings.locale": { $range: { allowed: ["en", "fr"] } } });
   render(<AppearanceSection />);
   expect(screen.getByText('common.policy.rangeAllowed {"values":"English, Français"}')).toBeTruthy();
-  const row = screen.getByText("settings.appearance.language.title").closest("[class*='rounded-xl']") as HTMLElement;
+  const row = screen.getByText("settings.appearance.language.title").closest("[class*='rounded-lg']") as HTMLElement;
   fireEvent.click(row.querySelector("[data-form-select]")!);
   const option = (label: string) => screen.getAllByText(label).slice(-1)[0].closest("button")!;
   expect(option("Français").matches(":disabled")).toBe(false);

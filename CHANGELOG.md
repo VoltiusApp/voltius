@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A machine policy can no longer lock `appSettings.plugins.overrides`. Such an entry is now reported as an error and ignored; use `plugins.enabled` and `plugins.disabled` instead. As a default it still works (#757)
 
+### Fixed
+
+- Settings › Appearance and Settings › Terminal now use the same card background as the other Settings pages. Their cards had a different colour, most visible in light themes
+
 ## [0.66.0] - 2026-10-31
 
 ### Changed

@@ -15,7 +15,7 @@ import { ManagedWhen, useRangeSelect } from "@/components/shared/ManagedNote";
 import { useLocationFields } from "@/hooks/useLocationFields";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
-import { SettingRow, SyncKeyButton } from "./shared";
+import { SETTINGS_SURFACE, SettingRow, SyncKeyButton } from "./shared";
 import { saveTextFile } from "@/services/saveFile";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import { useIsAndroid, useIsMobile } from "@/utils/platform";
@@ -114,7 +114,7 @@ export default function AppearanceSection() {
             <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-(--t-text-dim)">
               {t("settings.appearance.automation.title")}
             </h3>
-            <div data-settings-card className="rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 space-y-4">
+            <div data-settings-card className={`${SETTINGS_SURFACE} p-4 space-y-4`}>
               <p className="text-xs text-(--t-text-dim)">{t("settings.appearance.automation.desc")}</p>
 
               {isMobile ? (
@@ -167,7 +167,7 @@ export default function AppearanceSection() {
                 <div className="group flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     {!loc.locked && (
-                      <button onClick={() => loc.locateMe(t("settings.appearance.automation.useMyLocation"))} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
+                      <button onClick={() => loc.locateMe(t("settings.appearance.automation.useMyLocation"))} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-input) border border-(--t-border) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
                         <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
                       </button>
                     )}

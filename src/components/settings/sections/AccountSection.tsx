@@ -6,7 +6,7 @@ import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { lockApp } from "@/services/appLock";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
-import { ActionItem, FormButtons, SettingsInput } from "./shared";
+import { ActionItem, FormButtons, SETTINGS_SURFACE, SettingsInput } from "./shared";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlanDisplay } from "@/services/planDisplay";
@@ -235,7 +235,7 @@ export default function AccountSection() {
         </h3>
         <div
           data-settings-card
-          className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border)"
+          className={`${SETTINGS_SURFACE} px-4 py-3`}
         >
           <p className="text-xs mb-1 text-(--t-text-dim)">{t("settings.account.currentMode")}</p>
           <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ export default function AccountSection() {
           <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
             {t("settings.account.handle.title")}
           </h3>
-          <div data-settings-card className="rounded-lg px-4 py-3 space-y-2 bg-(--t-bg-elevated) border border-(--t-border)">
+          <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-2`}>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-(--t-text-primary)">
                 {handle ? `@${handle}` : "—"}
@@ -314,7 +314,7 @@ export default function AccountSection() {
             )}
           </div>
 
-          <div data-settings-card data-setting-row className="mt-2 rounded-lg px-4 py-3 flex items-center justify-between gap-4 bg-(--t-bg-elevated) border border-(--t-border)">
+          <div data-settings-card data-setting-row className={`mt-2 ${SETTINGS_SURFACE} px-4 py-3 flex items-center justify-between gap-4`}>
             <div>
               <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.strangerInvites.label")}</p>
               <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.account.strangerInvites.desc")}</p>
@@ -538,7 +538,7 @@ export function PlansSection() {
         {t("settings.account.plan.title")}
       </h3>
 
-      <div data-settings-card className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border) space-y-3">
+      <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon

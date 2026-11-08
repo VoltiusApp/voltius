@@ -7,7 +7,7 @@ import { systemAuthMethodKey } from "@/hooks/useSystemAuthPrompt";
 import { useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { canLockApp, canLockVault } from "@/utils/accountMode";
 import { useIsMobile, usePlatform } from "@/utils/platform";
-import { SettingRow } from "./shared";
+import { SETTINGS_SURFACE, SettingRow } from "./shared";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { policyTeamNames, timeoutAllowed } from "@/services/lockPolicy";
@@ -80,7 +80,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const who = (list: string[]) => (list.length ? list.join(", ") : t("settings.account.sessionSecurity.policy.yourTeam"));
 
   return (
-    <div data-settings-card className="rounded-lg px-4 py-3 space-y-3 bg-(--t-bg-elevated) border border-(--t-border)">
+    <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
       <div className="space-y-1.5">
         {(() => {
           const select = (

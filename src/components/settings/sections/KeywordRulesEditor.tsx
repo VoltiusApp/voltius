@@ -9,6 +9,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { ANSI_SLOTS, MAX_KEYWORD_RULES, sanitizeKeywordRules, type AnsiSlot, type KeywordRule } from "@/utils/keywordMatcher";
 import { ManagedNote } from "@/components/shared/ManagedNote";
 import { usePolicyLock } from "@/stores/policyStore";
+import { SETTINGS_SURFACE } from "./shared";
 
 const K = "settings.terminal.keywordHighlight";
 const NEW_RULE_COLORS: AnsiSlot[] = ["red", "yellow", "green", "blue", "magenta", "cyan"];
@@ -138,7 +139,7 @@ export function KeywordRulesEditor() {
   };
 
   return (
-    <div className="mt-2 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 space-y-3">
+    <div className={`mt-2 ${SETTINGS_SURFACE} p-4 space-y-3`}>
       {adminRules.length > 0 && (
         <div className="space-y-3 pb-3 border-b border-(--t-border)">
           <ManagedNote />

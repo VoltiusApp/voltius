@@ -5,7 +5,7 @@ import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { StatusDot } from "@/components/shared/StatusDot";
-import { DirtyDot, ResetButton, RowControl, useRowManaged } from "./shared";
+import { DirtyDot, ResetButton, RowControl, SETTINGS_SURFACE, useRowManaged } from "./shared";
 import { getMcpStatus } from "@/mcp/status";
 import { buildMcpClientSnippet, MCP_CLIENT_IDS, type McpClientId } from "@/mcp/clientSnippets";
 import { buildAddMcpCommand } from "@/mcp/registerCommand";
@@ -136,7 +136,7 @@ export default function IntegrationsSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.integrations.mcp.title")}
         </h3>
-        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+        <div className={SETTINGS_SURFACE}>
           <div className="group flex items-start justify-between px-4 py-3 gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export default function IntegrationsSection() {
           {t("settings.integrations.mcp.plugins.title")}
         </h3>
         <p className="text-xs mb-3 text-(--t-text-dim)">{t("settings.integrations.mcp.plugins.sub")}</p>
-        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+        <div className={SETTINGS_SURFACE}>
           {contributions.length === 0 ? (
             <p className="px-4 py-3 text-xs text-(--t-text-dim)">
               {t("settings.integrations.mcp.plugins.empty")}

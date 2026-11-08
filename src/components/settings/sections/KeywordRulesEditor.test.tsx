@@ -19,7 +19,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 const K = "settings.terminal.keywordHighlight";
 const rules = () => useTerminalSettingsStore.getState().keywordRules;
 const rows = () => screen.getAllByTestId("keyword-rule");
-const card = () => screen.getByText(`${K}.title`).closest("[class*='rounded-xl']") as HTMLElement;
+const card = () => screen.getByText(`${K}.title`).closest("[class*='rounded-lg']") as HTMLElement;
 const cardSwitch = () => card().querySelector("[role='switch']") as HTMLElement;
 
 beforeEach(() => {

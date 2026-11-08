@@ -22,7 +22,7 @@ import { useBrowseCatalog } from "@/hooks/useBrowseCatalog";
 import { Managed, ManagedNote, ManagedUninstall, ManagedWhen } from "@/components/shared/ManagedNote";
 import { usePolicyRefresh } from "@/stores/policyStore";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
-import { DirtyDot, ResetButton, SettingRow } from "./shared";
+import { DirtyDot, ResetButton, SETTINGS_SURFACE, SettingRow } from "./shared";
 import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 import { searchMatcher } from "@/utils/search";
@@ -77,7 +77,7 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
   }
 
   return (
-    <div className="max-w-lg rounded-lg divide-y divide-(--t-border) bg-(--t-bg-elevated) border border-(--t-border)">
+    <div className={`max-w-lg divide-y divide-(--t-border) ${SETTINGS_SURFACE}`}>
       {keys.map((key) => {
         const field: PluginConfigField = config[key];
         const value = values[key] ?? field.default;

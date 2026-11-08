@@ -16,6 +16,8 @@ import RowActionsButton from "@/components/mobile/RowActionsButton";
 import { useLongPress } from "@/components/mobile/useLongPress";
 import { ROW_ATTR, ROW_CONTROL_ATTR } from "@/components/settings/settingsMobileCore";
 
+export const SETTINGS_SURFACE = "rounded-lg bg-(--t-bg-elevated) border border-(--t-border)";
+
 /** Android: rows inside a SettingsGroup already sit in a full-bleed list. */
 const InSettingsGroup = createContext(false);
 
@@ -45,7 +47,7 @@ export function SettingsGroup({ title, divided, className, children }: {
         {title}
       </h3>
       <div
-        className={`rounded-lg bg-(--t-bg-elevated) border border-(--t-border)${divided ? " divide-y divide-(--t-border)" : ""}`}
+        className={`${SETTINGS_SURFACE}${divided ? " divide-y divide-(--t-border)" : ""}`}
       >
         {children}
       </div>
@@ -89,7 +91,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   }
   const card = variant === "card";
   const base = card
-    ? "group rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4"
+    ? `group ${SETTINGS_SURFACE} p-4 flex items-center justify-between gap-4`
     : "group flex items-center justify-between px-4 py-3 gap-4";
   const style = dimmed ? { opacity: 0.45 } : undefined;
 
@@ -167,7 +169,7 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-(--t-bg-elevated) border border-(--t-border) hover:bg-(--t-bg-card-hover)"
+      className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${SETTINGS_SURFACE} hover:bg-(--t-bg-card-hover)`}
       style={{
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
