@@ -121,6 +121,7 @@
       "joinByCode": "Participar por código",
       "emptyHint": "Terminais que seus colegas compartilham aparecem aqui. Tem um link ou código de convite? Use “Participar por código”.",
       "live": "AO VIVO",
+      "sharedBy": "Compartilhado por {{name}}",
       "pasteInviteCode": "Cole um link ou código de convite para participar de uma sessão privada:",
       "inviteCodePlaceholder": "voltius://join?… ou sessionId:token",
       "join": "Participar",

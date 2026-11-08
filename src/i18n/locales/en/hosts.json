@@ -112,6 +112,7 @@
       "joinByCode": "Join by code",
       "emptyHint": "Terminals your teammates share appear here. Got an invite link or code? Use Join by code.",
       "live": "LIVE",
+      "sharedBy": "Shared by {{name}}",
       "pasteInviteCode": "Paste an invite link or code to join a private session:",
       "inviteCodePlaceholder": "voltius://join?… or sessionId:token",
       "join": "Join",

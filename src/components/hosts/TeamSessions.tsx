@@ -7,14 +7,14 @@ import { useTeamSessionStore as useMpStore } from "@/stores/teamSessionStore";
 import { getMyUserId } from "@/services/teamService";
 import { useUIStore } from "@/stores/uiStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
-import { AvatarStack } from "@/components/shared/AvatarStack";
-import { AvatarTile } from "@/components/shared/AvatarTile";
+import { AvatarStack, MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
+import { formatRelative } from "@/utils/localeFormat";
 
 function JoinByCodeButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
@@ -235,9 +235,17 @@ export function TeamSessions() {
           const liveParticipants = liveLocalId
             ? useMpStore.getState().connections[liveLocalId]?.participants
             : undefined;
-          const participants = (liveParticipants ?? session.participants)?.map((p) => ({
-            name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
-          }));
+          // The sharer already has the big avatar on the left, so list only the people who joined.
+          const participants = (liveParticipants ?? session.participants)
+            ?.filter((p) => p.user_id !== session.host_user_id)
+            .map((p) => ({
+              name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
+            }));
+
+          const host = peer(session.host_user_id);
+          const hostLabel = avatarLabel(host);
+          const hostName = host.primary;
+          const since = Number.isNaN(Date.parse(session.created_at)) ? null : formatRelative(session.created_at);
 
           return (
             <BaseCard
@@ -246,51 +254,46 @@ export function TeamSessions() {
               isSelected={alreadyIn}
               onClick={() => void handleJoinCard(session)}
               className="shrink-0"
-              style={{ minWidth: 220, maxWidth: 280 }}
+              style={{ minWidth: 260, maxWidth: 340 }}
             >
-              <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
-                {/* Top: icon + name + badge */}
-                <div className="flex items-start gap-2 min-w-0">
-                  <AvatarTile
-                    base="var(--t-accent)"
-                    icon="lucide:radio"
-                    size={30}
-                    radius={6}
-                    className="text-white"
-                  />
-
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate text-(--t-text-bright)">
-                      {sessionDisplayName(session)}
-                    </p>
-
-                    {/* Avatar stack — where tags sit on host cards */}
-                    <div className="min-h-[22px] flex items-center">
-                      <AvatarStack
-                        participants={participants}
-                        count={session.participant_count}
-                        size={20}
-                        maxVisible={5}
-                        ringColor="var(--t-bg-card)"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Join / Resume button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
-                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors self-center text-(--t-text-dim) hover:text-(--t-text-bright)"
-                    style={{
-                      background: "var(--t-bg-terminal)",
-                      border: "1px solid var(--t-border)",
-                      color: alreadyIn ? "var(--t-accent)" : undefined,
-                    }}
-                  >
-                    <Icon icon={alreadyIn ? "lucide:monitor-play" : "lucide:log-in"} width={12} />
-                    {alreadyIn ? t("hosts.teamSessions.resume") : t("hosts.teamSessions.join")}
-                  </button>
+              <div className="flex-1 min-w-0 flex items-center gap-3">
+                {/* Who is sharing, with the live dot on their avatar */}
+                <div className="relative shrink-0">
+                  <MiniAvatar name={hostLabel} size={34} />
+                  <StatusDot tone="accent" size="md" corner motion="ping" halo="var(--t-bg-card)" />
                 </div>
 
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate text-(--t-text-bright)">
+                    {sessionDisplayName(session)}
+                  </p>
+                  <p className="text-xs truncate text-(--t-text-dim)">
+                    {t("hosts.teamSessions.sharedBy", { name: hostName })}
+                    {since && ` · ${since}`}
+                  </p>
+                </div>
+
+                {/* Renders nothing when nobody has joined yet */}
+                <AvatarStack
+                  participants={participants}
+                  count={session.participant_count}
+                  size={20}
+                  maxVisible={3}
+                  ringColor="var(--t-bg-card)"
+                />
+
+                {/* Join / Resume */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    alreadyIn
+                      ? "border border-(--t-border) bg-(--t-bg-terminal) text-(--t-accent)"
+                      : "bg-(--t-accent) text-(--t-on-accent) hover:brightness-110"
+                  }`}
+                >
+                  <Icon icon={alreadyIn ? "lucide:monitor-play" : "lucide:log-in"} width={12} />
+                  {alreadyIn ? t("hosts.teamSessions.resume") : t("hosts.teamSessions.join")}
+                </button>
               </div>
             </BaseCard>
           );

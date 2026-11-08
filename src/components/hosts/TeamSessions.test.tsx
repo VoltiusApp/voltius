@@ -11,8 +11,8 @@ vi.mock("@/components/shared/AvatarStack", () => ({
   AvatarStack: ({ participants, count }: { participants?: { name: string }[]; count?: number }) => (
     <div data-testid="avatars">{(participants?.length ?? 0)}/{count ?? 0}</div>
   ),
+  MiniAvatar: () => null,
 }));
-vi.mock("@/components/shared/AvatarTile", () => ({ AvatarTile: () => null }));
 vi.mock("@/components/shared/BaseCard", () => ({
   BaseCard: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <div data-testid="card" onClick={onClick}>{children}</div>
@@ -278,6 +278,23 @@ test("falls back to server participants when not in the session", () => {
   teamState.connections = {};
   render(<TeamSessions />);
   expect(screen.getByTestId("avatars").textContent).toBe("2/0");
+});
+
+test("the sharer is not listed among the participants", () => {
+  uiState.homeView = true;
+  teamState.activeSessions = [
+    active({
+      id: "s1",
+      host_user_id: "host-1",
+      participants: [
+        { user_id: "host-1", handle: "alice" },
+        { user_id: "u2", handle: "bob" },
+      ],
+    }),
+  ];
+  teamState.connections = {};
+  render(<TeamSessions />);
+  expect(screen.getByTestId("avatars").textContent).toBe("1/0");
 });
 
 // ── Polling effect ──────────────────────────────────────────────────────────
