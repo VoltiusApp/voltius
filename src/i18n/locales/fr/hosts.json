@@ -120,6 +120,7 @@
       "joinByCode": "Rejoindre avec un code",
       "emptyHint": "Les terminaux partagés par vos coéquipiers apparaissent ici. Vous avez un lien ou un code d'invitation ? Utilisez « Rejoindre avec un code ».",
       "live": "EN DIRECT",
+      "sharedBy": "Partagé par {{name}}",
       "pasteInviteCode": "Collez un lien ou un code d'invitation pour rejoindre une session privée :",
       "inviteCodePlaceholder": "voltius://join?… ou sessionId:token",
       "join": "Rejoindre",

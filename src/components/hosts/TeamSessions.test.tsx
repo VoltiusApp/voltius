@@ -11,8 +11,8 @@ vi.mock("@/components/shared/AvatarStack", () => ({
   AvatarStack: ({ participants, count }: { participants?: { name: string }[]; count?: number }) => (
     <div data-testid="avatars">{(participants?.length ?? 0)}/{count ?? 0}</div>
   ),
+  MiniAvatar: () => null,
 }));
-vi.mock("@/components/shared/AvatarTile", () => ({ AvatarTile: () => null }));
 vi.mock("@/components/shared/BaseCard", () => ({
   BaseCard: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <div data-testid="card" onClick={onClick}>{children}</div>
