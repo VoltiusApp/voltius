@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const sftp = vi.hoisted(() => ({
   readEditorFile: vi.fn(async () => ({ content: "hello" })),
@@ -51,6 +51,9 @@ it("a writable document still saves", async () => {
   render(<EditorTab doc={open(false)} />);
   await screen.findByTestId("code");
   expect(cm.readOnly).toBe(false);
-  fireEvent.keyDown(window, { key: "s", ctrlKey: true });
-  expect(sftp.writeEditorFile).toHaveBeenCalled();
+  // The save key is bound in an effect that can run after the text appears.
+  await waitFor(() => {
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(sftp.writeEditorFile).toHaveBeenCalled();
+  });
 });

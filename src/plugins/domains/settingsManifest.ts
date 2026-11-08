@@ -26,6 +26,7 @@ import {
 } from "@/stores/connectivitySettingsStore";
 import { KEEPALIVE_PRESETS, DEFAULT_KEEPALIVE_PRESET } from "@/utils/keepalive";
 import { useThemeStore } from "@/stores/themeStore";
+import { effectiveShell } from "@/services/local";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
 import { localeSetting, useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
@@ -173,12 +174,11 @@ function explicitDefs(): SettingDef[] {
     },
     {
       key: "terminal.preferredShell",
-      // No `values`: the only source of valid shells (useLocalShells / local_list_shells) is
-      // async with no synchronous accessor, so it can't feed this manifest's synchronous read.
+      // No `values`: shells are detected asynchronously, so this synchronous manifest can't list them.
       type: "string", default: null,
       section: "terminal", labelKey: "settings.terminal.preferredShell.title", writable: true,
       policyKey: "appSettings.terminal.preferredShell",
-      get: () => preferredShellSetting.get(),
+      get: () => effectiveShell(preferredShellSetting.get()),
       set: (v) => terminal().setPreferredShell(v === null ? null : String(v)),
     },
     {

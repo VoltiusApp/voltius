@@ -124,10 +124,18 @@ fn entries(doc: &PolicyDoc) -> impl Iterator<Item = (Layer, &str)> {
 }
 
 fn io_error(path: &Path, access: Access, e: std::io::Error) -> CliError {
-    if e.kind() == std::io::ErrorKind::PermissionDenied {
-        CliError::Permission(access, path.to_path_buf())
-    } else {
-        CliError::Io(e)
+    io_error_as(super::user::is_elevated(), path, access, e)
+}
+
+fn io_error_as(elevated: bool, path: &Path, access: Access, e: std::io::Error) -> CliError {
+    match e.kind() {
+        std::io::ErrorKind::PermissionDenied if elevated => CliError::Denied(format!(
+            "{} was refused even with root/Administrator rights; it may be held open by \
+             another program, or be read-only. Close that program or clear the flag, then run again",
+            path.display()
+        )),
+        std::io::ErrorKind::PermissionDenied => CliError::Permission(access, path.to_path_buf()),
+        _ => CliError::Io(e),
     }
 }
 
@@ -599,7 +607,12 @@ fn range_row(
     built_in: Option<&Value>,
     shells: &[ShellOption],
 ) -> Row {
-    let value = policy::bounded(key, &range, stored.map(|s| &s.0), admin_default, built_in);
+    let mut value = policy::bounded(key, &range, stored.map(|s| &s.0), admin_default, built_in);
+    if let (SHELL_KEY, Some(allowed)) = (key, &range.allowed) {
+        let entries: Vec<&str> = allowed.iter().filter_map(Value::as_str).collect();
+        value = policy::pick_shell(shells, &entries, value.as_str())
+            .map_or(Value::Null, |s| json!(s.path));
+    }
     let user = stored.filter(|(_, source, _)| *source != BUILT_IN);
     let inside = |v: &Value| policy::within(key, &range, v, shells);
     let mut row = match user.filter(|(v, ..)| inside(v)) {
@@ -978,6 +991,18 @@ mod tests {
         let err = set(&path, "sshConfig.import", "maybe", false).unwrap_err();
         assert_eq!(err.exit_code(), 3);
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn denied_while_elevated_blames_a_holder_not_missing_rights() {
+        let denied = || std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        let path = Path::new("/etc/voltius/policy.json");
+        let held = io_error_as(true, path, Access::Write, denied());
+        assert_eq!(held.exit_code(), 4);
+        assert!(held.to_string().contains("held open"), "{held}");
+        assert!(!held.to_string().contains("needs root"));
+        let user = io_error_as(false, path, Access::Write, denied());
+        assert!(user.to_string().contains("needs root"), "{user}");
     }
 
     #[cfg(unix)]
@@ -1945,24 +1970,40 @@ mod tests {
         );
     }
 
-    #[test]
-    fn show_keeps_an_allowed_shell_path_under_a_name_list() {
+    // The shell row, the shell this machine would open, and the text output.
+    fn shell_show(stored: &str, allowed: &[&str]) -> (Value, Value, String) {
         let shell = "appSettings.terminal.preferredShell";
-        let user = user_dir(json!({ shell: "/bin/zsh" }), Value::Null);
+        let user = user_dir(json!({ shell: stored }), Value::Null);
         let m = tempfile::tempdir().unwrap();
         let path = machine(
             m.path(),
-            json!({ shell: {"$range": {"allowed": ["fish", "zsh"]}} }),
+            json!({ shell: {"$range": {"allowed": allowed}} }),
             json!({}),
         );
-        let v = show_json(&path, Some(user.path()));
-        let e = entry(&v, shell);
-        assert_eq!(e["value"], "/bin/zsh");
-        assert_eq!(e["source"], "app");
-        assert!(e.get("userValue").is_none());
+        let e = entry(&show_json(&path, Some(user.path())), shell).clone();
         let (mut sink, buf) = capture(false);
         show(&path, Some(user.path()), &mut sink).unwrap();
-        assert!(!captured(&buf).contains("outside it"));
+        let detected = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(crate::commands::local::detected_shells());
+        let opens = policy::pick_shell(&detected, allowed, Some(stored));
+        (e, json!(opens.map(|s| &s.path)), captured(&buf))
+    }
+
+    #[test]
+    fn show_keeps_an_allowed_shell_path_under_a_name_list() {
+        let (e, opens, text) = shell_show("/bin/zsh", &["fish", "zsh"]);
+        assert_eq!(e["value"], opens);
+        assert_eq!(e["source"], "app");
+        assert!(e.get("userValue").is_none());
+        assert!(!text.contains("outside it"));
+    }
+
+    #[test]
+    fn show_prints_the_shell_that_opens_for_an_out_of_range_value() {
+        let (e, opens, _) = shell_show("/no/such/fish", &["bash"]);
+        assert_eq!(e["value"], opens);
+        assert_eq!(e["userValue"], "/no/such/fish");
     }
 
     #[test]

@@ -19,6 +19,10 @@ describe.each(BUILT_IN_THEMES.map((t) => [t.id, t.ui as unknown as Record<string
     for (const token of SECONDARY_TEXT) expect(primary).toBeGreaterThan(worst(ui[token], ui));
   });
 
+  it("inputs and off toggles stand out from settings cards", () => {
+    expect(contrastRatio(ui.bgInput, ui.bgElevated)).toBeGreaterThanOrEqual(1.08);
+  });
+
   it("distinct secondary tiers stay visibly apart", () => {
     const tiers = [...new Set(SECONDARY_TEXT.map((t) => ui[t]))].map((c) => worst(c, ui)).sort((a, b) => a - b);
     for (let i = 1; i < tiers.length; i++) expect(tiers[i] - tiers[i - 1]).toBeGreaterThanOrEqual(0.4);

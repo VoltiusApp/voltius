@@ -9,7 +9,7 @@ import { allowedShells, pickShell } from "@/services/local";
 import { usePolicyLock, usePolicyRange } from "@/stores/policyStore";
 import { RangeNote } from "@/components/shared/ManagedNote";
 import { useUIContributions } from "@/hooks/useUIContributions";
-import { useLocalShells } from "@/hooks/useLocalShells";
+import { useLocalShellsState } from "@/hooks/useLocalShells";
 import { IMPORTERS } from "@/services/import-export/importers";
 import { useIsMobile } from "@/utils/platform";
 
@@ -71,7 +71,7 @@ export function HomeToolbar({
     ...pluginHostMenuItems,
   ];
 
-  const shells = useLocalShells();
+  const { shells, detecting } = useLocalShellsState();
   const preferredShell = preferredShellSetting.use();
   const setPreferredShell = useTerminalSettingsStore((s) => s.setPreferredShell);
   const shellLocked = usePolicyLock(preferredShellSetting.key).locked;
@@ -79,7 +79,7 @@ export function HomeToolbar({
   const shellNamed = (entry: string) => allowedShells(shells, [entry])[0];
   const shellOptions = shells.length
     ? shells.map((s) => ({ value: s.path, label: s.name }))
-    : shellLocked || shellRange
+    : (shellLocked || shellRange) && !detecting
       ? [{ value: SYSTEM_SHELL, label: t("hosts.toolbar.systemShell") }]
       : [];
   // Android sandbox can't spawn a local PTY — hide the local-terminal launcher.

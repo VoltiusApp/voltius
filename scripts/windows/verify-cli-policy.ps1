@@ -411,7 +411,8 @@ $Scenarios = [ordered]@{
         $gone = Wait-Until 60 { -not (Test-Path -LiteralPath $uninstaller) }
         Assert-True 'B.removed' $gone "gone=$gone"
         Assert-PathEntry 'B.user-path' User $NsisDir $false
-        Clear-InstallState
+        $forgotten = Wait-Until 60 { -not (Get-RegText 'HKCU:\Software\Voltius\Voltius' '') }
+        Assert-True 'B.install-dir-forgotten' $forgotten "left=$(Get-RegText 'HKCU:\Software\Voltius\Voltius' '')" 'no NSIS install dir for a later MSI'
     }
     C  = {
         Assert-Code 'C.install' 0 (Invoke-Installer msiexec.exe '/i', "`"$Msi`"", '/qn', '/l*v', "`"$Work\msi-install.log`"")
@@ -520,7 +521,9 @@ $Scenarios = [ordered]@{
         $before = Get-Snapshot $PolicyDir
         try {
             Start-Holder $PolicyFile File
-            Assert-Code 'O.admin-set' 4, 5 (Invoke-AdminSet 'true')
+            $set = Invoke-AdminSet 'true'
+            Assert-Code 'O.admin-set' 4 $set
+            Assert-True 'O.held-message' ($set.Err -match 'held open' -and $set.Err -notmatch 'needs root') $set.Err.Trim() 'held open, no "needs root"'
         }
         finally {
             Stop-AllHolders
@@ -533,22 +536,14 @@ $Scenarios = [ordered]@{
     }
 }
 
-function Clear-InstallState {
-    $key = 'HKCU:\Software\Voltius'
-    if (-not (Test-Path -LiteralPath $key)) {
-        Write-Host "  [observe] nothing left under $key"
-        return
-    }
-    Write-Host "  [observe] left under $key`:"
-    Get-Item -LiteralPath $key | Out-Host
-    Get-ChildItem -LiteralPath $key -Recurse | Out-Host
-    Remove-Item -LiteralPath $key -Recurse -Force
+function Get-RegText([string]$Key, [string]$Name) {
+    $item = Get-Item -LiteralPath $Key -ErrorAction SilentlyContinue
+    if ($item) { ConvertTo-Text $item.GetValue($Name) } else { '' }
 }
 
 function Get-MsiInstallDir {
     foreach ($key in 'HKLM:\Software\Voltius', 'HKLM:\Software\Voltius\Voltius', 'HKCU:\Software\Voltius\Voltius') {
-        $item = Get-Item -LiteralPath $key -ErrorAction SilentlyContinue
-        $dir = if ($item) { ConvertTo-Text $item.GetValue('InstallDir') } else { '' }
+        $dir = Get-RegText $key 'InstallDir'
         if ($dir) { return $dir.TrimEnd('\') }
     }
     Join-Path $env:ProgramFiles 'Voltius'
