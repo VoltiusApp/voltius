@@ -43,16 +43,16 @@ interface ConnectivitySettingsState extends ConnectivitySettings {
 
 const policyKey = (field: Setting) => `appSettings.${field}`;
 
-// The proxy stays writable under a lock so the user can fill in the username the lock leaves open.
-const WRITABLE_UNDER_LOCK: Setting[] = ["proxy"];
-
 function touchedSetter<K extends Setting>(set: (partial: Pick<ConnectivitySettings, K>) => void, field: K): Setter<K> {
-  const guard = WRITABLE_UNDER_LOCK.includes(field) ? (_key: string, write: () => void) => write() : writeUnlessLocked;
-  return (value) =>
-    guard(policyKey(field), () => {
+  return (value) => {
+    const write = () => {
       set({ [field]: value } as Pick<ConnectivitySettings, K>);
       touchAppSetting(policyKey(field));
-    });
+    };
+    // The proxy stays writable under a lock so the user can fill in the username the lock leaves open.
+    if (field === "proxy") write();
+    else writeUnlessLocked(policyKey(field), write);
+  };
 }
 
 export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
@@ -85,10 +85,9 @@ export function getGlobalKeepalivePreset(): KeepalivePreset {
 
 export function resolveHostKeepalive(perHost: KeepalivePreset | undefined): KeepalivePreset {
   const key = policyKey("keepalivePreset");
-  if (isEnforcedLock(key)) return getGlobalKeepalivePreset();
-  const range = policyRange(key);
-  if (range) return perHost !== undefined && inPolicyRange(range, perHost) ? perHost : getGlobalKeepalivePreset();
-  return perHost ?? getGlobalKeepalivePreset();
+  const global = getGlobalKeepalivePreset();
+  if (perHost === undefined || isEnforcedLock(key)) return global;
+  return inPolicyRange(policyRange(key), perHost) ? perHost : global;
 }
 
 function useConnectivitySetting<K extends Setting>(

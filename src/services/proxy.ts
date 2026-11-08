@@ -22,7 +22,8 @@ export async function resolveProxy(
   overrides?: { proxy?: ProxyOverride | null; password?: string },
 ): Promise<ProxySpec | null> {
   const requested = overrides?.proxy !== undefined ? overrides.proxy : conn.proxy;
-  const perHost = isEnforcedLock("appSettings.proxy") ? undefined : requested;
+  const locked = isEnforcedLock("appSettings.proxy");
+  const perHost = locked ? undefined : requested;
   const source = perHost ?? getGlobalProxy();
   const secretKey = perHost ? proxyPasswordKey(conn.id) : GLOBAL_PROXY_PASSWORD_KEY;
   switch (source.mode) {
@@ -39,7 +40,7 @@ export async function resolveProxy(
       if (!host) {
         throw new Error(i18n.t("connections.form.proxy.hostMissing", { kind: i18n.t(`connections.form.proxy.modes.${source.mode}`) }));
       }
-      const password = overrides?.password ?? (await getSecret(secretKey).catch(() => null)) ?? undefined;
+      const password = (locked ? undefined : overrides?.password) ?? (await getSecret(secretKey).catch(() => null)) ?? undefined;
       return {
         kind: source.mode,
         host,

@@ -167,12 +167,12 @@ describe("resolveFirstHop knock", () => {
 
 describe("resolveProxy under a proxy lock", () => {
   const lockProxy = (proxy: object) =>
-    usePolicyStore.setState({ machine: { policy: { "appSettings.proxy": proxy }, defaults: {} } });
+    usePolicyStore.setState({ machine: { policy: { "appSettings.proxy": proxy }, defaults: {} }, server: { policy: {}, defaults: {} } });
   beforeEach(() => {
     for (const k of Object.keys(secrets)) delete secrets[k];
     setGlobal({ mode: "none" });
   });
-  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } }));
+  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, server: { policy: {}, defaults: {} } }));
 
   it("host proxy cannot bypass a locked proxy", async () => {
     lockProxy({ mode: "http", host: "p", port: 3128 });
@@ -186,5 +186,11 @@ describe("resolveProxy under a proxy lock", () => {
     expect(await resolveProxy({ id: "c", proxy: { mode: "socks5", host: "h" } })).toEqual({
       kind: "http", host: "p", port: 3128, username: "alice", password: "gp",
     });
+  });
+
+  it("a typed per-host password is not sent to the locked proxy", async () => {
+    lockProxy({ mode: "http", host: "p", port: 3128 });
+    secrets["proxy_password:__global__"] = "gp";
+    expect(await resolveProxy({ id: "c" }, { password: "x" })).toEqual({ kind: "http", host: "p", port: 3128, password: "gp" });
   });
 });

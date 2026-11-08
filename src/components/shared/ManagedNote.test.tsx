@@ -75,8 +75,8 @@ describe("SettingRow policy lock", () => {
   });
 
   it("does not show an unenforced key as managed", () => {
-    lock("appSettings.terminal.cursorStyle");
-    const c = row("appSettings.terminal.cursorStyle");
+    lock("appSettings.plugins.overrides");
+    const c = row("appSettings.plugins.overrides");
     expect(c.textContent).not.toContain("common.policy.managed");
     expect(syncButton(c)).not.toBeNull();
   });

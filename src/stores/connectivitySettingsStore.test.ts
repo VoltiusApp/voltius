@@ -6,6 +6,7 @@ import {
   getGlobalKeepalivePreset,
   useConnectivitySettingsStore,
 } from "./connectivitySettingsStore";
+import { useToggleSettingsStore } from "./toggleSettingsStore";
 import { usePolicyStore, writeUnlessLocked } from "./policyStore";
 
 const empty = { policy: {}, defaults: {} };
@@ -17,6 +18,7 @@ describe("connectivity readers under policy", () => {
   beforeEach(() => {
     usePolicyStore.setState({ machine: empty, server: empty, issues: [] });
     useConnectivitySettingsStore.setState({ keepalivePreset: "balanced", detachedTtlHours: 72 } as never);
+    useToggleSettingsStore.setState({ values: { "detached-session-ttl": false } } as never);
   });
 
   it("writeUnlessLocked skips the write under an enforced lock", () => {
@@ -50,8 +52,17 @@ describe("connectivity readers under policy", () => {
     expect(resolveHostKeepalive("off")).toBe("off");
   });
 
-  it("ttl lock forces expiry on", () => {
+  it("ttl range forces expiry on and bounds the stored hours", () => {
     withPolicy({ "appSettings.detachedTtlHours": { $range: { max: 24 } } });
     expect(resolveDetachedTtlSecs()).toBe(86400);
+  });
+
+  it("ttl plain lock forces expiry on with the locked hours", () => {
+    withPolicy({ "appSettings.detachedTtlHours": 6 });
+    expect(resolveDetachedTtlSecs()).toBe(6 * 3600);
+  });
+
+  it("ttl is off when stored off and nothing is set", () => {
+    expect(resolveDetachedTtlSecs()).toBeNull();
   });
 });
