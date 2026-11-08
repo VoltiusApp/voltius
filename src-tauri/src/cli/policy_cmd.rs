@@ -124,10 +124,18 @@ fn entries(doc: &PolicyDoc) -> impl Iterator<Item = (Layer, &str)> {
 }
 
 fn io_error(path: &Path, access: Access, e: std::io::Error) -> CliError {
-    if e.kind() == std::io::ErrorKind::PermissionDenied {
-        CliError::Permission(access, path.to_path_buf())
-    } else {
-        CliError::Io(e)
+    io_error_as(super::user::is_elevated(), path, access, e)
+}
+
+fn io_error_as(elevated: bool, path: &Path, access: Access, e: std::io::Error) -> CliError {
+    match e.kind() {
+        std::io::ErrorKind::PermissionDenied if elevated => CliError::Denied(format!(
+            "{} was refused even with root/Administrator rights; it may be held open by \
+             another program, or be read-only. Close that program or clear the flag, then run again",
+            path.display()
+        )),
+        std::io::ErrorKind::PermissionDenied => CliError::Permission(access, path.to_path_buf()),
+        _ => CliError::Io(e),
     }
 }
 
@@ -983,6 +991,18 @@ mod tests {
         let err = set(&path, "sshConfig.import", "maybe", false).unwrap_err();
         assert_eq!(err.exit_code(), 3);
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn denied_while_elevated_blames_a_holder_not_missing_rights() {
+        let denied = || std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        let path = Path::new("/etc/voltius/policy.json");
+        let held = io_error_as(true, path, Access::Write, denied());
+        assert_eq!(held.exit_code(), 4);
+        assert!(held.to_string().contains("held open"), "{held}");
+        assert!(!held.to_string().contains("needs root"));
+        let user = io_error_as(false, path, Access::Write, denied());
+        assert!(user.to_string().contains("needs root"), "{user}");
     }
 
     #[cfg(unix)]

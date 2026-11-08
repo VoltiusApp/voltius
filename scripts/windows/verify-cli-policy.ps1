@@ -520,7 +520,9 @@ $Scenarios = [ordered]@{
         $before = Get-Snapshot $PolicyDir
         try {
             Start-Holder $PolicyFile File
-            Assert-Code 'O.admin-set' 4, 5 (Invoke-AdminSet 'true')
+            $set = Invoke-AdminSet 'true'
+            Assert-Code 'O.admin-set' 4 $set
+            Assert-True 'O.held-message' ($set.Err -match 'held open' -and $set.Err -notmatch 'needs root') $set.Err.Trim() 'held open, no "needs root"'
         }
         finally {
             Stop-AllHolders

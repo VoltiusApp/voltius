@@ -234,17 +234,25 @@ pub unsafe fn sid_string(sid: PSID) -> io::Result<String> {
     Ok(s)
 }
 
-/// The process token's user SID in string form (`S-1-5-21-…`).
-pub fn current_user_sid() -> io::Result<String> {
-    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
-    use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
+fn with_process_token<T>(f: impl FnOnce(HANDLE) -> io::Result<T>) -> io::Result<T> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::Security::TOKEN_QUERY;
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
-    unsafe {
-        let mut token: HANDLE = ptr::null_mut();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return Err(io::Error::last_os_error());
-        }
+    let mut token: HANDLE = ptr::null_mut();
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let result = f(token);
+    unsafe { CloseHandle(token) };
+    result
+}
+
+/// The process token's user SID in string form (`S-1-5-21-…`).
+pub fn current_user_sid() -> io::Result<String> {
+    use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_USER};
+
+    with_process_token(|token| unsafe {
         // Two calls, deliberately: the first learns the size. A single call
         // with a guessed size returns ERROR_INSUFFICIENT_BUFFER and no SID.
         let mut len = 0u32;
@@ -253,15 +261,32 @@ pub fn current_user_sid() -> io::Result<String> {
         // align-1, so reading `(*user).User.Sid` out of it is a misaligned
         // deref — UB by Rust's rules even where the hardware tolerates it.
         let mut buf = vec![0u64; (len as usize).div_ceil(8)];
-        let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
-        let err = io::Error::last_os_error();
-        CloseHandle(token);
-        if !ok {
-            return Err(err);
+        if GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) == 0 {
+            return Err(io::Error::last_os_error());
         }
         let user: *const TOKEN_USER = buf.as_ptr().cast();
         sid_string((*user).User.Sid)
-    }
+    })
+}
+
+pub fn is_elevated() -> bool {
+    use windows_sys::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION};
+
+    with_process_token(|token| {
+        let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+        let mut len = 0u32;
+        let ok = unsafe {
+            GetTokenInformation(
+                token,
+                TokenElevation,
+                (&mut elevation as *mut TOKEN_ELEVATION).cast(),
+                std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+                &mut len,
+            )
+        };
+        Ok(ok != 0 && elevation.TokenIsElevated != 0)
+    })
+    .unwrap_or(false)
 }
 
 pub fn program_data() -> Option<PathBuf> {

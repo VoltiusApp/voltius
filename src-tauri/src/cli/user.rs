@@ -23,6 +23,21 @@ pub fn is_system_account() -> bool {
     false
 }
 
+#[cfg(unix)]
+pub fn is_elevated() -> bool {
+    is_system_account()
+}
+
+#[cfg(windows)]
+pub fn is_elevated() -> bool {
+    crate::win_security::is_elevated()
+}
+
+#[cfg(not(any(unix, windows)))]
+pub fn is_elevated() -> bool {
+    false
+}
+
 fn system_account_hint(command: &str) -> String {
     format!(
         "`{command}` changes per-user settings and cannot run as root/SYSTEM; \
