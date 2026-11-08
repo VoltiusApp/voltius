@@ -1,3 +1,4 @@
+use crate::commands::local::ShellOption;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -224,7 +225,7 @@ fn nums_equal(a: &Value, b: &Value) -> bool {
     }
 }
 
-fn show(v: &Value) -> String {
+pub(crate) fn show(v: &Value) -> String {
     v.as_str().map_or_else(|| v.to_string(), str::to_string)
 }
 
@@ -453,7 +454,32 @@ pub fn range_of(v: &Value) -> Option<Range> {
     parse_range(v).ok()
 }
 
-pub fn within(_key: &str, r: &Range, v: &Value) -> bool {
+fn shape_of(key: &str) -> Option<&'static str> {
+    key_def(key)?.domain.as_ref()?.shape.as_deref()
+}
+
+// An undetected value still matches an entry naming its file, so a CLI write does not need the shell installed.
+pub fn shell_allows(shells: &[ShellOption], entry: &str, value: &str) -> bool {
+    match shells.iter().find(|s| s.matches(value)) {
+        Some(s) => s.matches(entry),
+        None => {
+            let path = Path::new(value);
+            let named = |n: Option<&std::ffi::OsStr>| {
+                n.and_then(|n| n.to_str())
+                    .is_some_and(|n| n.eq_ignore_ascii_case(entry))
+            };
+            entry == value || named(path.file_name()) || named(path.file_stem())
+        }
+    }
+}
+
+pub fn within(key: &str, r: &Range, v: &Value, shells: &[ShellOption]) -> bool {
+    if let (Some("shell"), Some(allowed), Some(value)) = (shape_of(key), &r.allowed, v.as_str()) {
+        return allowed
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|e| shell_allows(shells, e, value));
+    }
     let n = v.as_f64();
     r.min.is_none_or(|m| n.is_some_and(|n| n >= m))
         && r.max.is_none_or(|m| n.is_some_and(|n| n <= m))
@@ -506,7 +532,7 @@ pub fn range_problem(key: &str, r: &Range) -> Option<String> {
         }
     }
     let empty = match domain.and_then(|d| d.values.as_ref()) {
-        Some(values) => !values.iter().any(|v| within(key, r, v)),
+        Some(values) => !values.iter().any(|v| within(key, r, v, &[])),
         None => r.allowed.as_ref().is_some_and(Vec::is_empty),
     };
     empty.then(|| "leaves no allowed value".into())
@@ -535,7 +561,19 @@ pub fn bounded(
     built_in: Option<&Value>,
 ) -> Value {
     let sources = [stored, admin_default, built_in];
-    if let Some(v) = sources.into_iter().flatten().find(|v| within(key, r, v)) {
+    if shape_of(key) == Some("shell") {
+        return sources
+            .into_iter()
+            .flatten()
+            .next()
+            .cloned()
+            .unwrap_or(Value::Null);
+    }
+    if let Some(v) = sources
+        .into_iter()
+        .flatten()
+        .find(|v| within(key, r, v, &[]))
+    {
         return v.clone();
     }
     let def = key_def(key);
@@ -549,7 +587,7 @@ pub fn bounded(
     };
     if let Some(values) = domain {
         let picked = if is_number {
-            let candidates = values.iter().filter(|v| within(key, r, v)).collect();
+            let candidates = values.iter().filter(|v| within(key, r, v, &[])).collect();
             nearest_to(candidates, stored.and_then(Value::as_f64))
         } else {
             allowed_in_domain()
@@ -571,6 +609,41 @@ pub fn bounded(
         .or(r.allowed.as_ref().and_then(|a| a.first()))
         .cloned()
         .unwrap_or(Value::Null)
+}
+
+pub fn merged_lock(key: &str, lock: &Value, stored: Option<&Value>) -> Value {
+    match shape_of(key) {
+        Some("proxy") => {
+            let username = stored.and_then(|s| s.get("username"));
+            let mode = lock.get("mode").and_then(Value::as_str);
+            let mut merged = lock.clone();
+            if let (Some(o), Some(u)) = (merged.as_object_mut(), username) {
+                if !o.contains_key("username") && !matches!(mode, Some("none" | "system")) {
+                    o.insert("username".into(), u.clone());
+                }
+            }
+            merged
+        }
+        Some("keywordRules") => {
+            let user = stored.and_then(Value::as_array).into_iter().flatten();
+            Value::Array(
+                lock.as_array()
+                    .into_iter()
+                    .flatten()
+                    .chain(user)
+                    .cloned()
+                    .collect(),
+            )
+        }
+        Some("location") => {
+            let mut merged = serde_json::json!({"label": "manual", "source": "manual"});
+            if let (Some(o), Some(l)) = (merged.as_object_mut(), lock.as_object()) {
+                o.extend(l.clone());
+            }
+            merged
+        }
+        _ => lock.clone(),
+    }
 }
 
 pub fn number_value(n: f64) -> Value {
@@ -1305,9 +1378,14 @@ mod tests {
     #[test]
     fn within_compares_numerically() {
         let r = range_of(&json!({"$range": {"min": 6, "allowed": [6, 12, 24]}})).unwrap();
-        assert!(within("appSettings.detachedTtlHours", &r, &json!(12.0)));
-        assert!(!within("appSettings.detachedTtlHours", &r, &json!(1)));
-        assert!(!within("appSettings.detachedTtlHours", &r, &json!(72)));
+        assert!(within(
+            "appSettings.detachedTtlHours",
+            &r,
+            &json!(12.0),
+            &[]
+        ));
+        assert!(!within("appSettings.detachedTtlHours", &r, &json!(1), &[]));
+        assert!(!within("appSettings.detachedTtlHours", &r, &json!(72), &[]));
     }
 
     #[test]
@@ -1699,6 +1777,75 @@ mod tests {
             &doc,
             "appSettings.toggles.keyword-highlight"
         ));
+    }
+
+    #[test]
+    fn explicit_toggle_lock_blocks_writes_without_a_ttl_entry() {
+        assert!(blocks_user_write(
+            &doc_with(json!({TTL_TOGGLE: false})),
+            TTL_TOGGLE
+        ));
+    }
+
+    const SHELL: &str = "appSettings.terminal.preferredShell";
+
+    fn shell(name: &str, path: &str) -> ShellOption {
+        ShellOption {
+            name: name.into(),
+            path: path.into(),
+        }
+    }
+
+    #[test]
+    fn shell_range_matches_like_the_spawn_rule() {
+        let shells = [
+            shell("zsh", "/usr/bin/zsh"),
+            shell("PowerShell", "/usr/bin/pwsh"),
+        ];
+        let allowed = |a: Value| parse_range(&json!({"$range": {"allowed": a}})).unwrap();
+        let names = allowed(json!(["fish", "zsh"]));
+        assert!(within(SHELL, &names, &json!("/usr/bin/zsh"), &shells));
+        assert!(within(SHELL, &names, &json!("ZSH"), &shells));
+        assert!(within(SHELL, &names, &json!("/bin/zsh"), &shells));
+        assert!(within(SHELL, &names, &json!("/bin/zsh"), &[]));
+        assert!(!within(SHELL, &names, &json!("/bin/bash"), &shells));
+        let pwsh = allowed(json!(["PowerShell"]));
+        assert!(within(SHELL, &pwsh, &json!("/usr/bin/pwsh"), &shells));
+        assert!(!within(SHELL, &pwsh, &json!("/usr/bin/zsh"), &shells));
+        let by_path = allowed(json!(["/usr/bin/zsh"]));
+        assert!(within(SHELL, &by_path, &json!("zsh"), &shells));
+    }
+
+    #[test]
+    fn merged_lock_mirrors_the_app() {
+        let rules = "appSettings.terminal.keywordRules";
+        let (a, u) = (json!({"id": "a"}), json!({"id": "u"}));
+        assert_eq!(
+            merged_lock(rules, &json!([a]), Some(&json!([u]))),
+            json!([a, u])
+        );
+        assert_eq!(merged_lock(rules, &json!([a]), None), json!([a]));
+        let proxy = "appSettings.proxy";
+        let mine = json!({"mode": "none", "username": "bob"});
+        assert_eq!(
+            merged_lock(
+                proxy,
+                &json!({"mode": "http", "host": "p", "port": 1}),
+                Some(&mine)
+            ),
+            json!({"mode": "http", "host": "p", "port": 1, "username": "bob"})
+        );
+        let theirs = json!({"mode": "http", "host": "p", "port": 1, "username": "corp"});
+        assert_eq!(merged_lock(proxy, &theirs, Some(&mine)), theirs);
+        assert_eq!(
+            merged_lock(proxy, &json!({"mode": "system"}), Some(&mine)),
+            json!({"mode": "system"})
+        );
+        assert_eq!(
+            merged_lock("themes.location", &json!({"lat": 1, "lng": 2}), None),
+            json!({"label": "manual", "source": "manual", "lat": 1, "lng": 2})
+        );
+        assert_eq!(merged_lock(TTL, &json!(12), Some(&json!(72))), json!(12));
     }
 
     #[test]

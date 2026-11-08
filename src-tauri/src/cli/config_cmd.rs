@@ -190,7 +190,11 @@ mod tests {
     }
 
     fn get_cmd() -> ConfigCmd {
-        ConfigCmd::Get { key: CURSOR.into() }
+        get_key(CURSOR)
+    }
+
+    fn get_key(key: &str) -> ConfigCmd {
+        ConfigCmd::Get { key: key.into() }
     }
 
     fn import_data(data: &str) -> ConfigCmd {
@@ -210,11 +214,15 @@ mod tests {
     }
 
     fn write_mirror(dir: &Path) {
+        mirror_with(dir, json!({ CURSOR: "block" }));
+    }
+
+    fn mirror_with(dir: &Path, settings: Value) {
         mirror::write(
             dir,
             &json!({
                 "writtenAt": "2026-11-05T10:00:00Z", "appVersion": "1", "serverUrl": null,
-                "plugins": [], "settings": { CURSOR: "block" }
+                "plugins": [], "settings": settings
             }),
         )
         .unwrap();
@@ -483,5 +491,63 @@ mod tests {
             .to_string()
             .contains("is locked by your organization's policy"));
         assert!(queued(dir.path()).is_empty());
+    }
+
+    const SHELL: &str = "appSettings.terminal.preferredShell";
+    const PROXY: &str = "appSettings.proxy";
+
+    #[test]
+    fn config_set_shell_path_under_a_name_list_queues() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { SHELL: {"$range": {"allowed": ["zsh"]}} }}),
+        );
+        run(set(SHELL, "/bin/zsh"), Some(&m), dir.path(), false)
+            .0
+            .unwrap();
+        assert_eq!(queued(dir.path()).len(), 1);
+    }
+
+    fn get_json(key: &str, m: &Path, dir: &Path) -> Value {
+        let (r, text) = run(get_key(key), Some(m), dir, true);
+        r.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn config_get_keyword_lock_lists_admin_rules_then_the_users() {
+        let dir = tempfile::tempdir().unwrap();
+        let admin = json!({"id": "a", "color": "red", "words": ["panic"], "enabled": true});
+        let mine = json!({"id": "u", "color": "green", "words": ["ok"], "enabled": true});
+        mirror_with(dir.path(), json!({ RULES: [mine] }));
+        let m = machine(
+            dir.path(),
+            json!({"version": 1, "policy": { RULES: [admin] }}),
+        );
+        assert_eq!(
+            get_json(RULES, &m, dir.path())["value"],
+            json!([admin, mine])
+        );
+    }
+
+    #[test]
+    fn config_get_proxy_lock_keeps_the_users_username() {
+        let dir = tempfile::tempdir().unwrap();
+        mirror_with(
+            dir.path(),
+            json!({ PROXY: {"mode": "none", "username": "bob"} }),
+        );
+        let lock = |p: Value| machine(dir.path(), json!({"version": 1, "policy": { PROXY: p }}));
+        let m = lock(json!({"mode": "http", "host": "p", "port": 1}));
+        assert_eq!(
+            get_json(PROXY, &m, dir.path())["value"],
+            json!({"mode": "http", "host": "p", "port": 1, "username": "bob"})
+        );
+        let m = lock(json!({"mode": "system"}));
+        assert_eq!(
+            get_json(PROXY, &m, dir.path())["value"],
+            json!({"mode": "system"})
+        );
     }
 }

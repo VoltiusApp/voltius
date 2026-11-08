@@ -9,6 +9,12 @@ pub struct ShellOption {
     pub path: String,
 }
 
+impl ShellOption {
+    pub fn matches(&self, entry: &str) -> bool {
+        self.path == entry || self.name.eq_ignore_ascii_case(entry)
+    }
+}
+
 #[cfg(windows)]
 fn find_in_path(name: &str) -> Option<String> {
     let separator = if cfg!(windows) { ';' } else { ':' };

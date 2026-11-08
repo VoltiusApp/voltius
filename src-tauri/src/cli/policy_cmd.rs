@@ -538,12 +538,11 @@ fn range_json(r: &Range) -> Value {
 }
 
 pub(super) fn range_text(r: &Range) -> String {
-    let shown = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
     let parts = [
         r.min.map(|n| format!("min {}", policy::number_value(n))),
         r.max.map(|n| format!("max {}", policy::number_value(n))),
         r.allowed.as_ref().map(|a| {
-            let items: Vec<String> = a.iter().map(shown).collect();
+            let items: Vec<String> = a.iter().map(policy::show).collect();
             format!("allowed {}", items.join(", "))
         }),
     ];
@@ -552,7 +551,8 @@ pub(super) fn range_text(r: &Range) -> String {
 
 pub(super) fn range_violation(doc: &PolicyDoc, key: &str, value: &Value) -> Option<String> {
     let range = doc.policy.get(key).and_then(policy::range_of)?;
-    (!policy::within(key, &range, value)).then(|| {
+    let shells = detected_shells_for(doc, key);
+    (!policy::within(key, &range, value, &shells)).then(|| {
         format!(
             "{key}: outside the range your organization allows ({})",
             range_text(&range)
@@ -597,10 +597,11 @@ fn range_row(
     stored: Option<&Stored>,
     admin_default: Option<&Value>,
     built_in: Option<&Value>,
+    shells: &[ShellOption],
 ) -> Row {
     let value = policy::bounded(key, &range, stored.map(|s| &s.0), admin_default, built_in);
     let user = stored.filter(|(_, source, _)| *source != BUILT_IN);
-    let inside = |v: &Value| policy::within(key, &range, v);
+    let inside = |v: &Value| policy::within(key, &range, v, shells);
     let mut row = match user.filter(|(v, ..)| inside(v)) {
         Some((_, source, at)) => Row::new(value, source, at.clone()),
         None => Row::new(value, POLICY, None),
@@ -629,6 +630,7 @@ fn effective_rows(
     doc: &PolicyDoc,
     mut rows: BTreeMap<String, Row>,
     built_ins: &BTreeMap<String, Value>,
+    shells: &[ShellOption],
 ) -> BTreeMap<String, Row> {
     let stored: BTreeMap<String, Stored> = rows
         .iter()
@@ -650,8 +652,12 @@ fn effective_rows(
                 stored.get(k),
                 doc.defaults.get(k),
                 built_ins.get(k),
+                shells,
             ),
-            None => Row::new(v.clone(), POLICY, None),
+            None => {
+                let own = stored.get(k).map(|s| &s.0).or(doc.defaults.get(k));
+                Row::new(policy::merged_lock(k, v, own), POLICY, None)
+            }
         };
         rows.insert(k.clone(), row);
     }
@@ -663,9 +669,14 @@ fn effective_rows(
 pub(super) fn effective_row(doc: &PolicyDoc, dir: &Path, key: &str) -> Option<Row> {
     let mut user = user_values(dir);
     user.rows.retain(|k, _| k == key);
-    effective_rows(doc, user.rows, &user.built_ins)
-        .remove(key)
-        .or_else(|| user.as_of.map(|at| Row::new(Value::Null, "app", Some(at))))
+    effective_rows(
+        doc,
+        user.rows,
+        &user.built_ins,
+        &detected_shells_for(doc, key),
+    )
+    .remove(key)
+    .or_else(|| user.as_of.map(|at| Row::new(Value::Null, "app", Some(at))))
 }
 
 pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
@@ -686,9 +697,10 @@ fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), Cl
     let loaded = policy::load_from(path);
     let user = user_dir.map_or_else(Default::default, user_values);
     let as_of = user.as_of.clone();
-    let mut rows = effective_rows(&loaded.doc, user.rows, &user.built_ins);
+    let shells = detected_shells_for(&loaded.doc, SHELL_KEY);
+    let mut rows = effective_rows(&loaded.doc, user.rows, &user.built_ins, &shells);
     rows.retain(|_, r| r.source != BUILT_IN);
-    let warnings = detected_shell_warnings(&loaded.doc);
+    let warnings = shell_warnings(&loaded.doc, &shells);
     if out.json {
         let entries: Vec<Value> = rows.iter().map(|(k, r)| r.json(k)).collect();
         out.json(&json!({
@@ -735,11 +747,7 @@ const SHELL_KEY: &str = "appSettings.terminal.preferredShell";
 const SYSTEM_DEFAULT: &str = "new terminals use the system default";
 
 fn shell_warnings(doc: &PolicyDoc, shells: &[ShellOption]) -> Vec<String> {
-    let installed = |entry: &str| {
-        shells
-            .iter()
-            .any(|s| s.path == entry || s.name.eq_ignore_ascii_case(entry))
-    };
+    let installed = |entry: &str| shells.iter().any(|s| s.matches(entry));
     let Some(v) = doc.policy.get(SHELL_KEY) else {
         return Vec::new();
     };
@@ -758,8 +766,8 @@ fn shell_warnings(doc: &PolicyDoc, shells: &[ShellOption]) -> Vec<String> {
     }
 }
 
-fn detected_shell_warnings(doc: &PolicyDoc) -> Vec<String> {
-    if !doc.policy.contains_key(SHELL_KEY) {
+fn detected_shells_for(doc: &PolicyDoc, key: &str) -> Vec<ShellOption> {
+    if key != SHELL_KEY || !doc.policy.contains_key(SHELL_KEY) {
         return Vec::new();
     }
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
@@ -768,8 +776,7 @@ fn detected_shell_warnings(doc: &PolicyDoc) -> Vec<String> {
     else {
         return Vec::new();
     };
-    let shells = rt.block_on(crate::commands::local::detected_shells());
-    shell_warnings(doc, &shells)
+    rt.block_on(crate::commands::local::detected_shells())
 }
 
 fn user_dir() -> Option<PathBuf> {
@@ -1936,6 +1943,26 @@ mod tests {
             text.contains("machine policy range: max 24; user value 72 is outside it"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn show_keeps_an_allowed_shell_path_under_a_name_list() {
+        let shell = "appSettings.terminal.preferredShell";
+        let user = user_dir(json!({ shell: "/bin/zsh" }), Value::Null);
+        let m = tempfile::tempdir().unwrap();
+        let path = machine(
+            m.path(),
+            json!({ shell: {"$range": {"allowed": ["fish", "zsh"]}} }),
+            json!({}),
+        );
+        let v = show_json(&path, Some(user.path()));
+        let e = entry(&v, shell);
+        assert_eq!(e["value"], "/bin/zsh");
+        assert_eq!(e["source"], "app");
+        assert!(e.get("userValue").is_none());
+        let (mut sink, buf) = capture(false);
+        show(&path, Some(user.path()), &mut sink).unwrap();
+        assert!(!captured(&buf).contains("outside it"));
     }
 
     #[test]
