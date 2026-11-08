@@ -204,6 +204,7 @@
       "convertFailed": "{{vault}} ekip kasasına dönüştürülemedi — {{reason}}",
       "serverUnreachable": "eşitleme sunucusuna ulaşılamadı",
       "removeFailed": "{{name}} kaldırılamadı — {{reason}}",
+      "removePartial": "{{removed}} kaldırıldı. {{failed}} kaldırılamadı — {{reason}}",
       "undoRolesNotRestorable": "{{name}} için roller tam olarak geri yüklenemiyor. Yeniden davet edip rolleri elle atayın.",
       "revokeFailed": "{{name}} için davet iptal edilemedi — {{reason}}",
       "grantKeyFailed": "{{name}} için kasa erişimi verilemedi — {{reason}}",

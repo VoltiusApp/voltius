@@ -99,38 +99,56 @@ export async function departMembers(
 
   if (opts.mode === "leave") markSelfDeparture(teamId, "leave");
 
-  await runTeamAction({
+  const { removed } = await runTeamAction({
     pending: opts.mode === "leave"
       ? i18n.t("members.toast.leavingTeam")
       : i18n.t("members.toast.removingMember", { name: names }),
     success: opts.mode === "leave"
       ? i18n.t("members.toast.leftTeam")
       : i18n.t("members.toast.memberRemoved", { name: names, count }),
+    warning: ({ removed, failed }) => failed.length === 0 ? null : i18n.t("members.error.removePartial", {
+      removed: removed.map((s) => s.label).join(", "),
+      failed: failed.map((f) => f.label).join(", "),
+      reason: userFacingReason(failed[0].error),
+    }),
     // Same failure copy as the single-member helper in vaultShare; this path
     // keeps one toast for the whole batch rather than nesting N of them.
     error: (e: Error) =>
       i18n.t("members.error.removeFailed", { name: names, reason: userFacingReason(e) }),
     run: async () => {
-      for (const m of members) await store().removeMember(teamId, m.user_id);
+      const removed: typeof snapshots = [];
+      const failed: { label: string; error: Error }[] = [];
+      for (const s of snapshots) {
+        try {
+          await store().removeMember(teamId, s.user_id);
+          removed.push(s);
+        } catch (e) {
+          failed.push({ label: s.label, error: e instanceof Error ? e : new Error(String(e)) });
+        }
+      }
+      if (removed.length === 0) throw failed[0].error;
+      if (failed.length > 0) await store().loadMembers(teamId).catch(() => {});
+      return { removed, failed };
     },
   });
 
   // No undo for leaving: re-adding yourself to a team you left is not a call
   // you are authorised to make.
   if (opts.mode === "remove") {
+    const removedNames = removed.map((s) => s.label).join(", ");
     useHistoryStore.getState().push({
-      label: i18n.t("members.history.remove", { name: names, count }),
+      label: i18n.t("members.history.remove", { name: removedNames, count: removed.length }),
       undo: async () => {
         // An invitation carries one builtin role, applied on accept; anything else would come back as the default.
-        const unrestorable = snapshots.filter((s) => !s.role).map((s) => s.label);
+        const unrestorable = removed.filter((s) => !s.role).map((s) => s.label);
         if (unrestorable.length > 0) {
           throw new Error(i18n.t("members.error.undoRolesNotRestorable", { name: unrestorable.join(", ") }));
         }
-        for (const s of snapshots) if (s.role) await store().addMemberById(teamId, s.user_id, s.role);
+        for (const s of removed) if (s.role) await store().addMemberById(teamId, s.user_id, s.role);
         await store().loadMembers(teamId);
       },
       redo: async () => {
-        for (const s of snapshots) await store().removeMember(teamId, s.user_id);
+        for (const s of removed) await store().removeMember(teamId, s.user_id);
         await store().loadMembers(teamId);
       },
     });

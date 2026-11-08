@@ -200,6 +200,7 @@
       "convertFailed": "Could not turn {{vault}} into a team vault — {{reason}}",
       "serverUnreachable": "the sync server could not be reached",
       "removeFailed": "Couldn't remove {{name}} — {{reason}}",
+      "removePartial": "{{removed}} removed. Couldn't remove {{failed}} — {{reason}}",
       "undoRolesNotRestorable": "Undo can't restore the exact roles of {{name}}. Invite them again and set their roles by hand.",
       "revokeFailed": "Couldn't revoke the invitation for {{name}} — {{reason}}",
       "grantKeyFailed": "Couldn't grant vault access to {{name}} — {{reason}}",
