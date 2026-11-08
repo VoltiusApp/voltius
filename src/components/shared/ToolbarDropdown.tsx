@@ -127,7 +127,7 @@ export function ToolbarDropdown<T extends string>({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("common.placeholder.search")}
-              className="flex-1 text-xs bg-transparent outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
+              className="flex-1 text-xs bg-transparent outline-hidden text-(--t-text-primary)"
             />
             {searchQuery && (
               <button type="button" onClick={() => setSearchQuery("")} className="text-(--t-text-dim) hover:text-(--t-text-primary)">

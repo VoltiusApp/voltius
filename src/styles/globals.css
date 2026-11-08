@@ -539,6 +539,10 @@
     background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 
+  ::placeholder {
+    color: var(--t-text-dim);
+  }
+
   body[data-native-term-selecting] * {
     -webkit-user-select: none;
     user-select: none;

@@ -88,7 +88,7 @@ export function FilterInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? t("common.placeholder.filter")}
-        className="form-input pl-7 pr-3 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary) placeholder:text-(--t-text-dim)"
+        className="form-input pl-7 pr-3 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
         style={{
           width: `${(width / 15).toFixed(3)}rem`,
           minWidth: "4rem",
