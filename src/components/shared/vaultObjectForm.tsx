@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { Folder, FolderFormData } from "@/types";
+import type { Folder, FolderFormData, NewObjectPlacement } from "@/types";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
@@ -47,31 +47,39 @@ export interface VaultObjectFormShell {
  * a team object pins through the personal override, a personal one through the
  * raw flag.
  */
+export function placementIn(folder: Pick<Folder, "id" | "vault_id"> | undefined): NewObjectPlacement | undefined {
+  return folder ? { folderId: folder.id, vaultId: folder.vault_id } : undefined;
+}
+
 export function useVaultObjectFormShell({
   initial,
+  placement,
   folderType,
   objectType,
   pin,
 }: {
   initial?: EditedObject;
+  /** Where a new object starts; ignored when editing. */
+  placement?: NewObjectPlacement;
   folderType: Parameters<typeof folderOptionsFor>[1];
   objectType: PinObjectType;
   pin: (id: string, pinned: boolean | null) => Promise<void>;
 }): VaultObjectFormShell {
   const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
+  const start = initial ? undefined : placement;
+  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? start?.vaultId ?? defaultVaultId);
   const vaultPickerTouched = useRef(false);
-  const isNew = !initial;
+  const followDefaultVault = !initial && !start;
   useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
+    if (followDefaultVault && !vaultPickerTouched.current) {
       setVaultId(defaultVaultId);
     }
-  }, [isNew, defaultVaultId]);
+  }, [followDefaultVault, defaultVaultId]);
 
   const { folders, teamFolders, loadFolders, saveFolder } = useFolderStore();
   const vaultFolders = useVaultScopedItems(vaultId, folders, teamFolders);
   const folderOptions = useMemo(() => folderOptionsFor(vaultFolders, folderType), [vaultFolders, folderType]);
-  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial ? initial.folder_id : start?.folderId);
   useEffect(() => {
     void loadFolders();
   }, [loadFolders]);

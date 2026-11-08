@@ -26,6 +26,8 @@ const h = vi.hoisted(() => ({
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
   hostCardProps: [] as Record<string, unknown>[],
+  formProps: [] as { kind: string; placement?: unknown }[],
+  toolbarProps: {} as Record<string, unknown>,
   navFolders: [] as unknown[],
   folderPath: [] as unknown[],
   ejectTargetFolderId: null as string | null,
@@ -61,7 +63,7 @@ vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
 }));
 
 vi.mock("@/components/shared/SidePanelLayout", () => ({
-  SidePanelLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidePanelLayout: ({ children, panel }: { children: React.ReactNode; panel?: React.ReactNode }) => <div>{children}{panel}</div>,
 }));
 vi.mock("@/components/shared/DragSelectSurface", () => ({
   DragSelectSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -73,12 +75,18 @@ vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => 
 vi.mock("./HostCard", () => ({
   default: (props: Record<string, unknown>) => { h.hostCardProps.push(props); return null; },
 }));
-vi.mock("./HostsToolbar", () => ({ HomeToolbar: () => null }));
+vi.mock("./HostsToolbar", () => ({
+  HomeToolbar: (p: Record<string, unknown>) => { h.toolbarProps = p; return null; },
+}));
 vi.mock("./TeamSessions", () => ({ TeamSessions: () => null }));
 vi.mock("./RemoteDeviceSessions", () => ({ RemoteDeviceSessions: () => null }));
 vi.mock("./SnippetPickerPanel", () => ({ SnippetPickerPanel: () => null }));
-vi.mock("@/components/connections/ConnectionForm", () => ({ default: () => null }));
-vi.mock("@/components/connections/SerialConnectionForm", () => ({ default: () => null }));
+vi.mock("@/components/connections/ConnectionForm", () => ({
+  default: (p: { placement?: unknown }) => { h.formProps.push({ kind: "ssh", placement: p.placement }); return null; },
+}));
+vi.mock("@/components/connections/SerialConnectionForm", () => ({
+  default: (p: { placement?: unknown }) => { h.formProps.push({ kind: "serial", placement: p.placement }); return null; },
+}));
 vi.mock("@/components/shared/ConfirmModal", () => ({
   ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
 }));
@@ -260,6 +268,7 @@ beforeEach(() => {
   h.visibleFolders = [];
   h.folderCardProps = [];
   h.hostCardProps = [];
+  h.formProps = [];
   h.navFolders = [];
   h.folderPath = [];
   h.ejectTargetFolderId = null;
@@ -498,4 +507,49 @@ test("moving or copying a folder to another vault keeps each host's proxy and ot
   expect(h.saveConnection).toHaveBeenCalledWith(
     expect.objectContaining({ ...PER_HOST, folder_id: "new-root", vault_id: "team-1" }),
   );
+});
+
+const lastForm = () => h.formProps[h.formProps.length - 1];
+
+test("a new host started inside a folder is placed in that folder and its vault (#776)", () => {
+  h.connections = [conn("c1")];
+  h.folders = [folder("child", { vault_id: "team-1" })];
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  const { getByText } = render(<HostsPage />);
+
+  act(() => { (getByText("hosts.toolbar.newHost") as HTMLButtonElement).click(); });
+  expect(lastForm()).toEqual({ kind: "ssh", placement: { folderId: "child", vaultId: "team-1" } });
+});
+
+test("a new serial host started inside a folder is placed there too", () => {
+  h.connections = [conn("c1")];
+  h.folders = [folder("child")];
+  h.folderPath = [folder("child")];
+  h.activeFolderId = "child";
+  render(<HostsPage />);
+
+  act(() => { (h.toolbarProps.onCreateSerial as () => void)(); });
+  expect(lastForm()).toEqual({ kind: "serial", placement: { folderId: "child", vaultId: "personal" } });
+});
+
+test("a new host started at the root has no placement", () => {
+  h.connections = [conn("c1")];
+  h.activeFolderId = null;
+  render(<HostsPage />);
+
+  act(() => { (h.toolbarProps.onCreateHost as () => void)(); });
+  expect(lastForm()).toEqual({ kind: "ssh", placement: undefined });
+});
+
+test("a folder in a vault the user cannot add hosts to is not used as the placement", () => {
+  h.connections = [conn("c1")];
+  h.folders = [folder("child", { vault_id: "team-1" })];
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  h.can.mockImplementation((_p: string, vaultId: string) => vaultId !== "team-1");
+  render(<HostsPage />);
+
+  act(() => { (h.toolbarProps.onCreateHost as () => void)(); });
+  expect(lastForm()).toEqual({ kind: "ssh", placement: undefined });
 });

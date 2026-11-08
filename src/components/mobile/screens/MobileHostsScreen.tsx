@@ -16,6 +16,7 @@ import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { scopeItems } from "@/components/mobile/folders/mobileFolderCore";
 import { folderItemCounter } from "@/utils/folderTree";
 import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
+import { placementIn } from "@/components/shared/vaultObjectForm";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
@@ -214,7 +215,7 @@ export default function MobileHostsScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          items={canCreateHost ? [{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit" }); } }] : []}
+          items={canCreateHost ? [{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit", placement: placementIn(openPath[openPath.length - 1]) }); } }] : []}
           onNewFolder={canCreateFolder ? () => setAddMode("new-folder") : undefined}
           onClose={() => setAddMode(null)}
         />

@@ -19,7 +19,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { storeSecret, getSecret } from "@/services/vault";
 import { useUIContributions } from "@/hooks/useUIContributions";
-import type { Connection, ConnectionFormData, Folder, SshKey, Identity } from "@/types";
+import type { Connection, ConnectionFormData, Folder, SshKey, Identity, NewObjectPlacement } from "@/types";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
@@ -52,6 +52,7 @@ import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import HostCard from "./HostCard";
 import ConnectionForm, { type ConnectionFormHandle } from "@/components/connections/ConnectionForm";
 import SerialConnectionForm from "@/components/connections/SerialConnectionForm";
+import { placementIn } from "@/components/shared/vaultObjectForm";
 import { HomeToolbar } from "./HostsToolbar";
 import { TeamSessions } from "./TeamSessions";
 import { RemoteDeviceSessions } from "./RemoteDeviceSessions";
@@ -108,6 +109,7 @@ export default function HostsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showSerialForm, setShowSerialForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [newPlacement, setNewPlacement] = useState<NewObjectPlacement>();
   const editing = editingId ? (connections.find((c) => c.id === editingId) ?? null) : null;
   const isEditingSerial = editing?.connection_type === "serial";
   const [error, setError] = useState<string | null>(null);
@@ -141,8 +143,10 @@ export default function HostsPage() {
     }
   };
 
-  const openNew = (serial = false) => {
+  const openNew = (serial = false, inOpenFolder = true) => {
     hostFormSessionKeyRef.current = `new-${Date.now()}`;
+    const openFolder = inOpenFolder ? folders.find((f) => f.id === activeFolderId) : undefined;
+    setNewPlacement(openFolder && can("EDIT_CONNECTIONS", openFolder.vault_id) ? placementIn(openFolder) : undefined);
     setEditingId(null);
     setShowForm(!serial);
     setShowSerialForm(serial);
@@ -157,7 +161,7 @@ export default function HostsPage() {
   useEffect(() => {
     if (!homePendingAction) return;
     if (homePendingAction.action === "create") {
-      openNew();
+      openNew(false, false);
     } else if (homePendingAction.action === "edit") {
       const conn = connections.find((c) => c.id === homePendingAction.id);
       if (conn) openEdit(conn);
@@ -886,6 +890,20 @@ export default function HostsPage() {
     );
   };
 
+  const closeHostForm = () => { setShowForm(false); setShowSerialForm(false); setEditingId(null); };
+  const hostFormProps = {
+    initial: editing ?? undefined,
+    placement: newPlacement,
+    onSubmit: handleSubmit,
+    onClose: closeHostForm,
+    onDuplicate: editing ? () => handleDuplicate(editing) : undefined,
+    onConnect: editing ? () => void handleConnect(editing) : undefined,
+    onDelete: editing ? () => { deleteConnection(editing.id); closeHostForm(); } : undefined,
+    vaults: editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : [],
+    onMoveToVault: editing ? (vaultId: string) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined,
+    onCopyToVault: editing ? (vaultId: string) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined,
+  };
+
   return (
     <>
     <SidePanelLayout
@@ -916,34 +934,10 @@ export default function HostsPage() {
             />
           )}
           {!showSnippetPicker && showSerialForm && (
-            <SerialConnectionForm
-              ref={serialFormRef}
-              key={`serial-${hostFormSessionKeyRef.current}-${formVersion}`}
-              initial={editing ?? undefined}
-              onSubmit={handleSubmit}
-              onClose={() => { setShowSerialForm(false); setEditingId(null); }}
-              onDuplicate={editing ? () => handleDuplicate(editing) : undefined}
-              onConnect={editing ? () => void handleConnect(editing) : undefined}
-              onDelete={editing ? () => { deleteConnection(editing.id); setShowSerialForm(false); setEditingId(null); } : undefined}
-              vaults={editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : []}
-              onMoveToVault={editing ? (vaultId) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined}
-              onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
-            />
+            <SerialConnectionForm ref={serialFormRef} key={`serial-${hostFormSessionKeyRef.current}-${formVersion}`} {...hostFormProps} />
           )}
           {!showSnippetPicker && showForm && !isEditingSerial && (
-            <ConnectionForm
-              ref={formRef}
-              key={`${hostFormSessionKeyRef.current}-${formVersion}`}
-              initial={editing ?? undefined}
-              onSubmit={handleSubmit}
-              onClose={() => { setShowForm(false); setEditingId(null); }}
-              onDuplicate={editing ? () => handleDuplicate(editing) : undefined}
-              onConnect={editing ? () => void handleConnect(editing) : undefined}
-              onDelete={editing ? () => { deleteConnection(editing.id); setShowForm(false); setEditingId(null); } : undefined}
-              vaults={editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : []}
-              onMoveToVault={editing ? (vaultId) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined}
-              onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
-            />
+            <ConnectionForm ref={formRef} key={`${hostFormSessionKeyRef.current}-${formVersion}`} {...hostFormProps} />
           )}
         </>
       }

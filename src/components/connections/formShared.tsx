@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { Connection } from "@/types";
+import type { Connection, NewObjectPlacement } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
 import type { HostFormSecrets } from "@/services/hostForm";
@@ -23,6 +23,7 @@ import { FormSelect, type FormSelectOption } from "@/components/shared/FormSelec
 
 export interface ConnectionFormProps {
   initial?: Connection;
+  placement?: NewObjectPlacement;
   onSubmit: (
     data: import("@/types").ConnectionFormData,
     secrets: HostFormSecrets,
@@ -43,9 +44,9 @@ export interface ConnectionFormHandle {
 }
 
 /** The connection forms' shell: the shared chrome bound to the connection store. */
-export function useConnectionFormShell(initial?: Connection): VaultObjectFormShell {
+export function useConnectionFormShell(initial?: Connection, placement?: NewObjectPlacement): VaultObjectFormShell {
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  return useVaultObjectFormShell({ initial, folderType: "connection", objectType: "connection", pin: pinConnection });
+  return useVaultObjectFormShell({ initial, placement, folderType: "connection", objectType: "connection", pin: pinConnection });
 }
 
 interface AdvancedDisclosureProps {
