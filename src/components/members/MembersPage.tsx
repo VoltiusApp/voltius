@@ -223,6 +223,22 @@ export default function MembersPage() {
       return [{ localSessionId, connectionName: sessionDisplayName(active), session, atCap }];
     }), [connections, activeSessions, tier]);
 
+  type RoleOp = (teamId: string, userId: string, roleId: string) => Promise<unknown>;
+  const runRoleChange = (
+    targets: TeamMember[], roleId: string, apply: RoleOp, revert: RoleOp,
+    label: string, toast = { pending: label, success: label },
+  ) => {
+    const each = (op: RoleOp) => Promise.all(targets.map((m) => op(teamId!, m.user_id, roleId)));
+    void runTeamAction({ ...toast, run: () => each(apply) }).then(() => {
+      push({
+        label,
+        undo: async () => { await each(revert); reload(); },
+        redo: async () => { await each(apply); reload(); },
+      });
+      reload();
+    }).catch(() => { /* toast already reports the failure */ });
+  };
+
   // Context menu builders
   const buildContextMenuItems = (member: TeamMember): ContextMenuItem[] => {
     const canActOnMember = canActOn(member);
@@ -239,40 +255,28 @@ export default function MembersPage() {
       const assignedRoles = sortedRoles.filter((r) => member.role_ids.includes(r.id));
       const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id) && !(businessLocked && !r.is_builtin));
 
+      const toggleRole = (roleId: string, roleName: string, has: boolean) => {
+        const vars = { role: roleLabel(t, roleName), name: memberLabel(member) };
+        runRoleChange(
+          [member], roleId, has ? removeMemberRole : assignMemberRole, has ? assignMemberRole : removeMemberRole,
+          t(has ? "members.history.removeRole" : "members.history.assignRole", { name: vars.name }),
+          has
+            ? { pending: t("members.toast.removingRoleFrom", vars), success: t("members.toast.roleRemovedFrom", vars) }
+            : { pending: t("members.toast.assigningRoleTo", vars), success: t("members.toast.roleAssignedTo", vars) },
+        );
+      };
+
       const assignedItems: ContextMenuItem[] = assignedRoles.map((r) => ({
         label: roleLabel(t, r.name),
         icon: "lucide:square-check-big",
-        onClick: () => {
-          void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
-            push({
-              label: t("members.history.removeRole", { name: memberLabel(member) }),
-              undo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
-              redo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
-            });
-            reload();
-          });
-        },
+        onClick: () => toggleRole(r.id, r.name, true),
       }));
 
       const unassignedItems: ContextMenuItem[] = unassignedRoles.map((r, i) => ({
         label: roleLabel(t, r.name),
         icon: "lucide:square",
         divider: i === 0 && assignedItems.length > 0,
-        onClick: () => {
-          const name = roleLabel(t, r.name);
-          void runTeamAction({
-            pending: t("members.toast.assigningRoleTo", { role: name, name: memberLabel(member) }),
-            success: t("members.toast.roleAssignedTo", { role: name, name: memberLabel(member) }),
-            run: () => assignMemberRole(teamId!, member.user_id, r.id),
-          }).then(() => {
-            push({
-              label: t("members.history.assignRole", { name: memberLabel(member) }),
-              undo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
-              redo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
-            });
-            reload();
-          }).catch(() => { /* toast already reports the failure */ });
-        },
+        onClick: () => toggleRole(r.id, r.name, false),
       }));
 
       const roleChildren = [...assignedItems, ...unassignedItems];
@@ -346,28 +350,11 @@ export default function MembersPage() {
           .filter((r) => !(businessLocked && !r.is_builtin && !selectedMembers.every((m) => m.role_ids.includes(r.id))))
           .map((r) => ({
           label: roleLabel(t, r.name),
-          onClick: () => {
-            const prevRoleIds = selectedMembers.map((m) => ({ userId: m.user_id, roleIds: [...m.role_ids] }));
-            const label = t("members.history.assignRoleBulk", { count: selectedMembers.length });
-            void runTeamAction({
-              pending: label,
-              success: label,
-              run: () => Promise.all(selectedMembers.map((m) => assignMemberRole(teamId!, m.user_id, r.id))),
-            }).then(() => {
-              push({
-                label,
-                undo: async () => {
-                  await Promise.all(prevRoleIds.map(({ userId }) => removeMemberRole(teamId!, userId, r.id)));
-                  reload();
-                },
-                redo: async () => {
-                  await Promise.all(selectedMembers.map((m) => assignMemberRole(teamId!, m.user_id, r.id)));
-                  reload();
-                },
-              });
-              reload();
-            }).catch(() => { /* toast already reports the failure */ });
-          },
+          onClick: () => runRoleChange(
+            selectedMembers.filter((m) => !m.role_ids.includes(r.id)),
+            r.id, assignMemberRole, removeMemberRole,
+            t("members.history.assignRoleBulk", { count: selectedMembers.length }),
+          ),
         })),
       });
 
@@ -376,30 +363,11 @@ export default function MembersPage() {
         icon: "lucide:shield-off",
         children: sortedBulkRoles.map((r) => ({
           label: roleLabel(t, r.name),
-          onClick: () => {
-            void Promise.all(
-              selectedMembers
-                .filter((m) => m.role_ids.includes(r.id))
-                .map((m) => removeMemberRole(teamId!, m.user_id, r.id))
-            ).then(() => {
-              push({
-                label: t("members.history.removeRoleBulk", { count: selectedMembers.length }),
-                undo: async () => {
-                  await Promise.all(
-                    selectedMembers.filter((m) => m.role_ids.includes(r.id)).map((m) => assignMemberRole(teamId!, m.user_id, r.id))
-                  );
-                  reload();
-                },
-                redo: async () => {
-                  await Promise.all(
-                    selectedMembers.filter((m) => m.role_ids.includes(r.id)).map((m) => removeMemberRole(teamId!, m.user_id, r.id))
-                  );
-                  reload();
-                },
-              });
-              reload();
-            });
-          },
+          onClick: () => runRoleChange(
+            selectedMembers.filter((m) => m.role_ids.includes(r.id)),
+            r.id, removeMemberRole, assignMemberRole,
+            t("members.history.removeRoleBulk", { count: selectedMembers.length }),
+          ),
         })),
       });
     }

@@ -271,16 +271,59 @@ test("cancelling the bulk confirmation removes nobody", async () => {
   expect(h.push).not.toHaveBeenCalled();
 });
 
-test("bulk assign role: assignMemberRole(editor) for both, push assignRoleBulk", async () => {
+test("bulk assign role: assignMemberRole(editor) only for members lacking it, push assignRoleBulk", async () => {
   await renderPage();
   selectU1U2();
   fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.assignRoleBulk::members.roleName.editor"));
 
   await waitFor(() => expect(h.push).toHaveBeenCalled());
-  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
   expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r-ed");
-  expect(h.assignMemberRole).toHaveBeenCalledTimes(2);
+  expect(h.assignMemberRole).toHaveBeenCalledTimes(1);
   expect(h.push).toHaveBeenCalledWith(expect.objectContaining({ label: "members.history.assignRoleBulk" }));
+});
+
+type HistoryEntry = { undo: () => Promise<void>; redo: () => Promise<void> };
+const pushedEntry = () => h.push.mock.calls[0][0] as HistoryEntry;
+
+test("bulk assign role undo keeps the role on members who already had it (#808)", async () => {
+  await renderPage();
+  selectU1U2();
+  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.assignRoleBulk::members.roleName.editor"));
+  await waitFor(() => expect(h.push).toHaveBeenCalled());
+
+  await act(() => pushedEntry().undo());
+  expect(h.removeMemberRole).toHaveBeenCalledWith("t1", "u2", "r-ed");
+  expect(h.removeMemberRole).toHaveBeenCalledTimes(1);
+
+  h.assignMemberRole.mockClear();
+  await act(() => pushedEntry().redo());
+  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u2", "r-ed");
+  expect(h.assignMemberRole).toHaveBeenCalledTimes(1);
+});
+
+test("bulk remove role undo gives the role back only to members who had it", async () => {
+  await renderPage();
+  selectU1U2();
+  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.removeRoleBulk::members.roleName.editor"));
+  await waitFor(() => expect(h.push).toHaveBeenCalled());
+
+  await act(() => pushedEntry().undo());
+  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
+  expect(h.assignMemberRole).toHaveBeenCalledTimes(1);
+
+  h.removeMemberRole.mockClear();
+  await act(() => pushedEntry().redo());
+  expect(h.removeMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed");
+  expect(h.removeMemberRole).toHaveBeenCalledTimes(1);
+});
+
+test("a refused bulk remove role is reported, not left unhandled", async () => {
+  h.removeMemberRole.mockRejectedValue(new Error("forbidden"));
+  await renderPage();
+  selectU1U2();
+  fireEvent.click(screen.getByTestId("bulk-u1::members.contextMenu.removeRoleBulk::members.roleName.editor"));
+  await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+  expect(h.push).not.toHaveBeenCalled();
 });
 
 test("bulk remove role: removeMemberRole only for members who have that role", async () => {
@@ -382,4 +425,12 @@ test("names and handles sort together alphabetically", async () => {
   await renderPage();
   const ids = screen.getAllByTestId(/^card-/).map((c) => c.getAttribute("data-testid"));
   expect(ids).toEqual(["card-u4", "card-u1", "card-u2", "card-u3", "card-me"]);
+});
+
+test("a refused remove from the per-member menu is reported, not left unhandled", async () => {
+  h.removeMemberRole.mockRejectedValue(new Error("forbidden"));
+  await renderPage();
+  fireEvent.click(screen.getByTestId("ctx-u1::members.roles::members.roleName.editor"));
+  await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+  expect(h.push).not.toHaveBeenCalled();
 });
