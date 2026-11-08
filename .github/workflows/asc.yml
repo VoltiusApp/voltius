@@ -1,6 +1,6 @@
 # Reads or updates the App Store Connect record of the iOS app (Voltius SSH,
-# bundle id app.voltius) through the App Store Connect API. Nothing here
-# submits the app for review.
+# bundle id app.voltius) through the App Store Connect API. The release task
+# submits an uploaded build for review, as ios.yml does on each tag.
 name: asc
 
 on:
@@ -15,7 +15,15 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, listing]
+        options: [status, listing, release]
+      version:
+        description: "release only: version to submit (e.g. 0.66.0)"
+        required: false
+        type: string
+      build:
+        description: "release only: build number of that version (e.g. 159.1)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -37,4 +45,12 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-        run: node scripts/asc/${{ inputs.task || 'status' }}.mjs
+          TASK: ${{ inputs.task || 'status' }}
+          VERSION: ${{ inputs.version }}
+          BUILD: ${{ inputs.build }}
+        run: |
+          if [ "$TASK" = release ]; then
+            node scripts/asc/release.mjs --version "$VERSION" --build "$BUILD"
+          else
+            node "scripts/asc/$TASK.mjs"
+          fi
