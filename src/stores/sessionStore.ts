@@ -187,7 +187,7 @@ async function buildSshConnectOptions(
  * the tab the user is working in, so it leaves both the active session and the
  * split view untouched — unless there is no active session to preserve.
  */
-function addSession(set: SessionSetter, session: TerminalSession, options: OpenOptions = {}) {
+export function addSession(set: SessionSetter, session: TerminalSession, options: OpenOptions = {}) {
   const focus = !options.background || useSessionStore.getState().activeSessionId === null;
   set((s) => ({
     sessions: [...s.sessions, session],
@@ -196,27 +196,32 @@ function addSession(set: SessionSetter, session: TerminalSession, options: OpenO
   if (focus) useLayoutStore.getState().setSplitTabActive(false);
 }
 
+export function localSessionDraft(id: string, shell: string | undefined, connectionName = formatLocalShellTitle(shell ?? null)): TerminalSession {
+  return { id, connectionId: "local", connectionName, status: "connecting", type: "local", localShell: shell };
+}
+
+export async function spawnLocalSession(sessionId: string, shell: string | undefined, cwd?: string, shellIntegration?: boolean): Promise<void> {
+  const spawned = await localConnect(sessionId, 80, 24, shell, cwd, shellIntegration);
+  const sess = useSessionStore.getState().sessions.find((x) => x.id === sessionId);
+  if (!sess || sess.localShell === spawned) return;
+  const derivedName = sess.connectionName === formatLocalShellTitle(sess.localShell ?? null);
+  patchSession(useSessionStore.setState as SessionSetter, sessionId, {
+    localShell: spawned,
+    ...(derivedName && { connectionName: formatLocalShellTitle(spawned ?? null) }),
+  });
+}
+
 async function startLocalSession(set: SessionSetter, cwd?: string): Promise<void> {
   const sessionId = crypto.randomUUID();
   const shell = await policyShell(preferredShellSetting.get() ?? undefined);
-  const session: TerminalSession = {
-    id: sessionId,
-    connectionId: "local",
-    connectionName: formatLocalShellTitle(shell ?? null),
-    status: "connecting",
-    type: "local",
-    localShell: shell,
-  };
-  addSession(set, session);
-  const setStatus = (status: "connected" | "error") =>
-    set((s) => ({ sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, status } : sess)) }));
+  addSession(set, localSessionDraft(sessionId, shell));
   try {
-    await localConnect(sessionId, 80, 24, shell, cwd, getToggle("shell-integration"));
-    setStatus("connected");
+    await spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"));
+    patchSession(set, sessionId, { status: "connected" });
     useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
   } catch (err) {
-    setStatus("error");
+    patchSession(set, sessionId, { status: "error" });
     throw err;
   }
 }
@@ -678,24 +683,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   beginLocalSession: (shell, cwd) => {
     const sessionId = crypto.randomUUID();
-    const session: TerminalSession = {
-      id: sessionId,
-      connectionId: "local",
-      connectionName: formatLocalShellTitle(shell ?? null),
-      status: "connecting",
-      type: "local",
-      localShell: shell ?? undefined,
-    };
-    addSession(set as SessionSetter, session);
-    void localConnect(sessionId, 80, 24, shell, cwd, getToggle("shell-integration")).then(() => {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
-    }).catch((err) => {
-      markSessionError(set, sessionId, err);
-    });
+    addSession(set as SessionSetter, localSessionDraft(sessionId, shell));
+    spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"))
+      .then(() => patchSession(set as SessionSetter, sessionId, { status: "connected" }))
+      .catch((err) => markSessionError(set, sessionId, err));
     return sessionId;
   },
 

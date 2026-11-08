@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 vi.mock("@/lib/invoke", () => ({
@@ -13,6 +13,8 @@ import { useLocalShells } from "./useLocalShells";
 import { usePolicyStore } from "@/stores/policyStore";
 
 describe("useLocalShells", () => {
+  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } }));
+
   test("useLocalShells hides shells outside allowed", async () => {
     const { result } = renderHook(() => useLocalShells());
     await waitFor(() => expect(result.current).toHaveLength(2));

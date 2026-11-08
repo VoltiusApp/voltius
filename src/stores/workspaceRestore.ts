@@ -6,11 +6,10 @@ import {
 import { getToggle } from "./toggleSettingsStore";
 import { resolveRemoteSessions } from "./liveSessionManifestCore";
 import { useCrossDeviceSessionsStore } from "./crossDeviceSessionsStore";
-import { useSessionStore } from "./sessionStore";
+import { useSessionStore, spawnLocalSession } from "./sessionStore";
 import { resumeIfStranded } from "./reconnectBackoff";
 import { useLayoutStore, getPaneSessionIds, type SplitTab } from "./layoutStore";
 import { useUIStore } from "./uiStore";
-import { localConnect } from "@/services/local";
 import { isReplaceSyncPending, whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { setRestoreScrollOffset } from "@/hooks/useTerminal";
 import type { SerialConnectParams, TerminalSession } from "@/types";
@@ -131,7 +130,7 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
         resumeIfStranded(s.id, { restore: s.persist });
       } else {
         try {
-          await localConnect(s.id, 80, 24, s.localShell, s.cwd, getToggle("shell-integration"));
+          await spawnLocalSession(s.id, s.localShell, s.cwd, getToggle("shell-integration"));
           markConnected(s.id);
         } catch (err) {
           markError(s.id, err instanceof Error ? err.message : String(err));

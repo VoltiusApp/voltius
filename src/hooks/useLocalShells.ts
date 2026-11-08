@@ -6,7 +6,7 @@ import type { ShellOption } from "@/components/layout/newSessionItems";
 export function useLocalShells(): ShellOption[] {
   const [detected, setDetected] = useState<ShellOption[]>([]);
   useEffect(() => {
-    listLocalShells().then(setDetected).catch(() => {});
+    listLocalShells(true).then(setDetected).catch(() => {});
   }, []);
   usePolicyStore(() => JSON.stringify(shellPolicyEntries() ?? null));
   return allowedShells(detected);

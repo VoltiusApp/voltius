@@ -7,12 +7,21 @@ import type { ShellOption } from "@/components/layout/newSessionItems";
 const SHELL_KEY = "appSettings.terminal.preferredShell";
 
 let shellsMemo: Promise<ShellOption[]> | undefined;
+let shellsPending = false;
 
-export function listLocalShells(): Promise<ShellOption[]> {
-  shellsMemo ??= invoke<ShellOption[]>("local_list_shells").catch((e) => {
-    shellsMemo = undefined;
-    throw e;
-  });
+export function listLocalShells(refresh = false): Promise<ShellOption[]> {
+  if (!shellsMemo || (refresh && !shellsPending)) {
+    shellsPending = true;
+    const fetched = invoke<ShellOption[]>("local_list_shells")
+      .catch((e) => {
+        if (shellsMemo === fetched) shellsMemo = undefined;
+        throw e;
+      })
+      .finally(() => {
+        shellsPending = false;
+      });
+    shellsMemo = fetched;
+  }
   return shellsMemo;
 }
 
@@ -37,13 +46,15 @@ export async function policyShell(requested: string | undefined): Promise<string
   return allowed[0]?.path;
 }
 
-export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<void> {
-  return invoke("local_connect", {
+export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<string | undefined> {
+  const spawned = await policyShell(shell);
+  await invoke("local_connect", {
     sessionId, cols, rows,
-    shell: (await policyShell(shell)) ?? null,
+    shell: spawned ?? null,
     cwd: cwd ?? null,
     shellIntegration: shellIntegration ?? null,
   });
+  return spawned;
 }
 
 /** Acknowledge that the terminal has subscribed to this session's output.

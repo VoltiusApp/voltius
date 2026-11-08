@@ -64,4 +64,19 @@ describe("shell policy", () => {
     await local.listLocalShells();
     expect(invoke.mock.calls.filter(([c]) => c === "local_list_shells").length).toBe(1);
   });
+
+  test("a rejected detection is not memoized", async () => {
+    invoke.mockImplementationOnce(async () => {
+      throw new Error("boom");
+    });
+    await expect(local.listLocalShells()).rejects.toThrow("boom");
+    expect(await local.listLocalShells()).toEqual([bash, zsh]);
+  });
+
+  test("refresh refetches, concurrent calls share one fetch", async () => {
+    await local.listLocalShells();
+    const [a, b] = [local.listLocalShells(true), local.listLocalShells(true)];
+    await Promise.all([a, b]);
+    expect(invoke.mock.calls.filter(([c]) => c === "local_list_shells").length).toBe(2);
+  });
 });
