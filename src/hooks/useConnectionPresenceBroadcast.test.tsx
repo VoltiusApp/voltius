@@ -12,7 +12,7 @@ vi.mock("@/stores/toggleSettingsStore", () => ({
   useToggle: () => [h.enabled.value, () => {}],
 }));
 
-import { useConnectionPresenceBroadcast } from "./useConnectionPresenceBroadcast";
+import { createUsageAnnouncer, useConnectionPresenceBroadcast } from "./useConnectionPresenceBroadcast";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
@@ -180,4 +180,111 @@ test("unmount stops all broadcasting connections", async () => {
 test("primes myUserId from getMyUserId on mount", async () => {
   render(<Harness />);
   await waitFor(() => expect(useConnectionPresenceStore.getState().myUserId).toBe("me"));
+});
+
+const reopenStream = () => act(() => { useConnectionPresenceStore.getState().markStreamOpen(); });
+const twoTeamConnections = () => {
+  useConnectionStore.setState({ connections: [c("c1", "team-1"), c("c2", "team-1")], teamConnections: {} } as never);
+  useSessionStore.setState({
+    sessions: [sess({ connectionId: "c1" }), { id: "s2", connectionId: "c2", type: "ssh", status: "connected", connectionName: "" } as never],
+  } as never);
+};
+
+test("a reopened stream re-announces every connection still in use (#791)", async () => {
+  twoTeamConnections();
+  render(<Harness />);
+  await waitFor(() => expect(startCallsFor("c2")).toBe(1));
+  expect(startCallsFor("c1")).toBe(1);
+
+  reopenStream();
+  await waitFor(() => expect(startCallsFor("c1")).toBe(2));
+  expect(startCallsFor("c2")).toBe(2);
+});
+
+test("an unchanged session list sends nothing more", async () => {
+  twoTeamConnections();
+  render(<Harness />);
+  await waitFor(() => expect(h.notify).toHaveBeenCalledTimes(2));
+
+  act(() => { useSessionStore.setState({ sessions: [...useSessionStore.getState().sessions] } as never); });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(h.notify).toHaveBeenCalledTimes(2);
+});
+
+test("a failed announcement is sent again once the stream reopens, then not repeated", async () => {
+  h.notify.mockRejectedValueOnce(new Error("HTTP 503"));
+  useConnectionStore.setState({ connections: [c("c1", "team-1")], teamConnections: {} } as never);
+  useSessionStore.setState({ sessions: [sess({ connectionId: "c1" })] } as never);
+  render(<Harness />);
+  await waitFor(() => expect(startCallsFor("c1")).toBe(1));
+
+  reopenStream();
+  await waitFor(() => expect(startCallsFor("c1")).toBe(2));
+  act(() => { useSessionStore.setState({ sessions: [...useSessionStore.getState().sessions] } as never); });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(startCallsFor("c1")).toBe(2);
+});
+
+test("a stop the server never got is sent again once the stream reopens", async () => {
+  useConnectionStore.setState({ connections: [c("c1", "team-1")], teamConnections: {} } as never);
+  useSessionStore.setState({ sessions: [sess({ connectionId: "c1" })] } as never);
+  render(<Harness />);
+  await waitFor(() => expect(startCallsFor("c1")).toBe(1));
+
+  h.notify.mockRejectedValueOnce(new Error("net"));
+  act(() => { useSessionStore.setState({ sessions: [] } as never); });
+  await waitFor(() => expect(stopCallsFor("c1")).toBe(1));
+
+  reopenStream();
+  await waitFor(() => expect(stopCallsFor("c1")).toBe(2));
+  expect(startCallsFor("c1")).toBe(1);
+});
+
+test("a reopened stream announces nothing while team presence is off", async () => {
+  h.enabled.value = false;
+  twoTeamConnections();
+  render(<Harness />);
+  reopenStream();
+  await new Promise((r) => setTimeout(r, 0));
+  expect(h.notify).not.toHaveBeenCalled();
+});
+
+test("a failed announcement is retried after a backoff without waiting for the stream", async () => {
+  const sends: [string, boolean][] = [];
+  let fail = true;
+  const notify = vi.fn(async (id: string, inUse: boolean) => {
+    sends.push([id, inUse]);
+    if (fail) throw new Error("HTTP 500");
+  });
+  const timers: { fn: () => void; ms: number }[] = [];
+  const announcer = createUsageAnnouncer(notify, (failures) => failures * 1000, (fn, ms) => { timers.push({ fn, ms }); return () => {}; });
+
+  announcer.reconcile(new Set(["c1"]));
+  await Promise.resolve(); await Promise.resolve();
+  expect(timers.map((t) => t.ms)).toEqual([1000]);
+
+  timers[0].fn();
+  await Promise.resolve(); await Promise.resolve();
+  expect(timers.map((t) => t.ms)).toEqual([1000, 2000]);
+
+  fail = false;
+  timers[1].fn();
+  await Promise.resolve(); await Promise.resolve();
+  expect(sends).toEqual([["c1", true], ["c1", true], ["c1", true]]);
+  expect(timers).toHaveLength(2);
+});
+
+test("a session closed while its start is still in flight is stopped once the start lands", async () => {
+  let land = () => {};
+  const notify = vi.fn((_id: string, inUse: boolean) =>
+    inUse ? new Promise<void>((r) => { land = r; }) : Promise.resolve());
+  const announcer = createUsageAnnouncer(notify);
+
+  announcer.reconcile(new Set(["c1"]));
+  announcer.reconcile(new Set());
+  expect(notify).toHaveBeenCalledTimes(1);
+
+  land();
+  await Promise.resolve(); await Promise.resolve();
+  expect(notify.mock.calls).toEqual([["c1", true], ["c1", false]]);
 });

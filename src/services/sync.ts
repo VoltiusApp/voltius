@@ -1382,6 +1382,7 @@ async function _sseConnect(signal: AbortSignal, hooks: { onOpen: () => void; onD
         import("@/services/connectionPresence"),
         import("@/stores/connectionPresenceStore"),
       ]);
+      useConnectionPresenceStore.getState().markStreamOpen();
       const entries = await fetchCurrentConnectionUsage();
       useConnectionPresenceStore.getState().setSnapshot(entries);
     })().catch(logFailure("connection presence snapshot"));

@@ -4,79 +4,123 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { notifyConnectionUsage } from "@/services/connectionPresence";
+import { sseRetryDelay } from "@/services/syncRetry";
 import { getMyUserId } from "@/services/teamService";
+import type { TerminalSession } from "@/types";
 
-/**
- * Mount once at the app root. Diffs the set of active SSH/serial sessions
- * against the last frame and broadcasts start/stop events for sessions whose
- * underlying connection lives in a team vault (vault_id && vault_id !== "personal").
- *
- * The set of "currently broadcasting" connection_ids is the union across all
- * open sessions for that connection — we only flip on start of the first session
- * and off when the last session for that connection ends.
- */
+type Notify = (connectionId: string, inUse: boolean) => Promise<void>;
+type Schedule = (fn: () => void, ms: number) => () => void;
+
+const scheduleTimeout: Schedule = (fn, ms) => {
+  const t = setTimeout(fn, ms);
+  return () => clearTimeout(t);
+};
+
+export interface UsageAnnouncer {
+  reconcile: (wanted: Set<string>) => void;
+  resync: () => void;
+  dispose: () => void;
+}
+
+export function createUsageAnnouncer(
+  notify: Notify,
+  retryDelay: (failures: number) => number = sseRetryDelay,
+  schedule: Schedule = scheduleTimeout,
+): UsageAnnouncer {
+  let wanted = new Set<string>();
+  // What the server last acknowledged per connection; null = unknown, absent = not in use.
+  const acked = new Map<string, true | null>();
+  const inflight = new Map<string, boolean>();
+  let failures = 0;
+  let cancelRetry: (() => void) | null = null;
+  let disposed = false;
+
+  const pump = () => {
+    if (disposed) return;
+    for (const id of new Set([...wanted, ...acked.keys()])) {
+      const inUse = wanted.has(id);
+      const state = acked.get(id);
+      if (inflight.has(id) || (state !== null && (state === true) === inUse)) continue;
+      inflight.set(id, inUse);
+      notify(id, inUse).then(
+        () => {
+          inflight.delete(id);
+          failures = 0;
+          if (inUse) acked.set(id, true);
+          else acked.delete(id);
+          pump();
+        },
+        () => {
+          inflight.delete(id);
+          acked.set(id, null);
+          failures += 1;
+          if (!disposed && !cancelRetry) {
+            cancelRetry = schedule(() => { cancelRetry = null; pump(); }, retryDelay(failures));
+          }
+        },
+      );
+    }
+  };
+
+  return {
+    reconcile: (next) => { wanted = next; pump(); },
+    resync: () => {
+      for (const id of acked.keys()) acked.set(id, null);
+      cancelRetry?.();
+      cancelRetry = null;
+      failures = 0;
+      pump();
+    },
+    dispose: () => {
+      disposed = true;
+      cancelRetry?.();
+      const live = [...acked.keys(), ...[...inflight].filter(([, inUse]) => inUse).map(([id]) => id)];
+      for (const id of new Set(live)) notify(id, false).catch(() => {});
+      acked.clear();
+    },
+  };
+}
+
+function teamConnectionsInUse(sessions: TerminalSession[]): Set<string> {
+  const { connections, teamConnections } = useConnectionStore.getState();
+  const connById = new Map([...connections, ...Object.values(teamConnections).flat()].map((c) => [c.id, c]));
+  const wanted = new Set<string>();
+  for (const sess of sessions) {
+    if (sess.type !== "ssh" && sess.type !== "serial") continue;
+    if (sess.status !== "connected" && sess.status !== "connecting") continue;
+    const conn = connById.get(sess.connectionId);
+    if (conn?.vault_id && conn.vault_id !== "personal") wanted.add(conn.id);
+  }
+  return wanted;
+}
+
+/** Mount once at the app root: tells teammates which team-vault connections this device has open. */
 export function useConnectionPresenceBroadcast() {
   const sessions = useSessionStore((s) => s.sessions);
   const [enabled] = useToggle("team-presence");
-  const broadcastedRef = useRef<Set<string>>(new Set());
-  const wasEnabledRef = useRef(enabled);
+  const streamEpoch = useConnectionPresenceStore((s) => s.streamEpoch);
+  const announcerRef = useRef<UsageAnnouncer | null>(null);
 
   useEffect(() => {
-    // Look up each session's connection_id (only "ssh"/"serial" sessions
-    // reference a stored connection; local + multiplayer + serial-ephemeral
-    // don't have a synced vault connection).
-    const { connections, teamConnections } = useConnectionStore.getState();
-    const allConnections = [
-      ...connections,
-      ...Object.values(teamConnections).flat(),
-    ];
-    const connById = new Map(allConnections.map((c) => [c.id, c]));
+    const announcer = createUsageAnnouncer(notifyConnectionUsage);
+    announcerRef.current = announcer;
+    return () => {
+      announcer.dispose();
+      announcerRef.current = null;
+    };
+  }, []);
 
-    const wanted = new Set<string>();
-    if (enabled) {
-      for (const sess of sessions) {
-        if (sess.type !== "ssh" && sess.type !== "serial") continue;
-        if (sess.status !== "connected" && sess.status !== "connecting") continue;
-        const conn = connById.get(sess.connectionId);
-        if (!conn) continue;
-        const vid = conn.vault_id;
-        if (!vid || vid === "personal") continue;
-        wanted.add(conn.id);
-      }
-    }
-
-    const broadcasted = broadcastedRef.current;
-    for (const id of wanted) {
-      if (!broadcasted.has(id)) {
-        broadcasted.add(id);
-        notifyConnectionUsage(id, true).catch(() => {});
-      }
-    }
-    for (const id of broadcasted) {
-      if (!wanted.has(id)) {
-        broadcasted.delete(id);
-        notifyConnectionUsage(id, false).catch(() => {});
-      }
-    }
-
-    wasEnabledRef.current = enabled;
+  useEffect(() => {
+    announcerRef.current?.reconcile(enabled ? teamConnectionsInUse(sessions) : new Set());
   }, [sessions, enabled]);
 
-  // Prime the cached current-user ID so per-card hooks can self-exclude synchronously.
+  useEffect(() => {
+    announcerRef.current?.resync();
+  }, [streamEpoch]);
+
   useEffect(() => {
     getMyUserId()
       .then((id) => useConnectionPresenceStore.getState().setMyUserId(id))
       .catch(() => {});
-  }, []);
-
-  // Best-effort: stop everything if the hook unmounts (e.g. app shutting down).
-  useEffect(() => {
-    return () => {
-      const broadcasted = broadcastedRef.current;
-      for (const id of broadcasted) {
-        notifyConnectionUsage(id, false).catch(() => {});
-      }
-      broadcasted.clear();
-    };
   }, []);
 }

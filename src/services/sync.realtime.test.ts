@@ -136,6 +136,20 @@ test("no sync is attempted while the stream cannot open", async () => {
   expect(syncRuns).toBe(0);
 });
 
+test("every stream that opens tells the usage announcer to re-announce", async () => {
+  const { useConnectionPresenceStore } = await import("@/stores/connectionPresenceStore");
+  const before = useConnectionPresenceStore.getState().streamEpoch;
+  h.connect = opensThenDrops;
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+  await vi.dynamicImportSettled();
+  expect(useConnectionPresenceStore.getState().streamEpoch).toBe(before + 1);
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  await vi.dynamicImportSettled();
+  expect(useConnectionPresenceStore.getState().streamEpoch).toBe(before + 2);
+});
+
 test("an opened stream catches up with a sync", async () => {
   h.connect = staysOpen;
 
