@@ -200,6 +200,7 @@
       "convertFailed": "无法将 {{vault}} 转换为团队保险库 — {{reason}}",
       "serverUnreachable": "无法连接到同步服务器",
       "removeFailed": "无法移除 {{name}} — {{reason}}",
+      "removePartial": "已移除 {{removed}}。无法移除 {{failed}} — {{reason}}",
       "undoRolesNotRestorable": "无法准确恢复 {{name}} 的角色。请重新邀请并手动设置角色。",
       "revokeFailed": "无法撤销 {{name}} 的邀请 — {{reason}}",
       "grantKeyFailed": "无法为 {{name}} 授予保险库访问权 — {{reason}}",
