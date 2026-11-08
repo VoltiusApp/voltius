@@ -38,9 +38,12 @@ export function ConnectPrompt({ placeholder, autoFocus, searchFallback }: Props)
 
   const trimmed = address.trim();
   const isJoin = isJoinInput(trimmed);
-  const intent = isJoin ? null : parseQuickConnect(trimmed);
-  const isSearch = !!searchFallback && trimmed !== "" && !isJoin && !intent;
-  const showHint = !searchFallback && trimmed !== "" && !isJoin && !intent;
+  const parsed = isJoin ? null : parseQuickConnect(trimmed);
+  const badPort = parsed?.kind === "invalid-port";
+  const intent = badPort ? null : parsed;
+  const isSearch = !!searchFallback && trimmed !== "" && !isJoin && !parsed;
+  const showHint = !searchFallback && trimmed !== "" && !isJoin && !parsed;
+  const error = joinError || (badPort ? t("omni.quickConnect.portRange") : "");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,7 +71,7 @@ export function ConnectPrompt({ placeholder, autoFocus, searchFallback }: Props)
     }
   };
 
-  const message = joinError || (showHint ? t("home.firstRun.addressHint") : "");
+  const message = error || (showHint ? t("home.firstRun.addressHint") : "");
   const label = isJoin ? t("home.firstRun.join") : isSearch ? t("home.connect.search") : t("common.action.connect");
 
   return (
@@ -81,7 +84,7 @@ export function ConnectPrompt({ placeholder, autoFocus, searchFallback }: Props)
             onChange={(e) => { setAddress(e.target.value); setJoinError(""); }}
             placeholder={placeholder}
             aria-label={t("home.firstRun.addressLabel")}
-            aria-invalid={showHint || !!joinError || undefined}
+            aria-invalid={showHint || !!error || undefined}
             aria-describedby={message ? "connect-prompt-message" : undefined}
             autoFocus={autoFocus}
             spellCheck={false}
@@ -101,8 +104,8 @@ export function ConnectPrompt({ placeholder, autoFocus, searchFallback }: Props)
       </form>
       <p
         id="connect-prompt-message"
-        role={joinError ? "alert" : undefined}
-        className={`text-xs leading-4 mt-2 min-h-4 ${joinError ? "text-(--t-status-error)" : "text-(--t-text-secondary)"}`}
+        role={error ? "alert" : undefined}
+        className={`text-xs leading-4 mt-2 min-h-4 ${error ? "text-(--t-status-error)" : "text-(--t-text-secondary)"}`}
       >
         {message}
       </p>

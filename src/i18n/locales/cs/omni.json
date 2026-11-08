@@ -48,7 +48,9 @@
       "localShellNamed": "Lokální shell ({{shell}})",
       "localShell": "Lokální shell",
       "openLocalTerminal": "Otevřít lokální terminál",
-      "connectToHost": "Připojit k {{host}}"
+      "connectToHost": "Připojit k {{host}}",
+      "invalidPort": "Neplatný port",
+      "portRange": "Port musí být v rozsahu 1–65535"
     },
     "localShellDefault": "Lokální shell",
     "emptyState": {

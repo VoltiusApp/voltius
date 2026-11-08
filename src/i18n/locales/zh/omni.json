@@ -46,7 +46,9 @@
       "localShellNamed": "本地 Shell ({{shell}})",
       "localShell": "本地 Shell",
       "openLocalTerminal": "打开本地终端",
-      "connectToHost": "连接到 {{host}}"
+      "connectToHost": "连接到 {{host}}",
+      "invalidPort": "端口无效",
+      "portRange": "端口范围为 1 到 65535"
     },
     "localShellDefault": "本地 Shell",
     "emptyState": {

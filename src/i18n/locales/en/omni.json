@@ -46,7 +46,9 @@
       "localShellNamed": "Local shell ({{shell}})",
       "localShell": "Local shell",
       "openLocalTerminal": "Open a local terminal",
-      "connectToHost": "Connect to {{host}}"
+      "connectToHost": "Connect to {{host}}",
+      "invalidPort": "Invalid port",
+      "portRange": "Ports run from 1 to 65535"
     },
     "localShellDefault": "Local shell",
     "emptyState": {

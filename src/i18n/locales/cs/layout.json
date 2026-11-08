@@ -120,10 +120,6 @@
       "sectionLocal": "Lokální",
       "noHostsMatch": "Výrazu „{{query}}“ neodpovídá žádný host",
       "noHostsYet": "Zatím žádné hosty",
-      "connectTo": "Připojit k {{user}}@{{host}}",
-      "portSsh": "Port {{port}} · SSH",
-      "serialConnection": "Sériové připojení",
-      "configurePortBaud": "Nastavit port a rychlost",
       "localShellFallback": "Lokální shell"
     },
     "sidebarAccount": {

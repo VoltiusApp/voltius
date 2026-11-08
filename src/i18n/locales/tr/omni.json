@@ -46,7 +46,9 @@
       "localShellNamed": "Yerel kabuk ({{shell}})",
       "localShell": "Yerel kabuk",
       "openLocalTerminal": "Yerel terminal aç",
-      "connectToHost": "{{host}} sunucusuna bağlan"
+      "connectToHost": "{{host}} sunucusuna bağlan",
+      "invalidPort": "Geçersiz port",
+      "portRange": "Port 1 ile 65535 arasında olmalı"
     },
     "localShellDefault": "Yerel kabuk",
     "emptyState": {

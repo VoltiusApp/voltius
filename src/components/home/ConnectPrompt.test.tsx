@@ -55,3 +55,13 @@ test("without searchFallback other text shows the format hint and cannot submit"
   expect(screen.getByText("home.firstRun.addressHint")).toBeTruthy();
   expect((screen.getByText("common.action.connect") as HTMLButtonElement).disabled).toBe(true);
 });
+
+test.each([true, false])("an invalid port explains the range and connects nowhere (searchFallback=%s)", (searchFallback) => {
+  render(<ConnectPrompt placeholder="p" searchFallback={searchFallback} />);
+  type("ssh -p 70000 admin@host");
+  expect(screen.getByRole("alert").textContent).toBe("omni.quickConnect.portRange");
+  expect((screen.getByText("common.action.connect") as HTMLButtonElement).disabled).toBe(true);
+  submit();
+  expect(calls.quick).not.toHaveBeenCalled();
+  expect(calls.omni).not.toHaveBeenCalled();
+});

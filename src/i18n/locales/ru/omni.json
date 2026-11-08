@@ -48,7 +48,9 @@
       "localShellNamed": "Локальная оболочка ({{shell}})",
       "localShell": "Локальная оболочка",
       "openLocalTerminal": "Открыть локальный терминал",
-      "connectToHost": "Подключиться к {{host}}"
+      "connectToHost": "Подключиться к {{host}}",
+      "invalidPort": "Недопустимый порт",
+      "portRange": "Порт должен быть от 1 до 65535"
     },
     "localShellDefault": "Локальная оболочка",
     "emptyState": {

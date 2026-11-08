@@ -120,10 +120,6 @@
       "sectionLocal": "Local",
       "noHostsMatch": "No hosts match \"{{query}}\"",
       "noHostsYet": "No hosts yet",
-      "connectTo": "Connect to {{user}}@{{host}}",
-      "portSsh": "Port {{port}} · SSH",
-      "serialConnection": "Serial connection",
-      "configurePortBaud": "Configure port & baud",
       "localShellFallback": "Local shell"
     },
     "sidebarAccount": {
