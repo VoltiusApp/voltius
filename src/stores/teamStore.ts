@@ -6,8 +6,12 @@ import { effectivePermissions } from "@/services/permissions";
 import { combineLockPolicies } from "@/services/lockPolicy";
 import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
+
+let loadSeq = 0;
+let appliedSeq = 0;
 
 interface TeamStore {
   teams: Team[];
@@ -105,7 +109,14 @@ export const useTeamStore = create<TeamStore>()(
   loadTeams: async () => {
     set({ loading: true });
     try {
+      const seq = ++loadSeq;
       const fresh = await api.listTeams();
+      // An older request landing last would resurrect a team the newer one already dropped.
+      if (seq < appliedSeq) {
+        set({ loading: false });
+        return;
+      }
+      appliedSeq = seq;
       const prev = get().teams;
       const same =
         prev.length === fresh.length &&
@@ -117,6 +128,7 @@ export const useTeamStore = create<TeamStore>()(
           JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
+      runTeamsLoadedHook(prev);
       useOrgLockPolicyStore.getState().setPolicy(combineLockPolicies(teams));
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });

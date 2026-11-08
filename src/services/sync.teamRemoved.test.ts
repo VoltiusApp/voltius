@@ -5,6 +5,8 @@ const h = vi.hoisted(() => {
   const deleted: string[] = [];
   return {
     deleted,
+    listed: [] as { id: string; name: string }[],
+    members: new Set<string>(),
     purge: vi.fn(async (keys: string[]) => {
       deleted.push(...keys);
       return keys;
@@ -24,7 +26,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 // empty list is what "you were removed from t1" looks like on the wire.
 vi.mock("@/services/teamService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/teamService")>()),
-  listTeams: vi.fn(async () => []),
+  listTeams: vi.fn(async () => h.listed),
+  isStillMember: vi.fn(async (teamId: string) => h.members.has(teamId)),
 }));
 
 vi.mock("@/services/teamDataManager", () => ({
@@ -34,7 +37,7 @@ vi.mock("@/services/teamDataManager", () => ({
 }));
 
 import { clearTeamStoresAndSecrets } from "./teamVaultSync";
-import { handleRealtimeEvent } from "./sync";
+import { handleRealtimeEvent, offboardingSettled } from "./sync";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { usePendingTeamSecretUploadStore } from "@/stores/pendingTeamSecretUploadStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -42,7 +45,10 @@ import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
 
-beforeEach(() => {
+beforeEach(async () => {
+  await offboardingSettled();
+  h.listed = [];
+  h.members.clear();
   h.deleted.length = 0;
   h.purge.mockClear();
   teamSecretCache.clearAll();
@@ -133,4 +139,34 @@ test("removal from a team drops its pending uploads and purges their local copie
 
   await vi.waitFor(() => expect(h.deleted).toContain("password:c1"));
   expect(usePendingTeamSecretUploadStore.getState().keysByTeamId).toEqual({ t2: ["password:c2"] });
+});
+
+test("any team list refresh offboards a team it no longer shows (#790)", async () => {
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] } as never] });
+  seedTeamObjects();
+
+  await useTeamStore.getState().loadTeams();
+
+  await vi.waitFor(() => expect(h.deleted).toContain("password:c1"));
+  expect(useConnectionStore.getState().teamConnections.t1 ?? []).toEqual([]);
+});
+
+test("data held for a team that is no longer listed is offboarded too", async () => {
+  seedTeamObjects();
+
+  await useTeamStore.getState().loadTeams();
+
+  await vi.waitFor(() => expect(h.deleted).toContain("password:c1"));
+});
+
+test("a list that omits a team the server still confirms keeps its secrets", async () => {
+  h.members.add("t1");
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] } as never] });
+  seedTeamObjects();
+
+  await useTeamStore.getState().loadTeams();
+  await new Promise((r) => setTimeout(r, 50));
+
+  expect(h.deleted).toEqual([]);
+  expect(useConnectionStore.getState().teamConnections.t1).toHaveLength(1);
 });

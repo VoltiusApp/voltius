@@ -791,7 +791,7 @@ export async function drainPendingSecretWipes(): Promise<void> {
  * Empties the team's store slices and purges its secrets from the local store,
  * except keys still waiting to upload. Returns the keys that survived the purge.
  */
-export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[]> {
+async function teamObjectStores() {
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
   const { useKeyStore } = await import("@/stores/keyStore");
@@ -799,6 +799,33 @@ export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[
   const { useSnippetStore } = await import("@/stores/snippetStore");
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
+  return { useConnectionStore, useIdentityStore, useKeyStore, useFolderStore, useSnippetStore, useSnippetFolderStore, usePortForwardingStore };
+}
+
+/** Teams this device still holds a vault key or objects for. */
+export async function teamIdsWithLocalData(): Promise<Set<string>> {
+  const s = await teamObjectStores();
+  const maps: Record<string, unknown[]>[] = [
+    s.useConnectionStore.getState().teamConnections,
+    s.useIdentityStore.getState().teamIdentities,
+    s.useKeyStore.getState().teamKeys,
+    s.useFolderStore.getState().teamFolders,
+    s.useSnippetStore.getState().teamSnippets,
+    s.useSnippetFolderStore.getState().teamSnippetFolders,
+    s.usePortForwardingStore.getState().teamRules,
+  ];
+  const ids = new Set(_teamKeyCache.keys());
+  for (const map of maps) {
+    for (const [teamId, items] of Object.entries(map)) if (items.length > 0) ids.add(teamId);
+  }
+  return ids;
+}
+
+export async function clearTeamStoresAndSecrets(teamId: string): Promise<string[]> {
+  const {
+    useConnectionStore, useIdentityStore, useKeyStore, useFolderStore,
+    useSnippetStore, useSnippetFolderStore, usePortForwardingStore,
+  } = await teamObjectStores();
 
   const { usePendingTeamSecretUploadStore } = await import("@/stores/pendingTeamSecretUploadStore");
   const pendingUploads = new Set(usePendingTeamSecretUploadStore.getState().keysByTeamId[teamId] ?? []);

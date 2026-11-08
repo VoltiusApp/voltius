@@ -22,6 +22,14 @@ vi.mock("@/stores/teamStore", () => ({
       addMemberById: h.addMemberById,
       assignMemberRole: h.assignMemberRole,
       loadMembers: h.loadMembers,
+      rolesByTeam: {
+        t1: [
+          { id: "r1", name: "member", is_builtin: true },
+          { id: "r2", name: "connect-only", is_builtin: true },
+          { id: "r3", name: "Auditors", is_builtin: false },
+          { id: "r4", name: "owner", is_builtin: true },
+        ],
+      },
     }),
   },
 }));
@@ -31,14 +39,14 @@ vi.mock("@/stores/historyStore", () => ({
 
 import { departMembers, departConsequences, markSelfDeparture, selfDeparture } from "./teamOffboarding";
 
-const member = (id: string): TeamMember => ({
+const member = (id: string, role_ids = ["r1"]): TeamMember => ({
   team_id: "t1",
   user_id: id,
   handle: `user-${id}`,
   invited_by_display_name: null,
   joined_at: "2024-01-01",
   public_key: "",
-  role_ids: ["r1"],
+  role_ids,
 });
 
 beforeEach(() => {
@@ -63,15 +71,27 @@ test("pushes exactly one undo entry for a bulk removal", async () => {
   expect(h.push).toHaveBeenCalledTimes(1);
 });
 
-test("undo restores every member and their roles", async () => {
-  await departMembers("t1", [member("a"), member("b")], { mode: "remove" });
+test("undo re-invites every member with the role they had", async () => {
+  await departMembers("t1", [member("a"), member("b", ["r2"])], { mode: "remove" });
 
   await h.push.mock.calls[0][0].undo();
 
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "a");
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "b");
-  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "a", "r1");
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "a", "member");
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "b", "connect-only");
+  expect(h.assignMemberRole).not.toHaveBeenCalled();
   expect(h.loadMembers).toHaveBeenCalledWith("t1");
+});
+
+test.each([
+  ["several roles", ["r1", "r2"]],
+  ["a custom role", ["r3"]],
+  ["no role", []],
+  ["the owner role", ["r4"]],
+])("undo refuses, and re-invites nobody, when a member held %s (#785)", async (_label, roleIds) => {
+  await departMembers("t1", [member("a"), member("b", roleIds)], { mode: "remove" });
+
+  await expect(h.push.mock.calls[0][0].undo()).rejects.toThrow("members.error.undoRolesNotRestorable");
+  expect(h.addMemberById).not.toHaveBeenCalled();
 });
 
 test("leaving pushes no undo entry", async () => {

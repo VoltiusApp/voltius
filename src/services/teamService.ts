@@ -104,12 +104,24 @@ export async function listTeams(): Promise<Team[]> {
   return res.json();
 }
 
-export async function listMembers(teamId: string): Promise<TeamMember[]> {
+async function fetchMembers(teamId: string): Promise<Response> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`);
+  return fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`);
+}
+
+export async function listMembers(teamId: string): Promise<TeamMember[]> {
+  const res = await fetchMembers(teamId);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToListMembers", { status: res.status }));
   return res.json();
+}
+
+/** False only when the server confirms the caller is off the team; throws when it can't tell. */
+export async function isStillMember(teamId: string): Promise<boolean> {
+  const res = await fetchMembers(teamId);
+  if (res.status === 403 || res.status === 404) return false;
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListMembers", { status: res.status }));
+  return true;
 }
 
 /**
