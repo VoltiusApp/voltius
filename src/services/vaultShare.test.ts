@@ -33,7 +33,7 @@ beforeEach(() => {
 test("the chosen role travels with the invitation", async () => {
   h.addMemberById.mockResolvedValue({ status: "pending" });
   await inviteUserById({ teamId: "t1", userId: "u1", handle: "bob-builder", roleName: "editor", roleId: "r-editor" });
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "editor", undefined);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "editor", undefined, undefined);
 });
 
 test("a pending invitee never gets a role assignment", async () => {
@@ -58,7 +58,7 @@ test("failures propagate instead of being swallowed", async () => {
 test("email invites carry the role too", async () => {
   h.inviteByEmail.mockResolvedValue({ status: "invited" });
   await inviteByEmailAddress({ teamId: "t1", email: "dave@example.com", roleName: "connect-only" });
-  expect(h.inviteByEmail).toHaveBeenCalledWith("t1", "dave@example.com", "connect-only", undefined);
+  expect(h.inviteByEmail).toHaveBeenCalledWith("t1", "dave@example.com", "connect-only", undefined, undefined);
 });
 
 test("an email invite the server could not send warns instead of claiming it was sent", async () => {
@@ -86,15 +86,28 @@ const ROLES: TeamRole[] = [
   { id: "r-mem", team_id: "t1", name: "member", is_builtin: true, permissions: 0, position: 1, created_at: "" },
   { id: "r-editor", team_id: "t1", name: "editor", is_builtin: true, permissions: 0, position: 2, created_at: "" },
   { id: "r-connect", team_id: "t1", name: "connect-only", is_builtin: true, permissions: 0, position: 3, created_at: "" },
+  { id: "r-dba", team_id: "t1", name: "dba", is_builtin: false, permissions: 0, position: 4, created_at: "" },
 ];
 
 const withRoles = (roleIds: string[]) =>
   inviteUserWithRoles({ teamId: "t1", userId: "u1", handle: "bob-builder", roleIds, roles: ROLES });
 
-test("the first chosen role travels with the invitation", async () => {
+test("every chosen role travels with the invitation, named by the first builtin one (#779)", async () => {
   h.addMemberById.mockResolvedValue({ status: "pending" });
-  await withRoles(["r-editor", "r-mem"]);
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "editor", undefined);
+  await withRoles(["r-dba", "r-editor", "r-mem"]);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "editor", undefined, ["r-dba", "r-editor", "r-mem"]);
+});
+
+test("custom roles alone are named by the least-privileged builtin role for older servers", async () => {
+  h.addMemberById.mockResolvedValue({ status: "pending" });
+  await withRoles(["r-dba"]);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined, ["r-dba"]);
+});
+
+test("email invites carry every chosen role id", async () => {
+  h.inviteByEmail.mockResolvedValue({ status: "invited" });
+  await inviteByEmailAddress({ teamId: "t1", email: "dave@example.com", roleName: "editor", roleIds: ["r-dba", "r-editor"] });
+  expect(h.inviteByEmail).toHaveBeenCalledWith("t1", "dave@example.com", "editor", undefined, ["r-dba", "r-editor"]);
 });
 
 test("a pending invitee gets no role assignment, however many roles were ticked", async () => {
@@ -114,18 +127,18 @@ test("an already-member gets every ticked role, the first one included", async (
 test("no role ticked falls back to the least-privileged role, never member", async () => {
   h.addMemberById.mockResolvedValue({ status: "pending" });
   await withRoles([]);
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined, []);
 });
 
 test("an unknown role id is not treated as a choice", async () => {
   h.addMemberById.mockResolvedValue({ status: "pending" });
   await withRoles(["r-gone"]);
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined, []);
 });
 
 test("with no assignable role at all, nothing is assigned after an already_member result", async () => {
   h.addMemberById.mockResolvedValue({ status: "already_member" });
   await inviteUserWithRoles({ teamId: "t1", userId: "u1", handle: "bob-builder", roleIds: [], roles: [] });
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u1", "connect-only", undefined, []);
   expect(h.assignMemberRole).not.toHaveBeenCalled();
 });

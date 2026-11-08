@@ -13,7 +13,8 @@ import { RoleToggleChip } from "@/components/members/roleChips";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, emailNotSentWarning } from "@/services/vaultShare";
-import { assignableRoles, leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
+import { assignableRoles, invitationRoleName } from "@/components/vault-share/vaultShareModel";
+import { useBusinessLock } from "@/hooks/useBusinessLock";
 
 export function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -55,7 +56,11 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
 
   const nameToSend = canNameMembers ? memberName.trim() || undefined : undefined;
 
-  const builtinRoles = useMemo(() => assignableRoles(teamRoles), [teamRoles]);
+  const { locked: businessLocked } = useBusinessLock(teamId);
+  const builtinRoles = useMemo(
+    () => assignableRoles(teamRoles).filter((r) => r.is_builtin || !businessLocked),
+    [teamRoles, businessLocked],
+  );
   const defaultMemberRoleId = useMemo(
     () => builtinRoles.find((r) => r.is_builtin && r.name === "member")?.id,
     [builtinRoles],
@@ -72,13 +77,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
       prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId],
     );
   const hasRoleSelected = selectedRoleIds.length > 0;
-  // Never relied on by the UI (the invite actions are disabled without a selection) —
-  // a pure safety net so no future caller can end up granting "member" by accident.
-  const fallbackRoleName = useMemo(() => leastPrivilegedRole(teamRoles)?.name ?? "connect-only", [teamRoles]);
-  const primaryRoleName = useMemo(
-    () => builtinRoles.find((r) => selectedRoleIds.includes(r.id))?.name ?? fallbackRoleName,
-    [selectedRoleIds, builtinRoles, fallbackRoleName],
-  );
+  const primaryRoleName = useMemo(() => invitationRoleName(teamRoles, selectedRoleIds), [teamRoles, selectedRoleIds]);
   const selectedRoleLabel = useMemo(() => {
     const names = selectedRoleIds
       .map((id) => builtinRoles.find((r) => r.id === id)?.name)
@@ -126,7 +125,9 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     setSendingInvite(true); setError(""); setSuccess(null);
     try {
       const invitedEmail = query;
-      const result = await inviteByEmailAddress({ teamId, email: invitedEmail, roleName: primaryRoleName, memberName: nameToSend });
+      const result = await inviteByEmailAddress({
+        teamId, email: invitedEmail, roleName: primaryRoleName, roleIds: selectedRoleIds, memberName: nameToSend,
+      });
       reset();
       setMemberName("");
       const warning = emailNotSentWarning(result, invitedEmail);
@@ -156,6 +157,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
           teamId={teamId}
           pendingUser={buySeatsFor ?? null}
           pendingRole={primaryRoleName}
+          pendingRoleIds={selectedRoleIds}
           pendingName={nameToSend}
           onClose={() => setBuySeatsFor(undefined)}
           onSuccess={async () => {

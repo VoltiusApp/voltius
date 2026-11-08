@@ -6,6 +6,7 @@ import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ROLE_META, roleLabel } from "@/components/members/roleChips";
+import { RoleChip } from "@/components/members/roleBadges";
 import { useTeamStore } from "@/stores/teamStore";
 import { inviterLabel } from "@/services/memberLabel";
 import { formatDate, MONTH_DAY } from "@/utils/localeFormat";
@@ -48,15 +49,18 @@ export function PendingInviteCard({
       // Upserts the existing row and pushes expires_at out another seven days
       // (server teams.rs), so resending needs no dedicated endpoint.
       // inviteByEmailAddress runs its own toast — do not wrap it in another.
-      await inviteByEmailAddress({ teamId, email: inv.display_name, roleName: inv.role });
+      await inviteByEmailAddress({ teamId, email: inv.display_name, roleName: inv.role, roleIds: inv.role_ids });
       onResent?.();
     } catch { /* toast already reports the failure */ }
     finally { setResending(false); }
   };
 
-  const matchedRole = roles.find((r) => r.name === inv.role);
+  const invitedRoles = (inv.role_ids?.length ? inv.role_ids : [])
+    .map((id) => roles.find((r) => r.id === id))
+    .filter((r): r is TeamRole => !!r)
+    .sort((a, b) => a.position - b.position);
   const meta = ROLE_META[inv.role] ?? ROLE_META.member;
-  const chipColor = matchedRole?.color ?? meta.color;
+  const chipColor = roles.find((r) => r.name === inv.role)?.color ?? meta.color;
   const chipBg = meta.bg ?? `${chipColor}1a`;
 
   // The badge already says "Expired", so this line carries the date instead of
@@ -88,9 +92,13 @@ export function PendingInviteCard({
       >
         {isExpired ? t("members.invite.expired") : t("members.pendingBadge")}
       </span>
-      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ color: chipColor, background: chipBg }}>
-        {roleLabel(t, inv.role)}
-      </span>
+      {invitedRoles.length > 0
+        ? <div className="flex flex-wrap justify-end gap-1">{invitedRoles.map((r) => <RoleChip key={r.id} role={r} />)}</div>
+        : (
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ color: chipColor, background: chipBg }}>
+            {roleLabel(t, inv.role)}
+          </span>
+        )}
 
       <button
         title={t("members.invite.resendTitle")}
