@@ -2,7 +2,10 @@ import { describe, expect, test } from "vitest";
 import type { Terminal } from "@xterm/xterm";
 import type { AppTheme } from "@/themes/types";
 import { BUILT_IN_THEMES } from "@/themes/presets";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import {
+  subscribeTerminalCursor,
   applyTerminalTheme,
   clampTerminalLineHeight,
   DEFAULT_TERMINAL_LINE_HEIGHT,
@@ -54,5 +57,20 @@ describe("applyTerminalTheme", () => {
     expect(fits()).toBe(1);
     applyTerminalTheme(term, fit as never, themeWith(1.8));
     expect(fits()).toBe(2);
+  });
+});
+
+describe("subscribeTerminalCursor", () => {
+  test("cursor style lock reaches a live terminal", () => {
+    const { term } = fakeTerminal();
+    useTerminalSettingsStore.setState({ cursorStyle: "bar" });
+    const stop = subscribeTerminalCursor(() => term);
+    usePolicyStore.setState({
+      machine: { policy: { "appSettings.terminal.cursorStyle": "block" }, defaults: {} },
+      server: { policy: {}, defaults: {} },
+    });
+    expect(term.options.cursorStyle).toBe("block");
+    stop();
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   });
 });

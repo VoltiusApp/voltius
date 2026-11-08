@@ -2,9 +2,10 @@ import type { Terminal } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { AppTheme } from "@/themes/types";
 import { terminalFontStack } from "@/utils/fontStack";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { cursorStyleSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useUIStore } from "@/stores/uiStore";
 
 export const MIN_TERMINAL_LINE_HEIGHT = 1;
@@ -51,16 +52,17 @@ export function subscribeTerminalTheme(
  *  The two call sites reach their terminal differently (cache lookup vs ref),
  *  hence the getter. */
 export function subscribeTerminalCursor(getTerm: () => Terminal | null | undefined): () => void {
-  const unsubStyle = useTerminalSettingsStore.subscribe((s) => {
+  const applyStyle = () => {
     const term = getTerm();
-    if (term) term.options.cursorStyle = s.cursorStyle;
-  });
+    if (term) term.options.cursorStyle = cursorStyleSetting.get();
+  };
+  const unsubStyle = [useTerminalSettingsStore.subscribe(applyStyle), usePolicyStore.subscribe(applyStyle)];
   const unsubBlink = useToggleSettingsStore.subscribe(() => {
     const term = getTerm();
     if (term) term.options.cursorBlink = getToggle("cursor-blink");
   });
   return () => {
-    unsubStyle();
+    unsubStyle.forEach((off) => off());
     unsubBlink();
   };
 }

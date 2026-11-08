@@ -102,10 +102,11 @@ export function useGlobalKeepalivePreset(): [KeepalivePreset, (p: KeepalivePrese
   return useConnectivitySetting("keepalivePreset", (s) => s.setKeepalivePreset);
 }
 
+export const getGlobalDetachedTtlHours = (): DetachedTtlHours =>
+  effective("detachedTtlHours", useConnectivitySettingsStore.getState().detachedTtlHours);
+
 export function resolveDetachedTtlSecs(): number | null {
-  return getToggle("detached-session-ttl")
-    ? effective("detachedTtlHours", useConnectivitySettingsStore.getState().detachedTtlHours) * 3600
-    : null;
+  return getToggle("detached-session-ttl") ? getGlobalDetachedTtlHours() * 3600 : null;
 }
 
 export function useDetachedTtlHours(): [DetachedTtlHours, (h: DetachedTtlHours) => void] {

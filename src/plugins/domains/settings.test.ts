@@ -125,6 +125,21 @@ describe("domaine settings", () => {
       expect(getSetting("toggles.scroll-minimap")!.value).toBe(false);
     });
 
+    test("plugin api reports cursorStyle as locked and refuses the write", () => {
+      useTerminalSettingsStore.setState({ cursorStyle: "underline" });
+      lock({ "appSettings.terminal.cursorStyle": "block" });
+      expect(getSetting("terminal.cursorStyle")).toMatchObject({ locked: true, writable: false, value: "block" });
+      expect(setSetting("terminal.cursorStyle", "bar").ok).toBe(false);
+      expect(useTerminalSettingsStore.getState().cursorStyle).toBe("underline");
+    });
+
+    test("plugin api may store an out-of-range interval", () => {
+      lock({ "appSettings.sftp.autoRefreshIntervalMs": { $range: { min: 5000 } } });
+      const res = setSetting("sftp.autoRefreshIntervalMs", 2000);
+      expect(res).toMatchObject({ ok: true, result: { requested: 2000, effective: 5000, coerced: true } });
+      expect(getSetting("sftp.autoRefreshIntervalMs")!.value).toBe(5000);
+    });
+
     test("une clé non verrouillée reste écrivable", () => {
       lock({ "appSettings.toggles.scroll-minimap": false });
       expect(getSetting("terminal.scrollbackLines")).toMatchObject({ locked: false, writable: true });

@@ -24,7 +24,7 @@ import { reportAuditClientEvent, type ClientAuditAction } from "@/services/audit
 import { useConnectionStore, connectionToFormData } from "./connectionStore";
 import { findSavedHostMatch } from "./savedHostMatch";
 import { useUIStore } from "./uiStore";
-import { useTerminalSettingsStore } from "./terminalSettingsStore";
+import { preferredShellSetting } from "./terminalSettingsStore";
 import { getToggle, hostToggle } from "./toggleSettingsStore";
 import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
@@ -649,7 +649,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectLocal: async () => {
     const sessionId = crypto.randomUUID();
-    const preferredShell = useTerminalSettingsStore.getState().preferredShell;
+    const preferredShell = preferredShellSetting.get();
     const session: TerminalSession = {
       id: sessionId,
       connectionId: "local",
@@ -680,7 +680,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectLocalAt: async (cwd: string) => {
     const sessionId = crypto.randomUUID();
-    const preferredShell = useTerminalSettingsStore.getState().preferredShell;
+    const preferredShell = preferredShellSetting.get();
     const session: TerminalSession = {
       id: sessionId,
       connectionId: "local",

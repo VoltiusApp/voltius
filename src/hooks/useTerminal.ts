@@ -18,7 +18,7 @@ import { sendSessionInput as sendSessionInputRaw, sendSessionResize } from "@/se
 import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { cursorStyleSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
@@ -752,7 +752,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
-      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
+      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
+      const cursorStyle = cursorStyleSetting.get();
       const term = new Terminal({
         altClickMovesCursor: false,
         // macOS has no Shift bypass for mouse-reporting apps; Alt+click is the only one.

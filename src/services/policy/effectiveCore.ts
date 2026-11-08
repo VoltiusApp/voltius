@@ -1,3 +1,4 @@
+import type { StoreApi, UseBoundStore } from "zustand";
 import { policyKeyDef } from "@/services/policy/policyKeys";
 import {
   adminDefault,
@@ -62,4 +63,12 @@ export function effectiveSettingWith<T>(key: string, stored: T, builtInValue: un
 export function useEffectiveSettingWith<T>(key: string, stored: T, builtInValue: unknown): T {
   usePolicyStore(() => JSON.stringify([lockedValue(key), policyRange(key) ?? null, adminDefault(key) ?? null]));
   return effectiveSettingWith(key, stored, builtInValue);
+}
+
+export function storeSetting<S, K extends keyof S>(store: UseBoundStore<StoreApi<S>>, field: K, key: string) {
+  const builtInValue = () => store.getInitialState()[field];
+  return {
+    get: (): S[K] => effectiveSettingWith(key, store.getState()[field], builtInValue()),
+    use: (): S[K] => useEffectiveSettingWith(key, store((s) => s[field]), builtInValue()),
+  };
 }

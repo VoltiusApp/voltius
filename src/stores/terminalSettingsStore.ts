@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { touchAppSetting } from "./appSettingsTimestampStore";
 import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
+import { writeUnlessLocked } from "./policyStore";
+import { storeSetting } from "@/services/policy/effectiveCore";
 import { DEFAULT_KEYWORD_RULES, sanitizeKeywordRules, type KeywordRule } from "@/utils/keywordMatcher";
 
 export const CURSOR_STYLES = ["bar", "block", "underline"] as const;
@@ -20,7 +22,13 @@ interface TerminalSettingsStore {
 }
 
 // Every setter reports its leaf; the settings registry decides whether it syncs.
-const touchTerminal = (key: keyof TerminalSettingsStore) => touchAppSetting(`appSettings.terminal.${key}`);
+const terminalKey = (key: keyof TerminalSettingsStore) => `appSettings.terminal.${key}`;
+const touchTerminal = (key: keyof TerminalSettingsStore) => touchAppSetting(terminalKey(key));
+const unlessLocked = (key: keyof TerminalSettingsStore, write: () => void) =>
+  writeUnlessLocked(terminalKey(key), () => {
+    write();
+    touchTerminal(key);
+  });
 
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
   persist(
@@ -29,9 +37,9 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
       scrollbackLines: DEFAULT_SCROLLBACK_LINES,
       cursorStyle: DEFAULT_CURSOR_STYLE,
       keywordRules: DEFAULT_KEYWORD_RULES,
-      setPreferredShell: (shell) => { set({ preferredShell: shell }); touchTerminal("preferredShell"); },
+      setPreferredShell: (shell) => unlessLocked("preferredShell", () => set({ preferredShell: shell })),
       setScrollbackLines: (lines) => { set({ scrollbackLines: clampScrollbackLines(lines) }); touchTerminal("scrollbackLines"); },
-      setCursorStyle: (style) => { set({ cursorStyle: style }); touchTerminal("cursorStyle"); },
+      setCursorStyle: (style) => unlessLocked("cursorStyle", () => set({ cursorStyle: style })),
       setKeywordRules: (rules) => { set({ keywordRules: sanitizeKeywordRules(rules) }); touchTerminal("keywordRules"); },
     }),
     {
@@ -46,3 +54,7 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
     },
   ),
 );
+
+export const cursorStyleSetting = storeSetting(useTerminalSettingsStore, "cursorStyle", terminalKey("cursorStyle"));
+export const preferredShellSetting = storeSetting(useTerminalSettingsStore, "preferredShell", terminalKey("preferredShell"));
+export const keywordRulesSetting = storeSetting(useTerminalSettingsStore, "keywordRules", terminalKey("keywordRules"));

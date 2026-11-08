@@ -1,9 +1,10 @@
 import type { IBufferCell, IDecoration, IMarker, ITheme, Terminal } from "@xterm/xterm";
 import type { OutputSpan } from "./commandMarks";
-import { ANSI_SLOTS, compileKeywordRules, type AnsiSlot, type KeywordMatcher, type KeywordRule } from "@/utils/keywordMatcher";
+import { ANSI_SLOTS, compileKeywordRules, type AnsiSlot, type KeywordMatcher } from "@/utils/keywordMatcher";
 import { opaqueHex } from "@/utils/terminalColors";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { keywordRulesSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useThemeStore } from "@/stores/themeStore";
 
 const PAINT_INTERVAL_MS = 50;
@@ -236,21 +237,23 @@ export function createKeywordHighlighter({ term, spans, isVisible }: HighlightTa
 export function attachKeywordHighlighter(target: HighlightTarget): KeywordHighlighter {
   const highlighter = createKeywordHighlighter(target);
   let enabled: boolean | undefined;
-  let rules: KeywordRule[] | undefined;
+  let signature: string | undefined;
 
   const followSettings = () => {
     const nextEnabled = getToggle("keyword-highlight");
-    const nextRules = useTerminalSettingsStore.getState().keywordRules;
-    if (nextEnabled === enabled && nextRules === rules) return;
+    const nextRules = keywordRulesSetting.get();
+    const nextSignature = JSON.stringify(nextRules);
+    if (nextEnabled === enabled && nextSignature === signature) return;
     enabled = nextEnabled;
-    rules = nextRules;
-    highlighter.setMatcher(enabled ? compileKeywordRules(rules) : null);
+    signature = nextSignature;
+    highlighter.setMatcher(enabled ? compileKeywordRules(nextRules) : null);
   };
   followSettings();
 
   const unsubscribe = [
     useToggleSettingsStore.subscribe(followSettings),
     useTerminalSettingsStore.subscribe(followSettings),
+    usePolicyStore.subscribe(followSettings),
     useThemeStore.subscribe(highlighter.refresh),
   ];
   window.addEventListener("theme-preview", highlighter.refresh);

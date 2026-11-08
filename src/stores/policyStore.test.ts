@@ -247,6 +247,8 @@ describe("policyStore", () => {
       expect(clampToRange({ min: 5, max: 10 }, 1)).toBe(5);
       expect(clampToRange({ min: 5, max: 10 }, 99)).toBe(10);
       expect(clampToRange(undefined, 7)).toBe(7);
+      expect(clampToRange({ min: 5 }, 1)).toBe(5);
+      expect(clampToRange({ max: 5 }, 9)).toBe(5);
     });
   });
 });

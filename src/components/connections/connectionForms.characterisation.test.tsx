@@ -98,6 +98,8 @@ vi.mock("@/stores/uiStore", () => ({
 }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ useToggle: () => [false, vi.fn()], toggleKey: (id: string) => `appSettings.toggles.${id}` }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({
+  DETACHED_TTL_HOURS: [1, 6, 12, 24, 72, 168],
+  GLOBAL_PROXY_MODES: ["none", "system", "socks5", "http", "https"],
   useGlobalKeepalivePreset: () => ["balanced", vi.fn()],
   useGlobalProxy: () => [{ mode: "none" }, vi.fn()],
   HOST_PROXY_MODES: ["direct", "system", "socks5", "http", "https"],

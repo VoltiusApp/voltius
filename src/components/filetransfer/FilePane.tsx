@@ -22,7 +22,7 @@ import {
   DEFAULT_VISIBLE_COLS, COLUMN_MIN_WIDTHS, columnGrid, visibleDataColumns,
   formatSize, formatPermissions, formatModified, formatModifiedFull,
 } from "./SFTPTypes";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { autoRefreshIntervalSetting, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { looksLikeImage } from "./editor/tabIcon";
 import { openEditorFile } from "./editor/openEditorFile";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -130,7 +130,7 @@ export function FilePane({
   const resolvedHostLabel = hostLabel ?? t("fileTransfer.common.remoteFallback");
   const readOnlyTip = useReadOnlyTip(readOnly, resolvedHostLabel);
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
-  const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
+  const autoRefreshIntervalMs = autoRefreshIntervalSetting.use();
 
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");

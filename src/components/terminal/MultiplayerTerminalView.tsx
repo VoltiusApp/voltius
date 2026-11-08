@@ -5,7 +5,7 @@ import { claimWebglRenderer } from "@/utils/webglAddon";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
 import { activateTerminal, disposeClosedTerminals, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useThemeStore } from "@/stores/themeStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { cursorStyleSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { attachGuestOutput, useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -36,7 +36,8 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
   }
 
   const activeTheme = useThemeStore.getState().getActiveTheme();
-  const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
+  const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
+  const cursorStyle = cursorStyleSetting.get();
   const term = new Terminal({
     macOptionClickForcesSelection: true,
     cursorBlink: getToggle("cursor-blink"),

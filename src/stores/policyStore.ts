@@ -140,7 +140,7 @@ export const inPolicyRange = (range: PolicyRange | undefined, v: unknown): boole
     (range.allowed === undefined || range.allowed.includes(v)));
 
 export const clampToRange = (range: PolicyRange | undefined, v: number): number =>
-  Math.min(Math.max(v, range?.min ?? v), range?.max ?? v);
+  Math.max(range?.min ?? -Infinity, Math.min(v, range?.max ?? Infinity));
 
 export const isLocked = (key: string): boolean => lockedValue(key).locked;
 

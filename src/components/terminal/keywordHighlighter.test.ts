@@ -7,6 +7,7 @@ import { DEFAULT_KEYWORD_RULES, compileKeywordRules } from "@/utils/keywordMatch
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { usePolicyStore } from "@/stores/policyStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
 
@@ -372,6 +373,17 @@ describe("attachKeywordHighlighter", () => {
     window.dispatchEvent(new CustomEvent("theme-preview"));
     settle();
     expect(live()).toEqual([[0, 0, 5, "#bb0000"]]);
+  });
+
+  it("keyword highlighter colours admin words first", () => {
+    const { live } = attach([{ text: "prod" }]);
+    useTerminalSettingsStore.getState().setKeywordRules([{ id: "u", color: "green", words: ["prod"], enabled: true }]);
+    usePolicyStore.setState({
+      machine: { policy: { "appSettings.terminal.keywordRules": [{ id: "a", color: "red", words: ["prod"], enabled: true }] }, defaults: {} },
+    });
+    settle();
+    expect(live()).toEqual([[0, 0, 4, "#ff0000"]]);
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   });
 
   it("stops following settings once disposed", () => {
