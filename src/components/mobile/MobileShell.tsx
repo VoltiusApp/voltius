@@ -143,7 +143,7 @@ export default function MobileShell() {
     const panel = resolvePanelScreen(screen);
     return (
       <>
-        {screen.kind === "host-edit" && <MobileHostEditScreen hostId={screen.hostId} />}
+        {screen.kind === "host-edit" && <MobileHostEditScreen hostId={screen.hostId} placement={screen.placement} />}
         {screen.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={screen.snippetId} />}
         {screen.kind === "key-edit" && <MobileKeyEditScreen keyId={screen.keyId} mode={screen.mode} />}
         {screen.kind === "identity-edit" && <MobileIdentityEditScreen identityId={screen.identityId} />}

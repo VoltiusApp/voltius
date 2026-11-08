@@ -103,7 +103,7 @@ function splitUserHost(value: string): { user: string; host: string; port?: numb
   return { user: m[1], host: m[2], port: port && port <= 65535 ? port : undefined };
 }
 
-const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, revealErrors, onBlockedChange, onMoveToVault, onCopyToVault, readOnly }, ref) {
+const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, placement, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, revealErrors, onBlockedChange, onMoveToVault, onCopyToVault, readOnly }, ref) {
   const { t } = useTranslation();
   const owned = useManagedOwned(initial?.id);
   const locks = (f: OwnedField) => owned.includes(f);
@@ -162,7 +162,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [distroError, setDistroError] = useState("");
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy || initial?.port_knock?.enabled);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
-  const shell = useConnectionFormShell(initial);
+  const shell = useConnectionFormShell(initial, placement);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
   const userEditedRef = useRef(false);
   const prevVaultIdRef = useRef(vaultId);

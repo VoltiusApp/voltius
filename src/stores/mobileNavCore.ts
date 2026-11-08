@@ -1,4 +1,5 @@
 /** Pure mobile navigation state machine — no React/zustand so it's node-testable. */
+import type { NewObjectPlacement } from "@/types";
 
 export type MobileTab = "hosts" | "terminal" | "snippets" | "sftp" | "more";
 
@@ -8,7 +9,7 @@ export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members
 export type VaultSettingsPage = "share" | "members" | "roles" | "security";
 
 export type MobileScreen =
-  | { kind: "host-edit"; hostId?: string }
+  | { kind: "host-edit"; hostId?: string; placement?: NewObjectPlacement }
   | { kind: "account" }
   | { kind: "snippet-edit"; snippetId?: string }
   | { kind: "key-edit"; keyId?: string; mode?: "import" | "generate" }

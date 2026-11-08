@@ -291,6 +291,25 @@ test.each([
 test.each([
   ["ssh", renderSsh],
   ["serial", renderSerial],
+])("%s form opened inside a team folder starts in that folder and its vault (#776)", (_kind, mount) => {
+  h.teams = [{ id: "team-1" }];
+  mount({ placement: { folderId: "t1", vaultId: "team-1" } });
+  expect(document.querySelector("[data-vault-picker]")?.getAttribute("data-value")).toBe("team-1");
+  expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("t1");
+});
+
+test.each([
+  ["ssh", renderSsh],
+  ["serial", renderSerial],
+])("%s form placement never overrides an existing object's folder", (_kind, mount) => {
+  mount({ initial: conn({ folder_id: "f1" }), placement: { folderId: "t1", vaultId: "team-1" } });
+  expect(document.querySelector("[data-vault-picker]")?.getAttribute("data-value")).toBe("personal");
+  expect(document.querySelector("[data-folder-selector]")?.getAttribute("data-value")).toBe("f1");
+});
+
+test.each([
+  ["ssh", renderSsh],
+  ["serial", renderSerial],
 ])("%s form clears the folder when the vault changes", (_kind, mount) => {
   h.teams = [{ id: "team-1" }];
   mount({ initial: conn({ folder_id: "f1" }) });

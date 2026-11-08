@@ -41,7 +41,7 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
 const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFormProps & EditAccessProps>(function SerialConnectionFormEditor(
-  { initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, readOnly },
+  { initial, placement, onSubmit, onClose, onDuplicate, onConnect, onDelete, readOnly },
   ref,
 ) {
   const { t } = useTranslation();
@@ -76,7 +76,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
-  const shell = useConnectionFormShell(initial);
+  const shell = useConnectionFormShell(initial, placement);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
   const userEditedRef = useRef(false);
 

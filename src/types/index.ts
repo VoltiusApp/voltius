@@ -4,6 +4,12 @@ import type { IdentityPickIssue } from "@/services/credentialPlan";
 
 export type AuthType = "password" | "key";
 
+/** Where a new vault object starts: a folder and the vault that holds it. */
+export interface NewObjectPlacement {
+  folderId: string;
+  vaultId: string;
+}
+
 export interface Folder {
   id: string;
   name: string;
