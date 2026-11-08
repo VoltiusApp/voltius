@@ -80,19 +80,22 @@ vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({
     pendingUser,
     pendingRole,
+    pendingRoleIds,
     onSuccess,
   }: {
     pendingUser: { user_id: string } | null;
     pendingRole: string;
+    pendingRoleIds?: string[];
     onSuccess: () => void;
   }) => (
-    <div data-testid="buy-seats-modal" data-pending-user={pendingUser?.user_id ?? "none"} data-role={pendingRole}>
+    <div data-testid="buy-seats-modal" data-pending-user={pendingUser?.user_id ?? "none"} data-role={pendingRole} data-role-ids={pendingRoleIds?.join(",")}>
       <button data-testid="buy-seats-success" onClick={onSuccess}>ok</button>
     </div>
   ),
 }));
 
 import { InvitePanel } from "./panels/InvitePanel";
+import { useTeamStore } from "@/stores/teamStore";
 
 const teamRoles: TeamRole[] = [
   { id: "r-owner", team_id: "t1", name: "owner", is_builtin: true, permissions: 0, position: 0, created_at: "" },
@@ -351,7 +354,7 @@ test("email invite success (not at limit): inviteByEmailAddress(default role) + 
   fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
 
   await waitFor(() => expect(baseProps.onMemberAdded).toHaveBeenCalled());
-  expect(h.inviteByEmailAddress).toHaveBeenCalledWith({ teamId: "t1", email: "a@b.com", roleName: "member" });
+  expect(h.inviteByEmailAddress).toHaveBeenCalledWith({ teamId: "t1", email: "a@b.com", roleName: "member", roleIds: ["r-mem"] });
   expect(h.reload).toHaveBeenCalled();
 });
 
@@ -467,4 +470,50 @@ test("no role selected: the email-invite action is disabled, clicking does nothi
   expect(emailButton.disabled).toBe(true);
   fireEvent.click(emailButton);
   expect(h.inviteByEmailAddress).not.toHaveBeenCalled();
+});
+
+const withCustomRole: TeamRole[] = [
+  ...teamRoles,
+  { id: "r-dba", team_id: "t1", name: "dba", is_builtin: false, permissions: 0, position: 2, created_at: "" },
+];
+
+test("an email invite sends every ticked role, named by a builtin one (#779)", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([]);
+  h.inviteByEmailAddress.mockResolvedValue({ status: "invited" });
+  render(<InvitePanel {...baseProps} teamRoles={withCustomRole} />);
+
+  fireEvent.click(screen.getByText("dba"));
+  await typeAndDebounce("a@b.com");
+  vi.useRealTimers();
+  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
+
+  await waitFor(() => expect(h.inviteByEmailAddress).toHaveBeenCalled());
+  expect(h.inviteByEmailAddress).toHaveBeenCalledWith(expect.objectContaining({ roleName: "member", roleIds: ["r-mem", "r-dba"] }));
+});
+
+test("buying seats mid-invite keeps every ticked role", async () => {
+  vi.useFakeTimers();
+  h.usedSeats = 3;
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} teamRoles={withCustomRole} />);
+
+  fireEvent.click(screen.getByText("dba"));
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  expect(screen.getByTestId("buy-seats-modal").getAttribute("data-role-ids")).toBe("r-mem,r-dba");
+});
+
+test("a team below Business is not offered custom roles to invite with", async () => {
+  const team = useTeamStore.getState().teams[0] as { owner_tier?: string };
+  team.owner_tier = "teams";
+  try {
+    render(<InvitePanel {...baseProps} teamRoles={withCustomRole} />);
+    expect(screen.queryByText("dba")).toBeNull();
+    expect(screen.getByText("members.roleName.member")).toBeTruthy();
+  } finally {
+    delete team.owner_tier;
+  }
 });

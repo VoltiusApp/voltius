@@ -147,3 +147,21 @@ test("invited by shows the inviter's name from the roster, and the invitation's 
   expect(screen.queryByText(/quiet-otter-1/)).toBeNull();
   useTeamStore.setState({ membersByTeam: {} });
 });
+
+const multiRoles = [
+  { id: "r-mem", team_id: "t1", name: "member", is_builtin: true, permissions: 0, position: 1, created_at: "" },
+  { id: "r-dba", team_id: "t1", name: "dba", is_builtin: false, permissions: 0, position: 4, created_at: "" },
+];
+
+test("an invitation lists every role it carries (#779)", () => {
+  render(<PendingInviteCard {...props} roles={multiRoles} inv={{ ...inv, role_ids: ["r-dba", "r-mem"] }} />);
+  expect(screen.getByText("members.roleName.member")).toBeTruthy();
+  expect(screen.getByText("dba")).toBeTruthy();
+});
+
+test("resending keeps every role of the invitation", async () => {
+  render(<PendingInviteCard {...props} roles={multiRoles} inv={{ ...inv, role_ids: ["r-dba", "r-mem"] }} />);
+  fireEvent.click(screen.getByTitle("members.invite.resendTitle"));
+  await waitFor(() => expect(h.inviteByEmail).toHaveBeenCalled());
+  expect(h.inviteByEmail).toHaveBeenCalledWith(expect.objectContaining({ roleName: "member", roleIds: ["r-dba", "r-mem"] }));
+});

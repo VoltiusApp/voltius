@@ -65,6 +65,14 @@ describe("request shaping", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({ user_id: "u2", role: "editor" });
   });
+  test("addMemberById and inviteByEmail carry every invited role id", async () => {
+    connected();
+    h.appFetch.mockResolvedValue(okJson({ status: "pending" }));
+    await addMemberById("t1", "u2", "editor", undefined, ["r-ed", "r-dba"]);
+    await inviteByEmail("t1", "x@y.z", "editor", undefined, ["r-ed", "r-dba"]);
+    expect(JSON.parse(h.appFetch.mock.calls[0][1].body)).toEqual({ user_id: "u2", role: "editor", role_ids: ["r-ed", "r-dba"] });
+    expect(JSON.parse(h.appFetch.mock.calls[1][1].body)).toEqual({ email: "x@y.z", role: "editor", role_ids: ["r-ed", "r-dba"] });
+  });
   test("assignMemberRole POST body carries role_id + correct URL", async () => {
     connected();
     h.appFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });

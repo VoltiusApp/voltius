@@ -185,12 +185,13 @@ export async function addMemberById(
   userId: string,
   role?: string,
   name?: string,
+  roleIds?: string[],
 ): Promise<{ status: "pending" | "already_member" }> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
     method: "POST",
-    body: JSON.stringify({ user_id: userId, role, name }),
+    body: JSON.stringify({ user_id: userId, role, name, role_ids: roleIds }),
   });
   if (!res.ok) {
     if (res.status === 404) throw new Error(i18n.t("common.error.userNotFound"));
@@ -491,7 +492,9 @@ export interface PendingInvitation {
    * Voltius account yet.
    */
   display_name: string;
+  /** The most senior invited role; `role_ids` (absent from older servers) holds them all. */
   role: string;
+  role_ids?: string[];
   /** The field name is the alias, the value is not: this holds the inviter's handle. */
   invited_by_display_name: string | null;
   member_name?: string | null;
@@ -516,12 +519,13 @@ export async function inviteByEmail(
   email: string,
   role?: string,
   name?: string,
+  roleIds?: string[],
 ): Promise<EmailInviteResult> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/invite`, {
     method: "POST",
-    body: JSON.stringify({ email, role, name }),
+    body: JSON.stringify({ email, role, name, role_ids: roleIds }),
   });
   if (!res.ok) {
     if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });
