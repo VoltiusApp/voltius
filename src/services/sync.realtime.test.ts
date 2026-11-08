@@ -490,3 +490,63 @@ test("a failing settle does not fail the sync", async () => {
   await expect(syncOnLogin()).resolves.toBeUndefined();
   expect(deviceListFetches()).toBe(1);
 });
+
+const serverFails = () => h.appFetch.mockImplementation(async () => new Response("", { status: 500 }));
+
+test("a sync asked for during one that fails is not lost (#780)", async () => {
+  serverFails();
+  const first = syncNow().catch(() => {});
+  void syncInBackground();
+  await vi.advanceTimersByTimeAsync(1_000);
+  await first;
+  expect(getSyncState().status).toBe("error");
+  expect(syncRuns).toBe(1);
+
+  serverAnswers();
+  await vi.advanceTimersByTimeAsync(6_000);
+
+  expect(syncRuns).toBe(2);
+  expect(getSyncState().status).toBe("success");
+});
+
+test("a failed sync is retried at a growing interval until it succeeds", async () => {
+  serverFails();
+  await runSync();
+  expect(syncRuns).toBe(1);
+
+  await vi.advanceTimersByTimeAsync(5_000);
+  expect(syncRuns).toBe(2);
+  await vi.advanceTimersByTimeAsync(9_000);
+  expect(syncRuns).toBe(2);
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(syncRuns).toBe(3);
+
+  serverAnswers();
+  await vi.advanceTimersByTimeAsync(21_000);
+  expect(syncRuns).toBe(4);
+  expect(getSyncState().status).toBe("success");
+
+  await vi.advanceTimersByTimeAsync(600_000);
+  expect(syncRuns).toBe(4);
+});
+
+test("an edit whose upload failed is pushed by the retry", async () => {
+  serverFails();
+  await runSync(true);
+  expect(blobPushes()).toBe(0);
+
+  serverAnswers();
+  await vi.advanceTimersByTimeAsync(6_000);
+
+  expect(blobPushes()).toBe(1);
+});
+
+test("a failed sync is not retried while the device is paused", async () => {
+  serverFails();
+  await runSync();
+  setSyncPaused(true);
+
+  await vi.advanceTimersByTimeAsync(60_000);
+
+  expect(syncRuns).toBe(1);
+});

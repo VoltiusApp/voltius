@@ -93,8 +93,10 @@ let _blobSizeBytes: number | null = null;
 // A local change, or the launch sync, that an unreachable server left undone.
 let _pushOwed = false;
 let _loginSyncOwed = false;
-// Asked for while a sync ran; runs once that sync succeeds.
+// Asked for while a sync ran; runs once that sync succeeds. A failed sync is retried instead.
 let _syncOwed = false;
+let _retryTimer: ReturnType<typeof setTimeout> | null = null;
+let _failedSyncs = 0;
 const _listeners = new Set<() => void>();
 
 export function getSyncState() {
@@ -482,7 +484,7 @@ async function listDevices(): Promise<DeviceInfo[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/devices`, { method: "GET" });
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(i18n.t("common.error.serverError", { status: res.status }));
   const { devices } = await res.json();
   return devices ?? [];
 }
@@ -740,6 +742,7 @@ export async function syncNow(forcePush = false): Promise<void> {
   if (!useSubscriptionStore.getState().isPro) return;
 
   _syncInFlight = true;
+  cancelSyncRetry();
   const mustPush = forcePush || _pushOwed;
   _pushOwed = false;
   let succeeded = false;
@@ -780,6 +783,7 @@ export async function syncNow(forcePush = false): Promise<void> {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
       setState("success");
+      succeeded = true;
       return;
     }
     _pushOwed ||= mustPush;
@@ -791,7 +795,9 @@ export async function syncNow(forcePush = false): Promise<void> {
     _syncInFlight = false;
     const owed = _syncOwed && succeeded;
     _syncOwed = false;
+    _failedSyncs = succeeded ? 0 : _failedSyncs + 1;
     if (owed) syncInBackground().catch(logFailure("sync asked for during the previous one"));
+    if (!succeeded) scheduleSyncRetry();
   }
 }
 
@@ -904,6 +910,20 @@ export function isSyncPaused(): boolean {
 /** The realtime loop is retrying an unreachable server; it runs the owed sync once the stream opens. */
 function awaitingServer(): boolean {
   return _status === "offline" && _sseAbort !== null && _dropStream === null;
+}
+
+function cancelSyncRetry(): void {
+  if (_retryTimer) clearTimeout(_retryTimer);
+  _retryTimer = null;
+}
+
+/** Try a failed sync again later; syncInBackground still defers to the stream while it retries an unreachable server. */
+function scheduleSyncRetry(): void {
+  cancelSyncRetry();
+  _retryTimer = setTimeout(() => {
+    _retryTimer = null;
+    syncInBackground().catch(logFailure("retry after a failed sync"));
+  }, sseRetryDelay(_failedSyncs));
 }
 
 /** A sync nobody asked for: skipped while this device is paused, deferred while the server is unreachable. */
@@ -1025,6 +1045,8 @@ export function startRealtimeSync(): void {
 }
 
 export function stopRealtimeSync(): void {
+  cancelSyncRetry();
+  _failedSyncs = 0;
   _sseAbort?.abort();
   _sseAbort = null;
 }
