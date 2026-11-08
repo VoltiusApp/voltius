@@ -60,6 +60,11 @@ describe("serverAllowed", () => {
     expect(serverAllowed(`${corp}/`)).toBe(true);
     expect(serverAllowed("https://other.example")).toBe(false);
   });
+  it("rejects a look-alike of the locked server", () => {
+    set({ "server.url": "https://api.acme.com", "server.allowOther": false });
+    expect(serverAllowed("http://acme.com")).toBe(false);
+    expect(serverAllowed("https://api.acme.com:8443")).toBe(false);
+  });
   it("always allows local accounts", () => {
     set({ "server.url": corp, "server.allowOther": false });
     expect(serverAllowed(null)).toBe(true);

@@ -1,5 +1,5 @@
 import { adminDefault, lockedBool, lockedString } from "@/stores/policyStore";
-import { DEFAULT_SERVER_URL, instanceLabel, normalizeServerUrl, storedServerUrl } from "@/utils/serverInstance";
+import { DEFAULT_SERVER_URL, normalizeServerUrl, sameServer, storedServerUrl } from "@/utils/serverInstance";
 
 export function policyServerUrl(): string | null {
   const pinned = lockedString("server.url");
@@ -20,5 +20,5 @@ export function resolveServerUrl(input: string): string {
 export function serverAllowed(serverUrl: string | null): boolean {
   const pinned = policyServerUrl();
   if (!serverUrl || !pinned || lockedBool("server.allowOther") !== false) return true;
-  return instanceLabel(serverUrl) === instanceLabel(pinned);
+  return sameServer(serverUrl, pinned);
 }

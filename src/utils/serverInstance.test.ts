@@ -6,6 +6,7 @@ import {
   isDefaultServer,
   normalizeServerUrl,
   rememberServer,
+  sameServer,
   storedServerUrl,
 } from "./serverInstance";
 
@@ -82,5 +83,30 @@ describe("normalizeServerUrl", () => {
   it("drops trailing slashes", () => {
     expect(normalizeServerUrl("https://a.example//")).toBe("https://a.example");
     expect(normalizeServerUrl("https://a.example")).toBe("https://a.example");
+  });
+});
+
+describe("sameServer", () => {
+  const pinned = "https://api.acme.com";
+
+  it("matches the same scheme, host, port and path", () => {
+    expect(sameServer(pinned, "https://API.acme.com/")).toBe(true);
+    expect(sameServer(pinned, "https://api.acme.com:443")).toBe(true);
+    expect(sameServer("https://acme.com/voltius/", "https://acme.com/voltius")).toBe(true);
+  });
+
+  it("rejects a different scheme, host, port or path", () => {
+    expect(sameServer(pinned, "http://acme.com")).toBe(false);
+    expect(sameServer(pinned, "http://api.acme.com")).toBe(false);
+    expect(sameServer(pinned, "https://acme.com")).toBe(false);
+    expect(sameServer(pinned, "https://www.acme.com")).toBe(false);
+    expect(sameServer(pinned, "https://api.acme.com:8443")).toBe(false);
+    expect(sameServer(pinned, "https://api.acme.com/other")).toBe(false);
+  });
+
+  it("never matches a URL it cannot read", () => {
+    expect(sameServer(pinned, "api.acme.com")).toBe(false);
+    expect(sameServer("not a url", "not a url")).toBe(false);
+    expect(sameServer("ftp://api.acme.com", "ftp://api.acme.com")).toBe(false);
   });
 });
