@@ -59,7 +59,7 @@ export function SettingsGroup({ title, divided, className, children }: {
  * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
  * bordered card and stand alone.
  */
-export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, variant = "list", className, children }: {
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, variant = "list", className, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -72,6 +72,8 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   syncKey?: string;
   /** Policy key whose admin lock disables this row's control; defaults to `syncKey`. */
   policyKey?: string;
+  /** Under the control, e.g. the admin's range for this setting. */
+  note?: ReactNode;
   variant?: "list" | "card";
   className?: string;
   children: ReactNode;
@@ -80,7 +82,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   const managed = useRowManaged(policyKey ?? syncKey);
   if (isMobile) {
     return (
-      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey} policyKey={policyKey}>
+      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey} policyKey={policyKey} note={note}>
         {children}
       </MobileSettingRow>
     );
@@ -106,11 +108,14 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
-        {dirty && onReset && !managed.locked && <ResetButton onReset={onReset} />}
-        {dirty && !managed.locked && <DirtyDot />}
-        <RowControl managed={managed}>{children}</RowControl>
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <div className="flex items-center gap-2">
+          {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
+          {dirty && onReset && !managed.locked && <ResetButton onReset={onReset} />}
+          {dirty && !managed.locked && <DirtyDot />}
+          <RowControl managed={managed}>{children}</RowControl>
+        </div>
+        {note}
       </div>
     </div>
   );
@@ -313,7 +318,7 @@ function SyncKeyButtonInner({ path }: { path: string }) {
  * forwards it, see rowTapControl). Reset is a visible text button while the value is
  * off its default; a long-press opens the row's actions (reset, per-setting sync).
  */
-function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, children }: {
+function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -322,6 +327,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
   truncateDesc?: boolean;
   syncKey?: string;
   policyKey?: string;
+  note?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -364,6 +370,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
           </div>
         )}
         {managed.locked && <ManagedNote className="mt-1" />}
+        {note && <div className="mt-1">{note}</div>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <ListRowContext.Provider value={rowContext}>

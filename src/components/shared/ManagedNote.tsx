@@ -1,7 +1,7 @@
 import { Icon } from "@iconify/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
+import { inPolicyRange, usePolicyLock, usePolicyRange, usePolicyRefresh, type PolicyRange } from "@/stores/policyStore";
 import { installLocked } from "@/stores/pluginRegistryStore";
 
 export function ManagedNote({ className = "", children }: { className?: string; children?: ReactNode }) {
@@ -12,6 +12,33 @@ export function ManagedNote({ className = "", children }: { className?: string; 
       {children ?? t("common.policy.managed")}
     </span>
   );
+}
+
+export function RangeNote({ range, format = String, unit = "", className }: {
+  range: PolicyRange;
+  format?: (v: unknown) => string;
+  unit?: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  const show = (v: unknown) => `${format(v)}${unit}`;
+  const { min, max, allowed } = range;
+  const text = allowed
+    ? t("common.policy.rangeAllowed", { values: allowed.map(show).join(", ") })
+    : min !== undefined && max !== undefined
+      ? t("common.policy.rangeBetween", { min: show(min), max: show(max) })
+      : max !== undefined
+        ? t("common.policy.rangeMax", { value: show(max) })
+        : t("common.policy.rangeMin", { value: show(min) });
+  return <ManagedNote className={className}>{text}</ManagedNote>;
+}
+
+export function useRangeSelect<V extends string | number>(key: string, values: readonly V[], label: (v: V) => string) {
+  const range = usePolicyRange(key);
+  return {
+    options: values.map((v) => ({ value: String(v), label: label(v), disabled: !inPolicyRange(range, v) })),
+    note: range && <RangeNote range={range} format={(v) => label(v as V)} />,
+  };
 }
 
 interface ManagedProps {

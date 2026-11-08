@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
@@ -10,7 +10,9 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import TerminalFontSizeSection from "./TerminalFontSizeSection";
-import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { localeSetting, useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
+import { ManagedWhen, useRangeSelect } from "@/components/shared/ManagedNote";
+import { useLocationFields } from "@/hooks/useLocationFields";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { SettingRow, SyncKeyButton } from "./shared";
@@ -30,29 +32,23 @@ function exportTheme(theme: AppTheme) {
   );
 }
 
-const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
+const LOCALE_VALUES = SUPPORTED_LOCALES.map((l) => l.value);
+const localeLabel = (v: Locale) => SUPPORTED_LOCALES.find((l) => l.value === v)!.label;
 
 export default function AppearanceSection() {
   const {
     activeThemeId, customThemes, setTheme, deleteCustomTheme,
     mode, setMode, lightThemeId, setLightThemeId, darkThemeId, setDarkThemeId,
-    scheduleLightStart, scheduleDarkStart, setSchedule, location, setLocation,
+    scheduleLightStart, scheduleDarkStart, setSchedule,
   } = useThemeStore();
-  const [latText, setLatText] = useState(location ? String(location.lat) : "");
-  const [lngText, setLngText] = useState(location ? String(location.lng) : "");
-  useEffect(() => {
-    if (!location) return;
-    if (parse(latText) !== location.lat || parse(lngText) !== location.lng) {
-      setLatText(String(location.lat));
-      setLngText(String(location.lng));
-    }
-  }, [location?.lat, location?.lng]);
+  const loc = useLocationFields();
   const { openThemeCreator, openThemeImportExport } = useUIStore();
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
 
   const { t } = useTranslation();
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = localeSetting.use();
   const setLocale = useLocaleStore((s) => s.setLocale);
+  const localeSelect = useRangeSelect("appSettings.locale", LOCALE_VALUES, localeLabel);
   const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
   const isAndroid = useIsAndroid();
   const isMobile = useIsMobile();
@@ -82,12 +78,12 @@ export default function AppearanceSection() {
         <div className="mt-4">
           <TerminalFontSizeSection />
         </div>
-        <SettingRow variant="card" className="mt-4" syncKey="appSettings.locale" title={t("settings.appearance.language.title")}>
+        <SettingRow variant="card" className="mt-4" syncKey="appSettings.locale" title={t("settings.appearance.language.title")} note={localeSelect.note}>
           <FormSelect
             className="w-44 shrink-0"
             value={locale}
-            options={SUPPORTED_LOCALES}
-            onChange={(value) => setLocale(value as typeof locale)}
+            options={localeSelect.options}
+            onChange={(value) => setLocale(value as Locale)}
           />
         </SettingRow>
         {!(isMobile && MOBILE_HIDDEN_TOGGLES.has("group-tabs-by-host")) && <SettingRow
@@ -111,20 +107,8 @@ export default function AppearanceSection() {
           { value: "schedule", label: t("settings.appearance.automation.modeSchedule") },
           { value: "sunset", label: t("settings.appearance.automation.modeSunset") },
         ];
-        const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
+        const sun = loc.location ? sunTimes(new Date(), loc.location.lat, loc.location.lng) : null;
         const fmt = (d: Date) => formatTime(d, HOUR_MINUTE);
-        const useMyLocation = () => {
-          if (typeof navigator === "undefined" || !navigator.geolocation) return;
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: t("settings.appearance.automation.useMyLocation"), source: "geo" });
-              setLatText(String(pos.coords.latitude));
-              setLngText(String(pos.coords.longitude));
-            },
-            () => {},
-            { enableHighAccuracy: false, timeout: 10000 },
-          );
-        };
         return (
           <div className="mb-6">
             <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-(--t-text-dim)">
@@ -182,22 +166,16 @@ export default function AppearanceSection() {
                 // hover: without it the control is unreachable once opted in.
                 <div className="group flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={useMyLocation} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
-                      <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
-                    </button>
-                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={latText} onChange={(e) => {
-                      setLatText(e.target.value);
-                      const lat = parse(e.target.value);
-                      const lng = parse(lngText);
-                      if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
-                    }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
-                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={lngText} onChange={(e) => {
-                      setLngText(e.target.value);
-                      const lng = parse(e.target.value);
-                      const lat = parse(latText);
-                      if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
-                    }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
-                    <SyncKeyButton path="themes.location" />
+                    {!loc.locked && (
+                      <button onClick={() => loc.locateMe(t("settings.appearance.automation.useMyLocation"))} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
+                        <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
+                      </button>
+                    )}
+                    <ManagedWhen locked={loc.locked}>
+                      <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={loc.latText} onChange={(e) => loc.setLat(e.target.value)} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                      <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={loc.lngText} onChange={(e) => loc.setLng(e.target.value)} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                    </ManagedWhen>
+                    {!loc.locked && <SyncKeyButton path="themes.location" />}
                   </div>
                   <span className="text-xs text-(--t-text-dim)">
                     {sun ? t("settings.appearance.automation.sunToday", { sunrise: fmt(sun.sunrise), sunset: fmt(sun.sunset) }) : t("settings.appearance.automation.locationNeeded")}

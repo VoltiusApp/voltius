@@ -300,6 +300,10 @@
     },
     "policy": {
       "managed": "Managed by your organization",
+      "rangeMax": "Your organization allows up to {{value}}",
+      "rangeMin": "Your organization allows {{value}} or more",
+      "rangeBetween": "Your organization allows {{min}}–{{max}}",
+      "rangeAllowed": "Your organization allows {{values}}",
       "serverBlocked": "This server isn't allowed by your organization",
       "accountNotSaved": "The current account could not be saved first, so nothing was changed",
       "fileError": "Your organization's Voltius policy file couldn't be read, so none of it applies.",

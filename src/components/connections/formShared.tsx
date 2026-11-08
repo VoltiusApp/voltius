@@ -18,6 +18,7 @@ import { HostCommandField } from "./HostCommandField";
 import { LockMark } from "@/components/sshConfig/ManagedHost";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { useIsMobile } from "@/utils/platform";
+import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
 
 export interface ConnectionFormProps {
   initial?: Connection;
@@ -104,24 +105,39 @@ export function SettingRow({
   icon,
   label,
   title,
+  note,
+  locked = false,
   children,
 }: {
   icon: string;
   label: string;
   title?: string;
+  note?: ReactNode;
+  /** An admin lock: the control is disabled and the managed note replaces `note`. */
+  locked?: boolean;
   children: ReactNode;
 }) {
   // Android (mobile edit screens): an M3 list row, its control trailing (ListRowContext)
   // and a tap on the label forwarded to it (rowTapControl, MobileEditScreen).
   const isMobile = useIsMobile();
   const rowContext = useMemo(() => (isMobile ? { label } : null), [isMobile, label]);
-  return (
+  const shownNote = locked ? <ManagedNote /> : note;
+  const row = (
     <div data-setting-row={isMobile ? "" : undefined} data-form-setting-row className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1" title={title}>
       <Icon icon={icon} width={13} />
       <span>{label}</span>
       <ListRowContext.Provider value={rowContext}>
-        <span className="ml-auto">{children}</span>
+        <span className="ml-auto">
+          <ManagedWhen locked={locked} note={false}>{children}</ManagedWhen>
+        </span>
       </ListRowContext.Provider>
+    </div>
+  );
+  if (!shownNote) return row;
+  return (
+    <div>
+      {row}
+      <div className="flex justify-end text-right pb-1">{shownNote}</div>
     </div>
   );
 }

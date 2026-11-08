@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { CURSOR_STYLES, DEFAULT_CURSOR_STYLE, useTerminalSettingsStore, type TerminalCursorStyle } from "@/stores/terminalSettingsStore";
+import { CURSOR_STYLES, DEFAULT_CURSOR_STYLE, cursorStyleSetting, useTerminalSettingsStore, type TerminalCursorStyle } from "@/stores/terminalSettingsStore";
+import { useRangeSelect } from "@/components/shared/ManagedNote";
 import { TOGGLE_DEFS, useToggle, type ToggleId } from "@/stores/toggleSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -36,8 +37,9 @@ export default function TerminalSection() {
   const isAndroid = useIsAndroid();
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
-  const cursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
+  const cursorStyle = cursorStyleSetting.use();
   const setCursorStyle = useTerminalSettingsStore((s) => s.setCursorStyle);
+  const cursorSelect = useRangeSelect("appSettings.terminal.cursorStyle", CURSOR_STYLES, (v) => t(`settings.terminal.cursorStyle.${v}`));
   const [keywordHighlight, setKeywordHighlight] = useToggle("keyword-highlight");
   const keywordRules = useTerminalSettingsStore((s) => s.keywordRules);
   const setKeywordRules = useTerminalSettingsStore((s) => s.setKeywordRules);
@@ -74,13 +76,14 @@ export default function TerminalSection() {
           syncKey="appSettings.terminal.cursorStyle"
           title={t("settings.terminal.cursorStyle.title")}
           desc={t("settings.terminal.cursorStyle.desc")}
+          note={cursorSelect.note}
           dirty={cursorStyle !== DEFAULT_CURSOR_STYLE}
           onReset={() => setCursorStyle(DEFAULT_CURSOR_STYLE)}
         >
           <FormSelect
             className="w-44 shrink-0"
             value={cursorStyle}
-            options={CURSOR_STYLES.map((value) => ({ value, label: t(`settings.terminal.cursorStyle.${value}`) }))}
+            options={cursorSelect.options}
             onChange={(value) => setCursorStyle(value as TerminalCursorStyle)}
           />
         </SettingRow>

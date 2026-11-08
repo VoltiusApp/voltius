@@ -10,6 +10,7 @@ import { useInListRow, useListRowLabel } from "./listRowContext";
 interface Option {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface Props {
@@ -81,6 +82,7 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
             label={opt.label}
             iconSize={15}
             checked={value === opt.value}
+            disabled={opt.disabled}
             onClick={() => { onChange(opt.value); setOpen(false); }}
           />
         ))}

@@ -4,6 +4,7 @@ import TerminalSection from "./TerminalSection";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { DEFAULT_KEYWORD_RULES, MAX_KEYWORD_RULES } from "@/utils/keywordMatcher";
+import { usePolicyStore } from "@/stores/policyStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
@@ -98,5 +99,32 @@ describe("keyword highlighting settings", () => {
     useTerminalSettingsStore.getState().setKeywordRules(DEFAULT_KEYWORD_RULES);
     render(<TerminalSection />);
     expect(within(card()).queryByRole("button", { name: /reset/i })).toBeNull();
+  });
+});
+
+describe("keyword rules under an admin policy", () => {
+  const NONE = { policy: {}, defaults: {} };
+  afterEach(() => usePolicyStore.setState({ machine: NONE, server: NONE }));
+
+  it("admin keyword rules are read-only and listed first", () => {
+    usePolicyStore.setState({
+      machine: {
+        policy: { "appSettings.terminal.keywordRules": [{ id: "warning", color: "red", enabled: true, words: ["corp"] }] },
+        defaults: {},
+      },
+    });
+    render(<TerminalSection />);
+    const admin = screen.getAllByTestId("keyword-rule-admin");
+    expect(admin).toHaveLength(1);
+    expect(within(admin[0]).getByText("corp")).toBeTruthy();
+    expect(within(admin[0]).queryByRole("textbox")).toBeNull();
+    expect(within(admin[0]).queryByLabelText(`${K}.deleteRule`)).toBeNull();
+    expect(within(admin[0]).queryByRole("switch")).toBeNull();
+    expect(admin[0].compareDocumentPosition(rows()[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText("common.policy.managed").length).toBeGreaterThan(0);
+
+    expect(rows()).toHaveLength(3);
+    fireEvent.click(within(rows()[1]).getByLabelText(`${K}.deleteRule`));
+    expect(rules().map((r) => r.id)).toEqual(["error", "success"]);
   });
 });

@@ -314,6 +314,10 @@
     },
     "policy": {
       "managed": "Géré par votre organisation",
+      "rangeMax": "Votre organisation autorise jusqu'à {{value}}",
+      "rangeMin": "Votre organisation autorise {{value}} ou plus",
+      "rangeBetween": "Votre organisation autorise de {{min}} à {{max}}",
+      "rangeAllowed": "Votre organisation autorise : {{values}}",
       "serverBlocked": "Ce serveur n'est pas autorisé par votre organisation",
       "accountNotSaved": "Le compte actuel n'a pas pu être enregistré au préalable ; rien n'a été modifié",
       "fileError": "Le fichier de politique Voltius de votre organisation n'a pas pu être lu ; aucune de ses règles ne s'applique.",

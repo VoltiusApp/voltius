@@ -2,7 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k} ${JSON.stringify(o)}` : k) }),
+}));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn(async () => "linux") }));
@@ -16,7 +18,7 @@ vi.mock("@/utils/platform", async (importOriginal) => ({
 
 import { usePolicyStore } from "@/stores/policyStore";
 import { SettingRow } from "@/components/settings/sections/shared";
-import { Managed } from "./ManagedNote";
+import { Managed, RangeNote } from "./ManagedNote";
 
 const NONE = { policy: {}, defaults: {} };
 const lock = (key: string) =>
@@ -79,5 +81,29 @@ describe("SettingRow policy lock", () => {
     const c = row("appSettings.plugins.overrides");
     expect(c.textContent).not.toContain("common.policy.managed");
     expect(syncButton(c)).not.toBeNull();
+  });
+});
+
+describe("RangeNote", () => {
+  it.each([
+    [{ max: 24 }, 'common.policy.rangeMax {"value":"24"}'],
+    [{ min: 5 }, 'common.policy.rangeMin {"value":"5"}'],
+    [{ min: 5, max: 30 }, 'common.policy.rangeBetween {"min":"5","max":"30"}'],
+    [{ allowed: ["en", "fr"] }, 'common.policy.rangeAllowed {"values":"en, fr"}'],
+  ])("picks the right sentence for %j", (range, text) => {
+    expect(render(<RangeNote range={range} />).container.textContent).toBe(text);
+  });
+
+  it("formats each value and appends the unit", () => {
+    const c = render(<RangeNote range={{ min: 1000, max: 30000 }} format={(v) => String((v as number) / 1000)} unit=" s" />).container;
+    expect(c.textContent).toBe('common.policy.rangeBetween {"min":"1 s","max":"30 s"}');
+  });
+});
+
+describe("SettingRow note", () => {
+  it.each([false, true])("renders the note (mobile=%s)", (mobile) => {
+    platform.mobile = mobile;
+    const c = render(<SettingRow title="x" note={<span data-testid="note">n</span>}><button type="button">c</button></SettingRow>).container;
+    expect(c.querySelector('[data-testid="note"]')).not.toBeNull();
   });
 });

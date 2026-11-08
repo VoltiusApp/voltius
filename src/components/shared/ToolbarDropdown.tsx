@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
@@ -28,6 +28,10 @@ interface BaseProps<T extends string> {
   disabled?: boolean;
   variant?: "default" | "accent";
   searchable?: boolean;
+  /** Under the options, e.g. the admin's limit on them. */
+  menuNote?: ReactNode;
+  /** Disables only the chevron, with this text as its tooltip; the main action still runs. */
+  menuLocked?: string;
 }
 
 interface SingleSelectProps<T extends string> extends BaseProps<T> {
@@ -50,7 +54,7 @@ type Props<T extends string> = SingleSelectProps<T> | MultiSelectProps<T>;
 
 export function ToolbarDropdown<T extends string>({
   icon, options, items, menuWidth = 160, className = "",
-  label, onAction, align = "right", disabled, variant = "default", searchable,
+  label, onAction, align = "right", disabled, variant = "default", searchable, menuNote, menuLocked,
   ...rest
 }: Props<T>) {
   const { t } = useTranslation();
@@ -156,6 +160,7 @@ export function ToolbarDropdown<T extends string>({
             )
         }
       </div>
+      {menuNote && <div className="px-3 pb-2.5 pt-0.5">{menuNote}</div>}
     </div>
   );
 
@@ -185,19 +190,20 @@ export function ToolbarDropdown<T extends string>({
           <Icon icon={icon} width={20} />
           {label}
         </button>
-        {hasContent && <button
+        {hasContent && <span title={menuLocked} className="flex"><button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden border rounded-tr-[0.533rem] rounded-br-[0.533rem]"
+          disabled={!!menuLocked}
+          className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden border rounded-tr-[0.533rem] rounded-br-[0.533rem] disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
           style={{ background: chevronBg, color: actionText, borderColor: actionBorder }}
           onMouseEnter={(e) => (e.currentTarget.style.background = chevronBgHover)}
           onMouseLeave={(e) => (e.currentTarget.style.background = chevronBg)}
-          title={t("common.action.moreOptions")}
+          title={menuLocked ? undefined : t("common.action.moreOptions")}
         >
           <span className="[&_path]:stroke-3">
             <Icon icon="lucide:chevron-down" width={20} style={chevronRotateStyle(open)} />
           </span>
-        </button>}
+        </button></span>}
         {menuEl}
       </div>
     );

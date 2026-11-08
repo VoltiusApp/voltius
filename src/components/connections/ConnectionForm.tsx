@@ -3,7 +3,8 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType, PortKnockSettings } from "@/types";
 import { parseWebdavUrl } from "@/utils/connectionType";
-import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
+import type { KeepalivePreset } from "@/utils/keepalive";
+import { useKeepaliveSelect } from "@/hooks/useKeepaliveSelect";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
@@ -39,7 +40,6 @@ import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
-import { Managed } from "@/components/shared/ManagedNote";
 import { toggleKey, useToggle } from "@/stores/toggleSettingsStore";
 import { usePolicyLock } from "@/stores/policyStore";
 import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
@@ -140,6 +140,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   );
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
+  const keepalive = useKeepaliveSelect();
   const [globalPersist] = useToggle("persistent-sessions");
   const shellLock = usePolicyLock(toggleKey("shell-integration"));
   const persistLock = usePolicyLock(toggleKey("persistent-sessions"));
@@ -370,10 +371,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const visibleIcon = icon || distro;
 
-  const keepaliveOptions = useMemo(() => [
-    { value: "", label: t("connections.form.inheritKeepalive", { label: t(KEEPALIVE_PRESETS[globalKeepalive].labelKey) }) },
-    ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: t(KEEPALIVE_PRESETS[p].labelKey) })),
-  ], [globalKeepalive, t]);
+  const keepaliveOptions = [
+    { value: "", label: t("connections.form.inheritKeepalive", { label: keepalive.label(globalKeepalive) }) },
+    ...keepalive.options,
+  ];
 
   const shellIntegrationOptions = useMemo(() => [
     { value: "", label: t("connections.form.inheritShellIntegration", { state: globalShellIntegration ? t("connections.common.on") : t("connections.common.off") }) },
@@ -492,8 +493,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     onPasswordChange={(pw) => { markDirty(); proxyPasswordDirty.current = true; setProxyPassword(pw); }}
     disabled={readOnly}
     className="pb-1"
-    renderRow={(select) => (
-      <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")}>{select}</SettingRow>
+    renderRow={(select, locked) => (
+      <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")} locked={locked}>{select}</SettingRow>
     )}
   />
   );
@@ -625,37 +626,33 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                 >
                   <Toggle checked={legacyAlgorithms} onChange={(v) => { markDirty(); setLegacyAlgorithms(v); }} />
                 </SettingRow>
-                <SettingRow icon="lucide:terminal" label={t("connections.form.shellIntegration")}>
-                  <Managed policyKey={toggleKey("shell-integration")}>
-                    <FormSelect
-                      className="w-36"
-                      value={shellLock.locked ? "" : shellIntegration}
-                      title={t("connections.form.shellIntegration")}
-                      options={shellIntegrationOptions}
-                      onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
-                    />
-                  </Managed>
-                </SettingRow>
-                <SettingRow icon="lucide:heart-pulse" label={t("connections.form.keepalive")}>
+                <SettingRow icon="lucide:terminal" label={t("connections.form.shellIntegration")} locked={shellLock.locked}>
                   <FormSelect
                     className="w-36"
-                    value={keepalivePreset}
+                    value={shellLock.locked ? "" : shellIntegration}
+                    title={t("connections.form.shellIntegration")}
+                    options={shellIntegrationOptions}
+                    onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
+                  />
+                </SettingRow>
+                <SettingRow icon="lucide:heart-pulse" label={t("connections.form.keepalive")} locked={keepalive.locked} note={keepalive.note}>
+                  <FormSelect
+                    className="w-36"
+                    value={keepalive.locked ? "" : keepalivePreset}
                     title={t("connections.form.keepalive")}
                     options={keepaliveOptions}
                     onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
                   />
                 </SettingRow>
                 {proxyFields}
-                <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")}>
-                  <Managed policyKey={toggleKey("persistent-sessions")}>
-                    <FormSelect
-                      className="w-36"
-                      value={persistLock.locked ? "" : persistSession}
-                      title={t("connections.form.persistentSession")}
-                      options={persistOptions}
-                      onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
-                    />
-                  </Managed>
+                <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")} locked={persistLock.locked}>
+                  <FormSelect
+                    className="w-36"
+                    value={persistLock.locked ? "" : persistSession}
+                    title={t("connections.form.persistentSession")}
+                    options={persistOptions}
+                    onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
+                  />
                 </SettingRow>
 
             </AdvancedDisclosure>
