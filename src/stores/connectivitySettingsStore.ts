@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
+import { writeAndTouch, writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
 import { getToggle, hostToggle } from "./toggleSettingsStore";
-import { inPolicyRange, isEnforcedLock, policyRange, writeUnlessLocked } from "./policyStore";
-import { effectiveSettingWith, useEffectiveSettingWith } from "@/services/policy/effectiveCore";
+import { inPolicyRange, isEnforcedLock, policyRange } from "./policyStore";
+import { storeSetting } from "@/services/policy/effectiveCore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
 import type { CustomProxyMode, ProxyMode } from "@/types";
 import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
@@ -45,13 +45,10 @@ const policyKey = (field: Setting) => `appSettings.${field}`;
 
 function touchedSetter<K extends Setting>(set: (partial: Pick<ConnectivitySettings, K>) => void, field: K): Setter<K> {
   return (value) => {
-    const write = () => {
-      set({ [field]: value } as Pick<ConnectivitySettings, K>);
-      touchAppSetting(policyKey(field));
-    };
+    const write = () => set({ [field]: value } as Pick<ConnectivitySettings, K>);
     // The proxy stays writable under a lock so the user can fill in the username the lock leaves open.
-    if (field === "proxy") write();
-    else writeUnlessLocked(policyKey(field), write);
+    if (field === "proxy") writeAndTouch(policyKey(field), write);
+    else writeAndTouchUnlessLocked(policyKey(field), write);
   };
 }
 
@@ -73,15 +70,12 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
   ),
 );
 
-const builtInOf = (field: Setting) => useConnectivitySettingsStore.getInitialState()[field];
-
-const effective = <K extends Setting>(field: K, stored: ConnectivitySettings[K]): ConnectivitySettings[K] =>
-  effectiveSettingWith(policyKey(field), stored, builtInOf(field));
+const keepaliveSetting = storeSetting(useConnectivitySettingsStore, "keepalivePreset", policyKey("keepalivePreset"));
+const detachedTtlSetting = storeSetting(useConnectivitySettingsStore, "detachedTtlHours", policyKey("detachedTtlHours"));
+const proxySetting = storeSetting(useConnectivitySettingsStore, "proxy", policyKey("proxy"));
 
 /** Global default keepalive preset, used when a host has none of its own. */
-export function getGlobalKeepalivePreset(): KeepalivePreset {
-  return effective("keepalivePreset", useConnectivitySettingsStore.getState().keepalivePreset);
-}
+export const getGlobalKeepalivePreset = keepaliveSetting.get;
 
 export function resolveHostKeepalive(perHost: KeepalivePreset | undefined): KeepalivePreset {
   const key = policyKey("keepalivePreset");
@@ -90,37 +84,29 @@ export function resolveHostKeepalive(perHost: KeepalivePreset | undefined): Keep
   return inPolicyRange(policyRange(key), perHost) ? perHost : global;
 }
 
-function useConnectivitySetting<K extends Setting>(
-  field: K,
-  setter: (s: ConnectivitySettingsState) => Setter<K>,
-): [ConnectivitySettings[K], Setter<K>] {
-  const stored = useConnectivitySettingsStore((s) => s[field]);
-  return [useEffectiveSettingWith(policyKey(field), stored, builtInOf(field)), useConnectivitySettingsStore(setter)];
-}
+export const useGlobalKeepalivePreset = (): [KeepalivePreset, (p: KeepalivePreset) => void] => [
+  keepaliveSetting.use(),
+  useConnectivitySettingsStore((s) => s.setKeepalivePreset),
+];
 
-export function useGlobalKeepalivePreset(): [KeepalivePreset, (p: KeepalivePreset) => void] {
-  return useConnectivitySetting("keepalivePreset", (s) => s.setKeepalivePreset);
-}
-
-export const getGlobalDetachedTtlHours = (): DetachedTtlHours =>
-  effective("detachedTtlHours", useConnectivitySettingsStore.getState().detachedTtlHours);
+export const getGlobalDetachedTtlHours = detachedTtlSetting.get;
 
 export function resolveDetachedTtlSecs(): number | null {
   return getToggle("detached-session-ttl") ? getGlobalDetachedTtlHours() * 3600 : null;
 }
 
-export function useDetachedTtlHours(): [DetachedTtlHours, (h: DetachedTtlHours) => void] {
-  return useConnectivitySetting("detachedTtlHours", (s) => s.setDetachedTtlHours);
-}
+export const useDetachedTtlHours = (): [DetachedTtlHours, (h: DetachedTtlHours) => void] => [
+  detachedTtlSetting.use(),
+  useConnectivitySettingsStore((s) => s.setDetachedTtlHours),
+];
 
 export function resolvePersistSession(perHost: boolean | undefined): boolean {
   return hostToggle("persistent-sessions", perHost);
 }
 
-export function getGlobalProxy(): GlobalProxy {
-  return effective("proxy", useConnectivitySettingsStore.getState().proxy);
-}
+export const getGlobalProxy = proxySetting.get;
 
-export function useGlobalProxy(): [GlobalProxy, (p: GlobalProxy) => void] {
-  return useConnectivitySetting("proxy", (s) => s.setProxy);
-}
+export const useGlobalProxy = (): [GlobalProxy, (p: GlobalProxy) => void] => [
+  proxySetting.use(),
+  useConnectivitySettingsStore((s) => s.setProxy),
+];

@@ -6,7 +6,7 @@ import type { AppTheme } from "@/themes/types";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { writeUnlessLocked } from "./policyStore";
-import { effectiveSettingWith, storeSetting } from "@/services/policy/effectiveCore";
+import { storeSetting } from "@/services/policy/effectiveCore";
 import { useAdminDefaultsStore } from "./adminDefaultsStore";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
@@ -169,7 +169,7 @@ export const useThemeStore = create<ThemeStore>()(
           mode: s.mode,
           scheduleLightStart: s.scheduleLightStart,
           scheduleDarkStart: s.scheduleDarkStart,
-          location: effectiveSettingWith(LOCATION_KEY, s.location, null),
+          location: locationSetting.get(),
         };
       },
       getEffectiveThemeId: () => {
@@ -223,4 +223,4 @@ export const useThemeStore = create<ThemeStore>()(
   ),
 );
 
-export const locationSetting = storeSetting(useThemeStore, "location", LOCATION_KEY);
+export const locationSetting: { get: () => GeoLocation | null; use: () => GeoLocation | null } = storeSetting(useThemeStore, "location", LOCATION_KEY);

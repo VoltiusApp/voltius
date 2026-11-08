@@ -1,4 +1,4 @@
-import type { Terminal } from "@xterm/xterm";
+import type { ITerminalOptions, Terminal } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { AppTheme } from "@/themes/types";
 import { terminalFontStack } from "@/utils/fontStack";
@@ -17,6 +17,20 @@ export const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
 export function clampTerminalLineHeight(value: number | undefined | null): number {
   if (value == null || !Number.isFinite(value)) return DEFAULT_TERMINAL_LINE_HEIGHT;
   return Math.max(MIN_TERMINAL_LINE_HEIGHT, Math.min(MAX_TERMINAL_LINE_HEIGHT, value));
+}
+
+export function terminalOptionsFor(theme: AppTheme): ITerminalOptions {
+  return {
+    macOptionClickForcesSelection: true,
+    cursorBlink: getToggle("cursor-blink"),
+    cursorStyle: cursorStyleSetting.get(),
+    fontSize: theme.terminalFontSize,
+    lineHeight: clampTerminalLineHeight(theme.terminalLineHeight),
+    fontFamily: terminalFontStack(theme.terminalFontFamily),
+    scrollback: useTerminalSettingsStore.getState().scrollbackLines,
+    theme: theme.terminal,
+    allowProposedApi: true,
+  };
 }
 
 /** Applies a theme to a live terminal, refitting only when cell metrics change. */

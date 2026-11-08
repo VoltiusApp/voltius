@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
-import { writeUnlessLocked } from "./policyStore";
+import { writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
 import { storeSetting } from "@/services/policy/effectiveCore";
 
 export type Locale = "en" | "fr" | "ru" | "zh" | "tr" | "cs" | "pt" | "pt-BR" | "pt-PT";
@@ -43,10 +42,7 @@ export const useLocaleStore = create<LocaleStore>()(
     (set) => ({
       locale: systemLocale(),
       setLocale: (locale) =>
-        writeUnlessLocked(LOCALE_KEY, () => {
-          set({ locale });
-          touchAppSetting(LOCALE_KEY);
-        }),
+        writeAndTouchUnlessLocked(LOCALE_KEY, () => set({ locale })),
     }),
     { name: "voltius-locale" },
   ),

@@ -42,5 +42,5 @@ export function useThemeAutomation(): void {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [mode, scheduleLightStart, scheduleDarkStart, location]);
+  }, [mode, scheduleLightStart, scheduleDarkStart, location?.lat, location?.lng]);
 }

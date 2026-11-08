@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
+import { writeAndTouch, writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
 import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
-import { writeUnlessLocked } from "./policyStore";
 import { storeSetting } from "@/services/policy/effectiveCore";
 import { DEFAULT_KEYWORD_RULES, sanitizeKeywordRules, type KeywordRule } from "@/utils/keywordMatcher";
 
@@ -23,12 +22,7 @@ interface TerminalSettingsStore {
 
 // Every setter reports its leaf; the settings registry decides whether it syncs.
 const terminalKey = (key: keyof TerminalSettingsStore) => `appSettings.terminal.${key}`;
-const touchTerminal = (key: keyof TerminalSettingsStore) => touchAppSetting(terminalKey(key));
-const unlessLocked = (key: keyof TerminalSettingsStore, write: () => void) =>
-  writeUnlessLocked(terminalKey(key), () => {
-    write();
-    touchTerminal(key);
-  });
+const unlessLocked = (key: keyof TerminalSettingsStore, write: () => void) => writeAndTouchUnlessLocked(terminalKey(key), write);
 
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
   persist(
@@ -38,9 +32,9 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
       cursorStyle: DEFAULT_CURSOR_STYLE,
       keywordRules: DEFAULT_KEYWORD_RULES,
       setPreferredShell: (shell) => unlessLocked("preferredShell", () => set({ preferredShell: shell })),
-      setScrollbackLines: (lines) => { set({ scrollbackLines: clampScrollbackLines(lines) }); touchTerminal("scrollbackLines"); },
+      setScrollbackLines: (lines) => unlessLocked("scrollbackLines", () => set({ scrollbackLines: clampScrollbackLines(lines) })),
       setCursorStyle: (style) => unlessLocked("cursorStyle", () => set({ cursorStyle: style })),
-      setKeywordRules: (rules) => { set({ keywordRules: sanitizeKeywordRules(rules) }); touchTerminal("keywordRules"); },
+      setKeywordRules: (rules) => writeAndTouch(terminalKey("keywordRules"), () => set({ keywordRules: sanitizeKeywordRules(rules) })),
     }),
     {
       name: "voltius-terminal-settings",

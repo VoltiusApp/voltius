@@ -6,6 +6,7 @@
   { "name": "ttl allowed picks nearest", "key": "appSettings.detachedTtlHours", "range": { "allowed": [6, 12] }, "stored": 24, "builtIn": 24, "expect": 12 },
   { "name": "ttl allowed tie picks smaller", "key": "appSettings.detachedTtlHours", "range": { "allowed": [6, 12] }, "stored": 9, "builtIn": 24, "expect": 6 },
   { "name": "sftp below min clamps up", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000, "max": 30000 }, "stored": 2000, "builtIn": 2000, "expect": 5000 },
+  { "name": "sftp min only clamps up", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000 }, "stored": 1000, "builtIn": null, "expect": 5000 },
   { "name": "sftp above max clamps down", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "max": 30000 }, "stored": 60000, "builtIn": null, "expect": 30000 },
   { "name": "locale allowed falls to first allowed", "key": "appSettings.locale", "range": { "allowed": ["en", "fr"] }, "stored": "ru", "builtIn": "ru", "expect": "en" },
   { "name": "locale admin default within range", "key": "appSettings.locale", "range": { "allowed": ["fr"] }, "stored": "ru", "adminDefault": "fr", "builtIn": "ru", "expect": "fr" },

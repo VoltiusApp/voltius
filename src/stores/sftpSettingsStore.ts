@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
-import { writeUnlessLocked } from "./policyStore";
+import { touchAppSetting, writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
 import { storeSetting } from "@/services/policy/effectiveCore";
 import {
   DEFAULT_COLUMN_WIDTHS, DEFAULT_VISIBLE_COLS, LEGACY_DEFAULT_SIZE_WIDTH,
@@ -55,10 +54,7 @@ export const useSftpSettingsStore = create<SftpSettingsStore>()(
     (set) => ({
       autoRefreshIntervalMs: DEFAULT_AUTO_REFRESH_INTERVAL_MS,
       setAutoRefreshIntervalMs: (v) =>
-        writeUnlessLocked(sftpKey("autoRefreshIntervalMs"), () => {
-          set({ autoRefreshIntervalMs: v });
-          touchSftp("autoRefreshIntervalMs");
-        }),
+        writeAndTouchUnlessLocked(sftpKey("autoRefreshIntervalMs"), () => set({ autoRefreshIntervalMs: v })),
       editorAutoSave: false,
       setEditorAutoSave: (v) => { set({ editorAutoSave: v }); touchSftp("editorAutoSave"); },
       editorMaxBytes: DEFAULT_EDITOR_MAX_BYTES,

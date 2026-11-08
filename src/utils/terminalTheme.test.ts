@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import type { Terminal } from "@xterm/xterm";
 import type { AppTheme } from "@/themes/types";
 import { BUILT_IN_THEMES } from "@/themes/presets";
@@ -61,6 +61,8 @@ describe("applyTerminalTheme", () => {
 });
 
 describe("subscribeTerminalCursor", () => {
+  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } }));
+
   test("cursor style lock reaches a live terminal", () => {
     const { term } = fakeTerminal();
     useTerminalSettingsStore.setState({ cursorStyle: "bar" });
@@ -71,6 +73,5 @@ describe("subscribeTerminalCursor", () => {
     });
     expect(term.options.cursorStyle).toBe("block");
     stop();
-    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   });
 });

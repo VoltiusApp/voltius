@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import i18n, { ensureLocale } from "./index";
 import { useLocaleStore } from "@/stores/localeStore";
 import { usePolicyStore } from "@/stores/policyStore";
@@ -11,6 +11,12 @@ vi.mock("@/lib/invoke", () => ({
 }));
 
 describe("i18n instance", () => {
+  afterEach(async () => {
+    loadedPolicy.value = {};
+    await usePolicyStore.getState().load();
+    useLocaleStore.getState().setLocale("en");
+  });
+
   it("returns the English string by default", () => {
     expect(i18n.t("settings.appearance.interface")).toBe("Interface");
   });
@@ -53,8 +59,5 @@ describe("i18n instance", () => {
     await usePolicyStore.getState().load();
     await Promise.resolve();
     expect(i18n.language).toBe("fr");
-    loadedPolicy.value = {};
-    await usePolicyStore.getState().load();
-    useLocaleStore.getState().setLocale("en");
   });
 });

@@ -334,6 +334,8 @@ describe("attachKeywordHighlighter", () => {
     useTerminalSettingsStore.setState({ keywordRules: DEFAULT_KEYWORD_RULES });
   });
 
+  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } }));
+
   it("highlights with the default rules out of the box", () => {
     const { live } = attach([{ text: "error" }]);
     expect(live()).toEqual([[0, 0, 5, "#ff0000"]]);
@@ -383,7 +385,6 @@ describe("attachKeywordHighlighter", () => {
     });
     settle();
     expect(live()).toEqual([[0, 0, 4, "#ff0000"]]);
-    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   });
 
   it("stops following settings once disposed", () => {
