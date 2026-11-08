@@ -28,6 +28,7 @@ export interface PolicyKeyDef {
   range?: RangeField[];
   lock?: "add" | "never";
   implies?: string;
+  nullIsUnbounded?: true;
 }
 
 type KeyExtras = Omit<PolicyKeyDef, "id" | "type">;
@@ -100,6 +101,8 @@ function build() {
     { id: "plugins.install", type: "stringList" },
     { id: "plugins.allowInstall", type: "bool" },
     { id: "sshConfig.import", type: "bool" },
+    { id: "security.lockTimeoutMinutes", type: "number", domain: { values: [0, 5, 15, 30, 60, 240] }, range: ["allowed", "min", "max"], nullIsUnbounded: true },
+    { id: "security.lockAction", type: "string", domain: { values: ["screen", "vault"] }, range: ["allowed"] },
     ...bools("sync.domains.", SYNC_SETTING_DOMAINS.map((d) => d.id)),
     ...bools("sync.types.", SYNC_OBJECT_TYPES.map((t) => t.id)),
     ...bools("sync.settings.", SETTING_KEYS.map((k) => k.id)),
@@ -131,6 +134,8 @@ const ENFORCED_KEYS = new Set([
   "server.allowOther",
   "server.previousUrls",
   "sshConfig.import",
+  "security.lockTimeoutMinutes",
+  "security.lockAction",
   "plugins.enabled",
   "plugins.disabled",
   "plugins.install",

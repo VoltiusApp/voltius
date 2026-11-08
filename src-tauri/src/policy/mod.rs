@@ -78,6 +78,8 @@ pub struct KeyEntry {
     #[serde(default)]
     pub lock: LockKind,
     pub implies: Option<String>,
+    #[serde(default)]
+    pub null_is_unbounded: bool,
 }
 
 static KEYS: LazyLock<HashMap<String, KeyEntry>> = LazyLock::new(|| {
@@ -156,6 +158,7 @@ pub enum IssueKind {
     NewerVersion,
     Range,
     Unprotected,
+    NotForTeam,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -596,6 +599,12 @@ pub fn bounded(
             .cloned()
             .unwrap_or(Value::Null);
     }
+    let def = key_def(key);
+    if let (None, Some(max)) = (stored, r.max) {
+        if def.is_some_and(|d| d.null_is_unbounded) {
+            return number_value(max);
+        }
+    }
     if let Some(v) = sources
         .into_iter()
         .flatten()
@@ -603,7 +612,6 @@ pub fn bounded(
     {
         return v.clone();
     }
-    let def = key_def(key);
     let is_number = def.is_some_and(|d| d.ty == KeyType::Number);
     let domain = def.and_then(|d| d.domain.as_ref()?.values.as_ref());
     let allowed_in_domain = || {
@@ -807,6 +815,35 @@ pub fn parse(text: &str) -> (PolicyDoc, Vec<Issue>) {
         },
         issues,
     )
+}
+
+pub const TEAM_REFUSED_KEYS: [&str; 5] = [
+    "server.url",
+    "server.allowOther",
+    "server.previousUrls",
+    "enrollment.token",
+    "plugins.install",
+];
+
+pub fn check_team_doc(text: &str) -> (PolicyDoc, Vec<Issue>) {
+    let (mut doc, mut issues) = parse(text);
+    let mut drop = |layer: Layer, key: String, reason: &str| {
+        issues.push(Issue {
+            kind: IssueKind::NotForTeam,
+            layer: Some(layer),
+            message: format!("{key} {reason}; dropped"),
+            key: Some(key),
+        });
+    };
+    for key in TEAM_REFUSED_KEYS {
+        if doc.policy.remove(key).is_some() {
+            drop(Layer::Policy, key.to_string(), "is machine-only");
+        }
+    }
+    for key in std::mem::take(&mut doc.defaults).into_keys() {
+        drop(Layer::Defaults, key, "cannot be a team default");
+    }
+    (doc, issues)
 }
 
 pub fn parse_cli_value(ty: KeyType, raw: &str) -> Result<Value, String> {
@@ -1795,6 +1832,37 @@ mod tests {
             );
             assert!(nums_equal(&got, &row["expect"]), "{name}: got {got}");
         }
+    }
+
+    #[test]
+    fn check_team_doc_drops_machine_only_keys_and_defaults() {
+        let text = json!({
+            "version": 1,
+            "policy": {"server.url": "https://a.example", "plugins.install": ["x"], "sync.types.key": true},
+            "defaults": {"appSettings.locale": "fr"}
+        })
+        .to_string();
+        let (doc, issues) = check_team_doc(&text);
+        assert_eq!(doc.policy.keys().collect::<Vec<_>>(), ["sync.types.key"]);
+        assert!(doc.defaults.is_empty());
+        assert_eq!(issues.len(), 3);
+        assert!(issues.iter().all(|i| i.kind == IssueKind::NotForTeam));
+    }
+
+    #[test]
+    fn check_team_doc_drops_refused_keys_by_name_even_unregistered() {
+        let text = json!({"version": 1, "policy": {"enrollment.token": "t"}}).to_string();
+        let (doc, issues) = check_team_doc(&text);
+        assert!(doc.policy.is_empty());
+        assert_eq!(issues.len(), 1);
+    }
+
+    #[test]
+    fn check_team_doc_reports_type_errors_like_parse() {
+        let text = json!({"version": 1, "policy": {"sshConfig.import": "yes"}}).to_string();
+        let (doc, issues) = check_team_doc(&text);
+        assert_eq!(issues, parse(&text).1);
+        assert!(doc.policy.is_empty());
     }
 
     #[test]

@@ -14,5 +14,8 @@
   { "name": "shell is bounded at spawn, not here", "key": "appSettings.terminal.preferredShell", "range": { "allowed": ["/bin/zsh"] }, "stored": "/bin/bash", "builtIn": null, "expect": "/bin/bash" },
   { "name": "shell path kept under a name-based allowed list", "key": "appSettings.terminal.preferredShell", "range": { "allowed": ["fish", "zsh"] }, "stored": "/bin/zsh", "builtIn": null, "expect": "/bin/zsh" },
   { "name": "ttl non-numeric stored takes first candidate", "key": "appSettings.detachedTtlHours", "range": { "allowed": [12, 24] }, "stored": "abc", "builtIn": null, "expect": 12 },
-  { "name": "sftp non-numeric stored clamps built-in", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000, "max": 30000 }, "stored": "abc", "builtIn": 2000, "expect": 5000 }
+  { "name": "sftp non-numeric stored clamps built-in", "key": "appSettings.sftp.autoRefreshIntervalMs", "range": { "min": 5000, "max": 30000 }, "stored": "abc", "builtIn": 2000, "expect": 5000 },
+  { "name": "null timeout under a max resolves to the max", "key": "security.lockTimeoutMinutes", "range": { "max": 15 }, "stored": null, "builtIn": null, "expect": 15 },
+  { "name": "stored timeout above the max falls to the max", "key": "security.lockTimeoutMinutes", "range": { "max": 15 }, "stored": 30, "builtIn": null, "expect": 15 },
+  { "name": "stored timeout within the max is kept", "key": "security.lockTimeoutMinutes", "range": { "max": 15 }, "stored": 5, "builtIn": null, "expect": 5 }
 ]

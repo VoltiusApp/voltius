@@ -23,6 +23,7 @@ function nearestTo(candidates: Array<string | number>, target: unknown): string 
 export function boundedValue(key: string, range: PolicyRange, stored: unknown, adminDefaultValue: unknown, builtInValue: unknown): unknown {
   const def = policyKeyDef(key);
   if (def?.domain?.shape === "shell") return stored;
+  if (stored == null && def?.nullIsUnbounded && range.max !== undefined) return range.max;
   const fits = [stored, adminDefaultValue, builtInValue].find((v) => v !== undefined && inPolicyRange(range, v));
   if (fits !== undefined) return fits;
 

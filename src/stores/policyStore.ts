@@ -7,7 +7,7 @@ export interface PolicyLayer {
   policy: Record<string, unknown>;
   defaults: Record<string, unknown>;
 }
-export type PolicyIssueKind = "file" | "type" | "unknownKey" | "newerVersion" | "range" | "unprotected";
+export type PolicyIssueKind = "file" | "type" | "unknownKey" | "newerVersion" | "range" | "unprotected" | "notForTeam" | "conflict";
 export interface PolicyIssue {
   kind: PolicyIssueKind;
   layer: "policy" | "defaults" | null;
