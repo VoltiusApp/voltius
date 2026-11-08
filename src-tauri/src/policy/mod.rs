@@ -416,6 +416,11 @@ pub fn value_problem(key: &str, ty: KeyType, v: &Value) -> Option<String> {
         ("server.url", Value::String(s)) if !is_http_url(s) => {
             Some("must be an absolute http(s) URL".to_string())
         }
+        ("server.previousUrls", Value::Array(a))
+            if !a.iter().all(|u| u.as_str().is_some_and(is_http_url)) =>
+        {
+            Some("every entry must be an absolute http(s) URL".to_string())
+        }
         _ => None,
     }
 }
@@ -1412,6 +1417,17 @@ mod tests {
         assert!(doc.defaults.is_empty());
         assert_eq!(issues.len(), 1);
         let (doc, issues) = parse(r#"{"policy":{"server.url":"https://voltius.acme.com"}}"#);
+        assert_eq!(doc.policy.len(), 1);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn parse_rejects_non_http_previous_server_urls() {
+        let (doc, issues) =
+            parse(r#"{"policy":{"server.previousUrls":["https://old.acme.com","old.acme.com"]}}"#);
+        assert!(doc.policy.is_empty());
+        assert_eq!(issues[0].key.as_deref(), Some("server.previousUrls"));
+        let (doc, issues) = parse(r#"{"policy":{"server.previousUrls":["https://old.acme.com"]}}"#);
         assert_eq!(doc.policy.len(), 1);
         assert!(issues.is_empty());
     }

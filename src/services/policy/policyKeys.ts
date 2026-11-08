@@ -94,6 +94,7 @@ function build() {
   const keys: PolicyKeyDef[] = [
     { id: "server.url", type: "string" },
     { id: "server.allowOther", type: "bool" },
+    { id: "server.previousUrls", type: "stringList" },
     { id: "plugins.enabled", type: "stringList" },
     { id: "plugins.disabled", type: "stringList" },
     { id: "plugins.install", type: "stringList" },
@@ -128,6 +129,7 @@ const ENFORCED_KEYS = new Set([
   "themes.location",
   "server.url",
   "server.allowOther",
+  "server.previousUrls",
   "sshConfig.import",
   "plugins.enabled",
   "plugins.disabled",

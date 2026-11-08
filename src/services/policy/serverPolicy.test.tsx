@@ -10,7 +10,7 @@ vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
 
 import { usePolicyStore } from "@/stores/policyStore";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
-import { initialServerUrl, policyServerUrl, resolveServerUrl, serverAllowed } from "./serverPolicy";
+import { initialServerUrl, policyServerUrl, resolveServerUrl, serverAllowed, serverMove } from "./serverPolicy";
 
 const NONE = { policy: {}, defaults: {} };
 const set = (policy: Record<string, unknown>, defaults: Record<string, unknown> = {}) =>
@@ -68,6 +68,28 @@ describe("serverAllowed", () => {
   it("always allows local accounts", () => {
     set({ "server.url": corp, "server.allowOther": false });
     expect(serverAllowed(null)).toBe(true);
+  });
+});
+
+describe("serverMove", () => {
+  const corp = "https://voltius.acme.com";
+  const old = "https://api.acme.com";
+  it("maps a previous url to the locked one", () => {
+    set({ "server.url": corp, "server.previousUrls": [old] });
+    expect(serverMove()?.(`${old}/`)).toBe(corp);
+    expect(serverMove()?.("https://API.acme.com")).toBe(corp);
+  });
+  it("leaves other urls alone", () => {
+    set({ "server.url": corp, "server.previousUrls": [old] });
+    expect(serverMove()?.("http://api.acme.com")).toBeNull();
+    expect(serverMove()?.(corp)).toBeNull();
+    expect(serverMove()?.(null)).toBeNull();
+  });
+  it("is off without a locked server.url or previous urls", () => {
+    set({ "server.previousUrls": [old] }, { "server.url": corp });
+    expect(serverMove()).toBeNull();
+    set({ "server.url": corp });
+    expect(serverMove()).toBeNull();
   });
 });
 

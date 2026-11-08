@@ -13,7 +13,7 @@ import { lockOnLaunchIfIdle, systemAuthAvailable } from "@/services/appLock";
 import { secretState } from "@/services/vaultSecret";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
-import { saveCurrentAccount } from "@/services/savedAccounts";
+import { adoptServerMove, saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLaunch, syncOnLoginReplace } from "@/services/sync";
 import { startLanSyncInBackground, startSessionSync, stopLanSync } from "@/services/lanSync";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
@@ -83,6 +83,7 @@ export default function SplashScreen({ onReady }: Props) {
       void stopLanSync();
       watchPolicyVisibility();
       await usePolicyStore.getState().load();
+      await adoptServerMove();
       setStep("init", "done");
       setStep("vault", "running");
 

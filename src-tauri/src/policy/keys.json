@@ -12,6 +12,12 @@
     "defaultApplied": false
   },
   {
+    "id": "server.previousUrls",
+    "type": "stringList",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "plugins.enabled",
     "type": "stringList",
     "enforced": true,

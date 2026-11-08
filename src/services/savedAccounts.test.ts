@@ -1,4 +1,4 @@
-import { test, expect, vi, beforeEach, describe } from "vitest";
+import { test, expect, vi, beforeEach, afterEach, describe } from "vitest";
 import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
@@ -53,7 +53,7 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   dropAccountUiState: h.dropAccountUiState,
 }));
 
-import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, forgetSavedPlainPasswords, type SavedAccount } from "./savedAccounts";
+import { adoptServerMove, getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, forgetSavedPlainPasswords, type SavedAccount } from "./savedAccounts";
 import { AccountAlreadyActiveError, AccountNotSavedError } from "./accountErrors";
 import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
@@ -750,4 +750,40 @@ test("turning remembering off drops every saved account's plain password, the cu
   expect(JSON.parse(h.store[entryKey("a")]).master_password).toBeUndefined();
   expect(JSON.parse(h.store[entryKey("b")]).master_password).toBeUndefined();
   expect(JSON.parse(h.store[entryKey("b")]).jwt).toBe(CLOUD_B.jwt);
+});
+
+describe("adoptServerMove", () => {
+  const OLD = "https://api.acme.com";
+  const NEW = "https://voltius.acme.com";
+  const moved = (policy: Record<string, unknown> = { "server.url": NEW }, defaults: Record<string, unknown> = {}) =>
+    usePolicyStore.setState({ machine: { policy: { "server.previousUrls": [OLD], ...policy }, defaults } });
+  afterEach(unpin);
+
+  test("moves the active and saved accounts on a previous url to the locked one", async () => {
+    activate({ ...CLOUD_A, server_url: `${OLD}/` });
+    seed({ ...CLOUD_A, server_url: OLD }, { ...CLOUD_B, server_url: "https://other.example" });
+    moved();
+    await adoptServerMove();
+    expect(h.store.server_url).toBe(NEW);
+    expect(h.store.jwt).toBe(CLOUD_A.jwt);
+    expect(await getSavedAccounts()).toEqual([
+      { ...CLOUD_A, server_url: NEW },
+      { ...CLOUD_B, server_url: "https://other.example" },
+    ]);
+  });
+
+  test("does nothing without a locked server.url", async () => {
+    activate({ ...CLOUD_A, server_url: OLD });
+    seed({ ...CLOUD_B, server_url: OLD });
+    moved({}, { "server.url": NEW });
+    await adoptServerMove();
+    expect(h.store.server_url).toBe(OLD);
+    expect((await getSavedAccounts())[0].server_url).toBe(OLD);
+  });
+
+  test("survives an unreadable keychain", async () => {
+    moved();
+    h.readFails = true;
+    await expect(adoptServerMove()).resolves.toBeUndefined();
+  });
 });
