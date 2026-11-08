@@ -1,0 +1,10 @@
+[
+  { "name": "detected allowed path kept", "shells": [["fish", "/usr/bin/fish"], ["zsh", "/usr/bin/zsh"]], "allowed": ["fish", "zsh"], "requested": "/usr/bin/zsh", "expect": "/usr/bin/zsh" },
+  { "name": "name request opens the detected shell", "shells": [["fish", "/usr/bin/fish"], ["zsh", "/usr/bin/zsh"]], "allowed": ["fish", "zsh"], "requested": "ZSH", "expect": "/usr/bin/zsh" },
+  { "name": "undetected path under a name entry opens the named shell", "shells": [["fish", "/usr/bin/fish"], ["zsh", "/usr/bin/zsh"]], "allowed": ["fish", "zsh"], "requested": "/bin/zsh", "expect": "/usr/bin/zsh" },
+  { "name": "undetected path matches an entry by file stem", "shells": [["bash", "/w/bash.exe"], ["cmd", "/w/cmd.exe"]], "allowed": ["bash", "cmd"], "requested": "/other/cmd.exe", "expect": "/w/cmd.exe" },
+  { "name": "undetected path under path entries falls to the first allowed", "shells": [["fish", "/usr/bin/fish"], ["zsh", "/usr/bin/zsh"]], "allowed": ["/usr/bin/fish", "/usr/bin/zsh"], "requested": "/bin/zsh", "expect": "/usr/bin/fish" },
+  { "name": "detected shell outside the range falls to the first allowed", "shells": [["bash", "/bin/bash"], ["zsh", "/bin/zsh"]], "allowed": ["zsh"], "requested": "/bin/bash", "expect": "/bin/zsh" },
+  { "name": "no request opens the first allowed", "shells": [["bash", "/bin/bash"], ["zsh", "/bin/zsh"]], "allowed": ["zsh", "bash"], "requested": null, "expect": "/bin/bash" },
+  { "name": "no allowed shell installed opens the system default", "shells": [["bash", "/bin/bash"]], "allowed": ["tcsh"], "requested": "/bin/bash", "expect": null }
+]

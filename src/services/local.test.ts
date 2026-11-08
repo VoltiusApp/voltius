@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import shellFixture from "../../src-tauri/src/policy/fixtures/shell.json?raw";
 
 const invoke = vi.fn();
 vi.mock("@/lib/invoke", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
@@ -21,6 +22,14 @@ beforeEach(async () => {
 });
 
 describe("shell policy", () => {
+  test("pickShell matches the shared fixture", () => {
+    const rows: { name: string; shells: [string, string][]; allowed: string[]; requested: string | null; expect: string | null }[] = JSON.parse(shellFixture);
+    for (const r of rows) {
+      const shells = r.shells.map(([name, path]) => ({ name, path }));
+      expect(local.pickShell(shells, r.requested, r.allowed)?.path ?? null, r.name).toBe(r.expect);
+    }
+  });
+
   test("locked shell not installed falls back to system default", async () => {
     invoke.mockImplementation(async () => [bash]);
     await setPolicy("/usr/bin/fish");
@@ -52,6 +61,15 @@ describe("shell policy", () => {
     await setPolicy("ZSH");
     expect(await local.policyShell(undefined)).toBe("/bin/zsh");
     expect(await local.policyShell("zsh")).toBe("/bin/zsh");
+  });
+
+  test("effectiveShell reports the shell that opens once detection is done", async () => {
+    await setPolicy({ $range: { allowed: ["zsh"] } });
+    expect(local.effectiveShell("/bin/bash")).toBe("/bin/bash");
+    await local.listLocalShells();
+    expect(local.effectiveShell("/bin/bash")).toBe("/bin/zsh");
+    await setPolicy(undefined);
+    expect(local.effectiveShell("/bin/bash")).toBe("/bin/bash");
   });
 
   test("no policy leaves the request alone", async () => {

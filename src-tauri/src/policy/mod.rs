@@ -478,6 +478,28 @@ pub fn shell_allows(shells: &[ShellOption], entry: &str, value: &str) -> bool {
     }
 }
 
+// Mirrors `pickShell` in src/services/local.ts; fixtures/shell.json keeps them in step.
+pub fn pick_shell<'a>(
+    shells: &'a [ShellOption],
+    entries: &[&str],
+    requested: Option<&str>,
+) -> Option<&'a ShellOption> {
+    let mut allowed = shells
+        .iter()
+        .filter(|s| entries.iter().any(|e| s.matches(e)));
+    let among = |e: &str| allowed.clone().find(|s| s.matches(e));
+    requested
+        .and_then(|r| {
+            among(r).or_else(|| {
+                entries
+                    .iter()
+                    .find(|e| shell_allows(shells, e, r))
+                    .and_then(|e| among(e))
+            })
+        })
+        .or_else(|| allowed.next())
+}
+
 pub fn within(key: &str, r: &Range, v: &Value, shells: &[ShellOption]) -> bool {
     if let (Some("shell"), Some(allowed), Some(value)) = (shape_of(key), &r.allowed, v.as_str()) {
         return allowed
@@ -1830,6 +1852,28 @@ mod tests {
         assert!(!within(SHELL, &pwsh, &json!("/usr/bin/zsh"), &shells));
         let by_path = allowed(json!(["/usr/bin/zsh"]));
         assert!(within(SHELL, &by_path, &json!("zsh"), &shells));
+    }
+
+    #[test]
+    fn pick_shell_fixture() {
+        let rows: Vec<Value> = serde_json::from_str(include_str!("fixtures/shell.json")).unwrap();
+        for row in rows {
+            let shells: Vec<ShellOption> = row["shells"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| shell(p[0].as_str().unwrap(), p[1].as_str().unwrap()))
+                .collect();
+            let entries: Vec<&str> = row["allowed"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(Value::as_str)
+                .collect();
+            let got =
+                pick_shell(&shells, &entries, row["requested"].as_str()).map(|s| s.path.as_str());
+            assert_eq!(got, row["expect"].as_str(), "{}", row["name"]);
+        }
     }
 
     #[test]

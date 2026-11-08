@@ -9,11 +9,15 @@ const SHELL_KEY = preferredShellSetting.key;
 
 let shellsMemo: Promise<ShellOption[]> | undefined;
 let shellsPending = false;
+let shellsDetected: ShellOption[] | undefined;
+
+export const detectedShells = () => shellsDetected;
 
 export function listLocalShells(refresh = false): Promise<ShellOption[]> {
   if (!shellsMemo || (refresh && !shellsPending)) {
     shellsPending = true;
     const fetched = invoke<ShellOption[]>("local_list_shells")
+      .then((shells) => (shellsDetected = shells))
       .catch((e) => {
         if (shellsMemo === fetched) shellsMemo = undefined;
         throw e;
@@ -39,14 +43,37 @@ export function allowedShells(shells: ShellOption[], entries = shellPolicyEntrie
   return entries ? shells.filter((s) => entries.some((e) => matchesEntry(s, e))) : shells;
 }
 
-export function pickShell(allowed: ShellOption[], requested: string | null | undefined): ShellOption | undefined {
-  return (requested ? allowed.find((s) => matchesEntry(s, requested)) : undefined) ?? allowed[0];
+const fileNames = (value: string) => {
+  const file = value.split(/[\\/]/).pop() ?? value;
+  return [file, file.replace(/(.)\.[^.]*$/, "$1")];
+};
+
+// Mirrors `shell_allows` in src-tauri/src/policy/mod.rs; src-tauri/src/policy/fixtures/shell.json keeps them in step.
+function shellAllows(shells: ShellOption[], entry: string, value: string): boolean {
+  const detected = shells.find((s) => matchesEntry(s, value));
+  if (detected) return matchesEntry(detected, entry);
+  return entry === value || fileNames(value).some((n) => n.toLowerCase() === entry.toLowerCase());
 }
+
+export function pickShell(shells: ShellOption[], requested: string | null | undefined, entries = shellPolicyEntries()): ShellOption | undefined {
+  const allowed = allowedShells(shells, entries);
+  if (!requested) return allowed[0];
+  const among = (e: string) => allowed.find((s) => matchesEntry(s, e));
+  const entry = entries?.find((e) => shellAllows(shells, e, requested));
+  return among(requested) ?? (entry ? among(entry) : undefined) ?? allowed[0];
+}
+
+const spawnShell = (shells: ShellOption[], requested: string | undefined, entries: string[] | undefined) =>
+  entries ? pickShell(shells, requested, entries)?.path : requested;
 
 export async function policyShell(requested: string | undefined): Promise<string | undefined> {
   const entries = shellPolicyEntries();
-  if (!entries) return requested;
-  return pickShell(allowedShells(await listLocalShells(), entries), requested)?.path;
+  return spawnShell(entries ? await listLocalShells() : [], requested, entries);
+}
+
+export function effectiveShell(requested: string | null): string | null {
+  const entries = shellPolicyEntries();
+  return entries && shellsDetected ? spawnShell(shellsDetected, requested ?? undefined, entries) ?? null : requested;
 }
 
 export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<string | undefined> {
