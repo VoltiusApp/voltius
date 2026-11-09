@@ -461,6 +461,22 @@
         "toggle": "Vous avez un jeton d'enrôlement ?",
         "placeholder": "vte1.…",
         "invalid": "Ce n'est pas un jeton d'enrôlement."
+      },
+      "localNote": "Les hôtes de cet appareil passent dans le coffre privé du nouveau compte. {{team}} ne peut pas les lire.",
+      "already": {
+        "title": "Vous êtes déjà dans {{team}}",
+        "body": "{{email}} est déjà membre."
+      },
+      "join": {
+        "title": "Rejoindre {{team}} en tant que {{email}}",
+        "body": "Utilise le compte avec lequel vous êtes connecté sur {{host}}.",
+        "action": "Rejoindre",
+        "other": "Utiliser un autre compte"
+      },
+      "replace": {
+        "title": "Remplacer les données de cet appareil ?",
+        "body": "Se connecter en tant que {{email}} remplace les hôtes, clés et snippets de cet appareil par ceux enregistrés dans ce compte.",
+        "confirm": "Se connecter et remplacer"
       }
     }
   }

@@ -469,6 +469,22 @@
         "toggle": "Máte token pro zápis?",
         "placeholder": "vte1.…",
         "invalid": "Toto není token pro zápis."
+      },
+      "localNote": "Hosty z tohoto zařízení se přesunou do soukromého trezoru nového účtu. {{team}} je nemůže číst.",
+      "already": {
+        "title": "Už jste v týmu {{team}}",
+        "body": "{{email}} už je členem."
+      },
+      "join": {
+        "title": "Připojit se k {{team}} jako {{email}}",
+        "body": "Použije účet, kterým jste přihlášeni na {{host}}.",
+        "action": "Připojit se",
+        "other": "Použít jiný účet"
+      },
+      "replace": {
+        "title": "Nahradit data tohoto zařízení?",
+        "body": "Přihlášení jako {{email}} nahradí hosty, klíče a úryvky na tomto zařízení těmi, které jsou uložené v tomto účtu.",
+        "confirm": "Přihlásit se a nahradit"
       }
     }
   }

@@ -461,6 +461,22 @@
         "toggle": "Tem um token de inscrição?",
         "placeholder": "vte1.…",
         "invalid": "Isso não é um token de inscrição."
+      },
+      "localNote": "Os hosts deste dispositivo vão para o cofre privado da nova conta. {{team}} não consegue lê-los.",
+      "already": {
+        "title": "Você já está em {{team}}",
+        "body": "{{email}} já é membro."
+      },
+      "join": {
+        "title": "Entrar em {{team}} como {{email}}",
+        "body": "Usa a conta com que você está conectado em {{host}}.",
+        "action": "Entrar",
+        "other": "Usar outra conta"
+      },
+      "replace": {
+        "title": "Substituir os dados deste dispositivo?",
+        "body": "Entrar como {{email}} substitui os hosts, chaves e snippets deste dispositivo pelos salvos nessa conta.",
+        "confirm": "Entrar e substituir"
       }
     }
   }

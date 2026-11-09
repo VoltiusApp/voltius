@@ -449,6 +449,22 @@
         "toggle": "有注册令牌？",
         "placeholder": "vte1.…",
         "invalid": "这不是注册令牌。"
+      },
+      "localNote": "此设备上的主机会移入新账户的私人保险库。{{team}} 无法读取它们。",
+      "already": {
+        "title": "你已在 {{team}} 中",
+        "body": "{{email}} 已是成员。"
+      },
+      "join": {
+        "title": "以 {{email}} 加入 {{team}}",
+        "body": "使用你在 {{host}} 上登录的账户。",
+        "action": "加入",
+        "other": "使用其他账户"
+      },
+      "replace": {
+        "title": "替换此设备上的数据？",
+        "body": "以 {{email}} 登录会用该账户中保存的主机、密钥和代码片段替换此设备上的内容。",
+        "confirm": "登录并替换"
       }
     }
   }

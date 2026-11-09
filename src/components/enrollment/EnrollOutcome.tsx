@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ErrorMsg } from "@/components/layout/authParts";
 import { resendVerificationEmail } from "@/services/account";
+import type { EnrollSession } from "@/services/enrollment/enrollAuth";
 import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
 import { StateCard, type CardAction } from "./enrollCards";
 
@@ -19,11 +20,12 @@ function kindOf({ status, reason }: EnrollmentOutcome): Kind {
   return reason === "email_unverified" ? "email" : reason === "seat_limit" ? "seat" : "approval";
 }
 
-export function EnrollOutcome({ teamName, email, outcome, onContinue }: {
+export function EnrollOutcome({ teamName, email, outcome, onContinue, session }: {
   teamName: string;
   email: string;
   outcome: EnrollmentOutcome;
   onContinue: () => void;
+  session?: Exclude<EnrollSession, "active">;
 }) {
   const { t } = useTranslation();
   const [resend, setResend] = useState<{ busy: boolean; error: string; sent: boolean }>({ busy: false, error: "", sent: false });
@@ -33,7 +35,7 @@ export function EnrollOutcome({ teamName, email, outcome, onContinue }: {
   const resendEmail = async () => {
     setResend({ busy: true, error: "", sent: false });
     try {
-      await resendVerificationEmail();
+      await resendVerificationEmail(session);
       setResend({ busy: false, error: "", sent: true });
     } catch (e) {
       setResend({ busy: false, error: e instanceof Error ? e.message : String(e), sent: false });

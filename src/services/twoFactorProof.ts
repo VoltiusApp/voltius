@@ -30,6 +30,19 @@ export class TwoFactorRequiredError<T = unknown> extends Error {
   }
 }
 
+/** `work` then `then`, also when `work` stops for a second factor and resumes later. */
+export async function afterSecondFactor<T, R>(work: () => Promise<T>, then: (result: T) => Promise<R>): Promise<R> {
+  let result: T;
+  try {
+    result = await work();
+  } catch (e) {
+    if (!(e instanceof TwoFactorRequiredError)) throw e;
+    const step = e as TwoFactorRequiredError<T>;
+    throw new TwoFactorRequiredError(step.methods, (proof) => afterSecondFactor(() => step.complete(proof), then), step.openPasskey);
+  }
+  return then(result);
+}
+
 const MESSAGE_KEYS: Record<string, string> = {
   TWO_FACTOR_REQUIRED: "common.error.twoFactorRequired",
   TWO_FACTOR_INVALID: "common.error.twoFactorInvalid",

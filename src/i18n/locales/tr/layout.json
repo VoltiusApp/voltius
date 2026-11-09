@@ -453,6 +453,22 @@
         "toggle": "Kayıt belirteciniz mi var?",
         "placeholder": "vte1.…",
         "invalid": "Bu bir kayıt belirteci değil."
+      },
+      "localNote": "Bu cihazdaki sunucular yeni hesabın özel kasasına taşınır. {{team}} bunları okuyamaz.",
+      "already": {
+        "title": "Zaten {{team}} içindesiniz",
+        "body": "{{email}} zaten üye."
+      },
+      "join": {
+        "title": "{{team}} ekibine {{email}} olarak katıl",
+        "body": "{{host}} üzerinde oturum açtığınız hesabı kullanır.",
+        "action": "Katıl",
+        "other": "Başka bir hesap kullan"
+      },
+      "replace": {
+        "title": "Bu cihazdaki veriler değiştirilsin mi?",
+        "body": "{{email}} olarak oturum açmak, bu cihazdaki sunucuları, anahtarları ve kod parçacıklarını o hesapta kayıtlı olanlarla değiştirir.",
+        "confirm": "Oturum aç ve değiştir"
       }
     }
   }

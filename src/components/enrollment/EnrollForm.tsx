@@ -15,7 +15,7 @@ import {
 } from "@/components/layout/authParts";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
-import { createServerAccount, getAccountId, login } from "@/services/account";
+import { createServerAccount, login } from "@/services/account";
 import { accountErrorText } from "@/services/accountErrors";
 import {
   emailDomainAllowed,
@@ -31,27 +31,24 @@ import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken
 import { serverAllowed } from "@/services/policy/serverPolicy";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { EnrollSource } from "@/stores/uiStore";
-import { enrollAuthStep, type EnrollAuthResult } from "@/services/enrollment/enrollAuth";
+import { activeEnrollSession, enrollAuthStep, type EnrollAuthResult } from "@/services/enrollment/enrollAuth";
 import { DEFAULT_SERVER_URL, instanceLabel, sameServer } from "@/utils/serverInstance";
 import { Heading, StateCard, type CardAction } from "./enrollCards";
 
 type Mode = "signup" | "signin";
-export type EnrollActiveAccount = "none" | "local" | { serverUrl: string; accountId: string; email: string };
+export type EnrollActiveAccount = "none" | "local" | { serverUrl: string; accountId: string; email: string; teamIds?: string[] };
 export type EnrollAuth = (req: { mode: Mode; email: string; password: string; token: EnrollmentTokenParts }) => Promise<EnrollAuthResult>;
-
-const activeSession = async (outcome: EnrollmentOutcome | null): Promise<EnrollAuthResult> =>
-  ({ outcome, session: "active", accountId: (await getAccountId()) ?? "" });
 
 const firstLaunchAuth: EnrollAuth = ({ mode, email, password, token }) =>
   mode === "signup"
-    ? enrollAuthStep(() => createServerAccount(email, password, token.serverUrl, enrollmentCredential(token)), activeSession)
-    : enrollAuthStep(() => login(password, email, token.serverUrl), () => activeSession(null));
+    ? enrollAuthStep(() => createServerAccount(email, password, token.serverUrl, enrollmentCredential(token)), activeEnrollSession)
+    : enrollAuthStep(() => login(password, email, token.serverUrl), () => activeEnrollSession(null));
 
 type Failure = ResolveFailure | "blocked";
 type Step =
   | { kind: "loading" }
   | { kind: "failed"; failure: Failure; team?: string }
-  | { kind: "confirm" | "form"; resolved: ResolvedEnrollment };
+  | { kind: "already" | "confirm" | "join" | "form"; resolved: ResolvedEnrollment };
 
 function failureBody(failure: Failure, team: string | undefined, host: string, t: (k: string, o?: Record<string, unknown>) => string) {
   switch (failure) {
@@ -88,9 +85,13 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
   const [error, setError] = useState("");
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const authed = useRef<EnrollAuthResult | null>(null);
   const twoFactor = useTwoFactorChallenge();
   const serverHost = instanceLabel(token.serverUrl) ?? DEFAULT_SERVER_URL;
+  const local = activeAccount === "local";
+  const pastConfirm = (resolved: ResolvedEnrollment): Step =>
+    ({ kind: known && emailDomainAllowed(known.email, resolved.allowedDomains) ? "join" : "form", resolved });
 
   useEffect(() => {
     // Checked before resolve: the token secret must never reach a server this machine's policy blocks.
@@ -103,7 +104,8 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
     useEnrollmentStore.getState().resolve(token, { force: true }).then(
       (resolved) => {
         if (!live) return;
-        setStep({ kind: source === "machine" ? "form" : "confirm", resolved });
+        if (known?.teamIds?.includes(resolved.teamId)) return setStep({ kind: "already", resolved });
+        setStep(source === "machine" ? pastConfirm(resolved) : { kind: "confirm", resolved });
         const [domain] = resolved.allowedDomains;
         if (known || !domain) return;
         void invoke<string | null>("os_user_name").catch(() => null).then((name) => {
@@ -146,8 +148,20 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
   const { resolved } = step;
   const team = resolved.teamName;
 
+  if (step.kind === "already") {
+    return (
+      <StateCard
+        icon="lucide:circle-check-big"
+        color="var(--t-status-connected)"
+        title={t("layout.enroll.already.title", { team })}
+        body={t("layout.enroll.already.body", { email: known?.email ?? "" })}
+        actions={onSkip ? [{ label: t("common.action.close"), onClick: onSkip }] : []}
+      />
+    );
+  }
+
   if (step.kind === "confirm") {
-    const actions: CardAction[] = [{ label: t("layout.enroll.continue"), onClick: () => setStep({ kind: "form", resolved }) }];
+    const actions: CardAction[] = [{ label: t("layout.enroll.continue"), onClick: () => setStep(pastConfirm(resolved)) }];
     if (onSkip) actions.push({ label: t("common.action.cancel"), onClick: onSkip, primary: false });
     return (
       <StateCard
@@ -202,15 +216,11 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
     return null;
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const invalid = authed.current ? null : problem();
-    if (invalid) return fail(...invalid);
+  const busy = async (work: () => Promise<void>) => {
     fail("");
     setLoading(true);
     try {
-      const prior = authed.current;
-      await twoFactor.run(() => (prior ? Promise.resolve(prior) : auth({ mode, email, password, token })), finish);
+      await work();
     } catch (err) {
       refused(err);
     } finally {
@@ -218,11 +228,62 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
     }
   };
 
+  const signIn = () => {
+    const prior = authed.current;
+    return busy(() => twoFactor.run(() => (prior ? Promise.resolve(prior) : auth({ mode, email, password, token })), finish));
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const invalid = authed.current ? null : problem();
+    if (invalid) return fail(...invalid);
+    if (local && !signup && !authed.current) return setConfirmReplace(true);
+    await signIn();
+  };
+
   const switchMode = (next: Mode) => {
     setMode(next);
     fail("");
     setConfirm("");
   };
+
+  if (step.kind === "join" && known) {
+    const useAnother = () => {
+      authed.current = null;
+      setEmail("");
+      fail("");
+      setStep({ kind: "form", resolved });
+    };
+    return (
+      <StateCard
+        icon="lucide:building-2"
+        color="var(--t-accent)"
+        title={t("layout.enroll.join.title", { team, email: known.email })}
+        body={t("layout.enroll.join.body", { host: serverHost })}
+        actions={[
+          { label: t("layout.enroll.join.action"), onClick: () => void busy(async () => finish(await activeEnrollSession(null))), loading },
+          { label: t("layout.enroll.join.other"), onClick: useAnother, primary: false },
+        ]}
+      >
+        <ErrorMsg msg={error} />
+      </StateCard>
+    );
+  }
+
+  if (confirmReplace) {
+    return (
+      <StateCard
+        icon="lucide:triangle-alert"
+        color="var(--t-status-warning)"
+        title={t("layout.enroll.replace.title")}
+        body={t("layout.enroll.replace.body", { email })}
+        actions={[
+          { label: t("layout.enroll.replace.confirm"), onClick: () => { setConfirmReplace(false); void signIn(); } },
+          { label: t("common.action.cancel"), onClick: () => setConfirmReplace(false), primary: false },
+        ]}
+      />
+    );
+  }
 
   const locked = authed.current !== null;
   const passwordPlaceholder = !signup
@@ -246,10 +307,11 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
             <MasterPasswordNote />
           </>
         )}
-        {(domains || resolved.requireApproval) && (
+        {(domains || resolved.requireApproval || (local && signup)) && (
           <div className="pt-1">
             {domains && <FormNote icon="lucide:at-sign">{t("layout.enroll.domainNote", { domains })}</FormNote>}
             {resolved.requireApproval && <FormNote icon="lucide:user-check">{t("layout.enroll.approvalNote")}</FormNote>}
+            {local && signup && <FormNote icon="lucide:info">{t("layout.enroll.localNote", { team })}</FormNote>}
           </div>
         )}
         <div className="pt-1">

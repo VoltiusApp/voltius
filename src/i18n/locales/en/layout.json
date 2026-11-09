@@ -453,6 +453,22 @@
         "toggle": "Have an enrolment token?",
         "placeholder": "vte1.…",
         "invalid": "That isn't an enrolment token."
+      },
+      "localNote": "This device's hosts move into the new account's private vault. {{team}} can't read them.",
+      "already": {
+        "title": "You're already in {{team}}",
+        "body": "{{email}} is already a member."
+      },
+      "join": {
+        "title": "Join {{team}} as {{email}}",
+        "body": "Uses the account you're signed in to on {{host}}.",
+        "action": "Join",
+        "other": "Use another account"
+      },
+      "replace": {
+        "title": "Replace this device's data?",
+        "body": "Signing in as {{email}} replaces the hosts, keys and snippets on this device with the ones saved in that account.",
+        "confirm": "Sign in and replace"
       }
     }
   }

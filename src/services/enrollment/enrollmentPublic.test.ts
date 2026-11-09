@@ -76,14 +76,19 @@ test("a network failure is unreachable", async () => {
 
 test("redeem with explicit session uses its bearer and no public key", async () => {
   h.appFetch.mockResolvedValue(reply(200, { status: "pending", reason: "approval", team_id: "t1" }));
-  const outcome = await redeemEnrollment(TOKEN, { serverUrl: "https://other.example/", jwt: "JWT" });
+  const outcome = await redeemEnrollment(TOKEN, { serverUrl: "https://srv.example/", jwt: "JWT" });
   expect(outcome).toEqual({ status: "pending", reason: "approval", teamId: "t1" });
   const [url, init] = h.appFetch.mock.calls[0];
-  expect(url).toBe("https://other.example/v1/enrollment/redeem");
+  expect(url).toBe("https://srv.example/v1/enrollment/redeem");
   expect(new Headers(init.headers).get("Authorization")).toBe("Bearer JWT");
   expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
   expect(JSON.parse(init.body)).toEqual({ id: UUID, secret: TOKEN.secret });
   expect(h.serverFetch).not.toHaveBeenCalled();
+});
+
+test("redeem refuses a session on another server than the token's, sending nothing", async () => {
+  await expect(redeemEnrollment(TOKEN, { serverUrl: "https://other.example", jwt: "JWT" })).rejects.toThrow();
+  expect(h.appFetch).not.toHaveBeenCalled();
 });
 
 test("redeem on the active session sends this device's public key", async () => {

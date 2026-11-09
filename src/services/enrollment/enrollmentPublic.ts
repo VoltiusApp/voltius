@@ -1,6 +1,6 @@
 import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { serverFetch } from "@/services/teamService";
-import { canonicalServerUrl } from "@/utils/serverInstance";
+import { canonicalServerUrl, sameServer } from "@/utils/serverInstance";
 import {
   EnrollmentError,
   enrollmentErrorFrom,
@@ -86,6 +86,9 @@ export async function redeemEnrollment(
   token: EnrollmentTokenParts,
   session: { serverUrl: string; jwt: string } | "active",
 ): Promise<EnrollmentOutcome> {
+  if (session !== "active" && !sameServer(session.serverUrl, token.serverUrl)) {
+    throw new Error("enrolment session is on another server than its token");
+  }
   const body: Record<string, string> = { ...enrollmentCredential(token) };
   if (session === "active") {
     const { getMyX25519Keypair } = await import("@/services/multiplayerService");

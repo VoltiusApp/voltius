@@ -702,11 +702,10 @@ export async function refreshVerificationState(): Promise<boolean> {
   return useSubscriptionStore.getState().emailVerified;
 }
 
-export async function resendVerificationEmail(): Promise<void> {
-  const [jwt, serverUrl] = await Promise.all([
-    keychainGet("jwt"),
-    keychainGet("server_url"),
-  ]);
+export async function resendVerificationEmail(session?: { serverUrl: string; jwt: string }): Promise<void> {
+  const [jwt, serverUrl] = session
+    ? [session.jwt, session.serverUrl]
+    : await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/resend-verification-email`, {
