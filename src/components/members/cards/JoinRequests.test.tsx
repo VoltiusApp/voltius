@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   locked: false,
   list: vi.fn(),
   warned: null as string | null,
+  errorText: "",
   approve: vi.fn(),
   deny: vi.fn(),
   loadMembers: vi.fn(),
@@ -13,7 +14,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t: (k: string, o?: { reason?: string }) => (o?.reason ? `${k}|${o.reason}` : k) }),
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked, isOwner: true }) }));
@@ -28,10 +29,15 @@ vi.mock("@/services/enrollment/enrollmentApi", async (importOriginal) => ({
   enrollmentApi: { listJoinRequests: h.list, approveJoinRequest: h.approve, denyJoinRequest: h.deny },
 }));
 vi.mock("@/services/teamActionFeedback", () => ({
-  runTeamAction: async (o: { run: () => Promise<unknown>; warning?: (r: unknown) => string | null }) => {
-    const r = await o.run();
-    h.warned = o.warning?.(r) ?? null;
-    return r;
+  runTeamAction: async (o: { run: () => Promise<unknown>; warning?: (r: unknown) => string | null; error?: (e: Error) => string }) => {
+    try {
+      const r = await o.run();
+      h.warned = o.warning?.(r) ?? null;
+      return r;
+    } catch (e) {
+      h.errorText = o.error?.(e as Error) ?? "";
+      throw e;
+    }
   },
 }));
 
@@ -47,6 +53,7 @@ const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
 beforeEach(() => {
   h.locked = false;
   h.warned = null;
+  h.errorText = "";
   h.list.mockReset().mockResolvedValue([req()]);
   h.approve.mockReset();
   h.deny.mockReset();
@@ -104,6 +111,36 @@ test("a lapsed plan refusal reloads teams", async () => {
   render(<JoinRequestsSection teamId="t1" />);
   fireEvent.click(await screen.findByText("members.joinRequests.approve"));
   await waitFor(() => expect(h.loadTeams).toHaveBeenCalled());
+});
+
+test("a lapsed plan refusal shows the Business lock message", async () => {
+  h.locked = true;
+  render(<JoinRequestsSection teamId="t1" />);
+  expect(await screen.findByText("members.enrollment.lapsed")).toBeTruthy();
+});
+
+test("a bare 402 explains the missing seat and reloads", async () => {
+  h.approve.mockRejectedValue(new EnrollmentError(null, 402));
+  render(<JoinRequestsSection teamId="t1" />);
+  fireEvent.click(await screen.findByText("members.joinRequests.approve"));
+  await waitFor(() => expect(h.errorText).toContain("members.joinRequests.noSeatToast"));
+  expect(h.loadTeams).not.toHaveBeenCalled();
+  await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2));
+});
+
+test("a 404 reloads the list", async () => {
+  h.approve.mockRejectedValue(new EnrollmentError(null, 404));
+  render(<JoinRequestsSection teamId="t1" />);
+  fireEvent.click(await screen.findByText("members.joinRequests.approve"));
+  await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2));
+});
+
+test("a failed reload keeps the previous list", async () => {
+  render(<JoinRequestsSection teamId="t1" />);
+  await screen.findByText("Sam");
+  h.list.mockRejectedValue(new Error("offline"));
+  await useTeamStore.getState().loadJoinRequests("t1");
+  expect(useTeamStore.getState().joinRequestsByTeam.t1).toHaveLength(1);
 });
 
 test("deny removes the row", async () => {

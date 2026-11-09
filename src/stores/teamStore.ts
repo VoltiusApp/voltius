@@ -208,8 +208,10 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   loadJoinRequests: async (teamId) => {
+    const epoch = accountEpoch();
     const { enrollmentApi } = await import("@/services/enrollment/enrollmentApi");
-    const requests = await enrollmentApi.listJoinRequests(teamId).catch(() => [] as JoinRequest[]);
+    const requests = await enrollmentApi.listJoinRequests(teamId).catch(() => null);
+    if (!requests || epoch !== accountEpoch()) return;
     set((s) => ({ joinRequestsByTeam: { ...s.joinRequestsByTeam, [teamId]: requests } }));
   },
 
