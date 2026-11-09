@@ -39,6 +39,13 @@ export function clampTerminalFontSize(value: number): number {
   return Math.min(MAX_TERMINAL_FONT_SIZE, Math.max(MIN_TERMINAL_FONT_SIZE, Math.round(value)));
 }
 
+export const RIGHT_PANEL_WIDTH = { default: 300, min: 300, max: 560 } as const;
+
+export function clampRightPanelWidth(value: number): number {
+  const width = Number.isFinite(value) ? Math.round(value) : RIGHT_PANEL_WIDTH.default;
+  return Math.min(RIGHT_PANEL_WIDTH.max, Math.max(RIGHT_PANEL_WIDTH.min, width));
+}
+
 export type ImportExportSection = "vaults" | "user-data";
 
 /** Monotonic counter for import/export modal opens — drives a fresh remount per invocation. */
@@ -116,6 +123,7 @@ interface UIStore {
   pluginsNavExpanded: boolean;
   rightPanelOpen: boolean;
   rightPanelSection: RightPanelSection;
+  rightPanelWidth: number;
   sftpPanelOpen: boolean;
   pendingSftpConnectionId: string | null;
   uiScale: number;
@@ -173,6 +181,7 @@ interface UIStore {
   setPluginBrowseQuery: (query: string | null) => void;
   setRightPanelOpen: (open: boolean) => void;
   setRightPanelSection: (section: RightPanelSection) => void;
+  setRightPanelWidth: (width: number) => void;
   toggleRightPanel: (section?: RightPanelSection) => void;
   setSftpPanelOpen: (open: boolean) => void;
   openSftpWith: (connectionId: string) => void;
@@ -248,6 +257,7 @@ export const useUIStore = create<UIStore>()(
         pluginsNavExpanded: true,
         rightPanelOpen: false,
         rightPanelSection: "themes" as RightPanelSection,
+        rightPanelWidth: RIGHT_PANEL_WIDTH.default,
         sftpPanelOpen: false,
         pendingSftpConnectionId: null as string | null,
         uiScale: 1,
@@ -314,6 +324,7 @@ export const useUIStore = create<UIStore>()(
         setPluginBrowseQuery: (query) => set({ pluginBrowseQuery: query }),
         setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
         setRightPanelSection: (section) => set({ rightPanelSection: section }),
+        setRightPanelWidth: (width) => set({ rightPanelWidth: clampRightPanelWidth(width) }),
         toggleRightPanel: (section) =>
           set((s) => ({
             rightPanelOpen: section && section !== s.rightPanelSection ? true : !s.rightPanelOpen,
@@ -384,6 +395,7 @@ export const useUIStore = create<UIStore>()(
         snippetsLayoutMode: state.snippetsLayoutMode,
         knownHostsLayoutMode: state.knownHostsLayoutMode,
         rightPanelSection: state.rightPanelSection,
+        rightPanelWidth: state.rightPanelWidth,
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,
         imagePasteNoticeSeen: state.imagePasteNoticeSeen,

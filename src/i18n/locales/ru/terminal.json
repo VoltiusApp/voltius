@@ -106,6 +106,7 @@
       "themeCustom": "пользовательская",
       "createNewTheme": "Создать новую тему",
       "closePanelTitle": "Закрыть панель",
+      "resizeHandle": "Перетащите, чтобы изменить размер; двойной щелчок — сбросить",
       "sections": {
         "history": "История",
         "sftp": "SFTP",

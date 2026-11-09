@@ -25,7 +25,7 @@ function fmtMem(kb: number): string {
 
 // ─── Column header ────────────────────────────────────────────────────────────
 
-// The name column takes what is left of the fixed-width side panel; these never shrink.
+// The name column takes what is left of the side panel; these never shrink.
 const COL = { user: 48, cpu: 36, mem: 36, kill: 19 };
 
 function ColHeader({
@@ -83,7 +83,6 @@ function ProcessRow({
   t: PluginAPI["i18n"]["t"];
 }) {
   const isConfirming = confirmPid === entry.pid;
-  const displayName = entry.name.length > 18 ? entry.name.slice(0, 17) + "…" : entry.name;
 
   return (
     <div
@@ -103,7 +102,7 @@ function ProcessRow({
           color: isConfirming ? "var(--t-status-error)" : "var(--t-text-primary)",
         }}
       >
-        {displayName}
+        {entry.name}
       </span>
 
       {/* User */}

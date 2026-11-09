@@ -100,6 +100,7 @@
       "themeCustom": "özel",
       "createNewTheme": "Yeni tema oluştur",
       "closePanelTitle": "Paneli kapat",
+      "resizeHandle": "Boyutlandırmak için sürükleyin, sıfırlamak için çift tıklayın",
       "sections": {
         "history": "Geçmiş",
         "sftp": "SFTP",

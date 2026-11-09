@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDragSelection } from "@/hooks/useDragSelection";
+import { usePointerDrag } from "@/hooks/usePointerDrag";
 import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -837,49 +838,20 @@ function CrumbSegment({ label, isLast, isDropTarget, dropPath, onClick }: { labe
 export type Viewport = { scrollLeft: number; gutter: number };
 
 function ResizeHandle({ column, onWidth }: { column: FileColumn; onWidth: (w: number) => void }) {
-  const startRef = useRef<{ x: number; width: number } | null>(null);
-  const [isActive, setIsActive] = useState(false);
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Seed from the width the column actually has on screen, not the stored one:
-    // the name column grows past its stored width to fill the pane, and starting
-    // from the stored value made the divider jump away from the cursor.
-    startRef.current = { x: e.clientX, width: e.currentTarget.parentElement!.getBoundingClientRect().width };
-    setIsActive(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!startRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const nextWidth = startRef.current.width + (e.clientX - startRef.current.x);
-    onWidth(Math.max(COLUMN_MIN_WIDTHS[column], nextWidth));
-  };
-
-  const finishResize = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!startRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    startRef.current = null;
-    setIsActive(false);
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-  };
+  const [hovered, setHovered] = useState(false);
+  const { dragging, handlers } = usePointerDrag({
+    cursor: "col-resize",
+    // Seed from the on-screen width: the name column grows past its stored width to fill the pane.
+    begin: (e) => ({ x: e.clientX, width: e.currentTarget.parentElement!.getBoundingClientRect().width }),
+    move: (e, start) => onWidth(Math.max(COLUMN_MIN_WIDTHS[column], start.width + (e.clientX - start.x))),
+  });
+  const isActive = hovered || dragging;
 
   return (
     <div
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={finishResize}
-      onPointerCancel={finishResize}
-      onPointerEnter={() => setIsActive(true)}
-      onPointerLeave={() => { if (!startRef.current) setIsActive(false); }}
+      {...handlers}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
       className="absolute inset-y-0 right-0 z-10 flex items-center justify-center"
       style={{

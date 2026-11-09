@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { useUIStore, type RightPanelSection } from "@/stores/uiStore";
+import { useUIStore, RIGHT_PANEL_WIDTH, type RightPanelSection } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { resolveLabel } from "@/plugins/resolveLabel";
 import { useUiLanguage } from "@/i18n";
@@ -16,10 +16,10 @@ import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
-import { SidePanelColumn } from "@/components/layout/SidePanelColumn";
+import { SidePanelColumn, sidePanelWidthStyles } from "@/components/layout/SidePanelColumn";
 import { orderPluginSections } from "./rightPanelOrder";
 
-const PANEL_WIDTH = 300;
+const PANEL_GUTTER = 16;
 
 // ─── Theme preview thumbnail ──────────────────────────────────────────────────
 
@@ -275,7 +275,10 @@ function PanelContent() {
 export default function RightPanel() {
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const activeNav = useUIStore((s) => s.activeNav);
+  const panelWidth = useUIStore((s) => s.rightPanelWidth);
+  const setPanelWidth = useUIStore((s) => s.setRightPanelWidth);
   const { sessions, activeSessionId } = useSessionStore();
+  const { t } = useTranslation();
 
   const hasActiveSession = activeSessionId !== null && sessions.length > 0;
   const isTerminalView = hasActiveSession && activeNav !== "hosts";
@@ -283,7 +286,19 @@ export default function RightPanel() {
   if (!isTerminalView) return null;
 
   return (
-    <SidePanelColumn testId="right-panel" open={rightPanelOpen} side="right" columnWidth={PANEL_WIDTH + 16} cardWidth="20rem">
+    <SidePanelColumn
+      testId="right-panel"
+      open={rightPanelOpen}
+      side="right"
+      {...sidePanelWidthStyles(panelWidth, PANEL_GUTTER)}
+      resize={{
+        min: RIGHT_PANEL_WIDTH.min,
+        max: RIGHT_PANEL_WIDTH.max,
+        defaultWidth: RIGHT_PANEL_WIDTH.default,
+        onChange: setPanelWidth,
+        label: t("terminal.rightPanel.resizeHandle"),
+      }}
+    >
       <PanelContent />
     </SidePanelColumn>
   );

@@ -106,6 +106,7 @@
       "themeCustom": "vlastní",
       "createNewTheme": "Vytvořit nový motiv",
       "closePanelTitle": "Zavřít panel",
+      "resizeHandle": "Přetažením změníte velikost, dvojklikem obnovíte výchozí",
       "sections": {
         "history": "Historie",
         "sftp": "SFTP",
