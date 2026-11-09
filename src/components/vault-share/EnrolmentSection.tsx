@@ -102,12 +102,9 @@ export function EnrolmentSection({ teamId, roles }: Props) {
         require_approval: noEmail || s.approve,
         expires_at: s.expiresAt,
       };
-      const [made, serverUrl] = await Promise.all([enrollmentApi.createToken(teamId, body), getServerUrl()]);
-      if (!serverUrl) {
-        load();
-        throw new Error(t("common.error.notConnectedToServer"));
-      }
-      showCreated(made, serverUrl);
+      const serverUrl = await getServerUrl();
+      if (!serverUrl) throw new Error(t("common.error.notConnectedToServer"));
+      showCreated(await enrollmentApi.createToken(teamId, body), serverUrl);
     }, "create");
 
   const showCreated = (made: CreatedEnrollmentToken, serverUrl: string) => {

@@ -182,7 +182,8 @@ test("no server url shows no token", async () => {
   await screen.findByText("members.enrollment.create");
   addDomain("acme.com");
   fireEvent.click(createBtn());
-  await waitFor(() => expect(h.createToken).toHaveBeenCalled());
-  await waitFor(() => expect(h.getToken).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(h.serverUrl).toBeNull());
+  await new Promise((r) => setTimeout(r, 20));
+  expect(h.createToken).not.toHaveBeenCalled();
   expect(screen.queryByDisplayValue(/^vte1\./)).toBeNull();
 });
