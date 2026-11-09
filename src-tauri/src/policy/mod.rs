@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 pub mod acl;
+pub mod enrollment_token;
 #[cfg(windows)]
 mod acl_windows;
 
@@ -49,6 +50,7 @@ pub enum LockKind {
     Replace,
     Add,
     Never,
+    Only,
 }
 
 #[derive(Deserialize, Clone, Default, Debug)]
@@ -424,6 +426,9 @@ pub fn value_problem(key: &str, ty: KeyType, v: &Value) -> Option<String> {
         {
             Some("every entry must be an absolute http(s) URL".to_string())
         }
+        ("enrollment.token", Value::String(s)) if enrollment_token::parse(s).is_none() => {
+            Some("not a valid enrolment token".to_string())
+        }
         _ => None,
     }
 }
@@ -722,10 +727,14 @@ fn is_range_entry(v: &Value) -> bool {
 }
 
 pub fn lock_problem(layer: Layer, key: &str) -> Option<String> {
-    (layer == Layer::Policy && key_def(key).is_some_and(|d| d.lock == LockKind::Never)).then(|| {
-        "appSettings.plugins.overrides cannot be locked; use plugins.enabled / plugins.disabled"
-            .to_string()
-    })
+    match (layer, key_def(key)?.lock) {
+        (Layer::Policy, LockKind::Never) => Some(
+            "appSettings.plugins.overrides cannot be locked; use plugins.enabled / plugins.disabled"
+                .to_string(),
+        ),
+        (Layer::Defaults, LockKind::Only) => Some(format!("{key} belongs under policy")),
+        _ => None,
+    }
 }
 
 fn entry_problem(layer: Layer, key: &str, value: &Value) -> Option<(IssueKind, String)> {
@@ -1868,6 +1877,21 @@ mod tests {
         let (doc, issues) = check_team_doc(&text);
         assert_eq!(issues, parse(&text).1);
         assert!(doc.policy.is_empty());
+    }
+
+    #[test]
+    fn enrollment_token_in_defaults_is_refused() {
+        assert!(lock_problem(Layer::Defaults, "enrollment.token").is_some());
+        assert!(lock_problem(Layer::Policy, "enrollment.token").is_none());
+    }
+
+    #[test]
+    fn invalid_enrollment_token_is_dropped_with_issue() {
+        let text = json!({"version": 1, "policy": {"enrollment.token": "nope"}}).to_string();
+        let (doc, issues) = parse(&text);
+        assert!(doc.policy.is_empty());
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, IssueKind::Type);
     }
 
     #[test]

@@ -63,3 +63,9 @@ test("registry carries domains, ranges, locks and implied toggles", () => {
 test("keys.json mirrors the registry", async () => {
   await expect(JSON.stringify(policyKeysSnapshot(), null, 2) + "\n").toMatchFileSnapshot("../../../src-tauri/src/policy/keys.json");
 });
+
+test("enrollment token is a policy-only enforced string", () => {
+  expect(policyKeyDef("enrollment.token")).toMatchObject({ type: "string", lock: "only" });
+  expect(isPolicyEnforced("enrollment.token")).toBe(true);
+  expect(isDefaultApplied("enrollment.token")).toBe(false);
+});

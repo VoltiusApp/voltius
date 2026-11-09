@@ -1,4 +1,4 @@
-import { GRANT_SECRET_RE } from "@/services/deepLinkUrl";
+import { GRANT_SECRET_RE } from "@/services/grantSecret";
 import { base64UrlToBytes, bytesToBase64Url } from "@/utils/base64";
 import { canonicalServerUrl } from "@/utils/serverInstance";
 

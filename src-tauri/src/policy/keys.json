@@ -6,6 +6,13 @@
     "defaultApplied": true
   },
   {
+    "id": "enrollment.token",
+    "type": "string",
+    "lock": "only",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "server.allowOther",
     "type": "bool",
     "enforced": true,
