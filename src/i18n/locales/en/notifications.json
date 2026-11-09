@@ -87,6 +87,18 @@
         "message": "Your ~/.ssh/config hosts are no longer synced automatically. They are yours now: your changes are kept.",
         "turnOnSync": "Turn on continuous sync",
         "dismiss": "OK"
+      },
+      "enroll": {
+        "invite": "Your organization uses {{team}} on Voltius",
+        "signIn": "Sign in",
+        "pending": {
+          "approval": "Waiting for an admin of {{team}} to approve your request",
+          "email_unverified": "Verify your email to join {{team}}",
+          "seat_limit": "{{team}} has no free seat. An admin has been notified."
+        },
+        "declined": "{{team}} declined your request",
+        "askAgain": "Ask again",
+        "joined": "You joined {{team}}"
       }
     },
     "sshConfigOffer": {

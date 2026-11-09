@@ -70,7 +70,10 @@ export type InboxKind =
   | "awaitingKey"
   | "membershipEnded"
   | "secretsNotWiped"
-  | "sshConfigMigrated";
+  | "sshConfigMigrated"
+  | "enrollInvite"
+  | "enrollPending"
+  | "enrollDeclined";
 
 export interface InboxAction {
   label: string;

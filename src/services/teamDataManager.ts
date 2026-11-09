@@ -7,6 +7,7 @@
 
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { useEnrollmentStore } from "@/stores/enrollmentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -198,4 +199,5 @@ export function onSessionEnd(): void {
   useSnippetFolderStore.getState().clearTeamSnippetFolders();
   useTeamObjectAccessStore.getState().clearAll();
   useTeamVaultStateStore.getState().clearAll();
+  useEnrollmentStore.setState({ myRequests: null });
 }

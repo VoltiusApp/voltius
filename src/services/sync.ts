@@ -16,6 +16,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore, type Team } from "@/stores/teamStore";
+import { useEnrollmentStore } from "@/stores/enrollmentStore";
 import { setTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -239,6 +240,7 @@ function isPaymentRequired(error: unknown): boolean {
 
 async function loadTeamsForCurrentUser(): Promise<boolean> {
   await useTeamStore.getState().loadTeams().catch(logFailure("loadTeams"));
+  if (useEnrollmentStore.getState().myRequests === null) void useEnrollmentStore.getState().loadMyRequests();
   return useTeamStore.getState().teams.length > 0;
 }
 
@@ -1303,6 +1305,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     useTeamStore.getState().loadJoinRequests(teamId).catch(logFailure(`join_requests: loadJoinRequests team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
+  } else if (eventData.startsWith("my_join_requests_changed:")) {
+    void useEnrollmentStore.getState().loadMyRequests();
   } else if (eventData.startsWith("membership_changed:")) {
     const parsed = parseMembershipChangedEvent(eventData);
     scheduleSeatRefresh();

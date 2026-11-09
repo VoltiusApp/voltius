@@ -87,6 +87,18 @@
         "message": "Seus hosts de ~/.ssh/config não são mais sincronizados automaticamente. Eles são seus agora: suas alterações são mantidas.",
         "turnOnSync": "Ativar sincronização contínua",
         "dismiss": "OK"
+      },
+      "enroll": {
+        "invite": "A sua organização usa {{team}} no Voltius",
+        "signIn": "Iniciar sessão",
+        "pending": {
+          "approval": "A aguardar que um administrador de {{team}} aprove o seu pedido",
+          "email_unverified": "Verifique o seu e-mail para aderir a {{team}}",
+          "seat_limit": "{{team}} não tem lugares livres. Um administrador foi notificado."
+        },
+        "declined": "{{team}} recusou o seu pedido",
+        "askAgain": "Pedir novamente",
+        "joined": "Aderiu a {{team}}"
       }
     },
     "sshConfigOffer": {
