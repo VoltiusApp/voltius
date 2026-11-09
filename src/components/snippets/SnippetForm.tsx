@@ -10,7 +10,7 @@ import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetStore, type SnippetDraft } from "@/stores/snippetStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import {
@@ -43,6 +43,8 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 
 interface Props {
   initial?: Snippet;
+  /** Starting content for a new snippet; nothing is saved until it is edited or saved. */
+  draft?: SnippetDraft;
   onSubmit: (data: SnippetFormData) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;
@@ -52,7 +54,7 @@ interface Props {
 
 export const SnippetForm = withEditAccess("snippet", (p: Props) => p.initial, SnippetFormEditor);
 
-function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, isDirtyRef, readOnly }: Props & EditAccessProps) {
+function SnippetFormEditor({ initial, draft, onSubmit, onClose, onDuplicate, onDelete, isDirtyRef, readOnly }: Props & EditAccessProps) {
   const { t } = useTranslation();
   const isNew = !initial;
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
@@ -68,8 +70,8 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
     [connections],
   );
 
-  const [name, setName]         = useState(initial?.name ?? "");
-  const [steps, setSteps]       = useState<SnippetStep[]>(initial?.steps ?? [{ kind: "script", content: "" }]);
+  const [name, setName]         = useState(initial?.name ?? draft?.name ?? "");
+  const [steps, setSteps]       = useState<SnippetStep[]>(initial?.steps ?? draft?.steps ?? [{ kind: "script", content: "" }]);
   const [description, setDesc]  = useState(initial?.description ?? "");
   const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [tags, setTags]         = useState<string[]>(initial?.tags ?? []);
@@ -81,6 +83,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   const [vaultId, setVaultId]   = useState(initial?.vault_id ?? defaultVaultId);
   const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
   const vaultTouched = useRef(false);
+  const [draftUnsaved, setDraftUnsaved] = useState(!!draft && !initial);
   const folders = useVaultScopedItems(vaultId, personalFolders, teamSnippetFolders);
 
   // Single-script fast path: keep the plain textarea when the snippet is just one script step.
@@ -109,7 +112,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   });
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => keepSavedOnCancel(onSubmit(buildData())),
+    onSave: () => saveNow(),
     canSave: () => steps.length > 0 && steps.some((s) => s.kind !== "script" || s.content.trim()),
     readOnly,
   });
@@ -122,6 +125,11 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   useEffect(() => schedule(), [name, steps, description, folderId, tags, connTags, distros, favorite, vaultId]);
 
   const handleClose = () => flushAndClose(onClose);
+
+  function saveNow() {
+    setDraftUnsaved(false);
+    return keepSavedOnCancel(onSubmit(buildData()));
+  }
 
   // ── Tag helpers — all call markDirty ──────────────────────────────────────
 
@@ -158,6 +166,15 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
         saveState={saveState}
         actions={
           <>
+            {draftUnsaved && !readOnly && (
+              <button
+                onClick={() => void saveNow()}
+                className="h-7 px-2.5 text-xs font-semibold rounded-lg"
+                style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
+              >
+                {t("common.action.save")}
+              </button>
+            )}
             {!isNew && <PinButton pinned={isPinned} onToggle={() => {
               if (!isTeamVault) {
                 pinSnippet(initial!.id, !isPinned).catch(() => {});

@@ -20,6 +20,7 @@ import { setTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, filterSecrets, collectExcludedIds, type SecretMaps } from "./syncExclusion";
@@ -70,6 +71,7 @@ export const ENTITY_FILES = [
   "snippet_folders.json",
   "port_forwarding_rules.json",
   LAN_GROUP_FILE,
+  "favorite_commands.json",
 ] as const;
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -352,7 +354,11 @@ export function getExcludedObjectIds(): string[] {
         ids: [...useFolderStore.getState().folders, ...useSnippetFolderStore.getState().folders]
           .map((f) => f.id),
       },
-      { type: "snippet", ids: useSnippetStore.getState().snippets.map((s) => s.id) },
+      // Favorite commands have no switch of their own: they follow snippets.
+      {
+        type: "snippet",
+        ids: [...useSnippetStore.getState().snippets, ...useFavoriteCommandStore.getState().favorites].map((s) => s.id),
+      },
       { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
     ],
     prefs.isObjectSynced,
@@ -501,6 +507,7 @@ export async function reloadAllStores(): Promise<void> {
     useSnippetStore.getState().loadSnippets(),
     useSnippetFolderStore.getState().loadFolders(),
     usePortForwardingStore.getState().loadRules(),
+    useFavoriteCommandStore.getState().load(),
   ]);
 }
 

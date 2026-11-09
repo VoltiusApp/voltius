@@ -573,6 +573,8 @@ pub fn run() {
             commands::plugins::plugins_list_seeded,
             commands::plugins::plugin_seeded_read,
             commands::plugins::plugin_fetch_url,
+            commands::favorite_commands::favorite_command_list,
+            commands::favorite_commands::favorite_command_put,
             commands::snippets::snippet_list,
             commands::snippets::snippet_create,
             commands::snippets::snippet_update,
