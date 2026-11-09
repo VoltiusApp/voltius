@@ -6,6 +6,7 @@
 // so a store mock can never break them.
 
 import type { SettingsSection } from "./uiStore";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 export interface ToggleDef {
   /** i18n key resolving to the display label, translated at render time */
@@ -102,7 +103,7 @@ export const TOGGLE_DEFS = {
   },
   "auto-forward": {
     labelKey: "settings.toggleDefs.autoForward.label",
-    icon: "lucide:arrow-left-right",
+    icon: PORT_FORWARDING_ICON,
     section: "portForwarding",
     keywords: ["forward", "port", "tunnel", "auto", "detect", "ssh"],
     default: true,

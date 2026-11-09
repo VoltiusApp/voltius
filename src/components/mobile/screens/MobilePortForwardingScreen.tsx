@@ -24,6 +24,7 @@ import { folderItemCounter } from "@/utils/folderTree";
 import type { PortForwardingRule, Folder, TunnelType } from "@/types";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 type FormRule = PortForwardingRule | TunnelType | null | undefined;
 type AddMode = null | "menu" | "new-folder";
@@ -87,7 +88,7 @@ export default function MobilePortForwardingScreen() {
           const st = statusFor(rule);
           return (
             <div key={rule.id} data-pf-rule className="w-full flex items-center gap-3 px-4 py-2.5">
-              <AvatarTile icon="lucide:arrow-left-right" className="w-9 h-9 rounded-lg" iconSize={18} />
+              <AvatarTile icon={PORT_FORWARDING_ICON} className="w-9 h-9 rounded-lg" iconSize={18} />
               <button className="flex-1 min-w-0 text-left" onClick={() => setSheetRule(rule)}>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{rule.name}</span>
@@ -105,7 +106,7 @@ export default function MobilePortForwardingScreen() {
 
         {subfolders.length === 0 && rules.length === 0 && (
           <div className="flex flex-col items-center justify-center px-8 py-16 text-center text-(--t-text-dim)">
-            <Icon icon="lucide:arrow-left-right" width={28} className="mb-2 opacity-60" />
+            <Icon icon={PORT_FORWARDING_ICON} width={28} className="mb-2 opacity-60" />
             <p className="text-sm">{search.trim() ? t("mobile.portForwardingScreen.noSearchMatches") : t("mobile.portForwardingScreen.empty")}</p>
           </div>
         )}

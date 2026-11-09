@@ -4,6 +4,7 @@ import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useVaultStore } from "@/stores/vaultStore";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 export interface VaultObjectType {
   /** Also names the count's label: common.contentCounts.<key>. */
@@ -32,6 +33,6 @@ export function useVaultContents(vaultId?: string): VaultObjectType[] {
     { key: "identities",          icon: "lucide:id-card",    count: filter(identities).length },
     { key: "keys",                icon: "lucide:key-round",  count: filter(keys).length },
     { key: "snippets",            icon: "lucide:braces",     count: filter(snippets).length },
-    { key: "portForwardingRules", icon: "lucide:network",    count: filter(pfRules).length },
+    { key: "portForwardingRules", icon: PORT_FORWARDING_ICON, count: filter(pfRules).length },
   ];
 }

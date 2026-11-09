@@ -26,11 +26,7 @@
       "panelsAriaLabel": "Painéis"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "Métricas",
-      "processes": "Processos",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "Keychain",

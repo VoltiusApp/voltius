@@ -3,6 +3,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { IMPORTERS } from "@/services/import-export/importers";
 import { defineCommand } from "@/commands/defineCommand";
 import { lazyT } from "@/i18n";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 const open = useUIStore.getState;
 
@@ -66,7 +67,7 @@ export const commands: OmniCommand[] = [
   ieCommand({
     id: "import-export:export-port-forwarding",
     label: lazyT("omni.commands.exportPortForwarding"),
-    icon: "lucide:arrow-right-left",
+    icon: PORT_FORWARDING_ICON,
     keywords: ["export", "port", "forwarding", "rules", "tunnel"],
     execute: () => open().openImportExport("export", { preselectedTypes: ["portForwardingRules"] }),
   }),

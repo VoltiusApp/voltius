@@ -5,8 +5,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { terminalPanelItems } from "./terminalPanelItems";
+import { useTerminalPanelItems } from "./terminalPanelItems";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
@@ -25,8 +24,6 @@ export default function MobileTerminalTopBar() {
   const setActive = useSessionStore((s) => s.setActive);
   const disconnect = useSessionStore((s) => s.disconnect);
   const setTab = useMobileNavStore((s) => s.setTab);
-  const push = useMobileNavStore((s) => s.push);
-  const openSheet = useMobileNavStore((s) => s.openSheet);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -45,16 +42,7 @@ export default function MobileTerminalTopBar() {
     });
     return () => cancelAnimationFrame(raf);
   }, [activeSessionId, chipKey]);
-  // Derive Proxmox gate as a primitive (boolean) — Zustand-safe; no fresh array/object from the selector.
-  const activeConnId = allSessions.find((s) => s.id === activeSessionId)?.connectionId;
-  const isProxmox = useConnectionStore((s) => s.connections.find((c) => c.id === activeConnId)?.distro === "proxmox");
-
-  const panelItems = terminalPanelItems({
-    activeSessionId,
-    connectionIdOfActive: activeConnId,
-    nav: { push, openSheet },
-    isProxmox,
-  }, t);
+  const panelItems = useTerminalPanelItems();
 
   return (
     <div

@@ -12,11 +12,12 @@ import type { MorePage } from "@/stores/mobileNavCore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { resolveVaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 function getPages(t: TFunction): { page: MorePage; label: string; icon: string }[] {
   return [
     { page: "keychain",        label: t("mobile.morePages.keychain"),        icon: "lucide:key-round" },
-    { page: "port-forwarding", label: t("mobile.morePages.portForwarding"),  icon: "lucide:arrow-left-right" },
+    { page: "port-forwarding", label: t("mobile.morePages.portForwarding"),  icon: PORT_FORWARDING_ICON },
     { page: "known-hosts",     label: t("mobile.morePages.knownHosts"),      icon: "lucide:fingerprint-pattern" },
     { page: "members",         label: t("mobile.morePages.members"),         icon: "lucide:users-round" },
     { page: "logs",            label: t("mobile.morePages.logs"),            icon: "lucide:scroll-text" },

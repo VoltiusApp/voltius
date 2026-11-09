@@ -8,6 +8,7 @@ import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useHistoryStore } from "@/stores/historyStore";
 import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav } from "@/hooks/useTerminal";
 import { handleDuplicateShortcut } from "@/services/duplicateSession";
+import { pluginSectionIdOf } from "@/components/terminal/terminalPanels";
 
 const CLIPBOARD_TABS = new Set(["hosts", "keychain", "port-forwarding", "snippets"]);
 
@@ -54,8 +55,9 @@ export function useKeyboard() {
         const BUILTIN_SEARCHABLE_SECTIONS = ["snippets", "history"];
         // Not keyed by a literal plugin section id — a plugin opts in via
         // providesPanelSearch so a squatted id can't inherit the Ctrl+F wiring.
-        const isPluginSectionSearchable = rightPanelSection.startsWith("plugin:") &&
-          usePluginStore.getState().rightPanelSections.get(rightPanelSection.slice("plugin:".length))?.providesPanelSearch === true;
+        const pluginSectionId = pluginSectionIdOf(rightPanelSection);
+        const isPluginSectionSearchable = pluginSectionId !== null &&
+          usePluginStore.getState().rightPanelSections.get(pluginSectionId)?.providesPanelSearch === true;
         if (rightPanelOpen && (BUILTIN_SEARCHABLE_SECTIONS.includes(rightPanelSection) || isPluginSectionSearchable)) {
           window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
         } else if (activeNav === "terminal") {

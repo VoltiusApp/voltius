@@ -25,6 +25,8 @@ import { latencyColor, latencyTone, pingStatusTone } from "@/utils/statusTone";
 import type { SerialConnectParams, SerialLine, SerialLines } from "@/types";
 import { serialSendBreak } from "@/services/serial";
 import type { TerminalStatusBarContributionContext } from "@/plugins/api";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { pluginPanelId } from "./terminalPanels";
 
 
 interface Props {
@@ -425,7 +427,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
         },
         {
           label: t("terminal.statusBar.openPortsPanel"),
-          icon: "lucide:network",
+          icon: PORT_FORWARDING_ICON,
           onClick: () => toggleRightPanel("ports"),
         },
         {
@@ -485,7 +487,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   const activeTunnelCount = tunnels.filter((t) => t.state === "active").length;
   const portsIsActive = rightPanelOpen && rightPanelSection === "ports";
-  const metricsIsActive = rightPanelOpen && metricsSectionId !== null && rightPanelSection === `plugin:${metricsSectionId}`;
+  const metricsIsActive = rightPanelOpen && metricsSectionId !== null && rightPanelSection === pluginPanelId(metricsSectionId);
   const isConnected = sessionStatus === "connected";
   const isDisconnectedOrError = sessionStatus === "disconnected" || sessionStatus === "error";
 
@@ -841,7 +843,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
           )}
           {metrics && (
             <button
-              onClick={() => metricsSectionId && toggleRightPanel(`plugin:${metricsSectionId}`)}
+              onClick={() => metricsSectionId && toggleRightPanel(pluginPanelId(metricsSectionId))}
               className={`flex items-center gap-1.5 px-1.5 ${statusBarItemClass}`}
               style={{
                 color: "var(--t-text-dim)",
@@ -888,7 +890,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
               }}
               title={t("terminal.statusBar.activeTunnels", { count: activeTunnelCount })}
             >
-              <Icon icon="lucide:network" width={11} />
+              <Icon icon={PORT_FORWARDING_ICON} width={11} />
               {activeTunnelCount > 0 && <span>{activeTunnelCount}</span>}
             </button>
           )}

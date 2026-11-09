@@ -20,6 +20,7 @@ import { defaultActions, setActions, type ItemAction } from "./importActions";
 import { useTeamStore } from "@/stores/teamStore";
 import { isTeamVaultId } from "@/stores/teamVaultMap";
 import { isMobileShell, useIsMobile } from "@/utils/platform";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 type ItemMeta = { isDupe: boolean };
 type RefMeta = { icon: string; title: string; linkedTo?: string };
@@ -564,12 +565,12 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         }),
       },
       {
-        type: "pfRules", label: t("importExport.import.groupPortForwarding"), icon: "lucide:arrow-right-left",
+        type: "pfRules", label: t("importExport.import.groupPortForwarding"), icon: PORT_FORWARDING_ICON,
         meta: pfRuleMeta,
         rows: bundle.portForwardingRules.map((r: PortForwardingRuleExport, i: number) => {
           if (!matches([r.name, r.remote_host])) return null;
           return (
-            <ItemRow key={i} icon="lucide:arrow-right-left"
+            <ItemRow key={i} icon={PORT_FORWARDING_ICON}
               title={r.name}
               sub={r.tunnel_type === "dynamic"
                 ? t("portForwarding.activeTunnels.socksPortLabel", { port: r.local_port })

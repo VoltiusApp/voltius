@@ -46,6 +46,7 @@ import { StackTab } from "@/components/layout/StackTab";
 import { buildTitlebarItems, stackGroupKey, titlebarKeyGroupOf, visibleTitlebarKeys } from "@/utils/titlebarItems";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useLastActiveByHost, useSessionTabHandlers } from "@/hooks/useTitlebarTabState";
+import { SFTP_TAB_ICON } from "@/lib/conceptIcons";
 
 const appWindow = getCurrentWindow();
 
@@ -328,7 +329,7 @@ export default function TitleBar() {
             }
           }}
         >
-          <Icon icon="lucide:folder-closed" width={20} />
+          <Icon icon={SFTP_TAB_ICON} width={20} />
           {!isSftpCompact && <span>{t("layout.titleBar.sftp")}</span>}
         </button>
 

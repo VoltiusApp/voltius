@@ -36,6 +36,7 @@ import { sharedAxisPlan, useSwapThrough } from "@/hooks/pageTransition";
 import { PullIndicator, usePullToRefresh } from "../usePullToRefresh";
 import { allSelected, pruneSelection, toggleAll, toggleItem } from "./sftpSelectionCore";
 import { canShareFiles as canShareStagedFiles, shareFiles, shareStageId, shareTotalBytes, shareableFiles, SHARE_CONFIRM_BYTES } from "@/services/share";
+import { SFTP_ICON } from "@/lib/conceptIcons";
 
 // Coded errors arrive translated, so only an uncoded one is matched by its English text.
 function isPermissionDenied(msg: string, code: BackendErrorCode | null): boolean {
@@ -211,7 +212,7 @@ export default function MobileSftpPane({
   if (!connection && !device) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Icon icon="lucide:folder-open" width={28} className="text-(--t-text-dim)" />
+        <Icon icon={SFTP_ICON} width={28} className="text-(--t-text-dim)" />
         <button data-sftp-pick-host onClick={onPickHost}
           className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}>
           {t("mobile.sftp.chooseHost")}

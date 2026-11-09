@@ -39,6 +39,7 @@ import {
 } from "@/hooks/useEffectivePinned";
 import { knocksOnConnect } from "@/services/portKnock";
 import { memberLabel } from "@/services/memberLabel";
+import { SFTP_ICON } from "@/lib/conceptIcons";
 
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 
@@ -167,7 +168,7 @@ export default function HostCard({
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(connection), shortcut: "E" }] : []),
     ...rename.menuItems,
-    ...(!isSerial ? [{ label: t("hosts.card.openInSftp"), icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
+    ...(!isSerial ? [{ label: t("hosts.card.openInSftp"), icon: SFTP_ICON, onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
     ...(connection.host ? [{
       label: t("hosts.card.copyHostnameIp"),
       icon: "lucide:clipboard-copy",
@@ -304,7 +305,7 @@ export default function HostCard({
             {syncIcon}
             {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit(connection)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(connection.id)} danger />}
-            {canConnect && !isSerial && !fileOnly && <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
+            {canConnect && !isSerial && !fileOnly && <CardActionButton icon={SFTP_ICON} title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
               disabled={!canConnect}
               onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
@@ -313,7 +314,7 @@ export default function HostCard({
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               title={connectTitle}
             >
-              <Icon icon={fileOnly ? "lucide:folder-open" : "lucide:terminal"} width={18} />
+              <Icon icon={fileOnly ? SFTP_ICON : "lucide:terminal"} width={18} />
             </button>
             <CardMenuButton />
           </div>
@@ -367,7 +368,7 @@ export default function HostCard({
                   <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
                 )}
                 {canConnect && !isSerial && !fileOnly && (
-                  <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
+                  <CardActionButton icon={SFTP_ICON} title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
                 )}
                 <CardMenuButton />
               </div>

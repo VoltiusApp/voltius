@@ -19,6 +19,7 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { useRuleStartErrors } from "@/hooks/useRuleStartErrors";
 import { formatActiveTunnelLabel, formatRuleLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule } from "@/types";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 export function PortsPanel() {
   const { t } = useTranslation();
@@ -177,7 +178,7 @@ export function PortsPanel() {
   if (!isSshSession) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center text-(--t-text-dim)">
-        <Icon icon="lucide:network" width={24} />
+        <Icon icon={PORT_FORWARDING_ICON} width={24} />
         <span className="text-xs">{t("terminal.ports.sshRequired")}</span>
       </div>
     );

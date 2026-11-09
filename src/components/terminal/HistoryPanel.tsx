@@ -7,6 +7,8 @@ import { favoriteKey, useFavoriteCommandStore } from "@/stores/favoriteCommandSt
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { isMobileShell } from "@/utils/platform";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { isTeamConnection } from "@/services/teamConnectionIds";
@@ -165,7 +167,7 @@ function HistoryRow({
             icon="lucide:ellipsis"
             title={t("common.action.moreOptions")}
             onClick={(e) => menu.openAt(e.currentTarget.getBoundingClientRect())}
-            className={menu.pos ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}
+            className={menu.pos ? "" : "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}
           />
         </div>
       </div>
@@ -191,7 +193,7 @@ function GroupHeader({ label, count, open, onToggle }: { label: string; count: n
   );
 }
 
-export function HistoryPanel() {
+export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
   const { t } = useTranslation();
   const entries = useCommandHistoryStore((s) => s.entries);
   const clear = useCommandHistoryStore((s) => s.clear);
@@ -252,6 +254,7 @@ export function HistoryPanel() {
     if (!activeSession || activeSession.type === "multiplayer") return;
     try {
       await broadcastSnippetInject([activeSession], text, execute);
+      onInjected?.();
     } catch (e) {
       console.error("history inject failed:", e);
     }
@@ -275,10 +278,12 @@ export function HistoryPanel() {
   }
 
   function saveAsSnippet(command: string) {
-    useSnippetStore.getState().setSnippetDraft({
-      name: snippetNameFor(command),
-      steps: [{ kind: "script", content: command }],
-    });
+    const draft = { name: snippetNameFor(command), steps: [{ kind: "script" as const, content: command }] };
+    if (isMobileShell()) {
+      useMobileNavStore.getState().push({ kind: "snippet-edit", draft });
+      return;
+    }
+    useSnippetStore.getState().setSnippetDraft(draft);
     useUIStore.getState().setRightPanelSection("snippets");
   }
 

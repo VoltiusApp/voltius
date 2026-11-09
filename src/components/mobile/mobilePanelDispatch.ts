@@ -19,19 +19,11 @@ export interface ResolvedMobilePanel {
 export function resolvePanelScreen(top: NavScreen | undefined): ResolvedMobilePanel | null {
   if (!top) return null;
   switch (top.kind) {
-    case "panel-docker":
-      return { screenKind: "docker", props: { sessionId: top.sessionId } };
     case "panel-docker-logs":
       return {
         screenKind: "docker-logs",
         props: { sessionId: top.sessionId, containerId: top.containerId, containerName: top.containerName },
       };
-    case "panel-metrics":
-      return { screenKind: "metrics", props: { sessionId: top.sessionId } };
-    case "panel-processes":
-      return { screenKind: "processes", props: { sessionId: top.sessionId } };
-    case "panel-proxmox":
-      return { screenKind: "proxmox", props: { sessionId: top.sessionId } };
     default:
       return null;
   }

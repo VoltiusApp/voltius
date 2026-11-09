@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 interface NavEntry {
   id: NavItem;
@@ -12,7 +13,7 @@ interface NavEntry {
 const NAV_ITEM_DEFS: { id: NavItem; icon: string }[] = [
   { id: "hosts",           icon: "lucide:server" },
   { id: "keychain",        icon: "lucide:key-round" },
-  { id: "port-forwarding", icon: "lucide:arrow-left-right" },
+  { id: "port-forwarding", icon: PORT_FORWARDING_ICON },
   { id: "snippets",        icon: "lucide:braces" },
   { id: "known-hosts",     icon: "lucide:fingerprint-pattern" },
   { id: "members",         icon: "lucide:users-round" },

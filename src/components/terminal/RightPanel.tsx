@@ -1,10 +1,7 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useUIStore, RIGHT_PANEL_WIDTH, type RightPanelSection } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { resolveLabel } from "@/plugins/resolveLabel";
-import { useUiLanguage } from "@/i18n";
 import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
@@ -17,22 +14,11 @@ import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
 import { SidePanelColumn, sidePanelWidthStyles } from "@/components/layout/SidePanelColumn";
-import { orderPluginSections } from "./rightPanelOrder";
+import { pluginSectionIdOf, useTerminalPanels } from "./terminalPanels";
 
 const PANEL_GUTTER = 16;
 
 // ─── Theme preview thumbnail ──────────────────────────────────────────────────
-
-function getBuiltinSections(t: (key: string) => string): { id: RightPanelSection; icon: string; title: string }[] {
-  return [
-    { id: "snippets", icon: "lucide:braces",      title: t("common.entity.snippets") },
-    { id: "history",  icon: "lucide:clock",       title: t("terminal.rightPanel.sections.history") },
-    { id: "notes",    icon: "lucide:notebook-pen", title: t("terminal.rightPanel.sections.notes") },
-    { id: "themes",   icon: "lucide:palette",     title: t("terminal.rightPanel.themes") },
-    { id: "ports",    icon: "lucide:network",     title: t("terminal.ports.header.title") },
-    { id: "sftp",     icon: "lucide:folder-tree", title: t("terminal.rightPanel.sections.sftp") },
-  ];
-}
 
 function ThemePreview({ theme }: { theme: AppTheme }) {
   const t = theme.terminal;
@@ -179,25 +165,36 @@ function UnavailablePluginSection() {
   );
 }
 
+/** The content of one terminal side panel, on desktop and on phones. `onInjected` runs after
+ *  a panel types a command into the session. */
+export function TerminalPanelBody({ section, onInjected }: { section: RightPanelSection; onInjected?: () => void }) {
+  const pluginSections = usePluginStore((s) => s.rightPanelSections);
+  switch (section) {
+    case "snippets": return <SnippetsPanel />;
+    case "history": return <HistoryPanel onInjected={onInjected} />;
+    case "notes": return <NotesPanel />;
+    case "themes": return <ThemesSection />;
+    case "ports": return <PortsPanel />;
+    case "sftp": return <PanelSftpSection />;
+  }
+  const pluginId = pluginSectionIdOf(section);
+  if (pluginId === null) return null;
+  const plugin = pluginSections.get(pluginId);
+  // The selection is persisted, so it outlives the plugin that registered it.
+  if (!plugin) return <UnavailablePluginSection />;
+  const Component = plugin.component;
+  return <Component />;
+}
+
 // ─── Main RightPanel ──────────────────────────────────────────────────────────
 
 function PanelContent() {
   const { t } = useTranslation();
   const rightPanelSection = useUIStore((s) => s.rightPanelSection);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
-  const pluginSections = usePluginStore((s) => s.rightPanelSections);
-  const locale = useUiLanguage();
   const tunnelCount = useCurrentSessionTunnelCount();
   const hasNotes = !!useActiveHostConnection().connection?.notes?.trim();
-
-  const allSections = useMemo(() => [
-    ...getBuiltinSections(t),
-    ...orderPluginSections([...pluginSections.values()]).map((s) => ({
-      id: `plugin:${s.id}` as RightPanelSection,
-      icon: s.icon ?? "lucide:puzzle",
-      title: resolveLabel(s.label),
-    })),
-  ], [pluginSections, t, locale]);
+  const allSections = useTerminalPanels();
 
   return (
     <div className="flex flex-row h-full">
@@ -249,24 +246,7 @@ function PanelContent() {
 
       {/* Content */}
       <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
-        {rightPanelSection === "snippets" && <SnippetsPanel />}
-        {rightPanelSection === "history"  && <HistoryPanel />}
-        {rightPanelSection === "notes"    && <NotesPanel />}
-        {rightPanelSection === "themes"   && <ThemesSection />}
-        {rightPanelSection === "ports"    && <PortsPanel />}
-        {rightPanelSection === "sftp"     && <PanelSftpSection />}
-        {rightPanelSection?.startsWith("plugin:") && (() => {
-          const pluginId = rightPanelSection.slice("plugin:".length);
-          const section = pluginSections.get(pluginId);
-          // The selection is persisted, so it outlives the plugin that registered
-          // it: uninstalling or disabling one leaves this pointing at a section
-          // that no longer exists, and its rail tab is gone too. Returning null
-          // there left an open, empty panel with no tab highlighted and no way to
-          // tell whether it was broken or just empty.
-          if (!section) return <UnavailablePluginSection />;
-          const Component = section.component;
-          return <Component />;
-        })()}
+        <TerminalPanelBody section={rightPanelSection} />
       </div>
     </div>
   );
