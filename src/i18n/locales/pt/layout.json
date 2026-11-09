@@ -411,6 +411,57 @@
       "once": "Permitir uma vez",
       "always": "Permitir sempre",
       "sessionToast": "{{name}} abriu os seus ficheiros"
+    },
+    "enroll": {
+      "title": "Entrar em {{team}}",
+      "subtitle": "Crie sua conta Voltius ou entre para participar de {{team}}.",
+      "orgServer": "O servidor da sua organização",
+      "domainNote": "Use seu e-mail {{domains}}",
+      "approvalNote": "Um administrador aprova cada solicitação",
+      "domainError": "{{team}} só aceita e-mails {{domains}}.",
+      "createAndJoin": "Criar conta e participar",
+      "signInAndJoin": "Entrar e participar",
+      "skip": "Pular por enquanto",
+      "continue": "Continuar",
+      "currentPasswordPlaceholder": "Senha mestra atual",
+      "resolving": "Verificando o token de inscrição…",
+      "confirm": {
+        "title": "{{team}} em {{host}}",
+        "body": "Só continue se sua empresa enviou este link para você. O Voltius enviará seu login para {{host}}."
+      },
+      "error": {
+        "title": "Não é possível usar este token de inscrição",
+        "gone": "Este token de inscrição foi revogado ou expirou. Peça um novo ao seu administrador.",
+        "lapsed": "O plano de {{team}} expirou, então o token de inscrição não funciona no momento.",
+        "lapsedNoTeam": "O plano desta equipe expirou, então o token de inscrição não funciona no momento.",
+        "serverTooOld": "Este servidor ainda não oferece suporte a tokens de inscrição.",
+        "rateLimited": "Tentativas demais a partir desta rede. Tente novamente em um minuto.",
+        "unreachable": "Não foi possível acessar {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Você está em {{team}}",
+          "body": "Os cofres da equipe aparecem quando o Voltius de um administrador estiver online."
+        },
+        "approval": {
+          "title": "Solicitação enviada",
+          "body": "Um administrador de {{team}} vai aprová-la. Você receberá uma notificação."
+        },
+        "email": {
+          "title": "Verifique seu e-mail para entrar em {{team}}",
+          "body": "Enviamos um link para {{email}}. Você entra automaticamente assim que ele for verificado.",
+          "resend": "Reenviar e-mail"
+        },
+        "seat": {
+          "title": "{{team}} não tem vagas livres",
+          "body": "Um administrador foi notificado. Você entrará assim que uma vaga ficar livre."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Tem um token de inscrição?",
+        "placeholder": "Cole seu token de inscrição",
+        "invalid": "Isso não é um token de inscrição."
+      }
     }
   }
 }

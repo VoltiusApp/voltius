@@ -403,6 +403,57 @@
       "once": "Bir kez izin ver",
       "always": "Her zaman izin ver",
       "sessionToast": "{{name}} dosyalarınızı açtı"
+    },
+    "enroll": {
+      "title": "{{team}} için oturum aç",
+      "subtitle": "{{team}} ekibine katılmak için Voltius hesabı oluşturun veya oturum açın.",
+      "orgServer": "Kuruluşunuzun sunucusu",
+      "domainNote": "{{domains}} e-postanızı kullanın",
+      "approvalNote": "Her isteği bir yönetici onaylar",
+      "domainError": "{{team}} yalnızca {{domains}} e-postalarını kabul ediyor.",
+      "createAndJoin": "Hesap oluştur ve katıl",
+      "signInAndJoin": "Oturum aç ve katıl",
+      "skip": "Şimdilik atla",
+      "continue": "Devam",
+      "currentPasswordPlaceholder": "Mevcut ana parola",
+      "resolving": "Kayıt belirteci denetleniyor…",
+      "confirm": {
+        "title": "{{host}} üzerinde {{team}}",
+        "body": "Yalnızca bu bağlantıyı şirketiniz gönderdiyse devam edin. Voltius oturum açma bilgilerinizi {{host}} adresine gönderecek."
+      },
+      "error": {
+        "title": "Bu kayıt belirteci kullanılamıyor",
+        "gone": "Bu kayıt belirteci iptal edildi veya süresi doldu. Yöneticinizden yenisini isteyin.",
+        "lapsed": "{{team}} planının süresi doldu, bu yüzden kayıt belirteci şu anda çalışmıyor.",
+        "lapsedNoTeam": "Bu ekibin planının süresi doldu, bu yüzden kayıt belirteci şu anda çalışmıyor.",
+        "serverTooOld": "Bu sunucu henüz kayıt belirteçlerini desteklemiyor.",
+        "rateLimited": "Bu ağdan çok fazla deneme yapıldı. Bir dakika sonra tekrar deneyin.",
+        "unreachable": "{{host}} adresine ulaşılamıyor."
+      },
+      "outcome": {
+        "member": {
+          "title": "{{team}} ekibindesiniz",
+          "body": "Ekip kasaları, bir yöneticinin Voltius'u çevrimiçi olduğunda görünür."
+        },
+        "approval": {
+          "title": "İstek gönderildi",
+          "body": "{{team}} yöneticilerinden biri onaylayacak. Bildirim alacaksınız."
+        },
+        "email": {
+          "title": "{{team}} ekibine katılmak için e-postanızı doğrulayın",
+          "body": "{{email}} adresine bir bağlantı gönderdik. Doğrulandığında otomatik olarak katılırsınız.",
+          "resend": "E-postayı yeniden gönder"
+        },
+        "seat": {
+          "title": "{{team}} ekibinde boş koltuk yok",
+          "body": "Bir yöneticiye bildirildi. Bir koltuk boşaldığında katılacaksınız."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Kayıt belirteciniz mi var?",
+        "placeholder": "Kayıt belirtecinizi yapıştırın",
+        "invalid": "Bu bir kayıt belirteci değil."
+      }
     }
   }
 }

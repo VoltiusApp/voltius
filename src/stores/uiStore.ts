@@ -88,6 +88,7 @@ export type KeychainPendingAction =
   | { action: "edit-identity"; id: string }
   | null;
 export type EnrollSource = "machine" | "link" | "paste";
+export type EnrollTarget = { token: EnrollmentTokenParts; source: EnrollSource };
 export type CloudAuthMode = "signin" | "register";
 /** `link` moves the current local account to the cloud; `add` signs in to another one beside it; `reauth` renews the current one after the server ended its session. */
 export type CloudAuthPurpose = "link" | "add" | "reauth";
@@ -112,7 +113,7 @@ interface UIStore {
   notificationCenterOpen: boolean;
   /** Inbox entry a deep link asked for; the bell clears it once shown. */
   notificationFocusId: string | null;
-  enrollTarget: { token: EnrollmentTokenParts; source: EnrollSource } | null;
+  enrollTarget: EnrollTarget | null;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
   cloudAuthPurpose: CloudAuthPurpose;
@@ -252,7 +253,7 @@ export const useUIStore = create<UIStore>()(
         settingsOpen: false,
         notificationCenterOpen: false,
         notificationFocusId: null as string | null,
-        enrollTarget: null as { token: EnrollmentTokenParts; source: EnrollSource } | null,
+        enrollTarget: null as EnrollTarget | null,
         cloudAuthOpen: false,
         cloudAuthMode: "signin" as CloudAuthMode,
         cloudAuthPurpose: "link" as CloudAuthPurpose,

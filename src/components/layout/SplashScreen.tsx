@@ -29,6 +29,10 @@ import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/
 import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
 import { applyCliPending, markCliReady } from "@/services/cliBridge";
 import { applySettingDefaults } from "@/services/policy/adminDefaults";
+import { machineEnrollmentToken } from "@/services/enrollment/machineToken";
+import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
+import { useDeepLinkStore } from "@/stores/deepLinkStore";
+import type { EnrollTarget } from "@/stores/uiStore";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
@@ -50,6 +54,14 @@ function keepSwitcherFresh(): void {
   saveCurrentAccount().catch((e) => console.warn("[splash] could not save this account to the switcher:", e));
 }
 
+function firstLaunchEnrollTarget(): EnrollTarget | undefined {
+  const link = useDeepLinkStore.getState().takeQueued("enroll");
+  const linked = link && parseEnrollmentToken(link.token);
+  if (linked) return { token: linked, source: "link" };
+  const machine = machineEnrollmentToken();
+  return machine ? { token: machine, source: "machine" } : undefined;
+}
+
 type UnlockPhase = "auth-locked" | "auth-unreadable" | "auth-first-launch";
 
 // An account can predate its vault file: a cloud one re-derives from the server, a local one never wrote a secret.
@@ -67,15 +79,21 @@ export default function SplashScreen({ onReady }: Props) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [exiting, setExiting] = useState(false);
   const [systemAuth, setSystemAuth] = useState(false);
+  const [enrollTarget, setEnrollTarget] = useState<EnrollTarget>();
   const keychainHint = useKeychainPromptHint(steps.find((s) => s.id === "vault")?.status === "running");
 
   const setStep = (id: string, status: StepStatus, label?: string) =>
     setSteps((prev) => prev.map((s) => s.id === id ? { ...s, status, ...(label ? { label } : {}) } : s));
 
+  const enterPhase = (next: Phase) => {
+    if (next === "auth-first-launch") setEnrollTarget(firstLaunchEnrollTarget());
+    setPhase(next);
+  };
+
   const showUnlockPhase = (next: UnlockPhase, lockedLabel: string) => {
     if (next === "auth-unreadable") setStep("vault", "error", t("layout.splash.vaultUnreadable"));
     else setStep("vault", "done", next === "auth-locked" ? lockedLabel : t("layout.splash.firstLaunch"));
-    setPhase(next);
+    enterPhase(next);
   };
 
   useEffect(() => {
@@ -97,7 +115,7 @@ export default function SplashScreen({ onReady }: Props) {
           showUnlockPhase(await unlockPhase(), t("layout.splash.vaultLocked"));
         } catch {
           setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
-          setPhase("auth-first-launch");
+          enterPhase("auth-first-launch");
         }
         return;
       }
@@ -135,13 +153,13 @@ export default function SplashScreen({ onReady }: Props) {
         showUnlockPhase(await unlockPhase(), t("layout.splash.vaultFound"));
       } catch {
         setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
-        setPhase("auth-first-launch");
+        enterPhase("auth-first-launch");
       }
     }
     init().catch(() => {
       // Last-resort guard: never let an unexpected rejection freeze the splash.
       setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
-      setPhase("auth-first-launch");
+      enterPhase("auth-first-launch");
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
@@ -214,7 +232,7 @@ export default function SplashScreen({ onReady }: Props) {
     await finishLoading();
   };
 
-  if (phase === "auth-first-launch") return <AuthPage isLocked={false} onReady={handleAuthReady} />;
+  if (phase === "auth-first-launch") return <AuthPage isLocked={false} enrollTarget={enrollTarget} onReady={handleAuthReady} />;
   if (phase === "auth-server-blocked") return <AuthPage isLocked={false} cloudOnly onReady={handleAuthReady} />;
   if (phase === "auth-locked") return <AuthPage isLocked={true} systemAuth={systemAuth} onReady={handleAuthReady} />;
   if (phase === "auth-unreadable") return <AuthPage isLocked={true} vaultUnreadable onReady={handleAuthReady} />;

@@ -25,6 +25,10 @@ let unpromptedHandler: ((intent: UnpromptedIntent) => void) | null = null;
 // so the window must not outlive the user's next click.
 let lastUnprompted: { key: string; at: number } | null = null;
 const UNPROMPTED_ECHO_WINDOW_MS = 5000;
+// A link the first-launch screen took out of the queue must not come back as its cold-start echo.
+let lastTaken: { key: string; at: number } | null = null;
+const isEcho = (seen: { key: string; at: number } | null, key: string) =>
+  seen?.key === key && Date.now() - seen.at < UNPROMPTED_ECHO_WINDOW_MS;
 
 /**
  * A sheet dismissed by a click leaves the second half of a double-click still
@@ -59,6 +63,7 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
   setUnpromptedHandler: (fn) => {
     unpromptedHandler = fn;
     lastUnprompted = null;
+    lastTaken = null;
     confirmHeldUntil = 0;
     if (promoteTimer) clearTimeout(promoteTimer);
     promoteTimer = null;
@@ -77,6 +82,7 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
     const { queue, prompt } = get();
     const key = intentKey(intent);
     if (prompt && intentKey(prompt) === key) return;
+    if (isEcho(lastTaken, key)) return;
     if (queue.some((queued) => intentKey(queued) === key)) return;
     set({ queue: [...queue, intent].slice(-MAX_QUEUE) });
     drain();
@@ -87,6 +93,7 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
       (intent): intent is Extract<DeepLinkIntent, { route: R }> => intent.route === route,
     );
     if (!queued) return null;
+    lastTaken = { key: intentKey(queued), at: Date.now() };
     set({ queue: get().queue.filter((intent) => intent !== queued) });
     return queued;
   },
@@ -150,8 +157,7 @@ function schedulePromotion(): void {
 function dispatchUnprompted(intent: UnpromptedIntent): void {
   if (!unpromptedHandler) return;
   const key = intentKey(intent);
-  const now = Date.now();
-  if (lastUnprompted?.key === key && now - lastUnprompted.at < UNPROMPTED_ECHO_WINDOW_MS) return;
-  lastUnprompted = { key, at: now };
+  if (isEcho(lastUnprompted, key)) return;
+  lastUnprompted = { key, at: Date.now() };
   unpromptedHandler(intent);
 }

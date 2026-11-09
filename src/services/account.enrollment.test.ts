@@ -74,3 +74,13 @@ test("authenticateServerAccount register returns the outcome beside the account"
   expect(account).toMatchObject({ email: "b@acme.com", jwt: "JWT" });
   expect(enrollment).toEqual({ status: "member", teamId: "t1" });
 });
+
+test("register refused for the token throws the coded enrolment error", async () => {
+  h.appFetch.mockImplementation(async () => ({ ok: false, status: 403, json: async () => ({ error: "ENROLLMENT_DOMAIN_MISMATCH" }) }));
+  await expect(createServerAccount("a@gmail.com", "pw", S, CRED)).rejects.toMatchObject({ code: "ENROLLMENT_DOMAIN_MISMATCH", status: 403 });
+});
+
+test("register failing for another reason keeps the plain registration error", async () => {
+  h.appFetch.mockImplementation(async () => ({ ok: false, status: 500, json: async () => null }));
+  await expect(createServerAccount("a@acme.com", "pw", S, CRED)).rejects.toThrow("common.error.registrationFailed");
+});

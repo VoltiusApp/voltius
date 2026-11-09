@@ -411,6 +411,57 @@
       "once": "Permitir uma vez",
       "always": "Permitir sempre",
       "sessionToast": "{{name}} abriu os seus ficheiros"
+    },
+    "enroll": {
+      "title": "Entrar em {{team}}",
+      "subtitle": "Crie a sua conta Voltius ou inicie sessão para aderir a {{team}}.",
+      "orgServer": "O servidor da sua organização",
+      "domainNote": "Utilize o seu e-mail {{domains}}",
+      "approvalNote": "Um administrador aprova cada pedido",
+      "domainError": "{{team}} só aceita e-mails {{domains}}.",
+      "createAndJoin": "Criar conta e aderir",
+      "signInAndJoin": "Iniciar sessão e aderir",
+      "skip": "Ignorar por agora",
+      "continue": "Continuar",
+      "currentPasswordPlaceholder": "Palavra-passe mestre atual",
+      "resolving": "A verificar o token de inscrição…",
+      "confirm": {
+        "title": "{{team}} em {{host}}",
+        "body": "Só continue se a sua empresa lhe enviou esta ligação. O Voltius enviará o seu início de sessão para {{host}}."
+      },
+      "error": {
+        "title": "Não é possível utilizar este token de inscrição",
+        "gone": "Este token de inscrição foi revogado ou expirou. Peça um novo ao seu administrador.",
+        "lapsed": "O plano de {{team}} expirou, por isso o token de inscrição não funciona de momento.",
+        "lapsedNoTeam": "O plano desta equipa expirou, por isso o token de inscrição não funciona de momento.",
+        "serverTooOld": "Este servidor ainda não suporta tokens de inscrição.",
+        "rateLimited": "Demasiadas tentativas a partir desta rede. Tente novamente dentro de um minuto.",
+        "unreachable": "Não é possível contactar {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Já faz parte de {{team}}",
+          "body": "Os cofres da equipa aparecem assim que o Voltius de um administrador estiver online."
+        },
+        "approval": {
+          "title": "Pedido enviado",
+          "body": "Um administrador de {{team}} irá aprová-lo. Receberá uma notificação."
+        },
+        "email": {
+          "title": "Verifique o seu e-mail para aderir a {{team}}",
+          "body": "Enviámos uma ligação para {{email}}. Adere automaticamente assim que for verificado.",
+          "resend": "Reenviar e-mail"
+        },
+        "seat": {
+          "title": "{{team}} não tem lugares livres",
+          "body": "Um administrador foi notificado. Irá aderir assim que houver um lugar livre."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Tem um token de inscrição?",
+        "placeholder": "Cole o seu token de inscrição",
+        "invalid": "Isto não é um token de inscrição."
+      }
     }
   }
 }

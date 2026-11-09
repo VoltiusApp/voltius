@@ -20,11 +20,13 @@ export function ServerUrlField({
   onChange,
   inputClassName,
   locked = false,
+  lockedNote,
 }: {
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
   locked?: boolean;
+  lockedNote?: string | null;
 }) {
   const { t } = useTranslation();
   const [shown, setShown] = useState(() => !isDefaultServer(value));
@@ -36,7 +38,7 @@ export function ServerUrlField({
         <span className="max-w-full truncate" title={value}>
           {host ? t("layout.auth.serverNamed", { host }) : DEFAULT_SERVER_URL}
         </span>
-        <ManagedNote />
+        {lockedNote === undefined ? <ManagedNote /> : lockedNote && <ManagedNote>{lockedNote}</ManagedNote>}
       </div>
     );
   }

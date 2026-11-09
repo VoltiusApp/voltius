@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, MIN_PASSWORD_LENGTH, SubmitBtn, SystemAuthButton, emailError } from "./authParts";
+import { ActionButton, SwitchModeLink, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, MIN_PASSWORD_LENGTH, SubmitBtn, SystemAuthButton, emailError } from "./authParts";
 import {
   authenticateServerAccount,
   createLocalAccountNoPassword,
   createServerAccount,
+  isServerMode,
   login,
 } from "@/services/account";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
@@ -21,9 +22,14 @@ import { keepsPlainPassword } from "@/services/vaultSecret";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
+import { EnrollForm } from "@/components/enrollment/EnrollForm";
+import { EnrollOutcome } from "@/components/enrollment/EnrollOutcome";
+import { EnrollTokenEntry } from "@/components/enrollment/EnrollTokenEntry";
+import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
+import type { EnrollTarget } from "@/stores/uiStore";
 
 
-type View = "home" | "cloud";
+type View = "home" | "cloud" | "enroll";
 type CloudMode = "signup" | "signin";
 
 interface Props {
@@ -35,16 +41,19 @@ interface Props {
   systemAuth?: boolean;
   /** Start on cloud sign-in with no way back to the local-account home. */
   cloudOnly?: boolean;
+  enrollTarget?: EnrollTarget;
   onReady: () => void;
 }
 
 /** Which way the vault turned out to be unreadable — they offer different exits. */
 type Unreadable = "no-password" | "wrong-key";
 
-export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudOnly, onReady }: Props) {
+export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudOnly, enrollTarget, onReady }: Props) {
   const { t } = useTranslation();
   const lanContext = localSyncContext(usePlatform());
-  const [view, setView] = useState<View>(cloudOnly ? "cloud" : "home");
+  const [view, setView] = useState<View>(cloudOnly ? "cloud" : enrollTarget ? "enroll" : "home");
+  const [enroll, setEnroll] = useState(enrollTarget);
+  const [enrolled, setEnrolled] = useState<{ outcome: EnrollmentOutcome; email: string; teamName: string } | null>(null);
   const [blocked, setBlocked] = useState(false);
   const pendingSecret = useRef<string | undefined>(undefined);
   const addOnly = cloudOnly || blocked;
@@ -223,6 +232,21 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
     );
   }
 
+  // ── Enrolment token (first launch) ───────────────────────────────────────
+
+  if (view === "enroll" && enroll) {
+    // Once the form has signed in, there is an account to open instead of the generic home.
+    const skip = async () => ((await isServerMode()) ? onReady() : reset("home"));
+    return (
+      <Layout>
+        {enrolled
+          ? <EnrollOutcome {...enrolled} onContinue={onReady} />
+          : <EnrollForm key={enroll.token.id} token={enroll.token} source={enroll.source} host="page" activeAccount="none"
+              onDone={(outcome, result) => setEnrolled({ outcome, ...result })} onSkip={() => void skip()} />}
+      </Layout>
+    );
+  }
+
   // ── Home (first launch) ──────────────────────────────────────────────────
 
   if (view === "home") {
@@ -258,6 +282,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
           {t("layout.auth.addAccountLater")}
         </p>
         <SwitchModeLink prompt={t("layout.auth.alreadyHaveAccount")} label={t("layout.auth.signIn")} onClick={() => reset("cloud", "signin")} />
+        <EnrollTokenEntry onToken={(token) => { setEnroll({ token, source: "paste" }); setView("enroll"); }} />
       </Layout>
     );
   }
@@ -343,13 +368,4 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   }
 
   return null;
-}
-
-function SwitchModeLink({ prompt, label, onClick }: { prompt: string; label: string; onClick: () => void }) {
-  return (
-    <p className="mt-3 text-center text-xs text-(--t-text-secondary)">
-      {prompt}
-      <button type="button" onClick={onClick} className="focus-ring text-(--t-accent) hover:underline">{label}</button>
-    </p>
-  );
 }

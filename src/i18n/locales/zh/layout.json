@@ -399,6 +399,57 @@
       "once": "允许一次",
       "always": "始终允许",
       "sessionToast": "{{name}} 打开了你的文件"
+    },
+    "enroll": {
+      "title": "登录 {{team}}",
+      "subtitle": "创建 Voltius 账户或登录以加入 {{team}}。",
+      "orgServer": "您所在组织的服务器",
+      "domainNote": "请使用您的 {{domains}} 邮箱",
+      "approvalNote": "每个申请都需管理员批准",
+      "domainError": "{{team}} 只接受 {{domains}} 邮箱。",
+      "createAndJoin": "创建账户并加入",
+      "signInAndJoin": "登录并加入",
+      "skip": "暂时跳过",
+      "continue": "继续",
+      "currentPasswordPlaceholder": "当前主密码",
+      "resolving": "正在检查注册令牌…",
+      "confirm": {
+        "title": "{{host}} 上的 {{team}}",
+        "body": "仅当此链接由您的公司发送时才继续。Voltius 会将您的登录信息发送到 {{host}}。"
+      },
+      "error": {
+        "title": "无法使用此注册令牌",
+        "gone": "此注册令牌已被撤销或已过期。请向管理员索取新的令牌。",
+        "lapsed": "{{team}} 的套餐已失效，因此其注册令牌目前无法使用。",
+        "lapsedNoTeam": "该团队的套餐已失效，因此其注册令牌目前无法使用。",
+        "serverTooOld": "此服务器尚不支持注册令牌。",
+        "rateLimited": "此网络的尝试次数过多。请一分钟后重试。",
+        "unreachable": "无法连接 {{host}}。"
+      },
+      "outcome": {
+        "member": {
+          "title": "您已加入 {{team}}",
+          "body": "管理员的 Voltius 上线后，团队保险库就会出现。"
+        },
+        "approval": {
+          "title": "申请已发送",
+          "body": "{{team}} 的管理员会审批该申请。届时您会收到通知。"
+        },
+        "email": {
+          "title": "验证邮箱以加入 {{team}}",
+          "body": "我们已向 {{email}} 发送链接。验证后您将自动加入。",
+          "resend": "重新发送邮件"
+        },
+        "seat": {
+          "title": "{{team}} 没有空余席位",
+          "body": "已通知管理员。有空余席位后您将自动加入。"
+        }
+      },
+      "tokenEntry": {
+        "toggle": "有注册令牌？",
+        "placeholder": "粘贴您的注册令牌",
+        "invalid": "这不是注册令牌。"
+      }
     }
   }
 }

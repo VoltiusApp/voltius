@@ -105,14 +105,18 @@ export function emailError(email: string, t: TFunction): string {
   return email.includes("@") ? "" : t("layout.auth.errorInvalidEmail");
 }
 
-export function MasterPasswordNote() {
-  const { t } = useTranslation();
+export function FormNote({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
     <p className="flex gap-2 text-xs leading-relaxed text-(--t-text-secondary) py-1">
-      <Icon icon="lucide:key-round" width={13} className="shrink-0 mt-0.5 text-(--t-text-dim)" />
-      {t("layout.auth.masterPasswordNote")}
+      <Icon icon={icon} width={13} className="shrink-0 mt-0.5 text-(--t-text-dim)" />
+      {children}
     </p>
   );
+}
+
+export function MasterPasswordNote() {
+  const { t } = useTranslation();
+  return <FormNote icon="lucide:key-round">{t("layout.auth.masterPasswordNote")}</FormNote>;
 }
 
 export function ErrorMsg({ msg }: { msg: string }) {
@@ -151,5 +155,14 @@ export function SystemAuthButton({ auth, loading }: { auth: SystemAuthPrompt; lo
       {auth.outcome === "invalidated" && <ErrorMsg msg={t("layout.appLock.bindingLost")} />}
       {auth.outcome === "declined" && <ErrorMsg msg={t("layout.appLock.keychainEmpty")} />}
     </>
+  );
+}
+
+export function SwitchModeLink({ prompt, label, onClick }: { prompt: string; label: string; onClick: () => void }) {
+  return (
+    <p className="mt-3 text-center text-xs text-(--t-text-secondary)">
+      {prompt}
+      <button type="button" onClick={onClick} className="focus-ring text-(--t-accent) hover:underline">{label}</button>
+    </p>
   );
 }

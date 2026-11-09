@@ -93,7 +93,7 @@ const tokenPath = (teamId: string) => `/v1/teams/${teamId}/enrollment-token`;
 const requestsPath = (teamId: string) => `/v1/teams/${teamId}/join-requests`;
 export const JSON_HEADERS = { "Content-Type": "application/json" };
 
-export async function enrollmentErrorFrom(res: Response): Promise<EnrollmentError> {
+export async function enrollmentErrorFrom(res: { status: number; headers?: Headers; json(): Promise<unknown> }): Promise<EnrollmentError> {
   const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
   const disabled = await featureDisabledError({ status: res.status, json: async () => body });
   const retryAfter = Number(res.headers?.get("Retry-After"));

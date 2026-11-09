@@ -1,7 +1,14 @@
 import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { serverFetch } from "@/services/teamService";
 import { canonicalServerUrl } from "@/utils/serverInstance";
-import { EnrollmentError, enrollmentErrorFrom, enrollmentRefusal, JSON_HEADERS, type JoinRequestReason } from "./enrollmentApi";
+import {
+  EnrollmentError,
+  enrollmentErrorFrom,
+  enrollmentRefusal,
+  JSON_HEADERS,
+  type EnrollmentRefusal,
+  type JoinRequestReason,
+} from "./enrollmentApi";
 import type { EnrollmentTokenParts } from "./enrollmentToken";
 
 export interface ResolvedEnrollment {
@@ -109,13 +116,22 @@ export async function listMyJoinRequests(): Promise<MyJoinRequest[] | null> {
   }
 }
 
+const JOIN_REFUSALS = ["notFound", "gone", "lapsed", "invitesOff", "domainMismatch"] as const;
+export type JoinRefusal = (typeof JOIN_REFUSALS)[number] & EnrollmentRefusal;
+
+/** A refusal of the token itself, as opposed to a transport or account failure. */
+export function joinRefusal(e: unknown): JoinRefusal | null {
+  const refusal = enrollmentRefusal(e, "lapsed");
+  return JOIN_REFUSALS.find((r) => r === refusal) ?? null;
+}
+
 export function resolveFailure(e: unknown): ResolveFailure {
   if (e instanceof ResolveFailedError) return e.failure;
   if (!(e instanceof EnrollmentError)) return "unreachable";
   if (e.status === 404 && !e.code) return "serverTooOld";
   if (e.status === 429) return "rateLimited";
-  const refusal = enrollmentRefusal(e, "lapsed");
-  return refusal === "notFound" || refusal === "gone" || refusal === "lapsed" || refusal === "invitesOff" ? refusal : "unreachable";
+  const refusal = joinRefusal(e);
+  return refusal && refusal !== "domainMismatch" ? refusal : "unreachable";
 }
 
 export function emailDomainAllowed(email: string, domains: string[]): boolean {

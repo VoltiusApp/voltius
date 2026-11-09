@@ -22,7 +22,8 @@ import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
-import { toEnrollmentOutcome, type EnrollmentCredential, type EnrollmentOutcome } from "./enrollment/enrollmentPublic";
+import { joinRefusal, toEnrollmentOutcome, type EnrollmentCredential, type EnrollmentOutcome } from "./enrollment/enrollmentPublic";
+import { enrollmentErrorFrom } from "./enrollment/enrollmentApi";
 import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
 import { fetchAuth } from "./authFetch";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
@@ -90,7 +91,13 @@ async function registerOnServer(args: {
   });
 
   if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
-  if (!res.ok) throw (await featureDisabledError(res)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const failed = { status: res.status, headers: res.headers, json: async () => body };
+    const refused = args.enrollment ? await enrollmentErrorFrom(failed) : null;
+    if (joinRefusal(refused)) throw refused;
+    throw (await featureDisabledError(failed)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
+  }
   const data = await res.json();
   return { ...data, enrollment: toEnrollmentOutcome(data.enrollment) ?? undefined };
 }
