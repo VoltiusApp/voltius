@@ -29,6 +29,7 @@
       "icon": "Icône",
       "clear": "Effacer"
     },
-    "noPermissionCreate": "Vous n'avez pas la permission de créer des dossiers ici"
+    "noPermissionCreate": "Vous n'avez pas la permission de créer des dossiers ici",
+    "empty": "Ce dossier est vide"
   }
 }

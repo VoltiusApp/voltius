@@ -32,6 +32,7 @@ import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
@@ -850,6 +851,11 @@ export default function KeychainPage() {
   const createFolder = () =>
     void saveFolder(newFolder(t("keychain.toolbar.newFolder")));
 
+  // Inside a folder only the types it holds are listed; the per-type "none yet" states are for the root.
+  const inFolderView = !!activeFolderId && !q;
+  const showKeys = !inFolderView || filteredKeys.length > 0 || (showKeyForm && !editingKey);
+  const showIdentities = !inFolderView || filteredIdentities.length > 0 || (showIdentityForm && !editingIdentity);
+
   return (
     <>
     <SidePanelLayout
@@ -1058,7 +1064,14 @@ export default function KeychainPage() {
               </div>
             )}
 
-            <KeySection
+            {!showKeys && !showIdentities && (
+              <FolderEmptyState actions={[
+                ...(canEditKeys ? [{ label: t("keychain.cards.keySection.addButton"), onClick: () => openKeyForm(null) }] : []),
+                ...(canEditIdentities ? [{ label: t("keychain.cards.identitySection.addButton"), onClick: () => openIdentityForm(null) }] : []),
+              ]} />
+            )}
+
+            {showKeys && <KeySection
               keys={filteredKeys}
               showDraft={showKeyForm && !editingKey}
               editingId={editingKey?.id ?? null}
@@ -1076,9 +1089,9 @@ export default function KeychainPage() {
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveKeyToVault}
               onCopyToVault={handleCopyKeyToVault}
-            />
+            />}
 
-            <IdentitySection
+            {showIdentities && <IdentitySection
               identities={filteredIdentities}
               keys={keys}
               layoutMode={layoutMode}
@@ -1096,7 +1109,7 @@ export default function KeychainPage() {
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveIdentityToVault}
               onCopyToVault={handleCopyIdentityToVault}
-            />
+            />}
           </div>
         </DragSelectSurface>
 

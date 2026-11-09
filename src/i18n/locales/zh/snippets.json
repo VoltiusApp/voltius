@@ -183,7 +183,6 @@
       "snippetsSection": "代码片段",
       "other": "其他",
       "allSnippets": "所有代码片段",
-      "folderEmpty": "此文件夹为空",
       "addSnippet": "添加代码片段",
       "noSearchResults": "没有匹配 \"{{search}}\" 的代码片段",
       "clearSearch": "清除搜索",

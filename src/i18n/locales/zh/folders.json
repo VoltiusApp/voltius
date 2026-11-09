@@ -28,6 +28,7 @@
       "icon": "图标",
       "clear": "清除"
     },
-    "noPermissionCreate": "你没有在此处创建文件夹的权限"
+    "noPermissionCreate": "你没有在此处创建文件夹的权限",
+    "empty": "此文件夹为空"
   }
 }

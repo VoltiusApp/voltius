@@ -51,7 +51,6 @@
       "folders": "Složky",
       "new": "Nový",
       "pinned": "Připnuté",
-      "folderEmpty": "Tato složka je prázdná",
       "noSearchResults": "Výrazu „{{search}}“ neodpovídá žádný host",
       "ejectMoveTo": "Přesunout do {{name}}",
       "ejectRemoveFromFolder": "Odebrat ze složky",

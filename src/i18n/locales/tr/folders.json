@@ -28,6 +28,7 @@
       "icon": "Simge",
       "clear": "Temizle"
     },
-    "noPermissionCreate": "Burada klasör oluşturma izniniz yok"
+    "noPermissionCreate": "Burada klasör oluşturma izniniz yok",
+    "empty": "Bu klasör boş"
   }
 }

@@ -56,6 +56,7 @@ import { SnippetCard } from "./SnippetCard";
 import { SnippetForm } from "./SnippetForm";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { Snippet, Folder, SnippetFormData, Connection } from "@/types";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
@@ -1094,13 +1095,8 @@ export function SnippetsPage() {
                   )}
                   <div {...cardGridProps(layoutMode, "card")}>{mainSnippets.map(renderCard)}</div>
                 </div>
-              ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
-                <EmptyState
-                  size="section"
-                  icon="lucide:folder-open"
-                  title={t("snippets.page.folderEmpty")}
-                  action={{ label: t("snippets.page.addSnippet"), onClick: () => openSnippet("new") }}
-                />
+              ) : !hasSearch && activeFolderId ? (
+                <FolderEmptyState actions={canCreate ? [{ label: t("snippets.page.addSnippet"), onClick: () => openSnippet("new") }] : []} />
               ) : hasSearch && filtered.length === 0 ? (
                 <EmptyState
                   size="section"

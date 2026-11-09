@@ -15,7 +15,6 @@
       "folders": "Klasörler",
       "new": "Yeni",
       "noRulesMatchSearch": "Aramanızla eşleşen kural yok.",
-      "folderEmpty": "Bu klasör boş.",
       "noRulesYet": "Henüz kural yok. Başlamak için bir kural oluşturun.",
       "addRule": "Kural ekle",
       "ejectMoveTo": "{{name}} klasörüne taşı",

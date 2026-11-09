@@ -136,7 +136,6 @@
       "snippetsSection": "Snippets",
       "other": "Other",
       "allSnippets": "All Snippets",
-      "folderEmpty": "This folder is empty",
       "addSnippet": "Add Snippet",
       "noSearchResults": "No snippets match \"{{search}}\"",
       "clearSearch": "Clear search",

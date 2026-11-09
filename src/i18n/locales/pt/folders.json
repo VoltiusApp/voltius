@@ -29,6 +29,7 @@
       "icon": "Ícone",
       "clear": "Limpar"
     },
-    "noPermissionCreate": "Você não tem permissão para criar pastas aqui"
+    "noPermissionCreate": "Você não tem permissão para criar pastas aqui",
+    "empty": "Esta pasta está vazia"
   }
 }

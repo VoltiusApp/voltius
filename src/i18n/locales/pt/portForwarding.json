@@ -13,7 +13,6 @@
       "folders": "Pastas",
       "new": "Nova",
       "noRulesMatchSearch": "Nenhuma regra corresponde à sua busca.",
-      "folderEmpty": "Esta pasta está vazia.",
       "noRulesYet": "Nenhuma regra ainda. Crie uma para começar.",
       "addRule": "Adicionar Regra",
       "ejectMoveTo": "Mover para {{name}}",

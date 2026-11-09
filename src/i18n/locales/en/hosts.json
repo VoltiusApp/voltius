@@ -49,7 +49,6 @@
       "folders": "Folders",
       "new": "New",
       "pinned": "Pinned",
-      "folderEmpty": "This folder is empty",
       "noSearchResults": "No hosts match \"{{search}}\"",
       "ejectMoveTo": "Move to {{name}}",
       "ejectRemoveFromFolder": "Remove from folder",

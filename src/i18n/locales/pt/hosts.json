@@ -50,7 +50,6 @@
       "folders": "Pastas",
       "new": "Novo",
       "pinned": "Fixados",
-      "folderEmpty": "Esta pasta está vazia",
       "noSearchResults": "Nenhum host corresponde a \"{{search}}\"",
       "ejectMoveTo": "Mover para {{name}}",
       "ejectRemoveFromFolder": "Remover da pasta",

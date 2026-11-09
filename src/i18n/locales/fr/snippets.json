@@ -188,7 +188,6 @@
       "snippetsSection": "Snippets",
       "other": "Autres",
       "allSnippets": "Tous les snippets",
-      "folderEmpty": "Ce dossier est vide",
       "addSnippet": "Ajouter un snippet",
       "noSearchResults": "Aucun snippet ne correspond à \"{{search}}\"",
       "clearSearch": "Effacer la recherche",

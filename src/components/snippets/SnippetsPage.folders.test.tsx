@@ -374,3 +374,12 @@ test("New folder is greyed out inside a folder whose vault the user cannot edit 
 
   expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
 });
+
+test("an open folder with no snippets shows the folder-empty state, even when the vault has no snippets", () => {
+  h.folders = [folder("child")];
+  h.folderPath = [folder("child")];
+  h.activeFolderId = "child";
+  const { getByText } = render(<SnippetsPage />);
+
+  getByText("folders.empty");
+});

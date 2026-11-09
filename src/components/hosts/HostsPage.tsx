@@ -49,6 +49,7 @@ import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { FolderCard } from "@/components/folders/FolderCard";
 
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import HostCard from "./HostCard";
 import ConnectionForm, { type ConnectionFormHandle } from "@/components/connections/ConnectionForm";
 import SerialConnectionForm from "@/components/connections/SerialConnectionForm";
@@ -1109,12 +1110,7 @@ export default function HostsPage() {
 
               {/* Empty inside folder */}
               {activeFolderId && filtered.length === 0 && !showForm && !showSerialForm && (
-                <EmptyState
-                  size="section"
-                  icon="lucide:folder-open"
-                  title={t("hosts.page.folderEmpty")}
-                  action={canCreate ? { label: t("hosts.toolbar.newHost"), onClick: () => openNew() } : undefined}
-                />
+                <FolderEmptyState actions={canCreate ? [{ label: t("hosts.toolbar.newHost"), onClick: () => openNew() }] : []} />
               )}
 
               {/* No search results */}

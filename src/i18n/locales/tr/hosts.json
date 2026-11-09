@@ -49,7 +49,6 @@
       "folders": "Klasörler",
       "new": "Yeni",
       "pinned": "Sabitlenenler",
-      "folderEmpty": "Bu klasör boş",
       "noSearchResults": "\"{{search}}\" ile eşleşen sunucu yok",
       "ejectMoveTo": "{{name}} klasörüne taşı",
       "ejectRemoveFromFolder": "Klasörden çıkar",

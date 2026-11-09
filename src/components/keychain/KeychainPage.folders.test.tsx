@@ -69,7 +69,10 @@ vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => 
 vi.mock("./KeychainToolbar", () => ({
   KeychainToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
 }));
-vi.mock("./KeyCards", () => ({ KeySection: () => null, IdentitySection: () => null }));
+vi.mock("./KeyCards", () => ({
+  KeySection: () => <div data-test-keys />,
+  IdentitySection: () => <div data-test-identities />,
+}));
 vi.mock("./KeyForm", () => ({ KeyForm: () => null }));
 vi.mock("./IdentityForm", () => ({ IdentityForm: () => null }));
 vi.mock("./KeyExportPanel", () => ({ KeyExportPanel: () => null, sortByMode: <T,>(items: T[]) => items }));
@@ -397,4 +400,25 @@ test("New folder is greyed out inside a folder whose vault the user cannot edit 
   render(<KeychainPage />);
 
   expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
+});
+
+test("an empty folder shows the shared folder-empty state with both add buttons, not the per-type sections", () => {
+  h.folders = [folder("child")];
+  h.folderPath = [folder("child")];
+  h.activeFolderId = "child";
+  const { getByText, container } = render(<KeychainPage />);
+
+  getByText("folders.empty");
+  getByText("keychain.cards.keySection.addButton");
+  getByText("keychain.cards.identitySection.addButton");
+  expect(container.querySelector("[data-test-keys]")).toBeNull();
+  expect(container.querySelector("[data-test-identities]")).toBeNull();
+});
+
+test("at the root the per-type sections keep their own empty states", () => {
+  const { queryByText, container } = render(<KeychainPage />);
+
+  expect(queryByText("folders.empty")).toBeNull();
+  expect(container.querySelector("[data-test-keys]")).not.toBeNull();
+  expect(container.querySelector("[data-test-identities]")).not.toBeNull();
 });

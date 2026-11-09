@@ -27,6 +27,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
@@ -652,12 +653,16 @@ export function PortForwardingPage() {
 
             {/* ── Rules section ── */}
             {filtered.length === 0 && visibleFolders.length === 0 ? (
-              <EmptyState
-                size={activeFolderId || q ? "section" : "page"}
-                icon={q ? "lucide:search-x" : activeFolderId ? "lucide:folder-open" : "lucide:arrow-right-left"}
-                title={q ? t("portForwarding.page.noRulesMatchSearch") : activeFolderId ? t("portForwarding.page.folderEmpty") : t("portForwarding.page.noRulesYet")}
-                action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: () => openNew() }}
-              />
+              activeFolderId && !q ? (
+                <FolderEmptyState actions={[{ label: t("portForwarding.page.addRule"), onClick: () => openNew() }]} />
+              ) : (
+                <EmptyState
+                  size={q ? "section" : "page"}
+                  icon={q ? "lucide:search-x" : "lucide:arrow-right-left"}
+                  title={q ? t("portForwarding.page.noRulesMatchSearch") : t("portForwarding.page.noRulesYet")}
+                  action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: () => openNew() }}
+                />
+              )
             ) : filtered.length > 0 && (
               <div>
                 <SectionHeader
