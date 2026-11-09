@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Team policy (Business): a team admin imports a policy.json-format document in Members › Security › Device policy, and every member's Voltius applies it while that team account is active. It can only tighten a machine policy, and locked settings show "Managed by" with the team name. The existing lock policy becomes two keys of this document (#757)
 - On Windows, Voltius only trusts a machine policy file written by `voltius-cli` as Administrator or SYSTEM. A file copied into `%ProgramData%\Voltius` by hand, or a policy folder a standard user could write to, is ignored until you re-import it with `voltius-cli policy import --replace` (#757)
 - A machine policy can now lock every setting it accepts: language, proxy, terminal shell, cursor style, keyword highlight rules, SFTP refresh interval, keepalive, detached session lifetime and theme location. It can also limit a setting to a range instead, such as a session lifetime of at most 24 hours or a choice of English and French. Settings shows "Managed by your organization" or the allowed range, and greys out choices outside it. Admin keyword rules are added above the user's own. `voltius-cli policy set` takes `--min`, `--max` and `--allow` (#757)
 
