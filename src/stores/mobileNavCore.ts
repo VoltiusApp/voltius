@@ -11,7 +11,7 @@ export type VaultSettingsPage = "share" | "members" | "roles" | "security";
 export type MobileScreen =
   | { kind: "host-edit"; hostId?: string; placement?: NewObjectPlacement }
   | { kind: "account" }
-  | { kind: "snippet-edit"; snippetId?: string }
+  | { kind: "snippet-edit"; snippetId?: string; placement?: NewObjectPlacement }
   | { kind: "key-edit"; keyId?: string; mode?: "import" | "generate" }
   | { kind: "identity-edit"; identityId?: string }
   | { kind: "more-page"; page: MorePage }

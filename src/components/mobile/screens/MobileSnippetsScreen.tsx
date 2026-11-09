@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
-import { useVaultScope } from "@/hooks/useVaultScope";
-import { usePermissions } from "@/hooks/usePermission";
 import { CommunityBrowser } from "@/components/snippets/community/CommunityBrowser";
 import MobileHeader from "../MobileHeader";
-import MobileSnippetList from "../MobileSnippetList";
+import MobileSnippetList, { useMobileSnippetScope } from "../MobileSnippetList";
+import { placementIn } from "@/components/shared/vaultObjectForm";
 import MobileFilterBar from "../MobileFilterBar";
 import AddChoiceSheet from "../sheets/AddChoiceSheet";
 
@@ -42,10 +41,9 @@ function SnippetsTabs({ value, onChange }: { value: SnippetsTab; onChange: (v: S
 export default function MobileSnippetsScreen() {
   const { t } = useTranslation();
   const push = useMobileNavStore((s) => s.push);
-  const { createVaultId } = useVaultScope();
-  const can = usePermissions();
-  const canCreateSnippet = can("EDIT_SNIPPETS", createVaultId);
-  const canCreateFolder = can("EDIT_FOLDERS", createVaultId);
+  const scope = useMobileSnippetScope();
+  const { can, targetVaultId, openPath, canCreateFolder } = scope;
+  const canCreateSnippet = can("EDIT_SNIPPETS", targetVaultId);
   const [tab, setTab] = useState<SnippetsTab>("mine");
   const [communitySearch, setCommunitySearch] = useState("");
   const [addMenu, setAddMenu] = useState(false);
@@ -56,7 +54,7 @@ export default function MobileSnippetsScreen() {
       <MobileHeader onAdd={showAdd ? () => setAddMenu(true) : undefined} />
       <SnippetsTabs value={tab} onChange={setTab} />
       {tab === "mine" ? (
-        <MobileSnippetList addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />
+        <MobileSnippetList scope={scope} addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />
       ) : (
         <div className="flex-1 min-h-0 flex flex-col px-4 pb-4" data-mobile-community>
           <CommunityBrowser
@@ -72,7 +70,7 @@ export default function MobileSnippetsScreen() {
       )}
       {addMenu && (
         <AddChoiceSheet
-          items={canCreateSnippet ? [{ slug: "item", icon: "lucide:braces", label: t("mobile.snippetsScreen.newSnippetLabel"), onTap: () => { setAddMenu(false); push({ kind: "snippet-edit" }); } }] : []}
+          items={canCreateSnippet ? [{ slug: "item", icon: "lucide:braces", label: t("mobile.snippetsScreen.newSnippetLabel"), onTap: () => { setAddMenu(false); push({ kind: "snippet-edit", placement: placementIn(openPath[openPath.length - 1]) }); } }] : []}
           onNewFolder={canCreateFolder ? () => { setAddMenu(false); setAddFolderOpen(true); } : undefined}
           onClose={() => setAddMenu(false)}
         />
