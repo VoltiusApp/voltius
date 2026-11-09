@@ -73,3 +73,35 @@ test("free is offered Pro", () => {
   expect(screen.getByText("settings.account.plan.upgrade")).toBeTruthy();
   expect(screen.queryByText("settings.account.plan.manageBilling")).toBeNull();
 });
+
+const groupText = (container: HTMLElement, group: string) =>
+  container.querySelector(`[data-plan-group="${group}"]`)?.textContent ?? null;
+const F = "settings.account.plan.feature.";
+
+test("Business lists only what it adds, with free features on their own line", () => {
+  seed({ tier: "business" });
+  const { container } = render(<PlansSection />);
+  const included = groupText(container, "included")!;
+  expect(included).toContain("settings.account.plan.everythingIn");
+  expect(included).toContain(`${F}teamPolicy`);
+  expect(included).not.toContain(`${F}syncPlugins`);
+  expect(included).not.toContain(`${F}localSync`);
+  expect(groupText(container, "next")).toBeNull();
+  expect(container.querySelector("[data-free-features]")!.textContent).toContain(`${F}syncPlugins`);
+});
+
+test("Pro shows what Teams adds, greyed", () => {
+  seed({ tier: "pro" });
+  const { container } = render(<PlansSection />);
+  expect(groupText(container, "included")).toContain(`${F}cloudSync`);
+  expect(groupText(container, "next")).toContain(`${F}teamVaults`);
+});
+
+test("Free lists its own features and no separate free line", () => {
+  seed({ tier: "free" });
+  const { container } = render(<PlansSection />);
+  expect(groupText(container, "included")).toContain(`${F}privateVault`);
+  expect(groupText(container, "included")).not.toContain("settings.account.plan.everythingIn");
+  expect(groupText(container, "next")).toContain(`${F}cloudSync`);
+  expect(container.querySelector("[data-free-features]")).toBeNull();
+});

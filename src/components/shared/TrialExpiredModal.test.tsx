@@ -95,7 +95,7 @@ test("never reappears once dismissed", () => {
 test("names all three Pro perks", () => {
   seed();
   render(<TrialExpiredModal />);
-  expect(screen.getByText("settings.account.plan.feature.realtimeSync")).toBeTruthy();
+  expect(screen.getByText("settings.account.plan.feature.cloudSync")).toBeTruthy();
   expect(screen.getByText("settings.account.plan.feature.unlimitedVaults")).toBeTruthy();
   expect(screen.getByText("settings.account.plan.feature.terminalSharing")).toBeTruthy();
 });
@@ -120,5 +120,7 @@ test("on iOS the free note leaves out local network sync", () => {
   platform.os = "ios";
   seed();
   render(<TrialExpiredModal />);
-  expect(screen.getByText("shared.trialExpiredModal.freeNote_ios")).toBeTruthy();
+  const note = document.querySelector("[data-free-features]")!.textContent!;
+  expect(note).toContain("settings.account.plan.feature.syncPlugins");
+  expect(note).not.toContain("settings.account.plan.feature.localSync");
 });

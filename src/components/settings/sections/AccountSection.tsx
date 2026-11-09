@@ -27,6 +27,8 @@ import { TwoFactorSettings } from "./TwoFactorSettings";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
 import { runsLocalSync, usePlatform } from "@/utils/platform";
+import { adjacentPlan, planFeatureLabel, planFeaturesFor, type PlanFeature } from "@/services/planFeatures";
+import { FreeFeaturesLine } from "@/components/shared/FreeFeaturesLine";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
@@ -74,22 +76,6 @@ function useEditableField(
 
   return { editing, input, setInput, error, loading, start, cancel, submit };
 }
-
-const PLAN_FEATURES = [
-  { id: "localVault",       free: true,  pro: true,  teams: true,  business: true  },
-  { id: "auditLogs",        free: true,  pro: true,  teams: true,  business: true  },
-  { id: "gistSync",         free: true,  pro: true,  teams: true,  business: true  },
-  { id: "localSync",        free: true,  pro: true,  teams: true,  business: true, lan: true },
-  { id: "deviceFiles",      free: true,  pro: true,  teams: true,  business: true, lan: true },
-  { id: "realtimeSync",     free: false, pro: true,  teams: true,  business: true  },
-  { id: "unlimitedVaults",  free: false, pro: true,  teams: true,  business: true  },
-  { id: "terminalSharing",  free: false, pro: true,  teams: true,  business: true  },
-  { id: "teamVaults",       free: false, pro: false, teams: true,  business: true  },
-  { id: "teamSharing",      free: false, pro: false, teams: true,  business: true  },
-  { id: "seats",            free: false, pro: false, teams: true,  business: true  },
-  { id: "granularPermissions", free: false, pro: false, teams: false, business: true  },
-  { id: "lockPolicy",       free: false, pro: false, teams: false, business: true  },
-];
 
 async function openCheckout(plan: "pro" | "teams") {
   await openBillingCheckout(plan);
@@ -518,7 +504,10 @@ export function PlansSection() {
   const plan = usePlanDisplay();
   const { ownsTeamsPlan, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
   const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
-  const features = runsLocalSync(usePlatform()) ? PLAN_FEATURES : PLAN_FEATURES.filter((f) => !("lan" in f));
+  const localSync = runsLocalSync(usePlatform());
+  const previous = adjacentPlan(plan.plan, -1);
+  const next = adjacentPlan(plan.plan, 1);
+  const planName = (tier: string) => t(`settings.account.plan.name.${tier}`);
 
   const manageBilling = plan.showManageBilling && (
     <button
@@ -600,23 +589,20 @@ export function PlansSection() {
           />
         )}
 
-        {/* Feature comparison */}
-        <div className="border-t border-(--t-border) pt-3 space-y-1.5">
-          {features.map(({ id, ...byPlan }) => {
-            const active = byPlan[plan.plan];
-            return (
-              <div key={id} className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: active ? "var(--t-text-primary)" : "var(--t-text-muted)" }}>
-                  {t(`settings.account.plan.feature.${id}`)}
-                </span>
-                <Icon
-                  icon={active ? "lucide:check" : "lucide:minus"}
-                  width={12}
-                  style={{ color: active ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
-                />
-              </div>
-            );
-          })}
+        <div className="border-t border-(--t-border) pt-3 space-y-3">
+          <PlanFeatureGroup
+            heading={previous && t("settings.account.plan.everythingIn", { plan: planName(previous) })}
+            features={planFeaturesFor(plan.plan, localSync)}
+            included
+          />
+          {next && (
+            <PlanFeatureGroup
+              heading={t("settings.account.plan.nextAdds", { plan: planName(next) })}
+              features={planFeaturesFor(next, localSync)}
+              included={false}
+            />
+          )}
+          {previous && <FreeFeaturesLine />}
         </div>
 
         {plan.showAllPlans && (
@@ -628,6 +614,28 @@ export function PlansSection() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function PlanFeatureGroup({ heading, features, included }: { heading: string | null; features: PlanFeature[]; included: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <div data-plan-group={included ? "included" : "next"} className="space-y-1.5">
+      {heading && <p className="text-xs font-medium text-(--t-text-secondary)">{heading}</p>}
+      {features.map((f) => (
+        <div key={f.id} className="flex items-center justify-between gap-3">
+          <span className="text-xs" style={{ color: included ? "var(--t-text-primary)" : "var(--t-text-muted)" }}>
+            {planFeatureLabel(t, f)}
+          </span>
+          <Icon
+            icon={included ? "lucide:check" : "lucide:minus"}
+            width={12}
+            className="shrink-0"
+            style={{ color: included ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
+          />
+        </div>
+      ))}
     </div>
   );
 }
