@@ -1,6 +1,6 @@
 import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { serverFetch } from "@/services/teamService";
-import { canonicalServerUrl, sameServer } from "@/utils/serverInstance";
+import { canonicalServerUrl, DEFAULT_SERVER_URL, instanceLabel, sameServer } from "@/utils/serverInstance";
 import {
   EnrollmentError,
   enrollmentErrorFrom,
@@ -36,7 +36,7 @@ export interface MyJoinRequest {
   decidedAt?: string;
 }
 
-export type ResolveFailure = "notFound" | "gone" | "lapsed" | "invitesOff" | "serverTooOld" | "rateLimited" | "unreachable";
+export type ResolveFailure = "notFound" | "gone" | "lapsed" | "invitesOff" | "serverTooOld" | "rateLimited" | "unreachable" | "blocked";
 
 export class ResolveFailedError extends Error {
   constructor(public failure: ResolveFailure) {
@@ -137,8 +137,15 @@ export function resolveFailure(e: unknown): ResolveFailure {
   return refusal && refusal !== "domainMismatch" ? refusal : "unreachable";
 }
 
-export type EnrollFailure = ResolveFailure | "blocked" | "domainMismatch";
+export type EnrollFailure = ResolveFailure | "domainMismatch";
 type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/** The server a token names, as shown to people; a cleartext server keeps its `http://`. */
+export function tokenHost(serverUrl: string): string {
+  const label = instanceLabel(serverUrl);
+  const cleartext = canonicalServerUrl(serverUrl)?.startsWith("http:");
+  return cleartext ? `http://${label ?? new URL(serverUrl).host}` : (label ?? DEFAULT_SERVER_URL);
+}
 
 export const atDomains = (domains: string[]) => domains.map((d) => `@${d}`).join(", ");
 

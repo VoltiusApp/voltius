@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ resolveEnrollment: vi.fn(), listMyJoinRequests: vi.fn() }));
+const h = vi.hoisted(() => ({ resolveEnrollment: vi.fn(), listMyJoinRequests: vi.fn(), allowed: true }));
 vi.mock("@/services/enrollment/enrollmentPublic", async (orig) => ({
   ...(await orig<typeof import("@/services/enrollment/enrollmentPublic")>()),
   resolveEnrollment: h.resolveEnrollment,
@@ -9,6 +9,10 @@ vi.mock("@/services/enrollment/enrollmentPublic", async (orig) => ({
 }));
 
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/services/policy/serverPolicy", async (orig) => ({
+  ...(await orig<typeof import("@/services/policy/serverPolicy")>()),
+  serverAllowed: () => h.allowed,
+}));
 
 import { EnrollmentError } from "@/services/enrollment/enrollmentApi";
 import { accountKey, useEnrollmentStore } from "./enrollmentStore";
@@ -21,6 +25,7 @@ beforeEach(() => {
   vi.useRealTimers();
   h.resolveEnrollment.mockReset();
   h.listMyJoinRequests.mockReset();
+  h.allowed = true;
   useEnrollmentStore.setState({ resolved: {}, records: {}, myRequests: null });
 });
 
@@ -78,6 +83,25 @@ test("a 429 waits for Retry-After when it is longer than 5 minutes", async () =>
   vi.setSystemTime(Date.now() + 31 * 60 * 1000);
   await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
   expect(h.resolveEnrollment).toHaveBeenCalledTimes(2);
+});
+
+test("Retry-After is capped at one day", async () => {
+  vi.useFakeTimers();
+  h.resolveEnrollment.mockRejectedValue(new EnrollmentError(null, 429, undefined, 365 * DAY));
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  expect(useEnrollmentStore.getState().resolved[TOKEN.id]?.retryAfterMs).toBe(DAY);
+  vi.setSystemTime(Date.now() + DAY + 1000);
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(2);
+});
+
+test("a server the machine policy blocks is never asked, even when forced, and nothing is cached", async () => {
+  h.allowed = false;
+  for (const opts of [undefined, { force: true }]) {
+    await expect(useEnrollmentStore.getState().resolve(TOKEN, opts)).rejects.toMatchObject({ failure: "blocked" });
+  }
+  expect(h.resolveEnrollment).not.toHaveBeenCalled();
+  expect(useEnrollmentStore.getState().resolved).toEqual({});
 });
 
 test("force bypasses a cached transient failure", async () => {

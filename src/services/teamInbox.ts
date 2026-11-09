@@ -18,13 +18,13 @@ import type { ActiveSession } from "@/services/multiplayerService";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { resolvePeerName } from "@/services/peerName";
 import { getServerUrl } from "@/services/authTokens";
-import { enrollFailureText, joinRefusal, redeemEnrollment, type MyJoinRequest } from "@/services/enrollment/enrollmentPublic";
+import { enrollFailureText, joinRefusal, redeemEnrollment, tokenHost, type MyJoinRequest } from "@/services/enrollment/enrollmentPublic";
 import { userFacingReason } from "@/services/errorReason";
 import { subscribeAccountMode } from "@/utils/accountMode";
 import { machineEnrollmentToken } from "@/services/enrollment/machineToken";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import { usePolicyStore } from "@/stores/policyStore";
-import { instanceLabel, sameServer } from "@/utils/serverInstance";
+import { sameServer } from "@/utils/serverInstance";
 
 // Deny has no server-side state to delete: the connection still reports the
 // requester, so without this the next reconcile re-derives the entry and
@@ -392,7 +392,7 @@ function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>
       } catch (e) {
         const refusal = joinRefusal(e);
         const t = (k: string, o?: Record<string, unknown>) => i18n.t(k, o);
-        const ctx = { team: r.teamName, host: instanceLabel(token.serverUrl) ?? token.serverUrl, domains: resolved.allowedDomains };
+        const ctx = { team: r.teamName, host: tokenHost(token.serverUrl), domains: resolved.allowedDomains };
         toast(refusal ? enrollFailureText(refusal, t, ctx) : userFacingReason(e), 8000, undefined, "error");
         throw e;
       }

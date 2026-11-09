@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   resendVerificationEmail: vi.fn(async () => {}),
   serverUrl: null as string | null,
   accountId: null as string | null,
+  allowed: true,
 }));
 
 vi.mock("@/i18n", () => ({
@@ -30,6 +31,10 @@ vi.mock("@/services/account", () => ({
   getAccountId: async () => h.accountId,
 }));
 vi.mock("@/services/authTokens", () => ({ getServerUrl: async () => h.serverUrl }));
+vi.mock("@/services/policy/serverPolicy", async (orig) => ({
+  ...(await orig<typeof import("@/services/policy/serverPolicy")>()),
+  serverAllowed: () => h.allowed,
+}));
 vi.mock("@/stores/uiStore", () => ({ useUIStore: { getState: () => ({ openEnroll: h.openEnroll }) } }));
 
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -60,6 +65,7 @@ const team = (id: string, name: string) => ({ id, name }) as Team;
 beforeEach(() => {
   vi.clearAllMocks();
   h.token = TOKEN;
+  h.allowed = true;
   resetTeamInboxState();
   useNotificationStore.setState({ inbox: [], toasts: [], history: [] });
   useTeamStore.setState({ teams: [], teamsLoaded: true });
@@ -105,6 +111,18 @@ test("invite hidden for cached notFound", async () => {
 
   expect(inbox()).toEqual([]);
   expect(h.resolveEnrollment).not.toHaveBeenCalled();
+});
+
+test("inbox does not resolve a blocked machine token", async () => {
+  h.allowed = false;
+  useEnrollmentStore.setState({ resolved: {} });
+  h.resolveEnrollment.mockResolvedValue(RESOLVED);
+  reconcileEnrollment(ACCOUNT);
+  await Promise.resolve();
+
+  expect(h.resolveEnrollment).not.toHaveBeenCalled();
+  expect(entry(`enroll-invite:${TOKEN.id}`)).toBeUndefined();
+  expect(useEnrollmentStore.getState().resolved).toEqual({});
 });
 
 test("invite resolves a token it has no team for, once", async () => {

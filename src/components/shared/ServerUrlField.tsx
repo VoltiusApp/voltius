@@ -21,22 +21,25 @@ export function ServerUrlField({
   inputClassName,
   locked = false,
   lockedNote,
+  lockedHost,
 }: {
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
   locked?: boolean;
   lockedNote?: string | null;
+  lockedHost?: string;
 }) {
   const { t } = useTranslation();
   const [shown, setShown] = useState(() => !isDefaultServer(value));
   const host = instanceLabel(value);
 
   if (locked) {
+    const shownHost = lockedHost ?? host;
     return (
       <div className="flex flex-col items-start gap-1 min-w-0 text-xs text-(--t-text-dim)">
         <span className="max-w-full truncate" title={value}>
-          {host ? t("layout.auth.serverNamed", { host }) : DEFAULT_SERVER_URL}
+          {shownHost ? t("layout.auth.serverNamed", { host: shownHost }) : DEFAULT_SERVER_URL}
         </span>
         {lockedNote === undefined ? <ManagedNote /> : lockedNote && <ManagedNote>{lockedNote}</ManagedNote>}
       </div>

@@ -365,3 +365,20 @@ test("copy link copies the https open link with the token", async () => {
   const { writeClipboard } = await import("@/utils/clipboard");
   await waitFor(() => expect(writeClipboard).toHaveBeenCalledWith(`https://voltius.app/open#enroll?t=${field.value}`));
 });
+
+test("a refused clipboard write is caught and never flashes copied", async () => {
+  h.createToken.mockResolvedValue(created());
+  const { writeClipboard } = await import("@/utils/clipboard");
+  vi.mocked(writeClipboard).mockRejectedValue(new Error("denied"));
+  mount();
+  await screen.findByText("members.enrollment.create");
+  addDomain("acme.com");
+  fireEvent.click(createBtn());
+  await screen.findByDisplayValue(/^vte1\./);
+  fireEvent.click(screen.getByText("members.enrollment.copyLink"));
+  fireEvent.click(screen.getByText("members.joinLinks.copy"));
+  await waitFor(() => expect(writeClipboard).toHaveBeenCalledTimes(2));
+  await act(async () => {});
+  expect(screen.queryByText("members.joinLinks.copied")).toBeNull();
+  vi.mocked(writeClipboard).mockResolvedValue(undefined);
+});

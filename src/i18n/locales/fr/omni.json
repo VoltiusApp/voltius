@@ -23,7 +23,7 @@
       "joinByInviteCode": "Rejoindre avec un code d'invitation",
       "importExport": "Import / Export",
       "availablePlugins": "Plugins disponibles",
-      "enrollmentToken": "Jeton d'inscription"
+      "enrollmentToken": "Jeton d'enrôlement"
     },
     "pluginSettingsDescription": "Réglages du plugin",
     "pluginNotInstalled": "Non installé",
@@ -139,8 +139,8 @@
       "close": "Fermer"
     },
     "enrollToken": {
-      "title": "Rejoindre {{team}} avec ce jeton d'inscription",
-      "titleUnknown": "Rejoindre une entreprise avec ce jeton d'inscription",
+      "title": "Rejoindre {{team}} avec ce jeton d'enrôlement",
+      "titleUnknown": "Rejoindre une entreprise avec ce jeton d'enrôlement",
       "detailApproval": "{{host}} · Un administrateur approuve chaque demande"
     }
   }

@@ -63,8 +63,9 @@ import { useInstallablePlugins } from "@/hooks/useInstallablePlugins";
 import { catalogEntryIcon } from "@/plugins/catalogIcon";
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { useEnrollmentStore } from "@/stores/enrollmentStore";
-import { parseEnrollmentToken, type EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
-import { DEFAULT_SERVER_URL, instanceLabel } from "@/utils/serverInstance";
+import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
+import { resolveFailure, tokenHost } from "@/services/enrollment/enrollmentPublic";
+import { parseEnrollInput } from "@/services/deepLinkUrl";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -207,10 +208,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   }, []);
   useEffect(() => { fetchActiveSessions().catch(() => {}); }, [fetchActiveSessions]);
 
-  const enrollToken = useMemo(() => parseEnrollmentToken(query), [query]);
+  const enrollToken = useMemo(() => parseEnrollInput(query), [query]);
   const resolvedEnrollment = useEnrollmentStore((s) => (enrollToken ? s.resolved[enrollToken.id]?.result : undefined));
+  const [blockedEnrollment, setBlockedEnrollment] = useState<string | null>(null);
   useEffect(() => {
-    if (enrollToken) useEnrollmentStore.getState().resolve(enrollToken).catch(() => {});
+    if (!enrollToken) return;
+    useEnrollmentStore.getState().resolve(enrollToken).catch((e) => {
+      if (resolveFailure(e) === "blocked") setBlockedEnrollment(enrollToken.id);
+    });
   }, [enrollToken]);
 
   const category = scope;
@@ -763,7 +768,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           />
         );
       case "enroll-token": {
-        const host = instanceLabel(item.token.serverUrl) ?? DEFAULT_SERVER_URL;
+        const host = tokenHost(item.token.serverUrl);
+        const detail = blockedEnrollment === item.token.id
+          ? t("common.policy.serverBlocked")
+          : resolvedEnrollment?.requireApproval ? t("omni.enrollToken.detailApproval", { host }) : host;
         return (
           <OmniRow
             {...row}
@@ -771,7 +779,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             label={resolvedEnrollment
               ? t("omni.enrollToken.title", { team: resolvedEnrollment.teamName })
               : t("omni.enrollToken.titleUnknown")}
-            detail={resolvedEnrollment?.requireApproval ? t("omni.enrollToken.detailApproval", { host }) : host}
+            detail={detail}
           />
         );
       }

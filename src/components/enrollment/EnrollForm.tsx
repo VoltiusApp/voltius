@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/invoke";
 import {
   ErrorMsg,
   FormNote,
@@ -25,31 +25,44 @@ import {
   joinRefusal,
   redeemEnrollment,
   resolveFailure,
+  tokenHost,
   type EnrollmentOutcome,
   type ResolvedEnrollment,
   type ResolveFailure,
 } from "@/services/enrollment/enrollmentPublic";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
-import { serverAllowed } from "@/services/policy/serverPolicy";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { EnrollSource } from "@/stores/uiStore";
 import { activeEnrollSession, enrollAuthStep, type EnrollAuthResult } from "@/services/enrollment/enrollAuth";
-import { DEFAULT_SERVER_URL, instanceLabel, sameServer } from "@/utils/serverInstance";
+import { getSavedAccounts } from "@/services/savedAccounts";
+import { sameServer } from "@/utils/serverInstance";
 import { Heading, StateCard, type CardAction } from "./enrollCards";
 
 type Mode = "signup" | "signin";
 export type EnrollActiveAccount = "none" | "local" | { serverUrl: string; accountId: string; email: string; teamIds?: string[] };
-export type EnrollAuth = (req: { mode: Mode; email: string; password: string; token: EnrollmentTokenParts }) => Promise<EnrollAuthResult>;
+type AuthRequest = { mode: Mode; email: string; password: string; token: EnrollmentTokenParts };
+export type EnrollAuth = (req: AuthRequest) => Promise<EnrollAuthResult>;
 
-const firstLaunchAuth: EnrollAuth = ({ mode, email, password, token }) =>
-  mode === "signup"
-    ? enrollAuthStep(() => createServerAccount(email, password, token.serverUrl, enrollmentCredential(token)), activeEnrollSession)
-    : enrollAuthStep(() => login(password, email, token.serverUrl), () => activeEnrollSession(null));
+/** Sign-in that leaves the enrolled account as this device's active one. */
+export const activeAccountAuth = ({ create, signIn }: {
+  create: (req: AuthRequest) => Promise<EnrollmentOutcome | null>;
+  signIn: (req: AuthRequest) => Promise<void>;
+}): EnrollAuth => (req) =>
+  req.mode === "signup"
+    ? enrollAuthStep(() => create(req), activeEnrollSession)
+    : enrollAuthStep(() => signIn(req), () => activeEnrollSession(null));
 
-type Failure = ResolveFailure | "blocked";
+const firstLaunchAuth = activeAccountAuth({
+  create: ({ email, password, token }) => createServerAccount(email, password, token.serverUrl, enrollmentCredential(token)),
+  signIn: ({ email, password, token }) => login(password, email, token.serverUrl),
+});
+
+const savedEmailOn = (serverUrl: string): Promise<string | null> =>
+  getSavedAccounts().then((accounts) => accounts.find((a) => a.email && sameServer(a.server_url, serverUrl))?.email ?? null, () => null);
+
 type Step =
   | { kind: "loading" }
-  | { kind: "failed"; failure: Failure; team?: string }
+  | { kind: "failed"; failure: ResolveFailure; team?: string }
   | { kind: "already" | "confirm" | "join" | "form"; resolved: ResolvedEnrollment };
 
 export interface EnrollFormProps {
@@ -60,10 +73,11 @@ export interface EnrollFormProps {
   activeAccount: EnrollActiveAccount;
   onDone: (outcome: EnrollmentOutcome, result: { email: string; teamName: string }) => void;
   onSkip?: () => void;
+  onBusyChange?: (busy: boolean) => void;
   auth?: EnrollAuth;
 }
 
-export function EnrollForm({ token, source, host, passwordMode = "new", activeAccount, onDone, onSkip, auth = firstLaunchAuth }: EnrollFormProps) {
+export function EnrollForm({ token, source, host, passwordMode = "new", activeAccount, onDone, onSkip, onBusyChange, auth = firstLaunchAuth }: EnrollFormProps) {
   const { t } = useTranslation();
   const known = typeof activeAccount === "object" && sameServer(activeAccount.serverUrl, token.serverUrl) ? activeAccount : null;
   const [step, setStep] = useState<Step>({ kind: "loading" });
@@ -78,24 +92,30 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
   const [confirmReplace, setConfirmReplace] = useState(false);
   const authed = useRef<EnrollAuthResult | null>(null);
   const twoFactor = useTwoFactorChallenge();
-  const serverHost = instanceLabel(token.serverUrl) ?? DEFAULT_SERVER_URL;
+  const serverHost = tokenHost(token.serverUrl);
   const local = activeAccount === "local";
   const pastConfirm = (resolved: ResolvedEnrollment): Step =>
     ({ kind: known && emailDomainAllowed(known.email, resolved.allowedDomains) ? "join" : "form", resolved });
 
   useEffect(() => {
-    // Checked before resolve: the token secret must never reach a server this machine's policy blocks.
-    if (!serverAllowed(token.serverUrl)) {
-      setStep({ kind: "failed", failure: "blocked" });
-      return;
-    }
+    onBusyChange?.(loading);
+    return () => onBusyChange?.(false);
+  }, [loading, onBusyChange]);
+
+  useEffect(() => {
     let live = true;
     setStep({ kind: "loading" });
-    useEnrollmentStore.getState().resolve(token, { force: true }).then(
-      (resolved) => {
+    const saved = known ? Promise.resolve(null) : savedEmailOn(token.serverUrl);
+    Promise.all([useEnrollmentStore.getState().resolve(token, { force: true }), saved]).then(
+      ([resolved, savedEmail]) => {
         if (!live) return;
         if (known?.teamIds?.includes(resolved.teamId)) return setStep({ kind: "already", resolved });
         setStep(source === "machine" ? pastConfirm(resolved) : { kind: "confirm", resolved });
+        if (savedEmail) {
+          setMode("signin");
+          setEmail(savedEmail);
+          return;
+        }
         const [domain] = resolved.allowedDomains;
         if (known || !domain) return;
         void invoke<string | null>("os_user_name").catch(() => null).then((name) => {
@@ -184,18 +204,6 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
     fail(accountErrorText(e, t));
   };
 
-  const finish = async (result: EnrollAuthResult | undefined) => {
-    if (!result) throw new Error("enrol sign-in resumed without a result");
-    authed.current = result;
-    try {
-      const outcome = result.outcome ?? (await redeemEnrollment(token, result.session));
-      useEnrollmentStore.getState().record(token.id, accountKey(token.serverUrl, result.accountId), outcome);
-      onDone(outcome, { email, teamName: team });
-    } catch (e) {
-      refused(e);
-    }
-  };
-
   const problem = (): [string, boolean] | null => {
     const invalidEmail = emailError(email, t);
     if (invalidEmail) return [invalidEmail, true];
@@ -217,6 +225,16 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
       setLoading(false);
     }
   };
+
+  const finish = (result: EnrollAuthResult | undefined) => busy(async () => {
+    if (!result) throw new Error("enrol sign-in resumed without a result");
+    authed.current = result;
+    const outcome = result.outcome ?? (await redeemEnrollment(token, result.session));
+    const store = useEnrollmentStore.getState();
+    store.record(token.id, accountKey(token.serverUrl, result.accountId), outcome);
+    if (result.session === "active") void store.loadMyRequests();
+    onDone(outcome, { email, teamName: team });
+  });
 
   const signIn = () => {
     const prior = authed.current;
@@ -252,7 +270,7 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
         body={t("layout.enroll.join.body", { host: serverHost })}
         actions={[
           { label: t("layout.enroll.join.action"), onClick: () => void busy(async () => finish(await activeEnrollSession(null))), loading },
-          { label: t("layout.enroll.join.other"), onClick: useAnother, primary: false },
+          { label: t("layout.enroll.join.other"), onClick: useAnother, primary: false, disabled: loading },
         ]}
       >
         <ErrorMsg msg={error} />
@@ -305,7 +323,7 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
           </div>
         )}
         <div className="pt-1">
-          <ServerUrlField value={token.serverUrl} onChange={() => {}} inputClassName={INPUT_CLASS} locked
+          <ServerUrlField value={token.serverUrl} onChange={() => {}} inputClassName={INPUT_CLASS} locked lockedHost={serverHost}
             lockedNote={source === "machine" ? t("layout.enroll.orgServer") : null} />
         </div>
         <ErrorMsg msg={error} />
@@ -315,7 +333,7 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
         ? <SwitchModeLink prompt={t("layout.auth.alreadyHaveAccount")} label={t("layout.auth.signIn")} onClick={() => switchMode("signin")} />
         : <SwitchModeLink prompt={t("layout.auth.newHere")} label={t("layout.auth.createAccount")} onClick={() => switchMode("signup")} />)}
       {onSkip && (
-        <button type="button" onClick={onSkip}
+        <button type="button" onClick={onSkip} disabled={loading}
           className="focus-ring mt-1 text-xs w-full text-center transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)">
           {skipLabel}
         </button>

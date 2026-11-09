@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
   serverAllowed: vi.fn(),
   invoke: vi.fn(),
   passkeyRoundTrip: vi.fn(),
+  getSavedAccounts: vi.fn(),
+  loadMyRequests: vi.fn(),
 }));
 
 const tr = (k: string, o?: Record<string, unknown>) => {
@@ -41,6 +43,7 @@ vi.mock("@/services/enrollment/enrollmentPublic", async (orig) => ({
   resolveEnrollment: h.resolveEnrollment,
   redeemEnrollment: h.redeemEnrollment,
 }));
+vi.mock("@/services/savedAccounts", () => ({ getSavedAccounts: h.getSavedAccounts }));
 vi.mock("@/services/policy/serverPolicy", async (orig) => ({
   ...(await orig<typeof import("@/services/policy/serverPolicy")>()),
   serverAllowed: h.serverAllowed,
@@ -68,7 +71,8 @@ beforeEach(() => {
   h.resolveEnrollment.mockResolvedValue(RESOLVED);
   h.invoke.mockImplementation(async (cmd: string) => (cmd === "os_user_name" ? "jdoe" : null));
   h.getAccountId.mockResolvedValue("acc-1");
-  useEnrollmentStore.setState({ resolved: {}, records: {} });
+  h.getSavedAccounts.mockResolvedValue([]);
+  useEnrollmentStore.setState({ resolved: {}, records: {}, loadMyRequests: h.loadMyRequests });
 });
 afterEach(cleanup);
 
@@ -244,6 +248,43 @@ test("sign in redeems with active session", async () => {
   expect(h.login).toHaveBeenCalledWith(PASSWORD, "jdoe@acme.com", TOKEN.serverUrl);
   expect(h.redeemEnrollment).toHaveBeenCalledWith(TOKEN, "active");
   expect(h.createServerAccount).not.toHaveBeenCalled();
+  expect(h.loadMyRequests).toHaveBeenCalledTimes(1);
+});
+
+test("a saved account on the token's server preselects sign in with its email", async () => {
+  h.getSavedAccounts.mockResolvedValue([
+    { account_id: "a0", email: "other@cloud.app", server_url: "https://cloud.voltius.app" },
+    { account_id: "a1", email: "saved@acme.com", server_url: "https://Voltius.acme.com/" },
+  ]);
+  renderForm();
+  await waitFor(async () => expect((await emailField()).value).toBe("saved@acme.com"));
+  expect(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder")).toBeTruthy();
+  expect(screen.queryByPlaceholderText("layout.auth.confirmPasswordPlaceholder")).toBeNull();
+  expect(h.invoke).not.toHaveBeenCalledWith("os_user_name", expect.anything());
+});
+
+test("a cleartext token server shows its scheme", async () => {
+  const token = { ...TOKEN, serverUrl: "http://voltius.acme.lan" };
+  render(<EnrollForm token={token} source="link" host="page" activeAccount="none" onDone={vi.fn()} onSkip={vi.fn()} />);
+  expect(await screen.findByText("layout.enroll.confirm.body(host=http://voltius.acme.lan)")).toBeTruthy();
+  fireEvent.click(screen.getByText("layout.enroll.continue"));
+  expect(await screen.findByText("layout.auth.serverNamed(host=http://voltius.acme.lan)")).toBeTruthy();
+});
+
+test("Skip is disabled while a submit is in flight", async () => {
+  let finish!: () => void;
+  h.login.mockReturnValue(new Promise<void>((r) => { finish = r; }));
+  h.redeemEnrollment.mockResolvedValue({ status: "admitted", teamId: "t1" });
+  const onBusyChange = vi.fn();
+  const onSkip = vi.fn();
+  render(<EnrollForm token={TOKEN} source="machine" host="page" activeAccount="none" onDone={vi.fn()} onSkip={onSkip} onBusyChange={onBusyChange} />);
+  await signIn();
+  submit();
+  await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(true));
+  fireEvent.click(screen.getByText("layout.enroll.skip"));
+  expect(onSkip).not.toHaveBeenCalled();
+  finish();
+  await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
 });
 
 test("email_unverified outcome shows Resend", async () => {

@@ -13,6 +13,7 @@ import {
   type ResolvedEnrollment,
   type ResolveFailure,
 } from "@/services/enrollment/enrollmentPublic";
+import { serverAllowed } from "@/services/policy/serverPolicy";
 import { canonicalServerUrl } from "@/utils/serverInstance";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -59,6 +60,8 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
       myRequests: null,
 
       resolve: async (token, opts) => {
+        // The token secret must never reach a server this machine's policy blocks.
+        if (!serverAllowed(token.serverUrl)) throw new ResolveFailedError("blocked");
         const hit = get().resolved[token.id];
         if (!opts?.force && hit && isFresh(hit)) {
           if (hit.result) return hit.result;
@@ -76,7 +79,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
             remember({
               at: Date.now(),
               failure: resolveFailure(e),
-              ...(e instanceof EnrollmentError && e.retryAfterMs && { retryAfterMs: e.retryAfterMs }),
+              ...(e instanceof EnrollmentError && e.retryAfterMs && { retryAfterMs: Math.min(e.retryAfterMs, DAY_MS) }),
             });
             throw e;
           },

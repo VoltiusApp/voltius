@@ -6,6 +6,7 @@ export interface CardAction {
   onClick: () => void;
   primary?: boolean;
   loading?: boolean;
+  disabled?: boolean;
 }
 
 export function Heading({ title, body }: { title: string; body: ReactNode }) {
@@ -39,12 +40,12 @@ export function StateCard({ icon, color, title, body, actions, children }: {
       <Heading title={title} body={body} />
       {children}
       <div className="space-y-2">
-        {actions.map(({ label, onClick, primary = true, loading }) => (
+        {actions.map(({ label, onClick, primary = true, loading, disabled }) => (
           <button
             key={label}
             type="button"
             onClick={onClick}
-            disabled={loading}
+            disabled={loading || disabled}
             className={`btn ${primary ? "btn-primary" : "btn-secondary"} w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2`}
           >
             {loading && <Icon icon="lucide:loader-circle" width={14} className="animate-spin" />}

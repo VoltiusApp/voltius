@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { ErrorMsg, INPUT_CLASS, Input, SubmitBtn } from "@/components/layout/authParts";
-import { parseEnrollmentToken, type EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
+import { parseEnrollInput } from "@/services/deepLinkUrl";
+import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 
 export function EnrollTokenEntry({ onToken }: { onToken: (token: EnrollmentTokenParts) => void }) {
   const { t } = useTranslation();
@@ -12,7 +13,7 @@ export function EnrollTokenEntry({ onToken }: { onToken: (token: EnrollmentToken
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const token = parseEnrollmentToken(text);
+    const token = parseEnrollInput(text);
     if (token) onToken(token);
     else setError(t("layout.enroll.tokenEntry.invalid"));
   };

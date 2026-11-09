@@ -2,7 +2,7 @@ import { GRANT_SECRET_RE } from "@/services/grantSecret";
 import { isSessionId, isUuid } from "@/services/sessionId";
 import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
 import { isValidPluginId } from "@/plugins/pluginId";
-import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
+import { parseEnrollmentToken, type EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
 export type InviteIntent = { route: "invite"; handle: string };
@@ -109,7 +109,7 @@ const TRUST = {
   // voltius://connect), it is scheme-only (SCHEME_ONLY), and only the mobile shell acts
   // on it (deepLinkHandlers).
   connect: "attenuated",
-  // The token enrols this device into a server's policy, so nothing happens until the user accepts.
+  // The link names its own server; the enrol form asks before anything is sent there.
   enroll: "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
@@ -353,6 +353,12 @@ function parseRoute(route: string, params: URLSearchParams): DeepLinkIntent | nu
 // resolve to a function rather than a route.
 function isRoute(value: string): value is Route {
   return Object.prototype.hasOwnProperty.call(TRUST, value);
+}
+
+/** A pasted enrolment token, bare or as its enrol link. */
+export function parseEnrollInput(text: string): EnrollmentTokenParts | null {
+  const intent = parseDeepLink(text);
+  return parseEnrollmentToken(intent?.route === "enroll" ? intent.token : text);
 }
 
 /**

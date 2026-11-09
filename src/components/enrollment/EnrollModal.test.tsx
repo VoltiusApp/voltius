@@ -17,6 +17,8 @@ const h = vi.hoisted(() => {
     signInToCloud: step("signInToCloud"),
     resendVerificationEmail: vi.fn(),
     addAccount: vi.fn(async () => {}),
+    getSavedAccounts: vi.fn(async (): Promise<unknown[]> => []),
+    loadMyRequests: vi.fn(async () => {}),
     resolveEnrollment: vi.fn(),
     redeemEnrollment: vi.fn(),
     invoke: vi.fn(),
@@ -53,7 +55,7 @@ vi.mock("@/services/authTokens", async (orig) => ({
   ...(await orig<typeof import("@/services/authTokens")>()),
   getServerUrl: vi.fn(async () => h.serverUrl),
 }));
-vi.mock("@/services/savedAccounts", () => ({ addAccount: h.addAccount }));
+vi.mock("@/services/savedAccounts", () => ({ addAccount: h.addAccount, getSavedAccounts: h.getSavedAccounts }));
 vi.mock("@/services/vaultSecret", () => ({ secretState: async () => h.secret }));
 vi.mock("@/services/lanSync", () => ({ startSessionSync: vi.fn(), leaveLanGroup: h.leaveLanGroup }));
 vi.mock("@/services/sync", () => ({
@@ -106,7 +108,8 @@ beforeEach(() => {
   h.resolveEnrollment.mockResolvedValue(RESOLVED);
   h.redeemEnrollment.mockResolvedValue(PENDING);
   h.invoke.mockImplementation(async (cmd: string) => (cmd === "os_user_name" ? "jdoe" : null));
-  useEnrollmentStore.setState({ resolved: {}, records: {} });
+  h.getSavedAccounts.mockResolvedValue([]);
+  useEnrollmentStore.setState({ resolved: {}, records: {}, loadMyRequests: h.loadMyRequests });
   useTeamStore.setState({ teams: [] });
 });
 afterEach(() => {
@@ -172,6 +175,69 @@ test("same-server account sees Join step and redeems with active session", async
   fireEvent.click(screen.getByText("layout.enroll.continue"));
   await closed();
   expect(h.addAccount).not.toHaveBeenCalled();
+});
+
+test("join step pending outcome reloads my requests", async () => {
+  await open();
+  fireEvent.click(await screen.findByText("layout.enroll.join.action"));
+  expect(await screen.findByText("layout.enroll.outcome.approval.title(team=Acme,email=me@acme.com)")).toBeTruthy();
+  expect(h.loadMyRequests).toHaveBeenCalledTimes(1);
+});
+
+test("Use another account is disabled while Join is loading", async () => {
+  let settle!: (o: unknown) => void;
+  h.redeemEnrollment.mockReturnValue(new Promise((r) => { settle = r; }));
+  await open();
+  fireEvent.click(await screen.findByText("layout.enroll.join.action"));
+  await waitFor(() => expect(screen.getByText("layout.enroll.join.other").closest("button")!.disabled).toBe(true));
+  pressEscape();
+  expect(useUIStore.getState().enrollTarget).not.toBeNull();
+  await act(async () => settle(PENDING));
+  expect(await screen.findByText("layout.enroll.outcome.approval.title(team=Acme,email=me@acme.com)")).toBeTruthy();
+});
+
+test("a saved account on the token's server preselects sign in with its email", async () => {
+  h.serverUrl = "https://cloud.voltius.app";
+  h.getSavedAccounts.mockResolvedValue([{ ...ACCOUNT, email: "saved@acme.com" }]);
+  await open();
+  await waitFor(async () => expect((await emailField()).value).toBe("saved@acme.com"));
+  expect(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder")).toBeTruthy();
+  expect(screen.queryByPlaceholderText("layout.auth.confirmPasswordPlaceholder")).toBeNull();
+});
+
+async function submitWithHeldSignIn() {
+  h.serverUrl = "https://cloud.voltius.app";
+  let settle!: (v: unknown) => void;
+  h.authenticateServerAccount.mockReturnValue(new Promise((r) => { settle = r; }));
+  await open();
+  await suggested();
+  type("layout.auth.masterPasswordMinPlaceholder", PASSWORD);
+  type("layout.auth.confirmPasswordPlaceholder", PASSWORD);
+  submit();
+  await waitFor(() => expect(h.authenticateServerAccount).toHaveBeenCalled());
+  return (v: unknown) => act(async () => settle(v));
+}
+
+test("closing during submit is ignored until it settles", async () => {
+  const settle = await submitWithHeldSignIn();
+  pressEscape();
+  fireEvent.click(screen.getByText("common.action.cancel"));
+  expect(useUIStore.getState().enrollTarget).not.toBeNull();
+  await settle({ account: ACCOUNT, enrollment: null });
+  await approvalShown();
+  pressEscape();
+  await closed();
+  expect(h.addAccount).toHaveBeenCalledWith(ACCOUNT);
+});
+
+test("a late result does not appear in a reopened modal", async () => {
+  const settle = await submitWithHeldSignIn();
+  await act(async () => useUIStore.getState().closeEnroll());
+  await act(async () => useUIStore.getState().openEnroll(TOKEN, "machine"));
+  await suggested();
+  await settle({ account: ACCOUNT, enrollment: PENDING });
+  expect(screen.queryByText(/layout\.enroll\.outcome/)).toBeNull();
+  expect((await emailField()).disabled).toBe(false);
 });
 
 test("same-server account can use another account through the form", async () => {

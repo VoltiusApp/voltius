@@ -11,9 +11,6 @@ import type { TranslatableMessage } from "@/plugins/installErrors";
 
 export function DeepLinkConfirmModal() {
   const prompt = useDeepLinkStore((s) => s.prompt);
-  // Keyed by intent: a new link remounts the sheet, which is what discards a prior
-  // failure's error and re-runs `load` against the new target. The key embeds a
-  // join token, so it must never be logged.
   useEffect(() => {
     if (prompt?.route !== "enroll") return;
     const parts = parseEnrollmentToken(prompt.token);
@@ -21,6 +18,7 @@ export function DeepLinkConfirmModal() {
     useDeepLinkStore.getState().dismissPrompt();
   }, [prompt]);
   if (!prompt || prompt.route === "enroll") return null;
+  // A new link remounts the sheet, dropping a prior error; the key embeds a join token, never log it.
   return <ConfirmSheet key={intentKey(prompt)} intent={prompt} />;
 }
 
