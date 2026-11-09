@@ -2,10 +2,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const svc = vi.hoisted(() => ({
-  sftpConnect: vi.fn(async () => "sftp-1"),
+  sftpConnect: vi.fn(async (_p: unknown) => "sftp-1"),
   ftpConnect: vi.fn(async () => "ftp-1"),
   webdavConnect: vi.fn(async (_p: unknown) => "dav-1"),
   sftpClose: vi.fn(async () => {}),
+  sftpCanonicalize: vi.fn(async () => "/home/u"),
   sftpListDir: vi.fn(async () => [
     { name: "a.txt", path: "/srv/a.txt", size: 3, is_dir: false, is_symlink: false, modified: 1 },
     { name: "sub", path: "/srv/sub", size: 0, is_dir: true, is_symlink: false, modified: 2 },
@@ -42,6 +43,16 @@ vi.mock("@/services/proxy", () => ({
 }));
 vi.mock("@/stores/connectivitySettingsStore", async (importOriginal) => ({ ...(await importOriginal<object>()), resolveHostKeepalive: () => "default" }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
+const events = vi.hoisted(() => ({
+  handlers: new Map<string, () => void>(),
+  stopped: [] as string[],
+}));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (name: string, handler: () => void) => {
+    events.handlers.set(name, handler);
+    return () => { events.stopped.push(name); };
+  }),
+}));
 vi.mock("@tauri-apps/api/path", () => ({ appCacheDir: vi.fn(async () => "/cache") }));
 
 import { createSftpAPI } from "./sftp";
@@ -53,7 +64,14 @@ const DAV = { id: "c-dav", host: "d", port: 443, username: "u", connection_type:
 const find = (id: string) =>
   id === "c-ssh" ? SSH : id === "c-ssh2" ? SSH2 : id === "c-ftp" ? FTP : id === "c-dav" ? DAV : undefined;
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  events.handlers.clear();
+  events.stopped.length = 0;
+});
+
+const settle = () => new Promise((r) => setTimeout(r, 0));
+const lost = () => new Error("Channel error: Channel send error");
 
 describe("createSftpAPI", () => {
   it("opens a WebDAV connection over webdavConnect, never prompting", async () => {
@@ -178,20 +196,100 @@ describe("createSftpAPI", () => {
     expect(svc.sftpUpload).toHaveBeenCalledWith(expect.objectContaining({ transferId: "queue-row-42" }));
   });
 
-  it("closes the backend handle(s) it evicts after a failed transfer, not just drops them from the cache", async () => {
-    svc.sftpTransfer.mockRejectedValueOnce(new Error("connection reset"));
+  it("surfaces a failure on a handle that still answers unchanged, keeping the handle", async () => {
+    svc.sftpTransfer.mockRejectedValueOnce(new Error("Permission denied"));
     const api = createSftpAPI(find);
     await expect(
       api.transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ssh2", path: "/srv/b.txt" }),
-    ).rejects.toThrow("connection reset");
-    // Both ends were opened (distinct sftpIds, per the host→host test above);
-    // a plain cache drop would leave both live sessions open on the backend.
-    expect(svc.sftpClose).toHaveBeenCalledTimes(2);
+    ).rejects.toThrow("Permission denied");
+    expect(svc.sftpTransfer).toHaveBeenCalledTimes(1);
+    expect(svc.sftpClose).not.toHaveBeenCalled();
 
-    // The evicted handles are gone, so the next call reopens rather than
-    // reusing a handle that points at a session already closed.
     await api.list("c-ssh", "/");
-    expect(svc.sftpConnect).toHaveBeenCalledTimes(3);
+    expect(svc.sftpConnect).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["list", (a: ReturnType<typeof createSftpAPI>) => a.list("c-ssh", "/srv"), "sftpListDir"],
+    ["writeText", (a: ReturnType<typeof createSftpAPI>) => a.writeText("c-ssh", "/srv/x", "hi"), "sftpWriteFile"],
+    ["transfer", (a: ReturnType<typeof createSftpAPI>) =>
+      a.transfer({ target: "local", path: "/home/u/a.txt" }, { target: "c-ssh", path: "/srv/a.txt" }), "sftpUpload"],
+  ] as const)("%s relinks a handle that stopped answering into the same id and retries once", async (_n, call, verb) => {
+    const api = createSftpAPI(find);
+    await api.list("c-ssh", "/");
+    svc[verb].mockRejectedValueOnce(lost() as never);
+    svc.sftpCanonicalize.mockRejectedValueOnce(lost());
+
+    await call(api);
+
+    expect(svc.sftpConnect).toHaveBeenCalledTimes(2);
+    expect(svc.sftpConnect.mock.calls[1][0]).toMatchObject({ relink: "sftp-1" });
+    expect(svc.sftpClose).not.toHaveBeenCalled();
+  });
+
+  it("reports a lost connection, not a missing path, when the handle cannot be reopened", async () => {
+    const api = createSftpAPI(find);
+    await api.list("c-ssh", "/");
+    svc.sftpListDir.mockRejectedValueOnce(lost());
+    svc.sftpCanonicalize.mockRejectedValueOnce(lost());
+    svc.sftpConnect.mockRejectedValueOnce(new Error("SSH connection failed: refused"));
+
+    const err = await api
+      .transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "local", path: "/home/u/a.txt" })
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: "connection-lost" });
+    expect(String(err)).toMatch(/could not reopen it: .*refused/);
+    expect(String(err)).not.toMatch(/No such path/);
+    expect(svc.sftpDownload).not.toHaveBeenCalled();
+
+    // The lost id stays cached, so the next call relinks into it again.
+    await expect(api.list("c-ssh", "/srv")).resolves.toHaveLength(2);
+  });
+
+  it("shares one reconnect between concurrent calls that hit the same lost handle", async () => {
+    const api = createSftpAPI(find);
+    await api.list("c-ssh", "/");
+    svc.sftpListDir.mockRejectedValueOnce(lost()).mockRejectedValueOnce(lost());
+    svc.sftpCanonicalize.mockRejectedValueOnce(lost()).mockRejectedValueOnce(lost());
+
+    await Promise.all([api.list("c-ssh", "/a"), api.list("c-ssh", "/b")]);
+    expect(svc.sftpConnect).toHaveBeenCalledTimes(2);
+  });
+
+  it("swaps in and closes around a reopen that cannot keep the id (FTP)", async () => {
+    const api = createSftpAPI(find);
+    await api.list("c-ftp", "/");
+    svc.ftpConnect.mockResolvedValueOnce("ftp-2");
+    svc.sftpListDir.mockRejectedValueOnce(lost());
+    svc.sftpCanonicalize.mockRejectedValueOnce(lost());
+
+    await api.list("c-ftp", "/");
+    expect(svc.sftpClose).toHaveBeenCalledWith("ftp-1");
+    expect(svc.sftpListDir).toHaveBeenLastCalledWith("ftp-2", "/");
+
+    await api.list("c-ftp", "/");
+    expect(svc.ftpConnect).toHaveBeenCalledTimes(2);
+    expect(svc.sftpListDir).toHaveBeenLastCalledWith("ftp-2", "/");
+  });
+
+  it("relinks as soon as the backend reports the link closed, so a waiting transfer resumes", async () => {
+    const api = createSftpAPI(find);
+    await api.list("c-ssh", "/");
+    await settle();
+    events.handlers.get("sftp-closed-sftp-1")!();
+    await settle();
+    expect(svc.sftpConnect).toHaveBeenCalledTimes(2);
+    expect(svc.sftpConnect.mock.calls[1][0]).toMatchObject({ relink: "sftp-1" });
+  });
+
+  it("disconnect stops watching the handle and closes it", async () => {
+    const api = createSftpAPI(find);
+    await api.list("c-ssh", "/");
+    await settle();
+    await api.disconnect("c-ssh");
+    await settle();
+    expect(svc.sftpClose).toHaveBeenCalledWith("sftp-1");
+    expect(events.stopped).toEqual(["sftp-closed-sftp-1"]);
   });
 
   it("dispose closes every open handle so an unloaded plugin leaves no connections", async () => {
@@ -199,8 +297,7 @@ describe("createSftpAPI", () => {
     await api.list("c-ssh", "/");
     await api.list("c-ftp", "/");
     api.dispose();
-    await Promise.resolve();
-    await Promise.resolve();
+    await settle();
     expect(svc.sftpClose).toHaveBeenCalledTimes(2);
   });
 
