@@ -17,7 +17,7 @@ export function UpgradeAction({ teamId, look }: { teamId: string; look: "button"
     return look === "link" ? null : <p className="text-xs text-(--t-text-dim)">{t("shared.availableWith", { plan: "Business" })}</p>;
   }
   if (look === "link") {
-    return <button type="button" onClick={upgrade} className="text-xs text-(--t-accent)">{t("shared.businessLock.upgrade")}</button>;
+    return <button type="button" onClick={upgrade} className="text-(--t-accent)">{t("shared.businessLock.upgrade")}</button>;
   }
   return (
     <button type="button" onClick={upgrade} className="text-xs px-3 py-1.5 rounded-lg font-medium bg-(--t-accent) text-(--t-on-accent)">
@@ -65,12 +65,12 @@ export function BusinessLapseNotice({ teamId, message, removeLabel, onRemove }: 
   );
 }
 
-export function BusinessLockLine({ teamId, label }: { teamId: string; label: string }) {
+export function BusinessLockLine({ teamId, label, compact = false }: { teamId: string; label: string; compact?: boolean }) {
   const { locked } = useBusinessLock(teamId);
   if (!locked) return null;
   return (
-    <p className="text-xs text-(--t-text-dim)">
-      <Icon icon="lucide:lock" width={12} className="inline align-[-1px] mr-1.5" />
+    <p className={`${compact ? "text-[11px]" : "text-xs"} text-(--t-text-dim)`}>
+      <Icon icon="lucide:lock" width={compact ? 11 : 12} className="inline align-[-1px] mr-1.5" />
       {label} <UpgradeAction teamId={teamId} look="link" />
     </p>
   );

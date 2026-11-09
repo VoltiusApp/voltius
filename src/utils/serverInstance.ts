@@ -55,15 +55,15 @@ export function storedServerUrl(): string {
   return parse(stored) ? stored! : "";
 }
 
-function serverKey(url: string | null | undefined): string | null {
+export function canonicalServerUrl(url: string | null | undefined): string | null {
   const parsed = parse(url);
   if (!parsed || (parsed.protocol !== "https:" && parsed.protocol !== "http:")) return null;
   return parsed.origin + parsed.pathname.replace(/\/+$/, "");
 }
 
 export function sameServer(a: string | null | undefined, b: string | null | undefined): boolean {
-  const key = serverKey(a);
-  return key !== null && key === serverKey(b);
+  const key = canonicalServerUrl(a);
+  return key !== null && key === canonicalServerUrl(b);
 }
 
 export const normalizeServerUrl = (url: string): string => url.replace(/\/+$/, "");

@@ -18,6 +18,7 @@ interface ServerCapabilities {
   wrappedSecretsCas: boolean;
   billingEnabled: boolean;
   multiOwner: boolean;
+  emailDelivery: boolean;
 }
 
 const UNKNOWN: ServerCapabilities = {
@@ -28,6 +29,7 @@ const UNKNOWN: ServerCapabilities = {
   wrappedSecretsCas: false,
   billingEnabled: false,
   multiOwner: false,
+  emailDelivery: true,
 };
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
 
@@ -36,7 +38,7 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner } = await fetchServerMeta(
+    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner, email_delivery } = await fetchServerMeta(
       "common.error.failedToLoadServerCapabilities",
     );
     fetchedAt = Date.now();
@@ -46,6 +48,7 @@ async function loadCapabilities(): Promise<void> {
       wrappedSecretsCas: wrapped_secrets_cas === true,
       billingEnabled: billing_enabled === true,
       multiOwner: multi_owner === true,
+      emailDelivery: email_delivery !== false,
       ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
         : { advertisedSecretTypes: null }),
@@ -86,30 +89,31 @@ export function noteRefusedSecretType(type: TeamSecretType): boolean {
   return true;
 }
 
-export function useServerLacksSecretType(type: TeamSecretType): boolean {
+function useCapabilities<T>(select: (s: ServerCapabilities) => T): T {
   useEffect(() => void refreshServerCapabilities(), []);
-  return useServerCapabilities((s) => lacks(s, type));
+  return useServerCapabilities(select);
 }
+
+type CapabilityFlag = { [K in keyof ServerCapabilities]: ServerCapabilities[K] extends boolean ? K : never }[keyof ServerCapabilities];
+
+export const useServerCapability = (flag: CapabilityFlag): boolean => useCapabilities((s) => s[flag]);
+
+export const useServerLacksSecretType = (type: TeamSecretType): boolean => useCapabilities((s) => lacks(s, type));
 
 /** Which second factors this server lets an account enrol; none until it says so. */
-export function useServerSecondFactors(): { totp: boolean; passkeys: boolean } {
-  useEffect(() => void refreshServerCapabilities(), []);
-  const totp = useServerCapabilities((s) => s.twoFactor);
-  const passkeys = useServerCapabilities((s) => s.passkeys);
-  return { totp, passkeys };
-}
+export const useServerSecondFactors = (): { totp: boolean; passkeys: boolean } => ({
+  totp: useServerCapability("twoFactor"),
+  passkeys: useServerCapability("passkeys"),
+});
 
 /** What `/v1/meta` says; when it cannot be reached, whether this is the official cloud. */
-export function useServerBillingEnabled(): boolean {
-  useEffect(() => void refreshServerCapabilities(), []);
-  return useServerCapabilities((s) => s.billingEnabled);
-}
+export const useServerBillingEnabled = (): boolean => useServerCapability("billingEnabled");
 
 /** Whether this server lets several members hold Owner and hand billing between them. */
-export function useServerMultiOwner(): boolean {
-  useEffect(() => void refreshServerCapabilities(), []);
-  return useServerCapabilities((s) => s.multiOwner);
-}
+export const useServerMultiOwner = (): boolean => useServerCapability("multiOwner");
+
+/** Whether this server can send email; servers that predate the flag are assumed to. */
+export const useServerEmailDelivery = (): boolean => useServerCapability("emailDelivery");
 
 export async function serverSupportsWrappedSecretsCas(): Promise<boolean> {
   await refreshServerCapabilities();

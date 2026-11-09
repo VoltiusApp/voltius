@@ -64,7 +64,7 @@ export interface TeamRole {
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
-async function serverFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function serverFetch(path: string, init?: RequestInit): Promise<Response> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   return fetchAuth(`${serverUrl}${path}`, init);

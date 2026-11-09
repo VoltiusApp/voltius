@@ -1298,6 +1298,9 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     const { checkAndRotateTeamKey } = await import("@/services/teamKeyRotation");
     checkAndRotateTeamKey(teamId).catch(logFailure(`team_members: checkAndRotateTeamKey team=${teamId}`));
     useTeamStore.getState().loadPendingInvitations(teamId).catch(logFailure(`team_members: loadPendingInvitations team=${teamId}`));
+  } else if (eventData.startsWith("join_requests:")) {
+    const teamId = eventData.slice("join_requests:".length);
+    useTeamStore.getState().loadJoinRequests(teamId).catch(logFailure(`join_requests: loadJoinRequests team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
   } else if (eventData.startsWith("membership_changed:")) {

@@ -1,0 +1,15 @@
+[
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": { "serverUrl": "https://api.voltius.app", "id": "0123456789abcdef0123456789abcdef", "secret": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-" } },
+  { "text": "  vte1.aHR0cHM6Ly92b2x0aXVzLmFjbWUuY29tL2FwaQ.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop_\n", "expect": { "serverUrl": "https://voltius.acme.com/api", "id": "0123456789abcdef0123456789abcdef", "secret": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop_" } },
+  { "text": "vte2.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef", "expect": null },
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-.x", "expect": null },
+  { "text": "vte1.!!!.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
+  { "text": "vte1.ZnRwOi8vaG9zdA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789ABCDEF0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.short", "expect": null },
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop+", "expect": null },
+  { "text": "vte1.aHR0cDovL2hvc3Q6ODA4MA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": { "serverUrl": "http://host:8080", "id": "0123456789abcdef0123456789abcdef", "secret": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-" } },
+  { "text": "", "expect": null }
+]

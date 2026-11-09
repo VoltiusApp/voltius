@@ -321,6 +321,74 @@
       "newLink": "Novo link",
       "cancel": "Cancelar"
     },
+    "enrollment": {
+      "title": "Inscrição de dispositivos",
+      "explainer": "Um token único para toda a empresa, para implantar o Voltius com Ansible ou MDM. Quem o usar pede para entrar em {{team}}.",
+      "domainsLabel": "Domínios de e-mail permitidos",
+      "domainPlaceholder": "Adicionar um domínio",
+      "removeDomain": "Remover {{domain}}",
+      "invalidDomain": "{{domain}} não é um nome de domínio, como example.com.",
+      "approve": "Um administrador aprova cada entrada",
+      "noEmail": "Este servidor não consegue enviar e-mails, por isso um administrador tem de aprovar cada entrada.",
+      "expiresLabel": "Expira",
+      "expiry": {
+        "never": "Nunca",
+        "day30": "30 dias",
+        "day90": "90 dias",
+        "year1": "1 ano"
+      },
+      "create": "Criar token",
+      "guardHint": "Cada entrada exige um domínio de e-mail correspondente, a aprovação de um administrador, ou ambos.",
+      "copyNow": "Copie agora; não será mostrado novamente.",
+      "example": "Exemplo",
+      "tokenLabel": "Token de inscrição",
+      "approvalOn": "aprovação por administrador",
+      "approvalOff": "sem aprovação",
+      "expiresOn": "expira em {{date}}",
+      "neverExpires": "nunca expira",
+      "expiredOn": "Expirou em {{date}}",
+      "expiredHint": "Renove-o para obter um token válido.",
+      "createdBy": "Criado por {{name}} · {{date}}",
+      "createdOn": "Criado em {{date}}",
+      "lastUsed": "Último uso {{when}}",
+      "neverUsed": "Nunca usado",
+      "counts": "{{joined}} entraram · {{waiting}} em espera",
+      "notShownAgain": "O token não é mostrado novamente. Renove-o para obter um novo.",
+      "rotate": "Renovar",
+      "rotateTitle": "Renovar o token de inscrição?",
+      "rotateMessage": "O token atual deixa de funcionar. Execute novamente a sua implantação com o novo.",
+      "rotateConfirm": "Renovar token",
+      "revoke": "Revogar",
+      "revokeTitle": "Revogar o token de inscrição?",
+      "revokeMessage": "Os dispositivos deixam de poder inscrever-se com ele. Quem já entrou continua membro.",
+      "revokeConfirm": "Revogar token",
+      "lapsed": "A inscrição de dispositivos requer o plano Business da equipa.",
+      "loadFailed": "Não foi possível carregar o token de inscrição — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "A criar o token…",
+          "done": "Token de inscrição criado",
+          "failed": "Não foi possível criar o token — {{reason}}"
+        },
+        "rotate": {
+          "pending": "A renovar o token…",
+          "done": "Token de inscrição renovado",
+          "failed": "Não foi possível renovar o token — {{reason}}"
+        },
+        "revoke": {
+          "pending": "A revogar o token…",
+          "done": "Token de inscrição revogado",
+          "failed": "Não foi possível revogar o token — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Adicione um domínio de e-mail ou exija aprovação.",
+        "needsApproval": "Este servidor não consegue enviar e-mails, por isso cada entrada exige a aprovação de um administrador.",
+        "domainMismatch": "O domínio do e-mail não está na lista do token.",
+        "invalid": "O servidor recusou estas definições.",
+        "forbidden": "Não tem permissão para gerir a inscrição de dispositivos."
+      }
+    },
     "offboarding": {
       "removeTitle_one": "Remover {{names}} desta equipe?",
       "removeTitle_other": "Remover {{count}} pessoas desta equipe?",
@@ -409,6 +477,32 @@
         "newerVersion": "Este ficheiro precisa de uma versão mais recente do Voltius",
         "file": "Este ficheiro não é um policy.json válido",
         "plainTimeout": "só se aplica em versões mais recentes do Voltius. As antigas precisam de um máximo: {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Pedidos de adesão",
+      "via": "via inscrição de dispositivos",
+      "reason": {
+        "approval": "A aguardar aprovação",
+        "email_unverified": "A aguardar verificação do e-mail",
+        "seat_limit": "Sem lugar disponível"
+      },
+      "approve": "Aprovar",
+      "deny": "Recusar",
+      "noSeatToast": "Sem lugar disponível. Adicione lugares e aprove novamente.",
+      "emailUnverifiedToast": "Ainda falta verificar o endereço de e-mail. Aprove novamente depois disso.",
+      "gone": "Este pedido já foi tratado.",
+      "toast": {
+        "approve": {
+          "pending": "A aprovar o pedido…",
+          "done": "Pedido aprovado",
+          "failed": "Não foi possível aprovar o pedido — {{reason}}"
+        },
+        "deny": {
+          "pending": "A recusar o pedido…",
+          "done": "Pedido recusado",
+          "failed": "Não foi possível recusar o pedido — {{reason}}"
+        }
       }
     }
   }

@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   reconcileTeamVaultKeys: vi.fn(async () => {}),
   checkAndRotateTeamKey: vi.fn(async () => {}),
   fetchTeamData: vi.fn().mockResolvedValue(undefined),
+  listJoinRequests: vi.fn(async () => []),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
@@ -20,6 +21,8 @@ vi.mock("@/services/teamService", async (importOriginal) => ({
   listRoles: vi.fn(async () => []),
   listPendingInvitations: vi.fn(async () => []),
 }));
+
+vi.mock("@/services/enrollment/enrollmentApi", () => ({ enrollmentApi: { listJoinRequests: h.listJoinRequests } }));
 
 vi.mock("@/services/teamVaultSync", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/teamVaultSync")>()),
@@ -49,4 +52,14 @@ test("a team_members event checks for a DEK rotation alongside key reconciliatio
 test("a role or permission change refreshes the team's vault in the background", async () => {
   await handleRealtimeEvent("team_members:t1", "dev1");
   await vi.waitFor(() => expect(h.fetchTeamData).toHaveBeenCalledWith("t1", { background: true }));
+});
+
+test("a join_requests event reloads requests and nothing else", async () => {
+  h.fetchTeamData.mockClear();
+  h.reconcileTeamVaultKeys.mockClear();
+  h.listJoinRequests.mockClear();
+  await handleRealtimeEvent("join_requests:t1", "device-1");
+  await vi.waitFor(() => expect(h.listJoinRequests).toHaveBeenCalledWith("t1"));
+  expect(h.fetchTeamData).not.toHaveBeenCalled();
+  expect(h.reconcileTeamVaultKeys).not.toHaveBeenCalled();
 });

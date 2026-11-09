@@ -317,6 +317,74 @@
       "newLink": "Nouveau lien",
       "cancel": "Annuler"
     },
+    "enrollment": {
+      "title": "Enrôlement d'appareils",
+      "explainer": "Un jeton unique pour toute l'entreprise, pour déployer Voltius avec Ansible ou un MDM. Les personnes qui l'utilisent demandent à rejoindre {{team}}.",
+      "domainsLabel": "Domaines e-mail autorisés",
+      "domainPlaceholder": "Ajouter un domaine",
+      "removeDomain": "Retirer {{domain}}",
+      "invalidDomain": "{{domain}} n'est pas un nom de domaine, comme example.com.",
+      "approve": "Un administrateur approuve chaque adhésion",
+      "noEmail": "Ce serveur ne peut pas envoyer d'e-mails : un administrateur doit donc approuver chaque adhésion.",
+      "expiresLabel": "Expire",
+      "expiry": {
+        "never": "Jamais",
+        "day30": "30 jours",
+        "day90": "90 jours",
+        "year1": "1 an"
+      },
+      "create": "Créer le jeton",
+      "guardHint": "Chaque adhésion exige un domaine e-mail correspondant, l'approbation d'un administrateur, ou les deux.",
+      "copyNow": "Copiez-le maintenant ; il ne sera plus affiché.",
+      "example": "Exemple",
+      "tokenLabel": "Jeton d'enrôlement",
+      "approvalOn": "approbation par un administrateur",
+      "approvalOff": "sans approbation",
+      "expiresOn": "expire le {{date}}",
+      "neverExpires": "n'expire jamais",
+      "expiredOn": "Expiré le {{date}}",
+      "expiredHint": "Renouvelez-le pour obtenir un jeton valide.",
+      "createdBy": "Créé par {{name}} · {{date}}",
+      "createdOn": "Créé le {{date}}",
+      "lastUsed": "Dernière utilisation {{when}}",
+      "neverUsed": "Jamais utilisé",
+      "counts": "{{joined}} adhésions · {{waiting}} en attente",
+      "notShownAgain": "Le jeton n'est plus affiché. Renouvelez-le pour en obtenir un nouveau.",
+      "rotate": "Renouveler",
+      "rotateTitle": "Renouveler le jeton d'enrôlement ?",
+      "rotateMessage": "Le jeton actuel cesse de fonctionner. Relancez votre déploiement avec le nouveau.",
+      "rotateConfirm": "Renouveler le jeton",
+      "revoke": "Révoquer",
+      "revokeTitle": "Révoquer le jeton d'enrôlement ?",
+      "revokeMessage": "Les appareils ne pourront plus s'enrôler avec ce jeton. Les personnes déjà arrivées restent membres.",
+      "revokeConfirm": "Révoquer le jeton",
+      "lapsed": "L'enrôlement d'appareils nécessite le forfait Business de l'équipe.",
+      "loadFailed": "Impossible de charger le jeton d'enrôlement — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Création du jeton…",
+          "done": "Jeton d'enrôlement créé",
+          "failed": "Impossible de créer le jeton — {{reason}}"
+        },
+        "rotate": {
+          "pending": "Renouvellement du jeton…",
+          "done": "Jeton d'enrôlement renouvelé",
+          "failed": "Impossible de renouveler le jeton — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Révocation du jeton…",
+          "done": "Jeton d'enrôlement révoqué",
+          "failed": "Impossible de révoquer le jeton — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Ajoutez un domaine e-mail ou exigez une approbation.",
+        "needsApproval": "Ce serveur ne peut pas envoyer d'e-mails, chaque adhésion nécessite donc l'approbation d'un administrateur.",
+        "domainMismatch": "Le domaine de son e-mail ne figure pas dans la liste du jeton.",
+        "invalid": "Le serveur a refusé ces paramètres.",
+        "forbidden": "Vous n'avez pas l'autorisation de gérer l'enrôlement d'appareils."
+      }
+    },
     "leaveTeam": "Quitter l'équipe",
     "offboarding": {
       "removeTitle_one": "Retirer {{names}} de cette équipe ?",
@@ -405,6 +473,32 @@
         "newerVersion": "Ce fichier nécessite une version plus récente de Voltius",
         "file": "Ce fichier n'est pas un policy.json valide",
         "plainTimeout": "ne s'applique qu'aux versions récentes de Voltius. Les anciennes exigent un maximum : {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Demandes d'adhésion",
+      "via": "via l'enrôlement d'appareils",
+      "reason": {
+        "approval": "En attente d'approbation",
+        "email_unverified": "En attente de vérification de l'e-mail",
+        "seat_limit": "Plus de siège disponible"
+      },
+      "approve": "Approuver",
+      "deny": "Refuser",
+      "noSeatToast": "Plus de siège disponible. Ajoutez des sièges, puis approuvez à nouveau.",
+      "emailUnverifiedToast": "Cette personne doit encore vérifier son adresse e-mail. Approuvez à nouveau ensuite.",
+      "gone": "Cette demande a déjà été traitée.",
+      "toast": {
+        "approve": {
+          "pending": "Approbation de la demande…",
+          "done": "Demande approuvée",
+          "failed": "Impossible d'approuver la demande — {{reason}}"
+        },
+        "deny": {
+          "pending": "Refus de la demande…",
+          "done": "Demande refusée",
+          "failed": "Impossible de refuser la demande — {{reason}}"
+        }
       }
     }
   }

@@ -16,6 +16,22 @@ export function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+const BASE64URL_RE = /^[A-Za-z0-9_-]*$/;
+
+export function bytesToBase64Url(bytes: Uint8Array | number[]): string {
+  return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+export function base64UrlToBytes(text: string): Uint8Array<ArrayBuffer> | null {
+  if (!BASE64URL_RE.test(text)) return null;
+  try {
+    const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
+    return base64ToBytes(b64.padEnd(Math.ceil(b64.length / 4) * 4, "="));
+  } catch {
+    return null;
+  }
+}
+
 // Tauri commands take `Vec<u8>` as a JSON number array, which a Uint8Array does not serialize to.
 export function base64ToByteArray(b64: string): number[] {
   return Array.from(base64ToBytes(b64));

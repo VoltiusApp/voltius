@@ -8,6 +8,7 @@ import { accountEpoch, refreshTeamPolicy } from "@/services/policy/teamPolicy";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
+import type { JoinRequest } from "@/services/enrollment/enrollmentApi";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
 let loadSeq = 0;
@@ -18,6 +19,7 @@ interface TeamStore {
   membersByTeam: Record<string, TeamMember[]>;
   rolesByTeam: Record<string, TeamRole[]>;
   pendingInvitationsByTeam: Record<string, PendingInvitation[]>;
+  joinRequestsByTeam: Record<string, JoinRequest[]>;
   myPendingInvitations: MyPendingInvitation[];
   activeTeamId: string | null;
   loading: boolean;
@@ -38,6 +40,7 @@ interface TeamStore {
   setMemberOnline: (userId: string, online: boolean) => void;
   setSelfOnline: (userId: string, online: boolean) => void;
   loadPendingInvitations: (teamId: string) => Promise<void>;
+  loadJoinRequests: (teamId: string) => Promise<void>;
   loadMyPendingInvitations: () => Promise<void>;
   removeTeam: (teamId: string) => void;
   // Roles
@@ -101,6 +104,7 @@ export const useTeamStore = create<TeamStore>()(
   membersByTeam: {},
   rolesByTeam: {},
   pendingInvitationsByTeam: {},
+  joinRequestsByTeam: {},
   myPendingInvitations: [],
   activeTeamId: null,
   loading: false,
@@ -203,6 +207,14 @@ export const useTeamStore = create<TeamStore>()(
     set((s) => ({ pendingInvitationsByTeam: { ...s.pendingInvitationsByTeam, [teamId]: invites } }));
   },
 
+  loadJoinRequests: async (teamId) => {
+    const epoch = accountEpoch();
+    const { enrollmentApi } = await import("@/services/enrollment/enrollmentApi");
+    const requests = await enrollmentApi.listJoinRequests(teamId).catch(() => null);
+    if (!requests || epoch !== accountEpoch()) return;
+    set((s) => ({ joinRequestsByTeam: { ...s.joinRequestsByTeam, [teamId]: requests } }));
+  },
+
   loadMyPendingInvitations: async () => {
     const invites = await api.fetchMyPendingInvitations().catch(() => [] as MyPendingInvitation[]);
     set({ myPendingInvitations: invites });
@@ -213,11 +225,13 @@ export const useTeamStore = create<TeamStore>()(
       const { [teamId]: _m, ...membersByTeam } = s.membersByTeam;
       const { [teamId]: _r, ...rolesByTeam } = s.rolesByTeam;
       const { [teamId]: _p, ...pendingInvitationsByTeam } = s.pendingInvitationsByTeam;
+      const { [teamId]: _j, ...joinRequestsByTeam } = s.joinRequestsByTeam;
       return {
         teams: s.teams.filter((t) => t.id !== teamId),
         membersByTeam,
         rolesByTeam,
         pendingInvitationsByTeam,
+        joinRequestsByTeam,
         activeTeamId: s.activeTeamId === teamId ? null : s.activeTeamId,
       };
     });

@@ -311,6 +311,74 @@
       "newLink": "New link",
       "cancel": "Cancel"
     },
+    "enrollment": {
+      "title": "Device enrolment",
+      "explainer": "One company-wide token for deploying Voltius with Ansible or MDM. People who use it ask to join {{team}}.",
+      "domainsLabel": "Allowed email domains",
+      "domainPlaceholder": "Add a domain",
+      "removeDomain": "Remove {{domain}}",
+      "invalidDomain": "{{domain}} is not a domain name, like example.com.",
+      "approve": "An admin approves each join",
+      "noEmail": "This server cannot send email, so an admin must approve each join.",
+      "expiresLabel": "Expires",
+      "expiry": {
+        "never": "Never",
+        "day30": "30 days",
+        "day90": "90 days",
+        "year1": "1 year"
+      },
+      "create": "Create token",
+      "guardHint": "Each join needs a matching email domain, an admin's approval, or both.",
+      "copyNow": "Copy it now; it is not shown again.",
+      "example": "Example",
+      "tokenLabel": "Enrolment token",
+      "approvalOn": "admin approves",
+      "approvalOff": "no approval",
+      "expiresOn": "expires {{date}}",
+      "neverExpires": "never expires",
+      "expiredOn": "Expired {{date}}",
+      "expiredHint": "Rotate to issue a working token.",
+      "createdBy": "Created by {{name}} · {{date}}",
+      "createdOn": "Created {{date}}",
+      "lastUsed": "Last used {{when}}",
+      "neverUsed": "Never used",
+      "counts": "{{joined}} joined · {{waiting}} waiting",
+      "notShownAgain": "The token is not shown again. Rotate to get a new one.",
+      "rotate": "Rotate",
+      "rotateTitle": "Rotate the enrolment token?",
+      "rotateMessage": "The current token stops working. Re-run your deployment with the new one.",
+      "rotateConfirm": "Rotate token",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke the enrolment token?",
+      "revokeMessage": "Devices can no longer enrol with it. People who already joined stay members.",
+      "revokeConfirm": "Revoke token",
+      "lapsed": "Device enrolment needs the team's Business plan.",
+      "loadFailed": "Couldn't load the enrolment token — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Creating token…",
+          "done": "Enrolment token created",
+          "failed": "Couldn't create the token — {{reason}}"
+        },
+        "rotate": {
+          "pending": "Rotating token…",
+          "done": "Enrolment token rotated",
+          "failed": "Couldn't rotate the token — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Revoking token…",
+          "done": "Enrolment token revoked",
+          "failed": "Couldn't revoke the token — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Add an email domain or require approval.",
+        "needsApproval": "This server cannot send email, so each join needs an admin's approval.",
+        "domainMismatch": "Their email domain is not on the token's list.",
+        "invalid": "The server refused these settings.",
+        "forbidden": "You don't have permission to manage device enrolment."
+      }
+    },
     "offboarding": {
       "removeTitle_one": "Remove {{names}} from this team?",
       "removeTitle_other": "Remove {{count}} people from this team?",
@@ -393,6 +461,32 @@
         "newerVersion": "This file needs a newer version of Voltius",
         "file": "This file isn't a valid policy.json",
         "plainTimeout": "only applies on newer Voltius versions. Older ones need a maximum: {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Join requests",
+      "via": "via device enrolment",
+      "reason": {
+        "approval": "Waiting for approval",
+        "email_unverified": "Waiting for email verification",
+        "seat_limit": "No seat left"
+      },
+      "approve": "Approve",
+      "deny": "Deny",
+      "noSeatToast": "No seat left. Add seats, then approve again.",
+      "emailUnverifiedToast": "They still need to verify their email address. Approve again once they have.",
+      "gone": "This request was already handled.",
+      "toast": {
+        "approve": {
+          "pending": "Approving join request…",
+          "done": "Join request approved",
+          "failed": "Couldn't approve the request — {{reason}}"
+        },
+        "deny": {
+          "pending": "Denying join request…",
+          "done": "Join request denied",
+          "failed": "Couldn't deny the request — {{reason}}"
+        }
       }
     }
   }
