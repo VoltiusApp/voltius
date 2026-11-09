@@ -19,3 +19,8 @@ test("build then parse round-trips", () => {
 test("equivalent server URLs build the same token", () => {
   expect(buildEnrollmentToken("https://API.acme.com:443/api/", ID, SECRET)).toBe(buildEnrollmentToken("https://api.acme.com/api", ID, SECRET));
 });
+
+test("a server URL that is not http(s) is refused", () => {
+  expect(() => buildEnrollmentToken("ftp://voltius.acme.com", ID, SECRET)).toThrow();
+  expect(() => buildEnrollmentToken("not a url", ID, SECRET)).toThrow();
+});

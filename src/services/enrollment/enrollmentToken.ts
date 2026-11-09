@@ -1,10 +1,9 @@
-import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
-import { canonicalServerUrl, normalizeServerUrl } from "@/utils/serverInstance";
+import { GRANT_SECRET_RE } from "@/services/deepLinkUrl";
+import { base64UrlToBytes, bytesToBase64Url } from "@/utils/base64";
+import { canonicalServerUrl } from "@/utils/serverInstance";
 
 const PREFIX = "vte1";
 const ID_RE = /^[0-9a-f]{32}$/;
-const SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
-const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 
 export interface EnrollmentTokenParts {
   serverUrl: string;
@@ -12,30 +11,27 @@ export interface EnrollmentTokenParts {
   secret: string;
 }
 
-function encodeBase64Url(text: string): string {
-  return bytesToBase64(new TextEncoder().encode(text)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function decodeBase64Url(text: string): string | null {
-  if (!B64URL_RE.test(text)) return null;
+function decodeUtf8(bytes: Uint8Array | null): string | null {
+  if (!bytes) return null;
   try {
-    const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
-    return new TextDecoder("utf-8", { fatal: true }).decode(base64ToBytes(b64.padEnd(Math.ceil(b64.length / 4) * 4, "=")));
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     return null;
   }
 }
 
 export function buildEnrollmentToken(serverUrl: string, id: string, secret: string): string {
-  return [PREFIX, encodeBase64Url(canonicalServerUrl(serverUrl) ?? normalizeServerUrl(serverUrl)), id.replace(/-/g, ""), secret].join(".");
+  const canonical = canonicalServerUrl(serverUrl);
+  if (!canonical) throw new Error("server URL must be http(s)");
+  return [PREFIX, bytesToBase64Url(new TextEncoder().encode(canonical)), id.replace(/-/g, ""), secret].join(".");
 }
 
 export function parseEnrollmentToken(text: string): EnrollmentTokenParts | null {
   const parts = text.trim().split(".");
   if (parts.length !== 4 || parts[0] !== PREFIX) return null;
   const [, encodedUrl, id, secret] = parts;
-  if (!ID_RE.test(id) || !SECRET_RE.test(secret)) return null;
-  const serverUrl = decodeBase64Url(encodedUrl);
+  if (!ID_RE.test(id) || !GRANT_SECRET_RE.test(secret)) return null;
+  const serverUrl = encodedUrl ? decodeUtf8(base64UrlToBytes(encodedUrl)) : null;
   if (!serverUrl) return null;
   try {
     const { protocol } = new URL(serverUrl);

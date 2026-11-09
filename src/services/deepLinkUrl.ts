@@ -145,7 +145,7 @@ export const DEFAULT_PLUGIN_SOURCE_ID = "voltius";
 const MAX_SOURCE_ID = 100;
 
 /** As the server mints it: 32 random bytes, unpadded base64url, 43 chars. */
-const GRANT_SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
+export const GRANT_SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
 
 /**
  * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
