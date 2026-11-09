@@ -6,7 +6,7 @@
 // Env: APP_PATH (.app), UDID (booted simulator), OUT_DIR, SSH_PORT, SSH_USER,
 //      SSH_PASSWORD, SSH_LOG_DIR (where ssh_server.py writes its logs).
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { remote } from "webdriverio";
@@ -23,7 +23,9 @@ const SSH = {
 };
 // STORE=1: the App Store screenshot run (see the store steps at the end).
 const STORE = process.env.STORE === "1";
-const HOST_LABEL = STORE ? "prod-web" : "e2e-local";
+// VIDEO=1: the App Review screen recording, ending with the account steps against VOLTIUS_SERVER_URL.
+const VIDEO = process.env.VIDEO === "1";
+const HOST_LABEL = STORE ? "prod-web" : VIDEO ? "review-server" : "e2e-local";
 const MARKER = "voltius-e2e-ok";
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -52,8 +54,17 @@ const driver = await remote({
     "appium:fullContextList": true,
     "appium:connectHardwareKeyboard": false,
     "appium:autoAcceptAlerts": false,
+    // The recording must start at app launch, after the slow WebDriverAgent start.
+    "appium:autoLaunch": !VIDEO,
   },
 });
+
+let recorder = null;
+if (VIDEO) {
+  recorder = spawn("xcrun", ["simctl", "io", UDID, "recordVideo", "--codec=h264", "--force", path.join(OUT, "app-review.mov")], { stdio: "inherit" });
+  await sleep(3000);
+  await driver.execute("mobile: launchApp", { bundleId: "app.voltius" });
+}
 
 // ---------------------------------------------------------------- contexts
 
@@ -505,6 +516,15 @@ async function openTab(id) {
   return r;
 }
 
+/** Leaves the session and panel pages for the tab screens. */
+async function toTabs() {
+  for (let i = 0; i < 4 && !(await web(page.rectOf, "[data-mobile-tab]")); i++) {
+    const exit = (await web(page.rectOf, "[data-mobile-terminal-exit]")) || (await web(page.rectOf, "[data-mobile-back]"));
+    if (exit) await web(page.clickLastTarget);
+    await sleep(1500);
+  }
+}
+
 function storeShot(name) {
   const dir = path.join(OUT, "store");
   fs.mkdirSync(dir, { recursive: true });
@@ -557,15 +577,6 @@ if (STORE) {
     return "terminal";
   });
 
-  // Leave the session page for the tab screens.
-  async function toTabs() {
-    for (let i = 0; i < 4 && !(await web(page.rectOf, "[data-mobile-tab]")); i++) {
-      const exit = (await web(page.rectOf, "[data-mobile-terminal-exit]")) || (await web(page.rectOf, "[data-mobile-back]"));
-      if (exit) await web(page.clickLastTarget);
-      await sleep(1500);
-    }
-  }
-
   for (const [tab, name] of [["snippets", "04-snippets"], ["more", "05-more"], ["hosts", "01-hosts"]]) {
     await step(`store-${tab}`, async () => {
       await toTabs();
@@ -575,6 +586,137 @@ if (STORE) {
       return r;
     });
   }
+}
+
+// ---------------------------------------------------------------- App Review video
+
+if (VIDEO) {
+  const account = {
+    email: `review-${Date.now().toString(36)}@example.com`,
+    password: `Review-${Math.random().toString(36).slice(2, 10)}-Pass1`,
+    server: process.env.VOLTIUS_SERVER_URL,
+  };
+  const present = (selector) => web(page.rectOf, selector).then(Boolean);
+  const waitFor = async (selector, timeoutMs = 20000) => {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      if (await present(selector)) return true;
+      await sleep(1000);
+    }
+    return false;
+  };
+  /** Taps `selector`; if `until` does not show up, clicks it from JS. */
+  const press = async (selector, until, timeoutMs = 6000) => {
+    let r = await tapSel(selector);
+    if (until && !(await waitFor(until, timeoutMs))) {
+      if (await present(selector)) await web(page.clickLastTarget);
+      r += "; js-click";
+      if (!(await waitFor(until, 20000))) throw new Error(`${r}; ${until} never showed`);
+    }
+    await sleep(1200);
+    return r;
+  };
+  const tapText = async (pattern) => {
+    const r = await tap(pattern);
+    await sleep(1200);
+    return r;
+  };
+  const submitAuth = async () => {
+    await hideKeyboard();
+    const r = await press("form button[type=submit]", "[data-more-account]", 30000);
+    return r;
+  };
+  const useLocalServer = async () => {
+    if (await web(page.findTarget, "^Custom server URL$")) await tapText("^Custom server URL$");
+    return fill("api\\.voltius\\.app", account.server);
+  };
+
+  await step("video-sftp", async () => {
+    await sleep(3000);
+    return "SFTP listing";
+  });
+
+  await step("video-terminal", async () => {
+    if (await present("[data-mobile-back]")) await web(page.clickLastTarget);
+    await sleep(1500);
+    for (const c of ['clear; cd "$DEMO_DIR"; ls -lh', "tail -n 4 logs/deploy.log", "uptime"]) {
+      await web(page.typeInTerminal, `${c}\r`);
+      await sleep(2500);
+    }
+    await hideKeyboard();
+    await sleep(2000);
+    return "commands run";
+  });
+
+  await step("account-register", async () => {
+    await toTabs();
+    await openTab("more");
+    await sleep(1500);
+    const out = [await press("[data-more-signin]", "form button[type=submit]")];
+    out.push(await tapText("^Create account$"));
+    out.push(await fill("^Email$", account.email));
+    out.push(await fill("^Create master password$", account.password));
+    out.push(await fill("^Confirm master password$", account.password));
+    out.push(await useLocalServer());
+    await sleep(1500);
+    out.push(await submitAuth());
+    return out.join("; ");
+  });
+
+  await step("account-sign-out", async () => {
+    await sleep(2000);
+    const out = [await press("[data-more-account]", "[data-account-signout]")];
+    await sleep(1500);
+    out.push(await press("[data-account-signout]", "[data-account-signout-confirm]"));
+    out.push(await press("[data-account-signout-confirm]", "[data-more-signin]", 15000));
+    return out.join("; ");
+  });
+
+  await step("account-sign-in", async () => {
+    const out = [await press("[data-more-signin]", "form button[type=submit]")];
+    out.push(await fill("^Email$", account.email));
+    out.push(await fill("^Master password$", account.password));
+    out.push(await useLocalServer());
+    await sleep(1500);
+    out.push(await submitAuth());
+    return out.join("; ");
+  });
+
+  await step("account-delete", async () => {
+    await sleep(2000);
+    const out = [await press("[data-more-account]", "[data-account-delete]")];
+    await sleep(1500);
+    out.push(await press("[data-account-delete]", "[data-delete-account-confirm-input]"));
+    out.push(await fill("to confirm", account.email));
+    await hideKeyboard();
+    await sleep(1000);
+    const rect = await web(() => {
+      const input = document.querySelector("[data-delete-account-confirm-input]");
+      for (let p = input?.parentElement; p; p = p.parentElement) {
+        const b = [...p.querySelectorAll("button")].find((x) => /^Delete account$/.test(x.innerText.trim()) && !x.hasAttribute("data-account-delete"));
+        if (b) {
+          window.__e2eTarget = b;
+          const r = b.getBoundingClientRect();
+          return [r.x, r.y, r.width, r.height];
+        }
+      }
+      return null;
+    });
+    if (!rect) throw new Error("no Delete account button in the dialog");
+    await tapRect(rect);
+    if (!(await waitFor("[data-delete-account-done], [data-more-signin]", 15000))) {
+      await web(page.clickLastTarget);
+      out.push("js-click");
+    }
+    if (!(await waitFor("[data-delete-account-done], [data-more-signin]", 30000))) throw new Error("account not deleted");
+    await sleep(3000);
+    if (await present("[data-delete-account-done]")) out.push(await press("[data-delete-account-done]"));
+    await sleep(3000);
+    return out.join("; ");
+  });
+
+  recorder.kill("SIGINT");
+  await new Promise((r) => recorder.once("exit", r));
 }
 
 // ---------------------------------------------------------------- report
