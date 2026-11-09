@@ -90,6 +90,24 @@ export function EnrolmentSection({ teamId, roles }: Props) {
 
   useEffect(load, [load]);
 
+  const refreshInfo = useCallback(() => {
+    const seq = loadSeq.current;
+    enrollmentApi.getToken(teamId).then(
+      (stored) => {
+        if (seq === loadSeq.current && stored) setInfo(stored);
+      },
+      () => {},
+    );
+  }, [teamId]);
+
+  const joinRequests = useTeamStore((s) => s.joinRequestsByTeam[teamId]);
+  const seenJoinRequests = useRef(joinRequests);
+  useEffect(() => {
+    if (seenJoinRequests.current === joinRequests) return;
+    seenJoinRequests.current = joinRequests;
+    refreshInfo();
+  }, [joinRequests, refreshInfo]);
+
   const run = async (action: () => Promise<void>, toast: "create" | "rotate" | "revoke") => {
     setBusy(true);
     await runEnrollmentAction(t, { toast: `members.enrollment.toast.${toast}`, bare402: "lapsed", run: action });
@@ -113,7 +131,7 @@ export function EnrolmentSection({ teamId, roles }: Props) {
     const { secret, ...rest } = made;
     setFresh(buildEnrollmentToken(serverUrl, made.id, secret));
     setInfo({ ...rest, created_by_name: null, last_used_at: null, admitted_count: 0, pending_count: 0 });
-    enrollmentApi.getToken(teamId).then((stored) => stored && setInfo(stored)).catch(() => {});
+    refreshInfo();
   };
 
   const rotate = async () => {
@@ -147,7 +165,7 @@ export function EnrolmentSection({ teamId, roles }: Props) {
           <button onClick={load} className="shrink-0 underline">{t("common.action.retry")}</button>
         </p>
       )}
-      <BusinessLockLine teamId={teamId} label={t("members.enrollment.lapsed")} />
+      <BusinessLockLine teamId={teamId} label={t("members.enrollment.lapsed")} compact />
       {info === undefined || loadError != null ? null : info ? (
         <TokenCard
           info={info}

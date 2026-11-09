@@ -1,5 +1,6 @@
 import { test, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
+import { useRef, useState } from "react";
 
 const h = vi.hoisted(() => ({
   locked: false,
@@ -15,7 +16,9 @@ const h = vi.hoisted(() => ({
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o && "joined" in o ? `${k}|${o.joined}|${o.waiting}` : k),
+  }),
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked, isOwner: true }) }));
@@ -46,6 +49,7 @@ vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn().mockResolvedValue(
 import { useTeamStore } from "@/stores/teamStore";
 import { EnrollmentError } from "@/services/enrollment/enrollmentApi";
 import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
+import { PickerSurface } from "@/components/shared/PickerSurface";
 import { EnrolmentSection } from "./EnrolmentSection";
 
 const ROLES = [
@@ -73,7 +77,7 @@ beforeEach(() => {
   h.toasts = [];
   h.failed = null;
   h.getToken.mockResolvedValue(null);
-  useTeamStore.setState({ teams: [{ id: "t1", name: "Acme" } as never], loadTeams: h.loadTeams });
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Acme" } as never], loadTeams: h.loadTeams, joinRequestsByTeam: {} });
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -291,4 +295,61 @@ test("domains keep the part after the last @ and reject non-hostnames", async ()
   }
   fireEvent.click(createBtn());
   await waitFor(() => expect(h.createToken.mock.calls[0][1].allowed_domains).toEqual(["acme.com"]));
+});
+
+const press = (el: Element) => {
+  fireEvent.pointerDown(el);
+  fireEvent.mouseDown(el);
+  fireEvent.pointerUp(el);
+  fireEvent.mouseUp(el);
+  fireEvent.click(el);
+};
+
+function SharePopover() {
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <button ref={anchorRef}>share</button>
+      <span>{open ? "popover-open" : "popover-closed"}</span>
+      <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={anchorRef} width={320}>
+        <EnrolmentSection teamId="t1" roles={ROLES} />
+      </PickerSurface>
+    </>
+  );
+}
+
+test("confirming a rotation inside the share popover keeps it open and shows the new token", async () => {
+  h.getToken.mockResolvedValue(info());
+  h.createToken.mockResolvedValue(created({ id: "b".repeat(32), secret: "r".repeat(43) }));
+  render(<SharePopover />);
+  press(await screen.findByText("members.enrollment.rotate"));
+  press(screen.getByText("members.enrollment.rotateConfirm"));
+  const field = (await screen.findByDisplayValue(/^vte1\./)) as HTMLInputElement;
+  expect(field.value.endsWith("r".repeat(43))).toBe(true);
+  expect(screen.getByText("popover-open")).toBeTruthy();
+});
+
+test("cancelling a confirm inside the share popover keeps it open", async () => {
+  h.getToken.mockResolvedValue(info());
+  render(<SharePopover />);
+  press(await screen.findByText("members.enrollment.revoke"));
+  press(screen.getByText("common.action.cancel"));
+  expect(screen.queryByText("members.enrollment.revokeConfirm")).toBeNull();
+  expect(screen.getByText("popover-open")).toBeTruthy();
+  expect(screen.getByText("members.enrollment.revoke")).toBeTruthy();
+});
+
+test("a join-requests change refreshes the counts and keeps the fresh token", async () => {
+  h.getToken.mockResolvedValue(info());
+  h.createToken.mockResolvedValue(created());
+  mount();
+  fireEvent.click(await screen.findByText("members.enrollment.rotate"));
+  fireEvent.click(screen.getByText("members.enrollment.rotateConfirm"));
+  await screen.findByDisplayValue(/^vte1\./);
+  await waitFor(() => expect(screen.getByText("members.enrollment.counts|12|2")).toBeTruthy());
+  h.getToken.mockResolvedValue(info({ admitted_count: 13, pending_count: 1 }));
+  act(() => useTeamStore.setState({ joinRequestsByTeam: { t1: [] } }));
+  await screen.findByText("members.enrollment.counts|13|1");
+  expect(screen.getByDisplayValue(/^vte1\./)).toBeTruthy();
 });
