@@ -360,6 +360,7 @@ pub fn run() {
             commands::vault::account_profile_swap,
             commands::vault::account_profile_drop,
             commands::vault::get_machine_fingerprint,
+            commands::vault::os_user_name,
             commands::crypto::derive_keys,
             commands::crypto::derive_gist_key,
             commands::crypto::generate_keypair,

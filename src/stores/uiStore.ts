@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
@@ -86,6 +87,8 @@ export type KeychainPendingAction =
   | { action: "edit-key"; id: string }
   | { action: "edit-identity"; id: string }
   | null;
+export type EnrollSource = "machine" | "link" | "paste";
+export type EnrollTarget = { token: EnrollmentTokenParts; source: EnrollSource };
 export type CloudAuthMode = "signin" | "register";
 /** `link` moves the current local account to the cloud; `add` signs in to another one beside it; `reauth` renews the current one after the server ended its session. */
 export type CloudAuthPurpose = "link" | "add" | "reauth";
@@ -110,6 +113,7 @@ interface UIStore {
   notificationCenterOpen: boolean;
   /** Inbox entry a deep link asked for; the bell clears it once shown. */
   notificationFocusId: string | null;
+  enrollTarget: EnrollTarget | null;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
   cloudAuthPurpose: CloudAuthPurpose;
@@ -170,6 +174,8 @@ interface UIStore {
   clearNotificationFocus: () => void;
   openCloudAuth: (mode?: CloudAuthMode, purpose?: CloudAuthPurpose) => void;
   closeCloudAuth: () => void;
+  openEnroll: (token: EnrollmentTokenParts, source: EnrollSource) => void;
+  closeEnroll: () => void;
   setCloudAuthMode: (mode: CloudAuthMode) => void;
   setSettingsSection: (section: SettingsSection) => void;
   setSettingsSubPage: (section: SettingsSection | null) => void;
@@ -247,6 +253,7 @@ export const useUIStore = create<UIStore>()(
         settingsOpen: false,
         notificationCenterOpen: false,
         notificationFocusId: null as string | null,
+        enrollTarget: null as EnrollTarget | null,
         cloudAuthOpen: false,
         cloudAuthMode: "signin" as CloudAuthMode,
         cloudAuthPurpose: "link" as CloudAuthPurpose,
@@ -310,6 +317,8 @@ export const useUIStore = create<UIStore>()(
         clearNotificationFocus: () => set({ notificationFocusId: null }),
         openCloudAuth: (mode, purpose) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin", cloudAuthPurpose: purpose ?? "link" }),
         closeCloudAuth: () => set({ cloudAuthOpen: false }),
+        openEnroll: (token, source) => set({ enrollTarget: { token, source }, notificationCenterOpen: false, notificationFocusId: null }),
+        closeEnroll: () => set({ enrollTarget: null }),
         setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
         // Selecting a builtin section must drop any plugin target, or
         // `settingsPluginPageId ?? settingsSection` would keep showing the plugin pane.

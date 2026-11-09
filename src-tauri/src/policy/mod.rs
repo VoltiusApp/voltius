@@ -8,6 +8,7 @@ use std::sync::LazyLock;
 pub mod acl;
 #[cfg(windows)]
 mod acl_windows;
+pub mod enrollment_token;
 
 const SUPPORTED_VERSION: u32 = 1;
 
@@ -49,6 +50,7 @@ pub enum LockKind {
     Replace,
     Add,
     Never,
+    Only,
 }
 
 #[derive(Deserialize, Clone, Default, Debug)]
@@ -219,6 +221,21 @@ fn value_matches(ty: KeyType, v: &Value) -> bool {
 
 fn is_http_url(s: &str) -> bool {
     url::Url::parse(s).is_ok_and(|u| matches!(u.scheme(), "http" | "https") && u.has_host())
+}
+
+fn canonical_server(s: &str) -> Option<String> {
+    let u = url::Url::parse(s).ok()?;
+    matches!(u.scheme(), "http" | "https").then(|| {
+        format!(
+            "{}{}",
+            u.origin().ascii_serialization(),
+            u.path().trim_end_matches('/')
+        )
+    })
+}
+
+pub fn same_server(a: &str, b: &str) -> bool {
+    canonical_server(a).is_some_and(|k| Some(k) == canonical_server(b))
 }
 
 fn nums_equal(a: &Value, b: &Value) -> bool {
@@ -423,6 +440,9 @@ pub fn value_problem(key: &str, ty: KeyType, v: &Value) -> Option<String> {
             if !a.iter().all(|u| u.as_str().is_some_and(is_http_url)) =>
         {
             Some("every entry must be an absolute http(s) URL".to_string())
+        }
+        ("enrollment.token", Value::String(s)) if enrollment_token::parse(s).is_none() => {
+            Some("not a valid enrolment token".to_string())
         }
         _ => None,
     }
@@ -722,10 +742,14 @@ fn is_range_entry(v: &Value) -> bool {
 }
 
 pub fn lock_problem(layer: Layer, key: &str) -> Option<String> {
-    (layer == Layer::Policy && key_def(key).is_some_and(|d| d.lock == LockKind::Never)).then(|| {
-        "appSettings.plugins.overrides cannot be locked; use plugins.enabled / plugins.disabled"
-            .to_string()
-    })
+    match (layer, key_def(key)?.lock) {
+        (Layer::Policy, LockKind::Never) => Some(
+            "appSettings.plugins.overrides cannot be locked; use plugins.enabled / plugins.disabled"
+                .to_string(),
+        ),
+        (Layer::Defaults, LockKind::Only) => Some(format!("{key} belongs under policy")),
+        _ => None,
+    }
 }
 
 fn entry_problem(layer: Layer, key: &str, value: &Value) -> Option<(IssueKind, String)> {
@@ -1871,6 +1895,21 @@ mod tests {
     }
 
     #[test]
+    fn enrollment_token_in_defaults_is_refused() {
+        assert!(lock_problem(Layer::Defaults, "enrollment.token").is_some());
+        assert!(lock_problem(Layer::Policy, "enrollment.token").is_none());
+    }
+
+    #[test]
+    fn invalid_enrollment_token_is_dropped_with_issue() {
+        let text = json!({"version": 1, "policy": {"enrollment.token": "nope"}}).to_string();
+        let (doc, issues) = parse(&text);
+        assert!(doc.policy.is_empty());
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, IssueKind::Type);
+    }
+
+    #[test]
     fn implied_toggle_from_ttl_range() {
         let doc = doc_with(json!({TTL: {"$range": {"max": 24}}}));
         assert_eq!(implied_lock(&doc, TTL_TOGGLE), Some(TTL));
@@ -2027,5 +2066,13 @@ mod tests {
         };
         assert_eq!(bounded(key, &r, Some(&Value::Null), None, None), json!(15));
         assert_eq!(bounded(key, &r, None, None, None), json!(15));
+    }
+
+    #[test]
+    fn same_server_compares_origin_and_path() {
+        assert!(same_server("https://A.acme.com/", "https://a.acme.com"));
+        assert!(!same_server("https://a.acme.com/x", "https://a.acme.com/y"));
+        assert!(!same_server("https://a.acme.com", "http://a.acme.com"));
+        assert!(!same_server("ftp://a.acme.com", "ftp://a.acme.com"));
     }
 }

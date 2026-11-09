@@ -378,12 +378,15 @@
         }
       },
       "error": {
+        "gone": "Ce jeton d'enrôlement a été révoqué ou a expiré.",
         "needsGuard": "Ajoutez un domaine e-mail ou exigez une approbation.",
         "needsApproval": "Ce serveur ne peut pas envoyer d'e-mails, chaque adhésion nécessite donc l'approbation d'un administrateur.",
         "domainMismatch": "Le domaine de son e-mail ne figure pas dans la liste du jeton.",
         "invalid": "Le serveur a refusé ces paramètres.",
         "forbidden": "Vous n'avez pas l'autorisation de gérer l'enrôlement d'appareils."
-      }
+      },
+      "copyLink": "Copier le lien",
+      "copyLinkTitle": "Copier un lien qui ouvre Voltius sur cette inscription"
     },
     "leaveTeam": "Quitter l'équipe",
     "offboarding": {

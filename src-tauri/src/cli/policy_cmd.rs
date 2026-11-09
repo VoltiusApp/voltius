@@ -424,16 +424,19 @@ pub(super) fn set(
     path: &Path,
     out: &mut Output,
 ) -> Result<(), CliError> {
-    let args = SetArgs {
-        value: Some(raw.to_string()),
-        ..Default::default()
-    };
-    write_setting(key, args, layer, path, out)
+    write_setting(key, raw_args(raw), layer, path, out)
 }
 
-fn write_setting(
+fn raw_args(raw: &str) -> SetArgs {
+    SetArgs {
+        value: Some(raw.to_string()),
+        ..Default::default()
+    }
+}
+
+fn store_setting(
     key: &str,
-    args: SetArgs,
+    args: &SetArgs,
     layer: Layer,
     path: &Path,
     out: &mut Output,
@@ -443,20 +446,50 @@ fn write_setting(
     if let Some(m) = policy::lock_problem(layer, key) {
         return Err(plain(IssueKind::Type, m));
     }
-    let value = set_value(key, ty, layer, &args)?;
+    let value = set_value(key, ty, layer, args)?;
     edit_raw(path, out, |root| {
         layer_entries(root, layer, path)?.insert(key.to_string(), value);
         Ok(true)
     })?;
+    Ok(())
+}
+
+pub(super) fn put(
+    key: &str,
+    raw: &str,
+    layer: Layer,
+    path: &Path,
+    out: &mut Output,
+) -> Result<(), CliError> {
+    store_setting(key, &raw_args(raw), layer, path, out)
+}
+
+fn write_setting(
+    key: &str,
+    args: SetArgs,
+    layer: Layer,
+    path: &Path,
+    out: &mut Output,
+) -> Result<(), CliError> {
+    store_setting(key, &args, layer, path, out)?;
     out.line(format!("Set {key} in {}", layer.name()));
     warn_not_honoured(out, [(layer, key)]);
     Ok(())
 }
 
-fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
-    let removed = edit_raw(path, out, |root| {
+pub(super) fn remove_setting(
+    key: &str,
+    layer: Layer,
+    path: &Path,
+    out: &mut Output,
+) -> Result<bool, CliError> {
+    edit_raw(path, out, |root| {
         Ok(layer_entries(root, layer, path)?.remove(key).is_some())
-    })?;
+    })
+}
+
+fn unset(key: &str, layer: Layer, path: &Path, out: &mut Output) -> Result<(), CliError> {
+    let removed = remove_setting(key, layer, path, out)?;
     if removed {
         out.line(format!("Removed {key} from {}", layer.name()));
     } else {

@@ -109,18 +109,10 @@ impl Catalogue<'_> {
 }
 
 fn fetch_catalogue() -> Result<String, String> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| e.to_string())?;
-    rt.block_on(async {
-        tokio::time::timeout(
-            FETCH_TIMEOUT,
-            crate::commands::plugins::fetch_text(CATALOGUE_URL),
-        )
-        .await
-        .map_err(|_| "timed out".to_string())?
-    })
+    super::block_on_timeout(
+        FETCH_TIMEOUT,
+        crate::commands::plugins::fetch_text(CATALOGUE_URL),
+    )?
 }
 
 pub fn run(cmd: PluginsCmd, ctx: &mut Ctx) -> Result<(), CliError> {

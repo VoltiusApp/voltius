@@ -411,6 +411,73 @@
       "once": "Autoriser une fois",
       "always": "Toujours autoriser",
       "sessionToast": "{{name}} a ouvert vos fichiers"
+    },
+    "enroll": {
+      "title": "Se connecter à {{team}}",
+      "subtitle": "Créez votre compte Voltius ou connectez-vous pour rejoindre {{team}}.",
+      "orgServer": "Le serveur de votre organisation",
+      "domainNote": "Utilisez votre e-mail {{domains}}",
+      "approvalNote": "Un administrateur approuve chaque demande",
+      "domainError": "{{team}} n'accepte que les e-mails {{domains}}.",
+      "createAndJoin": "Créer un compte et rejoindre",
+      "signInAndJoin": "Se connecter et rejoindre",
+      "skip": "Passer pour l'instant",
+      "continue": "Continuer",
+      "currentPasswordPlaceholder": "Mot de passe principal actuel",
+      "resolving": "Vérification du jeton d'enrôlement…",
+      "confirm": {
+        "title": "{{team}} sur {{host}}",
+        "body": "Ne continuez que si votre entreprise vous a envoyé ce lien. Voltius enverra votre connexion à {{host}}."
+      },
+      "error": {
+        "title": "Impossible d'utiliser ce jeton d'enrôlement",
+        "gone": "Ce jeton d'enrôlement a été révoqué ou a expiré. Demandez-en un nouveau à votre administrateur.",
+        "lapsed": "L'abonnement de {{team}} a expiré, son jeton d'enrôlement ne fonctionne donc pas pour le moment.",
+        "lapsedNoTeam": "L'abonnement de cette équipe a expiré, son jeton d'enrôlement ne fonctionne donc pas pour le moment.",
+        "serverTooOld": "Ce serveur ne prend pas encore en charge les jetons d'enrôlement.",
+        "rateLimited": "Trop de tentatives depuis ce réseau. Réessayez dans une minute.",
+        "unreachable": "Impossible de joindre {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Vous avez rejoint {{team}}",
+          "body": "Les coffres de l'équipe apparaîtront dès que le Voltius d'un administrateur sera en ligne."
+        },
+        "approval": {
+          "title": "Demande envoyée",
+          "body": "Un administrateur de {{team}} doit l'approuver. Vous recevrez une notification."
+        },
+        "email": {
+          "title": "Vérifiez votre e-mail pour rejoindre {{team}}",
+          "body": "Nous avons envoyé un lien à {{email}}. Vous rejoindrez l'équipe automatiquement une fois l'adresse vérifiée.",
+          "resend": "Renvoyer l'e-mail"
+        },
+        "seat": {
+          "title": "{{team}} n'a plus de place libre",
+          "body": "Un administrateur a été prévenu. Vous rejoindrez l'équipe dès qu'une place se libérera."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Vous avez un jeton d'enrôlement ?",
+        "placeholder": "vte1.…",
+        "invalid": "Ce n'est pas un jeton d'enrôlement."
+      },
+      "localNote": "Les hôtes de cet appareil passent dans le coffre privé du nouveau compte. {{team}} ne peut pas les lire.",
+      "already": {
+        "title": "Vous êtes déjà dans {{team}}",
+        "body": "{{email}} est déjà membre."
+      },
+      "join": {
+        "title": "Rejoindre {{team}} en tant que {{email}}",
+        "body": "Utilise le compte avec lequel vous êtes connecté sur {{host}}.",
+        "action": "Rejoindre",
+        "other": "Utiliser un autre compte"
+      },
+      "replace": {
+        "title": "Remplacer les données de cet appareil ?",
+        "body": "Se connecter en tant que {{email}} remplace les hôtes, clés et snippets de cet appareil par ceux enregistrés dans ce compte.",
+        "confirm": "Se connecter et remplacer"
+      }
     }
   }
 }

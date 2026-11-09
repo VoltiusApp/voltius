@@ -920,7 +920,7 @@ test("authenticateServerAccount signs in without touching the active session", a
   h.http["/auth/challenge"] = ok({ account_id: "acc-b" });
   h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED_B" });
 
-  const session = await authenticateServerAccount("signin", "b@x.io", PW_B, `${S}/`);
+  const { account: session } = await authenticateServerAccount("signin", "b@x.io", PW_B, `${S}/`);
 
   expect(session).toEqual({
     account_id: "acc-b", email: "b@x.io", server_url: S, master_password: PW_B,
@@ -936,7 +936,7 @@ test("authenticateServerAccount registers without touching the active session", 
   const before = activeSession();
   h.http["/auth/register"] = ok(TOKENS);
 
-  const session = await authenticateServerAccount("register", "b@x.io", PW_B, S);
+  const { account: session } = await authenticateServerAccount("register", "b@x.io", PW_B, S);
 
   expect(session).toMatchObject({ email: "b@x.io", jwt: "JWT", wrapped_user_secrets: "WRAPPED_B64" });
   expect(session.account_id).not.toBe("current");
@@ -1066,7 +1066,8 @@ test("authenticateServerAccount hands back the session once the code is accepted
 
   const challenge = await challengeFrom(authenticateServerAccount("signin", "a@b.co", "pw", S));
   await expect(challenge.complete({ code: "123456" })).resolves.toMatchObject({
-    account_id: "acc", jwt: "JWT", refresh_token: "RT", wrapped_user_secrets: "WRAPPED", master_password: "pw",
+    account: { account_id: "acc", jwt: "JWT", refresh_token: "RT", wrapped_user_secrets: "WRAPPED", master_password: "pw" },
+    enrollment: null,
   });
   expect(h.store.jwt).toBeUndefined();
 });

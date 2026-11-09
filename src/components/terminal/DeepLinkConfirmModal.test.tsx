@@ -451,3 +451,19 @@ test("a seat cap hit at redemption is reported, and no team refresh is claimed",
   await waitFor(() => expect(screen.getByText("members.joinLinks.error.seatLimit")).toBeTruthy());
   expect(refreshAfterJoinMock).not.toHaveBeenCalled();
 });
+
+test("an enroll prompt opens the enrol modal state instead of the generic sheet", async () => {
+  const { useUIStore } = await import("@/stores/uiStore");
+  const { buildEnrollmentToken } = await import("@/services/enrollment/enrollmentToken");
+  const token = buildEnrollmentToken("https://voltius.acme.com/api", "0123456789abcdef0123456789abcdef", GRANT_SECRET);
+  useDeepLinkStore.setState({ ready: true, queue: [], prompt: { route: "enroll", token } });
+  const { container } = render(<DeepLinkConfirmModal />);
+  await waitFor(() => expect(useDeepLinkStore.getState().prompt).toBeNull());
+  expect(useUIStore.getState().enrollTarget).toEqual({
+    token: { serverUrl: "https://voltius.acme.com/api", id: "0123456789abcdef0123456789abcdef", secret: GRANT_SECRET },
+    source: "link",
+  });
+  expect(container.textContent).toBe("");
+  useUIStore.getState().closeEnroll();
+  expect(useUIStore.getState().enrollTarget).toBeNull();
+});

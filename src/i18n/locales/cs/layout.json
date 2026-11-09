@@ -419,6 +419,73 @@
       "once": "Povolit jednou",
       "always": "Vždy povolit",
       "sessionToast": "{{name}} otevřel vaše soubory"
+    },
+    "enroll": {
+      "title": "Přihlásit se do {{team}}",
+      "subtitle": "Vytvořte si účet Voltius nebo se přihlaste a připojte se k {{team}}.",
+      "orgServer": "Server vaší organizace",
+      "domainNote": "Použijte svůj e-mail {{domains}}",
+      "approvalNote": "Každou žádost schvaluje správce",
+      "domainError": "{{team}} přijímá pouze e-maily {{domains}}.",
+      "createAndJoin": "Vytvořit účet a připojit se",
+      "signInAndJoin": "Přihlásit se a připojit",
+      "skip": "Teď přeskočit",
+      "continue": "Pokračovat",
+      "currentPasswordPlaceholder": "Současné hlavní heslo",
+      "resolving": "Kontrola tokenu pro zápis…",
+      "confirm": {
+        "title": "{{team}} na {{host}}",
+        "body": "Pokračujte, jen pokud vám tento odkaz poslala vaše firma. Voltius odešle vaše přihlášení na {{host}}."
+      },
+      "error": {
+        "title": "Tento token pro zápis nelze použít",
+        "gone": "Tento token pro zápis byl zrušen nebo vypršel. Požádejte správce o nový.",
+        "lapsed": "Předplatné {{team}} vypršelo, proto jeho token pro zápis teď nefunguje.",
+        "lapsedNoTeam": "Předplatné tohoto týmu vypršelo, proto jeho token pro zápis teď nefunguje.",
+        "serverTooOld": "Tento server zatím tokeny pro zápis nepodporuje.",
+        "rateLimited": "Z této sítě bylo příliš mnoho pokusů. Zkuste to za minutu.",
+        "unreachable": "Nelze se spojit s {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Jste v {{team}}",
+          "body": "Týmové trezory se zobrazí, jakmile bude Voltius některého správce online."
+        },
+        "approval": {
+          "title": "Žádost odeslána",
+          "body": "Schválí ji správce {{team}}. Dostanete oznámení."
+        },
+        "email": {
+          "title": "Ověřte e-mail a připojte se k {{team}}",
+          "body": "Poslali jsme odkaz na {{email}}. Po ověření se připojíte automaticky.",
+          "resend": "Znovu odeslat e-mail"
+        },
+        "seat": {
+          "title": "{{team}} nemá volné místo",
+          "body": "Správce byl upozorněn. Připojíte se, jakmile se místo uvolní."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Máte token pro zápis?",
+        "placeholder": "vte1.…",
+        "invalid": "Toto není token pro zápis."
+      },
+      "localNote": "Hosty z tohoto zařízení se přesunou do soukromého trezoru nového účtu. {{team}} je nemůže číst.",
+      "already": {
+        "title": "Už jste v týmu {{team}}",
+        "body": "{{email}} už je členem."
+      },
+      "join": {
+        "title": "Připojit se k {{team}} jako {{email}}",
+        "body": "Použije účet, kterým jste přihlášeni na {{host}}.",
+        "action": "Připojit se",
+        "other": "Použít jiný účet"
+      },
+      "replace": {
+        "title": "Nahradit data tohoto zařízení?",
+        "body": "Přihlášení jako {{email}} nahradí hosty, klíče a úryvky na tomto zařízení těmi, které jsou uložené v tomto účtu.",
+        "confirm": "Přihlásit se a nahradit"
+      }
     }
   }
 }

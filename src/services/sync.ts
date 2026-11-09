@@ -16,6 +16,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore, type Team } from "@/stores/teamStore";
+import { useEnrollmentStore } from "@/stores/enrollmentStore";
 import { setTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -1303,6 +1304,8 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     useTeamStore.getState().loadJoinRequests(teamId).catch(logFailure(`join_requests: loadJoinRequests team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
+  } else if (eventData.startsWith("my_join_requests_changed:")) {
+    void useEnrollmentStore.getState().loadMyRequests();
   } else if (eventData.startsWith("membership_changed:")) {
     const parsed = parseMembershipChangedEvent(eventData);
     scheduleSeatRefresh();
@@ -1384,6 +1387,7 @@ async function _sseConnect(signal: AbortSignal, hooks: { onOpen: () => void; onD
     if (_status === "offline") setState("idle");
     // Catches any events missed while offline
     (_loginSyncOwed ? syncOnLogin() : syncInBackground()).catch(logFailure("syncNow on realtime connect"));
+    void useEnrollmentStore.getState().loadMyRequests();
 
     // Seed connection-presence snapshot so we render correct state even before any
     // SSE event arrives this session.

@@ -3,21 +3,17 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore, type CloudAuthMode } from "@/stores/uiStore";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import {
-  authenticateServerAccount, getAccountMode, getCurrentUserEmail, linkToCloud, login, setMasterPassword, signInToCloud,
-} from "@/services/account";
+import { authenticateServerAccount, getCurrentUserEmail, login } from "@/services/account";
 import { addAccount } from "@/services/savedAccounts";
-import { syncNow, syncOnLogin, syncOnLoginReplace } from "@/services/sync";
-import { leaveLanGroup, startSessionSync } from "@/services/lanSync";
+import { syncNow } from "@/services/sync";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
 import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
 import { accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
-import { secretState } from "@/services/vaultSecret";
 import { localSyncContext, usePlatform } from "@/utils/platform";
-import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
+import { Input, MasterPasswordNote, emailError, newPasswordProblem } from "./authParts";
+import { useLocalUpgrade } from "./useLocalUpgrade";
 
 const AUTH_INPUT_CLASS =
   "w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)";
@@ -33,9 +29,8 @@ export default function CloudAuthModal() {
   const mode = useUIStore((s) => (s.cloudAuthPurpose === "reauth" ? "signin" : s.cloudAuthMode));
   const setMode = useUIStore((s) => s.setCloudAuthMode);
   const onClose = useUIStore((s) => s.closeCloudAuth);
-  const reloadSubscription = useSubscriptionStore((s) => s.load);
 
-  const [accountMode, setAccountMode] = useState<string | null>(null);
+  const upgrade = useLocalUpgrade(open);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -44,12 +39,9 @@ export default function CloudAuthModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const twoFactor = useTwoFactorChallenge();
-  const [hasStoredPassword, setHasStoredPassword] = useState(true);
 
   useEffect(() => {
     if (!open) return;
-    getAccountMode().then(setAccountMode).catch(() => setAccountMode(null));
-    secretState().then((s) => setHasStoredPassword(s !== "none")).catch(() => setHasStoredPassword(false));
     if (isReauth) getCurrentUserEmail().then((current) => setEmail(current ?? "")).catch(() => {});
     setError("");
     twoFactor.cancel();
@@ -58,11 +50,9 @@ export default function CloudAuthModal() {
   if (!open) return null;
 
   const isRegister = mode === "register";
-  const isLocalNoPassword = accountMode === "local-nopassword";
   // Adding creates an account from nothing, so it needs a password of its own.
-  const needsNewPassword = isRegister && (isAdd || isLocalNoPassword);
-  // Linking derives the cloud account from the master password, so ask when this device holds no copy.
-  const needsCurrentPassword = isRegister && !isAdd && !isLocalNoPassword && !hasStoredPassword;
+  const needsNewPassword = isRegister && (isAdd || upgrade.passwordMode === "new");
+  const needsCurrentPassword = isRegister && !isAdd && upgrade.passwordMode === "current";
 
   const switchMode = (next: CloudAuthMode) => {
     setMode(next);
@@ -78,14 +68,10 @@ export default function CloudAuthModal() {
     const normalizedUrl = resolveServerUrl(serverUrl);
 
     if ((!isRegister || needsCurrentPassword) && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
-    if (needsNewPassword) {
-      if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
-      if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
-    }
+    const invalidPassword = needsNewPassword ? newPasswordProblem(password, confirm, t) : "";
+    if (invalidPassword) { setError(invalidPassword); return; }
 
-    const connected = async (firstSync: () => Promise<void>) => {
-      startSessionSync(firstSync().catch(() => {}));
-      await reloadSubscription().catch(() => {});
+    const finished = () => {
       onClose();
       setEmail("");
       setPassword("");
@@ -96,25 +82,21 @@ export default function CloudAuthModal() {
     setError("");
     try {
       if (isReauth) {
-        await twoFactor.run(() => login(password), () => connected(syncNow));
+        await twoFactor.run(() => login(password), async () => { await upgrade.connected(syncNow); finished(); });
       } else if (isAdd) {
         // Nothing of the current session is touched until the server accepts these.
         await twoFactor.run(
           () => authenticateServerAccount(isRegister ? "register" : "signin", email, password, normalizedUrl),
-          async (session) => {
-            await addAccount(session);
+          async ({ account }) => {
+            await addAccount(account);
             onClose();
           },
         );
       } else if (isRegister) {
-        if (isLocalNoPassword) await setMasterPassword(password);
-        await linkToCloud(email, normalizedUrl, leaveLanGroup, isLocalNoPassword || needsCurrentPassword ? password : undefined);
-        await connected(syncOnLogin);
+        await upgrade.link(email, normalizedUrl, password);
+        finished();
       } else {
-        await twoFactor.run(
-          () => signInToCloud(email, password, normalizedUrl, leaveLanGroup),
-          () => connected(syncOnLoginReplace),
-        );
+        await twoFactor.run(() => upgrade.signIn(email, normalizedUrl, password), finished);
       }
     } catch (err) {
       setError(accountErrorText(err, t));

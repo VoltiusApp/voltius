@@ -42,6 +42,13 @@ test("loadTeams populates teams and auto-selects the first as active", async () 
   expect(get().loading).toBe(false);
 });
 
+test("teamsLoaded turns on after a successful load, even of an unchanged empty list", async () => {
+  useTeamStore.setState({ teams: [], teamsLoaded: false });
+  api.listTeams.mockResolvedValueOnce([]);
+  await get().loadTeams();
+  expect(get().teamsLoaded).toBe(true);
+});
+
 test("loadTeams keeps the same array reference when data is unchanged (cache identity)", async () => {
   api.listTeams.mockResolvedValue([team("t1", ["r1"])]);
   await get().loadTeams();

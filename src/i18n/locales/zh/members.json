@@ -372,12 +372,15 @@
         }
       },
       "error": {
+        "gone": "此注册令牌已被撤销或已过期。",
         "needsGuard": "请添加邮箱域名或要求批准。",
         "needsApproval": "此服务器无法发送电子邮件,因此每次加入都需要管理员批准。",
         "domainMismatch": "其邮箱域名不在令牌的列表中。",
         "invalid": "服务器拒绝了这些设置。",
         "forbidden": "你没有管理设备注册的权限。"
-      }
+      },
+      "copyLink": "复制链接",
+      "copyLinkTitle": "复制可在此注册上打开 Voltius 的链接"
     },
     "leaveTeam": "退出团队",
     "offboarding": {

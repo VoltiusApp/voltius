@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { ChipInput } from "@/components/shared/ChipInput";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { CopySecretField } from "@/components/shared/CopySecretField";
+import { CopyButton, CopySecretField } from "@/components/shared/CopySecretField";
 import { BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { Toggle } from "@/components/shared/Toggle";
 import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { enrollmentApi, enrollmentRefusal, type CreatedEnrollmentToken, type EnrollmentTokenInfo } from "@/services/enrollment/enrollmentApi";
 import { runEnrollmentAction } from "@/services/enrollment/enrollmentAction";
+import { buildDeepLink } from "@/services/deepLinkUrl";
 import { buildEnrollmentToken } from "@/services/enrollment/enrollmentToken";
 import { userFacingReason } from "@/services/errorReason";
 import { getServerUrl } from "@/services/authTokens";
@@ -346,7 +347,7 @@ function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardP
 
       {fresh && (
         <>
-          <CopySecretField value={fresh} mono ariaLabel={t("members.enrollment.tokenLabel")} />
+          <CopySecretField value={fresh} mono ariaLabel={t("members.enrollment.tokenLabel")} extra={<CopyLinkButton token={fresh} />} />
           <p className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--t-status-warning)" }}>
             <Icon icon="lucide:triangle-alert" width={12} className="shrink-0" />
             {t("members.enrollment.copyNow")}
@@ -391,5 +392,18 @@ function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardP
       </div>
       {!fresh && <span className="text-[10px] text-(--t-text-dim)">{t("members.enrollment.notShownAgain")}</span>}
     </div>
+  );
+}
+
+function CopyLinkButton({ token }: { token: string }) {
+  const { t } = useTranslation();
+  return (
+    <CopyButton
+      value={buildDeepLink({ route: "enroll", token })}
+      label={t("members.enrollment.copyLink")}
+      title={t("members.enrollment.copyLinkTitle")}
+      icon={<Icon icon="lucide:link" width={12} />}
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium shrink-0 border border-(--t-border) text-(--t-text-secondary)"
+    />
   );
 }

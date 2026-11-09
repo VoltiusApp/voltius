@@ -26,7 +26,7 @@ export interface PolicyKeyDef {
   type: PolicyKeyType;
   domain?: PolicyDomain;
   range?: RangeField[];
-  lock?: "add" | "never";
+  lock?: "add" | "never" | "only";
   implies?: string;
   nullIsUnbounded?: true;
 }
@@ -94,6 +94,7 @@ function build() {
   });
   const keys: PolicyKeyDef[] = [
     { id: "server.url", type: "string" },
+    { id: "enrollment.token", type: "string", lock: "only" },
     { id: "server.allowOther", type: "bool" },
     { id: "server.previousUrls", type: "stringList" },
     { id: "plugins.enabled", type: "stringList" },
@@ -131,6 +132,7 @@ const ENFORCED_KEYS = new Set([
   "appSettings.terminal.keywordRules",
   "themes.location",
   "server.url",
+  "enrollment.token",
   "server.allowOther",
   "server.previousUrls",
   "sshConfig.import",

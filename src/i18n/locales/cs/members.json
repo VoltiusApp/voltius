@@ -388,12 +388,15 @@
         }
       },
       "error": {
+        "gone": "Tento token pro zápis byl zrušen nebo vypršel.",
         "needsGuard": "Přidejte e-mailovou doménu nebo vyžadujte schválení.",
         "needsApproval": "Tento server neumí odesílat e-maily, proto každé připojení vyžaduje schválení správcem.",
         "domainMismatch": "Doména jejich e-mailu není v seznamu tokenu.",
         "invalid": "Server tato nastavení odmítl.",
         "forbidden": "Nemáte oprávnění spravovat registraci zařízení."
-      }
+      },
+      "copyLink": "Kopírovat odkaz",
+      "copyLinkTitle": "Zkopírovat odkaz, který otevře Voltius na této registraci"
     },
     "offboarding": {
       "removeTitle_one": "Odebrat {{names}} z tohoto týmu?",

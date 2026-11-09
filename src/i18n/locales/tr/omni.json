@@ -22,7 +22,8 @@
       "settings": "Ayarlar",
       "joinByInviteCode": "Davet koduyla katıl",
       "importExport": "İçe / dışa aktar",
-      "availablePlugins": "Kullanılabilir eklentiler"
+      "availablePlugins": "Kullanılabilir eklentiler",
+      "enrollmentToken": "Kayıt jetonu"
     },
     "pluginSettingsDescription": "Eklenti ayarları",
     "pluginNotInstalled": "Yüklü değil",
@@ -133,6 +134,11 @@
       "edit": "Sunucuyu düzenle",
       "scope": "Kapsam",
       "close": "Kapat"
+    },
+    "enrollToken": {
+      "title": "Bu kayıt jetonuyla {{team}} ekibine katıl",
+      "titleUnknown": "Bu kayıt jetonuyla bir şirkete katıl",
+      "detailApproval": "{{host}} · Her isteği bir yönetici onaylar"
     }
   }
 }

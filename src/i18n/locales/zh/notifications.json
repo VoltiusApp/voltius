@@ -87,6 +87,18 @@
         "message": "你的 ~/.ssh/config 主机不再自动同步。它们现在归你所有：你的修改会被保留。",
         "turnOnSync": "开启持续同步",
         "dismiss": "好的"
+      },
+      "enroll": {
+        "invite": "您的组织在 Voltius 上使用 {{team}}",
+        "signIn": "登录",
+        "pending": {
+          "approval": "正在等待 {{team}} 的管理员批准您的请求",
+          "email_unverified": "验证邮箱以加入 {{team}}",
+          "seat_limit": "{{team}} 没有空余席位。已通知管理员。"
+        },
+        "declined": "{{team}} 拒绝了您的请求",
+        "askAgain": "再次申请",
+        "joined": "您已加入 {{team}}"
       }
     },
     "sshConfigOffer": {

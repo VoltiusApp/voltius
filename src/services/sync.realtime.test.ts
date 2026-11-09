@@ -243,6 +243,21 @@ test("a stream that opened and then dropped is retried at the shortest wait", as
   expect(h.connects).toHaveLength(4);
 });
 
+test("every stream that opens reloads my join requests, Pro or not", async () => {
+  const requestFetches = () => h.appFetch.mock.calls.filter(([url]) => String(url).endsWith("/v1/enrollment/requests")).length;
+  useSubscriptionStore.setState({ isPro: false });
+  h.connect = opensThenDrops;
+  serverAnswers();
+
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(requestFetches()).toBe(1);
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  expect(h.connects).toHaveLength(2);
+  expect(requestFetches()).toBe(2);
+});
+
 test("a paused device opens no stream", async () => {
   setSyncPaused(true);
 

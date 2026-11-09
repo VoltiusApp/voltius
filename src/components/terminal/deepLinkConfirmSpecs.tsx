@@ -24,7 +24,9 @@ import {
 import { refreshAfterJoiningTeam } from "@/services/teamJoin";
 import { getMyX25519Keypair } from "@/services/multiplayerService";
 
-export type ConfirmRoute = ConfirmIntent["route"];
+/** `enroll` has no sheet: the enrol modal is its confirmation. */
+export type ConfirmRoute = Exclude<ConfirmIntent["route"], "enroll">;
+export type SheetIntent = IntentOf<ConfirmRoute>;
 type IntentOf<K extends ConfirmRoute> = Extract<ConfirmIntent, { route: K }>;
 
 export interface ConfirmDetails {

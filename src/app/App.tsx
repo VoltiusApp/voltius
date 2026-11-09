@@ -36,6 +36,7 @@ import { NotificationToastContainer } from "@/components/notifications/Notificat
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
 import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
+import EnrollModal from "@/components/enrollment/EnrollModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
 import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
@@ -106,6 +107,7 @@ function App() {
       <ThemeCreator />
       <TrialExpiredModal />
       <CloudAuthModal />
+      <EnrollModal />
       <WhatsNewModal />
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />

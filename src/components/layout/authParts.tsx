@@ -105,14 +105,23 @@ export function emailError(email: string, t: TFunction): string {
   return email.includes("@") ? "" : t("layout.auth.errorInvalidEmail");
 }
 
-export function MasterPasswordNote() {
-  const { t } = useTranslation();
+export function newPasswordProblem(password: string, confirm: string, t: TFunction): string {
+  if (password.length < MIN_PASSWORD_LENGTH) return t("layout.auth.errorMinLength8");
+  return password === confirm ? "" : t("layout.auth.errorPasswordMismatch");
+}
+
+export function FormNote({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
     <p className="flex gap-2 text-xs leading-relaxed text-(--t-text-secondary) py-1">
-      <Icon icon="lucide:key-round" width={13} className="shrink-0 mt-0.5 text-(--t-text-dim)" />
-      {t("layout.auth.masterPasswordNote")}
+      <Icon icon={icon} width={13} className="shrink-0 mt-0.5 text-(--t-text-dim)" />
+      {children}
     </p>
   );
+}
+
+export function MasterPasswordNote() {
+  const { t } = useTranslation();
+  return <FormNote icon="lucide:key-round">{t("layout.auth.masterPasswordNote")}</FormNote>;
 }
 
 export function ErrorMsg({ msg }: { msg: string }) {
@@ -120,11 +129,11 @@ export function ErrorMsg({ msg }: { msg: string }) {
   return <p role="alert" className="text-xs text-center py-1 text-(--t-status-error)">{msg}</p>;
 }
 
-export function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
+export function SubmitBtn({ loading, label, disabled = false }: { loading: boolean; label: string; disabled?: boolean }) {
   return (
-    <button type="submit" disabled={loading}
+    <button type="submit" disabled={loading || disabled}
       className="btn btn-primary w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-      style={{ opacity: loading ? 0.7 : 1 }}
+      style={{ opacity: loading || disabled ? 0.7 : 1 }}
     >
       {loading && <Icon icon="lucide:loader-circle" width={14} className="animate-spin" />}
       {label}
@@ -151,5 +160,14 @@ export function SystemAuthButton({ auth, loading }: { auth: SystemAuthPrompt; lo
       {auth.outcome === "invalidated" && <ErrorMsg msg={t("layout.appLock.bindingLost")} />}
       {auth.outcome === "declined" && <ErrorMsg msg={t("layout.appLock.keychainEmpty")} />}
     </>
+  );
+}
+
+export function SwitchModeLink({ prompt, label, onClick }: { prompt: string; label: string; onClick: () => void }) {
+  return (
+    <p className="mt-3 text-center text-xs text-(--t-text-secondary)">
+      {prompt}
+      <button type="button" onClick={onClick} className="focus-ring text-(--t-accent) hover:underline">{label}</button>
+    </p>
   );
 }

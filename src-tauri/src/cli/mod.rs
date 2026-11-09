@@ -1,4 +1,5 @@
 mod config_cmd;
+mod enroll_cmd;
 mod output;
 mod path_cmd;
 mod plugins_cmd;
@@ -10,6 +11,7 @@ use crate::cli_state::pending::{self, Change};
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
 use config_cmd::ConfigCmd;
+use enroll_cmd::EnrollArgs;
 use output::Output;
 use path_cmd::PathCmd;
 use plugins_cmd::PluginsCmd;
@@ -87,6 +89,22 @@ pub struct Ctx<'a> {
     pub interactive: bool,
 }
 
+/// Runs one network call to completion on a throwaway runtime; `Err` is a runtime or timeout failure.
+fn block_on_timeout<F: std::future::Future>(
+    timeout: std::time::Duration,
+    work: F,
+) -> Result<F::Output, String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?
+        .block_on(async {
+            tokio::time::timeout(timeout, work)
+                .await
+                .map_err(|_| "timed out".to_string())
+        })
+}
+
 fn queue(dir: &Path, change: Change, out: &mut Output) -> Result<(), CliError> {
     let what = match &change {
         Change::Setting { key, value } => format!("set {key} = {value}"),
@@ -138,6 +156,8 @@ enum Command {
         #[command(subcommand)]
         cmd: ServerCmd,
     },
+    /// Enrol this machine with a company token
+    Enroll(EnrollArgs),
     /// List, install, enable, disable or remove plugins
     Plugins {
         #[command(subcommand)]
@@ -153,7 +173,14 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 5] = ["policy", "config", "plugins", "server", "completions"];
+const BARE_SUBCOMMANDS: [&str; 6] = [
+    "policy",
+    "config",
+    "plugins",
+    "server",
+    "enroll",
+    "completions",
+];
 #[cfg(not(target_os = "linux"))]
 const BARE_SUBCOMMANDS: [&str; 0] = [];
 
@@ -215,6 +242,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Path { cmd } => path_cmd::run(cmd, &mut ctx),
         Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
+        Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {
             policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), ctx.out)
@@ -255,6 +283,12 @@ mod tests {
     fn subcommand_names_are_cli_on_linux() {
         assert!(cli_args(&argv(&["voltius", "policy", "show"])).is_some());
         assert!(cli_args(&argv(&["voltius", "voltius://x"])).is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn bare_enroll_is_a_cli_subcommand_on_linux() {
+        assert!(cli_args(&argv(&["voltius", "enroll", "--show"])).is_some());
     }
 
     #[test]

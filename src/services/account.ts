@@ -9,7 +9,7 @@ import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { sameKey } from "./vaultKeyCandidates";
-import { appFetch, isAbortError } from "@/services/http";
+import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { VaultUnreadableError } from "./vaultErrors";
 import {
   clearSecret, keepsPlainPassword, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storeDeviceKey,
@@ -22,6 +22,8 @@ import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
+import { joinRefusal, toEnrollmentOutcome, type EnrollmentCredential, type EnrollmentOutcome } from "./enrollment/enrollmentPublic";
+import { enrollmentErrorFrom } from "./enrollment/enrollmentApi";
 import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
 import { fetchAuth } from "./authFetch";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
@@ -70,7 +72,8 @@ async function registerOnServer(args: {
   authKey: string;
   publicKey: string;
   wrappedUserSecrets: string;
-}): Promise<{ jwt_token: string; refresh_token: string }> {
+  enrollment?: EnrollmentCredential;
+}): Promise<{ jwt_token: string; refresh_token: string; enrollment?: EnrollmentOutcome }> {
   const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
 
   const res = await fetchWithTimeout(`${args.serverUrl}/v1/auth/register`, {
@@ -83,12 +86,20 @@ async function registerOnServer(args: {
       public_key: args.publicKey,
       wrapped_user_secrets: args.wrappedUserSecrets,
       machine_fingerprint,
+      ...(args.enrollment && { enrollment: args.enrollment }),
     }),
   });
 
   if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
-  if (!res.ok) throw (await featureDisabledError(res)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
-  return res.json();
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const failed = { status: res.status, headers: res.headers, json: async () => body };
+    const refused = args.enrollment ? await enrollmentErrorFrom(failed) : null;
+    if (joinRefusal(refused)) throw refused;
+    throw (await featureDisabledError(failed)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
+  }
+  const data = await res.json();
+  return { ...data, enrollment: toEnrollmentOutcome(data.enrollment) ?? undefined };
 }
 
 /** Unwrap cached user secrets into the vault-keys store; null when unusable. */
@@ -177,24 +188,6 @@ async function passwordProvenOffline(kek: number[]): Promise<boolean> {
   if (!(await getVaultStatus()).exists) return !!dek;
   const prior = await storedWrappedKey(kek, PRIOR_WRAPPED_KEY);
   return !!(await keyThatOpensVault(dek, kek, prior));
-}
-
-async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await appFetch(input, { ...init, signal: controller.signal, connectTimeout: timeoutMs });
-  } catch (e) {
-    if (isAbortError(e)) {
-      throw new Error(i18n.t("common.error.serverUnreachableTimeout"));
-    }
-
-    // WebView2 / network errors are often opaque objects; normalise them.
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(i18n.t("common.error.networkError", { message: msg }));
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 // ─── Keychain helpers ─────────────────────────────────────────────────────────
@@ -354,7 +347,7 @@ export async function createLocalAccount(password: string): Promise<void> {
   await keychainSet("mode", "local");
 }
 
-async function registerServerAccount(email: string, password: string, serverUrl: string) {
+async function registerServerAccount(email: string, password: string, serverUrl: string, enrollment?: EnrollmentCredential) {
   const accountId = crypto.randomUUID();
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
@@ -365,7 +358,7 @@ async function registerServerAccount(email: string, password: string, serverUrl:
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
+    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets, enrollment,
   });
   return { accountId, kek: enc_key, secrets, wrapped_user_secrets, data };
 }
@@ -375,10 +368,11 @@ export async function createServerAccount(
   email: string,
   password: string,
   serverUrl: string,
-): Promise<void> {
+  enrollment?: EnrollmentCredential,
+): Promise<EnrollmentOutcome | null> {
   serverUrl = normalizeServerUrl(serverUrl);
   const { accountId, kek, secrets, wrapped_user_secrets, data } =
-    await registerServerAccount(email, password, serverUrl);
+    await registerServerAccount(email, password, serverUrl, enrollment);
 
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
   setVaultKey(secrets.dek);
@@ -389,6 +383,7 @@ export async function createServerAccount(
   });
   await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
   reloadSubscription();
+  return data.enrollment ?? null;
 }
 
 /** Unlock with password (vault must exist). */
@@ -707,11 +702,10 @@ export async function refreshVerificationState(): Promise<boolean> {
   return useSubscriptionStore.getState().emailVerified;
 }
 
-export async function resendVerificationEmail(): Promise<void> {
-  const [jwt, serverUrl] = await Promise.all([
-    keychainGet("jwt"),
-    keychainGet("server_url"),
-  ]);
+export async function resendVerificationEmail(session?: { serverUrl: string; jwt: string }): Promise<void> {
+  const [jwt, serverUrl] = session
+    ? [session.jwt, session.serverUrl]
+    : await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/resend-verification-email`, {
@@ -851,7 +845,8 @@ export async function authenticateServerAccount(
   email: string,
   password: string,
   serverUrl: string,
-): Promise<Omit<SavedAccount, "mode">> {
+  enrollment?: EnrollmentCredential,
+): Promise<{ account: Omit<SavedAccount, "mode">; enrollment: EnrollmentOutcome | null }> {
   serverUrl = normalizeServerUrl(serverUrl);
   const saved = (accountId: string, data: { jwt_token: string; refresh_token: string }, wrapped: string | null) => {
     rememberServer(serverUrl);
@@ -866,11 +861,13 @@ export async function authenticateServerAccount(
     };
   };
   if (kind === "register") {
-    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl);
-    return saved(accountId, data, wrapped_user_secrets);
+    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl, enrollment);
+    return { account: saved(accountId, data, wrapped_user_secrets), enrollment: data.enrollment ?? null };
   }
-  return signInServerAccount(email, password, serverUrl, async ({ accountId, data }) =>
-    saved(accountId, data, data.wrapped_user_secrets ?? null));
+  return signInServerAccount(email, password, serverUrl, async ({ accountId, data }) => ({
+    account: saved(accountId, data, data.wrapped_user_secrets ?? null),
+    enrollment: null,
+  }));
 }
 
 /** Link an existing local account to a cloud server — registers and enables sync. */
@@ -879,7 +876,8 @@ export async function linkToCloud(
   serverUrl: string,
   beforeKeyChange?: BeforeKeyChange,
   typedPassword?: string,
-): Promise<void> {
+  enrollment?: EnrollmentCredential,
+): Promise<EnrollmentOutcome | null> {
   serverUrl = normalizeServerUrl(serverUrl);
   const accountId = await keychainGet("account_id");
   const mode = await keychainGet("mode");
@@ -902,7 +900,7 @@ export async function linkToCloud(
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets,
+    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets, enrollment,
   });
   await runBeforeKeyChange(beforeKeyChange);
 
@@ -917,6 +915,7 @@ export async function linkToCloud(
     await moveVaultToKey(getVaultKey() ?? kek, dek);
   }).catch((e) => console.warn("Linking kept the vault on its key:", e));
   reloadSubscription();
+  return data.enrollment ?? null;
 }
 
 // ─── New account management features ─────────────────────────────────────────

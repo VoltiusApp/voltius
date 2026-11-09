@@ -403,6 +403,73 @@
       "once": "Allow once",
       "always": "Always allow",
       "sessionToast": "{{name}} opened your files"
+    },
+    "enroll": {
+      "title": "Sign in to {{team}}",
+      "subtitle": "Create your Voltius account or sign in to join {{team}}.",
+      "orgServer": "Your organization's server",
+      "domainNote": "Use your {{domains}} email",
+      "approvalNote": "An admin approves each request",
+      "domainError": "{{team}} only accepts {{domains}} emails.",
+      "createAndJoin": "Create account and join",
+      "signInAndJoin": "Sign in and join",
+      "skip": "Skip for now",
+      "continue": "Continue",
+      "currentPasswordPlaceholder": "Current master password",
+      "resolving": "Checking the enrolment token…",
+      "confirm": {
+        "title": "{{team}} on {{host}}",
+        "body": "Only continue if your company sent you this link. Voltius will send your sign-in to {{host}}."
+      },
+      "error": {
+        "title": "Can't use this enrolment token",
+        "gone": "This enrolment token was revoked or has expired. Ask your admin for a new one.",
+        "lapsed": "{{team}}'s plan has lapsed, so its enrolment token doesn't work right now.",
+        "lapsedNoTeam": "This team's plan has lapsed, so its enrolment token doesn't work right now.",
+        "serverTooOld": "This server doesn't support enrolment tokens yet.",
+        "rateLimited": "Too many tries from this network. Try again in a minute.",
+        "unreachable": "Can't reach {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "You're in {{team}}",
+          "body": "Team vaults appear once an admin's Voltius is online."
+        },
+        "approval": {
+          "title": "Request sent",
+          "body": "An admin of {{team}} approves it. You'll get a notification."
+        },
+        "email": {
+          "title": "Verify your email to join {{team}}",
+          "body": "We sent a link to {{email}}. You join automatically once it's verified.",
+          "resend": "Resend email"
+        },
+        "seat": {
+          "title": "{{team}} has no free seat",
+          "body": "An admin has been notified. You'll join once a seat is free."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Have an enrolment token?",
+        "placeholder": "vte1.…",
+        "invalid": "That isn't an enrolment token."
+      },
+      "localNote": "This device's hosts move into the new account's private vault. {{team}} can't read them.",
+      "already": {
+        "title": "You're already in {{team}}",
+        "body": "{{email}} is already a member."
+      },
+      "join": {
+        "title": "Join {{team}} as {{email}}",
+        "body": "Uses the account you're signed in to on {{host}}.",
+        "action": "Join",
+        "other": "Use another account"
+      },
+      "replace": {
+        "title": "Replace this device's data?",
+        "body": "Signing in as {{email}} replaces the hosts, keys and snippets on this device with the ones saved in that account.",
+        "confirm": "Sign in and replace"
+      }
     }
   }
 }

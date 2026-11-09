@@ -2,6 +2,7 @@
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
+  setTeamState: vi.fn(),
   fetchTeamData: vi.fn(async (_teamId: string) => {}),
   clearTeamKeyCache: vi.fn(),
   reconcileTeamVaultKeys: vi.fn(async (_teamId: string) => {}),
@@ -26,6 +27,7 @@ vi.mock("@/services/teamKeyRotation", () => ({
 vi.mock("@/stores/teamStore", () => ({
   useTeamStore: {
     getState: () => ({ teams: h.teams }),
+    setState: h.setTeamState,
     subscribe: (fn: () => void) => {
       h.listeners.add(fn);
       return () => h.listeners.delete(fn);
@@ -97,6 +99,11 @@ test("session end drops every cached team secret", async () => {
   teamSecretCache.set("t1", "password:c1", "pw");
   onSessionEnd();
   expect(teamSecretCache.get("t1", "password:c1")).toBeUndefined();
+});
+
+test("session end forgets that teams were loaded", () => {
+  onSessionEnd();
+  expect(h.setTeamState).toHaveBeenCalledWith({ teamsLoaded: false });
 });
 
 test("session end drops undo history, so a team delete holding secrets can no longer be undone", async () => {

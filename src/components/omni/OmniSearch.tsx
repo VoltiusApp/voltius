@@ -62,6 +62,10 @@ import { suggestPlugins } from "@/components/omni/omniPlugins";
 import { useInstallablePlugins } from "@/hooks/useInstallablePlugins";
 import { catalogEntryIcon } from "@/plugins/catalogIcon";
 import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { useEnrollmentStore } from "@/stores/enrollmentStore";
+import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
+import { resolveFailure, tokenHost } from "@/services/enrollment/enrollmentPublic";
+import { parseEnrollInput } from "@/services/deepLinkUrl";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -79,6 +83,7 @@ type OmniItem =
   | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
   | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; locked?: boolean; onToggle: (v: boolean) => void }
   | { kind: "quick-connect"; intent: QuickConnectRowIntent }
+  | { kind: "enroll-token"; token: EnrollmentTokenParts }
   | { kind: "join-code"; code: string }
   | { kind: "join-code-prompt" }
   | { kind: "local-shell"; shell: ShellOption | null }
@@ -97,6 +102,7 @@ function itemKey(item: OmniItem): string {
     case "team-session": return `ts-${item.session.id}`;
     case "toggle": return `t-${item.id}`;
     case "quick-connect": return "quick-connect";
+    case "enroll-token": return "enroll-token";
     case "join-code": return "join-code";
     case "join-code-prompt": return "join-code-prompt";
     case "local-shell": return item.shell ? `ls-${item.shell.path}` : "ls-default";
@@ -106,6 +112,7 @@ function itemKey(item: OmniItem): string {
 
 function sectionOf(item: OmniItem): string {
   switch (item.kind) {
+    case "enroll-token": return "enrollmentToken";
     case "join-code": return "joinByInviteCode";
     case "quick-connect": return "quickConnect";
     case "session": return "activeConnections";
@@ -201,6 +208,16 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   }, []);
   useEffect(() => { fetchActiveSessions().catch(() => {}); }, [fetchActiveSessions]);
 
+  const enrollToken = useMemo(() => parseEnrollInput(query), [query]);
+  const resolvedEnrollment = useEnrollmentStore((s) => (enrollToken ? s.resolved[enrollToken.id]?.result : undefined));
+  const [blockedEnrollment, setBlockedEnrollment] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enrollToken) return;
+    useEnrollmentStore.getState().resolve(enrollToken).catch((e) => {
+      if (resolveFailure(e) === "blocked") setBlockedEnrollment(enrollToken.id);
+    });
+  }, [enrollToken]);
+
   const category = scope;
   const q = useMemo(() => query.toLowerCase().trim(), [query]);
 
@@ -251,6 +268,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     const result: OmniItem[] = [];
+    if (enrollToken) result.push({ kind: "enroll-token", token: enrollToken });
     const joinStrength = joinInputStrength(query);
     if (joinStrength === "strong") result.push({ kind: "join-code", code: query.trim() });
 
@@ -260,7 +278,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       q ? matchesSearch(c, q) || match(...(c.tags ?? [])) : !activeConnectionIds.has(c.id) && !c.last_used_at,
     );
     const addressIntent = !quickIntent && hostMatches.length === 0 && ADDRESS_RE.test(q) ? parseQuickConnect(`ssh ${q}`) : null;
-    const connectIntent = quickIntent && quickIntent.kind !== "local" ? quickIntent : addressIntent;
+    const connectIntent = enrollToken ? null : quickIntent && quickIntent.kind !== "local" ? quickIntent : addressIntent;
     if (connectIntent) result.push({ kind: "quick-connect", intent: connectIntent });
 
     result.push(
@@ -331,7 +349,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     result.push(...pluginItems(false));
 
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, pluginCatalog, takenPluginIds, appVersion, t]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, pluginCatalog, takenPluginIds, appVersion, enrollToken, t]);
 
   const shellNeedsPath = useMemo(() => {
     const shown = items
@@ -466,6 +484,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         onClose();
       } else if (item.kind === "join-code-prompt") {
         inputRef.current?.focus();
+      } else if (item.kind === "enroll-token") {
+        useUIStore.getState().openEnroll(item.token, "paste");
+        onClose();
       } else if (item.kind === "join-code") {
         (async () => {
           await joinSessionByCode(item.code);
@@ -746,6 +767,22 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             detail={t("omni.joinCodePrompt.subtitle")}
           />
         );
+      case "enroll-token": {
+        const host = tokenHost(item.token.serverUrl);
+        const detail = blockedEnrollment === item.token.id
+          ? t("common.policy.serverBlocked")
+          : resolvedEnrollment?.requireApproval ? t("omni.enrollToken.detailApproval", { host }) : host;
+        return (
+          <OmniRow
+            {...row}
+            leading={<OmniTile icon="lucide:building-2" accent />}
+            label={resolvedEnrollment
+              ? t("omni.enrollToken.title", { team: resolvedEnrollment.teamName })
+              : t("omni.enrollToken.titleUnknown")}
+            detail={detail}
+          />
+        );
+      }
       case "join-code":
         return (
           <OmniRow

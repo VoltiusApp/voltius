@@ -22,7 +22,8 @@
       "settings": "Configurações",
       "joinByInviteCode": "Participar por código de convite",
       "importExport": "Importar / Exportar",
-      "availablePlugins": "Plugins disponíveis"
+      "availablePlugins": "Plugins disponíveis",
+      "enrollmentToken": "Token de inscrição"
     },
     "pluginSettingsDescription": "Configurações de Plugin",
     "pluginNotInstalled": "Não instalado",
@@ -136,6 +137,11 @@
       "edit": "Editar host",
       "scope": "Âmbito",
       "close": "Fechar"
+    },
+    "enrollToken": {
+      "title": "Entrar em {{team}} com este token de inscrição",
+      "titleUnknown": "Entrar numa empresa com este token de inscrição",
+      "detailApproval": "{{host}} · Um administrador aprova cada pedido"
     }
   }
 }

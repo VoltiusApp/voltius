@@ -70,6 +70,20 @@ pub fn get_machine_fingerprint() -> Option<String> {
     Some(hash.iter().map(|b| format!("{b:02x}")).collect())
 }
 
+#[tauri::command]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub fn os_user_name() -> Option<String> {
+    ["USER", "USERNAME"]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))
+}
+
+#[tauri::command]
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub fn os_user_name() -> Option<String> {
+    None
+}
+
 /// Platform-specific source for the raw (un-hashed) machine identifier.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn raw_machine_id() -> Option<String> {

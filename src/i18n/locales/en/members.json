@@ -372,12 +372,15 @@
         }
       },
       "error": {
+        "gone": "This enrolment token was revoked or has expired.",
         "needsGuard": "Add an email domain or require approval.",
         "needsApproval": "This server cannot send email, so each join needs an admin's approval.",
         "domainMismatch": "Their email domain is not on the token's list.",
         "invalid": "The server refused these settings.",
         "forbidden": "You don't have permission to manage device enrolment."
-      }
+      },
+      "copyLink": "Copy link",
+      "copyLinkTitle": "Copy a link that opens Voltius on this enrolment"
     },
     "offboarding": {
       "removeTitle_one": "Remove {{names}} from this team?",

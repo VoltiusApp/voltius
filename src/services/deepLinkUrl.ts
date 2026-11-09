@@ -1,6 +1,8 @@
+import { GRANT_SECRET_RE } from "@/services/grantSecret";
 import { isSessionId, isUuid } from "@/services/sessionId";
 import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
 import { isValidPluginId } from "@/plugins/pluginId";
+import { parseEnrollmentToken, type EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
 export type InviteIntent = { route: "invite"; handle: string };
@@ -16,6 +18,8 @@ export type PluginInstallIntent = { route: "plugin-install"; pluginId: string; s
 export type VaultJoinIntent = { route: "vault-join"; grantId: string; secret: string };
 /** Android launcher shortcut (LauncherShortcuts.kt): the id of a saved host, nothing else. */
 export type ConnectIntent = { route: "connect"; hostId: string };
+/** The token is a bearer capability for joining a server: handled in memory only, never logged. */
+export type EnrollIntent = { route: "enroll"; token: string };
 export type DeepLinkIntent =
   | JoinIntent
   | InviteIntent
@@ -27,7 +31,8 @@ export type DeepLinkIntent =
   | SnippetInstallIntent
   | PluginInstallIntent
   | VaultJoinIntent
-  | ConnectIntent;
+  | ConnectIntent
+  | EnrollIntent;
 
 type TrustClass = "confirm" | "attenuated" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
@@ -104,6 +109,8 @@ const TRUST = {
   // voltius://connect), it is scheme-only (SCHEME_ONLY), and only the mobile shell acts
   // on it (deepLinkHandlers).
   connect: "attenuated",
+  // The link names its own server; the enrol form looks the token up there but signs in only after the user goes ahead.
+  enroll: "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -143,9 +150,6 @@ export const DEFAULT_PLUGIN_SOURCE_ID = "voltius";
 
 /** A source id is a catalogue key, not a URL; this only stops an absurd one. */
 const MAX_SOURCE_ID = 100;
-
-/** As the server mints it: 32 random bytes, unpadded base64url, 43 chars. */
-export const GRANT_SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
 
 /**
  * Mirrors the server's custom-handle rule (server: `src/handles.rs`,
@@ -264,6 +268,13 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
     },
     params: ({ hostId }) => ({ host: hostId }),
   },
+  enroll: {
+    parse: (params) => {
+      const token = params.get("t") ?? "";
+      return parseEnrollmentToken(token) ? { route: "enroll", token } : null;
+    },
+    params: ({ token }) => ({ t: token }),
+  },
 };
 
 export type LinkForm = "https" | "scheme";
@@ -342,6 +353,12 @@ function parseRoute(route: string, params: URLSearchParams): DeepLinkIntent | nu
 // resolve to a function rather than a route.
 function isRoute(value: string): value is Route {
   return Object.prototype.hasOwnProperty.call(TRUST, value);
+}
+
+/** A pasted enrolment token, bare or as its enrol link. */
+export function parseEnrollInput(text: string): EnrollmentTokenParts | null {
+  const intent = parseDeepLink(text);
+  return parseEnrollmentToken(intent?.route === "enroll" ? intent.token : text);
 }
 
 /**
