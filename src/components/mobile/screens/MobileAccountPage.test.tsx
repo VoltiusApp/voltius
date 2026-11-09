@@ -14,6 +14,9 @@ const effective = vi.hoisted(() => ({
 }));
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ providers: [], effective: effective.value }) }));
 
+const account = vi.hoisted(() => ({ logout: vi.fn(async () => {}) }));
+vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), logout: account.logout, getCurrentUserEmail: async () => "me@example.com" }));
+
 const billing = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => billing.enabled }));
 
@@ -124,4 +127,20 @@ test("an own Pro trial counts down and has no billing to manage", () => {
   const { queryByText } = render(<MobileAccountPage />);
   expect(queryByText("Pro trial — 2d left")).not.toBeNull();
   expect(queryByText("mobile.account.manageBilling")).toBeNull();
+});
+
+test("signing out reloads the app once the account is wiped, so the welcome screen shows", async () => {
+  businessAccount();
+  const reload = vi.fn();
+  const location = window.location;
+  Object.defineProperty(window, "location", { configurable: true, value: { ...location, reload } });
+  try {
+    const { container } = render(<MobileAccountPage />);
+    fireEvent.click(container.querySelector("[data-account-signout]")!);
+    fireEvent.click(container.querySelector("[data-account-signout-confirm]")!);
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    expect(account.logout).toHaveBeenCalledOnce();
+  } finally {
+    Object.defineProperty(window, "location", { configurable: true, value: location });
+  }
 });

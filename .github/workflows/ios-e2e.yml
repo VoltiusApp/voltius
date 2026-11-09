@@ -2,6 +2,9 @@
 # has an iPhone: Appium (XCUITest) taps the screen and reads the WebView DOM,
 # a throwaway SSH/SFTP server on the runner plays the remote host.
 #
+# The video input records the App Review screen recording instead: the same
+# flow plus account sign-up, sign-in and deletion on a local sync server.
+#
 # Every step leaves a screenshot and a DOM dump in the voltius-ios-e2e
 # artifact; summary.md lists which steps passed. A failing app step does not
 # fail the job (the point is the report); a broken harness does.
@@ -25,6 +28,11 @@ on:
         required: false
         default: false
         type: boolean
+      video:
+        description: "App Review screen recording (demo host, then account sign-up, sign-in and deletion on a local server)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -36,8 +44,10 @@ jobs:
     env:
       OUT_DIR: ${{ github.workspace }}/e2e-out
       SSH_PORT: "2222"
-      SSH_USER: ${{ inputs.store && 'deploy' || 'e2e' }}
+      SSH_USER: ${{ (inputs.store || inputs.video) && 'deploy' || 'e2e' }}
       STORE: ${{ inputs.store && '1' || '0' }}
+      VIDEO: ${{ inputs.video && '1' || '0' }}
+      VOLTIUS_SERVER_URL: http://127.0.0.1:8080
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -50,7 +60,8 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v7
         with:
-          node-version: lts/*
+          # webdriverio 9.20 fails every request on Node 26 (UND_ERR_INVALID_ARG).
+          node-version: 24
           cache: "pnpm"
 
       - name: Read toolchain channel from rust-toolchain.toml
@@ -94,9 +105,9 @@ jobs:
           appium driver install xcuitest
           npm install --prefix scripts/ios-e2e --no-package-lock --no-audit --no-fund
 
-      # Store run: the remote shell and SFTP open in a small demo project.
+      # Store and video runs: the remote shell and SFTP open in a small demo project.
       - name: Make the demo folder
-        if: inputs.store
+        if: inputs.store || inputs.video
         run: |
           demo=/Users/deploy
           sudo mkdir -p "$demo" && sudo chown "$(id -u):$(id -g)" "$demo"
@@ -115,6 +126,31 @@ jobs:
             echo "2026-10-25 09:00:07 old containers removed"
           } > "$demo/logs/deploy.log"
           echo "DEMO_DIR=$demo" >> "$GITHUB_ENV"
+
+      - name: Checkout the sync server
+        if: inputs.video
+        uses: actions/checkout@v7
+        with:
+          repository: VoltiusApp/server
+          path: sync-server
+
+      - name: Start a local sync server
+        if: inputs.video
+        run: |
+          brew install --quiet postgresql@17
+          pg="$(brew --prefix postgresql@17)/bin"
+          "$pg/initdb" -D "$RUNNER_TEMP/pgdata" -U postgres --auth=trust > /dev/null
+          "$pg/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/pg.log" -o "-p 5432" start
+          "$pg/createdb" -h 127.0.0.1 -U postgres voltius
+          # Outside the app checkout, or cargo takes it for a member of the app workspace.
+          mv sync-server "$RUNNER_TEMP/sync-server"
+          cd "$RUNNER_TEMP/sync-server"
+          cargo build
+          mkdir -p "$OUT_DIR"
+          DATABASE_URL=postgres://postgres@127.0.0.1:5432/voltius JWT_SECRET="$(openssl rand -hex 32)" PORT=8080 \
+            nohup ./target/debug/voltius-server > "$OUT_DIR/sync-server.log" 2>&1 &
+          for _ in $(seq 1 60); do curl -fs "$VOLTIUS_SERVER_URL/v1/meta" && break; sleep 1; done
+          curl -fs "$VOLTIUS_SERVER_URL/v1/meta"
 
       - name: Start the test SSH server
         run: |
@@ -173,6 +209,15 @@ jobs:
           name: voltius-ios-e2e
           path: e2e-out/
           retention-days: 14
+
+      - name: Upload the App Review recording
+        if: always() && inputs.video
+        uses: actions/upload-artifact@v7
+        with:
+          name: voltius-app-review-video
+          path: e2e-out/app-review.mov
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Upload the store screenshots
         if: always() && inputs.store

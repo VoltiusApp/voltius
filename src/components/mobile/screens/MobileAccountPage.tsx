@@ -10,7 +10,8 @@ import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { SYNC_NEARBY_COLOR, SYNC_NEARBY_ICON, SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { isNearbyOnly } from "@/services/syncProviders";
 import { effectiveSyncLabel } from "@/services/syncStatusText";
-import { getCurrentUserEmail, logout } from "@/services/account";
+import { getCurrentUserEmail } from "@/services/account";
+import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
@@ -39,6 +40,7 @@ export default function MobileAccountPage() {
   const [confirming, setConfirming] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const { requestSignOut, signOutConfirm } = useSignOutConfirm();
 
   useEffect(() => { void getCurrentUserEmail().then(setEmail); }, []);
 
@@ -169,7 +171,7 @@ export default function MobileAccountPage() {
               <p className="text-sm text-(--t-text-dim)">{t("mobile.account.signOutConfirm")}</p>
               <button
                 data-account-signout-confirm
-                onClick={() => { void logout(); pop(); }}
+                onClick={requestSignOut}
                 className="w-full h-11 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--t-danger, #e5484d)", color: "#fff" }}
               >
@@ -202,8 +204,9 @@ export default function MobileAccountPage() {
             </button>
           )}
         </div>
+        {signOutConfirm}
         {deletingAccount && (
-          <DeleteAccountModal onCancel={() => setDeletingAccount(false)} onDeleted={() => { setDeletingAccount(false); pop(); }} />
+          <DeleteAccountModal onCancel={() => setDeletingAccount(false)} onDeleted={() => window.location.reload()} />
         )}
       </div>
     </div>
