@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 pub mod acl;
-pub mod enrollment_token;
 #[cfg(windows)]
 mod acl_windows;
+pub mod enrollment_token;
 
 const SUPPORTED_VERSION: u32 = 1;
 
@@ -221,6 +221,21 @@ fn value_matches(ty: KeyType, v: &Value) -> bool {
 
 fn is_http_url(s: &str) -> bool {
     url::Url::parse(s).is_ok_and(|u| matches!(u.scheme(), "http" | "https") && u.has_host())
+}
+
+fn canonical_server(s: &str) -> Option<String> {
+    let u = url::Url::parse(s).ok()?;
+    matches!(u.scheme(), "http" | "https").then(|| {
+        format!(
+            "{}{}",
+            u.origin().ascii_serialization(),
+            u.path().trim_end_matches('/')
+        )
+    })
+}
+
+pub fn same_server(a: &str, b: &str) -> bool {
+    canonical_server(a).is_some_and(|k| Some(k) == canonical_server(b))
 }
 
 fn nums_equal(a: &Value, b: &Value) -> bool {
