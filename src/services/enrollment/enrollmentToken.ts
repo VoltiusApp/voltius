@@ -1,4 +1,5 @@
-import { normalizeServerUrl } from "@/utils/serverInstance";
+import { base64ToBytes, bytesToBase64 } from "@/utils/base64";
+import { canonicalServerUrl, normalizeServerUrl } from "@/utils/serverInstance";
 
 const PREFIX = "vte1";
 const ID_RE = /^[0-9a-f]{32}$/;
@@ -12,23 +13,21 @@ export interface EnrollmentTokenParts {
 }
 
 function encodeBase64Url(text: string): string {
-  const binary = String.fromCharCode(...new TextEncoder().encode(text));
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return bytesToBase64(new TextEncoder().encode(text)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function decodeBase64Url(text: string): string | null {
   if (!B64URL_RE.test(text)) return null;
   try {
     const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "="));
-    return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+    return new TextDecoder("utf-8", { fatal: true }).decode(base64ToBytes(b64.padEnd(Math.ceil(b64.length / 4) * 4, "=")));
   } catch {
     return null;
   }
 }
 
 export function buildEnrollmentToken(serverUrl: string, id: string, secret: string): string {
-  return [PREFIX, encodeBase64Url(normalizeServerUrl(serverUrl)), id.replace(/-/g, ""), secret].join(".");
+  return [PREFIX, encodeBase64Url(canonicalServerUrl(serverUrl) ?? normalizeServerUrl(serverUrl)), id.replace(/-/g, ""), secret].join(".");
 }
 
 export function parseEnrollmentToken(text: string): EnrollmentTokenParts | null {

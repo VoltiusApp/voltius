@@ -15,3 +15,7 @@ test("build then parse round-trips", () => {
   expect(text.startsWith("vte1.")).toBe(true);
   expect(parseEnrollmentToken(text)).toEqual({ serverUrl: "https://voltius.acme.com/api", id: ID, secret: SECRET });
 });
+
+test("equivalent server URLs build the same token", () => {
+  expect(buildEnrollmentToken("https://API.acme.com:443/api/", ID, SECRET)).toBe(buildEnrollmentToken("https://api.acme.com/api", ID, SECRET));
+});

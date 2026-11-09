@@ -9,5 +9,7 @@
   { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789ABCDEF0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
   { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": null },
   { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.short", "expect": null },
-  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop+", "expect": null }
+  { "text": "vte1.aHR0cHM6Ly9hcGkudm9sdGl1cy5hcHA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop+", "expect": null },
+  { "text": "vte1.aHR0cDovL2hvc3Q6ODA4MA.0123456789abcdef0123456789abcdef.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-", "expect": { "serverUrl": "http://host:8080", "id": "0123456789abcdef0123456789abcdef", "secret": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop-" } },
+  { "text": "", "expect": null }
 ]

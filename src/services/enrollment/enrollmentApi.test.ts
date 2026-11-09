@@ -23,6 +23,7 @@ test("createToken posts the body and returns the secret", async () => {
   const [path, init] = h.serverFetch.mock.calls[0];
   expect(path).toBe("/v1/teams/t1/enrollment-token");
   expect(init.method).toBe("POST");
+  expect(init.headers).toEqual({ "Content-Type": "application/json" });
   expect(JSON.parse(init.body)).toEqual(body);
 });
 
