@@ -712,6 +712,8 @@ if (VIDEO) {
     out.push(await press("[data-account-signout]", "[data-account-signout-confirm]"));
     // Sign-out wipes the local vault before the screen changes: never click twice.
     out.push(await tapSel("[data-account-signout-confirm]"));
+    await sleep(2500);
+    if (await web(page.findTarget, "^Erase and sign out$")) out.push(await tap("^Erase and sign out$"));
     if (!(await signedOut(60000))) {
       const mode = await web(() => window.__TAURI_INTERNALS__?.invoke("keychain_get", { key: "mode" }).catch((e) => `error ${e}`));
       throw new Error(`${out.join("; ")}; still signed in after 60 s (mode=${mode})`);
