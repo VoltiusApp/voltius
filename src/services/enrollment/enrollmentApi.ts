@@ -1,10 +1,49 @@
+import type { TFunction } from "i18next";
+import { userFacingReason } from "@/services/errorReason";
 import { featureDisabledError } from "@/services/featureDisabled";
 import { serverFetch } from "@/services/teamService";
 
 export class EnrollmentError extends Error {
-  constructor(public code: string | null, public status: number) {
-    super(code ?? `HTTP ${status}`);
+  constructor(public code: string | null, public status: number, message?: string) {
+    super(message ?? code ?? `HTTP ${status}`);
   }
+}
+
+export type EnrollmentRefusal =
+  | "lapsed" | "noSeat" | "needsGuard" | "needsApproval" | "domainMismatch" | "invitesOff" | "invalid" | "forbidden" | "notFound";
+
+const REFUSAL_BY_CODE: Record<string, EnrollmentRefusal> = {
+  ENROLLMENT_UNAVAILABLE: "lapsed",
+  ENROLLMENT_NEEDS_GUARD: "needsGuard",
+  ENROLLMENT_NEEDS_APPROVAL: "needsApproval",
+  ENROLLMENT_DOMAIN_MISMATCH: "domainMismatch",
+  TEAM_INVITES_DISABLED: "invitesOff",
+};
+const REFUSAL_BY_STATUS: Record<number, EnrollmentRefusal> = { 400: "invalid", 403: "forbidden", 404: "notFound" };
+
+const REFUSAL_MESSAGE: Record<EnrollmentRefusal, string> = {
+  lapsed: "members.enrollment.lapsed",
+  noSeat: "members.joinRequests.noSeatToast",
+  needsGuard: "members.enrollment.error.needsGuard",
+  needsApproval: "members.enrollment.error.needsApproval",
+  domainMismatch: "members.enrollment.error.domainMismatch",
+  invitesOff: "common.error.teamInvitesDisabled",
+  invalid: "members.enrollment.error.invalid",
+  forbidden: "members.enrollment.error.forbidden",
+  notFound: "members.joinRequests.gone",
+};
+
+/** `bare402`: an uncoded 402 means a lapsed plan on token routes, a missing seat on approve. */
+export function enrollmentRefusal(e: unknown, bare402: "lapsed" | "noSeat"): EnrollmentRefusal | null {
+  if (!(e instanceof EnrollmentError)) return null;
+  const coded = e.code ? REFUSAL_BY_CODE[e.code] : undefined;
+  if (coded) return coded;
+  return e.status === 402 ? bare402 : REFUSAL_BY_STATUS[e.status] ?? null;
+}
+
+export function enrollmentErrorMessage(t: TFunction, e: Error, bare402: "lapsed" | "noSeat"): string {
+  const refusal = enrollmentRefusal(e, bare402);
+  return refusal ? t(REFUSAL_MESSAGE[refusal]) : userFacingReason(e);
 }
 
 export interface EnrollmentTokenBody {
@@ -57,8 +96,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
     const disabled = await featureDisabledError({ status: res.status, json: async () => body });
-    if (disabled) throw disabled;
-    throw new EnrollmentError(typeof body?.error === "string" ? body.error : null, res.status);
+    throw new EnrollmentError(typeof body?.error === "string" ? body.error : null, res.status, disabled?.message);
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }

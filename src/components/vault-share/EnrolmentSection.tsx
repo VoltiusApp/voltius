@@ -1,22 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
-import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { ChipInput } from "@/components/shared/ChipInput";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { CopySecretField } from "@/components/shared/CopySecretField";
 import { BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { Toggle } from "@/components/shared/Toggle";
 import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
-import { enrollmentApi, EnrollmentError, type CreatedEnrollmentToken, type EnrollmentTokenInfo } from "@/services/enrollment/enrollmentApi";
+import { enrollmentApi, enrollmentRefusal, type CreatedEnrollmentToken, type EnrollmentTokenInfo } from "@/services/enrollment/enrollmentApi";
+import { runEnrollmentAction } from "@/services/enrollment/enrollmentAction";
 import { buildEnrollmentToken } from "@/services/enrollment/enrollmentToken";
 import { userFacingReason } from "@/services/errorReason";
 import { getServerUrl } from "@/services/authTokens";
 import { useServerEmailDelivery } from "@/services/serverCapabilities";
-import { runTeamAction } from "@/services/teamActionFeedback";
 import { useTeamStore, type TeamRole } from "@/stores/teamStore";
-import { writeClipboard } from "@/utils/clipboard";
 import { formatDateTime, formatRelative } from "@/utils/localeFormat";
 import { ChoiceChip } from "./ChoiceChip";
 
@@ -31,19 +29,21 @@ const EXPIRY_PRESETS = [
 const DAY_MS = 24 * 3600_000;
 const SHORT_DATE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
 
-const normaliseDomain = (text: string) => text.trim().replace(/^@+/, "").toLowerCase();
+const DOMAIN_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
-function enrollmentErrorMessage(t: TFunction, e: Error): string {
-  if (e instanceof EnrollmentError) {
-    if (e.code === "ENROLLMENT_NEEDS_GUARD") return t("members.enrollment.error.needsGuard");
-    if (e.code === "ENROLLMENT_NEEDS_APPROVAL") return t("members.enrollment.error.needsApproval");
-    if (e.code === "ENROLLMENT_UNAVAILABLE" || (e.code === null && e.status === 402)) return t("members.enrollment.error.unavailable");
-  }
-  return userFacingReason(e);
+const normaliseDomain = (text: string) => text.trim().toLowerCase().split("@").pop()!;
+
+const isHostname = (domain: string) => {
+  const labels = domain.split(".");
+  return domain.length <= 253 && labels.length >= 2 && labels.every((l) => DOMAIN_LABEL_RE.test(l));
+};
+
+const expired = (at: string | null) => at !== null && new Date(at).getTime() <= Date.now();
+
+function rotatedExpiry({ expires_at, created_at }: EnrollmentTokenInfo): string | null {
+  if (!expires_at || !expired(expires_at)) return expires_at;
+  return new Date(Date.now() + new Date(expires_at).getTime() - new Date(created_at).getTime()).toISOString();
 }
-
-const isPlanRefusal = (e: unknown) =>
-  e instanceof EnrollmentError && (e.code === "ENROLLMENT_UNAVAILABLE" || (e.code === null && e.status === 402));
 
 interface Settings {
   role: string;
@@ -63,38 +63,40 @@ export function EnrolmentSection({ teamId, roles }: Props) {
   const noEmail = !useServerEmailDelivery();
   const teamName = useTeamStore((s) => s.teams.find((x) => x.id === teamId)?.name ?? "");
   const [info, setInfo] = useState<EnrollmentTokenInfo | null | undefined>(undefined);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [unsupported, setUnsupported] = useState(false);
   const [fresh, setFresh] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"rotate" | "revoke" | null>(null);
   const [busy, setBusy] = useState(false);
+  const loadSeq = useRef(0);
 
   const load = useCallback(() => {
-    setLoadError("");
-    enrollmentApi.getToken(teamId).then(setInfo).catch((e) => {
-      setInfo(null);
-      setLoadError(t("members.enrollment.loadFailed", { reason: userFacingReason(e) }));
-    });
-  }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const seq = ++loadSeq.current;
+    setInfo(undefined);
+    setLoadError(null);
+    setUnsupported(false);
+    enrollmentApi.getToken(teamId).then(
+      (token) => {
+        if (seq === loadSeq.current) setInfo(token);
+      },
+      (e) => {
+        if (seq !== loadSeq.current) return;
+        const refusal = enrollmentRefusal(e, "lapsed");
+        if (refusal === "notFound" || refusal === "invitesOff") setUnsupported(true);
+        else setLoadError(e);
+      },
+    );
+  }, [teamId]);
 
   useEffect(load, [load]);
 
-  const run = async (action: () => Promise<void>, toast: "create" | "revoke") => {
+  const run = async (action: () => Promise<void>, toast: "create" | "rotate" | "revoke") => {
     setBusy(true);
-    try {
-      await runTeamAction({
-        pending: t(`members.enrollment.toast.${toast}.pending`),
-        success: t(`members.enrollment.toast.${toast}.done`),
-        error: (e) => t(`members.enrollment.toast.${toast}.failed`, { reason: enrollmentErrorMessage(t, e) }),
-        run: action,
-      });
-    } catch (e) {
-      if (isPlanRefusal(e)) void useTeamStore.getState().loadTeams();
-    } finally {
-      setBusy(false);
-    }
+    await runEnrollmentAction(t, { toast: `members.enrollment.toast.${toast}`, bare402: "lapsed", run: action });
+    setBusy(false);
   };
 
-  const create = (s: Settings) =>
+  const create = (s: Settings, toast: "create" | "rotate" = "create") =>
     run(async () => {
       const body = {
         role: s.role,
@@ -105,7 +107,7 @@ export function EnrolmentSection({ teamId, roles }: Props) {
       const serverUrl = await getServerUrl();
       if (!serverUrl) throw new Error(t("common.error.notConnectedToServer"));
       showCreated(await enrollmentApi.createToken(teamId, body), serverUrl);
-    }, "create");
+    }, toast);
 
   const showCreated = (made: CreatedEnrollmentToken, serverUrl: string) => {
     const { secret, ...rest } = made;
@@ -117,12 +119,10 @@ export function EnrolmentSection({ teamId, roles }: Props) {
   const rotate = async () => {
     if (!info) return;
     setConfirm(null);
-    await create({
-      role: info.role,
-      domains: info.allowed_domains,
-      approve: info.require_approval,
-      expiresAt: info.expires_at && new Date(info.expires_at).getTime() > Date.now() ? info.expires_at : null,
-    });
+    await create(
+      { role: info.role, domains: info.allowed_domains, approve: info.require_approval, expiresAt: rotatedExpiry(info) },
+      "rotate",
+    );
   };
 
   const revoke = async () => {
@@ -134,18 +134,29 @@ export function EnrolmentSection({ teamId, roles }: Props) {
     }, "revoke");
   };
 
+  if (unsupported) return null;
   return (
     <div data-enrolment className="flex flex-col gap-3 pt-3 border-t border-(--t-border)">
       <div className="flex items-center gap-1.5">
         <Icon icon="lucide:monitor-cog" width={14} className="text-(--t-text-dim)" />
         <span className="text-xs font-semibold text-(--t-text-primary)">{t("members.enrollment.title")}</span>
       </div>
-      {loadError && (
-        <p className="text-[11px]" style={{ color: "var(--t-status-error)" }}>{loadError}</p>
+      {loadError != null && (
+        <p className="flex items-center gap-2 text-[11px]" style={{ color: "var(--t-status-error)" }}>
+          <span className="flex-1 min-w-0">{t("members.enrollment.loadFailed", { reason: userFacingReason(loadError) })}</span>
+          <button onClick={load} className="shrink-0 underline">{t("common.action.retry")}</button>
+        </p>
       )}
-      {locked && <BusinessLockLine teamId={teamId} label={t("members.enrollment.lapsed")} />}
-      {info === undefined ? null : info ? (
-        <TokenCard info={info} fresh={fresh} locked={locked} onRotate={() => setConfirm("rotate")} onRevoke={() => setConfirm("revoke")} />
+      <BusinessLockLine teamId={teamId} label={t("members.enrollment.lapsed")} />
+      {info === undefined || loadError != null ? null : info ? (
+        <TokenCard
+          info={info}
+          fresh={fresh}
+          locked={locked}
+          busy={busy}
+          onRotate={() => setConfirm("rotate")}
+          onRevoke={() => setConfirm("revoke")}
+        />
       ) : (
         !locked && <CreateForm roles={roles} teamName={teamName} noEmail={noEmail} busy={busy} onCreate={(s) => void create(s)} />
       )}
@@ -185,6 +196,7 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
   const { t } = useTranslation();
   const [domains, setDomains] = useState<string[]>([]);
   const [input, setInput] = useState("");
+  const [domainError, setDomainError] = useState("");
   const [approve, setApprove] = useState(false);
   const [role, setRole] = useState("member");
   const [expiryDays, setExpiryDays] = useState<number | null>(null);
@@ -192,7 +204,11 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
 
   const addDomain = (text: string) => {
     const d = normaliseDomain(text);
-    if (d && !domains.includes(d)) setDomains([...domains, d]);
+    if (!isHostname(d)) {
+      setDomainError(t("members.enrollment.invalidDomain", { domain: text.trim() }));
+      return;
+    }
+    if (!domains.includes(d)) setDomains([...domains, d]);
     setInput("");
   };
 
@@ -216,7 +232,10 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
         <ChipInput
           value={domains}
           input={input}
-          onInputChange={setInput}
+          onInputChange={(text) => {
+            setInput(text);
+            setDomainError("");
+          }}
           onAdd={addDomain}
           onRemove={(d) => setDomains(domains.filter((x) => x !== d))}
           renderChip={(d, children) => (
@@ -228,6 +247,7 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
           placeholder={t("members.enrollment.domainPlaceholder")}
           keepPlaceholder
         />
+        {domainError && <p className="text-[11px]" style={{ color: "var(--t-status-error)" }}>{domainError}</p>}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -271,26 +291,24 @@ interface TokenCardProps {
   info: EnrollmentTokenInfo;
   fresh: string | null;
   locked: boolean;
+  busy: boolean;
   onRotate: () => void;
   onRevoke: () => void;
 }
 
-function TokenCard({ info, fresh, locked, onRotate, onRevoke }: TokenCardProps) {
+function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardProps) {
   const { t } = useTranslation();
-  const { copied, flash } = useCopiedFlash(2000);
   const { color, bg } = roleChipColors(info.role);
   const created = formatDateTime(info.created_at, SHORT_DATE);
+  const isExpired = expired(info.expires_at);
+  const expiry = info.expires_at
+    ? t(isExpired ? "members.enrollment.expiredOn" : "members.enrollment.expiresOn", { date: formatDateTime(info.expires_at, SHORT_DATE) })
+    : t("members.enrollment.neverExpires");
   const summary = [
     ...(info.allowed_domains.length ? [info.allowed_domains.join(", ")] : []),
     t(info.require_approval ? "members.enrollment.approvalOn" : "members.enrollment.approvalOff"),
-    info.expires_at ? t("members.enrollment.expiresOn", { date: formatDateTime(info.expires_at, SHORT_DATE) }) : t("members.enrollment.neverExpires"),
+    ...(isExpired ? [] : [expiry]),
   ].join(" · ");
-
-  const copy = async () => {
-    if (!fresh) return;
-    await writeClipboard(fresh);
-    flash();
-  };
 
   return (
     <div className="flex flex-col gap-1.5 px-3 py-2 rounded-lg bg-(--t-bg-card)">
@@ -301,19 +319,16 @@ function TokenCard({ info, fresh, locked, onRotate, onRevoke }: TokenCardProps) 
         <span className="text-[11px] text-(--t-text-secondary) flex-1 min-w-0 break-words">{summary}</span>
       </div>
 
+      {isExpired && (
+        <p className="flex items-start gap-1.5 text-[11px]" style={{ color: "var(--t-status-error)" }}>
+          <Icon icon="lucide:clock-alert" width={12} className="mt-0.5 shrink-0" />
+          <span>{`${expiry} · ${t("members.enrollment.expiredHint")}`}</span>
+        </p>
+      )}
+
       {fresh && (
         <>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              value={fresh}
-              onFocus={(e) => e.currentTarget.select()}
-              className="flex-1 min-w-0 px-2 py-1 rounded-md bg-(--t-bg-elevated) border border-(--t-border) font-mono text-[10px] text-(--t-text-secondary) outline-none"
-            />
-            <button onClick={() => void copy()} className="px-2.5 py-1 rounded-lg text-[11px] font-medium shrink-0" style={ACCENT_BTN}>
-              {copied ? t("members.joinLinks.copied") : t("members.joinLinks.copy")}
-            </button>
-          </div>
+          <CopySecretField value={fresh} mono ariaLabel={t("members.enrollment.tokenLabel")} />
           <p className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--t-status-warning)" }}>
             <Icon icon="lucide:triangle-alert" width={12} className="shrink-0" />
             {t("members.enrollment.copyNow")}
@@ -345,13 +360,14 @@ function TokenCard({ info, fresh, locked, onRotate, onRevoke }: TokenCardProps) 
         {!locked && (
           <button
             onClick={onRotate}
-            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border border-(--t-border) text-(--t-text-secondary)"
+            disabled={busy}
+            className="shrink-0 disabled:opacity-50 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border border-(--t-border) text-(--t-text-secondary)"
           >
             <Icon icon="lucide:refresh-cw" width={12} />
             {t("members.enrollment.rotate")}
           </button>
         )}
-        <button onClick={onRevoke} className="shrink-0 px-2.5 py-1 rounded-lg text-[11px]" style={{ color: "var(--t-status-error)" }}>
+        <button onClick={onRevoke} disabled={busy} className="shrink-0 disabled:opacity-50 px-2.5 py-1 rounded-lg text-[11px]" style={{ color: "var(--t-status-error)" }}>
           {t("members.enrollment.revoke")}
         </button>
       </div>

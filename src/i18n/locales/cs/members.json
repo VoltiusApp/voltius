@@ -333,6 +333,7 @@
       "domainsLabel": "Povolené e-mailové domény",
       "domainPlaceholder": "Přidat doménu",
       "removeDomain": "Odebrat {{domain}}",
+      "invalidDomain": "{{domain}} není název domény, například example.com.",
       "approve": "Každé připojení schvaluje správce",
       "noEmail": "Tento server neumí odesílat e-maily, proto musí každé připojení schválit správce.",
       "expiresLabel": "Platnost",
@@ -346,10 +347,13 @@
       "guardHint": "Každé připojení vyžaduje odpovídající e-mailovou doménu, schválení správcem, nebo obojí.",
       "copyNow": "Zkopírujte si ho hned; už se znovu nezobrazí.",
       "example": "Příklad",
+      "tokenLabel": "Registrační token",
       "approvalOn": "schvaluje správce",
       "approvalOff": "bez schvalování",
       "expiresOn": "vyprší {{date}}",
       "neverExpires": "bez omezení platnosti",
+      "expiredOn": "Vypršel {{date}}",
+      "expiredHint": "Obnovte ho, abyste získali funkční token.",
       "createdBy": "Vytvořil(a) {{name}} · {{date}}",
       "createdOn": "Vytvořeno {{date}}",
       "lastUsed": "Naposledy použito {{when}}",
@@ -372,6 +376,11 @@
           "done": "Registrační token vytvořen",
           "failed": "Token se nepodařilo vytvořit — {{reason}}"
         },
+        "rotate": {
+          "pending": "Obnovuji token…",
+          "done": "Registrační token obnoven",
+          "failed": "Token se nepodařilo obnovit — {{reason}}"
+        },
         "revoke": {
           "pending": "Ruším token…",
           "done": "Registrační token zrušen",
@@ -381,7 +390,9 @@
       "error": {
         "needsGuard": "Přidejte e-mailovou doménu nebo vyžadujte schválení.",
         "needsApproval": "Tento server neumí odesílat e-maily, proto každé připojení vyžaduje schválení správcem.",
-        "unavailable": "Registrace zařízení vyžaduje tarif Business."
+        "domainMismatch": "Doména jejich e-mailu není v seznamu tokenu.",
+        "invalid": "Server tato nastavení odmítl.",
+        "forbidden": "Nemáte oprávnění spravovat registraci zařízení."
       }
     },
     "offboarding": {
@@ -490,19 +501,19 @@
       },
       "approve": "Schválit",
       "deny": "Zamítnout",
-      "noSeatHint": "Žádné volné místo. Přidejte místo, abyste mohli schválit.",
       "noSeatToast": "Žádné volné místo. Přidejte místa a schvalte znovu.",
+      "emailUnverifiedToast": "Ještě musí ověřit svou e-mailovou adresu. Až to udělají, schvalte znovu.",
       "gone": "Tato žádost již byla vyřízena.",
       "toast": {
         "approve": {
-          "pending": "Schvaluji žádost...",
+          "pending": "Schvaluji žádost…",
           "done": "Žádost schválena",
-          "failed": "Žádost se nepodařilo schválit: {{reason}}"
+          "failed": "Žádost se nepodařilo schválit — {{reason}}"
         },
         "deny": {
-          "pending": "Zamítám žádost...",
+          "pending": "Zamítám žádost…",
           "done": "Žádost zamítnuta",
-          "failed": "Žádost se nepodařilo zamítnout: {{reason}}"
+          "failed": "Žádost se nepodařilo zamítnout — {{reason}}"
         }
       }
     }

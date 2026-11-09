@@ -317,6 +317,7 @@
       "domainsLabel": "允许的邮箱域名",
       "domainPlaceholder": "添加域名",
       "removeDomain": "移除 {{domain}}",
+      "invalidDomain": "{{domain}} 不是域名(例如 example.com)。",
       "approve": "每次加入都由管理员批准",
       "noEmail": "此服务器无法发送电子邮件,因此每次加入都必须由管理员批准。",
       "expiresLabel": "有效期",
@@ -330,10 +331,13 @@
       "guardHint": "每次加入都需要匹配的邮箱域名、管理员批准,或两者兼备。",
       "copyNow": "请立即复制;之后不会再次显示。",
       "example": "示例",
+      "tokenLabel": "注册令牌",
       "approvalOn": "管理员批准",
       "approvalOff": "无需批准",
       "expiresOn": "{{date}} 到期",
       "neverExpires": "永不过期",
+      "expiredOn": "已于 {{date}} 过期",
+      "expiredHint": "请轮换以获取可用的令牌。",
       "createdBy": "创建者 {{name}} · {{date}}",
       "createdOn": "创建于 {{date}}",
       "lastUsed": "上次使用 {{when}}",
@@ -356,6 +360,11 @@
           "done": "注册令牌已创建",
           "failed": "无法创建令牌 — {{reason}}"
         },
+        "rotate": {
+          "pending": "正在轮换令牌…",
+          "done": "注册令牌已轮换",
+          "failed": "无法轮换令牌 — {{reason}}"
+        },
         "revoke": {
           "pending": "正在撤销令牌…",
           "done": "注册令牌已撤销",
@@ -365,7 +374,9 @@
       "error": {
         "needsGuard": "请添加邮箱域名或要求批准。",
         "needsApproval": "此服务器无法发送电子邮件,因此每次加入都需要管理员批准。",
-        "unavailable": "设备注册需要团队的 Business 方案。"
+        "domainMismatch": "其邮箱域名不在令牌的列表中。",
+        "invalid": "服务器拒绝了这些设置。",
+        "forbidden": "你没有管理设备注册的权限。"
       }
     },
     "leaveTeam": "退出团队",
@@ -462,19 +473,19 @@
       },
       "approve": "批准",
       "deny": "拒绝",
-      "noSeatHint": "没有可用席位。请先添加席位再批准。",
       "noSeatToast": "没有可用席位。请添加席位后再次批准。",
+      "emailUnverifiedToast": "对方仍需验证邮箱地址。验证后请再次批准。",
       "gone": "该请求已被处理。",
       "toast": {
         "approve": {
-          "pending": "正在批准请求...",
+          "pending": "正在批准请求…",
           "done": "请求已批准",
-          "failed": "无法批准请求：{{reason}}"
+          "failed": "无法批准请求 — {{reason}}"
         },
         "deny": {
-          "pending": "正在拒绝请求...",
+          "pending": "正在拒绝请求…",
           "done": "请求已拒绝",
-          "failed": "无法拒绝请求：{{reason}}"
+          "failed": "无法拒绝请求 — {{reason}}"
         }
       }
     }

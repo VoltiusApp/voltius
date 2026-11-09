@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 
 const h = vi.hoisted(() => ({
   locked: false,
+  mobile: false,
   list: vi.fn(),
   warned: null as string | null,
   errorText: "",
@@ -19,7 +20,11 @@ vi.mock("react-i18next", async (importOriginal) => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked, isOwner: true }) }));
 vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLockLine: ({ label }: { label: string }) => <p>{label}</p>,
+  BusinessLockLine: ({ label }: { label: string }) => (h.locked ? <p>{label}</p> : null),
+}));
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  isMobileShell: () => h.mobile,
 }));
 vi.mock("@/components/shared/BaseCard", () => ({
   BaseCard: ({ children }: { children: React.ReactNode }) => <div data-row>{children}</div>,
@@ -52,6 +57,7 @@ const req = (over: Partial<JoinRequest> = {}): JoinRequest => ({
 
 beforeEach(() => {
   h.locked = false;
+  h.mobile = false;
   h.warned = null;
   h.errorText = "";
   h.list.mockReset().mockResolvedValue([req()]);
@@ -78,12 +84,33 @@ test("a proven email still approvable after a lapse", async () => {
   expect((btn as HTMLButtonElement).disabled).toBe(false);
 });
 
-test("seat-limit request has Approve disabled with the reason", async () => {
+test("seat-limit request keeps Approve so it can be retried after adding seats", async () => {
   h.list.mockResolvedValue([req({ reason: "seat_limit" })]);
   render(<JoinRequestsSection teamId="t1" />);
   const btn = (await screen.findByText("members.joinRequests.approve")) as HTMLButtonElement;
+  expect(btn.disabled).toBe(false);
+  expect(screen.getByText("members.joinRequests.reason.seat_limit")).toBeTruthy();
+});
+
+test("below Business, Approve is disabled and says why", async () => {
+  h.locked = true;
+  render(<JoinRequestsSection teamId="t1" />);
+  const btn = (await screen.findByText("members.joinRequests.approve")) as HTMLButtonElement;
   expect(btn.disabled).toBe(true);
-  expect(btn.title).toBe("members.joinRequests.noSeatHint");
+  expect(btn.title).toBe("members.enrollment.lapsed");
+  expect((screen.getByText("members.joinRequests.deny") as HTMLButtonElement).disabled).toBe(false);
+});
+
+test("on a phone the row stacks the person above the status and actions", async () => {
+  h.mobile = true;
+  h.list.mockResolvedValue([req({ reason: "seat_limit" })]);
+  const { container } = render(<JoinRequestsSection teamId="t1" />);
+  await screen.findByText("Sam");
+  expect(container.querySelector("[data-row]")).toBeNull();
+  expect(screen.getByText("sam@acme.com")).toBeTruthy();
+  expect(screen.getByText("members.joinRequests.reason.seat_limit")).toBeTruthy();
+  expect(screen.getByText("members.joinRequests.approve")).toBeTruthy();
+  expect(screen.getByText("members.joinRequests.deny")).toBeTruthy();
 });
 
 test("approve removes the row and reloads members", async () => {
@@ -96,13 +123,13 @@ test("approve removes the row and reloads members", async () => {
   expect(h.loadMembers).toHaveBeenCalledWith("t1");
 });
 
-test("approve answered pending/seat_limit warns and keeps the row", async () => {
-  h.list.mockResolvedValueOnce([req()]).mockResolvedValue([req({ reason: "seat_limit" })]);
-  h.approve.mockResolvedValue({ status: "pending", reason: "seat_limit" });
+test("approve answered pending/email_unverified warns and keeps the row", async () => {
+  h.list.mockResolvedValueOnce([req()]).mockResolvedValue([req({ reason: "email_unverified", email_proven: false })]);
+  h.approve.mockResolvedValue({ status: "pending", reason: "email_unverified" });
   render(<JoinRequestsSection teamId="t1" />);
   fireEvent.click(await screen.findByText("members.joinRequests.approve"));
-  await screen.findByText("members.joinRequests.reason.seat_limit");
-  expect(h.warned).toBe("members.joinRequests.noSeatToast");
+  await screen.findByText("members.joinRequests.reason.email_unverified");
+  expect(h.warned).toBe("members.joinRequests.emailUnverifiedToast");
   expect(h.loadMembers).not.toHaveBeenCalled();
 });
 
@@ -111,6 +138,7 @@ test("a lapsed plan refusal reloads teams", async () => {
   render(<JoinRequestsSection teamId="t1" />);
   fireEvent.click(await screen.findByText("members.joinRequests.approve"));
   await waitFor(() => expect(h.loadTeams).toHaveBeenCalled());
+  expect(h.errorText).toBe("members.joinRequests.toast.approve.failed|members.enrollment.lapsed");
 });
 
 test("a lapsed plan refusal shows the Business lock message", async () => {

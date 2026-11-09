@@ -1,40 +1,78 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
+import { Icon } from "@iconify/react";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { BusinessLockLine } from "@/components/shared/BusinessLockBanner";
+import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
-import { enrollmentApi, EnrollmentError, type JoinRequest } from "@/services/enrollment/enrollmentApi";
-import { userFacingReason } from "@/services/errorReason";
-import { runTeamAction } from "@/services/teamActionFeedback";
+import { enrollmentApi, type ApproveOutcome, type JoinRequest } from "@/services/enrollment/enrollmentApi";
+import { runEnrollmentAction } from "@/services/enrollment/enrollmentAction";
 import { useTeamStore } from "@/stores/teamStore";
+import { isMobileShell } from "@/utils/platform";
 
 const SMALL_BTN = "btn px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed shrink-0";
 const NO_REQUESTS: JoinRequest[] = [];
 
-const isPlanRefusal = (e: unknown) => e instanceof EnrollmentError && e.code === "ENROLLMENT_UNAVAILABLE";
-const isNoSeat = (e: unknown) => e instanceof EnrollmentError && e.code === null && e.status === 402;
-
-function errorMessage(t: TFunction, e: Error): string {
-  if (isPlanRefusal(e)) return t("members.enrollment.error.unavailable");
-  if (isNoSeat(e)) return t("members.joinRequests.noSeatToast");
-  if (e instanceof EnrollmentError && e.status === 404) return t("members.joinRequests.gone");
-  return userFacingReason(e);
-}
-
-function RequestRow({ r, busy, locked, onApprove, onDeny }: {
+interface RowProps {
   r: JoinRequest;
   busy: boolean;
   locked: boolean;
   onApprove: () => void;
   onDeny: () => void;
-}) {
+}
+
+function Actions({ r, busy, locked, onApprove, onDeny }: RowProps) {
   const { t } = useTranslation();
+  const canApprove = !(r.reason === "email_unverified" && !r.email_proven);
+  return (
+    <>
+      {canApprove && (
+        <button
+          title={locked ? t("members.enrollment.lapsed") : undefined}
+          disabled={busy || locked}
+          onClick={onApprove}
+          className={`${SMALL_BTN} btn-primary`}
+        >
+          {t("members.joinRequests.approve")}
+        </button>
+      )}
+      <button disabled={busy} onClick={onDeny} className={`${SMALL_BTN} btn-secondary`}>
+        {t("members.joinRequests.deny")}
+      </button>
+    </>
+  );
+}
+
+function RequestRow(props: RowProps) {
+  const { t } = useTranslation();
+  const { r } = props;
   const name = r.display_name || r.email;
   const noSeat = r.reason === "seat_limit";
-  const canApprove = !(r.reason === "email_unverified" && !r.email_proven);
+  const status = t(`members.joinRequests.reason.${r.reason}`);
+
+  if (isMobileShell()) {
+    return (
+      <div className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-(--t-bg-card)">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <PresenceAvatar handle={name} size={26} online={false} />
+          <span className="text-xs text-(--t-text-primary) break-all flex-1 basis-32 min-w-0">
+            {name}
+            {r.display_name && <span className="block text-[11px] text-(--t-text-dim)">{r.email}</span>}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 pl-[2.3rem]">
+          <span className="text-[11px] flex-1 min-w-0" style={{ color: noSeat ? "var(--t-status-warning)" : "var(--t-text-secondary)" }}>
+            {noSeat && <Icon icon="lucide:triangle-alert" width={11} className="inline align-[-1px] mr-1" />}
+            {status}
+          </span>
+          <Actions {...props} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <BaseCard isList>
       <MiniAvatar name={name} size={28} />
@@ -50,21 +88,9 @@ function RequestRow({ r, busy, locked, onApprove, onDeny }: {
           background: noSeat ? "color-mix(in srgb, var(--t-status-warning) 12%, transparent)" : "var(--t-bg-elevated)",
         }}
       >
-        {t(`members.joinRequests.reason.${r.reason}`)}
+        {status}
       </span>
-      {canApprove && (
-        <button
-          title={noSeat ? t("members.joinRequests.noSeatHint") : undefined}
-          disabled={busy || locked || noSeat}
-          onClick={onApprove}
-          className={`${SMALL_BTN} btn-primary`}
-        >
-          {t("members.joinRequests.approve")}
-        </button>
-      )}
-      <button disabled={busy} onClick={onDeny} className={`${SMALL_BTN} btn-secondary`}>
-        {t("members.joinRequests.deny")}
-      </button>
+      <Actions {...props} />
     </BaseCard>
   );
 }
@@ -82,28 +108,22 @@ export function JoinRequestsSection({ teamId }: { teamId: string }) {
 
   const act = async (r: JoinRequest, kind: "approve" | "deny") => {
     setBusyId(r.id);
-    try {
-      await runTeamAction({
-        pending: t(`members.joinRequests.toast.${kind}.pending`),
-        success: t(`members.joinRequests.toast.${kind}.done`),
-        warning: (o) => (o && o.status === "pending" ? t("members.joinRequests.noSeatToast") : null),
-        error: (e) => t(`members.joinRequests.toast.${kind}.failed`, { reason: errorMessage(t, e) }),
-        run: async () => {
-          if (kind === "deny") {
-            await enrollmentApi.denyJoinRequest(teamId, r.id);
-            return null;
-          }
-          const outcome = await enrollmentApi.approveJoinRequest(teamId, r.id);
-          if (outcome.status !== "pending") await useTeamStore.getState().loadMembers(teamId);
-          return outcome;
-        },
-      });
-    } catch (e) {
-      if (isPlanRefusal(e)) void useTeamStore.getState().loadTeams();
-    } finally {
-      await loadJoinRequests(teamId).catch(() => {});
-      setBusyId(null);
-    }
+    await runEnrollmentAction<ApproveOutcome | null>(t, {
+      toast: `members.joinRequests.toast.${kind}`,
+      bare402: "noSeat",
+      warning: (o) => (o?.status === "pending" ? t("members.joinRequests.emailUnverifiedToast") : null),
+      run: async () => {
+        if (kind === "deny") {
+          await enrollmentApi.denyJoinRequest(teamId, r.id);
+          return null;
+        }
+        const outcome = await enrollmentApi.approveJoinRequest(teamId, r.id);
+        if (outcome.status !== "pending") await useTeamStore.getState().loadMembers(teamId);
+        return outcome;
+      },
+    });
+    await loadJoinRequests(teamId).catch(() => {});
+    setBusyId(null);
   };
 
   if (requests.length === 0) return null;

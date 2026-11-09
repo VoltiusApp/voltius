@@ -323,6 +323,7 @@
       "domainsLabel": "Domínios de e-mail permitidos",
       "domainPlaceholder": "Adicionar um domínio",
       "removeDomain": "Remover {{domain}}",
+      "invalidDomain": "{{domain}} não é um nome de domínio, como example.com.",
       "approve": "Um administrador aprova cada entrada",
       "noEmail": "Este servidor não consegue enviar e-mails, por isso um administrador tem de aprovar cada entrada.",
       "expiresLabel": "Expira",
@@ -336,10 +337,13 @@
       "guardHint": "Cada entrada exige um domínio de e-mail correspondente, a aprovação de um administrador, ou ambos.",
       "copyNow": "Copie agora; não será mostrado novamente.",
       "example": "Exemplo",
+      "tokenLabel": "Token de inscrição",
       "approvalOn": "aprovação por administrador",
       "approvalOff": "sem aprovação",
       "expiresOn": "expira em {{date}}",
       "neverExpires": "nunca expira",
+      "expiredOn": "Expirou em {{date}}",
+      "expiredHint": "Renove-o para obter um token válido.",
       "createdBy": "Criado por {{name}} · {{date}}",
       "createdOn": "Criado em {{date}}",
       "lastUsed": "Último uso {{when}}",
@@ -362,6 +366,11 @@
           "done": "Token de inscrição criado",
           "failed": "Não foi possível criar o token — {{reason}}"
         },
+        "rotate": {
+          "pending": "Renovando o token…",
+          "done": "Token de inscrição renovado",
+          "failed": "Não foi possível renovar o token — {{reason}}"
+        },
         "revoke": {
           "pending": "A revogar o token…",
           "done": "Token de inscrição revogado",
@@ -371,7 +380,9 @@
       "error": {
         "needsGuard": "Adicione um domínio de e-mail ou exija aprovação.",
         "needsApproval": "Este servidor não consegue enviar e-mails, por isso cada entrada exige a aprovação de um administrador.",
-        "unavailable": "A inscrição de dispositivos requer o plano Business da equipa."
+        "domainMismatch": "O domínio do e-mail não está na lista do token.",
+        "invalid": "O servidor recusou estas definições.",
+        "forbidden": "Não tem permissão para gerir a inscrição de dispositivos."
       }
     },
     "offboarding": {
@@ -474,19 +485,19 @@
       },
       "approve": "Aprovar",
       "deny": "Recusar",
-      "noSeatHint": "Sem lugar disponível. Adicione um lugar para aprovar.",
       "noSeatToast": "Sem lugar disponível. Adicione lugares e aprove novamente.",
+      "emailUnverifiedToast": "Ainda falta verificar o endereço de e-mail. Aprove novamente depois disso.",
       "gone": "Este pedido já foi tratado.",
       "toast": {
         "approve": {
-          "pending": "Aprovando o pedido...",
+          "pending": "Aprovando o pedido…",
           "done": "Pedido aprovado",
-          "failed": "Não foi possível aprovar o pedido: {{reason}}"
+          "failed": "Não foi possível aprovar o pedido — {{reason}}"
         },
         "deny": {
-          "pending": "Recusando o pedido...",
+          "pending": "Recusando o pedido…",
           "done": "Pedido recusado",
-          "failed": "Não foi possível recusar o pedido: {{reason}}"
+          "failed": "Não foi possível recusar o pedido — {{reason}}"
         }
       }
     }

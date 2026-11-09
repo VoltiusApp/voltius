@@ -317,6 +317,7 @@
       "domainsLabel": "Allowed email domains",
       "domainPlaceholder": "Add a domain",
       "removeDomain": "Remove {{domain}}",
+      "invalidDomain": "{{domain}} is not a domain name, like example.com.",
       "approve": "An admin approves each join",
       "noEmail": "This server cannot send email, so an admin must approve each join.",
       "expiresLabel": "Expires",
@@ -330,10 +331,13 @@
       "guardHint": "Each join needs a matching email domain, an admin's approval, or both.",
       "copyNow": "Copy it now; it is not shown again.",
       "example": "Example",
+      "tokenLabel": "Enrolment token",
       "approvalOn": "admin approves",
       "approvalOff": "no approval",
       "expiresOn": "expires {{date}}",
       "neverExpires": "never expires",
+      "expiredOn": "Expired {{date}}",
+      "expiredHint": "Rotate to issue a working token.",
       "createdBy": "Created by {{name}} · {{date}}",
       "createdOn": "Created {{date}}",
       "lastUsed": "Last used {{when}}",
@@ -356,6 +360,11 @@
           "done": "Enrolment token created",
           "failed": "Couldn't create the token — {{reason}}"
         },
+        "rotate": {
+          "pending": "Rotating token…",
+          "done": "Enrolment token rotated",
+          "failed": "Couldn't rotate the token — {{reason}}"
+        },
         "revoke": {
           "pending": "Revoking token…",
           "done": "Enrolment token revoked",
@@ -365,7 +374,9 @@
       "error": {
         "needsGuard": "Add an email domain or require approval.",
         "needsApproval": "This server cannot send email, so each join needs an admin's approval.",
-        "unavailable": "Device enrolment needs the team's Business plan."
+        "domainMismatch": "Their email domain is not on the token's list.",
+        "invalid": "The server refused these settings.",
+        "forbidden": "You don't have permission to manage device enrolment."
       }
     },
     "offboarding": {
@@ -462,19 +473,19 @@
       },
       "approve": "Approve",
       "deny": "Deny",
-      "noSeatHint": "No seat left. Add a seat to approve.",
       "noSeatToast": "No seat left. Add seats, then approve again.",
+      "emailUnverifiedToast": "They still need to verify their email address. Approve again once they have.",
       "gone": "This request was already handled.",
       "toast": {
         "approve": {
-          "pending": "Approving join request...",
+          "pending": "Approving join request…",
           "done": "Join request approved",
-          "failed": "Could not approve the request: {{reason}}"
+          "failed": "Couldn't approve the request — {{reason}}"
         },
         "deny": {
-          "pending": "Denying join request...",
+          "pending": "Denying join request…",
           "done": "Join request denied",
-          "failed": "Could not deny the request: {{reason}}"
+          "failed": "Couldn't deny the request — {{reason}}"
         }
       }
     }

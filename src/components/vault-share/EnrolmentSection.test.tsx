@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   revokeToken: vi.fn(),
   loadTeams: vi.fn(),
   serverUrl: "https://voltius.example.com" as string | null,
+  toasts: [] as string[],
+  failed: null as unknown,
 }));
 
 vi.mock("react-i18next", async (importOriginal) => ({
@@ -18,7 +20,7 @@ vi.mock("react-i18next", async (importOriginal) => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked, isOwner: true }) }));
 vi.mock("@/components/shared/BusinessLockBanner", () => ({
-  BusinessLockLine: ({ label }: { label: string }) => <p>{label}</p>,
+  BusinessLockLine: ({ label }: { label: string }) => (h.locked ? <p>{label}</p> : null),
 }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerEmailDelivery: () => h.emailDelivery }));
 vi.mock("@/services/authTokens", () => ({ getServerUrl: () => Promise.resolve(h.serverUrl) }));
@@ -27,7 +29,17 @@ vi.mock("@/services/enrollment/enrollmentApi", async (importOriginal) => ({
   enrollmentApi: { getToken: h.getToken, createToken: h.createToken, revokeToken: h.revokeToken },
 }));
 vi.mock("@/services/teamActionFeedback", () => ({
-  runTeamAction: ({ run }: { run: () => Promise<unknown> }) => run(),
+  runTeamAction: async ({ run, pending, success }: { run: () => Promise<unknown>; pending: string; success: string }) => {
+    h.toasts.push(pending);
+    try {
+      const r = await run();
+      h.toasts.push(success);
+      return r;
+    } catch (e) {
+      h.failed = e;
+      throw e;
+    }
+  },
 }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn().mockResolvedValue(undefined) }));
 
@@ -42,6 +54,7 @@ const ROLES = [
   { id: "r2", team_id: "t1", name: "admin", permissions: 0, is_builtin: true, position: 1, created_at: "" },
 ];
 
+const DAY = 24 * 3600_000;
 const SECRET = "s".repeat(43);
 const ID = "a".repeat(32);
 const created = (over = {}) => ({
@@ -57,6 +70,8 @@ beforeEach(() => {
   h.locked = false;
   h.emailDelivery = true;
   h.serverUrl = "https://voltius.example.com";
+  h.toasts = [];
+  h.failed = null;
   h.getToken.mockResolvedValue(null);
   useTeamStore.setState({ teams: [{ id: "t1", name: "Acme" } as never], loadTeams: h.loadTeams });
 });
@@ -119,6 +134,19 @@ test("rotate asks for confirmation then shows the new token", async () => {
   const field = (await screen.findByDisplayValue(/^vte1\./)) as HTMLInputElement;
   expect(field.value.endsWith("r".repeat(43))).toBe(true);
   expect(h.createToken).toHaveBeenCalledWith("t1", { role: "member", allowed_domains: ["acme.com"], require_approval: false, expires_at: null });
+  expect(h.toasts).toEqual(["members.enrollment.toast.rotate.pending", "members.enrollment.toast.rotate.done"]);
+  expect(field.getAttribute("aria-label")).toBe("members.enrollment.tokenLabel");
+});
+
+test("rotate and revoke are disabled while a rotation runs", async () => {
+  h.getToken.mockResolvedValue(info());
+  h.createToken.mockReturnValue(new Promise(() => {}));
+  mount();
+  fireEvent.click(await screen.findByText("members.enrollment.rotate"));
+  fireEvent.click(screen.getByText("members.enrollment.rotateConfirm"));
+  await waitFor(() => expect(h.createToken).toHaveBeenCalled());
+  expect((screen.getByText("members.enrollment.rotate").closest("button") as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByText("members.enrollment.revoke") as HTMLButtonElement).disabled).toBe(true);
 });
 
 test("revoke asks for confirmation", async () => {
@@ -165,14 +193,32 @@ test("a lapsed-plan refusal refreshes the team", async () => {
   await waitFor(() => expect(h.loadTeams).toHaveBeenCalled());
 });
 
-test("rotate keeps a future expiry and drops a past one", async () => {
-  const future = new Date(Date.now() + 5 * 24 * 3600_000).toISOString();
-  h.getToken.mockResolvedValue(info({ expires_at: future }));
+const rotateWith = async (over: object) => {
+  h.getToken.mockResolvedValue(info(over));
   h.createToken.mockResolvedValue(created());
   mount();
   fireEvent.click(await screen.findByText("members.enrollment.rotate"));
   fireEvent.click(screen.getByText("members.enrollment.rotateConfirm"));
-  await waitFor(() => expect(h.createToken.mock.calls[0][1].expires_at).toBe(future));
+  await waitFor(() => expect(h.createToken).toHaveBeenCalled());
+  return h.createToken.mock.calls[0][1].expires_at as string | null;
+};
+
+test("rotate keeps a future expiry", async () => {
+  const future = new Date(Date.now() + 5 * DAY).toISOString();
+  expect(await rotateWith({ expires_at: future })).toBe(future);
+});
+
+test("rotating an expired token keeps its lifetime from now", async () => {
+  const now = Date.now();
+  const expiresAt = await rotateWith({
+    created_at: new Date(now - 40 * DAY).toISOString(),
+    expires_at: new Date(now - 10 * DAY).toISOString(),
+  });
+  expect(Math.abs(new Date(expiresAt!).getTime() - (now + 30 * DAY))).toBeLessThan(60_000);
+});
+
+test("rotating a never-expiring token keeps it never-expiring", async () => {
+  expect(await rotateWith({ expires_at: null })).toBeNull();
 });
 
 test("no server url shows no token", async () => {
@@ -182,8 +228,67 @@ test("no server url shows no token", async () => {
   await screen.findByText("members.enrollment.create");
   addDomain("acme.com");
   fireEvent.click(createBtn());
-  await waitFor(() => expect(h.serverUrl).toBeNull());
-  await new Promise((r) => setTimeout(r, 20));
+  await waitFor(() => expect(h.failed).toBeInstanceOf(Error));
   expect(h.createToken).not.toHaveBeenCalled();
   expect(screen.queryByDisplayValue(/^vte1\./)).toBeNull();
+});
+
+test("a failed load offers a retry and never the create form", async () => {
+  h.getToken.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(null);
+  mount();
+  const retry = await screen.findByText("common.action.retry");
+  expect(screen.getByText("members.enrollment.loadFailed")).toBeTruthy();
+  expect(screen.queryByText("members.enrollment.create")).toBeNull();
+  fireEvent.click(retry);
+  await screen.findByText("members.enrollment.create");
+  expect(screen.queryByText("members.enrollment.loadFailed")).toBeNull();
+});
+
+test.each([
+  ["a server without enrolment", new EnrollmentError(null, 404)],
+  ["team invites switched off", new EnrollmentError("TEAM_INVITES_DISABLED", 403)],
+])("%s renders nothing", async (_name, err) => {
+  h.getToken.mockRejectedValue(err);
+  const { container } = mount();
+  await waitFor(() => expect(h.getToken).toHaveBeenCalled());
+  await waitFor(() => expect(container.querySelector("[data-enrolment]")).toBeNull());
+  expect(screen.queryByText("members.enrollment.create")).toBeNull();
+});
+
+test("a load for a previous team is ignored", async () => {
+  let resolveFirst: (v: unknown) => void = () => {};
+  h.getToken.mockReturnValueOnce(new Promise((r) => { resolveFirst = r; })).mockResolvedValue(null);
+  const view = mount();
+  view.rerender(<EnrolmentSection teamId="t2" roles={ROLES} />);
+  await screen.findByText("members.enrollment.create");
+  resolveFirst(info());
+  await new Promise((r) => setTimeout(r, 0));
+  expect(screen.queryByText("members.enrollment.rotate")).toBeNull();
+  expect(screen.getByText("members.enrollment.create")).toBeTruthy();
+});
+
+test("an expired token says so and points at rotate", async () => {
+  h.getToken.mockResolvedValue(info({ expires_at: new Date(Date.now() - DAY).toISOString() }));
+  mount();
+  await screen.findByText("members.enrollment.rotate");
+  expect(document.body.textContent).toContain("members.enrollment.expiredOn");
+  expect(document.body.textContent).not.toContain("members.enrollment.expiresOn");
+  expect(document.body.textContent).toContain("members.enrollment.expiredHint");
+});
+
+test("domains keep the part after the last @ and reject non-hostnames", async () => {
+  h.createToken.mockResolvedValue(created());
+  mount();
+  await screen.findByText("members.enrollment.create");
+  addDomain("not a domain");
+  expect(screen.getByText("members.enrollment.invalidDomain")).toBeTruthy();
+  expect(createBtn().disabled).toBe(true);
+  addDomain("sam@b@Acme.COM");
+  expect(screen.queryByText("members.enrollment.invalidDomain")).toBeNull();
+  for (const bad of ["acme", "-a.com", "a-.com", "a..com", `${"a".repeat(64)}.com`]) {
+    addDomain(bad);
+    expect(screen.getByText("members.enrollment.invalidDomain")).toBeTruthy();
+  }
+  fireEvent.click(createBtn());
+  await waitFor(() => expect(h.createToken.mock.calls[0][1].allowed_domains).toEqual(["acme.com"]));
 });

@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({ serverFetch: vi.fn() }));
 vi.mock("@/services/teamService", () => ({ serverFetch: h.serverFetch }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
-import { enrollmentApi, EnrollmentError } from "./enrollmentApi";
+import { enrollmentApi, enrollmentErrorMessage, EnrollmentError, enrollmentRefusal } from "./enrollmentApi";
 
 const reply = (status: number, body: unknown = {}) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 beforeEach(() => h.serverFetch.mockReset());
@@ -42,9 +42,35 @@ test("an uncoded 402 is an EnrollmentError with a null code", async () => {
   expect(err).toMatchObject({ code: null, status: 402 });
 });
 
-test("a switched-off feature reports the translated message", async () => {
+test("a switched-off feature reports the translated message and stays recognisable", async () => {
   h.serverFetch.mockResolvedValue(reply(403, { error: "TEAM_INVITES_DISABLED" }));
-  await expect(enrollmentApi.getToken("t1")).rejects.toThrow("common.error.teamInvitesDisabled");
+  const err = await enrollmentApi.getToken("t1").catch((e) => e);
+  expect(err.message).toBe("common.error.teamInvitesDisabled");
+  expect(enrollmentRefusal(err, "lapsed")).toBe("invitesOff");
+});
+
+test.each([
+  [new EnrollmentError("ENROLLMENT_UNAVAILABLE", 402), "noSeat", "lapsed"],
+  [new EnrollmentError(null, 402), "lapsed", "lapsed"],
+  [new EnrollmentError(null, 402), "noSeat", "noSeat"],
+  [new EnrollmentError("ENROLLMENT_NEEDS_GUARD", 400), "lapsed", "needsGuard"],
+  [new EnrollmentError("ENROLLMENT_NEEDS_APPROVAL", 400), "lapsed", "needsApproval"],
+  [new EnrollmentError("ENROLLMENT_DOMAIN_MISMATCH", 403), "noSeat", "domainMismatch"],
+  [new EnrollmentError(null, 400), "lapsed", "invalid"],
+  [new EnrollmentError(null, 403), "lapsed", "forbidden"],
+  [new EnrollmentError(null, 404), "noSeat", "notFound"],
+  [new EnrollmentError(null, 500), "lapsed", null],
+  [new Error("offline"), "lapsed", null],
+] as const)("refusal %#", (e, bare402, kind) => {
+  expect(enrollmentRefusal(e, bare402)).toBe(kind);
+});
+
+test("bare 400 and 403 read as translated sentences, other errors pass through", () => {
+  const t = ((k: string) => k) as never;
+  expect(enrollmentErrorMessage(t, new EnrollmentError(null, 400), "lapsed")).toBe("members.enrollment.error.invalid");
+  expect(enrollmentErrorMessage(t, new EnrollmentError(null, 403), "lapsed")).toBe("members.enrollment.error.forbidden");
+  expect(enrollmentErrorMessage(t, new EnrollmentError(null, 402), "lapsed")).toBe("members.enrollment.lapsed");
+  expect(enrollmentErrorMessage(t, new Error("offline"), "lapsed")).toBe("offline");
 });
 
 test("revoke and deny accept 204; list asks for pending", async () => {
