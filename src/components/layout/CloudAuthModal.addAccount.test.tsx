@@ -51,7 +51,7 @@ function fill(email: string, ...passwords: string[]) {
 }
 
 test("signing in adds the account and switches to it", async () => {
-  h.authenticateServerAccount.mockResolvedValue(SESSION);
+  h.authenticateServerAccount.mockResolvedValue({ account: SESSION, enrollment: null });
   render(<CloudAuthModal />);
 
   fill("b@x.io", "pw-b");
@@ -63,7 +63,7 @@ test("signing in adds the account and switches to it", async () => {
 });
 
 test("creating an account asks for a new password and confirms it", async () => {
-  h.authenticateServerAccount.mockResolvedValue(SESSION);
+  h.authenticateServerAccount.mockResolvedValue({ account: SESSION, enrollment: null });
   render(<CloudAuthModal />);
   await userEvent.click(screen.getAllByRole("button", { name: "layout.auth.createAccount" })[0]);
 

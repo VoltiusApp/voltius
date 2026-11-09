@@ -10,16 +10,17 @@ export class EnrollmentError extends Error {
 }
 
 export type EnrollmentRefusal =
-  | "lapsed" | "noSeat" | "needsGuard" | "needsApproval" | "domainMismatch" | "invitesOff" | "invalid" | "forbidden" | "notFound";
+  | "lapsed" | "noSeat" | "needsGuard" | "needsApproval" | "domainMismatch" | "invitesOff" | "invalid" | "forbidden" | "notFound" | "gone";
 
 const REFUSAL_BY_CODE: Record<string, EnrollmentRefusal> = {
+  ENROLLMENT_NOT_FOUND: "notFound",
   ENROLLMENT_UNAVAILABLE: "lapsed",
   ENROLLMENT_NEEDS_GUARD: "needsGuard",
   ENROLLMENT_NEEDS_APPROVAL: "needsApproval",
   ENROLLMENT_DOMAIN_MISMATCH: "domainMismatch",
   TEAM_INVITES_DISABLED: "invitesOff",
 };
-const REFUSAL_BY_STATUS: Record<number, EnrollmentRefusal> = { 400: "invalid", 403: "forbidden", 404: "notFound" };
+const REFUSAL_BY_STATUS: Record<number, EnrollmentRefusal> = { 400: "invalid", 403: "forbidden", 404: "notFound", 410: "gone" };
 
 const REFUSAL_MESSAGE: Record<EnrollmentRefusal, string> = {
   lapsed: "members.enrollment.lapsed",
@@ -31,6 +32,7 @@ const REFUSAL_MESSAGE: Record<EnrollmentRefusal, string> = {
   invalid: "members.enrollment.error.invalid",
   forbidden: "members.enrollment.error.forbidden",
   notFound: "members.joinRequests.gone",
+  gone: "members.enrollment.error.gone",
 };
 
 /** `bare402`: an uncoded 402 means a lapsed plan on token routes, a missing seat on approve. */
@@ -91,13 +93,15 @@ const tokenPath = (teamId: string) => `/v1/teams/${teamId}/enrollment-token`;
 const requestsPath = (teamId: string) => `/v1/teams/${teamId}/join-requests`;
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+export async function enrollmentErrorFrom(res: Response): Promise<EnrollmentError> {
+  const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  const disabled = await featureDisabledError({ status: res.status, json: async () => body });
+  return new EnrollmentError(typeof body?.error === "string" ? body.error : null, res.status, disabled?.message);
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await serverFetch(path, init);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-    const disabled = await featureDisabledError({ status: res.status, json: async () => body });
-    throw new EnrollmentError(typeof body?.error === "string" ? body.error : null, res.status, disabled?.message);
-  }
+  if (!res.ok) throw await enrollmentErrorFrom(res);
   return res.status === 204 ? (undefined as T) : res.json();
 }
 

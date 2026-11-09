@@ -376,6 +376,7 @@
         }
       },
       "error": {
+        "gone": "Bu kayıt belirteci iptal edildi veya süresi doldu.",
         "needsGuard": "Bir e-posta alan adı ekleyin veya onay isteyin.",
         "needsApproval": "Bu sunucu e-posta gönderemez, bu yüzden her katılım bir yöneticinin onayını gerektirir.",
         "domainMismatch": "E-posta alan adı belirtecin listesinde değil.",

@@ -56,7 +56,7 @@ test("a blocked password unlock moves to add-account sign-in with no wipe offer"
 
 test("cloud-only sign-in adds a new account instead of overwriting the session", async () => {
   const session = { account_id: "n" };
-  h.authenticate.mockResolvedValue(session);
+  h.authenticate.mockResolvedValue({ account: session, enrollment: null });
   h.addAccount.mockResolvedValue(undefined);
   const onReady = vi.fn();
   const { container } = render(<AuthPage isLocked={false} cloudOnly onReady={onReady} />);
@@ -71,7 +71,7 @@ test("cloud-only sign-in adds a new account instead of overwriting the session",
 });
 
 test("cloud-only register adds a new account", async () => {
-  h.authenticate.mockResolvedValue({ account_id: "n" });
+  h.authenticate.mockResolvedValue({ account: { account_id: "n" }, enrollment: null });
   h.addAccount.mockResolvedValue(undefined);
   const { container } = render(<AuthPage isLocked={false} cloudOnly onReady={vi.fn()} />);
   fireEvent.click(screen.getByText("layout.auth.createAccount"));
@@ -86,7 +86,7 @@ test("cloud-only register adds a new account", async () => {
 
 async function unlockBlockedThenSignIn() {
   h.login.mockRejectedValue(new ServerBlockedError("proven-pw"));
-  h.authenticate.mockResolvedValue({ account_id: "n" });
+  h.authenticate.mockResolvedValue({ account: { account_id: "n" }, enrollment: null });
   const { container } = render(<AuthPage isLocked onReady={vi.fn()} />);
   fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: "proven-pw" } });
   fireEvent.submit(container.querySelector("form")!);

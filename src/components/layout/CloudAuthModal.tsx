@@ -101,8 +101,8 @@ export default function CloudAuthModal() {
         // Nothing of the current session is touched until the server accepts these.
         await twoFactor.run(
           () => authenticateServerAccount(isRegister ? "register" : "signin", email, password, normalizedUrl),
-          async (session) => {
-            await addAccount(session);
+          async ({ account }) => {
+            await addAccount(account);
             onClose();
           },
         );

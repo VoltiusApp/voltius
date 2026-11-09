@@ -378,6 +378,7 @@
         }
       },
       "error": {
+        "gone": "Ce jeton d'enrôlement a été révoqué ou a expiré.",
         "needsGuard": "Ajoutez un domaine e-mail ou exigez une approbation.",
         "needsApproval": "Ce serveur ne peut pas envoyer d'e-mails, chaque adhésion nécessite donc l'approbation d'un administrateur.",
         "domainMismatch": "Le domaine de son e-mail ne figure pas dans la liste du jeton.",

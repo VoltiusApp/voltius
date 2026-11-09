@@ -291,7 +291,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
       if (addOnly) {
         await wrap(
           () => authenticateServerAccount(isSignup ? "register" : "signin", email, password, normalizedUrl),
-          (session) => addAccount(session, pendingSecret.current),
+          ({ account }) => addAccount(account, pendingSecret.current),
           false,
         );
       }

@@ -388,6 +388,7 @@
         }
       },
       "error": {
+        "gone": "Tento token pro zápis byl zrušen nebo vypršel.",
         "needsGuard": "Přidejte e-mailovou doménu nebo vyžadujte schválení.",
         "needsApproval": "Tento server neumí odesílat e-maily, proto každé připojení vyžaduje schválení správcem.",
         "domainMismatch": "Doména jejich e-mailu není v seznamu tokenu.",
