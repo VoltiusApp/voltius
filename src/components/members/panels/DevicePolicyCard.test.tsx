@@ -30,16 +30,16 @@ import { planRequiredError } from "@/services/planRequired";
 import { useTeamStore } from "@/stores/teamStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { PolicyIssue } from "@/stores/policyStore";
+import { makeTeam } from "@/test/team";
 
 const doc = (policy: Record<string, unknown>): TeamPolicyDoc => ({ version: 1, policy });
 const STORED = doc({ "sync.types.key": false, "security.lockTimeoutMinutes": { $range: { max: 15 } } });
 
 const setTeam = (policy: TeamPolicyDoc | null, revision = 1) =>
   useTeamStore.setState({
-    teams: [{
-      id: "t", name: "Acme", owner_id: "o", owner_tier: "business", created_at: "", role_ids: [],
-      lock_policy: policy ? { max_minutes: 15, force_vault: false } : null, policy, policy_revision: revision,
-    }],
+    teams: [makeTeam("t", {
+      name: "Acme", lock_policy: policy ? { max_minutes: 15, force_vault: false } : null, policy, policy_revision: revision,
+    })],
     membersByTeam: {},
     loadTeams: vi.fn(async () => {}),
   });

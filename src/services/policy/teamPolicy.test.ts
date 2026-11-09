@@ -6,26 +6,15 @@ vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/services/clientHeaders", () => ({ clientVersion: mocks.version }));
 vi.mock("@/services/lanSync", () => ({ clearLanSyncScopes: async () => {} }));
 
-import type { Team } from "@/services/teamService";
 import { refreshTeamPolicy, teamDocsFrom } from "./teamPolicy";
 import { lockedValue, policyRange } from "@/stores/policyStore";
 import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 import { ACCOUNT_SCOPED_STORAGE_KEYS, parkAccountUiState, restoreAccountUiState } from "@/stores/persistedAccountUiState";
 import { clearAccountUiState } from "@/services/vault";
 import { echoTeamDoc, resetPolicy } from "@/test/policy";
+import { makeTeam as team } from "@/test/team";
+import { LOCK_ACTION_KEY as ACTION, LOCK_TIMEOUT_KEY as TIMEOUT } from "@/services/lockPolicy";
 
-const TIMEOUT = "security.lockTimeoutMinutes";
-const ACTION = "security.lockAction";
-
-const team = (id: string, extra: Partial<Team> = {}): Team => ({
-  id,
-  name: `Team ${id}`,
-  owner_id: "o",
-  owner_tier: "business",
-  created_at: "",
-  role_ids: [],
-  ...extra,
-});
 
 const vaultLock = (id: string, revision = 1) =>
   team(id, { policy: { version: 1, policy: { [ACTION]: "vault" } }, policy_revision: revision, joined_at: "2026-01-01T00:00:00Z" });
@@ -48,7 +37,7 @@ describe("team policy", () => {
     ]);
     await refreshTeamPolicy([old]);
     expect(policyRange(TIMEOUT)).toEqual({ max: 15 });
-    expect(lockedValue(ACTION)).toEqual({ locked: true, value: "vault", source: "server", teams: ["Team a"] });
+    expect(lockedValue(ACTION)).toEqual({ locked: true, value: "vault", source: "server", teams: ["a"] });
   });
 
   it("old server without force_vault only caps the timeout", () => {
@@ -117,7 +106,7 @@ describe("team policy", () => {
       issues: [{ kind: "notForTeam", layer: "policy", key: "server.url", message: "machine policy only; ignored" }],
     });
     await refreshTeamPolicy([vaultLock("a")]);
-    expect(warn).toHaveBeenCalledWith("[policy]", "policy.server.url", "Team a: machine policy only; ignored");
+    expect(warn).toHaveBeenCalledWith("[policy]", "policy.server.url", "a: machine policy only; ignored");
     warn.mockRestore();
   });
 
@@ -138,7 +127,7 @@ describe("team policy", () => {
     expect(asB.lockedValue(ACTION)).toEqual({ locked: false });
 
     const asA = await switchTo("account-b", "account-a");
-    expect(asA.lockedValue(ACTION)).toEqual({ locked: true, value: "vault", source: "server", teams: ["Team a"] });
+    expect(asA.lockedValue(ACTION)).toEqual({ locked: true, value: "vault", source: "server", teams: ["a"] });
   });
 
   it("sign-out clears the layer", async () => {

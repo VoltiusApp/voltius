@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { storeSetting } from "@/services/policy/effectiveCore";
+import { LOCK_ACTION_KEY, LOCK_TIMEOUT_KEY } from "@/services/lockPolicy";
 
 export type LockAction = "vault" | "screen";
 
@@ -34,5 +35,5 @@ export const useSecurityStore = create<SecurityStore>()(
   ),
 );
 
-export const sessionTimeoutSetting = storeSetting(useSecurityStore, "sessionTimeoutMinutes", "security.lockTimeoutMinutes");
-export const lockActionSetting = storeSetting(useSecurityStore, "lockAction", "security.lockAction");
+export const sessionTimeoutSetting = storeSetting(useSecurityStore, "sessionTimeoutMinutes", LOCK_TIMEOUT_KEY);
+export const lockActionSetting = storeSetting(useSecurityStore, "lockAction", LOCK_ACTION_KEY);

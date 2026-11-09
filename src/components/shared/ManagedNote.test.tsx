@@ -16,14 +16,11 @@ vi.mock("@/utils/platform", async (importOriginal) => ({
   useIsMobile: () => platform.mobile,
 }));
 
-import { usePolicyStore } from "@/stores/policyStore";
 import { SettingRow } from "@/components/settings/sections/shared";
-import { resetPolicy, withTeamPolicy } from "@/test/policy";
+import { resetPolicy, withPolicy, withTeamPolicy } from "@/test/policy";
 import { Managed, ManagedNote, RangeNote } from "./ManagedNote";
 
-const NONE = { policy: {}, defaults: {} };
-const lock = (key: string) =>
-  usePolicyStore.setState({ machine: { policy: { [key]: true }, defaults: {} } });
+const lock = (key: string) => withPolicy({ [key]: true });
 
 const body = () => (
   <Managed policyKey="appSettings.toggles.cursor-blink">
@@ -34,7 +31,6 @@ const body = () => (
 beforeEach(() => {
   platform.mobile = false;
   resetPolicy();
-  usePolicyStore.setState({ machine: NONE, server: NONE });
 });
 afterEach(cleanup);
 
@@ -121,7 +117,7 @@ describe("RangeNote", () => {
 describe("SettingRow reset under a range", () => {
   const KEY = "appSettings.detachedTtlHours";
   const resetIn = (range: unknown) => {
-    usePolicyStore.setState({ machine: { policy: { [KEY]: range }, defaults: {} } });
+    withPolicy({ [KEY]: range });
     const c = render(<SettingRow title="x" syncKey={KEY} dirty onReset={() => {}}><button type="button">c</button></SettingRow>).container;
     return c.querySelector('[title="settings.shared.resetToDefault"]');
   };
