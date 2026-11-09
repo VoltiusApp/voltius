@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
@@ -48,7 +49,7 @@ interface Settings {
   role: string;
   domains: string[];
   approve: boolean;
-  expiryDays: number | null;
+  expiresAt: string | null;
 }
 
 interface Props {
@@ -99,16 +100,21 @@ export function EnrolmentSection({ teamId, roles }: Props) {
         role: s.role,
         allowed_domains: s.domains,
         require_approval: noEmail || s.approve,
-        expires_at: s.expiryDays ? new Date(Date.now() + s.expiryDays * DAY_MS).toISOString() : null,
+        expires_at: s.expiresAt,
       };
       const [made, serverUrl] = await Promise.all([enrollmentApi.createToken(teamId, body), getServerUrl()]);
-      showCreated(made, serverUrl ?? "");
+      if (!serverUrl) {
+        load();
+        throw new Error(t("common.error.notConnectedToServer"));
+      }
+      showCreated(made, serverUrl);
     }, "create");
 
   const showCreated = (made: CreatedEnrollmentToken, serverUrl: string) => {
     const { secret, ...rest } = made;
     setFresh(buildEnrollmentToken(serverUrl, made.id, secret));
     setInfo({ ...rest, created_by_name: null, last_used_at: null, admitted_count: 0, pending_count: 0 });
+    enrollmentApi.getToken(teamId).then((stored) => stored && setInfo(stored)).catch(() => {});
   };
 
   const rotate = async () => {
@@ -118,7 +124,7 @@ export function EnrolmentSection({ teamId, roles }: Props) {
       role: info.role,
       domains: info.allowed_domains,
       approve: info.require_approval,
-      expiryDays: null,
+      expiresAt: info.expires_at && new Date(info.expires_at).getTime() > Date.now() ? info.expires_at : null,
     });
   };
 
@@ -251,7 +257,7 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
 
       <div className="flex items-center gap-2">
         <button
-          onClick={() => onCreate({ role, domains, approve, expiryDays })}
+          onClick={() => onCreate({ role, domains, approve, expiresAt: expiryDays ? new Date(Date.now() + expiryDays * DAY_MS).toISOString() : null })}
           disabled={busy || (domains.length === 0 && !approval)}
           className="px-3 py-1.5 rounded-lg text-[11px] font-medium disabled:opacity-50"
           style={ACCENT_BTN}
@@ -274,7 +280,7 @@ interface TokenCardProps {
 
 function TokenCard({ info, fresh, locked, onRotate, onRevoke }: TokenCardProps) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash(2000);
   const { color, bg } = roleChipColors(info.role);
   const created = formatDateTime(info.created_at, SHORT_DATE);
   const summary = [
@@ -286,8 +292,7 @@ function TokenCard({ info, fresh, locked, onRotate, onRevoke }: TokenCardProps) 
   const copy = async () => {
     if (!fresh) return;
     await writeClipboard(fresh);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    flash();
   };
 
   return (

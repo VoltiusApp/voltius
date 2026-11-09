@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   createToken: vi.fn(),
   revokeToken: vi.fn(),
   loadTeams: vi.fn(),
+  serverUrl: "https://voltius.example.com" as string | null,
 }));
 
 vi.mock("react-i18next", async (importOriginal) => ({
@@ -20,7 +21,7 @@ vi.mock("@/components/shared/BusinessLockBanner", () => ({
   BusinessLockLine: ({ label }: { label: string }) => <p>{label}</p>,
 }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerEmailDelivery: () => h.emailDelivery }));
-vi.mock("@/services/authTokens", () => ({ getServerUrl: () => Promise.resolve("https://voltius.example.com") }));
+vi.mock("@/services/authTokens", () => ({ getServerUrl: () => Promise.resolve(h.serverUrl) }));
 vi.mock("@/services/enrollment/enrollmentApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/enrollment/enrollmentApi")>()),
   enrollmentApi: { getToken: h.getToken, createToken: h.createToken, revokeToken: h.revokeToken },
@@ -55,6 +56,7 @@ const info = (over = {}) => {
 beforeEach(() => {
   h.locked = false;
   h.emailDelivery = true;
+  h.serverUrl = "https://voltius.example.com";
   h.getToken.mockResolvedValue(null);
   useTeamStore.setState({ teams: [{ id: "t1", name: "Acme" } as never], loadTeams: h.loadTeams });
 });
@@ -161,4 +163,26 @@ test("a lapsed-plan refusal refreshes the team", async () => {
   addDomain("acme.com");
   fireEvent.click(createBtn());
   await waitFor(() => expect(h.loadTeams).toHaveBeenCalled());
+});
+
+test("rotate keeps a future expiry and drops a past one", async () => {
+  const future = new Date(Date.now() + 5 * 24 * 3600_000).toISOString();
+  h.getToken.mockResolvedValue(info({ expires_at: future }));
+  h.createToken.mockResolvedValue(created());
+  mount();
+  fireEvent.click(await screen.findByText("members.enrollment.rotate"));
+  fireEvent.click(screen.getByText("members.enrollment.rotateConfirm"));
+  await waitFor(() => expect(h.createToken.mock.calls[0][1].expires_at).toBe(future));
+});
+
+test("no server url shows no token", async () => {
+  h.serverUrl = null;
+  h.createToken.mockResolvedValue(created());
+  mount();
+  await screen.findByText("members.enrollment.create");
+  addDomain("acme.com");
+  fireEvent.click(createBtn());
+  await waitFor(() => expect(h.createToken).toHaveBeenCalled());
+  await waitFor(() => expect(h.getToken).toHaveBeenCalledTimes(2));
+  expect(screen.queryByDisplayValue(/^vte1\./)).toBeNull();
 });
