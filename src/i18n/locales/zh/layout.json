@@ -447,7 +447,7 @@
       },
       "tokenEntry": {
         "toggle": "有注册令牌？",
-        "placeholder": "粘贴您的注册令牌",
+        "placeholder": "vte1.…",
         "invalid": "这不是注册令牌。"
       }
     }

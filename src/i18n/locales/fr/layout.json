@@ -459,7 +459,7 @@
       },
       "tokenEntry": {
         "toggle": "Vous avez un jeton d'enrôlement ?",
-        "placeholder": "Collez votre jeton d'enrôlement",
+        "placeholder": "vte1.…",
         "invalid": "Ce n'est pas un jeton d'enrôlement."
       }
     }

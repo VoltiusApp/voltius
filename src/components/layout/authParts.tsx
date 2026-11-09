@@ -105,6 +105,11 @@ export function emailError(email: string, t: TFunction): string {
   return email.includes("@") ? "" : t("layout.auth.errorInvalidEmail");
 }
 
+export function newPasswordProblem(password: string, confirm: string, t: TFunction): string {
+  if (password.length < MIN_PASSWORD_LENGTH) return t("layout.auth.errorMinLength8");
+  return password === confirm ? "" : t("layout.auth.errorPasswordMismatch");
+}
+
 export function FormNote({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
     <p className="flex gap-2 text-xs leading-relaxed text-(--t-text-secondary) py-1">

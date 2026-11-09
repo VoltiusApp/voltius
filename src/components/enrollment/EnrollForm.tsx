@@ -8,10 +8,10 @@ import {
   INPUT_CLASS,
   Input,
   MasterPasswordNote,
-  MIN_PASSWORD_LENGTH,
   SubmitBtn,
   SwitchModeLink,
   emailError,
+  newPasswordProblem,
 } from "@/components/layout/authParts";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
@@ -31,33 +31,27 @@ import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken
 import { serverAllowed } from "@/services/policy/serverPolicy";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { EnrollSource } from "@/stores/uiStore";
-import { sameServer } from "@/utils/serverInstance";
-import { Heading, StateCard, type CardAction } from "./EnrollOutcome";
+import { enrollAuthStep, type EnrollAuthResult } from "@/services/enrollment/enrollAuth";
+import { DEFAULT_SERVER_URL, instanceLabel, sameServer } from "@/utils/serverInstance";
+import { Heading, StateCard, type CardAction } from "./enrollCards";
 
 type Mode = "signup" | "signin";
 export type EnrollActiveAccount = "none" | "local" | { serverUrl: string; accountId: string; email: string };
-export type EnrollSession = { serverUrl: string; jwt: string } | "active";
-export interface EnrollAuthResult {
-  outcome: EnrollmentOutcome | null;
-  session: EnrollSession;
-  accountId: string;
-}
 export type EnrollAuth = (req: { mode: Mode; email: string; password: string; token: EnrollmentTokenParts }) => Promise<EnrollAuthResult>;
 
-const firstLaunchAuth: EnrollAuth = async ({ mode, email, password, token }) => {
-  const outcome = mode === "signup"
-    ? await createServerAccount(email, password, token.serverUrl, enrollmentCredential(token))
-    : (await login(password, email, token.serverUrl), null);
-  return { outcome, session: "active", accountId: (await getAccountId()) ?? "" };
-};
+const activeSession = async (outcome: EnrollmentOutcome | null): Promise<EnrollAuthResult> =>
+  ({ outcome, session: "active", accountId: (await getAccountId()) ?? "" });
+
+const firstLaunchAuth: EnrollAuth = ({ mode, email, password, token }) =>
+  mode === "signup"
+    ? enrollAuthStep(() => createServerAccount(email, password, token.serverUrl, enrollmentCredential(token)), activeSession)
+    : enrollAuthStep(() => login(password, email, token.serverUrl), () => activeSession(null));
 
 type Failure = ResolveFailure | "blocked";
 type Step =
   | { kind: "loading" }
   | { kind: "failed"; failure: Failure; team?: string }
   | { kind: "confirm" | "form"; resolved: ResolvedEnrollment };
-
-const hostOf = (url: string) => new URL(url).host;
 
 function failureBody(failure: Failure, team: string | undefined, host: string, t: (k: string, o?: Record<string, unknown>) => string) {
   switch (failure) {
@@ -96,7 +90,7 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
   const [loading, setLoading] = useState(false);
   const authed = useRef<EnrollAuthResult | null>(null);
   const twoFactor = useTwoFactorChallenge();
-  const serverHost = hostOf(token.serverUrl);
+  const serverHost = instanceLabel(token.serverUrl) ?? DEFAULT_SERVER_URL;
 
   useEffect(() => {
     // Checked before resolve: the token secret must never reach a server this machine's policy blocks.
@@ -181,12 +175,13 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
 
   const refused = (e: unknown) => {
     const refusal = joinRefusal(e);
-    if (refusal === "domainMismatch") return fail(domainError, true);
+    if (refusal === "domainMismatch") return fail(domainError, !authed.current);
     if (refusal) return setStep({ kind: "failed", failure: refusal, team });
     fail(accountErrorText(e, t));
   };
 
-  const finish = async (result: EnrollAuthResult) => {
+  const finish = async (result: EnrollAuthResult | undefined) => {
+    if (!result) throw new Error("enrol sign-in resumed without a result");
     authed.current = result;
     try {
       const outcome = result.outcome ?? (await redeemEnrollment(token, result.session));
@@ -201,8 +196,8 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
     const invalidEmail = emailError(email, t);
     if (invalidEmail) return [invalidEmail, true];
     if (!emailDomainAllowed(email, resolved.allowedDomains)) return [domainError, true];
-    if (signup && passwordMode === "new" && password.length < MIN_PASSWORD_LENGTH) return [t("layout.auth.errorMinLength8"), false];
-    if (signup && passwordMode === "new" && password !== confirm) return [t("layout.auth.errorPasswordMismatch"), false];
+    const invalidPassword = signup && passwordMode === "new" ? newPasswordProblem(password, confirm, t) : "";
+    if (invalidPassword) return [invalidPassword, false];
     if (signup && passwordMode === "current" && !password) return [t("layout.cloudAuthModal.errorPasswordRequired"), false];
     return null;
   };

@@ -17,7 +17,7 @@ import { accountErrorText } from "@/services/accountErrors";
 import { usePolicyLock } from "@/stores/policyStore";
 import { secretState } from "@/services/vaultSecret";
 import { localSyncContext, usePlatform } from "@/utils/platform";
-import { Input, MasterPasswordNote, MIN_PASSWORD_LENGTH, emailError } from "./authParts";
+import { Input, MasterPasswordNote, emailError, newPasswordProblem } from "./authParts";
 
 const AUTH_INPUT_CLASS =
   "w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)";
@@ -78,10 +78,8 @@ export default function CloudAuthModal() {
     const normalizedUrl = resolveServerUrl(serverUrl);
 
     if ((!isRegister || needsCurrentPassword) && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
-    if (needsNewPassword) {
-      if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
-      if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
-    }
+    const invalidPassword = needsNewPassword ? newPasswordProblem(password, confirm, t) : "";
+    if (invalidPassword) { setError(invalidPassword); return; }
 
     const connected = async (firstSync: () => Promise<void>) => {
       startSessionSync(firstSync().catch(() => {}));

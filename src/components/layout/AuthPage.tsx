@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ActionButton, SwitchModeLink, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, MIN_PASSWORD_LENGTH, SubmitBtn, SystemAuthButton, emailError } from "./authParts";
+import { ActionButton, SwitchModeLink, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, SubmitBtn, SystemAuthButton, emailError, newPasswordProblem } from "./authParts";
 import {
   authenticateServerAccount,
   createLocalAccountNoPassword,
@@ -236,7 +236,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
 
   if (view === "enroll" && enroll) {
     // Once the form has signed in, there is an account to open instead of the generic home.
-    const skip = async () => ((await isServerMode()) ? onReady() : reset("home"));
+    const skip = async () => ((await isServerMode().catch(() => false)) ? onReady() : reset("home"));
     return (
       <Layout>
         {enrolled
@@ -298,8 +298,8 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
       if (invalidEmail) { setError(invalidEmail); return; }
       const normalizedUrl = resolveServerUrl(serverUrl);
       if (isSignup) {
-        if (password.length < MIN_PASSWORD_LENGTH) { setError(t("layout.auth.errorMinLength8")); return; }
-        if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
+        const invalidPassword = newPasswordProblem(password, confirm, t);
+        if (invalidPassword) { setError(invalidPassword); return; }
         if (!addOnly) await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
           addToast({

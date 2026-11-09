@@ -459,7 +459,7 @@
       },
       "tokenEntry": {
         "toggle": "Tem um token de inscrição?",
-        "placeholder": "Cole seu token de inscrição",
+        "placeholder": "vte1.…",
         "invalid": "Isso não é um token de inscrição."
       }
     }

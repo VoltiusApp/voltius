@@ -82,3 +82,12 @@ test("a pasted enrolment token opens the form as a paste token", async () => {
   fireEvent.submit(field.closest("form")!);
   expect(screen.getByText(`form:paste:${ID}`)).toBeTruthy();
 });
+
+test("Skip falls back to the generic home when the account mode can't be read", async () => {
+  h.isServerMode.mockRejectedValue(new Error("keychain locked"));
+  const onReady = vi.fn();
+  render(<AuthPage isLocked={false} enrollTarget={{ token: TOKEN, source: "machine" }} onReady={onReady} />);
+  fireEvent.click(screen.getByText("skip"));
+  expect(await screen.findByText("layout.auth.getStarted")).toBeTruthy();
+  expect(onReady).not.toHaveBeenCalled();
+});

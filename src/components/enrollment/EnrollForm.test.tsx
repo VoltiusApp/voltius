@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   redeemEnrollment: vi.fn(),
   serverAllowed: vi.fn(),
   invoke: vi.fn(),
+  passkeyRoundTrip: vi.fn(),
 }));
 
 const tr = (k: string, o?: Record<string, unknown>) => {
@@ -25,6 +26,10 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
+vi.mock("@/services/passkeyRoundTrip", async (orig) => ({
+  ...(await orig<typeof import("@/services/passkeyRoundTrip")>()),
+  passkeyRoundTrip: h.passkeyRoundTrip,
+}));
 vi.mock("@/services/account", () => ({
   createServerAccount: h.createServerAccount,
   login: h.login,
@@ -44,6 +49,7 @@ vi.mock("@/services/policy/serverPolicy", async (orig) => ({
 import { EnrollForm } from "./EnrollForm";
 import { EnrollOutcome } from "./EnrollOutcome";
 import { EnrollmentError } from "@/services/enrollment/enrollmentApi";
+import { TwoFactorRequiredError, type TwoFactorProof } from "@/services/twoFactorProof";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { EnrollSource } from "@/stores/uiStore";
 
@@ -83,6 +89,12 @@ async function fillCreate(email?: string) {
 }
 
 const submit = () => fireEvent.submit(document.querySelector("form")!);
+
+async function signIn() {
+  await suggested();
+  fireEvent.click(screen.getByText("layout.auth.signIn"));
+  fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: PASSWORD } });
+}
 
 function expectNothingSent() {
   expect(h.createServerAccount).not.toHaveBeenCalled();
@@ -135,16 +147,60 @@ test("client domain check blocks submit", async () => {
 });
 
 test("server domain mismatch returns to form", async () => {
-  h.login.mockResolvedValue(undefined);
-  h.redeemEnrollment.mockRejectedValue(new EnrollmentError("ENROLLMENT_DOMAIN_MISMATCH", 403));
+  h.createServerAccount.mockRejectedValue(new EnrollmentError("ENROLLMENT_DOMAIN_MISMATCH", 403));
   const { onDone } = renderForm();
   await suggested();
-  fireEvent.click(screen.getByText("layout.auth.signIn"));
-  fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: PASSWORD } });
+  await fillCreate();
   submit();
   expect(await screen.findByText("layout.enroll.domainError(team=Acme,domains=@acme.com)")).toBeTruthy();
-  expect((await emailField()).getAttribute("aria-invalid")).toBe("true");
+  const email = await emailField();
+  expect(email.getAttribute("aria-invalid")).toBe("true");
+  expect(email.disabled).toBe(false);
   expect(onDone).not.toHaveBeenCalled();
+});
+
+test("server domain mismatch after sign in is a message with Skip, not a locked field in error", async () => {
+  h.login.mockResolvedValue(undefined);
+  h.redeemEnrollment.mockRejectedValue(new EnrollmentError("ENROLLMENT_DOMAIN_MISMATCH", 403));
+  const { onDone, onSkip } = renderForm();
+  await signIn();
+  submit();
+  expect(await screen.findByText("layout.enroll.domainError(team=Acme,domains=@acme.com)")).toBeTruthy();
+  expect((await emailField()).getAttribute("aria-invalid")).toBeNull();
+  fireEvent.click(screen.getByText("layout.enroll.skip"));
+  expect(onSkip).toHaveBeenCalledTimes(1);
+  expect(onDone).not.toHaveBeenCalled();
+});
+
+async function reachCodeStep() {
+  const complete = vi.fn(async (_proof: TwoFactorProof) => {});
+  h.login.mockRejectedValue(new TwoFactorRequiredError(["totp", "passkey", "recovery"], complete, vi.fn()));
+  h.redeemEnrollment.mockResolvedValue({ status: "member", teamId: "t1" });
+  const rendered = renderForm();
+  await signIn();
+  submit();
+  await screen.findByText("layout.twoFactor.verify");
+  expect(h.redeemEnrollment).not.toHaveBeenCalled();
+  return { complete, ...rendered };
+}
+
+test("sign in with two-factor redeems after the code", async () => {
+  const { complete, onDone } = await reachCodeStep();
+  const code = document.querySelector<HTMLInputElement>('input[autocomplete="one-time-code"]')!;
+  fireEvent.change(code, { target: { value: "123456" } });
+  fireEvent.submit(code.closest("form")!);
+  await waitFor(() => expect(onDone).toHaveBeenCalledWith({ status: "member", teamId: "t1" }, { email: "jdoe@acme.com", teamName: "Acme" }));
+  expect(complete).toHaveBeenCalledWith({ code: "123456" });
+  expect(h.redeemEnrollment).toHaveBeenCalledWith(TOKEN, "active");
+});
+
+test("sign in with a passkey redeems after the ceremony", async () => {
+  h.passkeyRoundTrip.mockResolvedValue("pk-code");
+  const { complete, onDone } = await reachCodeStep();
+  fireEvent.click(screen.getByText("layout.twoFactor.usePasskey"));
+  await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+  expect(complete).toHaveBeenCalledWith({ passkeyCode: "pk-code" });
+  expect(h.redeemEnrollment).toHaveBeenCalledWith(TOKEN, "active");
 });
 
 test("create sends credential and shows pending approval outcome", async () => {
@@ -182,9 +238,7 @@ test("sign in redeems with active session", async () => {
   h.login.mockResolvedValue(undefined);
   h.redeemEnrollment.mockResolvedValue(outcome);
   const { onDone } = renderForm();
-  await suggested();
-  fireEvent.click(screen.getByText("layout.auth.signIn"));
-  fireEvent.change(screen.getByPlaceholderText("layout.auth.masterPasswordPlaceholder"), { target: { value: PASSWORD } });
+  await signIn();
   submit();
   await waitFor(() => expect(onDone).toHaveBeenCalledWith(outcome, { email: "jdoe@acme.com", teamName: "Acme" }));
   expect(h.login).toHaveBeenCalledWith(PASSWORD, "jdoe@acme.com", TOKEN.serverUrl);

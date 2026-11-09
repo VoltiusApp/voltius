@@ -451,7 +451,7 @@
       },
       "tokenEntry": {
         "toggle": "Kayıt belirteciniz mi var?",
-        "placeholder": "Kayıt belirtecinizi yapıştırın",
+        "placeholder": "vte1.…",
         "invalid": "Bu bir kayıt belirteci değil."
       }
     }

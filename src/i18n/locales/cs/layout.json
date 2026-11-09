@@ -467,7 +467,7 @@
       },
       "tokenEntry": {
         "toggle": "Máte token pro zápis?",
-        "placeholder": "Vložte token pro zápis",
+        "placeholder": "vte1.…",
         "invalid": "Toto není token pro zápis."
       }
     }

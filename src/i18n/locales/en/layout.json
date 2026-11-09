@@ -451,7 +451,7 @@
       },
       "tokenEntry": {
         "toggle": "Have an enrolment token?",
-        "placeholder": "Paste your enrolment token",
+        "placeholder": "vte1.…",
         "invalid": "That isn't an enrolment token."
       }
     }
