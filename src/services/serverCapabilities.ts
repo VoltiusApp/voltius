@@ -18,6 +18,7 @@ interface ServerCapabilities {
   wrappedSecretsCas: boolean;
   billingEnabled: boolean;
   multiOwner: boolean;
+  emailDelivery: boolean;
 }
 
 const UNKNOWN: ServerCapabilities = {
@@ -28,6 +29,7 @@ const UNKNOWN: ServerCapabilities = {
   wrappedSecretsCas: false,
   billingEnabled: false,
   multiOwner: false,
+  emailDelivery: true,
 };
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
 
@@ -36,7 +38,7 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner } = await fetchServerMeta(
+    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner, email_delivery } = await fetchServerMeta(
       "common.error.failedToLoadServerCapabilities",
     );
     fetchedAt = Date.now();
@@ -46,6 +48,7 @@ async function loadCapabilities(): Promise<void> {
       wrappedSecretsCas: wrapped_secrets_cas === true,
       billingEnabled: billing_enabled === true,
       multiOwner: multi_owner === true,
+      emailDelivery: email_delivery !== false,
       ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
         : { advertisedSecretTypes: null }),
@@ -109,6 +112,12 @@ export function useServerBillingEnabled(): boolean {
 export function useServerMultiOwner(): boolean {
   useEffect(() => void refreshServerCapabilities(), []);
   return useServerCapabilities((s) => s.multiOwner);
+}
+
+/** Whether this server can send email; servers that predate the flag are assumed to. */
+export function useServerEmailDelivery(): boolean {
+  useEffect(() => void refreshServerCapabilities(), []);
+  return useServerCapabilities((s) => s.emailDelivery);
 }
 
 export async function serverSupportsWrappedSecretsCas(): Promise<boolean> {
