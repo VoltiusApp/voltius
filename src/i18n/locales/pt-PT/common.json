@@ -314,6 +314,7 @@
     },
     "policy": {
       "managed": "Gerido pela sua organização",
+      "managedByTeam": "Gerido por {{team}}",
       "rangeMax": "A sua organização permite até {{value}}",
       "rangeMin": "A sua organização permite {{value}} ou mais",
       "rangeBetween": "A sua organização permite de {{min}} a {{max}}",

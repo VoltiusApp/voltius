@@ -123,13 +123,13 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   );
 }
 
-interface RowManaged { key: string | undefined; locked: boolean; resettable: boolean }
+interface RowManaged { key: string | undefined; locked: boolean; teams: string[]; resettable: boolean }
 
 export function useRowManaged(key: string | undefined): RowManaged {
-  usePolicyLock(key ?? "");
+  const lock = usePolicyLock(key ?? "");
   const range = usePolicyRange(key ?? "");
   const locked = !!key && isEnforcedLock(key);
-  return { key, locked, resettable: !locked && (!range || inPolicyRange(range, builtIn(key!))) };
+  return { key, locked, teams: lock.locked ? lock.teams : [], resettable: !locked && (!range || inPolicyRange(range, builtIn(key!))) };
 }
 
 export function RowControl({ managed, note, children }: { managed: RowManaged; note?: boolean; children: ReactNode }) {
@@ -373,7 +373,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
             {desc}
           </div>
         )}
-        {managed.locked && <ManagedNote className="mt-1" />}
+        {managed.locked && <ManagedNote className="mt-1" teams={managed.teams} />}
         {note && <div className="mt-1">{note}</div>}
       </div>
       <div className="flex items-center gap-1 shrink-0">

@@ -18,7 +18,8 @@ vi.mock("@/utils/platform", async (importOriginal) => ({
 
 import { usePolicyStore } from "@/stores/policyStore";
 import { SettingRow } from "@/components/settings/sections/shared";
-import { Managed, RangeNote } from "./ManagedNote";
+import { resetPolicy, withTeamPolicy } from "@/test/policy";
+import { Managed, ManagedNote, RangeNote } from "./ManagedNote";
 
 const NONE = { policy: {}, defaults: {} };
 const lock = (key: string) =>
@@ -32,6 +33,7 @@ const body = () => (
 
 beforeEach(() => {
   platform.mobile = false;
+  resetPolicy();
   usePolicyStore.setState({ machine: NONE, server: NONE });
 });
 afterEach(cleanup);
@@ -42,6 +44,11 @@ describe("Managed", () => {
     const { container } = render(body());
     expect((container.querySelector("button") as HTMLButtonElement).matches(":disabled")).toBe(true);
     expect(container.textContent).toContain("common.policy.managed");
+  });
+
+  it("names the team when a team policy locks it", () => {
+    withTeamPolicy({ "appSettings.toggles.cursor-blink": true });
+    expect(render(body()).container.textContent).toBe('common.policy.managedByTeam {"team":"Acme"}go');
   });
 
   it("is transparent when unlocked", () => {
@@ -81,6 +88,16 @@ describe("SettingRow policy lock", () => {
     const c = row("appSettings.plugins.overrides");
     expect(c.textContent).not.toContain("common.policy.managed");
     expect(syncButton(c)).not.toBeNull();
+  });
+});
+
+describe("ManagedNote teams", () => {
+  it("keeps the generic text without teams", () => {
+    expect(render(<ManagedNote teams={[]} />).container.textContent).toBe("common.policy.managed");
+  });
+
+  it("names the first team when several shaped the entry", () => {
+    expect(render(<ManagedNote teams={["Acme", "Beta"]} />).container.textContent).toBe('common.policy.managedByTeam {"team":"Acme"}');
   });
 });
 

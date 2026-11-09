@@ -300,6 +300,7 @@
     },
     "policy": {
       "managed": "Kuruluşunuz tarafından yönetiliyor",
+      "managedByTeam": "{{team}} tarafından yönetiliyor",
       "rangeMax": "Kuruluşunuz en fazla {{value}} değerine izin veriyor",
       "rangeMin": "Kuruluşunuz {{value}} veya üzerine izin veriyor",
       "rangeBetween": "Kuruluşunuz {{min}}–{{max}} aralığına izin veriyor",

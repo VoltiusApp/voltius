@@ -1,10 +1,8 @@
 import { useMemo } from "react";
 import { lockActionSetting, sessionTimeoutSetting, type LockAction } from "@/stores/securityStore";
-import { lockedValue, policyRange, policySourceOf, usePolicyStore } from "@/stores/policyStore";
+import { policySourceOf, usePolicyStore } from "@/stores/policyStore";
 
 export interface LockLimit {
-  maxMinutes: number | null;
-  forceVault: boolean;
   teams: { timeout: string[]; vault: string[] };
 }
 
@@ -18,13 +16,9 @@ const TIMEOUT_KEY = sessionTimeoutSetting.key;
 const ACTION_KEY = lockActionSetting.key;
 
 function readLimit(): LockLimit | null {
-  const lock = lockedValue(TIMEOUT_KEY);
-  const maxMinutes = lock.locked ? (lock.value as number | null) : (policyRange(TIMEOUT_KEY)?.max ?? null);
-  const action = lockedValue(ACTION_KEY);
-  const forceVault = action.locked && action.value === "vault";
   if (!policySourceOf(TIMEOUT_KEY) && !policySourceOf(ACTION_KEY)) return null;
   const teamsOf = (key: string) => policySourceOf(key)?.teams ?? [];
-  return { maxMinutes, forceVault, teams: { timeout: teamsOf(TIMEOUT_KEY), vault: teamsOf(ACTION_KEY) } };
+  return { teams: { timeout: teamsOf(TIMEOUT_KEY), vault: teamsOf(ACTION_KEY) } };
 }
 
 export function getEffectiveLockSettings(): EffectiveLockSettings {

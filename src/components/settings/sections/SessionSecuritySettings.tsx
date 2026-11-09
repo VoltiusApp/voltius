@@ -84,7 +84,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
 
   const maxOnly = timeoutRange?.min === undefined && timeoutRange?.allowed === undefined ? timeoutRange?.max : undefined;
   const timeoutNote = timeoutLock.locked
-    ? <ManagedNote />
+    ? <ManagedNote teams={timeoutLock.teams} />
     : maxOnly !== undefined
       ? setBy(limit?.teams.timeout, (teams) => maxOnly === IMMEDIATELY
           ? t("settings.account.sessionSecurity.policy.timeoutImmediately", { teams })
@@ -93,7 +93,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const actionNote = actionLock.locked
     ? actionLock.value === "vault"
       ? setBy(limit?.teams.vault, (teams) => t("settings.account.sessionSecurity.policy.vault", { teams }))
-      : <ManagedNote />
+      : <ManagedNote teams={actionLock.teams} />
     : actionRange && rangeNote(actionRange, actionLabel);
 
   const allActions = [

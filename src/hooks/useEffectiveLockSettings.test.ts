@@ -45,7 +45,7 @@ test("a machine policy can set the timeout max too", () => {
   own(60);
   expect(getEffectiveLockSettings()).toMatchObject({
     sessionTimeoutMinutes: 15,
-    limit: { maxMinutes: 15, forceVault: false, teams: { timeout: [], vault: [] } },
+    limit: { teams: { timeout: [], vault: [] } },
   });
 });
 
@@ -54,7 +54,7 @@ test("a limit names the teams and the stored preference is not rewritten", () =>
   const { result } = renderHook(() => useEffectiveLockSettings());
   expect(result.current.sessionTimeoutMinutes).toBe(15);
   expect(result.current.lockAction).toBe("vault");
-  expect(result.current.limit).toEqual({ maxMinutes: 15, forceVault: true, teams: { timeout: ["Acme"], vault: ["Acme"] } });
+  expect(result.current.limit).toEqual({ teams: { timeout: ["Acme"], vault: ["Acme"] } });
   expect(useSecurityStore.getState().sessionTimeoutMinutes).toBeNull();
   expect(useSecurityStore.getState().lockAction).toBe("screen");
 });

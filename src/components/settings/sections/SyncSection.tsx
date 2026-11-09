@@ -161,15 +161,15 @@ function SyncToggleRow({ domain, policyKey, label, sub, ariaLabel, checked, onCh
 }) {
   const { t } = useTranslation();
   const toggle = <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />;
-  const locked = usePolicyLock(policyKey ?? "").locked;
+  const lock = usePolicyLock(policyKey ?? "");
   return (
     <div data-sync-domain={domain} data-setting-row data-ripple className="relative flex items-center justify-between gap-3 px-4 py-3">
       <div>
         <p className="text-sm font-medium text-(--t-text-primary)">{label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
-        {locked && <ManagedNote className="mt-1" />}
+        {lock.locked && <ManagedNote className="mt-1" teams={lock.teams} />}
       </div>
-      <ManagedWhen locked={locked} note={false}>{toggle}</ManagedWhen>
+      <ManagedWhen locked={lock.locked} note={false}>{toggle}</ManagedWhen>
     </div>
   );
 }

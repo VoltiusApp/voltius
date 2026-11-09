@@ -328,6 +328,7 @@
     },
     "policy": {
       "managed": "Spravuje vaše organizace",
+      "managedByTeam": "Spravuje {{team}}",
       "rangeMax": "Vaše organizace povoluje nejvýše {{value}}",
       "rangeMin": "Vaše organizace povoluje {{value}} nebo více",
       "rangeBetween": "Vaše organizace povoluje {{min}}–{{max}}",
