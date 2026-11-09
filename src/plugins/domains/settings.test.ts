@@ -4,6 +4,7 @@ import { getSetting, listSettings, setSetting, settingConsequence } from "./sett
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useSecurityStore } from "@/stores/securityStore";
 
 describe("domaine settings", () => {
   beforeEach(() => {
@@ -138,6 +139,14 @@ describe("domaine settings", () => {
       const res = setSetting("sftp.autoRefreshIntervalMs", 2000);
       expect(res).toMatchObject({ ok: true, result: { requested: 2000, effective: 5000, coerced: true } });
       expect(getSetting("sftp.autoRefreshIntervalMs")!.value).toBe(5000);
+    });
+
+    test("plugin api reports the effective app-lock values under policy", () => {
+      useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "screen" });
+      lock({ "security.lockTimeoutMinutes": { $range: { max: 15 } }, "security.lockAction": "vault" });
+      expect(getSetting("security.sessionTimeoutMinutes")).toMatchObject({ value: 15, locked: false, writable: true });
+      expect(getSetting("security.lockAction")).toMatchObject({ value: "vault", locked: true, writable: false });
+      expect(setSetting("security.lockAction", "screen").ok).toBe(false);
     });
 
     test("une clé non verrouillée reste écrivable", () => {

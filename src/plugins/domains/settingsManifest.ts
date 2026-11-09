@@ -30,7 +30,7 @@ import { effectiveShell } from "@/services/local";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
 import { localeSetting, useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
-import { useSecurityStore, type LockAction } from "@/stores/securityStore";
+import { lockActionSetting, sessionTimeoutSetting, useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 
@@ -273,7 +273,8 @@ function explicitDefs(): SettingDef[] {
       type: "number", min: 0, max: 1440, default: null,
       section: "account", labelKey: "settings.account.sessionSecurity.autoLockLabel", writable: true,
       consequence: GUARDED["security.sessionTimeoutMinutes"],
-      get: () => useSecurityStore.getState().sessionTimeoutMinutes,
+      policyKey: sessionTimeoutSetting.key,
+      get: () => sessionTimeoutSetting.get(),
       set: (v) => useSecurityStore.getState().setSessionTimeoutMinutes(v === null ? null : (v as number)),
     },
     {
@@ -281,7 +282,8 @@ function explicitDefs(): SettingDef[] {
       type: "enum", values: ["vault", "screen"], default: "vault",
       section: "account", labelKey: "settings.account.sessionSecurity.lockAction.label", writable: true,
       consequence: GUARDED["security.lockAction"],
-      get: () => useSecurityStore.getState().lockAction,
+      policyKey: lockActionSetting.key,
+      get: () => lockActionSetting.get(),
       set: (v) => useSecurityStore.getState().setLockAction(v as LockAction),
     },
     {
