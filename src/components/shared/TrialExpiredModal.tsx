@@ -7,19 +7,20 @@ import { usePlanDisplay } from "@/services/planDisplay";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
-import { localSyncContext, usePlatform } from "@/utils/platform";
+import { PLAN_FEATURES, planFeatureLabel } from "@/services/planFeatures";
+import { FreeFeaturesLine } from "@/components/shared/FreeFeaturesLine";
 
 const STORAGE_KEY = "voltius_trial_expired_shown";
 
-const PRO_PERKS = [
-  { id: "realtimeSync", icon: "lucide:refresh-cw" },
-  { id: "unlimitedVaults", icon: "lucide:vault" },
-  { id: "terminalSharing", icon: "lucide:users-round" },
-];
+const PERK_ICONS: Record<string, string> = {
+  cloudSync: "lucide:refresh-cw",
+  unlimitedVaults: "lucide:vault",
+  terminalSharing: "lucide:users-round",
+};
+const PRO_PERKS = PLAN_FEATURES.pro.filter((f) => f.id in PERK_ICONS);
 
 export function TrialExpiredModal() {
   const { t } = useTranslation();
-  const lanContext = localSyncContext(usePlatform());
   const { showTrialEnded, showUpgrade } = usePlanDisplay();
   const [visible, setVisible] = useState(false);
 
@@ -49,19 +50,15 @@ export function TrialExpiredModal() {
         </div>
 
         <ul className="flex flex-col gap-2.5">
-          {PRO_PERKS.map(({ id, icon }) => (
-            <li key={id} className="flex items-center gap-2.5">
-              <Icon icon={icon} width={14} className="shrink-0 text-(--t-text-muted)" />
-              <span className="text-sm text-(--t-text-primary)">
-                {t(`settings.account.plan.feature.${id}`)}
-              </span>
+          {PRO_PERKS.map((f) => (
+            <li key={f.id} className="flex items-center gap-2.5">
+              <Icon icon={PERK_ICONS[f.id]} width={14} className="shrink-0 text-(--t-text-muted)" />
+              <span className="text-sm text-(--t-text-primary)">{planFeatureLabel(t, f)}</span>
             </li>
           ))}
         </ul>
 
-        <p className="text-xs text-(--t-text-muted) leading-relaxed">
-          {t("shared.trialExpiredModal.freeNote", { context: lanContext })}
-        </p>
+        <FreeFeaturesLine />
 
         {showUpgrade && (
         <UpgradeStrip
