@@ -23,6 +23,7 @@ import MoveToFolderSheet from "./MoveToFolderSheet";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
+import { SFTP_ICON } from "@/lib/conceptIcons";
 
 type Mode = "menu" | "confirm-delete" | "move" | "move-folder";
 
@@ -101,7 +102,7 @@ export default function HostActionsSheet({ hostId, fromEditor = false }: { hostI
   const items: SheetAction[] = [
     ...(canConnect && !isSerial && !fileOnly ? [{ icon: "lucide:terminal", label: t("common.action.connect"), slug: "connect", onTap: () => { closeSheet(); void connect(hostId).catch(console.error); setTab("terminal"); } }] : []),
     ...(canEdit ? [{ icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "host-edit", hostId }); } }] : []),
-    ...(canConnect && !isSerial ? [{ icon: "lucide:folder-open", label: fileOnly ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: fileOnly ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
+    ...(canConnect && !isSerial ? [{ icon: SFTP_ICON, label: fileOnly ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: fileOnly ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
     ...(conn.host ? [{ icon: "lucide:clipboard-copy", label: t("mobile.sheets.hostActions.copyAddress"), slug: "copy-address", onTap: () => {
       void writeClipboard(conn.host);
       useNotificationStore.getState().addToast({ source: APP_SOURCE, type: "toast", message: t("mobile.sheets.hostActions.copiedAddress", { host: conn.host }), severity: "success", duration: 2000 });

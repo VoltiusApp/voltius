@@ -1,5 +1,6 @@
 import type { SettingsSection } from "@/stores/uiStore";
 import i18n from "@/i18n";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 export function getSettingsNav(): {
   id: SettingsSection;
@@ -17,7 +18,7 @@ export function getSettingsNav(): {
     { id: "integrations",   label: i18n.t("settings.nav.integrations.label"),   sub: i18n.t("settings.nav.integrations.mobileSub", { defaultValue: "" }), icon: "lucide:plug",             keywords: i18n.t("settings.nav.integrations.keywords",   { returnObjects: true }) as string[] },
     { id: "terminal",       label: i18n.t("settings.nav.terminal.label"),       sub: i18n.t("settings.nav.terminal.mobileSub", { defaultValue: "" }), icon: "lucide:square-terminal",  keywords: i18n.t("settings.nav.terminal.keywords",       { returnObjects: true }) as string[] },
     { id: "sftp",           label: i18n.t("settings.nav.sftp.label"),           sub: i18n.t("settings.nav.sftp.mobileSub", { defaultValue: "" }), icon: "lucide:folder-closed",    keywords: i18n.t("settings.nav.sftp.keywords",           { returnObjects: true }) as string[] },
-    { id: "portForwarding", label: i18n.t("settings.nav.portForwarding.label"), sub: i18n.t("settings.nav.portForwarding.mobileSub", { defaultValue: "" }), icon: "lucide:arrow-right-left", keywords: i18n.t("settings.nav.portForwarding.keywords", { returnObjects: true }) as string[] },
+    { id: "portForwarding", label: i18n.t("settings.nav.portForwarding.label"), sub: i18n.t("settings.nav.portForwarding.mobileSub", { defaultValue: "" }), icon: PORT_FORWARDING_ICON, keywords: i18n.t("settings.nav.portForwarding.keywords", { returnObjects: true }) as string[] },
     { id: "hosts",          label: i18n.t("settings.nav.hosts.label"),          sub: i18n.t("settings.nav.hosts.mobileSub", { defaultValue: "" }), icon: "lucide:server",           keywords: i18n.t("settings.nav.hosts.keywords",          { returnObjects: true }) as string[] },
     { id: "devices",        label: i18n.t("settings.nav.devices.label"),        sub: i18n.t("settings.nav.devices.mobileSub", { defaultValue: "" }), icon: "lucide:monitor-smartphone", keywords: i18n.t("settings.nav.devices.keywords",       { returnObjects: true }) as string[] },
     { id: "shortcuts",      label: i18n.t("settings.nav.shortcuts.label"),      sub: i18n.t("settings.nav.shortcuts.mobileSub", { defaultValue: "" }), icon: "lucide:keyboard",         keywords: i18n.t("settings.nav.shortcuts.keywords",      { returnObjects: true }) as string[] },

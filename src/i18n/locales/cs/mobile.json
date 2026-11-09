@@ -26,11 +26,7 @@
       "panelsAriaLabel": "Panely"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "Metriky",
-      "processes": "Procesy",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "Klíčenka",

@@ -5,6 +5,7 @@ import { checkForUpdate } from "@/services/updater";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 import i18n, { lazyT } from "@/i18n";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 const openSessions = () =>
   useSessionStore.getState().sessions.filter((s) => s.status === "connected" || s.status === "connecting");
@@ -64,7 +65,7 @@ export const commands: OmniCommand[] = [
   navCommand({
     id: "core:port-forwarding",
     label: lazyT("omni.commands.portForwarding"),
-    icon: "lucide:arrow-left-right",
+    icon: PORT_FORWARDING_ICON,
     keywords: ["tunnel", "forward", "port", "proxy"],
     nav: "port-forwarding",
   }),

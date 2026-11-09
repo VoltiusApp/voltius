@@ -60,6 +60,7 @@ import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -658,7 +659,7 @@ export function PortForwardingPage() {
               ) : (
                 <EmptyState
                   size={q ? "section" : "page"}
-                  icon={q ? "lucide:search-x" : "lucide:arrow-right-left"}
+                  icon={q ? "lucide:search-x" : PORT_FORWARDING_ICON}
                   title={q ? t("portForwarding.page.noRulesMatchSearch") : t("portForwarding.page.noRulesYet")}
                   action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: () => openNew() }}
                 />

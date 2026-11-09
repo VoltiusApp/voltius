@@ -21,6 +21,7 @@ import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
 import MobileKnownHostsScreen from "./screens/MobileKnownHostsScreen";
 import MobileLogsScreen from "./screens/MobileLogsScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
+import MobileTerminalPanelScreen from "./panels/MobileTerminalPanelScreen";
 import { PendingConflictDialog } from "@/components/filetransfer/ConflictDialog";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobileVaultSettingsScreen from "./screens/MobileVaultSettingsScreen";
@@ -97,7 +98,7 @@ export default function MobileShell() {
   const mobileScreens = usePluginStore((s) => s.mobileScreens);
   const pop = useMobileNavStore((s) => s.pop);
 
-  // Plugin-contributed mobile screens (docker/metrics/processes/proxmox…), looked
+  // Plugin-contributed mobile screens pushed by kind (docker-logs…), looked
   // up by kind so uninstalling/disabling a plugin removes its screen — mirrors
   // registerRightPanelSection on desktop. Renders nothing if no plugin owns `kind`.
   const renderMobileScreen = (kind: string, props: Record<string, unknown>) => {
@@ -144,7 +145,7 @@ export default function MobileShell() {
     return (
       <>
         {screen.kind === "host-edit" && <MobileHostEditScreen hostId={screen.hostId} placement={screen.placement} />}
-        {screen.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={screen.snippetId} placement={screen.placement} />}
+        {screen.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={screen.snippetId} placement={screen.placement} draft={screen.draft} />}
         {screen.kind === "key-edit" && <MobileKeyEditScreen keyId={screen.keyId} mode={screen.mode} />}
         {screen.kind === "identity-edit" && <MobileIdentityEditScreen identityId={screen.identityId} />}
         {screen.kind === "more-page" && screen.page === "keychain" && <MobileKeychainScreen />}
@@ -159,6 +160,7 @@ export default function MobileShell() {
         )}
         {panel && renderMobileScreen(panel.screenKind, panel.props)}
         {screen.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={screen.connectionId} />}
+        {screen.kind === "panel" && <MobileTerminalPanelScreen section={screen.section} sessionId={screen.sessionId} />}
         {screen.kind === "account" && <MobileAccountPage />}
         {screen.kind === "vault-settings" && <MobileVaultSettingsScreen vaultId={screen.vaultId} page={screen.page} />}
       </>

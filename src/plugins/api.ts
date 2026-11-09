@@ -420,8 +420,10 @@ export interface MobileScreenProps {
 }
 
 export interface MobileScreen {
+  /** Same id as a right panel section: phones open this screen for that panel instead of
+   *  its desktop component. */
   id: string;
-  /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
+  /** Key that `pushMobileScreen` entries address, e.g. "docker-logs". */
   kind: string;
   render: React.FC<MobileScreenProps>;
 }

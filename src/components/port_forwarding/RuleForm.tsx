@@ -16,6 +16,7 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 import { describeRoute } from "@/utils/tunnelRoute";
 import { EndpointFields, HopArrow, HopCard, ListenerFields, RouteSummary } from "./RuleRoute";
 import { RuleHosts } from "./RuleHosts";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 interface Props extends MobileEditFormProps {
   rule?: PortForwardingRule | null;
@@ -164,7 +165,7 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
     <PanelShell>
       {!hideChrome && <PanelHeader
         title={rule ? t("portForwarding.ruleForm.editRule") : t("portForwarding.ruleForm.newRule")}
-        icon="lucide:network"
+        icon={PORT_FORWARDING_ICON}
         subtitle={<VaultPicker vaultId={vaultId} onChange={(v) => { vaultPickerTouched.current = true; markDirty(); setVaultId(v); }} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}

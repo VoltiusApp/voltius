@@ -15,6 +15,7 @@ import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { useInlineRename } from "@/hooks/useInlineRename";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 interface Props {
   rule: PortForwardingRule;
@@ -140,7 +141,7 @@ export function RuleCard({
       {isList ? (
         <>
           <div className="relative shrink-0">
-            <AvatarTile icon="lucide:network" iconSize={15} className="w-7 h-7 rounded-lg text-(--t-text-secondary)" />
+            <AvatarTile icon={PORT_FORWARDING_ICON} iconSize={15} className="w-7 h-7 rounded-lg text-(--t-text-secondary)" />
             {statusDot}
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
@@ -176,7 +177,7 @@ export function RuleCard({
         <div className="flex-1 min-w-0 self-start flex flex-col gap-3">
           <div className="flex items-start gap-2 min-w-0">
             <div className="relative shrink-0">
-              <AvatarTile icon="lucide:network" iconSize={16} className="w-[30px] h-[30px] rounded-lg text-(--t-text-secondary)" />
+              <AvatarTile icon={PORT_FORWARDING_ICON} iconSize={16} className="w-[30px] h-[30px] rounded-lg text-(--t-text-secondary)" />
               {statusDot}
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
