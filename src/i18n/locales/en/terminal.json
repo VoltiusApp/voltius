@@ -100,6 +100,7 @@
       "themeCustom": "custom",
       "createNewTheme": "Create New Theme",
       "closePanelTitle": "Close panel",
+      "resizeHandle": "Drag to resize, double-click to reset",
       "sections": {
         "history": "History",
         "sftp": "SFTP",

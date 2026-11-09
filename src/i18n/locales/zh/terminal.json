@@ -98,6 +98,7 @@
       "themeCustom": "自定义",
       "createNewTheme": "新建主题",
       "closePanelTitle": "关闭面板",
+      "resizeHandle": "拖动以调整大小，双击恢复默认",
       "sections": {
         "history": "历史",
         "sftp": "SFTP",

@@ -103,6 +103,7 @@
       "themeCustom": "personnalisé",
       "createNewTheme": "Créer un nouveau thème",
       "closePanelTitle": "Fermer le panneau",
+      "resizeHandle": "Glisser pour redimensionner, double-cliquer pour réinitialiser",
       "sections": {
         "history": "Historique",
         "sftp": "SFTP",
