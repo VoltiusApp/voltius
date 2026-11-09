@@ -122,14 +122,14 @@ function AdminRuleRow({ rule }: { rule: KeywordRule }) {
   );
 }
 
-function useAdminRules(): KeywordRule[] {
+function useAdminRules(): { rules: KeywordRule[]; teams: string[] } {
   const lock = usePolicyLock("appSettings.terminal.keywordRules");
-  return lock.locked ? sanitizeKeywordRules(lock.value) : [];
+  return lock.locked ? { rules: sanitizeKeywordRules(lock.value), teams: lock.teams } : { rules: [], teams: [] };
 }
 
 export function KeywordRulesEditor() {
   const { t } = useTranslation();
-  const adminRules = useAdminRules();
+  const { rules: adminRules, teams: adminTeams } = useAdminRules();
   const rules = useTerminalSettingsStore((s) => s.keywordRules);
   const setRules = useTerminalSettingsStore((s) => s.setKeywordRules);
 
@@ -142,7 +142,7 @@ export function KeywordRulesEditor() {
     <div className={`mt-2 ${SETTINGS_SURFACE} p-4 space-y-3`}>
       {adminRules.length > 0 && (
         <div className="space-y-3 pb-3 border-b border-(--t-border)">
-          <ManagedNote />
+          <ManagedNote teams={adminTeams} />
           {adminRules.map((rule) => <AdminRuleRow key={`admin-${rule.id}`} rule={rule} />)}
         </div>
       )}

@@ -29,6 +29,8 @@ vi.mock("@/services/vault", () => ({
 vi.mock("@/stores/securityStore", () => ({
   useSecurityStore: (selector: (s: unknown) => unknown) =>
     selector({ sessionTimeoutMinutes: null, setSessionTimeoutMinutes: vi.fn(), lockAction: "vault", setLockAction: vi.fn(), systemAuthUnlock: false, setSystemAuthUnlock: vi.fn() }),
+  sessionTimeoutSetting: { key: "security.lockTimeoutMinutes", get: () => null, use: () => null },
+  lockActionSetting: { key: "security.lockAction", get: () => "vault", use: () => "vault" },
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: () => ({

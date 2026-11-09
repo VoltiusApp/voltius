@@ -1,10 +1,10 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
+import { sameValue } from "@/utils/sameValue";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
-import { combineLockPolicies } from "@/services/lockPolicy";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
+import { accountEpoch, refreshTeamPolicy } from "@/services/policy/teamPolicy";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
@@ -110,9 +110,10 @@ export const useTeamStore = create<TeamStore>()(
     set({ loading: true });
     try {
       const seq = ++loadSeq;
+      const epoch = accountEpoch();
       const fresh = await api.listTeams();
       // An older request landing last would resurrect a team the newer one already dropped.
-      if (seq < appliedSeq) {
+      if (seq < appliedSeq || epoch !== accountEpoch()) {
         set({ loading: false });
         return;
       }
@@ -124,12 +125,15 @@ export const useTeamStore = create<TeamStore>()(
           t.owner_tier === prev[i].owner_tier &&
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
-          JSON.stringify(t.lock_policy ?? null) === JSON.stringify(prev[i].lock_policy ?? null) &&
-          JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
+          sameValue(t.lock_policy, prev[i].lock_policy) &&
+          t.policy_revision === prev[i].policy_revision &&
+          t.joined_at === prev[i].joined_at &&
+          sameValue(t.policy, prev[i].policy) &&
+          sameValue(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
+      void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
       runTeamsLoadedHook(prev);
-      useOrgLockPolicyStore.getState().setPolicy(combineLockPolicies(teams));
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
       }

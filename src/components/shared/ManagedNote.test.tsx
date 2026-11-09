@@ -16,13 +16,11 @@ vi.mock("@/utils/platform", async (importOriginal) => ({
   useIsMobile: () => platform.mobile,
 }));
 
-import { usePolicyStore } from "@/stores/policyStore";
 import { SettingRow } from "@/components/settings/sections/shared";
-import { Managed, RangeNote } from "./ManagedNote";
+import { resetPolicy, withPolicy, withTeamPolicy } from "@/test/policy";
+import { Managed, ManagedNote, RangeNote } from "./ManagedNote";
 
-const NONE = { policy: {}, defaults: {} };
-const lock = (key: string) =>
-  usePolicyStore.setState({ machine: { policy: { [key]: true }, defaults: {} } });
+const lock = (key: string) => withPolicy({ [key]: true });
 
 const body = () => (
   <Managed policyKey="appSettings.toggles.cursor-blink">
@@ -32,7 +30,7 @@ const body = () => (
 
 beforeEach(() => {
   platform.mobile = false;
-  usePolicyStore.setState({ machine: NONE, server: NONE });
+  resetPolicy();
 });
 afterEach(cleanup);
 
@@ -42,6 +40,11 @@ describe("Managed", () => {
     const { container } = render(body());
     expect((container.querySelector("button") as HTMLButtonElement).matches(":disabled")).toBe(true);
     expect(container.textContent).toContain("common.policy.managed");
+  });
+
+  it("names the team when a team policy locks it", () => {
+    withTeamPolicy({ "appSettings.toggles.cursor-blink": true });
+    expect(render(body()).container.textContent).toBe('common.policy.managedByTeam {"team":"Acme"}go');
   });
 
   it("is transparent when unlocked", () => {
@@ -84,6 +87,16 @@ describe("SettingRow policy lock", () => {
   });
 });
 
+describe("ManagedNote teams", () => {
+  it("keeps the generic text without teams", () => {
+    expect(render(<ManagedNote teams={[]} />).container.textContent).toBe("common.policy.managed");
+  });
+
+  it("names the first team when several shaped the entry", () => {
+    expect(render(<ManagedNote teams={["Acme", "Beta"]} />).container.textContent).toBe('common.policy.managedByTeam {"team":"Acme"}');
+  });
+});
+
 describe("RangeNote", () => {
   it.each([
     [{ max: 24 }, 'common.policy.rangeMax {"value":"24"}'],
@@ -104,7 +117,7 @@ describe("RangeNote", () => {
 describe("SettingRow reset under a range", () => {
   const KEY = "appSettings.detachedTtlHours";
   const resetIn = (range: unknown) => {
-    usePolicyStore.setState({ machine: { policy: { [KEY]: range }, defaults: {} } });
+    withPolicy({ [KEY]: range });
     const c = render(<SettingRow title="x" syncKey={KEY} dirty onReset={() => {}}><button type="button">c</button></SettingRow>).container;
     return c.querySelector('[title="settings.shared.resetToDefault"]');
   };

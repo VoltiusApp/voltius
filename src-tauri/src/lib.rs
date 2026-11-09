@@ -417,6 +417,7 @@ pub fn run() {
             commands::sync::ssh_config_state_save,
             commands::sync::device_hostname,
             commands::policy::policy_load,
+            commands::policy::policy_check_team_doc,
             commands::cli_state::cli_pending_load,
             commands::cli_state::cli_pending_settle,
             commands::cli_state::cli_mirror_save,

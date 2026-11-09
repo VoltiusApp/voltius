@@ -39,7 +39,7 @@ vi.mock("@/utils/platform", async () => ({
 
 import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import { useSecurityStore } from "@/stores/securityStore";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
+import { resetPolicy } from "@/test/policy";
 
 const K = "settings.account.sessionSecurity.rememberPassword";
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
@@ -50,7 +50,7 @@ beforeEach(() => {
   h.status = "os-login";
   h.remembers = true;
   useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "vault", systemAuthUnlock: true });
-  useOrgLockPolicyStore.setState({ policy: null });
+  resetPolicy();
 });
 afterEach(cleanup);
 

@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next";
 import { inPolicyRange, usePolicyLock, usePolicyRange, usePolicyRefresh, type PolicyRange } from "@/stores/policyStore";
 import { installLocked } from "@/stores/pluginRegistryStore";
 
-export function ManagedNote({ className = "", children }: { className?: string; children?: ReactNode }) {
+export function ManagedNote({ className = "", teams, children }: { className?: string; teams?: string[]; children?: ReactNode }) {
   const { t } = useTranslation();
   return (
     <span className={`inline-flex items-center gap-1 text-xs text-(--t-text-dim) ${className}`}>
       <Icon icon="lucide:building-2" width={12} height={12} className="shrink-0" />
-      {children ?? t("common.policy.managed")}
+      {children ?? (teams?.length ? t("common.policy.managedByTeam", { team: teams[0] }) : t("common.policy.managed"))}
     </span>
   );
 }
@@ -58,10 +58,11 @@ interface ManagedProps {
 }
 
 export function Managed({ policyKey, ...rest }: ManagedProps & { policyKey: string }) {
-  return <ManagedWhen locked={usePolicyLock(policyKey).locked} {...rest} />;
+  const lock = usePolicyLock(policyKey);
+  return <ManagedWhen locked={lock.locked} teams={lock.locked ? lock.teams : undefined} {...rest} />;
 }
 
-export function ManagedWhen({ locked, note = true, children }: ManagedProps & { locked: boolean }) {
+export function ManagedWhen({ locked, teams, note = true, children }: ManagedProps & { locked: boolean; teams?: string[] }) {
   if (!locked) return <>{children}</>;
   const control = (
     <fieldset disabled className="contents [&_:disabled]:opacity-40 [&_:disabled]:cursor-not-allowed [&_:disabled]:pointer-events-none">
@@ -71,7 +72,7 @@ export function ManagedWhen({ locked, note = true, children }: ManagedProps & { 
   if (!note) return control;
   return (
     <div className="flex items-center gap-2">
-      <ManagedNote />
+      <ManagedNote teams={teams} />
       {control}
     </div>
   );

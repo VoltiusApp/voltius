@@ -234,7 +234,11 @@
       "twoFactorNotEnabled": "L'authentification à deux facteurs n'est pas activée.",
       "twoFactorExpired": "Cette connexion a pris trop de temps. Recommencez.",
       "passkeyIncomplete": "L'étape de la clé d'accès n'a pas abouti. Réessayez.",
-      "passkeyLimit": "Ce compte a déjà le nombre maximal de clés d'accès."
+      "passkeyLimit": "Ce compte a déjà le nombre maximal de clés d'accès.",
+      "teamPolicyConflict": "Quelqu'un d'autre a modifié la règle d'équipe. Vérifiez-la et importez à nouveau.",
+      "teamPolicyRefused": "Le serveur a refusé cette règle : {{reason}}",
+      "failedToLoadTeamPolicy": "Échec du chargement de la règle d'équipe : {{status}}",
+      "failedToSaveTeamPolicy": "Échec de l'enregistrement de la règle d'équipe : {{status}}"
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",
@@ -314,6 +318,7 @@
     },
     "policy": {
       "managed": "Géré par votre organisation",
+      "managedByTeam": "Géré par {{team}}",
       "rangeMax": "Votre organisation autorise jusqu'à {{value}}",
       "rangeMin": "Votre organisation autorise {{value}} ou plus",
       "rangeBetween": "Votre organisation autorise de {{min}} à {{max}}",

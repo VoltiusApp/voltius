@@ -313,6 +313,9 @@
           "30min": "30 minutos",
           "1h": "1 hora",
           "4h": "4 horas",
+          "minutes_one": "{{count}} minuto",
+          "minutes_many": "{{count}} de minutos",
+          "minutes_other": "{{count}} minutos",
           "immediately": "Imediatamente"
         },
         "lockAction": {
@@ -351,8 +354,7 @@
         "policy": {
           "timeout": "Definido por {{teams}}: no máximo {{duration}}.",
           "timeoutImmediately": "Definido por {{teams}}: bloquear assim que você sair do Voltius.",
-          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório.",
-          "yourTeam": "sua equipe"
+          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório."
         }
       },
       "email": "E-mail",

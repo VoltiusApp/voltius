@@ -313,6 +313,8 @@
           "30min": "30 minutes",
           "1h": "1 hour",
           "4h": "4 hours",
+          "minutes_one": "{{count}} minute",
+          "minutes_other": "{{count}} minutes",
           "immediately": "Immediately"
         },
         "lockAction": {
@@ -351,8 +353,7 @@
         "policy": {
           "timeout": "Set by {{teams}}: at most {{duration}}.",
           "timeoutImmediately": "Set by {{teams}}: lock as soon as you leave Voltius.",
-          "vault": "Set by {{teams}}: Lock vault is required.",
-          "yourTeam": "your team"
+          "vault": "Set by {{teams}}: Lock vault is required."
         }
       },
       "email": "Email",

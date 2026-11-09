@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
+import { makeTeam } from "@/test/team";
 
 const api = vi.hoisted(() => ({
   listTeams: vi.fn(), listMembers: vi.fn(), listRoles: vi.fn(),
@@ -15,8 +16,7 @@ vi.mock("@tauri-apps/api/core", () => tauri);
 
 import { useTeamStore } from "./teamStore.ts";
 
-const team = (id: string, role_ids: string[] = []): Team =>
-  ({ id, name: id, owner_id: "o", owner_tier: "business", created_at: "", role_ids });
+const team = (id: string, role_ids: string[] = []): Team => makeTeam(id, { role_ids });
 const member = (user_id: string, role_ids: string[] = []): TeamMember =>
   ({ team_id: "t1", user_id, handle: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
 const role = (id: string, permissions = 0): TeamRole =>

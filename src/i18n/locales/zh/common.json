@@ -234,7 +234,11 @@
       "twoFactorNotEnabled": "双重验证未开启。",
       "twoFactorExpired": "本次登录耗时过长。请重新开始。",
       "passkeyIncomplete": "通行密钥步骤未完成。请重试。",
-      "passkeyLimit": "此账户的通行密钥数量已达上限。"
+      "passkeyLimit": "此账户的通行密钥数量已达上限。",
+      "teamPolicyConflict": "其他人修改了团队策略。请查看后重新导入。",
+      "teamPolicyRefused": "服务器拒绝了此策略：{{reason}}",
+      "failedToLoadTeamPolicy": "加载团队策略失败：{{status}}",
+      "failedToSaveTeamPolicy": "保存团队策略失败：{{status}}"
     },
     "clipboard": {
       "cut_one": "已剪切 {{count}} 个项目",
@@ -295,6 +299,7 @@
     },
     "policy": {
       "managed": "由您的组织管理",
+      "managedByTeam": "由 {{team}} 管理",
       "rangeMax": "您的组织最多允许 {{value}}",
       "rangeMin": "您的组织允许 {{value}} 或以上",
       "rangeBetween": "您的组织允许 {{min}}–{{max}}",

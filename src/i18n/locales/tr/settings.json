@@ -319,6 +319,8 @@
           "30min": "30 dakika",
           "1h": "1 saat",
           "4h": "4 saat",
+          "minutes_one": "{{count}} dakika",
+          "minutes_other": "{{count}} dakika",
           "immediately": "Hemen"
         },
         "needsSystemAuth": "Ana parolası olmayan bir hesabı kilitlemek için sistem kimlik doğrulamasını açın.",
@@ -326,8 +328,7 @@
         "policy": {
           "timeout": "{{teams}} ilkesi: en fazla {{duration}}.",
           "timeoutImmediately": "{{teams}} ilkesi: Voltius'tan çıkınca hemen kilitle.",
-          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu.",
-          "yourTeam": "Ekibinizin"
+          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu."
         },
         "lockAction": {
           "label": "Kilitlerken",

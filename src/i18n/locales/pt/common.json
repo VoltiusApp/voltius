@@ -234,7 +234,11 @@
       "twoFactorNotEnabled": "A autenticação de dois fatores não está ativada.",
       "twoFactorExpired": "Esta entrada demorou demais. Comece novamente.",
       "passkeyIncomplete": "A etapa da chave de acesso não foi concluída. Tente novamente.",
-      "passkeyLimit": "Esta conta já tem tantas chaves de acesso quanto pode conter."
+      "passkeyLimit": "Esta conta já tem tantas chaves de acesso quanto pode conter.",
+      "teamPolicyConflict": "Outra pessoa alterou a política da equipe. Revise-a e importe novamente.",
+      "teamPolicyRefused": "O servidor recusou esta política: {{reason}}",
+      "failedToLoadTeamPolicy": "Falha ao carregar a política da equipe: {{status}}",
+      "failedToSaveTeamPolicy": "Falha ao salvar a política da equipe: {{status}}"
     },
     "clipboard": {
       "cut_one": "{{count}} item recortado",
@@ -314,6 +318,7 @@
     },
     "policy": {
       "managed": "Gerenciado pela sua organização",
+      "managedByTeam": "Gerenciado por {{team}}",
       "rangeMax": "Sua organização permite até {{value}}",
       "rangeMin": "Sua organização permite {{value}} ou mais",
       "rangeBetween": "Sua organização permite de {{min}} a {{max}}",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
@@ -10,8 +10,10 @@ import { useIsMobile, usePlatform } from "@/utils/platform";
 import { SETTINGS_SURFACE, SettingRow } from "./shared";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
-import { policyTeamNames, timeoutAllowed } from "@/services/lockPolicy";
-import { useTeamStore } from "@/stores/teamStore";
+import { ManagedNote, ManagedWhen, RangeNote } from "@/components/shared/ManagedNote";
+import { inPolicyRange } from "@/services/policy/range";
+import { usePolicyLock, usePolicyRange, type PolicyRange } from "@/stores/policyStore";
+import { lockActionSetting, sessionTimeoutSetting } from "@/stores/securityStore";
 import {
   bindNow, bindingStatus, disableBinding, disableWithPassword, enableBinding, type BindingStatus,
 } from "@/services/vaultBinding";
@@ -23,8 +25,11 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const isMobile = useIsMobile();
-  const { sessionTimeoutMinutes, lockAction, policy } = useEffectiveLockSettings();
-  const teams = useTeamStore((s) => s.teams);
+  const { sessionTimeoutMinutes, lockAction, limit } = useEffectiveLockSettings();
+  const timeoutLock = usePolicyLock(sessionTimeoutSetting.key);
+  const timeoutRange = usePolicyRange(sessionTimeoutSetting.key);
+  const actionLock = usePolicyLock(lockActionSetting.key);
+  const actionRange = usePolicyRange(lockActionSetting.key);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
   const setLockAction = useSecurityStore((s) => s.setLockAction);
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
@@ -70,20 +75,43 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const vaultLockable = canLockVault(mode);
   const systemAuthNeedsRemembered = vaultLockable && rememberPassword === false && status === "os-login";
   const effectiveAction: LockAction = vaultLockable ? lockAction : "screen";
-  const actionOptions = [
-    ...(vaultLockable ? [{ value: "vault", label: t("settings.account.sessionSecurity.lockAction.vault") }] : []),
-    ...(policy?.forceVault && vaultLockable ? [] : [{ value: "screen", label: t("settings.account.sessionSecurity.lockAction.screen") }]),
+  const timeoutLabel = (v: unknown) => sessionTimeoutLabel(t, sessionTimeoutValue(v as number | null));
+  const actionLabel = (v: unknown) => t(`settings.account.sessionSecurity.lockAction.${v === "vault" ? "vault" : "screen"}`);
+  const noteLine = (node: ReactNode) => <p className="text-xs text-(--t-text-muted)">{node}</p>;
+  const setBy = (teams: string[] | undefined, text: (teams: string) => string) =>
+    teams?.length ? text(teams.join(", ")) : <ManagedNote />;
+  const rangeNote = (range: PolicyRange, format: (v: unknown) => string) => <RangeNote range={range} format={format} />;
+
+  const maxOnly = timeoutRange?.min === undefined && timeoutRange?.allowed === undefined ? timeoutRange?.max : undefined;
+  const timeoutNote = timeoutLock.locked
+    ? <ManagedNote teams={timeoutLock.teams} />
+    : maxOnly !== undefined
+      ? setBy(limit?.teams.timeout, (teams) => maxOnly === IMMEDIATELY
+          ? t("settings.account.sessionSecurity.policy.timeoutImmediately", { teams })
+          : t("settings.account.sessionSecurity.policy.timeout", { teams, duration: timeoutLabel(maxOnly) }))
+      : timeoutRange && rangeNote(timeoutRange, timeoutLabel);
+  const actionNote = actionLock.locked
+    ? actionLock.value === "vault"
+      ? setBy(limit?.teams.vault, (teams) => t("settings.account.sessionSecurity.policy.vault", { teams }))
+      : <ManagedNote teams={actionLock.teams} />
+    : actionRange && rangeNote(actionRange, actionLabel);
+
+  const allActions = [
+    ...(vaultLockable ? [{ value: "vault", label: actionLabel("vault") }] : []),
+    { value: "screen", label: actionLabel("screen") },
   ];
+  const actionOptions = vaultLockable
+    ? allActions.filter((o) => inPolicyRange(actionRange, o.value) && (!actionLock.locked || actionLock.value === o.value))
+    : allActions;
   const timeoutOptions = sessionTimeoutOptions(t).filter((o) =>
-    timeoutAllowed(o.value === "never" ? null : Number(o.value), policy));
-  const names = policy ? policyTeamNames(teams, policy) : null;
-  const who = (list: string[]) => (list.length ? list.join(", ") : t("settings.account.sessionSecurity.policy.yourTeam"));
+    inPolicyRange(timeoutRange, o.value === "never" ? null : Number(o.value)));
 
   return (
     <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
       <div className="space-y-1.5">
         {(() => {
           const select = (
+        <ManagedWhen locked={timeoutLock.locked} note={false}>
         <FormSelect
           value={sessionTimeoutValue(sessionTimeoutMinutes)}
           options={timeoutOptions}
@@ -94,6 +122,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             setSessionTimeoutMinutes(Number.isFinite(next) ? next : null);
           }}
         />
+        </ManagedWhen>
           );
           // Android: an M3 row with the value trailing (the picker opens as a sheet).
           return isMobile ? (
@@ -108,21 +137,13 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             </>
           );
         })()}
-        {policy && names && (
-          <p className="text-xs text-(--t-text-muted)">
-            {policy.maxMinutes === IMMEDIATELY
-              ? t("settings.account.sessionSecurity.policy.timeoutImmediately", { teams: who(names.timeout) })
-              : t("settings.account.sessionSecurity.policy.timeout", {
-                  teams: who(names.timeout),
-                  duration: sessionTimeoutLabel(t, sessionTimeoutValue(policy.maxMinutes)),
-                })}
-          </p>
-        )}
+        {timeoutNote && noteLine(timeoutNote)}
       </div>
 
       <div className="space-y-1.5">
         {(() => {
           const select = (
+            <ManagedWhen locked={actionLock.locked} note={false}>
             <FormSelect
               value={effectiveAction}
               options={actionOptions}
@@ -130,6 +151,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
               disabled={!lockable}
               onChange={(value) => setLockAction(value as LockAction)}
             />
+            </ManagedWhen>
           );
           const desc = t(effectiveAction === "screen"
             ? "settings.account.sessionSecurity.lockAction.screenDesc"
@@ -146,11 +168,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             </>
           );
         })()}
-        {policy?.forceVault && names && (
-          <p className="text-xs text-(--t-text-muted)">
-            {t("settings.account.sessionSecurity.policy.vault", { teams: who(names.vault) })}
-          </p>
-        )}
+        {actionNote && noteLine(actionNote)}
         {sessionTimeoutMinutes === IMMEDIATELY && effectiveAction === "vault" && (
           <p className="text-xs text-(--t-status-warning)">
             {t("settings.account.sessionSecurity.immediateVaultWarning")}

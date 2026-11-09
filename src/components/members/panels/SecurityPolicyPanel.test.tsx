@@ -14,10 +14,11 @@ vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
 import { SecurityPolicyPanel } from "./SecurityPolicyPanel";
 import { useTeamStore } from "@/stores/teamStore";
+import { makeTeam } from "@/test/team";
 
 const setTeam = (lock_policy: { max_minutes: number; force_vault: boolean } | null) =>
   useTeamStore.setState({
-    teams: [{ id: "t", name: "Acme", owner_id: "o", owner_tier: "business", created_at: "", role_ids: [], lock_policy }],
+    teams: [makeTeam("t", { name: "Acme", lock_policy })],
     setLockPolicy: h.setLockPolicy,
   });
 

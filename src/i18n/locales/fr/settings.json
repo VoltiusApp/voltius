@@ -313,6 +313,9 @@
           "30min": "30 minutes",
           "1h": "1 heure",
           "4h": "4 heures",
+          "minutes_one": "{{count}} minute",
+          "minutes_many": "{{count}} de minutes",
+          "minutes_other": "{{count}} minutes",
           "immediately": "Immédiatement"
         },
         "needsSystemAuth": "Activez l'authentification système pour verrouiller un compte sans mot de passe principal.",
@@ -320,8 +323,7 @@
         "policy": {
           "timeout": "Imposé par {{teams}} : au plus {{duration}}.",
           "timeoutImmediately": "Imposé par {{teams}} : verrouillage dès que vous quittez Voltius.",
-          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire.",
-          "yourTeam": "votre équipe"
+          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire."
         },
         "lockAction": {
           "label": "Au verrouillage",

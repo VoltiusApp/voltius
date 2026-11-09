@@ -32,7 +32,7 @@ vi.mock("@/utils/platform", async () => ({
 
 import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import { useSecurityStore } from "@/stores/securityStore";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
+import { resetPolicy } from "@/test/policy";
 
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 const toggle = () => screen.getByRole("switch", { name: "settings.account.sessionSecurity.systemAuth.toggle" });
@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.status = "unbound";
   useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "vault", systemAuthUnlock: false });
-  useOrgLockPolicyStore.setState({ policy: null });
+  resetPolicy();
 });
 afterEach(cleanup);
 

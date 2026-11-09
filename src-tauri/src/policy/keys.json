@@ -48,6 +48,43 @@
     "defaultApplied": false
   },
   {
+    "id": "security.lockTimeoutMinutes",
+    "type": "number",
+    "domain": {
+      "values": [
+        0,
+        5,
+        15,
+        30,
+        60,
+        240
+      ]
+    },
+    "range": [
+      "allowed",
+      "min",
+      "max"
+    ],
+    "nullIsUnbounded": true,
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "security.lockAction",
+    "type": "string",
+    "domain": {
+      "values": [
+        "screen",
+        "vault"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "sync.domains.themes",
     "type": "bool",
     "enforced": true,

@@ -7,6 +7,7 @@ import {
 } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
+import { makeTeam } from "@/test/team";
 
 function role(id: string, permissions: number, extra: Partial<TeamRole> = {}): TeamRole {
   return { id, team_id: "t1", name: id, permissions, is_builtin: false, ...extra } as TeamRole;
@@ -17,9 +18,7 @@ function member(user_id: string, role_ids: string[]): TeamMember {
     invited_by_display_name: null, joined_at: "", role_ids,
   };
 }
-function team(id: string, role_ids: string[]): Team {
-  return { id, name: id, owner_id: "o", owner_tier: "business", created_at: "", role_ids };
-}
+const team = (id: string, role_ids: string[]): Team => makeTeam(id, { role_ids });
 function vault(id: string, teamId?: string): Vault {
   return teamId ? { id, name: id, teamId } : { id, name: id };
 }

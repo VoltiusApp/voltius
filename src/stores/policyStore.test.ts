@@ -18,10 +18,12 @@ import {
   lockedValue,
   onPolicyLoaded,
   policyRange,
+  policySourceOf,
   usePolicyStore,
   watchPolicyVisibility,
 } from "./policyStore";
-import { withPolicy } from "@/test/policy";
+import { resetPolicy, withPolicy, withTeamPolicy as teamLayer } from "@/test/policy";
+import { useTeamPolicyStore } from "./teamPolicyStore";
 
 const empty = { policy: {}, defaults: {} };
 const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
@@ -34,16 +36,49 @@ describe("policyStore", () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
     mocks.notify.mockReset();
-    usePolicyStore.setState({ machine: empty, server: empty, issues: [] });
+    resetPolicy();
   });
 
-  it("lockedValue prefers server over machine", () => {
-    usePolicyStore.setState({
-      machine: { policy: { k: 1 }, defaults: {} },
-      server: { policy: { k: 2 }, defaults: {} },
-    });
-    expect(lockedValue("k")).toEqual({ locked: true, value: 2, source: "server" });
+  it("machine lock beats team value and lockedValue reports source machine", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    withPolicy({ k: 1 });
+    teamLayer({ k: 2 });
+    expect(lockedValue("k")).toEqual({ locked: true, value: 1, source: "machine", teams: [] });
     expect(isLocked("k")).toBe(true);
+    expect(warn).toHaveBeenCalledWith("[policy]", "policy.k", expect.stringContaining("disagree"));
+    warn.mockRestore();
+  });
+
+  it("team-only lock reports source server and the team name", () => {
+    teamLayer({ k: 2 });
+    expect(lockedValue("k")).toEqual({ locked: true, value: 2, source: "server", teams: ["Acme"] });
+    expect(policySourceOf("k")).toEqual({ source: "server", teams: ["Acme"] });
+    expect(usePolicyStore.getState().server).toEqual({ policy: { k: 2 }, defaults: {} });
+  });
+
+  it("team range narrows machine range", () => {
+    withPolicy({ r: { $range: { min: 1, max: 60 } } });
+    teamLayer({ r: { $range: { max: 30 } } });
+    expect(policyRange("r")).toEqual({ min: 1, max: 30 });
+    expect(lockedValue("r")).toEqual({ locked: false });
+  });
+
+  it("removing the team layer unlocks", () => {
+    teamLayer({ k: 2 });
+    expect(isLocked("k")).toBe(true);
+    useTeamPolicyStore.getState().setLayer(null, "");
+    expect(lockedValue("k")).toEqual({ locked: false });
+    expect(policySourceOf("k")).toBeUndefined();
+    expect(usePolicyStore.getState().server).toEqual(empty);
+  });
+
+  it("a team layer change runs onPolicyLoaded subscribers", () => {
+    const fn = vi.fn();
+    const off = onPolicyLoaded(fn);
+    teamLayer({ k: 2 });
+    useTeamPolicyStore.getState().setLayer(null, "");
+    expect(fn).toHaveBeenCalledTimes(2);
+    off();
   });
 
   it("unlocked when neither layer has the key", () => {
@@ -51,13 +86,11 @@ describe("policyStore", () => {
     expect(isLocked("k")).toBe(false);
   });
 
-  it("adminDefault reads defaults, not policy", () => {
-    usePolicyStore.setState({
-      machine: { policy: { a: 1 }, defaults: { b: 2 } },
-      server: { policy: {}, defaults: { b: 3 } },
-    });
+  it("adminDefault reads machine defaults, not policy", () => {
+    usePolicyStore.setState({ machine: { policy: { a: 1 }, defaults: { b: 2 } } });
+    teamLayer({ b: 3 });
     expect(adminDefault("a")).toBeUndefined();
-    expect(adminDefault("b")).toBe(3);
+    expect(adminDefault("b")).toBe(2);
   });
 
   it("load surfaces a broken file as an issue and notifies once per issue set", async () => {
@@ -227,12 +260,28 @@ describe("policyStore", () => {
 
     it("TTL range implies the detached-session-ttl toggle", () => {
       withPolicy({ [TTL]: { $range: { max: 24 } } });
-      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine" });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine", teams: [] });
+    });
+
+    it("a team-implied lock names the team", () => {
+      teamLayer({ [TTL]: { $range: { max: 24 } } });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "server", teams: ["Acme"] });
     });
 
     it("implied lock beats an explicit off", () => {
       withPolicy({ [TTL]: { $range: { max: 24 } }, [TTL_TOGGLE]: false });
-      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine" });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine", teams: [] });
+    });
+
+    it("a team implier does not override a machine lock on the implied key", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      withPolicy({ [TTL_TOGGLE]: false, "appSettings.toggles.keyword-highlight": false });
+      teamLayer({ [TTL]: { $range: { max: 24 } }, [KEYWORDS]: [] });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: false, source: "machine", teams: [] });
+      expect(lockedValue("appSettings.toggles.keyword-highlight")).toEqual({ locked: true, value: false, source: "machine", teams: [] });
+      expect(warn).toHaveBeenCalledWith("[policy]", `policy.${TTL_TOGGLE}`, expect.stringContaining("disagree"));
+      expect(warn).toHaveBeenCalledWith("[policy]", "policy.appSettings.toggles.keyword-highlight", expect.stringContaining("disagree"));
+      warn.mockRestore();
     });
 
     it("keyword lock is not an enforced lock", () => {

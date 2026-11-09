@@ -1,30 +1,36 @@
 import { useMemo } from "react";
-import { effectiveLockAction, effectiveTimeout, type LockPolicy } from "@/services/lockPolicy";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
-import { useSecurityStore, type LockAction } from "@/stores/securityStore";
+import { lockActionSetting, sessionTimeoutSetting, type LockAction } from "@/stores/securityStore";
+import { policySourceOf, usePolicyStore } from "@/stores/policyStore";
+import { LOCK_ACTION_KEY, LOCK_TIMEOUT_KEY } from "@/services/lockPolicy";
+
+export interface LockLimit {
+  teams: { timeout: string[]; vault: string[] };
+}
 
 export interface EffectiveLockSettings {
   sessionTimeoutMinutes: number | null;
   lockAction: LockAction;
-  policy: LockPolicy | null;
+  limit: LockLimit | null;
 }
 
-function resolve(minutes: number | null, action: LockAction, policy: LockPolicy | null): EffectiveLockSettings {
-  return {
-    sessionTimeoutMinutes: effectiveTimeout(minutes, policy),
-    lockAction: effectiveLockAction(action, policy),
-    policy,
-  };
+function readLimit(): LockLimit | null {
+  if (!policySourceOf(LOCK_TIMEOUT_KEY) && !policySourceOf(LOCK_ACTION_KEY)) return null;
+  const teamsOf = (key: string) => policySourceOf(key)?.teams ?? [];
+  return { teams: { timeout: teamsOf(LOCK_TIMEOUT_KEY), vault: teamsOf(LOCK_ACTION_KEY) } };
 }
 
 export function getEffectiveLockSettings(): EffectiveLockSettings {
-  const { sessionTimeoutMinutes, lockAction } = useSecurityStore.getState();
-  return resolve(sessionTimeoutMinutes, lockAction, useOrgLockPolicyStore.getState().policy);
+  return {
+    sessionTimeoutMinutes: sessionTimeoutSetting.get(),
+    lockAction: lockActionSetting.get(),
+    limit: readLimit(),
+  };
 }
 
 export function useEffectiveLockSettings(): EffectiveLockSettings {
-  const minutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
-  const action = useSecurityStore((s) => s.lockAction);
-  const policy = useOrgLockPolicyStore((s) => s.policy);
-  return useMemo(() => resolve(minutes, action, policy), [minutes, action, policy]);
+  const sessionTimeoutMinutes = sessionTimeoutSetting.use();
+  const lockAction = lockActionSetting.use();
+  const signature = usePolicyStore(() => JSON.stringify(readLimit()));
+  const limit = useMemo<LockLimit | null>(() => JSON.parse(signature), [signature]);
+  return useMemo(() => ({ sessionTimeoutMinutes, lockAction, limit }), [sessionTimeoutMinutes, lockAction, limit]);
 }
