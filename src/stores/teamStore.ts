@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
+import { sameValue } from "@/utils/sameValue";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
-import { refreshTeamPolicy } from "@/services/policy/teamPolicy";
+import { accountEpoch, refreshTeamPolicy } from "@/services/policy/teamPolicy";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
@@ -94,8 +95,6 @@ export async function cacheVaultRoles(
 // Team vaults are online-only: the team list lives in memory, and a copy left by older builds is dropped.
 try { localStorage.removeItem("voltius-teams"); } catch {}
 
-const sameJson = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-
 export const useTeamStore = create<TeamStore>()(
   (set, get) => ({
   teams: [],
@@ -111,9 +110,10 @@ export const useTeamStore = create<TeamStore>()(
     set({ loading: true });
     try {
       const seq = ++loadSeq;
+      const epoch = accountEpoch();
       const fresh = await api.listTeams();
       // An older request landing last would resurrect a team the newer one already dropped.
-      if (seq < appliedSeq) {
+      if (seq < appliedSeq || epoch !== accountEpoch()) {
         set({ loading: false });
         return;
       }
@@ -125,11 +125,11 @@ export const useTeamStore = create<TeamStore>()(
           t.owner_tier === prev[i].owner_tier &&
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
-          sameJson(t.lock_policy, prev[i].lock_policy) &&
+          sameValue(t.lock_policy, prev[i].lock_policy) &&
           t.policy_revision === prev[i].policy_revision &&
           t.joined_at === prev[i].joined_at &&
-          sameJson(t.policy, prev[i].policy) &&
-          sameJson(t.role_ids, prev[i].role_ids));
+          sameValue(t.policy, prev[i].policy) &&
+          sameValue(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
       void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));

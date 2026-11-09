@@ -38,9 +38,13 @@ async function checkDoc({ team, text }: TeamDoc): Promise<{ input: TeamPolicyInp
 }
 
 let refreshSeq = 0;
+let epoch = 0;
+
+export const accountEpoch = () => epoch;
 
 export function clearTeamPolicy(): void {
   refreshSeq++;
+  epoch++;
   useTeamPolicyStore.getState().setLayer(null, "");
 }
 

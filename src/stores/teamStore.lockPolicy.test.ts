@@ -9,11 +9,12 @@ import { useTeamStore } from "./teamStore";
 import { lockedValue, policyRange } from "./policyStore";
 import { useTeamPolicyStore } from "./teamPolicyStore";
 import { invoke } from "@/lib/invoke";
+import { clearTeamPolicy } from "@/services/policy/teamPolicy";
 import { echoTeamDoc, resetPolicy, withTeamPolicy } from "@/test/policy";
+import { makeTeam } from "@/test/team";
+import type { TeamLockPolicy } from "@/services/teamService";
 
-const row = (id: string, lock_policy: { max_minutes: number; force_vault: boolean } | null) => ({
-  id, name: id, owner_id: "o", owner_tier: "business", created_at: "", role_ids: [], permission_allow: 0, permission_deny: 0, lock_policy,
-});
+const row = (id: string, lock_policy: TeamLockPolicy | null) => makeTeam(id, { lock_policy });
 
 beforeEach(() => {
   useTeamStore.setState({ teams: [], rolesByTeam: {} });
@@ -67,4 +68,16 @@ test("a policy-document-only change is not swallowed by the unchanged-list short
   await useTeamStore.getState().loadTeams();
   expect(useTeamStore.getState().teams[0].policy_revision).toBe(2);
   await vi.waitFor(() => expect(useTeamPolicyStore.getState().layer?.policy).toEqual({ "security.lockAction": "vault" }));
+});
+
+test("a fetch started before the account's policy is cleared is not applied", async () => {
+  let resolve!: (teams: unknown[]) => void;
+  api.listTeams.mockReturnValue(new Promise((r) => (resolve = r)));
+  const load = useTeamStore.getState().loadTeams();
+  clearTeamPolicy();
+  resolve([row("a", { max_minutes: 15, force_vault: true })]);
+  await load;
+  await new Promise((r) => setTimeout(r, 20));
+  expect(useTeamPolicyStore.getState().layer).toBeNull();
+  expect(useTeamStore.getState().teams).toEqual([]);
 });
