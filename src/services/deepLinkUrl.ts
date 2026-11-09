@@ -2,6 +2,7 @@ import { GRANT_SECRET_RE } from "@/services/grantSecret";
 import { isSessionId, isUuid } from "@/services/sessionId";
 import { isSettingsSection, type SettingsSection } from "@/stores/uiStore";
 import { isValidPluginId } from "@/plugins/pluginId";
+import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
 
 export type JoinIntent = { route: "join"; sessionId: string; token: string };
 export type InviteIntent = { route: "invite"; handle: string };
@@ -17,6 +18,8 @@ export type PluginInstallIntent = { route: "plugin-install"; pluginId: string; s
 export type VaultJoinIntent = { route: "vault-join"; grantId: string; secret: string };
 /** Android launcher shortcut (LauncherShortcuts.kt): the id of a saved host, nothing else. */
 export type ConnectIntent = { route: "connect"; hostId: string };
+/** The token is a bearer capability for joining a server: handled in memory only, never logged. */
+export type EnrollIntent = { route: "enroll"; token: string };
 export type DeepLinkIntent =
   | JoinIntent
   | InviteIntent
@@ -28,7 +31,8 @@ export type DeepLinkIntent =
   | SnippetInstallIntent
   | PluginInstallIntent
   | VaultJoinIntent
-  | ConnectIntent;
+  | ConnectIntent
+  | EnrollIntent;
 
 type TrustClass = "confirm" | "attenuated" | "silent" | "navigate";
 type Route = DeepLinkIntent["route"];
@@ -105,6 +109,8 @@ const TRUST = {
   // voltius://connect), it is scheme-only (SCHEME_ONLY), and only the mobile shell acts
   // on it (deepLinkHandlers).
   connect: "attenuated",
+  // The token enrols this device into a server's policy, so nothing happens until the user accepts.
+  enroll: "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
 type RouteOfClass<C extends TrustClass> = {
@@ -261,6 +267,13 @@ const ROUTES: { [K in Route]: RouteCodec<K> } = {
       return { route: "connect", hostId };
     },
     params: ({ hostId }) => ({ host: hostId }),
+  },
+  enroll: {
+    parse: (params) => {
+      const token = params.get("t") ?? "";
+      return parseEnrollmentToken(token) ? { route: "enroll", token } : null;
+    },
+    params: ({ token }) => ({ t: token }),
   },
 };
 

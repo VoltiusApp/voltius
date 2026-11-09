@@ -239,3 +239,12 @@ test("the same navigate link delivered twice reaches the handler once", () => {
   handleDeepLink("voltius://settings?section=sync");
   expect(seen).toEqual(["settings"]);
 });
+
+test("takeQueued removes the first intent of a route before the app is ready and leaves the rest", () => {
+  const enroll = { route: "enroll", token: "vte1.a.b.c" } as unknown as DeepLinkIntent;
+  const billing: DeepLinkIntent = { route: "billing" };
+  useDeepLinkStore.setState({ ready: false, queue: [billing, enroll], prompt: null });
+  expect(useDeepLinkStore.getState().takeQueued("enroll")).toBe(enroll);
+  expect(useDeepLinkStore.getState().queue).toEqual([billing]);
+  expect(useDeepLinkStore.getState().takeQueued("enroll")).toBeNull();
+});

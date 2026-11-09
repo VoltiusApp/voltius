@@ -45,6 +45,7 @@ interface DeepLinkStore {
   setReady(ready: boolean): void;
   setUnpromptedHandler(fn: ((intent: UnpromptedIntent) => void) | null): void;
   enqueue(intent: DeepLinkIntent): void;
+  takeQueued<R extends DeepLinkIntent["route"]>(route: R): Extract<DeepLinkIntent, { route: R }> | null;
   dismissPrompt(): void;
 }
 
@@ -79,6 +80,15 @@ export const useDeepLinkStore = create<DeepLinkStore>((set, get) => ({
     if (queue.some((queued) => intentKey(queued) === key)) return;
     set({ queue: [...queue, intent].slice(-MAX_QUEUE) });
     drain();
+  },
+
+  takeQueued: <R extends DeepLinkIntent["route"]>(route: R) => {
+    const queued = get().queue.find(
+      (intent): intent is Extract<DeepLinkIntent, { route: R }> => intent.route === route,
+    );
+    if (!queued) return null;
+    set({ queue: get().queue.filter((intent) => intent !== queued) });
+    return queued;
   },
 
   // Surfaces a link queued behind the prompt, rather than losing it.
