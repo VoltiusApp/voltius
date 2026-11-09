@@ -7,6 +7,7 @@ pub mod device_files;
 pub mod diagnostics;
 pub mod docker;
 pub mod downloads;
+pub mod favorite_commands;
 pub mod folders;
 pub mod fonts;
 pub mod fs;

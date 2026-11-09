@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { FolderGlyph } from "@/components/folders/folderAppearance";
-import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetStore, type SnippetDraft } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -277,6 +277,9 @@ export function SnippetsPanel() {
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
+  const [draft, setDraft] = useState<SnippetDraft | null>(null);
+  const pendingDraft = useSnippetStore((s) => s.snippetDraft);
+
   const openSnippetEditor = useCallback((item: Snippet | "new") => {
     snippetIsDirtyRef.current = false;
     formSessionKeyRef.current = item === "new" ? `new-${Date.now()}` : item.id;
@@ -287,7 +290,16 @@ export function SnippetsPanel() {
   const closeSnippetEditor = useCallback(() => {
     setEditingSnippetId(null);
     setCreatedSnippetId(null);
+    setDraft(null);
   }, []);
+
+  useEffect(() => {
+    if (!pendingDraft) return;
+    useSnippetStore.getState().setSnippetDraft(null);
+    openSnippetEditor("new");
+    setDraft(pendingDraft);
+  }, [pendingDraft, openSnippetEditor]);
+
   const shownSnippetId = editingSnippetId === "new" ? createdSnippetId : editingSnippetId;
   useCloseWhenGone(shownSnippetId, snippets.some((s) => s.id === shownSnippetId), closeSnippetEditor);
   const shownFolderId = editingFolder && editingFolder !== "new" ? editingFolder.id : null;
@@ -467,6 +479,7 @@ export function SnippetsPanel() {
       <SnippetForm
         key={`${formSessionKeyRef.current}-${snippetFormVersion}`}
         initial={liveEditingSnippet ?? undefined}
+        draft={draft ?? undefined}
         onSubmit={handleSnippetFormSubmit}
         onClose={closeSnippetEditor}
         onDuplicate={liveEditingSnippet ? () => { void handleDuplicate(liveEditingSnippet); closeSnippetEditor(); } : undefined}

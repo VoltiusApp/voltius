@@ -16,6 +16,9 @@ import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaul
 
 export type GlobalPendingInject = SnippetPendingInject;
 
+/** A new snippet's starting content, handed to the Snippets panel's editor. */
+export type SnippetDraft = Pick<SnippetFormData, "name" | "steps">;
+
 /** Queue-unique identity for a prompt: the same snippet can be queued once per
  *  host, and the modal must remount (re-seed its values) for each one. */
 export type QueuedSequencePrompt = SequencePrompt & { queueId: number };
@@ -44,6 +47,8 @@ interface SnippetStore {
   globalPendingInject: GlobalPendingInject | null;
   pendingSequences: QueuedSequencePrompt[];
   teamSnippets: Record<string, Snippet[]>;
+  snippetDraft: SnippetDraft | null;
+  setSnippetDraft: (draft: SnippetDraft | null) => void;
   loadSnippets: () => Promise<void>;
   setTeamSnippets: (teamId: string, items: Snippet[]) => void;
   clearTeamSnippets: (teamId?: string) => void;
@@ -65,6 +70,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   globalPendingInject: null,
   pendingSequences: [],
   teamSnippets: {},
+  snippetDraft: null,
+  setSnippetDraft: (snippetDraft) => set({ snippetDraft }),
 
   loadSnippets: async () => {
     set({ loading: true });

@@ -8,6 +8,7 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
 import { autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
 import { lockOnLaunchIfIdle, systemAuthAvailable } from "@/services/appLock";
 import { secretState } from "@/services/vaultSecret";
@@ -157,6 +158,7 @@ export default function SplashScreen({ onReady }: Props) {
         useSnippetStore.getState().loadSnippets(),
         useSnippetFolderStore.getState().loadFolders(),
         usePortForwardingStore.getState().loadRules(),
+        useFavoriteCommandStore.getState().load(),
       ]);
       setStep("connections", "done");
     } catch {

@@ -361,6 +361,7 @@ pub const ENTITY_FILES: &[&str] = &[
     "snippet_folders.json",
     "port_forwarding_rules.json",
     "lan_group.json",
+    "favorite_commands.json",
 ];
 
 /// Decrypt a remote blob and return its payload without writing anything to disk.

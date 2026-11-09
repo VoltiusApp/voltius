@@ -8,6 +8,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { useFavoriteCommandStore, type FavoriteCommand } from "@/stores/favoriteCommandStore";
 import type { Snippet, Folder } from "@/types";
 
 const snippet = (id: string): Snippet => ({
@@ -38,6 +39,7 @@ describe("getExcludedObjectIds: snippets", () => {
     useSnippetStore.setState({ snippets: [snippet("s1"), snippet("s2")] });
     useSnippetFolderStore.setState({ folders: [folder("sf1", "snippet_folder")] });
     useFolderStore.setState({ folders: [folder("f1", "connection_folder")] });
+    useFavoriteCommandStore.setState({ favorites: [] });
   });
 
   test("excludes nothing while every type is synced", () => {
@@ -60,6 +62,13 @@ describe("getExcludedObjectIds: snippets", () => {
   test("switching the folder type off excludes snippet folders as well as host folders", () => {
     useSyncPrefsStore.getState().setSyncType("folder", false);
     expect(getExcludedObjectIds().sort()).toEqual(["f1", "sf1"]);
+  });
+
+  test("favorite commands follow the snippet type", () => {
+    useFavoriteCommandStore.setState({ favorites: [{ id: "fav1" } as FavoriteCommand] });
+    expect(getExcludedObjectIds()).toEqual([]);
+    useSyncPrefsStore.getState().setSyncType("snippet", false);
+    expect(getExcludedObjectIds().sort()).toEqual(["fav1", "s1", "s2"]);
   });
 });
 

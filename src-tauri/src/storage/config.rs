@@ -867,6 +867,19 @@ pub fn save_port_forwarding_rules(rules: &[PortForwardingRule]) -> Result<(), St
     save_json(port_forwarding_rules_file(), rules)
 }
 
+fn favorite_commands_file() -> PathBuf {
+    config_dir().join("favorite_commands.json")
+}
+
+/// Kept as raw JSON: the frontend owns the record shape and its CRDT stamps.
+pub fn load_favorite_commands() -> Result<Vec<serde_json::Value>, String> {
+    load_json(favorite_commands_file())
+}
+
+pub fn save_favorite_commands(items: &[serde_json::Value]) -> Result<(), String> {
+    save_json(favorite_commands_file(), items)
+}
+
 type SuppressedPorts = BTreeMap<String, BTreeSet<u16>>;
 
 // Device-local on purpose: absent from the sync file lists.
