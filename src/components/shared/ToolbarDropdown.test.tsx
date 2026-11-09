@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ToolbarDropdown } from "./ToolbarDropdown";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -27,7 +27,7 @@ test("renders action items with a submenu row and keeps rows from shrinking", ()
   expect(onImport).toHaveBeenCalled();
 });
 
-test("a submenu row click runs and closes the menu", () => {
+test("a submenu row click runs and closes the menu", async () => {
   const onOpenSsh = vi.fn();
   render(
     <ToolbarDropdown
@@ -44,7 +44,7 @@ test("a submenu row click runs and closes the menu", () => {
   fireEvent.mouseDown(child);
   fireEvent.click(child);
   expect(onOpenSsh).toHaveBeenCalled();
-  expect(screen.queryByText("Import from")).toBeNull();
+  await waitFor(() => expect(screen.queryByText("Import from")).toBeNull());
 });
 
 test("options rows cannot shrink", async () => {

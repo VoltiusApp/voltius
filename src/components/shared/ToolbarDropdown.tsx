@@ -5,6 +5,7 @@ import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { MenuItemList, isInMenuPortal, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { chevronRotateStyle } from "@/utils/icons";
 import { searchMatcher } from "@/utils/search";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 
 export interface DropdownOption<T extends string> {
   value: T;
@@ -88,6 +89,7 @@ export function ToolbarDropdown<T extends string>({
   const filteredOptions = selectOptions.filter((o) => matchesQuery(o.label));
   const hasContent = items ? menuItems.length > 0 : selectOptions.length > 0;
   const selectionCount = isMulti ? multiValue.length : 0;
+  const fade = usePopoverFade(open && hasContent);
 
   function handleOptionClick(opt: DropdownOption<T>) {
     if (isMulti) {
@@ -112,10 +114,10 @@ export function ToolbarDropdown<T extends string>({
     return value === opt.value;
   }
 
-  const menuEl = open && hasContent && (
+  const menuEl = fade.mounted && (
     <div
-      className={`surface-float absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 z-50 flex flex-col`}
-      style={{ minWidth: `${(menuWidth / 15).toFixed(3)}rem` }}
+      className={`surface-float absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 z-50 flex flex-col ${fade.className}`}
+      style={{ ...fade.style, minWidth: `${(menuWidth / 15).toFixed(3)}rem` }}
     >
       {searchable && (
         <div className="px-1.5 pt-1.5">

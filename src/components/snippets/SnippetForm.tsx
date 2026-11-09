@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 import { useFolderField } from "@/hooks/useFolderField";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
@@ -379,6 +380,7 @@ function AutocompleteTagInput({
   const match = searchMatcher(input);
   const filtered = suggestions.filter((s) => !tags.includes(s) && match(s));
   const showDropdown = open && filtered.length > 0;
+  const fade = usePopoverFade(showDropdown);
 
   return (
     <div ref={containerRef} className="relative">
@@ -422,10 +424,10 @@ function AutocompleteTagInput({
           }
         }}
       />
-      {showDropdown && (
+      {fade.mounted && (
         <div
-          className="absolute z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden"
-          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
+          className={`absolute z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden ${fade.className}`}
+          style={{ ...fade.style, background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
         >
           {filtered.map((s) => (
             <button
