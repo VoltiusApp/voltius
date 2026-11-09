@@ -9,7 +9,7 @@ import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { sameKey } from "./vaultKeyCandidates";
-import { appFetch, isAbortError } from "@/services/http";
+import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { VaultUnreadableError } from "./vaultErrors";
 import {
   clearSecret, keepsPlainPassword, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storeDeviceKey,
@@ -181,24 +181,6 @@ async function passwordProvenOffline(kek: number[]): Promise<boolean> {
   if (!(await getVaultStatus()).exists) return !!dek;
   const prior = await storedWrappedKey(kek, PRIOR_WRAPPED_KEY);
   return !!(await keyThatOpensVault(dek, kek, prior));
-}
-
-async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await appFetch(input, { ...init, signal: controller.signal, connectTimeout: timeoutMs });
-  } catch (e) {
-    if (isAbortError(e)) {
-      throw new Error(i18n.t("common.error.serverUnreachableTimeout"));
-    }
-
-    // WebView2 / network errors are often opaque objects; normalise them.
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(i18n.t("common.error.networkError", { message: msg }));
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 // ─── Keychain helpers ─────────────────────────────────────────────────────────

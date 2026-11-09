@@ -56,12 +56,60 @@ test("cached failure is returned without fetch", async () => {
   expect(resolveFailure(again)).toBe("notFound");
 });
 
-test("an unreachable server is not cached", async () => {
+test("a transient failure is cached for 5 minutes, then refetched", async () => {
+  vi.useFakeTimers();
   h.resolveEnrollment.mockRejectedValue(new Error("offline"));
   await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
-  h.resolveEnrollment.mockResolvedValue(RESOLVED);
-  await expect(useEnrollmentStore.getState().resolve(TOKEN)).resolves.toEqual(RESOLVED);
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(1);
+  vi.setSystemTime(Date.now() + 5 * 60 * 1000 + 1000);
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
   expect(h.resolveEnrollment).toHaveBeenCalledTimes(2);
+});
+
+test("a 429 waits for Retry-After when it is longer than 5 minutes", async () => {
+  vi.useFakeTimers();
+  h.resolveEnrollment.mockRejectedValue(new EnrollmentError(null, 429, undefined, 3_600_000));
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  vi.setSystemTime(Date.now() + 30 * 60 * 1000);
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(1);
+  vi.setSystemTime(Date.now() + 31 * 60 * 1000);
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(2);
+});
+
+test("force bypasses a cached transient failure", async () => {
+  h.resolveEnrollment.mockRejectedValue(new EnrollmentError(null, 429));
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  h.resolveEnrollment.mockResolvedValue(RESOLVED);
+  await expect(useEnrollmentStore.getState().resolve(TOKEN, { force: true })).resolves.toEqual(RESOLVED);
+});
+
+test("a sticky notFound survives past 24h; a lapsed failure expires", async () => {
+  vi.useFakeTimers();
+  h.resolveEnrollment.mockRejectedValue(new EnrollmentError("ENROLLMENT_NOT_FOUND", 404));
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  vi.setSystemTime(Date.now() + 3 * DAY);
+  await useEnrollmentStore.getState().resolve(TOKEN).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(1);
+
+  h.resolveEnrollment.mockReset().mockRejectedValue(new EnrollmentError("ENROLLMENT_UNAVAILABLE", 402));
+  const other = { ...TOKEN, id: "b".repeat(32) };
+  await useEnrollmentStore.getState().resolve(other).catch(() => {});
+  vi.setSystemTime(Date.now() + DAY - 1000);
+  await useEnrollmentStore.getState().resolve(other).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(1);
+  vi.setSystemTime(Date.now() + 2000);
+  await useEnrollmentStore.getState().resolve(other).catch(() => {});
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(2);
+});
+
+test("concurrent resolves of one token fetch once", async () => {
+  h.resolveEnrollment.mockResolvedValue(RESOLVED);
+  const { resolve } = useEnrollmentStore.getState();
+  await Promise.all([resolve(TOKEN), resolve(TOKEN)]);
+  expect(h.resolveEnrollment).toHaveBeenCalledTimes(1);
 });
 
 test("record keys the outcome by token and account", () => {
@@ -78,4 +126,11 @@ test("loadMyRequests stores the list, and null when the server lacks the route",
   h.listMyJoinRequests.mockResolvedValue(null);
   await useEnrollmentStore.getState().loadMyRequests();
   expect(useEnrollmentStore.getState().myRequests).toBeNull();
+});
+
+test("loadMyRequests keeps the previous list when the call throws", async () => {
+  useEnrollmentStore.setState({ myRequests: [{ id: "kept" } as never] });
+  h.listMyJoinRequests.mockRejectedValue(new Error("500"));
+  await useEnrollmentStore.getState().loadMyRequests();
+  expect(useEnrollmentStore.getState().myRequests).toEqual([{ id: "kept" }]);
 });

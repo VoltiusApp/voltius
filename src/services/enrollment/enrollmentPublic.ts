@@ -1,7 +1,7 @@
-import { appFetch } from "@/services/http";
+import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { serverFetch } from "@/services/teamService";
 import { canonicalServerUrl } from "@/utils/serverInstance";
-import { EnrollmentError, enrollmentErrorFrom, enrollmentRefusal, type JoinRequestReason } from "./enrollmentApi";
+import { EnrollmentError, enrollmentErrorFrom, enrollmentRefusal, JSON_HEADERS, type JoinRequestReason } from "./enrollmentApi";
 import type { EnrollmentTokenParts } from "./enrollmentToken";
 
 export interface ResolvedEnrollment {
@@ -39,9 +39,6 @@ export class ResolveFailedError extends Error {
 
 type Session = { serverUrl: string; jwt?: string };
 
-const REQUEST_TIMEOUT_MS = 10_000;
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
 export function enrollmentCredential(token: EnrollmentTokenParts): EnrollmentCredential {
   const { id, secret } = token;
   return { id: id.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5"), secret };
@@ -53,21 +50,21 @@ export function toEnrollmentOutcome(raw: unknown): EnrollmentOutcome | null {
   return { status: o.status, ...(o.reason && { reason: o.reason }), ...(o.team_id && { teamId: o.team_id }) };
 }
 
-async function request<T>(session: Session | "active", path: string, init: RequestInit): Promise<T> {
+type Init = { method?: string; headers?: Record<string, string>; body?: string };
+
+async function request<T>(session: Session | "active", path: string, init: Init): Promise<T> {
   const res =
     session === "active"
       ? await serverFetch(path, init)
-      : await appFetch(`${canonicalServerUrl(session.serverUrl)}${path}`, {
+      : await fetchWithTimeout(`${canonicalServerUrl(session.serverUrl)}${path}`, {
           ...init,
-          headers: { ...JSON_HEADERS, ...(session.jwt && { Authorization: `Bearer ${session.jwt}` }) },
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-          connectTimeout: REQUEST_TIMEOUT_MS,
+          headers: { ...init.headers, ...(session.jwt && { Authorization: `Bearer ${session.jwt}` }) },
         });
   if (!res.ok) throw await enrollmentErrorFrom(res);
   return res.json();
 }
 
-const post = (body: unknown): RequestInit => ({ method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+const post = (body: unknown): Init => ({ method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
 
 export async function resolveEnrollment(token: EnrollmentTokenParts): Promise<ResolvedEnrollment> {
   const r = await request<{ team_id: string; team_name: string; allowed_domains: string[]; require_approval: boolean }>(
@@ -124,5 +121,5 @@ export function resolveFailure(e: unknown): ResolveFailure {
 export function emailDomainAllowed(email: string, domains: string[]): boolean {
   if (domains.length === 0) return true;
   const at = email.lastIndexOf("@");
-  return at >= 0 && domains.includes(email.slice(at + 1).toLowerCase());
+  return at >= 0 && domains.some((d) => d.toLowerCase() === email.slice(at + 1).toLowerCase());
 }

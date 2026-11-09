@@ -63,6 +63,12 @@ test.each([
   expect(resolveFailure(await resolveEnrollment(TOKEN).catch((x) => x))).toBe(failure);
 });
 
+test("a 429 carries its Retry-After", async () => {
+  h.appFetch.mockResolvedValue({ ...reply(429, null), headers: new Headers({ "Retry-After": "120" }) });
+  const e = await resolveEnrollment(TOKEN).catch((x) => x);
+  expect(e.retryAfterMs).toBe(120_000);
+});
+
 test("a network failure is unreachable", async () => {
   h.appFetch.mockRejectedValue(new Error("connection refused"));
   expect(resolveFailure(await resolveEnrollment(TOKEN).catch((x) => x))).toBe("unreachable");
@@ -75,6 +81,7 @@ test("redeem with explicit session uses its bearer and no public key", async () 
   const [url, init] = h.appFetch.mock.calls[0];
   expect(url).toBe("https://other.example/v1/enrollment/redeem");
   expect(new Headers(init.headers).get("Authorization")).toBe("Bearer JWT");
+  expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
   expect(JSON.parse(init.body)).toEqual({ id: UUID, secret: TOKEN.secret });
   expect(h.serverFetch).not.toHaveBeenCalled();
 });
@@ -112,5 +119,6 @@ test("emailDomainAllowed exact match after last @", () => {
   expect(emailDomainAllowed("a@sub.acme.com", ["acme.com"])).toBe(false);
   expect(emailDomainAllowed("acme.com@evil.io", ["acme.com"])).toBe(false);
   expect(emailDomainAllowed("a@b@acme.com", ["acme.com"])).toBe(true);
+  expect(emailDomainAllowed("a@acme.com", ["Acme.COM"])).toBe(true);
   expect(emailDomainAllowed("no-at", ["acme.com"])).toBe(false);
 });

@@ -4,7 +4,7 @@ import { featureDisabledError } from "@/services/featureDisabled";
 import { serverFetch } from "@/services/teamService";
 
 export class EnrollmentError extends Error {
-  constructor(public code: string | null, public status: number, message?: string) {
+  constructor(public code: string | null, public status: number, message?: string, public retryAfterMs?: number) {
     super(message ?? code ?? `HTTP ${status}`);
   }
 }
@@ -91,12 +91,18 @@ export interface ApproveOutcome {
 
 const tokenPath = (teamId: string) => `/v1/teams/${teamId}/enrollment-token`;
 const requestsPath = (teamId: string) => `/v1/teams/${teamId}/join-requests`;
-const JSON_HEADERS = { "Content-Type": "application/json" };
+export const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export async function enrollmentErrorFrom(res: Response): Promise<EnrollmentError> {
   const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
   const disabled = await featureDisabledError({ status: res.status, json: async () => body });
-  return new EnrollmentError(typeof body?.error === "string" ? body.error : null, res.status, disabled?.message);
+  const retryAfter = Number(res.headers?.get("Retry-After"));
+  return new EnrollmentError(
+    typeof body?.error === "string" ? body.error : null,
+    res.status,
+    disabled?.message,
+    retryAfter > 0 ? retryAfter * 1000 : undefined,
+  );
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
