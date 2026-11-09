@@ -141,9 +141,11 @@ jobs:
           "$pg/initdb" -D "$RUNNER_TEMP/pgdata" -U postgres --auth=trust > /dev/null
           "$pg/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/pg.log" -o "-p 5432" start
           "$pg/createdb" -h 127.0.0.1 -U postgres voltius
-          cargo build --manifest-path sync-server/Cargo.toml
+          # Outside the app checkout, or cargo takes it for a member of the app workspace.
+          mv sync-server "$RUNNER_TEMP/sync-server"
+          cd "$RUNNER_TEMP/sync-server"
+          cargo build
           mkdir -p "$OUT_DIR"
-          cd sync-server
           DATABASE_URL=postgres://postgres@127.0.0.1:5432/voltius JWT_SECRET="$(openssl rand -hex 32)" PORT=8080 \
             nohup ./target/debug/voltius-server > "$OUT_DIR/sync-server.log" 2>&1 &
           for _ in $(seq 1 60); do curl -fs "$VOLTIUS_SERVER_URL/v1/meta" && break; sleep 1; done
