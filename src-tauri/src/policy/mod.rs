@@ -2067,4 +2067,12 @@ mod tests {
         assert_eq!(bounded(key, &r, Some(&Value::Null), None, None), json!(15));
         assert_eq!(bounded(key, &r, None, None, None), json!(15));
     }
+
+    #[test]
+    fn same_server_compares_origin_and_path() {
+        assert!(same_server("https://A.acme.com/", "https://a.acme.com"));
+        assert!(!same_server("https://a.acme.com/x", "https://a.acme.com/y"));
+        assert!(!same_server("https://a.acme.com", "http://a.acme.com"));
+        assert!(!same_server("ftp://a.acme.com", "ftp://a.acme.com"));
+    }
 }

@@ -18,7 +18,7 @@ pub struct EnrollArgs {
     /// Write the token without asking the server to check it
     #[arg(long)]
     no_verify: bool,
-    /// Show the enrolment this machine has
+    /// Show the enrolment this machine has (checks the server unless --no-verify)
     #[arg(long, conflicts_with = "token")]
     show: bool,
     /// Remove this machine's enrolment
@@ -34,6 +34,7 @@ pub(super) enum ResolveError {
     InvitesOff,
     ServerTooOld,
     RateLimited,
+    BadAnswer,
     Network(String),
 }
 
@@ -79,6 +80,10 @@ fn refusal(e: ResolveError, token: &EnrollmentToken) -> CliError {
         ResolveError::RateLimited => {
             fail("The server is limiting requests. Try again in a minute.".into())
         }
+        ResolveError::BadAnswer => fail(format!(
+            "Unexpected answer from {}.",
+            host_of(&token.server_url)
+        )),
         ResolveError::Network(m) => CliError::Io(std::io::Error::other(format!(
             "{m}\nCheck the network, or pass --no-verify to write the token without checking it."
         ))),
@@ -114,6 +119,7 @@ pub(super) fn run_enroll(
         .token
         .ok_or_else(|| CliError::Usage("pass the enrolment token, or --show / --remove".into()))?;
     let token = parse_token(&raw)?;
+    let path = machine_path(machine)?;
     let host = host_of(&token.server_url);
     if let Some(locked) = machine_doc(machine)
         .policy
@@ -127,17 +133,23 @@ pub(super) fn run_enroll(
             )));
         }
     }
-    let team = lookup(&token, args.no_verify, resolve)?;
     let changed = current_token(machine).as_ref() != Some(&token);
+    let (team, unreachable) = match lookup(&token, args.no_verify, resolve) {
+        Err(ResolveError::Network(_)) if !changed => (None, true),
+        Err(e) => return Err(refusal(e, &token)),
+        Ok(team) => (team, false),
+    };
     if changed {
-        put(KEY, raw.trim(), Layer::Policy, machine_path(machine)?, out)?;
+        put(KEY, raw.trim(), Layer::Policy, path, out)?;
     }
     if out.json {
         out.json(&json!({"changed": changed, "team": team, "server": token.server_url}));
         return Ok(());
     }
     let team_part = team.map(|t| format!(" in {t}")).unwrap_or_default();
-    out.line(if changed {
+    out.line(if unreachable {
+        format!("Already enrolled ({host}); couldn't reach the server to check the token.")
+    } else if changed {
         format!(
             "Enrolled this machine{team_part} ({host}). Voltius asks people to sign in at next launch."
         )
@@ -151,11 +163,11 @@ fn lookup(
     token: &EnrollmentToken,
     no_verify: bool,
     resolve: Resolver,
-) -> Result<Option<String>, CliError> {
+) -> Result<Option<String>, ResolveError> {
     if no_verify {
         return Ok(None);
     }
-    resolve(token).map(Some).map_err(|e| refusal(e, token))
+    resolve(token).map(Some)
 }
 
 fn show(
@@ -172,7 +184,7 @@ fn show(
         }
         return Ok(());
     };
-    let team = lookup(&token, no_verify, resolve)?;
+    let team = lookup(&token, no_verify, resolve).map_err(|e| refusal(e, &token))?;
     let id = &token.id[..8];
     if out.json {
         out.json(
@@ -212,7 +224,7 @@ fn classify(status: u16, body: &str) -> Result<String, ResolveError> {
             .and_then(|v| v.get("team_name"))
             .and_then(Value::as_str)
             .map(str::to_string)
-            .ok_or_else(|| ResolveError::Network("unexpected response from the server".into())),
+            .ok_or(ResolveError::BadAnswer),
         (404, Some("ENROLLMENT_NOT_FOUND")) => Err(ResolveError::NotFound),
         (404, _) => Err(ResolveError::ServerTooOld),
         (410, _) => Err(ResolveError::Gone),
@@ -391,6 +403,44 @@ mod tests {
     }
 
     #[test]
+    fn enroll_same_token_offline_is_unchanged_exit_0() {
+        let (_d, m) = machine();
+        run(args(Some(&token())), &m, false, &acme).0.unwrap();
+        let before = std::fs::read_to_string(&m).unwrap();
+        let offline = |_: &EnrollmentToken| Err(ResolveError::Network("offline".into()));
+        let (r, text) = run(args(Some(&token())), &m, false, &offline);
+        r.unwrap();
+        assert_eq!(
+            text,
+            "Already enrolled (v.acme.com); couldn't reach the server to check the token.\n"
+        );
+        let (_, text) = run(args(Some(&token())), &m, true, &offline);
+        let v: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["changed"], false);
+        assert_eq!(v["team"], Value::Null);
+        assert_eq!(std::fs::read_to_string(&m).unwrap(), before);
+    }
+
+    #[test]
+    fn enroll_same_token_revoked_exits_3_without_writing() {
+        let (_d, m) = machine();
+        run(args(Some(&token())), &m, false, &acme).0.unwrap();
+        let before = std::fs::read_to_string(&m).unwrap();
+        let gone = |_: &EnrollmentToken| Err(ResolveError::Gone);
+        let e = run(args(Some(&token())), &m, false, &gone).0.unwrap_err();
+        assert_eq!(e.exit_code(), 3);
+        assert_eq!(std::fs::read_to_string(&m).unwrap(), before);
+    }
+
+    #[test]
+    fn enroll_without_machine_path_fails_before_network() {
+        let (mut out, _) = capture(false);
+        let resolve = |_: &EnrollmentToken| panic!("must not resolve");
+        let e = run_enroll(args(Some(&token())), None, &resolve, &mut out).unwrap_err();
+        assert_eq!(e.exit_code(), 2);
+    }
+
+    #[test]
     fn enroll_network_failure_exits_5_and_writes_nothing() {
         let (_d, m) = machine();
         let resolve = |_: &EnrollmentToken| Err(ResolveError::Network("offline".into()));
@@ -481,6 +531,7 @@ mod tests {
         let nf = r#"{"error":"ENROLLMENT_NOT_FOUND"}"#;
         let off = r#"{"error":"TEAM_INVITES_DISABLED"}"#;
         assert_eq!(classify(200, r#"{"team_name":"Acme"}"#), Ok("Acme".into()));
+        assert_eq!(classify(200, "{}"), Err(ResolveError::BadAnswer));
         assert_eq!(classify(404, nf), Err(ResolveError::NotFound));
         assert_eq!(classify(404, ""), Err(ResolveError::ServerTooOld));
         assert_eq!(classify(410, "{}"), Err(ResolveError::Gone));
