@@ -600,7 +600,7 @@ pub fn bounded(
             .unwrap_or(Value::Null);
     }
     let def = key_def(key);
-    if let (None, Some(max)) = (stored, r.max) {
+    if let (None, Some(max)) = (stored.filter(|v| !v.is_null()), r.max) {
         if def.is_some_and(|d| d.null_is_unbounded) {
             return number_value(max);
         }
@@ -2015,5 +2015,17 @@ mod tests {
         let v = bounded(key, &r, Some(&json!(1000)), None, None);
         assert_eq!(v.to_string(), "5000");
         assert_eq!(number_value(2.5).to_string(), "2.5");
+    }
+
+    #[test]
+    fn bounded_treats_a_stored_null_like_no_value_for_unbounded_keys() {
+        let key = "security.lockTimeoutMinutes";
+        let r = Range {
+            min: None,
+            max: Some(15.0),
+            allowed: None,
+        };
+        assert_eq!(bounded(key, &r, Some(&Value::Null), None, None), json!(15));
+        assert_eq!(bounded(key, &r, None, None, None), json!(15));
     }
 }
