@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   folderCardProps: [] as Record<string, unknown>[],
   navFolders: [] as unknown[],
   folderPath: [] as unknown[],
+  toolbarProps: {} as Record<string, unknown>,
   ejectTargetFolderId: null as string | null,
   activeFolderId: null as string | null,
   accessibleVaultIds: [] as string[],
@@ -65,7 +66,9 @@ vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
 vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
-vi.mock("./KeychainToolbar", () => ({ KeychainToolbar: () => null }));
+vi.mock("./KeychainToolbar", () => ({
+  KeychainToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
+}));
 vi.mock("./KeyCards", () => ({ KeySection: () => null, IdentitySection: () => null }));
 vi.mock("./KeyForm", () => ({ KeyForm: () => null }));
 vi.mock("./IdentityForm", () => ({ IdentityForm: () => null }));
@@ -376,4 +379,22 @@ test("copying a folder to a vault recreates the subtree but leaves the copies at
   expect(h.saveKey.mock.calls[0][0]).toMatchObject({ vault_id: "team-1" });
   expect(h.saveKey.mock.calls[0][0]).not.toHaveProperty("folder_id");
   expect(h.saveIdentity.mock.calls[0][0]).not.toHaveProperty("folder_id");
+});
+
+test("a new folder created inside a team folder lands in that team's vault (#816)", async () => {
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  render(<KeychainPage />);
+
+  await act(async () => { (h.toolbarProps.onNewFolder as () => void)(); });
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ parent_folder_id: "child", vault_id: "team-1" }));
+});
+
+test("New folder is greyed out inside a folder whose vault the user cannot edit folders in", () => {
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  h.can.mockImplementation((p: string, vaultId: string) => !(p === "EDIT_FOLDERS" && vaultId === "team-1"));
+  render(<KeychainPage />);
+
+  expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
 });

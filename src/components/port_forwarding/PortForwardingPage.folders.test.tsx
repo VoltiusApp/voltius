@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   folderCardProps: [] as Record<string, unknown>[],
   navFolders: [] as unknown[],
   folderPath: [] as unknown[],
+  toolbarProps: {} as Record<string, unknown>,
   ejectTargetFolderId: null as string | null,
   isDragging: false,
   activeFolderId: null as string | null,
@@ -59,7 +60,9 @@ vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
 vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
-vi.mock("./PortForwardingToolbar", () => ({ PortForwardingToolbar: () => null }));
+vi.mock("./PortForwardingToolbar", () => ({
+  PortForwardingToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
+}));
 vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => null }));
 vi.mock("./RuleCard", () => ({ RuleCard: () => null }));
 vi.mock("./RuleForm", () => ({ RuleForm: () => null }));
@@ -336,4 +339,22 @@ test("the folder delete confirmation counts every rule nested under it", () => {
   const empty = h.folderCardProps.find((p) => (p.folder as Folder).id === "empty")!;
   act(() => { (empty.onDelete as (f: Folder) => void)(folder("empty")); });
   expect(lastModal().message).toBe("portForwarding.page.confirmDeleteFolder.messageEmpty");
+});
+
+test("a new folder created inside a team folder lands in that team's vault (#816)", async () => {
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  render(<PortForwardingPage />);
+
+  await act(async () => { (h.toolbarProps.onNewFolder as () => void)(); });
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ parent_folder_id: "child", vault_id: "team-1" }));
+});
+
+test("New folder is greyed out inside a folder whose vault the user cannot edit folders in", () => {
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  h.can.mockImplementation((p: string, vaultId: string) => !(p === "EDIT_FOLDERS" && vaultId === "team-1"));
+  render(<PortForwardingPage />);
+
+  expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
 });

@@ -29,6 +29,7 @@
       "color": "Barva",
       "icon": "Ikona",
       "clear": "Vymazat"
-    }
+    },
+    "noPermissionCreate": "Nemáte oprávnění zde vytvářet složky"
   }
 }

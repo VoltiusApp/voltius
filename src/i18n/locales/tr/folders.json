@@ -27,6 +27,7 @@
       "color": "Renk",
       "icon": "Simge",
       "clear": "Temizle"
-    }
+    },
+    "noPermissionCreate": "Burada klasör oluşturma izniniz yok"
   }
 }

@@ -27,6 +27,7 @@
       "color": "Color",
       "icon": "Icon",
       "clear": "Clear"
-    }
+    },
+    "noPermissionCreate": "You don't have permission to create folders here"
   }
 }

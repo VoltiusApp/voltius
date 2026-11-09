@@ -553,3 +553,25 @@ test("a folder in a vault the user cannot add hosts to is not used as the placem
   act(() => { (h.toolbarProps.onCreateHost as () => void)(); });
   expect(lastForm()).toEqual({ kind: "ssh", placement: undefined });
 });
+
+test("a new folder created inside a team folder lands in that team's vault (#816)", async () => {
+  h.connections = [conn("c1")];
+  h.folders = [folder("child", { vault_id: "team-1" })];
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  render(<HostsPage />);
+
+  await act(async () => { (h.toolbarProps.onCreateFolder as () => void)(); });
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ parent_folder_id: "child", vault_id: "team-1" }));
+});
+
+test("New folder is greyed out inside a folder whose vault the user cannot edit folders in", () => {
+  h.connections = [conn("c1")];
+  h.folders = [folder("child", { vault_id: "team-1" })];
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  h.can.mockImplementation((p: string, vaultId: string) => !(p === "EDIT_FOLDERS" && vaultId === "team-1"));
+  render(<HostsPage />);
+
+  expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
+});

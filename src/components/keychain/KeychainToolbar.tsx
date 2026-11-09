@@ -19,6 +19,7 @@ interface KeychainToolbarProps {
   onGenerateKey?: () => void;
   onNewIdentity?: () => void;
   onNewFolder: () => void;
+  newFolderBlocked?: string;
   availableTags?: string[];
   tagFilter?: string[];
   onTagFilterChange?: (tags: string[]) => void;
@@ -35,6 +36,7 @@ export function KeychainToolbar({
   onGenerateKey,
   onNewIdentity,
   onNewFolder,
+  newFolderBlocked,
   availableTags,
   tagFilter,
   onTagFilterChange,
@@ -79,7 +81,7 @@ export function KeychainToolbar({
             <Icon icon="lucide:key-round" width={18} />
             {!compact && t("keychain.toolbar.newKey")}
           </button>
-          <NewKeyChevron onImport={onImportKey} onGenerate={onGenerateKey} onNewIdentity={onNewIdentity} onNewFolder={onNewFolder} accent />
+          <NewKeyChevron onImport={onImportKey} onGenerate={onGenerateKey} onNewIdentity={onNewIdentity} onNewFolder={onNewFolder} newFolderBlocked={newFolderBlocked} accent />
         </div>
       </div>
     </>
@@ -90,7 +92,7 @@ export function KeychainToolbar({
 // Split chevron for "NEW KEY" button
 // ─────────────────────────────────────────────────────────────────
 
-function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onImport?: () => void; onGenerate?: () => void; onNewIdentity?: () => void; onNewFolder: () => void; accent?: boolean }) {
+function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, newFolderBlocked, accent }: { onImport?: () => void; onGenerate?: () => void; onNewIdentity?: () => void; onNewFolder: () => void; newFolderBlocked?: string; accent?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -125,7 +127,7 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
       >
         {onGenerate && <DropdownMenuItem icon="lucide:key-round" label={t("keychain.toolbar.generateKeyPair")} onClick={() => { setOpen(false); onGenerate(); }} />}
         {onNewIdentity && <DropdownMenuItem icon="lucide:user-plus" label={t("keychain.toolbar.newIdentity")} onClick={() => { setOpen(false); onNewIdentity(); }} />}
-        <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} onClick={() => { setOpen(false); onNewFolder(); }} />
+        <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} disabled={!!newFolderBlocked} title={newFolderBlocked} onClick={() => { setOpen(false); onNewFolder(); }} />
       </PickerSurface>
     </div>
   );

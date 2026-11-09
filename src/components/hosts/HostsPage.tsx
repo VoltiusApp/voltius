@@ -26,6 +26,7 @@ import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useNewFolder } from "@/hooks/useNewFolder";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -37,7 +38,6 @@ import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { usePermissions } from "@/hooks/usePermission";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
-import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
 import { connectionsClipboardHalf } from "@/services/clipboard/connections";
@@ -66,7 +66,7 @@ import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/t
 import { reportUploadFailure } from "@/services/secretRouting";
 import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -154,7 +154,7 @@ export default function HostsPage() {
   };
 
   const createFolder = () =>
-    void saveFolder(newFolderData("connection", activeFolderId, defaultVaultId, t("hosts.toolbar.newFolder"))).then((f) => {
+    void saveFolder(newFolder(t("hosts.toolbar.newFolder"))).then((f) => {
       setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id);
     });
 
@@ -173,11 +173,9 @@ export default function HostsPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
-  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
   const canCreate = selectedVaultIds.some((vid) => can("EDIT_CONNECTIONS", vid));
   const teamCredentialsUnavailable = useTeamCredentialsUnavailable();
-  const canCreateFolder = selectedVaultIds.some((vid) => can("EDIT_FOLDERS", vid));
 
   const vaultOptions = useVaultOptions();
 
@@ -220,6 +218,7 @@ export default function HostsPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "connection");
+  const { folderBlocked, newFolder } = useNewFolder("connection", folderPath);
 
   // When inside a folder, show only that folder's items; otherwise show unfoldered items
   const filtered = useMemo(() => {
@@ -948,7 +947,7 @@ export default function HostsPage() {
             onSearchChange={setSearch}
             onCreateHost={() => { if (canCreate) openNew(); }}
             canCreate={canCreate}
-            canCreateFolder={canCreateFolder}
+            newFolderBlocked={folderBlocked}
             onCreateFolder={createFolder}
             onCreateSerial={canCreate ? () => openNew(true) : undefined}
             onOpenLocalTerminal={() => connectLocal().catch((e) => setError(describeError(e, t)))}
@@ -1028,7 +1027,7 @@ export default function HostsPage() {
                   <SectionHeader
                     label={t("hosts.page.folders")}
                     count={visibleFolders.length}
-                    aside={canCreateFolder && <SectionAddButton label={t("hosts.page.new")} onClick={createFolder} />}
+                    aside={<SectionAddButton label={t("hosts.page.new")} onClick={createFolder} disabledReason={folderBlocked} />}
                   />
                   <div
                     data-drag-surface="true"
@@ -1135,7 +1134,7 @@ export default function HostsPage() {
           items={[
             ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => openNew() } as const] : []),
             ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => openNew(true) } as const] : []),
-            ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder } as const] : []),
+            { label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder, disabledReason: folderBlocked },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "hosts"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),

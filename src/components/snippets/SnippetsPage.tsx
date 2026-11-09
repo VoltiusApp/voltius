@@ -20,6 +20,7 @@ import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useNewFolder } from "@/hooks/useNewFolder";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
@@ -61,12 +62,11 @@ import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
-import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
@@ -267,7 +267,6 @@ export function SnippetsPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
-  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
 
   const vaultOptions = useVaultOptions();
@@ -338,6 +337,7 @@ export function SnippetsPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "snippet");
+  const { folderBlocked, newFolder } = useNewFolder("snippet", folderPath);
 
   useEffect(() => {
     void loadSnippets();
@@ -839,7 +839,7 @@ export function SnippetsPage() {
 
   async function handleCreateFolder() {
     ep.closeEdit();
-    const folder = await saveFolder(newFolderData("snippet", activeFolderId, defaultVaultId, t("snippets.toolbar.newFolder")));
+    const folder = await saveFolder(newFolder(t("snippets.toolbar.newFolder")));
     folderEp.transitionToExisting(folder);
   }
 
@@ -933,6 +933,7 @@ export function SnippetsPage() {
         onLayoutModeChange={setLayoutMode}
         onNewSnippet={() => openSnippet("new")}
         onNewFolder={() => void handleCreateFolder()}
+        newFolderBlocked={folderBlocked}
       />
 
       {tab === "community" ? (
@@ -1121,7 +1122,7 @@ export function SnippetsPage() {
           onClose={closeBgMenu}
           items={[
             ...(canCreate ? [{ label: t("snippets.toolbar.newSnippet"), icon: "lucide:braces", onClick: () => openSnippet("new") } as const] : []),
-            { label: t("snippets.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void handleCreateFolder() },
+            { label: t("snippets.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void handleCreateFolder(), disabledReason: folderBlocked },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "snippets"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),
