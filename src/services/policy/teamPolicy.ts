@@ -27,8 +27,10 @@ export function teamDocsFrom(teams: Team[]): TeamDoc[] {
   });
 }
 
+export const checkTeamDocText = (text: string) => invoke<CheckedTeamDoc>("policy_check_team_doc", { text });
+
 async function checkDoc({ team, text }: TeamDoc): Promise<{ input: TeamPolicyInput; issues: PolicyIssue[] }> {
-  const { doc, issues } = await invoke<CheckedTeamDoc>("policy_check_team_doc", { text });
+  const { doc, issues } = await checkTeamDocText(text);
   return {
     input: { teamId: team.id, teamName: team.name, joinedAt: team.joined_at ?? "", policy: doc.policy },
     issues: issues.map((i) => ({ ...i, message: `${team.name}: ${i.message}` })),

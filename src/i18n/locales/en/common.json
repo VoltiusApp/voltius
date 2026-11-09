@@ -234,7 +234,11 @@
       "twoFactorNotEnabled": "Two-factor authentication is not on.",
       "twoFactorExpired": "This sign-in took too long. Start again.",
       "passkeyIncomplete": "The passkey step was not finished. Try again.",
-      "passkeyLimit": "This account already has as many passkeys as it can hold."
+      "passkeyLimit": "This account already has as many passkeys as it can hold.",
+      "teamPolicyConflict": "Someone else changed the team policy. Review it and import again.",
+      "teamPolicyRefused": "The server refused this policy: {{reason}}",
+      "failedToLoadTeamPolicy": "Failed to load the team policy: {{status}}",
+      "failedToSaveTeamPolicy": "Failed to save the team policy: {{status}}"
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",

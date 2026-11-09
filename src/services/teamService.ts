@@ -92,16 +92,66 @@ export async function renameTeam(teamId: string, name: string): Promise<void> {
   if (!res.ok) throw new Error(i18n.t("common.error.failedToRenameTeam", { status: res.status }));
 }
 
-export async function setTeamLockPolicy(teamId: string, policy: TeamLockPolicy | null): Promise<void> {
+async function serverFetch(path: string, init?: RequestInit): Promise<Response> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(
-    `${serverUrl}/v1/teams/${teamId}/lock-policy`,
+  return fetchAuth(`${serverUrl}${path}`, init);
+}
+
+export async function setTeamLockPolicy(teamId: string, policy: TeamLockPolicy | null): Promise<void> {
+  const res = await serverFetch(
+    `/v1/teams/${teamId}/lock-policy`,
     policy ? { method: "PUT", body: JSON.stringify(policy) } : { method: "DELETE" },
   );
   refuseIfPlanRequired(res);
   if (res.status === 404) throw new Error(i18n.t("common.error.lockPolicyServerTooOld"));
   if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveLockPolicy", { status: res.status }));
+}
+
+export interface StoredTeamPolicy {
+  policy: TeamPolicyDoc | null;
+  revision: number;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+
+export class PolicyRevisionMismatch extends Error {
+  constructor() {
+    super(i18n.t("common.error.teamPolicyConflict"));
+  }
+}
+
+export class TeamPolicyRejected extends Error {
+  constructor(public code: string, public key?: string) {
+    super(i18n.t("common.error.teamPolicyRefused", { reason: key ?? code }));
+  }
+}
+
+const policyPath = (teamId: string) => `/v1/teams/${teamId}/policy`;
+
+export async function getTeamPolicy(teamId: string): Promise<StoredTeamPolicy> {
+  const res = await serverFetch(policyPath(teamId));
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToLoadTeamPolicy", { status: res.status }));
+  return res.json();
+}
+
+async function changeTeamPolicy(teamId: string, init: RequestInit): Promise<void> {
+  const res = await serverFetch(policyPath(teamId), init);
+  refuseIfPlanRequired(res);
+  if (res.status === 409) throw new PolicyRevisionMismatch();
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: string; key?: string } | null;
+    throw new TeamPolicyRejected(body?.error ?? "POLICY_INVALID", body?.key);
+  }
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamPolicy", { status: res.status }));
+}
+
+export function putTeamPolicy(teamId: string, policy: unknown, revision: number): Promise<void> {
+  return changeTeamPolicy(teamId, { method: "PUT", body: JSON.stringify({ policy, revision }) });
+}
+
+export function deleteTeamPolicy(teamId: string): Promise<void> {
+  return changeTeamPolicy(teamId, { method: "DELETE" });
 }
 
 export async function listTeams(): Promise<Team[]> {
@@ -112,11 +162,7 @@ export async function listTeams(): Promise<Team[]> {
   return res.json();
 }
 
-async function fetchMembers(teamId: string): Promise<Response> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  return fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`);
-}
+const fetchMembers = (teamId: string) => serverFetch(`/v1/teams/${teamId}/members`);
 
 export async function listMembers(teamId: string): Promise<TeamMember[]> {
   const res = await fetchMembers(teamId);
@@ -436,9 +482,7 @@ async function authedCall(
   errorKey: string,
   interpolate?: (status: number) => Record<string, unknown>,
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}${path}`, init);
+  const res = await serverFetch(path, init);
   if (!res.ok) throw new Error(i18n.t(errorKey, interpolate?.(res.status)));
 }
 

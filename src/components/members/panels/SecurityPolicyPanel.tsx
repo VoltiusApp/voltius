@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
 import { BusinessLapseNotice, BusinessLockCard } from "@/components/shared/BusinessLockBanner";
+import { DevicePolicyCard } from "@/components/members/panels/DevicePolicyCard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import type { TeamLockPolicy } from "@/services/teamService";
@@ -13,7 +14,8 @@ const DEFAULT_MAX_MINUTES = 15;
 
 export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
   const { t } = useTranslation();
-  const policy = useTeamStore((s) => s.teams.find((x) => x.id === teamId)?.lock_policy ?? null);
+  const team = useTeamStore((s) => s.teams.find((x) => x.id === teamId));
+  const policy = team?.lock_policy ?? null;
   const setLockPolicy = useTeamStore((s) => s.setLockPolicy);
   const { locked } = useBusinessLock(teamId);
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,7 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
     }
   };
 
-  if (locked && !policy) return <BusinessLockCard teamId={teamId} body={t("members.security.lockBody")} />;
+  if (locked && !policy && !team?.policy) return <BusinessLockCard teamId={teamId} body={t("members.security.lockBody")} />;
 
   const disabled = busy || locked;
   return (
@@ -42,7 +44,7 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
         teamId={teamId}
         message={t("members.security.lapsed")}
         removeLabel={t("members.security.remove")}
-        onRemove={() => save(null)}
+        onRemove={policy ? () => save(null) : undefined}
       />
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -86,6 +88,7 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
         </>
       )}
       <p className="text-xs text-(--t-text-muted)">{t("members.security.appliesToAll")}</p>
+      <DevicePolicyCard key={teamId} teamId={teamId} />
     </div>
   );
 }

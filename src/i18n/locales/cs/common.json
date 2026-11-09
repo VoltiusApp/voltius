@@ -234,7 +234,11 @@
       "twoFactorNotEnabled": "Dvoufázové ověření není zapnuté.",
       "twoFactorExpired": "Přihlášení trvalo příliš dlouho. Začněte znovu.",
       "passkeyIncomplete": "Krok s přístupovým klíčem nebyl dokončen. Zkuste to znovu.",
-      "passkeyLimit": "Tento účet už má nejvyšší možný počet přístupových klíčů."
+      "passkeyLimit": "Tento účet už má nejvyšší možný počet přístupových klíčů.",
+      "teamPolicyConflict": "Týmovou zásadu mezitím změnil někdo jiný. Zkontrolujte ji a importujte znovu.",
+      "teamPolicyRefused": "Server tuto zásadu odmítl: {{reason}}",
+      "failedToLoadTeamPolicy": "Týmovou zásadu se nepodařilo načíst: {{status}}",
+      "failedToSaveTeamPolicy": "Týmovou zásadu se nepodařilo uložit: {{status}}"
     },
     "clipboard": {
       "cut_one": "Vyjmuta {{count}} položka",
