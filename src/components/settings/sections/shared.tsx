@@ -359,10 +359,10 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
     <div
       ref={ref}
       {...{ [ROW_ATTR]: "" }}
-      className={`relative flex items-center gap-4 min-h-14 py-3 px-4${inGroup ? "" : " -mx-4"}`}
+      className={`relative flex flex-wrap items-center gap-x-4 gap-y-1 min-h-14 py-3 px-4${inGroup ? "" : " -mx-4"}`}
       {...press}
     >
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-40">
         <div className="flex items-center gap-1.5 text-base text-(--t-text-primary)" style={style}>
           <span className="min-w-0">{title}</span>
           {dirty && !managed.locked && <DirtyDot />}
@@ -376,7 +376,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
         {managed.locked && <ManagedNote className="mt-1" teams={managed.teams} />}
         {note && <div className="mt-1">{note}</div>}
       </div>
-      <div className="flex items-center gap-1 shrink-0 max-w-1/2">
+      <div className="flex flex-wrap items-center justify-end gap-1 ml-auto max-w-full">
         <ListRowContext.Provider value={rowContext}>
           {canReset && <ResetButton onReset={onReset!} />}
           <RowControl managed={managed} note={false}>{children}</RowControl>
