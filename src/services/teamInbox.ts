@@ -354,6 +354,8 @@ function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>
   const store = useEnrollmentStore.getState();
   const teams = useTeamStore.getState().teams;
   const member = new Set(teams.map((t) => t.id));
+  // A server account's requests and teams may already cover the token's team, so it waits for both.
+  if (account.serverUrl !== null && (store.myRequests === null || !useTeamStore.getState().teamsLoaded)) return [];
   const requests = Array.isArray(store.myRequests) ? store.myRequests : [];
   const key = accountKey(account.serverUrl ?? "", account.accountId);
   const act = (label: string, run: () => unknown): InboxAction => ({
@@ -377,9 +379,7 @@ function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>
 
   const token = machineEnrollmentToken();
   const resolved = token ? store.resolved[token.id]?.result : undefined;
-  // A server account's requests may already cover the token's team, so it waits for the list.
-  const ready = account.serverUrl === null || store.myRequests !== null;
-  const offered = token && ready && !store.records[`${token.id}|${key}`] ? token : null;
+  const offered = token && !store.records[`${token.id}|${key}`] ? token : null;
   if (offered && !resolved) void store.resolve(offered).catch(() => {});
 
   const askAgain = (r: MyJoinRequest) => {
@@ -448,7 +448,7 @@ export function startTeamInbox(): () => void {
     if (s.myPendingInvitations !== prev.myPendingInvitations) {
       reconcileInvites(s.myPendingInvitations);
     }
-    if (s.teams !== prev.teams) syncEnrollment();
+    if (s.teams !== prev.teams || s.teamsLoaded !== prev.teamsLoaded) syncEnrollment();
   });
 
   let stopped = false;

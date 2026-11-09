@@ -62,7 +62,7 @@ beforeEach(() => {
   h.token = TOKEN;
   resetTeamInboxState();
   useNotificationStore.setState({ inbox: [], toasts: [], history: [] });
-  useTeamStore.setState({ teams: [] });
+  useTeamStore.setState({ teams: [], teamsLoaded: true });
   useEnrollmentStore.setState({ resolved: { [TOKEN.id]: { at: Date.now(), result: RESOLVED } }, records: {}, dismissedRequests: [], myRequests: [] });
 });
 
@@ -233,6 +233,18 @@ test("joined one-shot when pending team appears in teams", () => {
   expect(toasts.map((t) => t.message)).toEqual(['notifications.inbox.enroll.joined:{"team":"Acme"}']);
   expect(toasts[0].severity).toBe("success");
   expect(inbox()).toEqual([]);
+});
+
+test("a server account shows nothing until its teams load, and nothing for a team it is in", () => {
+  useTeamStore.setState({ teamsLoaded: false });
+  useEnrollmentStore.setState({ myRequests: [request({ status: "denied" }), request({ id: "r2", teamId: "t2", teamName: "Beta" })] });
+  reconcileEnrollment(ACCOUNT);
+  expect(inbox()).toEqual([]);
+
+  useTeamStore.setState({ teams: [team("t1", "Acme"), team("t2", "Beta")], teamsLoaded: true });
+  reconcileEnrollment();
+  expect(inbox()).toEqual([]);
+  expect(useNotificationStore.getState().toasts).toEqual([]);
 });
 
 test("a server account shows nothing until its requests load", () => {

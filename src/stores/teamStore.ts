@@ -23,6 +23,7 @@ interface TeamStore {
   myPendingInvitations: MyPendingInvitation[];
   activeTeamId: string | null;
   loading: boolean;
+  teamsLoaded: boolean;
   /** Our own presence, owned by the realtime layer rather than the server's
    *  members payload — see `setSelfOnline`. Null until the stream first opens. */
   self: { userId: string; online: boolean } | null;
@@ -108,6 +109,7 @@ export const useTeamStore = create<TeamStore>()(
   myPendingInvitations: [],
   activeTeamId: null,
   loading: false,
+  teamsLoaded: false,
   self: null,
 
   loadTeams: async () => {
@@ -135,7 +137,7 @@ export const useTeamStore = create<TeamStore>()(
           sameValue(t.policy, prev[i].policy) &&
           sameValue(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
-      set({ teams, loading: false });
+      set({ teams, loading: false, teamsLoaded: true });
       void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
       runTeamsLoadedHook(prev);
       if (teams.length > 0 && !get().activeTeamId) {
