@@ -657,8 +657,14 @@ if (VIDEO) {
   };
   const submitAuth = async () => {
     await hideKeyboard();
-    const r = await press("form button[type=submit]", "[data-more-account]", 30000);
-    return r;
+    const r = await tapSel("form button[type=submit]");
+    const end = Date.now() + 60000;
+    while (Date.now() < end) {
+      if (!(await present("form button[type=submit]"))) return r;
+      await sleep(1000);
+    }
+    const err = await web(() => document.querySelector("form [role=alert]")?.innerText ?? "");
+    throw new Error(`${r}; form still open after 60 s ${err}`);
   };
   const useLocalServer = async () => {
     const field = "api\\.voltius\\.app";
@@ -727,6 +733,9 @@ if (VIDEO) {
 
   await step("account-delete", async () => {
     await sleep(2000);
+    await toTabs();
+    if (!(await present("[data-more-account]"))) await openTab("more");
+    await sleep(1500);
     const out = [await press("[data-more-account]", "[data-account-delete]")];
     await sleep(1500);
     out.push(await press("[data-account-delete]", "[data-delete-account-confirm-input]"));
