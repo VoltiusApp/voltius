@@ -340,7 +340,7 @@ await step("new-host", async () => {
 
 await step("fill-host", async () => {
   const out = [];
-  out.push(await optional(() => fill("My Server|Label|Name", HOST_LABEL)));
+  out.push(await optional(() => fill("^Label$|My Server", HOST_LABEL)));
   out.push(await fill("Host / IP|Hostname|Host or IP|Address|^Host$", SSH.host));
   out.push(await optional(() => fill("^Port$|Port", String(SSH.port))));
   out.push(await fill("Username|User", SSH.user));
@@ -531,6 +531,8 @@ async function toTabs() {
   }
 }
 
+const demoPrompt = (host) => String.raw`\[\e[1;32m\]deploy@${host}\[\e[0m\]:\[\e[1;34m\]~\[\e[0m\]$ `;
+
 function storeShot(name) {
   const dir = path.join(OUT, "store");
   fs.mkdirSync(dir, { recursive: true });
@@ -566,7 +568,7 @@ if (STORE) {
     await sleep(2000);
     if (!/PTY_OPEN/.test(sshLog("ssh-events.log"))) throw new Error("no shell on prod-web");
     if (!(await web(page.terminalRect))) throw new Error("no terminal on screen");
-    const prompt = String.raw`\[\e[1;32m\]deploy@prod-web\[\e[0m\]:\[\e[1;34m\]~\[\e[0m\]$ `;
+    const prompt = demoPrompt("prod-web");
     const cmds = [
       `export PS1='${prompt}' LSCOLORS=ExGxFxdxCxDxDxhbadExEx; cd "$DEMO_DIR"; clear`,
       "ls -lhG",
@@ -622,8 +624,17 @@ if (VIDEO) {
     await sleep(1200);
     return r;
   };
-  const tapText = async (pattern) => {
-    const r = await tap(pattern);
+  const hasInput = (pattern) => web(page.findInput, pattern).then(Boolean);
+  /** Taps the `pattern` text until `done()` holds, clicking it from JS if the native tap misses. */
+  const tapUntil = async (pattern, done) => {
+    let r = await tap(pattern);
+    for (let i = 0; i < 4 && !(await done()); i++) await sleep(1000);
+    if (!(await done())) {
+      if (await web(page.findTarget, pattern)) await web(page.clickLastTarget);
+      r += "; js-click";
+      for (let i = 0; i < 10 && !(await done()); i++) await sleep(1000);
+      if (!(await done())) throw new Error(`${r}; no effect`);
+    }
     await sleep(1200);
     return r;
   };
@@ -633,8 +644,9 @@ if (VIDEO) {
     return r;
   };
   const useLocalServer = async () => {
-    if (await web(page.findTarget, "^Custom server URL$")) await tapText("^Custom server URL$");
-    return fill("api\\.voltius\\.app", account.server);
+    const field = "api\\.voltius\\.app";
+    if (!(await hasInput(field))) await tapUntil("^Custom server URL$", () => hasInput(field));
+    return fill(field, account.server);
   };
 
   await step("video-sftp", async () => {
@@ -645,7 +657,8 @@ if (VIDEO) {
   await step("video-terminal", async () => {
     if (await present("[data-mobile-back]")) await web(page.clickLastTarget);
     await sleep(1500);
-    for (const c of ['clear; cd "$DEMO_DIR"; ls -lh', "tail -n 4 logs/deploy.log", "uptime"]) {
+    const prompt = demoPrompt("review-server");
+    for (const c of [`export PS1='${prompt}'; cd "$DEMO_DIR"; clear`, "ls -F", "cat README.md", "tail -n 4 logs/deploy.log"]) {
       await web(page.typeInTerminal, `${c}\r`);
       await sleep(2500);
     }
@@ -659,7 +672,7 @@ if (VIDEO) {
     await openTab("more");
     await sleep(1500);
     const out = [await press("[data-more-signin]", "form button[type=submit]")];
-    out.push(await tapText("^Create account$"));
+    out.push(await tapUntil("^Create account$", () => hasInput("^Confirm master password$")));
     out.push(await fill("^Email$", account.email));
     out.push(await fill("^Create master password$", account.password));
     out.push(await fill("^Confirm master password$", account.password));
