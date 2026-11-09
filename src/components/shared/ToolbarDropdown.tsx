@@ -14,7 +14,7 @@ export interface DropdownOption<T extends string> {
 
 export type ActionItem =
   | { separator: true; label?: never; icon?: never; onClick?: never }
-  | { separator?: false; label: string; icon?: string; onClick?: () => void; children?: ContextMenuItem[] };
+  | { separator?: false; label: string; icon?: string; onClick?: () => void; children?: ContextMenuItem[]; disabledReason?: string };
 
 interface BaseProps<T extends string> {
   icon: string;

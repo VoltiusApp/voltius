@@ -19,19 +19,20 @@ import { usePermissions } from "@/hooks/usePermission";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
-import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useNewFolder } from "@/hooks/useNewFolder";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
 import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
@@ -53,7 +54,7 @@ import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -115,7 +116,6 @@ export default function KeychainPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
-  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
   const canEditKeys = selectedVaultIds.some((vid) => can("EDIT_KEYS", vid));
   const canEditIdentities = selectedVaultIds.some((vid) => can("EDIT_IDENTITIES", vid));
@@ -141,6 +141,7 @@ export default function KeychainPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "keychain");
+  const { folderBlocked, newFolder } = useNewFolder("keychain", folderPath);
 
   const availableTags = useMemo(
     () => [...new Set([...keys.flatMap((k) => k.tags), ...identities.flatMap((i) => i.tags)])].sort(),
@@ -848,7 +849,12 @@ export default function KeychainPage() {
   editFolderRef.current = editFolder;
 
   const createFolder = () =>
-    void saveFolder(newFolderData("keychain", activeFolderId, defaultVaultId, t("keychain.toolbar.newFolder")));
+    void saveFolder(newFolder(t("keychain.toolbar.newFolder")));
+
+  // Inside a folder only the types it holds are listed; the per-type "none yet" states are for the root.
+  const inFolderView = !!activeFolderId && !q;
+  const showKeys = !inFolderView || filteredKeys.length > 0 || (showKeyForm && !editingKey);
+  const showIdentities = !inFolderView || filteredIdentities.length > 0 || (showIdentityForm && !editingIdentity);
 
   return (
     <>
@@ -922,6 +928,7 @@ export default function KeychainPage() {
           onGenerateKey={canEditKeys ? openKeyGenForm : undefined}
           onNewIdentity={canEditIdentities ? () => openIdentityForm(null) : undefined}
           onNewFolder={createFolder}
+          newFolderBlocked={folderBlocked}
           availableTags={availableTags}
           tagFilter={tagFilter}
           onTagFilterChange={setTagFilter}
@@ -963,7 +970,7 @@ export default function KeychainPage() {
                 <SectionHeader
                   label={t("keychain.page.folders")}
                   count={visibleFolders.length}
-                  aside={<SectionAddButton label={t("keychain.page.new")} onClick={createFolder} />}
+                  aside={<SectionAddButton label={t("keychain.page.new")} onClick={createFolder} disabledReason={folderBlocked} />}
                 />
                 <div
                   {...cardGridProps(layoutMode, "card")}
@@ -1057,7 +1064,14 @@ export default function KeychainPage() {
               </div>
             )}
 
-            <KeySection
+            {!showKeys && !showIdentities && (
+              <FolderEmptyState actions={[
+                ...(canEditKeys ? [{ label: t("keychain.cards.keySection.addButton"), onClick: () => openKeyForm(null) }] : []),
+                ...(canEditIdentities ? [{ label: t("keychain.cards.identitySection.addButton"), onClick: () => openIdentityForm(null) }] : []),
+              ]} />
+            )}
+
+            {showKeys && <KeySection
               keys={filteredKeys}
               showDraft={showKeyForm && !editingKey}
               editingId={editingKey?.id ?? null}
@@ -1075,9 +1089,9 @@ export default function KeychainPage() {
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveKeyToVault}
               onCopyToVault={handleCopyKeyToVault}
-            />
+            />}
 
-            <IdentitySection
+            {showIdentities && <IdentitySection
               identities={filteredIdentities}
               keys={keys}
               layoutMode={layoutMode}
@@ -1095,7 +1109,7 @@ export default function KeychainPage() {
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveIdentityToVault}
               onCopyToVault={handleCopyIdentityToVault}
-            />
+            />}
           </div>
         </DragSelectSurface>
 
@@ -1111,7 +1125,7 @@ export default function KeychainPage() {
             ...(canEditIdentities ? [
               { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
-            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder },
+            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder, disabledReason: folderBlocked },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "keychain"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),

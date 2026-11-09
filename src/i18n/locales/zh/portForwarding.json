@@ -13,7 +13,6 @@
       "folders": "文件夹",
       "new": "新建",
       "noRulesMatchSearch": "没有匹配搜索的规则。",
-      "folderEmpty": "此文件夹为空。",
       "noRulesYet": "暂无规则。创建一个开始使用。",
       "addRule": "添加规则",
       "ejectMoveTo": "移动到 {{name}}",

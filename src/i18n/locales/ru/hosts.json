@@ -51,7 +51,6 @@
       "folders": "Папки",
       "new": "Новые",
       "pinned": "Закреплённые",
-      "folderEmpty": "Эта папка пуста",
       "noSearchResults": "Нет хостов, соответствующих \"{{search}}\"",
       "ejectMoveTo": "Переместить в {{name}}",
       "ejectRemoveFromFolder": "Убрать из папки",

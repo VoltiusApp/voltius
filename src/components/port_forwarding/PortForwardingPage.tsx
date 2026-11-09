@@ -10,13 +10,13 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
-import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useNewFolder } from "@/hooks/useNewFolder";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
@@ -27,6 +27,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
@@ -46,7 +47,7 @@ import { RuleForm } from "./RuleForm";
 import type { Folder, PortForwardingRule, PortForwardingRuleFormData, TunnelType } from "@/types";
 import { tunnelTypeChoices } from "./tunnelTypeChoices";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
+import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
@@ -94,7 +95,6 @@ export function PortForwardingPage() {
 
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
-  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
 
   const [search, setSearch] = useState("");
@@ -149,6 +149,7 @@ export function PortForwardingPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "port_forwarding");
+  const { folderBlocked, newFolder } = useNewFolder("port_forwarding", folderPath);
 
   const q = search.trim();
   const match = useSearchMatcher(q);
@@ -515,7 +516,7 @@ export function PortForwardingPage() {
   }, [selectedRules, selectedFolders, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
 
   const createFolder = () =>
-    void saveFolder(newFolderData("port_forwarding", activeFolderId, defaultVaultId, t("portForwarding.toolbar.newFolder"))).then((f) => { closeForm(); setEditingFolderId(f.id); });
+    void saveFolder(newFolder(t("portForwarding.toolbar.newFolder"))).then((f) => { closeForm(); setEditingFolderId(f.id); });
 
   return (
     <>
@@ -562,6 +563,7 @@ export function PortForwardingPage() {
           onSortModeChange={setSortMode}
           onNewRule={openNew}
           onNewFolder={createFolder}
+          newFolderBlocked={folderBlocked}
           selectedCount={[...selectedIdSet].filter((id) => filteredRuleIdSet.has(id)).length}
           onDeleteSelected={[...selectedIdSet].some((id) => filteredRuleIdSet.has(id)) ? () => setConfirmDeleteIds([...selectedIdSet].filter((id) => filteredRuleIdSet.has(id))) : undefined}
         />
@@ -600,7 +602,7 @@ export function PortForwardingPage() {
                 <SectionHeader
                   label={t("portForwarding.page.folders")}
                   count={visibleFolders.length}
-                  aside={<SectionAddButton label={t("portForwarding.page.new")} onClick={createFolder} />}
+                  aside={<SectionAddButton label={t("portForwarding.page.new")} onClick={createFolder} disabledReason={folderBlocked} />}
                 />
                 <div
                   {...cardGridProps(layoutMode, "card")}
@@ -651,12 +653,16 @@ export function PortForwardingPage() {
 
             {/* ── Rules section ── */}
             {filtered.length === 0 && visibleFolders.length === 0 ? (
-              <EmptyState
-                size={activeFolderId || q ? "section" : "page"}
-                icon={q ? "lucide:search-x" : activeFolderId ? "lucide:folder-open" : "lucide:arrow-right-left"}
-                title={q ? t("portForwarding.page.noRulesMatchSearch") : activeFolderId ? t("portForwarding.page.folderEmpty") : t("portForwarding.page.noRulesYet")}
-                action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: () => openNew() }}
-              />
+              activeFolderId && !q ? (
+                <FolderEmptyState actions={[{ label: t("portForwarding.page.addRule"), onClick: () => openNew() }]} />
+              ) : (
+                <EmptyState
+                  size={q ? "section" : "page"}
+                  icon={q ? "lucide:search-x" : "lucide:arrow-right-left"}
+                  title={q ? t("portForwarding.page.noRulesMatchSearch") : t("portForwarding.page.noRulesYet")}
+                  action={q ? undefined : { label: t("portForwarding.page.addRule"), onClick: () => openNew() }}
+                />
+              )
             ) : filtered.length > 0 && (
               <div>
                 <SectionHeader
@@ -712,7 +718,7 @@ export function PortForwardingPage() {
           onClose={closeBgMenu}
           items={[
             ...tunnelTypeChoices(t).map((c) => ({ label: c.label, icon: c.icon, onClick: () => openNew(c.type) })),
-            { label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder },
+            { label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder, disabledReason: folderBlocked },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "port-forwarding"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),

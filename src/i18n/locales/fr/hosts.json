@@ -50,7 +50,6 @@
       "folders": "Dossiers",
       "new": "Nouveau",
       "pinned": "Épinglés",
-      "folderEmpty": "Ce dossier est vide",
       "noSearchResults": "Aucun hôte ne correspond à \"{{search}}\"",
       "ejectMoveTo": "Déplacer vers {{name}}",
       "ejectRemoveFromFolder": "Retirer du dossier",

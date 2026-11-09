@@ -28,6 +28,8 @@
       "color": "Cor",
       "icon": "Ícone",
       "clear": "Limpar"
-    }
+    },
+    "noPermissionCreate": "Não tem permissão para criar pastas aqui",
+    "empty": "Esta pasta está vazia"
   }
 }

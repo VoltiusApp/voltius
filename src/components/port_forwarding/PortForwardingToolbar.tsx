@@ -15,6 +15,7 @@ interface Props {
   onSortModeChange: (v: SortMode) => void;
   onNewRule?: (type?: TunnelType) => void;
   onNewFolder?: () => void;
+  newFolderBlocked?: string;
   selectedCount?: number;
   onDeleteSelected?: () => void;
 }
@@ -23,7 +24,7 @@ export function PortForwardingToolbar({
   search, onSearchChange,
   layoutMode, onLayoutModeChange,
   sortMode, onSortModeChange,
-  onNewRule, onNewFolder,
+  onNewRule, onNewFolder, newFolderBlocked,
   selectedCount = 0,
   onDeleteSelected,
 }: Props) {
@@ -71,7 +72,7 @@ export function PortForwardingToolbar({
             items={[
               ...(onNewRule ? tunnelTypeChoices(t).map((c) => ({ label: c.label, icon: c.icon, onClick: () => onNewRule(c.type) })) : []),
               ...(onNewRule && onNewFolder ? [{ separator: true } as const] : []),
-              ...(onNewFolder ? [{ label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onNewFolder }] : []),
+              ...(onNewFolder ? [{ label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onNewFolder, disabledReason: newFolderBlocked }] : []),
             ]}
             disabled={!onNewRule}
             variant="accent"

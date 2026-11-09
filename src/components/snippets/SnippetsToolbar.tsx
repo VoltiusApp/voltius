@@ -20,6 +20,7 @@ interface Props {
   onLayoutModeChange: (v: LayoutMode) => void;
   onNewSnippet: () => void;
   onNewFolder: () => void;
+  newFolderBlocked?: string;
 }
 
 export function SnippetsToolbar({
@@ -33,6 +34,7 @@ export function SnippetsToolbar({
   onLayoutModeChange,
   onNewSnippet,
   onNewFolder,
+  newFolderBlocked,
 }: Props) {
   const { t } = useTranslation();
   const { compact, rowRef, leftRef, rightRef } = useToolbarResize();
@@ -151,6 +153,8 @@ export function SnippetsToolbar({
               <DropdownMenuItem
                 icon="lucide:folder-plus"
                 label={t("snippets.toolbar.newFolder")}
+                disabled={!!newFolderBlocked}
+                title={newFolderBlocked}
                 onClick={() => { setMenuOpen(false); onNewFolder(); }}
               />
             </div>

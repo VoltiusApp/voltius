@@ -22,7 +22,7 @@ interface HomeToolbarProps {
   onCreateFolder: () => void;
   onCreateSerial?: () => void;
   canCreate?: boolean;
-  canCreateFolder?: boolean;
+  newFolderBlocked?: string;
   onOpenLocalTerminal: () => void;
   onOpenSerial: () => void;
   onOpenImportExport: (mode: "import" | "export", opts?: { source?: string; autoTrigger?: boolean }) => void;
@@ -48,7 +48,7 @@ export function HomeToolbar({
   onOpenSerial,
   onOpenImportExport,
   canCreate = true,
-  canCreateFolder = true,
+  newFolderBlocked,
   layoutMode,
   onLayoutModeChange,
   sortMode,
@@ -67,7 +67,7 @@ export function HomeToolbar({
 
   const newHostItems = [
     ...(canCreate && onCreateSerial ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: onCreateSerial }] : []),
-    ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onCreateFolder }] : []),
+    { label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onCreateFolder, disabledReason: newFolderBlocked },
     ...pluginHostMenuItems,
   ];
 

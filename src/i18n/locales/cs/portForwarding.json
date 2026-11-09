@@ -15,7 +15,6 @@
       "folders": "Složky",
       "new": "Nové",
       "noRulesMatchSearch": "Hledanému výrazu neodpovídá žádné pravidlo.",
-      "folderEmpty": "Tato složka je prázdná.",
       "noRulesYet": "Zatím žádná pravidla. Začněte vytvořením prvního.",
       "addRule": "Přidat pravidlo",
       "ejectMoveTo": "Přesunout do {{name}}",

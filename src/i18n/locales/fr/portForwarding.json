@@ -13,7 +13,6 @@
       "folders": "Dossiers",
       "new": "Nouveau",
       "noRulesMatchSearch": "Aucune règle ne correspond à votre recherche.",
-      "folderEmpty": "Ce dossier est vide.",
       "noRulesYet": "Aucune règle pour l'instant. Créez-en une pour commencer.",
       "addRule": "Ajouter une règle",
       "ejectMoveTo": "Déplacer vers {{name}}",

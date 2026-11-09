@@ -49,7 +49,6 @@
       "folders": "文件夹",
       "new": "新建",
       "pinned": "已置顶",
-      "folderEmpty": "此文件夹为空",
       "noSearchResults": "没有匹配 \"{{search}}\" 的主机",
       "ejectMoveTo": "移动到 {{name}}",
       "ejectRemoveFromFolder": "从文件夹中移除",

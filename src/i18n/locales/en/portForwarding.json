@@ -13,7 +13,6 @@
       "folders": "Folders",
       "new": "New",
       "noRulesMatchSearch": "No rules match your search.",
-      "folderEmpty": "This folder is empty.",
       "noRulesYet": "No rules yet. Create one to get started.",
       "addRule": "Add Rule",
       "ejectMoveTo": "Move to {{name}}",
