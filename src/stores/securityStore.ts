@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { storeSetting } from "@/services/policy/effectiveCore";
 
 export type LockAction = "vault" | "screen";
 
@@ -32,3 +33,6 @@ export const useSecurityStore = create<SecurityStore>()(
     },
   ),
 );
+
+export const sessionTimeoutSetting = storeSetting(useSecurityStore, "sessionTimeoutMinutes", "security.lockTimeoutMinutes");
+export const lockActionSetting = storeSetting(useSecurityStore, "lockAction", "security.lockAction");

@@ -6,7 +6,7 @@ vi.mock("@/services/teamService", async (orig) => ({ ...(await orig<object>()), 
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn() }));
 
 import { useTeamStore } from "./teamStore";
-import { useOrgLockPolicyStore } from "./orgLockPolicyStore";
+import { lockedValue, policyRange } from "./policyStore";
 import { useTeamPolicyStore } from "./teamPolicyStore";
 import { invoke } from "@/lib/invoke";
 import { echoTeamDoc, resetPolicy } from "@/test/policy";
@@ -17,30 +17,16 @@ const row = (id: string, lock_policy: { max_minutes: number; force_vault: boolea
 
 beforeEach(() => {
   useTeamStore.setState({ teams: [], rolesByTeam: {} });
-  useOrgLockPolicyStore.setState({ policy: null });
   resetPolicy();
   vi.mocked(invoke).mockImplementation(echoTeamDoc);
   api.listTeams.mockReset();
 });
 
-test("a successful fetch stores the combined policy", async () => {
+test("a successful fetch puts the strictest limits in the policy layer", async () => {
   api.listTeams.mockResolvedValue([row("a", { max_minutes: 30, force_vault: false }), row("b", { max_minutes: 15, force_vault: true })]);
   await useTeamStore.getState().loadTeams();
-  expect(useOrgLockPolicyStore.getState().policy).toEqual({ maxMinutes: 15, forceVault: true });
-});
-
-test("a fetch with no policy clears it", async () => {
-  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 5, forceVault: false } });
-  api.listTeams.mockResolvedValue([row("a", null)]);
-  await useTeamStore.getState().loadTeams();
-  expect(useOrgLockPolicyStore.getState().policy).toBeNull();
-});
-
-test("a failed fetch keeps the cached policy", async () => {
-  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 5, forceVault: true } });
-  api.listTeams.mockRejectedValue(new Error("500"));
-  await useTeamStore.getState().loadTeams();
-  expect(useOrgLockPolicyStore.getState().policy).toEqual({ maxMinutes: 5, forceVault: true });
+  await vi.waitFor(() => expect(policyRange("security.lockTimeoutMinutes")).toEqual({ max: 15 }));
+  expect(lockedValue("security.lockAction")).toMatchObject({ locked: true, value: "vault", teams: ["b"] });
 });
 
 test("a policy-only change is not swallowed by the unchanged-list shortcut", async () => {
@@ -49,7 +35,6 @@ test("a policy-only change is not swallowed by the unchanged-list shortcut", asy
   api.listTeams.mockResolvedValue([row("a", { max_minutes: 15, force_vault: false })]);
   await useTeamStore.getState().loadTeams();
   expect(useTeamStore.getState().teams[0].lock_policy).toEqual({ max_minutes: 15, force_vault: false });
-  expect(useOrgLockPolicyStore.getState().policy).toEqual({ maxMinutes: 15, forceVault: false });
 });
 
 test("a fetch feeds the team policy layer, from lock_policy on an older server", async () => {

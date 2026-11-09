@@ -351,8 +351,7 @@
         "policy": {
           "timeout": "Definido por {{teams}}: no máximo {{duration}}.",
           "timeoutImmediately": "Definido por {{teams}}: bloquear assim que você sair do Voltius.",
-          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório.",
-          "yourTeam": "sua equipe"
+          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório."
         }
       },
       "email": "E-mail",

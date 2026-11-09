@@ -10,8 +10,7 @@ import { useIsMobile, usePlatform } from "@/utils/platform";
 import { SETTINGS_SURFACE, SettingRow } from "./shared";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
-import { policyTeamNames, timeoutAllowed } from "@/services/lockPolicy";
-import { useTeamStore } from "@/stores/teamStore";
+import { ManagedNote } from "@/components/shared/ManagedNote";
 import {
   bindNow, bindingStatus, disableBinding, disableWithPassword, enableBinding, type BindingStatus,
 } from "@/services/vaultBinding";
@@ -23,8 +22,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const isMobile = useIsMobile();
-  const { sessionTimeoutMinutes, lockAction, policy } = useEffectiveLockSettings();
-  const teams = useTeamStore((s) => s.teams);
+  const { sessionTimeoutMinutes, lockAction, limit } = useEffectiveLockSettings();
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
   const setLockAction = useSecurityStore((s) => s.setLockAction);
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
@@ -72,12 +70,13 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
   const effectiveAction: LockAction = vaultLockable ? lockAction : "screen";
   const actionOptions = [
     ...(vaultLockable ? [{ value: "vault", label: t("settings.account.sessionSecurity.lockAction.vault") }] : []),
-    ...(policy?.forceVault && vaultLockable ? [] : [{ value: "screen", label: t("settings.account.sessionSecurity.lockAction.screen") }]),
+    ...(limit?.forceVault && vaultLockable ? [] : [{ value: "screen", label: t("settings.account.sessionSecurity.lockAction.screen") }]),
   ];
+  const maxMinutes = limit?.maxMinutes ?? null;
   const timeoutOptions = sessionTimeoutOptions(t).filter((o) =>
-    timeoutAllowed(o.value === "never" ? null : Number(o.value), policy));
-  const names = policy ? policyTeamNames(teams, policy) : null;
-  const who = (list: string[]) => (list.length ? list.join(", ") : t("settings.account.sessionSecurity.policy.yourTeam"));
+    maxMinutes === null || (o.value !== "never" && Number(o.value) <= maxMinutes));
+  const setBy = (teams: string[], text: (teams: string) => string) =>
+    teams.length ? text(teams.join(", ")) : <ManagedNote />;
 
   return (
     <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
@@ -108,14 +107,14 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             </>
           );
         })()}
-        {policy && names && (
+        {limit && maxMinutes !== null && (
           <p className="text-xs text-(--t-text-muted)">
-            {policy.maxMinutes === IMMEDIATELY
-              ? t("settings.account.sessionSecurity.policy.timeoutImmediately", { teams: who(names.timeout) })
+            {setBy(limit.teams.timeout, (teams) => maxMinutes === IMMEDIATELY
+              ? t("settings.account.sessionSecurity.policy.timeoutImmediately", { teams })
               : t("settings.account.sessionSecurity.policy.timeout", {
-                  teams: who(names.timeout),
-                  duration: sessionTimeoutLabel(t, sessionTimeoutValue(policy.maxMinutes)),
-                })}
+                  teams,
+                  duration: sessionTimeoutLabel(t, sessionTimeoutValue(maxMinutes)),
+                }))}
           </p>
         )}
       </div>
@@ -146,9 +145,9 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             </>
           );
         })()}
-        {policy?.forceVault && names && (
+        {limit?.forceVault && (
           <p className="text-xs text-(--t-text-muted)">
-            {t("settings.account.sessionSecurity.policy.vault", { teams: who(names.vault) })}
+            {setBy(limit.teams.vault, (teams) => t("settings.account.sessionSecurity.policy.vault", { teams }))}
           </p>
         )}
         {sessionTimeoutMinutes === IMMEDIATELY && effectiveAction === "vault" && (

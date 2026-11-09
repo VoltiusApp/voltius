@@ -3,9 +3,7 @@ import { invoke } from "@/lib/invoke";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
-import { combineLockPolicies } from "@/services/lockPolicy";
 import { refreshTeamPolicy } from "@/services/policy/teamPolicy";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
@@ -96,6 +94,8 @@ export async function cacheVaultRoles(
 // Team vaults are online-only: the team list lives in memory, and a copy left by older builds is dropped.
 try { localStorage.removeItem("voltius-teams"); } catch {}
 
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
 export const useTeamStore = create<TeamStore>()(
   (set, get) => ({
   teams: [],
@@ -125,16 +125,15 @@ export const useTeamStore = create<TeamStore>()(
           t.owner_tier === prev[i].owner_tier &&
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
-          JSON.stringify(t.lock_policy ?? null) === JSON.stringify(prev[i].lock_policy ?? null) &&
+          sameJson(t.lock_policy, prev[i].lock_policy) &&
           t.policy_revision === prev[i].policy_revision &&
           t.joined_at === prev[i].joined_at &&
-          JSON.stringify(t.policy ?? null) === JSON.stringify(prev[i].policy ?? null) &&
-          JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
+          sameJson(t.policy, prev[i].policy) &&
+          sameJson(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false });
       void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
       runTeamsLoadedHook(prev);
-      useOrgLockPolicyStore.getState().setPolicy(combineLockPolicies(teams));
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
       }

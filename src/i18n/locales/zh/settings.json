@@ -190,8 +190,7 @@
         "policy": {
           "timeout": "{{teams}} 的策略：最长 {{duration}}。",
           "timeoutImmediately": "{{teams}} 的策略：离开 Voltius 时立即锁定。",
-          "vault": "{{teams}} 的策略：必须使用“锁定保险库”。",
-          "yourTeam": "你的团队"
+          "vault": "{{teams}} 的策略：必须使用“锁定保险库”。"
         },
         "lockAction": {
           "label": "锁定方式",

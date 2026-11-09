@@ -43,8 +43,6 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   "voltius-pending-team-secret-upload",
   // Which identity this account chose per shared host: ids only, never secrets.
   "voltius-identity-picks",
-  // The combined team lock policy, so it applies before the first team fetch.
-  "voltius-org-lock-policy",
   // The validated, merged team policy layer, so it applies before the first team fetch.
   "voltius-team-policy",
   // This account's other devices met on the local network, by name.

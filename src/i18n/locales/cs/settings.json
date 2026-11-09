@@ -320,8 +320,7 @@
         "policy": {
           "timeout": "Určuje {{teams}}: nejvýše {{duration}}.",
           "timeoutImmediately": "Určuje {{teams}}: zamknout ihned po opuštění Voltius.",
-          "vault": "Určuje {{teams}}: je vyžadováno „Zamknout trezor“.",
-          "yourTeam": "váš tým"
+          "vault": "Určuje {{teams}}: je vyžadováno „Zamknout trezor“."
         },
         "lockAction": {
           "label": "Při zamknutí",

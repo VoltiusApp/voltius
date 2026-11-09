@@ -320,8 +320,7 @@
         "policy": {
           "timeout": "Imposé par {{teams}} : au plus {{duration}}.",
           "timeoutImmediately": "Imposé par {{teams}} : verrouillage dès que vous quittez Voltius.",
-          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire.",
-          "yourTeam": "votre équipe"
+          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire."
         },
         "lockAction": {
           "label": "Au verrouillage",

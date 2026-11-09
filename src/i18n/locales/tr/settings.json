@@ -326,8 +326,7 @@
         "policy": {
           "timeout": "{{teams}} ilkesi: en fazla {{duration}}.",
           "timeoutImmediately": "{{teams}} ilkesi: Voltius'tan çıkınca hemen kilitle.",
-          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu.",
-          "yourTeam": "Ekibinizin"
+          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu."
         },
         "lockAction": {
           "label": "Kilitlerken",

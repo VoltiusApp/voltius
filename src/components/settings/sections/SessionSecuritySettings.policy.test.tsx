@@ -18,15 +18,14 @@ vi.mock("@/utils/platform", async () => ({
 
 import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import { useSecurityStore } from "@/stores/securityStore";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
-import { useTeamStore } from "@/stores/teamStore";
+import { resetPolicy, withPolicy, withTeamPolicy } from "@/test/policy";
+
+const LIMITS = { "security.lockTimeoutMinutes": { $range: { max: 15 } }, "security.lockAction": "vault" };
 
 beforeEach(() => {
   useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "screen", systemAuthUnlock: false });
-  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: true } });
-  useTeamStore.setState({
-    teams: [{ id: "t", name: "Acme", owner_id: "o", owner_tier: "business", created_at: "", role_ids: [], lock_policy: { max_minutes: 15, force_vault: true } }],
-  });
+  resetPolicy();
+  withTeamPolicy(LIMITS);
 });
 afterEach(cleanup);
 
@@ -44,14 +43,16 @@ test("the policy clamps the shown values, hides looser choices and names the tea
   expect(action.textContent).toContain("settings.account.sessionSecurity.lockAction.vault");
 });
 
-test("offline, with only the cached policy, the line falls back to your team", () => {
-  useTeamStore.setState({ teams: [] });
+test("a machine-only limit shows the managed note instead of a team", () => {
+  resetPolicy();
+  withPolicy(LIMITS);
   render(<SessionSecuritySettings mode="server" />);
-  expect(screen.getByText(/policy\.timeout .*settings\.account\.sessionSecurity\.policy\.yourTeam/)).toBeTruthy();
+  expect(screen.queryByText(/sessionSecurity\.policy\./)).toBeNull();
+  expect(screen.getAllByText("common.policy.managed")).toHaveLength(2);
 });
 
 test("without a policy nothing changes", () => {
-  useOrgLockPolicyStore.setState({ policy: null });
+  resetPolicy();
   render(<SessionSecuritySettings mode="server" />);
   expect(screen.queryByText(/sessionSecurity\.policy\./)).toBeNull();
   expect(screen.getByRole("button", { name: "settings.account.sessionSecurity.autoLockLabel" }).textContent)
