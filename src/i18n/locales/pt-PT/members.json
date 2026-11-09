@@ -388,7 +388,9 @@
         "domainMismatch": "O domínio do e-mail não está na lista do token.",
         "invalid": "O servidor recusou estas definições.",
         "forbidden": "Não tem permissão para gerir a inscrição de dispositivos."
-      }
+      },
+      "copyLink": "Copiar ligação",
+      "copyLinkTitle": "Copiar uma ligação que abre o Voltius nesta inscrição"
     },
     "offboarding": {
       "removeTitle_one": "Remover {{names}} desta equipe?",

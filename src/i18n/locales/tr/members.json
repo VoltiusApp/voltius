@@ -382,7 +382,9 @@
         "domainMismatch": "E-posta alan adı belirtecin listesinde değil.",
         "invalid": "Sunucu bu ayarları reddetti.",
         "forbidden": "Cihaz kaydını yönetme izniniz yok."
-      }
+      },
+      "copyLink": "Bağlantıyı kopyala",
+      "copyLinkTitle": "Voltius'u bu kayda açan bir bağlantıyı kopyala"
     },
     "offboarding": {
       "removeTitle_one": "{{names}} bu ekipten kaldırılsın mı?",

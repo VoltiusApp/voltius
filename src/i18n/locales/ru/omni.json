@@ -22,7 +22,8 @@
       "settings": "Настройки",
       "joinByInviteCode": "Присоединиться по коду приглашения",
       "importExport": "Импорт / Экспорт",
-      "availablePlugins": "Доступные плагины"
+      "availablePlugins": "Доступные плагины",
+      "enrollmentToken": "Токен регистрации"
     },
     "pluginSettingsDescription": "Настройки плагина",
     "pluginNotInstalled": "Не установлен",
@@ -139,6 +140,11 @@
       "edit": "Изменить хост",
       "scope": "Область",
       "close": "Закрыть"
+    },
+    "enrollToken": {
+      "title": "Присоединиться к {{team}} с этим токеном регистрации",
+      "titleUnknown": "Присоединиться к компании с этим токеном регистрации",
+      "detailApproval": "{{host}} · Администратор одобряет каждый запрос"
     }
   }
 }

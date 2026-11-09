@@ -22,7 +22,8 @@
       "settings": "设置",
       "joinByInviteCode": "通过邀请码加入",
       "importExport": "导入 / 导出",
-      "availablePlugins": "可用插件"
+      "availablePlugins": "可用插件",
+      "enrollmentToken": "注册令牌"
     },
     "pluginSettingsDescription": "插件设置",
     "pluginNotInstalled": "未安装",
@@ -133,6 +134,11 @@
       "edit": "编辑主机",
       "scope": "范围",
       "close": "关闭"
+    },
+    "enrollToken": {
+      "title": "使用此注册令牌加入 {{team}}",
+      "titleUnknown": "使用此注册令牌加入公司",
+      "detailApproval": "{{host}} · 管理员会审批每个请求"
     }
   }
 }

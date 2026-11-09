@@ -22,7 +22,8 @@
       "settings": "Settings",
       "joinByInviteCode": "Join by invite code",
       "importExport": "Import / Export",
-      "availablePlugins": "Available plugins"
+      "availablePlugins": "Available plugins",
+      "enrollmentToken": "Enrolment token"
     },
     "pluginSettingsDescription": "Plugin Settings",
     "pluginNotInstalled": "Not installed",
@@ -133,6 +134,11 @@
       "edit": "Edit host",
       "scope": "Scope",
       "close": "Close"
+    },
+    "enrollToken": {
+      "title": "Join {{team}} with this enrolment token",
+      "titleUnknown": "Join a company with this enrolment token",
+      "detailApproval": "{{host}} · An admin approves each request"
     }
   }
 }

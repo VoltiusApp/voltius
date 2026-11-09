@@ -22,7 +22,8 @@
       "settings": "Nastavení",
       "joinByInviteCode": "Připojit se pomocí kódu pozvánky",
       "importExport": "Import / export",
-      "availablePlugins": "Dostupné pluginy"
+      "availablePlugins": "Dostupné pluginy",
+      "enrollmentToken": "Registrační token"
     },
     "pluginSettingsDescription": "Nastavení pluginu",
     "pluginNotInstalled": "Nenainstalováno",
@@ -139,6 +140,11 @@
       "edit": "Upravit host",
       "scope": "Rozsah",
       "close": "Zavřít"
+    },
+    "enrollToken": {
+      "title": "Připojit se k {{team}} pomocí tohoto registračního tokenu",
+      "titleUnknown": "Připojit se k firmě pomocí tohoto registračního tokenu",
+      "detailApproval": "{{host}} · Každou žádost schvaluje správce"
     }
   }
 }

@@ -10,6 +10,9 @@ import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { enrollmentApi, enrollmentRefusal, type CreatedEnrollmentToken, type EnrollmentTokenInfo } from "@/services/enrollment/enrollmentApi";
 import { runEnrollmentAction } from "@/services/enrollment/enrollmentAction";
+import { buildDeepLink } from "@/services/deepLinkUrl";
+import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { writeClipboard } from "@/utils/clipboard";
 import { buildEnrollmentToken } from "@/services/enrollment/enrollmentToken";
 import { userFacingReason } from "@/services/errorReason";
 import { getServerUrl } from "@/services/authTokens";
@@ -346,7 +349,7 @@ function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardP
 
       {fresh && (
         <>
-          <CopySecretField value={fresh} mono ariaLabel={t("members.enrollment.tokenLabel")} />
+          <CopySecretField value={fresh} mono ariaLabel={t("members.enrollment.tokenLabel")} extra={<CopyLinkButton token={fresh} />} />
           <p className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--t-status-warning)" }}>
             <Icon icon="lucide:triangle-alert" width={12} className="shrink-0" />
             {t("members.enrollment.copyNow")}
@@ -391,5 +394,20 @@ function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardP
       </div>
       {!fresh && <span className="text-[10px] text-(--t-text-dim)">{t("members.enrollment.notShownAgain")}</span>}
     </div>
+  );
+}
+
+function CopyLinkButton({ token }: { token: string }) {
+  const { t } = useTranslation();
+  const { copied, flash } = useCopiedFlash(2000);
+  return (
+    <button
+      onClick={() => void writeClipboard(buildDeepLink({ route: "enroll", token })).then(() => flash())}
+      title={t("members.enrollment.copyLinkTitle")}
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium shrink-0 border border-(--t-border) text-(--t-text-secondary)"
+    >
+      <Icon icon="lucide:link" width={12} />
+      {copied ? t("members.joinLinks.copied") : t("members.enrollment.copyLink")}
+    </button>
   );
 }

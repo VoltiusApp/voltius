@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { writeClipboard } from "@/utils/clipboard";
@@ -6,9 +7,10 @@ interface Props {
   value: string;
   mono?: boolean;
   ariaLabel?: string;
+  extra?: ReactNode;
 }
 
-export function CopySecretField({ value, mono = false, ariaLabel }: Props) {
+export function CopySecretField({ value, mono = false, ariaLabel, extra }: Props) {
   const { t } = useTranslation();
   const { copied, flash } = useCopiedFlash(2000);
 
@@ -33,6 +35,7 @@ export function CopySecretField({ value, mono = false, ariaLabel }: Props) {
       >
         {copied ? t("members.joinLinks.copied") : t("members.joinLinks.copy")}
       </button>
+      {extra}
     </div>
   );
 }

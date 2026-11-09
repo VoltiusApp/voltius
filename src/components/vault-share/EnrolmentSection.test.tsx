@@ -353,3 +353,15 @@ test("a join-requests change refreshes the counts and keeps the fresh token", as
   await screen.findByText("members.enrollment.counts|13|1");
   expect(screen.getByDisplayValue(/^vte1\./)).toBeTruthy();
 });
+
+test("copy link copies the https open link with the token", async () => {
+  h.createToken.mockResolvedValue(created());
+  mount();
+  await screen.findByText("members.enrollment.create");
+  addDomain("acme.com");
+  fireEvent.click(createBtn());
+  const field = (await screen.findByDisplayValue(/^vte1\./)) as HTMLInputElement;
+  fireEvent.click(screen.getByText("members.enrollment.copyLink"));
+  const { writeClipboard } = await import("@/utils/clipboard");
+  await waitFor(() => expect(writeClipboard).toHaveBeenCalledWith(`https://voltius.app/open#enroll?t=${field.value}`));
+});
