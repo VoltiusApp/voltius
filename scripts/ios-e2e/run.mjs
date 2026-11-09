@@ -295,13 +295,19 @@ await step("launch", async () => {
 
 await step("get-started", async () => {
   let r = await tap("Get started");
-  const next = "New Host|New host|Add Host|Add host|No hosts|Hosts";
-  try {
-    await waitText(next, 10000);
-  } catch {
+  // The welcome text itself says "hosts": wait for the app shell, not for words.
+  const inApp = async (timeoutMs) => {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      if (await web(() => !!document.querySelector("[data-mobile-tab], [data-mobile-add]"))) return true;
+      await sleep(1000);
+    }
+    return false;
+  };
+  if (!(await inApp(10000))) {
     r += "; NATIVE TAP MISSED, js-click fallback";
     if (await web(page.findTarget, "Get started")) await web(page.clickLastTarget);
-    await waitText(next, 60000);
+    if (!(await inApp(60000))) throw new Error(`${r}; still on the welcome screen`);
   }
   return r;
 });
