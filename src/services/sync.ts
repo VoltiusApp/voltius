@@ -240,7 +240,6 @@ function isPaymentRequired(error: unknown): boolean {
 
 async function loadTeamsForCurrentUser(): Promise<boolean> {
   await useTeamStore.getState().loadTeams().catch(logFailure("loadTeams"));
-  if (useEnrollmentStore.getState().myRequests === null) void useEnrollmentStore.getState().loadMyRequests();
   return useTeamStore.getState().teams.length > 0;
 }
 
@@ -1388,6 +1387,7 @@ async function _sseConnect(signal: AbortSignal, hooks: { onOpen: () => void; onD
     if (_status === "offline") setState("idle");
     // Catches any events missed while offline
     (_loginSyncOwed ? syncOnLogin() : syncInBackground()).catch(logFailure("syncNow on realtime connect"));
+    void useEnrollmentStore.getState().loadMyRequests();
 
     // Seed connection-presence snapshot so we render correct state even before any
     // SSE event arrives this session.

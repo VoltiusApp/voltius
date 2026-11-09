@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ resolveEnrollment: vi.fn(), listMyJoinRequests: vi.fn() }));
@@ -119,13 +120,22 @@ test("record keys the outcome by token and account", () => {
   expect(useEnrollmentStore.getState().records[`${TOKEN.id}|${key}`]).toMatchObject({ outcome: "dismissed" });
 });
 
-test("loadMyRequests stores the list, and null when the server lacks the route", async () => {
+test("loadMyRequests stores the list, and \"unsupported\" when the server lacks the route", async () => {
   h.listMyJoinRequests.mockResolvedValue([{ id: "r" }]);
   await useEnrollmentStore.getState().loadMyRequests();
   expect(useEnrollmentStore.getState().myRequests).toEqual([{ id: "r" }]);
   h.listMyJoinRequests.mockResolvedValue(null);
   await useEnrollmentStore.getState().loadMyRequests();
-  expect(useEnrollmentStore.getState().myRequests).toBeNull();
+  expect(useEnrollmentStore.getState().myRequests).toBe("unsupported");
+});
+
+test("dismissed requests persist by request id, apart from token records", () => {
+  useEnrollmentStore.setState({ dismissedRequests: [] });
+  useEnrollmentStore.getState().dismissRequest("r1");
+  useEnrollmentStore.getState().dismissRequest("r1");
+  expect(useEnrollmentStore.getState().dismissedRequests).toEqual(["r1"]);
+  expect(useEnrollmentStore.getState().records).toEqual({});
+  expect(JSON.parse(localStorage.getItem("voltius-enrollment") ?? "{}").state?.dismissedRequests).toEqual(["r1"]);
 });
 
 test("loadMyRequests keeps the previous list when the call throws", async () => {

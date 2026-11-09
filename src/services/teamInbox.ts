@@ -18,11 +18,13 @@ import type { ActiveSession } from "@/services/multiplayerService";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { resolvePeerName } from "@/services/peerName";
 import { getServerUrl } from "@/services/authTokens";
-import { redeemEnrollment } from "@/services/enrollment/enrollmentPublic";
+import { enrollFailureText, joinRefusal, redeemEnrollment, type MyJoinRequest } from "@/services/enrollment/enrollmentPublic";
+import { userFacingReason } from "@/services/errorReason";
+import { subscribeAccountMode } from "@/utils/accountMode";
 import { machineEnrollmentToken } from "@/services/enrollment/machineToken";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import { usePolicyStore } from "@/stores/policyStore";
-import { sameServer } from "@/utils/serverInstance";
+import { instanceLabel, sameServer } from "@/utils/serverInstance";
 
 // Deny has no server-side state to delete: the connection still reports the
 // requester, so without this the next reconcile re-derives the entry and
@@ -346,13 +348,14 @@ export function reconcileEnrollment(account: EnrollAccount | null = enrollAccoun
   reconcile(["enrollInvite", "enrollPending", "enrollDeclined"], entries.map((e) => ({ ...e, state: "pending" })));
 }
 
+const toastJoined = (team: string) => toast(i18n.t("notifications.inbox.enroll.joined", { team }), 8000, undefined, "success");
+
 function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>[1] {
   const store = useEnrollmentStore.getState();
   const teams = useTeamStore.getState().teams;
   const member = new Set(teams.map((t) => t.id));
-  const requests = store.myRequests;
+  const requests = Array.isArray(store.myRequests) ? store.myRequests : [];
   const key = accountKey(account.serverUrl ?? "", account.accountId);
-  const recorded = (id: string) => store.records[`${id}|${key}`] !== undefined;
   const act = (label: string, run: () => unknown): InboxAction => ({
     label,
     run: async () => {
@@ -360,39 +363,56 @@ function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>
       reconcileEnrollment();
     },
   });
-  const dismiss = (id: string) => act(i18n.t("common.action.dismiss"), () => store.record(id, key, "dismissed"));
+  const dismiss = (run: () => void) => act(i18n.t("common.action.dismiss"), run);
   const loadRequests = () => useEnrollmentStore.getState().loadMyRequests();
 
-  for (const r of requests ?? []) {
+  for (const r of requests) {
     if (r.status === "pending" && !member.has(r.teamId)) joiningTeams.add(r.teamId);
     else if (r.status === "denied") joiningTeams.delete(r.teamId);
   }
   for (const team of teams.filter((t) => joiningTeams.has(t.id))) {
     joiningTeams.delete(team.id);
-    toast(i18n.t("notifications.inbox.enroll.joined", { team: team.name }), 8000, undefined, "success");
+    toastJoined(team.name);
   }
 
   const token = machineEnrollmentToken();
   const resolved = token ? store.resolved[token.id]?.result : undefined;
   // A server account's requests may already cover the token's team, so it waits for the list.
-  const offered = token && (account.serverUrl === null || requests !== null) && !recorded(token.id) ? token : null;
+  const ready = account.serverUrl === null || store.myRequests !== null;
+  const offered = token && ready && !store.records[`${token.id}|${key}`] ? token : null;
   if (offered && !resolved) void store.resolve(offered).catch(() => {});
-  const askable = (teamId: string) =>
-    token && resolved?.teamId === teamId && sameServer(token.serverUrl, account.serverUrl) ? token : null;
+
+  const askAgain = (r: MyJoinRequest) => {
+    if (!token || !resolved || resolved.teamId !== r.teamId || !sameServer(token.serverUrl, account.serverUrl)) return [];
+    return [act(i18n.t("notifications.inbox.enroll.askAgain"), async () => {
+      try {
+        const outcome = await redeemEnrollment(token, "active");
+        useEnrollmentStore.getState().record(token.id, key, outcome);
+        if (outcome.status !== "pending") toastJoined(r.teamName);
+      } catch (e) {
+        const refusal = joinRefusal(e);
+        const t = (k: string, o?: Record<string, unknown>) => i18n.t(k, o);
+        const ctx = { team: r.teamName, host: instanceLabel(token.serverUrl) ?? token.serverUrl, domains: resolved.allowedDomains };
+        toast(refusal ? enrollFailureText(refusal, t, ctx) : userFacingReason(e), 8000, undefined, "error");
+        throw e;
+      }
+      await loadRequests();
+    })];
+  };
 
   const entries: Parameters<typeof reconcile>[1] = [];
-  if (offered && resolved && !member.has(resolved.teamId) && !requests?.some((r) => r.teamId === resolved.teamId)) {
+  if (offered && resolved && !member.has(resolved.teamId) && !requests.some((r) => r.teamId === resolved.teamId)) {
     entries.push({
       id: `enroll-invite:${offered.id}`,
       kind: "enrollInvite",
       message: i18n.t("notifications.inbox.enroll.invite", { team: resolved.teamName }),
       actions: [
         act(i18n.t("notifications.inbox.enroll.signIn"), () => useUIStore.getState().openEnroll(offered, "machine")),
-        dismiss(offered.id),
+        dismiss(() => store.record(offered.id, key, "dismissed")),
       ],
     });
   }
-  for (const r of (requests ?? []).filter((r) => !member.has(r.teamId))) {
+  for (const r of requests.filter((r) => !member.has(r.teamId))) {
     if (r.status === "pending") {
       entries.push({
         id: `enroll-pending:${r.teamId}`,
@@ -409,19 +429,12 @@ function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>
           }),
         ],
       });
-    } else if (!recorded(r.id)) {
-      const ask = askable(r.teamId);
+    } else if (!store.dismissedRequests.includes(r.id)) {
       entries.push({
         id: `enroll-declined:${r.id}`,
         kind: "enrollDeclined",
         message: i18n.t("notifications.inbox.enroll.declined", { team: r.teamName }),
-        actions: [
-          ...(ask ? [act(i18n.t("notifications.inbox.enroll.askAgain"), async () => {
-            useEnrollmentStore.getState().record(ask.id, key, await redeemEnrollment(ask, "active"));
-            await loadRequests();
-          })] : []),
-          dismiss(r.id),
-        ],
+        actions: [...askAgain(r), dismiss(() => store.dismissRequest(r.id))],
       });
     }
   }
@@ -435,7 +448,7 @@ export function startTeamInbox(): () => void {
     if (s.myPendingInvitations !== prev.myPendingInvitations) {
       reconcileInvites(s.myPendingInvitations);
     }
-    if (s.teams !== prev.teams) reconcileEnrollment();
+    if (s.teams !== prev.teams) syncEnrollment();
   });
 
   let stopped = false;
@@ -470,14 +483,20 @@ export function startTeamInbox(): () => void {
     }
   });
 
-  Promise.all([getServerUrl(), accountService().then((m) => m.getAccountId())])
-    .then(([serverUrl, accountId]) => {
-      if (!stopped && accountId) reconcileEnrollment({ serverUrl, accountId });
-    })
-    .catch(() => {});
-  const unsubEnrollment = useEnrollmentStore.subscribe(() => reconcileEnrollment());
+  let accountReads = 0;
+  function syncEnrollment(): void {
+    const read = ++accountReads;
+    Promise.all([getServerUrl(), accountService().then((m) => m.getAccountId())])
+      .then(([serverUrl, accountId]) => {
+        if (!stopped && read === accountReads) reconcileEnrollment(accountId ? { serverUrl, accountId } : null);
+      })
+      .catch(() => {});
+  }
+  syncEnrollment();
+  const unsubEnrollment = useEnrollmentStore.subscribe(syncEnrollment);
+  const unsubAccountMode = subscribeAccountMode(syncEnrollment);
   const unsubPolicy = usePolicyStore.subscribe((s, prev) => {
-    if (s.machine !== prev.machine) reconcileEnrollment();
+    if (s.machine !== prev.machine) syncEnrollment();
   });
 
   return () => {
@@ -486,6 +505,7 @@ export function startTeamInbox(): () => void {
     unsubSessions();
     unsubVaultState();
     unsubEnrollment();
+    unsubAccountMode();
     unsubPolicy();
   };
 }

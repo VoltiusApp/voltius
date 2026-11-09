@@ -10,6 +10,8 @@ const h = vi.hoisted(() => ({
   redeemEnrollment: vi.fn(),
   refreshVerificationState: vi.fn(async () => true),
   resendVerificationEmail: vi.fn(async () => {}),
+  serverUrl: null as string | null,
+  accountId: null as string | null,
 }));
 
 vi.mock("@/i18n", () => ({
@@ -25,13 +27,17 @@ vi.mock("@/services/enrollment/enrollmentPublic", async (orig) => ({
 vi.mock("@/services/account", () => ({
   refreshVerificationState: h.refreshVerificationState,
   resendVerificationEmail: h.resendVerificationEmail,
+  getAccountId: async () => h.accountId,
 }));
+vi.mock("@/services/authTokens", () => ({ getServerUrl: async () => h.serverUrl }));
 vi.mock("@/stores/uiStore", () => ({ useUIStore: { getState: () => ({ openEnroll: h.openEnroll }) } }));
 
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamStore, type Team } from "@/stores/teamStore";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
-import { reconcileEnrollment, resetTeamInboxState } from "./teamInbox";
+import { notifyAccountModeChanged } from "@/utils/accountMode";
+import { EnrollmentError } from "@/services/enrollment/enrollmentApi";
+import { reconcileEnrollment, resetTeamInboxState, startTeamInbox } from "./teamInbox";
 
 const SRV = "https://srv.example";
 const TOKEN = { serverUrl: SRV, id: "a".repeat(32), secret: "s".repeat(43) };
@@ -57,7 +63,7 @@ beforeEach(() => {
   resetTeamInboxState();
   useNotificationStore.setState({ inbox: [], toasts: [], history: [] });
   useTeamStore.setState({ teams: [] });
-  useEnrollmentStore.setState({ resolved: { [TOKEN.id]: { at: Date.now(), result: RESOLVED } }, records: {}, myRequests: [] });
+  useEnrollmentStore.setState({ resolved: { [TOKEN.id]: { at: Date.now(), result: RESOLVED } }, records: {}, dismissedRequests: [], myRequests: [] });
 });
 
 test("invite shows for machine token when not a member", async () => {
@@ -174,6 +180,31 @@ test("ask again redeems once on click", async () => {
   expect(entry("enroll-pending:t1")).toBeDefined();
 });
 
+test("ask again that joins directly says so", async () => {
+  useEnrollmentStore.setState({ myRequests: [request({ status: "denied" })] });
+  h.redeemEnrollment.mockResolvedValue({ status: "admitted", teamId: "t1" });
+  h.listMyJoinRequests.mockResolvedValue([]);
+  reconcileEnrollment(ACCOUNT);
+
+  await run("enroll-declined:r1", "notifications.inbox.enroll.askAgain");
+
+  const toasts = useNotificationStore.getState().toasts;
+  expect(toasts.map((t) => [t.message, t.severity])).toEqual([['notifications.inbox.enroll.joined:{"team":"Acme"}', "success"]]);
+});
+
+test("ask again that is refused shows why and keeps the entry", async () => {
+  useEnrollmentStore.setState({ myRequests: [request({ status: "denied" })] });
+  h.redeemEnrollment.mockRejectedValue(new EnrollmentError("ENROLLMENT_NOT_FOUND", 404));
+  reconcileEnrollment(ACCOUNT);
+
+  await run("enroll-declined:r1", "notifications.inbox.enroll.askAgain");
+
+  const toasts = useNotificationStore.getState().toasts;
+  expect(toasts.map((t) => [t.message, t.severity])).toEqual([["layout.enroll.error.gone", "error"]]);
+  expect(entry("enroll-declined:r1")?.state).toBe("pending");
+  expect(useEnrollmentStore.getState().records).toEqual({});
+});
+
 test("declined without a known token for its team offers only Dismiss, which hides it", async () => {
   useEnrollmentStore.setState({ myRequests: [request({ id: "r2", teamId: "t2", teamName: "Beta", status: "denied" })] });
   reconcileEnrollment(ACCOUNT);
@@ -181,6 +212,8 @@ test("declined without a known token for its team offers only Dismiss, which hid
   expect(labels("enroll-declined:r2")).toEqual(["common.action.dismiss"]);
   await run("enroll-declined:r2", "common.action.dismiss");
   expect(entry("enroll-declined:r2")).toBeUndefined();
+  expect(useEnrollmentStore.getState().dismissedRequests).toEqual(["r2"]);
+  expect(useEnrollmentStore.getState().records).toEqual({});
   reconcileEnrollment();
   expect(entry("enroll-declined:r2")).toBeUndefined();
 });
@@ -202,13 +235,70 @@ test("joined one-shot when pending team appears in teams", () => {
   expect(inbox()).toEqual([]);
 });
 
-test("missing requests route yields no entries", () => {
+test("a server account shows nothing until its requests load", () => {
   useEnrollmentStore.setState({ myRequests: null });
   reconcileEnrollment(ACCOUNT);
   expect(inbox()).toEqual([]);
 
   reconcileEnrollment({ serverUrl: null, accountId: "local-1" });
   expect(inbox().map((e) => e.id)).toEqual([`enroll-invite:${TOKEN.id}`]);
+});
+
+test("missing requests route yields no request entries, the invite still shows", async () => {
+  useEnrollmentStore.setState({ myRequests: null });
+  h.listMyJoinRequests.mockResolvedValue(null);
+  await useEnrollmentStore.getState().loadMyRequests();
+  reconcileEnrollment(ACCOUNT);
+
+  expect(inbox().map((e) => e.id)).toEqual([`enroll-invite:${TOKEN.id}`]);
+});
+
+test("a reset forgets teams it was waiting to join", () => {
+  useEnrollmentStore.setState({ myRequests: [request({})] });
+  reconcileEnrollment(ACCOUNT);
+  resetTeamInboxState();
+  useEnrollmentStore.setState({ myRequests: [] });
+  useTeamStore.setState({ teams: [team("t1", "Acme")] });
+  reconcileEnrollment(ACCOUNT);
+
+  expect(useNotificationStore.getState().toasts).toEqual([]);
+});
+
+test("the inbox picks up an account that signs in after it started", async () => {
+  h.serverUrl = null;
+  h.accountId = null;
+  useEnrollmentStore.setState({ myRequests: null });
+  const stop = startTeamInbox();
+  await new Promise((r) => setTimeout(r, 10));
+  expect(inbox()).toEqual([]);
+
+  h.serverUrl = SRV;
+  h.accountId = "acc-1";
+  useEnrollmentStore.setState({ myRequests: [request({})] });
+
+  await vi.waitFor(() => expect(entry("enroll-pending:t1")).toBeDefined());
+  stop();
+});
+
+test("a local account linked to the token's server in place gets server entries", async () => {
+  h.serverUrl = null;
+  h.accountId = "local-1";
+  useEnrollmentStore.setState({ myRequests: null });
+  const stop = startTeamInbox();
+  await vi.waitFor(() => expect(entry(`enroll-invite:${TOKEN.id}`)).toBeDefined());
+
+  h.serverUrl = SRV;
+  h.accountId = "acc-2";
+  notifyAccountModeChanged();
+  await vi.waitFor(() => expect(entry(`enroll-invite:${TOKEN.id}`)).toBeUndefined());
+  useEnrollmentStore.setState({ myRequests: [request({ status: "denied" })] });
+
+  await vi.waitFor(() => expect(labels("enroll-declined:r1")).toEqual(["notifications.inbox.enroll.askAgain", "common.action.dismiss"]));
+  h.redeemEnrollment.mockResolvedValue({ status: "pending", reason: "approval" });
+  h.listMyJoinRequests.mockResolvedValue([request({})]);
+  await run("enroll-declined:r1", "notifications.inbox.enroll.askAgain");
+  expect(useEnrollmentStore.getState().records[`${TOKEN.id}|${accountKey(SRV, "acc-2")}`]).toBeDefined();
+  stop();
 });
 
 test("no machine token and no account yields no entries", () => {

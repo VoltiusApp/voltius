@@ -200,4 +200,5 @@ export function onSessionEnd(): void {
   useTeamObjectAccessStore.getState().clearAll();
   useTeamVaultStateStore.getState().clearAll();
   useEnrollmentStore.setState({ myRequests: null });
+  void import("@/services/teamInbox").then((m) => m.resetTeamInboxState());
 }

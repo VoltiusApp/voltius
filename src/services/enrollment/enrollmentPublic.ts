@@ -137,6 +137,24 @@ export function resolveFailure(e: unknown): ResolveFailure {
   return refusal && refusal !== "domainMismatch" ? refusal : "unreachable";
 }
 
+export type EnrollFailure = ResolveFailure | "blocked" | "domainMismatch";
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+export const atDomains = (domains: string[]) => domains.map((d) => `@${d}`).join(", ");
+
+export function enrollFailureText(failure: EnrollFailure, t: Translate, ctx: { team?: string; host: string; domains?: string[] }): string {
+  switch (failure) {
+    case "blocked": return t("common.policy.serverBlocked");
+    case "notFound":
+    case "gone": return t("layout.enroll.error.gone");
+    case "lapsed": return ctx.team ? t("layout.enroll.error.lapsed", { team: ctx.team }) : t("layout.enroll.error.lapsedNoTeam");
+    case "invitesOff": return t("common.error.teamInvitesDisabled");
+    case "unreachable": return t("layout.enroll.error.unreachable", { host: ctx.host });
+    case "domainMismatch": return t("layout.enroll.domainError", { team: ctx.team, domains: atDomains(ctx.domains ?? []) });
+    default: return t(`layout.enroll.error.${failure}`);
+  }
+}
+
 export function emailDomainAllowed(email: string, domains: string[]): boolean {
   if (domains.length === 0) return true;
   const at = email.lastIndexOf("@");

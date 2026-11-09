@@ -35,9 +35,11 @@ interface EnrollmentRecord {
 interface EnrollmentStore {
   resolved: Record<string, ResolveEntry>;
   records: Record<string, EnrollmentRecord>;
-  myRequests: MyJoinRequest[] | null;
+  dismissedRequests: string[];
+  myRequests: MyJoinRequest[] | "unsupported" | null;
   resolve: (token: EnrollmentTokenParts, opts?: { force?: boolean }) => Promise<ResolvedEnrollment>;
   record: (tokenId: string, accountKey: string, outcome: EnrollmentOutcome | "dismissed") => void;
+  dismissRequest: (requestId: string) => void;
   loadMyRequests: () => Promise<void>;
 }
 
@@ -53,6 +55,7 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
     (set, get) => ({
       resolved: {},
       records: {},
+      dismissedRequests: [],
       myRequests: null,
 
       resolve: async (token, opts) => {
@@ -85,14 +88,17 @@ export const useEnrollmentStore = create<EnrollmentStore>()(
       record: (tokenId, key, outcome) =>
         set((s) => ({ records: { ...s.records, [`${tokenId}|${key}`]: { outcome, at: Date.now() } } })),
 
+      dismissRequest: (requestId) =>
+        set((s) => (s.dismissedRequests.includes(requestId) ? s : { dismissedRequests: [...s.dismissedRequests, requestId] })),
+
       loadMyRequests: async () => {
         try {
-          set({ myRequests: await listMyJoinRequests() });
+          set({ myRequests: (await listMyJoinRequests()) ?? "unsupported" });
         } catch (e) {
           logFailure("load my join requests")(e);
         }
       },
     }),
-    { name: "voltius-enrollment", partialize: (s) => ({ resolved: s.resolved, records: s.records }) },
+    { name: "voltius-enrollment", partialize: (s) => ({ resolved: s.resolved, records: s.records, dismissedRequests: s.dismissedRequests }) },
   ),
 );

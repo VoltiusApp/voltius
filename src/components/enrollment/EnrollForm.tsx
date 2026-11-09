@@ -18,7 +18,9 @@ import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFac
 import { createServerAccount, login } from "@/services/account";
 import { accountErrorText } from "@/services/accountErrors";
 import {
+  atDomains,
   emailDomainAllowed,
+  enrollFailureText,
   enrollmentCredential,
   joinRefusal,
   redeemEnrollment,
@@ -49,18 +51,6 @@ type Step =
   | { kind: "loading" }
   | { kind: "failed"; failure: Failure; team?: string }
   | { kind: "already" | "confirm" | "join" | "form"; resolved: ResolvedEnrollment };
-
-function failureBody(failure: Failure, team: string | undefined, host: string, t: (k: string, o?: Record<string, unknown>) => string) {
-  switch (failure) {
-    case "blocked": return t("common.policy.serverBlocked");
-    case "notFound":
-    case "gone": return t("layout.enroll.error.gone");
-    case "lapsed": return team ? t("layout.enroll.error.lapsed", { team }) : t("layout.enroll.error.lapsedNoTeam");
-    case "invitesOff": return t("common.error.teamInvitesDisabled");
-    case "unreachable": return t("layout.enroll.error.unreachable", { host });
-    default: return t(`layout.enroll.error.${failure}`);
-  }
-}
 
 export interface EnrollFormProps {
   token: EnrollmentTokenParts;
@@ -137,7 +127,7 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
         icon="lucide:link-2-off"
         color="var(--t-status-error)"
         title={t("layout.enroll.error.title")}
-        body={failureBody(step.failure, step.team, serverHost, t)}
+        body={enrollFailureText(step.failure, t, { team: step.team, host: serverHost })}
         actions={actions}
       >
         <p className="mb-4 text-center text-xs text-(--t-text-dim) truncate">{t("layout.auth.serverNamed", { host: serverHost })}</p>
@@ -179,8 +169,8 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
   }
 
   const signup = mode === "signup";
-  const domains = resolved.allowedDomains.map((d) => `@${d}`).join(", ");
-  const domainError = t("layout.enroll.domainError", { team, domains });
+  const domains = atDomains(resolved.allowedDomains);
+  const domainError = enrollFailureText("domainMismatch", t, { team, host: serverHost, domains: resolved.allowedDomains });
 
   const fail = (message: string, onEmail = false) => {
     setError(message);
