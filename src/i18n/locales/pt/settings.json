@@ -313,6 +313,9 @@
           "30min": "30 minutos",
           "1h": "1 hora",
           "4h": "4 horas",
+          "minutes_one": "{{count}} minuto",
+          "minutes_many": "{{count}} de minutos",
+          "minutes_other": "{{count}} minutos",
           "immediately": "Imediatamente"
         },
         "lockAction": {

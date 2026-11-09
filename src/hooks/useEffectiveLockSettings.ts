@@ -22,7 +22,7 @@ function readLimit(): LockLimit | null {
   const maxMinutes = lock.locked ? (lock.value as number | null) : (policyRange(TIMEOUT_KEY)?.max ?? null);
   const action = lockedValue(ACTION_KEY);
   const forceVault = action.locked && action.value === "vault";
-  if (maxMinutes === null && !forceVault) return null;
+  if (!policySourceOf(TIMEOUT_KEY) && !policySourceOf(ACTION_KEY)) return null;
   const teamsOf = (key: string) => policySourceOf(key)?.teams ?? [];
   return { maxMinutes, forceVault, teams: { timeout: teamsOf(TIMEOUT_KEY), vault: teamsOf(ACTION_KEY) } };
 }

@@ -183,6 +183,7 @@
           "30min": "30 分钟",
           "1h": "1 小时",
           "4h": "4 小时",
+          "minutes_other": "{{count}} 分钟",
           "immediately": "立即"
         },
         "needsSystemAuth": "开启系统身份验证后，才能锁定没有主密码的账户。",

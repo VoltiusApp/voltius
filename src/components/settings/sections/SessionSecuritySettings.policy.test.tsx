@@ -58,3 +58,37 @@ test("without a policy nothing changes", () => {
   expect(screen.getByRole("button", { name: "settings.account.sessionSecurity.autoLockLabel" }).textContent)
     .toContain("settings.account.sessionSecurity.timeout.never");
 });
+
+const timeoutButton = () => screen.getByRole("button", { name: "settings.account.sessionSecurity.autoLockLabel" });
+const actionButton = () => screen.getByRole("button", { name: "settings.account.sessionSecurity.lockAction.label" });
+const frozen = (el: HTMLElement) => (el.closest("fieldset") as HTMLFieldSetElement | null)?.disabled === true;
+
+test.each([[30], [null]])("a timeout locked exactly to %s disables the control without an at-most note", (value) => {
+  resetPolicy();
+  withPolicy({ "security.lockTimeoutMinutes": value });
+  render(<SessionSecuritySettings mode="server" />);
+  expect(frozen(timeoutButton())).toBe(true);
+  expect(screen.getByText("common.policy.managed")).toBeTruthy();
+  expect(screen.queryByText(/sessionSecurity\.policy\.timeout/)).toBeNull();
+});
+
+test("a lock action locked to screen disables the control and shows the note", () => {
+  resetPolicy();
+  withPolicy({ "security.lockAction": "screen" });
+  render(<SessionSecuritySettings mode="server" />);
+  expect(frozen(actionButton())).toBe(true);
+  expect(actionButton().textContent).toContain("settings.account.sessionSecurity.lockAction.screen");
+  expect(screen.getByText("common.policy.managed")).toBeTruthy();
+});
+
+test("a timeout range with only allowed values filters the options and shows the note", () => {
+  resetPolicy();
+  withPolicy({ "security.lockTimeoutMinutes": { $range: { allowed: [5, 60] } } });
+  render(<SessionSecuritySettings mode="server" />);
+  expect(frozen(timeoutButton())).toBe(false);
+  fireEvent.click(timeoutButton());
+  expect(screen.getAllByText("settings.account.sessionSecurity.timeout.1h").length).toBeGreaterThan(0);
+  expect(screen.queryByText("settings.account.sessionSecurity.timeout.never")).toBeNull();
+  expect(screen.queryByText("settings.account.sessionSecurity.timeout.30min")).toBeNull();
+  expect(screen.getByText(/common\.policy\.rangeAllowed/)).toBeTruthy();
+});

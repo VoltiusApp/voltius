@@ -313,6 +313,10 @@
           "30min": "30 minut",
           "1h": "1 hodina",
           "4h": "4 hodiny",
+          "minutes_one": "{{count}} minuta",
+          "minutes_few": "{{count}} minuty",
+          "minutes_many": "{{count}} minuty",
+          "minutes_other": "{{count}} minut",
           "immediately": "Okamžitě"
         },
         "needsSystemAuth": "Pro zamykání účtu bez hlavního hesla zapněte systémové ověření.",

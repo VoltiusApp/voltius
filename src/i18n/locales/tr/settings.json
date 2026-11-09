@@ -319,6 +319,8 @@
           "30min": "30 dakika",
           "1h": "1 saat",
           "4h": "4 saat",
+          "minutes_one": "{{count}} dakika",
+          "minutes_other": "{{count}} dakika",
           "immediately": "Hemen"
         },
         "needsSystemAuth": "Ana parolası olmayan bir hesabı kilitlemek için sistem kimlik doğrulamasını açın.",
