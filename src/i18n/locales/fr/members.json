@@ -317,6 +317,63 @@
       "newLink": "Nouveau lien",
       "cancel": "Annuler"
     },
+    "enrollment": {
+      "title": "Enrôlement d'appareils",
+      "explainer": "Un jeton unique pour toute l'entreprise, pour déployer Voltius avec Ansible ou un MDM. Les personnes qui l'utilisent demandent à rejoindre {{team}}.",
+      "domainsLabel": "Domaines e-mail autorisés",
+      "domainPlaceholder": "Ajouter un domaine",
+      "removeDomain": "Retirer {{domain}}",
+      "approve": "Un administrateur approuve chaque adhésion",
+      "noEmail": "Ce serveur ne peut pas envoyer d'e-mails : un administrateur doit donc approuver chaque adhésion.",
+      "expiresLabel": "Expire",
+      "expiry": {
+        "never": "Jamais",
+        "day30": "30 jours",
+        "day90": "90 jours",
+        "year1": "1 an"
+      },
+      "create": "Créer le jeton",
+      "guardHint": "Chaque adhésion exige un domaine e-mail correspondant, l'approbation d'un administrateur, ou les deux.",
+      "copyNow": "Copiez-le maintenant ; il ne sera plus affiché.",
+      "example": "Exemple",
+      "approvalOn": "approbation par un administrateur",
+      "approvalOff": "sans approbation",
+      "expiresOn": "expire le {{date}}",
+      "neverExpires": "n'expire jamais",
+      "createdBy": "Créé par {{name}} · {{date}}",
+      "createdOn": "Créé le {{date}}",
+      "lastUsed": "Dernière utilisation {{when}}",
+      "neverUsed": "Jamais utilisé",
+      "counts": "{{joined}} adhésions · {{waiting}} en attente",
+      "notShownAgain": "Le jeton n'est plus affiché. Renouvelez-le pour en obtenir un nouveau.",
+      "rotate": "Renouveler",
+      "rotateTitle": "Renouveler le jeton d'enrôlement ?",
+      "rotateMessage": "Le jeton actuel cesse de fonctionner. Relancez votre déploiement avec le nouveau.",
+      "rotateConfirm": "Renouveler le jeton",
+      "revoke": "Révoquer",
+      "revokeTitle": "Révoquer le jeton d'enrôlement ?",
+      "revokeMessage": "Les appareils ne pourront plus s'enrôler avec ce jeton. Les personnes déjà arrivées restent membres.",
+      "revokeConfirm": "Révoquer le jeton",
+      "lapsed": "L'enrôlement d'appareils nécessite le forfait Business de l'équipe.",
+      "loadFailed": "Impossible de charger le jeton d'enrôlement — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Création du jeton…",
+          "done": "Jeton d'enrôlement créé",
+          "failed": "Impossible de créer le jeton — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Révocation du jeton…",
+          "done": "Jeton d'enrôlement révoqué",
+          "failed": "Impossible de révoquer le jeton — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Ajoutez un domaine e-mail ou exigez une approbation.",
+        "needsApproval": "Ce serveur ne peut pas envoyer d'e-mails, chaque adhésion nécessite donc l'approbation d'un administrateur.",
+        "unavailable": "L'enrôlement d'appareils nécessite le forfait Business de l'équipe."
+      }
+    },
     "leaveTeam": "Quitter l'équipe",
     "offboarding": {
       "removeTitle_one": "Retirer {{names}} de cette équipe ?",

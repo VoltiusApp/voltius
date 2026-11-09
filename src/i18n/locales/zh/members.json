@@ -311,6 +311,63 @@
       "newLink": "新建链接",
       "cancel": "取消"
     },
+    "enrollment": {
+      "title": "设备注册",
+      "explainer": "一个全公司通用的令牌,用于通过 Ansible 或 MDM 部署 Voltius。使用它的人会申请加入 {{team}}。",
+      "domainsLabel": "允许的邮箱域名",
+      "domainPlaceholder": "添加域名",
+      "removeDomain": "移除 {{domain}}",
+      "approve": "每次加入都由管理员批准",
+      "noEmail": "此服务器无法发送电子邮件,因此每次加入都必须由管理员批准。",
+      "expiresLabel": "有效期",
+      "expiry": {
+        "never": "永不过期",
+        "day30": "30 天",
+        "day90": "90 天",
+        "year1": "1 年"
+      },
+      "create": "创建令牌",
+      "guardHint": "每次加入都需要匹配的邮箱域名、管理员批准,或两者兼备。",
+      "copyNow": "请立即复制;之后不会再次显示。",
+      "example": "示例",
+      "approvalOn": "管理员批准",
+      "approvalOff": "无需批准",
+      "expiresOn": "{{date}} 到期",
+      "neverExpires": "永不过期",
+      "createdBy": "创建者 {{name}} · {{date}}",
+      "createdOn": "创建于 {{date}}",
+      "lastUsed": "上次使用 {{when}}",
+      "neverUsed": "从未使用",
+      "counts": "已加入 {{joined}} · 等待中 {{waiting}}",
+      "notShownAgain": "令牌不会再次显示。请轮换以获取新令牌。",
+      "rotate": "轮换",
+      "rotateTitle": "轮换注册令牌?",
+      "rotateMessage": "当前令牌将失效。请使用新令牌重新运行部署。",
+      "rotateConfirm": "轮换令牌",
+      "revoke": "撤销",
+      "revokeTitle": "撤销注册令牌?",
+      "revokeMessage": "设备将无法再使用它注册。已加入的人仍是成员。",
+      "revokeConfirm": "撤销令牌",
+      "lapsed": "设备注册需要团队的 Business 方案。",
+      "loadFailed": "无法加载注册令牌 — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "正在创建令牌…",
+          "done": "注册令牌已创建",
+          "failed": "无法创建令牌 — {{reason}}"
+        },
+        "revoke": {
+          "pending": "正在撤销令牌…",
+          "done": "注册令牌已撤销",
+          "failed": "无法撤销令牌 — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "请添加邮箱域名或要求批准。",
+        "needsApproval": "此服务器无法发送电子邮件,因此每次加入都需要管理员批准。",
+        "unavailable": "设备注册需要团队的 Business 方案。"
+      }
+    },
     "leaveTeam": "退出团队",
     "offboarding": {
       "removeTitle_one": "将 {{names}} 移出此团队？",

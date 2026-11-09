@@ -327,6 +327,63 @@
       "newLink": "Nový odkaz",
       "cancel": "Zrušit"
     },
+    "enrollment": {
+      "title": "Registrace zařízení",
+      "explainer": "Jeden firemní token pro nasazení Voltiusu pomocí Ansible nebo MDM. Lidé, kteří ho použijí, požádají o vstup do týmu {{team}}.",
+      "domainsLabel": "Povolené e-mailové domény",
+      "domainPlaceholder": "Přidat doménu",
+      "removeDomain": "Odebrat {{domain}}",
+      "approve": "Každé připojení schvaluje správce",
+      "noEmail": "Tento server neumí odesílat e-maily, proto musí každé připojení schválit správce.",
+      "expiresLabel": "Platnost",
+      "expiry": {
+        "never": "Bez omezení",
+        "day30": "30 dní",
+        "day90": "90 dní",
+        "year1": "1 rok"
+      },
+      "create": "Vytvořit token",
+      "guardHint": "Každé připojení vyžaduje odpovídající e-mailovou doménu, schválení správcem, nebo obojí.",
+      "copyNow": "Zkopírujte si ho hned; už se znovu nezobrazí.",
+      "example": "Příklad",
+      "approvalOn": "schvaluje správce",
+      "approvalOff": "bez schvalování",
+      "expiresOn": "vyprší {{date}}",
+      "neverExpires": "bez omezení platnosti",
+      "createdBy": "Vytvořil(a) {{name}} · {{date}}",
+      "createdOn": "Vytvořeno {{date}}",
+      "lastUsed": "Naposledy použito {{when}}",
+      "neverUsed": "Nikdy nepoužito",
+      "counts": "Připojeno: {{joined}} · čeká: {{waiting}}",
+      "notShownAgain": "Token se už nezobrazí. Pro nový token použijte Obnovit.",
+      "rotate": "Obnovit",
+      "rotateTitle": "Obnovit registrační token?",
+      "rotateMessage": "Stávající token přestane fungovat. Spusťte nasazení znovu s novým tokenem.",
+      "rotateConfirm": "Obnovit token",
+      "revoke": "Zrušit",
+      "revokeTitle": "Zrušit registrační token?",
+      "revokeMessage": "Zařízení se s ním už nebudou moci registrovat. Lidé, kteří se již připojili, zůstávají členy.",
+      "revokeConfirm": "Zrušit token",
+      "lapsed": "Registrace zařízení vyžaduje tarif Business.",
+      "loadFailed": "Registrační token se nepodařilo načíst — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Vytvářím token…",
+          "done": "Registrační token vytvořen",
+          "failed": "Token se nepodařilo vytvořit — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Ruším token…",
+          "done": "Registrační token zrušen",
+          "failed": "Token se nepodařilo zrušit — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Přidejte e-mailovou doménu nebo vyžadujte schválení.",
+        "needsApproval": "Tento server neumí odesílat e-maily, proto každé připojení vyžaduje schválení správcem.",
+        "unavailable": "Registrace zařízení vyžaduje tarif Business."
+      }
+    },
     "offboarding": {
       "removeTitle_one": "Odebrat {{names}} z tohoto týmu?",
       "removeTitle_few": "Odebrat {{count}} lidi z tohoto týmu?",

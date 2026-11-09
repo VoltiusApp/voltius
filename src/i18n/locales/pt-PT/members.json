@@ -321,6 +321,63 @@
       "newLink": "Novo link",
       "cancel": "Cancelar"
     },
+    "enrollment": {
+      "title": "Inscrição de dispositivos",
+      "explainer": "Um token único para toda a empresa, para implantar o Voltius com Ansible ou MDM. Quem o usar pede para entrar em {{team}}.",
+      "domainsLabel": "Domínios de e-mail permitidos",
+      "domainPlaceholder": "Adicionar um domínio",
+      "removeDomain": "Remover {{domain}}",
+      "approve": "Um administrador aprova cada entrada",
+      "noEmail": "Este servidor não consegue enviar e-mails, por isso um administrador tem de aprovar cada entrada.",
+      "expiresLabel": "Expira",
+      "expiry": {
+        "never": "Nunca",
+        "day30": "30 dias",
+        "day90": "90 dias",
+        "year1": "1 ano"
+      },
+      "create": "Criar token",
+      "guardHint": "Cada entrada exige um domínio de e-mail correspondente, a aprovação de um administrador, ou ambos.",
+      "copyNow": "Copie agora; não será mostrado novamente.",
+      "example": "Exemplo",
+      "approvalOn": "aprovação por administrador",
+      "approvalOff": "sem aprovação",
+      "expiresOn": "expira em {{date}}",
+      "neverExpires": "nunca expira",
+      "createdBy": "Criado por {{name}} · {{date}}",
+      "createdOn": "Criado em {{date}}",
+      "lastUsed": "Último uso {{when}}",
+      "neverUsed": "Nunca usado",
+      "counts": "{{joined}} entraram · {{waiting}} em espera",
+      "notShownAgain": "O token não é mostrado novamente. Renove-o para obter um novo.",
+      "rotate": "Renovar",
+      "rotateTitle": "Renovar o token de inscrição?",
+      "rotateMessage": "O token atual deixa de funcionar. Execute novamente a sua implantação com o novo.",
+      "rotateConfirm": "Renovar token",
+      "revoke": "Revogar",
+      "revokeTitle": "Revogar o token de inscrição?",
+      "revokeMessage": "Os dispositivos deixam de poder inscrever-se com ele. Quem já entrou continua membro.",
+      "revokeConfirm": "Revogar token",
+      "lapsed": "A inscrição de dispositivos requer o plano Business da equipa.",
+      "loadFailed": "Não foi possível carregar o token de inscrição — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "A criar o token…",
+          "done": "Token de inscrição criado",
+          "failed": "Não foi possível criar o token — {{reason}}"
+        },
+        "revoke": {
+          "pending": "A revogar o token…",
+          "done": "Token de inscrição revogado",
+          "failed": "Não foi possível revogar o token — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Adicione um domínio de e-mail ou exija aprovação.",
+        "needsApproval": "Este servidor não consegue enviar e-mails, por isso cada entrada exige a aprovação de um administrador.",
+        "unavailable": "A inscrição de dispositivos requer o plano Business da equipa."
+      }
+    },
     "offboarding": {
       "removeTitle_one": "Remover {{names}} desta equipe?",
       "removeTitle_other": "Remover {{count}} pessoas desta equipe?",

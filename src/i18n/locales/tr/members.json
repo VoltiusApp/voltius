@@ -315,6 +315,63 @@
       "newLink": "Yeni bağlantı",
       "cancel": "İptal"
     },
+    "enrollment": {
+      "title": "Cihaz kaydı",
+      "explainer": "Voltius'u Ansible veya MDM ile dağıtmak için şirket genelinde tek bir belirteç. Bunu kullananlar {{team}} ekibine katılmak için istekte bulunur.",
+      "domainsLabel": "İzin verilen e-posta alan adları",
+      "domainPlaceholder": "Alan adı ekle",
+      "removeDomain": "{{domain}} alan adını kaldır",
+      "approve": "Her katılımı bir yönetici onaylar",
+      "noEmail": "Bu sunucu e-posta gönderemez, bu yüzden her katılımı bir yönetici onaylamalıdır.",
+      "expiresLabel": "Geçerlilik",
+      "expiry": {
+        "never": "Süresiz",
+        "day30": "30 gün",
+        "day90": "90 gün",
+        "year1": "1 yıl"
+      },
+      "create": "Belirteç oluştur",
+      "guardHint": "Her katılım için eşleşen bir e-posta alan adı, bir yöneticinin onayı veya ikisi birden gerekir.",
+      "copyNow": "Şimdi kopyalayın; bir daha gösterilmez.",
+      "example": "Örnek",
+      "approvalOn": "yönetici onaylar",
+      "approvalOff": "onay yok",
+      "expiresOn": "{{date}} tarihinde sona erer",
+      "neverExpires": "süresiz",
+      "createdBy": "Oluşturan: {{name}} · {{date}}",
+      "createdOn": "Oluşturulma: {{date}}",
+      "lastUsed": "Son kullanım: {{when}}",
+      "neverUsed": "Hiç kullanılmadı",
+      "counts": "Katılan: {{joined}} · bekleyen: {{waiting}}",
+      "notShownAgain": "Belirteç bir daha gösterilmez. Yenisini almak için yenileyin.",
+      "rotate": "Yenile",
+      "rotateTitle": "Kayıt belirteci yenilensin mi?",
+      "rotateMessage": "Mevcut belirteç çalışmayı bırakır. Dağıtımınızı yeni belirteçle yeniden çalıştırın.",
+      "rotateConfirm": "Belirteci yenile",
+      "revoke": "İptal et",
+      "revokeTitle": "Kayıt belirteci iptal edilsin mi?",
+      "revokeMessage": "Cihazlar artık bununla kaydolamaz. Zaten katılmış olanlar üye kalır.",
+      "revokeConfirm": "Belirteci iptal et",
+      "lapsed": "Cihaz kaydı için ekibin Business planı gerekir.",
+      "loadFailed": "Kayıt belirteci yüklenemedi — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Belirteç oluşturuluyor…",
+          "done": "Kayıt belirteci oluşturuldu",
+          "failed": "Belirteç oluşturulamadı — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Belirteç iptal ediliyor…",
+          "done": "Kayıt belirteci iptal edildi",
+          "failed": "Belirteç iptal edilemedi — {{reason}}"
+        }
+      },
+      "error": {
+        "needsGuard": "Bir e-posta alan adı ekleyin veya onay isteyin.",
+        "needsApproval": "Bu sunucu e-posta gönderemez, bu yüzden her katılım bir yöneticinin onayını gerektirir.",
+        "unavailable": "Cihaz kaydı için ekibin Business planı gerekir."
+      }
+    },
     "offboarding": {
       "removeTitle_one": "{{names}} bu ekipten kaldırılsın mı?",
       "removeTitle_other": "{{count}} kişi bu ekipten kaldırılsın mı?",

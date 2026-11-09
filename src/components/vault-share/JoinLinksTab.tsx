@@ -16,6 +16,7 @@ import {
 import { clampMaxUses, clampTtlSecs, expiresIn, TTL_PRESETS, USES_PRESETS, usesRemaining } from "./joinLinkModel";
 import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { ChoiceChip } from "./ChoiceChip";
+import { EnrolmentSection } from "./EnrolmentSection";
 import type { TeamRole } from "@/stores/teamStore";
 import { assignableRoles } from "./vaultShareModel";
 import { formatDateTime } from "@/utils/localeFormat";
@@ -271,6 +272,8 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
           <p className="text-[10px] text-(--t-text-dim)">{t("members.joinLinks.shownOnce")}</p>
         </div>
       )}
+
+      {canMint && <EnrolmentSection teamId={teamId} roles={roles} />}
     </div>
   );
 }
