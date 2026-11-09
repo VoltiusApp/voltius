@@ -42,6 +42,11 @@ test("PUT sends the document with the loaded revision; DELETE clears", async () 
   expect(init.method).toBe("DELETE");
 });
 
+test("GET on a server without the endpoint is null", async () => {
+  h.appFetch.mockResolvedValue(reply(404));
+  await expect(getTeamPolicy("t1")).resolves.toBeNull();
+});
+
 test("409 is a revision mismatch", async () => {
   h.appFetch.mockResolvedValue(reply(409, { error: "POLICY_REVISION_MISMATCH" }));
   await expect(putTeamPolicy("t1", DOC, 0)).rejects.toBeInstanceOf(PolicyRevisionMismatch);

@@ -27,10 +27,12 @@ import { formatRelative } from "@/utils/localeFormat";
 
 const BTN = "btn btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium";
 const FILE_NAME = "policy.json";
+const MAX_FILE_BYTES = 64 * 1024;
 const ERROR_KINDS = new Set(["file", "type", "range", "notForTeam", "newerVersion"]);
 
 type Row = { level: "error" | "warning"; key?: string; text: string; detail?: string };
-type Preview = { name: string; doc: TeamPolicyDoc | null; rows: Row[] };
+type Checked = { name: string; doc: TeamPolicyDoc | null; rows: Row[] };
+type Preview = Checked & { revision: number };
 
 function counts(policy: Record<string, unknown>, t: TFunction): string {
   const values = Object.values(policy);
@@ -60,7 +62,7 @@ function issueRow(issue: PolicyIssue, t: TFunction): Row {
   }
 }
 
-async function readPreview(file: File, t: TFunction): Promise<Preview> {
+async function readPreview(file: File, t: TFunction): Promise<Checked> {
   const text = await file.text();
   const { doc, issues } = await checkTeamDocText(text);
   const byText = new Map(issues.map((i) => issueRow(i, t)).map((r) => [`${r.key}|${r.text}`, r]));
@@ -82,7 +84,7 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
   const teamRevision = useTeamStore((s) => s.teams.find((x) => x.id === teamId)?.policy_revision);
   const peer = usePeerResolver();
   const [stored, setStored] = useState<StoredTeamPolicy | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadError, setLoadError] = useState<"failed" | "unsupported" | null>(null);
   const [toggled, setOpen] = useState<boolean | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [clearing, setClearing] = useState(false);
@@ -96,11 +98,11 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
     try {
       const next = await getTeamPolicy(teamId);
       if (mine !== seq.current) return;
-      loadedRevision.current = next.revision;
+      loadedRevision.current = next?.revision ?? null;
       setStored(next);
-      setLoadFailed(false);
+      setLoadError(next ? null : "unsupported");
     } catch {
-      if (mine === seq.current) setLoadFailed(true);
+      if (mine === seq.current) setLoadError("failed");
     }
   }, [teamId]);
 
@@ -123,14 +125,15 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
     await Promise.all([reload(), useTeamStore.getState().loadTeams()]);
   };
 
-  const onFile = async (file: File | undefined) => {
+  const onFile = async (file: File | undefined, revision: number) => {
     if (!file) return;
-    const unreadable: Preview = { name: file.name, doc: null, rows: [{ level: "error", text: t("members.devicePolicy.issue.file") }] };
-    setPreview(await readPreview(file, t).catch(() => unreadable));
+    const unreadable: Checked = { name: file.name, doc: null, rows: [{ level: "error", text: t("members.devicePolicy.issue.file") }] };
+    const checked = file.size > MAX_FILE_BYTES ? unreadable : await readPreview(file, t).catch(() => unreadable);
+    setPreview({ ...checked, revision });
   };
 
   if (!stored) {
-    return loadFailed ? <p className="text-xs pt-4 border-t border-(--t-border) text-(--t-text-dim)">{t("members.devicePolicy.loadFailed")}</p> : null;
+    return loadError === "failed" ? <p className="text-xs pt-4 border-t border-(--t-border) text-(--t-text-dim)">{t("members.devicePolicy.loadFailed")}</p> : null;
   }
   const doc = stored.policy;
   if (lapsed && !doc) return null;
@@ -227,7 +230,7 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
           type="file"
           accept=".json,application/json"
           className="hidden"
-          onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }}
+          onChange={(e) => { void onFile(e.target.files?.[0], stored.revision); e.target.value = ""; }}
         />
       </div>
 
@@ -240,7 +243,7 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
           onCancel={() => setPreview(null)}
           onSave={(next) =>
             void change(t("members.devicePolicy.saving"), t("members.devicePolicy.saved"), () =>
-              putTeamPolicy(teamId, next, stored.revision))}
+              putTeamPolicy(teamId, next, preview.revision))}
         />
       )}
       {clearing && (

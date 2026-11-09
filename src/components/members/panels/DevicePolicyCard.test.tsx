@@ -25,7 +25,8 @@ vi.mock("@/services/teamService", async (orig) => ({
 
 import { DevicePolicyCard } from "./DevicePolicyCard";
 import { SecurityPolicyPanel } from "./SecurityPolicyPanel";
-import { PolicyRevisionMismatch, type TeamPolicyDoc } from "@/services/teamService";
+import { PolicyRevisionMismatch, TeamPolicyRejected, type TeamPolicyDoc } from "@/services/teamService";
+import { planRequiredError } from "@/services/planRequired";
 import { useTeamStore } from "@/stores/teamStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { PolicyIssue } from "@/stores/policyStore";
@@ -54,14 +55,21 @@ const checked = (policy: Record<string, unknown>, issues: Partial<PolicyIssue>[]
       ? { doc: { version: 1, policy, defaults: {} }, issues: issues.map((i) => ({ layer: "policy", key: null, message: "", ...i })) }
       : undefined);
 
-async function importFile(json: unknown) {
+async function importFile(json: unknown, text = JSON.stringify(json)) {
   const input = document.querySelector<HTMLInputElement>("input[type=file]")!;
-  const file = new File([JSON.stringify(json)], "policy.json", { type: "application/json" });
+  const file = new File([text], "policy.json", { type: "application/json" });
   fireEvent.change(input, { target: { files: [file] } });
   return screen.findByRole("dialog");
 }
 
 const saveButton = () => screen.getByRole("button", { name: "Save policy" }) as HTMLButtonElement;
+const toastMessages = () => useNotificationStore.getState().toasts.map((t) => t.message);
+
+async function importValid() {
+  await screen.findByRole("button", { name: "Import" });
+  checked({ "sync.types.key": false });
+  await importFile({ version: 1, policy: { "sync.types.key": false } });
+}
 
 beforeEach(() => {
   h.locked = false;
@@ -128,17 +136,14 @@ test("a plain lock timeout warns about older versions and is saved as imported",
 test("stale revision reloads and shows the conflict message", async () => {
   serve(null, 0);
   render(<DevicePolicyCard teamId="t" />);
-  await screen.findByRole("button", { name: "Import" });
-  checked({ "sync.types.key": false });
-  await importFile({ version: 1, policy: { "sync.types.key": false } });
+  await importValid();
   h.put.mockRejectedValue(new PolicyRevisionMismatch());
   h.get.mockClear();
   h.get.mockResolvedValue({ policy: STORED, revision: 2, updated_at: null, updated_by: null });
   fireEvent.click(saveButton());
   await waitFor(() => expect(h.get).toHaveBeenCalled());
   expect(await screen.findByText("1 locked · 1 limited")).toBeTruthy();
-  const toasts = useNotificationStore.getState().toasts.map((t) => t.message);
-  expect(toasts).toContain("Someone else changed the team policy. Review it and import again.");
+  expect(toastMessages()).toContain("Someone else changed the team policy. Review it and import again.");
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
@@ -203,4 +208,64 @@ test("below Business a stored device policy keeps the panel instead of the upsel
   useTeamStore.setState((s) => ({ teams: s.teams.map((t) => ({ ...t, lock_policy: null })) }));
   render(<SecurityPolicyPanel teamId="t" />);
   expect(await screen.findByRole("button", { name: "Export" })).toBeTruthy();
+});
+
+test("save keeps the revision loaded when the file was picked", async () => {
+  serve(STORED, 1);
+  render(<DevicePolicyCard teamId="t" />);
+  await importValid();
+  h.get.mockResolvedValue({ policy: STORED, revision: 2, updated_at: null, updated_by: null });
+  setTeam(STORED, 2);
+  await waitFor(() => expect(h.get).toHaveBeenCalledTimes(2));
+  fireEvent.click(saveButton());
+  await waitFor(() => expect(h.put).toHaveBeenCalledWith("t", expect.anything(), 1));
+});
+
+test("a defaults entry is an error that disables Save", async () => {
+  serve(null, 0);
+  render(<DevicePolicyCard teamId="t" />);
+  await screen.findByRole("button", { name: "Import" });
+  checked({}, [{ kind: "notForTeam", layer: "defaults", key: "appSettings.locale", message: "cannot be a team default; dropped" }]);
+  await importFile({ version: 1, policy: {}, defaults: { "appSettings.locale": "fr" } });
+  expect(screen.getByText("Defaults belong in machine policy, not team policy")).toBeTruthy();
+  expect(saveButton().disabled).toBe(true);
+});
+
+test("a file over 64 KiB is refused before it is read", async () => {
+  serve(null, 0);
+  render(<DevicePolicyCard teamId="t" />);
+  await screen.findByRole("button", { name: "Import" });
+  await importFile(null, `{"version":1,"policy":{},"pad":"${"x".repeat(64 * 1024)}"}`);
+  expect(screen.getByText("This file isn't a valid policy.json")).toBeTruthy();
+  expect(h.invoke).not.toHaveBeenCalledWith("policy_check_team_doc", expect.anything());
+  expect(saveButton().disabled).toBe(true);
+});
+
+test("a server refusal names the key and keeps the preview open", async () => {
+  serve(null, 0);
+  render(<DevicePolicyCard teamId="t" />);
+  await importValid();
+  h.put.mockRejectedValue(new TeamPolicyRejected("POLICY_MACHINE_ONLY_KEY", "server.url"));
+  fireEvent.click(saveButton());
+  await waitFor(() => expect(toastMessages()).toContain("The server refused this policy: server.url"));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
+test("a lapsed plan during import shows the plan-required error", async () => {
+  serve(null, 0);
+  render(<DevicePolicyCard teamId="t" />);
+  await importValid();
+  h.put.mockRejectedValue(planRequiredError());
+  fireEvent.click(saveButton());
+  await waitFor(() => expect(toastMessages()).toContain("This needs the team's Business plan."));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
+test("a server without team policy documents renders no card", async () => {
+  h.get.mockResolvedValue(null);
+  setTeam(null, 0);
+  const { container } = render(<DevicePolicyCard teamId="t" />);
+  await waitFor(() => expect(h.get).toHaveBeenCalled());
+  await Promise.resolve();
+  expect(container.innerHTML).toBe("");
 });

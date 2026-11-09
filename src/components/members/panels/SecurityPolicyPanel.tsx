@@ -40,12 +40,14 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
   const disabled = busy || locked;
   return (
     <div className="space-y-4">
-      <BusinessLapseNotice
-        teamId={teamId}
-        message={t("members.security.lapsed")}
-        removeLabel={t("members.security.remove")}
-        onRemove={policy ? () => save(null) : undefined}
-      />
+      {policy && (
+        <BusinessLapseNotice
+          teamId={teamId}
+          message={t("members.security.lapsed")}
+          removeLabel={t("members.security.remove")}
+          onRemove={() => save(null)}
+        />
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-(--t-text-primary)">{t("members.security.enforce")}</p>
