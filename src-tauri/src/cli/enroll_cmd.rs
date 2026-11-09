@@ -121,17 +121,16 @@ pub(super) fn run_enroll(
     let token = parse_token(&raw)?;
     let path = machine_path(machine)?;
     let host = host_of(&token.server_url);
-    if let Some(locked) = machine_doc(machine)
-        .policy
-        .get("server.url")
-        .and_then(Value::as_str)
+    let doc = machine_doc(machine);
+    let locked = doc.policy.get("server.url").and_then(Value::as_str);
+    let allow_other = doc.policy.get("server.allowOther").and_then(Value::as_bool);
+    if let Some(locked) =
+        locked.filter(|l| allow_other == Some(false) && !policy::same_server(l, &token.server_url))
     {
-        if !policy::same_server(locked, &token.server_url) {
-            return Err(fail(format!(
-                "This machine's policy locks server.url to {}; the token is for {host}.",
-                host_of(locked)
-            )));
-        }
+        return Err(fail(format!(
+            "This machine's policy locks server.url to {}; the token is for {host}.",
+            host_of(locked)
+        )));
     }
     let changed = current_token(machine).as_ref() != Some(&token);
     let (team, unreachable) = match lookup(&token, args.no_verify, resolve) {
@@ -259,15 +258,7 @@ async fn post_resolve(token: &EnrollmentToken) -> Result<String, ResolveError> {
 }
 
 fn resolve_over_network(token: &EnrollmentToken) -> Result<String, ResolveError> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| ResolveError::Network(e.to_string()))?;
-    rt.block_on(async {
-        tokio::time::timeout(RESOLVE_TIMEOUT, post_resolve(token))
-            .await
-            .map_err(|_| ResolveError::Network("timed out".into()))?
-    })
+    super::block_on_timeout(RESOLVE_TIMEOUT, post_resolve(token)).map_err(ResolveError::Network)?
 }
 
 #[cfg(test)]
@@ -474,7 +465,7 @@ mod tests {
         let (_d, m) = machine();
         std::fs::write(
             &m,
-            r#"{"version":1,"policy":{"server.url":"https://corp.example"}}"#,
+            r#"{"version":1,"policy":{"server.url":"https://corp.example","server.allowOther":false}}"#,
         )
         .unwrap();
         let e = run(args(Some(&token())), &m, false, &acme).0.unwrap_err();
@@ -492,6 +483,20 @@ mod tests {
         .unwrap();
         run(args(Some(&token())), &m, false, &acme).0.unwrap();
         assert_eq!(stored(&m), Some(token()));
+    }
+
+    #[test]
+    fn enroll_allows_other_server_unless_allow_other_is_locked_off() {
+        for allow_other in ["", r#","server.allowOther":true"#] {
+            let (_d, m) = machine();
+            std::fs::write(
+                &m,
+                format!(r#"{{"version":1,"policy":{{"server.url":"https://corp.example"{allow_other}}}}}"#),
+            )
+            .unwrap();
+            run(args(Some(&token())), &m, false, &acme).0.unwrap();
+            assert_eq!(stored(&m), Some(token()));
+        }
     }
 
     #[test]
