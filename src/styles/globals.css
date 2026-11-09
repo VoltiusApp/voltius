@@ -52,24 +52,25 @@
 
   --transition-duration-400: 400ms;
 
+  /* `translate`, not `transform`: it composes with an inline transform (the context menu's UI-scale). */
   @keyframes fadeIn {
     0% {
       opacity: 0;
-      transform: translateY(6px);
+      translate: 0 6px;
     }
     100% {
       opacity: 1;
-      transform: translateY(0);
+      translate: 0 0;
     }
   }
   @keyframes fadeOut {
     0% {
       opacity: 1;
-      transform: translateX(0) translateY(0);
+      translate: 0 0;
     }
     100% {
       opacity: 0;
-      transform: translateX(6px) translateY(0);
+      translate: 6px 0;
     }
   }
   @keyframes tab-hint {

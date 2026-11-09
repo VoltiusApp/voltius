@@ -339,7 +339,7 @@ test("add rejects a transport failure (no HTTP status): named message shown, no 
   expect(await screen.findByText(/Could not invite included-alpha-3140/)).toBeTruthy();
   expect(container.textContent).not.toMatch(/http/i);
   // The dropdown also closes so the error is not hidden underneath it.
-  expect(screen.queryByText("included-alpha-3140")).toBeNull();
+  await waitFor(() => expect(screen.queryByText("included-alpha-3140")).toBeNull());
 });
 
 test("email invite success (not at limit): inviteByEmailAddress(default role) + reload + onMemberAdded", async () => {

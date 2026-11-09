@@ -8,6 +8,7 @@ import { matchShortcut } from "@/stores/shortcutStore";
 import { getTagColorStyle } from "@/utils/tagColors";
 import { chevronRotateStyle } from "@/utils/icons";
 import { searchMatcher } from "@/utils/search";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 
 /** Focus a search/filter input when the user presses the `filter` shortcut (Ctrl+F). */
 export function useFilterShortcut(ref: RefObject<HTMLInputElement | null>) {
@@ -178,6 +179,7 @@ function TagFilterButton({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const fade = usePopoverFade(open);
   const [tagSearch, setTagSearch] = useState("");
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -272,9 +274,10 @@ function TagFilterButton({
       </button>
 
       {/* Dropdown */}
-      {open && (
+      {fade.mounted && (
         <div
-          className="surface-float absolute right-0 top-full mt-1 z-50 flex flex-col overflow-hidden w-[16rem]"
+          className={`surface-float absolute right-0 top-full mt-1 z-50 flex flex-col overflow-hidden w-[16rem] ${fade.className}`}
+          style={fade.style}
         >
           {availableTags.length === 0 ? (
             /* ── Empty state ── */

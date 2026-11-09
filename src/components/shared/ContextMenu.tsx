@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
+import { useMountFade } from "@/hooks/useDelayedUnmount";
 
 export const isInMenuPortal = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest("[data-menu-portal]") !== null;
@@ -188,13 +189,14 @@ function SubmenuPanel({ row, onMouseEnter, onMouseLeave, children }: {
   const top = useFittedStart(ref, row.top, "height", []);
   const width = useMeasuredSize(ref, "width", []);
   const left = width === null ? row.right + SUBMENU_GAP : submenuLeft(row, width, window.innerWidth);
+  const fade = useMountFade(ref);
   return (
     <div
       ref={ref}
       // PickerSurface treats this marker as inside-click; z-index keeps a flipped submenu above its parent.
       data-menu-portal=""
-      className="surface-float fixed z-10000 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
-      style={{ left, top, maxHeight: viewportMaxHeight() }}
+      className={`surface-float fixed z-10000 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto ${fade.className}`}
+      style={{ ...fade.style, left, top, maxHeight: viewportMaxHeight() }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -215,6 +217,7 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
   const menuRef = useRef<HTMLDivElement>(null);
   const left = useFittedStart(menuRef, pos.x, "width", [uiScale, items]);
   const top = useFittedStart(menuRef, pos.y, "height", [uiScale, items], direction === "up");
+  const fade = useMountFade(menuRef);
 
   // Closing from window capture rather than behind a full-screen backdrop: the
   // backdrop swallowed the next right-click, so with one menu open, right-
@@ -238,8 +241,9 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
     <div
       ref={menuRef}
       data-menu-portal=""
-      className="surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto"
+      className={`surface-float fixed z-100 p-1.5 flex flex-col min-w-[12.667rem] overflow-y-auto ${fade.className}`}
       style={{
+        ...fade.style,
         left,
         top,
         maxHeight: viewportMaxHeight(uiScale),
