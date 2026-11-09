@@ -451,6 +451,32 @@
         "file": "This file isn't a valid policy.json",
         "plainTimeout": "only applies on newer Voltius versions. Older ones need a maximum: {{example}}"
       }
+    },
+    "joinRequests": {
+      "title": "Join requests",
+      "via": "via device enrolment",
+      "reason": {
+        "approval": "Waiting for approval",
+        "email_unverified": "Waiting for email verification",
+        "seat_limit": "No seat left"
+      },
+      "approve": "Approve",
+      "deny": "Deny",
+      "noSeatHint": "No seat left. Add a seat to approve.",
+      "noSeatToast": "No seat left. Add seats, then approve again.",
+      "gone": "This request was already handled.",
+      "toast": {
+        "approve": {
+          "pending": "Approving join request...",
+          "done": "Join request approved",
+          "failed": "Could not approve the request: {{reason}}"
+        },
+        "deny": {
+          "pending": "Denying join request...",
+          "done": "Join request denied",
+          "failed": "Could not deny the request: {{reason}}"
+        }
+      }
     }
   }
 }

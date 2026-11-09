@@ -455,6 +455,32 @@
         "file": "Bu dosya geçerli bir policy.json değil",
         "plainTimeout": "yalnızca yeni Voltius sürümlerinde uygulanır. Eski sürümler bir üst sınır ister: {{example}}"
       }
+    },
+    "joinRequests": {
+      "title": "Katılma istekleri",
+      "via": "cihaz kaydı üzerinden",
+      "reason": {
+        "approval": "Onay bekliyor",
+        "email_unverified": "E-posta doğrulaması bekliyor",
+        "seat_limit": "Boş koltuk yok"
+      },
+      "approve": "Onayla",
+      "deny": "Reddet",
+      "noSeatHint": "Boş koltuk yok. Onaylamak için koltuk ekleyin.",
+      "noSeatToast": "Boş koltuk yok. Koltuk ekleyin, sonra tekrar onaylayın.",
+      "gone": "Bu istek zaten işlendi.",
+      "toast": {
+        "approve": {
+          "pending": "İstek onaylanıyor...",
+          "done": "İstek onaylandı",
+          "failed": "İstek onaylanamadı: {{reason}}"
+        },
+        "deny": {
+          "pending": "İstek reddediliyor...",
+          "done": "İstek reddedildi",
+          "failed": "İstek reddedilemedi: {{reason}}"
+        }
+      }
     }
   }
 }

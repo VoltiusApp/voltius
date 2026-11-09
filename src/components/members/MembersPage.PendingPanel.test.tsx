@@ -18,6 +18,7 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/components/members/cards/JoinRequests", () => ({ JoinRequestsSection: () => <div data-testid="join-requests" /> }));
 vi.mock("@/components/shared/StatusDot", () => ({ StatusDot: () => null }));
 vi.mock("@/components/shared/Panel", () => ({
   PanelShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -189,4 +190,22 @@ test("the security panel stays hidden on a team the viewer does not manage", asy
   await settle();
 
   expect(screen.queryByTestId("security-policy-panel")).toBeNull();
+});
+
+test("join requests show for a member holding the invite permission", async () => {
+  h.pending = "";
+  h.perms = 4;
+  render(<MembersPage />);
+  await settle();
+
+  expect(screen.getByTestId("join-requests")).toBeTruthy();
+});
+
+test("join requests are hidden without the invite permission", async () => {
+  h.pending = "";
+  h.perms = 3;
+  render(<MembersPage />);
+  await settle();
+
+  expect(screen.queryByTestId("join-requests")).toBeNull();
 });

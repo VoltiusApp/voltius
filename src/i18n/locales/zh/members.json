@@ -451,6 +451,32 @@
         "file": "此文件不是有效的 policy.json",
         "plainTimeout": "仅在较新版本的 Voltius 中生效。旧版本需要写成最大值：{{example}}"
       }
+    },
+    "joinRequests": {
+      "title": "加入请求",
+      "via": "通过设备注册",
+      "reason": {
+        "approval": "等待批准",
+        "email_unverified": "等待邮箱验证",
+        "seat_limit": "没有可用席位"
+      },
+      "approve": "批准",
+      "deny": "拒绝",
+      "noSeatHint": "没有可用席位。请先添加席位再批准。",
+      "noSeatToast": "没有可用席位。请添加席位后再次批准。",
+      "gone": "该请求已被处理。",
+      "toast": {
+        "approve": {
+          "pending": "正在批准请求...",
+          "done": "请求已批准",
+          "failed": "无法批准请求：{{reason}}"
+        },
+        "deny": {
+          "pending": "正在拒绝请求...",
+          "done": "请求已拒绝",
+          "failed": "无法拒绝请求：{{reason}}"
+        }
+      }
     }
   }
 }

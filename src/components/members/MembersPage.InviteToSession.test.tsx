@@ -41,6 +41,7 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/components/members/cards/JoinRequests", () => ({ JoinRequestsSection: () => null }));
 vi.mock("@/components/shared/StatusDot", () => ({ StatusDot: () => null }));
 vi.mock("@/components/shared/Panel", () => ({
   PanelShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

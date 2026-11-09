@@ -34,6 +34,7 @@ import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
+import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersToolbar } from "@/components/members/MembersToolbar";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { MemberCard, memberOpenAction } from "@/components/members/cards/MemberCard";
@@ -672,6 +673,7 @@ const vaultTabs = selectedVaultIds.length > 1
               </div>
             )}
 
+            {canInvite && teamId && <JoinRequestsSection teamId={teamId} />}
           </div>
         </DragSelectSurface>
       </div>

@@ -463,6 +463,32 @@
         "file": "Ce fichier n'est pas un policy.json valide",
         "plainTimeout": "ne s'applique qu'aux versions récentes de Voltius. Les anciennes exigent un maximum : {{example}}"
       }
+    },
+    "joinRequests": {
+      "title": "Demandes d'adhésion",
+      "via": "via l'enrôlement d'appareils",
+      "reason": {
+        "approval": "En attente d'approbation",
+        "email_unverified": "En attente de vérification de l'e-mail",
+        "seat_limit": "Plus de siège disponible"
+      },
+      "approve": "Approuver",
+      "deny": "Refuser",
+      "noSeatHint": "Plus de siège disponible. Ajoutez un siège pour approuver.",
+      "noSeatToast": "Plus de siège disponible. Ajoutez des sièges, puis approuvez à nouveau.",
+      "gone": "Cette demande a déjà été traitée.",
+      "toast": {
+        "approve": {
+          "pending": "Approbation de la demande...",
+          "done": "Demande approuvée",
+          "failed": "Impossible d'approuver la demande : {{reason}}"
+        },
+        "deny": {
+          "pending": "Refus de la demande...",
+          "done": "Demande refusée",
+          "failed": "Impossible de refuser la demande : {{reason}}"
+        }
+      }
     }
   }
 }

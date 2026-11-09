@@ -479,6 +479,32 @@
         "file": "Tento soubor není platný policy.json",
         "plainTimeout": "platí jen v novějších verzích Voltius. Starší vyžadují maximum: {{example}}"
       }
+    },
+    "joinRequests": {
+      "title": "Žádosti o připojení",
+      "via": "přes zapisování zařízení",
+      "reason": {
+        "approval": "Čeká na schválení",
+        "email_unverified": "Čeká na ověření e-mailu",
+        "seat_limit": "Žádné volné místo"
+      },
+      "approve": "Schválit",
+      "deny": "Zamítnout",
+      "noSeatHint": "Žádné volné místo. Přidejte místo, abyste mohli schválit.",
+      "noSeatToast": "Žádné volné místo. Přidejte místa a schvalte znovu.",
+      "gone": "Tato žádost již byla vyřízena.",
+      "toast": {
+        "approve": {
+          "pending": "Schvaluji žádost...",
+          "done": "Žádost schválena",
+          "failed": "Žádost se nepodařilo schválit: {{reason}}"
+        },
+        "deny": {
+          "pending": "Zamítám žádost...",
+          "done": "Žádost zamítnuta",
+          "failed": "Žádost se nepodařilo zamítnout: {{reason}}"
+        }
+      }
     }
   }
 }
