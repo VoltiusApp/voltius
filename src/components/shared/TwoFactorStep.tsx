@@ -19,8 +19,7 @@ export function entryProof(entry: TwoFactorEntry): TwoFactorProof | null {
 
 const ALL_METHODS: TwoFactorMethod[] = ["totp", "recovery"];
 
-/** Tracks a passkey ceremony so a form can say the browser has the user, and stay quiet when they give up. */
-export function usePasskeyCeremony() {
+function useInFlight() {
   const [waiting, setWaiting] = useState(false);
   const track = async <T,>(ceremony: () => Promise<T>): Promise<T> => {
     setWaiting(true);
@@ -32,6 +31,9 @@ export function usePasskeyCeremony() {
   };
   return { waiting, track };
 }
+
+/** Tracks a passkey ceremony so a form can say the browser has the user, and stay quiet when they give up. */
+export const usePasskeyCeremony = useInFlight;
 
 const PROMPTS = {
   typed: { code: "layout.twoFactor.prompt", recovery: "layout.twoFactor.recoveryPrompt" },
@@ -120,6 +122,7 @@ export interface TwoFactorChallenge {
  */
 export function useTwoFactorChallenge() {
   const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
+  const { waiting: verifying, track } = useInFlight();
   const run = async <T,>(work: () => Promise<T>, after: (result: T) => Promise<void> | void): Promise<void> => {
     try {
       await after(await work());
@@ -129,12 +132,12 @@ export function useTwoFactorChallenge() {
       const step = e as TwoFactorRequiredError<T>;
       setChallenge({
         methods: step.methods,
-        resume: (proof) => run(() => step.complete(proof), after),
-        passkey: async () => ({ passkeyCode: await passkeyRoundTrip(step.openPasskey) }),
+        resume: (proof) => track(() => run(() => step.complete(proof), after)),
+        passkey: () => track(async () => ({ passkeyCode: await passkeyRoundTrip(step.openPasskey) })),
       });
     }
   };
-  return { challenge, run, cancel: () => setChallenge(null) };
+  return { challenge, verifying, run, cancel: () => setChallenge(null) };
 }
 
 /** The code form a sign-in falls into when the account has two-factor on. */

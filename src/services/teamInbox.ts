@@ -24,6 +24,7 @@ import { subscribeAccountMode } from "@/utils/accountMode";
 import { machineEnrollmentToken } from "@/services/enrollment/machineToken";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import { usePolicyStore } from "@/stores/policyStore";
+import { serverAllowed } from "@/services/policy/serverPolicy";
 import { sameServer } from "@/utils/serverInstance";
 
 // Deny has no server-side state to delete: the connection still reports the
@@ -379,7 +380,7 @@ function enrollmentEntries(account: EnrollAccount): Parameters<typeof reconcile>
 
   const token = machineEnrollmentToken();
   const resolved = token ? store.resolved[token.id]?.result : undefined;
-  const offered = token && !store.records[`${token.id}|${key}`] ? token : null;
+  const offered = token && serverAllowed(token.serverUrl) && !store.records[`${token.id}|${key}`] ? token : null;
   if (offered && !resolved) void store.resolve(offered).catch(() => {});
 
   const askAgain = (r: MyJoinRequest) => {

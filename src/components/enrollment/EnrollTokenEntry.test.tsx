@@ -36,3 +36,15 @@ test("refuses anything else", () => {
   expect(paste("https://voltius.app/open#join?s=x")).not.toHaveBeenCalled();
   expect(screen.getByText("layout.enroll.tokenEntry.invalid")).toBeTruthy();
 });
+
+test("Continue stays disabled and quiet until something is typed", () => {
+  render(<EnrollTokenEntry onToken={vi.fn()} />);
+  fireEvent.click(screen.getByText("layout.enroll.tokenEntry.toggle"));
+  const continueBtn = () => screen.getByText("layout.enroll.continue").closest("button")!;
+  expect(continueBtn().disabled).toBe(true);
+  fireEvent.change(screen.getByPlaceholderText("layout.enroll.tokenEntry.placeholder"), { target: { value: "   " } });
+  expect(continueBtn().disabled).toBe(true);
+  expect(screen.queryByText("layout.enroll.tokenEntry.invalid")).toBeNull();
+  fireEvent.change(screen.getByPlaceholderText("layout.enroll.tokenEntry.placeholder"), { target: { value: "x" } });
+  expect(continueBtn().disabled).toBe(false);
+});

@@ -97,10 +97,11 @@ export function EnrollForm({ token, source, host, passwordMode = "new", activeAc
   const pastConfirm = (resolved: ResolvedEnrollment): Step =>
     ({ kind: known && emailDomainAllowed(known.email, resolved.allowedDomains) ? "join" : "form", resolved });
 
+  const working = loading || twoFactor.verifying;
   useEffect(() => {
-    onBusyChange?.(loading);
+    onBusyChange?.(working);
     return () => onBusyChange?.(false);
-  }, [loading, onBusyChange]);
+  }, [working, onBusyChange]);
 
   useEffect(() => {
     let live = true;

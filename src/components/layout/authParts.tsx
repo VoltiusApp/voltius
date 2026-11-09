@@ -129,11 +129,11 @@ export function ErrorMsg({ msg }: { msg: string }) {
   return <p role="alert" className="text-xs text-center py-1 text-(--t-status-error)">{msg}</p>;
 }
 
-export function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
+export function SubmitBtn({ loading, label, disabled = false }: { loading: boolean; label: string; disabled?: boolean }) {
   return (
-    <button type="submit" disabled={loading}
+    <button type="submit" disabled={loading || disabled}
       className="btn btn-primary w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-      style={{ opacity: loading ? 0.7 : 1 }}
+      style={{ opacity: loading || disabled ? 0.7 : 1 }}
     >
       {loading && <Icon icon="lucide:loader-circle" width={14} className="animate-spin" />}
       {label}

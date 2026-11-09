@@ -34,7 +34,7 @@ export function EnrollTokenEntry({ onToken }: { onToken: (token: EnrollmentToken
           <Input type="text" placeholder={t("layout.enroll.tokenEntry.placeholder")} value={text} autoFocus
             invalid={!!error} onChange={(v) => { setText(v); setError(""); }} className={`${INPUT_CLASS} font-mono`} />
           <ErrorMsg msg={error} />
-          <SubmitBtn loading={false} label={t("layout.enroll.continue")} />
+          <SubmitBtn loading={false} disabled={!text.trim()} label={t("layout.enroll.continue")} />
         </form>
       )}
     </div>

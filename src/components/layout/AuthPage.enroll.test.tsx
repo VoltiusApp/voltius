@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({ isServerMode: vi.fn() }));
 
@@ -37,6 +37,7 @@ vi.mock("@/components/enrollment/EnrollOutcome", () => ({
 
 import AuthPage from "./AuthPage";
 import { buildEnrollmentToken } from "@/services/enrollment/enrollmentToken";
+import { useDeepLinkStore } from "@/stores/deepLinkStore";
 
 const ID = "0123456789abcdef0123456789abcdef";
 const TOKEN = { serverUrl: "https://voltius.acme.com", id: ID, secret: "s".repeat(43) };
@@ -45,7 +46,13 @@ beforeEach(() => {
   h.isServerMode.mockReset();
   h.isServerMode.mockResolvedValue(false);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useDeepLinkStore.getState().setUnpromptedHandler(null);
+  useDeepLinkStore.setState({ ready: false, queue: [], prompt: null });
+});
+
+const enrollLink = () => ({ route: "enroll" as const, token: buildEnrollmentToken(TOKEN.serverUrl, ID, TOKEN.secret) });
 
 test("a first-launch enrol target opens the enrol view, and Skip returns to the generic home", async () => {
   render(<AuthPage isLocked={false} enrollTarget={{ token: TOKEN, source: "machine" }} onReady={vi.fn()} />);
@@ -90,4 +97,28 @@ test("Skip falls back to the generic home when the account mode can't be read", 
   fireEvent.click(screen.getByText("skip"));
   expect(await screen.findByText("layout.auth.getStarted")).toBeTruthy();
   expect(onReady).not.toHaveBeenCalled();
+});
+
+test("an enroll link queued after the first-launch screen appears opens the enrol view", async () => {
+  render(<AuthPage isLocked={false} onReady={vi.fn()} />);
+  expect(screen.getByText("layout.auth.getStarted")).toBeTruthy();
+  act(() => useDeepLinkStore.getState().enqueue(enrollLink()));
+  expect(screen.getByText(`form:link:${ID}`)).toBeTruthy();
+  expect(useDeepLinkStore.getState().queue).toEqual([]);
+  act(() => useDeepLinkStore.getState().setReady(true));
+  expect(useDeepLinkStore.getState().prompt).toBeNull();
+});
+
+test("a late enroll link waits for the modal once the enrolment has signed in", async () => {
+  render(<AuthPage isLocked={false} enrollTarget={{ token: TOKEN, source: "machine" }} onReady={vi.fn()} />);
+  fireEvent.click(screen.getByText("done"));
+  act(() => useDeepLinkStore.getState().enqueue(enrollLink()));
+  expect(screen.getByText("outcome:Acme")).toBeTruthy();
+  expect(useDeepLinkStore.getState().queue).toHaveLength(1);
+});
+
+test("an unlock screen leaves a late enroll link for the modal", async () => {
+  render(<AuthPage isLocked onReady={vi.fn()} />);
+  act(() => useDeepLinkStore.getState().enqueue(enrollLink()));
+  expect(useDeepLinkStore.getState().queue).toHaveLength(1);
 });

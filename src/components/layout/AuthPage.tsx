@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ActionButton, SwitchModeLink, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, SubmitBtn, SystemAuthButton, emailError, newPasswordProblem } from "./authParts";
@@ -27,6 +27,8 @@ import { EnrollOutcome } from "@/components/enrollment/EnrollOutcome";
 import { EnrollTokenEntry } from "@/components/enrollment/EnrollTokenEntry";
 import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
 import type { EnrollTarget } from "@/stores/uiStore";
+import { takeEnrollLink } from "@/services/enrollment/machineToken";
+import { useDeepLinkStore } from "@/stores/deepLinkStore";
 
 
 type View = "home" | "cloud" | "enroll";
@@ -80,6 +82,22 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   };
 
   const twoFactor = useTwoFactorChallenge();
+  const [enrollBusy, setEnrollBusy] = useState(false);
+
+  // The splash took what was queued when it chose this screen; a link landing later is taken here, or left for the modal.
+  const takesLinks = !isLocked && !addOnly && !enrolled && !loading && !enrollBusy && !twoFactor.challenge;
+  useEffect(() => {
+    if (!takesLinks) return;
+    const take = () => {
+      const link = takeEnrollLink();
+      if (!link) return;
+      setEnroll(link);
+      reset("enroll");
+    };
+    take();
+    return useDeepLinkStore.subscribe((s, prev) => { if (s.queue !== prev.queue) take(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only sets state
+  }, [takesLinks]);
 
   const blockServer = (pending?: string) => {
     twoFactor.cancel();
@@ -242,7 +260,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
         {enrolled
           ? <EnrollOutcome {...enrolled} onContinue={onReady} />
           : <EnrollForm key={enroll.token.id} token={enroll.token} source={enroll.source} host="page" activeAccount="none"
-              onDone={(outcome, result) => setEnrolled({ outcome, ...result })} onSkip={() => void skip()} />}
+              onDone={(outcome, result) => setEnrolled({ outcome, ...result })} onSkip={() => void skip()} onBusyChange={setEnrollBusy} />}
       </Layout>
     );
   }

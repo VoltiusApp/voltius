@@ -23,6 +23,7 @@ const h = vi.hoisted(() => {
     redeemEnrollment: vi.fn(),
     invoke: vi.fn(),
     leaveLanGroup: vi.fn(),
+    passkeyRoundTrip: vi.fn(),
   };
 });
 
@@ -66,6 +67,10 @@ vi.mock("@/services/sync", () => ({
 vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: (sel: (s: unknown) => unknown) => sel({ load: vi.fn(async () => {}) }),
 }));
+vi.mock("@/services/passkeyRoundTrip", async (orig) => ({
+  ...(await orig<typeof import("@/services/passkeyRoundTrip")>()),
+  passkeyRoundTrip: h.passkeyRoundTrip,
+}));
 vi.mock("@/services/enrollment/enrollmentPublic", async (orig) => ({
   ...(await orig<typeof import("@/services/enrollment/enrollmentPublic")>()),
   resolveEnrollment: h.resolveEnrollment,
@@ -77,7 +82,7 @@ import { useUIStore, type EnrollSource } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { accountKey, useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { Team } from "@/stores/teamStore";
-import { TwoFactorRequiredError, type TwoFactorProof } from "@/services/twoFactorProof";
+import { TwoFactorRequiredError, type TwoFactorMethod, type TwoFactorProof } from "@/services/twoFactorProof";
 
 const TOKEN = {
   serverUrl: "https://voltius.acme.com",
@@ -384,4 +389,55 @@ test("other-server sign in with a second factor redeems with the new session aft
   expect(h.redeemEnrollment).toHaveBeenCalledWith(TOKEN, { serverUrl: TOKEN.serverUrl, jwt: "JWT-2" });
   fireEvent.click(screen.getByText("layout.enroll.continue"));
   await waitFor(() => expect(h.addAccount).toHaveBeenCalledWith(ACCOUNT));
+});
+
+async function signInIntoSecondFactor(methods: TwoFactorMethod[], complete: (proof: TwoFactorProof) => Promise<unknown>) {
+  h.serverUrl = "https://cloud.voltius.app";
+  h.authenticateServerAccount.mockRejectedValueOnce(new TwoFactorRequiredError(methods, complete, vi.fn()));
+  await open();
+  await suggested();
+  fireEvent.click(screen.getByText("layout.auth.signIn"));
+  type("layout.auth.masterPasswordPlaceholder", PASSWORD);
+  submit();
+  await screen.findByText("layout.twoFactor.verify");
+}
+
+async function closeIgnoredUntil(settle: () => Promise<void>) {
+  await act(async () => {});
+  pressEscape();
+  expect(useUIStore.getState().enrollTarget).not.toBeNull();
+  await settle();
+  await approvalShown();
+  pressEscape();
+  await closed();
+  expect(h.addAccount).toHaveBeenCalledWith(ACCOUNT);
+}
+
+test("closing during the two-factor verify is ignored until it settles", async () => {
+  let settle!: (v: unknown) => void;
+  const complete = vi.fn(() => new Promise((r) => { settle = r; }));
+  await signInIntoSecondFactor(["totp"], complete);
+  await enterCode();
+  await waitFor(() => expect(complete).toHaveBeenCalledWith({ code: "123456" }));
+  await closeIgnoredUntil(() => act(async () => settle({ account: ACCOUNT, enrollment: null })));
+});
+
+test("closing during the passkey ceremony is ignored until it settles", async () => {
+  let ceremony!: (code: string) => void;
+  h.passkeyRoundTrip.mockReturnValue(new Promise((r) => { ceremony = r; }));
+  const complete = vi.fn(async (_proof: TwoFactorProof) => ({ account: ACCOUNT, enrollment: null }));
+  await signInIntoSecondFactor(["totp", "passkey"], complete);
+  fireEvent.click(screen.getByText("layout.twoFactor.usePasskey"));
+  await screen.findByText("layout.twoFactor.passkeyWaiting");
+  await closeIgnoredUntil(() => act(async () => ceremony("CODE")));
+  expect(complete).toHaveBeenCalledWith({ passkeyCode: "CODE" });
+});
+
+test("a wrong two-factor code still shows its error", async () => {
+  const complete = vi.fn(async () => { throw new Error("wrong code"); });
+  await signInIntoSecondFactor(["totp"], complete);
+  await enterCode();
+  expect(await screen.findByText("wrong code")).toBeTruthy();
+  pressEscape();
+  await closed();
 });

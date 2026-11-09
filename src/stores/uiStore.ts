@@ -317,7 +317,7 @@ export const useUIStore = create<UIStore>()(
         clearNotificationFocus: () => set({ notificationFocusId: null }),
         openCloudAuth: (mode, purpose) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin", cloudAuthPurpose: purpose ?? "link" }),
         closeCloudAuth: () => set({ cloudAuthOpen: false }),
-        openEnroll: (token, source) => set({ enrollTarget: { token, source } }),
+        openEnroll: (token, source) => set({ enrollTarget: { token, source }, notificationCenterOpen: false, notificationFocusId: null }),
         closeEnroll: () => set({ enrollTarget: null }),
         setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
         // Selecting a builtin section must drop any plugin target, or

@@ -125,6 +125,13 @@ test("inbox does not resolve a blocked machine token", async () => {
   expect(useEnrollmentStore.getState().resolved).toEqual({});
 });
 
+test("a cached resolve does not offer an invite once the token's server is blocked", () => {
+  h.allowed = false;
+  reconcileEnrollment(ACCOUNT);
+
+  expect(entry(`enroll-invite:${TOKEN.id}`)).toBeUndefined();
+});
+
 test("invite resolves a token it has no team for, once", async () => {
   useEnrollmentStore.setState({ resolved: {} });
   h.resolveEnrollment.mockResolvedValue(RESOLVED);

@@ -21,7 +21,10 @@ vi.mock("@/services/account", () => ({
 vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => false, lockOnLaunchIfIdle: async () => null }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: false })) }));
 vi.mock("@/services/savedAccounts", () => ({ adoptServerMove: vi.fn(async () => {}), saveCurrentAccount: vi.fn(async () => {}) }));
-vi.mock("@/services/enrollment/machineToken", () => ({ machineEnrollmentToken: () => h.machine }));
+vi.mock("@/services/enrollment/machineToken", async (orig) => ({
+  ...(await orig<typeof import("@/services/enrollment/machineToken")>()),
+  machineEnrollmentToken: () => h.machine,
+}));
 vi.mock("./AuthPage", () => ({
   default: (p: { enrollTarget?: { source: string; token: { id: string } } }) => (
     <div>{p.enrollTarget ? `enroll:${p.enrollTarget.source}:${p.enrollTarget.token.id}` : "home"}</div>

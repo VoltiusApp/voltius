@@ -29,9 +29,7 @@ import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/
 import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
 import { applyCliPending, markCliReady } from "@/services/cliBridge";
 import { applySettingDefaults } from "@/services/policy/adminDefaults";
-import { machineEnrollmentToken } from "@/services/enrollment/machineToken";
-import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
-import { useDeepLinkStore } from "@/stores/deepLinkStore";
+import { machineEnrollmentToken, takeEnrollLink } from "@/services/enrollment/machineToken";
 import type { EnrollTarget } from "@/stores/uiStore";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
@@ -55,11 +53,8 @@ function keepSwitcherFresh(): void {
 }
 
 function firstLaunchEnrollTarget(): EnrollTarget | undefined {
-  const link = useDeepLinkStore.getState().takeQueued("enroll");
-  const linked = link && parseEnrollmentToken(link.token);
-  if (linked) return { token: linked, source: "link" };
   const machine = machineEnrollmentToken();
-  return machine ? { token: machine, source: "machine" } : undefined;
+  return takeEnrollLink() ?? (machine ? { token: machine, source: "machine" } : undefined);
 }
 
 type UnlockPhase = "auth-locked" | "auth-unreadable" | "auth-first-launch";

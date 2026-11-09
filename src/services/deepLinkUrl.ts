@@ -109,7 +109,7 @@ const TRUST = {
   // voltius://connect), it is scheme-only (SCHEME_ONLY), and only the mobile shell acts
   // on it (deepLinkHandlers).
   connect: "attenuated",
-  // The link names its own server; the enrol form asks before anything is sent there.
+  // The link names its own server; the enrol form looks the token up there but signs in only after the user goes ahead.
   enroll: "confirm",
 } as const satisfies Record<Route, TrustClass>;
 
