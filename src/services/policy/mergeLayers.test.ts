@@ -40,6 +40,25 @@ describe("mergeTeamDocs", () => {
     expect(i.message).toContain("Beta");
     expect(i.message).toContain("k");
   });
+  it("an implier in a later team does not override an earlier team's lock on the implied key", () => {
+    const TTL_TOGGLE = "appSettings.toggles.detached-session-ttl";
+    const m = mergeTeamDocs([
+      { ...b, policy: { "appSettings.detachedTtlHours": r({ max: 24 }) } },
+      { ...a, policy: { [TTL_TOGGLE]: false } },
+    ]);
+    expect(m.policy[TTL_TOGGLE]).toBe(false);
+    expect(m.teams[TTL_TOGGLE]).toEqual(["Alpha"]);
+    expect(m.issues.map((i) => i.key)).toEqual([TTL_TOGGLE]);
+  });
+  it("an implier in an earlier team locks the implied key over a later team's off", () => {
+    const KW_TOGGLE = "appSettings.toggles.keyword-highlight";
+    const m = mergeTeamDocs([
+      { ...a, policy: { "appSettings.terminal.keywordRules": [] } },
+      { ...b, policy: { [KW_TOGGLE]: false } },
+    ]);
+    expect(m.policy[KW_TOGGLE]).toBe(true);
+    expect(m.teams[KW_TOGGLE]).toEqual(["Alpha"]);
+  });
   it("intersects ranges and lists both teams", () => {
     const m = mergeTeamDocs([
       { ...a, policy: { n: r({ max: 30 }) } },

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
-import { policyKeys, isPolicyEnforced, policyKeyDef } from "@/services/policy/policyKeys";
+import { isPolicyEnforced, policyKeyDef } from "@/services/policy/policyKeys";
 import { rangeOf, inPolicyRange, clampToRange, type PolicyRange } from "@/services/policy/range";
 import { mergeMachineAndTeam, type MergedLayer } from "@/services/policy/mergeLayers";
 import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
@@ -141,28 +141,7 @@ export function policySourceOf(key: string): { source: PolicySource; teams: stri
   return hit && { source: hit.source, teams: hit.teams };
 }
 
-let impliers: Map<string, string[]> | undefined;
-
-// Built on first use: the registry imports stores that import this one.
-function impliersOf(key: string): string[] {
-  if (!impliers) {
-    impliers = new Map();
-    for (const { id, implies } of policyKeys()) if (implies) impliers.set(implies, [...(impliers.get(implies) ?? []), id].sort());
-  }
-  return impliers.get(key) ?? [];
-}
-
-function impliedLock(key: string): PolicyLock {
-  for (const id of impliersOf(key)) {
-    const hit = policyEntry(id);
-    if (hit) return { locked: true, value: true, source: hit.source, teams: hit.teams };
-  }
-  return { locked: false };
-}
-
 export function lockedValue(key: string): PolicyLock {
-  const implied = impliedLock(key);
-  if (implied.locked) return implied;
   const hit = policyEntry(key);
   return hit && !rangeOf(hit.value) ? { locked: true, ...hit } : { locked: false };
 }

@@ -1,4 +1,6 @@
 import type { PolicyIssue, PolicySource } from "@/stores/policyStore";
+import { sameValue } from "@/utils/sameValue";
+import { policyKeyDef } from "./policyKeys";
 import { inPolicyRange, rangeOf, type PolicyRange } from "./range";
 
 export interface TeamPolicyInput {
@@ -31,8 +33,6 @@ export function intersectRanges(a: PolicyRange, b: PolicyRange): PolicyRange | n
   return out;
 }
 
-const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-
 export function combineEntry(earlier: unknown, later: unknown): Combined {
   if (earlier === undefined) return { value: later, from: "later", conflict: false };
   const er = rangeOf(earlier);
@@ -53,6 +53,16 @@ interface Entry {
   value: unknown;
   names: string[];
   from: Combined["from"];
+}
+
+// Within one layer an implier forces its implied key on, even over an explicit off.
+function withImplied(layer: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...layer };
+  for (const key of Object.keys(layer)) {
+    const implied = policyKeyDef(key)?.implies;
+    if (implied) out[implied] = true;
+  }
+  return out;
 }
 
 const label = (names: string[]) => (names.length ? names.join(" and ") : "machine policy");
@@ -84,7 +94,7 @@ export function mergeTeamDocs(docs: TeamPolicyInput[]): MergedLayer {
   const sorted = [...docs].sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.teamId.localeCompare(b.teamId));
   const acc: Record<string, Entry> = {};
   const issues: PolicyIssue[] = [];
-  for (const d of sorted) foldLayer(acc, d.policy, () => [d.teamName], issues);
+  for (const d of sorted) foldLayer(acc, withImplied(d.policy), () => [d.teamName], issues);
   return {
     policy: Object.fromEntries(Object.entries(acc).map(([k, e]) => [k, e.value])),
     teams: Object.fromEntries(Object.entries(acc).map(([k, e]) => [k, e.names])),
@@ -98,7 +108,7 @@ export function mergeMachineAndTeam(
 ): { policy: Record<string, unknown>; sources: Record<string, { source: PolicySource; teams: string[] }>; issues: PolicyIssue[] } {
   const acc: Record<string, Entry> = {};
   const issues: PolicyIssue[] = [];
-  for (const [key, value] of Object.entries(machine)) acc[key] = { value, names: [], from: "earlier" };
+  for (const [key, value] of Object.entries(withImplied(machine))) acc[key] = { value, names: [], from: "earlier" };
   foldLayer(acc, team.policy, (key) => team.teams[key] ?? [], issues);
   const entries = Object.entries(acc);
   return {

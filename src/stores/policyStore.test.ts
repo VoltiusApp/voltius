@@ -273,6 +273,17 @@ describe("policyStore", () => {
       expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: true, source: "machine", teams: [] });
     });
 
+    it("a team implier does not override a machine lock on the implied key", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      withPolicy({ [TTL_TOGGLE]: false, "appSettings.toggles.keyword-highlight": false });
+      teamLayer({ [TTL]: { $range: { max: 24 } }, [KEYWORDS]: [] });
+      expect(lockedValue(TTL_TOGGLE)).toEqual({ locked: true, value: false, source: "machine", teams: [] });
+      expect(lockedValue("appSettings.toggles.keyword-highlight")).toEqual({ locked: true, value: false, source: "machine", teams: [] });
+      expect(warn).toHaveBeenCalledWith("[policy]", `policy.${TTL_TOGGLE}`, expect.stringContaining("disagree"));
+      expect(warn).toHaveBeenCalledWith("[policy]", "policy.appSettings.toggles.keyword-highlight", expect.stringContaining("disagree"));
+      warn.mockRestore();
+    });
+
     it("keyword lock is not an enforced lock", () => {
       withPolicy({ [KEYWORDS]: [] });
       expect(isLocked(KEYWORDS)).toBe(true);

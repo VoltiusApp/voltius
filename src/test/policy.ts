@@ -1,3 +1,4 @@
+import { mergeTeamDocs } from "@/services/policy/mergeLayers";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 
@@ -17,6 +18,4 @@ export const echoTeamDoc = async (cmd: string, args?: unknown) =>
     : undefined;
 
 export const withTeamPolicy = (policy: Record<string, unknown>, team = "Acme") =>
-  useTeamPolicyStore
-    .getState()
-    .setLayer({ policy, teams: Object.fromEntries(Object.keys(policy).map((k) => [k, [team]])), issues: [] }, team);
+  useTeamPolicyStore.getState().setLayer(mergeTeamDocs([{ teamId: team, teamName: team, joinedAt: "", policy }]), team);
