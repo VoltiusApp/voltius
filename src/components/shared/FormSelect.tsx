@@ -48,9 +48,9 @@ export function FormSelect({ value, options, onChange, className = "", ariaLabel
           disabled={disabled}
           data-row-control
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-1 h-10 pl-3 pr-2 -mr-2 rounded-full text-sm text-(--t-accent) disabled:opacity-50"
+          className="flex items-center gap-1 min-h-10 pl-3 pr-2 -mr-2 rounded-full text-sm text-right text-(--t-accent) disabled:opacity-50"
         >
-          <span className="truncate max-w-[40vw]">{selectedLabel}</span>
+          <span className="line-clamp-2 wrap-break-word">{selectedLabel}</span>
           <Icon icon="lucide:chevron-down" width={16} className="shrink-0" />
         </button>
       ) : (

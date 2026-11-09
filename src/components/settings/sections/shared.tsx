@@ -376,7 +376,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
         {managed.locked && <ManagedNote className="mt-1" teams={managed.teams} />}
         {note && <div className="mt-1">{note}</div>}
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0 max-w-1/2">
         <ListRowContext.Provider value={rowContext}>
           {canReset && <ResetButton onReset={onReset!} />}
           <RowControl managed={managed} note={false}>{children}</RowControl>

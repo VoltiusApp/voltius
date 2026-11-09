@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -77,6 +77,10 @@ async function readPreview(file: File, t: TFunction): Promise<Checked> {
   }
   return { name: file.name, doc: { version: doc.version, policy }, rows };
 }
+
+const PolicyKey = ({ id }: { id: string }) => (
+  <>{id.split(".").map((part, i) => <Fragment key={i}>{i > 0 && <>.<wbr /></>}{part}</Fragment>)}</>
+);
 
 export function DevicePolicyCard({ teamId }: { teamId: string }) {
   const { t } = useTranslation();
@@ -181,13 +185,13 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
                 const range = rangeOf(value);
                 return (
                   <li key={key} className="flex flex-wrap items-baseline gap-x-3 px-3 py-1.5 font-mono text-[11px]">
-                    <span className="shrink-0 max-w-full break-all text-(--t-text-primary)">
+                    <span className="shrink-0 max-w-full wrap-anywhere text-(--t-text-primary)">
                       <Icon
                         icon={range ? "lucide:sliders-horizontal" : "lucide:lock"}
                         width={11}
                         className="inline align-[-1px] mr-1.5 text-(--t-text-dim)"
                       />
-                      {key}
+                      <PolicyKey id={key} />
                     </span>
                     <span className="ml-auto max-w-full break-all text-(--t-text-secondary)">
                       {range ? rangeText(range, t) : JSON.stringify(value)}
@@ -293,7 +297,7 @@ function ImportPreview({ preview, busy, onCancel, onSave }: {
                 style={{ color: row.level === "error" ? "var(--t-status-error)" : "var(--t-status-warning)" }}
               />
               <span className="min-w-0 break-words">
-                {row.key && <><code className="font-mono break-all">{row.key}</code> </>}
+                {row.key && <><code className="font-mono wrap-anywhere"><PolicyKey id={row.key} /></code> </>}
                 {row.text}
                 {row.detail && <span className="block mt-0.5 font-mono text-[11px] break-all text-(--t-text-dim)">{row.detail}</span>}
               </span>

@@ -93,7 +93,7 @@ test("a stored policy shows its counts and key rows", async () => {
   serve(STORED);
   render(<DevicePolicyCard teamId="t" />);
   expect(await screen.findByText("1 locked · 1 limited")).toBeTruthy();
-  expect(screen.getByText("sync.types.key")).toBeTruthy();
+  expect(screen.getByText("sync.types.key").innerHTML).toMatch(/sync\.<wbr>types\.<wbr>key$/);
   expect(screen.getByText("max 15")).toBeTruthy();
 });
 
