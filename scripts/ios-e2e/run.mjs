@@ -54,6 +54,7 @@ const driver = await remote({
     "appium:fullContextList": true,
     "appium:connectHardwareKeyboard": false,
     "appium:autoAcceptAlerts": false,
+    "appium:showSafariConsoleLog": true,
     // The recording must start at app launch, after the slow WebDriverAgent start.
     "appium:autoLaunch": !VIDEO,
   },
@@ -279,6 +280,12 @@ async function step(name, fn) {
   }
   await sleep(1500);
   shot(id);
+  try {
+    const logs = await driver.getLogs("safariConsole");
+    if (logs.length) fs.appendFileSync(path.join(OUT, "console.log"), `== ${id}\n${logs.map((l) => `${l.level} ${l.message}`).join("\n")}\n`);
+  } catch {
+    /* no console log type */
+  }
   const d = await Promise.race([dump(id), sleep(30000).then(() => null)]);
   results.push({ id, status, detail, secs: Math.round((Date.now() - started) / 1000), text: d ? d.text.slice(0, 300) : "" });
   log(status, detail);
@@ -638,6 +645,16 @@ if (VIDEO) {
     await sleep(1200);
     return r;
   };
+  // Signing out lands on the welcome screen or, with a local vault left, on More.
+  const signedOut = async (timeoutMs) => {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      if (await present("[data-more-signin]")) return true;
+      if (await web(() => /Choose how you want to use Voltius/.test(document.body.innerText))) return true;
+      await sleep(1000);
+    }
+    return false;
+  };
   const submitAuth = async () => {
     await hideKeyboard();
     const r = await press("form button[type=submit]", "[data-more-account]", 30000);
@@ -687,12 +704,19 @@ if (VIDEO) {
     const out = [await press("[data-more-account]", "[data-account-signout]")];
     await sleep(1500);
     out.push(await press("[data-account-signout]", "[data-account-signout-confirm]"));
-    out.push(await press("[data-account-signout-confirm]", "[data-more-signin]", 15000));
+    // Sign-out wipes the local vault before the screen changes: never click twice.
+    out.push(await tapSel("[data-account-signout-confirm]"));
+    if (!(await signedOut(60000))) {
+      const mode = await web(() => window.__TAURI_INTERNALS__?.invoke("keychain_get", { key: "mode" }).catch((e) => `error ${e}`));
+      throw new Error(`${out.join("; ")}; still signed in after 60 s (mode=${mode})`);
+    }
     return out.join("; ");
   });
 
   await step("account-sign-in", async () => {
-    const out = [await press("[data-more-signin]", "form button[type=submit]")];
+    const out = [(await present("[data-more-signin]"))
+      ? await press("[data-more-signin]", "form button[type=submit]")
+      : await tapUntil("^Sign in$", () => hasInput("^Email$"))];
     out.push(await fill("^Email$", account.email));
     out.push(await fill("^Master password$", account.password));
     out.push(await useLocalServer());
