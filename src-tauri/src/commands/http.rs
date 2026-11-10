@@ -88,7 +88,7 @@ const POOL_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15
 
 /// One client per connect timeout, so back-to-back requests share pooled connections
 /// instead of paying a TLS handshake each.
-fn request_client(connect_timeout_ms: Option<u64>) -> Result<reqwest::Client, String> {
+pub(crate) fn request_client(connect_timeout_ms: Option<u64>) -> Result<reqwest::Client, String> {
     static CLIENTS: std::sync::OnceLock<std::sync::Mutex<HashMap<Option<u64>, reqwest::Client>>> =
         std::sync::OnceLock::new();
     let mut clients = CLIENTS

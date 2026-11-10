@@ -2,9 +2,10 @@ use super::enroll_cmd::{host_of, refuse_locked_server, token_in};
 use super::output::Output;
 use super::policy_cmd::machine_doc;
 use super::prompt::{Prompt, Terminal};
-use super::session::{keychain_refused, Device, Keys, SecretStore, SessionInfo};
+use super::session::{keychain_refused, Device, Keys, SecretStore, SessionInfo, ACCOUNT_ID};
 use super::user::{confirm, CANCELLED};
 use super::{server_cmd, whoami_cmd, CliError, Ctx};
+use crate::auth::keys::key_lists;
 use crate::auth::{self, AuthError, LoginStep, Proof, Session};
 use crate::commands::crypto::{unwrap_b64, DeriveKeysResult};
 use crate::commands::sync::ENTITY_FILES;
@@ -13,6 +14,7 @@ use crate::policy::{self, PolicyDoc};
 use crate::storage::secrets::SECRETS_FILE;
 use clap::Args;
 use serde_json::Value;
+use std::cell::OnceCell;
 use std::future::Future;
 use std::path::Path;
 use std::time::Duration;
@@ -79,7 +81,7 @@ pub fn run(args: LoginArgs, ctx: &mut Ctx) -> Result<(), CliError> {
     let machine = policy::machine_policy_path();
     let deps = LoginDeps {
         device: Device::this_user()?,
-        auth: &NetAuth,
+        auth: &NetAuth::default(),
         prompt: &Terminal,
         machine: machine.as_deref(),
     };
@@ -135,15 +137,7 @@ pub(super) fn run_login(args: LoginArgs, ctx: &mut Ctx, deps: &LoginDeps) -> Res
         crate::commands::vault::reset_local_vault(&device.data_dir, &device.config_dir)
             .map_err(CliError::io)?;
     }
-    let entries = [
-        ("mode", "server"),
-        ("email", email.as_str()),
-        ("server_url", server.as_str()),
-        ("jwt", signed.session.jwt.as_str()),
-        ("refresh_token", signed.session.refresh_token.as_str()),
-        ("wrapped_user_secrets", signed.wrapped.as_str()),
-        ("account_id", signed.account_id.as_str()),
-    ];
+    let entries = session_entries(&email, &server, &signed);
     let remembers = write_session(device.keys, &entries, &password)?;
     let info = SessionInfo {
         mode: "server".into(),
@@ -171,7 +165,7 @@ pub(super) fn run_login(args: LoginArgs, ctx: &mut Ctx, deps: &LoginDeps) -> Res
 }
 
 fn already_signed_in(s: &SessionInfo) -> CliError {
-    if s.mode != "server" {
+    if !s.is_server() {
         return CliError::Refused(LOCAL_ACCOUNT.into());
     }
     let who = s.email.as_deref().unwrap_or("another account");
@@ -346,9 +340,35 @@ fn refusal(e: AuthError, second: bool) -> CliError {
 }
 
 // account_id goes last: until it lands, the app and `current_session` see no sign-in.
+fn session_entries<'a>(
+    email: &'a str,
+    server: &'a str,
+    signed: &'a SignedIn,
+) -> Vec<(&'static str, Option<&'a str>)> {
+    let value = |key: &str| match key {
+        "mode" => Some("server"),
+        "email" => Some(email),
+        "server_url" => Some(server),
+        "jwt" => Some(signed.session.jwt.as_str()),
+        "refresh_token" => Some(signed.session.refresh_token.as_str()),
+        "wrapped_user_secrets" => Some(signed.wrapped.as_str()),
+        ACCOUNT_ID => Some(signed.account_id.as_str()),
+        _ => None,
+    };
+    let (last, rest): (Vec<&str>, Vec<&str>) = key_lists()
+        .session
+        .iter()
+        .map(String::as_str)
+        .partition(|k| *k == ACCOUNT_ID);
+    rest.into_iter()
+        .chain(last)
+        .map(|k| (k, value(k)))
+        .collect()
+}
+
 fn write_session(
     keys: &dyn Keys,
-    entries: &[(&str, &str)],
+    entries: &[(&str, Option<&str>)],
     password: &str,
 ) -> Result<bool, CliError> {
     let store = SecretStore(keys);
@@ -358,7 +378,11 @@ fn write_session(
         vault_secret::import(&store, State::Plain, password)?;
         for (key, value) in entries {
             touched.push(*key);
-            keys.set(key, value).map_err(|e| e.to_string())?;
+            match value {
+                Some(value) => keys.set(key, value),
+                None => keys.delete(key),
+            }
+            .map_err(|e| e.to_string())?;
         }
         Ok(remembers)
     };
@@ -371,19 +395,36 @@ fn write_session(
     })
 }
 
-struct NetAuth;
+// One runtime for the whole sign-in: the client's pooled connections live on it between steps.
+#[derive(Default)]
+struct NetAuth {
+    net: OnceCell<(tokio::runtime::Runtime, reqwest::Client)>,
+}
 
-fn over_network<T, F>(work: impl FnOnce(reqwest::Client) -> F) -> Result<T, AuthError>
-where
-    F: Future<Output = Result<T, AuthError>>,
-{
-    super::block_on_timeout(NETWORK_TIMEOUT, async { work(auth::client()?).await })
-        .map_err(AuthError::Network)?
+impl NetAuth {
+    fn over_network<'a, T, F>(
+        &'a self,
+        work: impl FnOnce(&'a reqwest::Client) -> F,
+    ) -> Result<T, AuthError>
+    where
+        F: Future<Output = Result<T, AuthError>>,
+    {
+        let (runtime, client) = match self.net.get() {
+            Some(net) => net,
+            None => {
+                let runtime = super::runtime().map_err(AuthError::Network)?;
+                let client = auth::client()?;
+                self.net.get_or_init(|| (runtime, client))
+            }
+        };
+        super::block_on_timeout_in(runtime, NETWORK_TIMEOUT, work(client))
+            .map_err(AuthError::Network)?
+    }
 }
 
 impl Auth for NetAuth {
     fn challenge(&self, server: &str, email: &str) -> Result<String, AuthError> {
-        over_network(|c| async move { auth::challenge(&c, server, email).await })
+        self.over_network(|c| auth::challenge(c, server, email))
     }
 
     fn login(
@@ -392,7 +433,7 @@ impl Auth for NetAuth {
         account_id: &str,
         auth_key: &str,
     ) -> Result<LoginStep, AuthError> {
-        over_network(|c| async move { auth::login(&c, server, account_id, auth_key).await })
+        self.over_network(|c| auth::login(c, server, account_id, auth_key))
     }
 
     fn second_factor(
@@ -401,7 +442,7 @@ impl Auth for NetAuth {
         pending_token: &str,
         proof: &Proof,
     ) -> Result<Session, AuthError> {
-        over_network(|c| async move { auth::second_factor(&c, server, pending_token, proof).await })
+        self.over_network(|c| auth::second_factor(c, server, pending_token, proof))
     }
 
     fn derive_keys(&self, password: &str, account_id: &str) -> Result<DeriveKeysResult, String> {
@@ -421,14 +462,12 @@ impl Auth for NetAuth {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::output::testing::{Buf, Shared};
-    use crate::cli::output::Output;
     use crate::cli::session::{MemKeys, KEYCHAIN_UNREACHABLE};
+    use crate::cli::testing::{Machine, Outcome};
     use serde_json::json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::io;
-    use std::sync::{Arc, Mutex};
 
     const EMAIL: &str = "ada@example.com";
     const PASSWORD: &str = "correct horse battery staple";
@@ -575,39 +614,24 @@ mod tests {
     }
 
     struct World {
-        keys: MemKeys,
+        machine: Machine,
         auth: FakeAuth,
         answers: Vec<&'static str>,
         tty: bool,
-        running: bool,
-        app_starts_at_check: Option<usize>,
-        system: bool,
-        keychain: bool,
-        yes: bool,
-        dir: tempfile::TempDir,
+        asked: RefCell<Vec<String>>,
     }
 
-    struct Outcome {
-        result: Result<(), CliError>,
-        out: String,
-        err: String,
-        asked: Vec<String>,
-    }
-
-    impl Outcome {
-        fn everything(&self) -> String {
-            let error = self.result.as_ref().err().map(ToString::to_string);
-            format!("{}{}{:?}{error:?}", self.out, self.err, self.asked)
-        }
-
-        fn refused(&self, code: u8, message: &str) {
-            let e = self.result.as_ref().unwrap_err();
-            assert_eq!((e.exit_code(), e.to_string().as_str()), (code, message));
+    impl std::ops::Deref for World {
+        type Target = Machine;
+        fn deref(&self) -> &Machine {
+            &self.machine
         }
     }
 
-    fn text(buf: &Shared) -> String {
-        String::from_utf8(buf.lock().unwrap().clone()).unwrap()
+    impl std::ops::DerefMut for World {
+        fn deref_mut(&mut self) -> &mut Machine {
+            &mut self.machine
+        }
     }
 
     fn args(server: Option<&str>, email: Option<&str>) -> LoginArgs {
@@ -619,26 +643,13 @@ mod tests {
 
     impl World {
         fn new() -> Self {
-            let dir = tempfile::tempdir().unwrap();
-            for sub in ["data", "config"] {
-                std::fs::create_dir_all(dir.path().join(sub)).unwrap();
-            }
             World {
-                keys: MemKeys::default(),
+                machine: Machine::new(MemKeys::default()),
                 auth: FakeAuth::plain(),
                 answers: vec![PASSWORD],
                 tty: true,
-                running: false,
-                app_starts_at_check: None,
-                system: false,
-                keychain: true,
-                yes: false,
-                dir,
+                asked: RefCell::default(),
             }
-        }
-
-        fn path(&self, sub: &str) -> std::path::PathBuf {
-            self.dir.path().join(sub)
         }
 
         fn policy(&self, body: &str) {
@@ -646,57 +657,32 @@ mod tests {
         }
 
         fn run(&self, a: LoginArgs) -> Outcome {
-            let (out, err) = (
-                Arc::new(Mutex::new(Vec::new())),
-                Arc::new(Mutex::new(Vec::new())),
-            );
-            let mut output = Output::with_sinks(
-                false,
-                false,
-                Box::new(Buf(out.clone())),
-                Box::new(Buf(err.clone())),
-            );
-            let mut ctx = Ctx {
-                out: &mut output,
-                yes: self.yes,
-                interactive: false,
-            };
             let script = Script {
                 tty: self.tty,
                 answers: RefCell::new(self.answers.iter().copied().collect()),
                 asked: RefCell::default(),
             };
-            let open = || crate::cli::session::keychain_reachable(self.keychain);
-            let checks = std::cell::Cell::new(0);
-            let running = || {
-                checks.set(checks.get() + 1);
-                self.running || self.app_starts_at_check.is_some_and(|n| checks.get() >= n)
-            };
             let machine = self.path("policy.json");
-            let deps = LoginDeps {
-                device: Device {
-                    system: self.system,
-                    open_keychain: &open,
-                    keys: &self.keys,
-                    app_running: &running,
-                    data_dir: self.path("data"),
-                    config_dir: self.path("config"),
-                },
-                auth: &self.auth,
-                prompt: &script,
-                machine: Some(&machine),
-            };
-            let result = run_login(a, &mut ctx, &deps);
-            Outcome {
-                result,
-                out: text(&out),
-                err: text(&err),
-                asked: script.asked.into_inner(),
-            }
+            let outcome = self.machine.run(|ctx, device| {
+                let deps = LoginDeps {
+                    device,
+                    auth: &self.auth,
+                    prompt: &script,
+                    machine: Some(&machine),
+                };
+                run_login(a, ctx, &deps)
+            });
+            *self.asked.borrow_mut() = script.asked.into_inner();
+            outcome
         }
 
-        fn stored(&self) -> std::collections::BTreeMap<String, String> {
-            self.keys.map.borrow().clone()
+        fn asked(&self) -> Vec<String> {
+            self.asked.borrow().clone()
+        }
+
+        fn everything(&self, o: &Outcome) -> String {
+            let error = o.result.as_ref().err().map(ToString::to_string);
+            format!("{}{}{:?}{error:?}", o.out, o.err, self.asked())
         }
     }
 
@@ -772,12 +758,57 @@ mod tests {
         let o = w.run(args(Some(SERVER), Some(EMAIL)));
         o.result.unwrap();
         assert_eq!(o.out, SIGNED_IN);
-        assert_eq!(o.asked, ["Master password: "]);
+        assert_eq!(w.asked(), ["Master password: "]);
         assert_eq!(w.stored(), session_map(SERVER));
         let lists = crate::auth::keys::key_lists();
         for key in w.stored().keys().filter(|k| *k != "master_password") {
             assert!(lists.session.contains(key), "{key} is not a session key");
         }
+    }
+
+    #[test]
+    fn the_shared_session_key_list_drives_what_login_writes() {
+        let signed = SignedIn {
+            account_id: ACCOUNT.into(),
+            session: FakeAuth::plain().session(),
+            wrapped: WRAPPED.into(),
+        };
+        let entries = session_entries(EMAIL, SERVER, &signed);
+        let mut keys: Vec<&str> = entries.iter().map(|(k, _)| *k).collect();
+        assert_eq!(keys.pop(), Some(ACCOUNT_ID));
+        let unset: Vec<&str> = entries
+            .iter()
+            .filter(|(_, v)| v.is_none())
+            .map(|(k, _)| *k)
+            .collect();
+        assert_eq!(unset, ["wrapped_user_secrets_prior"]);
+        let mut listed = key_lists().session.clone();
+        listed.sort();
+        keys.push(ACCOUNT_ID);
+        keys.sort();
+        assert_eq!(keys, listed);
+    }
+
+    #[test]
+    fn a_stale_prior_key_does_not_survive_a_sign_in() {
+        let w = World::new();
+        w.keys.set("wrapped_user_secrets_prior", "OLD").unwrap();
+        w.run(args(Some(SERVER), Some(EMAIL))).result.unwrap();
+        assert_eq!(w.stored(), session_map(SERVER));
+    }
+
+    #[test]
+    fn login_json_reports_the_session() {
+        let mut w = World::new();
+        w.json = true;
+        let o = w.run(args(Some(SERVER), Some(EMAIL)));
+        o.result.as_ref().unwrap();
+        let v: Value = serde_json::from_str(&o.out).unwrap();
+        assert_eq!(
+            v,
+            json!({"signedIn": true, "mode": "server", "email": EMAIL, "server": SERVER,
+                   "accountId": ACCOUNT, "passwordStored": true})
+        );
     }
 
     #[test]
@@ -787,7 +818,7 @@ mod tests {
         let o = w.run(args(None, None));
         o.result.unwrap();
         assert_eq!(
-            o.asked,
+            w.asked(),
             [
                 "Server [https://api.voltius.app]: ",
                 "Email: ",
@@ -807,7 +838,7 @@ mod tests {
         w.answers = vec![PASSWORD, CODE];
         let o = w.run(args(Some(SERVER), Some(EMAIL)));
         o.result.unwrap();
-        assert_eq!(o.asked, ["Master password: ", CODE_LABEL]);
+        assert_eq!(w.asked(), ["Master password: ", CODE_LABEL]);
         assert_eq!(
             w.auth.calls().last().unwrap(),
             &format!("2fa {:?}", Proof::Code(CODE.into()))
@@ -836,7 +867,7 @@ mod tests {
         w.answers = vec![PASSWORD, "000000", "111111", "222222", CODE];
         let o = w.run(args(Some(SERVER), Some(EMAIL)));
         o.refused(3, "Three wrong codes. Run voltius-cli login again.");
-        assert_eq!(o.asked.iter().filter(|l| *l == CODE_LABEL).count(), 3);
+        assert_eq!(w.asked().iter().filter(|l| *l == CODE_LABEL).count(), 3);
         assert_eq!(
             o.err
                 .matches("Wrong code. Try the next one your app shows.")
@@ -865,7 +896,7 @@ mod tests {
             4,
             "This account signs in with a passkey. Finish in the Voltius app.",
         );
-        assert!(!o.asked.iter().any(|l| l == CODE_LABEL));
+        assert!(!w.asked().iter().any(|l| l == CODE_LABEL));
         assert!(w.stored().is_empty());
     }
 
@@ -936,14 +967,10 @@ mod tests {
     }
 
     fn leave_data(w: &World) -> [std::path::PathBuf; 2] {
-        let files = [
-            w.path("data/secrets.enc"),
-            w.path("config/connections.json"),
-        ];
-        for f in &files {
-            std::fs::write(f, "old").unwrap();
-        }
-        files
+        [
+            w.touch("data/secrets.enc"),
+            w.touch("config/connections.json"),
+        ]
     }
 
     #[test]
@@ -1002,7 +1029,7 @@ mod tests {
         w.answers = vec![EMAIL, PASSWORD];
         let o = w.run(args(None, None));
         o.result.unwrap();
-        assert_eq!(o.asked, ["Email: ", "Master password: "]);
+        assert_eq!(w.asked(), ["Email: ", "Master password: "]);
         assert_eq!(w.stored()["server_url"], SERVER);
     }
 
@@ -1014,8 +1041,8 @@ mod tests {
             token_for("https://v.acme.com")
         ));
         w.answers = vec!["", EMAIL, PASSWORD];
-        let o = w.run(args(None, None));
-        assert_eq!(o.asked[0], "Server [https://corp.example]: ");
+        w.run(args(None, None));
+        assert_eq!(w.asked()[0], "Server [https://corp.example]: ");
     }
 
     fn token_for(server: &str) -> String {
@@ -1037,7 +1064,7 @@ mod tests {
         w.answers = vec!["", EMAIL, PASSWORD];
         let o = w.run(args(None, None));
         o.result.unwrap();
-        assert_eq!(o.asked[0], format!("Server [{SERVER}]: "));
+        assert_eq!(w.asked()[0], format!("Server [{SERVER}]: "));
         assert_eq!(
             o.out,
             format!("{SIGNED_IN}Open Voltius to join your organization.\n")
@@ -1069,22 +1096,21 @@ mod tests {
 
     #[test]
     fn password_never_in_output() {
+        let seen = |w: &World| w.everything(&w.run(args(Some(SERVER), Some(EMAIL))));
         let mut runs = Vec::new();
-        let w = World::new();
-        runs.push(w.run(args(Some(SERVER), Some(EMAIL))));
+        runs.push(seen(&World::new()));
         let mut w = World::new();
         w.auth = FakeAuth::two_step(&["totp"]);
         w.answers = vec![PASSWORD, "1", "2", "3"];
-        runs.push(w.run(args(Some(SERVER), Some(EMAIL))));
-        let mut w = World::new();
+        runs.push(seen(&w));
+        let w = World::new();
         w.keys.break_key("jwt");
-        runs.push(w.run(args(Some(SERVER), Some(EMAIL))));
-        w = World::new();
+        runs.push(seen(&w));
+        let mut w = World::new();
         w.answers = vec!["wrong-password-xyz"];
-        let wrong = w.run(args(Some(SERVER), Some(EMAIL)));
-        assert!(!wrong.everything().contains("wrong-password-xyz"));
-        for o in &runs {
-            assert!(!o.everything().contains(PASSWORD), "{}", o.everything());
+        assert!(!seen(&w).contains("wrong-password-xyz"));
+        for text in &runs {
+            assert!(!text.contains(PASSWORD), "{text}");
         }
         assert!(w
             .auth
@@ -1101,9 +1127,10 @@ mod tests {
             vec![2; 32],
         )
         .unwrap();
-        assert!(NetAuth.opens(&GOOD_KEK, &wrapped));
-        assert!(!NetAuth.opens(&[8; 32], &wrapped));
-        assert!(!NetAuth.opens(&GOOD_KEK, "not base64!"));
+        let net = NetAuth::default();
+        assert!(net.opens(&GOOD_KEK, &wrapped));
+        assert!(!net.opens(&[8; 32], &wrapped));
+        assert!(!net.opens(&GOOD_KEK, "not base64!"));
         let keys = DeriveKeysResult::from(crate::crypto::DerivedKeys {
             auth_key: [0xfb; 32],
             enc_key: GOOD_KEK,
@@ -1160,7 +1187,7 @@ mod tests {
         w.answers = vec![PASSWORD, "", "  ", "000000", " \t", " 123456 "];
         let o = w.run(args(Some(SERVER), Some(EMAIL)));
         o.result.unwrap();
-        assert_eq!(o.asked.iter().filter(|l| *l == CODE_LABEL).count(), 5);
+        assert_eq!(w.asked().iter().filter(|l| *l == CODE_LABEL).count(), 5);
         let proofs: Vec<_> = w
             .auth
             .calls()
@@ -1247,7 +1274,8 @@ mod tests {
 
     fn default_offered(w: &mut World) -> String {
         w.answers = vec![""];
-        w.run(args(None, None)).asked[0].clone()
+        w.run(args(None, None));
+        w.asked()[0].clone()
     }
 
     #[test]

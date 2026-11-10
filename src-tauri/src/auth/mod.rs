@@ -1,16 +1,12 @@
 pub mod keys;
 
-use std::time::Duration;
-
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
 
-use crate::commands::http::{client_builder, with_causes};
+use crate::commands::http::{request_client, with_causes};
 
-// Mirrors the app's http_request path: a 10 s connect cap inside a 30 s overall one.
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const CONNECT_TIMEOUT_MS: u64 = 10_000;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Session {
@@ -143,11 +139,7 @@ fn network(e: reqwest::Error) -> AuthError {
 }
 
 async fn send(request: reqwest::RequestBuilder) -> Result<Answer, AuthError> {
-    let response = request
-        .timeout(REQUEST_TIMEOUT)
-        .send()
-        .await
-        .map_err(network)?;
+    let response = request.send().await.map_err(network)?;
     let status = response.status().as_u16();
     let bytes = response.bytes().await.map_err(network)?;
     Ok(Answer {
@@ -257,10 +249,7 @@ pub async fn passkey_start(
 }
 
 pub(crate) fn client() -> Result<reqwest::Client, AuthError> {
-    client_builder()
-        .connect_timeout(CONNECT_TIMEOUT)
-        .build()
-        .map_err(network)
+    request_client(Some(CONNECT_TIMEOUT_MS)).map_err(AuthError::Network)
 }
 
 #[tauri::command]

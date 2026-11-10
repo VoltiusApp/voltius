@@ -105,20 +105,31 @@ pub struct Ctx<'a> {
     pub interactive: bool,
 }
 
+fn runtime() -> Result<tokio::runtime::Runtime, String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())
+}
+
 /// Runs one network call to completion on a throwaway runtime; `Err` is a runtime or timeout failure.
 fn block_on_timeout<F: std::future::Future>(
     timeout: std::time::Duration,
     work: F,
 ) -> Result<F::Output, String> {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| e.to_string())?
-        .block_on(async {
-            tokio::time::timeout(timeout, work)
-                .await
-                .map_err(|_| "timed out".to_string())
-        })
+    block_on_timeout_in(&runtime()?, timeout, work)
+}
+
+fn block_on_timeout_in<F: std::future::Future>(
+    runtime: &tokio::runtime::Runtime,
+    timeout: std::time::Duration,
+    work: F,
+) -> Result<F::Output, String> {
+    runtime.block_on(async {
+        tokio::time::timeout(timeout, work)
+            .await
+            .map_err(|_| "timed out".to_string())
+    })
 }
 
 fn queue(dir: &Path, change: Change, out: &mut Output) -> Result<(), CliError> {
