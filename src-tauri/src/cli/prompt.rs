@@ -47,7 +47,7 @@ mod echo_unix {
     use std::mem::MaybeUninit;
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering::SeqCst};
 
-    const SIGNALS: [libc::c_int; 3] = [libc::SIGINT, libc::SIGTERM, libc::SIGHUP];
+    const SIGNALS: [libc::c_int; 4] = [libc::SIGINT, libc::SIGTERM, libc::SIGHUP, libc::SIGQUIT];
 
     struct Saved(UnsafeCell<MaybeUninit<libc::termios>>);
     // Written only while ARMED is false; the signal handler reads it only while ARMED is true.
@@ -171,7 +171,12 @@ mod echo_unix {
             {
                 let _quiet = EchoOff::on(tty).unwrap();
                 assert!(!echoes(tty));
-                assert_eq!(installed(libc::SIGTERM), handler());
+                for sig in SIGNALS
+                    .into_iter()
+                    .filter(|&s| installed(s) != libc::SIG_IGN)
+                {
+                    assert_eq!(installed(sig), handler(), "{sig}");
+                }
             }
             assert!(echoes(tty));
             assert_eq!(installed(libc::SIGTERM), before);
