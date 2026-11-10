@@ -1,20 +1,19 @@
 use super::enroll_cmd::{host_of, refuse_locked_server, token_in};
 use super::output::Output;
 use super::policy_cmd::machine_doc;
-use super::session::{self, Keys, OsKeys, SecretStore, SessionInfo, KEYCHAIN_UNREACHABLE};
-use super::user::{confirm, require_own_session};
-use super::{whoami_cmd, CliError, Ctx};
+use super::prompt::{Prompt, Terminal};
+use super::session::{keychain_refused, Device, Keys, SecretStore, SessionInfo};
+use super::user::{confirm, CANCELLED};
+use super::{server_cmd, whoami_cmd, CliError, Ctx};
 use crate::auth::{self, AuthError, LoginStep, Proof, Session};
 use crate::commands::crypto::{unwrap_b64, DeriveKeysResult};
 use crate::commands::sync::ENTITY_FILES;
 use crate::commands::vault_secret::{self, State};
-use crate::policy::enrollment_token::EnrollmentToken;
 use crate::policy::{self, PolicyDoc};
 use crate::storage::secrets::SECRETS_FILE;
 use clap::Args;
 use serde_json::Value;
 use std::future::Future;
-use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::Path;
 use std::time::Duration;
 use zeroize::{Zeroize, Zeroizing};
@@ -27,7 +26,6 @@ const NETWORK_TIMEOUT: Duration = Duration::from_secs(45);
 const NOT_A_TERMINAL: &str = "voltius-cli login is interactive; run it in a terminal.";
 const LOCAL_ACCOUNT: &str = "This device has a local Voltius account. Sign in from the app to keep its data, or run voltius-cli logout to remove it.";
 const LEFTOVER: &str = "This device has Voltius data from an earlier sign-in that can't be opened any more. Remove it and continue?";
-const CANCELLED: &str = "Nothing changed.";
 const INVALID: &str = "Invalid email or password.";
 const TOO_MANY_ATTEMPTS: &str = "Too many attempts — wait a minute and try again.";
 const EXPIRED: &str = "This sign-in took too long. Start again.";
@@ -64,22 +62,11 @@ pub(crate) trait Auth {
     fn opens(&self, kek: &[u8], wrapped_b64: &str) -> bool;
 }
 
-pub(crate) trait Prompt {
-    fn tty(&self) -> bool;
-    fn line(&self, label: &str) -> io::Result<String>;
-    fn hidden(&self, label: &str) -> io::Result<Zeroizing<String>>;
-}
-
 pub(super) struct LoginDeps<'a> {
-    pub system: bool,
-    pub open_keychain: &'a dyn Fn() -> Result<(), CliError>,
-    pub keys: &'a dyn Keys,
-    pub app_running: &'a dyn Fn() -> bool,
+    pub device: Device<'a>,
     pub auth: &'a dyn Auth,
     pub prompt: &'a dyn Prompt,
     pub machine: Option<&'a Path>,
-    pub data_dir: &'a Path,
-    pub config_dir: &'a Path,
 }
 
 struct SignedIn {
@@ -89,27 +76,19 @@ struct SignedIn {
 }
 
 pub fn run(args: LoginArgs, ctx: &mut Ctx) -> Result<(), CliError> {
-    let data_dir = crate::storage::config::app_data_dir().map_err(CliError::io)?;
     let machine = policy::machine_policy_path();
     let deps = LoginDeps {
-        system: super::user::is_system_account(),
-        open_keychain: &session::open_keychain,
-        keys: &OsKeys,
-        app_running: &session::app_running,
+        device: Device::this_user()?,
         auth: &NetAuth,
         prompt: &Terminal,
         machine: machine.as_deref(),
-        data_dir: &data_dir,
-        config_dir: &crate::storage::config::config_dir_peek(),
     };
     run_login(args, ctx, &deps)
 }
 
 pub(super) fn run_login(args: LoginArgs, ctx: &mut Ctx, deps: &LoginDeps) -> Result<(), CliError> {
-    require_own_session(deps.system, "login", "signs in")?;
-    (deps.open_keychain)()?;
-    session::refuse_while_running(deps.app_running)?;
-    if let Some(signed_in) = session::current_session(deps.keys)? {
+    let device = &deps.device;
+    if let Some(signed_in) = device.session("login", "signs in")? {
         return Err(already_signed_in(&signed_in));
     }
     if !deps.prompt.tty() {
@@ -117,9 +96,21 @@ pub(super) fn run_login(args: LoginArgs, ctx: &mut Ctx, deps: &LoginDeps) -> Res
     }
     let doc = machine_doc(deps.machine);
     let token = token_in(&doc);
-    let server = choose_server(args.server, &doc, token.as_ref(), deps.prompt, ctx.out)?;
+    let fallback = [
+        server_cmd::user_server(&device.config_dir),
+        doc.defaults
+            .get(SERVER_KEY)
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        token.as_ref().map(|t| t.server_url.clone()),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+    .unwrap_or_else(|| DEFAULT_SERVER_URL.into());
+    let server = choose_server(args.server, &doc, fallback, deps.prompt, ctx.out)?;
     refuse_locked_server(&doc, &server, "this sign-in")?;
-    let leftover = leftover_data(deps.data_dir, deps.config_dir);
+    let leftover = leftover_data(&device.data_dir, &device.config_dir);
     if leftover && !confirm(ctx, LEFTOVER)? {
         return Err(CliError::Refused(CANCELLED.into()));
     }
@@ -139,8 +130,9 @@ pub(super) fn run_login(args: LoginArgs, ctx: &mut Ctx, deps: &LoginDeps) -> Res
         return Err(CliError::Usage("A master password is required.".into()));
     }
     let signed = sign_in(deps, &server, &email, &password, ctx.out)?;
+    device.refuse_while_running()?;
     if leftover {
-        crate::commands::vault::reset_local_vault(deps.data_dir, deps.config_dir)
+        crate::commands::vault::reset_local_vault(&device.data_dir, &device.config_dir)
             .map_err(CliError::io)?;
     }
     let entries = [
@@ -152,7 +144,7 @@ pub(super) fn run_login(args: LoginArgs, ctx: &mut Ctx, deps: &LoginDeps) -> Res
         ("wrapped_user_secrets", signed.wrapped.as_str()),
         ("account_id", signed.account_id.as_str()),
     ];
-    let remembers = write_session(deps.keys, &entries, &password)?;
+    let remembers = write_session(device.keys, &entries, &password)?;
     let info = SessionInfo {
         mode: "server".into(),
         email: Some(email.clone()),
@@ -195,7 +187,7 @@ fn already_signed_in(s: &SessionInfo) -> CliError {
 fn choose_server(
     flag: Option<String>,
     doc: &PolicyDoc,
-    token: Option<&EnrollmentToken>,
+    fallback: String,
     prompt: &dyn Prompt,
     out: &mut Output,
 ) -> Result<String, CliError> {
@@ -207,13 +199,6 @@ fn choose_server(
             pinned.to_string()
         }
         (None, None) => {
-            let fallback = doc
-                .defaults
-                .get(SERVER_KEY)
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .or_else(|| token.map(|t| t.server_url.clone()))
-                .unwrap_or_else(|| DEFAULT_SERVER_URL.into());
             let answer = prompt
                 .line(&format!("Server [{fallback}]: "))
                 .map_err(CliError::Io)?;
@@ -298,12 +283,18 @@ fn second_factor(
     } else {
         "Recovery code: "
     };
-    for attempt in 1..=MAX_CODES {
+    let mut attempt = 0;
+    while attempt < MAX_CODES {
         let typed = deps.prompt.line(label).map_err(CliError::Io)?;
-        let proof = if totp && typed.trim().chars().all(|c| c.is_ascii_digit()) {
-            Proof::Code(typed)
+        let typed = typed.trim();
+        if typed.is_empty() {
+            continue;
+        }
+        attempt += 1;
+        let proof = if totp && typed.chars().all(|c| c.is_ascii_digit()) {
+            Proof::Code(typed.into())
         } else {
-            Proof::RecoveryCode(typed)
+            Proof::RecoveryCode(typed.into())
         };
         match deps.auth.second_factor(server, pending_token, &proof) {
             Ok(session) => return Ok(session),
@@ -376,8 +367,7 @@ fn write_session(
             let _ = keys.delete(key);
         }
         let _ = vault_secret::clear(&store);
-        log::debug!("keychain write failed: {e}");
-        CliError::Denied(KEYCHAIN_UNREACHABLE.into())
+        keychain_refused(e)
     })
 }
 
@@ -428,99 +418,16 @@ impl Auth for NetAuth {
     }
 }
 
-struct Terminal;
-
-fn ask(label: &str) -> io::Result<Zeroizing<String>> {
-    let mut err = io::stderr();
-    err.write_all(label.as_bytes())?;
-    err.flush()?;
-    let mut line = Zeroizing::new(String::with_capacity(256));
-    io::stdin().lock().read_line(&mut line)?;
-    let end = line.trim_end_matches(['\r', '\n']).len();
-    line.truncate(end);
-    Ok(line)
-}
-
-impl Prompt for Terminal {
-    fn tty(&self) -> bool {
-        io::stdin().is_terminal()
-    }
-
-    fn line(&self, label: &str) -> io::Result<String> {
-        ask(label).map(|l| l.as_str().to_owned())
-    }
-
-    fn hidden(&self, label: &str) -> io::Result<Zeroizing<String>> {
-        let _quiet = EchoOff::new()?;
-        ask(label)
-    }
-}
-
-#[cfg(unix)]
-struct EchoOff(libc::termios);
-
-#[cfg(unix)]
-impl EchoOff {
-    fn new() -> io::Result<Self> {
-        let mut saved = std::mem::MaybeUninit::<libc::termios>::uninit();
-        if unsafe { libc::tcgetattr(libc::STDIN_FILENO, saved.as_mut_ptr()) } != 0 {
-            return Err(io::Error::last_os_error());
-        }
-        let saved = unsafe { saved.assume_init() };
-        let mut quiet = saved;
-        quiet.c_lflag &= !libc::ECHO;
-        quiet.c_lflag |= libc::ECHONL;
-        if unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &quiet) } != 0 {
-            return Err(io::Error::last_os_error());
-        }
-        Ok(EchoOff(saved))
-    }
-}
-
-#[cfg(unix)]
-impl Drop for EchoOff {
-    fn drop(&mut self) {
-        unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &self.0) };
-    }
-}
-
-#[cfg(windows)]
-struct EchoOff(windows_sys::Win32::Foundation::HANDLE, u32);
-
-#[cfg(windows)]
-impl EchoOff {
-    fn new() -> io::Result<Self> {
-        use windows_sys::Win32::System::Console::{
-            GetConsoleMode, GetStdHandle, SetConsoleMode, ENABLE_ECHO_INPUT, STD_INPUT_HANDLE,
-        };
-        let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
-        let mut mode = 0;
-        if unsafe { GetConsoleMode(handle, &mut mode) } == 0
-            || unsafe { SetConsoleMode(handle, mode & !ENABLE_ECHO_INPUT) } == 0
-        {
-            return Err(io::Error::last_os_error());
-        }
-        Ok(EchoOff(handle, mode))
-    }
-}
-
-#[cfg(windows)]
-impl Drop for EchoOff {
-    fn drop(&mut self) {
-        unsafe { windows_sys::Win32::System::Console::SetConsoleMode(self.0, self.1) };
-        eprintln!();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cli::output::testing::{Buf, Shared};
     use crate::cli::output::Output;
-    use crate::cli::session::{Keys, MemKeys, KEYCHAIN_UNREACHABLE};
+    use crate::cli::session::{MemKeys, KEYCHAIN_UNREACHABLE};
     use serde_json::json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use std::io;
     use std::sync::{Arc, Mutex};
 
     const EMAIL: &str = "ada@example.com";
@@ -673,6 +580,7 @@ mod tests {
         answers: Vec<&'static str>,
         tty: bool,
         running: bool,
+        app_starts_at_check: Option<usize>,
         system: bool,
         keychain: bool,
         yes: bool,
@@ -721,6 +629,7 @@ mod tests {
                 answers: vec![PASSWORD],
                 tty: true,
                 running: false,
+                app_starts_at_check: None,
                 system: false,
                 keychain: true,
                 yes: false,
@@ -764,19 +673,24 @@ mod tests {
                     Err(CliError::Denied(KEYCHAIN_UNREACHABLE.into()))
                 }
             };
-            let running = || self.running;
+            let checks = std::cell::Cell::new(0);
+            let running = || {
+                checks.set(checks.get() + 1);
+                self.running || self.app_starts_at_check.is_some_and(|n| checks.get() >= n)
+            };
             let machine = self.path("policy.json");
-            let (data, config) = (self.path("data"), self.path("config"));
             let deps = LoginDeps {
-                system: self.system,
-                open_keychain: &open,
-                keys: &self.keys,
-                app_running: &running,
+                device: Device {
+                    system: self.system,
+                    open_keychain: &open,
+                    keys: &self.keys,
+                    app_running: &running,
+                    data_dir: self.path("data"),
+                    config_dir: self.path("config"),
+                },
                 auth: &self.auth,
                 prompt: &script,
                 machine: Some(&machine),
-                data_dir: &data,
-                config_dir: &config,
             };
             let result = run_login(a, &mut ctx, &deps);
             Outcome {
@@ -1243,6 +1157,123 @@ mod tests {
             let got = refusal(e, second);
             assert_eq!((got.exit_code(), got.to_string().as_str()), (code, message));
         }
+    }
+
+    #[test]
+    fn a_two_step_code_is_trimmed_and_an_empty_entry_asks_again() {
+        let mut w = World::new();
+        w.auth = FakeAuth::two_step(&["totp", "recovery"]);
+        w.answers = vec![PASSWORD, "", "  ", "000000", " \t", " 123456 "];
+        let o = w.run(args(Some(SERVER), Some(EMAIL)));
+        o.result.unwrap();
+        assert_eq!(o.asked.iter().filter(|l| *l == CODE_LABEL).count(), 5);
+        let proofs: Vec<_> = w
+            .auth
+            .calls()
+            .into_iter()
+            .filter(|c| c.starts_with("2fa"))
+            .collect();
+        assert_eq!(
+            proofs,
+            [
+                format!("2fa {:?}", Proof::Code("000000".into())),
+                format!("2fa {:?}", Proof::Code(CODE.into())),
+            ]
+        );
+
+        let mut w = World::new();
+        w.auth = FakeAuth::two_step(&["totp", "recovery"]);
+        w.answers = vec![PASSWORD, " abcd-efgh-ijkl\t"];
+        w.run(args(Some(SERVER), Some(EMAIL))).result.unwrap();
+        assert_eq!(
+            w.auth.calls().last().unwrap(),
+            &format!("2fa {:?}", Proof::RecoveryCode(RECOVERY.into()))
+        );
+    }
+
+    #[test]
+    fn empty_entries_do_not_count_toward_three_wrong_codes() {
+        let mut w = World::new();
+        w.auth = FakeAuth::two_step(&["totp"]);
+        w.answers = vec![PASSWORD, "", "000000", "", "111111", "", CODE];
+        w.run(args(Some(SERVER), Some(EMAIL))).result.unwrap();
+        assert_eq!(w.stored(), session_map(SERVER));
+    }
+
+    #[test]
+    fn the_app_starting_mid_sign_in_stops_before_anything_is_changed() {
+        let mut w = World::new();
+        w.yes = true;
+        w.app_starts_at_check = Some(2);
+        let files = leave_data(&w);
+        let o = w.run(args(Some(SERVER), Some(EMAIL)));
+        o.refused(3, "Quit Voltius first; it holds this account's keys.");
+        assert!(!w.auth.calls().is_empty());
+        assert!(files.iter().all(|f| f.exists()));
+        assert!(w.stored().is_empty());
+    }
+
+    #[test]
+    fn a_failed_account_id_write_leaves_nothing() {
+        let w = World::new();
+        w.keys.refuse_writes("account_id");
+        w.run(args(Some(SERVER), Some(EMAIL)))
+            .refused(4, KEYCHAIN_UNREACHABLE);
+        assert!(w.stored().is_empty(), "{:?}", w.stored());
+    }
+
+    #[test]
+    fn a_rollback_keeps_remember_off() {
+        let w = World::new();
+        w.keys.set("master_password_forget", "1").unwrap();
+        w.keys.refuse_writes("jwt");
+        w.run(args(Some(SERVER), Some(EMAIL)))
+            .refused(4, KEYCHAIN_UNREACHABLE);
+        assert_eq!(
+            w.stored(),
+            [("master_password_forget".to_string(), "1".to_string())].into()
+        );
+    }
+
+    fn queue_server(w: &World, url: &str) {
+        crate::cli_state::pending::append(
+            &w.path("config"),
+            crate::cli_state::pending::Change::Server { url: url.into() },
+        )
+        .unwrap();
+    }
+
+    fn last_app_server(w: &World, url: &str) {
+        crate::cli_state::mirror::write(
+            &w.path("config"),
+            &json!({"writtenAt": "t", "appVersion": "1", "settings": {}, "serverUrl": url, "plugins": []}),
+        )
+        .unwrap();
+    }
+
+    fn default_offered(w: &mut World) -> String {
+        w.answers = vec![""];
+        w.run(args(None, None)).asked[0].clone()
+    }
+
+    #[test]
+    fn the_per_user_server_comes_after_the_pin_and_before_defaults_and_the_token() {
+        let mut w = World::new();
+        w.policy(&format!(
+            r#"{{"version":1,"policy":{{"enrollment.token":"{}"}},"defaults":{{"server.url":"https://corp.example"}}}}"#,
+            token_for("https://v.acme.com")
+        ));
+        last_app_server(&w, "https://last.example");
+        assert_eq!(default_offered(&mut w), "Server [https://last.example]: ");
+
+        queue_server(&w, "https://older.example");
+        queue_server(&w, "https://queued.example");
+        assert_eq!(default_offered(&mut w), "Server [https://queued.example]: ");
+
+        w.policy(r#"{"version":1,"policy":{"server.url":"https://pinned.example"}}"#);
+        w.answers = vec![EMAIL, PASSWORD];
+        w.run(args(None, None)).result.unwrap();
+        assert_eq!(w.stored()["server_url"], "https://pinned.example");
     }
 
     #[test]

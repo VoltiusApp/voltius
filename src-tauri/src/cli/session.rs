@@ -23,6 +23,45 @@ pub(crate) struct SessionInfo {
 
 pub(crate) struct OsKeys;
 
+pub(crate) struct Device<'a> {
+    pub system: bool,
+    pub open_keychain: &'a dyn Fn() -> Result<(), CliError>,
+    pub keys: &'a dyn Keys,
+    pub app_running: &'a dyn Fn() -> bool,
+    pub data_dir: PathBuf,
+    pub config_dir: PathBuf,
+}
+
+impl Device<'static> {
+    pub(crate) fn this_user() -> Result<Self, CliError> {
+        Ok(Device {
+            system: super::user::is_system_account(),
+            open_keychain: &open_keychain,
+            keys: &OsKeys,
+            app_running: &app_running,
+            data_dir: crate::storage::config::app_data_dir().map_err(CliError::io)?,
+            config_dir: crate::storage::config::config_dir_peek(),
+        })
+    }
+}
+
+impl Device<'_> {
+    pub(crate) fn session(
+        &self,
+        command: &str,
+        does: &str,
+    ) -> Result<Option<SessionInfo>, CliError> {
+        super::user::require_own_session(self.system, command, does)?;
+        (self.open_keychain)()?;
+        self.refuse_while_running()?;
+        current_session(self.keys)
+    }
+
+    pub(crate) fn refuse_while_running(&self) -> Result<(), CliError> {
+        refuse_while_running(self.app_running)
+    }
+}
+
 fn keychain_error(e: keyring_core::Error) -> CliError {
     CliError::io(format!("Keychain: {e}"))
 }
@@ -66,10 +105,12 @@ fn open_with(
         .map_err(|e| e.to_string())
         .and_then(|()| probe.get(ACCOUNT_ID).map_err(|e| e.to_string()))
         .map(drop)
-        .map_err(|e| {
-            log::debug!("keychain unreachable: {e}");
-            CliError::Denied(KEYCHAIN_UNREACHABLE.into())
-        })
+        .map_err(keychain_refused)
+}
+
+pub(crate) fn keychain_refused(e: impl std::fmt::Display) -> CliError {
+    log::debug!("keychain refused: {e}");
+    CliError::Denied(KEYCHAIN_UNREACHABLE.into())
 }
 
 pub(crate) fn current_session(keys: &dyn Keys) -> Result<Option<SessionInfo>, CliError> {
@@ -210,6 +251,7 @@ mod mem {
     pub(crate) struct MemKeys {
         pub(crate) map: RefCell<BTreeMap<String, String>>,
         broken: RefCell<Option<String>>,
+        unwritable: RefCell<Option<String>>,
     }
 
     impl MemKeys {
@@ -223,6 +265,10 @@ mod mem {
 
         pub(crate) fn break_key(&self, k: &str) {
             *self.broken.borrow_mut() = Some(k.to_string());
+        }
+
+        pub(crate) fn refuse_writes(&self, k: &str) {
+            *self.unwritable.borrow_mut() = Some(k.to_string());
         }
 
         fn check(&self, k: &str) -> Result<(), CliError> {
@@ -240,6 +286,9 @@ mod mem {
         }
         fn set(&self, k: &str, v: &str) -> Result<(), CliError> {
             self.check(k)?;
+            if self.unwritable.borrow().as_deref() == Some(k) {
+                return Err(CliError::io("keychain refused"));
+            }
             self.map.borrow_mut().insert(k.into(), v.into());
             Ok(())
         }

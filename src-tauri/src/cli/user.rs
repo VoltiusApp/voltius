@@ -1,6 +1,7 @@
 use super::{CliError, Ctx};
-use std::io::BufRead;
 use std::path::PathBuf;
+
+pub(super) const CANCELLED: &str = "Nothing changed.";
 
 #[cfg(unix)]
 pub fn is_system_account() -> bool {
@@ -79,12 +80,10 @@ pub fn confirm(ctx: &mut Ctx, question: &str) -> Result<bool, CliError> {
             "{question} Not a terminal: add --yes to confirm."
         )));
     }
-    eprint!("{question} [y/N] ");
-    let mut line = String::new();
-    std::io::stdin()
-        .lock()
-        .read_line(&mut line)
-        .map_err(CliError::Io)?;
+    let line = match super::prompt::ask(&format!("{question} [y/N] ")) {
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(false),
+        answer => answer.map_err(CliError::Io)?,
+    };
     Ok(matches!(
         line.trim().to_ascii_lowercase().as_str(),
         "y" | "yes"

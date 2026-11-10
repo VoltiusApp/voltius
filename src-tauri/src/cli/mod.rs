@@ -5,6 +5,7 @@ mod output;
 mod path_cmd;
 mod plugins_cmd;
 mod policy_cmd;
+mod prompt;
 mod server_cmd;
 pub(crate) mod session;
 pub mod user;
