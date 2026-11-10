@@ -79,7 +79,7 @@ export function createPaneSelection(term: Terminal): PaneSelection {
       const buf = term.buffer.active;
       return spans
         .filter((s) => !s.marker.isDisposed)
-        .map((s) => buf.getLine(s.marker.line)?.translateToString(true, s.from, s.to + 1) ?? "")
+        .map((s) => buf.getLine(s.marker.line)?.translateToString(true, s.from, s.to + 1).trimEnd() ?? "")
         .join("\n");
     },
     clear() {
