@@ -56,7 +56,7 @@ export function authPasskeyStart(server: string, pendingToken: string, returnTo:
  * The auth limiter is a hardcoded 10/min per IP: collapsing its 429 into `expected`
  * rendered it as "Account not found" and sent people off to make a second account.
  */
-export function authFailure(status: number, expected: string): Error {
+function authFailure(status: number, expected: string): Error {
   if (status === 429) return new Error(i18n.t("common.error.tooManyAttempts"));
   if (status === 404 || status === 401 || status === 403) return new Error(i18n.t(expected));
   return new Error(i18n.t("common.error.serverError", { status }));

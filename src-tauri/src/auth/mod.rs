@@ -571,4 +571,39 @@ mod tests {
             json!({"kind":"badAnswer"})
         );
     }
+
+    #[test]
+    fn login_steps_serialize_to_the_shape_the_app_reads() {
+        let signed = LoginStep::Signed(Session {
+            jwt: "J".into(),
+            refresh_token: "R".into(),
+            wrapped_user_secrets: None,
+        });
+        assert_eq!(
+            serde_json::to_value(signed).unwrap(),
+            json!({"kind":"signed","jwt":"J","refresh_token":"R","wrapped_user_secrets":null})
+        );
+        let second = LoginStep::SecondFactor {
+            pending_token: "P".into(),
+            methods: vec!["totp".into()],
+        };
+        assert_eq!(
+            serde_json::to_value(second).unwrap(),
+            json!({"kind":"secondFactor","pending_token":"P","methods":["totp"]})
+        );
+    }
+
+    #[test]
+    fn proofs_deserialize_from_the_app_payloads() {
+        let p = |v| serde_json::from_value::<Proof>(v).unwrap();
+        assert_eq!(p(json!({"code":"1"})), Proof::Code("1".into()));
+        assert_eq!(
+            p(json!({"recoveryCode":"2"})),
+            Proof::RecoveryCode("2".into())
+        );
+        assert_eq!(
+            p(json!({"passkeyCode":"3"})),
+            Proof::PasskeyCode("3".into())
+        );
+    }
 }
