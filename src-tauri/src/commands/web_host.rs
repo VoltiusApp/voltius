@@ -33,7 +33,15 @@ pub async fn web_host_open(
     title: String,
     url: String,
 ) -> Result<(), AppError> {
-    open_window(app, &proxies, Arc::clone(&known_hosts), &connection_id, &title, &url).await
+    open_window(
+        app,
+        &proxies,
+        Arc::clone(&known_hosts),
+        &connection_id,
+        &title,
+        &url,
+    )
+    .await
 }
 
 /// Create, move or hide the pane of a session. `Some(bounds)` shows it there (creating the
@@ -50,7 +58,16 @@ pub async fn web_pane_sync(
     bounds: Option<PaneBounds>,
     refocus_app: Option<bool>,
 ) -> Result<(), AppError> {
-    sync_pane(app, &proxies, Arc::clone(&known_hosts), &session_id, &url, bounds, refocus_app.unwrap_or(false)).await
+    sync_pane(
+        app,
+        &proxies,
+        Arc::clone(&known_hosts),
+        &session_id,
+        &url,
+        bounds,
+        refocus_app.unwrap_or(false),
+    )
+    .await
 }
 
 /// The icon of a web page as a `data:` URL, for its tab: the page's `<link rel="icon">`, else
@@ -103,7 +120,9 @@ fn app_error(e: tauri::Error) -> AppError {
 fn parse_web_url(url: &str) -> Result<tauri::Url, AppError> {
     let parsed = tauri::Url::parse(url).map_err(|e| AppError::from(format!("Invalid URL: {e}")))?;
     if !matches!(parsed.scheme(), "http" | "https") {
-        return Err(AppError::from("Only http:// and https:// addresses can be opened"));
+        return Err(AppError::from(
+            "Only http:// and https:// addresses can be opened",
+        ));
     }
     Ok(parsed)
 }
@@ -130,9 +149,13 @@ async fn open_window(
 
     // A host whose certificate no CA vouches for is shown through a local proxy.
     let resolved = proxies.resolve(&label, url, known_hosts).await?;
-    let mut builder = WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::External(parse_web_url(&resolved)?))
-        .title(title)
-        .inner_size(1280.0, 800.0);
+    let mut builder = WebviewWindowBuilder::new(
+        &app,
+        label.clone(),
+        WebviewUrl::External(parse_web_url(&resolved)?),
+    )
+    .title(title)
+    .inner_size(1280.0, 800.0);
     if resolved != url {
         builder = builder.initialization_script(PROXIED_PAGE_SCRIPT);
     }
@@ -163,7 +186,12 @@ async fn sync_pane(
     use tauri::{LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
 
     let label = label_for("web-pane", session_id);
-    let placement = bounds.map(|b| (LogicalPosition::new(b.x, b.y), LogicalSize::new(b.width, b.height)));
+    let placement = bounds.map(|b| {
+        (
+            LogicalPosition::new(b.x, b.y),
+            LogicalSize::new(b.width, b.height),
+        )
+    });
     match (app.get_webview(&label), placement) {
         (Some(webview), Some((position, size))) => {
             webview.set_position(position).map_err(app_error)?;
@@ -179,14 +207,17 @@ async fn sync_pane(
         (None, Some((position, size))) => {
             parse_web_url(url)?;
             let resolved = proxies.resolve(&label, url, known_hosts).await?;
-            let mut builder = WebviewBuilder::new(label, WebviewUrl::External(parse_web_url(&resolved)?));
+            let mut builder =
+                WebviewBuilder::new(label, WebviewUrl::External(parse_web_url(&resolved)?));
             if resolved != url {
                 builder = builder.initialization_script(PROXIED_PAGE_SCRIPT);
             }
             let window = app
                 .get_window("main")
                 .ok_or_else(|| AppError::from("Main window not found"))?;
-            window.add_child(builder, position, size).map_err(app_error)?;
+            window
+                .add_child(builder, position, size)
+                .map_err(app_error)?;
         }
         (None, None) => {}
     }
@@ -293,7 +324,11 @@ mod favicon {
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default()
             .to_ascii_lowercase();
-        let body = Limited::new(resp.into_body(), limit).collect().await.ok()?.to_bytes();
+        let body = Limited::new(resp.into_body(), limit)
+            .collect()
+            .await
+            .ok()?
+            .to_bytes();
         Some((content_type, body))
     }
 
@@ -325,8 +360,11 @@ mod favicon {
             let end = lower[start..].find('>').map_or(lower.len(), |e| start + e);
             let (tag, tag_lower) = (&html[start..end], &lower[start..end]);
             from = end;
-            let is_icon = attribute(tag, tag_lower, "rel")
-                .is_some_and(|rel| rel.to_ascii_lowercase().split_whitespace().any(|t| t == "icon"));
+            let is_icon = attribute(tag, tag_lower, "rel").is_some_and(|rel| {
+                rel.to_ascii_lowercase()
+                    .split_whitespace()
+                    .any(|t| t == "icon")
+            });
             if is_icon {
                 if let Some(href) = attribute(tag, tag_lower, "href").filter(|h| !h.is_empty()) {
                     return Some(href);
@@ -361,7 +399,13 @@ mod favicon {
 fn label_for(prefix: &str, id: &str) -> String {
     let safe: String = id
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     format!("{prefix}-{safe}")
 }
@@ -375,14 +419,20 @@ mod tests {
     fn the_icon_is_found_among_the_links_of_a_page() {
         let html = r#"<head><link rel="stylesheet" href="/a.css"><link href='/pve2/logo.png' REL='Shortcut Icon'/><link rel="icon" href="/other.ico"></head>"#;
         assert_eq!(find_icon_href(html).as_deref(), Some("/pve2/logo.png"));
-        assert_eq!(find_icon_href(r#"<link rel="apple-touch-icon" href="/a.png">"#), None);
+        assert_eq!(
+            find_icon_href(r#"<link rel="apple-touch-icon" href="/a.png">"#),
+            None
+        );
         assert_eq!(find_icon_href("<p>no icon</p>"), None);
     }
 
     #[test]
     fn an_icon_must_be_an_image_not_a_page() {
         assert_eq!(image_mime("image/png", "/x").as_deref(), Some("image/png"));
-        assert_eq!(image_mime("", "/favicon.ico").as_deref(), Some("image/x-icon"));
+        assert_eq!(
+            image_mime("", "/favicon.ico").as_deref(),
+            Some("image/x-icon")
+        );
         assert_eq!(image_mime("text/html; charset=utf-8", "/favicon.ico"), None);
         assert_eq!(image_mime("", "/page"), None);
     }

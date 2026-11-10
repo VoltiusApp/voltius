@@ -25,8 +25,8 @@ use hyper::{Request, Response, StatusCode, Uri};
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use std::collections::{HashMap, HashSet};
-use std::hash::{Hash, Hasher};
 use std::convert::Infallible;
+use std::hash::{Hash, Hasher};
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -104,7 +104,8 @@ impl WebProxies {
 
         // The same host gets the same local port every time (a webview's storage, such as
         // Proxmox's CSRF token, is per origin), unless something else holds it.
-        let listener = match TcpListener::bind((Ipv4Addr::LOCALHOST, stable_port(&authority))).await {
+        let listener = match TcpListener::bind((Ipv4Addr::LOCALHOST, stable_port(&authority))).await
+        {
             Ok(listener) => listener,
             Err(_) => TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
                 .await
@@ -218,12 +219,18 @@ async fn handle(
         Ok(resp) => resp,
         Err(message) => plain(
             StatusCode::BAD_GATEWAY,
-            format!("Voltius could not reach {}.\n\n{message}", upstream.authority),
+            format!(
+                "Voltius could not reach {}.\n\n{message}",
+                upstream.authority
+            ),
         ),
     })
 }
 
-async fn forward(upstream: &Upstream, mut req: Request<Incoming>) -> Result<Response<ProxyBody>, String> {
+async fn forward(
+    upstream: &Upstream,
+    mut req: Request<Incoming>,
+) -> Result<Response<ProxyBody>, String> {
     // Only the webview's own address is served: a page on another name pointed at 127.0.0.1
     // (DNS rebinding) must not reach the host through here.
     let host_ok = req
@@ -245,7 +252,8 @@ async fn forward(upstream: &Upstream, mut req: Request<Incoming>) -> Result<Resp
         .map_err(|e| format!("Invalid address: {e}"))?;
     let mut headers = HeaderMap::with_capacity(parts.headers.len());
     for (name, value) in &parts.headers {
-        if *name == header::HOST || (is_hop_by_hop(name) && !(upgrading && keeps_for_upgrade(name))) {
+        if *name == header::HOST || (is_hop_by_hop(name) && !(upgrading && keeps_for_upgrade(name)))
+        {
             continue;
         }
         headers.append(name.clone(), rewrite_request_value(upstream, name, value));
@@ -263,7 +271,11 @@ async fn forward(upstream: &Upstream, mut req: Request<Incoming>) -> Result<Resp
     *request.method_mut() = parts.method;
     *request.uri_mut() = uri;
     *request.headers_mut() = headers;
-    let resp = upstream.client.request(request).await.map_err(|e| e.to_string())?;
+    let resp = upstream
+        .client
+        .request(request)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(rewrite_response(upstream, resp))
 }
 
@@ -286,7 +298,10 @@ async fn tunnel(
     tokio::spawn(async move {
         let _ = connection.with_upgrades().await;
     });
-    let mut resp = sender.send_request(request).await.map_err(|e| e.to_string())?;
+    let mut resp = sender
+        .send_request(request)
+        .await
+        .map_err(|e| e.to_string())?;
     if resp.status() != StatusCode::SWITCHING_PROTOCOLS {
         return Ok(rewrite_response(upstream, resp));
     }
@@ -310,7 +325,11 @@ fn empty() -> ProxyBody {
 }
 
 fn plain(status: StatusCode, message: impl Into<Bytes>) -> Response<ProxyBody> {
-    let mut resp = Response::new(Full::new(message.into()).map_err(|never| match never {}).boxed());
+    let mut resp = Response::new(
+        Full::new(message.into())
+            .map_err(|never| match never {})
+            .boxed(),
+    );
     *resp.status_mut() = status;
     resp.headers_mut().insert(
         header::CONTENT_TYPE,
@@ -344,14 +363,20 @@ fn keeps_for_upgrade(name: &HeaderName) -> bool {
 }
 
 /// `Origin` and `Referer` name the proxy's address; the host should see its own.
-fn rewrite_request_value(upstream: &Upstream, name: &HeaderName, value: &HeaderValue) -> HeaderValue {
+fn rewrite_request_value(
+    upstream: &Upstream,
+    name: &HeaderName,
+    value: &HeaderValue,
+) -> HeaderValue {
     if *name == header::ORIGIN || *name == header::REFERER {
         if let Some(rest) = value
             .to_str()
             .ok()
             .and_then(|text| text.strip_prefix(upstream.local_origin.as_str()))
         {
-            if let Ok(rewritten) = HeaderValue::from_str(&format!("{}{rest}", upstream.upstream_origin())) {
+            if let Ok(rewritten) =
+                HeaderValue::from_str(&format!("{}{rest}", upstream.upstream_origin()))
+            {
                 return rewritten;
             }
         }
@@ -388,14 +413,23 @@ fn rewrite_set_cookie(value: &HeaderValue) -> HeaderValue {
     let kept: Vec<&str> = text
         .split(';')
         .map(str::trim)
-        .filter(|attr| !attr.eq_ignore_ascii_case("secure") && !starts_with_ignore_case(attr, "domain="))
-        .map(|attr| if attr.eq_ignore_ascii_case("samesite=none") { "SameSite=Lax" } else { attr })
+        .filter(|attr| {
+            !attr.eq_ignore_ascii_case("secure") && !starts_with_ignore_case(attr, "domain=")
+        })
+        .map(|attr| {
+            if attr.eq_ignore_ascii_case("samesite=none") {
+                "SameSite=Lax"
+            } else {
+                attr
+            }
+        })
         .collect();
     HeaderValue::from_str(&kept.join("; ")).unwrap_or_else(|_| value.clone())
 }
 
 fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
-    text.get(..prefix.len()).is_some_and(|head| head.eq_ignore_ascii_case(prefix))
+    text.get(..prefix.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
 }
 
 /// A redirect to the host's own address becomes one to the proxy's.
@@ -408,7 +442,9 @@ fn rewrite_location(upstream: &Upstream, value: &HeaderValue) -> HeaderValue {
             continue;
         };
         if rest.is_empty() || rest.starts_with(['/', '?', '#']) {
-            if let Ok(rewritten) = HeaderValue::from_str(&format!("{}{rest}", upstream.local_origin)) {
+            if let Ok(rewritten) =
+                HeaderValue::from_str(&format!("{}{rest}", upstream.local_origin))
+            {
                 return rewritten;
             }
         }
@@ -421,11 +457,19 @@ mod tests {
     use super::*;
 
     fn upstream(port: u16) -> Upstream {
-        Upstream::new("192.168.1.3", port, 40123, DavConnector::new(None, KnownHostsStore::new().into(), None))
+        Upstream::new(
+            "192.168.1.3",
+            port,
+            40123,
+            DavConnector::new(None, KnownHostsStore::new().into(), None),
+        )
     }
 
     fn rewritten_cookie(text: &str) -> String {
-        rewrite_set_cookie(&HeaderValue::from_str(text).unwrap()).to_str().unwrap().to_string()
+        rewrite_set_cookie(&HeaderValue::from_str(text).unwrap())
+            .to_str()
+            .unwrap()
+            .to_string()
     }
 
     #[test]
@@ -450,7 +494,10 @@ mod tests {
 
     #[test]
     fn a_cookie_value_that_looks_like_an_attribute_is_left_alone() {
-        assert_eq!(rewritten_cookie("secure_token=1; Path=/"), "secure_token=1; Path=/");
+        assert_eq!(
+            rewritten_cookie("secure_token=1; Path=/"),
+            "secure_token=1; Path=/"
+        );
     }
 
     #[tokio::test]
@@ -462,11 +509,17 @@ mod tests {
                 .unwrap()
                 .to_string()
         };
-        assert_eq!(loc("https://192.168.1.3:8006/login?x=1"), "http://127.0.0.1:40123/login?x=1");
+        assert_eq!(
+            loc("https://192.168.1.3:8006/login?x=1"),
+            "http://127.0.0.1:40123/login?x=1"
+        );
         assert_eq!(loc("https://192.168.1.3:8006"), "http://127.0.0.1:40123");
         assert_eq!(loc("/relative"), "/relative");
         assert_eq!(loc("https://other.example/"), "https://other.example/");
-        assert_eq!(loc("https://192.168.1.3:80060/"), "https://192.168.1.3:80060/");
+        assert_eq!(
+            loc("https://192.168.1.3:80060/"),
+            "https://192.168.1.3:80060/"
+        );
     }
 
     #[tokio::test]
@@ -479,11 +532,23 @@ mod tests {
     #[tokio::test]
     async fn origin_and_referer_name_the_host_not_the_proxy() {
         let up = upstream(8006);
-        let o = rewrite_request_value(&up, &header::ORIGIN, &HeaderValue::from_static("http://127.0.0.1:40123"));
+        let o = rewrite_request_value(
+            &up,
+            &header::ORIGIN,
+            &HeaderValue::from_static("http://127.0.0.1:40123"),
+        );
         assert_eq!(o.to_str().unwrap(), "https://192.168.1.3:8006");
-        let r = rewrite_request_value(&up, &header::REFERER, &HeaderValue::from_static("http://127.0.0.1:40123/a?b"));
+        let r = rewrite_request_value(
+            &up,
+            &header::REFERER,
+            &HeaderValue::from_static("http://127.0.0.1:40123/a?b"),
+        );
         assert_eq!(r.to_str().unwrap(), "https://192.168.1.3:8006/a?b");
-        let other = rewrite_request_value(&up, &header::ORIGIN, &HeaderValue::from_static("https://elsewhere"));
+        let other = rewrite_request_value(
+            &up,
+            &header::ORIGIN,
+            &HeaderValue::from_static("https://elsewhere"),
+        );
         assert_eq!(other.to_str().unwrap(), "https://elsewhere");
     }
 
@@ -499,7 +564,10 @@ mod tests {
         let mut h = HeaderMap::new();
         h.insert(header::UPGRADE, HeaderValue::from_static("websocket"));
         assert!(!is_upgrade(&h));
-        h.insert(header::CONNECTION, HeaderValue::from_static("keep-alive, Upgrade"));
+        h.insert(
+            header::CONNECTION,
+            HeaderValue::from_static("keep-alive, Upgrade"),
+        );
         assert!(is_upgrade(&h));
     }
 }
