@@ -234,8 +234,18 @@ fn cli_args(args: &[OsString]) -> Option<Vec<OsString>> {
     )
 }
 
+// A release build is a GUI app the launcher's console doesn't send Ctrl+C to until it attaches.
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
+}
+
 pub fn dispatch(args: Vec<OsString>) -> Option<ExitCode> {
-    let cli = match Cli::try_parse_from(cli_args(&args)?) {
+    let args = cli_args(&args)?;
+    #[cfg(windows)]
+    attach_parent_console();
+    let cli = match Cli::try_parse_from(args) {
         Ok(c) => c,
         Err(e) => {
             let code = e.exit_code();

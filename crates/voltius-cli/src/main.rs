@@ -21,7 +21,24 @@ fn status_code(status: ExitStatus) -> i32 {
     status.code().unwrap_or(1)
 }
 
+// The app attaches to this console, so Ctrl+C reaches it and it restores the terminal itself.
+#[cfg(windows)]
+fn leave_ctrl_c_to_the_app() {
+    type Handler = unsafe extern "system" fn(u32) -> i32;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetConsoleCtrlHandler(handler: Option<Handler>, add: i32) -> i32;
+    }
+    const CTRL_BREAK_EVENT: u32 = 1;
+    unsafe extern "system" fn ignore(event: u32) -> i32 {
+        (event <= CTRL_BREAK_EVENT) as i32
+    }
+    unsafe { SetConsoleCtrlHandler(Some(ignore), 1) };
+}
+
 fn run(app: &Path, args: &[OsString]) -> i32 {
+    #[cfg(windows)]
+    leave_ctrl_c_to_the_app();
     match Command::new(app).arg(CLI_MARKER).args(args).status() {
         Ok(status) => status_code(status),
         Err(e) => {
