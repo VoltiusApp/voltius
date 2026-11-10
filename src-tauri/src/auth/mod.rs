@@ -256,7 +256,7 @@ pub async fn passkey_start(
     Ok(answer.ok_body::<Started>()?.url)
 }
 
-fn client() -> Result<reqwest::Client, AuthError> {
+pub(crate) fn client() -> Result<reqwest::Client, AuthError> {
     client_builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .build()

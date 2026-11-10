@@ -24,7 +24,7 @@ pub(crate) struct SessionInfo {
 pub(crate) struct OsKeys;
 
 fn keychain_error(e: keyring_core::Error) -> CliError {
-    CliError::Io(std::io::Error::other(format!("Keychain: {e}")))
+    CliError::io(format!("Keychain: {e}"))
 }
 
 impl Keys for OsKeys {
@@ -227,7 +227,7 @@ mod mem {
 
         fn check(&self, k: &str) -> Result<(), CliError> {
             if self.broken.borrow().as_deref() == Some(k) {
-                return Err(CliError::Io(std::io::Error::other("keychain busy")));
+                return Err(CliError::io("keychain busy"));
             }
             Ok(())
         }

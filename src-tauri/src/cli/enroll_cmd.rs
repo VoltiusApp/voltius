@@ -2,7 +2,7 @@ use super::output::Output;
 use super::policy_cmd::{machine_doc, machine_path, plain, put, remove_setting};
 use super::{CliError, Ctx};
 use crate::policy::enrollment_token::{self, EnrollmentToken};
-use crate::policy::{self, IssueKind, Layer};
+use crate::policy::{self, IssueKind, Layer, PolicyDoc};
 use clap::Args;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -84,9 +84,9 @@ fn refusal(e: ResolveError, token: &EnrollmentToken) -> CliError {
             "Unexpected answer from {}.",
             host_of(&token.server_url)
         )),
-        ResolveError::Network(m) => CliError::Io(std::io::Error::other(format!(
+        ResolveError::Network(m) => CliError::io(format!(
             "{m}\nCheck the network, or pass --no-verify to write the token without checking it."
-        ))),
+        )),
     }
 }
 
@@ -95,12 +95,32 @@ fn parse_token(raw: &str) -> Result<EnrollmentToken, CliError> {
         .ok_or_else(|| CliError::Usage("That is not a Voltius enrolment token.".into()))
 }
 
-fn current_token(machine: Option<&Path>) -> Option<EnrollmentToken> {
-    machine_doc(machine)
-        .policy
+pub(super) fn token_in(doc: &PolicyDoc) -> Option<EnrollmentToken> {
+    doc.policy
         .get(KEY)
         .and_then(Value::as_str)
         .and_then(enrollment_token::parse)
+}
+
+fn current_token(machine: Option<&Path>) -> Option<EnrollmentToken> {
+    token_in(&machine_doc(machine))
+}
+
+pub(super) fn refuse_locked_server(
+    doc: &PolicyDoc,
+    server: &str,
+    what: &str,
+) -> Result<(), CliError> {
+    let locked = doc.policy.get("server.url").and_then(Value::as_str);
+    let allow_other = doc.policy.get("server.allowOther").and_then(Value::as_bool);
+    match locked.filter(|l| allow_other == Some(false) && !policy::same_server(l, server)) {
+        Some(locked) => Err(fail(format!(
+            "This machine's policy locks server.url to {}; {what} is for {}.",
+            host_of(locked),
+            host_of(server)
+        ))),
+        None => Ok(()),
+    }
 }
 
 pub(super) fn run_enroll(
@@ -121,17 +141,7 @@ pub(super) fn run_enroll(
     let token = parse_token(&raw)?;
     let path = machine_path(machine)?;
     let host = host_of(&token.server_url);
-    let doc = machine_doc(machine);
-    let locked = doc.policy.get("server.url").and_then(Value::as_str);
-    let allow_other = doc.policy.get("server.allowOther").and_then(Value::as_bool);
-    if let Some(locked) =
-        locked.filter(|l| allow_other == Some(false) && !policy::same_server(l, &token.server_url))
-    {
-        return Err(fail(format!(
-            "This machine's policy locks server.url to {}; the token is for {host}.",
-            host_of(locked)
-        )));
-    }
+    refuse_locked_server(&machine_doc(machine), &token.server_url, "the token")?;
     let changed = current_token(machine).as_ref() != Some(&token);
     let (team, unreachable) = match lookup(&token, args.no_verify, resolve) {
         Err(ResolveError::Network(_)) if !changed => (None, true),

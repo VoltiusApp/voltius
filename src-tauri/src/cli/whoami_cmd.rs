@@ -37,7 +37,7 @@ fn describe(s: &SessionInfo) -> String {
     }
 }
 
-fn report(s: Option<&SessionInfo>) -> Value {
+pub(super) fn report(s: Option<&SessionInfo>) -> Value {
     json!({
         "signedIn": s.is_some(),
         "mode": s.map(|s| &s.mode),

@@ -96,11 +96,8 @@ fn get(key: &str, machine: Option<&Path>, dir: &Path, out: &mut Output) -> Resul
     if policy::key_type(key).is_none() {
         return Err(plain(IssueKind::UnknownKey, unknown_key_message(key)));
     }
-    let row = effective_row(&machine_doc(machine), dir, key).ok_or_else(|| {
-        CliError::Io(std::io::Error::other(
-            "Voltius has not run yet for this user",
-        ))
-    })?;
+    let row = effective_row(&machine_doc(machine), dir, key)
+        .ok_or_else(|| CliError::io("Voltius has not run yet for this user"))?;
     print_row(key, &row, out);
     Ok(())
 }

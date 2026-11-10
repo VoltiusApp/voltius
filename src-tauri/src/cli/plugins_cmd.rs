@@ -183,9 +183,9 @@ pub(super) fn run_plugins(
             consent(&t.id, permissions, review_all, ctx)?
         }
         Some(_) => {
-            return Err(CliError::Io(std::io::Error::other(
+            return Err(CliError::io(
                 "could not reach the plugin catalogue to show this plugin's permissions; try again when online",
-            )))
+            ))
         }
     };
     let change = Change::Plugin {
@@ -464,11 +464,9 @@ fn list(machine: Option<&Path>, dir: &Path, out: &mut Output) -> Result<(), CliE
 }
 
 fn list_catalogue(catalogue: &Catalogue, out: &mut Output) -> Result<(), CliError> {
-    let list = catalogue.remote().map_err(|e| {
-        CliError::Io(std::io::Error::other(format!(
-            "could not reach the plugin catalogue: {e}"
-        )))
-    })?;
+    let list = catalogue
+        .remote()
+        .map_err(|e| CliError::io(format!("could not reach the plugin catalogue: {e}")))?;
     if out.json {
         let items: Vec<Value> = list
             .iter()

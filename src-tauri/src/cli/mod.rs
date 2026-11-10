@@ -1,5 +1,6 @@
 mod config_cmd;
 mod enroll_cmd;
+mod login_cmd;
 mod output;
 mod path_cmd;
 mod plugins_cmd;
@@ -14,6 +15,7 @@ use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
 use config_cmd::ConfigCmd;
 use enroll_cmd::EnrollArgs;
+use login_cmd::LoginArgs;
 use output::Output;
 use path_cmd::PathCmd;
 use plugins_cmd::PluginsCmd;
@@ -47,6 +49,10 @@ pub enum CliError {
 }
 
 impl CliError {
+    pub fn io(message: impl Into<String>) -> Self {
+        CliError::Io(std::io::Error::other(message.into()))
+    }
+
     pub fn exit_code(&self) -> u8 {
         match self {
             CliError::NotSignedIn => 1,
@@ -159,6 +165,8 @@ enum Command {
     },
     /// Show who is signed in
     Whoami,
+    /// Sign this user in to their Voltius account
+    Login(LoginArgs),
     /// Show or set the sync server URL
     Server {
         #[command(subcommand)]
@@ -181,9 +189,10 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 7] = [
+const BARE_SUBCOMMANDS: [&str; 8] = [
     "policy",
     "whoami",
+    "login",
     "config",
     "plugins",
     "server",
@@ -252,6 +261,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
         Command::Whoami => whoami_cmd::run(&mut ctx),
+        Command::Login(args) => login_cmd::run(args, &mut ctx),
         Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {

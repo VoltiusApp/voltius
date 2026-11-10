@@ -53,7 +53,7 @@ pub fn run(cmd: PathCmd, _ctx: &mut Ctx) -> Result<(), CliError> {
         PathCmd::Add { dir } => (true, dir),
         PathCmd::Remove { dir } => (false, dir),
     };
-    let io = |e: &dyn std::fmt::Display| CliError::Io(std::io::Error::other(e.to_string()));
+    let io = |e: &dyn std::fmt::Display| CliError::io(e.to_string());
     let key = CURRENT_USER.create("Environment").map_err(|e| io(&e))?;
     let existing = match key.get_value("Path") {
         Ok(v) => Some(v),
