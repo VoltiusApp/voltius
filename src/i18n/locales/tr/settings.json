@@ -554,7 +554,7 @@
           "teamAuditLogs": "Ekip denetim günlükleri",
           "granularPermissions": "Özel roller, üye ve nesne bazlı izinler",
           "teamPolicy": "Ekip politikası: herhangi bir ayarı tüm üyeler için kilitleyin",
-          "enrolment": "Toplu dağıtımlar için cihaz kayıt token'ları",
+          "enrolment": "Toplu dağıtımlar için cihaz kayıt belirteçleri",
           "commercialLicense": "Kendi sunucunuzda barındırma için ticari lisans",
           "prioritySupport": "Öncelikli destek"
         }

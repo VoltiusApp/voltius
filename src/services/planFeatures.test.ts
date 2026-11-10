@@ -3,6 +3,11 @@ import { test, expect } from "vitest";
 import i18n from "@/i18n";
 import { PLAN_FEATURES, freeForEveryone, planFeatureLabel, planFeaturesFor } from "./planFeatures";
 
+const locales = import.meta.glob<{ settings: { account: { plan: { feature: Record<string, string> } } } }>(
+  "../i18n/locales/*/settings.json",
+  { eager: true, import: "default" },
+);
+
 const sharingLabel = (tier: keyof typeof PLAN_FEATURES) =>
   planFeatureLabel(i18n.t, PLAN_FEATURES[tier].find((f) => f.id === "terminalSharing")!);
 
@@ -23,10 +28,6 @@ test("while the platform loads, the desktop and LAN rows show", () => {
 });
 
 test("every locale names the new free rows and drops MDM from enrolment", () => {
-  const locales = import.meta.glob<{ settings: { account: { plan: { feature: Record<string, string> } } } }>(
-    "../i18n/locales/*/settings.json",
-    { eager: true, import: "default" },
-  );
   for (const [path, json] of Object.entries(locales)) {
     if (path.includes("/pt-BR/")) continue;
     const feature = json.settings.account.plan.feature;
@@ -39,5 +40,23 @@ test("every locale names the new free rows and drops MDM from enrolment", () => 
 test("every plan feature has an English label", () => {
   for (const f of Object.values(PLAN_FEATURES).flat()) {
     expect(planFeatureLabel(i18n.t, f)).not.toContain("settings.account");
+  }
+});
+
+test("plan rows reuse each locale's enrolment-token and machine-policy terms", () => {
+  const terms: Record<string, [string, string]> = {
+    en: ["token", "machine policy"],
+    cs: ["token", "zásady počítače"],
+    fr: ["jeton", "règle machine"],
+    pt: ["token", "política da máquina"],
+    "pt-PT": ["token", "política da máquina"],
+    ru: ["токен", "политика компьютера"],
+    tr: ["belirteç", "makine politikası"],
+    zh: ["令牌", "本机策略"],
+  };
+  for (const [locale, [token, policy]] of Object.entries(terms)) {
+    const feature = locales[`../i18n/locales/${locale}/settings.json`].settings.account.plan.feature;
+    expect(feature.enrolment.toLowerCase(), locale).toContain(token);
+    expect(feature.machinePolicy.toLowerCase(), locale).toContain(policy);
   }
 });
