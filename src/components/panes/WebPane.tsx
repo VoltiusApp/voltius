@@ -4,6 +4,11 @@ import { closeWebPane, fetchWebFavicon, syncWebPane } from "@/services/webHost";
 import { useSessionStore } from "@/stores/sessionStore";
 import { notifyError } from "@/utils/notifyError";
 
+function isTextFieldFocused(): boolean {
+  const el = document.activeElement;
+  return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit"].includes(el.type));
+}
+
 const MAX_NODES_SCANNED = 400;
 
 /** Whether something that takes pointer events is drawn over `pane` inside an overlay of `<body>`. */
@@ -88,6 +93,7 @@ export function WebPane({ session, visible: tabShown }: { session: TerminalSessi
   const covered = useCoveredByOverlay(ref, tabShown);
   const visible = tabShown && !covered;
   const reported = useRef(false);
+  const wasShown = useRef(false);
   const { id, webUrl } = session;
 
   useEffect(() => {
@@ -97,7 +103,11 @@ export function WebPane({ session, visible: tabShown }: { session: TerminalSessi
       const r = el.getBoundingClientRect();
       const shown = visible && r.width > 0 && r.height > 0;
       const bounds = shown ? { x: r.left, y: r.top, width: r.width, height: r.height } : null;
-      syncWebPane(id, webUrl, bounds).catch((err) => {
+      // Showing the page takes the keyboard from the app: when it comes back into view while a
+      // field has focus (a popover's search box), give the keyboard back.
+      const refocusApp = shown && !wasShown.current && isTextFieldFocused();
+      wasShown.current = shown;
+      syncWebPane(id, webUrl, bounds, refocusApp).catch((err) => {
         // Resizing fires this many times; one toast is enough.
         if (reported.current) return;
         reported.current = true;

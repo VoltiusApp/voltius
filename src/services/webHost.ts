@@ -31,9 +31,15 @@ function enqueue(sessionId: string, run: () => Promise<void>): Promise<void> {
   return next;
 }
 
-/** Show a session's web page at `bounds`, creating it on first use; `null` hides it (page kept). */
-export function syncWebPane(sessionId: string, url: string, bounds: PaneBounds | null): Promise<void> {
-  return enqueue(sessionId, () => invoke("web_pane_sync", { sessionId, url, bounds }));
+/** Show a session's web page at `bounds`, creating it on first use; `null` hides it (page kept). `refocusApp` hands the keyboard back to the app after showing it, for a
+ *  page uncovered while the user is typing in the app. */
+export function syncWebPane(
+  sessionId: string,
+  url: string,
+  bounds: PaneBounds | null,
+  refocusApp = false,
+): Promise<void> {
+  return enqueue(sessionId, () => invoke("web_pane_sync", { sessionId, url, bounds, refocusApp }));
 }
 
 /** Destroy a closed session's web page. */

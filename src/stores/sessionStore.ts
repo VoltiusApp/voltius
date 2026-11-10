@@ -542,6 +542,10 @@ async function materializeSavedConnection(
 
 /** A web host's page, in a tab: an open one is brought forward instead of opening a second. */
 function openWebSession(set: SessionSetter, connection: Connection) {
+  // A saved host counts as used (Recent lists by it); an unsaved quick-connect target is not one.
+  if (!ephemeralConnections.has(connection.id)) {
+    useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+  }
   const existing = useSessionStore.getState().sessions.find((s) => s.type === "web" && s.connectionId === connection.id);
   if (existing) {
     set(() => ({ activeSessionId: existing.id }));

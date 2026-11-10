@@ -38,6 +38,8 @@ pub async fn web_host_open(
 
 /// Create, move or hide the pane of a session. `Some(bounds)` shows it there (creating the
 /// webview on first use); `None` hides it, keeping the page loaded for when its tab returns.
+/// Showing a native webview takes the keyboard from the app's own; `refocus_app` gives it back
+/// (the page was only uncovered while the user types in a popover).
 #[tauri::command]
 pub async fn web_pane_sync(
     app: tauri::AppHandle,
@@ -46,8 +48,9 @@ pub async fn web_pane_sync(
     session_id: String,
     url: String,
     bounds: Option<PaneBounds>,
+    refocus_app: Option<bool>,
 ) -> Result<(), AppError> {
-    sync_pane(app, &proxies, Arc::clone(&known_hosts), &session_id, &url, bounds).await
+    sync_pane(app, &proxies, Arc::clone(&known_hosts), &session_id, &url, bounds, refocus_app.unwrap_or(false)).await
 }
 
 /// The icon of a web page as a `data:` URL, for its tab: the page's `<link rel="icon">`, else
@@ -155,6 +158,7 @@ async fn sync_pane(
     session_id: &str,
     url: &str,
     bounds: Option<PaneBounds>,
+    refocus_app: bool,
 ) -> Result<(), AppError> {
     use tauri::{LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
 
@@ -165,6 +169,11 @@ async fn sync_pane(
             webview.set_position(position).map_err(app_error)?;
             webview.set_size(size).map_err(app_error)?;
             webview.show().map_err(app_error)?;
+            if refocus_app {
+                if let Some(main) = app.get_webview("main") {
+                    let _ = main.set_focus();
+                }
+            }
         }
         (Some(webview), None) => webview.hide().map_err(app_error)?,
         (None, Some((position, size))) => {
@@ -214,6 +223,7 @@ async fn sync_pane(
     _session_id: &str,
     _url: &str,
     _bounds: Option<PaneBounds>,
+    _refocus_app: bool,
 ) -> Result<(), AppError> {
     Err(AppError::from("Web hosts can only be opened on desktop"))
 }
