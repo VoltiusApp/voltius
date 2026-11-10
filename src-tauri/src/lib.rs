@@ -204,7 +204,17 @@ pub fn run() {
     {
         builder = builder
             .plugin(tauri_plugin_updater::Builder::new().build())
-            .plugin(tauri_plugin_notification::init());
+            .plugin(tauri_plugin_notification::init())
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_state_flags(
+                        tauri_plugin_window_state::StateFlags::SIZE
+                            | tauri_plugin_window_state::StateFlags::POSITION
+                            | tauri_plugin_window_state::StateFlags::MAXIMIZED
+                            | tauri_plugin_window_state::StateFlags::FULLSCREEN,
+                    )
+                    .build(),
+            );
     }
 
     builder
