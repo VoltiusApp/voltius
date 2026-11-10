@@ -11,15 +11,13 @@ pub const TYPED_KEYS: [(&str, &str); 3] = [
 const POLICY_KEY: &str = "policy";
 
 fn typed_issue(kind: IssueKind, id: &str, message: String) -> Issue {
-    Issue {
-        kind,
-        layer: Some(Layer::Policy),
-        key: Some(id.to_string()),
-        message,
-    }
+    Issue::keyed(kind, Some(Layer::Policy), id, message)
 }
 
 fn typed_value(id: &str, raw: &Value) -> Result<Option<Value>, String> {
+    if let (Value::Bool(_), "server.allowOther") = (raw, id) {
+        return Ok(Some(raw.clone()));
+    }
     let Some(s) = raw.as_str() else {
         return Err("must be a string; ignored".to_string());
     };
@@ -41,12 +39,12 @@ pub fn managed_config_doc(bundle: &Value) -> (PolicyDoc, Vec<Issue>) {
 
     for key in map.keys() {
         if key != POLICY_KEY && !TYPED_KEYS.iter().any(|(k, _)| k == key) {
-            issues.push(Issue {
-                kind: IssueKind::UnknownKey,
-                layer: None,
-                key: Some(key.clone()),
-                message: "unknown managed configuration key; ignored".to_string(),
-            });
+            issues.push(Issue::keyed(
+                IssueKind::UnknownKey,
+                None,
+                key,
+                "unknown managed configuration key; ignored".to_string(),
+            ));
         }
     }
 
@@ -135,6 +133,29 @@ mod tests {
         .map(|(k, v)| (k.to_string(), v))
         .collect();
         assert_eq!(doc.policy, want);
+    }
+
+    #[test]
+    fn allow_other_accepts_a_json_bool() {
+        for want in [true, false] {
+            let (doc, issues) = managed_config_doc(&json!({"server_allow_other": want}));
+            assert!(issues.is_empty(), "{issues:?}");
+            assert_eq!(doc.policy["server.allowOther"], json!(want));
+        }
+    }
+
+    #[test]
+    fn stringified_non_choice_value_is_a_type_issue() {
+        let (doc, issues) = managed_config_doc(&json!({"server_allow_other": "1"}));
+        assert!(doc.policy.is_empty());
+        assert_eq!(
+            kinds(&issues),
+            [(
+                IssueKind::Type,
+                Some(Layer::Policy),
+                Some("server.allowOther")
+            )]
+        );
     }
 
     #[test]

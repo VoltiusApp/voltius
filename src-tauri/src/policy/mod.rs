@@ -184,6 +184,15 @@ impl Issue {
             message,
         }
     }
+
+    pub fn keyed(kind: IssueKind, layer: Option<Layer>, key: &str, message: String) -> Self {
+        Issue {
+            kind,
+            layer,
+            key: Some(key.to_string()),
+            message,
+        }
+    }
 }
 
 pub fn read_issue(path: &Path, e: &std::io::Error) -> Issue {
@@ -785,12 +794,12 @@ fn accept_entry(
     issues: &mut Vec<Issue>,
 ) {
     match entry_problem(layer, key, value) {
-        Some((kind, message)) => issues.push(Issue {
+        Some((kind, message)) => issues.push(Issue::keyed(
             kind,
-            layer: Some(layer),
-            key: Some(key.to_string()),
-            message: format!("{message}; ignored"),
-        }),
+            Some(layer),
+            key,
+            format!("{message}; ignored"),
+        )),
         None => {
             out.insert(key.to_string(), value.clone());
         }
