@@ -534,6 +534,8 @@
           "localSync": "Local network sync",
           "deviceFiles": "File transfer between your devices",
           "syncPlugins": "Gist, Cloudflare and S3 sync plugins",
+          "cli": "Command line (voltius-cli)",
+          "machinePolicy": "Machine policy for fleet rollouts",
           "auditLogs": "Local audit logs",
           "cloudSync": "Cloud sync, even when your devices are never online together",
           "cloudBackup": "Encrypted backup on Voltius Cloud",
@@ -546,7 +548,7 @@
           "teamAuditLogs": "Team audit logs",
           "granularPermissions": "Custom roles, per-member & per-object permissions",
           "teamPolicy": "Team policy: lock any setting for every member",
-          "enrolment": "Device enrolment for Ansible or MDM rollouts",
+          "enrolment": "Device enrolment tokens for fleet rollouts",
           "commercialLicense": "Commercial license for self-hosting",
           "prioritySupport": "Priority support"
         }

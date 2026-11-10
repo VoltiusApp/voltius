@@ -540,6 +540,8 @@
           "localSync": "Yerel ağ eşitlemesi",
           "deviceFiles": "Cihazlarınız arasında dosya aktarımı",
           "syncPlugins": "Gist, Cloudflare ve S3 eşitleme eklentileri",
+          "cli": "Komut satırı (voltius-cli)",
+          "machinePolicy": "Toplu dağıtımlar için makine politikası",
           "auditLogs": "Yerel denetim günlükleri",
           "cloudSync": "Cihazlarınız hiç aynı anda çevrimiçi olmasa bile bulut eşitleme",
           "cloudBackup": "Voltius Cloud'da şifreli yedek",
@@ -552,7 +554,7 @@
           "teamAuditLogs": "Ekip denetim günlükleri",
           "granularPermissions": "Özel roller, üye ve nesne bazlı izinler",
           "teamPolicy": "Ekip politikası: herhangi bir ayarı tüm üyeler için kilitleyin",
-          "enrolment": "Ansible veya MDM dağıtımları için cihaz kaydı",
+          "enrolment": "Toplu dağıtımlar için cihaz kayıt belirteçleri",
           "commercialLicense": "Kendi sunucunuzda barındırma için ticari lisans",
           "prioritySupport": "Öncelikli destek"
         }

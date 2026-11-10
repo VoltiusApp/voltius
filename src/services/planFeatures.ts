@@ -1,16 +1,18 @@
 import type { TFunction } from "i18next";
 import { guestCapFor, sessionCapFor } from "@/services/teamSharing";
 import { TIER_RANK, type Tier } from "@/stores/subscriptionTier";
+import { isMobilePlatform, runsLocalSync } from "@/utils/platform";
 
 export interface PlanFeature {
   id: string;
-  /** Only where local network sync runs (not iOS). */
-  lan?: boolean;
+  only?: (platform: string | null) => boolean;
   /** A free-tier limit that paid plans lift, so it is not listed as "free for everyone". */
   limit?: boolean;
   sessions?: number;
   guests?: number;
 }
+
+const onDesktop = (platform: string | null) => !isMobilePlatform(platform);
 
 const sharing = (tier: Tier): PlanFeature => ({
   id: "terminalSharing",
@@ -22,9 +24,11 @@ const sharing = (tier: Tier): PlanFeature => ({
 export const PLAN_FEATURES: Record<Tier, PlanFeature[]> = {
   free: [
     { id: "privateVault", limit: true },
-    { id: "localSync", lan: true },
-    { id: "deviceFiles", lan: true },
+    { id: "localSync", only: runsLocalSync },
+    { id: "deviceFiles", only: runsLocalSync },
     { id: "syncPlugins" },
+    { id: "cli", only: onDesktop },
+    { id: "machinePolicy", only: onDesktop },
     { id: "auditLogs" },
   ],
   pro: [
@@ -51,12 +55,12 @@ export function adjacentPlan(tier: Tier, step: 1 | -1): Tier | null {
   return TIERS[TIER_RANK[tier] + step] ?? null;
 }
 
-export function planFeaturesFor(tier: Tier, localSync: boolean): PlanFeature[] {
-  return PLAN_FEATURES[tier].filter((f) => localSync || !f.lan);
+export function planFeaturesFor(tier: Tier, platform: string | null): PlanFeature[] {
+  return PLAN_FEATURES[tier].filter((f) => !f.only || f.only(platform));
 }
 
-export function freeForEveryone(localSync: boolean): PlanFeature[] {
-  return planFeaturesFor("free", localSync).filter((f) => !f.limit);
+export function freeForEveryone(platform: string | null): PlanFeature[] {
+  return planFeaturesFor("free", platform).filter((f) => !f.limit);
 }
 
 export function planFeatureLabel(t: TFunction, f: PlanFeature): string {

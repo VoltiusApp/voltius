@@ -88,6 +88,7 @@ test("Business lists only what it adds, with free features on their own line", (
   expect(included).not.toContain(`${F}localSync`);
   expect(groupText(container, "next")).toBeNull();
   expect(container.querySelector("[data-free-features]")!.textContent).toContain(`${F}syncPlugins`);
+  expect(container.querySelector("[data-free-features]")!.textContent).toContain(`${F}cli`);
 });
 
 test("Pro shows what Teams adds, greyed", () => {
