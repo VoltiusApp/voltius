@@ -9,6 +9,8 @@ pub mod acl;
 #[cfg(windows)]
 mod acl_windows;
 pub mod enrollment_token;
+#[cfg(target_os = "android")]
+mod managed_android;
 pub mod managed_config;
 
 const SUPPORTED_VERSION: u32 = 1;
@@ -1131,6 +1133,12 @@ fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
     }
 }
 
+#[cfg(target_os = "android")]
+pub fn load_machine() -> LoadedPolicy {
+    managed_android::load()
+}
+
+#[cfg(not(target_os = "android"))]
 pub fn load_machine() -> LoadedPolicy {
     match machine_policy_path() {
         Some(p) => load_from(&p),

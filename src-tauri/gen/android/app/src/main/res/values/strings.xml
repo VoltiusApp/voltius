@@ -18,4 +18,22 @@
         <item quantity="one">+%d more</item>
         <item quantity="other">+%d more</item>
     </plurals>
+    <string name="restriction_enrollment_token_title" translatable="false">Enrollment token</string>
+    <string name="restriction_enrollment_token_description" translatable="false">Signs the app in to your organization on first launch (enrollment.token).</string>
+    <string name="restriction_server_url_title" translatable="false">Server URL</string>
+    <string name="restriction_server_url_description" translatable="false">Voltius server the app uses (server.url). Applies at the next app launch.</string>
+    <string name="restriction_server_allow_other_title" translatable="false">Allow other servers</string>
+    <string name="restriction_server_allow_other_description" translatable="false">Whether users may switch to another server (server.allowOther). Applies at the next app launch.</string>
+    <string-array name="restriction_server_allow_other_entries" translatable="false">
+        <item>Not set</item>
+        <item>Allowed</item>
+        <item>Not allowed</item>
+    </string-array>
+    <string-array name="restriction_server_allow_other_values" translatable="false">
+        <item>""</item>
+        <item>true</item>
+        <item>false</item>
+    </string-array>
+    <string name="restriction_policy_title" translatable="false">Policy document</string>
+    <string name="restriction_policy_description" translatable="false">A Voltius policy JSON document in the policy.json format. The fields above override the same keys in it.</string>
 </resources>
