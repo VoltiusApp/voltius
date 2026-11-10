@@ -23,6 +23,6 @@ pub fn cli_mirror_save(mirror: Value) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn cli_logout_marker_take() -> Option<String> {
+pub fn cli_logout_marker_take() -> Vec<String> {
     logout_marker::take(&config_dir())
 }

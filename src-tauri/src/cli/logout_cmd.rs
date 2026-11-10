@@ -17,13 +17,17 @@ pub(super) fn run_logout(ctx: &mut Ctx, device: &Device) -> Result<(), CliError>
     let Some(session) = device.session("logout", "signs out")? else {
         return report(ctx.out, false);
     };
-    if !confirm(ctx, &question(&session))? {
+    let mode = device.keys.get("mode")?;
+    if !confirm(ctx, &question(&session, mode.as_deref()))? {
         return Err(CliError::Refused(CANCELLED.into()));
     }
     device.refuse_while_running()?;
     let id = session.account_id.as_str();
     forget_saved_account(device.keys, id).map_err(keychain_refused)?;
-    drop_parked_profile(&device.data_dir, id).map_err(CliError::io)?;
+    if let Err(e) = drop_parked_profile(&device.data_dir, id) {
+        ctx.out
+            .warn(format!("Kept this account's parked data: {e}"));
+    }
     reset_local_vault(&device.data_dir, &device.config_dir).map_err(CliError::io)?;
     clear_session_keys(device.keys).map_err(keychain_refused)?;
     logout_marker::write(&device.config_dir, id).map_err(CliError::Io)?;
@@ -31,11 +35,12 @@ pub(super) fn run_logout(ctx: &mut Ctx, device: &Device) -> Result<(), CliError>
     report(ctx.out, true)
 }
 
-fn question(s: &SessionInfo) -> String {
-    let who = match (&s.email, s.mode.as_str()) {
+fn question(s: &SessionInfo, mode: Option<&str>) -> String {
+    let who = match (&s.email, mode) {
         (Some(email), _) => email.as_str(),
-        (None, "server") => "this account",
-        (None, _) => "the local account",
+        (None, Some("server")) => "this account",
+        (None, Some(_)) => "the local account",
+        (None, None) => "this device's Voltius account",
     };
     format!("Sign out {who}? This removes Voltius data stored on this device for this account.")
 }
@@ -88,7 +93,6 @@ mod tests {
     use crate::cli_state::logout_marker;
     use std::collections::BTreeMap;
     use std::path::PathBuf;
-    use std::sync::{Arc, Mutex};
 
     const QUESTION: &str = "Sign out ada@example.com? This removes Voltius data stored on this device for this account.";
 
@@ -105,6 +109,7 @@ mod tests {
     struct Outcome {
         result: Result<(), CliError>,
         out: String,
+        err: String,
     }
 
     impl Outcome {
@@ -162,8 +167,13 @@ mod tests {
         }
 
         fn run(&self) -> Outcome {
-            let out: Shared = Arc::new(Mutex::new(Vec::new()));
-            let mut output = Output::with_sink(self.json, false, Box::new(Buf(out.clone())));
+            let (out, err): (Shared, Shared) = Default::default();
+            let mut output = Output::with_sinks(
+                self.json,
+                false,
+                Box::new(Buf(out.clone())),
+                Box::new(Buf(err.clone())),
+            );
             let mut ctx = Ctx {
                 out: &mut output,
                 yes: self.yes,
@@ -180,15 +190,19 @@ mod tests {
                 config_dir: self.path("config"),
             };
             let result = run_logout(&mut ctx, &device);
-            let out = String::from_utf8(out.lock().unwrap().clone()).unwrap();
-            Outcome { result, out }
+            let text = |b: Shared| String::from_utf8(b.lock().unwrap().clone()).unwrap();
+            Outcome {
+                result,
+                out: text(out),
+                err: text(err),
+            }
         }
 
         fn stored(&self) -> BTreeMap<String, String> {
             self.keys.map.borrow().clone()
         }
 
-        fn marker(&self) -> Option<String> {
+        fn marker(&self) -> Vec<String> {
             logout_marker::take(&self.path("config"))
         }
     }
@@ -200,7 +214,7 @@ mod tests {
         let o = w.run();
         o.result.unwrap();
         assert_eq!(o.out, "Not signed in.\n");
-        assert_eq!(w.marker(), None);
+        assert!(w.marker().is_empty());
 
         w.json = true;
         let v: serde_json::Value = serde_json::from_str(&w.run().out).unwrap();
@@ -220,7 +234,7 @@ mod tests {
         );
         assert_eq!(w.stored(), before);
         assert!(secrets.exists());
-        assert_eq!(w.marker(), None);
+        assert!(w.marker().is_empty());
     }
 
     #[test]
@@ -248,7 +262,7 @@ mod tests {
             assert!(!f.exists(), "{}", f.display());
         }
         assert!(!w.path("config/connections.json").exists());
-        assert_eq!(w.marker().as_deref(), Some("acc-1"));
+        assert_eq!(w.marker(), ["acc-1"]);
     }
 
     #[test]
@@ -311,7 +325,7 @@ mod tests {
         w.run().result.unwrap();
         assert!(!w.stored().contains_key("account_id"));
         assert!(!w.stored().contains_key("jwt"));
-        assert_eq!(w.marker().as_deref(), Some("acc-1"));
+        assert_eq!(w.marker(), ["acc-1"]);
     }
 
     #[test]
@@ -322,6 +336,31 @@ mod tests {
         let e = w.run().result.unwrap_err();
         assert!(
             e.to_string().starts_with("Sign out the local account? "),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn a_parked_profile_that_cannot_be_dropped_warns_and_signs_out() {
+        let w = World::new();
+        w.keys.set("account_id", "not a profile id").unwrap();
+        let o = w.run();
+        o.result.unwrap();
+        assert_eq!(o.out, "Signed out.\n");
+        assert!(o.err.contains("warning"), "{}", o.err);
+        assert!(!w.stored().contains_key("account_id"));
+        assert_eq!(w.marker(), ["not a profile id"]);
+    }
+
+    #[test]
+    fn a_half_finished_logout_is_not_called_a_local_account() {
+        let mut w = World::new();
+        w.keys = MemKeys::with(&[("account_id", "acc-1")]);
+        w.yes = false;
+        let e = w.run().result.unwrap_err();
+        assert!(
+            e.to_string()
+                .starts_with("Sign out this device's Voltius account? "),
             "{e}"
         );
     }

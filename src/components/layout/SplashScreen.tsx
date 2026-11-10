@@ -59,12 +59,15 @@ function firstLaunchEnrollTarget(): EnrollTarget | undefined {
   return takeEnrollLink() ?? (machine ? { token: machine, source: "machine" } : undefined);
 }
 
-// `voltius-cli logout` can't reach this webview's storage, so it leaves the account id for the next launch.
-async function finishCliLogout(): Promise<void> {
-  const accountId = await invoke<string | null>("cli_logout_marker_take").catch(() => null);
-  if (!accountId) return;
+// `voltius-cli logout` can't reach this webview's storage, so it leaves the account ids for the next launch.
+// Persisted stores hydrated before this ran and would write the old account back: reload, as sign-out does.
+async function finishCliLogout(): Promise<boolean> {
+  const accountIds = await invoke<string[]>("cli_logout_marker_take").catch(() => []);
+  if (accountIds.length === 0) return false;
   await clearAccountUiState();
-  dropAccountUiState(accountId);
+  accountIds.forEach((id) => dropAccountUiState(id));
+  window.location.reload();
+  return true;
 }
 
 type UnlockPhase = "auth-locked" | "auth-unreadable" | "auth-first-launch";
@@ -108,7 +111,7 @@ export default function SplashScreen({ onReady }: Props) {
       watchPolicyVisibility();
       await usePolicyStore.getState().load();
       await adoptServerMove();
-      await finishCliLogout();
+      if (await finishCliLogout()) return;
       setStep("init", "done");
       setStep("vault", "running");
 

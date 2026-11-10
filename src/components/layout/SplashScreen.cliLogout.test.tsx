@@ -1,9 +1,12 @@
-import { test, expect, vi, afterEach } from "vitest";
+import { test, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({
-  marker: null as string | null,
+  marker: [] as string[],
   calls: [] as string[],
+  reload: vi.fn(() => {
+    h.calls.push("reload");
+  }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -51,17 +54,29 @@ vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
 
 import SplashScreen from "./SplashScreen";
 
+beforeEach(() => {
+  Object.defineProperty(window, "location", { value: { reload: h.reload }, writable: true, configurable: true });
+});
+
 afterEach(() => {
   cleanup();
-  h.marker = null;
+  h.marker = [];
   h.calls = [];
 });
 
 test("splash consumes the logout marker before autoLogin and clears account UI state", async () => {
-  h.marker = "acc-1";
+  h.marker = ["acc-1", "acc-2"];
   render(<SplashScreen onReady={() => {}} />);
-  expect(await screen.findByText("home")).toBeTruthy();
-  expect(h.calls).toEqual(["take", "clearAccountUiState", "dropAccountUiState acc-1", "autoLogin"]);
+  await vi.waitFor(() => expect(h.calls).toContain("reload"));
+  expect(h.calls).toEqual([
+    "take",
+    "clearAccountUiState",
+    "dropAccountUiState acc-1",
+    "dropAccountUiState acc-2",
+    "reload",
+  ]);
+  await new Promise((r) => setTimeout(r, 50));
+  expect(h.calls).not.toContain("autoLogin");
 });
 
 test("no marker → nothing cleared", async () => {
