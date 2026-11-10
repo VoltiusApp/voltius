@@ -71,8 +71,6 @@ export class FakeWebglAddon {
   dispose() {}
 }
 
-export class FakeWebLinksAddon {}
-
 /**
  * Records searches instead of running them — the real addon reports hits back
  * through `onDidChangeResults`, which a stub cannot do, so `searches` is the

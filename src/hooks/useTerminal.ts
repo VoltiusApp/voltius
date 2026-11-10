@@ -3,12 +3,12 @@ import { useEffect, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferLine, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { claimWebglRenderer } from "@/utils/webglAddon";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetOutputPaused, sshSetTerminalColors } from "@/services/ssh";
 import { createOutputFlow, type OutputFlow } from "@/components/terminal/outputFlow";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
+import { createWrappedLinkProvider } from "@/components/terminal/wrappedLinks";
 import { createCommandTracker, type CommandRegion, type CommandTracker } from "@/components/terminal/commandMarks";
 import { attachKeywordHighlighter, eraseRange, type KeywordHighlighter } from "@/components/terminal/keywordHighlighter";
 import { currentTerminalColors } from "@/utils/terminalColors";
@@ -84,7 +84,7 @@ function isHttpUrl(uri: string) {
 }
 
 // Single opener for every link path in a terminal: the regex matcher
-// (WebLinksAddon), OSC 8 hyperlinks (linkHandler), and the alt+click capture
+// (createWrappedLinkProvider), OSC 8 hyperlinks (linkHandler), and the alt+click capture
 // that runs while a TUI holds the mouse.
 function openTerminalLink(event: MouseEvent, uri: string) {
   if (!event.altKey || !isHttpUrl(uri)) return;
@@ -578,8 +578,11 @@ export function readTerminalSnapshot(sessionId: string, maxLines = 200): string 
  */
 export function readTerminalSelection(sessionId: string): string {
   const entry = terminalCache.get(sessionId);
-  if (!entry) return "";
-  return entry.terminal.getSelection();
+  return entry ? selectionOf(entry) : "";
+}
+
+function selectionOf(entry: CacheEntry): string {
+  return entry.clip?.selectionText() ?? entry.terminal.getSelection();
 }
 
 /** Test seam: replace the module-private terminal cache. Do not use in app code. */
@@ -605,7 +608,7 @@ export function getTerminalSearchController(sessionId: string): TerminalSearchCo
       const cur = entry.search.snapshot;
       const wasOpen = cur.open;
       // Only pre-fill from a single-line terminal selection on the first open.
-      const selection = entry.terminal.getSelection();
+      const selection = selectionOf(entry);
       const initialQuery =
         !wasOpen && selection && !selection.includes("\n") ? selection : cur.query;
       entry.search.snapshot = {
@@ -813,7 +816,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         linkTooltip.style.top = `${event.clientY + 12}px`;
       };
 
-      term.loadAddon(new WebLinksAddon(openTerminalLink, {
+      term.registerLinkProvider(createWrappedLinkProvider(term, openTerminalLink, {
         hover: showLinkTooltip,
         leave: hideLinkTooltip,
       }));

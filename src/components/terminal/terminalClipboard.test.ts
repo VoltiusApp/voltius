@@ -17,6 +17,8 @@ const platform = vi.hoisted(() => ({ os: "linux" }));
 vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatformSync: () => platform.os }));
 
 import { attachTerminalClipboard, type TerminalClipboardHandle } from "./terminalClipboard";
+import { fakeBuffer } from "./__fixtures__/fakeBuffer";
+import { TMUX_COLS, sideBySide } from "./__fixtures__/tmuxScreens";
 
 const MOVE = 32;
 const DOWN = 1;
@@ -32,12 +34,16 @@ interface Harness {
   appEvents: string[];
   selection: { text: string };
   clip: TerminalClipboardHandle;
-  report: (action: number) => void;
+  report: (action: number, ctrl?: boolean) => void;
+  reports: { action: number; ctrl?: boolean }[];
+  highlighted: () => { line: number; x: number; width: number }[];
+  nativeEnabled: () => boolean;
 }
 
 function harness(
   mouseTracking: "none" | "drag" = "drag",
   buffer: "normal" | "alternate" = "alternate",
+  screenRows?: string[],
 ): Harness {
   const container = document.createElement("div");
   const screen = document.createElement("div");
@@ -47,6 +53,7 @@ function harness(
   document.body.appendChild(container);
 
   const appEvents: string[] = [];
+  const reports: { action: number; ctrl?: boolean }[] = [];
   const selection = { text: "" };
   const _selectionService = {
     _enabled: false,
@@ -69,7 +76,11 @@ function harness(
       if (name === "NONE") _selectionService.enable();
       else _selectionService.disable();
     },
-    triggerMouseEvent(_e: { action: number }) { coreService.triggerDataEvent("report", true); return true; },
+    triggerMouseEvent(e: { action: number; ctrl?: boolean }) {
+      reports.push(e);
+      coreService.triggerDataEvent("report", true);
+      return true;
+    },
   };
 
   // Stand-in for xterm's own reporting listener: it forwards to the app only
@@ -85,9 +96,21 @@ function harness(
     if (coreMouseService.activeProtocol !== "NONE") appEvents.push("mouseup");
   });
 
+  const noop = () => ({ dispose() {} });
+  const decorations: { marker: { line: number; isDisposed: boolean }; x: number; width: number }[] = [];
   const term = {
     element: container,
-    buffer: { active: { type: buffer } },
+    cols: screenRows ? TMUX_COLS : 80,
+    rows: screenRows?.length ?? 24,
+    options: { theme: {} },
+    buffer: {
+      active: Object.assign(fakeBuffer(screenRows ?? [], TMUX_COLS), { type: buffer }),
+      onBufferChange: noop,
+    },
+    onKey: noop,
+    onResize: noop,
+    registerMarker: (line: number) => ({ line, isDisposed: false, dispose() { this.isDisposed = true; } }),
+    registerDecoration: (d: (typeof decorations)[number]) => { decorations.push(d); return undefined; },
     modes: { mouseTrackingMode: mouseTracking },
     getSelection: () => selection.text,
     clearSelection: () => { selection.text = ""; },
@@ -100,7 +123,10 @@ function harness(
   const clip = attachTerminalClipboard(term, container);
   return {
     term, container, screen, appEvents, selection, clip,
-    report: (action) => { coreMouseService.triggerMouseEvent({ action }); },
+    report: (action, ctrl) => { coreMouseService.triggerMouseEvent({ action, ctrl }); },
+    reports,
+    highlighted: () => decorations.filter((d) => !d.marker.isDisposed).map((d) => ({ line: d.marker.line, x: d.x, width: d.width })),
+    nativeEnabled: () => _selectionService._enabled,
     protocol: () => coreMouseService.activeProtocol,
     cleared: () => _selectionService.cleared,
   };
@@ -163,6 +189,15 @@ describe("drag-selects-text over an app holding the mouse", () => {
     press(h.screen, { ctrlKey: true });
     expect(h.protocol()).toBe("VT200");
     expect(h.appEvents).toEqual(["mousedown"]);
+  });
+
+  it("reports a Ctrl drag to the app as a plain drag, which tmux binds", () => {
+    const h = harness();
+    press(h.screen, { ctrlKey: true });
+    h.report(MOVE, true);
+    release({ ctrlKey: true });
+    h.report(DOWN, true);
+    expect(h.reports.map((r) => r.ctrl)).toEqual([false, true]);
   });
 
   it("does nothing when the toggle is off", () => {
@@ -260,6 +295,73 @@ describe("drag-selects-text over an app holding the mouse", () => {
   });
 });
 
+describe("selection inside a split tmux window", () => {
+  // The harness screen is 200x100 px over 60x14 cells.
+  const at = (col: number, row: number): MouseEventInit => ({
+    clientX: ((col + 0.5) * 200) / TMUX_COLS,
+    clientY: ((row + 0.5) * 100) / sideBySide.length,
+  });
+
+  it("keeps a drag that wanders into the next pane inside the pane it started in", async () => {
+    const h = harness("drag", "alternate", sideBySide);
+    press(h.screen, at(5, 2));
+    move(at(45, 4));
+    release(at(45, 4));
+    expect(h.highlighted()).toEqual([
+      { line: 2, x: 5, width: 25 },
+      { line: 3, x: 0, width: 30 },
+      { line: 4, x: 0, width: 30 },
+    ]);
+    expect(h.appEvents).toEqual([]);
+    expect(h.protocol()).toBe("VT200");
+    expect(h.nativeEnabled()).toBe(false);
+    await vi.waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("2\nleft 3\nleft 4"));
+  });
+
+  it("works the same when tmux leaves the mouse to the terminal", () => {
+    const h = harness("none", "alternate", sideBySide);
+    press(h.screen, at(31, 1));
+    move(at(55, 2));
+    release(at(55, 2));
+    expect(h.clip.selectionText()).toBe("right 1\nright 2");
+    expect(h.nativeEnabled()).toBe(true);
+  });
+
+  it("selects the pane's row on a triple click", () => {
+    const h = harness("drag", "alternate", sideBySide);
+    press(h.screen, { ...at(3, 6), detail: 3 });
+    release(at(3, 6));
+    expect(h.clip.selectionText()).toBe("left 6");
+  });
+
+  it("copies the pane selection with Ctrl+Shift+C and clears it on the next press", () => {
+    toggles.values = { "select-to-copy": false };
+    const h = harness("drag", "alternate", sideBySide);
+    press(h.screen, at(31, 0));
+    move(at(37, 0));
+    release(at(37, 0));
+    copyShortcut(h);
+    expect(writeClipboard).toHaveBeenCalledWith("right 0");
+    press(h.screen, at(31, 5));
+    expect(h.highlighted()).toEqual([]);
+  });
+
+  it("hands a click to tmux so it can focus the pane", () => {
+    const h = harness("drag", "alternate", sideBySide);
+    press(h.screen, at(40, 3));
+    release(at(40, 3));
+    expect(h.appEvents).toEqual(["mousedown", "mouseup"]);
+    expect(h.clip.selectionText()).toBe("");
+  });
+
+  it("leaves the whole-screen selection to Shift+drag", () => {
+    const h = harness("drag", "alternate", sideBySide);
+    press(h.screen, { ...at(5, 2), shiftKey: true });
+    move(at(45, 4));
+    expect(h.highlighted()).toEqual([]);
+  });
+});
+
 describe("against the real xterm", () => {
   it("does not count mouse motion reports as user input", async () => {
     const term = new Terminal({ allowProposedApi: true });
@@ -296,8 +398,12 @@ describe("paste", () => {
     else readClipboard.mockResolvedValueOnce(clipboard);
     const pasted: string[] = [];
     const pasteImage = vi.fn(async () => {});
+    const noop = () => ({ dispose() {} });
     const term = {
-      onSelectionChange: () => ({ dispose() {} }),
+      onSelectionChange: noop,
+      onKey: noop,
+      onResize: noop,
+      buffer: { onBufferChange: noop },
       paste: (text: string) => pasted.push(text),
       getSelection: () => "",
     } as unknown as Terminal;
