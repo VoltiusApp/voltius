@@ -76,38 +76,51 @@ mod tests {
         assert_eq!(app, Path::new("/opt/voltius").join(name));
     }
 
+    static SPAWN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    // A fork in a parallel test inherits a script's open write fd until exec, so running it fails with ETXTBSY.
+    fn serialized<T>(f: impl FnOnce() -> T) -> T {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        f()
+    }
+
+    #[cfg(unix)]
+    fn run_script(tag: &str, script: &str, args: &[OsString]) -> i32 {
+        use std::os::unix::fs::PermissionsExt;
+        serialized(|| {
+            let dir =
+                std::env::temp_dir().join(format!("voltius-cli-{tag}-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let app = dir.join("voltius");
+            std::fs::write(&app, script).unwrap();
+            std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).unwrap();
+            let code = run(&app, args);
+            std::fs::remove_dir_all(&dir).unwrap();
+            code
+        })
+    }
+
     #[cfg(unix)]
     #[test]
     fn forwards_exit_code_and_marker() {
-        use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!("voltius-cli-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let app = dir.join("voltius");
-        std::fs::write(
-            &app,
-            "#!/bin/sh\n[ \"$1\" = __voltius_cli ] && [ \"$2\" = x ] && exit 7\nexit 1\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert_eq!(run(&app, &[OsString::from("x")]), 7);
-        std::fs::remove_dir_all(&dir).unwrap();
+        let script = "#!/bin/sh\n[ \"$1\" = __voltius_cli ] && [ \"$2\" = x ] && exit 7\nexit 1\n";
+        assert_eq!(run_script("exit", script, &[OsString::from("x")]), 7);
     }
 
     #[cfg(unix)]
     #[test]
     fn signal_exit_is_128_plus_signal() {
-        use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!("voltius-cli-sig-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let app = dir.join("voltius");
-        std::fs::write(&app, "#!/bin/sh\nkill -TERM $$\n").unwrap();
-        std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert_eq!(run(&app, &[]), 128 + 15);
-        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            run_script("sig", "#!/bin/sh\nkill -TERM $$\n", &[]),
+            128 + 15
+        );
     }
 
     #[test]
     fn missing_app_is_exit_5() {
-        assert_eq!(run(Path::new("/nonexistent/voltius"), &[]), 5);
+        assert_eq!(
+            serialized(|| run(Path::new("/nonexistent/voltius"), &[])),
+            5
+        );
     }
 }
