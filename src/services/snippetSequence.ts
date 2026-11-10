@@ -21,7 +21,7 @@ import { waitForConnectedSessionIds } from "@/components/shared/sessionPickerTar
 import i18n from "@/i18n";
 import type { Snippet, Connection, TerminalSession } from "@/types";
 import type { ParsedVariable, DynamicContext } from "./snippetParser";
-import { isFileOnlyProtocol } from "@/utils/connectionType";
+import { isFileOnlyProtocol, isWebProtocol } from "@/utils/connectionType";
 
 type TransferStep = Extract<LeafStep, { kind: "transfer" }>;
 
@@ -210,7 +210,7 @@ export async function resolveTerminalTargets(
 ): Promise<{ resolutions: TerminalResolution[]; openedSessionIds: string[] }> {
   const connectable = targets.filter(
     (t): t is Extract<RunTarget, { kind: "connection" }> =>
-      t.kind === "connection" && !isFileOnlyProtocol(t.connection),
+      t.kind === "connection" && !isFileOnlyProtocol(t.connection) && !isWebProtocol(t.connection),
   );
   if (connectable.length === 0) {
     return {

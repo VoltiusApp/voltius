@@ -11,5 +11,8 @@ export function connectionDisplayName(c: {
   if (c.connection_type === "serial") {
     return c.name?.trim() || c.serial_port || i18n.t("common.serialDevice");
   }
+  if (c.connection_type === "web") {
+    return c.name?.trim() || `${c.host ?? ""}:${c.port ?? ""}`;
+  }
   return c.name?.trim() || `${c.username ?? ""}@${c.host ?? ""}:${c.port ?? ""}`;
 }

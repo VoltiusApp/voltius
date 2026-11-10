@@ -35,6 +35,8 @@
       "disableReachability": "Vypnout kontrolu dostupnosti",
       "connectTitle": "Připojit (také dvojklikem)",
       "openFilesTitle": "Otevřít soubory (také dvojklikem)",
+      "openWebTitle": "Otevřít web (také dvojklikem)",
+      "openWebWindow": "Otevřít v samostatném okně",
       "inUseBy": "Používá {{name}}",
       "inUseByOverflow_one": "Používá {{name}} a {{count}} další",
       "inUseByOverflow_few": "Používá {{name}} a {{count}} další",

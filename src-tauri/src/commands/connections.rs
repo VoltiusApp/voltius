@@ -69,6 +69,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
         webdav_url: data.webdav_url,
+        web_secure: data.web_secure,
         notes: data.notes,
         created_at: existing.created_at.clone(),
         last_used_at: existing.last_used_at.clone(),
@@ -129,7 +130,7 @@ connection_clocks! {
         terminal_encoding, distro, icon, ping_disabled,
         shell_integration, keepalive_preset, persist_session, proxy, port_knock, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
-        serial_auto_reconnect, ftp_secure, webdav_url,
+        serial_auto_reconnect, ftp_secure, webdav_url, web_secure,
         notes,
     ],
     by_id: [jump_hosts, env_vars],
@@ -208,6 +209,7 @@ fn build_connection(
         serial_auto_reconnect: data.serial_auto_reconnect,
         ftp_secure: data.ftp_secure,
         webdav_url: data.webdav_url,
+        web_secure: data.web_secure,
         notes: data.notes,
         clocks,
     }
@@ -371,6 +373,7 @@ mod tests {
             serial_auto_reconnect: Some(true),
             ftp_secure: false,
             webdav_url: None,
+            web_secure: false,
             notes: Some("orig note".into()),
             updated_at: "2026-01-01T00:00:00Z".into(),
             deleted_at: None,
@@ -441,6 +444,7 @@ mod tests {
             serial_auto_reconnect: Some(false),
             ftp_secure: true,
             webdav_url: Some("https://dav.example.com/".into()),
+            web_secure: true,
             notes: Some("new note".into()),
         }
     }
@@ -647,7 +651,7 @@ mod tests {
     }
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes (39 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
+    /// changes (40 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
     /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`, `port_knock`;
     /// `pinned` is excluded as device-local).
     /// Since Phase 1, create-time init and update-time bump both derive from the
@@ -701,11 +705,12 @@ mod tests {
             "terminal_encoding",
             "username",
             "vault_id",
+            "web_secure",
             "webdav_url",
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 39);
+        assert_eq!(keys.len(), 40);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -725,6 +730,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 39);
+        assert_eq!(seeded.len(), 40);
     }
 }

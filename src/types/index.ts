@@ -114,7 +114,7 @@ export interface ProxyOverride {
   username?: string;
 }
 
-export type ConnectionType = "ssh" | "serial" | "ftp" | "webdav";
+export type ConnectionType = "ssh" | "serial" | "ftp" | "webdav" | "web";
 
 export interface Connection {
   id: string;
@@ -151,6 +151,7 @@ export interface Connection {
   connection_type?: ConnectionType;
   ftp_secure?: boolean;
   webdav_url?: string;
+  web_secure?: boolean;
   port_knock?: PortKnockSettings;
   notes?: string;
   serial_port?: string;
@@ -197,6 +198,7 @@ export interface ConnectionFormData {
   connection_type?: ConnectionType;
   ftp_secure?: boolean;
   webdav_url?: string;
+  web_secure?: boolean;
   port_knock?: PortKnockSettings;
   notes?: string;
   serial_port?: string;
@@ -261,7 +263,7 @@ export interface TerminalSession {
    * session came from restore/join). Reconnects then attach-only — they must
    * never recreate a dead session; only a fresh initial connect creates. */
   everConnected?: boolean;
-  type: "ssh" | "local" | "multiplayer" | "serial";
+  type: "ssh" | "local" | "multiplayer" | "serial" | "web";
   errorMessage?: string;
   /** Set when the failure was the vault itself, so the overlay can offer to unlock
    * rather than ask for credentials. The message is translated and cannot be matched. */
@@ -282,6 +284,10 @@ export interface TerminalSession {
   /** Serial only: port typed at quick-connect time, prefilled into the config overlay. */
   initialSerialPort?: string;
   containerExec?: ContainerExec;
+  /** Web only: the page the tab shows. */
+  webUrl?: string;
+  /** Web only: the page's icon as a `data:` URL, once fetched. */
+  webIcon?: string;
 }
 
 export type ContainerExec =

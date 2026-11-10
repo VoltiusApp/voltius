@@ -43,6 +43,7 @@ pub mod uploads;
 pub mod vault;
 pub mod vault_object;
 pub mod vault_secret;
+pub mod web_host;
 pub mod win_proc;
 pub mod wsl;
 pub mod zoc;

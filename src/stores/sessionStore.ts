@@ -35,7 +35,8 @@ import { cancelBackoff, isSessionEnded, type ReconnectAttemptResult, type Reconn
 import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
 import { notifyError } from "@/utils/notifyError";
-import { isFileOnlyProtocol } from "@/utils/connectionType";
+import { isFileOnlyProtocol, isWebProtocol, webUrl } from "@/utils/connectionType";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 /** `background: true` opens the session without taking the user's active tab. */
 export type OpenOptions = { background?: boolean };
@@ -79,6 +80,7 @@ interface SessionStore {
   markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
   /** Name a tab. A blank name clears it, so the tab falls back to the connection. */
   renameSession: (sessionId: string, title: string | null) => void;
+  setWebIcon: (sessionId: string, icon: string) => void;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -538,17 +540,45 @@ async function materializeSavedConnection(
   return target;
 }
 
+/** A web host's page, in a tab: an open one is brought forward instead of opening a second. */
+function openWebSession(set: SessionSetter, connection: Connection) {
+  const existing = useSessionStore.getState().sessions.find((s) => s.type === "web" && s.connectionId === connection.id);
+  if (existing) {
+    set(() => ({ activeSessionId: existing.id }));
+    useLayoutStore.getState().setSplitTabActive(false);
+    return;
+  }
+  addSession(set, {
+    id: crypto.randomUUID(),
+    connectionId: connection.id,
+    connectionName: connectionDisplayName(connection),
+    status: "connected",
+    type: "web",
+    webUrl: webUrl(connection),
+  });
+}
+
+/** Hosts without a terminal open their own view instead of an SSH session: FTP/WebDAV hosts the file
+ *  browser, web hosts (HTTP/HTTPS) a tab with their page. False when the host has a terminal. */
+function openWithoutTerminal(set: SessionSetter, connection: Connection): boolean {
+  if (isFileOnlyProtocol(connection)) {
+    useUIStore.getState().openSftpWith(connection.id);
+    return true;
+  }
+  if (isWebProtocol(connection)) {
+    openWebSession(set, connection);
+    return true;
+  }
+  return false;
+}
+
 function beginConnection(set: SessionSetter, connectionId: string, initialCwd?: string): string {
   const connection = findConnection(connectionId);
   if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
   const sessionId = crypto.randomUUID();
 
-  // File-only hosts (FTP, WebDAV) have no terminal — open the file browser instead.
-  if (isFileOnlyProtocol(connection)) {
-    useUIStore.getState().openSftpWith(connectionId);
-    return sessionId;
-  }
+  if (openWithoutTerminal(set, connection)) return sessionId;
 
   if (connection.connection_type === "serial") {
     const serialParams = createSerialSession(set, connection, sessionId);
@@ -577,11 +607,7 @@ async function connectConnection(
 
   const sessionId = crypto.randomUUID();
 
-  // File-only hosts (FTP, WebDAV) have no terminal — open the file browser instead.
-  if (isFileOnlyProtocol(connection)) {
-    useUIStore.getState().openSftpWith(connectionId);
-    return sessionId;
-  }
+  if (openWithoutTerminal(set, connection)) return sessionId;
 
   if (connection.connection_type === "serial") {
     await startSerialSession(set, connection, sessionId, options);
@@ -819,7 +845,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           await serialDisconnect(sessionId).catch(() => {});
         }
       })();
-    } else {
+    } else if (session?.type !== "web") {
       const connection = session?.connectionId ? findConnection(session.connectionId) : undefined;
       const persist = !!session?.persist;
       const wasAttached = session?.status === "connected";
@@ -885,6 +911,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId ? { ...sess, title: normalizeTabTitle(title) } : sess,
       ),
+    })),
+
+  setWebIcon: (sessionId, icon) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, webIcon: icon } : sess)),
     })),
 
   markDisconnected: (sessionId) => markSessionDisconnected(set, sessionId),

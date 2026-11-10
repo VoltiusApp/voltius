@@ -86,10 +86,10 @@ type Props = ConnectionFormProps & MobileEditFormProps & {
   hideChrome?: boolean;
 };
 
-type Protocol = "ssh" | "ftp" | "webdav";
-const DEFAULT_PORT: Record<Exclude<Protocol, "webdav">, number> = { ssh: 22, ftp: 21 };
-const DEFAULT_USERNAME: Record<Protocol, string> = { ssh: "root", ftp: "", webdav: "" };
-const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || type === "webdav" ? type : "ssh");
+type Protocol = "ssh" | "ftp" | "webdav" | "web";
+const DEFAULT_PORT: Record<Exclude<Protocol, "webdav">, number> = { ssh: 22, ftp: 21, web: 443 };
+const DEFAULT_USERNAME: Record<Protocol, string> = { ssh: "root", ftp: "", webdav: "", web: "" };
+const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || type === "webdav" || type === "web" ? type : "ssh");
 
 const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, revealErrors, onBlockedChange, onMoveToVault, onCopyToVault, readOnly }, ref) {
   const { t } = useTranslation();
@@ -102,8 +102,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [username, setUsername] = useState(initial?.username ?? DEFAULT_USERNAME[protocol]);
   const [ftpSecure, setFtpSecure] = useState(initial?.ftp_secure ?? false);
   const [webdavUrl, setWebdavUrl] = useState(initial?.webdav_url ?? "");
+  const [webSecure, setWebSecure] = useState(initial?.web_secure ?? true);
   const isFtp = protocol === "ftp";
   const isWebdav = protocol === "webdav";
+  const isWeb = protocol === "web";
   const fileOnly = protocol !== "ssh";
   const webdavTarget = isWebdav ? parseWebdavUrl(webdavUrl) : null;
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
@@ -231,7 +233,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         data: {
           name: name.trim() || undefined,
           host: webdavTarget?.host ?? host,
-          port: webdavTarget?.port ?? (port || DEFAULT_PORT.ftp),
+          port: webdavTarget?.port ?? (port || (isWeb ? (webSecure ? 443 : 80) : DEFAULT_PORT.ftp)),
           username,
           auth_type: "password",
           tags,
@@ -239,7 +241,11 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           vault_id: resolveVaultIdForSave(vaultId),
           icon,
           connection_type: protocol,
-          ...(isFtp ? { ftp_secure: ftpSecure } : { webdav_url: webdavTarget?.url, proxy: proxyOverride ?? undefined }),
+          ...(isFtp
+            ? { ftp_secure: ftpSecure }
+            : isWeb
+              ? { web_secure: webSecure }
+              : { webdav_url: webdavTarget?.url, proxy: proxyOverride ?? undefined }),
           notes: normalizeNotes(notes),
         } as ConnectionFormData,
         secrets: {
@@ -311,7 +317,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, portKnock, knockSteps, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, portKnock, knockSteps, notes]);
 
   // Left on, a switch whose sequence the server refused fails every teammate's connect.
   useEffect(() => {
@@ -548,6 +554,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   { value: "ssh", label: t("connections.form.protocolSsh") },
                   { value: "ftp", label: t("connections.form.protocolFtp") },
                   { value: "webdav", label: t("connections.form.protocolWebdav") },
+                  { value: "web", label: t("connections.form.protocolWeb") },
                 ]}
                 onChange={(v) => {
                   markDirty();
@@ -613,6 +620,18 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                 </LockedField>
               </div>
             )}
+            {isWeb && (
+              <SettingRow icon="lucide:shield" label={t("connections.form.httpsToggle")}>
+                <Toggle
+                  checked={webSecure}
+                  onChange={(v) => {
+                    markDirty();
+                    setWebSecure(v);
+                    setPort((p) => (p === 80 || p === 443 ? (v ? 443 : 80) : p));
+                  }}
+                />
+              </SettingRow>
+            )}
             {isWebdav && proxyFields}
             {!fileOnly && (<>
             <AdvancedDisclosure
@@ -672,6 +691,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             </>)}
           </FormSection>
 
+          {!isWeb && (
           <FormSection label={fileOnly ? t("connections.form.sectionCredentials") : t("connections.form.sectionIdentity")}>
             {!fileOnly && (
             <LockedField
@@ -795,6 +815,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
             {initial && !fileOnly && <YouConnectAsRow connection={initial} credential={credential} />}
           </FormSection>
+          )}
           </ReadOnlyFields>
 
           <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={readOnly} />

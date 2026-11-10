@@ -73,6 +73,7 @@ import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -614,7 +615,7 @@ export function SnippetsPage() {
     const allSessions = useSessionStore.getState().sessions;
     const targetSessions = sessionIds
       .map((id) => allSessions.find((s) => s.id === id))
-      .filter((s) => s && s.type !== "multiplayer") as typeof allSessions;
+      .filter((s) => s && acceptsTerminalInput(s)) as typeof allSessions;
     if (targetSessions.length === 0) return;
 
     // The prompt goes to the global modal: the session picker navigates to the

@@ -8,6 +8,7 @@ import { broadcastSnippetInject } from "@/services/snippetInject";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { formatRelative } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 
 function HistoryRow({
   entry,
@@ -118,7 +119,7 @@ export function HistoryPanel() {
   const [filterCurrent, setFilterCurrent] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const canInject = !!activeSession && activeSession.type !== "multiplayer";
+  const canInject = !!activeSession && acceptsTerminalInput(activeSession);
 
   useEffect(() => {
     const focus = () => { searchRef.current?.focus(); searchRef.current?.select(); };
@@ -139,7 +140,7 @@ export function HistoryPanel() {
   }, [entries, query, filterCurrent, activeSession]);
 
   async function inject(text: string, execute: boolean) {
-    if (!activeSession || activeSession.type === "multiplayer") return;
+    if (!activeSession || !acceptsTerminalInput(activeSession)) return;
     try {
       await broadcastSnippetInject([activeSession], text, execute);
     } catch (e) {

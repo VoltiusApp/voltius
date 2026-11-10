@@ -47,6 +47,7 @@ mod terminal_output;
 mod tls;
 mod updater;
 mod vault_auth;
+mod web_proxy;
 mod webdav;
 
 use commands::http::HttpSseStreamManager;
@@ -278,6 +279,7 @@ pub fn run() {
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
             app.manage(Arc::new(mcp::McpState::new()));
+            app.manage(web_proxy::WebProxies::default());
             network_watch::start(app.handle().clone());
 
             #[cfg(all(desktop, not(debug_assertions)))]
@@ -331,6 +333,10 @@ pub fn run() {
             commands::connections::connection_delete,
             commands::connections::connection_set_distro,
             commands::connections::connection_set_last_used,
+            commands::web_host::web_host_open,
+            commands::web_host::web_pane_sync,
+            commands::web_host::web_pane_close,
+            commands::web_host::web_favicon,
             commands::folders::folder_list,
             commands::folders::folder_save,
             commands::folders::folder_update,

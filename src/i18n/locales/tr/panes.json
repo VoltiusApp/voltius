@@ -4,7 +4,8 @@
       "ssh": "SSH",
       "serial": "SERİ",
       "multiplayer": "MPX",
-      "local": "YEREL"
+      "local": "YEREL",
+      "web": "WEB"
     },
     "header": {
       "copied": "Kopyalandı!",

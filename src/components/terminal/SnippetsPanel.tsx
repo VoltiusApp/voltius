@@ -33,6 +33,7 @@ import { itemsInFolderSubtree } from "@/utils/folderTree";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import type { Snippet, Folder, SnippetFormData, FolderFormData } from "@/types";
 import type { Connection } from "@/types";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -317,7 +318,7 @@ export function SnippetsPanel() {
     return () => window.removeEventListener("voltius:focus-panel-search", focus);
   }, []);
 
-  const canInject = !!activeSession && activeSession.type !== "multiplayer";
+  const canInject = !!activeSession && acceptsTerminalInput(activeSession);
 
   const allFiltered = snippets.filter(snippetMatcher(query));
 
@@ -328,13 +329,13 @@ export function SnippetsPanel() {
   }
 
   async function inject(text: string, execute: boolean) {
-    if (!activeSession || activeSession.type === "multiplayer") return;
+    if (!activeSession || !acceptsTerminalInput(activeSession)) return;
     try { await broadcastSnippetInject([activeSession], text, execute); }
     catch (e) { console.error("snippet inject failed:", e); }
   }
 
   async function handleTrigger(snippet: Snippet, execute: boolean) {
-    if (!activeSession || activeSession.type === "multiplayer") return;
+    if (!activeSession || !acceptsTerminalInput(activeSession)) return;
     trackUsed(snippet.id);
 
     if (snippet.steps.some((s) => s.kind !== "script")) {
