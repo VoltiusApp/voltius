@@ -2,7 +2,7 @@ use crate::app_lock::AppLock;
 use crate::storage::config::config_dir;
 use crate::storage::profile::{self, ProfileDirs};
 use crate::storage::secrets::{SecretsStore, SECRETS_FILE};
-use crate::storage::vault;
+use crate::storage::vault::{self, VAULT_HOLD_FILE};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
@@ -17,12 +17,22 @@ pub fn vault_status(app: AppHandle) -> serde_json::Value {
 
 #[tauri::command]
 pub fn vault_reset(app: AppHandle) -> Result<(), String> {
-    // Delete legacy Stronghold vault if still present
-    let vault_hold = vault::vault_file_path(&app);
-    if vault_hold.exists() {
-        std::fs::remove_file(&vault_hold).ok();
-    }
+    let data = data_dir(&app)?;
+    remove_legacy_vault_hold(&data);
     wipe_secrets_and_config(&app)
+}
+
+fn remove_legacy_vault_hold(data_dir: &Path) {
+    let _ = std::fs::remove_file(data_dir.join(VAULT_HOLD_FILE));
+}
+
+pub fn reset_local_vault(data_dir: &Path, config_dir: &Path) -> Result<(), String> {
+    remove_legacy_vault_hold(data_dir);
+    wipe(&data_dir.join(SECRETS_FILE), config_dir, None)
+}
+
+pub fn drop_parked_profile(data_dir: &Path, account_id: &str) -> Result<(), String> {
+    profile::drop_parked(&data_dir.join(PARKED_DIR), account_id)
 }
 
 const PARKED_DIR: &str = "accounts";
@@ -180,13 +190,56 @@ pub fn account_profile_swap(
 
 #[tauri::command]
 pub fn account_profile_drop(app: AppHandle, account_id: String) -> Result<(), String> {
-    profile::drop_parked(&data_dir(&app)?.join(PARKED_DIR), &account_id)
+    drop_parked_profile(&data_dir(&app)?, &account_id)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::app_lock::LockKind;
+
+    #[test]
+    fn app_data_dir_matches_tauri_identifier() {
+        assert_eq!(
+            crate::storage::config::app_data_dir().unwrap(),
+            dirs::data_dir()
+                .unwrap()
+                .join(crate::storage::config::APP_IDENTIFIER)
+        );
+    }
+
+    #[test]
+    fn reset_local_vault_removes_secrets_hold_and_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("data");
+        let config = dir.path().join("voltius");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::write(data.join(SECRETS_FILE), "x").unwrap();
+        std::fs::write(data.join(VAULT_HOLD_FILE), "x").unwrap();
+        std::fs::write(config.join("app-lock"), "vault").unwrap();
+
+        reset_local_vault(&data, &config).unwrap();
+
+        assert!(!data.join(SECRETS_FILE).exists());
+        assert!(!data.join(VAULT_HOLD_FILE).exists());
+        assert!(!config.exists());
+    }
+
+    #[test]
+    fn reset_local_vault_on_empty_dirs_is_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        reset_local_vault(&dir.path().join("a"), &dir.path().join("b")).unwrap();
+    }
+
+    #[test]
+    fn drop_parked_profile_removes_the_parked_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let parked = dir.path().join(PARKED_DIR).join("acc");
+        std::fs::create_dir_all(&parked).unwrap();
+        drop_parked_profile(dir.path(), "acc").unwrap();
+        assert!(!parked.exists());
+    }
 
     #[test]
     fn a_wipe_removes_secrets_config_and_the_lock() {

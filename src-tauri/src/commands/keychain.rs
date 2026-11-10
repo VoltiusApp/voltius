@@ -4,10 +4,16 @@ use keyring_core::Entry;
 /// (e.g. "voltius-2") so multiple simultaneous instances (dev:2) each
 /// get an isolated keychain namespace without interfering with each other.
 pub(crate) fn service() -> String {
-    match std::env::var("VOLTIUS_KEYCHAIN_NS") {
-        Ok(ns) if !ns.is_empty() => format!("voltius-{ns}"),
-        _ => "voltius".to_string(),
+    match namespace() {
+        Some(ns) => format!("voltius-{ns}"),
+        None => "voltius".to_string(),
     }
+}
+
+pub(crate) fn namespace() -> Option<String> {
+    std::env::var("VOLTIUS_KEYCHAIN_NS")
+        .ok()
+        .filter(|ns| !ns.is_empty())
 }
 
 pub(crate) fn entry(key: &str) -> keyring_core::Result<Entry> {
@@ -19,6 +25,18 @@ pub(crate) fn read(key: &str) -> keyring_core::Result<Option<String>> {
     match entry(key)?.get_password() {
         Ok(val) => Ok(Some(val)),
         Err(keyring_core::Error::NoEntry) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
+pub(crate) fn write(key: &str, value: &str) -> keyring_core::Result<()> {
+    entry(key)?.set_password(value)
+}
+
+/// A missing entry counts as removed.
+pub(crate) fn remove(key: &str) -> keyring_core::Result<()> {
+    match entry(key)?.delete_credential() {
+        Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
         Err(err) => Err(err),
     }
 }
@@ -49,22 +67,11 @@ pub async fn keychain_get(key: String) -> Result<Option<String>, String> {
 #[tauri::command]
 pub async fn keychain_set(key: String, value: String) -> Result<(), String> {
     guard(&key)?;
-    off_main(move || {
-        entry(&key)
-            .and_then(|e| e.set_password(&value))
-            .map_err(|e| format!("Keychain write error: {e}"))
-    })
-    .await
+    off_main(move || write(&key, &value).map_err(|e| format!("Keychain write error: {e}"))).await
 }
 
 #[tauri::command]
 pub async fn keychain_delete(key: String) -> Result<(), String> {
     guard(&key)?;
-    off_main(
-        move || match entry(&key).and_then(|e| e.delete_credential()) {
-            Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
-            Err(err) => Err(format!("Keychain delete error: {err}")),
-        },
-    )
-    .await
+    off_main(move || remove(&key).map_err(|e| format!("Keychain delete error: {e}"))).await
 }

@@ -63,8 +63,8 @@ async function keychainDelete(key: string): Promise<void> {
  * one value, saving the second account failed, the failure was swallowed, and
  * the account silently never joined the switcher.
  */
-const INDEX_KEY = "voltius.saved_accounts";
-const ENTRY_PREFIX = "voltius.saved_account.";
+export const INDEX_KEY = "voltius.saved_accounts";
+export const ENTRY_PREFIX = "voltius.saved_account.";
 
 const entryKey = (account_id: string) => `${ENTRY_PREFIX}${account_id}`;
 

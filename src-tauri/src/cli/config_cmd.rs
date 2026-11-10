@@ -96,11 +96,8 @@ fn get(key: &str, machine: Option<&Path>, dir: &Path, out: &mut Output) -> Resul
     if policy::key_type(key).is_none() {
         return Err(plain(IssueKind::UnknownKey, unknown_key_message(key)));
     }
-    let row = effective_row(&machine_doc(machine), dir, key).ok_or_else(|| {
-        CliError::Io(std::io::Error::other(
-            "Voltius has not run yet for this user",
-        ))
-    })?;
+    let row = effective_row(&machine_doc(machine), dir, key)
+        .ok_or_else(|| CliError::io("Voltius has not run yet for this user"))?;
     print_row(key, &row, out);
     Ok(())
 }
@@ -151,6 +148,7 @@ fn import(
 mod tests {
     use super::*;
     use crate::cli::output::testing::{capture, captured};
+    use crate::cli::testing::ctx;
     use crate::cli_state::{mirror, pending};
     use serde_json::json;
 
@@ -173,12 +171,7 @@ mod tests {
         json: bool,
     ) -> (Result<(), CliError>, String) {
         let (mut out, buf) = capture(json);
-        let mut ctx = Ctx {
-            out: &mut out,
-            yes: true,
-            interactive: false,
-        };
-        let r = run_config(cmd, machine, dir, &mut ctx);
+        let r = run_config(cmd, machine, dir, &mut ctx(&mut out, true));
         (r, captured(&buf))
     }
 

@@ -1,5 +1,6 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { authAnswer, routeAuthCommand, type AuthAnswers } from "@/test/authCommandRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -11,6 +12,7 @@ const h = vi.hoisted(() => ({
   push: vi.fn(async () => undefined),
   store: {} as Record<string, string | null>,
   http: {} as Record<string, { ok: boolean; status: number; body?: unknown }>,
+  auth: {} as AuthAnswers,
   dek: null as number[] | null,
   x25519: null as number[] | null,
 }));
@@ -57,6 +59,8 @@ function routeInvoke() {
     if (vs.handled) {
       return vs.value;
     }
+    const auth = routeAuthCommand(h.auth, cmd);
+    if (auth.handled) return auth.value;
     switch (cmd) {
       case "keychain_get":
         return h.store[args.key as string] ?? null;
@@ -106,6 +110,7 @@ beforeEach(() => {
   for (const m of [h.invoke, h.appFetch, h.setVaultKey, h.wipeLocalConfig, h.load, h.keysSet, h.push]) m.mockReset();
   h.store = {};
   h.http = {};
+  h.auth = {};
   h.dek = null;
   h.x25519 = null;
   routeInvoke();
@@ -147,7 +152,7 @@ test("login server-success unwraps the dek and sets it as the vault key", async 
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
 
   await login("pw");
 
@@ -167,7 +172,7 @@ test("login migrates a legacy account (no wrapped secrets) and adopts the new de
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS }); // no wrapped_user_secrets → migration
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS }); // no wrapped_user_secrets → migration
   h.http["/auth/wrapped-user-secrets"] = ok();
 
   await login("pw");
@@ -187,7 +192,7 @@ test("login migration falls back to the kek when the upload fails", async () => 
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS });
   h.http["/auth/wrapped-user-secrets"] = err(500);
 
   await login("pw");
@@ -202,8 +207,8 @@ test("login migration falls back to the kek when the upload fails", async () => 
 // ─── signInToCloud (no wrapped secrets → fall back to kek) ────────────────────
 
 test("signInToCloud without wrapped secrets uses the kek as the vault key", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = ok({ ...TOKENS }); // no wrapped_user_secrets
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS }); // no wrapped_user_secrets
 
   await signInToCloud("a@b.co", "pw", S);
 

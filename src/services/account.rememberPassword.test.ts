@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
+import { authAnswer, routeAuthCommand, type AuthAnswers } from "@/test/authCommandRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -9,6 +10,7 @@ const h = vi.hoisted(() => ({
   sessionKey: null as number[] | null,
   store: {} as Record<string, string | null>,
   http: {} as Record<string, { ok: boolean; status: number; body?: unknown }>,
+  auth: {} as AuthAnswers,
   dek: null as number[] | null,
   x25519: null as number[] | null,
 }));
@@ -65,6 +67,8 @@ function routeInvoke() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
     const vs = routeVaultSecret(h.store, cmd, args);
     if (vs.handled) return vs.value;
+    const auth = routeAuthCommand(h.auth, cmd);
+    if (auth.handled) return auth.value;
     switch (cmd) {
       case "keychain_get":
         return h.store[args.key as string] ?? null;
@@ -108,6 +112,7 @@ beforeEach(() => {
   for (const m of [h.invoke, h.appFetch, h.setVaultKey]) m.mockReset();
   h.store = {};
   h.http = {};
+  h.auth = {};
   h.sessionKey = null;
   h.dek = null;
   h.x25519 = null;
@@ -163,7 +168,7 @@ describe("Remember master password off: no plain copy on any path", () => {
 
   test("signing in again on a cloud account", async () => {
     Object.assign(h.store, { account_id: "acc", mode: "server", email: "a@b.co", server_url: S });
-    h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+    h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
     await login("pw");
     expect(h.store.jwt).toBe("JWT");
     expect(plainCopies("pw")).toEqual([]);
@@ -171,8 +176,8 @@ describe("Remember master password off: no plain copy on any path", () => {
 
   test("signing this device in to a cloud account (session takeover)", async () => {
     h.store.master_password = "the local account's password";
-    h.http["/auth/challenge"] = ok({ account_id: "acc" });
-    h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+    h.auth.auth_challenge = authAnswer.accountId("acc");
+    h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
     await signInToCloud("a@b.co", "pw", S);
     expect(h.store.mode).toBe("server");
     expect(h.store.master_password).toBeUndefined();

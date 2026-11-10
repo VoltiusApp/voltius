@@ -79,16 +79,28 @@ pub(super) fn run_server(
     }
 }
 
+fn current(dir: &Path) -> Option<String> {
+    mirror::read(dir).and_then(|m| m.server_url)
+}
+
+fn queued(dir: &Path) -> Option<String> {
+    pending::load(dir)
+        .0
+        .queued_values()
+        .remove(KEY)
+        .and_then(|(v, _)| v.as_str().map(str::to_string))
+}
+
+/// The server the app's next sign-in starts from: one queued by `server set`, else the app's last one.
+pub(super) fn user_server(dir: &Path) -> Option<String> {
+    queued(dir).or_else(|| current(dir))
+}
+
 fn show(machine: Option<&Path>, dir: &Path, out: &mut Output) -> Result<(), CliError> {
     let doc = machine_doc(machine);
     let locked = doc.policy.get(KEY).cloned();
     let default = doc.defaults.get(KEY).cloned();
-    let current = mirror::read(dir).and_then(|m| m.server_url);
-    let queued = pending::load(dir)
-        .0
-        .queued_values()
-        .remove(KEY)
-        .and_then(|(v, _)| v.as_str().map(str::to_string));
+    let (current, queued) = (current(dir), queued(dir));
     if out.json {
         out.json(&json!({
             "locked": locked,
@@ -111,6 +123,7 @@ fn show(machine: Option<&Path>, dir: &Path, out: &mut Output) -> Result<(), CliE
 mod tests {
     use super::*;
     use crate::cli::output::testing::{capture, captured};
+    use crate::cli::testing::ctx;
 
     fn run(
         cmd: ServerCmd,
@@ -119,12 +132,7 @@ mod tests {
         json: bool,
     ) -> (Result<(), CliError>, String) {
         let (mut out, buf) = capture(json);
-        let mut ctx = Ctx {
-            out: &mut out,
-            yes: true,
-            interactive: false,
-        };
-        let r = run_server(cmd, machine, dir, &mut ctx);
+        let r = run_server(cmd, machine, dir, &mut ctx(&mut out, true));
         (r, captured(&buf))
     }
 

@@ -1,6 +1,7 @@
 use super::{CliError, Ctx};
-use std::io::BufRead;
 use std::path::PathBuf;
+
+pub(super) const CANCELLED: &str = "Nothing changed.";
 
 #[cfg(unix)]
 pub fn is_system_account() -> bool {
@@ -46,10 +47,28 @@ fn system_account_hint(command: &str) -> String {
 }
 
 pub fn require_user_account(command: &str) -> Result<PathBuf, CliError> {
-    if is_system_account() {
-        return Err(CliError::Usage(system_account_hint(command)));
+    require_account_as(is_system_account(), command)
+}
+
+fn refuse_system(system: bool, hint: impl FnOnce() -> String) -> Result<(), CliError> {
+    if system {
+        return Err(CliError::Usage(hint()));
     }
+    Ok(())
+}
+
+pub(super) fn require_account_as(system: bool, command: &str) -> Result<PathBuf, CliError> {
+    refuse_system(system, || system_account_hint(command))?;
     Ok(crate::storage::config::config_dir())
+}
+
+pub(super) fn require_own_session(system: bool, command: &str, does: &str) -> Result<(), CliError> {
+    refuse_system(system, || {
+        format!(
+            "voltius-cli {command} {does} the user running it and cannot run as root/SYSTEM; \
+             run it as that user."
+        )
+    })
 }
 
 pub fn confirm(ctx: &mut Ctx, question: &str) -> Result<bool, CliError> {
@@ -61,12 +80,10 @@ pub fn confirm(ctx: &mut Ctx, question: &str) -> Result<bool, CliError> {
             "{question} Not a terminal: add --yes to confirm."
         )));
     }
-    eprint!("{question} [y/N] ");
-    let mut line = String::new();
-    std::io::stdin()
-        .lock()
-        .read_line(&mut line)
-        .map_err(CliError::Io)?;
+    let line = match super::prompt::ask(&format!("{question} [y/N] ")) {
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(false),
+        answer => answer.map_err(CliError::Io)?,
+    };
     Ok(matches!(
         line.trim().to_ascii_lowercase().as_str(),
         "y" | "yes"
@@ -77,14 +94,7 @@ pub fn confirm(ctx: &mut Ctx, question: &str) -> Result<bool, CliError> {
 mod tests {
     use super::*;
     use crate::cli::output::Output;
-
-    fn ctx(out: &mut Output, yes: bool) -> Ctx<'_> {
-        Ctx {
-            out,
-            yes,
-            interactive: false,
-        }
-    }
+    use crate::cli::testing::ctx;
 
     #[test]
     fn confirm_without_tty_needs_yes() {
@@ -101,6 +111,18 @@ mod tests {
         assert!(is_system_sid(Ok("S-1-5-18".into())));
         assert!(!is_system_sid(Ok("S-1-5-21-1-2-3-1001".into())));
         assert!(is_system_sid(Err(std::io::Error::other("token"))));
+    }
+
+    #[test]
+    fn sign_in_commands_refuse_root_in_their_own_words() {
+        match require_own_session(true, "login", "signs in") {
+            Err(CliError::Usage(m)) => assert_eq!(
+                m,
+                "voltius-cli login signs in the user running it and cannot run as root/SYSTEM; run it as that user."
+            ),
+            other => panic!("{other:?}"),
+        }
+        assert!(require_own_session(false, "login", "signs in").is_ok());
     }
 
     #[cfg(unix)]

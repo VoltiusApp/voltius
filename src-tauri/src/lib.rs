@@ -7,6 +7,7 @@
 #[cfg(target_os = "android")]
 mod android_ctx;
 mod app_lock;
+pub mod auth;
 pub mod cli;
 pub mod cli_state;
 mod clock;
@@ -75,6 +76,17 @@ fn force_quit(app: tauri::AppHandle) {
 /// Register the OS-native credential store as keyring-core's default. Exactly one
 /// branch is active per target; other platforms get a no-op (keychain unavailable).
 fn init_keychain_store() -> keyring_core::Result<()> {
+    desktop_keychain_store(true)?;
+    #[cfg(target_os = "android")]
+    keyring_core::set_default_store(crate::keychain_android::Store::new());
+    #[cfg(target_os = "ios")]
+    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
+    Ok(())
+}
+
+/// `allow_volatile` lets keyring-less Linux fall back to keyutils, which the desktop app would not read after a reboot.
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+pub(crate) fn desktop_keychain_store(allow_volatile: bool) -> keyring_core::Result<()> {
     #[cfg(target_os = "linux")]
     {
         // Prefer the persistent Secret Service (gnome-keyring/KWallet). The kernel
@@ -84,7 +96,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
         // volatile keyutils store there so the app still runs (no persistence).
         match dbus_secret_service_keyring_store::Store::new() {
             Ok(store) => keyring_core::set_default_store(store),
-            Err(e) => {
+            Err(e) if allow_volatile => {
                 log::warn!(
                     "Secret Service unavailable ({e}); falling back to volatile keyutils keyring"
                 );
@@ -94,6 +106,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
                     )?,
                 );
             }
+            Err(e) => return Err(e),
         }
     }
     #[cfg(target_os = "macos")]
@@ -107,10 +120,6 @@ fn init_keychain_store() -> keyring_core::Result<()> {
     keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
         &std::collections::HashMap::<&str, &str>::new(),
     )?);
-    #[cfg(target_os = "android")]
-    keyring_core::set_default_store(crate::keychain_android::Store::new());
-    #[cfg(target_os = "ios")]
-    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
     Ok(())
 }
 
@@ -303,6 +312,10 @@ pub fn run() {
         .manage(commands::lan_sync::LanSyncState::default())
         .manage(device_files::link::DeviceLinks::default())
         .invoke_handler(tauri::generate_handler![
+            auth::auth_challenge,
+            auth::auth_login,
+            auth::auth_second_factor,
+            auth::auth_passkey_start,
             force_quit,
             updater::updater_restart,
             updater::updater_check,
@@ -422,6 +435,7 @@ pub fn run() {
             commands::cli_state::cli_pending_load,
             commands::cli_state::cli_pending_settle,
             commands::cli_state::cli_mirror_save,
+            commands::cli_state::cli_logout_marker_take,
             commands::lan_sync::lan_sync_start,
             commands::lan_sync::lan_sync_stop,
             commands::lan_sync::lan_sync_forget,

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { getVaultStatus } from "@/services/vault";
+import { invoke } from "@/lib/invoke";
+import { clearAccountUiState, getVaultStatus } from "@/services/vault";
+import { dropAccountUiState } from "@/stores/persistedAccountUiState";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -57,6 +59,20 @@ function firstLaunchEnrollTarget(): EnrollTarget | undefined {
   return takeEnrollLink() ?? (machine ? { token: machine, source: "machine" } : undefined);
 }
 
+// `voltius-cli logout` can't reach this webview's storage, so it leaves the account ids for the next launch.
+// Persisted stores hydrated before this ran and would write the old account back: reload, as sign-out does.
+async function finishCliLogout(): Promise<boolean> {
+  const accountIds = await invoke<string[]>("cli_logout_marker_take").catch(() => []);
+  if (accountIds.length === 0) return false;
+  try {
+    await clearAccountUiState();
+    accountIds.forEach((id) => dropAccountUiState(id));
+  } finally {
+    window.location.reload();
+  }
+  return true;
+}
+
 type UnlockPhase = "auth-locked" | "auth-unreadable" | "auth-first-launch";
 
 // An account can predate its vault file: a cloud one re-derives from the server, a local one never wrote a secret.
@@ -98,6 +114,7 @@ export default function SplashScreen({ onReady }: Props) {
       watchPolicyVisibility();
       await usePolicyStore.getState().load();
       await adoptServerMove();
+      if (await finishCliLogout()) return;
       setStep("init", "done");
       setStep("vault", "running");
 

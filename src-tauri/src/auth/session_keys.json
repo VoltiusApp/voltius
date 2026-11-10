@@ -1,0 +1,29 @@
+{
+  "session": [
+    "account_id",
+    "mode",
+    "email",
+    "server_url",
+    "jwt",
+    "refresh_token",
+    "wrapped_user_secrets",
+    "wrapped_user_secrets_prior"
+  ],
+  "reset": [
+    "account_id",
+    "mode",
+    "email",
+    "display_name",
+    "handle",
+    "jwt",
+    "refresh_token",
+    "server_url",
+    "device_id",
+    "wrapped_user_secrets",
+    "vault_key_pending",
+    "wrapped_user_secrets_prior",
+    "lan_sync_farewell"
+  ],
+  "saved_index": "voltius.saved_accounts",
+  "saved_entry_prefix": "voltius.saved_account."
+}

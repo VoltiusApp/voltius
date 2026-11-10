@@ -1,17 +1,25 @@
 mod config_cmd;
 mod enroll_cmd;
+mod login_cmd;
+mod logout_cmd;
 mod output;
 mod path_cmd;
 mod plugins_cmd;
 mod policy_cmd;
+mod prompt;
 mod server_cmd;
+pub(crate) mod session;
+#[cfg(test)]
+mod testing;
 pub mod user;
+mod whoami_cmd;
 
 use crate::cli_state::pending::{self, Change};
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
 use config_cmd::ConfigCmd;
 use enroll_cmd::EnrollArgs;
+use login_cmd::LoginArgs;
 use output::Output;
 use path_cmd::PathCmd;
 use plugins_cmd::PluginsCmd;
@@ -35,7 +43,9 @@ pub enum Access {
 
 #[derive(Debug)]
 pub enum CliError {
+    NotSignedIn,
     Usage(String),
+    Refused(String),
     Validation(Vec<Issue>),
     Permission(Access, PathBuf),
     Denied(String),
@@ -43,10 +53,15 @@ pub enum CliError {
 }
 
 impl CliError {
+    pub fn io(message: impl Into<String>) -> Self {
+        CliError::Io(std::io::Error::other(message.into()))
+    }
+
     pub fn exit_code(&self) -> u8 {
         match self {
+            CliError::NotSignedIn => 1,
             CliError::Usage(_) => 2,
-            CliError::Validation(_) => 3,
+            CliError::Validation(_) | CliError::Refused(_) => 3,
             CliError::Permission(..) | CliError::Denied(_) => 4,
             CliError::Io(_) => 5,
         }
@@ -62,7 +77,8 @@ impl CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CliError::Usage(m) | CliError::Denied(m) => f.write_str(m),
+            CliError::NotSignedIn => f.write_str("Not signed in"),
+            CliError::Usage(m) | CliError::Refused(m) | CliError::Denied(m) => f.write_str(m),
             CliError::Validation(issues) => {
                 let lines: Vec<String> = issues.iter().map(policy_cmd::describe).collect();
                 f.write_str(&lines.join("\n"))
@@ -89,20 +105,31 @@ pub struct Ctx<'a> {
     pub interactive: bool,
 }
 
+fn runtime() -> Result<tokio::runtime::Runtime, String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())
+}
+
 /// Runs one network call to completion on a throwaway runtime; `Err` is a runtime or timeout failure.
 fn block_on_timeout<F: std::future::Future>(
     timeout: std::time::Duration,
     work: F,
 ) -> Result<F::Output, String> {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| e.to_string())?
-        .block_on(async {
-            tokio::time::timeout(timeout, work)
-                .await
-                .map_err(|_| "timed out".to_string())
-        })
+    block_on_timeout_in(&runtime()?, timeout, work)
+}
+
+fn block_on_timeout_in<F: std::future::Future>(
+    runtime: &tokio::runtime::Runtime,
+    timeout: std::time::Duration,
+    work: F,
+) -> Result<F::Output, String> {
+    runtime.block_on(async {
+        tokio::time::timeout(timeout, work)
+            .await
+            .map_err(|_| "timed out".to_string())
+    })
 }
 
 fn queue(dir: &Path, change: Change, out: &mut Output) -> Result<(), CliError> {
@@ -151,6 +178,12 @@ enum Command {
         #[command(subcommand)]
         cmd: ConfigCmd,
     },
+    /// Show who is signed in
+    Whoami,
+    /// Sign this user in to their Voltius account
+    Login(LoginArgs),
+    /// Sign this user out and remove their Voltius data from this device
+    Logout,
     /// Show or set the sync server URL
     Server {
         #[command(subcommand)]
@@ -173,8 +206,11 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 6] = [
+const BARE_SUBCOMMANDS: [&str; 9] = [
     "policy",
+    "whoami",
+    "login",
+    "logout",
     "config",
     "plugins",
     "server",
@@ -198,8 +234,18 @@ fn cli_args(args: &[OsString]) -> Option<Vec<OsString>> {
     )
 }
 
+// A release build is a GUI app the launcher's console doesn't send Ctrl+C to until it attaches.
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
+}
+
 pub fn dispatch(args: Vec<OsString>) -> Option<ExitCode> {
-    let cli = match Cli::try_parse_from(cli_args(&args)?) {
+    let args = cli_args(&args)?;
+    #[cfg(windows)]
+    attach_parent_console();
+    let cli = match Cli::try_parse_from(args) {
         Ok(c) => c,
         Err(e) => {
             let code = e.exit_code();
@@ -242,6 +288,9 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Path { cmd } => path_cmd::run(cmd, &mut ctx),
         Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
+        Command::Whoami => whoami_cmd::run(&mut ctx),
+        Command::Login(args) => login_cmd::run(args, &mut ctx),
+        Command::Logout => logout_cmd::run(&mut ctx),
         Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {

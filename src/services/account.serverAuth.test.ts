@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { authAnswer, routeAuthCommand, type AuthAnswer, type AuthAnswers } from "@/test/authCommandRoute";
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Identity } from "./identity";
 
@@ -25,6 +26,7 @@ const h = vi.hoisted(() => ({
   keysSet: vi.fn(),
   store: {} as Record<string, string | null>,
   http: {} as Record<string, { ok: boolean; status: number; body?: unknown }>,
+  auth: {} as AuthAnswers,
   dek: null as number[] | null,
   x25519: null as number[] | null,
   kek: null as number[] | null,
@@ -95,6 +97,8 @@ function routeInvoke() {
     if (vs.handled) {
       return vs.value;
     }
+    const auth = routeAuthCommand(h.auth, cmd);
+    if (auth.handled) return auth.value;
     h.seq.push(cmd);
     switch (cmd) {
       // Keyed by enc_key so a test can tell which key an identity came from.
@@ -178,6 +182,7 @@ beforeEach(() => {
   h.push.mockClear();
   h.store = {};
   h.http = {};
+  h.auth = {};
   h.sent = {};
   localStorage.clear();
   h.dek = null;
@@ -208,7 +213,7 @@ function legacyServerAccount() {
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok(TOKENS);
+  h.auth.auth_login = authAnswer.signedIn(TOKENS);
 }
 
 // ─── createServerAccount ─────────────────────────────────────────────────────
@@ -306,7 +311,7 @@ test("login throws when no account can be resolved", async () => {
 });
 
 test("login uses the challenge endpoint to resolve account_id, erroring when not found", async () => {
-  h.http["/auth/challenge"] = err(404);
+  h.auth.auth_challenge = authAnswer.refused(404);
   await expect(login("pw", "a@b.co", S)).rejects.toThrow("common.error.accountNotFound");
 });
 
@@ -315,7 +320,7 @@ test("login re-authenticates in server mode and maps a failed server login", asy
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = err(401);
+  h.auth.auth_login = authAnswer.refused(401);
   await expect(login("pw")).rejects.toThrow("common.error.serverLoginFailed");
 });
 
@@ -346,7 +351,7 @@ test("login defers to the server when no cached key opens the existing vault", a
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
   existingVaultOpenedBy([1, 1, 1]);
 
   await login("pw");
@@ -360,7 +365,7 @@ test("login keeps the kek when the server's dek does not open this device's vaul
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
   existingVaultOpenedBy([9, 9, 9]);
 
   await login("pw");
@@ -374,7 +379,7 @@ test("login reports an unreadable vault after the server proved the password", a
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
   existingVaultOpenedBy(null);
 
   await expect(login("pw")).rejects.toThrow(VaultUnreadableError);
@@ -461,37 +466,37 @@ test("login adopts the dek the server stored even when the local rekey fails", a
 // ─── signInToCloud ───────────────────────────────────────────────────────────
 
 test("signInToCloud maps a missing account to accountNotFound", async () => {
-  h.http["/auth/challenge"] = err(404);
+  h.auth.auth_challenge = authAnswer.refused(404);
   await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.accountNotFound");
 });
 
 test("signInToCloud maps a failed login to invalidEmailOrPassword", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = err(401);
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.refused(401);
   await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.invalidEmailOrPassword");
 });
 
 test("signInToCloud reports a rate-limited challenge as such, not as a missing account", async () => {
   // The auth limiter is a hardcoded 10/min per IP. Rendering its 429 as
   // "Account not found" sends people off to create a second account.
-  h.http["/auth/challenge"] = err(429);
+  h.auth.auth_challenge = authAnswer.refused(429);
   await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.tooManyAttempts");
 });
 
 test("signInToCloud reports a rate-limited login as such, not as a bad password", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = err(429);
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.refused(429);
   await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.tooManyAttempts");
 });
 
 test("signInToCloud names the status on a server fault rather than blaming the account", async () => {
-  h.http["/auth/challenge"] = err(503);
+  h.auth.auth_challenge = authAnswer.refused(503);
   await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow("common.error.serverError");
 });
 
 test("signInToCloud wipes the previous local vault on success", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
   await signInToCloud("a@b.co", "pw", S);
   expect(h.wipeLocalConfig).toHaveBeenCalledTimes(1);
   expect(h.store.mode).toBe("server");
@@ -505,8 +510,8 @@ test("signInToCloud carries the device-only proxy password, read under the outgo
     keyWhenRead = h.sessionKey;
     return { [GLOBAL_PROXY_PASSWORD_KEY]: "proxy-pw" };
   });
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = ok(TOKENS);
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.signedIn(TOKENS);
   await signInToCloud("a@b.co", "pw", S);
   expect(h.readLocalSecrets).toHaveBeenCalledWith([GLOBAL_PROXY_PASSWORD_KEY]);
   expect(keyWhenRead).toEqual([7, 7, 7]);
@@ -515,8 +520,8 @@ test("signInToCloud carries the device-only proxy password, read under the outgo
 
 test("a refused sign-in never runs the hook that leaves the local group", async () => {
   const leave = vi.fn(async () => {});
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = err(401);
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.refused(401);
   await expect(signInToCloud("a@b.co", "pw", S, leave)).rejects.toThrow("common.error.invalidEmailOrPassword");
   expect(leave).not.toHaveBeenCalled();
 });
@@ -527,8 +532,8 @@ test("an accepted sign-in runs the hook before the vault key changes", async () 
   const leave = vi.fn(async () => {
     seen = [h.sessionKey, h.readLocalSecrets.mock.calls.length, h.wipeLocalConfig.mock.calls.length, h.store.mode];
   });
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W" });
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W" });
   await signInToCloud("a@b.co", "pw", S, leave);
   expect(leave).toHaveBeenCalledTimes(1);
   expect(seen).toEqual([[7, 7, 7], 0, 0, undefined]);
@@ -536,8 +541,8 @@ test("an accepted sign-in runs the hook before the vault key changes", async () 
 });
 
 test("a failing hook does not stop an accepted sign-in", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  h.http["/auth/login"] = ok(TOKENS);
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth.auth_login = authAnswer.signedIn(TOKENS);
   await signInToCloud("a@b.co", "pw", S, async () => { throw new Error("vault busy"); });
   expect(h.store.mode).toBe("server");
   expect(h.wipeLocalConfig).toHaveBeenCalledTimes(1);
@@ -917,8 +922,8 @@ function activeSession() {
 
 test("authenticateServerAccount signs in without touching the active session", async () => {
   const before = activeSession();
-  h.http["/auth/challenge"] = ok({ account_id: "acc-b" });
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED_B" });
+  h.auth.auth_challenge = authAnswer.accountId("acc-b");
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "WRAPPED_B" });
 
   const { account: session } = await authenticateServerAccount("signin", "b@x.io", PW_B, `${S}/`);
 
@@ -947,8 +952,8 @@ test("authenticateServerAccount registers without touching the active session", 
 
 test("authenticateServerAccount rejects bad credentials and leaves the session alone", async () => {
   const before = activeSession();
-  h.http["/auth/challenge"] = ok({ account_id: "acc-b" });
-  h.http["/auth/login"] = err(401);
+  h.auth.auth_challenge = authAnswer.accountId("acc-b");
+  h.auth.auth_login = authAnswer.refused(401);
 
   await expect(authenticateServerAccount("signin", "b@x.io", PW_CURRENT, S))
     .rejects.toThrow("common.error.invalidEmailOrPassword");
@@ -957,7 +962,7 @@ test("authenticateServerAccount rejects bad credentials and leaves the session a
 
 // ─── two-factor sign-in ──────────────────────────────────────────────────────
 
-const CHALLENGE = err(428, { error: "TWO_FACTOR_REQUIRED", pending_token: "PENDING", methods: ["totp", "recovery"] });
+const CHALLENGE = authAnswer.secondFactor("PENDING", ["totp", "recovery"]);
 
 function serverAccount() {
   h.store.account_id = "acc";
@@ -966,11 +971,12 @@ function serverAccount() {
   h.store.server_url = S;
 }
 
-/** Registered longest path first: routeHttp matches by substring, and "/auth/login" is one of "/auth/login/2fa". */
-function secondStep(answer: { ok: boolean; status: number; body?: unknown }) {
-  h.http["/auth/login/2fa"] = answer;
-  h.http["/auth/login"] = CHALLENGE;
+function secondStep(answer: AuthAnswer) {
+  h.auth.auth_second_factor = answer;
+  h.auth.auth_login = CHALLENGE;
 }
+
+const sentProof = () => h.invoke.mock.calls.filter(([cmd]) => cmd === "auth_second_factor").pop()?.[1];
 
 async function challengeFrom<T>(work: Promise<T>): Promise<TwoFactorRequiredError<T>> {
   const error = await work.then(() => null, (e: unknown) => e);
@@ -980,8 +986,8 @@ async function challengeFrom<T>(work: Promise<T>): Promise<TwoFactorRequiredErro
 
 test("login stops at the code step without touching the keychain, then finishes with the code", async () => {
   h.store.server_url = S;
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
 
   const challenge = await challengeFrom(login("pw", "a@b.co", S));
   expect(challenge.methods).toEqual(["totp", "recovery"]);
@@ -991,43 +997,43 @@ test("login stops at the code step without touching the keychain, then finishes 
   expect(h.setVaultKey).not.toHaveBeenCalled();
 
   await challenge.complete({ code: " 123456 " });
-  expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", code: "123456" });
+  expect(sentProof()).toEqual({ server: S, pendingToken: "PENDING", proof: { code: " 123456 " } });
   expect(h.store).toMatchObject({ mode: "server", account_id: "acc", jwt: "JWT", refresh_token: "RT" });
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
 });
 
 test("a recovery code is sent under its own name", async () => {
   serverAccount();
-  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
 
   const challenge = await challengeFrom(login("pw"));
   await challenge.complete({ recoveryCode: "abcd-efgh-jkmn-pqrs" });
-  expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", recovery_code: "abcd-efgh-jkmn-pqrs" });
+  expect(sentProof()).toEqual({ server: S, pendingToken: "PENDING", proof: { recoveryCode: "abcd-efgh-jkmn-pqrs" } });
 });
 
 test("a passkey ceremony is opened for the same pending sign-in, and its code finishes it", async () => {
   serverAccount();
-  h.http["/auth/login/2fa/passkey"] = ok({ handle: "H", url: "https://portal/2fa/passkey#h=H" });
-  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+  h.auth.auth_passkey_start = authAnswer.passkeyUrl("https://portal/2fa/passkey#h=H");
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
 
   const challenge = await challengeFrom(login("pw"));
   const returnTo = { kind: "loopback", port: 49152, state: "state" } as const;
   await expect(challenge.openPasskey(returnTo)).resolves.toMatchObject({ url: "https://portal/2fa/passkey#h=H" });
-  expect(h.sent["/auth/login/2fa/passkey"]).toEqual({ pending_token: "PENDING", return_to: returnTo });
+  expect(h.invoke).toHaveBeenCalledWith("auth_passkey_start", { server: S, pendingToken: "PENDING", returnTo });
 
   await challenge.complete({ passkeyCode: "PK" });
-  expect(h.sent["/auth/login/2fa"]).toEqual({ pending_token: "PENDING", passkey_code: "PK" });
+  expect(sentProof()).toEqual({ server: S, pendingToken: "PENDING", proof: { passkeyCode: "PK" } });
 
-  h.http["/auth/login/2fa/passkey"] = err(401);
+  h.auth.auth_passkey_start = authAnswer.refused(401);
   await expect(challenge.openPasskey(returnTo)).rejects.toThrow("common.error.twoFactorExpired");
 });
 
 test.each([
-  [err(401, { error: "TWO_FACTOR_INVALID" }), "common.error.twoFactorInvalid"],
-  [err(429, { error: "TWO_FACTOR_LOCKED" }), "common.error.twoFactorLocked"],
-  [err(503, { error: "TWO_FACTOR_UNAVAILABLE" }), "common.error.twoFactorUnavailable"],
-  [err(401), "common.error.twoFactorExpired"],
-  [err(500), "common.error.serverLoginFailed"],
+  [authAnswer.refused(401, "TWO_FACTOR_INVALID"), "common.error.twoFactorInvalid"],
+  [authAnswer.refused(429, "TWO_FACTOR_LOCKED"), "common.error.twoFactorLocked"],
+  [authAnswer.refused(503, "TWO_FACTOR_UNAVAILABLE"), "common.error.twoFactorUnavailable"],
+  [authAnswer.refused(401), "common.error.twoFactorExpired"],
+  [authAnswer.refused(500), "common.error.serverLoginFailed"],
 ])("a refused code says why and can be retried (%#)", async (refusal, message) => {
   serverAccount();
   secondStep(refusal);
@@ -1036,20 +1042,53 @@ test.each([
   await expect(challenge.complete({ code: "000000" })).rejects.toThrow(message);
   expect(h.store.jwt).toBeUndefined();
 
-  h.http["/auth/login/2fa"] = ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" });
+  h.auth.auth_second_factor = authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" });
   await challenge.complete({ code: "123456" });
   expect(h.store.jwt).toBe("JWT");
 });
 
+test("serverLogin throws TwoFactorRequiredError whose complete calls authSecondFactor", async () => {
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(signInToCloud("a@b.co", "pw", S));
+  expect(h.invoke).toHaveBeenCalledWith("auth_login", { server: S, accountId: "acc", authKey: "AUTH" });
+  expect(h.invoke).not.toHaveBeenCalledWith("auth_second_factor", expect.anything());
+
+  await challenge.complete({ code: "123456" });
+  expect(sentProof()).toEqual({ server: S, pendingToken: "PENDING", proof: { code: "123456" } });
+  expect(h.store.jwt).toBe("JWT");
+});
+
+test("a full sign-in, two-step included, makes no fetch of its own", async () => {
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+
+  const challenge = await challengeFrom(login("pw", "a@b.co", S));
+  await challenge.complete({ code: "123456" });
+  expect(h.invoke).toHaveBeenCalledWith("auth_challenge", { server: S, email: "a@b.co" });
+  expect(h.store.mode).toBe("server");
+  expect(h.appFetch).not.toHaveBeenCalled();
+});
+
+test.each([
+  ["auth_challenge", "common.error.networkError"],
+  ["auth_login", "common.error.networkError"],
+] as const)("an unreachable server during %s reads as a network error", async (cmd, message) => {
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  h.auth[cmd] = authAnswer.network("connection refused");
+  await expect(signInToCloud("a@b.co", "pw", S)).rejects.toThrow(message);
+});
+
 test("a 428 that is not a two-factor challenge is an ordinary failure", async () => {
   serverAccount();
-  h.http["/auth/login"] = err(428, {});
+  h.auth.auth_login = authAnswer.refused(428);
   await expect(login("pw")).rejects.toThrow("common.error.serverLoginFailed");
 });
 
 test("signInToCloud wipes nothing until the code is accepted", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
 
   const challenge = await challengeFrom(signInToCloud("a@b.co", "pw", S));
   expect(h.wipeLocalConfig).not.toHaveBeenCalled();
@@ -1061,8 +1100,8 @@ test("signInToCloud wipes nothing until the code is accepted", async () => {
 });
 
 test("authenticateServerAccount hands back the session once the code is accepted", async () => {
-  h.http["/auth/challenge"] = ok({ account_id: "acc" });
-  secondStep(ok({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
+  h.auth.auth_challenge = authAnswer.accountId("acc");
+  secondStep(authAnswer.session({ ...TOKENS, wrapped_user_secrets: "WRAPPED" }));
 
   const challenge = await challengeFrom(authenticateServerAccount("signin", "a@b.co", "pw", S));
   await expect(challenge.complete({ code: "123456" })).resolves.toMatchObject({
@@ -1084,18 +1123,18 @@ function lockedCloudVault() {
 test("unlocking a vault whose session the server still honours does not sign in again", async () => {
   lockedCloudVault();
   h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
-  h.http["/auth/login"] = CHALLENGE;
+  h.auth.auth_login = CHALLENGE;
 
   await login("pw");
   expect(h.setVaultKey).toHaveBeenLastCalledWith([1, 1, 1]);
   expect(h.store.jwt).toBe("JWT2");
-  expect(h.sent["/auth/login"]).toBeUndefined();
+  expect(h.invoke).not.toHaveBeenCalledWith("auth_login", expect.anything());
 });
 
 test("unlocking after the session was revoked signs in again, and says nothing about it", async () => {
   lockedCloudVault();
   h.http["/auth/refresh"] = err(401);
-  h.http["/auth/login"] = ok({ ...TOKENS, refresh_token: "RT2", wrapped_user_secrets: "WRAPPED" });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, refresh_token: "RT2", wrapped_user_secrets: "WRAPPED" });
 
   await login("pw");
   expect(h.store.refresh_token).toBe("RT2");
@@ -1108,7 +1147,7 @@ test("a password that did not open the cached secrets is still proven by the ser
   serverAccount();
   h.store.refresh_token = "RT";
   h.http["/auth/refresh"] = ok({ jwt_token: "JWT2" });
-  h.http["/auth/login"] = err(401);
+  h.auth.auth_login = authAnswer.refused(401);
 
   await expect(login("pw")).rejects.toThrow("common.error.serverLoginFailed");
 });
@@ -1243,7 +1282,7 @@ function strandedOnOldKek() {
   h.store.mode = "server";
   h.store.email = "a@b.co";
   h.store.server_url = S;
-  h.http["/auth/login"] = ok({ ...TOKENS, wrapped_user_secrets: "W_NEW" });
+  h.auth.auth_login = authAnswer.signedIn({ ...TOKENS, wrapped_user_secrets: "W_NEW" });
   existingVaultOpenedBy([9, 9, 9]);
 }
 
