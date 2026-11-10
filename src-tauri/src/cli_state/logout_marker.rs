@@ -78,6 +78,9 @@ mod tests {
     #[test]
     fn a_marker_that_cannot_be_removed_does_not_fire() {
         use std::os::unix::fs::PermissionsExt;
+        if crate::cli::user::is_system_account() {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         write(dir.path(), "acc-1").unwrap();
         let mode = |m| std::fs::Permissions::from_mode(m);
