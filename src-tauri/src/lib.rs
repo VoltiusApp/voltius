@@ -260,7 +260,10 @@ pub fn run() {
             log::set_max_level(log::LevelFilter::Info);
 
             #[cfg(target_os = "ios")]
-            crate::ios_native::hide_keyboard_accessory_bar();
+            {
+                crate::ios_native::hide_keyboard_accessory_bar();
+                crate::policy::managed_ios::watch(app.handle().clone());
+            }
 
             // On Android `dirs::config_dir()` resolves to an unwritable cwd, so
             // pin generic file storage (connections, plugins, identities, …) to
