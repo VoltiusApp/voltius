@@ -27,6 +27,9 @@ import { enrollmentErrorFrom } from "./enrollment/enrollmentApi";
 import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
 import { fetchAuth } from "./authFetch";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
+import {
+  authChallenge, authErrorToError, authLogin, authPasskeyStart, authSecondFactor, type LoginData, type Refused,
+} from "./authClient";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -238,18 +241,14 @@ export async function adoptSessionTokens(tokens: { jwt_token: string; refresh_to
   clearSessionRevoked();
 }
 
-interface LoginData {
-  jwt_token: string;
-  refresh_token: string;
-  wrapped_user_secrets?: string | null;
+function failWith(expected: string | Refused, step?: "second") {
+  return (e: unknown): never => {
+    throw authErrorToError(e, expected, step);
+  };
 }
 
-async function postJson(url: string, body: unknown): Promise<Response> {
-  return fetchWithTimeout(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+async function accountIdFor(serverUrl: string, email: string): Promise<string> {
+  return authChallenge(serverUrl, email).catch(failWith("common.error.accountNotFound"));
 }
 
 /**
@@ -261,31 +260,16 @@ async function serverLogin<T>(
   serverUrl: string,
   accountId: string,
   authKey: string,
-  refused: (status: number) => Error,
+  refused: string | Refused,
   then: (data: LoginData) => Promise<T>,
 ): Promise<T> {
-  const res = await postJson(`${serverUrl}/v1/auth/login`, { account_id: accountId, auth_key: authKey });
-  if (res.ok) return then(await res.json());
-  if (res.status !== 428) throw refused(res.status);
-
-  const challenge = await res.json().catch(() => null);
-  if (challenge?.error !== "TWO_FACTOR_REQUIRED" || !challenge.pending_token) throw refused(res.status);
-  const secondStep = async (path: string, body: object) => {
-    const second = await postJson(`${serverUrl}/v1/auth/login/2fa${path}`, {
-      pending_token: challenge.pending_token,
-      ...body,
-    });
-    if (second.ok) return second.json();
-    const refusal = await twoFactorError(second);
-    if (refusal) throw refusal;
-    // A bare 401 here is the pending token: expired, or the account moved on.
-    if (second.status === 401) throw new Error(i18n.t("common.error.twoFactorExpired"));
-    throw refused(second.status);
-  };
+  const step = await authLogin(serverUrl, accountId, authKey).catch(failWith(refused));
+  if (step.kind === "signed") return then(step.data);
+  const second = <R>(call: Promise<R>) => call.catch(failWith(refused, "second"));
   throw new TwoFactorRequiredError<T>(
-    challenge.methods ?? ["totp"],
-    async (proof: TwoFactorProof) => then(await secondStep("", proofBody(proof))),
-    (returnTo) => secondStep("/passkey", { return_to: returnTo }),
+    step.methods,
+    async (proof) => then(await second(authSecondFactor(serverUrl, step.pendingToken, proof))),
+    async (returnTo) => ({ url: await second(authPasskeyStart(serverUrl, step.pendingToken, returnTo)) }),
   );
 }
 
@@ -391,11 +375,7 @@ export async function login(password: string, email?: string, serverUrl?: string
   if (serverUrl) serverUrl = normalizeServerUrl(serverUrl);
   let accountId = await keychainGet("account_id");
 
-  if (!accountId && email && serverUrl) {
-    const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-    if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
-    accountId = (await res.json()).account_id;
-  }
+  if (!accountId && email && serverUrl) accountId = await accountIdFor(serverUrl, email);
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
 
   const mode = await keychainGet("mode");
@@ -758,19 +738,6 @@ export async function setMasterPassword(password: string): Promise<void> {
   if (priorMode === "server") pushUnderNewVaultKey();
 }
 
-/**
- * Turns a failed auth response into the message the status actually means.
- * The auth limiter is a hardcoded 10/min per IP with no env override, and a
- * retry loop can exhaust it before the user types anything — collapsing every
- * non-ok status into `expected` rendered that 429 as "Account not found",
- * which sends people off to create a second account they don't need.
- */
-function authFailure(status: number, expected: string): Error {
-  if (status === 429) return new Error(i18n.t("common.error.tooManyAttempts"));
-  if (status === 404 || status === 401 || status === 403) return new Error(i18n.t(expected));
-  return new Error(i18n.t("common.error.serverError", { status }));
-}
-
 interface ServerSignIn {
   accountId: string;
   kek: number[];
@@ -783,15 +750,13 @@ async function signInServerAccount<T>(
   serverUrl: string,
   then: (signedIn: ServerSignIn) => Promise<T>,
 ): Promise<T> {
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-  if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
-  const { account_id: accountId } = await res.json();
+  const accountId = await accountIdFor(serverUrl, email);
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
 
   return serverLogin(
     serverUrl, accountId, auth_key,
-    (status) => authFailure(status, "common.error.invalidEmailOrPassword"),
+    "common.error.invalidEmailOrPassword",
     (data) => then({ accountId, kek, data }),
   );
 }

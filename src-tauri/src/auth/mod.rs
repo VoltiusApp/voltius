@@ -4,8 +4,10 @@ use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
 
-use crate::commands::http::client_builder;
+use crate::commands::http::{client_builder, with_causes};
 
+// Mirrors the app's http_request path: a 10 s connect cap inside a 30 s overall one.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -134,17 +136,18 @@ impl Answer {
     }
 }
 
+fn network(e: reqwest::Error) -> AuthError {
+    AuthError::Network(with_causes(&e.without_url()))
+}
+
 async fn send(request: reqwest::RequestBuilder) -> Result<Answer, AuthError> {
     let response = request
         .timeout(REQUEST_TIMEOUT)
         .send()
         .await
-        .map_err(|e| AuthError::Network(e.to_string()))?;
+        .map_err(network)?;
     let status = response.status().as_u16();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| AuthError::Network(e.to_string()))?;
+    let bytes = response.bytes().await.map_err(network)?;
     Ok(Answer {
         status,
         body: serde_json::from_slice(&bytes).ok(),
@@ -253,8 +256,9 @@ pub async fn passkey_start(
 
 fn client() -> Result<reqwest::Client, AuthError> {
     client_builder()
+        .connect_timeout(CONNECT_TIMEOUT)
         .build()
-        .map_err(|e| AuthError::Network(e.to_string()))
+        .map_err(network)
 }
 
 #[tauri::command]
@@ -473,6 +477,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn second_factor_bare_401_has_no_code() {
+        let (url, _) = fake(401, "").await;
+        assert_eq!(
+            second_factor(&http(), &url, "p", &Proof::Code("1".into())).await,
+            Err(AuthError::Status {
+                status: 401,
+                code: None
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn login_428_non_array_methods_falls_back_to_totp() {
+        let (url, _) = fake(
+            428,
+            r#"{"error":"TWO_FACTOR_REQUIRED","pending_token":"p","methods":"totp"}"#,
+        )
+        .await;
+        assert_eq!(
+            login(&http(), &url, "a", "k").await.unwrap(),
+            LoginStep::SecondFactor {
+                pending_token: "p".into(),
+                methods: vec!["totp".into()]
+            }
+        );
+    }
+
+    #[tokio::test]
     async fn passkey_start_posts_return_to_and_returns_url() {
         let (url, seen) = fake(200, r#"{"url":"https://x/y"}"#).await;
         let started = passkey_start(&http(), &url, "p", json!({"port": 1}))
@@ -504,10 +536,13 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         drop(listener);
-        assert!(matches!(
-            challenge(&http(), &url, "a@b.c").await,
-            Err(AuthError::Network(_))
-        ));
+        match challenge(&http(), &url, "secret@b.c").await {
+            Err(AuthError::Network(message)) => {
+                assert!(!message.contains("secret"), "{message}");
+                assert!(!message.contains("127.0.0.1"), "{message}");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[tokio::test]

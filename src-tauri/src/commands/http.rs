@@ -55,7 +55,7 @@ impl HttpSseStreamManager {
 }
 
 /// reqwest's Display stops at "error sending request"; the cause is in the source chain.
-fn with_causes(e: &dyn std::error::Error) -> String {
+pub(crate) fn with_causes(e: &dyn std::error::Error) -> String {
     let mut out = e.to_string();
     let mut source = e.source();
     while let Some(cause) = source {

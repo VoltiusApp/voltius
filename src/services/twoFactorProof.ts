@@ -53,14 +53,13 @@ const MESSAGE_KEYS: Record<string, string> = {
   PASSKEY_LIMIT: "common.error.passkeyLimit",
 };
 
-export async function twoFactorCode(res: Response): Promise<string | null> {
-  const body = await res.json().catch(() => null);
-  const code = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
-  return typeof code === "string" && code in MESSAGE_KEYS ? code : null;
+/** The translated refusal for a server's two-factor error code, else null. */
+export function twoFactorCodeError(code: unknown): Error | null {
+  return typeof code === "string" && code in MESSAGE_KEYS ? new Error(i18n.t(MESSAGE_KEYS[code])) : null;
 }
 
 /** The translated refusal when a failed response carries a two-factor code, else null. Reads the body. */
 export async function twoFactorError(res: Response): Promise<Error | null> {
-  const code = await twoFactorCode(res);
-  return code ? new Error(i18n.t(MESSAGE_KEYS[code])) : null;
+  const body = await res.json().catch(() => null);
+  return twoFactorCodeError(body && typeof body === "object" ? (body as { error?: unknown }).error : null);
 }
