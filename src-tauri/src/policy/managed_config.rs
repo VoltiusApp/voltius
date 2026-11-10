@@ -11,8 +11,8 @@ pub const TYPED_KEYS: [(&str, &str); 3] = [
 ];
 
 const POLICY_KEY: &str = "policy";
-const MAX_KEY_CHARS: usize = 100;
-const MAX_MESSAGE_CHARS: usize = 1000;
+const MAX_KEY_UNITS: usize = 100;
+const MAX_MESSAGE_UNITS: usize = 1000;
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "lowercase")]
@@ -26,6 +26,16 @@ pub struct FeedbackEntry {
     pub key: String,
     pub severity: Severity,
     pub message: String,
+}
+
+fn cut_utf16(s: &str, max: usize) -> String {
+    let mut units = 0;
+    s.chars()
+        .take_while(|c| {
+            units += c.len_utf16();
+            units <= max
+        })
+        .collect()
 }
 
 pub fn feedback_entries(issues: &[Issue]) -> Vec<FeedbackEntry> {
@@ -50,13 +60,9 @@ pub fn feedback_entries(issues: &[Issue]) -> Vec<FeedbackEntry> {
     groups
         .into_iter()
         .map(|(key, severity, messages)| FeedbackEntry {
-            key: key.chars().take(MAX_KEY_CHARS).collect(),
+            key: cut_utf16(&key, MAX_KEY_UNITS),
             severity,
-            message: messages
-                .join("; ")
-                .chars()
-                .take(MAX_MESSAGE_CHARS)
-                .collect(),
+            message: cut_utf16(&messages.join("; "), MAX_MESSAGE_UNITS),
         })
         .collect()
 }
@@ -427,15 +433,23 @@ mod tests {
 
     #[test]
     fn cuts_key_and_message() {
-        let issues = [Issue::keyed(
-            IssueKind::UnknownKey,
-            None,
-            &"k".repeat(150),
-            "é".repeat(1500),
-        )];
-        let out = feedback_entries(&issues);
-        assert_eq!(out[0].key.chars().count(), 100);
-        assert_eq!(out[0].message.chars().count(), 1000);
+        for (unit, key_len, msg_len) in [("k", 150, 1500), ("é", 150, 1500), ("😀", 150, 600)] {
+            let issues = [Issue::keyed(
+                IssueKind::UnknownKey,
+                None,
+                &unit.repeat(key_len),
+                unit.repeat(msg_len),
+            )];
+            let out = feedback_entries(&issues);
+            assert_eq!(out[0].key.encode_utf16().count(), 100);
+            assert_eq!(out[0].message.encode_utf16().count(), 1000);
+        }
+    }
+
+    #[test]
+    fn cut_never_splits_a_surrogate_pair() {
+        assert_eq!(cut_utf16("a😀", 2), "a");
+        assert_eq!(cut_utf16("😀😀", 3), "😀");
     }
 
     #[test]
