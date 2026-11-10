@@ -1,7 +1,9 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ isServerMode: vi.fn() }));
+const h = vi.hoisted(() => ({ isServerMode: vi.fn(), invoke: vi.fn() }));
+
+vi.mock("@/lib/invoke", () => ({ invoke: h.invoke }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -38,6 +40,7 @@ vi.mock("@/components/enrollment/EnrollOutcome", () => ({
 import AuthPage from "./AuthPage";
 import { buildEnrollmentToken } from "@/services/enrollment/enrollmentToken";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
+import { usePolicyStore } from "@/stores/policyStore";
 
 const ID = "0123456789abcdef0123456789abcdef";
 const TOKEN = { serverUrl: "https://voltius.acme.com", id: ID, secret: "s".repeat(43) };
@@ -45,9 +48,12 @@ const TOKEN = { serverUrl: "https://voltius.acme.com", id: ID, secret: "s".repea
 beforeEach(() => {
   h.isServerMode.mockReset();
   h.isServerMode.mockResolvedValue(false);
+  h.invoke.mockReset();
+  h.invoke.mockResolvedValue("unknown");
 });
 afterEach(() => {
   cleanup();
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   useDeepLinkStore.getState().setUnpromptedHandler(null);
   useDeepLinkStore.setState({ ready: false, queue: [], prompt: null });
 });
@@ -121,4 +127,26 @@ test("an unlock screen leaves a late enroll link for the modal", async () => {
   render(<AuthPage isLocked onReady={vi.fn()} />);
   act(() => useDeepLinkStore.getState().enqueue(enrollLink()));
   expect(useDeepLinkStore.getState().queue).toHaveLength(1);
+});
+
+const reloadMachineToken = async (token: string) => {
+  h.invoke.mockResolvedValue({ doc: { policy: { "enrollment.token": token }, defaults: {} }, issues: [] });
+  await act(() => usePolicyStore.getState().load());
+};
+
+test("a machine token arriving after render opens enrol", async () => {
+  render(<AuthPage isLocked={false} onReady={vi.fn()} />);
+  expect(screen.getByText("layout.auth.getStarted")).toBeTruthy();
+  await reloadMachineToken(buildEnrollmentToken(TOKEN.serverUrl, ID, TOKEN.secret));
+  expect(screen.getByText(`form:machine:${ID}`)).toBeTruthy();
+});
+
+test("the same machine token does not reopen enrol", async () => {
+  const raw = buildEnrollmentToken(TOKEN.serverUrl, ID, TOKEN.secret);
+  usePolicyStore.setState({ machine: { policy: { "enrollment.token": raw }, defaults: {} } });
+  render(<AuthPage isLocked={false} enrollTarget={{ token: TOKEN, source: "machine" }} onReady={vi.fn()} />);
+  fireEvent.click(screen.getByText("skip"));
+  expect(await screen.findByText("layout.auth.getStarted")).toBeTruthy();
+  await reloadMachineToken(raw);
+  expect(screen.getByText("layout.auth.getStarted")).toBeTruthy();
 });

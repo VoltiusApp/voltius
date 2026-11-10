@@ -325,7 +325,7 @@
       "rangeAllowed": "Sua organização permite: {{values}}",
       "serverBlocked": "Este servidor não é permitido pela sua organização",
       "accountNotSaved": "Não foi possível salvar a conta atual antes, então nada foi alterado",
-      "fileError": "Não foi possível ler o arquivo de política do Voltius da sua organização, então nenhuma parte dela está sendo aplicada.",
+      "fileError": "Não foi possível ler a política do Voltius da sua organização, então nenhuma parte dela está sendo aplicada.",
       "unprotected": "O arquivo de política do Voltius da sua organização foi ignorado porque usuários padrão podem alterá-lo. Peça à sua equipe de TI para configurá-lo com o voltius-cli.",
       "issues_one": "A política do Voltius da sua organização tem {{count}} problema; o restante continua sendo aplicado.",
       "issues_other": "A política do Voltius da sua organização tem {{count}} problemas; o restante continua sendo aplicado.",

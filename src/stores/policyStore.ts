@@ -198,14 +198,24 @@ async function writeMirror() {
 }
 
 // Focus and visibility usually fire together; the second call joins the first.
-function coalesced(run: () => Promise<void>): () => void {
+// With `trailing`, a call during a run queues one more run, since that run may have read stale data.
+function coalesced(run: () => Promise<void>, trailing = false): () => void {
   let inFlight: Promise<void> | null = null;
-  return () => {
-    inFlight ??= run()
+  let queued = false;
+  const start = () => {
+    inFlight = run()
       .catch((e) => console.warn("[policy] refresh failed:", e))
       .finally(() => {
         inFlight = null;
+        if (queued) {
+          queued = false;
+          start();
+        }
       });
+  };
+  return () => {
+    if (!inFlight) start();
+    else if (trailing) queued = true;
   };
 }
 
@@ -216,5 +226,6 @@ export function watchPolicyVisibility() {
   const onInactive = coalesced(writeMirror);
   document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? onActive() : onInactive()));
   window.addEventListener("focus", onActive);
+  window.addEventListener("voltius:policy-changed", coalesced(reloadThenApplyCli, true));
   window.addEventListener("blur", onInactive);
 }

@@ -9,6 +9,9 @@ pub mod acl;
 #[cfg(windows)]
 mod acl_windows;
 pub mod enrollment_token;
+#[cfg(target_os = "android")]
+mod managed_android;
+pub mod managed_config;
 
 const SUPPORTED_VERSION: u32 = 1;
 
@@ -161,6 +164,7 @@ pub enum IssueKind {
     Range,
     Unprotected,
     NotForTeam,
+    Conflict,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -177,6 +181,15 @@ impl Issue {
             kind,
             layer: None,
             key: None,
+            message,
+        }
+    }
+
+    pub fn keyed(kind: IssueKind, layer: Option<Layer>, key: &str, message: String) -> Self {
+        Issue {
+            kind,
+            layer,
+            key: Some(key.to_string()),
             message,
         }
     }
@@ -773,6 +786,26 @@ fn entry_problem(layer: Layer, key: &str, value: &Value) -> Option<(IssueKind, S
     problem.map(|m| (IssueKind::Range, m))
 }
 
+fn accept_entry(
+    layer: Layer,
+    key: &str,
+    value: &Value,
+    out: &mut BTreeMap<String, Value>,
+    issues: &mut Vec<Issue>,
+) {
+    match entry_problem(layer, key, value) {
+        Some((kind, message)) => issues.push(Issue::keyed(
+            kind,
+            Some(layer),
+            key,
+            format!("{message}; ignored"),
+        )),
+        None => {
+            out.insert(key.to_string(), value.clone());
+        }
+    }
+}
+
 fn validate_layer(
     layer: Layer,
     raw: Option<&Value>,
@@ -790,17 +823,7 @@ fn validate_layer(
         return out;
     };
     for (key, value) in map {
-        match entry_problem(layer, key, value) {
-            Some((kind, message)) => issues.push(Issue {
-                kind,
-                layer: Some(layer),
-                key: Some(key.clone()),
-                message: format!("{message}; ignored"),
-            }),
-            None => {
-                out.insert(key.clone(), value.clone());
-            }
-        }
+        accept_entry(layer, key, value, &mut out, issues);
     }
     out
 }
@@ -1119,6 +1142,12 @@ fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
     }
 }
 
+#[cfg(target_os = "android")]
+pub fn load_machine() -> LoadedPolicy {
+    managed_android::load()
+}
+
+#[cfg(not(target_os = "android"))]
 pub fn load_machine() -> LoadedPolicy {
     match machine_policy_path() {
         Some(p) => load_from(&p),

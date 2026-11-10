@@ -32,6 +32,8 @@ const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
   issues,
 });
 
+const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
+
 describe("policyStore", () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
@@ -192,7 +194,6 @@ describe("policyStore", () => {
     watchPolicyVisibility();
     const settle = () => new Promise((r) => setTimeout(r, 10));
     const visibility = (v: string) => Object.defineProperty(document, "visibilityState", { configurable: true, get: () => v });
-    const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
 
     visibility("visible");
     window.dispatchEvent(new Event("focus"));
@@ -213,6 +214,34 @@ describe("policyStore", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     await settle();
     expect(mocks.writeCliMirror).toHaveBeenCalledTimes(2);
+  });
+
+  it("reloads when the managed configuration changes", async () => {
+    mocks.invoke.mockResolvedValue(loaded());
+    mocks.applyCliPending.mockResolvedValue(undefined);
+    watchPolicyVisibility();
+    const before = loads();
+    window.dispatchEvent(new Event("voltius:policy-changed"));
+    await vi.waitFor(() => expect(loads()).toBe(before + 1));
+  });
+
+  it("a managed-config change during an in-flight load triggers exactly one more load", async () => {
+    let release!: () => void;
+    mocks.invoke.mockImplementationOnce(() => new Promise((r) => (release = () => r(loaded()))));
+    mocks.invoke.mockResolvedValue(loaded());
+    mocks.applyCliPending.mockResolvedValue(undefined);
+    watchPolicyVisibility();
+    const before = loads();
+    const changed = () => window.dispatchEvent(new Event("voltius:policy-changed"));
+    changed();
+    await vi.waitFor(() => expect(loads()).toBe(before + 1));
+    changed();
+    changed();
+    changed();
+    release();
+    await vi.waitFor(() => expect(loads()).toBe(before + 2));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(loads()).toBe(before + 2);
   });
 
   it("typed lock readers ignore values of the wrong type", () => {
