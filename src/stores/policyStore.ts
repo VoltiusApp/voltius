@@ -216,5 +216,6 @@ export function watchPolicyVisibility() {
   const onInactive = coalesced(writeMirror);
   document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? onActive() : onInactive()));
   window.addEventListener("focus", onActive);
+  window.addEventListener("voltius:policy-changed", onActive);
   window.addEventListener("blur", onInactive);
 }

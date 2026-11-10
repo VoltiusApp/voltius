@@ -325,7 +325,7 @@
       "rangeAllowed": "Votre organisation autorise : {{values}}",
       "serverBlocked": "Ce serveur n'est pas autorisé par votre organisation",
       "accountNotSaved": "Le compte actuel n'a pas pu être enregistré au préalable ; rien n'a été modifié",
-      "fileError": "Le fichier de politique Voltius de votre organisation n'a pas pu être lu ; aucune de ses règles ne s'applique.",
+      "fileError": "La politique Voltius de votre organisation n'a pas pu être lue ; aucune de ses règles ne s'applique.",
       "unprotected": "Le fichier de politique Voltius de votre organisation a été ignoré, car des utilisateurs standard peuvent le modifier. Demandez à votre équipe informatique de le définir avec voltius-cli.",
       "issues_one": "La politique Voltius de votre organisation comporte {{count}} problème ; le reste s'applique toujours.",
       "issues_many": "La politique Voltius de votre organisation comporte {{count}} problèmes ; le reste s'applique toujours.",

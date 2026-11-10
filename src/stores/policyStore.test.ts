@@ -215,6 +215,16 @@ describe("policyStore", () => {
     expect(mocks.writeCliMirror).toHaveBeenCalledTimes(2);
   });
 
+  it("reloads when the managed configuration changes", async () => {
+    mocks.invoke.mockResolvedValue(loaded());
+    mocks.applyCliPending.mockResolvedValue(undefined);
+    watchPolicyVisibility();
+    const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
+    const before = loads();
+    window.dispatchEvent(new Event("voltius:policy-changed"));
+    await vi.waitFor(() => expect(loads()).toBe(before + 1));
+  });
+
   it("typed lock readers ignore values of the wrong type", () => {
     usePolicyStore.setState({ machine: { policy: { b: false, l: ["x"], s: "str" }, defaults: {} } });
     expect(lockedBool("b")).toBe(false);

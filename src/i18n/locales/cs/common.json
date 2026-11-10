@@ -339,7 +339,7 @@
       "rangeAllowed": "Vaše organizace povoluje: {{values}}",
       "serverBlocked": "Tento server vaše organizace nepovoluje",
       "accountNotSaved": "Aktuální účet se nepodařilo nejprve uložit, a proto nebylo nic změněno",
-      "fileError": "Soubor zásad Voltius vaší organizace nelze přečíst, proto se z něj nic neuplatňuje.",
+      "fileError": "Zásady Voltius vaší organizace nelze přečíst, proto se z nich nic neuplatňuje.",
       "unprotected": "Soubor zásad Voltius vaší organizace byl ignorován, protože ho mohou měnit běžní uživatelé. Požádejte IT oddělení, aby ho nastavilo pomocí voltius-cli.",
       "issues_one": "Zásady Voltius vaší organizace obsahují {{count}} problém; zbytek zásad se nadále uplatňuje.",
       "issues_few": "Zásady Voltius vaší organizace obsahují {{count}} problémy; zbytek zásad se nadále uplatňuje.",
