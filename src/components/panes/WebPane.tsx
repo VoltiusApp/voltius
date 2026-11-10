@@ -4,10 +4,33 @@ import { closeWebPane, fetchWebFavicon, syncWebPane } from "@/services/webHost";
 import { useSessionStore } from "@/stores/sessionStore";
 import { notifyError } from "@/utils/notifyError";
 
+const MAX_NODES_SCANNED = 400;
+
+/** Whether something that takes pointer events is drawn over `pane` inside an overlay of `<body>`. */
+function overlayOver(pane: DOMRect, home: Element | null): boolean {
+  const stack: Element[] = [];
+  for (const child of document.body.children) {
+    if (child !== home && !["SCRIPT", "STYLE", "LINK"].includes(child.tagName)) stack.push(child);
+  }
+  for (let scanned = 0; stack.length > 0 && scanned < MAX_NODES_SCANNED; scanned++) {
+    const el = stack.pop() as Element;
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    if (style.pointerEvents !== "none") {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && r.left < pane.right && r.right > pane.left && r.top < pane.bottom && r.bottom > pane.top) {
+        return true;
+      }
+    }
+    stack.push(...el.children);
+  }
+  return false;
+}
+
 /**
- * Whether a popover, menu or dialog is drawn over `el`. Those are portalled into `<body>`, so each
- * opening or closing adds or removes a direct child of it. The native page above would hide them,
- * so the caller hides the page meanwhile.
+ * Whether a popover, menu, dialog or toast is drawn over `el`. Those are portalled into `<body>`,
+ * outside the app's root. The native page above would hide them, so the caller hides the page
+ * meanwhile.
  */
 function useCoveredByOverlay(el: React.RefObject<HTMLElement | null>, active: boolean): boolean {
   const [covered, setCovered] = useState(false);
@@ -22,24 +45,30 @@ function useCoveredByOverlay(el: React.RefObject<HTMLElement | null>, active: bo
       const node = el.current;
       if (!node) return;
       const r = node.getBoundingClientRect();
-      const home = node.closest("body > *");
-      const hit = [0.2, 0.5, 0.8].some((fx) =>
-        [0.2, 0.5, 0.8].some((fy) => {
-          const top = document.elementsFromPoint(r.left + r.width * fx, r.top + r.height * fy)[0];
-          const owner = top?.closest("body > *");
-          return !!owner && owner !== home;
-        }),
-      );
-      setCovered(r.width > 0 && r.height > 0 && hit);
+      setCovered(r.width > 0 && r.height > 0 && overlayOver(r, node.closest("body > *")));
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(check);
     };
-    const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true });
+    // Overlays come and go as body children, and change inside the ones that stay (a toast stack).
+    // The app's own tree is not watched: a terminal repaints it constantly.
+    const inner = new MutationObserver(schedule);
+    const watchChildren = () => {
+      const home = el.current?.closest("body > *");
+      for (const child of document.body.children) {
+        if (child !== home) inner.observe(child, { subtree: true, childList: true, attributes: true, attributeFilter: ["style", "class"] });
+      }
+    };
+    const outer = new MutationObserver(() => {
+      watchChildren();
+      schedule();
+    });
+    outer.observe(document.body, { childList: true });
+    watchChildren();
     schedule();
     return () => {
-      observer.disconnect();
+      outer.disconnect();
+      inner.disconnect();
       if (frame) cancelAnimationFrame(frame);
     };
   }, [el, active]);
