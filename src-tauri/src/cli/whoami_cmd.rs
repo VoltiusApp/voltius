@@ -1,12 +1,16 @@
 use super::enroll_cmd::host_of;
 use super::output::Output;
 use super::session::{self, Keys, OsKeys, SessionInfo};
-use super::user::require_account_as;
+use super::user::require_own_session;
 use super::{CliError, Ctx};
 use serde_json::{json, Value};
 
 pub fn run(ctx: &mut Ctx) -> Result<(), CliError> {
-    require_account_as(super::user::is_system_account(), "whoami")?;
+    require_own_session(
+        super::user::is_system_account(),
+        "whoami",
+        "reads the sign-in of",
+    )?;
     session::open_keychain()?;
     whoami(&OsKeys, ctx.out)
 }
@@ -22,12 +26,14 @@ fn whoami(keys: &dyn Keys, out: &mut Output) -> Result<(), CliError> {
 }
 
 fn describe(s: &SessionInfo) -> String {
-    match (s.mode.as_str(), &s.email, &s.server) {
-        ("server", Some(email), Some(server)) => {
-            format!("{email} on {} (server account)", host_of(server))
-        }
-        ("server", Some(email), None) => format!("{email} (server account)"),
-        _ => "Local account on this device".into(),
+    if s.mode != "server" {
+        return "Local account on this device".into();
+    }
+    match (&s.email, s.server.as_deref().map(host_of)) {
+        (Some(email), Some(host)) => format!("{email} on {host} (server account)"),
+        (Some(email), None) => format!("{email} (server account)"),
+        (None, Some(host)) => format!("Server account on {host}"),
+        (None, None) => "Server account".into(),
     }
 }
 
@@ -82,6 +88,18 @@ mod tests {
     }
 
     #[test]
+    fn whoami_server_without_email_is_not_local() {
+        let keys = MemKeys::with(&[
+            ("account_id", "acc-3"),
+            ("mode", "server"),
+            ("server_url", "https://sync.example.com"),
+        ]);
+        let (mut out, buf) = capture(false);
+        whoami(&keys, &mut out).unwrap();
+        assert_eq!(captured(&buf), "Server account on sync.example.com\n");
+    }
+
+    #[test]
     fn whoami_none_exits_1() {
         let (mut out, buf) = capture(false);
         let err = whoami(&MemKeys::default(), &mut out).unwrap_err();
@@ -119,8 +137,11 @@ mod tests {
 
     #[test]
     fn whoami_refuses_as_root() {
-        match require_account_as(true, "whoami") {
-            Err(CliError::Usage(m)) => assert!(m.contains("whoami"), "{m}"),
+        match require_own_session(true, "whoami", "reads the sign-in of") {
+            Err(CliError::Usage(m)) => assert!(
+                m.starts_with("voltius-cli whoami reads the sign-in of the user running it"),
+                "{m}"
+            ),
             other => panic!("{other:?}"),
         }
     }

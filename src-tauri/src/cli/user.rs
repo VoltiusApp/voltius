@@ -49,11 +49,25 @@ pub fn require_user_account(command: &str) -> Result<PathBuf, CliError> {
     require_account_as(is_system_account(), command)
 }
 
-pub(super) fn require_account_as(system: bool, command: &str) -> Result<PathBuf, CliError> {
+fn refuse_system(system: bool, hint: impl FnOnce() -> String) -> Result<(), CliError> {
     if system {
-        return Err(CliError::Usage(system_account_hint(command)));
+        return Err(CliError::Usage(hint()));
     }
+    Ok(())
+}
+
+pub(super) fn require_account_as(system: bool, command: &str) -> Result<PathBuf, CliError> {
+    refuse_system(system, || system_account_hint(command))?;
     Ok(crate::storage::config::config_dir())
+}
+
+pub(super) fn require_own_session(system: bool, command: &str, does: &str) -> Result<(), CliError> {
+    refuse_system(system, || {
+        format!(
+            "voltius-cli {command} {does} the user running it and cannot run as root/SYSTEM; \
+             run it as that user."
+        )
+    })
 }
 
 pub fn confirm(ctx: &mut Ctx, question: &str) -> Result<bool, CliError> {
@@ -105,6 +119,18 @@ mod tests {
         assert!(is_system_sid(Ok("S-1-5-18".into())));
         assert!(!is_system_sid(Ok("S-1-5-21-1-2-3-1001".into())));
         assert!(is_system_sid(Err(std::io::Error::other("token"))));
+    }
+
+    #[test]
+    fn sign_in_commands_refuse_root_in_their_own_words() {
+        match require_own_session(true, "login", "signs in") {
+            Err(CliError::Usage(m)) => assert_eq!(
+                m,
+                "voltius-cli login signs in the user running it and cannot run as root/SYSTEM; run it as that user."
+            ),
+            other => panic!("{other:?}"),
+        }
+        assert!(require_own_session(false, "login", "signs in").is_ok());
     }
 
     #[cfg(unix)]
