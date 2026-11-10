@@ -34,7 +34,9 @@ object VoltiusManagedConfig {
         val out = JSONObject()
         for (key in bundle.keySet()) {
             when (val value = bundle.get(key)) {
+                null -> {}
                 is String, is Boolean -> out.put(key, value)
+                else -> out.put(key, value.toString())
             }
         }
         return out.toString()

@@ -10,7 +10,7 @@ const CLASS: &str = "com.voltius.app.VoltiusManagedConfig";
 static LAST_REPORTED: Mutex<Option<String>> = Mutex::new(None);
 
 fn read() -> Result<Value, String> {
-    let text = with_env("managed configuration read", |env, ctx| {
+    let text = with_env("cannot read managed configuration", |env, ctx| {
         let cls = load_class(env, CLASS)?;
         let out = env
             .call_static_method(
@@ -23,7 +23,8 @@ fn read() -> Result<Value, String> {
         let text: String = env.get_string(&JString::from(out))?.into();
         Ok(text)
     })?;
-    serde_json::from_str(&text).map_err(|e| e.to_string())
+    serde_json::from_str(&text)
+        .map_err(|e| format!("cannot read managed configuration: invalid JSON from the app: {e}"))
 }
 
 fn report(issues: &[Issue]) {
@@ -55,11 +56,10 @@ pub fn load() -> LoadedPolicy {
     let (doc, issues) = match read() {
         Ok(bundle) => managed_config_doc(&bundle),
         Err(e) => {
-            let message = format!("cannot read managed configuration: {e}");
-            log::warn!("{message}");
+            log::warn!("{e}");
             (
                 PolicyDoc::default(),
-                vec![Issue::general(IssueKind::File, message)],
+                vec![Issue::general(IssueKind::File, e)],
             )
         }
     };
