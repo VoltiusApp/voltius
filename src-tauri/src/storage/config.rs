@@ -498,6 +498,12 @@ pub fn plain_leaf(name: &str) -> Option<&str> {
     ok.then_some(name)
 }
 
+pub fn app_data_dir() -> Result<PathBuf, String> {
+    dirs::data_dir()
+        .map(|d| d.join("com.voltius.app"))
+        .ok_or_else(|| "Failed to get app data dir".to_string())
+}
+
 pub fn config_dir_peek() -> PathBuf {
     match CONFIG_DIR_OVERRIDE.get() {
         Some(base) => base.clone(),
