@@ -29,6 +29,7 @@ export const PLAN_FEATURES: Record<Tier, PlanFeature[]> = {
     { id: "syncPlugins" },
     { id: "cli", only: onDesktop },
     { id: "machinePolicy", only: onDesktop },
+    { id: "mobileMdm" },
     { id: "auditLogs" },
   ],
   pro: [

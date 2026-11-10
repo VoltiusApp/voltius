@@ -405,6 +405,7 @@
           "syncPlugins": "Gist、Cloudflare 和 S3 同步插件",
           "cli": "命令行 (voltius-cli)",
           "machinePolicy": "用于批量部署的本机策略",
+          "mobileMdm": "移动设备托管配置 (MDM)",
           "auditLogs": "本地审计日志",
           "cloudSync": "云同步，即使您的设备从未同时在线",
           "cloudBackup": "Voltius Cloud 上的加密备份",

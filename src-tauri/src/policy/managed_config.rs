@@ -1,6 +1,8 @@
-use super::{accept_entry, parse, Issue, IssueKind, Layer, PolicyDoc};
+use super::{accept_entry, parse, Issue, IssueKind, Layer, LoadedPolicy, PolicyDoc};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::sync::Mutex;
 
 pub const TYPED_KEYS: [(&str, &str); 3] = [
     ("enrollment_token", "enrollment.token"),
@@ -9,6 +11,92 @@ pub const TYPED_KEYS: [(&str, &str); 3] = [
 ];
 
 const POLICY_KEY: &str = "policy";
+const MAX_KEY_UNITS: usize = 100;
+const MAX_MESSAGE_UNITS: usize = 1000;
+
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    Info,
+    Error,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct FeedbackEntry {
+    pub key: String,
+    pub severity: Severity,
+    pub message: String,
+}
+
+fn cut_utf16(s: &str, max: usize) -> String {
+    let mut units = 0;
+    s.chars()
+        .take_while(|c| {
+            units += c.len_utf16();
+            units <= max
+        })
+        .collect()
+}
+
+pub fn feedback_entries(issues: &[Issue]) -> Vec<FeedbackEntry> {
+    let mut groups: Vec<(String, Severity, Vec<&str>)> = Vec::new();
+    for issue in issues {
+        let key = issue.key.as_deref().unwrap_or(POLICY_KEY);
+        let severity = match issue.kind {
+            IssueKind::File | IssueKind::Type => Severity::Error,
+            _ => Severity::Info,
+        };
+        match groups.iter_mut().find(|(k, _, _)| k == key) {
+            Some((_, worst, messages)) => {
+                *worst = (*worst).max(severity);
+                messages.push(&issue.message);
+            }
+            None => groups.push((key.to_string(), severity, vec![&issue.message])),
+        }
+    }
+    if groups.is_empty() {
+        groups.push((POLICY_KEY.to_string(), Severity::Info, vec!["applied"]));
+    }
+    groups
+        .into_iter()
+        .map(|(key, severity, messages)| FeedbackEntry {
+            key: cut_utf16(&key, MAX_KEY_UNITS),
+            severity,
+            message: cut_utf16(&messages.join("; "), MAX_MESSAGE_UNITS),
+        })
+        .collect()
+}
+
+pub fn load_managed(
+    read: Result<Value, String>,
+    last: &Mutex<Option<String>>,
+    report: impl FnOnce(&str) -> Result<(), String>,
+) -> LoadedPolicy {
+    let (doc, issues) = match read {
+        Ok(bundle) => managed_config_doc(&bundle),
+        Err(e) => {
+            log::warn!("{e}");
+            (
+                PolicyDoc::default(),
+                vec![Issue::general(IssueKind::File, e)],
+            )
+        }
+    };
+    if let Ok(json) = serde_json::to_string(&feedback_entries(&issues)) {
+        let mut last = last.lock().unwrap_or_else(|e| e.into_inner());
+        if last.as_deref() != Some(json.as_str()) {
+            match report(&json) {
+                Ok(()) => *last = Some(json),
+                Err(e) => log::warn!("{e}"),
+            }
+        }
+    }
+    LoadedPolicy {
+        path: None,
+        doc,
+        issues,
+    }
+}
 
 fn typed_issue(kind: IssueKind, id: &str, message: String) -> Issue {
     Issue::keyed(kind, Some(Layer::Policy), id, message)
@@ -249,5 +337,135 @@ mod tests {
             kinds(&issues),
             vec![(IssueKind::Type, Some(Layer::Policy), Some("server.url"))]
         );
+    }
+
+    fn run(
+        read: Result<Value, String>,
+        last: &Mutex<Option<String>>,
+    ) -> (LoadedPolicy, Vec<String>) {
+        let mut sent = Vec::new();
+        let loaded = load_managed(read, last, |j| {
+            sent.push(j.to_string());
+            Ok(())
+        });
+        (loaded, sent)
+    }
+
+    fn payload(s: &str) -> Value {
+        serde_json::from_str(s).unwrap()
+    }
+
+    #[test]
+    fn empty_read_reports_applied_once() {
+        let last = Mutex::new(None);
+        let (loaded, first) = run(Ok(json!({})), &last);
+        let (_, second) = run(Ok(json!({})), &last);
+        assert_eq!(first.len() + second.len(), 1);
+        assert_eq!(
+            payload(&first[0]),
+            json!([{"key":"policy","severity":"info","message":"applied"}])
+        );
+        assert!(loaded.issues.is_empty());
+        assert_eq!(loaded.doc, PolicyDoc::default());
+    }
+
+    #[test]
+    fn read_error_is_one_file_issue() {
+        let last = Mutex::new(None);
+        let (loaded, sent) = run(Err("boom".into()), &last);
+        assert_eq!(
+            loaded.issues,
+            vec![Issue::general(IssueKind::File, "boom".into())]
+        );
+        assert_eq!(
+            payload(&sent[0]),
+            json!([{"key":"policy","severity":"error","message":"boom"}])
+        );
+    }
+
+    #[test]
+    fn failed_report_is_retried() {
+        let last = Mutex::new(None);
+        let mut calls = 0;
+        load_managed(Ok(json!({})), &last, |_| {
+            calls += 1;
+            Err("no".into())
+        });
+        assert!(last.lock().unwrap().is_none());
+        let mut sent = None;
+        load_managed(Ok(json!({})), &last, |j| {
+            calls += 1;
+            sent = Some(j.to_string());
+            Ok(())
+        });
+        assert_eq!(calls, 2);
+        assert_eq!(*last.lock().unwrap(), sent);
+    }
+
+    #[test]
+    fn report_resent_after_change() {
+        let last = Mutex::new(None);
+        let (_, a) = run(Ok(json!({})), &last);
+        let (_, b) = run(Ok(json!({"policy":"{nope"})), &last);
+        assert_eq!(a.len() + b.len(), 2);
+    }
+
+    #[test]
+    fn groups_by_key_with_worst_severity() {
+        let issues = [
+            Issue::keyed(IssueKind::UnknownKey, None, "a", "x".into()),
+            Issue::keyed(IssueKind::Type, Some(Layer::Policy), "a", "y".into()),
+            Issue::general(IssueKind::Conflict, "z".into()),
+        ];
+        let entry = |key: &str, severity, message: &str| FeedbackEntry {
+            key: key.into(),
+            severity,
+            message: message.into(),
+        };
+        assert_eq!(
+            feedback_entries(&issues),
+            vec![
+                entry("a", Severity::Error, "x; y"),
+                entry("policy", Severity::Info, "z")
+            ]
+        );
+    }
+
+    #[test]
+    fn cuts_key_and_message() {
+        for (unit, key_len, msg_len) in [("k", 150, 1500), ("é", 150, 1500), ("😀", 150, 600)] {
+            let issues = [Issue::keyed(
+                IssueKind::UnknownKey,
+                None,
+                &unit.repeat(key_len),
+                unit.repeat(msg_len),
+            )];
+            let out = feedback_entries(&issues);
+            assert_eq!(out[0].key.encode_utf16().count(), 100);
+            assert_eq!(out[0].message.encode_utf16().count(), 1000);
+        }
+    }
+
+    #[test]
+    fn cut_never_splits_a_surrogate_pair() {
+        assert_eq!(cut_utf16("a😀", 2), "a");
+        assert_eq!(cut_utf16("😀😀", 3), "😀");
+    }
+
+    #[test]
+    fn number_and_null_values_are_type_issues() {
+        let (doc, issues) = managed_config_doc(&json!({"server_url": 3, "enrollment_token": null}));
+        assert_eq!(
+            kinds(&issues),
+            vec![
+                (
+                    IssueKind::Type,
+                    Some(Layer::Policy),
+                    Some("enrollment.token")
+                ),
+                (IssueKind::Type, Some(Layer::Policy), Some("server.url")),
+            ]
+        );
+        assert!(doc.policy.is_empty());
     }
 }

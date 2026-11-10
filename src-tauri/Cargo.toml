@@ -143,8 +143,18 @@ objc2-local-authentication = { version = "0.3", features = ["LAContext", "LAErro
 block2 = "0.6"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-# NSArray for the share sheet (ios_native.rs).
-objc2-foundation = { version = "0.3", features = ["NSString", "NSArray"] }
+# NSArray for the share sheet (ios_native.rs); the rest for managed app configuration (policy/managed_ios.rs).
+objc2-foundation = { version = "0.3", features = [
+  "NSString",
+  "NSArray",
+  "NSUserDefaults",
+  "NSDictionary",
+  "NSValue",
+  "NSNotification",
+  "NSOperation",
+  "NSObject",
+  "block2",
+] }
 # iOS has only the data-protection keychain.
 apple-native-keyring-store = { version = "1", features = ["protected"] }
 

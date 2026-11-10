@@ -538,6 +538,7 @@
           "syncPlugins": "Pluginy pro synchronizaci přes Gist, Cloudflare a S3",
           "cli": "Příkazový řádek (voltius-cli)",
           "machinePolicy": "Zásady počítače pro hromadné nasazení",
+          "mobileMdm": "Spravovaná konfigurace mobilů (MDM)",
           "auditLogs": "Místní auditní logy",
           "cloudSync": "Synchronizace s cloudem, i když vaše zařízení nikdy nejsou online současně",
           "cloudBackup": "Šifrovaná záloha ve Voltius Cloud",
