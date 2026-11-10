@@ -123,6 +123,7 @@ fn show(machine: Option<&Path>, dir: &Path, out: &mut Output) -> Result<(), CliE
 mod tests {
     use super::*;
     use crate::cli::output::testing::{capture, captured};
+    use crate::cli::testing::ctx;
 
     fn run(
         cmd: ServerCmd,
@@ -131,12 +132,7 @@ mod tests {
         json: bool,
     ) -> (Result<(), CliError>, String) {
         let (mut out, buf) = capture(json);
-        let mut ctx = Ctx {
-            out: &mut out,
-            yes: true,
-            interactive: false,
-        };
-        let r = run_server(cmd, machine, dir, &mut ctx);
+        let r = run_server(cmd, machine, dir, &mut ctx(&mut out, true));
         (r, captured(&buf))
     }
 

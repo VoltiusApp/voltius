@@ -483,21 +483,15 @@ fn list_catalogue(catalogue: &Catalogue, out: &mut Output) -> Result<(), CliErro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::output::testing::{captured, Buf, Shared};
+    use crate::cli::output::testing::{capture, capture_split, captured};
+    use crate::cli::testing::{ctx, Outcome};
     use crate::cli_state::pending::{self, Change};
     use crate::policy;
     use serde_json::{json, Value};
-    use std::sync::{Arc, Mutex};
 
     const DOCKER: &str =
         r#"{"id":"plugin-docker","name":"Docker","permissions":["docker:manage","storage"]}"#;
     const THEME: &str = r#"{"id":"plugin-theme","name":"Theme","permissions":["themes"]}"#;
-
-    struct Run {
-        result: Result<(), CliError>,
-        out: String,
-        err: String,
-    }
 
     fn exec(
         cmd: PluginsCmd,
@@ -505,7 +499,7 @@ mod tests {
         dir: &Path,
         yes: bool,
         fetch: &dyn Fn() -> Result<String, String>,
-    ) -> Run {
+    ) -> Outcome {
         exec_seeded(cmd, machine, dir, yes, vec![], fetch)
     }
 
@@ -516,29 +510,11 @@ mod tests {
         yes: bool,
         seeded: Vec<&str>,
         fetch: &dyn Fn() -> Result<String, String>,
-    ) -> Run {
-        let (out_buf, err_buf): (Shared, Shared) = (
-            Arc::new(Mutex::new(Vec::new())),
-            Arc::new(Mutex::new(Vec::new())),
-        );
-        let mut out = Output::with_sinks(
-            false,
-            false,
-            Box::new(Buf(out_buf.clone())),
-            Box::new(Buf(err_buf.clone())),
-        );
-        let mut ctx = Ctx {
-            out: &mut out,
-            yes,
-            interactive: false,
-        };
+    ) -> Outcome {
         let catalogue = Catalogue { seeded, fetch };
-        let result = run_plugins(cmd, Some(machine), dir, &catalogue, &mut ctx);
-        Run {
-            result,
-            out: captured(&out_buf),
-            err: captured(&err_buf),
-        }
+        Outcome::capture(false, yes, |ctx| {
+            run_plugins(cmd, Some(machine), dir, &catalogue, ctx)
+        })
     }
 
     fn catalogue() -> Result<String, String> {
@@ -849,24 +825,20 @@ mod tests {
     #[test]
     fn permission_list_survives_quiet() {
         let (dir, machine) = setup();
-        let err: Shared = Arc::new(Mutex::new(Vec::new()));
-        let mut out = Output::with_sinks(
-            false,
-            true,
-            Box::new(std::io::sink()),
-            Box::new(Buf(err.clone())),
-        );
-        let mut ctx = Ctx {
-            out: &mut out,
-            yes: true,
-            interactive: false,
-        };
+        let (mut out, _, err) = capture_split(false, true);
         let catalogue = Catalogue {
             seeded: vec![DOCKER],
             fetch: &offline,
         };
         let cmd = PluginsCmd::Install(target("plugin-docker", false, false));
-        run_plugins(cmd, Some(&machine), dir.path(), &catalogue, &mut ctx).unwrap();
+        run_plugins(
+            cmd,
+            Some(&machine),
+            dir.path(),
+            &catalogue,
+            &mut ctx(&mut out, true),
+        )
+        .unwrap();
         assert!(
             captured(&err).contains("  docker:manage"),
             "{}",
@@ -1097,12 +1069,7 @@ mod tests {
             assert!(r.out.contains(needle), "{needle} missing in:\n{}", r.out);
         }
 
-        let (mut out, buf) = crate::cli::output::testing::capture(true);
-        let mut ctx = Ctx {
-            out: &mut out,
-            yes: false,
-            interactive: false,
-        };
+        let (mut out, buf) = capture(true);
         let catalogue = Catalogue {
             seeded: vec![],
             fetch: &offline,
@@ -1112,7 +1079,7 @@ mod tests {
             Some(&machine),
             dir.path(),
             &catalogue,
-            &mut ctx,
+            &mut ctx(&mut out, false),
         )
         .unwrap();
         let v: Value = serde_json::from_str(&captured(&buf)).unwrap();

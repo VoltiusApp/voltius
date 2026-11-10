@@ -14,6 +14,11 @@ interface Tokens {
 
 const session = (t: Tokens) => ({ jwt: t.jwt_token, refresh_token: t.refresh_token, wrapped_user_secrets: t.wrapped_user_secrets ?? null });
 
+export const authWireError = {
+  refused: (status: number, code?: string): AuthWireError => ({ kind: "status", status, ...(code ? { code } : {}) }),
+  network: (message: string): AuthWireError => ({ kind: "network", message }),
+};
+
 /** What the Rust auth_* commands resolve or reject with. */
 export const authAnswer = {
   accountId: (id: string): AuthAnswer => ({ value: id }),
@@ -23,8 +28,8 @@ export const authAnswer = {
     value: { kind: "secondFactor", pending_token: pendingToken, methods },
   }),
   passkeyUrl: (url: string): AuthAnswer => ({ value: url }),
-  refused: (status: number, code?: string): AuthAnswer => ({ error: { kind: "status", status, ...(code ? { code } : {}) } }),
-  network: (message: string): AuthAnswer => ({ error: { kind: "network", message } }),
+  refused: (status: number, code?: string): AuthAnswer => ({ error: authWireError.refused(status, code) }),
+  network: (message: string): AuthAnswer => ({ error: authWireError.network(message) }),
 };
 
 /** Answers an auth_* invoke from `answers`; an auth command the test left unanswered fails loudly. */

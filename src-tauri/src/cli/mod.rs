@@ -9,6 +9,8 @@ mod policy_cmd;
 mod prompt;
 mod server_cmd;
 pub(crate) mod session;
+#[cfg(test)]
+mod testing;
 pub mod user;
 mod whoami_cmd;
 

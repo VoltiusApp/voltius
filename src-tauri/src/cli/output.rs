@@ -83,6 +83,17 @@ pub mod testing {
         )
     }
 
+    pub fn capture_split(json: bool, quiet: bool) -> (Output, Shared, Shared) {
+        let (out, err): (Shared, Shared) = Default::default();
+        let output = Output::with_sinks(
+            json,
+            quiet,
+            Box::new(Buf(out.clone())),
+            Box::new(Buf(err.clone())),
+        );
+        (output, out, err)
+    }
+
     pub fn captured(buf: &Shared) -> String {
         String::from_utf8(buf.lock().unwrap().clone()).unwrap()
     }

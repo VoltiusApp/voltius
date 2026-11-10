@@ -930,10 +930,9 @@ fn export(path: &Path, out: &mut Output) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::output::testing::{capture, captured, Buf, Shared};
+    use crate::cli::output::testing::{capture, capture_split, captured};
     use crate::cli_state::{mirror, pending};
     use crate::policy::test_probes::*;
-    use std::sync::{Arc, Mutex};
 
     fn run(cmd: PolicyCmd, path: &Path, out: &mut Output) -> Result<(), CliError> {
         super::run(cmd, Some(path), out)
@@ -1662,20 +1661,6 @@ mod tests {
         assert!(v["entries"].is_array());
         assert_eq!(v["issues"].as_array().unwrap().len(), 1);
         assert!(v.get("mirrorAsOf").is_some());
-    }
-
-    fn capture_split(json: bool, quiet: bool) -> (Output, Shared, Shared) {
-        let (o, e) = (
-            Arc::new(Mutex::new(Vec::new())),
-            Arc::new(Mutex::new(Vec::new())),
-        );
-        let out = Output::with_sinks(
-            json,
-            quiet,
-            Box::new(Buf(o.clone())),
-            Box::new(Buf(e.clone())),
-        );
-        (out, o, e)
     }
 
     fn set_with(out: &mut Output, path: &Path, key: &str, value: &str) {

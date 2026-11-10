@@ -94,14 +94,7 @@ pub fn confirm(ctx: &mut Ctx, question: &str) -> Result<bool, CliError> {
 mod tests {
     use super::*;
     use crate::cli::output::Output;
-
-    fn ctx(out: &mut Output, yes: bool) -> Ctx<'_> {
-        Ctx {
-            out,
-            yes,
-            interactive: false,
-        }
-    }
+    use crate::cli::testing::ctx;
 
     #[test]
     fn confirm_without_tty_needs_yes() {

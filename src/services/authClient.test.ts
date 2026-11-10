@@ -7,9 +7,10 @@ vi.mock("@/i18n", () => ({
   default: { t: (k: string, opts?: Record<string, unknown>) => (opts ? `${k} ${JSON.stringify(opts)}` : k) },
 }));
 
+import { authWireError } from "@/test/authCommandRoute";
 import { authChallenge, authErrorToError, authLogin, authPasskeyStart, authSecondFactor } from "./authClient";
 
-const refused = (status: number, code?: string) => ({ kind: "status", status, ...(code ? { code } : {}) });
+const { refused } = authWireError;
 const failed = (status: number) => new Error(`refused ${status}`);
 
 beforeEach(() => h.invoke.mockReset());
@@ -58,7 +59,7 @@ test("authErrorToError gives other second-step statuses to the caller's refusal"
 });
 
 test("network error keeps the network message", () => {
-  expect(authErrorToError({ kind: "network", message: "connection refused" }, failed).message).toBe(
+  expect(authErrorToError(authWireError.network("connection refused"), failed).message).toBe(
     'common.error.networkError {"message":"connection refused"}',
   );
 });
