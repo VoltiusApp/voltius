@@ -17,7 +17,7 @@ import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFac
 import { addAccount } from "@/services/savedAccounts";
 import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
 import { ServerBlockedError, accountErrorText } from "@/services/accountErrors";
-import { usePolicyLock } from "@/stores/policyStore";
+import { lockedString, onPolicyLoaded, usePolicyLock } from "@/stores/policyStore";
 import { keepsPlainPassword } from "@/services/vaultSecret";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
@@ -27,7 +27,7 @@ import { EnrollOutcome } from "@/components/enrollment/EnrollOutcome";
 import { EnrollTokenEntry } from "@/components/enrollment/EnrollTokenEntry";
 import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
 import type { EnrollTarget } from "@/stores/uiStore";
-import { takeEnrollLink } from "@/services/enrollment/machineToken";
+import { machineEnrollmentToken, takeEnrollLink } from "@/services/enrollment/machineToken";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
 
 
@@ -85,17 +85,31 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   const [enrollBusy, setEnrollBusy] = useState(false);
 
   // The splash took what was queued when it chose this screen; a link landing later is taken here, or left for the modal.
+  const seenMachineToken = useRef(lockedString("enrollment.token"));
   const takesLinks = !isLocked && !addOnly && !enrolled && !loading && !enrollBusy && !twoFactor.challenge;
   useEffect(() => {
     if (!takesLinks) return;
     const take = () => {
-      const link = takeEnrollLink();
-      if (!link) return;
-      setEnroll(link);
+      let target = takeEnrollLink();
+      const raw = lockedString("enrollment.token");
+      if (!target && raw && raw !== seenMachineToken.current) {
+        const token = machineEnrollmentToken();
+        if (token) {
+          seenMachineToken.current = raw;
+          target = { token, source: "machine" };
+        }
+      }
+      if (!target) return;
+      setEnroll(target);
       reset("enroll");
     };
     take();
-    return useDeepLinkStore.subscribe((s, prev) => { if (s.queue !== prev.queue) take(); });
+    const unsubscribeLinks = useDeepLinkStore.subscribe((s, prev) => { if (s.queue !== prev.queue) take(); });
+    const unsubscribePolicy = onPolicyLoaded(take);
+    return () => {
+      unsubscribeLinks();
+      unsubscribePolicy();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only sets state
   }, [takesLinks]);
 
