@@ -7,6 +7,7 @@
 #[cfg(target_os = "android")]
 mod android_ctx;
 mod app_lock;
+pub mod auth;
 pub mod cli;
 pub mod cli_state;
 mod clock;
@@ -303,6 +304,10 @@ pub fn run() {
         .manage(commands::lan_sync::LanSyncState::default())
         .manage(device_files::link::DeviceLinks::default())
         .invoke_handler(tauri::generate_handler![
+            auth::auth_challenge,
+            auth::auth_login,
+            auth::auth_second_factor,
+            auth::auth_passkey_start,
             force_quit,
             updater::updater_restart,
             updater::updater_check,
