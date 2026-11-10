@@ -225,6 +225,25 @@ describe("policyStore", () => {
     await vi.waitFor(() => expect(loads()).toBe(before + 1));
   });
 
+  it("a managed-config change during an in-flight load triggers exactly one more load", async () => {
+    let release!: () => void;
+    mocks.invoke.mockImplementationOnce(() => new Promise((r) => (release = () => r(loaded()))));
+    mocks.invoke.mockResolvedValue(loaded());
+    mocks.applyCliPending.mockResolvedValue(undefined);
+    watchPolicyVisibility();
+    const before = loads();
+    const changed = () => window.dispatchEvent(new Event("voltius:policy-changed"));
+    changed();
+    await vi.waitFor(() => expect(loads()).toBe(before + 1));
+    changed();
+    changed();
+    changed();
+    release();
+    await vi.waitFor(() => expect(loads()).toBe(before + 2));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(loads()).toBe(before + 2);
+  });
+
   it("typed lock readers ignore values of the wrong type", () => {
     usePolicyStore.setState({ machine: { policy: { b: false, l: ["x"], s: "str" }, defaults: {} } });
     expect(lockedBool("b")).toBe(false);
