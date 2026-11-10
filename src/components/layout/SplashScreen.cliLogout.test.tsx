@@ -4,6 +4,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 const h = vi.hoisted(() => ({
   marker: [] as string[],
   calls: [] as string[],
+  clearFails: false,
   reload: vi.fn(() => {
     h.calls.push("reload");
   }),
@@ -40,6 +41,7 @@ vi.mock("@/services/vault", () => ({
   getVaultStatus: vi.fn(async () => ({ exists: false })),
   clearAccountUiState: vi.fn(async () => {
     h.calls.push("clearAccountUiState");
+    if (h.clearFails) throw new Error("storage refused");
   }),
 }));
 vi.mock("@/stores/persistedAccountUiState", async (orig) => ({
@@ -62,6 +64,7 @@ afterEach(() => {
   cleanup();
   h.marker = [];
   h.calls = [];
+  h.clearFails = false;
 });
 
 test("splash consumes the logout marker before autoLogin and clears account UI state", async () => {
@@ -83,4 +86,14 @@ test("no marker → nothing cleared", async () => {
   render(<SplashScreen onReady={() => {}} />);
   expect(await screen.findByText("home")).toBeTruthy();
   expect(h.calls).toEqual(["take", "autoLogin"]);
+});
+
+test("a cleanup that throws still reloads instead of carrying on with the old account", async () => {
+  h.marker = ["acc-1"];
+  h.clearFails = true;
+  render(<SplashScreen onReady={() => {}} />);
+  await vi.waitFor(() => expect(h.calls).toContain("reload"));
+  expect(h.calls).toEqual(["take", "clearAccountUiState", "reload"]);
+  await new Promise((r) => setTimeout(r, 50));
+  expect(h.calls).not.toContain("autoLogin");
 });

@@ -64,9 +64,12 @@ function firstLaunchEnrollTarget(): EnrollTarget | undefined {
 async function finishCliLogout(): Promise<boolean> {
   const accountIds = await invoke<string[]>("cli_logout_marker_take").catch(() => []);
   if (accountIds.length === 0) return false;
-  await clearAccountUiState();
-  accountIds.forEach((id) => dropAccountUiState(id));
-  window.location.reload();
+  try {
+    await clearAccountUiState();
+    accountIds.forEach((id) => dropAccountUiState(id));
+  } finally {
+    window.location.reload();
+  }
   return true;
 }
 
