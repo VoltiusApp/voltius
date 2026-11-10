@@ -94,6 +94,16 @@
         "resetTitle": "恢复主题的字体大小",
         "reset": "重置"
       },
+      "tabFontSize": {
+        "clickHintMobile": "点按输入数值",
+        "title": "标签页字体大小",
+        "desc": "调整顶部标签页的文字大小，不影响界面其余部分的缩放。",
+        "clickHint": "点击输入数值",
+        "zoomOut": "缩小文字",
+        "zoomIn": "放大文字",
+        "resetTitle": "使用默认标签页大小",
+        "reset": "重置"
+      },
       "automation": {
         "themeMode": "自动主题模式",
         "title": "自动主题",

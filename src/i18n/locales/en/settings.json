@@ -96,6 +96,16 @@
         "resetTitle": "Follow the theme's font size",
         "reset": "Reset"
       },
+      "tabFontSize": {
+        "clickHintMobile": "Tap to enter a value",
+        "title": "Tab Font Size",
+        "desc": "Size the text of the tabs at the top, without scaling the rest of the interface.",
+        "clickHint": "Click to enter a value",
+        "zoomOut": "Smaller text",
+        "zoomIn": "Larger text",
+        "resetTitle": "Follow the default tab size",
+        "reset": "Reset"
+      },
       "automation": {
         "themeMode": "Automatic theme mode",
         "title": "Automatic theme",

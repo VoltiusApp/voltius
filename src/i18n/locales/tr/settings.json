@@ -96,6 +96,16 @@
         "resetTitle": "Temanın yazı boyutunu kullan",
         "reset": "Sıfırla"
       },
+      "tabFontSize": {
+        "clickHintMobile": "Değer girmek için dokunun",
+        "title": "Sekme yazı tipi boyutu",
+        "desc": "Üstteki sekmelerin metin boyutunu, arayüzün geri kalanını ölçeklemeden ayarlar.",
+        "clickHint": "Değer girmek için tıklayın",
+        "zoomOut": "Daha küçük metin",
+        "zoomIn": "Daha büyük metin",
+        "resetTitle": "Varsayılan sekme boyutunu kullan",
+        "reset": "Sıfırla"
+      },
       "automation": {
         "themeMode": "Otomatik tema modu",
         "title": "Otomatik tema",

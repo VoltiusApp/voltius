@@ -10,6 +10,7 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import TerminalFontSizeSection from "./TerminalFontSizeSection";
+import TabFontSizeSection from "./TabFontSizeSection";
 import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
@@ -82,6 +83,11 @@ export default function AppearanceSection() {
         <div className="mt-4">
           <TerminalFontSizeSection />
         </div>
+        {!isMobile && (
+          <div className="mt-4">
+            <TabFontSizeSection />
+          </div>
+        )}
         <SettingRow variant="card" className="mt-4" syncKey="appSettings.locale" title={t("settings.appearance.language.title")}>
           <FormSelect
             className="w-44 shrink-0"

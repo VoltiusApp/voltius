@@ -86,10 +86,10 @@ describe("MCP marking in the tab strip", () => {
     expect(screen.getByTestId("mcp-bar-s2").closest("button")?.getAttribute("title")).toContain("Claude Code");
   });
 
-  it("leaves an unowned session tab without an MCP title", () => {
+  it("gives an unowned session tab its full label as title, not an MCP one", () => {
     render(<TitleBar />);
     const button = screen.getByText("s1").closest("button");
-    expect(button?.getAttribute("title")).toBeNull();
+    expect(button?.getAttribute("title")).toBe("s1");
   });
 
   it("keeps the split-tab title and adds the client name when a pane is owned", () => {

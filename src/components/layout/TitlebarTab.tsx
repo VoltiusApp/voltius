@@ -8,6 +8,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { STATUS_TONE_COLOR, type StatusTone } from "@/utils/statusTone";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
+import { useUIStore } from "@/stores/uiStore";
 import { sessionLabel } from "@/utils/sessionLabel";
 
 export function sessionTabIcon(
@@ -136,12 +137,17 @@ export function TitlebarTab({
   onMouseLeave?: (e: React.MouseEvent) => void;
   buttonRef?: React.Ref<HTMLButtonElement>;
 }) {
+  const tabFontSize = useUIStore((s) => s.tabFontSize);
+  const fontSize = tabFontSize ? { fontSize: tabFontSize } : undefined;
+  // A long label is cut off in the tab: the tooltip gives it in full.
+  const tooltip = title || (typeof label === "string" ? label : undefined);
+
   if (renaming) {
     return (
       <div
         data-titlebar-key={itemKey}
         className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
-        style={tabSurfaceStyle(active)}
+        style={{ ...tabSurfaceStyle(active), ...fontSize }}
       >
         {icon}
         <InlineNameEditor
@@ -164,8 +170,8 @@ export function TitlebarTab({
       onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
       className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
-      title={title}
-      style={tabSurfaceStyle(active)}
+      title={tooltip}
+      style={{ ...tabSurfaceStyle(active), ...fontSize }}
       onMouseEnter={(e) => {
         if (!active) {
           (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
