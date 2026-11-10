@@ -23,6 +23,18 @@ pub(crate) fn read(key: &str) -> keyring_core::Result<Option<String>> {
     }
 }
 
+pub(crate) fn write(key: &str, value: &str) -> keyring_core::Result<()> {
+    entry(key)?.set_password(value)
+}
+
+/// A missing entry counts as removed.
+pub(crate) fn remove(key: &str) -> keyring_core::Result<()> {
+    match entry(key)?.delete_credential() {
+        Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
+        Err(err) => Err(err),
+    }
+}
+
 pub(crate) fn guard(key: &str) -> Result<(), String> {
     use crate::commands::vault_secret::{FORGET, PLAIN, SEALED};
     if key == PLAIN || key == SEALED || key == FORGET {
@@ -49,22 +61,11 @@ pub async fn keychain_get(key: String) -> Result<Option<String>, String> {
 #[tauri::command]
 pub async fn keychain_set(key: String, value: String) -> Result<(), String> {
     guard(&key)?;
-    off_main(move || {
-        entry(&key)
-            .and_then(|e| e.set_password(&value))
-            .map_err(|e| format!("Keychain write error: {e}"))
-    })
-    .await
+    off_main(move || write(&key, &value).map_err(|e| format!("Keychain write error: {e}"))).await
 }
 
 #[tauri::command]
 pub async fn keychain_delete(key: String) -> Result<(), String> {
     guard(&key)?;
-    off_main(
-        move || match entry(&key).and_then(|e| e.delete_credential()) {
-            Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
-            Err(err) => Err(format!("Keychain delete error: {err}")),
-        },
-    )
-    .await
+    off_main(move || remove(&key).map_err(|e| format!("Keychain delete error: {e}"))).await
 }

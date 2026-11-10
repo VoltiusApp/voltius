@@ -4,6 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
+pub const APP_IDENTIFIER: &str = "com.voltius.app";
+
 /// Overrides the base config directory. Set once at startup on platforms where
 /// `dirs::config_dir()` doesn't resolve to writable, app-scoped storage — most
 /// importantly Android, where it falls back to an unwritable cwd ("/"). When
@@ -500,7 +502,7 @@ pub fn plain_leaf(name: &str) -> Option<&str> {
 
 pub fn app_data_dir() -> Result<PathBuf, String> {
     dirs::data_dir()
-        .map(|d| d.join("com.voltius.app"))
+        .map(|d| d.join(APP_IDENTIFIER))
         .ok_or_else(|| "Failed to get app data dir".to_string())
 }
 
@@ -1005,6 +1007,13 @@ pub fn save_snippet_folders(folders: &[SnippetFolder]) -> Result<(), String> {
 mod tests {
     use super::*;
     use serde::de::DeserializeOwned;
+
+    #[test]
+    fn app_identifier_matches_tauri_conf() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
+        assert_eq!(conf["identifier"], APP_IDENTIFIER);
+    }
 
     /// Asserts that `value` survives a JSON serialize → deserialize → serialize
     /// cycle unchanged. Compares `serde_json::Value`s (not strings) so that

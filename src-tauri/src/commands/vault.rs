@@ -2,7 +2,7 @@ use crate::app_lock::AppLock;
 use crate::storage::config::config_dir;
 use crate::storage::profile::{self, ProfileDirs};
 use crate::storage::secrets::{SecretsStore, SECRETS_FILE};
-use crate::storage::vault;
+use crate::storage::vault::{self, VAULT_HOLD_FILE};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
@@ -35,7 +35,6 @@ pub fn drop_parked_profile(data_dir: &Path, account_id: &str) -> Result<(), Stri
     profile::drop_parked(&data_dir.join(PARKED_DIR), account_id)
 }
 
-const VAULT_HOLD_FILE: &str = "vault.hold";
 const PARKED_DIR: &str = "accounts";
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -203,7 +202,9 @@ mod tests {
     fn app_data_dir_matches_tauri_identifier() {
         assert_eq!(
             crate::storage::config::app_data_dir().unwrap(),
-            dirs::data_dir().unwrap().join("com.voltius.app")
+            dirs::data_dir()
+                .unwrap()
+                .join(crate::storage::config::APP_IDENTIFIER)
         );
     }
 
@@ -215,13 +216,13 @@ mod tests {
         std::fs::create_dir_all(&data).unwrap();
         std::fs::create_dir_all(&config).unwrap();
         std::fs::write(data.join(SECRETS_FILE), "x").unwrap();
-        std::fs::write(data.join("vault.hold"), "x").unwrap();
+        std::fs::write(data.join(VAULT_HOLD_FILE), "x").unwrap();
         std::fs::write(config.join("app-lock"), "vault").unwrap();
 
         reset_local_vault(&data, &config).unwrap();
 
         assert!(!data.join(SECRETS_FILE).exists());
-        assert!(!data.join("vault.hold").exists());
+        assert!(!data.join(VAULT_HOLD_FILE).exists());
         assert!(!config.exists());
     }
 

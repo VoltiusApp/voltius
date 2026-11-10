@@ -1,3 +1,4 @@
+use crate::commands::keychain;
 use crate::system_auth::seal::{PlatformSealer, SealOutcome, SealStatus, Sealer};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
@@ -218,22 +219,13 @@ fn blocking<T>(job: impl FnOnce() -> T) -> T {
 
 impl Store for Keychain {
     fn get(&self, key: &str) -> Result<Option<String>, String> {
-        blocking(|| crate::commands::keychain::read(key).map_err(|e| e.to_string()))
+        blocking(|| keychain::read(key).map_err(|e| e.to_string()))
     }
     fn set(&self, key: &str, value: &str) -> Result<(), String> {
-        blocking(|| {
-            crate::commands::keychain::entry(key)
-                .and_then(|e| e.set_password(value))
-                .map_err(|e| e.to_string())
-        })
+        blocking(|| keychain::write(key, value).map_err(|e| e.to_string()))
     }
     fn delete(&self, key: &str) -> Result<(), String> {
-        blocking(|| {
-            match crate::commands::keychain::entry(key).and_then(|e| e.delete_credential()) {
-                Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
-                Err(e) => Err(e.to_string()),
-            }
-        })
+        blocking(|| keychain::remove(key).map_err(|e| e.to_string()))
     }
 }
 

@@ -76,6 +76,17 @@ fn force_quit(app: tauri::AppHandle) {
 /// Register the OS-native credential store as keyring-core's default. Exactly one
 /// branch is active per target; other platforms get a no-op (keychain unavailable).
 fn init_keychain_store() -> keyring_core::Result<()> {
+    desktop_keychain_store(true)?;
+    #[cfg(target_os = "android")]
+    keyring_core::set_default_store(crate::keychain_android::Store::new());
+    #[cfg(target_os = "ios")]
+    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
+    Ok(())
+}
+
+/// `allow_volatile` lets keyring-less Linux fall back to keyutils, which the desktop app would not read after a reboot.
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+pub(crate) fn desktop_keychain_store(allow_volatile: bool) -> keyring_core::Result<()> {
     #[cfg(target_os = "linux")]
     {
         // Prefer the persistent Secret Service (gnome-keyring/KWallet). The kernel
@@ -85,7 +96,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
         // volatile keyutils store there so the app still runs (no persistence).
         match dbus_secret_service_keyring_store::Store::new() {
             Ok(store) => keyring_core::set_default_store(store),
-            Err(e) => {
+            Err(e) if allow_volatile => {
                 log::warn!(
                     "Secret Service unavailable ({e}); falling back to volatile keyutils keyring"
                 );
@@ -95,6 +106,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
                     )?,
                 );
             }
+            Err(e) => return Err(e),
         }
     }
     #[cfg(target_os = "macos")]
@@ -108,10 +120,6 @@ fn init_keychain_store() -> keyring_core::Result<()> {
     keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
         &std::collections::HashMap::<&str, &str>::new(),
     )?);
-    #[cfg(target_os = "android")]
-    keyring_core::set_default_store(crate::keychain_android::Store::new());
-    #[cfg(target_os = "ios")]
-    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
     Ok(())
 }
 

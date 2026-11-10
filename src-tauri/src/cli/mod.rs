@@ -5,6 +5,7 @@ mod path_cmd;
 mod plugins_cmd;
 mod policy_cmd;
 mod server_cmd;
+pub(crate) mod session;
 pub mod user;
 
 use crate::cli_state::pending::{self, Change};
@@ -35,7 +36,9 @@ pub enum Access {
 
 #[derive(Debug)]
 pub enum CliError {
+    NotSignedIn,
     Usage(String),
+    Refused(String),
     Validation(Vec<Issue>),
     Permission(Access, PathBuf),
     Denied(String),
@@ -45,8 +48,9 @@ pub enum CliError {
 impl CliError {
     pub fn exit_code(&self) -> u8 {
         match self {
+            CliError::NotSignedIn => 1,
             CliError::Usage(_) => 2,
-            CliError::Validation(_) => 3,
+            CliError::Validation(_) | CliError::Refused(_) => 3,
             CliError::Permission(..) | CliError::Denied(_) => 4,
             CliError::Io(_) => 5,
         }
@@ -62,7 +66,8 @@ impl CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CliError::Usage(m) | CliError::Denied(m) => f.write_str(m),
+            CliError::NotSignedIn => f.write_str("Not signed in"),
+            CliError::Usage(m) | CliError::Refused(m) | CliError::Denied(m) => f.write_str(m),
             CliError::Validation(issues) => {
                 let lines: Vec<String> = issues.iter().map(policy_cmd::describe).collect();
                 f.write_str(&lines.join("\n"))
