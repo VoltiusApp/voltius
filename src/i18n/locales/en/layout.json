@@ -112,7 +112,7 @@
       "checkForUpdates": "Check for updates"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · serial · local …",
+      "searchPlaceholder": "ssh user@host · serial · local · https host:port …",
       "sectionQuickConnect": "Quick Connect",
       "sectionRecent": "Recent",
       "sectionLocal": "Local",
@@ -120,6 +120,8 @@
       "noHostsYet": "No hosts yet",
       "connectTo": "Connect to {{user}}@{{host}}",
       "portSsh": "Port {{port}} · SSH",
+      "openWeb": "Open {{host}}:{{port}}",
+      "portWeb": "{{protocol}} · web page",
       "serialConnection": "Serial connection",
       "configurePortBaud": "Configure port & baud",
       "localShellFallback": "Local shell"

@@ -175,6 +175,8 @@ function NewSessionPanel({ popover, anchorRef, onClose }: {
   const quickLabel = quickIntent && (
     quickIntent.kind === "ssh"
       ? { t: t("layout.newSession.connectTo", { user: quickIntent.user, host: quickIntent.host }), s: t("layout.newSession.portSsh", { port: quickIntent.port }), i: "lucide:arrow-right" }
+      : quickIntent.kind === "web"
+      ? { t: t("layout.newSession.openWeb", { host: quickIntent.host, port: quickIntent.port }), s: t("layout.newSession.portWeb", { protocol: quickIntent.secure ? "HTTPS" : "HTTP" }), i: "lucide:globe" }
       : { t: t("layout.newSession.serialConnection"), s: quickIntent.port ?? t("layout.newSession.configurePortBaud"), i: "lucide:ethernet-port" }
   );
 

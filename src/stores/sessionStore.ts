@@ -660,6 +660,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   connectDirect: async (connection) => {
     const sessionId = crypto.randomUUID();
     ephemeralConnections.set(connection.id, connection);
+    if (isWebProtocol(connection)) {
+      openWebSession(set as SessionSetter, connection);
+      return;
+    }
     await startSession(set as SessionSetter, connection, sessionId);
   },
 

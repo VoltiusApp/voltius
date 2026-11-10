@@ -45,6 +45,8 @@
     "quickConnect": {
       "connectTo": "Подключиться к {{user}}@{{host}}",
       "portSsh": "Порт {{port}} — SSH",
+      "openWeb": "Открыть {{host}}:{{port}}",
+      "portWeb": "{{protocol}} — веб-страница",
       "serialConnection": "Последовательное подключение",
       "configurePortAndBaud": "Настроить порт и скорость",
       "localShellNamed": "Локальная оболочка ({{shell}})",

@@ -112,7 +112,7 @@
       "checkForUpdates": "Проверить обновления"
     },
     "newSession": {
-      "searchPlaceholder": "ssh пользователь@хост · последовательный · локально …",
+      "searchPlaceholder": "ssh пользователь@хост · последовательный · локально · https host:port …",
       "sectionQuickConnect": "Быстрое подключение",
       "sectionRecent": "Недавние",
       "sectionLocal": "Локально",
@@ -120,6 +120,8 @@
       "noHostsYet": "Пока нет хостов",
       "connectTo": "Подключиться к {{user}}@{{host}}",
       "portSsh": "Порт {{port}} · SSH",
+      "openWeb": "Открыть {{host}}:{{port}}",
+      "portWeb": "{{protocol}} · веб-страница",
       "serialConnection": "Последовательное подключение",
       "configurePortBaud": "Настроить порт и скорость",
       "localShellFallback": "Локальная оболочка"

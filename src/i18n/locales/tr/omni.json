@@ -43,6 +43,8 @@
     "quickConnect": {
       "connectTo": "Bağlan: {{user}}@{{host}}",
       "portSsh": "Port {{port}} — SSH",
+      "openWeb": "{{host}}:{{port}} adresini aç",
+      "portWeb": "{{protocol}} — web sayfası",
       "serialConnection": "Seri bağlantı",
       "configurePortAndBaud": "Port ve baud hızını yapılandır",
       "localShellNamed": "Yerel kabuk ({{shell}})",

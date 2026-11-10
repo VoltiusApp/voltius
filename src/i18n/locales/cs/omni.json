@@ -45,6 +45,8 @@
     "quickConnect": {
       "connectTo": "Připojit k {{user}}@{{host}}",
       "portSsh": "Port {{port}} — SSH",
+      "openWeb": "Otevřít {{host}}:{{port}}",
+      "portWeb": "{{protocol}} — webová stránka",
       "serialConnection": "Sériové připojení",
       "configurePortAndBaud": "Nastavit port a rychlost",
       "localShellNamed": "Lokální shell ({{shell}})",

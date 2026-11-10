@@ -112,7 +112,7 @@
       "checkForUpdates": "Güncellemeleri denetle"
     },
     "newSession": {
-      "searchPlaceholder": "ssh kullanıcı@sunucu · seri · yerel …",
+      "searchPlaceholder": "ssh kullanıcı@sunucu · seri · yerel · https host:port …",
       "sectionQuickConnect": "Hızlı bağlan",
       "sectionRecent": "Son kullanılanlar",
       "sectionLocal": "Yerel",
@@ -120,6 +120,8 @@
       "noHostsYet": "Henüz sunucu yok",
       "connectTo": "Bağlan: {{user}}@{{host}}",
       "portSsh": "Port {{port}} · SSH",
+      "openWeb": "{{host}}:{{port}} adresini aç",
+      "portWeb": "{{protocol}} · web sayfası",
       "serialConnection": "Seri bağlantı",
       "configurePortBaud": "Port ve baud hızını yapılandır",
       "localShellFallback": "Yerel kabuk"

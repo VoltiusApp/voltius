@@ -112,7 +112,7 @@
       "checkForUpdates": "Zkontrolovat aktualizace"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · serial · local …",
+      "searchPlaceholder": "ssh user@host · serial · local · https host:port …",
       "sectionQuickConnect": "Rychlé připojení",
       "sectionRecent": "Nedávné",
       "sectionLocal": "Lokální",
@@ -120,6 +120,8 @@
       "noHostsYet": "Zatím žádné hosty",
       "connectTo": "Připojit k {{user}}@{{host}}",
       "portSsh": "Port {{port}} · SSH",
+      "openWeb": "Otevřít {{host}}:{{port}}",
+      "portWeb": "{{protocol}} · webová stránka",
       "serialConnection": "Sériové připojení",
       "configurePortBaud": "Nastavit port a rychlost",
       "localShellFallback": "Lokální shell"

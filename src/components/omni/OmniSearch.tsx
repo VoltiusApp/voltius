@@ -876,6 +876,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       const { title, subtitle, icon } =
         intent.kind === "ssh"
           ? { title: t("omni.quickConnect.connectTo", { user: intent.user, host: intent.host }), subtitle: t("omni.quickConnect.portSsh", { port: intent.port }), icon: "lucide:arrow-right" }
+          : intent.kind === "web"
+          ? { title: t("omni.quickConnect.openWeb", { host: intent.host, port: intent.port }), subtitle: t("omni.quickConnect.portWeb", { protocol: intent.secure ? "HTTPS" : "HTTP" }), icon: "lucide:globe" }
           : intent.kind === "serial"
           ? { title: t("omni.quickConnect.serialConnection"), subtitle: intent.port ?? t("omni.quickConnect.configurePortAndBaud"), icon: "lucide:ethernet-port" }
           : { title: intent.shell ? t("omni.quickConnect.localShellNamed", { shell: intent.shell }) : t("omni.quickConnect.localShell"), subtitle: t("omni.quickConnect.openLocalTerminal"), icon: "lucide:square-terminal" };
