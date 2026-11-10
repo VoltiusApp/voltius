@@ -4,10 +4,16 @@ use keyring_core::Entry;
 /// (e.g. "voltius-2") so multiple simultaneous instances (dev:2) each
 /// get an isolated keychain namespace without interfering with each other.
 pub(crate) fn service() -> String {
-    match std::env::var("VOLTIUS_KEYCHAIN_NS") {
-        Ok(ns) if !ns.is_empty() => format!("voltius-{ns}"),
-        _ => "voltius".to_string(),
+    match namespace() {
+        Some(ns) => format!("voltius-{ns}"),
+        None => "voltius".to_string(),
     }
+}
+
+pub(crate) fn namespace() -> Option<String> {
+    std::env::var("VOLTIUS_KEYCHAIN_NS")
+        .ok()
+        .filter(|ns| !ns.is_empty())
 }
 
 pub(crate) fn entry(key: &str) -> keyring_core::Result<Entry> {

@@ -1,6 +1,7 @@
 use super::CliError;
 use crate::commands::{keychain, vault_secret};
-use crate::storage::config::APP_IDENTIFIER;
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 
 pub(crate) const KEYCHAIN_UNREACHABLE: &str = "Can't reach this user's keychain. Run voltius-cli login in a terminal on the desktop, or sign in from the app.";
 const APP_RUNNING: &str = "Quit Voltius first; it holds this account's keys.";
@@ -53,8 +54,7 @@ impl vault_secret::Store for SecretStore<'_> {
 }
 
 pub(crate) fn open_keychain() -> Result<(), CliError> {
-    let allow_volatile =
-        cfg!(debug_assertions) && std::env::var_os("VOLTIUS_KEYCHAIN_NS").is_some();
+    let allow_volatile = cfg!(debug_assertions) && keychain::namespace().is_some();
     open_with(|| crate::desktop_keychain_store(allow_volatile), &OsKeys)
 }
 
@@ -62,11 +62,14 @@ fn open_with(
     register: impl FnOnce() -> keyring_core::Result<()>,
     probe: &dyn Keys,
 ) -> Result<(), CliError> {
-    if register().is_ok() && probe.get(ACCOUNT_ID).is_ok() {
-        Ok(())
-    } else {
-        Err(CliError::Denied(KEYCHAIN_UNREACHABLE.into()))
-    }
+    register()
+        .map_err(|e| e.to_string())
+        .and_then(|()| probe.get(ACCOUNT_ID).map_err(|e| e.to_string()))
+        .map(drop)
+        .map_err(|e| {
+            log::debug!("keychain unreachable: {e}");
+            CliError::Denied(KEYCHAIN_UNREACHABLE.into())
+        })
 }
 
 pub(crate) fn current_session(keys: &dyn Keys) -> Result<Option<SessionInfo>, CliError> {
@@ -82,7 +85,64 @@ pub(crate) fn current_session(keys: &dyn Keys) -> Result<Option<SessionInfo>, Cl
 }
 
 pub(crate) fn app_running() -> bool {
-    instance_lock_held() || answers(&crate::mcp::transport::socket_path())
+    app_process_running() || instance_lock_held() || answers(&crate::mcp::transport::socket_path())
+}
+
+#[derive(Clone)]
+struct Proc<U> {
+    pid: u32,
+    uid: Option<U>,
+    exe: Option<PathBuf>,
+    cmd: Vec<OsString>,
+}
+
+fn other_app_process<U: PartialEq>(procs: &[Proc<U>], me: u32, exe: &Path) -> bool {
+    let Some(uid) = procs
+        .iter()
+        .find(|p| p.pid == me)
+        .and_then(|p| p.uid.as_ref())
+    else {
+        return false;
+    };
+    procs.iter().any(|p| {
+        p.pid != me
+            && p.uid.as_ref() == Some(uid)
+            && p.exe.as_deref() == Some(exe)
+            && super::cli_args(&p.cmd).is_none()
+    })
+}
+
+fn app_process_running() -> bool {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let (Ok(me), Ok(exe)) = (
+        sysinfo::get_current_pid(),
+        std::env::current_exe().and_then(|p| p.canonicalize()),
+    ) else {
+        return false;
+    };
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        false,
+        ProcessRefreshKind::nothing()
+            .without_tasks()
+            .with_user(UpdateKind::Always)
+            .with_exe(UpdateKind::Always)
+            .with_cmd(UpdateKind::Always),
+    );
+    let procs: Vec<_> = sys
+        .processes()
+        .values()
+        .map(|p| Proc {
+            pid: p.pid().as_u32(),
+            uid: p.user_id().cloned(),
+            exe: p
+                .exe()
+                .map(|e| e.canonicalize().unwrap_or_else(|_| e.to_path_buf())),
+            cmd: p.cmd().to_vec(),
+        })
+        .collect();
+    other_app_process(&procs, me.as_u32(), &exe)
 }
 
 pub(crate) fn refuse_while_running(running: &dyn Fn() -> bool) -> Result<(), CliError> {
@@ -93,6 +153,7 @@ pub(crate) fn refuse_while_running(running: &dyn Fn() -> bool) -> Result<(), Cli
     }
 }
 
+// Catches an AppImage GUI, whose exe path is a per-run mount the process scan can't match.
 #[cfg(target_os = "linux")]
 fn instance_lock_held() -> bool {
     use gio::glib::VariantTy;
@@ -100,7 +161,7 @@ fn instance_lock_held() -> bool {
     let Ok(bus) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else {
         return false;
     };
-    let name = format!("{APP_IDENTIFIER}.SingleInstance");
+    let name = format!("{}.SingleInstance", crate::storage::config::APP_IDENTIFIER);
     bus.call_sync(
         Some("org.freedesktop.DBus"),
         "/org/freedesktop/DBus",
@@ -117,26 +178,7 @@ fn instance_lock_held() -> bool {
     .unwrap_or(false)
 }
 
-#[cfg(target_os = "macos")]
-fn instance_lock_held() -> bool {
-    let id = APP_IDENTIFIER.replace(['.', '-'], "_");
-    answers(std::path::Path::new(&format!("/tmp/{id}_si.sock")))
-}
-
-#[cfg(windows)]
-fn instance_lock_held() -> bool {
-    use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::System::Threading::{OpenMutexW, SYNCHRONIZATION_SYNCHRONIZE};
-    let name = crate::win_security::wide(format!("{APP_IDENTIFIER}-sim"));
-    let handle = unsafe { OpenMutexW(SYNCHRONIZATION_SYNCHRONIZE, 0, name.as_ptr()) };
-    if handle.is_null() {
-        return false;
-    }
-    unsafe { CloseHandle(handle) };
-    true
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+#[cfg(not(target_os = "linux"))]
 fn instance_lock_held() -> bool {
     false
 }
@@ -337,6 +379,61 @@ mod tests {
     fn new_exit_codes() {
         assert_eq!(CliError::NotSignedIn.exit_code(), 1);
         assert_eq!(CliError::Refused("x".into()).exit_code(), 3);
+    }
+
+    const EXE: &str = "/opt/voltius/voltius";
+
+    fn proc(pid: u32, uid: u32, exe: &str, args: &[&str]) -> Proc<u32> {
+        Proc {
+            pid,
+            uid: Some(uid),
+            exe: Some(PathBuf::from(exe)),
+            cmd: std::iter::once(exe)
+                .chain(args.iter().copied())
+                .map(OsString::from)
+                .collect(),
+        }
+    }
+
+    fn running(others: &[Proc<u32>]) -> bool {
+        let mut procs = vec![proc(10, 1000, EXE, &[super::super::CLI_MARKER, "login"])];
+        procs.extend_from_slice(others);
+        other_app_process(&procs, 10, Path::new(EXE))
+    }
+
+    #[test]
+    fn another_voltius_gui_of_this_user_is_running() {
+        assert!(running(&[proc(20, 1000, EXE, &[])]));
+        assert!(running(&[proc(20, 1000, EXE, &["voltius://open"])]));
+    }
+
+    #[test]
+    fn only_this_process_is_not_running() {
+        assert!(!running(&[]));
+        assert!(!running(&[proc(20, 1000, "/usr/bin/bash", &[])]));
+    }
+
+    #[test]
+    fn another_cli_invocation_is_not_running() {
+        assert!(!running(&[proc(
+            20,
+            1000,
+            EXE,
+            &[super::super::CLI_MARKER, "whoami"]
+        )]));
+    }
+
+    #[test]
+    fn an_mcp_shim_is_not_running() {
+        assert!(!running(&[proc(20, 1000, EXE, &["mcp"])]));
+    }
+
+    #[test]
+    fn another_users_voltius_is_not_running() {
+        assert!(!running(&[proc(20, 1001, EXE, &[])]));
+        let mut unknown = proc(21, 1000, EXE, &[]);
+        unknown.uid = None;
+        assert!(!running(&[unknown]));
     }
 
     #[cfg(unix)]
