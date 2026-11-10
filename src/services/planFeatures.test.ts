@@ -27,20 +27,14 @@ test("while the platform loads, the desktop and LAN rows show", () => {
   expect(planFeaturesFor("free", null).map((f) => f.id)).toEqual(expect.arrayContaining(["cli", "machinePolicy", "localSync"]));
 });
 
-test("every locale names the new free rows and drops MDM from enrolment", () => {
+test("every locale names the new free rows, names mobile MDM and drops MDM from enrolment", () => {
   for (const [path, json] of Object.entries(locales)) {
     if (path.includes("/pt-BR/")) continue;
     const feature = json.settings.account.plan.feature;
     expect(feature.cli, path).toContain("voltius-cli");
     expect(feature.machinePolicy, path).toBeTruthy();
     expect(feature.enrolment, path).not.toContain("MDM");
-  }
-});
-
-test("every locale names the mobile MDM row", () => {
-  for (const [path, json] of Object.entries(locales)) {
-    if (path.includes("/pt-BR/")) continue;
-    expect(json.settings.account.plan.feature.mobileMdm, path).toContain("MDM");
+    expect(feature.mobileMdm, path).toContain("MDM");
   }
 });
 
