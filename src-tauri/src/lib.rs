@@ -435,6 +435,7 @@ pub fn run() {
             commands::cli_state::cli_pending_load,
             commands::cli_state::cli_pending_settle,
             commands::cli_state::cli_mirror_save,
+            commands::cli_state::cli_logout_marker_take,
             commands::lan_sync::lan_sync_start,
             commands::lan_sync::lan_sync_stop,
             commands::lan_sync::lan_sync_forget,

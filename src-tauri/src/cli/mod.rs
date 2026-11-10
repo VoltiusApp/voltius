@@ -1,6 +1,7 @@
 mod config_cmd;
 mod enroll_cmd;
 mod login_cmd;
+mod logout_cmd;
 mod output;
 mod path_cmd;
 mod plugins_cmd;
@@ -168,6 +169,8 @@ enum Command {
     Whoami,
     /// Sign this user in to their Voltius account
     Login(LoginArgs),
+    /// Sign this user out and remove their Voltius data from this device
+    Logout,
     /// Show or set the sync server URL
     Server {
         #[command(subcommand)]
@@ -190,10 +193,11 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 8] = [
+const BARE_SUBCOMMANDS: [&str; 9] = [
     "policy",
     "whoami",
     "login",
+    "logout",
     "config",
     "plugins",
     "server",
@@ -263,6 +267,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
         Command::Whoami => whoami_cmd::run(&mut ctx),
         Command::Login(args) => login_cmd::run(args, &mut ctx),
+        Command::Logout => logout_cmd::run(&mut ctx),
         Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {

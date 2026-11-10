@@ -1,0 +1,71 @@
+import { test, expect, vi, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+
+const h = vi.hoisted(() => ({
+  marker: null as string | null,
+  calls: [] as string[],
+}));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: () => false, usePlatform: () => "linux" }));
+vi.mock("@/lib/invoke", async (orig) => ({
+  ...(await orig<typeof import("@/lib/invoke")>()),
+  invoke: vi.fn(async (cmd: string) => {
+    if (cmd === "cli_logout_marker_take") {
+      h.calls.push("take");
+      return h.marker;
+    }
+    throw new Error(`no backend for ${cmd}`);
+  }),
+}));
+vi.mock("@/services/account", () => ({
+  autoLogin: vi.fn(async () => {
+    h.calls.push("autoLogin");
+    return "declined";
+  }),
+  getAppLock: vi.fn(async () => null),
+  setAppLock: vi.fn(async () => {}),
+  isServerMode: vi.fn(async () => false),
+  getAccountMode: vi.fn(async () => null),
+  getAccountId: vi.fn(async () => null),
+}));
+vi.mock("@/services/appLock", () => ({ systemAuthAvailable: async () => false, lockOnLaunchIfIdle: async () => null }));
+vi.mock("@/services/vault", () => ({
+  getVaultStatus: vi.fn(async () => ({ exists: false })),
+  clearAccountUiState: vi.fn(async () => {
+    h.calls.push("clearAccountUiState");
+  }),
+}));
+vi.mock("@/stores/persistedAccountUiState", async (orig) => ({
+  ...(await orig<typeof import("@/stores/persistedAccountUiState")>()),
+  dropAccountUiState: vi.fn((id: string) => {
+    h.calls.push(`dropAccountUiState ${id}`);
+  }),
+}));
+vi.mock("@/services/savedAccounts", () => ({ adoptServerMove: vi.fn(async () => {}), saveCurrentAccount: vi.fn(async () => {}) }));
+vi.mock("./AuthPage", () => ({ default: () => <div>home</div> }));
+vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
+
+import SplashScreen from "./SplashScreen";
+
+afterEach(() => {
+  cleanup();
+  h.marker = null;
+  h.calls = [];
+});
+
+test("splash consumes the logout marker before autoLogin and clears account UI state", async () => {
+  h.marker = "acc-1";
+  render(<SplashScreen onReady={() => {}} />);
+  expect(await screen.findByText("home")).toBeTruthy();
+  expect(h.calls).toEqual(["take", "clearAccountUiState", "dropAccountUiState acc-1", "autoLogin"]);
+});
+
+test("no marker → nothing cleared", async () => {
+  render(<SplashScreen onReady={() => {}} />);
+  expect(await screen.findByText("home")).toBeTruthy();
+  expect(h.calls).toEqual(["take", "autoLogin"]);
+});

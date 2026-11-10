@@ -1,5 +1,5 @@
-use crate::cli_state::mirror;
 use crate::cli_state::pending::{self, PendingDoc, Settled};
+use crate::cli_state::{logout_marker, mirror};
 use crate::storage::config::config_dir;
 use serde_json::Value;
 
@@ -20,4 +20,9 @@ pub fn cli_pending_settle(results: Vec<Settled>) -> Result<(), String> {
 #[tauri::command]
 pub fn cli_mirror_save(mirror: Value) -> Result<(), String> {
     mirror::write(&config_dir(), &mirror).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn cli_logout_marker_take() -> Option<String> {
+    logout_marker::take(&config_dir())
 }

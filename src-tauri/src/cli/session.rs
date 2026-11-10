@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub(crate) const KEYCHAIN_UNREACHABLE: &str = "Can't reach this user's keychain. Run voltius-cli login in a terminal on the desktop, or sign in from the app.";
 const APP_RUNNING: &str = "Quit Voltius first; it holds this account's keys.";
-const ACCOUNT_ID: &str = "account_id";
+pub(crate) const ACCOUNT_ID: &str = "account_id";
 
 pub(crate) trait Keys {
     fn get(&self, k: &str) -> Result<Option<String>, CliError>;
@@ -242,6 +242,15 @@ fn answers(path: &std::path::Path) -> bool {
 pub(crate) use mem::MemKeys;
 
 #[cfg(test)]
+pub(crate) fn keychain_reachable(reachable: bool) -> Result<(), CliError> {
+    if reachable {
+        Ok(())
+    } else {
+        Err(CliError::Denied(KEYCHAIN_UNREACHABLE.into()))
+    }
+}
+
+#[cfg(test)]
 mod mem {
     use super::{CliError, Keys};
     use std::cell::RefCell;
@@ -265,6 +274,11 @@ mod mem {
 
         pub(crate) fn break_key(&self, k: &str) {
             *self.broken.borrow_mut() = Some(k.to_string());
+        }
+
+        pub(crate) fn mend(&self) {
+            self.broken.take();
+            self.unwritable.take();
         }
 
         pub(crate) fn refuse_writes(&self, k: &str) {

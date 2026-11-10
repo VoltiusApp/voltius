@@ -666,13 +666,7 @@ mod tests {
                 answers: RefCell::new(self.answers.iter().copied().collect()),
                 asked: RefCell::default(),
             };
-            let open = || {
-                if self.keychain {
-                    Ok(())
-                } else {
-                    Err(CliError::Denied(KEYCHAIN_UNREACHABLE.into()))
-                }
-            };
+            let open = || crate::cli::session::keychain_reachable(self.keychain);
             let checks = std::cell::Cell::new(0);
             let running = || {
                 checks.set(checks.get() + 1);
