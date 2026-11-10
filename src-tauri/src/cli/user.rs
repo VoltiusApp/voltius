@@ -46,7 +46,11 @@ fn system_account_hint(command: &str) -> String {
 }
 
 pub fn require_user_account(command: &str) -> Result<PathBuf, CliError> {
-    if is_system_account() {
+    require_account_as(is_system_account(), command)
+}
+
+pub(super) fn require_account_as(system: bool, command: &str) -> Result<PathBuf, CliError> {
+    if system {
         return Err(CliError::Usage(system_account_hint(command)));
     }
     Ok(crate::storage::config::config_dir())

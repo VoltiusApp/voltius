@@ -7,6 +7,7 @@ mod policy_cmd;
 mod server_cmd;
 pub(crate) mod session;
 pub mod user;
+mod whoami_cmd;
 
 use crate::cli_state::pending::{self, Change};
 use crate::policy::{self, Issue};
@@ -156,6 +157,8 @@ enum Command {
         #[command(subcommand)]
         cmd: ConfigCmd,
     },
+    /// Show who is signed in
+    Whoami,
     /// Show or set the sync server URL
     Server {
         #[command(subcommand)]
@@ -178,8 +181,9 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 6] = [
+const BARE_SUBCOMMANDS: [&str; 7] = [
     "policy",
+    "whoami",
     "config",
     "plugins",
     "server",
@@ -247,6 +251,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Path { cmd } => path_cmd::run(cmd, &mut ctx),
         Command::Config { cmd } => config_cmd::run(cmd, &mut ctx),
         Command::Server { cmd } => server_cmd::run(cmd, &mut ctx),
+        Command::Whoami => whoami_cmd::run(&mut ctx),
         Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {

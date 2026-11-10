@@ -49,7 +49,7 @@ pub fn run(args: EnrollArgs, ctx: &mut Ctx) -> Result<(), CliError> {
     )
 }
 
-fn host_of(server_url: &str) -> String {
+pub(super) fn host_of(server_url: &str) -> String {
     url::Url::parse(server_url)
         .ok()
         .and_then(|u| {
