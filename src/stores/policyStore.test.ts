@@ -32,6 +32,8 @@ const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
   issues,
 });
 
+const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
+
 describe("policyStore", () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
@@ -192,7 +194,6 @@ describe("policyStore", () => {
     watchPolicyVisibility();
     const settle = () => new Promise((r) => setTimeout(r, 10));
     const visibility = (v: string) => Object.defineProperty(document, "visibilityState", { configurable: true, get: () => v });
-    const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
 
     visibility("visible");
     window.dispatchEvent(new Event("focus"));
@@ -219,7 +220,6 @@ describe("policyStore", () => {
     mocks.invoke.mockResolvedValue(loaded());
     mocks.applyCliPending.mockResolvedValue(undefined);
     watchPolicyVisibility();
-    const loads = () => mocks.invoke.mock.calls.filter(([c]) => c === "policy_load").length;
     const before = loads();
     window.dispatchEvent(new Event("voltius:policy-changed"));
     await vi.waitFor(() => expect(loads()).toBe(before + 1));
