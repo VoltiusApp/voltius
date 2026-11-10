@@ -1,32 +1,24 @@
 use super::enroll_cmd::host_of;
-use super::output::Output;
-use super::session::{self, Keys, OsKeys, SessionInfo};
-use super::user::require_own_session;
+use super::session::{Device, SessionInfo};
 use super::{CliError, Ctx};
 use serde_json::{json, Value};
 
 pub fn run(ctx: &mut Ctx) -> Result<(), CliError> {
-    require_own_session(
-        super::user::is_system_account(),
-        "whoami",
-        "reads the sign-in of",
-    )?;
-    session::open_keychain()?;
-    whoami(&OsKeys, ctx.out)
+    run_whoami(ctx, &Device::this_user()?)
 }
 
-fn whoami(keys: &dyn Keys, out: &mut Output) -> Result<(), CliError> {
-    let session = session::current_session(keys)?;
-    if out.json {
-        out.json(&report(session.as_ref()));
+fn run_whoami(ctx: &mut Ctx, device: &Device) -> Result<(), CliError> {
+    let session = device.signed_in("whoami", "reads the sign-in of")?;
+    if ctx.out.json {
+        ctx.out.json(&report(session.as_ref()));
     } else if let Some(s) = &session {
-        out.line(describe(s));
+        ctx.out.line(describe(s));
     }
     session.map(drop).ok_or(CliError::NotSignedIn)
 }
 
 fn describe(s: &SessionInfo) -> String {
-    if s.mode != "server" {
+    if !s.is_server() {
         return "Local account on this device".into();
     }
     match (&s.email, s.server.as_deref().map(host_of)) {
@@ -40,7 +32,7 @@ fn describe(s: &SessionInfo) -> String {
 pub(super) fn report(s: Option<&SessionInfo>) -> Value {
     json!({
         "signedIn": s.is_some(),
-        "mode": s.map(|s| &s.mode),
+        "mode": s.map(|s| if s.is_server() { "server" } else { "local" }),
         "email": s.and_then(|s| s.email.as_ref()),
         "server": s.and_then(|s| s.server.as_ref()),
         "accountId": s.map(|s| &s.account_id),
@@ -50,8 +42,8 @@ pub(super) fn report(s: Option<&SessionInfo>) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::output::testing::{capture, captured};
     use crate::cli::session::MemKeys;
+    use crate::cli::testing::{Machine, Outcome};
 
     const SECRETS: [(&str, &str); 3] = [
         ("jwt", "JWT-SECRET"),
@@ -70,21 +62,31 @@ mod tests {
         MemKeys::with(&pairs)
     }
 
+    fn whoami(keys: MemKeys, json: bool) -> Outcome {
+        let mut m = Machine::new(keys);
+        m.json = json;
+        m.run(|ctx, device| run_whoami(ctx, &device))
+    }
+
+    fn json_of(o: &Outcome) -> Value {
+        serde_json::from_str(&o.out).unwrap()
+    }
+
     #[test]
     fn whoami_server() {
-        let (mut out, buf) = capture(false);
-        whoami(&server_keys(), &mut out).unwrap();
+        let o = whoami(server_keys(), false);
+        o.result.unwrap();
         assert_eq!(
-            captured(&buf),
+            o.out,
             "ada@example.com on sync.example.com:8443 (server account)\n"
         );
     }
 
     #[test]
     fn whoami_local() {
-        let (mut out, buf) = capture(false);
-        whoami(&MemKeys::with(&[("account_id", "acc-2")]), &mut out).unwrap();
-        assert_eq!(captured(&buf), "Local account on this device\n");
+        let o = whoami(MemKeys::with(&[("account_id", "acc-2")]), false);
+        o.result.unwrap();
+        assert_eq!(o.out, "Local account on this device\n");
     }
 
     #[test]
@@ -94,55 +96,73 @@ mod tests {
             ("mode", "server"),
             ("server_url", "https://sync.example.com"),
         ]);
-        let (mut out, buf) = capture(false);
-        whoami(&keys, &mut out).unwrap();
-        assert_eq!(captured(&buf), "Server account on sync.example.com\n");
+        let o = whoami(keys, false);
+        o.result.unwrap();
+        assert_eq!(o.out, "Server account on sync.example.com\n");
     }
 
     #[test]
     fn whoami_none_exits_1() {
-        let (mut out, buf) = capture(false);
-        let err = whoami(&MemKeys::default(), &mut out).unwrap_err();
-        assert!(matches!(err, CliError::NotSignedIn));
-        assert_eq!(captured(&buf), "");
+        let o = whoami(MemKeys::default(), false);
+        assert!(matches!(o.result, Err(CliError::NotSignedIn)));
+        assert_eq!(o.out, "");
     }
 
     #[test]
     fn whoami_none_json() {
-        let (mut out, buf) = capture(true);
-        let err = whoami(&MemKeys::default(), &mut out).unwrap_err();
-        assert!(matches!(err, CliError::NotSignedIn));
-        let v: Value = serde_json::from_str(&captured(&buf)).unwrap();
+        let o = whoami(MemKeys::default(), true);
+        assert!(matches!(o.result, Err(CliError::NotSignedIn)));
         assert_eq!(
-            v,
+            json_of(&o),
             json!({"signedIn": false, "mode": null, "email": null, "server": null, "accountId": null})
         );
     }
 
     #[test]
     fn whoami_json_has_no_secrets() {
-        let (mut out, buf) = capture(true);
-        whoami(&server_keys(), &mut out).unwrap();
-        let text = captured(&buf);
+        let o = whoami(server_keys(), true);
+        o.result.as_ref().unwrap();
         for (_, secret) in SECRETS {
-            assert!(!text.contains(secret), "{text}");
+            assert!(!o.out.contains(secret), "{}", o.out);
         }
-        let v: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(
-            v,
+            json_of(&o),
             json!({"signedIn": true, "mode": "server", "email": "ada@example.com",
                    "server": "https://sync.example.com:8443/api", "accountId": "acc-1"})
         );
     }
 
     #[test]
-    fn whoami_refuses_as_root() {
-        match require_own_session(true, "whoami", "reads the sign-in of") {
-            Err(CliError::Usage(m)) => assert!(
-                m.starts_with("voltius-cli whoami reads the sign-in of the user running it"),
-                "{m}"
-            ),
-            other => panic!("{other:?}"),
+    fn every_local_mode_reports_as_local() {
+        for mode in [Some("local"), Some("local-nopassword"), Some("other"), None] {
+            let mut pairs = vec![("account_id", "loc-1")];
+            pairs.extend(mode.map(|m| ("mode", m)));
+            let o = whoami(MemKeys::with(&pairs), true);
+            o.result.as_ref().unwrap();
+            assert_eq!(json_of(&o)["mode"], "local", "{mode:?}");
         }
+    }
+
+    #[test]
+    fn whoami_refuses_as_root() {
+        let mut m = Machine::new(server_keys());
+        m.system = true;
+        let o = m.run(|ctx, device| run_whoami(ctx, &device));
+        let e = o.result.unwrap_err();
+        assert_eq!(e.exit_code(), 2);
+        assert!(
+            e.to_string()
+                .starts_with("voltius-cli whoami reads the sign-in of the user running it"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn whoami_ignores_a_running_app() {
+        let mut m = Machine::new(server_keys());
+        m.running = true;
+        m.run(|ctx, device| run_whoami(ctx, &device))
+            .result
+            .unwrap();
     }
 }

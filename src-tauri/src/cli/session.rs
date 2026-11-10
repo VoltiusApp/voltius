@@ -21,6 +21,12 @@ pub(crate) struct SessionInfo {
     pub account_id: String,
 }
 
+impl SessionInfo {
+    pub(crate) fn is_server(&self) -> bool {
+        self.mode == "server"
+    }
+}
+
 pub(crate) struct OsKeys;
 
 pub(crate) struct Device<'a> {
@@ -46,15 +52,24 @@ impl Device<'static> {
 }
 
 impl Device<'_> {
-    pub(crate) fn session(
+    pub(crate) fn signed_in(
         &self,
         command: &str,
         does: &str,
     ) -> Result<Option<SessionInfo>, CliError> {
         super::user::require_own_session(self.system, command, does)?;
         (self.open_keychain)()?;
-        self.refuse_while_running()?;
         current_session(self.keys)
+    }
+
+    pub(crate) fn session(
+        &self,
+        command: &str,
+        does: &str,
+    ) -> Result<Option<SessionInfo>, CliError> {
+        let session = self.signed_in(command, does)?;
+        self.refuse_while_running()?;
+        Ok(session)
     }
 
     pub(crate) fn refuse_while_running(&self) -> Result<(), CliError> {
