@@ -26,7 +26,7 @@ on:
         required: true
         type: string
       track:
-        description: 'Play track; empty uses the PLAY_TRACK variable'
+        description: 'Play track; empty uses the PLAY_TRACK variable, "none" only builds the bundle'
         required: false
         type: string
 
@@ -70,6 +70,9 @@ jobs:
           [ -n "$signed" ] && [ "$signed" = "$expected" ] || { echo "the bundle is not signed with the release key" >&2; exit 1; }
           cp "$aab" Voltius_play.aab
 
+      - name: Check the native libraries load on 16 KB page devices
+        run: python3 scripts/store/check-page-alignment.py Voltius_play.aab
+
       - name: Remove the decoded keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/voltius-release.keystore"
@@ -87,6 +90,10 @@ jobs:
           TRACK: ${{ inputs.track || vars.PLAY_TRACK || 'alpha' }}
           TAG: ${{ inputs.tag }}
         run: |
+          if [ "$TRACK" = none ]; then
+            echo "Track none: the bundle is only kept as an artifact."
+            exit 0
+          fi
           if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
             echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set; the bundle is only kept as an artifact."
             exit 0
