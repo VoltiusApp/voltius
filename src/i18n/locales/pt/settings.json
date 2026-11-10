@@ -535,6 +535,8 @@
           "localSync": "Sincronização pela rede local",
           "deviceFiles": "Transferência de arquivos entre seus dispositivos",
           "syncPlugins": "Plugins de sincronização Gist, Cloudflare e S3",
+          "cli": "Linha de comando (voltius-cli)",
+          "machinePolicy": "Política da máquina para implantações em frota",
           "auditLogs": "Registros de auditoria locais",
           "cloudSync": "Sincronização em nuvem, mesmo quando seus dispositivos nunca estão online ao mesmo tempo",
           "cloudBackup": "Backup criptografado no Voltius Cloud",
@@ -548,7 +550,7 @@
           "teamAuditLogs": "Registros de auditoria da equipe",
           "granularPermissions": "Funções personalizadas, permissões por membro e por objeto",
           "teamPolicy": "Política da equipe: trave qualquer configuração para todos os membros",
-          "enrolment": "Inscrição de dispositivos para implantações com Ansible ou MDM",
+          "enrolment": "Tokens de inscrição de dispositivos para implantações em frota",
           "commercialLicense": "Licença comercial para auto-hospedagem",
           "prioritySupport": "Suporte prioritário"
         }

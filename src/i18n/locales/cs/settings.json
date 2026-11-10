@@ -536,6 +536,8 @@
           "localSync": "Synchronizace v místní síti",
           "deviceFiles": "Přenos souborů mezi vašimi zařízeními",
           "syncPlugins": "Pluginy pro synchronizaci přes Gist, Cloudflare a S3",
+          "cli": "Příkazový řádek (voltius-cli)",
+          "machinePolicy": "Zásady počítače pro hromadné nasazení",
           "auditLogs": "Místní auditní logy",
           "cloudSync": "Synchronizace s cloudem, i když vaše zařízení nikdy nejsou online současně",
           "cloudBackup": "Šifrovaná záloha ve Voltius Cloud",
@@ -550,7 +552,7 @@
           "teamAuditLogs": "Týmové auditní logy",
           "granularPermissions": "Vlastní role, oprávnění pro jednotlivé členy a objekty",
           "teamPolicy": "Týmové zásady: uzamkněte libovolné nastavení všem členům",
-          "enrolment": "Registrace zařízení pro nasazení přes Ansible nebo MDM",
+          "enrolment": "Registrační tokeny zařízení pro hromadné nasazení",
           "commercialLicense": "Komerční licence pro vlastní hosting",
           "prioritySupport": "Prioritní podpora"
         }

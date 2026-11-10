@@ -26,7 +26,7 @@ import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 import { TwoFactorSettings } from "./TwoFactorSettings";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
-import { runsLocalSync, usePlatform } from "@/utils/platform";
+import { usePlatform } from "@/utils/platform";
 import { adjacentPlan, planFeatureLabel, planFeaturesFor, type PlanFeature } from "@/services/planFeatures";
 import { FreeFeaturesLine } from "@/components/shared/FreeFeaturesLine";
 
@@ -504,7 +504,7 @@ export function PlansSection() {
   const plan = usePlanDisplay();
   const { ownsTeamsPlan, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
   const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
-  const localSync = runsLocalSync(usePlatform());
+  const platform = usePlatform();
   const previous = adjacentPlan(plan.plan, -1);
   const next = adjacentPlan(plan.plan, 1);
   const planName = (tier: string) => t(`settings.account.plan.name.${tier}`);
@@ -592,13 +592,13 @@ export function PlansSection() {
         <div className="border-t border-(--t-border) pt-3 space-y-3">
           <PlanFeatureGroup
             heading={previous && t("settings.account.plan.everythingIn", { plan: planName(previous) })}
-            features={planFeaturesFor(plan.plan, localSync)}
+            features={planFeaturesFor(plan.plan, platform)}
             included
           />
           {next && (
             <PlanFeatureGroup
               heading={t("settings.account.plan.nextAdds", { plan: planName(next) })}
-              features={planFeaturesFor(next, localSync)}
+              features={planFeaturesFor(next, platform)}
               included={false}
             />
           )}
