@@ -13,9 +13,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object VoltiusManagedConfig {
-    private const val GENERAL_KEY = "policy"
-    private val ERROR_KINDS = setOf("file", "type")
-
     private var webView: WebView? = null
     private var registered = false
     private var reporter: KeyedAppStatesReporter? = null
@@ -44,27 +41,16 @@ object VoltiusManagedConfig {
 
     @JvmStatic
     @Synchronized
-    fun report(ctx: Context, issuesJson: String) {
-        val issues = JSONArray(issuesJson)
-        val byKey = LinkedHashMap<String, Pair<Int, MutableList<String>>>()
-        for (i in 0 until issues.length()) {
-            val issue = issues.getJSONObject(i)
-            val key = if (issue.isNull("key")) GENERAL_KEY else issue.getString("key")
-            val severity = if (issue.optString("kind") in ERROR_KINDS) {
-                KeyedAppState.SEVERITY_ERROR
-            } else {
-                KeyedAppState.SEVERITY_INFO
-            }
-            val (worst, messages) = byKey[key] ?: Pair(severity, mutableListOf<String>())
-            messages.add(issue.optString("message"))
-            byKey[key] = Pair(maxOf(worst, severity), messages)
-        }
-        if (byKey.isEmpty()) byKey[GENERAL_KEY] = Pair(KeyedAppState.SEVERITY_INFO, mutableListOf("applied"))
-        val states = byKey.map { (key, entry) ->
+    fun report(ctx: Context, entriesJson: String) {
+        val entries = JSONArray(entriesJson)
+        val states = (0 until entries.length()).map { i ->
+            val entry = entries.getJSONObject(i)
             KeyedAppState.builder()
-                .setKey(key.take(KeyedAppState.MAX_KEY_LENGTH))
-                .setSeverity(entry.first)
-                .setMessage(entry.second.joinToString("; ").take(KeyedAppState.MAX_MESSAGE_LENGTH))
+                .setKey(entry.getString("key"))
+                .setSeverity(
+                    if (entry.getString("severity") == "error") KeyedAppState.SEVERITY_ERROR else KeyedAppState.SEVERITY_INFO,
+                )
+                .setMessage(entry.getString("message"))
                 .build()
         }
         val r = reporter ?: KeyedAppStatesReporter.create(ctx.applicationContext).also { reporter = it }
