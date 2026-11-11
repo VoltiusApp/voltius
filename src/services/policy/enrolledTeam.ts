@@ -7,9 +7,11 @@ import { checkTeamDoc, teamLayerOf } from "./teamPolicy";
 const SYNC_INTERVAL_MS = 15 * 60_000;
 const FRESH_MS = 5 * 60_000;
 
+const NO_FETCH = { key: "", at: -Infinity };
+
 let syncSeq = 0;
-let lastFetch = { key: "", at: -Infinity };
-let started = false;
+let lastFetch = NO_FETCH;
+let stop: (() => void) | null = null;
 
 const setEntry = (entry: EnrolledTeamEntry | null) => useEnrolledTeamStore.getState().setEntry(entry);
 
@@ -60,10 +62,20 @@ function syncFromMachine(): void {
 }
 
 export function startEnrolledTeamSync(): void {
-  if (started) return;
-  started = true;
-  onPolicyLoaded(syncFromMachine);
-  setInterval(() => {
+  if (stop) return;
+  const off = onPolicyLoaded(syncFromMachine);
+  const timer = setInterval(() => {
     if (document.visibilityState === "visible") syncFromMachine();
   }, SYNC_INTERVAL_MS);
+  stop = () => {
+    off();
+    clearInterval(timer);
+  };
+}
+
+export function resetEnrolledTeamSync(): void {
+  stop?.();
+  stop = null;
+  syncSeq = 0;
+  lastFetch = NO_FETCH;
 }

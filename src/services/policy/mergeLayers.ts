@@ -126,11 +126,10 @@ export function mergeMachineAndTeam(
   const issues: PolicyIssue[] = [];
   for (const [key, value] of Object.entries(withImplied(machine))) acc[key] = { value, names: [], from: "earlier" };
   foldMerged(acc, team, issues);
-  const entries = Object.entries(acc);
   return {
-    policy: Object.fromEntries(entries.map(([k, e]) => [k, e.value])),
+    policy: mergedOf(acc, issues).policy,
     sources: Object.fromEntries(
-      entries.map(([k, e]) => [k, { source: e.from === "later" ? "server" : "machine", teams: e.names } as const]),
+      Object.entries(acc).map(([k, e]) => [k, { source: e.from === "later" ? "server" : "machine", teams: e.names } as const]),
     ),
     issues,
   };
