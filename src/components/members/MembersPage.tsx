@@ -26,6 +26,7 @@ import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
+import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
 import { VAULT_MANAGER_BITS } from "@/services/permissions";
@@ -251,7 +252,7 @@ export default function MembersPage() {
 
     if (canActOnMember && teamRoles.length > 0) {
       const sortedRoles = [...teamRoles]
-        .filter((r) => !(r.is_builtin && r.name === "owner"))
+        .filter((r) => !isOwnerRole(r))
         .sort((a, b) => a.position - b.position);
       const assignedRoles = sortedRoles.filter((r) => member.role_ids.includes(r.id));
       const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id) && !(businessLocked && !r.is_builtin));
@@ -342,7 +343,7 @@ export default function MembersPage() {
 
     if (canManageMembers && teamRoles.length > 0) {
       const sortedBulkRoles = [...teamRoles]
-        .filter((r) => !(r.is_builtin && r.name === "owner"))
+        .filter((r) => !isOwnerRole(r))
         .sort((a, b) => a.position - b.position);
       items.push({
         label: t("members.contextMenu.assignRoleBulk", { count: selectedMembers.length }),

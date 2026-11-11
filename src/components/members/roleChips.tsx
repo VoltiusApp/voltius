@@ -110,6 +110,7 @@ interface RoleToggleChipProps {
   color?: string | null;
   fallbackColor?: string;
   disabled?: boolean;
+  disabledReason?: string;
   /**
    * Show the plain-language `members.roleBlurb.*` line under an active chip —
    * for the surfaces where a role is being *granted*, not merely displayed.
@@ -119,7 +120,7 @@ interface RoleToggleChipProps {
 }
 
 export function RoleToggleChip({
-  name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, blurb,
+  name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, disabledReason, blurb,
 }: RoleToggleChipProps) {
   const { t } = useTranslation();
   const { color, bg } = roleChipColors(name, override, fallbackColor);
@@ -127,8 +128,9 @@ export function RoleToggleChip({
   const button = (
     <button
       onClick={onClick}
-      disabled={disabled}
-      className={VARIANT_CLASS[variant]}
+      disabled={disabled || !!disabledReason}
+      title={disabledReason}
+      className={`${VARIANT_CLASS[variant]} disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{
         background: active ? bg : "var(--t-bg-elevated)",
         color: active ? color : "var(--t-text-dim)",

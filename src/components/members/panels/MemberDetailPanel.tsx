@@ -14,6 +14,8 @@ import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/Busin
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { OwnershipConfirm } from "@/components/members/ownerInvite";
+import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
   PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, crossesVaultKeyGate,
@@ -102,7 +104,6 @@ export function MemberDetailPanel({
   const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !ownership.protectedFromViewer && !isMe;
   const canLeave = ownership.canLeave;
-  const isOwnerRole = (role: TeamRole) => role.is_builtin && role.name === "owner";
 
   const runReversible = async (opts: {
     pending: string;
@@ -518,24 +519,18 @@ export function MemberDetailPanel({
       />
     )}
 
-    {pendingOwnerRole && (() => {
-      const granting = !member.role_ids.includes(pendingOwnerRole.id);
-      const kind = granting ? "grant" : "revoke";
-      return (
-        <ConfirmModal
-          tone="warning"
-          title={t(`members.ownership.${kind}.title`, { name: memberLabel(member) })}
-          message={t(`members.ownership.${kind}.body`, { name: memberLabel(member) })}
-          confirmLabel={t(`members.ownership.${kind}.confirm`)}
-          onCancel={() => setPendingOwnerRole(null)}
-          onConfirm={() => {
-            const role = pendingOwnerRole;
-            setPendingOwnerRole(null);
-            void handleToggleRole(role, true);
-          }}
-        />
-      );
-    })()}
+    {pendingOwnerRole && (
+      <OwnershipConfirm
+        kind={member.role_ids.includes(pendingOwnerRole.id) ? "revoke" : "grant"}
+        name={memberLabel(member)}
+        onCancel={() => setPendingOwnerRole(null)}
+        onConfirm={() => {
+          const role = pendingOwnerRole;
+          setPendingOwnerRole(null);
+          void handleToggleRole(role, true);
+        }}
+      />
+    )}
 
     {confirmingPrimary && (
       <ConfirmModal

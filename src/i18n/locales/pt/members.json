@@ -17,6 +17,11 @@
         "bodyBilling": "A própria assinatura Teams ou Business de {{name}} paga por esta equipe daqui em diante, e apenas eles podem excluí-la. Sua assinatura permanece como está: reduza suas vagas ou cancele você mesmo.",
         "bodySelfHosted": "Apenas {{name}} poderá excluir esta equipe. Você permanece como Proprietário e pode sair depois."
       },
+      "invite": {
+        "title": "Convidar {{name}} como Proprietário?",
+        "body": "Proprietários têm todas as permissões, incluindo adicionar e remover outros Proprietários. O proprietário principal e a cobrança continuam iguais.",
+        "confirm": "Enviar convite de Proprietário"
+      },
       "grant": {
         "title": "Tornar {{name}} um Proprietário?",
         "body": "Proprietários têm todas as permissões, incluindo adicionar e remover outros Proprietários.",
@@ -125,6 +130,7 @@
       "nameHint": "Deixe vazio para mostrar o identificador deles."
     },
     "invite": {
+      "ownerOnlyOwners": "Só Proprietários podem convidar alguém como Proprietário",
       "nameLabel": "Nome nesta equipe",
       "namePlaceholder": "ex. Jan Novák",
       "nameHint": "Colegas de equipe veem isto em vez do identificador deles. Apenas admins podem alterá-lo.",
@@ -159,6 +165,7 @@
       "expiredOn": "Expirado em {{date}}"
     },
     "roleBlurb": {
+      "owner": "Proprietários têm todas as permissões, incluindo adicionar e remover outros Proprietários.",
       "manager": "Gerentes podem convidar pessoas, alterar funções e gerenciar links.",
       "editor": "Editores podem adicionar e alterar hosts, chaves e snippets neste cofre.",
       "member": "Membros podem usar tudo neste cofre, mas não alterar.",

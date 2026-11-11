@@ -18,6 +18,7 @@ import { useServerEmailDelivery } from "@/services/serverCapabilities";
 import { useTeamStore, type TeamRole } from "@/stores/teamStore";
 import { formatDateTime, formatRelative } from "@/utils/localeFormat";
 import { ChoiceChip } from "./ChoiceChip";
+import { isOwnerRole } from "./vaultShareModel";
 
 const LABEL = "text-[10px] uppercase tracking-wider text-(--t-text-secondary)";
 const ACCENT_BTN = { background: "var(--t-accent)", color: "var(--t-on-accent, #fff)" };
@@ -240,7 +241,7 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
       <div className="flex flex-col gap-1.5">
         <span className={LABEL}>{t("members.joinLinks.joinsAs")}</span>
         <div className="flex flex-wrap gap-1.5">
-          {roles.filter((r) => r.name !== "owner").map((r) => (
+          {roles.filter((r) => !isOwnerRole(r)).map((r) => (
             <ChoiceChip key={r.id} label={roleLabel(t, r.name)} capitalize selected={r.name === role} onClick={() => setRole(r.name)} />
           ))}
         </div>

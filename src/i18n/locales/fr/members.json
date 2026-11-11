@@ -17,6 +17,11 @@
         "bodyBilling": "L'abonnement Teams ou Business de {{name}} paiera désormais pour cette équipe, et seul {{name}} pourra la supprimer. Votre abonnement ne change pas : réduisez vos sièges ou résiliez-le vous-même.",
         "bodySelfHosted": "Seul {{name}} pourra supprimer cette équipe. Vous restez propriétaire et pourrez partir ensuite."
       },
+      "invite": {
+        "title": "Inviter {{name}} comme propriétaire ?",
+        "body": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires. Le propriétaire principal et la facturation ne changent pas.",
+        "confirm": "Envoyer l'invitation propriétaire"
+      },
       "grant": {
         "title": "Nommer {{name}} propriétaire ?",
         "body": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires.",
@@ -125,6 +130,7 @@
       "nameHint": "Laisser vide pour afficher son identifiant."
     },
     "invite": {
+      "ownerOnlyOwners": "Seuls les propriétaires peuvent inviter un propriétaire",
       "nameLabel": "Nom dans cette équipe",
       "namePlaceholder": "ex. Jan Novák",
       "nameHint": "Les membres de l'équipe le voient à la place de son identifiant. Seuls les administrateurs peuvent le modifier.",
@@ -159,6 +165,7 @@
       "resendTitle": "Renvoyer cette invitation"
     },
     "roleBlurb": {
+      "owner": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires.",
       "manager": "Les gestionnaires peuvent inviter des personnes, changer les rôles et gérer les liens.",
       "editor": "Les éditeurs peuvent ajouter et modifier les hôtes, clés et snippets de ce coffre-fort.",
       "member": "Les membres peuvent tout utiliser dans ce coffre-fort mais pas le modifier.",

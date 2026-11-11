@@ -82,6 +82,7 @@
       "disableCount": "Оставить только на этом устройстве ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Это приглашение больше не действует. Попросите команду отправить новое.",
       "identityPickUnavailable": "Ваша личность для {{host}} недоступна",
       "failedToListIdentityPicks": "Не удалось загрузить выбор личностей ({{status}})",
       "failedToSaveIdentityPick": "Не удалось сохранить выбор личности ({{status}})",

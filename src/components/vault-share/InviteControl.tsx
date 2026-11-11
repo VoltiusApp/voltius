@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { TeamRole } from "@/stores/teamStore";
 import { useUserSearch } from "@/hooks/useUserSearch";
-import { assignableRoles } from "./vaultShareModel";
+import { isOwnerRole } from "./vaultShareModel";
+import { useInviteRoleOptions, useOwnerInviteConfirm } from "@/components/members/ownerInvite";
 import { seatsSummaryText, type SeatState } from "@/services/seatMath";
 import { ChoiceChip } from "./ChoiceChip";
 import { roleLabel } from "@/components/members/roleChips";
@@ -21,7 +22,8 @@ interface Props {
 
 export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: Props) {
   const { t } = useTranslation();
-  const options = assignableRoles(roles);
+  const { options, ownerLockedReason } = useInviteRoleOptions(teamId, roles);
+  const { guard: confirmOwnerInvite, modal: ownerInviteConfirm } = useOwnerInviteConfirm();
   const [roleId, setRoleId] = useState<string | null>(null);
   const search = useUserSearch(existingIds);
 
@@ -34,7 +36,9 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
   const role = options.find((r) => r.id === roleId) ?? null;
   const isEmail = EMAIL_RE.test(search.query.trim());
 
-  const invite = async (userId: string, handle: string) => {
+  const grantsOwner = !!role && isOwnerRole(role);
+
+  const sendToUser = async (userId: string, handle: string) => {
     if (!role) return;
     try {
       await inviteUserById({ teamId, userId, handle, roleName: role.name, roleId: role.id });
@@ -45,7 +49,7 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
     onInvited();
   };
 
-  const inviteEmail = async () => {
+  const sendToEmail = async () => {
     if (!role) return;
     try {
       await inviteByEmailAddress({ teamId, email: search.query.trim(), roleName: role.name });
@@ -56,8 +60,12 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
     onInvited();
   };
 
+  const invite = (userId: string, handle: string) => confirmOwnerInvite(grantsOwner, handle, () => void sendToUser(userId, handle));
+  const inviteEmail = () => confirmOwnerInvite(grantsOwner, search.query.trim(), () => void sendToEmail());
+
   return (
     <div className="flex flex-col gap-4">
+      {ownerInviteConfirm}
       <div className="flex flex-col gap-1.5">
         <span className="text-[10px] uppercase tracking-wider text-(--t-text-secondary)">
           {t("members.invite.searchOrInviteLabel")}
@@ -79,7 +87,7 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
               <div key={u.user_id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-(--t-bg-card)">
                 <span className="text-xs flex-1 text-(--t-text-primary) break-all">{u.handle}</span>
                 <button
-                  onClick={() => void invite(u.user_id, u.handle)}
+                  onClick={() => invite(u.user_id, u.handle)}
                   className="px-3 py-1 rounded-lg text-[11px] font-medium"
                   style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)" }}
                 >
@@ -91,7 +99,7 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
         )}
 
         {isEmail && (
-          <button onClick={() => void inviteEmail()} className="px-3 py-1.5 rounded-lg text-[11px] border border-(--t-border) text-(--t-text-secondary) self-start">
+          <button onClick={inviteEmail} className="px-3 py-1.5 rounded-lg text-[11px] border border-(--t-border) text-(--t-text-secondary) self-start">
             {t("members.invite.sendInviteLabel")}
           </button>
         )}
@@ -111,6 +119,7 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
               capitalize
               selected={r.id === roleId}
               onClick={() => setRoleId(r.id)}
+              disabledReason={isOwnerRole(r) ? ownerLockedReason : undefined}
             />
           ))}
         </div>

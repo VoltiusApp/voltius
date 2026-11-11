@@ -17,6 +17,11 @@
         "bodyBilling": "Bundan sonra bu ekibin ödemesini {{name}} kişisinin kendi Teams veya Business aboneliği yapar ve ekibi yalnızca o silebilir. Aboneliğiniz değişmez: koltuklarınızı azaltın veya kendiniz iptal edin.",
         "bodySelfHosted": "Bu ekibi yalnızca {{name}} silebilecek. Sahip olarak kalırsınız ve sonra ayrılabilirsiniz."
       },
+      "invite": {
+        "title": "{{name}} sahip olarak davet edilsin mi?",
+        "body": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir. Birincil sahip ve faturalandırma değişmez.",
+        "confirm": "Sahip davetini gönder"
+      },
       "grant": {
         "title": "{{name}} sahip yapılsın mı?",
         "body": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir.",
@@ -129,6 +134,7 @@
       "nameHint": "Kullanıcı adını göstermek için boş bırakın."
     },
     "invite": {
+      "ownerOnlyOwners": "Yalnızca sahipler birini sahip olarak davet edebilir",
       "nameLabel": "Bu ekipteki adı",
       "namePlaceholder": "ör. Jan Novák",
       "nameHint": "Ekip üyeleri kullanıcı adı yerine bunu görür. Yalnızca yöneticiler değiştirebilir.",
@@ -162,6 +168,7 @@
       "expiredOn": "Süresi doldu: {{date}}"
     },
     "roleBlurb": {
+      "owner": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir.",
       "manager": "Yöneticiler kişileri davet edebilir, rolleri değiştirebilir ve bağlantıları yönetebilir.",
       "editor": "Düzenleyiciler bu kasadaki sunucuları, anahtarları ve kod parçacıklarını ekleyip değiştirebilir.",
       "member": "Üyeler bu kasadaki her şeyi kullanabilir ancak değiştiremez.",

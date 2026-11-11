@@ -82,6 +82,7 @@
       "disableCount": "Yalnızca bu cihazda tut ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Bu davet artık geçerli değil. Ekipten yeni bir davet göndermesini isteyin.",
       "identityPickUnavailable": "{{host}} için kimliğiniz kullanılamıyor",
       "failedToListIdentityPicks": "Kimlik seçimleriniz yüklenemedi ({{status}})",
       "failedToSaveIdentityPick": "Kimlik seçiminiz kaydedilemedi ({{status}})",

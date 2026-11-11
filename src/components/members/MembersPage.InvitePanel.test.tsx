@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   usedSeats: 2,
   effectiveSeats: 3 as number | null,
   billingEnabled: true,
+  multiOwner: true,
+  myRoleIds: ["r-owner"] as string[],
 }));
 
 // Looks up the real English copy so the interpolating t below reproduces what
@@ -58,7 +60,11 @@ vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
 vi.mock("@/stores/teamStore", () => {
-  const state = { assignMemberRole: h.assign, teams: [{ id: "t1", owner_id: "me" }] };
+  const state = {
+    assignMemberRole: h.assign,
+    teams: [{ id: "t1", owner_id: "me" }],
+    get membersByTeam() { return { t1: [{ user_id: "me", role_ids: h.myRoleIds }] }; },
+  };
   const useTeamStore = Object.assign(
     (sel: (s: typeof state) => unknown) => sel(state),
     { getState: () => state },
@@ -74,7 +80,10 @@ vi.mock("@/stores/subscriptionStore", () => ({
     { getState: () => ({ load: h.reload }) },
   ),
 }));
-vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => h.billingEnabled }));
+vi.mock("@/services/serverCapabilities", () => ({
+  useServerBillingEnabled: () => h.billingEnabled,
+  useServerMultiOwner: () => h.multiOwner,
+}));
 vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "me" }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({
@@ -123,6 +132,8 @@ beforeEach(() => {
   h.usedSeats = 2;
   h.effectiveSeats = 3;
   h.billingEnabled = true;
+  h.multiOwner = true;
+  h.myRoleIds = ["r-owner"];
   baseProps.onClose = vi.fn();
   baseProps.onMemberAdded = vi.fn();
 });
@@ -516,4 +527,62 @@ test("a team below Business is not offered custom roles to invite with", async (
   } finally {
     delete team.owner_tier;
   }
+});
+
+test("the Owner chip is not offered by a server without multiple owners", () => {
+  h.multiOwner = false;
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.queryByText("members.roleName.owner")).toBeNull();
+});
+
+test("a non-Owner sees the Owner chip greyed out with the reason", () => {
+  h.myRoleIds = ["r-mem"];
+  render(<InvitePanel {...baseProps} />);
+  const chip = screen.getByText("members.roleName.owner").closest("button")!;
+  expect(chip.disabled).toBe(true);
+  expect(chip.title).toBe("members.invite.ownerOnlyOwners");
+});
+
+test("Owner replaces the other roles and is only sent after the confirmation", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  h.inviteUserWithRoles.mockResolvedValue({ status: "pending" });
+  render(<InvitePanel {...baseProps} />);
+
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  expect(screen.getByText("members.ownership.invite.title")).toBeTruthy();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("members.ownership.invite.confirm"));
+
+  await waitFor(() => expect(h.inviteUserWithRoles).toHaveBeenCalledWith(expect.objectContaining({ roleIds: ["r-owner"] })));
+});
+
+test("cancelling the Owner confirmation sends nothing", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} />);
+
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+  fireEvent.click(screen.getByText("common.action.cancel"));
+
+  expect(screen.queryByText("members.ownership.invite.title")).toBeNull();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
+});
+
+test("picking another role after Owner drops Owner", () => {
+  const roles: TeamRole[] = [
+    ...teamRoles,
+    { id: "r-editor", team_id: "t1", name: "editor", is_builtin: true, permissions: 0, position: 2, created_at: "" },
+  ];
+  render(<InvitePanel {...baseProps} teamRoles={roles} />);
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  fireEvent.click(screen.getByText("members.roleName.editor"));
+  expect(screen.getByText("members.roleName.owner").closest("button")!.style.background).toBe("var(--t-bg-elevated)");
 });

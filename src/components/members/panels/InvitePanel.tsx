@@ -13,7 +13,8 @@ import { RoleToggleChip } from "@/components/members/roleChips";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, emailNotSentWarning } from "@/services/vaultShare";
-import { assignableRoles, invitationRoleName } from "@/components/vault-share/vaultShareModel";
+import { invitationRoleName, isOwnerRole } from "@/components/vault-share/vaultShareModel";
+import { useInviteRoleOptions, useOwnerInviteConfirm } from "@/components/members/ownerInvite";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 
 export function isValidEmail(s: string) {
@@ -57,10 +58,13 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   const nameToSend = canNameMembers ? memberName.trim() || undefined : undefined;
 
   const { locked: businessLocked } = useBusinessLock(teamId);
+  const { options: inviteRoles, ownerLockedReason } = useInviteRoleOptions(teamId, teamRoles);
+  const { guard: confirmOwnerInvite, modal: ownerInviteConfirm } = useOwnerInviteConfirm();
   const builtinRoles = useMemo(
-    () => assignableRoles(teamRoles).filter((r) => r.is_builtin || !businessLocked),
-    [teamRoles, businessLocked],
+    () => inviteRoles.filter((r) => r.is_builtin || !businessLocked),
+    [inviteRoles, businessLocked],
   );
+  const ownerRoleId = builtinRoles.find(isOwnerRole)?.id;
   const defaultMemberRoleId = useMemo(
     () => builtinRoles.find((r) => r.is_builtin && r.name === "member")?.id,
     [builtinRoles],
@@ -72,11 +76,15 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultMemberRoleId]);
 
+  // Owner already holds every permission, so it never travels with another role.
   const toggleRole = (roleId: string) =>
-    setSelectedRoleIds((prev) =>
-      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId],
-    );
+    setSelectedRoleIds((prev) => {
+      if (prev.includes(roleId)) return prev.filter((id) => id !== roleId);
+      if (roleId === ownerRoleId) return [roleId];
+      return [...prev.filter((id) => id !== ownerRoleId), roleId];
+    });
   const hasRoleSelected = selectedRoleIds.length > 0;
+  const grantsOwner = !!ownerRoleId && selectedRoleIds.includes(ownerRoleId);
   const primaryRoleName = useMemo(() => invitationRoleName(teamRoles, selectedRoleIds), [teamRoles, selectedRoleIds]);
   const selectedRoleLabel = useMemo(() => {
     const names = selectedRoleIds
@@ -88,7 +96,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   useEffect(() => { void reloadSubscription(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const handleAdd = async (user: UserSearchResult) => {
+  const addUser = async (user: UserSearchResult) => {
     if (!hasRoleSelected) return;
     if (isAtSeatLimit) { onSeatLimit(user); return; }
     setAdding(user.user_id); setError(""); setSuccess(null);
@@ -119,8 +127,9 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } finally { setAdding(null); }
   };
 
-  const handleEmailInvite = async () => {
-    if (!isValidEmail(query) || !hasRoleSelected) return;
+  const handleAdd = (user: UserSearchResult) => confirmOwnerInvite(grantsOwner, user.handle, () => void addUser(user));
+
+  const inviteEmail = async () => {
     if (isAtSeatLimit) { onSeatLimit(null); return; }
     setSendingInvite(true); setError(""); setSuccess(null);
     try {
@@ -147,11 +156,17 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } finally { setSendingInvite(false); }
   };
 
+  const handleEmailInvite = () => {
+    if (!isValidEmail(query) || !hasRoleSelected) return;
+    confirmOwnerInvite(grantsOwner, query, () => void inviteEmail());
+  };
+
   const noticeColor = success?.warn ? "var(--t-status-warning)" : "#34d399";
   const showEmailInviteOption = open && results.length === 0 && !searching && isValidEmail(query);
 
   return (
     <>
+      {ownerInviteConfirm}
       {buySeatsFor !== undefined && (
         <BuySeatsModal
           teamId={teamId}
@@ -191,6 +206,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
                   name={r.name}
                   active={selectedRoleIds.includes(r.id)}
                   onClick={() => toggleRole(r.id)}
+                  disabledReason={isOwnerRole(r) ? ownerLockedReason : undefined}
                   blurb
                 />
               ))}
@@ -207,7 +223,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
               query={query}
               onQueryChange={(v) => { setQuery(v); setSuccess(null); }}
               onClear={() => { reset(); setSuccess(null); }}
-              onSubmitQuery={() => { if (isValidEmail(query) && results.length === 0) void handleEmailInvite(); }}
+              onSubmitQuery={() => { if (isValidEmail(query) && results.length === 0) handleEmailInvite(); }}
               results={results}
               searching={searching}
               open={open}
@@ -216,14 +232,14 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
               dropdownRef={dropdownRef}
               adding={adding}
               addLabel={t("members.invite.addWithRole", { role: selectedRoleLabel })}
-              onAdd={(user) => void handleAdd(user)}
+              onAdd={handleAdd}
               actionsDisabled={!hasRoleSelected}
               emailOption={{
                 visible: showEmailInviteOption,
                 label: <>{t("members.invite.sendInviteLabel")} <span className="font-medium">{query}</span></>,
                 actionLabel: t("members.invite.inviteArrow"),
                 sending: sendingInvite,
-                onInvite: () => void handleEmailInvite(),
+                onInvite: handleEmailInvite,
               }}
             />
           </FormSection>
