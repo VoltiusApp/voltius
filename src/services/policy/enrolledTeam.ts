@@ -1,3 +1,4 @@
+import { clientVersion } from "@/services/clientHeaders";
 import { fetchEnrolledPolicy } from "@/services/enrollment/enrollmentPolicy";
 import { enrollmentTokenOf, entryForToken, useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { onPolicyLoaded, usePolicyStore } from "@/stores/policyStore";
@@ -40,7 +41,9 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): 
   if (lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
   const seq = ++syncSeq;
   lastFetch = { key, at: Date.now() };
-  const result = await fetchEnrolledPolicy(token, current?.revision ?? null);
+  const version = await clientVersion();
+  const sameClient = current?.clientVersion === version ? current : null;
+  const result = await fetchEnrolledPolicy(token, sameClient?.revision ?? null);
   if (seq !== syncSeq) return;
   if (result.kind === "drop") return clearEntry();
   if (result.kind === "unchanged") {
@@ -57,6 +60,7 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): 
     teamId: team.id,
     teamName: team.name,
     revision: team.policyRevision,
+    clientVersion: version,
     layer: teamLayerOf(checked),
   });
 }

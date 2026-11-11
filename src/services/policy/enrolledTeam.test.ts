@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn(), version: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
+vi.mock("@/services/clientHeaders", () => ({ clientVersion: mocks.version }));
 vi.mock("@/services/enrollment/enrollmentPolicy", () => ({ fetchEnrolledPolicy: mocks.fetch }));
 
 import { resetEnrolledTeamSync, startEnrolledTeamSync, syncEnrolledTeam } from "./enrolledTeam";
@@ -47,6 +48,7 @@ beforeEach(() => {
   mocks.invoke.mockReset();
   mocks.invoke.mockImplementation(echoTeamDoc);
   mocks.fetch.mockReset();
+  mocks.version.mockResolvedValue("1.0.0");
   useEnrolledTeamStore.getState().setEntry(null);
 });
 
@@ -60,6 +62,7 @@ describe("syncEnrolledTeam", () => {
       teamId: "t1",
       teamName: "Acme",
       revision: 3,
+      clientVersion: "1.0.0",
       layer: { policy: { [ACTION]: "vault" }, teams: { [ACTION]: ["Acme"] }, issues: [] },
     });
   });
@@ -70,6 +73,25 @@ describe("syncEnrolledTeam", () => {
     mocks.fetch.mockResolvedValueOnce({ kind: "keep" });
     await syncEnrolledTeam(machine());
     expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
+  });
+
+  it("after an upgrade, asks without a revision and re-checks the doc", async () => {
+    await seed();
+    resetEnrolledTeamSync();
+    mocks.version.mockResolvedValue("1.1.0");
+    await seed(teamReply("t1", "Acme", 3, { "ssh.agentForwarding": false }));
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), null);
+    expect(entry()).toMatchObject({ revision: 3, clientVersion: "1.1.0", layer: { policy: { "ssh.agentForwarding": false } } });
+  });
+
+  it("an entry cached before versions were stored is re-checked", async () => {
+    await seed();
+    const { clientVersion: _, ...legacy } = entry()!;
+    useEnrolledTeamStore.getState().setEntry(legacy as EnrolledTeamEntry);
+    resetEnrolledTeamSync();
+    await seed();
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), null);
+    expect(entry()?.clientVersion).toBe("1.0.0");
   });
 
   it("prefixes the check's issues with the team name", async () => {
@@ -270,6 +292,7 @@ describe("startEnrolledTeamSync", () => {
     mocks.fetch.mockReturnValueOnce(new Promise<EnrolledFetch>(() => {}));
     void syncEnrolledTeam(machine(ID_B));
     expect(entry()).toBeNull();
+    await vi.advanceTimersByTimeAsync(0);
     expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_B }), null);
   });
 

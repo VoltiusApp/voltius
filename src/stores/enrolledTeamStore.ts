@@ -9,6 +9,7 @@ export interface EnrolledTeamEntry {
   teamId: string;
   teamName: string;
   revision: number;
+  clientVersion: string | null;
   layer: MergedLayer;
 }
 

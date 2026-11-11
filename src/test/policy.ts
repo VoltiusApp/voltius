@@ -38,5 +38,6 @@ export const withEnrolledTeam = (policy: Record<string, unknown>, team = "Acme",
     teamId: team,
     teamName: team,
     revision: 1,
+    clientVersion: null,
     layer: singleTeamLayer(policy, team),
   });
