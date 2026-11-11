@@ -6,8 +6,10 @@ import { serverAllowed } from "./serverPolicy";
 import { checkTeamDoc, teamLayerOf } from "./teamPolicy";
 
 const SYNC_INTERVAL_MS = 15 * 60_000;
+const FRESH_MS = 5 * 60_000;
 
 let syncSeq = 0;
+let lastFetch = { key: "", at: -Infinity };
 let started = false;
 
 const setEntry = (entry: EnrolledTeamEntry | null) => useEnrolledTeamStore.getState().setEntry(entry);
@@ -24,13 +26,18 @@ function renamed(entry: EnrolledTeamEntry, name: string): EnrolledTeamEntry {
 }
 
 export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): Promise<void> {
-  const seq = ++syncSeq;
   const raw = machinePolicy["enrollment.token"];
-  const token = typeof raw === "string" ? parseEnrollmentToken(raw) : null;
-  if (!token || !serverAllowed(token.serverUrl)) return clearEntry();
+  const parsed = typeof raw === "string" ? parseEnrollmentToken(raw) : null;
+  const token = parsed && serverAllowed(parsed.serverUrl) ? parsed : null;
+  const key = token ? `${token.serverUrl} ${token.id}` : "";
   const cached = useEnrolledTeamStore.getState().entry;
-  const current = cached?.tokenId === token.id && cached.server === token.serverUrl ? cached : null;
+  const current = token && cached?.tokenId === token.id && cached.server === token.serverUrl ? cached : null;
+  if (current && lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
+  const seq = ++syncSeq;
+  if (!current) clearEntry();
+  if (!token) return;
   const result = await fetchEnrolledPolicy(token, current?.revision ?? null);
+  lastFetch = { key, at: Date.now() };
   if (seq !== syncSeq) return;
   if (result.kind === "drop") return clearEntry();
   if (result.kind === "unchanged") {

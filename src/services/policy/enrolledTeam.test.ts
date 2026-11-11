@@ -26,12 +26,23 @@ const teamReply = (id: string, name: string, revision: number, policy: Record<st
   team: { id, name, policy: policy && { version: 1, policy }, policyRevision: revision },
 });
 
+const FRESH_MS = 5 * 60_000;
+const elapse = (ms = FRESH_MS) => vi.setSystemTime(Date.now() + ms);
+
 const entry = (): EnrolledTeamEntry | null => useEnrolledTeamStore.getState().entry;
 
 const seed = async (reply = teamReply("t1", "Acme", 3)) => {
   mocks.fetch.mockResolvedValueOnce(reply);
   await syncEnrolledTeam(machine());
 };
+
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -58,6 +69,7 @@ describe("syncEnrolledTeam", () => {
 
   it("asks with the cached revision for the same token", async () => {
     await seed();
+    elapse();
     mocks.fetch.mockResolvedValueOnce({ kind: "keep" });
     await syncEnrolledTeam(machine());
     expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
@@ -106,6 +118,7 @@ describe("syncEnrolledTeam", () => {
   it("unchanged keeps the doc and takes the new name", async () => {
     await seed();
     const before = entry()!;
+    elapse();
     mocks.fetch.mockResolvedValueOnce({ kind: "unchanged", name: "Acme Corp" });
     await syncEnrolledTeam(machine());
     expect(entry()).toMatchObject({ teamId: "t1", teamName: "Acme Corp", revision: 3 });
@@ -116,6 +129,7 @@ describe("syncEnrolledTeam", () => {
   it("unchanged under the same name leaves the entry untouched", async () => {
     await seed();
     const before = entry();
+    elapse();
     mocks.fetch.mockResolvedValueOnce({ kind: "unchanged", name: "Acme" });
     await syncEnrolledTeam(machine());
     expect(entry()).toBe(before);
@@ -123,6 +137,7 @@ describe("syncEnrolledTeam", () => {
 
   it("drop clears the entry", async () => {
     await seed();
+    elapse();
     mocks.fetch.mockResolvedValueOnce({ kind: "drop" });
     await syncEnrolledTeam(machine());
     expect(entry()).toBeNull();
@@ -131,9 +146,19 @@ describe("syncEnrolledTeam", () => {
   it("keep keeps the entry", async () => {
     await seed();
     const before = entry();
+    elapse();
     mocks.fetch.mockResolvedValueOnce({ kind: "keep" });
     await syncEnrolledTeam(machine());
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(entry()).toBe(before);
+  });
+
+  it("a token change clears the old entry even when the first fetch fails", async () => {
+    await seed();
+    mocks.fetch.mockResolvedValueOnce({ kind: "keep" });
+    await syncEnrolledTeam(machine(ID_B));
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_B }), null);
+    expect(entry()).toBeNull();
   });
 
   it("a team without a policy is cached as an empty layer", async () => {
@@ -192,6 +217,36 @@ describe("startEnrolledTeamSync", () => {
     visibility = "hidden";
     await vi.advanceTimersByTimeAsync(15 * 60_000);
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("loads within five minutes of a fetch for the same token do not fetch again", async () => {
+    mocks.invoke.mockImplementation(async (cmd: string, args?: unknown) =>
+      cmd === "policy_load" ? { doc: { policy: machine(), defaults: {} }, issues: [] } : echoTeamDoc(cmd, args),
+    );
+    mocks.fetch.mockResolvedValueOnce(teamReply("t1", "Acme", 3));
+    await syncEnrolledTeam(machine());
+    await usePolicyStore.getState().load();
+    elapse(FRESH_MS - 1);
+    await usePolicyStore.getState().load();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    elapse(1);
+    await usePolicyStore.getState().load();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
+  });
+
+  it("a token change fetches at once", async () => {
+    mocks.fetch.mockResolvedValueOnce(teamReply("t1", "Acme", 3));
+    await syncEnrolledTeam(machine());
+    mocks.invoke.mockImplementation(async (cmd: string) =>
+      cmd === "policy_load" ? { doc: { policy: machine(ID_B), defaults: {} }, issues: [] } : undefined,
+    );
+    await usePolicyStore.getState().load();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_B }), null);
   });
 
   it("syncs after a machine policy load", async () => {
