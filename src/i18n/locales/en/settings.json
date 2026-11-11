@@ -536,7 +536,7 @@
           "syncPlugins": "Gist, Cloudflare and S3 sync plugins",
           "cli": "Command line (voltius-cli)",
           "machinePolicy": "Machine policy for fleet rollouts",
-          "mobileMdm": "Mobile managed configuration (MDM)",
+          "mdm": "Managed configuration (MDM)",
           "auditLogs": "Local audit logs",
           "cloudSync": "Cloud sync, even when your devices are never online together",
           "cloudBackup": "Encrypted backup on Voltius Cloud",

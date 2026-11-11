@@ -12,6 +12,7 @@ export interface PlanFeature {
   guests?: number;
 }
 
+const hasMdm = (platform: string | null) => platform === "android" || platform === "ios" || platform === "macos";
 const onDesktop = (platform: string | null) => !isMobilePlatform(platform);
 
 const sharing = (tier: Tier): PlanFeature => ({
@@ -29,7 +30,7 @@ export const PLAN_FEATURES: Record<Tier, PlanFeature[]> = {
     { id: "syncPlugins" },
     { id: "cli", only: onDesktop },
     { id: "machinePolicy", only: onDesktop },
-    { id: "mobileMdm" },
+    { id: "mdm", only: hasMdm },
     { id: "auditLogs" },
   ],
   pro: [
