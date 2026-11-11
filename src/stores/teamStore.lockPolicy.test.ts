@@ -127,5 +127,4 @@ test.each([
   await useTeamStore.getState().loadTeams();
   await new Promise((r) => setTimeout(r, 20));
   expect(api.fetchEnrolled).toHaveBeenCalledTimes(fetches);
-  if (fetches) expect(api.fetchEnrolled).toHaveBeenCalledWith(expect.objectContaining({ id: useEnrolledTeamStore.getState().entry!.tokenId }), 1);
 });

@@ -351,7 +351,7 @@ describe("startEnrolledTeamSync", () => {
 
   describe("before the machine policy has loaded", () => {
     beforeEach(async () => {
-      usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, machineLoaded: false });
+      resetPolicy();
       await seed();
     });
 
