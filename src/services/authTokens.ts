@@ -50,6 +50,17 @@ async function announceSessionRevoked(): Promise<void> {
 
 export type RefreshOutcome = { jwt: string } | "revoked" | "failed" | "no-session";
 
+const inFlight = new Map<string, Promise<unknown>>();
+
+/** Callers arriving while `run` is pending under `key` get its result instead of starting their own. */
+function shared<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const pending = inFlight.get(key);
+  if (pending) return pending as Promise<T>;
+  const started = run().finally(() => inFlight.delete(key));
+  inFlight.set(key, started);
+  return started;
+}
+
 /**
  * The one caller of /v1/auth/refresh. A 401 means the server ended this session;
  * it is remembered so the sync loop stops asking, and the user is told once.
@@ -66,6 +77,18 @@ export async function refreshAccessToken(
   ]);
   if (!refreshToken || !serverUrl) return "no-session";
   if (revoked) return "revoked";
+  const outcome = await shared(`refresh:${refreshToken}`, () => postRefresh(refreshToken, serverUrl, fetchImpl, quiet));
+  // `quiet` for a caller that is about to sign in again by itself.
+  if (outcome === "revoked" && !quiet) void announceSessionRevoked().catch(() => undefined);
+  return outcome;
+}
+
+async function postRefresh(
+  refreshToken: string,
+  serverUrl: string,
+  fetchImpl: (url: string, init?: RequestInit) => Promise<Response>,
+  quiet: boolean,
+): Promise<RefreshOutcome> {
   const res = await fetchImpl(`${serverUrl}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -77,8 +100,6 @@ export async function refreshAccessToken(
   if (res.status === 401) {
     if (await superseded()) return refreshAccessToken({ fetchImpl, quiet });
     revoked = true;
-    // `quiet` for a caller that is about to sign in again by itself.
-    if (!quiet) void announceSessionRevoked().catch(() => undefined);
     return "revoked";
   }
   if (!res.ok) return "failed";
@@ -89,9 +110,11 @@ export async function refreshAccessToken(
 }
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
-export async function tryRefreshJwt(fetchImpl?: typeof appFetch): Promise<string | null> {
-  const outcome = await refreshAccessToken({ fetchImpl });
-  if (typeof outcome === "string") return null;
-  await useSubscriptionStore.getState().load().catch(() => undefined);
-  return outcome.jwt;
+export function tryRefreshJwt(fetchImpl?: typeof appFetch): Promise<string | null> {
+  return shared("jwt", async () => {
+    const outcome = await refreshAccessToken({ fetchImpl });
+    if (typeof outcome === "string") return null;
+    await useSubscriptionStore.getState().load().catch(() => undefined);
+    return outcome.jwt;
+  });
 }
