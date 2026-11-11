@@ -950,7 +950,7 @@ fn split_conflicts(issues: Vec<Issue>) -> (Vec<Issue>, Vec<Value>) {
         .partition(|i| i.kind == IssueKind::Conflict);
     let warnings = conflicts
         .iter()
-        .map(|i| warning(i.layer, i.key.as_deref(), &i.message))
+        .map(|i| warning(i.layer, i.key.as_deref(), &describe(i)))
         .collect();
     (rest, warnings)
 }
@@ -2216,7 +2216,11 @@ mod tests {
         assert_eq!(issues, vec![unknown]);
         assert_eq!(
             warnings,
-            vec![json!({"layer": "policy", "key": "server.url", "message": message})]
+            vec![json!({
+                "layer": "policy",
+                "key": "server.url",
+                "message": format!("policy.server.url: {message}"),
+            })]
         );
     }
 
