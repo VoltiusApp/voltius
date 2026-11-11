@@ -1,5 +1,6 @@
 import { clientVersion } from "@/services/clientHeaders";
 import { fetchEnrolledPolicy } from "@/services/enrollment/enrollmentPolicy";
+import type { Team } from "@/services/teamService";
 import { enrollmentTokenOf, entryForToken, useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { onPolicyLoaded, usePolicyStore } from "@/stores/policyStore";
 import { serverAllowed } from "./serverPolicy";
@@ -27,7 +28,7 @@ function renamed(entry: EnrolledTeamEntry, name: string): EnrolledTeamEntry {
   return { ...entry, teamName: name, layer: { ...entry.layer, teams } };
 }
 
-export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): Promise<void> {
+export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>, { force = false } = {}): Promise<void> {
   const parsed = enrollmentTokenOf(machinePolicy);
   const token = parsed && serverAllowed(parsed.serverUrl) ? parsed : null;
   const current = entryForToken(useEnrolledTeamStore.getState().entry, token);
@@ -38,7 +39,7 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): 
     return;
   }
   const key = `${token.serverUrl} ${token.id}`;
-  if (lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
+  if (!force && lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
   const seq = ++syncSeq;
   lastFetch = { key, at: Date.now() };
   const version = await clientVersion();
@@ -65,17 +66,24 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): 
   });
 }
 
-function syncFromMachine(): void {
+async function syncFromMachine(force = false): Promise<void> {
   const { machine, machineLoaded, issues } = usePolicyStore.getState();
   if (!machineLoaded || issues.some((i) => i.kind === "file")) return;
-  syncEnrolledTeam(machine.policy).catch((e) => console.warn("[policy] enrolled team sync failed:", e));
+  await syncEnrolledTeam(machine.policy, { force }).catch((e) => console.warn("[policy] enrolled team sync failed:", e));
+}
+
+export async function syncEnrolledTeamOnRevision(teams: Pick<Team, "id" | "policy_revision">[]): Promise<void> {
+  const entry = useEnrolledTeamStore.getState().entry;
+  if (!entry) return;
+  const revision = teams.find((t) => t.id === entry.teamId)?.policy_revision;
+  if (revision !== undefined && revision > entry.revision) await syncFromMachine(true);
 }
 
 export function startEnrolledTeamSync(): void {
   if (stop) return;
-  const off = onPolicyLoaded(syncFromMachine);
+  const off = onPolicyLoaded(() => void syncFromMachine());
   const timer = setInterval(() => {
-    if (document.visibilityState === "visible") syncFromMachine();
+    if (document.visibilityState === "visible") void syncFromMachine();
   }, SYNC_INTERVAL_MS);
   stop = () => {
     off();

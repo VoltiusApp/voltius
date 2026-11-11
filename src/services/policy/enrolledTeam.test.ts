@@ -7,7 +7,7 @@ vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
 vi.mock("@/services/clientHeaders", () => ({ clientVersion: mocks.version }));
 vi.mock("@/services/enrollment/enrollmentPolicy", () => ({ fetchEnrolledPolicy: mocks.fetch }));
 
-import { resetEnrolledTeamSync, startEnrolledTeamSync, syncEnrolledTeam } from "./enrolledTeam";
+import { resetEnrolledTeamSync, startEnrolledTeamSync, syncEnrolledTeam, syncEnrolledTeamOnRevision } from "./enrolledTeam";
 import type { EnrolledFetch } from "@/services/enrollment/enrollmentPolicy";
 import { useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { usePolicyStore, type PolicyIssue } from "@/stores/policyStore";
@@ -205,6 +205,29 @@ describe("syncEnrolledTeam", () => {
     releaseFirst(teamReply("t1", "Acme", 1));
     await first;
     expect(entry()).toMatchObject({ tokenId: ID_B, teamId: "t2" });
+  });
+});
+
+describe("syncEnrolledTeamOnRevision", () => {
+  beforeEach(async () => {
+    withPolicy(machine());
+    await seed();
+  });
+
+  it("a newer revision on the account's copy fetches at once", async () => {
+    mocks.fetch.mockResolvedValueOnce(teamReply("t1", "Acme", 4, { "ssh.agentForwarding": false }));
+    await syncEnrolledTeamOnRevision([{ id: "t1", policy_revision: 4 }]);
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
+    expect(entry()).toMatchObject({ revision: 4, layer: { policy: { "ssh.agentForwarding": false } } });
+  });
+
+  it.each([
+    ["the same revision", [{ id: "t1", policy_revision: 3 }]],
+    ["another team", [{ id: "t2", policy_revision: 9 }]],
+    ["no revision", [{ id: "t1" }]],
+  ])("%s waits for the usual sync", async (_, teams) => {
+    await syncEnrolledTeamOnRevision(teams);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 });
 

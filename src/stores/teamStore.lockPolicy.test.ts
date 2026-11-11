@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ listTeams: vi.fn() }));
+const api = vi.hoisted(() => ({ listTeams: vi.fn(), fetchEnrolled: vi.fn() }));
 vi.mock("@/services/teamService", async (orig) => ({ ...(await orig<object>()), listTeams: api.listTeams }));
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn() }));
+vi.mock("@/services/enrollment/enrollmentPolicy", () => ({ fetchEnrolledPolicy: api.fetchEnrolled }));
 
 import { useTeamStore } from "./teamStore";
 import { lockedValue, policyRange } from "./policyStore";
 import { useTeamPolicyStore } from "./teamPolicyStore";
 import { invoke } from "@/lib/invoke";
 import { clearTeamPolicy } from "@/services/policy/teamPolicy";
+import { resetEnrolledTeamSync } from "@/services/policy/enrolledTeam";
 import { echoTeamDoc, enrollmentTokenText, resetPolicy, withEnrolledTeam, withPolicy, withTeamPolicy } from "@/test/policy";
 import { useEnrolledTeamStore } from "./enrolledTeamStore";
 import { makeTeam } from "@/test/team";
@@ -22,6 +24,8 @@ beforeEach(() => {
   resetPolicy();
   vi.mocked(invoke).mockClear().mockImplementation(echoTeamDoc);
   api.listTeams.mockReset();
+  api.fetchEnrolled.mockReset().mockResolvedValue({ kind: "keep" });
+  resetEnrolledTeamSync();
 });
 
 test("a successful fetch puts the strictest limits in the policy layer", async () => {
@@ -111,4 +115,17 @@ test("a change of enrolling team after the account's policy is cleared does not 
   withEnrolledTeam({}, "a");
   await new Promise((r) => setTimeout(r, 20));
   expect(useTeamPolicyStore.getState().layer).toBeNull();
+});
+
+test.each([
+  [2, 1],
+  [1, 0],
+])("the enrolling team at revision %i refreshes its cached copy %i time(s)", async (revision, fetches) => {
+  withPolicy({ "enrollment.token": enrollmentTokenText() });
+  withEnrolledTeam({}, "a");
+  api.listTeams.mockResolvedValue([makeTeam("a", { policy_revision: revision })]);
+  await useTeamStore.getState().loadTeams();
+  await new Promise((r) => setTimeout(r, 20));
+  expect(api.fetchEnrolled).toHaveBeenCalledTimes(fetches);
+  if (fetches) expect(api.fetchEnrolled).toHaveBeenCalledWith(expect.objectContaining({ id: useEnrolledTeamStore.getState().entry!.tokenId }), 1);
 });
