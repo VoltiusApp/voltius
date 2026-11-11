@@ -183,6 +183,18 @@ describe("syncEnrolledTeam", () => {
     expect(entry()).toBe(before);
   });
 
+  it("a token swap during the version lookup never sends the old token", async () => {
+    let release!: (v: string) => void;
+    mocks.version.mockReturnValueOnce(new Promise<string>((r) => (release = r)));
+    mocks.fetch.mockResolvedValue({ kind: "keep" });
+    const first = syncEnrolledTeam(machine(ID_A));
+    await syncEnrolledTeam(machine(ID_B));
+    release("1.0.0");
+    await first;
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch).toHaveBeenCalledWith(expect.objectContaining({ id: ID_B }), null);
+  });
+
   it("a token change clears the old entry even when the first fetch fails", async () => {
     await seed();
     mocks.fetch.mockResolvedValueOnce({ kind: "keep" });
@@ -203,6 +215,7 @@ describe("syncEnrolledTeam", () => {
       .mockReturnValueOnce(new Promise<EnrolledFetch>((r) => (releaseFirst = r)))
       .mockResolvedValueOnce(teamReply("t2", "Globex", 2));
     const first = syncEnrolledTeam(machine(ID_A));
+    await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
     await syncEnrolledTeam(machine(ID_B));
     releaseFirst(teamReply("t1", "Acme", 1));
     await first;
@@ -381,11 +394,20 @@ describe("startEnrolledTeamSync", () => {
       expect(mocks.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("a load that could not read the machine file keeps the entry", async () => {
-      loadMachine({}, [{ kind: "file", layer: null, key: null, message: "unreadable" }]);
+    const fileIssue: PolicyIssue = { kind: "file", layer: null, key: null, message: "unreadable" };
+
+    it("a file issue with no token keeps the entry", async () => {
+      loadMachine({}, [fileIssue]);
       await loadSettled();
       expect(entry()).toMatchObject({ teamId: "t1" });
       expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("a file issue next to a readable token still syncs", async () => {
+      loadMachine(machine(ID_B), [fileIssue]);
+      await loadSettled();
+      expect(mocks.fetch).toHaveBeenCalledTimes(2);
+      expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_B }), null);
     });
 
     it("a successful load without a token clears the entry", async () => {

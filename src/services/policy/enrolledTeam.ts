@@ -44,6 +44,7 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>, {
   const seq = ++syncSeq;
   lastFetch = { key, at: Date.now() };
   const version = await clientVersion();
+  if (seq !== syncSeq) return;
   const sameClient = current?.clientVersion === version ? current : null;
   const result = await fetchEnrolledPolicy(token, sameClient?.revision ?? null);
   if (seq !== syncSeq) return;
@@ -69,7 +70,8 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>, {
 
 async function syncFromMachine(force = false): Promise<void> {
   const { machine, machineLoaded, issues } = usePolicyStore.getState();
-  if (!machineLoaded || issues.some((i) => i.kind === "file")) return;
+  const unreadable = issues.some((i) => i.kind === "file") && !enrollmentTokenOf(machine.policy);
+  if (!machineLoaded || unreadable) return;
   await syncEnrolledTeam(machine.policy, { force }).catch((e) => console.warn("[policy] enrolled team sync failed:", e));
 }
 
