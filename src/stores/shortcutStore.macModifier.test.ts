@@ -52,3 +52,14 @@ describe("app shortcuts elsewhere", () => {
     expect(formatShortcut({ key: "k", ctrl: true, shift: false, alt: false })).toBe("Ctrl+K");
   });
 });
+
+describe("duplicate into split on macOS", () => {
+  it("stays on Ctrl+Option+D because macOS owns Cmd+Option+D", () => {
+    platform.os = "macos";
+    useShortcutStore.getState().resetAll();
+    const optionD = (mods: KeyboardEventInit) => press("∂", { code: "KeyD", altKey: true, ...mods });
+    expect(matchShortcut("duplicate-session-split", optionD({ ctrlKey: true }))).toBe(true);
+    expect(matchShortcut("duplicate-session-split", optionD({ metaKey: true }))).toBe(false);
+    expect(formatShortcut({ key: "d", ctrl: true, shift: false, alt: true })).toBe("Ctrl+Alt+D");
+  });
+});

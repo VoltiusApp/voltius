@@ -11,7 +11,7 @@ import {
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { DirtyDot, ResetButton, SETTINGS_SURFACE } from "./shared";
 import { searchMatcher } from "@/utils/search";
-import { primaryModifier, secondaryModifier } from "@/utils/primaryModifier";
+import { chordKey, primaryModifier, secondaryModifier } from "@/utils/primaryModifier";
 
 const BLOCKED_KEYS = new Set(["Escape", "Tab"]);
 
@@ -91,7 +91,7 @@ export default function ShortcutsSection() {
       const ctrl = primaryModifier(e);
       const shift = e.shiftKey;
       const alt = e.altKey;
-      const key = e.key;
+      const key = chordKey(e);
 
       const existing = shortcuts.find((sc) => {
         if (sc.id === recording) return false;

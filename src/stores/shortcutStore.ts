@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
-import { primaryModifier, primaryModifierLabel, secondaryModifier } from "@/utils/primaryModifier";
+import { chordKey, primaryModifier, primaryModifierLabel, secondaryModifier } from "@/utils/primaryModifier";
 
 export interface ShortcutAlias {
   key: string;
@@ -147,8 +147,9 @@ export function matchShortcut(id: string, e: KeyboardEvent): boolean {
   const sc = useShortcutStore.getState().shortcuts.find((s) => s.id === id);
   if (!sc || secondaryModifier(e)) return false;
   const ctrl = primaryModifier(e);
+  const key = normalizeKey(chordKey(e));
   const matches = (b: ShortcutAlias) =>
-    ctrl === b.ctrl && e.shiftKey === b.shift && e.altKey === (b.alt ?? false) && normalizeKey(e.key) === normalizeKey(b.key);
+    ctrl === b.ctrl && e.shiftKey === b.shift && e.altKey === (b.alt ?? false) && key === normalizeKey(b.key);
   return matches(sc) || (ALIASES[id]?.some(matches) ?? false);
 }
 
@@ -164,7 +165,7 @@ export function useShortcutHint(id: string): string | undefined {
 
 export function formatShortcut(sc: ShortcutAlias): string {
   const parts: string[] = [];
-  if (sc.ctrl) parts.push(primaryModifierLabel(sc.key));
+  if (sc.ctrl) parts.push(primaryModifierLabel(sc.key, sc.alt));
   if (sc.alt) parts.push("Alt");
   if (sc.shift) parts.push("Shift");
   parts.push(sc.key === " " ? "Space" : sc.key.length === 1 ? sc.key.toUpperCase() : sc.key);
