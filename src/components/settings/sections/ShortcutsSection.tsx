@@ -11,6 +11,7 @@ import {
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { DirtyDot, ResetButton, SETTINGS_SURFACE } from "./shared";
 import { searchMatcher } from "@/utils/search";
+import { primaryModifier, secondaryModifier } from "@/utils/primaryModifier";
 
 const BLOCKED_KEYS = new Set(["Escape", "Tab"]);
 
@@ -36,7 +37,7 @@ function matchesSearch(sc: Shortcut, q: string, t: TranslateFn): boolean {
     displayLabel(sc, t),
     displayDescription(sc, t),
     formatShortcut(sc),
-    ...(getAliases(sc.id)?.map((a) => a.label) ?? []),
+    ...(getAliases(sc.id)?.map(formatShortcut) ?? []),
   );
 }
 
@@ -85,8 +86,9 @@ export default function ShortcutsSection() {
 
       e.preventDefault();
       e.stopPropagation();
+      if (secondaryModifier(e)) return;
 
-      const ctrl = e.ctrlKey || e.metaKey;
+      const ctrl = primaryModifier(e);
       const shift = e.shiftKey;
       const alt = e.altKey;
       const key = e.key;
@@ -286,7 +288,7 @@ export default function ShortcutsSection() {
 
                         {aliases.map((alias) => (
                           <span
-                            key={alias.label}
+                            key={formatShortcut(alias)}
                             title={t("settings.shortcuts.aliasTitle")}
                             className="rounded-md text-[11px] font-mono leading-none text-(--t-text-muted)"
                             style={{
@@ -296,7 +298,7 @@ export default function ShortcutsSection() {
                               letterSpacing: "0.02em",
                             }}
                           >
-                            {alias.label}
+                            {formatShortcut(alias)}
                           </span>
                         ))}
                       </div>

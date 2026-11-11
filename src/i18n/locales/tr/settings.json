@@ -273,7 +273,7 @@
       "title": "Ayarlar",
       "close": "Ayarları kapat",
       "back": "Geri",
-      "openHint": "Açmak için Ctrl+,",
+      "openHint": "Açmak için {{shortcut}}",
       "expandPluginGroup": "Eklenti ayarlarını genişlet",
       "collapsePluginGroup": "Eklenti ayarlarını daralt"
     },

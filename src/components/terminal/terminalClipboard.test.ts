@@ -393,7 +393,7 @@ describe("against the real xterm", () => {
 });
 
 describe("paste", () => {
-  function pasteHarness(clipboard: string | Error) {
+  function pasteHarness(clipboard: string | Error, selection = "") {
     if (clipboard instanceof Error) readClipboard.mockRejectedValueOnce(clipboard);
     else readClipboard.mockResolvedValueOnce(clipboard);
     const pasted: string[] = [];
@@ -405,7 +405,7 @@ describe("paste", () => {
       onResize: noop,
       buffer: { onBufferChange: noop },
       paste: (text: string) => pasted.push(text),
-      getSelection: () => "",
+      getSelection: () => selection,
     } as unknown as Terminal;
     const clip = attachTerminalClipboard(term, document.createElement("div"), { pasteImage });
     return { clip, pasted, pasteImage };
@@ -424,6 +424,17 @@ describe("paste", () => {
     h.clip.handleKeyEvent(new KeyboardEvent("keydown", { key: "V", ctrlKey: true, shiftKey: true }));
     await vi.waitFor(() => expect(h.pasteImage).toHaveBeenCalledOnce());
     expect(h.pasted).toEqual([]);
+  });
+
+  it("leaves Ctrl+C and Ctrl+V to the shell on macOS", () => {
+    platform.os = "macos";
+    const mac = pasteHarness("ls", "selected");
+    expect(mac.clip.handleKeyEvent(new KeyboardEvent("keydown", { key: "c", ctrlKey: true }))).toBeNull();
+    expect(mac.clip.handleKeyEvent(ctrlV())).toBeNull();
+    expect(mac.pasted).toEqual([]);
+    expect(mac.clip.handleKeyEvent(new KeyboardEvent("keydown", { key: "c", metaKey: true }))).toBe(false);
+    expect(writeClipboard).toHaveBeenCalledWith("selected");
+    platform.os = "linux";
   });
 
   it("pastes with Cmd+V on macOS only", async () => {

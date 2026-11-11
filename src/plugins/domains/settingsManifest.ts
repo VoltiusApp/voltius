@@ -32,7 +32,7 @@ import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
 import { localeSetting, useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
 import { lockActionSetting, sessionTimeoutSetting, useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
-import { useShortcutStore } from "@/stores/shortcutStore";
+import { formatShortcut, useShortcutStore } from "@/stores/shortcutStore";
 
 /** Ce qu'une écriture ferait perdre, et dans quel sens. Une clé gardée n'est
  *  dangereuse que dans la direction qui désarme le garde-fou : réactiver
@@ -134,10 +134,7 @@ function shortcutDefs(): SettingDef[] {
     section: "shortcuts" as const,
     labelKey: sc.labelKey,
     writable: false,
-    get: () =>
-      [sc.ctrl && "Ctrl", sc.shift && "Shift", sc.alt && "Alt", sc.key]
-        .filter(Boolean)
-        .join("+"),
+    get: () => formatShortcut(sc),
   }));
 }
 

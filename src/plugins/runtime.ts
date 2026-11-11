@@ -151,6 +151,7 @@ import { assertValidPluginId, isValidPluginId } from "./pluginId";
 import { isRetiredPlugin } from "./retired";
 import { base64ToBytes, bytesToBase64, hexToBytes } from "@/utils/base64";
 import { base64ToByteArray } from "@/services/teamVaultSyncCore";
+import { primaryModifierLabel, primaryOnly } from "@/utils/primaryModifier";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -424,7 +425,7 @@ function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute" | "plugi
 
 function formatPluginKeybinding(kb: Omit<PluginKeybinding, "execute" | "pluginId">): string {
   const parts: string[] = [];
-  if (kb.ctrl) parts.push("Ctrl");
+  if (kb.ctrl) parts.push(primaryModifierLabel(kb.key));
   if (kb.meta) parts.push("Meta");
   if (kb.shift) parts.push("Shift");
   parts.push(kb.key === " " ? "Space" : kb.key);
@@ -435,13 +436,11 @@ function ensureKeybindHandler() {
   if (_keybindHandlerInstalled) return;
   _keybindHandlerInstalled = true;
   document.addEventListener("keydown", (e) => {
-    const ctrl = e.ctrlKey;
-    const meta = e.metaKey;
+    const primary = primaryOnly(e);
     for (const kb of _pluginKeybindings.values()) {
-      const ctrlMatch = kb.ctrl ? (ctrl || meta) : (!ctrl && !meta);
-      const metaMatch = !kb.ctrl && kb.meta ? meta : true; // if ctrl already covered
+      const modsMatch = kb.ctrl ? primary : kb.meta ? e.metaKey : !e.ctrlKey && !e.metaKey;
       if (
-        ctrlMatch && metaMatch &&
+        modsMatch &&
         e.shiftKey === kb.shift &&
         (e.key === kb.key || e.key.toUpperCase() === kb.key)
       ) {
