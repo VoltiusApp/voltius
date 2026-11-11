@@ -85,9 +85,21 @@ function foldLayer(
         message: `${label(prev.names)} and ${label(laterNames)} disagree on "${key}"; ${label(prev.names)} wins`,
       });
     }
-    const names = res.from === "earlier" ? prev.names : res.from === "later" ? laterNames : [...prev.names, ...laterNames];
+    const names = res.from === "earlier" ? prev.names : res.from === "later" ? laterNames : [...new Set([...prev.names, ...laterNames])];
     acc[key] = { value: res.value, names, from: res.from };
   }
+}
+
+const foldMerged = (acc: Record<string, Entry>, layer: MergedLayer, issues: PolicyIssue[]) =>
+  foldLayer(acc, layer.policy, (key) => layer.teams[key] ?? [], issues);
+
+function mergedOf(acc: Record<string, Entry>, issues: PolicyIssue[]): MergedLayer {
+  const entries = Object.entries(acc);
+  return {
+    policy: Object.fromEntries(entries.map(([k, e]) => [k, e.value])),
+    teams: Object.fromEntries(entries.map(([k, e]) => [k, e.names])),
+    issues,
+  };
 }
 
 export function mergeTeamDocs(docs: TeamPolicyInput[]): MergedLayer {
@@ -95,11 +107,15 @@ export function mergeTeamDocs(docs: TeamPolicyInput[]): MergedLayer {
   const acc: Record<string, Entry> = {};
   const issues: PolicyIssue[] = [];
   for (const d of sorted) foldLayer(acc, withImplied(d.policy), () => [d.teamName], issues);
-  return {
-    policy: Object.fromEntries(Object.entries(acc).map(([k, e]) => [k, e.value])),
-    teams: Object.fromEntries(Object.entries(acc).map(([k, e]) => [k, e.names])),
-    issues,
-  };
+  return mergedOf(acc, issues);
+}
+
+export function prependLayer(first: MergedLayer, rest: MergedLayer): MergedLayer {
+  const acc: Record<string, Entry> = {};
+  const issues = [...first.issues, ...rest.issues];
+  foldMerged(acc, first, issues);
+  foldMerged(acc, rest, issues);
+  return mergedOf(acc, issues);
 }
 
 export function mergeMachineAndTeam(
@@ -109,12 +125,11 @@ export function mergeMachineAndTeam(
   const acc: Record<string, Entry> = {};
   const issues: PolicyIssue[] = [];
   for (const [key, value] of Object.entries(withImplied(machine))) acc[key] = { value, names: [], from: "earlier" };
-  foldLayer(acc, team.policy, (key) => team.teams[key] ?? [], issues);
-  const entries = Object.entries(acc);
+  foldMerged(acc, team, issues);
   return {
-    policy: Object.fromEntries(entries.map(([k, e]) => [k, e.value])),
+    policy: mergedOf(acc, issues).policy,
     sources: Object.fromEntries(
-      entries.map(([k, e]) => [k, { source: e.from === "later" ? "server" : "machine", teams: e.names } as const]),
+      Object.entries(acc).map(([k, e]) => [k, { source: e.from === "later" ? "server" : "machine", teams: e.names } as const]),
     ),
     issues,
   };

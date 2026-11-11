@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { combineEntry, intersectRanges, mergeTeamDocs, mergeMachineAndTeam } from "./mergeLayers";
+import { combineEntry, intersectRanges, mergeTeamDocs, mergeMachineAndTeam, prependLayer } from "./mergeLayers";
 
 const r = (x: object) => ({ $range: x });
 
@@ -87,5 +87,31 @@ describe("mergeMachineAndTeam", () => {
     const m = mergeMachineAndTeam({}, team({ k: true }));
     expect(m.policy.k).toBe(true);
     expect(m.sources.k).toEqual({ source: "server", teams: ["Alpha"] });
+  });
+});
+
+describe("prependLayer", () => {
+  const layer = (teamName: string, policy: Record<string, unknown>) =>
+    mergeTeamDocs([{ teamId: teamName, teamName, joinedAt: "9999", policy }]);
+  const issue = (message: string) => ({ kind: "unknownKey" as const, layer: "policy" as const, key: "x", message });
+
+  it("the first layer wins a conflict even against an earlier-joined team", () => {
+    const m = prependLayer(layer("Enrolled", { k: false }), mergeTeamDocs([{ teamId: "b", teamName: "Beta", joinedAt: "1", policy: { k: true } }]));
+    expect(m.policy.k).toBe(false);
+    expect(m.teams.k).toEqual(["Enrolled"]);
+    expect(m.issues).toHaveLength(1);
+    expect(m.issues[0]).toMatchObject({ kind: "conflict", key: "k" });
+    expect(m.issues[0].message).toContain("Enrolled and Beta");
+  });
+
+  it("keeps keys from both layers and intersects ranges without listing a team twice", () => {
+    const m = prependLayer(layer("Acme", { n: r({ max: 30 }), a: 1 }), layer("Acme", { n: r({ min: 5 }), b: 2 }));
+    expect(m.policy).toEqual({ n: r({ min: 5, max: 30 }), a: 1, b: 2 });
+    expect(m.teams).toEqual({ n: ["Acme"], a: ["Acme"], b: ["Acme"] });
+  });
+
+  it("carries both layers' issues", () => {
+    const m = prependLayer({ ...layer("A", {}), issues: [issue("first")] }, { ...layer("B", {}), issues: [issue("rest")] });
+    expect(m.issues.map((i) => i.message)).toEqual(["first", "rest"]);
   });
 });

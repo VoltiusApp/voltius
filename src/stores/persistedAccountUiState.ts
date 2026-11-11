@@ -92,6 +92,7 @@ export const DEVICE_SCOPED_STORAGE_KEYS = [
   "voltius-host-ping",
   "voltius-lan-sync",
   "voltius-enrollment",
+  "voltius-enrolled-team",
   // Persists nothing (`partialize: () => ({})`); the key is an empty husk.
   "voltius-connection-presence",
 ];

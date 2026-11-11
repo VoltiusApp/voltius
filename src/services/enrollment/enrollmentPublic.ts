@@ -73,11 +73,13 @@ async function request<T>(session: Session | "active", path: string, init: Init)
 
 const post = (body: unknown): Init => ({ method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
 
+export const postWithToken = <T>(token: EnrollmentTokenParts, path: string, extra: Record<string, unknown> = {}) =>
+  request<T>({ serverUrl: token.serverUrl }, path, post({ ...enrollmentCredential(token), ...extra }));
+
 export async function resolveEnrollment(token: EnrollmentTokenParts): Promise<ResolvedEnrollment> {
-  const r = await request<{ team_id: string; team_name: string; allowed_domains: string[]; require_approval: boolean }>(
-    { serverUrl: token.serverUrl },
+  const r = await postWithToken<{ team_id: string; team_name: string; allowed_domains: string[]; require_approval: boolean }>(
+    token,
     "/v1/enrollment/resolve",
-    post(enrollmentCredential(token)),
   );
   return { teamId: r.team_id, teamName: r.team_name, allowedDomains: r.allowed_domains, requireApproval: r.require_approval };
 }

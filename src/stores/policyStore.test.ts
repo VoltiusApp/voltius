@@ -22,8 +22,9 @@ import {
   usePolicyStore,
   watchPolicyVisibility,
 } from "./policyStore";
-import { resetPolicy, withPolicy, withTeamPolicy as teamLayer } from "@/test/policy";
+import { enrollmentTokenText, resetPolicy, withEnrolledTeam, withPolicy, withTeamPolicy as teamLayer } from "@/test/policy";
 import { useTeamPolicyStore } from "./teamPolicyStore";
+import { useEnrolledTeamStore } from "./enrolledTeamStore";
 
 const empty = { policy: {}, defaults: {} };
 const loaded = (policy = {}, defaults = {}, issues: unknown[] = []) => ({
@@ -326,6 +327,74 @@ describe("policyStore", () => {
       expect(clampToRange(undefined, 7)).toBe(7);
       expect(clampToRange({ min: 5 }, 1)).toBe(5);
       expect(clampToRange({ max: 5 }, 9)).toBe(5);
+    });
+  });
+
+  describe("enrolling team", () => {
+    const enrolled = () => withPolicy({ "enrollment.token": enrollmentTokenText() });
+
+    it("applies with no account layer", () => {
+      enrolled();
+      withEnrolledTeam({ k: 2 });
+      expect(lockedValue("k")).toEqual({ locked: true, value: 2, source: "server", teams: ["Acme"] });
+      expect(usePolicyStore.getState().server).toEqual({ policy: { k: 2 }, defaults: {} });
+    });
+
+    it("wins a conflict with another team", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      enrolled();
+      teamLayer({ k: 1, other: true }, "Beta");
+      withEnrolledTeam({ k: 2 });
+      expect(lockedValue("k")).toEqual({ locked: true, value: 2, source: "server", teams: ["Acme"] });
+      expect(lockedValue("other")).toEqual({ locked: true, value: true, source: "server", teams: ["Beta"] });
+      expect(usePolicyStore.getState().server.policy).toEqual({ k: 2, other: true });
+      expect(warn).toHaveBeenCalledWith("[policy]", "policy.k", expect.stringContaining("Acme and Beta disagree"));
+      warn.mockRestore();
+    });
+
+    it("an entry for a different token is ignored", () => {
+      withPolicy({ "enrollment.token": enrollmentTokenText("b".repeat(32)) });
+      withEnrolledTeam({ k: 2 });
+      expect(lockedValue("k")).toEqual({ locked: false });
+    });
+
+    it("an entry from another server is ignored", () => {
+      withPolicy({ "enrollment.token": enrollmentTokenText(undefined, "https://other.example") });
+      withEnrolledTeam({ k: 2 });
+      expect(lockedValue("k")).toEqual({ locked: false });
+    });
+
+    it("is ignored without a machine token", () => {
+      withEnrolledTeam({ k: 2 });
+      expect(lockedValue("k")).toEqual({ locked: false });
+    });
+
+    it("removing the entry drops its locks", () => {
+      enrolled();
+      withEnrolledTeam({ k: 2 });
+      useEnrolledTeamStore.getState().setEntry(null);
+      expect(lockedValue("k")).toEqual({ locked: false });
+      expect(usePolicyStore.getState().server).toEqual(empty);
+    });
+
+    it("an entry change runs onPolicyLoaded subscribers", () => {
+      const fn = vi.fn();
+      const off = onPolicyLoaded(fn);
+      withEnrolledTeam({ k: 2 });
+      useEnrolledTeamStore.getState().setEntry(null);
+      expect(fn).toHaveBeenCalledTimes(2);
+      off();
+    });
+
+    it("a machine load that brings the token applies the persisted entry at once", async () => {
+      withEnrolledTeam({ k: 2 });
+      vi.resetModules();
+      const fresh = await import("./policyStore");
+      expect(fresh.lockedValue("k")).toEqual({ locked: false });
+      mocks.invoke.mockResolvedValue(loaded({ "enrollment.token": enrollmentTokenText() }));
+      await fresh.usePolicyStore.getState().load();
+      expect(fresh.lockedValue("k")).toEqual({ locked: true, value: 2, source: "server", teams: ["Acme"] });
+      expect(fresh.usePolicyStore.getState().server).toEqual({ policy: { k: 2 }, defaults: {} });
     });
   });
 });
