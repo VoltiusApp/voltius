@@ -211,6 +211,13 @@ fn show(
 
 fn remove(machine: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
     let removed = remove_setting(KEY, Layer::Policy, machine_path(machine)?, out)?;
+    if current_token(machine).is_some() {
+        return Err(CliError::Refused(
+            "This machine is enrolled by its configuration profile; \
+             remove enrollment_token from the profile in your MDM."
+                .into(),
+        ));
+    }
     if out.json {
         out.json(&json!({"changed": removed}));
     } else if removed {
@@ -315,7 +322,7 @@ mod tests {
     }
 
     fn stored(machine: &Path) -> Option<String> {
-        policy::load_from(machine)
+        policy::load_machine_at(machine)
             .doc
             .policy
             .get(KEY)
@@ -539,6 +546,34 @@ mod tests {
         let (r, text) = run(a, &m, false, &acme);
         r.unwrap();
         assert_eq!(text, "This machine is not enrolled.\n");
+    }
+
+    const BY_PROFILE: &str = "This machine is enrolled by its configuration profile; \
+        remove enrollment_token from the profile in your MDM.";
+
+    fn remove_with_profile(file_token: bool) -> (tempfile::TempDir, std::path::PathBuf, CliError) {
+        let (d, m) = machine();
+        if file_token {
+            run(args(Some(&token())), &m, false, &acme).0.unwrap();
+        }
+        let mut profile = PolicyDoc::default();
+        profile.policy.insert(KEY.into(), json!(token()));
+        crate::policy::test_probes::set_profile(&m, profile);
+        let mut a = args(None);
+        a.remove = true;
+        let e = run(a, &m, false, &acme).0.unwrap_err();
+        (d, m, e)
+    }
+
+    #[test]
+    fn enroll_remove_fails_when_profile_enrols() {
+        for file_token in [true, false] {
+            let (_d, m, e) = remove_with_profile(file_token);
+            assert_eq!(e.to_string(), BY_PROFILE);
+            assert_eq!(e.exit_code(), 3);
+            let on_file = std::fs::read_to_string(&m).ok().unwrap_or_default();
+            assert!(!on_file.contains(KEY), "{on_file}");
+        }
     }
 
     #[test]

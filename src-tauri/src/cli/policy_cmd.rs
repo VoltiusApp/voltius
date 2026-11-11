@@ -256,9 +256,10 @@ fn edit_raw_with(
             // Re-check once the folder is locked; the text comes from the handle this check passed.
             check()?
         }
-        None if replace => None,
+        None if replace => policy::read_optional(path).ok().flatten(),
         None => read_text(path)?,
     };
+    let before = existing.as_deref().map(policy::parse).unwrap_or_default().0;
     let mut root = if replace {
         empty_root()
     } else {
@@ -276,8 +277,52 @@ fn edit_raw_with(
         if let Some(a) = acl {
             (a.adopt_written)(path).map_err(blocked)?;
         }
+        if let Some(profile) = policy::machine_profile(path) {
+            for line in profile_warnings(&before, &policy::parse(&text).0, &profile.doc) {
+                out.warn(line);
+            }
+        }
     }
     Ok(changed)
+}
+
+fn profile_warnings(before: &PolicyDoc, written: &PolicyDoc, profile: &PolicyDoc) -> Vec<String> {
+    let changed = |now: &BTreeMap<String, Value>, was: &BTreeMap<String, Value>| {
+        now.iter()
+            .filter(|(k, v)| was.get(*k) != Some(*v))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
+    };
+    let only = |doc| policy::LoadedPolicy {
+        path: None,
+        doc,
+        issues: Vec::new(),
+    };
+    let edited = PolicyDoc {
+        version: written.version,
+        policy: changed(&written.policy, &before.policy),
+        defaults: changed(&written.defaults, &before.defaults),
+    };
+    let shadowed = policy::merge_profile(only(edited), Some(only(profile.clone())))
+        .issues
+        .into_iter()
+        .filter(|i| i.kind == IssueKind::Conflict)
+        .map(|i| describe(&i));
+    let removed = layers(before)
+        .into_iter()
+        .zip(layers(written))
+        .zip(layers(profile))
+        .flat_map(|(((layer, was), (_, now)), (_, theirs))| {
+            was.keys()
+                .filter(|k| !now.contains_key(*k) && theirs.contains_key(*k))
+                .map(move |k| {
+                    format!(
+                        "{}.{k}: removed from policy.json, but the configuration profile still sets it",
+                        layer.name()
+                    )
+                })
+        });
+    shadowed.chain(removed).collect()
 }
 
 fn edit_distance(a: &str, b: &str) -> usize {
@@ -319,7 +364,7 @@ pub(super) fn locked_message(what: &str) -> String {
 
 pub(super) fn machine_doc(machine: Option<&Path>) -> PolicyDoc {
     machine
-        .map(|p| policy::load_from(p).doc)
+        .map(|p| policy::load_machine_at(p).doc)
         .unwrap_or_default()
 }
 
@@ -740,7 +785,7 @@ pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
 }
 
 fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
-    let loaded = policy::load_from(path);
+    let loaded = policy::load_machine_at(path);
     let user = user_dir.map_or_else(Default::default, user_values);
     let as_of = user.as_of.clone();
     let shells = detected_shells_for(&loaded.doc, SHELL_KEY);
@@ -843,40 +888,43 @@ fn check(
     probe: Option<policy::Probe>,
     out: &mut Output,
 ) -> Result<(), CliError> {
-    let target = file.unwrap_or(machine);
-    let (doc, mut issues) = match policy::read_optional(target) {
-        Ok(Some(t)) => policy::parse(&t),
-        Ok(None) if file.is_none() => (PolicyDoc::default(), Vec::new()),
-        Ok(None) => return Err(not_found(target)),
-        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-            (PolicyDoc::default(), vec![policy::read_issue(target, &e)])
+    let (target, doc, issues, profile) = match file {
+        None => {
+            let profile = policy::machine_profile(machine);
+            let at = profile.as_ref().and_then(|p| p.path.clone());
+            let loaded = policy::load_machine_with(machine, probe, profile);
+            (machine, loaded.doc, loaded.issues, at)
         }
-        Err(e) => return Err(io_error(target, Access::Read, e)),
+        Some(f) => {
+            let (doc, issues) = read_checked(f, machine, probe)?;
+            (f, doc, issues, None)
+        }
     };
-    if let Some(Trust::Ignored(issue)) = probe
-        .filter(|_| policy::same_path(target, machine))
-        .map(|p| policy::trust(target, p))
-    {
-        issues.push(issue);
-    }
-    let conflicts = policy::conflicts(&doc).into_iter().map(
-        |(key, message)| json!({ "layer": Layer::Policy.name(), "key": key, "message": message }),
-    );
-    let warnings: Vec<Value> = not_honoured(entries(&doc))
-        .map(|(layer, key, message)| {
-            json!({ "layer": layer.name(), "key": key, "message": message })
-        })
+    let (issues, profile_conflicts) = split_conflicts(issues);
+    let conflicts = policy::conflicts(&doc)
+        .into_iter()
+        .map(|(key, message)| warning(Some(Layer::Policy), Some(key), &message));
+    let warnings: Vec<Value> = profile_conflicts
+        .into_iter()
+        .chain(
+            not_honoured(entries(&doc))
+                .map(|(layer, key, message)| warning(Some(layer), Some(key), &message)),
+        )
         .chain(conflicts)
         .collect();
     if out.json {
         out.json(&json!({
             "path": target.display().to_string(),
+            "profile": profile,
             "issues": issues,
             "warnings": warnings,
         }));
     } else {
         for w in &warnings {
             out.warn(w["message"].as_str().unwrap_or_default());
+        }
+        if let Some(p) = &profile {
+            out.line(format!("profile: {p}"));
         }
     }
     if issues.is_empty() {
@@ -889,6 +937,43 @@ fn check(
     } else {
         Err(CliError::Validation(issues))
     }
+}
+
+fn read_checked(
+    file: &Path,
+    machine: &Path,
+    probe: Option<policy::Probe>,
+) -> Result<(PolicyDoc, Vec<Issue>), CliError> {
+    let (doc, mut issues) = match policy::read_optional(file) {
+        Ok(Some(t)) => policy::parse(&t),
+        Ok(None) => return Err(not_found(file)),
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            (PolicyDoc::default(), vec![policy::read_issue(file, &e)])
+        }
+        Err(e) => return Err(io_error(file, Access::Read, e)),
+    };
+    if let Some(Trust::Ignored(issue)) = probe
+        .filter(|_| policy::same_path(file, machine))
+        .map(|p| policy::trust(file, p))
+    {
+        issues.push(issue);
+    }
+    Ok((doc, issues))
+}
+
+fn warning(layer: Option<Layer>, key: Option<&str>, message: &str) -> Value {
+    json!({ "layer": layer.map(Layer::name), "key": key, "message": message })
+}
+
+fn split_conflicts(issues: Vec<Issue>) -> (Vec<Issue>, Vec<Value>) {
+    let (conflicts, rest): (Vec<Issue>, Vec<Issue>) = issues
+        .into_iter()
+        .partition(|i| i.kind == IssueKind::Conflict);
+    let warnings = conflicts
+        .iter()
+        .map(|i| warning(i.layer, i.key.as_deref(), &describe(i)))
+        .collect();
+    (rest, warnings)
 }
 
 fn import(
@@ -2083,7 +2168,7 @@ mod tests {
         let found = shells(&[("zsh", "/bin/zsh"), ("PowerShell", "/usr/bin/pwsh")]);
         let doc = |v: Value| {
             let m = tempfile::tempdir().unwrap();
-            policy::load_from(&machine(m.path(), json!({ SHELL: v }), json!({}))).doc
+            policy::load_machine_at(&machine(m.path(), json!({ SHELL: v }), json!({}))).doc
         };
         assert!(shell_warnings(&doc(json!("/bin/zsh")), &found).is_empty());
         assert!(shell_warnings(&doc(json!("ZSH")), &found).is_empty());
@@ -2129,5 +2214,176 @@ mod tests {
             .unwrap()
             .contains("forces it on"));
         assert_eq!(v["warnings"][0]["key"], TTL_TOGGLE);
+    }
+
+    #[test]
+    fn check_conflict_is_a_warning() {
+        let message = "set by the configuration profile; the value in policy.json is ignored";
+        let unknown = Issue::keyed(
+            IssueKind::UnknownKey,
+            Some(Layer::Policy),
+            "x",
+            "bad".into(),
+        );
+        let (issues, warnings) = split_conflicts(vec![
+            Issue::keyed(
+                IssueKind::Conflict,
+                Some(Layer::Policy),
+                "server.url",
+                message.into(),
+            ),
+            unknown.clone(),
+        ]);
+        assert_eq!(issues, vec![unknown]);
+        assert_eq!(
+            warnings,
+            vec![json!({
+                "layer": "policy",
+                "key": "server.url",
+                "message": format!("policy.server.url: {message}"),
+            })]
+        );
+    }
+
+    #[test]
+    fn check_explicit_file_ignores_profile() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine = machine(dir.path(), json!({}), json!({}));
+        let other = dir.path().join("other.json");
+        std::fs::write(
+            &other,
+            r#"{"version":1,"policy":{"sshConfig.import":true}}"#,
+        )
+        .unwrap();
+        let (mut sink, stdout, _) = capture_split(true, false);
+        check(Some(&other), &machine, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["path"], other.display().to_string());
+    }
+
+    fn layered(policy: Value, defaults: Value) -> PolicyDoc {
+        serde_json::from_value(json!({"version": 1, "policy": policy, "defaults": defaults}))
+            .unwrap()
+    }
+
+    const SHADOWED: &str = "set by the configuration profile; the value in policy.json is ignored";
+    const STILL_SET: &str = "removed from policy.json, but the configuration profile still sets it";
+
+    #[test]
+    fn profile_warning_names_changed_key() {
+        let lines = profile_warnings(
+            &layered(json!({"a": 1}), json!({})),
+            &layered(json!({"a": 1, "b": 2}), json!({})),
+            &layered(json!({"a": 9, "b": 3}), json!({})),
+        );
+        assert_eq!(lines, vec![format!("policy.b: {SHADOWED}")]);
+    }
+
+    #[test]
+    fn profile_warning_names_removed_key() {
+        let lines = profile_warnings(
+            &layered(json!({"a": 1, "b": 2}), json!({"c": 1})),
+            &layered(json!({"a": 1}), json!({})),
+            &layered(json!({"a": 9, "b": 3}), json!({"c": 1})),
+        );
+        assert_eq!(
+            lines,
+            vec![
+                format!("policy.b: {STILL_SET}"),
+                format!("defaults.c: {STILL_SET}")
+            ]
+        );
+    }
+
+    #[test]
+    fn profile_warning_skips_same_value() {
+        let lines = profile_warnings(
+            &layered(json!({}), json!({})),
+            &layered(json!({"b": 3}), json!({})),
+            &layered(json!({"b": 3}), json!({})),
+        );
+        assert!(lines.is_empty(), "{lines:?}");
+    }
+
+    #[test]
+    fn profile_warning_skips_other_layer() {
+        let lines = profile_warnings(
+            &layered(json!({}), json!({"a": 1})),
+            &layered(json!({}), json!({"b": 2})),
+            &layered(json!({"a": 9, "b": 3}), json!({})),
+        );
+        assert!(lines.is_empty(), "{lines:?}");
+    }
+
+    fn with_profile(policy: Value) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = machine(
+            dir.path(),
+            json!({ "server.url": "https://file" }),
+            json!({}),
+        );
+        set_profile(&path, layered(policy, json!({})));
+        (dir, path)
+    }
+
+    #[test]
+    fn unset_warns_when_profile_still_sets_key() {
+        let (_dir, path) = with_profile(json!({ "server.url": "https://profile" }));
+        let (mut sink, stdout, stderr) = capture_split(false, false);
+        run(
+            PolicyCmd::Unset {
+                key: "server.url".into(),
+                defaults: false,
+            },
+            &path,
+            &mut sink,
+        )
+        .unwrap();
+        assert_eq!(captured(&stdout), "Removed server.url from policy\n");
+        assert!(
+            captured(&stderr).contains(&format!("policy.server.url: {STILL_SET}")),
+            "{}",
+            captured(&stderr)
+        );
+    }
+
+    #[test]
+    fn import_replace_warns_for_dropped_key() {
+        let (dir, path) = with_profile(json!({ "server.url": "https://profile" }));
+        let incoming = dir.path().join("in.json");
+        std::fs::write(&incoming, r#"{"version":1,"policy":{}}"#).unwrap();
+        let (mut sink, _, stderr) = capture_split(false, false);
+        import(&incoming, &path, None, true, &mut sink).unwrap();
+        assert!(
+            captured(&stderr).contains(&format!("policy.server.url: {STILL_SET}")),
+            "{}",
+            captured(&stderr)
+        );
+    }
+
+    #[test]
+    fn check_names_the_profile() {
+        let (_dir, path) = with_profile(json!({}));
+        let (mut sink, stdout, _) = capture_split(true, false);
+        check(None, &path, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["profile"], PROFILE);
+        let (mut sink, stdout, _) = capture_split(false, false);
+        check(None, &path, None, &mut sink).unwrap();
+        assert!(
+            captured(&stdout).contains(&format!("profile: {PROFILE}")),
+            "{}",
+            captured(&stdout)
+        );
+    }
+
+    #[test]
+    fn check_without_profile_is_null() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = machine(dir.path(), json!({}), json!({}));
+        let (mut sink, stdout, _) = capture_split(true, false);
+        check(None, &path, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["profile"], Value::Null);
     }
 }

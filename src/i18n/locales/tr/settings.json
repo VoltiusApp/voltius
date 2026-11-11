@@ -542,7 +542,7 @@
           "syncPlugins": "Gist, Cloudflare ve S3 eşitleme eklentileri",
           "cli": "Komut satırı (voltius-cli)",
           "machinePolicy": "Toplu dağıtımlar için makine politikası",
-          "mobileMdm": "Mobil cihazlar için yönetilen yapılandırma (MDM)",
+          "mdm": "Yönetilen yapılandırma (MDM)",
           "auditLogs": "Yerel denetim günlükleri",
           "cloudSync": "Cihazlarınız hiç aynı anda çevrimiçi olmasa bile bulut eşitleme",
           "cloudBackup": "Voltius Cloud'da şifreli yedek",

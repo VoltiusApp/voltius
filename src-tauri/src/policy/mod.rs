@@ -18,6 +18,8 @@ pub mod managed_config;
 pub mod managed_ios;
 #[cfg(target_os = "ios")]
 use managed_ios as managed;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod managed_macos;
 
 const SUPPORTED_VERSION: u32 = 1;
 
@@ -1067,48 +1069,76 @@ pub fn same_path(a: &Path, b: &Path) -> bool {
     paths_equal(a, b, cfg!(windows))
 }
 
+pub fn is_machine_default(path: &Path) -> bool {
+    default_machine_policy_path().is_some_and(|d| same_path(&d, path))
+}
+
 pub fn machine_acl(path: &Path) -> Option<MachineAcl> {
-    OS_ACL.filter(|_| default_machine_policy_path().is_some_and(|d| same_path(&d, path)))
+    OS_ACL.filter(|_| is_machine_default(path))
+}
+
+fn os_probe(path: &Path) -> Option<Probe> {
+    machine_acl(path).map(|a| a.probe)
 }
 
 fn dir_of(path: &Path) -> &Path {
     path.parent().unwrap_or(path)
 }
 
-fn probe_both(path: &Path, probe: Probe) -> Result<(Entry, Entry), (PathBuf, std::io::Error)> {
+fn probe_both<T>(
+    path: &Path,
+    probe: fn(&Path) -> std::io::Result<T>,
+) -> Result<(T, T), (PathBuf, std::io::Error)> {
     let at = |p: &Path| probe(p).map_err(|e| (p.to_path_buf(), e));
     Ok((at(dir_of(path))?, at(path)?))
 }
 
-pub enum Trust {
+pub enum Trust<T = String> {
     Absent,
-    Trusted(String),
+    Trusted(T),
     Ignored(Issue),
 }
 
-pub fn trust(path: &Path, probe: Probe) -> Trust {
-    let why = match probe_both(path, probe) {
-        Err((_, e)) => format!("its permissions could not be read ({e})"),
-        Ok((dir, file)) => match (dir.guard, file.guard) {
-            (Guard::Link, _) => "its folder is a link".to_string(),
-            (_, Guard::Link) => "it is a link".to_string(),
-            (_, Guard::Missing) => return Trust::Absent,
-            (Guard::Protected, Guard::Protected) => {
-                return match file.text.transpose() {
-                    Ok(text) => Trust::Trusted(text.unwrap_or_default()),
-                    Err(e) => Trust::Ignored(read_issue(path, &e)),
-                }
-            }
-            _ => "standard users can change it".to_string(),
-        },
+fn judge(path: &Path, guards: std::io::Result<(Guard, Guard)>, hint: &str) -> Trust<()> {
+    let why = match guards {
+        Err(e) => format!("its permissions could not be read ({e})"),
+        Ok((Guard::Link, _)) => "its folder is a link".to_string(),
+        Ok((_, Guard::Link)) => "it is a link".to_string(),
+        Ok((_, Guard::Missing)) => return Trust::Absent,
+        Ok((Guard::Protected, Guard::Protected)) => return Trust::Trusted(()),
+        Ok(_) => "standard users can change it".to_string(),
     };
     Trust::Ignored(Issue::general(
         IssueKind::Unprotected,
-        format!(
-            "{} ignored because {why}; set it again with voltius-cli run as Administrator",
-            path.display()
-        ),
+        format!("{} ignored because {why}; {hint}", path.display()),
     ))
+}
+
+pub fn trust_guards(
+    path: &Path,
+    guard: fn(&Path) -> std::io::Result<Guard>,
+    hint: &str,
+) -> Trust<()> {
+    judge(path, probe_both(path, guard).map_err(|(_, e)| e), hint)
+}
+
+pub fn trust(path: &Path, probe: Probe) -> Trust {
+    let (guards, text) = match probe_both(path, probe) {
+        Ok((dir, file)) => (Ok((dir.guard, file.guard)), file.text),
+        Err((_, e)) => (Err(e), None),
+    };
+    match judge(
+        path,
+        guards,
+        "set it again with voltius-cli run as Administrator",
+    ) {
+        Trust::Absent => Trust::Absent,
+        Trust::Ignored(issue) => Trust::Ignored(issue),
+        Trust::Trusted(()) => match text.transpose() {
+            Ok(text) => Trust::Trusted(text.unwrap_or_default()),
+            Err(e) => Trust::Ignored(read_issue(path, &e)),
+        },
+    }
 }
 
 pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<String>, Blocked> {
@@ -1123,10 +1153,6 @@ pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<St
             .transpose()
             .map_err(|e| Blocked::Io(path.to_path_buf(), e)),
     }
-}
-
-pub fn load_from(path: &Path) -> LoadedPolicy {
-    load_with(path, machine_acl(path).map(|a| a.probe))
 }
 
 fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
@@ -1155,13 +1181,75 @@ pub fn load_machine() -> LoadedPolicy {
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn load_machine() -> LoadedPolicy {
-    match machine_policy_path() {
-        Some(p) => load_from(&p),
-        None => LoadedPolicy {
+    machine_policy_path()
+        .map(|p| load_machine_at(&p))
+        .unwrap_or_else(|| LoadedPolicy {
             path: None,
             doc: PolicyDoc::default(),
             issues: Vec::new(),
-        },
+        })
+}
+
+pub fn load_machine_at(path: &Path) -> LoadedPolicy {
+    load_machine_with(path, os_probe(path), machine_profile(path))
+}
+
+pub fn load_machine_with(
+    path: &Path,
+    probe: Option<Probe>,
+    profile: Option<LoadedPolicy>,
+) -> LoadedPolicy {
+    merge_profile(load_with(path, probe), profile)
+}
+
+pub fn machine_profile(path: &Path) -> Option<LoadedPolicy> {
+    #[cfg(test)]
+    if let Some(profile) = test_probes::profile_at(path) {
+        return Some(profile);
+    }
+    if !is_machine_default(path) {
+        return None;
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        managed_macos::device_profile()
+    }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        None
+    }
+}
+
+pub fn merge_profile(file: LoadedPolicy, profile: Option<LoadedPolicy>) -> LoadedPolicy {
+    let Some(profile) = profile else {
+        return file;
+    };
+    let mut doc = file.doc;
+    let mut issues = file.issues;
+    issues.extend(profile.issues);
+    doc.version = doc.version.max(profile.doc.version);
+    let layers = [
+        (Layer::Policy, &mut doc.policy, profile.doc.policy),
+        (Layer::Defaults, &mut doc.defaults, profile.doc.defaults),
+    ];
+    for (layer, ours, theirs) in layers {
+        for (key, value) in theirs {
+            if ours.get(&key).is_some_and(|v| *v != value) {
+                issues.push(Issue::keyed(
+                    IssueKind::Conflict,
+                    Some(layer),
+                    &key,
+                    "set by the configuration profile; the value in policy.json is ignored"
+                        .to_string(),
+                ));
+            }
+            ours.insert(key, value);
+        }
+    }
+    LoadedPolicy {
+        path: file.path,
+        doc,
+        issues,
     }
 }
 
@@ -1212,7 +1300,7 @@ fn write_tmp(mut file: std::fs::File, bytes: &[u8]) -> std::io::Result<()> {
 
 #[cfg(test)]
 pub(crate) mod test_probes {
-    use super::{Blocked, Entry, Guard, MachineAcl, Probe};
+    use super::{Blocked, Entry, Guard, LoadedPolicy, MachineAcl, PolicyDoc, Probe};
     use std::cell::{Cell, RefCell};
     use std::io;
     use std::path::{Path, PathBuf};
@@ -1309,9 +1397,27 @@ pub(crate) mod test_probes {
         Ok(Some(aside))
     }
 
+    pub const PROFILE: &str = "/Library/Managed Preferences/com.voltius.app.plist";
+
     thread_local! {
         static CALLS: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
         static FILE_PROBES: Cell<u32> = const { Cell::new(0) };
+        static PROFILE_AT: RefCell<Option<(PathBuf, PolicyDoc)>> = const { RefCell::new(None) };
+    }
+
+    pub fn set_profile(machine: &Path, doc: PolicyDoc) {
+        PROFILE_AT.set(Some((machine.to_path_buf(), doc)));
+    }
+
+    pub(super) fn profile_at(machine: &Path) -> Option<LoadedPolicy> {
+        PROFILE_AT.with_borrow(|at| {
+            let (_, doc) = at.as_ref().filter(|(m, _)| m == machine)?;
+            Some(LoadedPolicy {
+                path: Some(PROFILE.to_string()),
+                doc: doc.clone(),
+                issues: Vec::new(),
+            })
+        })
     }
 
     fn record(call: &'static str) {
@@ -1360,6 +1466,132 @@ mod tests {
     use super::test_probes::*;
     use super::*;
     use serde_json::json;
+
+    fn loaded(policy: &[(&str, Value)], defaults: &[(&str, Value)]) -> LoadedPolicy {
+        let own = |kv: &[(&str, Value)]| {
+            kv.iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect::<BTreeMap<_, _>>()
+        };
+        LoadedPolicy {
+            path: Some("/etc/voltius/policy.json".to_string()),
+            doc: PolicyDoc {
+                version: 1,
+                policy: own(policy),
+                defaults: own(defaults),
+            },
+            issues: Vec::new(),
+        }
+    }
+
+    fn with_issue(mut p: LoadedPolicy, kind: IssueKind) -> LoadedPolicy {
+        p.issues.push(Issue::general(kind, format!("{kind:?}")));
+        p
+    }
+
+    #[test]
+    fn merge_without_profile_is_the_file() {
+        let file = with_issue(loaded(&[("server.url", json!("a"))], &[]), IssueKind::File);
+        let merged = merge_profile(file, None);
+        assert_eq!(merged.doc.policy["server.url"], json!("a"));
+        assert_eq!(merged.issues.len(), 1);
+    }
+
+    #[test]
+    fn merge_profile_adds_keys() {
+        let file = loaded(&[("appSettings.terminal.cursorStyle", json!("bar"))], &[]);
+        let profile = loaded(&[("server.url", json!("https://x"))], &[]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.doc.policy.len(), 2);
+        assert!(merged.issues.is_empty());
+    }
+
+    #[test]
+    fn merge_profile_wins_per_key_with_conflict() {
+        let file = loaded(&[("server.url", json!("https://file"))], &[]);
+        let profile = loaded(&[("server.url", json!("https://profile"))], &[]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.doc.policy["server.url"], json!("https://profile"));
+        assert_eq!(
+            merged.issues,
+            vec![Issue::keyed(
+                IssueKind::Conflict,
+                Some(Layer::Policy),
+                "server.url",
+                "set by the configuration profile; the value in policy.json is ignored".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn merge_same_value_no_conflict() {
+        let file = loaded(&[("server.url", json!("https://x"))], &[]);
+        let profile = loaded(&[("server.url", json!("https://x"))], &[]);
+        assert!(merge_profile(file, Some(profile)).issues.is_empty());
+    }
+
+    #[test]
+    fn merge_layers_kept_apart() {
+        let file = loaded(&[], &[("server.url", json!("https://file"))]);
+        let profile = loaded(&[("server.url", json!("https://profile"))], &[]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.doc.defaults["server.url"], json!("https://file"));
+        assert_eq!(merged.doc.policy["server.url"], json!("https://profile"));
+        assert!(merged.issues.is_empty());
+    }
+
+    #[test]
+    fn merge_defaults_conflict_names_the_layer() {
+        let file = loaded(&[], &[("server.url", json!("a"))]);
+        let profile = loaded(&[], &[("server.url", json!("b"))]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.issues[0].layer, Some(Layer::Defaults));
+    }
+
+    #[test]
+    fn merge_issues_from_both_kept_file_first() {
+        let file = with_issue(loaded(&[], &[]), IssueKind::File);
+        let profile = with_issue(loaded(&[], &[]), IssueKind::Unprotected);
+        let kinds: Vec<_> = merge_profile(file, Some(profile))
+            .issues
+            .iter()
+            .map(|i| i.kind)
+            .collect();
+        assert_eq!(kinds, [IssueKind::File, IssueKind::Unprotected]);
+    }
+
+    #[test]
+    fn merge_version_is_the_max() {
+        let file = loaded(&[], &[]);
+        let mut profile = loaded(&[], &[]);
+        profile.doc.version = 3;
+        assert_eq!(merge_profile(file, Some(profile)).doc.version, 3);
+    }
+
+    #[test]
+    fn merge_path_is_the_file() {
+        let mut profile = loaded(&[], &[]);
+        profile.path = Some("/Library/Managed Preferences/x.plist".to_string());
+        let merged = merge_profile(loaded(&[], &[]), Some(profile));
+        assert_eq!(merged.path.as_deref(), Some("/etc/voltius/policy.json"));
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[test]
+    fn load_machine_at_skips_profile_off_default_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::write(
+            &path,
+            r#"{"version":1,"policy":{"server.url":"https://x"}}"#,
+        )
+        .unwrap();
+        let merged = load_machine_at(&path);
+        let plain = load_with(&path, None);
+        assert_eq!(merged.doc, plain.doc);
+        assert_eq!(merged.issues, plain.issues);
+        assert_eq!(merged.path, plain.path);
+    }
 
     #[test]
     fn gated_permissions_mirror_the_plugin_list() {
@@ -1777,7 +2009,7 @@ mod tests {
     #[test]
     fn load_missing_file_is_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let loaded = load_from(&dir.path().join("policy.json"));
+        let loaded = load_machine_at(&dir.path().join("policy.json"));
         assert_eq!(loaded.doc, PolicyDoc::default());
         assert!(loaded.issues.is_empty());
     }
@@ -1793,7 +2025,7 @@ mod tests {
         if unsafe { libc::geteuid() } == 0 {
             return;
         }
-        let loaded = load_from(&path);
+        let loaded = load_machine_at(&path);
         assert_eq!(loaded.doc, PolicyDoc::default());
         assert_eq!(loaded.issues.len(), 1);
         assert!(loaded.issues[0].message.contains(path.to_str().unwrap()));
@@ -1810,7 +2042,7 @@ mod tests {
         doc.policy.insert("server.url".into(), json!("https://a"));
         doc.defaults.insert("sshConfig.import".into(), json!(true));
         write_text_atomic(&path, &serde_json::to_string_pretty(&doc).unwrap()).unwrap();
-        let loaded = load_from(&path);
+        let loaded = load_machine_at(&path);
         assert_eq!(loaded.doc, doc);
         assert!(loaded.issues.is_empty());
     }

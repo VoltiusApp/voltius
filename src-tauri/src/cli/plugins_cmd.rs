@@ -1116,6 +1116,6 @@ mod tests {
             &offline,
         );
         assert_eq!(r.result.unwrap_err().exit_code(), 5);
-        assert!(policy::load_from(&machine).doc.policy.is_empty());
+        assert!(policy::load_machine_at(&machine).doc.policy.is_empty());
     }
 }

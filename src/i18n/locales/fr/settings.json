@@ -537,7 +537,7 @@
           "syncPlugins": "Plugins de synchronisation Gist, Cloudflare et S3",
           "cli": "Ligne de commande (voltius-cli)",
           "machinePolicy": "Règle machine pour les déploiements de parc",
-          "mobileMdm": "Configuration gérée des mobiles (MDM)",
+          "mdm": "Configuration gérée (MDM)",
           "auditLogs": "Journaux d'audit locaux",
           "cloudSync": "Synchronisation cloud, même si vos appareils ne sont jamais en ligne en même temps",
           "cloudBackup": "Sauvegarde chiffrée sur Voltius Cloud",
