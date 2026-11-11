@@ -124,33 +124,35 @@ winget install --id Voltius.Voltius -e
 Windows SmartScreen may warn that the publisher is unverified (the app is not yet
 code-signed) — choose **More info → Run anyway**.
 
-### <img src=".github/media/icons/android.svg" alt="" height="22" align="center" /> Android — Google Play
+### <img src=".github/media/icons/android.svg" alt="" height="22" align="center" /> Android — Obtainium
 
-[<img src=".github/media/badge_google_play.png" alt="Get it on Google Play" height="54">](https://play.google.com/store/apps/details?id=com.voltius.app)
-
-Google Play installs and updates Voltius like any other app. It needs Android 7.0+ on an
-`arm64-v8a` phone (every current phone, but not x86_64 emulators or Chromebooks). The local
-terminal and serial console are desktop-only; remote SSH and SFTP are the point here.
-
-<details>
-<summary>Without Google Play: Obtainium or the APK</summary>
+[Obtainium](https://github.com/ImranR98/Obtainium) is the recommended way: it watches this
+repo's releases and installs each one as soon as it is published, the way a store would.
 
 [<img src=".github/media/badge_obtainium.png" alt="Get it on Obtainium" height="54">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.voltius.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FVoltiusApp%2Fvoltius%22%2C%22author%22%3A%22VoltiusApp%22%2C%22name%22%3A%22Voltius%22%7D)
 
-[Obtainium](https://github.com/ImranR98/Obtainium) watches this repo's releases and installs
-updates the way a store would. Tap that badge **on the phone**: it opens Obtainium with the
-source pre-filled, or offers to install Obtainium first. By hand: **Add App** →
-`https://github.com/VoltiusApp/voltius`.
+Tap that badge **on the phone**: it opens Obtainium with the source pre-filled, or offers
+to install Obtainium first. By hand: **Add App** → `https://github.com/VoltiusApp/voltius`.
+
+Or get it from Google Play:
+
+[<img src=".github/media/badge_google_play.png" alt="Get it on Google Play" height="54">](https://play.google.com/store/apps/details?id=com.voltius.app)
+
+Voltius needs Android 7.0+ on an `arm64-v8a` phone (every current phone, but not x86_64
+emulators or Chromebooks). The local terminal and serial console are desktop-only; remote
+SSH and SFTP are the point here. The GitHub APK and the Google Play build are signed with
+the same key, so one updates over the other. An APK from anywhere else, including one you
+built yourself, fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and has to be uninstalled
+first, taking its local data.
+
+<details>
+<summary>Obtainium notes</summary>
 
 - Android asks you to allow **Install unknown apps** for Obtainium on the first install.
 - Unauthenticated GitHub API calls are capped at 60/hour per IP address. If update checks
   start failing, add a personal access token in Obtainium under **Settings → Source-specific → GitHub**.
-- Or grab the `Voltius_<version>_aarch64.apk` asset from the
+- Without Obtainium or Google Play: grab the `Voltius_<version>_aarch64.apk` asset from the
   [latest release](https://github.com/VoltiusApp/voltius/releases/latest); updates are then manual.
-
-The GitHub APK and the Google Play build are signed with the same key, so one updates over
-the other. An APK from anywhere else, including one you built yourself, fails with
-`INSTALL_FAILED_UPDATE_INCOMPATIBLE` and has to be uninstalled first, taking its local data.
 </details>
 
 ### <img src=".github/media/icons/apple.svg" alt="" height="22" align="center" /> iOS — App Store
