@@ -105,6 +105,7 @@ cli user policy check --json
 expect 1.exit 0 "$code"
 expect 1.issues 0 "$(field '.issues | length')"
 expect 1.warnings 0 "$(field '.warnings | length')"
+expect 1.profile null "$(field .profile)"
 
 echo "== 2 a root-owned binary profile"
 cat > "$work/profile.plist" << EOF
@@ -126,14 +127,23 @@ echo "== 3 policy.json disagrees with the profile"
 if [ ! -d "$policy_dir" ]; then made_policy_dir=true; fi
 cli root policy set server.url "$file_url"
 expect 3.set.exit 0 "$code"
-expect 3.set.warns yes "$(contains "$err" "the configuration profile sets policy.server.url")"
+expect 3.set.warns yes "$(contains "$err" "policy.server.url: set by the configuration profile; the value in policy.json is ignored")"
 expect 3.file "$file_url" "$(jq -r '.policy["server.url"]' "$policy" 2> /dev/null || echo "<unreadable>")"
 cli user policy check --json
 expect 3.check.exit 0 "$code"
 expect 3.check.issues 0 "$(field '.issues | length')"
 expect 3.check.warnings 1 "$(field '.warnings | length')"
 expect 3.check.warning.key server.url "$(field '.warnings[0].key')"
+expect 3.check.profile "$profile" "$(field .profile)"
 server_url 3 "$profile_url"
+
+echo "== 3b removing a key the profile still sets"
+cli root policy unset server.url
+expect 3b.unset.exit 0 "$code"
+expect 3b.unset.warns yes "$(contains "$err" "policy.server.url: removed from policy.json, but the configuration profile still sets it")"
+server_url 3b "$profile_url"
+cli root policy set server.url "$file_url"
+expect 3b.reset.exit 0 "$code"
 
 echo "== 4 a profile standard users can change is ignored"
 sudo chown "$(id -un)" "$profile"
