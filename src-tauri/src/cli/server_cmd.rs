@@ -156,7 +156,7 @@ mod tests {
         )
         .0
         .unwrap();
-        let doc = policy::load_from(&machine).doc;
+        let doc = policy::load_machine_at(&machine).doc;
         assert_eq!(doc.policy[KEY], json!("https://v.acme.com"));
         assert!(pending::load(dir.path()).0.changes.is_empty());
 
@@ -169,7 +169,7 @@ mod tests {
         .0
         .unwrap();
         assert_eq!(
-            policy::load_from(&machine).doc.defaults[KEY],
+            policy::load_machine_at(&machine).doc.defaults[KEY],
             json!("https://d.acme.com")
         );
     }

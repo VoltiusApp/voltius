@@ -1155,10 +1155,6 @@ pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<St
     }
 }
 
-pub fn load_from(path: &Path) -> LoadedPolicy {
-    load_with(path, os_probe(path))
-}
-
 fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
     let read = match probe.map(|p| trust(path, p)) {
         Some(Trust::Absent) => Ok(None),
@@ -1565,7 +1561,7 @@ mod tests {
         )
         .unwrap();
         let merged = load_machine_at(&path);
-        let plain = load_from(&path);
+        let plain = load_with(&path, None);
         assert_eq!(merged.doc, plain.doc);
         assert_eq!(merged.issues, plain.issues);
         assert_eq!(merged.path, plain.path);
@@ -1987,7 +1983,7 @@ mod tests {
     #[test]
     fn load_missing_file_is_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let loaded = load_from(&dir.path().join("policy.json"));
+        let loaded = load_machine_at(&dir.path().join("policy.json"));
         assert_eq!(loaded.doc, PolicyDoc::default());
         assert!(loaded.issues.is_empty());
     }
@@ -2003,7 +1999,7 @@ mod tests {
         if unsafe { libc::geteuid() } == 0 {
             return;
         }
-        let loaded = load_from(&path);
+        let loaded = load_machine_at(&path);
         assert_eq!(loaded.doc, PolicyDoc::default());
         assert_eq!(loaded.issues.len(), 1);
         assert!(loaded.issues[0].message.contains(path.to_str().unwrap()));
@@ -2020,7 +2016,7 @@ mod tests {
         doc.policy.insert("server.url".into(), json!("https://a"));
         doc.defaults.insert("sshConfig.import".into(), json!(true));
         write_text_atomic(&path, &serde_json::to_string_pretty(&doc).unwrap()).unwrap();
-        let loaded = load_from(&path);
+        let loaded = load_machine_at(&path);
         assert_eq!(loaded.doc, doc);
         assert!(loaded.issues.is_empty());
     }

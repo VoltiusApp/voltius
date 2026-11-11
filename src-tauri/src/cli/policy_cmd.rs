@@ -2147,7 +2147,7 @@ mod tests {
         let found = shells(&[("zsh", "/bin/zsh"), ("PowerShell", "/usr/bin/pwsh")]);
         let doc = |v: Value| {
             let m = tempfile::tempdir().unwrap();
-            policy::load_from(&machine(m.path(), json!({ SHELL: v }), json!({}))).doc
+            policy::load_machine_at(&machine(m.path(), json!({ SHELL: v }), json!({}))).doc
         };
         assert!(shell_warnings(&doc(json!("/bin/zsh")), &found).is_empty());
         assert!(shell_warnings(&doc(json!("ZSH")), &found).is_empty());

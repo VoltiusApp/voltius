@@ -315,7 +315,7 @@ mod tests {
     }
 
     fn stored(machine: &Path) -> Option<String> {
-        policy::load_from(machine)
+        policy::load_machine_at(machine)
             .doc
             .policy
             .get(KEY)
