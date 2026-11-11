@@ -6,19 +6,15 @@ vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
 vi.mock("@/services/enrollment/enrollmentPolicy", () => ({ fetchEnrolledPolicy: mocks.fetch }));
 
 import { startEnrolledTeamSync, syncEnrolledTeam } from "./enrolledTeam";
-import { buildEnrollmentToken } from "@/services/enrollment/enrollmentToken";
 import type { EnrolledFetch } from "@/services/enrollment/enrollmentPolicy";
 import { useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { usePolicyStore } from "@/stores/policyStore";
 import { DEVICE_SCOPED_STORAGE_KEYS } from "@/stores/persistedAccountUiState";
-import { echoTeamDoc, resetPolicy } from "@/test/policy";
+import { ENROLL_SECRET as SECRET, ENROLL_SERVER as SERVER, echoTeamDoc, enrollmentTokenText as tokenText, resetPolicy } from "@/test/policy";
 import { LOCK_ACTION_KEY as ACTION } from "@/services/lockPolicy";
 
-const SERVER = "https://srv.example";
 const ID_A = "a".repeat(32);
 const ID_B = "b".repeat(32);
-const SECRET = "s".repeat(43);
-const tokenText = (id = ID_A, server = SERVER) => buildEnrollmentToken(server, id, SECRET);
 const machine = (id = ID_A, extra: Record<string, unknown> = {}) => ({ "enrollment.token": tokenText(id), ...extra });
 
 const teamReply = (id: string, name: string, revision: number, policy: Record<string, unknown> | null = { [ACTION]: "vault" }): EnrolledFetch => ({

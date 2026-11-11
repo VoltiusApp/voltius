@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { isPolicyEnforced, policyKeyDef } from "@/services/policy/policyKeys";
 import { rangeOf, inPolicyRange, clampToRange, type PolicyRange } from "@/services/policy/range";
-import { mergeMachineAndTeam, type MergedLayer } from "@/services/policy/mergeLayers";
+import { mergeMachineAndTeam, prependLayer, type MergedLayer } from "@/services/policy/mergeLayers";
+import { enrollmentTokenOf, entryForToken, useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 
 export { rangeOf, inPolicyRange, clampToRange, type PolicyRange };
@@ -100,35 +101,58 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       machine: { policy: loaded.doc.policy, defaults: loaded.doc.defaults },
       issues: loaded.issues,
     });
-    loadedListeners.forEach((fn) => fn());
+    layersChanged();
     void reportIssuesOnce(loaded).catch(() => {});
-    logTeamIssues();
   },
 }));
 
 type EffectivePolicy = ReturnType<typeof mergeMachineAndTeam>;
-let effective: { machine: Record<string, unknown>; team: MergedLayer | null; view: EffectivePolicy } | undefined;
+interface Effective {
+  machine: Record<string, unknown>;
+  account: MergedLayer | null;
+  entry: EnrolledTeamEntry | null;
+  enrolledTeamId: string | null;
+  team: MergedLayer | null;
+  view: EffectivePolicy;
+}
+let effective: Effective | undefined;
 
 // Derived on read so a machine layer set straight into the store is merged too.
-function effectivePolicy(): EffectivePolicy {
+function currentEffective(): Effective {
   const machine = usePolicyStore.getState().machine.policy;
-  const team = useTeamPolicyStore.getState().layer;
-  if (effective?.machine !== machine || effective.team !== team) {
-    effective = { machine, team, view: mergeMachineAndTeam(machine, team ?? NO_TEAM_LAYER) };
+  const account = useTeamPolicyStore.getState().layer;
+  const entry = useEnrolledTeamStore.getState().entry;
+  if (effective?.machine !== machine || effective.account !== account || effective.entry !== entry) {
+    const enrolled = entryForToken(entry, enrollmentTokenOf(machine));
+    const team = enrolled && account ? prependLayer(enrolled.layer, account) : (enrolled?.layer ?? account);
+    const view = mergeMachineAndTeam(machine, team ?? NO_TEAM_LAYER);
+    effective = { machine, account, entry, enrolledTeamId: enrolled?.teamId ?? null, team, view };
   }
-  return effective.view;
+  return effective;
 }
 
+const effectivePolicy = (): EffectivePolicy => currentEffective().view;
+
+export const enrolledTeamId = (): string | null => currentEffective().enrolledTeamId;
+
 function logTeamIssues() {
-  const issues = [...(useTeamPolicyStore.getState().layer?.issues ?? []), ...effectivePolicy().issues];
+  const { team, view } = currentEffective();
+  const issues = [...(team?.issues ?? []), ...view.issues];
   if (teamIssuesChanged(issues)) issues.forEach(warnIssue);
 }
 
-useTeamPolicyStore.subscribe((s, prev) => {
-  if (s.layer === prev.layer) return;
-  usePolicyStore.setState({ server: serverLayer(s.layer) });
+function layersChanged() {
+  usePolicyStore.setState({ server: serverLayer(currentEffective().team) });
   logTeamIssues();
   loadedListeners.forEach((fn) => fn());
+}
+
+useTeamPolicyStore.subscribe((s, prev) => {
+  if (s.layer !== prev.layer) layersChanged();
+});
+
+useEnrolledTeamStore.subscribe((s, prev) => {
+  if (s.entry !== prev.entry) layersChanged();
 });
 
 function policyEntry(key: string): { source: PolicySource; teams: string[]; value: unknown } | undefined {

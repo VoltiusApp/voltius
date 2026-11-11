@@ -7,11 +7,12 @@ vi.mock("@/services/clientHeaders", () => ({ clientVersion: mocks.version }));
 vi.mock("@/services/lanSync", () => ({ clearLanSyncScopes: async () => {} }));
 
 import { refreshTeamPolicy, teamDocsFrom } from "./teamPolicy";
-import { lockedValue, policyRange } from "@/stores/policyStore";
+import { lockedValue, onPolicyLoaded, policyRange } from "@/stores/policyStore";
+import { useEnrolledTeamStore } from "@/stores/enrolledTeamStore";
 import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 import { ACCOUNT_SCOPED_STORAGE_KEYS, parkAccountUiState, restoreAccountUiState } from "@/stores/persistedAccountUiState";
 import { clearAccountUiState } from "@/services/vault";
-import { echoTeamDoc, resetPolicy } from "@/test/policy";
+import { echoTeamDoc, enrollmentTokenText, resetPolicy, withEnrolledTeam, withPolicy } from "@/test/policy";
 import { makeTeam as team } from "@/test/team";
 import { LOCK_ACTION_KEY as ACTION, LOCK_TIMEOUT_KEY as TIMEOUT } from "@/services/lockPolicy";
 
@@ -137,5 +138,46 @@ describe("team policy", () => {
     expect(useTeamPolicyStore.getState().layer).toBeNull();
     expect(lockedValue(ACTION)).toEqual({ locked: false });
     expect(localStorage.getItem("voltius-team-policy")).toBeNull();
+  });
+
+  describe("with an enrolling team", () => {
+    const timeoutCap = (id: string) =>
+      team(id, { policy: { version: 1, policy: { [TIMEOUT]: { $range: { max: 5 } } } }, joined_at: "2026-02-01T00:00:00Z" });
+
+    beforeEach(() => {
+      withPolicy({ "enrollment.token": enrollmentTokenText() });
+      withEnrolledTeam({ [ACTION]: "vault" }, "a");
+    });
+
+    it("skips the account's copy of the enrolling team and lists it once", async () => {
+      await refreshTeamPolicy([vaultLock("a"), timeoutCap("b")]);
+      expect(checkCalls()).toBe(1);
+      expect(useTeamPolicyStore.getState().layer?.policy).toEqual({ [TIMEOUT]: { $range: { max: 5 } } });
+      expect(lockedValue(ACTION)).toEqual({ locked: true, value: "vault", source: "server", teams: ["a"] });
+      expect(policyRange(TIMEOUT)).toEqual({ max: 5 });
+    });
+
+    it("a change of enrolling team re-runs the account layer", async () => {
+      await refreshTeamPolicy([vaultLock("a"), timeoutCap("b")]);
+      useEnrolledTeamStore.getState().setEntry(null);
+      await refreshTeamPolicy([vaultLock("a"), timeoutCap("b")]);
+      expect(checkCalls()).toBe(3);
+      expect(useTeamPolicyStore.getState().layer?.policy).toEqual({ [ACTION]: "vault", [TIMEOUT]: { $range: { max: 5 } } });
+    });
+
+    it("an account switch keeps the enrolling team's locks with no gap", async () => {
+      await refreshTeamPolicy([timeoutCap("b")]);
+      const seen: boolean[] = [];
+      const off = onPolicyLoaded(() => seen.push(lockedValue(ACTION).locked));
+      const unsub = useTeamPolicyStore.subscribe(() => seen.push(lockedValue(ACTION).locked));
+      await clearAccountUiState();
+      off();
+      unsub();
+      expect(useTeamPolicyStore.getState().layer).toBeNull();
+      expect(seen.length).toBeGreaterThan(0);
+      expect(seen.every(Boolean)).toBe(true);
+      expect(policyRange(TIMEOUT)).toBeUndefined();
+      expect(lockedValue(ACTION)).toEqual({ locked: true, value: "vault", source: "server", teams: ["a"] });
+    });
   });
 });

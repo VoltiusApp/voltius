@@ -2,7 +2,7 @@ import { invoke } from "@/lib/invoke";
 import { clientVersion } from "@/services/clientHeaders";
 import { lockPolicyDoc } from "@/services/lockPolicy";
 import type { Team, TeamPolicyDoc } from "@/services/teamService";
-import type { PolicyIssue } from "@/stores/policyStore";
+import { enrolledTeamId, type PolicyIssue } from "@/stores/policyStore";
 import { useTeamPolicyStore } from "@/stores/teamPolicyStore";
 import { mergeTeamDocs, type MergedLayer, type TeamPolicyInput } from "./mergeLayers";
 
@@ -56,9 +56,10 @@ export function clearTeamPolicy(): void {
 
 export async function refreshTeamPolicy(teams: Team[]): Promise<void> {
   const seq = ++refreshSeq;
-  const docs = teamDocsFrom(teams);
+  const enrolled = enrolledTeamId();
+  const docs = teamDocsFrom(teams.filter((t) => t.id !== enrolled));
   const rows = docs.map(({ team, text }) => [team.id, team.name, team.joined_at ?? "", team.policy_revision ?? null, text]);
-  const inputs = JSON.stringify([await clientVersion(), ...rows]);
+  const inputs = JSON.stringify([await clientVersion(), enrolled, ...rows]);
   if (seq !== refreshSeq || inputs === useTeamPolicyStore.getState().inputs) return;
   const checked = await Promise.all(docs.map(checkTeamDoc));
   if (seq !== refreshSeq) return;

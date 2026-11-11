@@ -1,6 +1,5 @@
 import { fetchEnrolledPolicy } from "@/services/enrollment/enrollmentPolicy";
-import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
-import { useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
+import { enrollmentTokenOf, entryForToken, useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { onPolicyLoaded, usePolicyStore } from "@/stores/policyStore";
 import { serverAllowed } from "./serverPolicy";
 import { checkTeamDoc, teamLayerOf } from "./teamPolicy";
@@ -26,12 +25,10 @@ function renamed(entry: EnrolledTeamEntry, name: string): EnrolledTeamEntry {
 }
 
 export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): Promise<void> {
-  const raw = machinePolicy["enrollment.token"];
-  const parsed = typeof raw === "string" ? parseEnrollmentToken(raw) : null;
+  const parsed = enrollmentTokenOf(machinePolicy);
   const token = parsed && serverAllowed(parsed.serverUrl) ? parsed : null;
   const key = token ? `${token.serverUrl} ${token.id}` : "";
-  const cached = useEnrolledTeamStore.getState().entry;
-  const current = token && cached?.tokenId === token.id && cached.server === token.serverUrl ? cached : null;
+  const current = entryForToken(useEnrolledTeamStore.getState().entry, token);
   if (!current) clearEntry();
   if (token && lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
   const seq = ++syncSeq;

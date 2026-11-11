@@ -5,6 +5,7 @@ import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
 import { accountEpoch, refreshTeamPolicy } from "@/services/policy/teamPolicy";
+import { enrolledTeamId, onPolicyLoaded } from "@/stores/policyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
@@ -13,6 +14,9 @@ export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation
 
 let loadSeq = 0;
 let appliedSeq = 0;
+let teamsEpoch = -1;
+
+const refreshPolicy = (teams: Team[]) => void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
 
 interface TeamStore {
   teams: Team[];
@@ -124,6 +128,7 @@ export const useTeamStore = create<TeamStore>()(
         return;
       }
       appliedSeq = seq;
+      teamsEpoch = epoch;
       const prev = get().teams;
       const same =
         prev.length === fresh.length &&
@@ -138,7 +143,7 @@ export const useTeamStore = create<TeamStore>()(
           sameValue(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false, teamsLoaded: true });
-      void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
+      refreshPolicy(teams);
       runTeamsLoadedHook(prev);
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
@@ -350,3 +355,12 @@ export const useTeamStore = create<TeamStore>()(
   },
   }),
 );
+
+let lastEnrolledTeamId = enrolledTeamId();
+onPolicyLoaded(() => {
+  const id = enrolledTeamId();
+  if (id === lastEnrolledTeamId) return;
+  lastEnrolledTeamId = id;
+  const { teams, teamsLoaded } = useTeamStore.getState();
+  if (teamsLoaded && teamsEpoch === accountEpoch()) refreshPolicy(teams);
+});

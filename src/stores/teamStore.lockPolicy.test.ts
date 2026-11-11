@@ -10,16 +10,17 @@ import { lockedValue, policyRange } from "./policyStore";
 import { useTeamPolicyStore } from "./teamPolicyStore";
 import { invoke } from "@/lib/invoke";
 import { clearTeamPolicy } from "@/services/policy/teamPolicy";
-import { echoTeamDoc, resetPolicy, withTeamPolicy } from "@/test/policy";
+import { echoTeamDoc, enrollmentTokenText, resetPolicy, withEnrolledTeam, withPolicy, withTeamPolicy } from "@/test/policy";
+import { useEnrolledTeamStore } from "./enrolledTeamStore";
 import { makeTeam } from "@/test/team";
 import type { TeamLockPolicy } from "@/services/teamService";
 
 const row = (id: string, lock_policy: TeamLockPolicy | null) => makeTeam(id, { lock_policy });
 
 beforeEach(() => {
-  useTeamStore.setState({ teams: [], rolesByTeam: {} });
+  useTeamStore.setState({ teams: [], rolesByTeam: {}, teamsLoaded: false });
   resetPolicy();
-  vi.mocked(invoke).mockImplementation(echoTeamDoc);
+  vi.mocked(invoke).mockClear().mockImplementation(echoTeamDoc);
   api.listTeams.mockReset();
 });
 
@@ -80,4 +81,34 @@ test("a fetch started before the account's policy is cleared is not applied", as
   await new Promise((r) => setTimeout(r, 20));
   expect(useTeamPolicyStore.getState().layer).toBeNull();
   expect(useTeamStore.getState().teams).toEqual([]);
+});
+
+test("a change of enrolling team re-runs the account layer with the loaded teams", async () => {
+  api.listTeams.mockResolvedValue([row("a", { max_minutes: 15, force_vault: true }), row("b", { max_minutes: 30, force_vault: false })]);
+  await useTeamStore.getState().loadTeams();
+  await vi.waitFor(() => expect(useTeamPolicyStore.getState().layer?.teams["security.lockAction"]).toEqual(["a"]));
+  withPolicy({ "enrollment.token": enrollmentTokenText() });
+  withEnrolledTeam({}, "a");
+  await vi.waitFor(() => expect(useTeamPolicyStore.getState().layer?.policy).toEqual({ "security.lockTimeoutMinutes": { $range: { max: 30 } } }));
+  useEnrolledTeamStore.getState().setEntry(null);
+  await vi.waitFor(() => expect(lockedValue("security.lockAction")).toMatchObject({ locked: true, teams: ["a"] }));
+});
+
+test("a change of enrolling team before the teams load leaves the account layer alone", async () => {
+  withPolicy({ "enrollment.token": enrollmentTokenText() });
+  withEnrolledTeam({}, "a");
+  await new Promise((r) => setTimeout(r, 20));
+  expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("policy_check_team_doc", expect.anything());
+  expect(useTeamPolicyStore.getState().layer).toBeNull();
+});
+
+test("a change of enrolling team after the account's policy is cleared does not bring back the old teams", async () => {
+  api.listTeams.mockResolvedValue([row("a", { max_minutes: 15, force_vault: true }), row("b", { max_minutes: 30, force_vault: false })]);
+  await useTeamStore.getState().loadTeams();
+  await vi.waitFor(() => expect(useTeamPolicyStore.getState().layer).not.toBeNull());
+  clearTeamPolicy();
+  withPolicy({ "enrollment.token": enrollmentTokenText() });
+  withEnrolledTeam({}, "a");
+  await new Promise((r) => setTimeout(r, 20));
+  expect(useTeamPolicyStore.getState().layer).toBeNull();
 });
