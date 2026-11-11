@@ -1069,8 +1069,16 @@ pub fn same_path(a: &Path, b: &Path) -> bool {
     paths_equal(a, b, cfg!(windows))
 }
 
+pub fn is_machine_default(path: &Path) -> bool {
+    default_machine_policy_path().is_some_and(|d| same_path(&d, path))
+}
+
 pub fn machine_acl(path: &Path) -> Option<MachineAcl> {
-    OS_ACL.filter(|_| default_machine_policy_path().is_some_and(|d| same_path(&d, path)))
+    OS_ACL.filter(|_| is_machine_default(path))
+}
+
+fn os_probe(path: &Path) -> Option<Probe> {
+    machine_acl(path).map(|a| a.probe)
 }
 
 fn dir_of(path: &Path) -> &Path {
@@ -1148,7 +1156,7 @@ pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<St
 }
 
 pub fn load_from(path: &Path) -> LoadedPolicy {
-    load_with(path, machine_acl(path).map(|a| a.probe))
+    load_with(path, os_probe(path))
 }
 
 fn load_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
@@ -1186,14 +1194,26 @@ pub fn load_machine() -> LoadedPolicy {
         })
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn load_machine_at(path: &Path) -> LoadedPolicy {
-    let file = load_from(path);
-    let is_default = default_machine_policy_path().is_some_and(|d| same_path(&d, path));
-    merge_profile(
-        file,
-        is_default.then(managed_macos::device_profile).flatten(),
-    )
+    load_machine_with(path, os_probe(path))
+}
+
+pub fn load_machine_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
+    merge_profile(load_with(path, probe), machine_profile(path))
+}
+
+pub fn machine_profile(path: &Path) -> Option<LoadedPolicy> {
+    if !is_machine_default(path) {
+        return None;
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        managed_macos::device_profile()
+    }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        None
+    }
 }
 
 pub fn merge_profile(file: LoadedPolicy, profile: Option<LoadedPolicy>) -> LoadedPolicy {

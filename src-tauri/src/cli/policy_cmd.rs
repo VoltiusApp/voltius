@@ -265,6 +265,7 @@ fn edit_raw_with(
         parse_raw(path, existing)?
     };
     root.entry("version").or_insert_with(|| json!(1));
+    let before = Value::Object(root.clone()).to_string();
     let changed = edit(&mut root)?;
     if changed {
         let mut text = serde_json::to_string_pretty(&root).map_err(|e| CliError::Io(e.into()))?;
@@ -276,8 +277,37 @@ fn edit_raw_with(
         if let Some(a) = acl {
             (a.adopt_written)(path).map_err(blocked)?;
         }
+        if let Some(profile) = policy::machine_profile(path) {
+            let written = policy::parse(&text).0;
+            for line in shadowed(&written, &policy::parse(&before).0, &profile.doc) {
+                out.warn(line);
+            }
+        }
     }
     Ok(changed)
+}
+
+pub(super) fn shadowed(
+    written: &PolicyDoc,
+    before: &PolicyDoc,
+    profile: &PolicyDoc,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (((layer, now), (_, was)), (_, theirs)) in layers(written)
+        .into_iter()
+        .zip(layers(before))
+        .zip(layers(profile))
+    {
+        for (key, value) in now {
+            if was.get(key) != Some(value) && theirs.get(key).is_some_and(|p| p != value) {
+                lines.push(format!(
+                    "the configuration profile sets {}.{key}; it wins over policy.json",
+                    layer.name()
+                ));
+            }
+        }
+    }
+    lines
 }
 
 fn edit_distance(a: &str, b: &str) -> usize {
@@ -319,7 +349,7 @@ pub(super) fn locked_message(what: &str) -> String {
 
 pub(super) fn machine_doc(machine: Option<&Path>) -> PolicyDoc {
     machine
-        .map(|p| policy::load_from(p).doc)
+        .map(|p| policy::load_machine_at(p).doc)
         .unwrap_or_default()
 }
 
@@ -740,7 +770,7 @@ pub(super) fn print_row(key: &str, r: &Row, out: &mut Output) {
 }
 
 fn show(path: &Path, user_dir: Option<&Path>, out: &mut Output) -> Result<(), CliError> {
-    let loaded = policy::load_from(path);
+    let loaded = policy::load_machine_at(path);
     let user = user_dir.map_or_else(Default::default, user_values);
     let as_of = user.as_of.clone();
     let shells = detected_shells_for(&loaded.doc, SHELL_KEY);
@@ -843,29 +873,26 @@ fn check(
     probe: Option<policy::Probe>,
     out: &mut Output,
 ) -> Result<(), CliError> {
-    let target = file.unwrap_or(machine);
-    let (doc, mut issues) = match policy::read_optional(target) {
-        Ok(Some(t)) => policy::parse(&t),
-        Ok(None) if file.is_none() => (PolicyDoc::default(), Vec::new()),
-        Ok(None) => return Err(not_found(target)),
-        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-            (PolicyDoc::default(), vec![policy::read_issue(target, &e)])
+    let (target, doc, issues) = match file {
+        None => {
+            let loaded = policy::load_machine_with(machine, probe);
+            (machine, loaded.doc, loaded.issues)
         }
-        Err(e) => return Err(io_error(target, Access::Read, e)),
+        Some(f) => {
+            let (doc, issues) = read_checked(f, machine, probe)?;
+            (f, doc, issues)
+        }
     };
-    if let Some(Trust::Ignored(issue)) = probe
-        .filter(|_| policy::same_path(target, machine))
-        .map(|p| policy::trust(target, p))
-    {
-        issues.push(issue);
-    }
-    let conflicts = policy::conflicts(&doc).into_iter().map(
-        |(key, message)| json!({ "layer": Layer::Policy.name(), "key": key, "message": message }),
-    );
-    let warnings: Vec<Value> = not_honoured(entries(&doc))
-        .map(|(layer, key, message)| {
-            json!({ "layer": layer.name(), "key": key, "message": message })
-        })
+    let (issues, profile_conflicts) = split_conflicts(issues);
+    let conflicts = policy::conflicts(&doc)
+        .into_iter()
+        .map(|(key, message)| warning(Some(Layer::Policy), Some(key), &message));
+    let warnings: Vec<Value> = profile_conflicts
+        .into_iter()
+        .chain(
+            not_honoured(entries(&doc))
+                .map(|(layer, key, message)| warning(Some(layer), Some(key), &message)),
+        )
         .chain(conflicts)
         .collect();
     if out.json {
@@ -889,6 +916,43 @@ fn check(
     } else {
         Err(CliError::Validation(issues))
     }
+}
+
+fn read_checked(
+    file: &Path,
+    machine: &Path,
+    probe: Option<policy::Probe>,
+) -> Result<(PolicyDoc, Vec<Issue>), CliError> {
+    let (doc, mut issues) = match policy::read_optional(file) {
+        Ok(Some(t)) => policy::parse(&t),
+        Ok(None) => return Err(not_found(file)),
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            (PolicyDoc::default(), vec![policy::read_issue(file, &e)])
+        }
+        Err(e) => return Err(io_error(file, Access::Read, e)),
+    };
+    if let Some(Trust::Ignored(issue)) = probe
+        .filter(|_| policy::same_path(file, machine))
+        .map(|p| policy::trust(file, p))
+    {
+        issues.push(issue);
+    }
+    Ok((doc, issues))
+}
+
+fn warning(layer: Option<Layer>, key: Option<&str>, message: &str) -> Value {
+    json!({ "layer": layer.map(Layer::name), "key": key, "message": message })
+}
+
+fn split_conflicts(issues: Vec<Issue>) -> (Vec<Issue>, Vec<Value>) {
+    let (conflicts, rest): (Vec<Issue>, Vec<Issue>) = issues
+        .into_iter()
+        .partition(|i| i.kind == IssueKind::Conflict);
+    let warnings = conflicts
+        .iter()
+        .map(|i| warning(i.layer, i.key.as_deref(), &i.message))
+        .collect();
+    (rest, warnings)
 }
 
 fn import(
@@ -2129,5 +2193,84 @@ mod tests {
             .unwrap()
             .contains("forces it on"));
         assert_eq!(v["warnings"][0]["key"], TTL_TOGGLE);
+    }
+
+    #[test]
+    fn check_conflict_is_a_warning() {
+        let message = "set by the configuration profile; the value in policy.json is ignored";
+        let unknown = Issue::keyed(
+            IssueKind::UnknownKey,
+            Some(Layer::Policy),
+            "x",
+            "bad".into(),
+        );
+        let (issues, warnings) = split_conflicts(vec![
+            Issue::keyed(
+                IssueKind::Conflict,
+                Some(Layer::Policy),
+                "server.url",
+                message.into(),
+            ),
+            unknown.clone(),
+        ]);
+        assert_eq!(issues, vec![unknown]);
+        assert_eq!(
+            warnings,
+            vec![json!({"layer": "policy", "key": "server.url", "message": message})]
+        );
+    }
+
+    #[test]
+    fn check_explicit_file_ignores_profile() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine = machine(dir.path(), json!({}), json!({}));
+        let other = dir.path().join("other.json");
+        std::fs::write(
+            &other,
+            r#"{"version":1,"policy":{"sshConfig.import":true}}"#,
+        )
+        .unwrap();
+        let (mut sink, stdout, _) = capture_split(true, false);
+        check(Some(&other), &machine, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["path"], other.display().to_string());
+    }
+
+    fn layered(policy: Value, defaults: Value) -> PolicyDoc {
+        serde_json::from_value(json!({"version": 1, "policy": policy, "defaults": defaults}))
+            .unwrap()
+    }
+
+    #[test]
+    fn shadowed_warns_only_for_touched_keys() {
+        let lines = shadowed(
+            &layered(json!({"a": 1, "b": 2}), json!({})),
+            &layered(json!({"a": 1}), json!({})),
+            &layered(json!({"a": 9, "b": 3}), json!({})),
+        );
+        assert_eq!(
+            lines,
+            vec!["the configuration profile sets policy.b; it wins over policy.json"]
+        );
+    }
+
+    #[test]
+    fn shadowed_ignores_other_layer() {
+        let lines = shadowed(
+            &layered(json!({}), json!({"b": 2})),
+            &layered(json!({}), json!({})),
+            &layered(json!({"b": 3}), json!({})),
+        );
+        assert!(lines.is_empty());
+    }
+
+    #[test]
+    fn shadowed_ignores_same_value() {
+        let lines = shadowed(
+            &layered(json!({"b": 3}), json!({})),
+            &layered(json!({}), json!({})),
+            &layered(json!({"b": 3}), json!({})),
+        );
+        assert!(lines.is_empty());
     }
 }
