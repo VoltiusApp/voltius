@@ -1199,6 +1199,10 @@ pub fn load_machine_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
 }
 
 pub fn machine_profile(path: &Path) -> Option<LoadedPolicy> {
+    #[cfg(test)]
+    if let Some(profile) = test_probes::profile_at(path) {
+        return Some(profile);
+    }
     if !is_machine_default(path) {
         return None;
     }
@@ -1292,7 +1296,7 @@ fn write_tmp(mut file: std::fs::File, bytes: &[u8]) -> std::io::Result<()> {
 
 #[cfg(test)]
 pub(crate) mod test_probes {
-    use super::{Blocked, Entry, Guard, MachineAcl, Probe};
+    use super::{Blocked, Entry, Guard, LoadedPolicy, MachineAcl, PolicyDoc, Probe};
     use std::cell::{Cell, RefCell};
     use std::io;
     use std::path::{Path, PathBuf};
@@ -1389,9 +1393,27 @@ pub(crate) mod test_probes {
         Ok(Some(aside))
     }
 
+    pub const PROFILE: &str = "/Library/Managed Preferences/com.voltius.app.plist";
+
     thread_local! {
         static CALLS: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
         static FILE_PROBES: Cell<u32> = const { Cell::new(0) };
+        static PROFILE_AT: RefCell<Option<(PathBuf, PolicyDoc)>> = const { RefCell::new(None) };
+    }
+
+    pub fn set_profile(machine: &Path, doc: PolicyDoc) {
+        PROFILE_AT.set(Some((machine.to_path_buf(), doc)));
+    }
+
+    pub(super) fn profile_at(machine: &Path) -> Option<LoadedPolicy> {
+        PROFILE_AT.with_borrow(|at| {
+            let (_, doc) = at.as_ref().filter(|(m, _)| m == machine)?;
+            Some(LoadedPolicy {
+                path: Some(PROFILE.to_string()),
+                doc: doc.clone(),
+                issues: Vec::new(),
+            })
+        })
     }
 
     fn record(call: &'static str) {
