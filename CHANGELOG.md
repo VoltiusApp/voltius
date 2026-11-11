@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-11-11
+
+### Added
+
+- On macOS, Voltius reads a configuration profile pushed by an MDM (Jamf, Intune, Kandji, Mosyle) as machine policy, with the same keys as Android and iOS: `policy`, `server_url`, `server_allow_other` and `enrollment_token`. Only device profiles count. Where the profile and `policy.json` both set a key, the profile wins, and `voltius-cli policy check` warns about the overlap. The Free plan row now reads "Managed configuration (MDM)" (#842)
+- On a machine enrolled through its machine policy, the enrolling team's policy now applies whichever account is active: signed out, offline accounts, accounts on other servers and accounts outside the team. Voltius keeps it on the device, so it also applies at startup without a connection. Rotate and Revoke in the Members share sheet now say what happens to enrolled devices (#845)
+
+### Fixed
+
+- On macOS, Ctrl key combinations now reach the terminal (Ctrl+C, D, Z, R, L, V, K, F, …). App shortcuts moved to Cmd: Cmd+C / Cmd+V copy and paste in the terminal, Cmd+K opens the palette, Cmd+W closes a tab, and Settings shows them as Cmd. Ctrl+Tab, Ctrl+Space and Ctrl+Option+D stay on Ctrl because macOS uses the Cmd versions. On Linux and Windows, holding the Super/Windows key no longer triggers a Ctrl shortcut (#843)
+
 ## [0.67.1] - 2026-11-10
 
 ### Added
