@@ -29,12 +29,16 @@ function renamed(entry: EnrolledTeamEntry, name: string): EnrolledTeamEntry {
 export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): Promise<void> {
   const parsed = enrollmentTokenOf(machinePolicy);
   const token = parsed && serverAllowed(parsed.serverUrl) ? parsed : null;
-  const key = token ? `${token.serverUrl} ${token.id}` : "";
   const current = entryForToken(useEnrolledTeamStore.getState().entry, token);
   if (!current) clearEntry();
-  if (token && lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
+  if (!token) {
+    syncSeq++;
+    lastFetch = NO_FETCH;
+    return;
+  }
+  const key = `${token.serverUrl} ${token.id}`;
+  if (lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
   const seq = ++syncSeq;
-  if (!token) return;
   lastFetch = { key, at: Date.now() };
   const result = await fetchEnrolledPolicy(token, current?.revision ?? null);
   if (seq !== syncSeq) return;

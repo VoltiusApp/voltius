@@ -88,6 +88,15 @@ describe("syncEnrolledTeam", () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("a token removed and restored within five minutes fetches again", async () => {
+    await seed();
+    await syncEnrolledTeam({});
+    await seed();
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), null);
+    expect(entry()).toMatchObject({ teamId: "t1" });
+  });
+
   it("an unparseable token clears the entry", async () => {
     await seed();
     await syncEnrolledTeam({ "enrollment.token": "not-a-token" });
