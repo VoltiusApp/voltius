@@ -32,12 +32,12 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): 
   const key = token ? `${token.serverUrl} ${token.id}` : "";
   const cached = useEnrolledTeamStore.getState().entry;
   const current = token && cached?.tokenId === token.id && cached.server === token.serverUrl ? cached : null;
-  if (current && lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
-  const seq = ++syncSeq;
   if (!current) clearEntry();
+  if (token && lastFetch.key === key && Date.now() - lastFetch.at < FRESH_MS) return;
+  const seq = ++syncSeq;
   if (!token) return;
-  const result = await fetchEnrolledPolicy(token, current?.revision ?? null);
   lastFetch = { key, at: Date.now() };
+  const result = await fetchEnrolledPolicy(token, current?.revision ?? null);
   if (seq !== syncSeq) return;
   if (result.kind === "drop") return clearEntry();
   if (result.kind === "unchanged") {

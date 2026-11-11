@@ -45,6 +45,7 @@ afterAll(() => {
 });
 
 beforeEach(() => {
+  elapse();
   localStorage.clear();
   resetPolicy();
   mocks.invoke.mockReset();
@@ -217,6 +218,52 @@ describe("startEnrolledTeamSync", () => {
     visibility = "hidden";
     await vi.advanceTimersByTimeAsync(15 * 60_000);
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  const loadMachine = (policy: Record<string, unknown>) =>
+    mocks.invoke.mockImplementation(async (cmd: string, args?: unknown) =>
+      cmd === "policy_load" ? { doc: { policy, defaults: {} }, issues: [] } : echoTeamDoc(cmd, args),
+    );
+  const loadTwice = async () => {
+    await usePolicyStore.getState().load();
+    await usePolicyStore.getState().load();
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  it("after a drop, loads within five minutes do not fetch again", async () => {
+    loadMachine(machine());
+    await seed();
+    elapse();
+    mocks.fetch.mockResolvedValueOnce({ kind: "drop" });
+    await syncEnrolledTeam(machine());
+    expect(entry()).toBeNull();
+    await loadTwice();
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    elapse();
+    await usePolicyStore.getState().load();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("after a failed fetch with no entry, loads within five minutes do not fetch again", async () => {
+    loadMachine(machine());
+    await syncEnrolledTeam(machine());
+    expect(entry()).toBeNull();
+    await loadTwice();
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("concurrent syncs for one token fetch once", async () => {
+    await Promise.all([syncEnrolledTeam(machine()), syncEnrolledTeam(machine())]);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("a token swap inside the window clears the old entry before its fetch returns", async () => {
+    await seed();
+    mocks.fetch.mockReturnValueOnce(new Promise<EnrolledFetch>(() => {}));
+    void syncEnrolledTeam(machine(ID_B));
+    expect(entry()).toBeNull();
+    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_B }), null);
   });
 
   it("loads within five minutes of a fetch for the same token do not fetch again", async () => {
