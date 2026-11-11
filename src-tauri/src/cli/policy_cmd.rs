@@ -888,14 +888,16 @@ fn check(
     probe: Option<policy::Probe>,
     out: &mut Output,
 ) -> Result<(), CliError> {
-    let (target, doc, issues) = match file {
+    let (target, doc, issues, profile) = match file {
         None => {
-            let loaded = policy::load_machine_with(machine, probe);
-            (machine, loaded.doc, loaded.issues)
+            let profile = policy::machine_profile(machine);
+            let at = profile.as_ref().and_then(|p| p.path.clone());
+            let loaded = policy::load_machine_with(machine, probe, profile);
+            (machine, loaded.doc, loaded.issues, at)
         }
         Some(f) => {
             let (doc, issues) = read_checked(f, machine, probe)?;
-            (f, doc, issues)
+            (f, doc, issues, None)
         }
     };
     let (issues, profile_conflicts) = split_conflicts(issues);
@@ -913,12 +915,16 @@ fn check(
     if out.json {
         out.json(&json!({
             "path": target.display().to_string(),
+            "profile": profile,
             "issues": issues,
             "warnings": warnings,
         }));
     } else {
         for w in &warnings {
             out.warn(w["message"].as_str().unwrap_or_default());
+        }
+        if let Some(p) = &profile {
+            out.line(format!("profile: {p}"));
         }
     }
     if issues.is_empty() {
@@ -2353,5 +2359,31 @@ mod tests {
             "{}",
             captured(&stderr)
         );
+    }
+
+    #[test]
+    fn check_names_the_profile() {
+        let (_dir, path) = with_profile(json!({}));
+        let (mut sink, stdout, _) = capture_split(true, false);
+        check(None, &path, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["profile"], PROFILE);
+        let (mut sink, stdout, _) = capture_split(false, false);
+        check(None, &path, None, &mut sink).unwrap();
+        assert!(
+            captured(&stdout).contains(&format!("profile: {PROFILE}")),
+            "{}",
+            captured(&stdout)
+        );
+    }
+
+    #[test]
+    fn check_without_profile_is_null() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = machine(dir.path(), json!({}), json!({}));
+        let (mut sink, stdout, _) = capture_split(true, false);
+        check(None, &path, None, &mut sink).unwrap();
+        let v: Value = serde_json::from_str(&captured(&stdout)).unwrap();
+        assert_eq!(v["profile"], Value::Null);
     }
 }

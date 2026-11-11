@@ -1191,11 +1191,15 @@ pub fn load_machine() -> LoadedPolicy {
 }
 
 pub fn load_machine_at(path: &Path) -> LoadedPolicy {
-    load_machine_with(path, os_probe(path))
+    load_machine_with(path, os_probe(path), machine_profile(path))
 }
 
-pub fn load_machine_with(path: &Path, probe: Option<Probe>) -> LoadedPolicy {
-    merge_profile(load_with(path, probe), machine_profile(path))
+pub fn load_machine_with(
+    path: &Path,
+    probe: Option<Probe>,
+    profile: Option<LoadedPolicy>,
+) -> LoadedPolicy {
+    merge_profile(load_with(path, probe), profile)
 }
 
 pub fn machine_profile(path: &Path) -> Option<LoadedPolicy> {
