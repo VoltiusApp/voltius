@@ -92,34 +92,15 @@ fn json_value(value: plist::Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::policy::test_probes;
     use serde_json::json;
     use std::io;
 
-    fn on_disk(p: &Path, dir: Guard, file: Guard) -> io::Result<Guard> {
-        Ok(if p.is_dir() {
-            dir
-        } else if p.exists() {
-            file
-        } else {
-            Guard::Missing
-        })
-    }
-
-    fn protected(p: &Path) -> io::Result<Guard> {
-        on_disk(p, Guard::Protected, Guard::Protected)
-    }
-
-    fn file_unprotected(p: &Path) -> io::Result<Guard> {
-        on_disk(p, Guard::Protected, Guard::Unprotected)
-    }
-
-    fn dir_unprotected(p: &Path) -> io::Result<Guard> {
-        on_disk(p, Guard::Unprotected, Guard::Protected)
-    }
-
-    fn file_link(p: &Path) -> io::Result<Guard> {
-        on_disk(p, Guard::Protected, Guard::Link)
-    }
+    type GuardFn = fn(&Path) -> io::Result<Guard>;
+    const PROTECTED: GuardFn = |p| test_probes::on_disk(p).map(|e| e.guard);
+    const FILE_UNPROTECTED: GuardFn = |p| test_probes::file_unprotected(p).map(|e| e.guard);
+    const DIR_UNPROTECTED: GuardFn = |p| test_probes::dir_unprotected(p).map(|e| e.guard);
+    const FILE_LINK: GuardFn = |p| test_probes::file_link(p).map(|e| e.guard);
 
     fn written(bytes: &[u8]) -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
@@ -136,7 +117,7 @@ mod tests {
         )
     }
 
-    fn load(entries: &str, guard: fn(&Path) -> io::Result<Guard>) -> (LoadedPolicy, PathBuf) {
+    fn load(entries: &str, guard: GuardFn) -> (LoadedPolicy, PathBuf) {
         let (_dir, path) = written(xml(entries).as_bytes());
         (load_profile(&path, guard).unwrap(), path)
     }
@@ -156,12 +137,12 @@ mod tests {
     #[test]
     fn missing_file_is_no_profile() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(load_profile(&dir.path().join("absent.plist"), protected).is_none());
+        assert!(load_profile(&dir.path().join("absent.plist"), PROTECTED).is_none());
     }
 
     #[test]
     fn xml_plist_keys_become_policy() {
-        let (loaded, path) = load(SERVER, protected);
+        let (loaded, path) = load(SERVER, PROTECTED);
         assert_server(&loaded);
         assert_eq!(loaded.path, Some(path.display().to_string()));
     }
@@ -176,7 +157,7 @@ mod tests {
             .to_writer_binary(&mut bytes)
             .unwrap();
         let (_dir, path) = written(&bytes);
-        assert_server(&load_profile(&path, protected).unwrap());
+        assert_server(&load_profile(&path, PROTECTED).unwrap());
     }
 
     #[test]
@@ -185,7 +166,7 @@ mod tests {
             r#"{"version":1,"policy":{"appSettings.terminal.cursorStyle":"bar"},"defaults":{}}"#;
         let (loaded, _) = load(
             &format!("<key>policy</key><string>{text}</string>"),
-            protected,
+            PROTECTED,
         );
         assert!(loaded.issues.is_empty(), "{:?}", loaded.issues);
         assert_eq!(
@@ -198,18 +179,18 @@ mod tests {
     fn vendor_keys_are_ignored_silently() {
         let vendor = "<key>PayloadUUID</key><string>5D1C2B3A-0000-0000-0000-000000000000</string>\
             <key>PayloadIdentifier</key><string>com.voltius.app</string>";
-        let (loaded, _) = load(&format!("{vendor}{SERVER}"), protected);
+        let (loaded, _) = load(&format!("{vendor}{SERVER}"), PROTECTED);
         assert_server(&loaded);
     }
 
     #[test]
-    fn non_string_policy_is_a_type_issue() {
-        let (loaded, _) = load("<key>policy</key><integer>3</integer>", protected);
+    fn non_string_policy_is_a_file_issue() {
+        let (loaded, _) = load("<key>policy</key><integer>3</integer>", PROTECTED);
         let kinds: Vec<_> = loaded.issues.iter().map(|i| i.kind).collect();
         assert_eq!(kinds, [IssueKind::File]);
     }
 
-    fn assert_ignored(guard: fn(&Path) -> io::Result<Guard>, why: &str) {
+    fn assert_ignored(guard: GuardFn, why: &str) {
         let (loaded, path) = load(SERVER, guard);
         assert!(loaded.doc.policy.is_empty());
         assert_eq!(loaded.issues.len(), 1, "{:?}", loaded.issues);
@@ -232,23 +213,23 @@ mod tests {
 
     #[test]
     fn unprotected_file_is_ignored() {
-        assert_ignored(file_unprotected, "standard users can change it");
+        assert_ignored(FILE_UNPROTECTED, "standard users can change it");
     }
 
     #[test]
     fn unprotected_folder_is_ignored() {
-        assert_ignored(dir_unprotected, "standard users can change it");
+        assert_ignored(DIR_UNPROTECTED, "standard users can change it");
     }
 
     #[test]
     fn link_is_ignored() {
-        assert_ignored(file_link, "it is a link");
+        assert_ignored(FILE_LINK, "it is a link");
     }
 
     #[test]
     fn garbage_plist_is_a_file_issue() {
         let (_dir, path) = written(b"not a plist");
-        let loaded = load_profile(&path, protected).unwrap();
+        let loaded = load_profile(&path, PROTECTED).unwrap();
         assert!(loaded.doc.policy.is_empty());
         assert_eq!(loaded.issues.len(), 1, "{:?}", loaded.issues);
         assert_eq!(loaded.issues[0].kind, IssueKind::File);
@@ -258,7 +239,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn unix_guard_reports_user_owned_as_unprotected() {
+        use std::os::unix::fs::PermissionsExt;
         let (dir, path) = written(b"x");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
         let link = dir.path().join("link.plist");
         std::os::unix::fs::symlink(&path, &link).unwrap();
         assert_eq!(unix_guard(&path).unwrap(), Guard::Unprotected);
