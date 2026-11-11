@@ -17,6 +17,11 @@
         "bodyBilling": "{{name}}'s own Teams or Business subscription pays for this team from now on, and only they can delete it. Your subscription stays as it is: lower your seats or cancel it yourself.",
         "bodySelfHosted": "Only {{name}} will be able to delete this team. You stay an Owner and can leave afterwards."
       },
+      "invite": {
+        "title": "Invite {{name}} as an Owner?",
+        "body": "Owners hold every permission, including adding and removing other Owners. The primary owner and billing stay as they are.",
+        "confirm": "Send Owner invite"
+      },
       "grant": {
         "title": "Make {{name}} an Owner?",
         "body": "Owners hold every permission, including adding and removing other Owners.",
@@ -125,6 +130,7 @@
       "nameHint": "Leave empty to show their handle."
     },
     "invite": {
+      "ownerOnlyOwners": "Only Owners can invite someone as Owner",
       "nameLabel": "Name in this team",
       "namePlaceholder": "e.g. Jan Novák",
       "nameHint": "Teammates see this instead of their handle. Only admins can change it.",
@@ -158,6 +164,7 @@
       "expiredOn": "Expired {{date}}"
     },
     "roleBlurb": {
+      "owner": "Owners hold every permission, including adding and removing other Owners.",
       "manager": "Managers can invite people, change roles and manage links.",
       "editor": "Editors can add and change hosts, keys and snippets in this vault.",
       "member": "Members can use everything in this vault but not change it.",

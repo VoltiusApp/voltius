@@ -82,6 +82,7 @@
       "disableCount": "Keep on this device only ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "This invitation is no longer valid. Ask the team to send you a new one.",
       "identityPickUnavailable": "Your identity for {{host}} isn't available",
       "failedToListIdentityPicks": "Couldn't load your identity choices ({{status}})",
       "failedToSaveIdentityPick": "Couldn't save your identity choice ({{status}})",

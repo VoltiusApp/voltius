@@ -82,6 +82,7 @@
       "disableCount": "仅保留在本设备 ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "此邀请已失效。请让团队重新发送。",
       "identityPickUnavailable": "你在 {{host}} 的身份不可用",
       "failedToListIdentityPicks": "无法加载你的身份选择（{{status}}）",
       "failedToSaveIdentityPick": "无法保存你的身份选择（{{status}}）",

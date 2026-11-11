@@ -17,6 +17,11 @@
         "bodyBilling": "Od této chvíle bude tento tým hrazen z vlastního předplatného Teams nebo Business uživatele {{name}}. Pouze {{name}} pak bude moci tým smazat. Vaše předplatné zůstane beze změny: snižte počet míst nebo ho sami zrušte.",
         "bodySelfHosted": "Tento tým bude moci smazat pouze {{name}}. Vlastníkem zůstanete i vy a poté můžete tým opustit."
       },
+      "invite": {
+        "title": "Pozvat {{name}} jako vlastníka?",
+        "body": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků. Hlavní vlastník a fakturace zůstávají beze změny.",
+        "confirm": "Odeslat pozvánku vlastníka"
+      },
       "grant": {
         "title": "Nastavit {{name}} jako vlastníka?",
         "body": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků.",
@@ -129,6 +134,7 @@
       "nameHint": "Ponechte prázdné, aby se zobrazovala přezdívka."
     },
     "invite": {
+      "ownerOnlyOwners": "Jako vlastníka mohou zvát jen vlastníci",
       "nameLabel": "Jméno v tomto týmu",
       "namePlaceholder": "např. Jan Novák",
       "nameHint": "Kolegové uvidí toto jméno místo přezdívky. Změnit ho mohou jen administrátoři.",
@@ -164,6 +170,7 @@
       "expiredOn": "Vypršelo {{date}}"
     },
     "roleBlurb": {
+      "owner": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků.",
       "manager": "Správci mohou zvát lidi, měnit role a spravovat odkazy.",
       "editor": "Editoři mohou v tomto trezoru přidávat a měnit hosty, klíče a úryvky.",
       "member": "Členové mohou používat vše v tomto trezoru, ale nemohou nic měnit.",

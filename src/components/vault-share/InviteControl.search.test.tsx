@@ -3,12 +3,19 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 import type { TeamRole } from "@/stores/teamStore";
 
 const h = vi.hoisted(() => ({
+  multiOwner: false,
+  viewerIsOwner: true,
   inviteUserById: vi.fn(),
   searchUsers: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/stores/teamStore", () => ({ useTeamStore: (sel: (s: object) => unknown) => sel({ membersByTeam: {} }) }));
+vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "me" }));
+vi.mock("@/hooks/useOwnershipContext", () => ({
+  useOwnershipContext: () => ({ multiOwner: h.multiOwner, viewerIsOwner: h.viewerIsOwner }),
+}));
 vi.mock("@/services/vaultShare", () => ({
   inviteUserById: h.inviteUserById,
   inviteByEmailAddress: vi.fn(),

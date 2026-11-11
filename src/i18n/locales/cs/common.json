@@ -82,6 +82,7 @@
       "disableCount": "Ponechat jen na tomto zařízení ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Tato pozvánka už neplatí. Požádejte tým o novou.",
       "identityPickUnavailable": "Vaše identita pro {{host}} není k dispozici",
       "failedToListIdentityPicks": "Nepodařilo se načíst vaše volby identit ({{status}})",
       "failedToSaveIdentityPick": "Nepodařilo se uložit vaši volbu identity ({{status}})",

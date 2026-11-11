@@ -591,6 +591,7 @@ export async function acceptMyPendingInvitation(invitationId: string): Promise<v
   const res = await serverFetch(`/v1/my/pending-invitations/${invitationId}/accept`, {
     method: "POST",
   });
+  if (res.status === 410) throw new Error(i18n.t("common.error.invitationWithdrawn"));
   if (!res.ok) throw new Error(i18n.t("common.error.failedToAcceptInvitation", { status: res.status }));
 }
 

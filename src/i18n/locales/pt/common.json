@@ -82,6 +82,7 @@
       "disableCount": "Manter só neste dispositivo ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Este convite não é mais válido. Peça à equipe para enviar um novo.",
       "identityPickUnavailable": "Sua identidade para {{host}} não está disponível",
       "failedToListIdentityPicks": "Não foi possível carregar suas opções de identidade ({{status}})",
       "failedToSaveIdentityPick": "Não foi possível salvar sua escolha de identidade ({{status}})",
