@@ -25,6 +25,17 @@ pub fn unix_guard(path: &Path) -> std::io::Result<Guard> {
     })
 }
 
+pub fn device_profile() -> Option<LoadedPolicy> {
+    #[cfg(unix)]
+    {
+        profile_path().and_then(|p| load_profile(&p, unix_guard))
+    }
+    #[cfg(not(unix))]
+    {
+        None
+    }
+}
+
 pub fn load_profile(
     path: &Path,
     guard: fn(&Path) -> std::io::Result<Guard>,

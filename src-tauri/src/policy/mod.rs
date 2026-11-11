@@ -1177,13 +1177,55 @@ pub fn load_machine() -> LoadedPolicy {
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn load_machine() -> LoadedPolicy {
-    match machine_policy_path() {
-        Some(p) => load_from(&p),
-        None => LoadedPolicy {
+    machine_policy_path()
+        .map(|p| load_machine_at(&p))
+        .unwrap_or_else(|| LoadedPolicy {
             path: None,
             doc: PolicyDoc::default(),
             issues: Vec::new(),
-        },
+        })
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub fn load_machine_at(path: &Path) -> LoadedPolicy {
+    let file = load_from(path);
+    let is_default = default_machine_policy_path().is_some_and(|d| same_path(&d, path));
+    merge_profile(
+        file,
+        is_default.then(managed_macos::device_profile).flatten(),
+    )
+}
+
+pub fn merge_profile(file: LoadedPolicy, profile: Option<LoadedPolicy>) -> LoadedPolicy {
+    let Some(profile) = profile else {
+        return file;
+    };
+    let mut doc = file.doc;
+    let mut issues = file.issues;
+    issues.extend(profile.issues);
+    doc.version = doc.version.max(profile.doc.version);
+    let layers = [
+        (Layer::Policy, &mut doc.policy, profile.doc.policy),
+        (Layer::Defaults, &mut doc.defaults, profile.doc.defaults),
+    ];
+    for (layer, ours, theirs) in layers {
+        for (key, value) in theirs {
+            if ours.get(&key).is_some_and(|v| *v != value) {
+                issues.push(Issue::keyed(
+                    IssueKind::Conflict,
+                    Some(layer),
+                    &key,
+                    "set by the configuration profile; the value in policy.json is ignored"
+                        .to_string(),
+                ));
+            }
+            ours.insert(key, value);
+        }
+    }
+    LoadedPolicy {
+        path: file.path,
+        doc,
+        issues,
     }
 }
 
@@ -1382,6 +1424,132 @@ mod tests {
     use super::test_probes::*;
     use super::*;
     use serde_json::json;
+
+    fn loaded(policy: &[(&str, Value)], defaults: &[(&str, Value)]) -> LoadedPolicy {
+        let own = |kv: &[(&str, Value)]| {
+            kv.iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect::<BTreeMap<_, _>>()
+        };
+        LoadedPolicy {
+            path: Some("/etc/voltius/policy.json".to_string()),
+            doc: PolicyDoc {
+                version: 1,
+                policy: own(policy),
+                defaults: own(defaults),
+            },
+            issues: Vec::new(),
+        }
+    }
+
+    fn with_issue(mut p: LoadedPolicy, kind: IssueKind) -> LoadedPolicy {
+        p.issues.push(Issue::general(kind, format!("{kind:?}")));
+        p
+    }
+
+    #[test]
+    fn merge_without_profile_is_the_file() {
+        let file = with_issue(loaded(&[("server.url", json!("a"))], &[]), IssueKind::File);
+        let merged = merge_profile(file, None);
+        assert_eq!(merged.doc.policy["server.url"], json!("a"));
+        assert_eq!(merged.issues.len(), 1);
+    }
+
+    #[test]
+    fn merge_profile_adds_keys() {
+        let file = loaded(&[("appSettings.terminal.cursorStyle", json!("bar"))], &[]);
+        let profile = loaded(&[("server.url", json!("https://x"))], &[]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.doc.policy.len(), 2);
+        assert!(merged.issues.is_empty());
+    }
+
+    #[test]
+    fn merge_profile_wins_per_key_with_conflict() {
+        let file = loaded(&[("server.url", json!("https://file"))], &[]);
+        let profile = loaded(&[("server.url", json!("https://profile"))], &[]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.doc.policy["server.url"], json!("https://profile"));
+        assert_eq!(
+            merged.issues,
+            vec![Issue::keyed(
+                IssueKind::Conflict,
+                Some(Layer::Policy),
+                "server.url",
+                "set by the configuration profile; the value in policy.json is ignored".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn merge_same_value_no_conflict() {
+        let file = loaded(&[("server.url", json!("https://x"))], &[]);
+        let profile = loaded(&[("server.url", json!("https://x"))], &[]);
+        assert!(merge_profile(file, Some(profile)).issues.is_empty());
+    }
+
+    #[test]
+    fn merge_layers_kept_apart() {
+        let file = loaded(&[], &[("server.url", json!("https://file"))]);
+        let profile = loaded(&[("server.url", json!("https://profile"))], &[]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.doc.defaults["server.url"], json!("https://file"));
+        assert_eq!(merged.doc.policy["server.url"], json!("https://profile"));
+        assert!(merged.issues.is_empty());
+    }
+
+    #[test]
+    fn merge_defaults_conflict_names_the_layer() {
+        let file = loaded(&[], &[("server.url", json!("a"))]);
+        let profile = loaded(&[], &[("server.url", json!("b"))]);
+        let merged = merge_profile(file, Some(profile));
+        assert_eq!(merged.issues[0].layer, Some(Layer::Defaults));
+    }
+
+    #[test]
+    fn merge_issues_from_both_kept_file_first() {
+        let file = with_issue(loaded(&[], &[]), IssueKind::File);
+        let profile = with_issue(loaded(&[], &[]), IssueKind::Unprotected);
+        let kinds: Vec<_> = merge_profile(file, Some(profile))
+            .issues
+            .iter()
+            .map(|i| i.kind)
+            .collect();
+        assert_eq!(kinds, [IssueKind::File, IssueKind::Unprotected]);
+    }
+
+    #[test]
+    fn merge_version_is_the_max() {
+        let file = loaded(&[], &[]);
+        let mut profile = loaded(&[], &[]);
+        profile.doc.version = 3;
+        assert_eq!(merge_profile(file, Some(profile)).doc.version, 3);
+    }
+
+    #[test]
+    fn merge_path_is_the_file() {
+        let mut profile = loaded(&[], &[]);
+        profile.path = Some("/Library/Managed Preferences/x.plist".to_string());
+        let merged = merge_profile(loaded(&[], &[]), Some(profile));
+        assert_eq!(merged.path.as_deref(), Some("/etc/voltius/policy.json"));
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[test]
+    fn load_machine_at_skips_profile_off_default_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("policy.json");
+        std::fs::write(
+            &path,
+            r#"{"version":1,"policy":{"server.url":"https://x"}}"#,
+        )
+        .unwrap();
+        let merged = load_machine_at(&path);
+        let plain = load_from(&path);
+        assert_eq!(merged.doc, plain.doc);
+        assert_eq!(merged.issues, plain.issues);
+        assert_eq!(merged.path, plain.path);
+    }
 
     #[test]
     fn gated_permissions_mirror_the_plugin_list() {
