@@ -2,6 +2,7 @@ import { resolveLabel } from "@/plugins/resolveLabel";
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import { useShortcutHint } from "@/stores/shortcutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { Modal } from "@/components/shared/Modal";
 import { getSettingsNav } from "@/components/settings/settingsNav";
@@ -18,6 +19,7 @@ export default function SettingsModal() {
   const setSection = useUIStore((s) => s.setSettingsSection);
   const isMobile = useIsMobile();
   const { t } = useTranslation();
+  const openShortcut = useShortcutHint("themes");
   const locale = useUiLanguage();
   const nav = useMemo(() => getSettingsNav(), [locale]);
   const pluginChildren = usePluginNavChildren();
@@ -127,7 +129,7 @@ export default function SettingsModal() {
           </div>
 
           <div className="px-4 pt-3 border-t border-t-(--t-border)">
-            <span className="text-xs text-(--t-text-dim)">{t("settings.chrome.openHint")}</span>
+            <span className="text-xs text-(--t-text-dim)">{t("settings.chrome.openHint", { shortcut: openShortcut })}</span>
           </div>
         </nav>
 

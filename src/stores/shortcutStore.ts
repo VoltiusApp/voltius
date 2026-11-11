@@ -1,13 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
+import { chordKey, primaryModifier, primaryModifierLabel, secondaryModifier } from "@/utils/primaryModifier";
 
 export interface ShortcutAlias {
   key: string;
   ctrl: boolean;
   shift: boolean;
   alt: boolean;
-  label: string;
 }
 
 export interface Shortcut {
@@ -26,11 +26,11 @@ export interface Shortcut {
 /** Static alias definitions — not persisted, always active */
 const ALIASES: Record<string, ShortcutAlias[]> = {
   omni: [
-    { key: "P",  ctrl: true,  shift: true,  alt: false, label: "Ctrl+Shift+P" },
-    { key: "F1", ctrl: false, shift: false, alt: false, label: "F1" },
+    { key: "P",  ctrl: true,  shift: true,  alt: false },
+    { key: "F1", ctrl: false, shift: false, alt: false },
   ],
   redo: [
-    { key: "y", ctrl: true, shift: false, alt: false, label: "Ctrl+Y" },
+    { key: "y", ctrl: true, shift: false, alt: false },
   ],
 };
 
@@ -145,16 +145,12 @@ function normalizeKey(k: string): string {
 
 export function matchShortcut(id: string, e: KeyboardEvent): boolean {
   const sc = useShortcutStore.getState().shortcuts.find((s) => s.id === id);
-  if (!sc) return false;
-  const ctrl = e.ctrlKey || e.metaKey;
-
-  // Check primary
-  if (ctrl === sc.ctrl && e.shiftKey === sc.shift && e.altKey === (sc.alt ?? false) && normalizeKey(e.key) === normalizeKey(sc.key)) return true;
-
-  // Check static aliases
-  return ALIASES[id]?.some(
-    (a) => ctrl === a.ctrl && e.shiftKey === a.shift && e.altKey === (a.alt ?? false) && normalizeKey(e.key) === normalizeKey(a.key),
-  ) ?? false;
+  if (!sc || secondaryModifier(e)) return false;
+  const ctrl = primaryModifier(e);
+  const key = normalizeKey(chordKey(e));
+  const matches = (b: ShortcutAlias) =>
+    ctrl === b.ctrl && e.shiftKey === b.shift && e.altKey === (b.alt ?? false) && key === normalizeKey(b.key);
+  return matches(sc) || (ALIASES[id]?.some(matches) ?? false);
 }
 
 export function getShortcutHint(id: string): string | undefined {
@@ -167,9 +163,9 @@ export function useShortcutHint(id: string): string | undefined {
   return sc ? formatShortcut(sc) : undefined;
 }
 
-export function formatShortcut(sc: Shortcut): string {
+export function formatShortcut(sc: ShortcutAlias): string {
   const parts: string[] = [];
-  if (sc.ctrl) parts.push("Ctrl");
+  if (sc.ctrl) parts.push(primaryModifierLabel(sc.key, sc.alt));
   if (sc.alt) parts.push("Alt");
   if (sc.shift) parts.push("Shift");
   parts.push(sc.key === " " ? "Space" : sc.key.length === 1 ? sc.key.toUpperCase() : sc.key);

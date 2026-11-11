@@ -3,7 +3,7 @@ import { ClipboardAddon, type IClipboardProvider } from "@xterm/addon-clipboard"
 import { writeClipboard, readClipboard } from "@/utils/clipboard";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { logFailure } from "@/lib/logger";
-import { getPlatformSync } from "@/utils/platform";
+import { primaryOnly } from "@/utils/primaryModifier";
 import { findPane } from "./tmuxPanes";
 import { createPaneSelection, type Cell } from "./paneSelection";
 
@@ -310,28 +310,17 @@ export function attachTerminalClipboard(
   }
 
   const handleKeyEvent = (e: KeyboardEvent): boolean | null => {
-    if (e.ctrlKey && e.shiftKey && e.key === "C") {
-      if (e.type === "keydown") {
-        const sel = selectionText();
-        if (sel) writeClipboard(sel);
-      }
-      return false;
-    }
-    if (e.ctrlKey && e.shiftKey && e.key === "V") {
-      e.preventDefault();
-      if (e.type === "keydown") void pasteClipboard();
-      return false;
-    }
-    if (e.ctrlKey && !e.shiftKey && e.key === "c") {
+    if (!primaryOnly(e) || e.altKey) return null;
+    const key = e.key.toLowerCase();
+    if (key === "c") {
       const sel = selectionText();
       if (sel) {
         if (e.type === "keydown") writeClipboard(sel);
         return false;
       }
-      return true;
+      return !e.shiftKey;
     }
-    const macPaste = e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "v" && getPlatformSync() === "macos";
-    if ((e.ctrlKey && !e.shiftKey && e.key === "v") || macPaste) {
+    if (key === "v") {
       e.preventDefault();
       if (e.type === "keydown") void pasteClipboard();
       return false;

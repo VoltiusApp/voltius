@@ -267,7 +267,7 @@
       "title": "Configurações",
       "close": "Fechar configurações",
       "back": "Voltar",
-      "openHint": "Ctrl+, para abrir",
+      "openHint": "{{shortcut}} para abrir",
       "expandPluginGroup": "Expandir configurações do plugin",
       "collapsePluginGroup": "Recolher configurações do plugin"
     },

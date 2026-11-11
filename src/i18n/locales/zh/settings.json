@@ -137,7 +137,7 @@
       "title": "设置",
       "close": "关闭设置",
       "back": "返回",
-      "openHint": "Ctrl+, 打开",
+      "openHint": "{{shortcut}} 打开",
       "expandPluginGroup": "展开插件设置",
       "collapsePluginGroup": "折叠插件设置"
     },

@@ -4,6 +4,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useHistoryStore } from "@/stores/historyStore";
 import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav } from "@/hooks/useTerminal";
@@ -108,7 +109,7 @@ export function useKeyboard() {
         }
       }
 
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "a") {
+      if (primaryOnly(e) && !e.shiftKey && !e.altKey && e.key === "a") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("voltius:select-all"));
         return;

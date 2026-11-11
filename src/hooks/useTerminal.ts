@@ -20,6 +20,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
@@ -682,7 +683,7 @@ function claimChord(e: KeyboardEvent): false {
 
 /** Ctrl+G / Shift+Ctrl+G — the search widget's find-next / find-previous chord. */
 export function isTerminalSearchNavKey(e: KeyboardEvent): boolean {
-  return e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G");
+  return primaryOnly(e) && !e.altKey && (e.key === "g" || e.key === "G");
 }
 
 /**
@@ -885,14 +886,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         const layout = useLayoutStore.getState();
         const isSplitPaneTerminal = layout.splitTabActive && getPaneSessionIds(layout.root).includes(sessionId);
-        if (isSplitPaneTerminal && e.ctrlKey && e.shiftKey && e.key === "Enter") {
+        if (isSplitPaneTerminal && primaryOnly(e) && e.shiftKey && e.key === "Enter") {
           if (e.type === "keydown") {
             const activePaneId = layout.activePaneId;
             if (activePaneId) layout.setMaximized(layout.maximizedPaneId === activePaneId ? null : activePaneId);
           }
           return false;
         }
-        if (isSplitPaneTerminal && e.ctrlKey && e.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        if (isSplitPaneTerminal && primaryOnly(e) && e.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
           if (e.type === "keydown") {
             const direction = e.key === "ArrowLeft" ? "left" : e.key === "ArrowRight" ? "right" : e.key === "ArrowUp" ? "up" : "down";
             focusPaneInDirection(direction);

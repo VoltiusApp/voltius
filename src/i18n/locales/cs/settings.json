@@ -267,7 +267,7 @@
       "title": "Nastavení",
       "close": "Zavřít nastavení",
       "back": "Zpět",
-      "openHint": "Otevřete pomocí Ctrl+,",
+      "openHint": "Otevřete pomocí {{shortcut}}",
       "expandPluginGroup": "Rozbalit nastavení pluginů",
       "collapsePluginGroup": "Sbalit nastavení pluginů"
     },
