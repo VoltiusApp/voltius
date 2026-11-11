@@ -28,6 +28,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlatform } from "@/utils/platform";
 import { canLockVault } from "@/utils/accountMode";
 import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
+import { startEnrolledTeamSync } from "@/services/policy/enrolledTeam";
 import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
 import { applyCliPending, markCliReady } from "@/services/cliBridge";
 import { applySettingDefaults } from "@/services/policy/adminDefaults";
@@ -112,6 +113,7 @@ export default function SplashScreen({ onReady }: Props) {
       // The Rust manager outlives a webview reload: stop it until this session starts its own.
       void stopLanSync();
       watchPolicyVisibility();
+      startEnrolledTeamSync();
       await usePolicyStore.getState().load();
       await adoptServerMove();
       if (await finishCliLogout()) return;
