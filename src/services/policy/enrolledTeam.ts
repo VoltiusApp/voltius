@@ -58,7 +58,9 @@ export async function syncEnrolledTeam(machinePolicy: Record<string, unknown>): 
 }
 
 function syncFromMachine(): void {
-  syncEnrolledTeam(usePolicyStore.getState().machine.policy).catch((e) => console.warn("[policy] enrolled team sync failed:", e));
+  const { machine, machineLoaded, issues } = usePolicyStore.getState();
+  if (!machineLoaded || issues.some((i) => i.kind === "file")) return;
+  syncEnrolledTeam(machine.policy).catch((e) => console.warn("[policy] enrolled team sync failed:", e));
 }
 
 export function startEnrolledTeamSync(): void {

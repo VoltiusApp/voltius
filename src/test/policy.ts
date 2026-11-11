@@ -12,10 +12,10 @@ export const ENROLL_ID = "a".repeat(32);
 export const enrollmentTokenText = (id = ENROLL_ID, server = ENROLL_SERVER) => buildEnrollmentToken(server, id, ENROLL_SECRET);
 
 export const withPolicy = (policy: Record<string, unknown>) =>
-  usePolicyStore.setState({ machine: { policy, defaults: {} } });
+  usePolicyStore.setState({ machine: { policy, defaults: {} }, machineLoaded: true });
 
 export const resetPolicy = () => {
-  usePolicyStore.setState({ machine: EMPTY, issues: [] });
+  usePolicyStore.setState({ machine: EMPTY, machineLoaded: false, issues: [] });
   useTeamPolicyStore.setState({ layer: null, inputs: "" });
   useEnrolledTeamStore.setState({ entry: null });
 };

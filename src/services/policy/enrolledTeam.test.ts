@@ -3,14 +3,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: mocks.invoke }));
+vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
 vi.mock("@/services/enrollment/enrollmentPolicy", () => ({ fetchEnrolledPolicy: mocks.fetch }));
 
 import { resetEnrolledTeamSync, startEnrolledTeamSync, syncEnrolledTeam } from "./enrolledTeam";
 import type { EnrolledFetch } from "@/services/enrollment/enrollmentPolicy";
 import { useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
-import { usePolicyStore } from "@/stores/policyStore";
+import { usePolicyStore, type PolicyIssue } from "@/stores/policyStore";
 import { DEVICE_SCOPED_STORAGE_KEYS } from "@/stores/persistedAccountUiState";
-import { ENROLL_ID as ID_A, ENROLL_SECRET as SECRET, ENROLL_SERVER as SERVER, echoTeamDoc, enrollmentTokenText as tokenText, resetPolicy } from "@/test/policy";
+import { ENROLL_ID as ID_A, ENROLL_SECRET as SECRET, ENROLL_SERVER as SERVER, echoTeamDoc, enrollmentTokenText as tokenText, resetPolicy, withPolicy, withTeamPolicy } from "@/test/policy";
 import { LOCK_ACTION_KEY as ACTION } from "@/services/lockPolicy";
 
 const ID_B = "b".repeat(32);
@@ -198,7 +199,7 @@ describe("startEnrolledTeamSync", () => {
     startEnrolledTeamSync();
     startEnrolledTeamSync();
     visibility = "visible";
-    usePolicyStore.setState({ machine: { policy: machine(), defaults: {} } });
+    withPolicy(machine());
     mocks.fetch.mockResolvedValue({ kind: "keep" });
   });
 
@@ -215,14 +216,17 @@ describe("startEnrolledTeamSync", () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
-  const loadMachine = (policy: Record<string, unknown>) =>
+  const loadMachine = (policy: Record<string, unknown>, issues: PolicyIssue[] = []) =>
     mocks.invoke.mockImplementation(async (cmd: string, args?: unknown) =>
-      cmd === "policy_load" ? { doc: { policy, defaults: {} }, issues: [] } : echoTeamDoc(cmd, args),
+      cmd === "policy_load" ? { doc: { policy, defaults: {} }, issues } : echoTeamDoc(cmd, args),
     );
-  const loadTwice = async () => {
-    await usePolicyStore.getState().load();
+  const loadSettled = async () => {
     await usePolicyStore.getState().load();
     await vi.advanceTimersByTimeAsync(0);
+  };
+  const loadTwice = async () => {
+    await usePolicyStore.getState().load();
+    await loadSettled();
   };
 
   it("after a drop, loads within five minutes do not fetch again", async () => {
@@ -235,8 +239,7 @@ describe("startEnrolledTeamSync", () => {
     await loadTwice();
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     elapse();
-    await usePolicyStore.getState().load();
-    await vi.advanceTimersByTimeAsync(0);
+    await loadSettled();
     expect(mocks.fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -267,12 +270,10 @@ describe("startEnrolledTeamSync", () => {
     await syncEnrolledTeam(machine());
     await usePolicyStore.getState().load();
     elapse(FRESH_MS - 1);
-    await usePolicyStore.getState().load();
-    await vi.advanceTimersByTimeAsync(0);
+    await loadSettled();
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
     elapse(1);
-    await usePolicyStore.getState().load();
-    await vi.advanceTimersByTimeAsync(0);
+    await loadSettled();
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
   });
@@ -281,17 +282,50 @@ describe("startEnrolledTeamSync", () => {
     mocks.fetch.mockResolvedValueOnce(teamReply("t1", "Acme", 3));
     await syncEnrolledTeam(machine());
     loadMachine(machine(ID_B));
-    await usePolicyStore.getState().load();
-    await vi.advanceTimersByTimeAsync(0);
+    await loadSettled();
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_B }), null);
   });
 
   it("syncs after a machine policy load", async () => {
     loadMachine(machine(ID_B));
-    await usePolicyStore.getState().load();
-    await vi.advanceTimersByTimeAsync(0);
+    await loadSettled();
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
     expect(mocks.fetch).toHaveBeenCalledWith(expect.objectContaining({ id: ID_B }), null);
+  });
+
+  describe("before the machine policy has loaded", () => {
+    beforeEach(async () => {
+      usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, machineLoaded: false });
+      await seed();
+    });
+
+    it("a team-layer change after a failed load keeps the entry", async () => {
+      mocks.invoke.mockRejectedValue(new Error("ipc down"));
+      await usePolicyStore.getState().load();
+      withTeamPolicy({ "ssh.agentForwarding": false });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(entry()).toMatchObject({ teamId: "t1" });
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("the tick waits for the first load", async () => {
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      expect(entry()).toMatchObject({ teamId: "t1" });
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("a load that could not read the machine file keeps the entry", async () => {
+      loadMachine({}, [{ kind: "file", layer: null, key: null, message: "unreadable" }]);
+      await loadSettled();
+      expect(entry()).toMatchObject({ teamId: "t1" });
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("a successful load without a token clears the entry", async () => {
+      loadMachine({});
+      await loadSettled();
+      expect(entry()).toBeNull();
+    });
   });
 });

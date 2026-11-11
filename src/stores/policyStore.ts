@@ -30,6 +30,7 @@ interface LoadedPolicy {
 
 interface PolicyState {
   machine: PolicyLayer;
+  machineLoaded: boolean;
   server: PolicyLayer;
   issues: PolicyIssue[];
   load(): Promise<void>;
@@ -87,6 +88,7 @@ async function reportIssuesOnce({ doc, issues }: LoadedPolicy) {
 
 export const usePolicyStore = create<PolicyState>((set) => ({
   machine: EMPTY_LAYER,
+  machineLoaded: false,
   server: serverLayer(useTeamPolicyStore.getState().layer),
   issues: [],
   async load() {
@@ -99,6 +101,7 @@ export const usePolicyStore = create<PolicyState>((set) => ({
     }
     set({
       machine: { policy: loaded.doc.policy, defaults: loaded.doc.defaults },
+      machineLoaded: true,
       issues: loaded.issues,
     });
     layersChanged();
