@@ -104,6 +104,7 @@ tauri-plugin-notification = "2"
 # machine-uid 0.6 has no Android/iOS backend (its lib.rs fails to compile there).
 # Desktop reads it via raw_machine_id(); mobile uses ANDROID_ID instead (see vault.rs).
 machine-uid = "0.6"
+plist = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

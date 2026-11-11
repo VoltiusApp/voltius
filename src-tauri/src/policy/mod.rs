@@ -18,6 +18,8 @@ pub mod managed_config;
 pub mod managed_ios;
 #[cfg(target_os = "ios")]
 use managed_ios as managed;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod managed_macos;
 
 const SUPPORTED_VERSION: u32 = 1;
 
@@ -1075,40 +1077,60 @@ fn dir_of(path: &Path) -> &Path {
     path.parent().unwrap_or(path)
 }
 
-fn probe_both(path: &Path, probe: Probe) -> Result<(Entry, Entry), (PathBuf, std::io::Error)> {
+fn probe_both<T>(
+    path: &Path,
+    probe: fn(&Path) -> std::io::Result<T>,
+) -> Result<(T, T), (PathBuf, std::io::Error)> {
     let at = |p: &Path| probe(p).map_err(|e| (p.to_path_buf(), e));
     Ok((at(dir_of(path))?, at(path)?))
 }
 
-pub enum Trust {
+pub enum Trust<T = String> {
     Absent,
-    Trusted(String),
+    Trusted(T),
     Ignored(Issue),
 }
 
-pub fn trust(path: &Path, probe: Probe) -> Trust {
-    let why = match probe_both(path, probe) {
-        Err((_, e)) => format!("its permissions could not be read ({e})"),
-        Ok((dir, file)) => match (dir.guard, file.guard) {
-            (Guard::Link, _) => "its folder is a link".to_string(),
-            (_, Guard::Link) => "it is a link".to_string(),
-            (_, Guard::Missing) => return Trust::Absent,
-            (Guard::Protected, Guard::Protected) => {
-                return match file.text.transpose() {
-                    Ok(text) => Trust::Trusted(text.unwrap_or_default()),
-                    Err(e) => Trust::Ignored(read_issue(path, &e)),
-                }
-            }
-            _ => "standard users can change it".to_string(),
-        },
+fn judge(path: &Path, guards: std::io::Result<(Guard, Guard)>, hint: &str) -> Trust<()> {
+    let why = match guards {
+        Err(e) => format!("its permissions could not be read ({e})"),
+        Ok((Guard::Link, _)) => "its folder is a link".to_string(),
+        Ok((_, Guard::Link)) => "it is a link".to_string(),
+        Ok((_, Guard::Missing)) => return Trust::Absent,
+        Ok((Guard::Protected, Guard::Protected)) => return Trust::Trusted(()),
+        Ok(_) => "standard users can change it".to_string(),
     };
     Trust::Ignored(Issue::general(
         IssueKind::Unprotected,
-        format!(
-            "{} ignored because {why}; set it again with voltius-cli run as Administrator",
-            path.display()
-        ),
+        format!("{} ignored because {why}; {hint}", path.display()),
     ))
+}
+
+pub fn trust_guards(
+    path: &Path,
+    guard: fn(&Path) -> std::io::Result<Guard>,
+    hint: &str,
+) -> Trust<()> {
+    judge(path, probe_both(path, guard).map_err(|(_, e)| e), hint)
+}
+
+pub fn trust(path: &Path, probe: Probe) -> Trust {
+    let (guards, text) = match probe_both(path, probe) {
+        Ok((dir, file)) => (Ok((dir.guard, file.guard)), file.text),
+        Err((_, e)) => (Err(e), None),
+    };
+    match judge(
+        path,
+        guards,
+        "set it again with voltius-cli run as Administrator",
+    ) {
+        Trust::Absent => Trust::Absent,
+        Trust::Ignored(issue) => Trust::Ignored(issue),
+        Trust::Trusted(()) => match text.transpose() {
+            Ok(text) => Trust::Trusted(text.unwrap_or_default()),
+            Err(e) => Trust::Ignored(read_issue(path, &e)),
+        },
+    }
 }
 
 pub fn write_check(path: &Path, probe: Probe, replace: bool) -> Result<Option<String>, Blocked> {

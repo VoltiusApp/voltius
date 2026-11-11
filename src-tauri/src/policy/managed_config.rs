@@ -118,6 +118,10 @@ fn typed_value(id: &str, raw: &Value) -> Result<Option<Value>, String> {
     })
 }
 
+pub fn is_known_key(key: &str) -> bool {
+    key == POLICY_KEY || TYPED_KEYS.iter().any(|(k, _)| *k == key)
+}
+
 pub fn managed_config_doc(bundle: &Value) -> (PolicyDoc, Vec<Issue>) {
     let mut issues = Vec::new();
     let mut doc = PolicyDoc::default();
@@ -126,7 +130,7 @@ pub fn managed_config_doc(bundle: &Value) -> (PolicyDoc, Vec<Issue>) {
     };
 
     for key in map.keys() {
-        if key != POLICY_KEY && !TYPED_KEYS.iter().any(|(k, _)| k == key) {
+        if !is_known_key(key) {
             issues.push(Issue::keyed(
                 IssueKind::UnknownKey,
                 None,
