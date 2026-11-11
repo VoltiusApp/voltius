@@ -3,6 +3,7 @@ import { fetchEnrolledPolicy } from "@/services/enrollment/enrollmentPolicy";
 import type { Team } from "@/services/teamService";
 import { enrollmentTokenOf, entryForToken, useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { onPolicyLoaded, usePolicyStore } from "@/stores/policyStore";
+import { useTeamStore } from "@/stores/teamStore";
 import { serverAllowed } from "./serverPolicy";
 import { checkTeamDoc, teamLayerOf } from "./teamPolicy";
 
@@ -72,7 +73,7 @@ async function syncFromMachine(force = false): Promise<void> {
   await syncEnrolledTeam(machine.policy, { force }).catch((e) => console.warn("[policy] enrolled team sync failed:", e));
 }
 
-export async function syncEnrolledTeamOnRevision(teams: Pick<Team, "id" | "policy_revision">[]): Promise<void> {
+async function syncOnRevision(teams: Pick<Team, "id" | "policy_revision">[]): Promise<void> {
   const entry = useEnrolledTeamStore.getState().entry;
   if (!entry) return;
   const revision = teams.find((t) => t.id === entry.teamId)?.policy_revision;
@@ -82,11 +83,15 @@ export async function syncEnrolledTeamOnRevision(teams: Pick<Team, "id" | "polic
 export function startEnrolledTeamSync(): void {
   if (stop) return;
   const off = onPolicyLoaded(() => void syncFromMachine());
+  const unsubscribe = useTeamStore.subscribe((s, prev) => {
+    if (s.teams !== prev.teams) void syncOnRevision(s.teams);
+  });
   const timer = setInterval(() => {
     if (document.visibilityState === "visible") void syncFromMachine();
   }, SYNC_INTERVAL_MS);
   stop = () => {
     off();
+    unsubscribe();
     clearInterval(timer);
   };
 }

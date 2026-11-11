@@ -7,10 +7,12 @@ vi.mock("@/services/saveFile", () => ({ notify: vi.fn() }));
 vi.mock("@/services/clientHeaders", () => ({ clientVersion: mocks.version }));
 vi.mock("@/services/enrollment/enrollmentPolicy", () => ({ fetchEnrolledPolicy: mocks.fetch }));
 
-import { resetEnrolledTeamSync, startEnrolledTeamSync, syncEnrolledTeam, syncEnrolledTeamOnRevision } from "./enrolledTeam";
+import { resetEnrolledTeamSync, startEnrolledTeamSync, syncEnrolledTeam } from "./enrolledTeam";
 import type { EnrolledFetch } from "@/services/enrollment/enrollmentPolicy";
 import { useEnrolledTeamStore, type EnrolledTeamEntry } from "@/stores/enrolledTeamStore";
 import { usePolicyStore, type PolicyIssue } from "@/stores/policyStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { makeTeam } from "@/test/team";
 import { DEVICE_SCOPED_STORAGE_KEYS } from "@/stores/persistedAccountUiState";
 import { ENROLL_ID as ID_A, ENROLL_SECRET as SECRET, ENROLL_SERVER as SERVER, echoTeamDoc, enrollmentTokenText as tokenText, resetPolicy, withPolicy, withTeamPolicy } from "@/test/policy";
 import { LOCK_ACTION_KEY as ACTION } from "@/services/lockPolicy";
@@ -208,29 +210,6 @@ describe("syncEnrolledTeam", () => {
   });
 });
 
-describe("syncEnrolledTeamOnRevision", () => {
-  beforeEach(async () => {
-    withPolicy(machine());
-    await seed();
-  });
-
-  it("a newer revision on the account's copy fetches at once", async () => {
-    mocks.fetch.mockResolvedValueOnce(teamReply("t1", "Acme", 4, { "ssh.agentForwarding": false }));
-    await syncEnrolledTeamOnRevision([{ id: "t1", policy_revision: 4 }]);
-    expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
-    expect(entry()).toMatchObject({ revision: 4, layer: { policy: { "ssh.agentForwarding": false } } });
-  });
-
-  it.each([
-    ["the same revision", [{ id: "t1", policy_revision: 3 }]],
-    ["another team", [{ id: "t2", policy_revision: 9 }]],
-    ["no revision", [{ id: "t1" }]],
-  ])("%s waits for the usual sync", async (_, teams) => {
-    await syncEnrolledTeamOnRevision(teams);
-    expect(mocks.fetch).toHaveBeenCalledTimes(1);
-  });
-});
-
 it("the cache is device-scoped and persisted under its own key", async () => {
   expect(DEVICE_SCOPED_STORAGE_KEYS).toContain("voltius-enrolled-team");
   await seed();
@@ -347,6 +326,38 @@ describe("startEnrolledTeamSync", () => {
     await loadSettled();
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
     expect(mocks.fetch).toHaveBeenCalledWith(expect.objectContaining({ id: ID_B }), null);
+  });
+
+  describe("when the account's teams change", () => {
+    beforeEach(async () => {
+      useTeamStore.setState({ teams: [] });
+      await seed();
+    });
+
+    it("a newer revision of the enrolling team fetches at once", async () => {
+      mocks.fetch.mockResolvedValueOnce(teamReply("t1", "Acme", 4, { "ssh.agentForwarding": false }));
+      useTeamStore.setState({ teams: [makeTeam("t1", { policy_revision: 4 })] });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mocks.fetch).toHaveBeenLastCalledWith(expect.objectContaining({ id: ID_A }), 3);
+      expect(entry()).toMatchObject({ revision: 4, layer: { policy: { "ssh.agentForwarding": false } } });
+    });
+
+    it.each([
+      ["the same revision", [makeTeam("t1", { policy_revision: 3 })]],
+      ["another team", [makeTeam("t2", { policy_revision: 9 })]],
+      ["no revision", [makeTeam("t1")]],
+    ])("%s waits for the usual sync", async (_, teams) => {
+      useTeamStore.setState({ teams });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops listening once reset", async () => {
+      resetEnrolledTeamSync();
+      useTeamStore.setState({ teams: [makeTeam("t1", { policy_revision: 4 })] });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("before the machine policy has loaded", () => {

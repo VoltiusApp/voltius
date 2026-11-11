@@ -5,7 +5,6 @@ import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
 import { accountEpoch, refreshTeamPolicy } from "@/services/policy/teamPolicy";
-import { syncEnrolledTeamOnRevision } from "@/services/policy/enrolledTeam";
 import { enrolledTeamId, onPolicyLoaded } from "@/stores/policyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
 import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
@@ -145,7 +144,6 @@ export const useTeamStore = create<TeamStore>()(
       const teams = same ? prev : fresh;
       set({ teams, loading: false, teamsLoaded: true });
       refreshPolicy(teams);
-      if (teams !== prev) void syncEnrolledTeamOnRevision(teams);
       runTeamsLoadedHook(prev);
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
