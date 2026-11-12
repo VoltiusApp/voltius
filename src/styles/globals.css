@@ -50,6 +50,7 @@
   --animate-tab-hint: tab-hint 600ms ease-out forwards;
   --animate-sync-breathe: sync-breathe 1.4s ease-in-out infinite;
   --animate-tab-lock-wiggle: tab-lock-wiggle 480ms ease-out;
+  --animate-tab-lock-cue: tab-lock-cue-fade 300ms ease-in 900ms forwards;
 
   --transition-duration-400: 400ms;
 
@@ -92,6 +93,9 @@
     60%  { rotate: 7deg; }
     75%  { rotate: -3deg; }
     100% { rotate: 0deg; }
+  }
+  @keyframes tab-lock-cue-fade {
+    to { opacity: 0; }
   }
 }
 
