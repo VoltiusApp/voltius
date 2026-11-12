@@ -28,6 +28,7 @@ import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { purgeLocalSecrets } from "@/services/vault";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { logFailure } from "@/lib/logger";
+import { listedDataVersion, noteTeamDataSeen } from "@/services/teamVaultCatchUp";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
@@ -76,7 +77,7 @@ const _teamKeyInFlight = new Map<string, Promise<number[]>>();
 // getTeamVaultKey on the per-row hydrate path, which made this far more
 // likely to actually happen (#229).
 const _teamKeyGeneration = new Map<string, number>();
-const _teamRefreshQueue = new TeamVaultRefreshQueue();
+const _teamRefreshQueue = new TeamVaultRefreshQueue<boolean>();
 // Teams where a key_mismatch self-heal rotation was already tried this
 // session — caps retries at one instead of one per refresh forever.
 const _keyMismatchHealAttempted = new Set<string>();
@@ -445,20 +446,21 @@ async function _healKeyMismatchOnce(teamId: string, err: unknown): Promise<boole
  * surfaced via the store status.
  */
 export async function fetchTeamData(teamId: string, options: TeamVaultRefreshOptions = {}): Promise<void> {
-  return _teamRefreshQueue.run(teamId, options, (merged) => _fetchTeamData(teamId, merged));
+  const listed = listedDataVersion(teamId);
+  if (await _teamRefreshQueue.run(teamId, options, (merged) => _fetchTeamData(teamId, merged))) noteTeamDataSeen(teamId, listed);
 }
 
-async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions): Promise<void> {
+async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions): Promise<boolean> {
   const stateStore = useTeamVaultStateStore.getState();
   const blockingLoad = shouldShowBlockingTeamVaultLoad(options);
   if (blockingLoad) stateStore.setStatus(teamId, "loading");
 
   const serverUrl = await getServerUrl();
   if (!serverUrl) {
-    if (options.background) return;
+    if (options.background) return false;
     await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, "offline");
-    return;
+    return false;
   }
 
   let objectListFailed = false;
@@ -488,12 +490,12 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       stateStore.setCredentialsUnavailable(teamId, !credentialsOk);
       await settleLoadedTeamSecrets(teamId, options);
       stateStore.setStatus(teamId, "loaded");
-      return;
+      return true;
     }
   } catch (err) {
     if (options.background) {
       if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
-      return;
+      return false;
     }
     const action = classifyTeamObjectListError(err);
     if (action === "fallback") {
@@ -504,7 +506,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     } else {
       await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, action);
-      return;
+      return false;
     }
   }
 
@@ -522,7 +524,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     const memberView = err === "forbidden" ? await _memberViewStatus(teamId) : null;
     if (options.background && !memberView) {
       if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
-      return;
+      return false;
     }
     const validStatuses = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
     type Thrown = typeof validStatuses[number];
@@ -530,7 +532,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     // Clear team store slices so stale data doesn't linger
     await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, status);
-    return;
+    return status === "loaded";
   }
 
   let blobPayload: BlobPayload;
@@ -540,13 +542,13 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     if (res.status === 404 || (res.status === 403 && !objectListFailed)) {
       await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, objectListFailed ? "error" : "loaded");
-      return;
+      return !objectListFailed;
     }
     if (!res.ok) {
-      if (options.background) return;
+      if (options.background) return false;
       await clearTeamStoresAndSecrets(teamId);
       stateStore.setStatus(teamId, "error");
-      return;
+      return false;
     }
     const { blob: blobB64, key_version: blobVersion } = await res.json() as {
       blob: string; updated_at: string; key_version: number;
@@ -558,10 +560,10 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       : key;
     blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: blobKey, blob: blobBytes });
   } catch {
-    if (options.background) return;
+    if (options.background) return false;
     await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, "error");
-    return;
+    return false;
   }
 
   const { useConnectionStore } = await import("@/stores/connectionStore");
@@ -585,6 +587,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   await settleLoadedTeamSecrets(teamId, options);
 
   stateStore.setStatus(teamId, "loaded");
+  return true;
 }
 
 /**

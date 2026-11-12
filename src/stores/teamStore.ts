@@ -138,6 +138,7 @@ export const useTeamStore = create<TeamStore>()(
           t.permission_deny === prev[i].permission_deny &&
           sameValue(t.lock_policy, prev[i].lock_policy) &&
           t.policy_revision === prev[i].policy_revision &&
+          t.data_version === prev[i].data_version &&
           t.joined_at === prev[i].joined_at &&
           sameValue(t.policy, prev[i].policy) &&
           sameValue(t.role_ids, prev[i].role_ids));

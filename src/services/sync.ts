@@ -39,7 +39,7 @@ import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/ser
 import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
-import { cancelTeamVaultCatchUp, catchUpTeamVaults } from "@/services/teamVaultCatchUp";
+import { cancelTeamVaultCatchUp, catchUpTeamVaults, forgetTeamDataSeen } from "@/services/teamVaultCatchUp";
 import { RECONCILE_MS, SSE_RETRY_GATEWAY_MAX_MS, jittered, sseRetryDelay } from "@/services/syncRetry";
 import { isProxyAnswer, isUnreachable, reachableFetch } from "@/services/reachability";
 import { createWakeableSleeps } from "@/lib/wakeableSleep";
@@ -1039,6 +1039,7 @@ function armReconcile(): void {
   _reconcileTimer = _doubtStream === null ? null : setTimeout(() => {
     _reconcileTimer = null;
     syncInBackground().catch(logFailure("periodic reconcile"));
+    catchUpTeamVaults({ refetchUnversioned: false });
   }, jittered(RECONCILE_MS));
 }
 
@@ -1077,6 +1078,7 @@ export function stopRealtimeSync(): void {
 export function haltSync(): void {
   _halted = true;
   forgetMergedRemoteBlobs();
+  forgetTeamDataSeen();
   _syncOwed = false;
   stopRealtimeSync();
   if (_syncTimer) clearTimeout(_syncTimer);
@@ -1121,7 +1123,7 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
           _doubtStream = doubt;
           armReconcile();
           // The first open follows the login sync, which already loaded every team vault.
-          if (reopened && !_loginSyncOwed) catchUpTeamVaults();
+          if (reopened && !_loginSyncOwed) catchUpTeamVaults({ refetchUnversioned: true });
           reopened = true;
           heard();
         },
@@ -1390,7 +1392,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     // and must not each cost a session round-trip.
     if (eventData === "sync") {
       refetchActiveSessions().catch(logFailure("sync fallback: refetchActiveSessions"));
-      catchUpTeamVaults();
+      catchUpTeamVaults({ refetchUnversioned: true });
     }
   }
 }
