@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { closeSessionTabs } from "@/services/closeSession";
+import { sessionsPinnedFirst } from "@/services/tabLock";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
@@ -161,31 +162,15 @@ export function useKeyboard() {
 
       if (matchShortcut("close-tab", e)) {
         e.preventDefault();
-        const { activeSessionId, disconnect, removeSession, sessions } =
-          useSessionStore.getState();
-        if (activeSessionId) {
-          const session = sessions.find((s) => s.id === activeSessionId);
-          // Clean up any active multiplayer connection first
-          const mpConn = useTeamSessionStore.getState().connections[activeSessionId];
-          if (mpConn) {
-            if (mpConn.role === "host") {
-              useTeamSessionStore.getState().stopSharing(activeSessionId).catch(() => {});
-            } else {
-              useTeamSessionStore.getState().leaveSession(activeSessionId);
-            }
-          }
-          if (session?.status === "connected" || session?.status === "connecting") {
-            disconnect(activeSessionId);
-          } else {
-            removeSession(activeSessionId);
-          }
-        }
+        const { activeSessionId } = useSessionStore.getState();
+        if (activeSessionId) closeSessionTabs([activeSessionId]);
         return;
       }
 
       if (matchShortcut("next-tab", e)) {
         e.preventDefault();
-        const { sessions, activeSessionId, setActive } = useSessionStore.getState();
+        const { activeSessionId, setActive } = useSessionStore.getState();
+        const sessions = sessionsPinnedFirst(useSessionStore.getState().sessions);
         if (sessions.length > 1 && activeSessionId) {
           const idx = sessions.findIndex((s) => s.id === activeSessionId);
           const next = sessions[(idx + 1) % sessions.length];
@@ -196,7 +181,8 @@ export function useKeyboard() {
 
       if (matchShortcut("prev-tab", e)) {
         e.preventDefault();
-        const { sessions, activeSessionId, setActive } = useSessionStore.getState();
+        const { activeSessionId, setActive } = useSessionStore.getState();
+        const sessions = sessionsPinnedFirst(useSessionStore.getState().sessions);
         if (sessions.length > 1 && activeSessionId) {
           const idx = sessions.findIndex((s) => s.id === activeSessionId);
           const prev = sessions[(idx - 1 + sessions.length) % sessions.length];

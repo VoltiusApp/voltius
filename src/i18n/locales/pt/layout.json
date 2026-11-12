@@ -314,8 +314,8 @@
         "closeAll": "Fechar todas {{count}}",
         "openInSplit": "Abrir em divisão",
         "inSplit": "em divisão",
-        "pin": "Fixar lista de sessões",
-        "unpin": "Desfixar lista de sessões",
+        "pin": "Mostrar no painel lateral",
+        "unpin": "Ocultar painel lateral",
         "status": {
           "connected": "Conectado · {{time}}",
           "connecting": "Conectando…",
@@ -340,7 +340,20 @@
         "upgradeTrial": "Atualizar · Avaliação Gratuita de 14d",
         "upgrade": "Atualizar"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} aba bloqueada mantida",
+        "keptToast_many": "{{count}} abas bloqueadas mantidas",
+        "keptToast_other": "{{count}} abas bloqueadas mantidas",
+        "closeBlocked": "Desbloqueie a aba para fechá-la",
+        "unlockHint": "Bloqueada · clique para desbloquear",
+        "lockTab": "Bloquear aba",
+        "unlockTab": "Desbloquear aba",
+        "lockPane": "Bloquear painel",
+        "unlockPane": "Desbloquear painel",
+        "pinTab": "Fixar aba",
+        "unpinTab": "Desafixar aba"
+      }
     },
     "vaultHeader": {
       "members": "Membros",

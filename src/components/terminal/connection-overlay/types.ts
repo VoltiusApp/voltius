@@ -66,6 +66,8 @@ export interface DecisionPanelAction {
   label: string;
   variant?: "primary" | "secondary" | "ghost";
   disabled?: boolean;
+  /** Closes the tab, so a locked tab greys it out. */
+  dismisses?: boolean;
   onClick?: () => void;
 }
 

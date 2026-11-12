@@ -125,7 +125,12 @@
       "disconnectAllConfirm_one": "Odpojit {{count}} relaci? Potvrďte dalším stiskem Enter",
       "disconnectAllConfirm_few": "Odpojit {{count}} relace? Potvrďte dalším stiskem Enter",
       "disconnectAllConfirm_many": "Odpojit {{count}} relace? Potvrďte dalším stiskem Enter",
-      "disconnectAllConfirm_other": "Odpojit {{count}} relací? Potvrďte dalším stiskem Enter"
+      "disconnectAllConfirm_other": "Odpojit {{count}} relací? Potvrďte dalším stiskem Enter",
+      "lockTab": "Zamknout kartu",
+      "unlockTab": "Odemknout kartu",
+      "pinTab": "Připnout kartu",
+      "unpinTab": "Odepnout kartu",
+      "noActiveTab": "Není aktivní žádná karta terminálu"
     },
     "dialogLabel": "Paleta příkazů",
     "resultCount_one": "{{count}} výsledek",

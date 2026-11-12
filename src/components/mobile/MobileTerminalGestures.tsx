@@ -12,6 +12,7 @@ import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/st
 import { useThemeStore } from "@/stores/themeStore";
 import { haptic } from "@/lib/haptics";
 import { animate, motionMs, SESSION_MOTION } from "@/lib/motion";
+import { mobileSessions } from "./useMobileSessions";
 import { useSessionStore } from "@/stores/sessionStore";
 import { VelocityTracker } from "./sheets/sheetDrag";
 import { adjacentSessionId, claimSwipeAxis, inEdgeZone, sessionSwipeStep, SWIPE_FOLLOW } from "./sessionSwipeCore";
@@ -22,7 +23,7 @@ const DOUBLE_TAP = { ms: 300, px: 24 };
 type Phase = "idle" | "pending" | "scrolling" | "swiping" | "native" | "pinching";
 
 /** Terminal sessions in chip order (the top bar hides multiplayer ones too). */
-const sessionIds = () => useSessionStore.getState().sessions.filter((s) => s.type !== "multiplayer").map((s) => s.id);
+const sessionIds = () => mobileSessions(useSessionStore.getState().sessions).map((s) => s.id);
 
 /** Mobile terminal gestures: drag scrolls, a sideways swipe switches session, long-press selects
  *  natively (Paste on blank), double-tap sends Tab, pinch sets the font size (#159); single taps

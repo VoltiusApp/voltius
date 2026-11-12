@@ -48,3 +48,7 @@ export function mergeTitlebarItems(order: string[], visibleKeys: string[]) {
   const orderedSet = new Set(ordered);
   return [...ordered, ...visibleKeys.filter((key) => !orderedSet.has(key))];
 }
+
+export function replaceKey(list: string[], from: string, to: string) {
+  return list.map((key) => (key === from ? to : key));
+}

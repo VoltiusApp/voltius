@@ -123,7 +123,12 @@
       "disconnectAllNone": "Nenhuma sessão aberta para desconectar",
       "disconnectAllConfirm_one": "Desconectar {{count}} sessão? Pressione Enter de novo para confirmar",
       "disconnectAllConfirm_many": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar",
-      "disconnectAllConfirm_other": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar"
+      "disconnectAllConfirm_other": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar",
+      "lockTab": "Bloquear Aba",
+      "unlockTab": "Desbloquear Aba",
+      "pinTab": "Fixar Aba",
+      "unpinTab": "Desafixar Aba",
+      "noActiveTab": "Nenhuma aba de terminal ativa"
     },
     "dialogLabel": "Paleta de comandos",
     "resultCount_one": "{{count}} resultado",

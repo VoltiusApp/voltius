@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Lock a tab to keep it from being closed by accident: its close button becomes a lock, and Ctrl/Cmd+W, middle-click, the tab menu, "Close all" on a host and "Disconnect all" leave it open (the lock wiggles, and bulk closes say how many locked tabs were kept). Click the lock to unlock. In a split, each pane locks on its own. Typing `exit` still closes the tab. Plugins and AI agents get a `tab_locked` error instead of closing it. Lock from the tab menu, the pane menu, the command palette, or a long-press on a terminal chip on mobile (#859)
+- Pin a tab to keep it first in the tab bar as a compact icon. Pinned tabs never join a host group. Lock and pin are kept on this device across restarts and are not synced (#859)
+- "Pin session list" in the tab menu is now "Show in side panel" (#859)
+
 ### Fixed
 
 - Switching tabs and opening the right side panel no longer lag while the History panel holds a long history: rows no longer re-render on every tab switch, and rows out of view skip layout

@@ -3,6 +3,8 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { getPaneLeaves, useLayoutStore, type SplitTab } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { isSessionLocked, splitTabLocked } from "@/services/tabLock";
+import { tabFlagMenuItems } from "@/utils/tabFlagMenuItems";
 
 /**
  * Tab-scope entries for a unified split tab. Everything that acts on a single
@@ -67,11 +69,13 @@ export function splitTabMenuItems({
       icon: "lucide:between-horizontal-start",
       onClick: () => splitApart(tab.id),
     },
+    ...tabFlagMenuItems(t, { pinKey: `split:${tab.id}`, lockTarget: { kind: "split", id: tab.id }, locked: splitTabLocked(tab), scope: "tab" }),
     {
       label: t("layout.titleBar.splitMenu.closeTab", { count: leaves.length }),
       icon: "lucide:x",
       danger: true,
       divider: true,
+      disabledReason: leaves.every((leaf) => isSessionLocked(leaf.sessionId)) ? t("layout.titleBar.lock.closeBlocked") : undefined,
       onClick: onClose,
     },
   ];

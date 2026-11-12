@@ -314,8 +314,8 @@
         "closeAll": "Tout fermer ({{count}})",
         "openInSplit": "Ouvrir en vue scindée",
         "inSplit": "en vue scindée",
-        "pin": "Épingler la liste des sessions",
-        "unpin": "Détacher la liste des sessions",
+        "pin": "Afficher dans le panneau latéral",
+        "unpin": "Masquer le panneau latéral",
         "status": {
           "connected": "Connecté · {{time}}",
           "connecting": "Connexion…",
@@ -340,7 +340,20 @@
         "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
         "upgrade": "Mettre à niveau"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} onglet verrouillé conservé",
+        "keptToast_many": "{{count}} onglets verrouillés conservés",
+        "keptToast_other": "{{count}} onglets verrouillés conservés",
+        "closeBlocked": "Déverrouillez l'onglet pour le fermer",
+        "unlockHint": "Verrouillé · cliquez pour déverrouiller",
+        "lockTab": "Verrouiller l'onglet",
+        "unlockTab": "Déverrouiller l'onglet",
+        "lockPane": "Verrouiller le panneau",
+        "unlockPane": "Déverrouiller le panneau",
+        "pinTab": "Épingler l'onglet",
+        "unpinTab": "Désépingler l'onglet"
+      }
     },
     "vaultHeader": {
       "members": "Membres",

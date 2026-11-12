@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { gatherGroups, mergeTitlebarItems, placeTitlebarBlock, placeTitlebarItem } from "@/utils/titlebarOrder";
+import { gatherGroups, mergeTitlebarItems, placeTitlebarBlock, placeTitlebarItem, replaceKey } from "@/utils/titlebarOrder";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
 
 export type SplitDirection = "h" | "v";
@@ -41,7 +41,9 @@ interface LayoutStore {
   splitTabs: SplitTab[];
   activeSplitTabId: string | null;
   titlebarOrder: string[];
+  pinnedKeys: string[];
 
+  setPinned(key: string, pinned: boolean): void;
   openSplitTab(sessionId?: string): void;
   setSplitTabActive(active: boolean): void;
   activateSplitTab(tabId: string): void;
@@ -66,8 +68,17 @@ interface LayoutStore {
     activeSplitTabId: string | null;
     splitTabActive: boolean;
     titlebarOrder: string[];
+    pinnedKeys?: string[];
   }): void;
 }
+
+function handOverSplitKey(keys: { titlebarOrder: string[]; pinnedKeys: string[] }, splitKey: string, survivorKey: string | null) {
+  const move = (list: string[]) => (survivorKey ? replaceKey(list, splitKey, survivorKey) : list.filter((key) => key !== splitKey));
+  return { titlebarOrder: move(keys.titlebarOrder), pinnedKeys: move(keys.pinnedKeys) };
+}
+
+const withoutSessionKeys = (keys: string[], sessionIds: string[]) =>
+  keys.filter((key) => !sessionIds.some((id) => key === `session:${id}`));
 
 const clampRatio = (ratio: number) => Math.max(0.1, Math.min(0.9, ratio));
 
@@ -263,6 +274,12 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   splitTabs: [],
   activeSplitTabId: null,
   titlebarOrder: [],
+  pinnedKeys: [],
+
+  setPinned: (key, pinned) => set((state) => {
+    const without = state.pinnedKeys.filter((candidate) => candidate !== key);
+    return { pinnedKeys: pinned ? [...without, key] : without };
+  }),
 
   openSplitTab: (sessionId) => {
     set((state) => {
@@ -310,9 +327,10 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   closeSplitTab: (tabId) => {
     set((state) => {
       const splitTabs = state.splitTabs.filter((tab) => tab.id !== tabId);
-      if (state.activeSplitTabId !== tabId) return { splitTabs };
+      const pinnedKeys = state.pinnedKeys.filter((key) => key !== `split:${tabId}`);
+      if (state.activeSplitTabId !== tabId) return { splitTabs, pinnedKeys };
       const nextTab = splitTabs[splitTabs.length - 1] ?? null;
-      return { splitTabs, titlebarOrder: state.titlebarOrder.filter((key) => key !== `split:${tabId}`), ...fieldsFromTab(nextTab) };
+      return { splitTabs, pinnedKeys, titlebarOrder: state.titlebarOrder.filter((key) => key !== `split:${tabId}`), ...fieldsFromTab(nextTab) };
     });
   },
 
@@ -341,7 +359,9 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
       const incoming: LeafNode = { type: "leaf", id: newPaneId(), sessionId: incomingSessionId };
       const root = splitLeaf(target, incoming, position);
       const tab = createSplitTabState(root, incoming.id, state.broadcastActive);
-      return { splitTabs: [...state.splitTabs, tab], ...fieldsFromTab(tab) };
+      const targetPinned = state.pinnedKeys.includes(`session:${targetSessionId}`);
+      const pinnedKeys = withoutSessionKeys(state.pinnedKeys, [targetSessionId, incomingSessionId]);
+      return { splitTabs: [...state.splitTabs, tab], pinnedKeys: targetPinned ? [...pinnedKeys, `split:${tab.id}`] : pinnedKeys, ...fieldsFromTab(tab) };
     });
   },
 
@@ -365,6 +385,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
         activePaneId: leaf.id,
         maximizedPaneId: null,
         splitTabActive: true,
+        pinnedKeys: withoutSessionKeys(state.pinnedKeys, [sessionId]),
       };
     });
   },
@@ -403,7 +424,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
         const nextTab = splitTabs[splitTabs.length - 1] ?? null;
         return {
           splitTabs,
-          titlebarOrder: state.titlebarOrder.filter((key) => key !== `split:${state.activeSplitTabId}`),
+          ...handOverSplitKey(state, `split:${state.activeSplitTabId}`, root ? `session:${root.sessionId}` : null),
           ...fieldsFromTab(nextTab),
         };
       }
@@ -429,12 +450,20 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
 
   removeSession: (sessionId) => {
     set((state) => {
+      let keys = {
+        titlebarOrder: state.titlebarOrder.filter((key) => key !== `session:${sessionId}`),
+        pinnedKeys: withoutSessionKeys(state.pinnedKeys, [sessionId]),
+      };
       const splitTabs = state.splitTabs.flatMap((tab): SplitTab[] => {
         const next = withoutSession(tab, sessionId);
-        return next ? [next] : [];
+        if (next) return [next];
+        const paneIds = getPaneSessionIds(tab.root);
+        const survivor = paneIds.find((id) => id !== sessionId);
+        if (survivor && paneIds.includes(sessionId)) keys = handOverSplitKey(keys, `split:${tab.id}`, `session:${survivor}`);
+        return [];
       });
       const activeTab = splitTabs.find((tab) => tab.id === state.activeSplitTabId) ?? splitTabs[splitTabs.length - 1] ?? null;
-      return { splitTabs, titlebarOrder: state.titlebarOrder.filter((key) => key !== `session:${sessionId}`), ...fieldsFromTab(activeTab) };
+      return { splitTabs, ...keys, ...fieldsFromTab(activeTab) };
     });
   },
 
@@ -479,6 +508,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
       const tab = createSplitTabState(root, activeLeaf?.id ?? null);
       return {
         splitTabs: [...state.splitTabs, tab],
+        pinnedKeys: withoutSessionKeys(state.pinnedKeys, freshIds),
         ...fieldsFromTab(tab),
       };
     });
@@ -502,6 +532,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
       return {
         splitTabs,
         titlebarOrder: saved.titlebarOrder,
+        pinnedKeys: saved.pinnedKeys ?? [],
         ...fieldsFromTab(activeTab),
         splitTabActive: saved.splitTabActive && activeTab !== null,
       };

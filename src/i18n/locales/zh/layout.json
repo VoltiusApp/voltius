@@ -303,8 +303,8 @@
         "closeAll": "全部关闭（{{count}}）",
         "openInSplit": "在分屏中打开",
         "inSplit": "分屏中",
-        "pin": "固定会话列表",
-        "unpin": "取消固定会话列表",
+        "pin": "在侧边栏中显示",
+        "unpin": "隐藏侧边栏",
         "status": {
           "connected": "已连接 · {{time}}",
           "connecting": "正在连接…",
@@ -328,7 +328,19 @@
         "upgradeTrial": "升级 · 14 天免费试用",
         "upgrade": "升级"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "已保留 {{count}} 个锁定的标签页",
+        "keptToast_other": "已保留 {{count}} 个锁定的标签页",
+        "closeBlocked": "解锁标签页后才能关闭",
+        "unlockHint": "已锁定 · 点击解锁",
+        "lockTab": "锁定标签页",
+        "unlockTab": "解锁标签页",
+        "lockPane": "锁定窗格",
+        "unlockPane": "解锁窗格",
+        "pinTab": "固定标签页",
+        "unpinTab": "取消固定标签页"
+      }
     },
     "vaultHeader": {
       "members": "成员",

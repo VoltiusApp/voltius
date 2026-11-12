@@ -26,14 +26,14 @@ import { McpMark, mcpOwnerTitle } from "@/components/shared/McpMark";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
+import { orderPinnedFirst } from "@/utils/pinnedOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
-import { closeSession, closeSessionTabs } from "@/services/closeSession";
+import { closeSessionTabs, closeSplitTabSessions } from "@/services/closeSession";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 import { pinHostList } from "@/services/hostStack";
 import { sessionMenuItems, pinListExtra } from "@/utils/sessionMenuItems";
-import { InlineNameEditor } from "@/components/shared/InlineNameEditor";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { EffectiveSyncIcon, effectiveSyncColor, useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { sessionStatusTone } from "@/utils/statusTone";
@@ -74,8 +74,9 @@ export default function TitleBar() {
   const splitTabs = useLayoutStore((s) => s.splitTabs);
   const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
-  const closeSplitTab = useLayoutStore((s) => s.closeSplitTab);
   const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
+  const pinnedKeys = useLayoutStore((s) => s.pinnedKeys);
+  const isPinned = (key: string) => pinnedKeys.includes(key);
   const syncTitlebarOrder = useLayoutStore((s) => s.syncTitlebarOrder);
   const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
@@ -151,8 +152,8 @@ export default function TitleBar() {
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
   const draggedSession = titlebarDropActive ? sessions.find((session) => session.id === draggedSessionId) : null;
   const visibleItemKeys = visibleTitlebarKeys(sessions, splitTabs);
-  const orderedItemKeys = mergeTitlebarItems(titlebarOrder, visibleItemKeys);
-  const titlebarItems = buildTitlebarItems(orderedItemKeys, sessions, splitTabs, grouped);
+  const orderedItemKeys = orderPinnedFirst(mergeTitlebarItems(titlebarOrder, visibleItemKeys), isPinned);
+  const titlebarItems = buildTitlebarItems(orderedItemKeys, sessions, splitTabs, grouped, isPinned);
 
   const activeItemKey = activeNav !== "terminal" || sftpPanelOpen
     ? null
@@ -197,11 +198,7 @@ export default function TitleBar() {
   };
 
   const closeUnifiedTab = (tabId: string) => {
-    const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
-    const ids = tab ? getPaneSessionIds(tab.root) : [];
-    closeSplitTab(tabId);
-    ids.forEach(closeSession);
-    if (sessions.length <= ids.length) leaveTerminal();
+    closeSplitTabSessions(tabId);
   };
 
   const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {
@@ -366,58 +363,36 @@ export default function TitleBar() {
             const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === "terminal" && !sftpPanelOpen;
             const splitTabTitle = t("layout.titleBar.unifiedSplitTab");
             const splitTabMcpTooltip = mcpTooltip(tabSessionIds);
+            const splitLabel = splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"));
 
             return (
               <div key={item.key} className="contents">
                 {renderTitlebarDropCue(item.key, "before")}
-                {isRenaming("split", tab.id) ? (
-                  <div
-                    data-titlebar-key={item.key}
-                    className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
-                    style={tabSurfaceStyle(isActiveSplitTab)}
-                  >
-                    <Icon icon="lucide:layout-dashboard" width={18} />
-                    <InlineNameEditor
-                      value={splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback"))}
-                      ariaLabel={t("layout.titleBar.renameTab")}
-                      onCommit={(name) => { useLayoutStore.getState().renameSplitTab(tab.id, name); endRename(tabActiveSession?.id); }}
-                      onCancel={() => endRename(tabActiveSession?.id)}
-                    />
-                  </div>
-                ) : (
-                <button
-                  data-titlebar-key={item.key}
-                  data-strip-active={isActiveSplitTab}
+                <TitlebarTab
+                  itemKey={item.key}
+                  active={isActiveSplitTab}
+                  icon={<Icon icon="lucide:layout-dashboard" width={18} />}
+                  label={splitTitle(t, splitLabel, tabSessionIds.length - 1)}
+                  title={splitTabMcpTooltip ? `${splitTabTitle}\n${splitTabMcpTooltip}` : splitTabTitle}
+                  mcpBar={renderMcpBar(tab.id, tabSessionIds)}
+                  renaming={isRenaming("split", tab.id)}
+                  renameValue={splitLabel}
+                  renameAriaLabel={t("layout.titleBar.renameTab")}
+                  onRenameCommit={(name) => { useLayoutStore.getState().renameSplitTab(tab.id, name); endRename(tabActiveSession?.id); }}
+                  onRenameCancel={() => endRename(tabActiveSession?.id)}
                   onClick={() => handleUnifiedTabClick(tab.id)}
+                  onLabelClick={(e) => startRenameFromLabel(e, isActiveSplitTab, { kind: "split", id: tab.id })}
+                  onClose={(e) => handleUnifiedTabClose(e, tab.id)}
                   onContextMenu={(e) => { setMenuTarget({ kind: "split", id: tab.id }); openTabMenu(e); }}
                   onDoubleClick={() => setRenaming({ kind: "split", id: tab.id })}
                   onPointerDown={(e) => {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
-                  className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
-                  title={splitTabMcpTooltip ? `${splitTabTitle}\n${splitTabMcpTooltip}` : splitTabTitle}
-                  style={tabSurfaceStyle(isActiveSplitTab)}
-                >
-                  {renderMcpBar(tab.id, tabSessionIds)}
-                  <Icon icon="lucide:layout-dashboard" width={18} />
-                  <span
-                    className="max-w-[140px] truncate"
-                    onClick={(e) => startRenameFromLabel(e, isActiveSplitTab, { kind: "split", id: tab.id })}
-                  >
-                    {splitTitle(t, splitTabLabel(tab, tabActiveSession ?? undefined, t("layout.titleBar.splitFallback")), tabSessionIds.length - 1)}
-                  </span>
-                  <span
-                    onClick={(e) => handleUnifiedTabClose(e, tab.id)}
-                    className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
-                    style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
-                  >
-                    <span className="[&_path]:stroke-[2.1]"><Icon icon="lucide:x" width={20} /></span>
-                  </span>
-                </button>
-                )}
+                  sessionIds={tabSessionIds}
+                  closeTitle={t("layout.titleBar.closeTab")}
+                  compact={isPinned(item.key)}
+                />
                 {renderTitlebarDropCue(item.key, "after")}
               </div>
             );
@@ -458,6 +433,7 @@ export default function TitleBar() {
                 label={sessionLabel(session)}
                 title={mcpTooltip([session.id])}
                 mcpBar={renderMcpBar(session.id, [session.id])}
+                compact={isPinned(item.key)}
                 {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, panelShowsThisSession, () => (panelShowsThisSession ? setHostPanelPinned(false) : pinHostList(session.id)))])}
               />
               {renderTitlebarDropCue(item.key, "after")}

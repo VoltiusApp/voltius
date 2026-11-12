@@ -4,9 +4,9 @@ import { lazyT } from "@/i18n";
 
 /** Checked before a palette run: `proceed: false` only reports, `proceed: true` asks for a second Enter. */
 export interface CommandGuard { message: string; proceed: boolean }
-export type CoreCommand = OmniCommand & { guard?: () => CommandGuard };
+export type CoreCommand = OmniCommand & { guard?: () => CommandGuard | undefined };
 
-export function commandGuard(cmd: OmniCommand): (() => CommandGuard) | undefined {
+export function commandGuard(cmd: OmniCommand): (() => CommandGuard | undefined) | undefined {
   return (cmd as CoreCommand).guard;
 }
 

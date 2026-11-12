@@ -62,7 +62,7 @@ export function StackTab({
   const extras: ContextMenuItem[] = [
     ...(newSession ? [newSession] : []),
     pinListExtra(t, panelShowsThisHost, () => (panelShowsThisHost ? setHostPanelPinned(false) : pinHostList(shown.id))),
-    { label: t("layout.titleBar.stack.closeAll", { count: members.length }), icon: "lucide:x", danger: true, onClick: () => closeSessionTabs(members.map((m) => m.id)) },
+    { label: t("layout.titleBar.stack.closeAll", { count: members.length }), icon: "lucide:x", danger: true, onClick: () => closeSessionTabs(members.map((m) => m.id), { reportKept: true }) },
   ];
   const handlers = buildHandlers(shown, itemKey, active, extras);
 

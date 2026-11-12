@@ -49,6 +49,7 @@
   --animate-spin: spin 0.8s linear infinite;
   --animate-tab-hint: tab-hint 600ms ease-out forwards;
   --animate-sync-breathe: sync-breathe 1.4s ease-in-out infinite;
+  --animate-tab-lock-wiggle: tab-lock-wiggle 480ms ease-out;
 
   --transition-duration-400: 400ms;
 
@@ -83,12 +84,28 @@
     0%, 100% { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.35; transform: scale(0.9); }
   }
+  @keyframes tab-lock-wiggle {
+    0%   { rotate: 0deg; }
+    15%  { rotate: -16deg; }
+    30%  { rotate: 14deg; }
+    45%  { rotate: -10deg; }
+    60%  { rotate: 7deg; }
+    75%  { rotate: -3deg; }
+    100% { rotate: 0deg; }
+  }
+}
+
+.animate-tab-lock-wiggle {
+  transform-origin: 50% 35%;
 }
 
 /* Redeclaring fadeIn/fadeOut here overrides them only while the media query
    matches — every `.animate-fadeIn` / `.animate-fadeOut` user (e.g. the
    ShareMenu panel) drops the translate and keeps just the opacity fade. */
 @media (prefers-reduced-motion: reduce) {
+  @keyframes tab-lock-wiggle {
+    0%, 45% { color: var(--t-status-warning); }
+  }
   @keyframes fadeIn {
     0% { opacity: 0; }
     100% { opacity: 1; }

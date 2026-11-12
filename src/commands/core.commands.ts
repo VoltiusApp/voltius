@@ -2,10 +2,20 @@ import type { OmniCommand } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { checkForUpdate } from "@/services/updater";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { closeSessionTabs } from "@/services/closeSession";
+import { activeTabTarget, isPinnedKey, setTabLocked, tabTargetKey, tabTargetLocked } from "@/services/tabLock";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 import i18n, { lazyT } from "@/i18n";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+
+const noActiveTab = () =>
+  activeTabTarget() ? undefined : { message: i18n.t("omni.commands.noActiveTab"), proceed: false };
+
+const activePinKey = () => {
+  const target = activeTabTarget();
+  return target ? tabTargetKey(target) : null;
+};
 
 const openSessions = () =>
   useSessionStore.getState().sessions.filter((s) => s.status === "connected" || s.status === "connecting");
@@ -115,22 +125,35 @@ export const commands: OmniCommand[] = [
         : { message: i18n.t("omni.commands.disconnectAllConfirm", { count }), proceed: true };
     },
     execute: () => {
-      const { disconnect, removeSession } = useSessionStore.getState();
-      const mpStore = useTeamSessionStore.getState();
-      openSessions()
-        .forEach((s) => {
-          const mpConn = mpStore.connections[s.id];
-          if (mpConn) {
-            if (mpConn.role === "host") {
-              mpStore.stopSharing(s.id).catch(() => {});
-            } else {
-              mpStore.leaveSession(s.id);
-            }
-            removeSession(s.id);
-          } else {
-            disconnect(s.id).catch(() => {});
-          }
-        });
+      closeSessionTabs(openSessions().map((s) => s.id), { reportKept: true });
+    },
+  }),
+  defineCommand({
+    id: "core:toggle-tab-lock",
+    label: () => {
+      const target = activeTabTarget();
+      return i18n.t(target && tabTargetLocked(target) ? "omni.commands.unlockTab" : "omni.commands.lockTab");
+    },
+    icon: "lucide:lock",
+    keywords: ["lock", "unlock", "protect", "close", "tab", "pane"],
+    guard: noActiveTab,
+    execute: () => {
+      const target = activeTabTarget();
+      if (target) setTabLocked(target, !tabTargetLocked(target));
+    },
+  }),
+  defineCommand({
+    id: "core:toggle-tab-pin",
+    label: () => {
+      const key = activePinKey();
+      return i18n.t(key && isPinnedKey(key) ? "omni.commands.unpinTab" : "omni.commands.pinTab");
+    },
+    icon: "lucide:pin",
+    keywords: ["pin", "unpin", "tab", "first", "keep"],
+    guard: noActiveTab,
+    execute: () => {
+      const key = activePinKey();
+      if (key) useLayoutStore.getState().setPinned(key, !isPinnedKey(key));
     },
   }),
 ];
