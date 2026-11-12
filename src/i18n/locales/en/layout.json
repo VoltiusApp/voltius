@@ -307,8 +307,8 @@
         "closeAll": "Close all {{count}}",
         "openInSplit": "Open in split",
         "inSplit": "in split",
-        "pin": "Pin session list",
-        "unpin": "Unpin session list",
+        "pin": "Show in side panel",
+        "unpin": "Hide side panel",
         "status": {
           "connected": "Connected · {{time}}",
           "connecting": "Connecting…",
@@ -337,7 +337,13 @@
         "keptToast_one": "{{count}} locked tab kept",
         "keptToast_other": "{{count}} locked tabs kept",
         "closeBlocked": "Unlock the tab to close it",
-        "unlockHint": "Locked · click to unlock"
+        "unlockHint": "Locked · click to unlock",
+        "lockTab": "Lock tab",
+        "unlockTab": "Unlock tab",
+        "lockPane": "Lock pane",
+        "unlockPane": "Unlock pane",
+        "pinTab": "Pin tab",
+        "unpinTab": "Unpin tab"
       }
     },
     "vaultHeader": {

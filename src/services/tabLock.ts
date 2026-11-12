@@ -26,3 +26,20 @@ export function titlebarKeyOfSession(sessionId: string): string {
 export function isPinnedKey(key: string): boolean {
   return useLayoutStore.getState().pinnedKeys.includes(key);
 }
+
+export function activeTabTarget(): TabTarget | null {
+  const layout = useLayoutStore.getState();
+  if (layout.splitTabActive && layout.activeSplitTabId) return { kind: "split", id: layout.activeSplitTabId };
+  const id = useSessionStore.getState().activeSessionId;
+  return id ? { kind: "session", id } : null;
+}
+
+export function tabTargetKey(target: TabTarget): string {
+  return `${target.kind}:${target.id}`;
+}
+
+export function tabTargetLocked(target: TabTarget): boolean {
+  if (target.kind === "session") return isSessionLocked(target.id);
+  const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === target.id);
+  return tab ? splitTabLocked(tab) : false;
+}

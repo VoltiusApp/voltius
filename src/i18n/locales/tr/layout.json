@@ -307,8 +307,8 @@
         "closeAll": "Tümünü kapat ({{count}})",
         "openInSplit": "Bölünmüş görünümde aç",
         "inSplit": "bölünmüş görünümde",
-        "pin": "Oturum listesini sabitle",
-        "unpin": "Oturum listesinin sabitlemesini kaldır",
+        "pin": "Yan panelde göster",
+        "unpin": "Yan paneli gizle",
         "status": {
           "connected": "Bağlı · {{time}}",
           "connecting": "Bağlanıyor…",
@@ -337,7 +337,13 @@
         "keptToast_one": "{{count}} kilitli sekme korundu",
         "keptToast_other": "{{count}} kilitli sekme korundu",
         "closeBlocked": "Kapatmak için sekmenin kilidini açın",
-        "unlockHint": "Kilitli · kilidi açmak için tıklayın"
+        "unlockHint": "Kilitli · kilidi açmak için tıklayın",
+        "lockTab": "Sekmeyi kilitle",
+        "unlockTab": "Sekmenin kilidini aç",
+        "lockPane": "Bölmeyi kilitle",
+        "unlockPane": "Bölmenin kilidini aç",
+        "pinTab": "Sekmeyi sabitle",
+        "unpinTab": "Sekmenin sabitlemesini kaldır"
       }
     },
     "vaultHeader": {

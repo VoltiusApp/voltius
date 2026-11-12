@@ -121,7 +121,12 @@
       "importThemes": "导入主题…",
       "disconnectAllNone": "没有可断开的会话",
       "disconnectAllConfirm_one": "断开 {{count}} 个会话？再次按 Enter 确认",
-      "disconnectAllConfirm_other": "断开 {{count}} 个会话？再次按 Enter 确认"
+      "disconnectAllConfirm_other": "断开 {{count}} 个会话？再次按 Enter 确认",
+      "lockTab": "锁定标签页",
+      "unlockTab": "解锁标签页",
+      "pinTab": "固定标签页",
+      "unpinTab": "取消固定标签页",
+      "noActiveTab": "没有活动的终端标签页"
     },
     "dialogLabel": "命令面板",
     "resultCount_one": "{{count}} 个结果",

@@ -121,7 +121,12 @@
       "importThemes": "Import themes…",
       "disconnectAllNone": "No open sessions to disconnect",
       "disconnectAllConfirm_one": "Disconnect {{count}} session? Press Enter again to confirm",
-      "disconnectAllConfirm_other": "Disconnect {{count}} sessions? Press Enter again to confirm"
+      "disconnectAllConfirm_other": "Disconnect {{count}} sessions? Press Enter again to confirm",
+      "lockTab": "Lock Tab",
+      "unlockTab": "Unlock Tab",
+      "pinTab": "Pin Tab",
+      "unpinTab": "Unpin Tab",
+      "noActiveTab": "No terminal tab is active"
     },
     "dialogLabel": "Command palette",
     "resultCount_one": "{{count}} result",

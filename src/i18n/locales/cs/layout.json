@@ -321,8 +321,8 @@
         "closeAll": "Zavřít všechny ({{count}})",
         "openInSplit": "Otevřít v rozdělení",
         "inSplit": "v rozdělení",
-        "pin": "Připnout seznam relací",
-        "unpin": "Odepnout seznam relací",
+        "pin": "Zobrazit v bočním panelu",
+        "unpin": "Skrýt boční panel",
         "status": {
           "connected": "Připojeno · {{time}}",
           "connecting": "Připojování…",
@@ -355,7 +355,13 @@
         "keptToast_many": "{{count}} zamčených karet ponecháno",
         "keptToast_other": "{{count}} zamčených karet ponecháno",
         "closeBlocked": "Kartu zavřete až po odemčení",
-        "unlockHint": "Zamčeno · kliknutím odemknete"
+        "unlockHint": "Zamčeno · kliknutím odemknete",
+        "lockTab": "Zamknout kartu",
+        "unlockTab": "Odemknout kartu",
+        "lockPane": "Zamknout panel",
+        "unlockPane": "Odemknout panel",
+        "pinTab": "Připnout kartu",
+        "unpinTab": "Odepnout kartu"
       }
     },
     "vaultHeader": {

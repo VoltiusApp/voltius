@@ -121,7 +121,12 @@
       "importThemes": "Temaları içe aktar…",
       "disconnectAllNone": "Kesilecek açık oturum yok",
       "disconnectAllConfirm_one": "{{count}} oturumun bağlantısı kesilsin mi? Onaylamak için tekrar Enter'a basın",
-      "disconnectAllConfirm_other": "{{count}} oturumun bağlantısı kesilsin mi? Onaylamak için tekrar Enter'a basın"
+      "disconnectAllConfirm_other": "{{count}} oturumun bağlantısı kesilsin mi? Onaylamak için tekrar Enter'a basın",
+      "lockTab": "Sekmeyi Kilitle",
+      "unlockTab": "Sekmenin Kilidini Aç",
+      "pinTab": "Sekmeyi Sabitle",
+      "unpinTab": "Sekmenin Sabitlemesini Kaldır",
+      "noActiveTab": "Etkin terminal sekmesi yok"
     },
     "dialogLabel": "Komut paleti",
     "resultCount_one": "{{count}} sonuç",

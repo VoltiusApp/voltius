@@ -123,7 +123,12 @@
       "disconnectAllNone": "Nenhuma sessão aberta para desconectar",
       "disconnectAllConfirm_one": "Desconectar {{count}} sessão? Prima Enter de novo para confirmar",
       "disconnectAllConfirm_many": "Desconectar {{count}} sessões? Prima Enter de novo para confirmar",
-      "disconnectAllConfirm_other": "Desconectar {{count}} sessões? Prima Enter de novo para confirmar"
+      "disconnectAllConfirm_other": "Desconectar {{count}} sessões? Prima Enter de novo para confirmar",
+      "lockTab": "Bloquear Separador",
+      "unlockTab": "Desbloquear Separador",
+      "pinTab": "Afixar Separador",
+      "unpinTab": "Desafixar Separador",
+      "noActiveTab": "Nenhum separador de terminal ativo"
     },
     "dialogLabel": "Paleta de comandos",
     "resultCount_one": "{{count}} resultado",

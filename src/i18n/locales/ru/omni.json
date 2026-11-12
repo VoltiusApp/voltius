@@ -125,7 +125,12 @@
       "disconnectAllConfirm_one": "Отключить {{count}} сессию? Нажмите Enter ещё раз для подтверждения",
       "disconnectAllConfirm_few": "Отключить {{count}} сессии? Нажмите Enter ещё раз для подтверждения",
       "disconnectAllConfirm_many": "Отключить {{count}} сессий? Нажмите Enter ещё раз для подтверждения",
-      "disconnectAllConfirm_other": "Отключить {{count}} сессии? Нажмите Enter ещё раз для подтверждения"
+      "disconnectAllConfirm_other": "Отключить {{count}} сессии? Нажмите Enter ещё раз для подтверждения",
+      "lockTab": "Заблокировать вкладку",
+      "unlockTab": "Разблокировать вкладку",
+      "pinTab": "Закрепить вкладку",
+      "unpinTab": "Открепить вкладку",
+      "noActiveTab": "Нет активной вкладки терминала"
     },
     "dialogLabel": "Палитра команд",
     "resultCount_one": "{{count}} результат",

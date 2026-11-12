@@ -123,7 +123,12 @@
       "disconnectAllNone": "Aucune session ouverte à déconnecter",
       "disconnectAllConfirm_one": "Déconnecter {{count}} session ? Appuyez de nouveau sur Entrée pour confirmer",
       "disconnectAllConfirm_many": "Déconnecter {{count}} sessions ? Appuyez de nouveau sur Entrée pour confirmer",
-      "disconnectAllConfirm_other": "Déconnecter {{count}} sessions ? Appuyez de nouveau sur Entrée pour confirmer"
+      "disconnectAllConfirm_other": "Déconnecter {{count}} sessions ? Appuyez de nouveau sur Entrée pour confirmer",
+      "lockTab": "Verrouiller l'onglet",
+      "unlockTab": "Déverrouiller l'onglet",
+      "pinTab": "Épingler l'onglet",
+      "unpinTab": "Désépingler l'onglet",
+      "noActiveTab": "Aucun onglet de terminal actif"
     },
     "dialogLabel": "Palette de commandes",
     "resultCount_one": "{{count}} résultat",

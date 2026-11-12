@@ -249,6 +249,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     t,
     closeLabel: t("panes.header.closePane"),
     onClose: handleClosePane,
+    scope: "pane",
     onRename: () => setRenaming(true),
     extras: [
       {
