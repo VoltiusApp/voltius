@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { AppTheme } from "@/themes/types";
+import { InstallButton } from "@/components/shared/InstallButton";
 import type { ThemePreviewPalette } from "@/themes/marketplaceThemes";
 
 type TerminalColors = ThemePreviewPalette["terminal"];
@@ -64,20 +65,7 @@ export function ThemeGetButton({ busy, disabledReason, onClick }: {
   onClick: () => void;
 }) {
   const { t } = useTranslation();
-  const label = t("settings.appearance.marketplace.get");
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={disabledReason ?? undefined}
-      disabled={busy || disabledReason !== null}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 bg-(--t-accent) text-(--t-bg-base) transition-opacity hover:opacity-85 disabled:opacity-40 disabled:cursor-not-allowed"
-    >
-      <Icon icon={busy ? "lucide:loader" : "lucide:download"} width={12} className={busy ? "animate-spin" : undefined} />
-      {label}
-    </button>
-  );
+  return <InstallButton label={t("settings.appearance.marketplace.get")} busy={busy} disabledReason={disabledReason} onClick={onClick} />;
 }
 
 export function MarketplaceSourceBadge({ sourceName }: { sourceName: string | null }) {
