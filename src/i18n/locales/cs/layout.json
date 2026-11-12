@@ -354,7 +354,8 @@
         "keptToast_few": "{{count}} zamčené karty ponechány",
         "keptToast_many": "{{count}} zamčených karet ponecháno",
         "keptToast_other": "{{count}} zamčených karet ponecháno",
-        "closeBlocked": "Kartu zavřete až po odemčení"
+        "closeBlocked": "Kartu zavřete až po odemčení",
+        "unlockHint": "Zamčeno · kliknutím odemknete"
       }
     },
     "vaultHeader": {

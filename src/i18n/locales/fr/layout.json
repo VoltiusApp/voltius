@@ -345,7 +345,8 @@
         "keptToast_one": "{{count}} onglet verrouillé conservé",
         "keptToast_many": "{{count}} onglets verrouillés conservés",
         "keptToast_other": "{{count}} onglets verrouillés conservés",
-        "closeBlocked": "Déverrouillez l'onglet pour le fermer"
+        "closeBlocked": "Déverrouillez l'onglet pour le fermer",
+        "unlockHint": "Verrouillé · cliquez pour déverrouiller"
       }
     },
     "vaultHeader": {

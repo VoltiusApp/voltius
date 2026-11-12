@@ -9,6 +9,8 @@ import { STATUS_TONE_COLOR, type StatusTone } from "@/utils/statusTone";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { TabCloseControl } from "@/components/shared/TabCloseControl";
+import { setTabLocked } from "@/services/tabLock";
 
 export function sessionTabIcon(
   session: TerminalSession,
@@ -80,6 +82,10 @@ export function buildSessionTabHandlers(deps: SessionTabHandlerDeps) {
     renameAriaLabel: deps.t("layout.titleBar.renameTab"),
     onRenameCommit: (name: string) => deps.commitRename(session.id, name),
     onRenameCancel: () => deps.cancelRename(session.id),
+    locked: session.locked === true,
+    lockIds: [session.id],
+    onUnlock: () => setTabLocked({ kind: "session", id: session.id }, false),
+    closeTitle: deps.t("layout.titleBar.closeTab"),
   });
 }
 
@@ -105,6 +111,10 @@ export function TitlebarTab({
   onMouseEnter,
   onMouseLeave,
   buttonRef,
+  locked = false,
+  lockIds = [],
+  onUnlock = () => {},
+  closeTitle = "",
 }: {
   itemKey: string;
   active: boolean;
@@ -127,6 +137,10 @@ export function TitlebarTab({
   onMouseEnter?: (e: React.MouseEvent) => void;
   onMouseLeave?: (e: React.MouseEvent) => void;
   buttonRef?: React.Ref<HTMLButtonElement>;
+  locked?: boolean;
+  lockIds?: string[];
+  onUnlock?: () => void;
+  closeTitle?: string;
 }) {
   if (renaming) {
     return (
@@ -179,17 +193,17 @@ export function TitlebarTab({
         {label}
       </span>
       {trailing}
-      {onClose && <span
-        onClick={onClose}
-        className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
-        style={{ color: active ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = active ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
-      >
-        <span className="[&_path]:stroke-[2.1]">
-          <Icon icon="lucide:x" width={20} />
-        </span>
-      </span>}
+      {onClose && (
+        <TabCloseControl
+          variant="tab"
+          locked={locked}
+          lockIds={lockIds}
+          active={active}
+          closeTitle={closeTitle}
+          onClose={onClose}
+          onUnlock={onUnlock}
+        />
+      )}
     </button>
   );
 }

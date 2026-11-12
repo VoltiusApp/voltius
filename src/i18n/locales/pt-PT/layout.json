@@ -345,7 +345,8 @@
         "keptToast_one": "{{count}} separador bloqueado mantido",
         "keptToast_many": "{{count}} separadores bloqueados mantidos",
         "keptToast_other": "{{count}} separadores bloqueados mantidos",
-        "closeBlocked": "Desbloqueie o separador para o fechar"
+        "closeBlocked": "Desbloqueie o separador para o fechar",
+        "unlockHint": "Bloqueado · clique para desbloquear"
       }
     },
     "vaultHeader": {

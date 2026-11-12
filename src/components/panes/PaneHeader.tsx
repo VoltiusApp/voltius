@@ -19,6 +19,9 @@ import { useConnection } from "@/hooks/useAllConnections";
 import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { closeSessionTabs } from "@/services/closeSession";
+import { setTabLocked } from "@/services/tabLock";
+import { useSessionLocked } from "@/hooks/useSessionLocked";
+import { TabCloseControl } from "@/components/shared/TabCloseControl";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
@@ -209,6 +212,8 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     if (!subtitle) return;
     writeClipboard(subtitle).then(() => flashCopied()).catch(() => {});
   };
+
+  const locked = useSessionLocked(session.id);
 
   const handleClosePane = () => {
     if (closeSessionTabs([session.id]).closed.length === 0) return;
@@ -401,13 +406,14 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         >
           <Icon icon={isMaximized ? "lucide:minimize-2" : "lucide:maximize-2"} width={13} />
         </button>
-        <button
-          className="h-full px-1.5 flex items-center justify-center hover:bg-(--t-bg-card-hover) transition-colors text-(--t-text-dim) hover:text-(--t-status-error)"
-          title={t("panes.header.closePane")}
-          onClick={handleClosePane}
-        >
-          <Icon icon="lucide:x" width={14} />
-        </button>
+        <TabCloseControl
+          variant="pane"
+          locked={locked}
+          lockIds={[session.id]}
+          closeTitle={t("panes.header.closePane")}
+          onClose={handleClosePane}
+          onUnlock={() => setTabLocked({ kind: "session", id: session.id }, false)}
+        />
       </div>
       {pos && <ContextMenu items={menuItems} pos={pos} onClose={close} />}
 

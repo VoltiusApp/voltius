@@ -332,7 +332,8 @@
       "lock": {
         "keptToast_one": "已保留 {{count}} 个锁定的标签页",
         "keptToast_other": "已保留 {{count}} 个锁定的标签页",
-        "closeBlocked": "解锁标签页后才能关闭"
+        "closeBlocked": "解锁标签页后才能关闭",
+        "unlockHint": "已锁定 · 点击解锁"
       }
     },
     "vaultHeader": {

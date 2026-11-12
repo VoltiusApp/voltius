@@ -336,7 +336,8 @@
       "lock": {
         "keptToast_one": "{{count}} locked tab kept",
         "keptToast_other": "{{count}} locked tabs kept",
-        "closeBlocked": "Unlock the tab to close it"
+        "closeBlocked": "Unlock the tab to close it",
+        "unlockHint": "Locked · click to unlock"
       }
     },
     "vaultHeader": {

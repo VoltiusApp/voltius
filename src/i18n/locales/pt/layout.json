@@ -345,7 +345,8 @@
         "keptToast_one": "{{count}} aba bloqueada mantida",
         "keptToast_many": "{{count}} abas bloqueadas mantidas",
         "keptToast_other": "{{count}} abas bloqueadas mantidas",
-        "closeBlocked": "Desbloqueie a aba para fechá-la"
+        "closeBlocked": "Desbloqueie a aba para fechá-la",
+        "unlockHint": "Bloqueada · clique para desbloquear"
       }
     },
     "vaultHeader": {

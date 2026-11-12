@@ -336,7 +336,8 @@
       "lock": {
         "keptToast_one": "{{count}} kilitli sekme korundu",
         "keptToast_other": "{{count}} kilitli sekme korundu",
-        "closeBlocked": "Kapatmak için sekmenin kilidini açın"
+        "closeBlocked": "Kapatmak için sekmenin kilidini açın",
+        "unlockHint": "Kilitli · kilidi açmak için tıklayın"
       }
     },
     "vaultHeader": {
