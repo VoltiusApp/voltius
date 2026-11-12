@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { useLockNudgeStore } from "@/stores/lockNudgeStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSessionsLocked } from "@/hooks/useSessionLocked";
+import { useLockNudge } from "@/hooks/useLockNudge";
 
 export type TabCloseVariant = "tab" | "pane" | "row" | "chip" | "badge";
 
@@ -33,18 +33,6 @@ const LOCK_CLASS: Record<TabCloseVariant, string> = {
   badge: "absolute -right-1.5 -bottom-1 inline-flex p-0.5 rounded-full bg-(--t-bg-terminal) hover:text-(--t-text-primary)!",
 };
 
-function useWiggle(lockIds: string[], locked: boolean): [boolean, () => void] {
-  const nonce = useLockNudgeStore((s) => s.nonce);
-  const [wiggle, setWiggle] = useState(false);
-  const seen = useRef(nonce);
-  useEffect(() => {
-    if (nonce === seen.current) return;
-    seen.current = nonce;
-    if (locked && useLockNudgeStore.getState().ids.some((id) => lockIds.includes(id))) setWiggle(true);
-  }, [nonce, locked, lockIds]);
-  return [wiggle, () => setWiggle(false)];
-}
-
 export function TabCloseControl({
   variant,
   sessionIds,
@@ -62,7 +50,7 @@ export function TabCloseControl({
   const locked = useSessionsLocked(sessionIds);
   const [hover, setHover] = useState(false);
   const [disarmed, setDisarmed] = useState(false);
-  const [wiggle, endWiggle] = useWiggle(sessionIds, locked);
+  const wiggle = useLockNudge(sessionIds, locked);
   const size = SIZES[variant];
   const Tag = variant === "tab" || variant === "badge" ? "span" : "button";
   const tint = variant === "tab" || variant === "badge"
@@ -78,15 +66,16 @@ export function TabCloseControl({
   if (locked) {
     return (
       <Tag
+        key={wiggle.key}
         role="button"
         title={t("layout.titleBar.lock.unlockHint")}
         aria-label={t("layout.titleBar.lock.unlockHint")}
-        className={`${LOCK_CLASS[variant]} ${wiggle ? "animate-tab-lock-wiggle" : ""}`}
+        className={`${LOCK_CLASS[variant]} ${wiggle.active ? "animate-tab-lock-wiggle" : ""}`}
         style={tint}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-        onAnimationEnd={endWiggle}
+        onAnimationEnd={wiggle.end}
         onDoubleClick={(e: React.MouseEvent) => e.stopPropagation()}
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
