@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
+import { ThemeCardSwatches, uiColorsOf } from "@/components/shared/ThemeParts";
 import { useUIStore } from "@/stores/uiStore";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
@@ -225,11 +226,7 @@ export default function AppearanceSection() {
                     <Icon icon="lucide:check" width={9} className="text-white" />
                   </span>
                 )}
-                <div className="flex gap-1.5">
-                  {[theme.ui.bgTerminal, theme.ui.accent, theme.ui.tabActiveText, theme.ui.statusConnected].map((color, i) => (
-                    <span key={i} className="w-5 h-5 rounded-md shrink-0" style={{ background: color, border: "1px solid rgba(255,255,255,0.08)" }} />
-                  ))}
-                </div>
+                <ThemeCardSwatches colors={uiColorsOf(theme)} />
                 <span className="text-xs font-medium leading-tight" style={{ color: isActive ? "var(--t-text-bright)" : "var(--t-text-primary)" }}>
                   {theme.name}
                 </span>

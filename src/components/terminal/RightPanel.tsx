@@ -10,7 +10,11 @@ import PanelSftpSection from "@/components/terminal/PanelSftpSection";
 import { NotesPanel } from "@/components/terminal/NotesPanel";
 import { useThemeStore } from "@/stores/themeStore";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
-import type { AppTheme } from "@/themes/types";
+import { useMarketplaceThemes } from "@/hooks/useMarketplaceThemes";
+import { openMarketplaceThemes } from "@/themes/marketplaceThemes";
+import {
+  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeGetButton, ThemeTerminalPreview, terminalColorsOf,
+} from "@/components/shared/ThemeParts";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
 import { SidePanelColumn, sidePanelWidthStyles } from "@/components/layout/SidePanelColumn";
@@ -18,39 +22,14 @@ import { pluginSectionIdOf, useTerminalPanels } from "./terminalPanels";
 
 const PANEL_GUTTER = 16;
 
-// ─── Theme preview thumbnail ──────────────────────────────────────────────────
-
-function ThemePreview({ theme }: { theme: AppTheme }) {
-  const t = theme.terminal;
-  return (
-    <div
-      style={{
-        width: 72, height: 52, borderRadius: 6, flexShrink: 0,
-        background: t.background,
-        border: "1px solid rgba(255,255,255,0.08)",
-        padding: "7px 8px",
-        display: "flex", flexDirection: "column", gap: 4,
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ display: "flex", gap: 3 }}>
-        <div style={{ height: 5, borderRadius: 2, background: t.green, flex: 3 }} />
-        <div style={{ height: 5, borderRadius: 2, background: t.blue, flex: 2 }} />
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: t.yellow, width: "70%" }} />
-      <div style={{ height: 4, borderRadius: 2, background: t.cyan, width: "55%" }} />
-      <div style={{ height: 4, borderRadius: 2, background: t.foreground, width: "80%", opacity: 0.3 }} />
-    </div>
-  );
-}
-
 // ─── Themes section ───────────────────────────────────────────────────────────
 
 function ThemesSection() {
   const { t } = useTranslation();
-  const { activeThemeId, setTheme, deleteCustomTheme, getActiveTheme } = useThemeStore();
+  const { activeThemeId, setTheme, getActiveTheme } = useThemeStore();
   const openThemeCreator = useUIStore((s) => s.openThemeCreator);
   const allThemes = useInstalledThemes();
+  const marketplace = useMarketplaceThemes();
 
   return (
     <div className="flex flex-col h-full">
@@ -79,6 +58,8 @@ function ThemesSection() {
       <div className="flex-1 overflow-y-auto">
         {allThemes.map((theme) => {
           const isActive = theme.id === activeThemeId;
+          const removal = marketplace.removal(theme);
+          const removalLabel = removal?.kind === "uninstall" ? t("settings.appearance.marketplace.remove") : t("common.action.delete");
           return (
             <div
               key={theme.id}
@@ -89,7 +70,7 @@ function ThemesSection() {
               onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
               <div className="relative">
-                <ThemePreview theme={theme} />
+                <ThemeTerminalPreview colors={terminalColorsOf(theme)} />
                 {isActive && (
                   <div style={{ position: "absolute", inset: 0, borderRadius: 6, border: `2px solid ${theme.ui.tabActiveText}`, pointerEvents: "none" }} />
                 )}
@@ -104,26 +85,26 @@ function ThemesSection() {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {!theme.builtIn && (
-                  <>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
-                      className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
-                      title={t("common.action.edit")}
-                    >
-                      <Icon icon="lucide:pencil" width={12} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteCustomTheme(theme.id); if (activeThemeId === theme.id) setTheme("abyss"); }}
-                      className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
-                      title={t("common.action.delete")}
-                    >
-                      <Icon icon="lucide:trash-2" width={12} />
-                    </button>
-                  </>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
+                    className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
+                    title={t("common.action.edit")}
+                  >
+                    <Icon icon="lucide:pencil" width={12} />
+                  </button>
+                )}
+                {removal && (
+                  <button
+                    aria-label={removalLabel}
+                    title={removal.disabledReason ?? removalLabel}
+                    disabled={removal.disabledReason !== null}
+                    onClick={(e) => { e.stopPropagation(); removal.remove(); }}
+                    className="p-1.5 rounded-sm transition-colors text-(--t-text-muted) enabled:hover:text-(--t-status-error) disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Icon icon="lucide:trash-2" width={12} />
+                  </button>
                 )}
               </div>
             </div>
@@ -139,7 +120,32 @@ function ThemesSection() {
           <Icon icon="lucide:circle-plus" width={15} />
           <span className="text-sm font-medium">{t("terminal.rightPanel.createNewTheme")}</span>
         </button>
+
+        {marketplace.available.length > 0 && (
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-sm font-medium text-(--t-text-bright)">{t("settings.appearance.marketplace.available")}</p>
+          </div>
+        )}
+        {marketplace.available.map((item) => (
+          <div
+            key={item.entry.id}
+            data-theme-available={item.entry.id}
+            className="flex items-center gap-3 px-4 py-3 border-b border-b-(--t-border)"
+          >
+            <ThemeTerminalPreview colors={item.preview?.terminal ?? null} />
+            <div className="flex-1 min-w-0 flex flex-col">
+              <p className="text-sm font-medium truncate text-(--t-text-primary)">{item.entry.name}</p>
+              <MarketplaceSourceBadge sourceName={item.sourceName} />
+            </div>
+            <ThemeGetButton busy={marketplace.busy.has(item.entry.id)} disabledReason={item.disabledReason} onClick={() => marketplace.get(item)} />
+          </div>
+        ))}
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <MarketplaceThemeStatus loading={marketplace.loading} unreachableCount={marketplace.unreachableCount} />
+          <BrowseMarketplaceThemesButton onClick={openMarketplaceThemes} />
+        </div>
       </div>
+      {marketplace.modal}
     </div>
   );
 }

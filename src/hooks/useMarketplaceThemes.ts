@@ -22,6 +22,7 @@ export interface AvailableTheme {
 }
 
 export interface ThemeRemoval {
+  kind: "delete" | "uninstall";
   disabledReason: string | null;
   remove(): void;
 }
@@ -82,6 +83,7 @@ export function useMarketplaceThemes(): {
     if (!pluginThemes.has(theme.id)) {
       if (theme.builtIn) return null;
       return {
+        kind: "delete",
         disabledReason: null,
         remove: () => { useThemeStore.getState().deleteCustomTheme(theme.id); dropActive([theme.id]); },
       };
@@ -89,9 +91,10 @@ export function useMarketplaceThemes(): {
     const owner = getLoadedPlugins().find((m) => pluginThemeIdsFor(pluginThemes, m.id).includes(theme.id));
     if (!owner) return null;
     if (!isThemeOnly(owner)) {
-      return { disabledReason: t("settings.appearance.marketplace.partOfPlugin", { plugin: owner.name }), remove: () => {} };
+      return { kind: "uninstall", disabledReason: t("settings.appearance.marketplace.partOfPlugin", { plugin: owner.name }), remove: () => {} };
     }
     return {
+      kind: "uninstall",
       disabledReason: null,
       remove: () => {
         dropActive(pluginThemeIdsFor(pluginThemes, owner.id));
