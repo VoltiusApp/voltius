@@ -619,9 +619,7 @@ export async function getAccountMode(): Promise<string | null> {
   return keychainGet("mode");
 }
 
-export async function getAccountId(): Promise<string | null> {
-  return keychainGet("account_id");
-}
+export { getAccountId } from "./authTokens";
 
 export async function getCurrentUserEmail(): Promise<string | null> {
   return keychainGet("email");

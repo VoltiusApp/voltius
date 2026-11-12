@@ -47,6 +47,8 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   "voltius-team-policy",
   // This account's other devices met on the local network, by name.
   "voltius-lan-sync-devices",
+  // Team audit events awaiting delivery; they may only ever be sent with this account's session.
+  "voltius-audit-outbox",
 ];
 
 /**

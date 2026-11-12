@@ -1,7 +1,6 @@
 import i18n from "@/i18n";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { getServerUrl } from "@/services/authTokens";
-import type { AnyAuditAction } from "@/services/auditContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,28 +73,4 @@ export async function exportAuditLogs(
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/audit-logs/export?${params}`);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToExportAuditLogs", { status: res.status }));
   return res.blob();
-}
-
-export async function reportClientEvent(
-  teamId: string,
-  event: {
-    action: AnyAuditAction;
-    vault_id?: string;
-    target_type?: string;
-    target_id?: string;
-    target_name?: string;
-    metadata?: Record<string, unknown>;
-    occurred_at: string;
-  },
-): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) return;
-  try {
-    await fetchAuth(`${serverUrl}/v1/teams/${teamId}/audit-logs/client`, {
-      method: "POST",
-      body: JSON.stringify(event),
-    });
-  } catch {
-    // fire-and-forget: silently drop errors
-  }
 }
