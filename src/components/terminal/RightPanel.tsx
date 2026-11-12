@@ -268,10 +268,9 @@ export default function RightPanel() {
   const activeNav = useUIStore((s) => s.activeNav);
   const panelWidth = useUIStore((s) => s.rightPanelWidth);
   const setPanelWidth = useUIStore((s) => s.setRightPanelWidth);
-  const { sessions, activeSessionId } = useSessionStore();
+  const hasActiveSession = useSessionStore((s) => s.activeSessionId !== null && s.sessions.length > 0);
   const { t } = useTranslation();
 
-  const hasActiveSession = activeSessionId !== null && sessions.length > 0;
   const isTerminalView = hasActiveSession && activeNav !== "hosts";
 
   if (!isTerminalView) return null;
