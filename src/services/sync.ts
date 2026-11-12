@@ -39,6 +39,7 @@ import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/ser
 import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
+import { cancelTeamVaultCatchUp, catchUpTeamVaults } from "@/services/teamVaultCatchUp";
 import { RECONCILE_MS, SSE_RETRY_GATEWAY_MAX_MS, jittered, sseRetryDelay } from "@/services/syncRetry";
 import { isProxyAnswer, isUnreachable, reachableFetch } from "@/services/reachability";
 import { createWakeableSleeps } from "@/lib/wakeableSleep";
@@ -1066,6 +1067,7 @@ export function startRealtimeSync(): void {
 
 export function stopRealtimeSync(): void {
   cancelSyncRetry();
+  cancelTeamVaultCatchUp();
   _failedSyncs = 0;
   _sseAbort?.abort();
   _sseAbort = null;
@@ -1089,6 +1091,7 @@ export function resumeSync(): void {
 
 async function _sseLoop(signal: AbortSignal): Promise<void> {
   let failures = 0;
+  let reopened = false;
   while (!signal.aborted) {
     const attempt = new AbortController();
     const end = () => attempt.abort();
@@ -1117,6 +1120,9 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
           healthy = true;
           _doubtStream = doubt;
           armReconcile();
+          // The first open follows the login sync, which already loaded every team vault.
+          if (reopened && !_loginSyncOwed) catchUpTeamVaults();
+          reopened = true;
           heard();
         },
         onData: heard,
@@ -1378,11 +1384,14 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     await refetchActiveSessions();
   } else if (eventData !== myDeviceId) {
     syncNow().catch(logFailure("cross-device push: syncNow"));
-    // "sync" is the server's lagged-receiver fallback: session_shared /
-    // session_ended may have been dropped, so refetch active sessions too.
+    // "sync" is the server's lagged-receiver fallback: session and team vault
+    // events may have been dropped, so refetch those too.
     // Scoped to that event — ordinary cross-device pushes carry a device id
     // and must not each cost a session round-trip.
-    if (eventData === "sync") refetchActiveSessions().catch(logFailure("sync fallback: refetchActiveSessions"));
+    if (eventData === "sync") {
+      refetchActiveSessions().catch(logFailure("sync fallback: refetchActiveSessions"));
+      catchUpTeamVaults();
+    }
   }
 }
 
