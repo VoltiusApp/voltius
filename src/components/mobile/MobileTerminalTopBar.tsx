@@ -13,20 +13,26 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { closeSessionTabs } from "@/services/closeSession";
+import { setTabLocked } from "@/services/tabLock";
+import { useLayoutStore } from "@/stores/layoutStore";
+import { TabCloseControl } from "@/components/shared/TabCloseControl";
+import type { TerminalSession } from "@/types";
+import TabActionsSheet from "./sheets/TabActionsSheet";
+import { useLongPress } from "./useLongPress";
+import { useMobileSessions } from "./useMobileSessions";
 
 /** Persistent slim terminal chrome: exit chevron / scrollable session tabs / new / panels menu. */
 export default function MobileTerminalTopBar() {
   const { t } = useTranslation();
-  // Select the raw array (stable ref) and filter in render — a filtering selector
-  // returns a fresh array each store update and defeats selector memoization.
-  const allSessions = useSessionStore((s) => s.sessions);
-  const sessions = allSessions.filter((x) => x.type !== "multiplayer");
+  const sessions = useMobileSessions();
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActive = useSessionStore((s) => s.setActive);
   const setTab = useMobileNavStore((s) => s.setTab);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
+  const actionsSession = sessions.find((x) => x.id === actionsFor);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
 
@@ -58,27 +64,9 @@ export default function MobileTerminalTopBar() {
         <Icon icon="lucide:chevron-left" width={22} />
       </button>
       <div ref={chipsRef} data-mobile-session-chips className="flex-1 flex items-center gap-1.5 overflow-x-auto pl-1 pr-2 h-full scrollbar-none">
-        {sessions.map((s) => {
-          const active = s.id === activeSessionId;
-          return (
-            <span
-              key={s.id}
-              data-mobile-session-chip={s.id}
-              className="shrink-0 flex items-center gap-1.5 rounded-full pl-2.5 pr-1 h-8 text-xs font-medium whitespace-nowrap"
-              style={{
-                background: active ? "var(--t-accent)" : "var(--t-bg-card)",
-                color: active ? "#fff" : "var(--t-text-primary)",
-                border: "1px solid var(--t-border)",
-              }}
-            >
-              <StatusDot tone={sessionStatusTone(s.status)} size="sm" />
-              <button className="vt-hit self-stretch" onClick={() => setActive(s.id)}>{sessionLabel(s)}</button>
-              <button data-mobile-session-close={s.id} onClick={() => closeSessionTabs([s.id])} className="vt-hit opacity-70 h-8 w-8 rounded-full flex items-center justify-center">
-                <Icon icon="lucide:x" width={12} />
-              </button>
-            </span>
-          );
-        })}
+        {sessions.map((s) => (
+          <SessionChip key={s.id} session={s} active={s.id === activeSessionId} onActivate={() => setActive(s.id)} onLongPress={() => setActionsFor(s.id)} />
+        ))}
       </div>
       <button
         data-mobile-terminal-new
@@ -89,6 +77,7 @@ export default function MobileTerminalTopBar() {
         <Icon icon="lucide:plus" width={20} />
       </button>
       {pickerOpen && <NewSessionSheet onClose={() => setPickerOpen(false)} />}
+      {actionsSession && <TabActionsSheet session={actionsSession} onClose={() => setActionsFor(null)} />}
       <NotificationBell />
       <div className="shrink-0">
         <button
@@ -122,5 +111,39 @@ export default function MobileTerminalTopBar() {
         </PickerSurface>
       </div>
     </div>
+  );
+}
+
+function SessionChip({ session, active, onActivate, onLongPress }: {
+  session: TerminalSession;
+  active: boolean;
+  onActivate: () => void;
+  onLongPress: () => void;
+}) {
+  const { t } = useTranslation();
+  const press = useLongPress(onLongPress, onActivate);
+  const pinned = useLayoutStore((st) => st.pinnedKeys.includes(`session:${session.id}`));
+  return (
+    <span
+      data-mobile-session-chip={session.id}
+      className="shrink-0 flex items-center gap-1.5 rounded-full pl-2.5 pr-1 h-8 text-xs font-medium whitespace-nowrap"
+      style={{
+        background: active ? "var(--t-accent)" : "var(--t-bg-card)",
+        color: active ? "#fff" : "var(--t-text-primary)",
+        border: "1px solid var(--t-border)",
+      }}
+    >
+      <StatusDot tone={sessionStatusTone(session.status)} size="sm" />
+      {pinned && <Icon icon="lucide:pin" width={11} className="opacity-80 -ml-0.5" />}
+      <button className="vt-hit self-stretch" {...press}>{sessionLabel(session)}</button>
+      <TabCloseControl
+        variant="chip"
+        locked={session.locked === true}
+        lockIds={[session.id]}
+        closeTitle={t("layout.titleBar.closeTab")}
+        onClose={() => closeSessionTabs([session.id])}
+        onUnlock={() => setTabLocked({ kind: "session", id: session.id }, false)}
+      />
+    </span>
   );
 }
