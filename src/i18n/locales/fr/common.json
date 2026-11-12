@@ -62,6 +62,7 @@
       "search": "Rechercher…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "Votre invitation à {{team}} n'est plus valable, vous n'avez donc pas été ajouté. Demandez à l'équipe de vous en envoyer une nouvelle.",
       "proSubscriptionEnded": "Votre abonnement Pro a expiré — la synchronisation cloud est en pause. Vos appareils restent synchronisés sur le même réseau.",
       "proSubscriptionEnded_ios": "Votre abonnement Pro a expiré — la synchronisation est en pause.",
       "seatEnded": "Votre place dans {{team}} a pris fin — la synchronisation cloud est en pause. Vos appareils restent synchronisés sur le même réseau.",

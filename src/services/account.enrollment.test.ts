@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, test, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), sent: {} as Record<string, Record<string, unknown>>, register: {} as Record<string, unknown> }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), addToast: vi.fn(), sent: {} as Record<string, Record<string, unknown>>, register: {} as Record<string, unknown> }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
-vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string, vars?: Record<string, unknown>) => (vars ? `${k} ${JSON.stringify(vars)}` : k) } }));
+vi.mock("@/stores/notificationStore", () => ({
+  APP_SOURCE: "app",
+  useNotificationStore: { getState: () => ({ addToast: h.addToast }) },
+}));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch, isAbortError: () => false }));
 vi.mock("@/services/sync", () => ({ push: vi.fn(), isSyncPaused: () => false }));
 vi.mock("./vault", () => ({
@@ -32,6 +36,7 @@ const S = "https://srv";
 const CRED = { id: "01234567-89ab-cdef-0123-456789abcdef", secret: "x".repeat(43) };
 
 beforeEach(() => {
+  h.addToast.mockReset();
   h.sent = {};
   h.register = { jwt_token: "JWT", refresh_token: "RT" };
   h.invoke.mockReset().mockImplementation(async (cmd: string) => {
@@ -83,4 +88,20 @@ test("register refused for the token throws the coded enrolment error", async ()
 test("register failing for another reason keeps the plain registration error", async () => {
   h.appFetch.mockImplementation(async () => ({ ok: false, status: 500, json: async () => null }));
   await expect(createServerAccount("a@acme.com", "pw", S, CRED)).rejects.toThrow("common.error.registrationFailed");
+});
+
+test("an invitation the server could not honour at sign-up is named to the new user", async () => {
+  h.register = { ...h.register, withdrawn_invitations: [{ team_name: "Acme Ops" }] };
+  await createServerAccount("a@acme.com", "pw", S);
+  await vi.waitFor(() => expect(h.addToast).toHaveBeenCalledTimes(1));
+  expect(h.addToast.mock.calls[0][0]).toMatchObject({
+    severity: "warning",
+    message: 'common.toast.invitationWithdrawnAtSignup {"team":"Acme Ops"}',
+  });
+});
+
+test("a sign-up with every invitation honoured shows nothing", async () => {
+  await createServerAccount("a@acme.com", "pw", S);
+  await new Promise((r) => setTimeout(r, 0));
+  expect(h.addToast).not.toHaveBeenCalled();
 });

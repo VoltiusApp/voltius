@@ -102,7 +102,23 @@ async function registerOnServer(args: {
     throw (await featureDisabledError(failed)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
   }
   const data = await res.json();
+  announceWithdrawnInvitations(data.withdrawn_invitations);
   return { ...data, enrollment: toEnrollmentOutcome(data.enrollment) ?? undefined };
+}
+
+function announceWithdrawnInvitations(withdrawn: { team_name: string }[] | undefined): void {
+  if (!withdrawn?.length) return;
+  void import("@/stores/notificationStore").then(({ APP_SOURCE, useNotificationStore }) => {
+    for (const { team_name } of withdrawn) {
+      useNotificationStore.getState().addToast({
+        source: APP_SOURCE,
+        type: "toast",
+        message: i18n.t("common.toast.invitationWithdrawnAtSignup", { team: team_name }),
+        severity: "warning",
+        duration: 0,
+      });
+    }
+  });
 }
 
 /** Unwrap cached user secrets into the vault-keys store; null when unusable. */

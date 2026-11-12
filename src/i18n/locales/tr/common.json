@@ -62,6 +62,7 @@
       "search": "Ara…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "{{team}} davetiniz artık geçerli değil, bu yüzden eklenmediniz. Ekipten yeni bir davet göndermesini isteyin.",
       "proSubscriptionEnded": "Pro aboneliğiniz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
       "proSubscriptionEnded_ios": "Pro aboneliğiniz sona erdi — eşitleme duraklatıldı.",
       "seatEnded": "{{team}} ekibindeki koltuğunuz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",

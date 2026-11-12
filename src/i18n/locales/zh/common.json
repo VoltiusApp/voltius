@@ -62,6 +62,7 @@
       "search": "搜索…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "你加入 {{team}} 的邀请已失效，因此未将你加入。请让团队重新发送邀请。",
       "proSubscriptionEnded": "您的 Pro 订阅已结束——云同步已暂停。您的设备在同一网络中仍会同步。",
       "proSubscriptionEnded_ios": "您的 Pro 订阅已结束——同步已暂停。",
       "seatEnded": "您在 {{team}} 的席位已结束——云同步已暂停。您的设备在同一网络中仍会同步。",
