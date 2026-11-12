@@ -29,6 +29,7 @@ export interface Team {
   lock_policy?: TeamLockPolicy | null;
   policy?: TeamPolicyDoc | null;
   policy_revision?: number;
+  data_version?: number;
   joined_at?: string;
 }
 

@@ -14,7 +14,7 @@ const h = vi.hoisted(() => ({
   settle: vi.fn(async () => {}),
   catchUpTeamVaults: vi.fn(),
 }));
-vi.mock("@/services/teamVaultCatchUp", () => ({ catchUpTeamVaults: h.catchUpTeamVaults, cancelTeamVaultCatchUp: vi.fn() }));
+vi.mock("@/services/teamVaultCatchUp", () => ({ catchUpTeamVaults: h.catchUpTeamVaults, cancelTeamVaultCatchUp: vi.fn(), forgetTeamDataSeen: vi.fn() }));
 vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), settleVaultOnDek: h.settle }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -673,7 +673,7 @@ test("team vaults catch up when the stream reopens, not when it first opens", as
 
   await vi.advanceTimersByTimeAsync(6_000);
   expect(h.connects).toHaveLength(2);
-  expect(h.catchUpTeamVaults).toHaveBeenCalledTimes(1);
+  expect(h.catchUpTeamVaults).toHaveBeenCalledWith({ refetchUnversioned: true });
 });
 
 test("the server's lag fallback catches team vaults up", async () => {
@@ -685,5 +685,14 @@ test("the server's lag fallback catches team vaults up", async () => {
   h.chunk("data: sync\n\n");
   await vi.advanceTimersByTimeAsync(0);
 
-  expect(h.catchUpTeamVaults).toHaveBeenCalledTimes(1);
+  expect(h.catchUpTeamVaults).toHaveBeenCalledWith({ refetchUnversioned: true });
+});
+
+test("the periodic check also catches up team vaults whose version moved", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await keepStreamAliveFor(10 * 60_000);
+
+  expect(h.catchUpTeamVaults).toHaveBeenCalledWith({ refetchUnversioned: false });
 });

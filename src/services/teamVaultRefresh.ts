@@ -6,18 +6,18 @@ export function shouldShowBlockingTeamVaultLoad(options: TeamVaultRefreshOptions
   return options.background !== true;
 }
 
-type Refresh = (options: TeamVaultRefreshOptions) => Promise<void>;
+type Refresh<T> = (options: TeamVaultRefreshOptions) => Promise<T>;
 
-interface FollowUp {
-  promise: Promise<void>;
+interface FollowUp<T> {
+  promise: Promise<T>;
   options: TeamVaultRefreshOptions;
 }
 
-export class TeamVaultRefreshQueue {
-  private readonly inFlight = new Map<string, Promise<void>>();
-  private readonly followUps = new Map<string, FollowUp>();
+export class TeamVaultRefreshQueue<T = void> {
+  private readonly inFlight = new Map<string, Promise<T>>();
+  private readonly followUps = new Map<string, FollowUp<T>>();
 
-  run(teamId: string, options: TeamVaultRefreshOptions, refresh: Refresh): Promise<void> {
+  run(teamId: string, options: TeamVaultRefreshOptions, refresh: Refresh<T>): Promise<T> {
     const current = this.inFlight.get(teamId);
     if (!current) return this.start(teamId, () => refresh(options));
 
@@ -27,7 +27,7 @@ export class TeamVaultRefreshQueue {
       return queued.promise;
     }
 
-    const followUp: FollowUp = { options: { ...options }, promise: Promise.resolve() };
+    const followUp = { options: { ...options } } as FollowUp<T>;
     followUp.promise = current.catch(() => {}).then(() => {
       this.followUps.delete(teamId);
       return this.start(teamId, () => refresh(followUp.options));
@@ -36,7 +36,7 @@ export class TeamVaultRefreshQueue {
     return followUp.promise;
   }
 
-  private start(teamId: string, refresh: () => Promise<void>): Promise<void> {
+  private start(teamId: string, refresh: () => Promise<T>): Promise<T> {
     const next = refresh().finally(() => {
       if (this.inFlight.get(teamId) === next && !this.followUps.has(teamId)) {
         this.inFlight.delete(teamId);
