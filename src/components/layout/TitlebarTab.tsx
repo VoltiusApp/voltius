@@ -115,6 +115,7 @@ export function TitlebarTab({
   lockIds = [],
   onUnlock = () => {},
   closeTitle = "",
+  compact = false,
 }: {
   itemKey: string;
   active: boolean;
@@ -141,6 +142,7 @@ export function TitlebarTab({
   lockIds?: string[];
   onUnlock?: () => void;
   closeTitle?: string;
+  compact?: boolean;
 }) {
   if (renaming) {
     return (
@@ -169,8 +171,8 @@ export function TitlebarTab({
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
-      className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
-      title={title}
+      className={`group relative flex items-center h-9 rounded-xl text-base font-medium-bold shrink-0 transition-all ${compact ? "w-10 justify-center" : "gap-2 px-2 overflow-hidden"}`}
+      title={compact ? [renameValue, title].filter(Boolean).join("\n") : title}
       style={tabSurfaceStyle(active)}
       onMouseEnter={(e) => {
         if (!active) {
@@ -188,12 +190,17 @@ export function TitlebarTab({
       }}
     >
       {mcpBar}
-      {icon}
-      <span className="max-w-[140px] truncate" onClick={onLabelClick}>
+      {compact ? (
+        <span className="relative inline-flex">
+          {icon}
+          <TabCloseControl variant="badge" locked={locked} lockIds={lockIds} active={active} closeTitle={closeTitle} onClose={() => {}} onUnlock={onUnlock} />
+        </span>
+      ) : icon}
+      {!compact && <span className="max-w-[140px] truncate" onClick={onLabelClick}>
         {label}
-      </span>
-      {trailing}
-      {onClose && (
+      </span>}
+      {!compact && trailing}
+      {!compact && onClose && (
         <TabCloseControl
           variant="tab"
           locked={locked}

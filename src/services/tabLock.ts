@@ -1,4 +1,5 @@
 import { findSessionPane, getPaneSessionIds, useLayoutStore, type SplitTab } from "@/stores/layoutStore";
+import { orderPinnedFirst } from "@/utils/pinnedOrder";
 import { useSessionStore } from "@/stores/sessionStore";
 
 export type TabTarget = { kind: "session" | "split"; id: string };
@@ -42,4 +43,8 @@ export function tabTargetLocked(target: TabTarget): boolean {
   if (target.kind === "session") return isSessionLocked(target.id);
   const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === target.id);
   return tab ? splitTabLocked(tab) : false;
+}
+
+export function sessionsPinnedFirst<T extends { id: string }>(sessions: T[]): T[] {
+  return orderPinnedFirst(sessions, (s) => isPinnedKey(titlebarKeyOfSession(s.id)));
 }

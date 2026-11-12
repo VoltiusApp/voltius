@@ -26,6 +26,7 @@ import { McpMark, mcpOwnerTitle } from "@/components/shared/McpMark";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
+import { orderPinnedFirst } from "@/utils/pinnedOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -75,6 +76,8 @@ export default function TitleBar() {
   const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
   const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
+  const pinnedKeys = useLayoutStore((s) => s.pinnedKeys);
+  const isPinned = (key: string) => pinnedKeys.includes(key);
   const syncTitlebarOrder = useLayoutStore((s) => s.syncTitlebarOrder);
   const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
@@ -150,8 +153,8 @@ export default function TitleBar() {
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
   const draggedSession = titlebarDropActive ? sessions.find((session) => session.id === draggedSessionId) : null;
   const visibleItemKeys = visibleTitlebarKeys(sessions, splitTabs);
-  const orderedItemKeys = mergeTitlebarItems(titlebarOrder, visibleItemKeys);
-  const titlebarItems = buildTitlebarItems(orderedItemKeys, sessions, splitTabs, grouped);
+  const orderedItemKeys = orderPinnedFirst(mergeTitlebarItems(titlebarOrder, visibleItemKeys), isPinned);
+  const titlebarItems = buildTitlebarItems(orderedItemKeys, sessions, splitTabs, grouped, isPinned);
 
   const activeItemKey = activeNav !== "terminal" || sftpPanelOpen
     ? null
@@ -391,6 +394,7 @@ export default function TitleBar() {
                   lockIds={tabSessionIds}
                   onUnlock={() => setTabLocked({ kind: "split", id: tab.id }, false)}
                   closeTitle={t("layout.titleBar.closeTab")}
+                  compact={isPinned(item.key)}
                 />
                 {renderTitlebarDropCue(item.key, "after")}
               </div>
@@ -432,6 +436,7 @@ export default function TitleBar() {
                 label={sessionLabel(session)}
                 title={mcpTooltip([session.id])}
                 mcpBar={renderMcpBar(session.id, [session.id])}
+                compact={isPinned(item.key)}
                 {...sessionTabHandlers(session, item.key, isActive, [pinListExtra(t, panelShowsThisSession, () => (panelShowsThisSession ? setHostPanelPinned(false) : pinHostList(session.id)))])}
               />
               {renderTitlebarDropCue(item.key, "after")}

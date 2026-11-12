@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { useLayoutStore, type SplitTab } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { TerminalSession } from "@/types";
-import { isPinnedKey, isSessionLocked, setTabLocked, splitTabLocked, titlebarKeyOfSession } from "./tabLock";
+import { isPinnedKey, isSessionLocked, sessionsPinnedFirst, setTabLocked, splitTabLocked, titlebarKeyOfSession } from "./tabLock";
 
 const session = (id: string): TerminalSession => ({ id, connectionId: "local", connectionName: id, status: "connected", type: "local" });
 
@@ -50,5 +50,12 @@ describe("tab lock", () => {
     useLayoutStore.getState().setPinned("split:T", true);
     expect(isPinnedKey("split:T")).toBe(true);
     expect(isPinnedKey("session:s3")).toBe(false);
+  });
+
+  test("sessions come pinned first, including panes of a pinned split", () => {
+    useLayoutStore.getState().setPinned("session:s3", true);
+    expect(sessionsPinnedFirst(useSessionStore.getState().sessions).map((s) => s.id)).toEqual(["s3", "s1", "s2"]);
+    useLayoutStore.getState().setPinned("split:T", true);
+    expect(sessionsPinnedFirst(useSessionStore.getState().sessions).map((s) => s.id)).toEqual(["s1", "s2", "s3"]);
   });
 });

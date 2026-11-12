@@ -3,6 +3,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { closeSessionTabs } from "@/services/closeSession";
+import { sessionsPinnedFirst } from "@/services/tabLock";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
@@ -168,7 +169,8 @@ export function useKeyboard() {
 
       if (matchShortcut("next-tab", e)) {
         e.preventDefault();
-        const { sessions, activeSessionId, setActive } = useSessionStore.getState();
+        const { activeSessionId, setActive } = useSessionStore.getState();
+        const sessions = sessionsPinnedFirst(useSessionStore.getState().sessions);
         if (sessions.length > 1 && activeSessionId) {
           const idx = sessions.findIndex((s) => s.id === activeSessionId);
           const next = sessions[(idx + 1) % sessions.length];
@@ -179,7 +181,8 @@ export function useKeyboard() {
 
       if (matchShortcut("prev-tab", e)) {
         e.preventDefault();
-        const { sessions, activeSessionId, setActive } = useSessionStore.getState();
+        const { activeSessionId, setActive } = useSessionStore.getState();
+        const sessions = sessionsPinnedFirst(useSessionStore.getState().sessions);
         if (sessions.length > 1 && activeSessionId) {
           const idx = sessions.findIndex((s) => s.id === activeSessionId);
           const prev = sessions[(idx - 1 + sessions.length) % sessions.length];
