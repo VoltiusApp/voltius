@@ -35,7 +35,7 @@ describe("closeSessionTabs with locked sessions", () => {
   });
 
   test("closes unlocked sessions and keeps locked ones", () => {
-    expect(closeSessionTabs(["a", "b"])).toEqual({ closed: ["b"], kept: ["a"] });
+    expect(closeSessionTabs(["a", "b"])).toMatchObject({ closed: ["b"], kept: ["a"] });
     expect(ids()).toEqual(["a"]);
   });
 
@@ -57,6 +57,21 @@ describe("closeSessionTabs with locked sessions", () => {
     expect(useNotificationStore.getState().toasts).toHaveLength(1);
   });
 
+  test("settled resolves only once the closed sessions have disconnected", async () => {
+    let release!: () => void;
+    const disconnect = vi.fn(() => new Promise<void>((resolve) => { release = resolve; }));
+    useSessionStore.setState({ sessions: [session("a", true), { ...session("c"), status: "connected" }], disconnect });
+    const { settled } = closeSessionTabs(["a", "c"]);
+    let done = false;
+    void settled.then(() => { done = true; });
+    await Promise.resolve();
+    expect(disconnect).toHaveBeenCalledWith("c");
+    expect(done).toBe(false);
+    release();
+    await settled;
+    expect(done).toBe(true);
+  });
+
   test("stays on the terminal view while locked tabs remain", () => {
     const leave = vi.spyOn(useUIStore.getState(), "leaveTerminal");
     useUIStore.setState({ leaveTerminal: leave });
@@ -73,7 +88,7 @@ describe("closeSplitTabSessions", () => {
 
   test("closes unlocked panes and keeps the locked one as a tab in the split's place", () => {
     useSessionStore.setState({ sessions: [session("x"), session("p1s", true), session("p2s")], activeSessionId: "p2s" });
-    expect(closeSplitTabSessions("T")).toEqual({ closed: ["p2s"], kept: ["p1s"] });
+    expect(closeSplitTabSessions("T")).toMatchObject({ closed: ["p2s"], kept: ["p1s"] });
     expect(ids()).toEqual(["x", "p1s"]);
     expect(useLayoutStore.getState().splitTabs).toEqual([]);
     expect(useLayoutStore.getState().titlebarOrder).toEqual(["session:x", "session:p1s"]);
@@ -82,7 +97,7 @@ describe("closeSplitTabSessions", () => {
 
   test("closes the whole split when no pane is locked", () => {
     useSessionStore.setState({ sessions: [session("x"), session("p1s"), session("p2s")], activeSessionId: "p2s" });
-    expect(closeSplitTabSessions("T")).toEqual({ closed: ["p1s", "p2s"], kept: [] });
+    expect(closeSplitTabSessions("T")).toMatchObject({ closed: ["p1s", "p2s"], kept: [] });
     expect(useLayoutStore.getState().titlebarOrder).not.toContain("split:T");
     expect(ids()).toEqual(["x"]);
   });

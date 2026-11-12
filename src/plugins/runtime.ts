@@ -1871,7 +1871,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async close(sessionId) {
         requirePerm(manifest, "sessions:write");
-        if (closeSessionTabs([sessionId]).kept.length > 0) throw new Error(`tab_locked: session "${sessionId}" is locked by the user`);
+        const result = closeSessionTabs([sessionId]);
+        if (result.kept.length > 0) throw new Error(`tab_locked: session "${sessionId}" is locked by the user`);
+        await result.settled;
       },
     },
 
