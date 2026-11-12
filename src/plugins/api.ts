@@ -457,6 +457,8 @@ export interface PluginSession {
   localShell?: string;
   /** The user-given name its tab shows; unset, the tab shows `connectionName`. */
   title?: string;
+  /** The user locked this tab: `sessions.close` rejects with `tab_locked`. */
+  locked?: boolean;
 }
 
 // ─── Files (SFTP / FTP / local) ────────────────────────────────────────────

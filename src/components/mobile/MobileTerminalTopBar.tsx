@@ -12,6 +12,7 @@ import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { sessionStatusTone } from "@/utils/statusTone";
+import { closeSessionTabs } from "@/services/closeSession";
 
 /** Persistent slim terminal chrome: exit chevron / scrollable session tabs / new / panels menu. */
 export default function MobileTerminalTopBar() {
@@ -22,7 +23,6 @@ export default function MobileTerminalTopBar() {
   const sessions = allSessions.filter((x) => x.type !== "multiplayer");
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActive = useSessionStore((s) => s.setActive);
-  const disconnect = useSessionStore((s) => s.disconnect);
   const setTab = useMobileNavStore((s) => s.setTab);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -73,7 +73,7 @@ export default function MobileTerminalTopBar() {
             >
               <StatusDot tone={sessionStatusTone(s.status)} size="sm" />
               <button className="vt-hit self-stretch" onClick={() => setActive(s.id)}>{sessionLabel(s)}</button>
-              <button data-mobile-session-close={s.id} onClick={() => void disconnect(s.id)} className="vt-hit opacity-70 h-8 w-8 rounded-full flex items-center justify-center">
+              <button data-mobile-session-close={s.id} onClick={() => closeSessionTabs([s.id])} className="vt-hit opacity-70 h-8 w-8 rounded-full flex items-center justify-center">
                 <Icon icon="lucide:x" width={12} />
               </button>
             </span>

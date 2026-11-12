@@ -18,7 +18,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useConnection } from "@/hooks/useAllConnections";
 import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
-import { closeSession } from "@/services/closeSession";
+import { closeSessionTabs } from "@/services/closeSession";
 import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { sessionUserAtHost } from "@/components/terminal/sessionOverlay";
@@ -211,7 +211,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   };
 
   const handleClosePane = () => {
-    closeSession(session.id);
+    if (closeSessionTabs([session.id]).closed.length === 0) return;
     const layout = useLayoutStore.getState();
     const nextLeaf = findLeaf(layout.root, layout.activePaneId);
     if (nextLeaf) useSessionStore.getState().setActive(nextLeaf.sessionId);

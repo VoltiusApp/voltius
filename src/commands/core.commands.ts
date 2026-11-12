@@ -2,7 +2,7 @@ import type { OmniCommand } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { checkForUpdate } from "@/services/updater";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { closeSessionTabs } from "@/services/closeSession";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 import i18n, { lazyT } from "@/i18n";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
@@ -115,22 +115,7 @@ export const commands: OmniCommand[] = [
         : { message: i18n.t("omni.commands.disconnectAllConfirm", { count }), proceed: true };
     },
     execute: () => {
-      const { disconnect, removeSession } = useSessionStore.getState();
-      const mpStore = useTeamSessionStore.getState();
-      openSessions()
-        .forEach((s) => {
-          const mpConn = mpStore.connections[s.id];
-          if (mpConn) {
-            if (mpConn.role === "host") {
-              mpStore.stopSharing(s.id).catch(() => {});
-            } else {
-              mpStore.leaveSession(s.id);
-            }
-            removeSession(s.id);
-          } else {
-            disconnect(s.id).catch(() => {});
-          }
-        });
+      closeSessionTabs(openSessions().map((s) => s.id), { reportKept: true });
     },
   }),
 ];

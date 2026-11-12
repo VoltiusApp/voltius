@@ -151,6 +151,8 @@ import { assertValidPluginId, isValidPluginId } from "./pluginId";
 import { isRetiredPlugin } from "./retired";
 import { base64ToBytes, bytesToBase64, hexToBytes } from "@/utils/base64";
 import { base64ToByteArray } from "@/services/teamVaultSyncCore";
+import { closeSessionTabs } from "@/services/closeSession";
+import { isSessionLocked } from "@/services/tabLock";
 import { primaryModifierLabel, primaryOnly } from "@/utils/primaryModifier";
 
 const STREAM_PERM: Record<StreamKind, string> = {
@@ -689,6 +691,7 @@ function toPluginSession(s: TerminalSession): PluginSession {
     type: s.type,
     localShell: s.localShell,
     title: s.title,
+    locked: s.locked,
   };
 }
 
@@ -1869,7 +1872,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async close(sessionId) {
         requirePerm(manifest, "sessions:write");
-        await useSessionStore.getState().disconnect(sessionId);
+        if (isSessionLocked(sessionId)) throw new Error(`tab_locked: session "${sessionId}" is locked by the user`);
+        closeSessionTabs([sessionId]);
       },
     },
 

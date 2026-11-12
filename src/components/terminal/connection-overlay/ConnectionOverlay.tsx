@@ -10,6 +10,8 @@ import { AuthPromptPanel } from "./AuthPromptPanel";
 import { UsernamePromptPanel } from "./UsernamePromptPanel";
 import { VaultErrorPanel } from "./VaultErrorPanel";
 import { useConnectionSteps, useHostKeyConflict } from "./hooks";
+import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
+import { DismissBlockedContext } from "./dismissBlocked";
 import type { ConnectionOverlayProps } from "./types";
 import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "./utils";
 import { isVaultErrorCode } from "@/services/vaultErrors";
@@ -38,6 +40,7 @@ export default function ConnectionOverlay({
   onUseHostCredential,
   onEnableLegacyAlgorithms,
 }: ConnectionOverlayProps) {
+  const dismissBlocked = useDismissBlockedReason(sessionId);
   const { t } = useTranslation();
   const { steps, visible } = useConnectionSteps({ status, errorCode, stepConfigs, stepEventName });
   const { conflict, resolving, resolveConflict } = useHostKeyConflict({
@@ -68,77 +71,79 @@ export default function ConnectionOverlay({
     (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   return (
-    <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-(--t-bg-terminal)"}>
-      <div className="flex flex-col items-center gap-6 w-80 text-center">
-        <ConnectionHeader
-          icon={icon}
-          name={name}
-          subtitle={subtitle}
-          isConnecting={isConnecting}
-          showSpecialPanel={!!showSpecialPanel}
-        />
+    <DismissBlockedContext.Provider value={dismissBlocked}>
+      <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-(--t-bg-terminal)"}>
+        <div className="flex flex-col items-center gap-6 w-80 text-center">
+          <ConnectionHeader
+            icon={icon}
+            name={name}
+            subtitle={subtitle}
+            isConnecting={isConnecting}
+            showSpecialPanel={!!showSpecialPanel}
+          />
 
-        {conflict && !isError ? (
-          <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
-        ) : showIdentityPick ? (
-          <IdentityUnavailablePanel
-            issue={identityPick}
-            onChoose={pickIsHere ? () => setChoosing(true) : undefined}
-            onUseHost={pickIsHere ? onUseHostCredential : undefined}
-            onCancel={onDismiss}
-          />
-        ) : showChooser ? (
-          <AuthPromptPanel
-            vaultId={vaultId}
-            connectionId={connectionId}
-            hostName={name}
-            initialMode="identity"
-            repairVia={identityPick.via}
-            onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
-            onCancel={onDismiss}
-          />
-        ) : showVaultError && vaultCode ? (
-          <VaultErrorPanel code={vaultCode} onRetry={onRetry} onCancel={onDismiss} />
-        ) : showPassphrasePrompt ? (
-          <PassphrasePromptPanel
-            onSubmit={onRetryWithPassphrase}
-            onCancel={onDismiss}
-          />
-        ) : showUsernamePrompt ? (
-          <UsernamePromptPanel
-            vaultId={vaultId}
-            connectionId={connectionId}
-            hostName={name}
-            onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
-            onCancel={onDismiss}
-          />
-        ) : showAuthPrompt ? (
-          <AuthPromptPanel
-            vaultId={vaultId}
-            connectionId={connectionId}
-            hostName={name}
-            onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
-            onCancel={onDismiss}
-          />
-        ) : (
-          <>
-            <ConnectionSteps steps={steps} />
+          {conflict && !isError ? (
+            <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
+          ) : showIdentityPick ? (
+            <IdentityUnavailablePanel
+              issue={identityPick}
+              onChoose={pickIsHere ? () => setChoosing(true) : undefined}
+              onUseHost={pickIsHere ? onUseHostCredential : undefined}
+              onCancel={onDismiss}
+            />
+          ) : showChooser ? (
+            <AuthPromptPanel
+              vaultId={vaultId}
+              connectionId={connectionId}
+              hostName={name}
+              initialMode="identity"
+              repairVia={identityPick.via}
+              onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
+              onCancel={onDismiss}
+            />
+          ) : showVaultError && vaultCode ? (
+            <VaultErrorPanel code={vaultCode} onRetry={onRetry} onCancel={onDismiss} />
+          ) : showPassphrasePrompt ? (
+            <PassphrasePromptPanel
+              onSubmit={onRetryWithPassphrase}
+              onCancel={onDismiss}
+            />
+          ) : showUsernamePrompt ? (
+            <UsernamePromptPanel
+              vaultId={vaultId}
+              connectionId={connectionId}
+              hostName={name}
+              onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
+              onCancel={onDismiss}
+            />
+          ) : showAuthPrompt ? (
+            <AuthPromptPanel
+              vaultId={vaultId}
+              connectionId={connectionId}
+              hostName={name}
+              onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
+              onCancel={onDismiss}
+            />
+          ) : (
+            <>
+              <ConnectionSteps steps={steps} />
 
-            {isConnecting && reconnectWait && (
-              <ReconnectWaitPanel wait={reconnectWait} onRetryNow={onRetryNow} onDismiss={onDismiss} />
-            )}
+              {isConnecting && reconnectWait && (
+                <ReconnectWaitPanel wait={reconnectWait} onRetryNow={onRetryNow} onDismiss={onDismiss} />
+              )}
 
-            {isError && (
-              <ConnectionErrorPanel
-                errorMessage={errorMessage}
-                retryLabel={legacyFix && t("terminal.overlay.connectionError.enableLegacyAndRetry")}
-                onRetry={legacyFix ?? onRetry}
-                onDismiss={onDismiss}
-              />
-            )}
-          </>
-        )}
+              {isError && (
+                <ConnectionErrorPanel
+                  errorMessage={errorMessage}
+                  retryLabel={legacyFix && t("terminal.overlay.connectionError.enableLegacyAndRetry")}
+                  onRetry={legacyFix ?? onRetry}
+                  onDismiss={onDismiss}
+                />
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </DismissBlockedContext.Provider>
   );
 }

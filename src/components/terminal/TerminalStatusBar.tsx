@@ -8,6 +8,8 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useStatusBarStore } from "@/stores/statusBarStore";
+import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
+import { closeSessionTabs } from "@/services/closeSession";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { serialAutoReconnectEnabled } from "@/stores/serialAutoReconnect";
@@ -227,7 +229,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   );
   const monitoringActive = metricsSectionId !== null;
   const reconnect = useSessionStore((s) => s.reconnect);
-  const disconnect = useSessionStore((s) => s.disconnect);
+  const disconnectBlockedReason = useDismissBlockedReason(sessionId);
   const closeSerialPort = useSessionStore((s) => s.closeSerialPort);
   const setSerialAutoReconnect = useSessionStore((s) => s.setSerialAutoReconnect);
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
@@ -413,6 +415,14 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     : t("terminal.statusBar.serialFallback");
 
   const ctxItems = useMemo<ContextMenuItem[]>(() => {
+    const disconnectItem: ContextMenuItem = {
+      label: t("common.action.disconnect"),
+      icon: "lucide:plug",
+      danger: true,
+      divider: true,
+      disabledReason: disconnectBlockedReason,
+      onClick: () => closeSessionTabs([sessionId]),
+    };
     if (sessionType === "ssh" && connection) {
       return [
         {
@@ -430,13 +440,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
           icon: PORT_FORWARDING_ICON,
           onClick: () => toggleRightPanel("ports"),
         },
-        {
-          label: t("common.action.disconnect"),
-          icon: "lucide:plug",
-          danger: true,
-          divider: true,
-          onClick: () => void disconnect(sessionId),
-        },
+        disconnectItem,
       ];
     }
     if (sessionType === "serial" && serialConfig) {
@@ -446,28 +450,16 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
           icon: "lucide:copy",
           onClick: () => writeClipboard(serialConfig.port).catch(() => {}),
         },
-        {
-          label: t("common.action.disconnect"),
-          icon: "lucide:plug",
-          danger: true,
-          divider: true,
-          onClick: () => void disconnect(sessionId),
-        },
+        disconnectItem,
       ];
     }
     if (sessionType === "local") {
       return [
-        {
-          label: t("common.action.disconnect"),
-          icon: "lucide:plug",
-          danger: true,
-          divider: true,
-          onClick: () => void disconnect(sessionId),
-        },
+        disconnectItem,
       ];
     }
     return [];
-  }, [sessionType, connection, userAtHost, serialConfig, connectionName, sessionId, toggleRightPanel, disconnect, t]);
+  }, [sessionType, connection, userAtHost, serialConfig, connectionName, sessionId, toggleRightPanel, disconnectBlockedReason, t]);
 
   const statusBarContributionContext = useMemo<TerminalStatusBarContributionContext>(() => ({
     sessionId,

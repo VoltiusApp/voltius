@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { SLOW_RETRY_MS, type ReconnectWait } from "@/stores/reconnectBackoffCore";
+import { useDismissBlocked } from "./dismissBlocked";
 
 function PanelActions({
   retryLabel,
@@ -11,6 +12,7 @@ function PanelActions({
   onDismiss?: () => void;
 }) {
   const { t } = useTranslation();
+  const dismissBlocked = useDismissBlocked();
   return (
     <div className="mt-2 flex items-center gap-3 justify-center">
       {onRetry && (
@@ -23,7 +25,9 @@ function PanelActions({
       )}
       <button
         onClick={onDismiss}
-        className="text-xs text-text-muted hover:text-text-primary transition-colors underline"
+        disabled={!!dismissBlocked}
+        title={dismissBlocked}
+        className="text-xs text-text-muted hover:text-text-primary transition-colors underline disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {t("terminal.overlay.connectionError.dismiss")}
       </button>

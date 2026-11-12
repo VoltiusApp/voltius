@@ -29,7 +29,7 @@ import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
-import { closeSession, closeSessionTabs } from "@/services/closeSession";
+import { closeSessionTabs, closeSplitTabSessions } from "@/services/closeSession";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 import { pinHostList } from "@/services/hostStack";
 import { sessionMenuItems, pinListExtra } from "@/utils/sessionMenuItems";
@@ -74,7 +74,6 @@ export default function TitleBar() {
   const splitTabs = useLayoutStore((s) => s.splitTabs);
   const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
-  const closeSplitTab = useLayoutStore((s) => s.closeSplitTab);
   const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
   const syncTitlebarOrder = useLayoutStore((s) => s.syncTitlebarOrder);
   const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
@@ -197,11 +196,7 @@ export default function TitleBar() {
   };
 
   const closeUnifiedTab = (tabId: string) => {
-    const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
-    const ids = tab ? getPaneSessionIds(tab.root) : [];
-    closeSplitTab(tabId);
-    ids.forEach(closeSession);
-    if (sessions.length <= ids.length) leaveTerminal();
+    closeSplitTabSessions(tabId);
   };
 
   const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {

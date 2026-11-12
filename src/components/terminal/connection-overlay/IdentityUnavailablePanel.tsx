@@ -27,7 +27,7 @@ export function IdentityUnavailablePanel({
       onClick: onUseHost,
     });
   }
-  if (onCancel) actions.push({ label: t("common.action.cancel"), variant: "ghost", onClick: onCancel });
+  if (onCancel) actions.push({ label: t("common.action.cancel"), variant: "ghost", dismisses: true, onClick: onCancel });
 
   return (
     <DecisionPanel
