@@ -34,6 +34,7 @@ interface HostFilter {
 }
 
 const SNIPPET_NAME_MAX = 40;
+const ROW_BATCH = 50;
 
 function snippetNameFor(command: string): string {
   return command.length > SNIPPET_NAME_MAX ? `${command.slice(0, SNIPPET_NAME_MAX - 1)}…` : command;
@@ -216,6 +217,14 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
   const [hostFilter, setHostFilter] = useState<HostFilter | null>(null);
   const [favoritesOpen, setFavoritesOpen] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  // The panel remounts on every vault/terminal switch: mount rows in batches.
+  const filterKey = `${query}\u0000${hostFilter?.id ?? ""}`;
+  const [rowBatch, setRowBatch] = useState({ filterKey, limit: ROW_BATCH });
+  const rowLimit = typeof IntersectionObserver === "undefined"
+    ? Infinity
+    : rowBatch.filterKey === filterKey ? rowBatch.limit : ROW_BATCH;
 
   const canInject = !!activeSession && activeSession.type !== "multiplayer";
   const filteringCurrent = !!activeSession && hostFilter?.id === activeSession.connectionId;
@@ -256,6 +265,21 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
     const recentItems = unstarred.map((e): HistoryItem => ({ ...e, favorite: false })).filter(keep).reverse();
     return { favoriteItems, recentItems };
   }, [unstarred, favorites, query, hostFilter, hostNames]);
+
+  const hasMoreRows = recentItems.length > rowLimit;
+  useEffect(() => {
+    const marker = moreRef.current;
+    if (!hasMoreRows || !marker) return;
+    const observer = new IntersectionObserver(
+      (seen) => {
+        if (!seen.some((e) => e.isIntersecting)) return;
+        setRowBatch((b) => ({ filterKey, limit: (b.filterKey === filterKey ? b.limit : ROW_BATCH) + ROW_BATCH }));
+      },
+      { root: marker.parentElement, rootMargin: "400px" },
+    );
+    observer.observe(marker);
+    return () => observer.disconnect();
+  }, [hasMoreRows, rowLimit, filterKey]);
 
   async function inject(text: string, execute: boolean) {
     if (!activeSession || activeSession.type === "multiplayer") return;
@@ -449,7 +473,8 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
           </>
         )}
 
-        {recentItems.map(renderRow)}
+        {recentItems.slice(0, rowLimit).map(renderRow)}
+        {hasMoreRows && <div ref={moreRef} aria-hidden className="h-px" />}
       </div>
     </div>
   );

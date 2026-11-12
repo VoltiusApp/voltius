@@ -196,4 +196,31 @@ describe("HistoryPanel", () => {
     await act(async () => fireEvent.click(within(rowOf("uptime")).getByLabelText("terminal.shared.insert")));
     expect(vi.mocked(broadcastSnippetInject)).toHaveBeenLastCalledWith([expect.objectContaining({ id: "s2" })], "uptime", false);
   });
+
+  test("a long history mounts its first rows, then renders more as the list nears its end", async () => {
+    const observers: Array<(entries: Array<{ isIntersecting: boolean }>) => void> = [];
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) { observers.push(cb); }
+      observe() {}
+      disconnect() {}
+    });
+    try {
+      useCommandHistoryStore.setState({
+        entries: Array.from({ length: 120 }, (_, i) => entry(`h${i}`, `cmd-${i}`, "c1", "db-old")),
+      });
+      await renderPanel();
+      const rows = () => document.querySelectorAll(".group").length;
+      expect(rows()).toBe(50);
+
+      await act(async () => observers[observers.length - 1]([{ isIntersecting: true }]));
+      expect(rows()).toBe(100);
+      await act(async () => observers[observers.length - 1]([{ isIntersecting: true }]));
+      expect(rows()).toBe(120);
+
+      fireEvent.change(screen.getByPlaceholderText("terminal.historyPanel.searchPlaceholder"), { target: { value: "cmd" } });
+      expect(rows()).toBe(50);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

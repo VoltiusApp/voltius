@@ -2,10 +2,12 @@ import { afterEach, expect, test, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 
 const renders = vi.hoisted(() => new Map<string, number>());
+const visibleOf = vi.hoisted(() => new Map<string, boolean>());
 
 vi.mock("@/components/terminal/SessionView", () => ({
-  HostAwareTerminalView: ({ session }: { session: { id: string } }) => {
+  HostAwareTerminalView: ({ session, visible }: { session: { id: string }; visible: boolean }) => {
     renders.set(session.id, (renders.get(session.id) ?? 0) + 1);
+    visibleOf.set(session.id, visible);
     return null;
   },
   SessionConnectionOverlay: () => null,
@@ -47,6 +49,7 @@ const session = (id: string): TerminalSession => ({ id, connectionId: "local", c
 afterEach(() => {
   cleanup();
   renders.clear();
+  visibleOf.clear();
   useSessionStore.setState({ sessions: [], activeSessionId: null });
 });
 
@@ -63,4 +66,18 @@ test("switching tabs re-renders only the tabs whose state changed", () => {
   renders.clear();
   act(() => useSessionStore.setState((s) => ({ sessions: s.sessions.map((x) => (x.id === "c" ? { ...x, status: "disconnected" } : x)) })));
   expect(Object.fromEntries(renders)).toEqual({ c: 1 });
+});
+
+test("the selected tab is hidden while a vault page covers it, so it neither refits nor redraws", () => {
+  useVaultStore.setState({ selectedVaultIds: ["v"] });
+  useUIStore.setState({ activeNav: "terminal", homeView: false, sftpPanelOpen: false });
+  useSessionStore.setState({ sessions: ["a", "b"].map(session), activeSessionId: "a" });
+  render(<MainPanel />);
+  expect(Object.fromEntries(visibleOf)).toEqual({ a: true, b: false });
+
+  act(() => useUIStore.setState({ activeNav: "keychain" }));
+  expect(visibleOf.get("a")).toBe(false);
+
+  act(() => useUIStore.setState({ activeNav: "terminal" }));
+  expect(visibleOf.get("a")).toBe(true);
 });

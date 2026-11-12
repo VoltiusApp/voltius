@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching between a vault page and a terminal tab, and between vault pages, no longer lags: the History panel mounts its first 50 commands and renders more as you scroll, and the terminal behind a vault page stops resizing to the vault layout and redrawing its minimap
+
 ## [0.69.0] - 2026-11-12
 
 ### Added

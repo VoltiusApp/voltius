@@ -70,7 +70,8 @@ const SessionTab = memo(function SessionTab({
   covered: boolean;
   sftpPanelOpen: boolean;
 }) {
-  const visible = !showSplitWorkspace && selected;
+  // Hidden under a vault page, or it refits to the vault layout and back.
+  const visible = !showSplitWorkspace && selected && !covered;
   const onClosed = useCallback(
     (remoteExit: boolean) => sessionClosed(session.type, session.id, remoteExit),
     [session.type, session.id],
