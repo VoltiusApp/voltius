@@ -26,6 +26,7 @@ vi.mock("@/lib/invoke", async (orig) => ({
   }),
 }));
 vi.mock("@/services/account", () => ({
+  announceWithdrawnInvitations: vi.fn(async () => {}),
   autoLogin: vi.fn(async () => {
     h.calls.push("autoLogin");
     return "declined";

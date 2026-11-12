@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
   applySettingDefaults: vi.fn(),
   markCliReady: vi.fn(),
   applyCliPending: vi.fn(async () => {}),
+  announceWithdrawnInvitations: vi.fn(async () => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -27,6 +28,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", usePlatform: () => "linux" }));
 vi.mock("@/services/account", () => ({
+  announceWithdrawnInvitations: h.announceWithdrawnInvitations,
   autoLogin: h.autoLogin,
   getAppLock: h.getAppLock,
   setAppLock: vi.fn(async () => {}),
@@ -82,6 +84,7 @@ beforeEach(() => {
   h.applySettingDefaults.mockClear();
   h.markCliReady.mockClear();
   h.applyCliPending.mockClear();
+  h.announceWithdrawnInvitations.mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -225,6 +228,20 @@ test("a no-account install starts lan sync once it has loaded", async () => {
   await advance(10_000);
   expect(h.startLanSyncInBackground).toHaveBeenCalledTimes(1);
   expect(h.startSessionSync).not.toHaveBeenCalled();
+});
+
+test("loading names the invitations a sign-up could not honour", async () => {
+  h.mode = "local";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.announceWithdrawnInvitations).toHaveBeenCalledTimes(1);
+});
+
+test("a vault lock leaves withdrawn invitations for after the unlock", async () => {
+  h.lock = "vault";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.announceWithdrawnInvitations).not.toHaveBeenCalled();
 });
 
 test("policy loads before auto-login so a disallowed server is seen", async () => {
