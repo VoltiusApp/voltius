@@ -189,10 +189,39 @@ export async function getVaultKeyHolders(teamId: string): Promise<string[]> {
 export interface RotationStatus {
   stale: boolean;
   draining: boolean;
+  // Absent on servers older than #796.
+  epoch?: number;
+  rotated_at?: string | null;
+  rotation_requested_at?: string | null;
+  uncovered_members?: number;
+  old_epoch?: { objects: number; secrets: number; blobs: number };
+}
+
+export interface StaleItem {
+  kind: "object" | "secret" | "blob";
+  object_id: string | null;
+  secret_id: string | null;
+  object_type: string | null;
+  key_version: number;
+  orphan: boolean;
+  my_permissions: number;
+}
+
+export interface StaleItems {
+  epoch: number;
+  items: StaleItem[];
+  hidden: number;
+  truncated: boolean;
 }
 
 export async function getRotationStatus(teamId: string): Promise<RotationStatus> {
   const res = await serverFetch(`/v1/teams/${teamId}/vault-key/rotation-status`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCheckRotationStatus", { status: res.status }));
+  return res.json();
+}
+
+export async function getStaleItems(teamId: string): Promise<StaleItems> {
+  const res = await serverFetch(`/v1/teams/${teamId}/vault-key/stale-items`);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToCheckRotationStatus", { status: res.status }));
   return res.json();
 }

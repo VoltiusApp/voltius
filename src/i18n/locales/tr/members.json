@@ -432,6 +432,80 @@
       "saving": "Politika kaydediliyor…",
       "saved": "Politika kaydedildi"
     },
+    "keyHealth": {
+      "title": "Kasa anahtarı durumu",
+      "state": {
+        "upToDate": "Güncel",
+        "rotationPending": "Yeni anahtar bekleniyor",
+        "reencryptPending": "Yeniden şifreleniyor",
+        "attention": "İlgi gerekiyor",
+        "unavailable": "Kullanılamıyor"
+      },
+      "version": "Anahtar sürümü {{version}} · {{time}} değişti",
+      "versionNever": "Anahtar sürümü {{version}} · hiç değişmedi",
+      "uncovered_one": "{{count}} üyede güncel anahtar yok.",
+      "uncovered_other": "{{count}} üyede güncel anahtar yok.",
+      "requested": "Bir üye {{time}} ayrıldı, bu yüzden yeni bir anahtar gerekiyor.",
+      "remaining_one": "{{count}} öğe hâlâ eski bir anahtar kullanıyor.",
+      "remaining_other": "{{count}} öğe hâlâ eski bir anahtar kullanıyor.",
+      "remainingUnknown": "Bazı öğeler hâlâ eski bir anahtar kullanıyor.",
+      "blocked": "Bunlar yeniden şifrelenene kadar yeni anahtar oluşturulamaz.",
+      "fromServer": "Sunucunun bildirdiği durum.",
+      "device": {
+        "never": "Bu cihaz henüz denemedi.",
+        "finished": "Bu cihaz son denemesini {{time}} tamamladı.",
+        "failed_one": "Bu cihaz {{time}} denedi: {{count}} öğe başarısız oldu.",
+        "failed_other": "Bu cihaz {{time}} denedi: {{count}} öğe başarısız oldu.",
+        "stopped": "Bu cihaz {{time}} denedi ve durdu: {{reason}}",
+        "skipped_one": "{{count}} öğeyi düzenleme yetkisi olan biri işlemeli.",
+        "skipped_other": "{{count}} öğeyi düzenleme yetkisi olan biri işlemeli."
+      },
+      "step": {
+        "status": "sunucuya ulaşılamadı.",
+        "rotate": "sunucu yeni anahtarı reddetti.",
+        "drain": "kasa yeniden şifrelenemedi."
+      },
+      "loadFailed": "Anahtar durumu okunamadı. Bağlantınızı kontrol edip yenileyin.",
+      "retry": "Şimdi yeniden dene",
+      "retrying": "Yeniden deneniyor…",
+      "refresh": "Yenile",
+      "retryDenied": "Yeni anahtar oluşturmak için Parolaları görüntüleme ve Parolaları kopyalama izinleri gerekir.",
+      "stuck": {
+        "title": "Eski anahtardaki öğeler",
+        "truncated": "İlk {{count}} öğe gösteriliyor.",
+        "hidden_one": "{{count}} öğe daha sizden gizli. Onu görebilen biri yeniden denemeli.",
+        "hidden_other": "{{count}} öğe daha sizden gizli. Onları görebilen biri yeniden denemeli."
+      },
+      "reason": {
+        "orphan": "Silinmiş bir öğeden kalan",
+        "undecryptable": "Şifresi çözülemiyor",
+        "uploadFailed": "Kaydedilemedi. Yeniden deneyin.",
+        "needsEditor": "Düzenleme yetkisi olan biri gerekiyor",
+        "waiting": "Sonraki deneme bekleniyor"
+      },
+      "kind": {
+        "secret": "{{name}} parolası veya anahtarı",
+        "deleted": "silinmiş bir öğe",
+        "blob": "Eski kasa verisi"
+      },
+      "unnamed": "Adsız {{type}}",
+      "type": {
+        "connection": "sunucu",
+        "identity": "kimlik",
+        "key": "SSH anahtarı",
+        "folder": "klasör",
+        "snippet": "kod parçası",
+        "snippet_folder": "kod parçası klasörü",
+        "port_forwarding_rule": "port yönlendirme kuralı"
+      },
+      "remove": "Kaldır",
+      "removeTitle": "{{name}} kaldırılsın mı?",
+      "removeBody": "Şifresi çözülemediği için bu kasanın yeni anahtar almasını engelliyor. Kaldırmak onu tüm üyeler için siler ve geri alınamaz.",
+      "removeOrphanBody": "Artık var olmayan bir öğeye ait. Kaldırmak bu kasanın yeniden yeni anahtar almasını sağlar.",
+      "removing": "Kaldırılıyor…",
+      "removed": "Kaldırıldı",
+      "note": "Yeni anahtar bundan sonra kaydedilenleri korur. Eski bir üyenin zaten kopyaladığı şeyleri geri alamaz."
+    },
     "devicePolicy": {
       "title": "Cihaz politikası",
       "empty": "Her üyenin Voltius'unda ayarları kilitleyin. policy.json ile aynı biçimi kullanır.",

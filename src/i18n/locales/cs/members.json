@@ -448,6 +448,90 @@
       "saving": "Ukládání zásady…",
       "saved": "Zásada uložena"
     },
+    "keyHealth": {
+      "title": "Stav klíče trezoru",
+      "state": {
+        "upToDate": "Aktuální",
+        "rotationPending": "Čeká na nový klíč",
+        "reencryptPending": "Přešifrovává se",
+        "attention": "Vyžaduje pozornost",
+        "unavailable": "Nedostupné"
+      },
+      "version": "Verze klíče {{version}} · změněno {{time}}",
+      "versionNever": "Verze klíče {{version}} · nikdy nezměněno",
+      "uncovered_one": "{{count}} členovi chybí aktuální klíč.",
+      "uncovered_few": "{{count}} členům chybí aktuální klíč.",
+      "uncovered_many": "{{count}} členům chybí aktuální klíč.",
+      "uncovered_other": "{{count}} členům chybí aktuální klíč.",
+      "requested": "Člen odešel {{time}}, proto je potřeba nový klíč.",
+      "remaining_one": "{{count}} položka stále používá starší klíč.",
+      "remaining_few": "{{count}} položky stále používají starší klíč.",
+      "remaining_many": "{{count}} položky stále používá starší klíč.",
+      "remaining_other": "{{count}} položek stále používá starší klíč.",
+      "remainingUnknown": "Některé položky stále používají starší klíč.",
+      "blocked": "Dokud nebudou přešifrovány, nový klíč nelze vytvořit.",
+      "fromServer": "Podle serveru.",
+      "device": {
+        "never": "Toto zařízení to ještě nezkusilo.",
+        "finished": "Toto zařízení dokončilo poslední pokus {{time}}.",
+        "failed_one": "Toto zařízení to zkusilo {{time}}: {{count}} položka selhala.",
+        "failed_few": "Toto zařízení to zkusilo {{time}}: {{count}} položky selhaly.",
+        "failed_many": "Toto zařízení to zkusilo {{time}}: {{count}} položky selhalo.",
+        "failed_other": "Toto zařízení to zkusilo {{time}}: {{count}} položek selhalo.",
+        "stopped": "Toto zařízení to zkusilo {{time}} a zastavilo se: {{reason}}",
+        "skipped_one": "{{count}} položku musí zpracovat někdo, kdo ji může upravit.",
+        "skipped_few": "{{count}} položky musí zpracovat někdo, kdo je může upravit.",
+        "skipped_many": "{{count}} položky musí zpracovat někdo, kdo je může upravit.",
+        "skipped_other": "{{count}} položek musí zpracovat někdo, kdo je může upravit."
+      },
+      "step": {
+        "status": "nepodařilo se spojit se serverem.",
+        "rotate": "server odmítl nový klíč.",
+        "drain": "trezor se nepodařilo přešifrovat."
+      },
+      "loadFailed": "Stav klíče se nepodařilo načíst. Zkontrolujte připojení a obnovte.",
+      "retry": "Zkusit znovu",
+      "retrying": "Zkouší se znovu…",
+      "refresh": "Obnovit",
+      "retryDenied": "Vytvoření nového klíče vyžaduje oprávnění Zobrazit hesla a Kopírovat hesla.",
+      "stuck": {
+        "title": "Položky se starším klíčem",
+        "truncated": "Zobrazeno prvních {{count}}.",
+        "hidden_one": "{{count}} další položka je před vámi skrytá. Musí to zkusit znovu někdo, kdo ji vidí.",
+        "hidden_few": "{{count}} další položky jsou před vámi skryté. Musí to zkusit znovu někdo, kdo je vidí.",
+        "hidden_many": "{{count}} další položky je před vámi skryto. Musí to zkusit znovu někdo, kdo je vidí.",
+        "hidden_other": "{{count}} dalších položek je před vámi skryto. Musí to zkusit znovu někdo, kdo je vidí."
+      },
+      "reason": {
+        "orphan": "Zbytek smazané položky",
+        "undecryptable": "Nelze dešifrovat",
+        "uploadFailed": "Nepodařilo se uložit. Zkuste znovu.",
+        "needsEditor": "Musí ji zpracovat někdo, kdo ji může upravit",
+        "waiting": "Čeká na další pokus"
+      },
+      "kind": {
+        "secret": "Heslo nebo klíč položky {{name}}",
+        "deleted": "smazaná položka",
+        "blob": "Starší data trezoru"
+      },
+      "unnamed": "{{type}} bez názvu",
+      "type": {
+        "connection": "Hostitel",
+        "identity": "Identita",
+        "key": "Klíč SSH",
+        "folder": "Složka",
+        "snippet": "Úryvek",
+        "snippet_folder": "Složka úryvků",
+        "port_forwarding_rule": "Pravidlo přesměrování portu"
+      },
+      "remove": "Odebrat",
+      "removeTitle": "Odebrat {{name}}?",
+      "removeBody": "Nelze ji dešifrovat, a proto brání tomu, aby trezor dostal nový klíč. Odebráním ji smažete pro všechny členy a nelze to vrátit.",
+      "removeOrphanBody": "Patří k položce, která už neexistuje. Po odebrání může trezor znovu dostat nový klíč.",
+      "removing": "Odebírá se…",
+      "removed": "Odebráno",
+      "note": "Nový klíč chrání to, co se uloží od této chvíle. Nevezme zpět nic, co si bývalý člen už zkopíroval."
+    },
     "devicePolicy": {
       "title": "Zásady zařízení",
       "empty": "Uzamkněte nastavení ve Voltiusu každého člena. Používá stejný formát jako policy.json.",

@@ -440,6 +440,85 @@
       "saving": "A guardar política de bloqueio…",
       "saved": "Política de bloqueio guardada"
     },
+    "keyHealth": {
+      "title": "Estado da chave do cofre",
+      "state": {
+        "upToDate": "Atualizada",
+        "rotationPending": "Nova chave pendente",
+        "reencryptPending": "A recriptografar",
+        "attention": "Requer atenção",
+        "unavailable": "Indisponível"
+      },
+      "version": "Versão da chave {{version}} · alterada {{time}}",
+      "versionNever": "Versão da chave {{version}} · nunca alterada",
+      "uncovered_one": "Falta a chave atual a {{count}} membro.",
+      "uncovered_many": "Falta a chave atual a {{count}} membros.",
+      "uncovered_other": "Falta a chave atual a {{count}} membros.",
+      "requested": "Um membro saiu {{time}}, por isso é necessária uma nova chave.",
+      "remaining_one": "{{count}} item ainda usa uma chave antiga.",
+      "remaining_many": "{{count}} itens ainda usam uma chave antiga.",
+      "remaining_other": "{{count}} itens ainda usam uma chave antiga.",
+      "remainingUnknown": "Alguns itens ainda usam uma chave antiga.",
+      "blocked": "Nenhuma nova chave pode ser criada até que sejam recriptografados.",
+      "fromServer": "Informado pelo servidor.",
+      "device": {
+        "never": "Este dispositivo ainda não tentou.",
+        "finished": "Este dispositivo concluiu a última tentativa {{time}}.",
+        "failed_one": "Este dispositivo tentou {{time}}: {{count}} item falhou.",
+        "failed_many": "Este dispositivo tentou {{time}}: {{count}} itens falharam.",
+        "failed_other": "Este dispositivo tentou {{time}}: {{count}} itens falharam.",
+        "stopped": "Este dispositivo tentou {{time}} e parou: {{reason}}",
+        "skipped_one": "{{count}} item precisa de alguém que o possa editar.",
+        "skipped_many": "{{count}} itens precisam de alguém que os possa editar.",
+        "skipped_other": "{{count}} itens precisam de alguém que os possa editar."
+      },
+      "step": {
+        "status": "não foi possível contactar o servidor.",
+        "rotate": "o servidor recusou a nova chave.",
+        "drain": "não foi possível recriptografar o cofre."
+      },
+      "loadFailed": "Não foi possível ler o estado da chave. Verifique a ligação e atualize.",
+      "retry": "Tentar novamente",
+      "retrying": "A tentar novamente…",
+      "refresh": "Atualizar",
+      "retryDenied": "Criar uma nova chave exige as permissões Ver senhas e Copiar senhas.",
+      "stuck": {
+        "title": "Itens numa chave antiga",
+        "truncated": "A mostrar os primeiros {{count}}.",
+        "hidden_one": "Mais {{count}} item está oculto para si. Alguém que o veja precisa de tentar novamente.",
+        "hidden_many": "Mais {{count}} itens estão ocultos para si. Alguém que os veja precisa de tentar novamente.",
+        "hidden_other": "Mais {{count}} itens estão ocultos para si. Alguém que os veja precisa de tentar novamente."
+      },
+      "reason": {
+        "orphan": "Resto de um item eliminado",
+        "undecryptable": "Não é possível descriptografar",
+        "uploadFailed": "Não foi possível guardar. Tente novamente.",
+        "needsEditor": "Precisa de alguém que o possa editar",
+        "waiting": "À espera da próxima tentativa"
+      },
+      "kind": {
+        "secret": "Senha ou chave de {{name}}",
+        "deleted": "um item eliminado",
+        "blob": "Dados antigos do cofre"
+      },
+      "unnamed": "{{type}} sem nome",
+      "type": {
+        "connection": "Host",
+        "identity": "Identidade",
+        "key": "Chave SSH",
+        "folder": "Pasta",
+        "snippet": "Snippet",
+        "snippet_folder": "Pasta de snippets",
+        "port_forwarding_rule": "Regra de redirecionamento de porta"
+      },
+      "remove": "Remover",
+      "removeTitle": "Remover {{name}}?",
+      "removeBody": "Não é possível descriptografá-lo, por isso impede este cofre de obter uma nova chave. Removê-lo elimina-o para todos os membros e não pode ser desfeito.",
+      "removeOrphanBody": "Pertence a um item que já não existe. Removê-lo permite que este cofre volte a obter uma nova chave.",
+      "removing": "A remover…",
+      "removed": "Removido",
+      "note": "Uma nova chave protege o que for guardado a partir de agora. Não recupera nada que um antigo membro já tenha copiado."
+    },
     "devicePolicy": {
       "title": "Política de dispositivos",
       "empty": "Bloqueie definições no Voltius de cada membro. Usa o mesmo formato que o policy.json.",

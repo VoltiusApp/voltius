@@ -428,6 +428,80 @@
       "saving": "Saving lock policy…",
       "saved": "Lock policy saved"
     },
+    "keyHealth": {
+      "title": "Vault key health",
+      "state": {
+        "upToDate": "Up to date",
+        "rotationPending": "New key due",
+        "reencryptPending": "Re-encrypting",
+        "attention": "Needs attention",
+        "unavailable": "Unavailable"
+      },
+      "version": "Key version {{version}} · changed {{time}}",
+      "versionNever": "Key version {{version}} · never changed",
+      "uncovered_one": "{{count}} member is missing the current key.",
+      "uncovered_other": "{{count}} members are missing the current key.",
+      "requested": "A member left {{time}}, so a new key is due.",
+      "remaining_one": "{{count}} item still uses an older key.",
+      "remaining_other": "{{count}} items still use an older key.",
+      "remainingUnknown": "Some items still use an older key.",
+      "blocked": "No new key can be made until they are re-encrypted.",
+      "fromServer": "Reported by the server.",
+      "device": {
+        "never": "This device hasn't tried yet.",
+        "finished": "This device finished its last try {{time}}.",
+        "failed_one": "This device tried {{time}}: {{count}} item failed.",
+        "failed_other": "This device tried {{time}}: {{count}} items failed.",
+        "stopped": "This device tried {{time}} and stopped: {{reason}}",
+        "skipped_one": "{{count}} item needs someone who can edit it.",
+        "skipped_other": "{{count}} items need someone who can edit them."
+      },
+      "step": {
+        "status": "it couldn't reach the server.",
+        "rotate": "the server refused the new key.",
+        "drain": "it couldn't re-encrypt the vault."
+      },
+      "loadFailed": "Couldn't read the key status. Check your connection, then refresh.",
+      "retry": "Retry now",
+      "retrying": "Retrying…",
+      "refresh": "Refresh",
+      "retryDenied": "Making a new key needs the View passwords and Copy passwords permissions.",
+      "stuck": {
+        "title": "Items on an older key",
+        "truncated": "Showing the first {{count}}.",
+        "hidden_one": "{{count}} more item is hidden from you. Someone who can see it needs to retry.",
+        "hidden_other": "{{count}} more items are hidden from you. Someone who can see them needs to retry."
+      },
+      "reason": {
+        "orphan": "Left over from a deleted item",
+        "undecryptable": "Can't be decrypted",
+        "uploadFailed": "Couldn't be saved. Retry.",
+        "needsEditor": "Needs someone who can edit it",
+        "waiting": "Waiting for the next try"
+      },
+      "kind": {
+        "secret": "Password or key of {{name}}",
+        "deleted": "a deleted item",
+        "blob": "Older vault data"
+      },
+      "unnamed": "Unnamed {{type}}",
+      "type": {
+        "connection": "host",
+        "identity": "identity",
+        "key": "SSH key",
+        "folder": "folder",
+        "snippet": "snippet",
+        "snippet_folder": "snippet folder",
+        "port_forwarding_rule": "port forwarding rule"
+      },
+      "remove": "Remove",
+      "removeTitle": "Remove {{name}}?",
+      "removeBody": "It can't be decrypted, so it stops this vault from getting a new key. Removing it deletes it for every member and can't be undone.",
+      "removeOrphanBody": "It belongs to an item that no longer exists. Removing it lets this vault get a new key again.",
+      "removing": "Removing…",
+      "removed": "Removed",
+      "note": "A new key protects what is saved from now on. It can't take back anything a former member already copied."
+    },
     "devicePolicy": {
       "title": "Device policy",
       "empty": "Lock settings on every member's Voltius. Uses the same format as policy.json.",

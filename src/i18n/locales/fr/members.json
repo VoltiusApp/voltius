@@ -436,6 +436,85 @@
       "saving": "Enregistrement de la règle…",
       "saved": "Règle enregistrée"
     },
+    "keyHealth": {
+      "title": "Santé de la clé du coffre",
+      "state": {
+        "upToDate": "À jour",
+        "rotationPending": "Nouvelle clé attendue",
+        "reencryptPending": "Rechiffrement en cours",
+        "attention": "À vérifier",
+        "unavailable": "Indisponible"
+      },
+      "version": "Clé version {{version}} · changée {{time}}",
+      "versionNever": "Clé version {{version}} · jamais changée",
+      "uncovered_one": "Il manque la clé actuelle à {{count}} membre.",
+      "uncovered_many": "Il manque la clé actuelle à {{count}} membres.",
+      "uncovered_other": "Il manque la clé actuelle à {{count}} membres.",
+      "requested": "Un membre est parti {{time}} : une nouvelle clé est attendue.",
+      "remaining_one": "{{count}} élément utilise encore une ancienne clé.",
+      "remaining_many": "{{count}} éléments utilisent encore une ancienne clé.",
+      "remaining_other": "{{count}} éléments utilisent encore une ancienne clé.",
+      "remainingUnknown": "Des éléments utilisent encore une ancienne clé.",
+      "blocked": "Aucune nouvelle clé ne peut être créée avant leur rechiffrement.",
+      "fromServer": "Selon le serveur.",
+      "device": {
+        "never": "Cet appareil n'a pas encore essayé.",
+        "finished": "Cet appareil a terminé son dernier essai {{time}}.",
+        "failed_one": "Cet appareil a essayé {{time}} : {{count}} élément a échoué.",
+        "failed_many": "Cet appareil a essayé {{time}} : {{count}} éléments ont échoué.",
+        "failed_other": "Cet appareil a essayé {{time}} : {{count}} éléments ont échoué.",
+        "stopped": "Cet appareil a essayé {{time}} et s'est arrêté : {{reason}}",
+        "skipped_one": "{{count}} élément doit être traité par quelqu'un qui peut le modifier.",
+        "skipped_many": "{{count}} éléments doivent être traités par quelqu'un qui peut les modifier.",
+        "skipped_other": "{{count}} éléments doivent être traités par quelqu'un qui peut les modifier."
+      },
+      "step": {
+        "status": "le serveur est injoignable.",
+        "rotate": "le serveur a refusé la nouvelle clé.",
+        "drain": "le rechiffrement du coffre a échoué."
+      },
+      "loadFailed": "Impossible de lire l'état de la clé. Vérifiez votre connexion, puis actualisez.",
+      "retry": "Réessayer",
+      "retrying": "Nouvel essai…",
+      "refresh": "Actualiser",
+      "retryDenied": "Créer une nouvelle clé demande les permissions Voir les mots de passe et Copier les mots de passe.",
+      "stuck": {
+        "title": "Éléments sur une ancienne clé",
+        "truncated": "Affichage des {{count}} premiers.",
+        "hidden_one": "{{count}} autre élément vous est masqué. Quelqu'un qui le voit doit réessayer.",
+        "hidden_many": "{{count}} autres éléments vous sont masqués. Quelqu'un qui les voit doit réessayer.",
+        "hidden_other": "{{count}} autres éléments vous sont masqués. Quelqu'un qui les voit doit réessayer."
+      },
+      "reason": {
+        "orphan": "Reste d'un élément supprimé",
+        "undecryptable": "Impossible à déchiffrer",
+        "uploadFailed": "Enregistrement impossible. Réessayez.",
+        "needsEditor": "Doit être traité par quelqu'un qui peut le modifier",
+        "waiting": "En attente du prochain essai"
+      },
+      "kind": {
+        "secret": "Mot de passe ou clé de {{name}}",
+        "deleted": "un élément supprimé",
+        "blob": "Anciennes données du coffre"
+      },
+      "unnamed": "{{type}} sans nom",
+      "type": {
+        "connection": "Hôte",
+        "identity": "Identité",
+        "key": "Clé SSH",
+        "folder": "Dossier",
+        "snippet": "Snippet",
+        "snippet_folder": "Dossier de snippets",
+        "port_forwarding_rule": "Règle de redirection de port"
+      },
+      "remove": "Retirer",
+      "removeTitle": "Retirer {{name}} ?",
+      "removeBody": "Il est impossible à déchiffrer et empêche ce coffre d'obtenir une nouvelle clé. Le retirer le supprime pour tous les membres, sans retour possible.",
+      "removeOrphanBody": "Il appartient à un élément qui n'existe plus. Le retirer permet à ce coffre d'obtenir de nouveau une nouvelle clé.",
+      "removing": "Suppression…",
+      "removed": "Retiré",
+      "note": "Une nouvelle clé protège ce qui est enregistré à partir de maintenant. Elle ne reprend pas ce qu'un ancien membre a déjà copié."
+    },
     "devicePolicy": {
       "title": "Règle des appareils",
       "empty": "Verrouillez des réglages sur le Voltius de chaque membre. Même format que policy.json.",
