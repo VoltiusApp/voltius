@@ -3,7 +3,11 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
-import { ThemeCardSwatches, uiColorsOf } from "@/components/shared/ThemeParts";
+import { useMarketplaceThemes, type ThemeRemoval } from "@/hooks/useMarketplaceThemes";
+import { openMarketplaceThemes } from "@/themes/marketplaceThemes";
+import {
+  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeCardSwatches, uiColorsOf,
+} from "@/components/shared/ThemeParts";
 import { useUIStore } from "@/stores/uiStore";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
@@ -36,7 +40,7 @@ const localeLabel = (v: Locale) => SUPPORTED_LOCALES.find((l) => l.value === v)?
 
 export default function AppearanceSection() {
   const {
-    activeThemeId, customThemes, setTheme, deleteCustomTheme,
+    activeThemeId, customThemes, setTheme,
     mode, setMode, lightThemeId, setLightThemeId, darkThemeId, setDarkThemeId,
     scheduleLightStart, scheduleDarkStart, setSchedule,
   } = useThemeStore();
@@ -54,10 +58,10 @@ export default function AppearanceSection() {
 
   const allThemes = useInstalledThemes();
 
-  const handleDelete = (id: string) => {
-    deleteCustomTheme(id);
-    if (activeThemeId === id) setTheme("abyss");
-  };
+  const marketplace = useMarketplaceThemes();
+  const menuRemoval = themeMenu ? marketplace.removal(themeMenu) : null;
+  const removalLabel = (removal: ThemeRemoval) =>
+    removal.kind === "uninstall" ? t("settings.appearance.marketplace.remove") : t("settings.appearance.deleteTheme");
 
   return (
     <div className="p-6 space-y-6">
@@ -208,6 +212,7 @@ export default function AppearanceSection() {
         <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
           {allThemes.map((theme) => {
             const isActive = theme.id === activeThemeId;
+            const removal = marketplace.removal(theme);
             return (
               <button
                 key={theme.id}
@@ -235,7 +240,7 @@ export default function AppearanceSection() {
                     {t("settings.appearance.dynamicThemeHint")}
                   </span>
                 )}
-                {!theme.builtIn && isMobile && (
+                {removal && isMobile && (
                   <span
                     role="button"
                     tabIndex={0}
@@ -248,30 +253,35 @@ export default function AppearanceSection() {
                     <Icon icon="lucide:ellipsis-vertical" width={18} />
                   </span>
                 )}
-                {!theme.builtIn && !isMobile && (
+                {removal && !isMobile && (
                   <div className="absolute bottom-2 right-2 flex gap-1">
+                    {!theme.builtIn && (
+                      <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); exportTheme(theme); }}
+                        className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
+                        title={t("settings.appearance.exportTheme")}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
+                      >
+                        <Icon icon="lucide:share" width={11} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
+                        className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
+                        title={t("settings.appearance.editTheme")}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
+                      >
+                        <Icon icon="lucide:pencil" width={11} />
+                      </button>
+                      </>
+                    )}
                     <button
-                      onClick={(e) => { e.stopPropagation(); exportTheme(theme); }}
-                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
-                      title={t("settings.appearance.exportTheme")}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-                    >
-                      <Icon icon="lucide:share" width={11} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
-                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
-                      title={t("settings.appearance.editTheme")}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-                    >
-                      <Icon icon="lucide:pencil" width={11} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(theme.id); }}
-                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-status-error)"
-                      title={t("settings.appearance.deleteTheme")}
+                      onClick={(e) => { e.stopPropagation(); removal.remove(); }}
+                      disabled={removal.disabledReason !== null}
+                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! disabled:opacity-0 disabled:group-hover:opacity-30! disabled:cursor-not-allowed transition-opacity text-(--t-status-error)"
+                      title={removal.disabledReason ?? removalLabel(removal)}
                     >
                       <Icon icon="lucide:trash-2" width={11} />
                     </button>
@@ -294,14 +304,61 @@ export default function AppearanceSection() {
             <span className="text-xs font-medium leading-tight">{t("settings.appearance.newCustomTheme")}</span>
           </button>
         </div>
+
+        <div className="flex items-center justify-between mt-6 mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
+            {t("settings.appearance.marketplace.available")}
+          </h3>
+          <BrowseMarketplaceThemesButton onClick={openMarketplaceThemes} className="vt-hit" />
+        </div>
+        {marketplace.available.length > 0 && (
+          <div className="grid gap-2.5 mb-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))" }}>
+            {marketplace.available.map((item) => {
+              const busy = marketplace.busy.has(item.entry.id);
+              const disabled = item.disabledReason !== null;
+              return (
+                <button
+                  key={item.entry.id}
+                  data-theme-available={item.entry.id}
+                  aria-disabled={disabled || busy}
+                  title={item.disabledReason ?? undefined}
+                  onClick={() => { if (!disabled) marketplace.get(item); }}
+                  className="relative flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all bg-(--t-bg-card) border-[1.5px] border-(--t-border) enabled:hover:border-(--t-border-hover) aria-disabled:cursor-not-allowed"
+                >
+                  <div className={disabled ? "opacity-40" : undefined}>
+                    <ThemeCardSwatches colors={item.preview?.ui ?? null} />
+                  </div>
+                  <span className="flex flex-col gap-0.5 min-w-0 pr-12">
+                    <span className="text-xs font-medium leading-tight truncate text-(--t-text-primary)">{item.entry.name}</span>
+                    <MarketplaceSourceBadge sourceName={item.sourceName} />
+                    {item.disabledReason && <span className="text-[11px] leading-tight text-(--t-text-dim)">{item.disabledReason}</span>}
+                  </span>
+                  <span
+                    className={`absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-(--t-accent) text-(--t-bg-base) ${disabled ? "opacity-40" : ""}`}
+                  >
+                    <Icon icon={busy ? "lucide:loader" : "lucide:download"} width={11} className={busy ? "animate-spin" : undefined} />
+                    {t("settings.appearance.marketplace.get")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <MarketplaceThemeStatus loading={marketplace.loading} unreachableCount={marketplace.unreachableCount} />
+        {marketplace.modal}
       </div>
 
-      {themeMenu && (
+      {menuRemoval && themeMenu && (
         <BottomSheet title={themeMenu.name} onClose={() => setThemeMenu(null)}>
           {[
-            { icon: "lucide:share", label: t("settings.appearance.exportTheme"), slug: "export", onTap: () => exportTheme(themeMenu) },
-            { icon: "lucide:pencil", label: t("settings.appearance.editTheme"), slug: "edit", onTap: () => openThemeCreator(themeMenu.id) },
-            { icon: "lucide:trash-2", label: t("settings.appearance.deleteTheme"), slug: "delete", danger: true, onTap: () => handleDelete(themeMenu.id) },
+            ...(themeMenu.builtIn ? [] : [
+              { icon: "lucide:share", label: t("settings.appearance.exportTheme"), slug: "export", onTap: () => exportTheme(themeMenu) },
+              { icon: "lucide:pencil", label: t("settings.appearance.editTheme"), slug: "edit", onTap: () => openThemeCreator(themeMenu.id) },
+            ]),
+            {
+              icon: "lucide:trash-2", label: removalLabel(menuRemoval), slug: "delete", danger: true,
+              disabledReason: menuRemoval.disabledReason ?? undefined, onTap: menuRemoval.remove,
+            },
           ].map((it) => (
             <SheetActionRow key={it.slug} attr="theme-action" it={{ ...it, onTap: () => { setThemeMenu(null); it.onTap(); } }} />
           ))}

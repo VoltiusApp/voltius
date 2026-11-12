@@ -8,6 +8,7 @@ export type SheetAction = {
   slug?: string;
   danger?: boolean;
   disabled?: boolean;
+  disabledReason?: string;
   onTap: () => void;
 };
 
@@ -21,7 +22,7 @@ export function SheetActionRow({ attr, it }: { attr: string; it: SheetAction }) 
   return (
     <button
       {...{ [`data-${attr}`]: slug }}
-      disabled={it.disabled}
+      disabled={it.disabled || it.disabledReason !== undefined}
       className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-50"
       style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
       onClick={() => {
@@ -31,7 +32,10 @@ export function SheetActionRow({ attr, it }: { attr: string; it: SheetAction }) 
       }}
     >
       <Icon icon={it.icon} width={18} />
-      <span className="text-sm font-medium">{it.label}</span>
+      <span className="flex flex-col">
+        <span className="text-sm font-medium">{it.label}</span>
+        {it.disabledReason && <span className="text-xs text-(--t-text-dim)">{it.disabledReason}</span>}
+      </span>
     </button>
   );
 }

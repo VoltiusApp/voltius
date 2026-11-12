@@ -23,9 +23,6 @@ vi.mock("@/components/terminal/HistoryPanel", () => ({ HistoryPanel: () => <div>
 vi.mock("@/components/terminal/PanelSftpSection", () => ({ default: () => <div>sftp-panel</div> }));
 vi.mock("@/components/terminal/NotesPanel", () => ({ NotesPanel: () => <div>notes-panel</div> }));
 vi.mock("@/hooks/useCurrentSessionTunnelCount", () => ({ useCurrentSessionTunnelCount: () => 0 }));
-vi.mock("@/hooks/useMarketplaceThemes", () => ({
-  useMarketplaceThemes: () => ({ available: [], loading: false, unreachableCount: 0, busy: new Set(), get: () => {}, removal: () => null, modal: null }),
-}));
 vi.mock("@/hooks/useActiveHostConnection", () => ({ useActiveHostConnection: () => ({ session: undefined, connection: undefined }) }));
 
 function renderPanel(rightPanelSection: string) {
