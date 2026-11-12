@@ -348,7 +348,14 @@
         "upgradeTrial": "Vyšší tarif · 14 dní na vyzkoušení zdarma",
         "upgrade": "Vyšší tarif"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} zamčená karta ponechána",
+        "keptToast_few": "{{count}} zamčené karty ponechány",
+        "keptToast_many": "{{count}} zamčených karet ponecháno",
+        "keptToast_other": "{{count}} zamčených karet ponecháno",
+        "closeBlocked": "Kartu zavřete až po odemčení"
+      }
     },
     "vaultHeader": {
       "members": "Členové",

@@ -348,7 +348,14 @@
         "upgradeTrial": "Улучшить · 14 дней бесплатно",
         "upgrade": "Улучшить"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "Оставлена {{count}} заблокированная вкладка",
+        "keptToast_few": "Оставлены {{count}} заблокированные вкладки",
+        "keptToast_many": "Оставлено {{count}} заблокированных вкладок",
+        "keptToast_other": "Оставлено {{count}} заблокированной вкладки",
+        "closeBlocked": "Разблокируйте вкладку, чтобы закрыть её"
+      }
     },
     "vaultHeader": {
       "members": "Участники",

@@ -332,7 +332,12 @@
         "upgradeTrial": "Yükselt · 14 gün ücretsiz deneme",
         "upgrade": "Yükselt"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} kilitli sekme korundu",
+        "keptToast_other": "{{count}} kilitli sekme korundu",
+        "closeBlocked": "Kapatmak için sekmenin kilidini açın"
+      }
     },
     "vaultHeader": {
       "members": "Üyeler",

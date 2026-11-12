@@ -328,7 +328,12 @@
         "upgradeTrial": "升级 · 14 天免费试用",
         "upgrade": "升级"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "已保留 {{count}} 个锁定的标签页",
+        "keptToast_other": "已保留 {{count}} 个锁定的标签页",
+        "closeBlocked": "解锁标签页后才能关闭"
+      }
     },
     "vaultHeader": {
       "members": "成员",

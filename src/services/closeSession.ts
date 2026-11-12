@@ -1,7 +1,13 @@
-import { useLayoutStore } from "@/stores/layoutStore";
+import i18n from "@/i18n";
+import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
+import { useLockNudgeStore } from "@/stores/lockNudgeStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useUIStore } from "@/stores/uiStore";
+import { isSessionLocked } from "@/services/tabLock";
+
+export interface CloseResult { closed: string[]; kept: string[] }
 
 /** Tear down a session: leave/stop any multiplayer connection, then disconnect and drop it. */
 export function closeSession(sessionId: string): void {
@@ -18,10 +24,32 @@ export function closeSession(sessionId: string): void {
   useSessionStore.getState().removeSession(sessionId);
 }
 
-export function closeSessionTabs(sessionIds: string[]): void {
-  for (const id of sessionIds) {
+export function closeSessionTabs(sessionIds: string[], opts: { reportKept?: boolean } = {}): CloseResult {
+  const kept = sessionIds.filter(isSessionLocked);
+  const closed = sessionIds.filter((id) => !kept.includes(id));
+  for (const id of closed) {
     closeSession(id);
     useLayoutStore.getState().removeSession(id);
   }
+  if (kept.length > 0) {
+    useLockNudgeStore.getState().nudge(kept);
+    if (opts.reportKept) {
+      useNotificationStore.getState().addToast({
+        source: APP_SOURCE,
+        type: "toast",
+        message: i18n.t("layout.titleBar.lock.keptToast", { count: kept.length }),
+        severity: "info",
+        duration: 3000,
+      });
+    }
+  }
   if (useSessionStore.getState().sessions.length === 0) useUIStore.getState().leaveTerminal();
+  return { closed, kept };
+}
+
+export function closeSplitTabSessions(tabId: string): CloseResult {
+  const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
+  const result = closeSessionTabs(getPaneSessionIds(tab?.root ?? null), { reportKept: true });
+  if (result.kept.length === 0) useLayoutStore.getState().closeSplitTab(tabId);
+  return result;
 }

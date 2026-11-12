@@ -340,7 +340,13 @@
         "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
         "upgrade": "Mettre à niveau"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} onglet verrouillé conservé",
+        "keptToast_many": "{{count}} onglets verrouillés conservés",
+        "keptToast_other": "{{count}} onglets verrouillés conservés",
+        "closeBlocked": "Déverrouillez l'onglet pour le fermer"
+      }
     },
     "vaultHeader": {
       "members": "Membres",

@@ -340,7 +340,13 @@
         "upgradeTrial": "Atualizar · Avaliação Gratuita de 14d",
         "upgrade": "Atualizar"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} separador bloqueado mantido",
+        "keptToast_many": "{{count}} separadores bloqueados mantidos",
+        "keptToast_other": "{{count}} separadores bloqueados mantidos",
+        "closeBlocked": "Desbloqueie o separador para o fechar"
+      }
     },
     "vaultHeader": {
       "members": "Membros",
