@@ -39,7 +39,7 @@ import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/ser
 import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
-import { SSE_RETRY_GATEWAY_MAX_MS, sseRetryDelay } from "@/services/syncRetry";
+import { RECONCILE_MS, SSE_RETRY_GATEWAY_MAX_MS, jittered, sseRetryDelay } from "@/services/syncRetry";
 import { isProxyAnswer, isUnreachable, reachableFetch } from "@/services/reachability";
 import { createWakeableSleeps } from "@/lib/wakeableSleep";
 import { onForeground, onNetworkBack } from "@/lib/networkSignals";
@@ -785,6 +785,7 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     succeeded = true;
     setState("success");
+    armReconcile();
     if (wasOffline) wakeSseRetry();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
@@ -1029,6 +1030,17 @@ let _doubtStream: ((reason: unknown) => void) | null = null;
 const STREAM_QUIET_MS = 75_000;
 const STREAM_DOUBTED_MS = 40_000;
 
+let _reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Catches a cross-device push whose event never arrived on a stream that still hears heartbeats.
+function armReconcile(): void {
+  if (_reconcileTimer) clearTimeout(_reconcileTimer);
+  _reconcileTimer = _doubtStream === null ? null : setTimeout(() => {
+    _reconcileTimer = null;
+    syncInBackground().catch(logFailure("periodic reconcile"));
+  }, jittered(RECONCILE_MS));
+}
+
 const SSE_RETRY = "sse-retry";
 const _sseSleeps = createWakeableSleeps();
 const wakeSseRetry = () => void _sseSleeps.wake(SSE_RETRY);
@@ -1104,6 +1116,7 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
         onOpen: () => {
           healthy = true;
           _doubtStream = doubt;
+          armReconcile();
           heard();
         },
         onData: heard,
@@ -1115,6 +1128,7 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
       clearTimeout(doubted);
       signal.removeEventListener("abort", end);
       _doubtStream = null;
+      armReconcile();
     }
     if (signal.aborted) return;
     if (isUnreachable(failure) && !_syncInFlight) setState("offline", failure.message);

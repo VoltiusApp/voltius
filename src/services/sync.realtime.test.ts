@@ -605,3 +605,58 @@ test("a failed sync is not retried while the device is paused", async () => {
 
   expect(syncRuns).toBe(1);
 });
+
+async function keepStreamAliveFor(ms: number) {
+  for (let left = ms; left > 0; left -= 30_000) {
+    await vi.advanceTimersByTimeAsync(Math.min(30_000, left));
+    h.chunk(":heartbeat\n\n");
+  }
+}
+
+test("an open stream that hears nothing checks the server every 10 minutes without uploading", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(deviceListFetches()).toBe(1);
+
+  const pushesAfterCatchUp = blobPushes();
+  await keepStreamAliveFor(9 * 60_000);
+  expect(deviceListFetches()).toBe(1);
+
+  await keepStreamAliveFor(60_000);
+  expect(deviceListFetches()).toBe(2);
+
+  await keepStreamAliveFor(10 * 60_000);
+  expect(deviceListFetches()).toBe(3);
+  expect(blobPushes()).toBe(pushesAfterCatchUp);
+  expect(h.connects).toHaveLength(1);
+});
+
+test("a sync in between postpones the next check", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await keepStreamAliveFor(5 * 60_000);
+
+  await runSync();
+  expect(deviceListFetches()).toBe(2);
+
+  await keepStreamAliveFor(8 * 60_000);
+  expect(deviceListFetches()).toBe(2);
+
+  await keepStreamAliveFor(2 * 60_000);
+  expect(deviceListFetches()).toBe(3);
+});
+
+test("no periodic check runs once the stream is stopped", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+
+  stopRealtimeSync();
+  await vi.advanceTimersByTimeAsync(30 * 60_000);
+
+  expect(deviceListFetches()).toBe(1);
+});
