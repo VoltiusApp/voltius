@@ -1,6 +1,7 @@
 import {
   clampRatio,
   computeKateMinimapLayout,
+  planMinimapRefresh,
   samplePlacement,
   pointerRatio,
   pointerRatioForLayout,
@@ -8,7 +9,7 @@ import {
   scrollDeltaForRatio,
   viewportThumb,
 } from "./minimapMath.ts";
-import { test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 test("minimapMath", async () => {
 function equal<T>(actual: T, expected: T) {
@@ -76,4 +77,23 @@ function run() {
 }
 
 run();
+});
+
+describe("planMinimapRefresh", () => {
+  const base = { cachedKey: "a", key: "a", sinceSampleMs: 0, viewChanged: false, throttleMs: 200 };
+
+  test("the first draw samples the buffer", () => {
+    expect(planMinimapRefresh({ ...base, cachedKey: null })).toEqual({ draw: true, resample: true, retryInMs: null });
+  });
+
+  test("scrolling or resizing redraws from the cached samples", () => {
+    expect(planMinimapRefresh({ ...base, viewChanged: true })).toEqual({ draw: true, resample: false, retryInMs: null });
+    expect(planMinimapRefresh(base)).toEqual({ draw: false, resample: false, retryInMs: null });
+  });
+
+  test("new output resamples at most once per throttle window, with a trailing pass", () => {
+    expect(planMinimapRefresh({ ...base, key: "b", sinceSampleMs: 50 })).toEqual({ draw: false, resample: false, retryInMs: 150 });
+    expect(planMinimapRefresh({ ...base, key: "b", sinceSampleMs: 50, viewChanged: true })).toEqual({ draw: true, resample: false, retryInMs: 150 });
+    expect(planMinimapRefresh({ ...base, key: "b", sinceSampleMs: 200 })).toEqual({ draw: true, resample: true, retryInMs: null });
+  });
 });

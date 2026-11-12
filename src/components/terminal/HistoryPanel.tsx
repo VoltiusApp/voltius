@@ -1,5 +1,5 @@
 import { writeClipboard } from "../../utils/clipboard";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
@@ -73,24 +73,32 @@ function RowButton({
   );
 }
 
-function HistoryRow({
+/** Row callbacks take the item, so one stable object serves every row and a memoized row
+ *  re-renders only when its own data changes, not on every tab switch. */
+interface RowActions {
+  toggleFavorite: (item: HistoryItem) => void;
+  inject: (item: HistoryItem, execute: boolean) => void;
+  filterHost: (item: HistoryItem) => void;
+  menuItems: (item: HistoryItem, hostName: string) => ContextMenuItem[];
+}
+
+// Up to 500 rows stay mounted; let the browser skip style and layout for rows out of view.
+const ROW_STYLE: React.CSSProperties = {
+  borderColor: "var(--t-border)",
+  contentVisibility: "auto",
+  containIntrinsicSize: "auto 52px",
+};
+
+const HistoryRow = memo(function HistoryRow({
   item,
   hostName,
   canInject,
-  onToggleFavorite,
-  onInsert,
-  onExecute,
-  onFilterHost,
-  menuItems,
+  actions,
 }: {
   item: HistoryItem;
   hostName: string;
   canInject: boolean;
-  onToggleFavorite: () => void;
-  onInsert: () => void;
-  onExecute: () => void;
-  onFilterHost: () => void;
-  menuItems: ContextMenuItem[];
+  actions: RowActions;
 }) {
   const { t } = useTranslation();
   const { copied, flash } = useCopiedFlash(1200);
@@ -110,7 +118,7 @@ function HistoryRow({
   return (
     <div
       className="group px-3 py-2 border-b transition-colors hover:bg-(--t-bg-elevated)"
-      style={{ borderColor: "var(--t-border)" }}
+      style={ROW_STYLE}
       onContextMenu={menu.open}
     >
       <div className="flex items-start justify-between gap-1">
@@ -124,7 +132,7 @@ function HistoryRow({
           </p>
           <p className="flex text-[10px] mt-1 min-w-0" style={{ color: "var(--t-text-muted)" }}>
             <button
-              onClick={onFilterHost}
+              onClick={() => actions.filterHost(item)}
               title={t("terminal.historyPanel.showOnlyHost", { host: hostName })}
               className="truncate min-w-0 hover:underline hover:text-(--t-accent)"
             >
@@ -140,7 +148,7 @@ function HistoryRow({
           <RowButton
             icon="lucide:star"
             title={starTitle}
-            onClick={onToggleFavorite}
+            onClick={() => actions.toggleFavorite(item)}
             color={item.favorite ? "var(--t-status-warning)" : undefined}
             filled={item.favorite}
           />
@@ -153,13 +161,13 @@ function HistoryRow({
           <RowButton
             icon="lucide:arrow-down-to-line"
             title={canInject ? t("terminal.shared.insert") : noSession}
-            onClick={onInsert}
+            onClick={() => actions.inject(item, false)}
             disabled={!canInject}
           />
           <RowButton
             icon="lucide:play"
             title={canInject ? t("terminal.shared.insertAndExecute") : noSession}
-            onClick={onExecute}
+            onClick={() => actions.inject(item, true)}
             disabled={!canInject}
             hoverClass="enabled:hover:text-(--t-accent)"
           />
@@ -171,10 +179,10 @@ function HistoryRow({
           />
         </div>
       </div>
-      {menu.pos && <ContextMenu items={menuItems} pos={menu.pos} onClose={menu.close} />}
+      {menu.pos && <ContextMenu items={actions.menuItems(item, hostName)} pos={menu.pos} onClose={menu.close} />}
     </div>
   );
-}
+});
 
 function GroupHeader({ label, count, open, onToggle }: { label: string; count: number; open?: boolean; onToggle?: () => void }) {
   const content = (
@@ -200,8 +208,7 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
   const remove = useCommandHistoryStore((s) => s.remove);
   const favorites = useFavoriteCommandStore((s) => s.favorites);
   const [recording] = useToggle("command-history");
-  const { sessions, activeSessionId } = useSessionStore();
-  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const activeSession = useSessionStore((s) => s.sessions.find((x) => x.id === s.activeSessionId));
   const connections = useAllConnections();
 
   const [query, setQuery] = useState("");
@@ -290,9 +297,8 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
   const filterBy = (item: HistoryItem) =>
     setHostFilter({ id: item.connectionId, label: hostName(item.connectionId, item.sessionName) });
 
-  function renderRow(item: HistoryItem) {
-    const name = hostName(item.connectionId, item.sessionName);
-    const menuItems: ContextMenuItem[] = [
+  function menuItems(item: HistoryItem, name: string): ContextMenuItem[] {
+    return [
       { label: t("terminal.historyPanel.saveAsSnippet"), icon: "lucide:braces", onClick: () => saveAsSnippet(item.command) },
       { label: t("terminal.historyPanel.showOnlyHost", { host: name }), icon: "lucide:filter", onClick: () => filterBy(item) },
       {
@@ -303,17 +309,27 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
         onClick: () => removeItem(item),
       },
     ];
+  }
+
+  // Rows share one stable actions object that calls this render's handlers when clicked,
+  // so an action targets the tab active at click time without re-rendering every row.
+  const latest = useRef({ toggleFavorite, inject, filterBy, menuItems });
+  latest.current = { toggleFavorite, inject, filterBy, menuItems };
+  const actions = useMemo<RowActions>(() => ({
+    toggleFavorite: (item) => latest.current.toggleFavorite(item),
+    inject: (item, execute) => void latest.current.inject(item.command, execute),
+    filterHost: (item) => latest.current.filterBy(item),
+    menuItems: (item, name) => latest.current.menuItems(item, name),
+  }), []);
+
+  function renderRow(item: HistoryItem) {
     return (
       <HistoryRow
         key={item.id}
         item={item}
-        hostName={name}
+        hostName={hostName(item.connectionId, item.sessionName)}
         canInject={canInject}
-        onToggleFavorite={() => toggleFavorite(item)}
-        onInsert={() => inject(item.command, false)}
-        onExecute={() => inject(item.command, true)}
-        onFilterHost={() => filterBy(item)}
-        menuItems={menuItems}
+        actions={actions}
       />
     );
   }

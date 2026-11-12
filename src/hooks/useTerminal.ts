@@ -153,12 +153,16 @@ export interface TerminalMinimapSnapshot {
   rows: number;
   cols: number;
   version: number;
+  /** Bumps only when the buffer's text may have changed (output, buffer switch, resize), not on scroll. */
+  contentVersion: number;
 }
 
 interface MinimapState {
   snapshot: TerminalMinimapSnapshot;
   subscribers: Set<() => void>;
   frame: number | null;
+  /** Content changed since the last snapshot. */
+  contentDirty: boolean;
 }
 
 export interface TerminalMinimapController {
@@ -211,18 +215,21 @@ function notifySearch(entry: CacheEntry) {
 
 function minimapSnapshot(entry: CacheEntry): TerminalMinimapSnapshot {
   const buffer = entry.terminal.buffer.active;
+  const prev = entry.minimap.snapshot;
   return {
     bufferLength: buffer.length,
     viewportY: buffer.viewportY,
     baseY: buffer.baseY,
     rows: entry.terminal.rows,
     cols: entry.terminal.cols,
-    version: entry.minimap.snapshot.version + 1,
+    version: prev.version + 1,
+    contentVersion: prev.contentVersion + (entry.minimap.contentDirty ? 1 : 0),
   };
 }
 
 function notifyMinimap(entry: CacheEntry) {
   entry.minimap.snapshot = minimapSnapshot(entry);
+  entry.minimap.contentDirty = false;
   entry.minimap.subscribers.forEach((fn) => fn());
 }
 
@@ -301,7 +308,9 @@ function noteRestoreOutput(sessionId: string): void {
   timers.settle = setTimeout(() => applyRestoreScroll(sessionId), RESTORE_SETTLE_MS);
 }
 
-function scheduleMinimapNotify(entry: CacheEntry) {
+/** `contentChanged` false = only the viewport moved, so the minimap can redraw from cached samples. */
+function scheduleMinimapNotify(entry: CacheEntry, contentChanged: boolean) {
+  if (contentChanged) entry.minimap.contentDirty = true;
   if (entry.minimap.frame !== null) return;
   entry.minimap.frame = requestAnimationFrame(() => {
     entry.minimap.frame = null;
@@ -398,7 +407,7 @@ function scrollMinimapToRatio(entry: CacheEntry, ratio: number) {
   const buffer = entry.terminal.buffer.active;
   const delta = scrollDeltaForRatio(ratio, buffer.length, entry.terminal.rows, buffer.viewportY);
   entry.terminal.scrollLines(delta);
-  scheduleMinimapNotify(entry);
+  scheduleMinimapNotify(entry, false);
 }
 
 function searchDecorations() {
@@ -840,9 +849,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         searchAddon,
         search: { snapshot: { ...EMPTY_SNAPSHOT }, subscribers: new Set() },
         minimap: {
-          snapshot: { bufferLength: 0, viewportY: 0, baseY: 0, rows: term.rows, cols: term.cols, version: 0 },
+          snapshot: { bufferLength: 0, viewportY: 0, baseY: 0, rows: term.rows, cols: term.cols, version: 0, contentVersion: 0 },
           subscribers: new Set(),
           frame: null,
+          contentDirty: true,
         },
         commands: createCommandTracker({
           mark: (line) => {
@@ -877,10 +887,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       });
 
       const scrollDispose = term.onScroll(() => {
-        scheduleMinimapNotify(entry);
+        scheduleMinimapNotify(entry, false);
         notifyScrollListeners();
       });
-      const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry));
+      const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry, true));
 
       // Intercept app shortcuts before xterm processes them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
@@ -1090,7 +1100,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         flow?.written(text.length);
         term.write(text, () => {
           flow?.processed(text.length);
-          scheduleMinimapNotify(entry);
+          scheduleMinimapNotify(entry, true);
         });
       };
 
@@ -1148,7 +1158,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const onResizeDispose = term.onResize(({ cols, rows }) => {
         entry.onResizeRef.current?.(cols, rows);
-        scheduleMinimapNotify(entry);
+        scheduleMinimapNotify(entry, true);
         if (!entry.connectedRef.current) return;
         sendResize(sessionId, sessionType, cols, rows);
       });
