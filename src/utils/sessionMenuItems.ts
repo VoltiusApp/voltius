@@ -68,7 +68,7 @@ export function sessionMenuItems({
 export function pinListExtra(t: TFunction, pinned: boolean, onToggle: () => void): ContextMenuItem {
   return {
     label: t(pinned ? "layout.titleBar.stack.unpin" : "layout.titleBar.stack.pin"),
-    icon: pinned ? "lucide:pin-off" : "lucide:pin",
+    icon: pinned ? "lucide:panel-left-close" : "lucide:panel-left",
     onClick: onToggle,
   };
 }
