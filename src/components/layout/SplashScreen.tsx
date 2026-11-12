@@ -11,7 +11,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
-import { autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
+import { announceWithdrawnInvitations, autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
 import { lockOnLaunchIfIdle, systemAuthAvailable } from "@/services/appLock";
 import { secretState } from "@/services/vaultSecret";
 import { useAppLockStore } from "@/stores/appLockStore";
@@ -197,6 +197,7 @@ export default function SplashScreen({ onReady }: Props) {
       setStep("connections", "error", t("layout.splash.connectionsUnavailable"));
     }
     useSubscriptionStore.getState().load().catch(() => {});
+    void announceWithdrawnInvitations();
     isServerMode().then((server) => {
       if (!server) return startLanSyncInBackground();
       const useReplace = sessionStorage.getItem("voltius.replace-sync-on-login") === "1";

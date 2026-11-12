@@ -102,23 +102,32 @@ async function registerOnServer(args: {
     throw (await featureDisabledError(failed)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
   }
   const data = await res.json();
-  announceWithdrawnInvitations(data.withdrawn_invitations);
+  rememberWithdrawnInvitations(data.withdrawn_invitations);
   return { ...data, enrollment: toEnrollmentOutcome(data.enrollment) ?? undefined };
 }
 
-function announceWithdrawnInvitations(withdrawn: { team_name: string }[] | undefined): void {
+// Held in sessionStorage because adding an account reloads the window before anything is shown.
+const WITHDRAWN_INVITATIONS_KEY = "voltius.withdrawn-invitations";
+
+function rememberWithdrawnInvitations(withdrawn: { team_name: string }[] | undefined): void {
   if (!withdrawn?.length) return;
-  void import("@/stores/notificationStore").then(({ APP_SOURCE, useNotificationStore }) => {
-    for (const { team_name } of withdrawn) {
-      useNotificationStore.getState().addToast({
-        source: APP_SOURCE,
-        type: "toast",
-        message: i18n.t("common.toast.invitationWithdrawnAtSignup", { team: team_name }),
-        severity: "warning",
-        duration: 0,
-      });
-    }
-  });
+  sessionStorage.setItem(WITHDRAWN_INVITATIONS_KEY, JSON.stringify(withdrawn.map((w) => w.team_name)));
+}
+
+export async function announceWithdrawnInvitations(): Promise<void> {
+  const saved = sessionStorage.getItem(WITHDRAWN_INVITATIONS_KEY);
+  if (!saved) return;
+  sessionStorage.removeItem(WITHDRAWN_INVITATIONS_KEY);
+  const { APP_SOURCE, useNotificationStore } = await import("@/stores/notificationStore");
+  for (const team of JSON.parse(saved) as string[]) {
+    useNotificationStore.getState().addToast({
+      source: APP_SOURCE,
+      type: "toast",
+      message: i18n.t("common.toast.invitationWithdrawnAtSignup", { team }),
+      severity: "warning",
+      duration: 0,
+    });
+  }
 }
 
 /** Unwrap cached user secrets into the vault-keys store; null when unusable. */

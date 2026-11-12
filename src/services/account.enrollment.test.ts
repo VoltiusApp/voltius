@@ -30,13 +30,14 @@ vi.mock("@/stores/vaultKeysStore", () => ({
   useVaultKeysStore: { getState: () => ({ set: vi.fn(), clear: vi.fn(), dek: null, kek: null, x25519Private: null }) },
 }));
 
-import { authenticateServerAccount, createServerAccount } from "./account";
+import { announceWithdrawnInvitations, authenticateServerAccount, createServerAccount } from "./account";
 
 const S = "https://srv";
 const CRED = { id: "01234567-89ab-cdef-0123-456789abcdef", secret: "x".repeat(43) };
 
 beforeEach(() => {
   h.addToast.mockReset();
+  sessionStorage.clear();
   h.sent = {};
   h.register = { jwt_token: "JWT", refresh_token: "RT" };
   h.invoke.mockReset().mockImplementation(async (cmd: string) => {
@@ -90,18 +91,29 @@ test("register failing for another reason keeps the plain registration error", a
   await expect(createServerAccount("a@acme.com", "pw", S, CRED)).rejects.toThrow("common.error.registrationFailed");
 });
 
-test("an invitation the server could not honour at sign-up is named to the new user", async () => {
+test("an invitation the server could not honour at sign-up is named once the app has loaded", async () => {
   h.register = { ...h.register, withdrawn_invitations: [{ team_name: "Acme Ops" }] };
   await createServerAccount("a@acme.com", "pw", S);
-  await vi.waitFor(() => expect(h.addToast).toHaveBeenCalledTimes(1));
+  expect(h.addToast).not.toHaveBeenCalled();
+
+  await announceWithdrawnInvitations();
+  expect(h.addToast).toHaveBeenCalledTimes(1);
   expect(h.addToast.mock.calls[0][0]).toMatchObject({
     severity: "warning",
     message: 'common.toast.invitationWithdrawnAtSignup {"team":"Acme Ops"}',
   });
 });
 
+test("withdrawn invitations are announced only once", async () => {
+  h.register = { ...h.register, withdrawn_invitations: [{ team_name: "Acme Ops" }] };
+  await createServerAccount("a@acme.com", "pw", S);
+  await announceWithdrawnInvitations();
+  await announceWithdrawnInvitations();
+  expect(h.addToast).toHaveBeenCalledTimes(1);
+});
+
 test("a sign-up with every invitation honoured shows nothing", async () => {
   await createServerAccount("a@acme.com", "pw", S);
-  await new Promise((r) => setTimeout(r, 0));
+  await announceWithdrawnInvitations();
   expect(h.addToast).not.toHaveBeenCalled();
 });

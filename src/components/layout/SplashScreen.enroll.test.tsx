@@ -11,6 +11,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@/utils/platform", () => ({ isMobilePlatform: () => false, usePlatform: () => "linux" }));
 vi.mock("@/services/account", () => ({
+  announceWithdrawnInvitations: vi.fn(async () => {}),
   autoLogin: vi.fn(async () => "declined"),
   getAppLock: vi.fn(async () => null),
   setAppLock: vi.fn(async () => {}),
