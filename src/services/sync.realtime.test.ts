@@ -12,7 +12,9 @@ const h = vi.hoisted(() => ({
   events: new Map<string, () => void>(),
   chunk: (() => {}) as (text: string) => void,
   settle: vi.fn(async () => {}),
+  catchUpTeamVaults: vi.fn(),
 }));
+vi.mock("@/services/teamVaultCatchUp", () => ({ catchUpTeamVaults: h.catchUpTeamVaults, cancelTeamVaultCatchUp: vi.fn() }));
 vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), settleVaultOnDek: h.settle }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -90,6 +92,7 @@ beforeEach(() => {
   h.connects.length = 0;
   h.connectedAt.length = 0;
   h.settle.mockReset().mockResolvedValue(undefined);
+  h.catchUpTeamVaults.mockReset();
   h.connect = unreachable;
   h.events.clear();
   h.invoke.mockReset();
@@ -659,4 +662,28 @@ test("no periodic check runs once the stream is stopped", async () => {
   await vi.advanceTimersByTimeAsync(30 * 60_000);
 
   expect(deviceListFetches()).toBe(1);
+});
+
+test("team vaults catch up when the stream reopens, not when it first opens", async () => {
+  h.connect = opensThenDrops;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(h.catchUpTeamVaults).not.toHaveBeenCalled();
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  expect(h.connects).toHaveLength(2);
+  expect(h.catchUpTeamVaults).toHaveBeenCalledTimes(1);
+});
+
+test("the server's lag fallback catches team vaults up", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+
+  h.chunk("data: sync\n\n");
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(h.catchUpTeamVaults).toHaveBeenCalledTimes(1);
 });
