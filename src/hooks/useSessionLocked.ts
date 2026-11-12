@@ -1,13 +1,14 @@
 import i18n from "@/i18n";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { anyLocked } from "@/services/tabLock";
 
-export function useSessionLocked(sessionId: string): boolean {
-  return useSessionStore((s) => s.sessions.some((x) => x.id === sessionId && x.locked === true));
+export function useSessionsLocked(sessionIds: string[]): boolean {
+  return useSessionStore((s) => anyLocked(s.sessions, sessionIds));
 }
 
 export function useDismissBlockedReason(sessionId: string | undefined): string | undefined {
-  const locked = useSessionLocked(sessionId ?? "");
+  const locked = useSessionsLocked(sessionId ? [sessionId] : []);
   return locked ? i18n.t("layout.titleBar.lock.closeBlocked") : undefined;
 }
 

@@ -6,7 +6,7 @@ const disconnect = vi.fn(async () => {});
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: { getState: () => ({ sessions: [], connect, disconnect }) },
 }));
-const closeSessionTabs = vi.fn();
+const closeSessionTabs = vi.fn((_ids: string[]) => ({ closed: [] as string[], kept: [] as string[] }));
 vi.mock("@/services/closeSession", () => ({ closeSessionTabs: (ids: string[]) => closeSessionTabs(ids) }));
 vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(), onSshOutput: vi.fn(async () => () => {}) }));
 vi.mock("@/services/local", () => ({ onLocalOutput: vi.fn(async () => () => {}) }));

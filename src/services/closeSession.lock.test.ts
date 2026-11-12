@@ -86,4 +86,11 @@ describe("closeSplitTabSessions", () => {
     expect(useLayoutStore.getState().titlebarOrder).not.toContain("split:T");
     expect(ids()).toEqual(["x"]);
   });
+
+  test("focus moves to the kept locked pane, not to an unrelated tab", () => {
+    useSessionStore.setState({ sessions: [session("p1s", true), session("p2s"), session("x")], activeSessionId: "p2s" });
+    closeSplitTabSessions("T");
+    expect(useSessionStore.getState().activeSessionId).toBe("p1s");
+    expect(useLayoutStore.getState().splitTabActive).toBe(false);
+  });
 });

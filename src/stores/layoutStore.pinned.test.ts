@@ -76,4 +76,10 @@ describe("pinned titlebar keys", () => {
     useLayoutStore.getState().removeSession("x");
     expect(useLayoutStore.getState().pinnedKeys).toEqual([]);
   });
+
+  test("sessions gathered into a new split by openSessions lose their standalone pin", () => {
+    useLayoutStore.getState().setPinned("session:a", true);
+    useLayoutStore.getState().openSessions(["a", "b"]);
+    expect(useLayoutStore.getState().pinnedKeys).toEqual([]);
+  });
 });

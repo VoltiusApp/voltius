@@ -5,6 +5,7 @@ import type { TerminalSession } from "@/types";
 
 const { loadPlugin } = await import("./runtime");
 const { useSessionStore } = await import("@/stores/sessionStore");
+const { useLockNudgeStore } = await import("@/stores/lockNudgeStore");
 
 function load(id: string): PluginAPI {
   let api!: PluginAPI;
@@ -23,6 +24,7 @@ describe("api.sessions.close on a locked tab", () => {
     const api = load("close-locked");
     await expect(api.sessions.close("a")).rejects.toThrow(/^tab_locked/);
     expect(useSessionStore.getState().sessions.map((s) => s.id)).toContain("a");
+    expect(useLockNudgeStore.getState().ids).toEqual(["a"]);
   });
 
   test("lists the lock state", () => {

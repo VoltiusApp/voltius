@@ -6,6 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import type { TerminalSession } from "@/types";
 
 const UNLOCK = "layout.titleBar.lock.unlockHint";
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }), initReactI18next: { type: "3rdParty", init: () => {} } }));
 
 const session = (id: string, locked: boolean): TerminalSession => ({ id, connectionId: "c", connectionName: id, status: "connected", type: "ssh", locked });
@@ -60,5 +61,22 @@ describe("TabCloseControl", () => {
     cleanup();
     setup([], "pane");
     expect(screen.getByTitle("Close tab").className).not.toContain("opacity-0");
+  });
+
+  test("after unlocking and locking again, the closed padlock shows even though the pointer never left", () => {
+    setup(["s1"]);
+    const lock = screen.getByTitle(UNLOCK);
+    fireEvent.mouseEnter(lock);
+    fireEvent.click(lock);
+    act(() => { useSessionStore.getState().setSessionsLocked(["s1"], true); });
+    expect(screen.getByTitle(UNLOCK).innerHTML).not.toContain("lock-open");
+  });
+
+  test("double-clicking the lock does not reach the tab's own double-click", () => {
+    const onParentDouble = vi.fn();
+    useSessionStore.setState({ sessions: [session("s1", true)] });
+    render(<div onDoubleClick={onParentDouble}><TabCloseControl variant="tab" sessionIds={["s1"]} closeTitle="Close tab" onClose={vi.fn()} /></div>);
+    fireEvent.doubleClick(screen.getByTitle(UNLOCK));
+    expect(onParentDouble).not.toHaveBeenCalled();
   });
 });

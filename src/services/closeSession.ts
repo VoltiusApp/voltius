@@ -6,6 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { isSessionLocked } from "@/services/tabLock";
+import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 
 export interface CloseResult { closed: string[]; kept: string[] }
 
@@ -48,8 +49,12 @@ export function closeSessionTabs(sessionIds: string[], opts: { reportKept?: bool
 }
 
 export function closeSplitTabSessions(tabId: string): CloseResult {
-  const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
+  const layout = useLayoutStore.getState();
+  const wasActive = layout.splitTabActive && layout.activeSplitTabId === tabId;
+  const tab = layout.splitTabs.find((candidate) => candidate.id === tabId);
   const result = closeSessionTabs(getPaneSessionIds(tab?.root ?? null), { reportKept: true });
   if (result.kept.length === 0) useLayoutStore.getState().closeSplitTab(tabId);
+  else if (wasActive && useLayoutStore.getState().splitTabs.some((candidate) => candidate.id === tabId)) activateSplitTabPane(tabId);
+  else if (wasActive) activateSessionTab(result.kept[0]);
   return result;
 }

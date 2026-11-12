@@ -4,8 +4,12 @@ import { useSessionStore } from "@/stores/sessionStore";
 
 export type TabTarget = { kind: "session" | "split"; id: string };
 
+export function anyLocked(sessions: { id: string; locked?: boolean }[], ids: string[]): boolean {
+  return sessions.some((s) => s.locked === true && ids.includes(s.id));
+}
+
 export function isSessionLocked(sessionId: string): boolean {
-  return useSessionStore.getState().sessions.some((s) => s.id === sessionId && s.locked === true);
+  return anyLocked(useSessionStore.getState().sessions, [sessionId]);
 }
 
 export function splitTabLocked(tab: SplitTab): boolean {

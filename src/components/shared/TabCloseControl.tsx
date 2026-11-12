@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useLockNudgeStore } from "@/stores/lockNudgeStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useSessionsLocked } from "@/hooks/useSessionLocked";
 
 export type TabCloseVariant = "tab" | "pane" | "row" | "chip" | "badge";
 
@@ -58,7 +59,7 @@ export function TabCloseControl({
   onClose: (e: React.MouseEvent) => void;
 }) {
   const { t } = useTranslation();
-  const locked = useSessionStore((s) => s.sessions.some((x) => x.locked === true && sessionIds.includes(x.id)));
+  const locked = useSessionsLocked(sessionIds);
   const [hover, setHover] = useState(false);
   const [disarmed, setDisarmed] = useState(false);
   const [wiggle, endWiggle] = useWiggle(sessionIds, locked);
@@ -86,8 +87,10 @@ export function TabCloseControl({
         onMouseLeave={() => setHover(false)}
         onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
         onAnimationEnd={endWiggle}
+        onDoubleClick={(e: React.MouseEvent) => e.stopPropagation()}
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
+          setHover(false);
           setDisarmed(true);
           useSessionStore.getState().setSessionsLocked(sessionIds, false);
         }}
@@ -106,6 +109,7 @@ export function TabCloseControl({
       aria-label={closeTitle}
       className={`${X_CLASS[variant]} ${disarmed ? "opacity-35! cursor-default" : ""}`}
       style={tint}
+      onDoubleClick={(e: React.MouseEvent) => e.stopPropagation()}
       onClick={(e: React.MouseEvent) => {
         e.stopPropagation();
         if (!disarmed) onClose(e);
