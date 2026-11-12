@@ -18,6 +18,17 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) })
 vi.mock("@/stores/syncAfterEdit", () => ({ syncAfterEdit: vi.fn() }));
 vi.mock("@/services/snippetInject", () => ({ broadcastSnippetInject: vi.fn(async () => {}) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+// Every HistoryRow calls useCopiedFlash once per render, so its call count is a row render count.
+const rowRenders = vi.hoisted(() => ({ count: 0 }));
+vi.mock("@/hooks/useCopiedFlash", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useCopiedFlash")>();
+  return {
+    useCopiedFlash: (ms: number) => {
+      rowRenders.count += 1;
+      return actual.useCopiedFlash(ms);
+    },
+  };
+});
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, o?: { count?: number; host?: string }) =>
@@ -155,5 +166,34 @@ describe("HistoryPanel", () => {
     await renderPanel();
     expect(within(rowOf("df -h")).getByLabelText("terminal.historyPanel.addFavoriteTeam")).toBeTruthy();
     expect(within(rowOf("uptime")).getByLabelText("terminal.historyPanel.addFavorite")).toBeTruthy();
+  });
+
+  test("switching to another live tab re-renders no history row", async () => {
+    useSessionStore.setState({
+      sessions: [
+        { id: "s1", status: "connected", connectionId: "c2", connectionName: "web-01", type: "ssh" },
+        { id: "s2", status: "connected", connectionId: "c1", connectionName: "prod-db", type: "ssh" },
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    await renderPanel();
+    rowRenders.count = 0;
+    await act(async () => useSessionStore.setState({ activeSessionId: "s2" }));
+    expect(rowRenders.count).toBe(0);
+  });
+
+  test("a row's actions follow the tab that is active when they are clicked", async () => {
+    const { broadcastSnippetInject } = await import("@/services/snippetInject");
+    useSessionStore.setState({
+      sessions: [
+        { id: "s1", status: "connected", connectionId: "c2", connectionName: "web-01", type: "ssh" },
+        { id: "s2", status: "connected", connectionId: "c1", connectionName: "prod-db", type: "ssh" },
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    await renderPanel();
+    await act(async () => useSessionStore.setState({ activeSessionId: "s2" }));
+    await act(async () => fireEvent.click(within(rowOf("uptime")).getByLabelText("terminal.shared.insert")));
+    expect(vi.mocked(broadcastSnippetInject)).toHaveBeenLastCalledWith([expect.objectContaining({ id: "s2" })], "uptime", false);
   });
 });
