@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useLockNudgeStore } from "@/stores/lockNudgeStore";
+import { useSessionStore } from "@/stores/sessionStore";
 
 export type TabCloseVariant = "tab" | "pane" | "row" | "chip" | "badge";
 
@@ -45,25 +46,22 @@ function useWiggle(lockIds: string[], locked: boolean): [boolean, () => void] {
 
 export function TabCloseControl({
   variant,
-  locked,
-  lockIds,
+  sessionIds,
   active = false,
   closeTitle,
   onClose,
-  onUnlock,
 }: {
   variant: TabCloseVariant;
-  locked: boolean;
-  lockIds: string[];
+  sessionIds: string[];
   active?: boolean;
   closeTitle: string;
   onClose: (e: React.MouseEvent) => void;
-  onUnlock: () => void;
 }) {
   const { t } = useTranslation();
+  const locked = useSessionStore((s) => s.sessions.some((x) => x.locked === true && sessionIds.includes(x.id)));
   const [hover, setHover] = useState(false);
   const [disarmed, setDisarmed] = useState(false);
-  const [wiggle, endWiggle] = useWiggle(lockIds, locked);
+  const [wiggle, endWiggle] = useWiggle(sessionIds, locked);
   const size = SIZES[variant];
   const Tag = variant === "tab" || variant === "badge" ? "span" : "button";
   const tint = variant === "tab" || variant === "badge"
@@ -91,7 +89,7 @@ export function TabCloseControl({
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
           setDisarmed(true);
-          onUnlock();
+          useSessionStore.getState().setSessionsLocked(sessionIds, false);
         }}
       >
         <Icon icon={hover ? "lucide:lock-open" : "lucide:lock"} width={size.lock} />

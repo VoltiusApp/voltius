@@ -10,7 +10,6 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { TabCloseControl } from "@/components/shared/TabCloseControl";
-import { setTabLocked } from "@/services/tabLock";
 
 export function sessionTabIcon(
   session: TerminalSession,
@@ -82,9 +81,7 @@ export function buildSessionTabHandlers(deps: SessionTabHandlerDeps) {
     renameAriaLabel: deps.t("layout.titleBar.renameTab"),
     onRenameCommit: (name: string) => deps.commitRename(session.id, name),
     onRenameCancel: () => deps.cancelRename(session.id),
-    locked: session.locked === true,
-    lockIds: [session.id],
-    onUnlock: () => setTabLocked({ kind: "session", id: session.id }, false),
+    sessionIds: [session.id],
     closeTitle: deps.t("layout.titleBar.closeTab"),
   });
 }
@@ -111,9 +108,7 @@ export function TitlebarTab({
   onMouseEnter,
   onMouseLeave,
   buttonRef,
-  locked = false,
-  lockIds = [],
-  onUnlock = () => {},
+  sessionIds = [],
   closeTitle = "",
   compact = false,
 }: {
@@ -138,9 +133,7 @@ export function TitlebarTab({
   onMouseEnter?: (e: React.MouseEvent) => void;
   onMouseLeave?: (e: React.MouseEvent) => void;
   buttonRef?: React.Ref<HTMLButtonElement>;
-  locked?: boolean;
-  lockIds?: string[];
-  onUnlock?: () => void;
+  sessionIds?: string[];
   closeTitle?: string;
   compact?: boolean;
 }) {
@@ -193,7 +186,7 @@ export function TitlebarTab({
       {compact ? (
         <span className="relative inline-flex">
           {icon}
-          <TabCloseControl variant="badge" locked={locked} lockIds={lockIds} active={active} closeTitle={closeTitle} onClose={() => {}} onUnlock={onUnlock} />
+          <TabCloseControl variant="badge" sessionIds={sessionIds} active={active} closeTitle={closeTitle} onClose={() => {}} />
         </span>
       ) : icon}
       {!compact && <span className="max-w-[140px] truncate" onClick={onLabelClick}>
@@ -203,12 +196,10 @@ export function TitlebarTab({
       {!compact && onClose && (
         <TabCloseControl
           variant="tab"
-          locked={locked}
-          lockIds={lockIds}
+          sessionIds={sessionIds}
           active={active}
           closeTitle={closeTitle}
           onClose={onClose}
-          onUnlock={onUnlock}
         />
       )}
     </button>

@@ -12,7 +12,6 @@ import { sessionStatusLine } from "@/utils/sessionStatusLine";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 import { closeSessionTabs } from "@/services/closeSession";
-import { setTabLocked } from "@/services/tabLock";
 import { TabCloseControl } from "@/components/shared/TabCloseControl";
 import { openInSplit } from "@/services/hostStack";
 import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
@@ -218,11 +217,9 @@ function HostSessionRowItem({
         )}
         <TabCloseControl
           variant="row"
-          locked={session.locked === true}
-          lockIds={[session.id]}
+          sessionIds={[session.id]}
           closeTitle={t("layout.titleBar.closeTab")}
           onClose={() => closeSessionTabs([session.id])}
-          onUnlock={() => setTabLocked({ kind: "session", id: session.id }, false)}
         />
       </span>
       {dropCue === "after" && <div className="absolute left-2 right-2 bottom-0 h-0.5 rounded-full bg-(--t-accent)" />}

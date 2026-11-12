@@ -6,11 +6,12 @@ import { sessionLabel } from "@/utils/sessionLabel";
 import { closeSessionTabs } from "@/services/closeSession";
 import { setTabLocked } from "@/services/tabLock";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { useIsPinned } from "@/hooks/useSessionLocked";
 
 export default function TabActionsSheet({ session, onClose }: { session: TerminalSession; onClose: () => void }) {
   const { t } = useTranslation();
   const pinKey = `session:${session.id}`;
-  const pinned = useLayoutStore((s) => s.pinnedKeys.includes(pinKey));
+  const pinned = useIsPinned(pinKey);
   const locked = session.locked === true;
   const run = (fn: () => void) => () => { fn(); onClose(); };
 

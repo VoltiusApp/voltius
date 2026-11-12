@@ -13,8 +13,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { closeSessionTabs } from "@/services/closeSession";
-import { setTabLocked } from "@/services/tabLock";
-import { useLayoutStore } from "@/stores/layoutStore";
+import { useIsPinned } from "@/hooks/useSessionLocked";
 import { TabCloseControl } from "@/components/shared/TabCloseControl";
 import type { TerminalSession } from "@/types";
 import TabActionsSheet from "./sheets/TabActionsSheet";
@@ -122,7 +121,7 @@ function SessionChip({ session, active, onActivate, onLongPress }: {
 }) {
   const { t } = useTranslation();
   const press = useLongPress(onLongPress, onActivate);
-  const pinned = useLayoutStore((st) => st.pinnedKeys.includes(`session:${session.id}`));
+  const pinned = useIsPinned(`session:${session.id}`);
   return (
     <span
       data-mobile-session-chip={session.id}
@@ -138,11 +137,9 @@ function SessionChip({ session, active, onActivate, onLongPress }: {
       <button className="vt-hit self-stretch" {...press}>{sessionLabel(session)}</button>
       <TabCloseControl
         variant="chip"
-        locked={session.locked === true}
-        lockIds={[session.id]}
+        sessionIds={[session.id]}
         closeTitle={t("layout.titleBar.closeTab")}
         onClose={() => closeSessionTabs([session.id])}
-        onUnlock={() => setTabLocked({ kind: "session", id: session.id }, false)}
       />
     </span>
   );
