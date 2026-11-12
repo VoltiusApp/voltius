@@ -61,6 +61,20 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "available": "Из маркетплейса",
+        "get": "Получить",
+        "remove": "Удалить",
+        "fromSource": "из {{source}}",
+        "desktopOnly": "Только для компьютера",
+        "partOfPlugin": "Часть плагина {{plugin}}. Управляйте им в разделе «Плагины».",
+        "browseAll": "Открыть всё в маркетплейсе",
+        "loading": "Загрузка тем…",
+        "unreachable_one": "{{count}} маркетплейс недоступен",
+        "unreachable_few": "{{count}} маркетплейса недоступны",
+        "unreachable_many": "{{count}} маркетплейсов недоступны",
+        "unreachable_other": "{{count}} маркетплейса недоступны"
+      },
       "themeActions": "Действия с темой",
       "interface": "Интерфейс",
       "language": {

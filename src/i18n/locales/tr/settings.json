@@ -61,6 +61,18 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "available": "Marketten",
+        "get": "Al",
+        "remove": "Kaldır",
+        "fromSource": "{{source}} kaynağından",
+        "desktopOnly": "Yalnızca masaüstü",
+        "partOfPlugin": "{{plugin}} eklentisinin parçası. Eklentiler bölümünden yönetin.",
+        "browseAll": "Markette tümüne göz at",
+        "loading": "Temalar yükleniyor…",
+        "unreachable_one": "{{count}} market erişilemiyor",
+        "unreachable_other": "{{count}} market erişilemiyor"
+      },
       "themeActions": "Tema işlemleri",
       "interface": "Arayüz",
       "language": {

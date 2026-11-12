@@ -26,7 +26,7 @@ import { DirtyDot, ResetButton, SETTINGS_SURFACE, SettingRow } from "./shared";
 import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 import { searchMatcher } from "@/utils/search";
-import { isThemeEntry, THEME_TAG } from "@/themes/marketplaceThemes";
+import { isThemeEntry, isThemeOnly, THEME_TAG } from "@/themes/marketplaceThemes";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
@@ -153,9 +153,6 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
 }
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
-
-const isThemeOnly = (manifest: PluginManifest) =>
-  manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
 
 const isToggleLocked = (manifest: PluginManifest) => !isThemeOnly(manifest) && pluginLock(manifest.id) !== null;
 

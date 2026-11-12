@@ -17,7 +17,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { SETTINGS_SURFACE, SettingRow, SyncKeyButton } from "./shared";
 import { saveTextFile } from "@/services/saveFile";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
-import { useIsAndroid, useIsMobile } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { MOBILE_HIDDEN_TOGGLES } from "@/components/settings/settingsMobileCore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
@@ -47,7 +47,6 @@ export default function AppearanceSection() {
   const setLocale = useLocaleStore((s) => s.setLocale);
   const localeSelect = useRangeSelect(localeSetting.key, LOCALE_VALUES, localeLabel);
   const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
-  const isAndroid = useIsAndroid();
   const isMobile = useIsMobile();
   // Android: a custom theme's export / edit / delete live in a sheet (no hover there).
   const [themeMenu, setThemeMenu] = useState<AppTheme | null>(null);

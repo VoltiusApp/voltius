@@ -10,5 +10,5 @@ test("lists built-in themes then plugin themes, marking plugin themes as not use
   act(() => usePluginStore.getState().registerPluginTheme({ ...BUILT_IN_THEMES[0], id: "emerald-night", name: "Emerald Night" }));
   const plugin = result.current.find((t) => t.id === "emerald-night");
   expect(plugin?.builtIn).toBe(true);
-  expect(result.current.at(-1)?.id).toBe("emerald-night");
+  expect(result.current[result.current.length - 1].id).toBe("emerald-night");
 });

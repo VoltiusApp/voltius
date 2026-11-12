@@ -35,6 +35,9 @@ export function parsePreview(raw: unknown): ThemePreviewPalette | null {
 
 export const THEME_TAG = "theme";
 
+export const isThemeOnly = ({ permissions }: { permissions: string[] }) =>
+  permissions.length === 1 && permissions[0] === "themes";
+
 export const isThemeEntry = (p: MarketplacePlugin) => p.theme || p.tags.includes(THEME_TAG);
 
 export function openMarketplaceThemes(): void {

@@ -61,6 +61,18 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "available": "From the marketplace",
+        "get": "Get",
+        "remove": "Remove",
+        "fromSource": "from {{source}}",
+        "desktopOnly": "Desktop only",
+        "partOfPlugin": "Part of {{plugin}}. Manage it in Plugins.",
+        "browseAll": "Browse all in marketplace",
+        "loading": "Loading themes…",
+        "unreachable_one": "{{count}} marketplace unreachable",
+        "unreachable_other": "{{count}} marketplaces unreachable"
+      },
       "themeActions": "Theme actions",
       "interface": "Interface",
       "language": {

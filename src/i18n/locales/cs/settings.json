@@ -61,6 +61,20 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "available": "Z marketplace",
+        "get": "Získat",
+        "remove": "Odebrat",
+        "fromSource": "z {{source}}",
+        "desktopOnly": "Jen pro počítač",
+        "partOfPlugin": "Součást pluginu {{plugin}}. Spravujte ho v Pluginech.",
+        "browseAll": "Procházet vše v marketplace",
+        "loading": "Načítání motivů…",
+        "unreachable_one": "{{count}} marketplace nedostupný",
+        "unreachable_few": "{{count}} marketplace nedostupné",
+        "unreachable_many": "{{count}} marketplace nedostupných",
+        "unreachable_other": "{{count}} marketplace nedostupných"
+      },
       "themeActions": "Akce motivu",
       "interface": "Rozhraní",
       "language": {

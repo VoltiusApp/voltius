@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { isThemeOnly } from "@/themes/marketplaceThemes";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { pluginInstallErrorMessage } from "@/plugins/installErrors";
 import { addedPermissions } from "@/plugins/updates";
@@ -15,6 +16,7 @@ interface PendingReview {
   addedPermissions: string[];
   /** The exact reviewed manifest text, passed to installPlugin so the loaded perms == consented. */
   manifestText: string;
+  onInstalled?: () => void;
 }
 
 // Gated permissions always force the consent dialog; installPlugin is passed the
@@ -40,8 +42,9 @@ export function usePluginInstaller() {
     });
   };
 
-  const runInstall = async (plugin: MarketplacePlugin, reviewedManifestText?: string) => {
-    try { await installPlugin(plugin, reviewedManifestText); } catch (e) { notifyError(e); }
+  const runInstall = async (plugin: MarketplacePlugin, reviewedManifestText?: string, onInstalled?: () => void) => {
+    try { await installPlugin(plugin, reviewedManifestText); } catch (e) { notifyError(e); return; }
+    onInstalled?.();
   };
 
   const withPreparing = async (id: string, fn: () => Promise<void>) => {
@@ -51,17 +54,18 @@ export function usePluginInstaller() {
     }
   };
 
-  const startInstall = (plugin: MarketplacePlugin) => {
+  const startInstall = (plugin: MarketplacePlugin, onInstalled?: () => void) => {
     void withPreparing(plugin.id, async () => {
       try {
         const { manifest, manifestText } = await fetchManifest(plugin);
         const perms = manifest.permissions ?? [];
-        // Gated perms always prompt; the review toggle governs only benign installs.
-        if (!requiresInstallConsent(perms, getToggle("plugin-install-review"))) {
-          await runInstall(plugin, manifestText);
+        // Gated perms always prompt; the review toggle governs benign installs except first-party themes.
+        const trustedTheme = (plugin.sourceId === FIRST_PARTY_SOURCE.id || !!plugin.builtin) && isThemeOnly({ permissions: perms });
+        if (!requiresInstallConsent(perms, getToggle("plugin-install-review") && !trustedTheme)) {
+          await runInstall(plugin, manifestText, onInstalled);
           return;
         }
-        setPending({ mode: "install", plugin, permissions: perms, addedPermissions: [], manifestText });
+        setPending({ mode: "install", plugin, permissions: perms, addedPermissions: [], manifestText, onInstalled });
       } catch (e) { notifyError(e); }
     });
   };
@@ -80,9 +84,9 @@ export function usePluginInstaller() {
 
   const confirm = () => {
     if (!pending) return;
-    const { plugin, manifestText } = pending;
+    const { plugin, manifestText, onInstalled } = pending;
     setPending(null);
-    void runInstall(plugin, manifestText);
+    void runInstall(plugin, manifestText, onInstalled);
   };
   const cancel = () => setPending(null);
 
