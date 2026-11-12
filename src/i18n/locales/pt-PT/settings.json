@@ -61,6 +61,20 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "Marketplace",
+        "available": "Do marketplace",
+        "get": "Obter",
+        "remove": "Remover",
+        "fromSource": "de {{source}}",
+        "desktopOnly": "Apenas computador",
+        "partOfPlugin": "Faz parte de {{plugin}}. Gira-o em Plugins.",
+        "browseAll": "Ver tudo no marketplace",
+        "loading": "A carregar temas…",
+        "unreachable_one": "{{count}} marketplace inacessível",
+        "unreachable_many": "{{count}} marketplaces inacessíveis",
+        "unreachable_other": "{{count}} marketplaces inacessíveis"
+      },
       "themeActions": "Ações do tema",
       "interface": "Interface",
       "language": {

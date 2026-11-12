@@ -81,7 +81,7 @@ afterEach(() => {
   loaded.list = [];
   seeded.entries = new Map();
   usePluginRegistryStore.setState({ overrides: {} });
-  useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null, pluginBrowseQuery: null });
+  useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null, pluginBrowseRequest: null });
 });
 
 test("a desktopOnly seeded plugin's update is counted and shown on desktop", async () => {
@@ -134,19 +134,34 @@ test("a non-desktopOnly seeded plugin's update is still counted on Android", asy
 
 test("a browse request opens the Browse tab filtered to that plugin and is consumed", async () => {
   marketplaceState.catalog = [catalogEntry("plugin-proxmox", "Proxmox"), catalogEntry("plugin-docker", "Docker")];
-  useUIStore.setState({ pluginBrowseQuery: "Proxmox" });
+  useUIStore.setState({ pluginBrowseRequest: { query: "Proxmox" } });
   render(<PluginsSection />);
   expect(await screen.findByDisplayValue("Proxmox")).toBeTruthy();
   expect(screen.getByText("Proxmox")).toBeTruthy();
   expect(screen.queryByText("Docker")).toBeNull();
-  expect(useUIStore.getState().pluginBrowseQuery).toBeNull();
+  expect(useUIStore.getState().pluginBrowseRequest).toBeNull();
+});
+
+test("a tag browse request preselects the tag and keeps theme entries that only set the theme flag", async () => {
+  marketplaceState.catalog = [
+    { ...catalogEntry("navy", "Navy"), tags: ["theme", "dark"], theme: true },
+    { ...catalogEntry("flagged", "Flagged"), theme: true },
+    catalogEntry("plugin-docker", "Docker"),
+  ];
+  useUIStore.setState({ pluginBrowseRequest: { tag: "theme" } });
+  render(<PluginsSection />);
+  expect(await screen.findByText("Navy")).toBeTruthy();
+  expect(screen.getByText("Flagged")).toBeTruthy();
+  expect(screen.queryByText("Docker")).toBeNull();
+  expect(screen.getByRole("button", { name: "theme" }).getAttribute("aria-pressed")).toBe("true");
+  expect(useUIStore.getState().pluginBrowseRequest).toBeNull();
 });
 
 test("a browse request arriving while the Installed tab is open switches to Browse", async () => {
   marketplaceState.catalog = [catalogEntry("plugin-proxmox", "Proxmox"), catalogEntry("plugin-docker", "Docker")];
   render(<PluginsSection />);
   expect(screen.queryByDisplayValue("Proxmox")).toBeNull();
-  act(() => { useUIStore.setState({ pluginBrowseQuery: "Proxmox" }); });
+  act(() => { useUIStore.setState({ pluginBrowseRequest: { query: "Proxmox" } }); });
   expect(await screen.findByDisplayValue("Proxmox")).toBeTruthy();
   expect(screen.queryByText("Docker")).toBeNull();
 });
@@ -155,7 +170,7 @@ test("with installs turned off, Browse shows one notice and locks each Install b
   const { usePolicyStore } = await import("@/stores/policyStore");
   usePolicyStore.setState({ machine: { policy: { "plugins.allowInstall": false }, defaults: {} } });
   marketplaceState.catalog = [catalogEntry("plugin-proxmox", "Proxmox"), catalogEntry("plugin-docker", "Docker")];
-  useUIStore.setState({ pluginBrowseQuery: "" });
+  useUIStore.setState({ pluginBrowseRequest: {} });
   try {
     render(<PluginsSection />);
     expect(await screen.findByText("settings.plugins.browse.installsOff")).toBeTruthy();

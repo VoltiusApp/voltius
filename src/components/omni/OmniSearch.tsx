@@ -505,7 +505,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         onClose();
       } else if (item.kind === "plugin") {
         openSettings("plugins");
-        useUIStore.getState().setPluginBrowseQuery(item.plugin.name);
+        useUIStore.getState().setPluginBrowseRequest({ query: item.plugin.name });
         onClose();
       }
     },

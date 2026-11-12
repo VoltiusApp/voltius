@@ -26,6 +26,7 @@ import { DirtyDot, ResetButton, SETTINGS_SURFACE, SettingRow } from "./shared";
 import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 import { searchMatcher } from "@/utils/search";
+import { isThemeEntry, isThemeOnly, THEME_TAG } from "@/themes/marketplaceThemes";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
@@ -152,9 +153,6 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
 }
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
-
-const isThemeOnly = (manifest: PluginManifest) =>
-  manifest.permissions.length === 1 && manifest.permissions[0] === "themes";
 
 const isToggleLocked = (manifest: PluginManifest) => !isThemeOnly(manifest) && pluginLock(manifest.id) !== null;
 
@@ -609,13 +607,14 @@ function BrowseTab() {
   const installAllowed = useInstallPolicy();
 
   const [search, setSearch] = useState("");
-  const browseQuery = useUIStore((s) => s.pluginBrowseQuery);
-  useEffect(() => {
-    if (browseQuery === null) return;
-    setSearch(browseQuery);
-    useUIStore.getState().setPluginBrowseQuery(null);
-  }, [browseQuery]);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const browseRequest = useUIStore((s) => s.pluginBrowseRequest);
+  useEffect(() => {
+    if (browseRequest === null) return;
+    setSearch(browseRequest.query ?? "");
+    setActiveTag(browseRequest.tag ?? null);
+    useUIStore.getState().setPluginBrowseRequest(null);
+  }, [browseRequest]);
   const [showSources, setShowSources] = useState(false);
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
@@ -631,12 +630,12 @@ function BrowseTab() {
   const [addingSource, setAddingSource] = useState(false);
   const [addSourceError, setAddSourceError] = useState<string | null>(null);
 
-  const allTags = [...new Set(merged.flatMap((p) => p.tags))].sort();
+  const allTags = [...new Set(merged.flatMap((p) => isThemeEntry(p) ? [...p.tags, THEME_TAG] : p.tags))].sort();
 
   const match = searchMatcher(search);
   const filtered = merged.filter((p) => {
     const matchSearch = match(p.name, p.description);
-    const matchTag = !activeTag || p.tags.includes(activeTag);
+    const matchTag = !activeTag || (activeTag === THEME_TAG ? isThemeEntry(p) : p.tags.includes(activeTag));
     return matchSearch && matchTag;
   });
 
@@ -760,6 +759,7 @@ function BrowseTab() {
               <button
                 key={tag}
                 onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                aria-pressed={activeTag === tag}
                 className="px-2 py-0.5 rounded-full text-xs transition-colors"
                 style={{
                   background: activeTag === tag ? "var(--t-accent)" : "var(--t-bg-elevated)",
@@ -912,7 +912,7 @@ type Tab = "installed" | "browse";
 
 export default function PluginsSection() {
   const { t } = useTranslation();
-  const browseRequested = useUIStore((s) => s.pluginBrowseQuery !== null);
+  const browseRequested = useUIStore((s) => s.pluginBrowseRequest !== null);
   const [tab, setTab] = useState<Tab>(browseRequested ? "browse" : "installed");
   useEffect(() => { if (browseRequested) setTab("browse"); }, [browseRequested]);
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);

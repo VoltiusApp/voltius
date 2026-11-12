@@ -61,6 +61,18 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "插件市场",
+        "available": "来自插件市场",
+        "get": "获取",
+        "remove": "移除",
+        "fromSource": "来自 {{source}}",
+        "desktopOnly": "仅限桌面版",
+        "partOfPlugin": "属于 {{plugin}}，请在插件中管理。",
+        "browseAll": "在插件市场中浏览全部",
+        "loading": "正在加载主题…",
+        "unreachable_other": "{{count}} 个插件市场无法访问"
+      },
       "themeActions": "主题操作",
       "interface": "界面",
       "language": { "title": "语言" },
