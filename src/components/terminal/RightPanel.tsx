@@ -9,7 +9,7 @@ import { HistoryPanel } from "@/components/terminal/HistoryPanel";
 import PanelSftpSection from "@/components/terminal/PanelSftpSection";
 import { NotesPanel } from "@/components/terminal/NotesPanel";
 import { useThemeStore } from "@/stores/themeStore";
-import { BUILT_IN_THEMES } from "@/themes/presets";
+import { useInstalledThemes } from "@/hooks/useInstalledThemes";
 import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
@@ -48,9 +48,9 @@ function ThemePreview({ theme }: { theme: AppTheme }) {
 
 function ThemesSection() {
   const { t } = useTranslation();
-  const { activeThemeId, customThemes, setTheme, deleteCustomTheme, getActiveTheme } = useThemeStore();
+  const { activeThemeId, setTheme, deleteCustomTheme, getActiveTheme } = useThemeStore();
   const openThemeCreator = useUIStore((s) => s.openThemeCreator);
-  const allThemes = [...BUILT_IN_THEMES, ...customThemes];
+  const allThemes = useInstalledThemes();
 
   return (
     <div className="flex flex-col h-full">

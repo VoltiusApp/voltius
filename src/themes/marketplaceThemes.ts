@@ -1,4 +1,5 @@
 import { FIRST_PARTY_SOURCE, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { useUIStore } from "@/stores/uiStore";
 
 export interface ThemePreviewPalette {
   ui: { bgTerminal: string; accent: string; tabActiveText: string; statusConnected: string };
@@ -32,7 +33,15 @@ export function parsePreview(raw: unknown): ThemePreviewPalette | null {
   return pickedUi && pickedTerminal ? { ui: pickedUi, terminal: pickedTerminal } : null;
 }
 
-export const isThemeEntry = (p: MarketplacePlugin) => p.theme || p.tags.includes("theme");
+export const THEME_TAG = "theme";
+
+export const isThemeEntry = (p: MarketplacePlugin) => p.theme || p.tags.includes(THEME_TAG);
+
+export function openMarketplaceThemes(): void {
+  const ui = useUIStore.getState();
+  ui.openSettings("plugins");
+  ui.setPluginBrowseRequest({ tag: THEME_TAG });
+}
 
 export function availableThemeEntries(entries: MarketplacePlugin[], installedIds: Set<string>): MarketplacePlugin[] {
   const byId = new Map<string, MarketplacePlugin>();

@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
-import { usePluginStore } from "@/stores/pluginStore";
-import { BUILT_IN_THEMES } from "@/themes/presets";
+import { useInstalledThemes } from "@/hooks/useInstalledThemes";
 import { useUIStore } from "@/stores/uiStore";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
@@ -22,7 +21,6 @@ import { useIsAndroid, useIsMobile } from "@/utils/platform";
 import { MOBILE_HIDDEN_TOGGLES } from "@/components/settings/settingsMobileCore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
-import { useSystemColorsStore } from "@/services/androidSystemColors";
 import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
 
 function exportTheme(theme: AppTheme) {
@@ -43,7 +41,6 @@ export default function AppearanceSection() {
   } = useThemeStore();
   const loc = useLocationFields();
   const { openThemeCreator, openThemeImportExport } = useUIStore();
-  const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
 
   const { t } = useTranslation();
   const locale = localeSetting.use();
@@ -55,13 +52,7 @@ export default function AppearanceSection() {
   // Android: a custom theme's export / edit / delete live in a sheet (no hover there).
   const [themeMenu, setThemeMenu] = useState<AppTheme | null>(null);
 
-  const pluginThemes: AppTheme[] = [...pluginThemeMap.values()].map((theme) => ({ ...theme, builtIn: true }));
-  // Android 12+: Material You (wallpaper colours) leads the list; re-derived when the palette
-  // or the phone's light/dark mode changes. Never listed where there is no palette.
-  const systemPalette = useSystemColorsStore((s) => s.palette);
-  useSystemColorsStore((s) => s.dark);
-  const dynamicTheme = isAndroid && systemPalette ? useThemeStore.getState().getDynamicTheme() : null;
-  const allThemes = [...(dynamicTheme ? [dynamicTheme] : []), ...BUILT_IN_THEMES, ...customThemes, ...pluginThemes];
+  const allThemes = useInstalledThemes();
 
   const handleDelete = (id: string) => {
     deleteCustomTheme(id);
