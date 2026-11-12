@@ -11,9 +11,9 @@ import { NotesPanel } from "@/components/terminal/NotesPanel";
 import { useThemeStore } from "@/stores/themeStore";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
 import { useMarketplaceThemes } from "@/hooks/useMarketplaceThemes";
-import { openMarketplaceThemes } from "@/themes/marketplaceThemes";
+import { openMarketplaceThemes, paletteOf } from "@/themes/marketplaceThemes";
 import {
-  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeGetButton, ThemeTerminalPreview, terminalColorsOf,
+  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeGetButton, ThemeTerminalPreview,
 } from "@/components/shared/ThemeParts";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
@@ -30,6 +30,7 @@ function ThemesSection() {
   const openThemeCreator = useUIStore((s) => s.openThemeCreator);
   const allThemes = useInstalledThemes();
   const marketplace = useMarketplaceThemes();
+  const pluginThemes = usePluginStore((s) => s.pluginThemes);
 
   return (
     <div className="flex flex-col h-full">
@@ -70,7 +71,7 @@ function ThemesSection() {
               onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
               <div className="relative">
-                <ThemeTerminalPreview colors={terminalColorsOf(theme)} />
+                <ThemeTerminalPreview colors={paletteOf(theme).terminal} />
                 {isActive && (
                   <div style={{ position: "absolute", inset: 0, borderRadius: 6, border: `2px solid ${theme.ui.tabActiveText}`, pointerEvents: "none" }} />
                 )}
@@ -80,7 +81,9 @@ function ThemesSection() {
                   {theme.name}
                 </p>
                 <p className="text-xs mt-0.5 text-(--t-text-muted)">
-                  {isActive ? t("terminal.rightPanel.themeActive") : theme.builtIn ? t("terminal.rightPanel.themeBuiltin") : t("terminal.rightPanel.themeCustom")}
+                  {isActive ? t("terminal.rightPanel.themeActive")
+                    : pluginThemes.has(theme.id) ? t("settings.appearance.marketplace.installedLabel")
+                    : theme.builtIn ? t("terminal.rightPanel.themeBuiltin") : t("terminal.rightPanel.themeCustom")}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -133,11 +136,13 @@ function ThemesSection() {
             className="flex items-center gap-3 px-4 py-3 border-b border-b-(--t-border)"
           >
             <ThemeTerminalPreview colors={item.preview?.terminal ?? null} />
-            <div className="flex-1 min-w-0 flex flex-col">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <p className="text-sm font-medium truncate text-(--t-text-primary)">{item.entry.name}</p>
-              <MarketplaceSourceBadge sourceName={item.sourceName} />
+              <div className="flex items-center gap-1.5 min-w-0">
+                <ThemeGetButton busy={marketplace.busy.has(item.entry.id)} disabledReason={item.disabledReason} onClick={() => marketplace.get(item)} />
+                <MarketplaceSourceBadge sourceName={item.sourceName} />
+              </div>
             </div>
-            <ThemeGetButton busy={marketplace.busy.has(item.entry.id)} disabledReason={item.disabledReason} onClick={() => marketplace.get(item)} />
           </div>
         ))}
         <div className="flex flex-col gap-2 px-4 py-3">

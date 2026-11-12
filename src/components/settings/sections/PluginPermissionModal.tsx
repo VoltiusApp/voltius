@@ -33,7 +33,7 @@ export function PluginPermissionModal({
 
   return (
     <Modal onClose={onCancel} onEnter={onConfirm}>
-      <ModalCard className="p-6 flex flex-col gap-4 min-w-[min(21.333rem,calc(100vw-2rem))] max-w-[26.667rem] max-h-[90dvh] overflow-y-auto">
+      <ModalCard className="p-6 flex flex-col gap-4 min-w-[min(21.333rem,calc(100vw-2rem))] max-w-[min(26.667rem,calc(100vw-2rem))] max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center gap-3">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"

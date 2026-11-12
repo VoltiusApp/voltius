@@ -36,6 +36,8 @@ import { useMarketplaceStore, FIRST_PARTY_SOURCE, type MarketplacePlugin } from 
 import { usePluginStore } from "@/stores/pluginStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID } from "@/themes/presets";
+import { usePolicyStore } from "@/stores/policyStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { useMarketplaceThemes } from "./useMarketplaceThemes";
 
 const THIRD = { id: "third", name: "Third Party", url: "https://t/p.json", enabled: true, deletable: true };
@@ -69,6 +71,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
   h.android = false;
   h.installsBlocked = false;
   h.loaded = [];
@@ -198,4 +201,40 @@ test("built-in themes have no removal and custom themes delete", () => {
   act(() => result.current.removal(custom)!.remove());
   expect(useThemeStore.getState().customThemes).toEqual([]);
   expect(useThemeStore.getState().activeThemeId).toBe(DEFAULT_THEME_ID);
+});
+
+test("a first-party theme still shows the review when the organization locks the review setting on", async () => {
+  usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.plugin-install-review": true }, defaults: {} } });
+  const { result } = renderHook(() => useMarketplaceThemes());
+  act(() => result.current.get(result.current.available[0]));
+  await flush();
+  expect(installPlugin).not.toHaveBeenCalled();
+  expect(result.current.modal).not.toBeNull();
+});
+
+test("greys a theme that needs a newer app version", () => {
+  useMarketplaceStore.setState({ catalog: [entry({ minAppVersion: "99.0.0" })], appVersion: "1.0.0" });
+  expect(renderHook(() => useMarketplaceThemes()).result.current.available[0].disabledReason)
+    .toBe('settings.plugins.browse.requiresVersion:{"version":"99.0.0"}');
+});
+
+test("a plugin the organization requires cannot be removed from the theme list", () => {
+  usePolicyStore.setState({ machine: { policy: { "plugins.install": ["emerald-night"] }, defaults: {} } });
+  h.loaded = [{ id: "emerald-night", name: "Emerald Night", permissions: ["themes"] }];
+  act(() => registerTheme("emerald-night"));
+  const { result } = renderHook(() => useMarketplaceThemes());
+  expect(result.current.removal({ ...BUILT_IN_THEMES[1], id: "emerald-night" })?.disabledReason).toBe("common.policy.managed");
+});
+
+test("a failed uninstall keeps the active theme and reports the error", async () => {
+  h.loaded = [{ id: "emerald-night", name: "Emerald Night", permissions: ["themes"] }];
+  act(() => registerTheme("emerald-night"));
+  useThemeStore.setState({ activeThemeId: "emerald-night" });
+  useMarketplaceStore.setState({ uninstallSeededPlugin: vi.fn(async () => { throw new Error("disk"); }) });
+  const addToast = vi.spyOn(useNotificationStore.getState(), "addToast");
+  const { result } = renderHook(() => useMarketplaceThemes());
+  act(() => result.current.removal({ ...BUILT_IN_THEMES[1], id: "emerald-night" })!.remove());
+  await flush();
+  expect(useThemeStore.getState().activeThemeId).toBe("emerald-night");
+  expect(addToast).toHaveBeenCalled();
 });

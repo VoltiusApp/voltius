@@ -5,7 +5,8 @@ import { usePluginInstaller } from "@/components/settings/usePluginInstaller";
 import { getLoadedPlugins } from "@/plugins/runtime";
 import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { usePluginStore } from "@/stores/pluginStore";
-import { useInstallPolicy } from "@/stores/pluginRegistryStore";
+import { installLocked, useInstallPolicy } from "@/stores/pluginRegistryStore";
+import { satisfiesMinAppVersion } from "@/plugins/version";
 import { useThemeStore } from "@/stores/themeStore";
 import { DEFAULT_THEME_ID } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
@@ -37,14 +38,14 @@ export function useMarketplaceThemes(): {
   modal: ReactNode;
 } {
   const { t } = useTranslation();
-  const { merged, installedIds } = useBrowseCatalog();
+  const { merged, installedIds, appVersion } = useBrowseCatalog();
   const sources = useMarketplaceStore((s) => s.sources);
   const sourceErrors = useMarketplaceStore((s) => s.sourceErrors);
   const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const pluginThemes = usePluginStore((s) => s.pluginThemes);
   const installAllowed = useInstallPolicy();
   const isAndroid = useIsAndroid();
-  const { busy, startInstall, modal } = usePluginInstaller();
+  const { busy, startInstall, modal, notifyError } = usePluginInstaller();
 
   const sourceNameOf = (entry: MarketplacePlugin) =>
     entry.sourceId === FIRST_PARTY_SOURCE.id || entry.builtin
@@ -53,6 +54,9 @@ export function useMarketplaceThemes(): {
 
   const disabledReasonOf = (entry: MarketplacePlugin) => {
     if (!installAllowed(entry.id)) return t("settings.plugins.browse.installsOff");
+    if (appVersion !== null && !satisfiesMinAppVersion(entry, appVersion)) {
+      return t("settings.plugins.browse.requiresVersion", { version: entry.minAppVersion });
+    }
     if (isAndroid && entry.desktopOnly) return t("settings.appearance.marketplace.desktopOnly");
     return null;
   };
@@ -90,6 +94,7 @@ export function useMarketplaceThemes(): {
     }
     const owner = getLoadedPlugins().find((m) => pluginThemeIdsFor(pluginThemes, m.id).includes(theme.id));
     if (!owner) return null;
+    if (installLocked(owner.id)) return { kind: "uninstall", disabledReason: t("common.policy.managed"), remove: () => {} };
     if (!isThemeOnly(owner)) {
       return { kind: "uninstall", disabledReason: t("settings.appearance.marketplace.partOfPlugin", { plugin: owner.name }), remove: () => {} };
     }
@@ -97,8 +102,8 @@ export function useMarketplaceThemes(): {
       kind: "uninstall",
       disabledReason: null,
       remove: () => {
-        dropActive(pluginThemeIdsFor(pluginThemes, owner.id));
-        void useMarketplaceStore.getState().uninstallSeededPlugin(owner.id);
+        const themeIds = pluginThemeIdsFor(pluginThemes, owner.id);
+        useMarketplaceStore.getState().uninstallSeededPlugin(owner.id).then(() => dropActive(themeIds), notifyError);
       },
     };
   };

@@ -1,5 +1,7 @@
 import { FIRST_PARTY_SOURCE, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
+import { ownedByPlugin } from "@/stores/pluginStore";
+import type { AppTheme } from "@/themes/types";
 
 export interface ThemePreviewPalette {
   ui: { bgTerminal: string; accent: string; tabActiveText: string; statusConnected: string };
@@ -24,6 +26,11 @@ function pickHex<K extends string>(raw: unknown, keys: readonly K[]): Record<K, 
   }
   return out;
 }
+
+export const paletteOf = (theme: AppTheme): ThemePreviewPalette => ({
+  ui: Object.fromEntries(PREVIEW_KEYS.ui.map((k) => [k, theme.ui[k]])) as ThemePreviewPalette["ui"],
+  terminal: Object.fromEntries(PREVIEW_KEYS.terminal.map((k) => [k, theme.terminal[k]])) as ThemePreviewPalette["terminal"],
+});
 
 export function parsePreview(raw: unknown): ThemePreviewPalette | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -57,5 +64,5 @@ export function availableThemeEntries(entries: MarketplacePlugin[], installedIds
 }
 
 export function pluginThemeIdsFor(pluginThemes: Map<string, unknown>, pluginId: string): string[] {
-  return [...pluginThemes.keys()].filter((id) => id === pluginId || id.startsWith(`${pluginId}:`));
+  return [...pluginThemes.keys()].filter((id) => ownedByPlugin(id, pluginId));
 }

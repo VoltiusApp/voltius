@@ -1,19 +1,10 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { AppTheme } from "@/themes/types";
 import { InstallButton } from "@/components/shared/InstallButton";
 import type { ThemePreviewPalette } from "@/themes/marketplaceThemes";
 
 type TerminalColors = ThemePreviewPalette["terminal"];
 type UiColors = ThemePreviewPalette["ui"];
-
-export const terminalColorsOf = ({ terminal: t }: AppTheme): TerminalColors => ({
-  background: t.background, foreground: t.foreground, green: t.green, blue: t.blue, yellow: t.yellow, cyan: t.cyan,
-});
-
-export const uiColorsOf = ({ ui }: AppTheme): UiColors => ({
-  bgTerminal: ui.bgTerminal, accent: ui.accent, tabActiveText: ui.tabActiveText, statusConnected: ui.statusConnected,
-});
 
 const NEUTRAL_TERMINAL: TerminalColors = {
   background: "var(--t-bg-card)", foreground: "var(--t-text-dim)", green: "var(--t-border-hover)",
@@ -65,7 +56,7 @@ export function ThemeGetButton({ busy, disabledReason, onClick }: {
   onClick: () => void;
 }) {
   const { t } = useTranslation();
-  return <InstallButton label={t("settings.appearance.marketplace.get")} busy={busy} disabledReason={disabledReason} onClick={onClick} />;
+  return <InstallButton compact label={t("settings.appearance.marketplace.get")} busy={busy} disabledReason={disabledReason} onClick={onClick} />;
 }
 
 export function MarketplaceSourceBadge({ sourceName }: { sourceName: string | null }) {

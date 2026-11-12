@@ -74,6 +74,8 @@ function mapDelete<V>(m: Map<string, V>, key: string): Map<string, V> {
   return next;
 }
 
+export const ownedByPlugin = (id: string, pluginId: string) => id === pluginId || id.startsWith(`${pluginId}:`);
+
 export const usePluginStore = create<PluginStore>((set, get) => ({
   omniCommands: new Map(),
   settingsPages: new Map(),
@@ -113,11 +115,10 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set((s) => ({ pluginThemes: mapDelete(s.pluginThemes, id) })),
 
   unregisterAll: (pluginId) => {
-    const prefix = `${pluginId}:`;
     const filterOut = <V>(m: Map<string, V>) => {
       const next = new Map(m);
       for (const key of next.keys()) {
-        if (key === pluginId || key.startsWith(prefix)) next.delete(key);
+        if (ownedByPlugin(key, pluginId)) next.delete(key);
       }
       return next;
     };

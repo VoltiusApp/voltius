@@ -6,7 +6,8 @@ import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { pluginInstallErrorMessage } from "@/plugins/installErrors";
 import { addedPermissions } from "@/plugins/updates";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
-import { getToggle } from "@/stores/toggleSettingsStore";
+import { getToggle, toggleKey } from "@/stores/toggleSettingsStore";
+import { lockedBool } from "@/stores/policyStore";
 import { PluginPermissionModal } from "@/components/settings/sections/PluginPermissionModal";
 
 interface PendingReview {
@@ -60,7 +61,8 @@ export function usePluginInstaller() {
         const { manifest, manifestText } = await fetchManifest(plugin);
         const perms = manifest.permissions ?? [];
         // Gated perms always prompt; the review toggle governs benign installs except first-party themes.
-        const trustedTheme = (plugin.sourceId === FIRST_PARTY_SOURCE.id || !!plugin.builtin) && isThemeOnly({ permissions: perms });
+        const trustedTheme = (plugin.sourceId === FIRST_PARTY_SOURCE.id || !!plugin.builtin) && isThemeOnly({ permissions: perms })
+          && lockedBool(toggleKey("plugin-install-review")) !== true;
         if (!requiresInstallConsent(perms, getToggle("plugin-install-review") && !trustedTheme)) {
           await runInstall(plugin, manifestText, onInstalled);
           return;
@@ -101,5 +103,5 @@ export function usePluginInstaller() {
     />
   ) : null;
 
-  return { busy, startInstall, startUpdate, modal };
+  return { busy, startInstall, startUpdate, modal, notifyError };
 }

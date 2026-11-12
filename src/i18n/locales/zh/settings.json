@@ -62,6 +62,7 @@
     },
     "appearance": {
       "marketplace": {
+        "installedLabel": "插件市场",
         "available": "来自插件市场",
         "get": "获取",
         "remove": "移除",

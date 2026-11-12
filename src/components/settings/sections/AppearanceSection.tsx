@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
 import { useMarketplaceThemes, type ThemeRemoval } from "@/hooks/useMarketplaceThemes";
-import { openMarketplaceThemes } from "@/themes/marketplaceThemes";
+import { openMarketplaceThemes, paletteOf } from "@/themes/marketplaceThemes";
 import {
-  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeCardSwatches, uiColorsOf,
+  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeCardSwatches,
 } from "@/components/shared/ThemeParts";
 import { useUIStore } from "@/stores/uiStore";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -231,7 +231,7 @@ export default function AppearanceSection() {
                     <Icon icon="lucide:check" width={9} className="text-white" />
                   </span>
                 )}
-                <ThemeCardSwatches colors={uiColorsOf(theme)} />
+                <ThemeCardSwatches colors={paletteOf(theme).ui} />
                 <span className="text-xs font-medium leading-tight" style={{ color: isActive ? "var(--t-text-bright)" : "var(--t-text-primary)" }}>
                   {theme.name}
                 </span>
@@ -323,21 +323,23 @@ export default function AppearanceSection() {
                   aria-disabled={disabled || busy}
                   title={item.disabledReason ?? undefined}
                   onClick={() => { if (!disabled) marketplace.get(item); }}
-                  className="relative flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all bg-(--t-bg-card) border-[1.5px] border-(--t-border) enabled:hover:border-(--t-border-hover) aria-disabled:cursor-not-allowed"
+                  className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all bg-(--t-bg-card) border-[1.5px] border-(--t-border) enabled:hover:border-(--t-border-hover) aria-disabled:cursor-not-allowed"
                 >
                   <div className={disabled ? "opacity-40" : undefined}>
                     <ThemeCardSwatches colors={item.preview?.ui ?? null} />
                   </div>
-                  <span className="flex flex-col gap-0.5 min-w-0 pr-12">
+                  <span className="flex flex-col gap-1 min-w-0">
                     <span className="text-xs font-medium leading-tight truncate text-(--t-text-primary)">{item.entry.name}</span>
-                    <MarketplaceSourceBadge sourceName={item.sourceName} />
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium shrink-0 bg-(--t-accent) text-(--t-bg-base) ${disabled ? "opacity-40" : ""}`}
+                      >
+                        <Icon icon={busy ? "lucide:loader" : "lucide:download"} width={11} className={busy ? "animate-spin" : undefined} />
+                        {t("settings.appearance.marketplace.get")}
+                      </span>
+                      <MarketplaceSourceBadge sourceName={item.sourceName} />
+                    </span>
                     {item.disabledReason && <span className="text-[11px] leading-tight text-(--t-text-dim)">{item.disabledReason}</span>}
-                  </span>
-                  <span
-                    className={`absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-(--t-accent) text-(--t-bg-base) ${disabled ? "opacity-40" : ""}`}
-                  >
-                    <Icon icon={busy ? "lucide:loader" : "lucide:download"} width={11} className={busy ? "animate-spin" : undefined} />
-                    {t("settings.appearance.marketplace.get")}
                   </span>
                 </button>
               );

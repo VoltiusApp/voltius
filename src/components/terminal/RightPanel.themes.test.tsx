@@ -48,10 +48,11 @@ afterEach(() => {
   usePluginStore.setState({ pluginThemes: new Map() });
 });
 
-test("lists installed plugin themes", () => {
+test("lists installed plugin themes labelled as marketplace themes", () => {
   usePluginStore.getState().registerPluginTheme({ ...BUILT_IN_THEMES[0], id: "emerald-night", name: "Emerald Night" });
   renderThemes();
-  expect(screen.getByText("Emerald Night")).toBeTruthy();
+  const row = screen.getByText("Emerald Night").parentElement!;
+  expect(row.textContent).toContain("settings.appearance.marketplace.installedLabel");
 });
 
 test("an available theme gets installed from its Get button", () => {
