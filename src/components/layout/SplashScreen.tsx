@@ -19,6 +19,7 @@ import { useSecurityStore } from "@/stores/securityStore";
 import { adoptServerMove, saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLaunch, syncOnLoginReplace } from "@/services/sync";
 import { startLanSyncInBackground, startSessionSync, stopLanSync } from "@/services/lanSync";
+import { startAuditOutbox } from "@/services/auditOutbox";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
 import { loadSeededPlugins } from "@/plugins/seeded";
 import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows } from "@/stores/marketplaceStore";
@@ -210,6 +211,7 @@ export default function SplashScreen({ onReady }: Props) {
         .catch(() => {})
         .finally(() => resolveLoginSync());
       startSessionSync();
+      startAuditOutbox();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
     // Plugin loading must never freeze startup: a single rejected invoke here

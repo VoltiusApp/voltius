@@ -11,6 +11,10 @@ export async function getServerUrl(): Promise<string | null> {
   return invoke<string | null>("keychain_get", { key: "server_url" });
 }
 
+export async function getAccountId(): Promise<string | null> {
+  return invoke<string | null>("keychain_get", { key: "account_id" });
+}
+
 export function isJwtExpiredOrExpiring(jwt: string): boolean {
   const exp = parseJwtPayload<{ exp?: number }>(jwt)?.exp;
   return typeof exp !== "number" || Date.now() > exp * 1000 - 60_000;
