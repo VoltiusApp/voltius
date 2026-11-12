@@ -134,3 +134,35 @@ export function samplePlacement(input: SamplePlacementInput): SamplePlacement {
   const nextTop = Math.floor(((input.sampleIndex + 1) / sampleCount) * input.layout.contentHeight);
   return { top, height: Math.max(1, nextTop - top) };
 }
+
+export interface MinimapRefreshInput {
+  /** Content key of the cached samples; null when nothing has been sampled yet. */
+  cachedKey: string | null;
+  /** Content key of the buffer now (changes on output, buffer switch or resize, not on scroll). */
+  key: string;
+  sinceSampleMs: number;
+  /** The view changed (scroll position, canvas size), so the canvas needs a redraw even without new samples. */
+  viewChanged: boolean;
+  throttleMs: number;
+}
+
+export interface MinimapRefresh {
+  draw: boolean;
+  /** Re-read the buffer; otherwise draw from the cached samples. */
+  resample: boolean;
+  /** Come back after this delay for a trailing resample the throttle held back. */
+  retryInMs: number | null;
+}
+
+/**
+ * Sampling walks every sampled buffer line and cell, so a terminal that streams output
+ * (a spinner, logs) would resample on every frame. Resample at most once per throttle
+ * window with a trailing pass, and reuse samples for scroll/resize.
+ */
+export function planMinimapRefresh(input: MinimapRefreshInput): MinimapRefresh {
+  if (input.cachedKey === null || (input.key !== input.cachedKey && input.sinceSampleMs >= input.throttleMs)) {
+    return { draw: true, resample: true, retryInMs: null };
+  }
+  const stale = input.key !== input.cachedKey;
+  return { draw: input.viewChanged, resample: false, retryInMs: stale ? input.throttleMs - input.sinceSampleMs : null };
+}
