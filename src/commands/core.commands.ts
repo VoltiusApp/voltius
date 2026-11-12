@@ -3,7 +3,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { checkForUpdate } from "@/services/updater";
 import { closeSessionTabs } from "@/services/closeSession";
-import { activeTabTarget, isPinnedKey, setTabLocked, tabTargetKey, tabTargetLocked } from "@/services/tabLock";
+import { activeTabTarget, isPinnedKey, isSessionLocked, setTabLocked, tabTargetKey, tabTargetLocked } from "@/services/tabLock";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 import i18n, { lazyT } from "@/i18n";
@@ -119,10 +119,14 @@ export const commands: OmniCommand[] = [
     icon: "lucide:unplug",
     keywords: ["close", "end", "stop", "quit", "sessions", "all", "kill"],
     guard: () => {
-      const count = openSessions().length;
-      return count === 0
-        ? { message: i18n.t("omni.commands.disconnectAllNone"), proceed: false }
-        : { message: i18n.t("omni.commands.disconnectAllConfirm", { count }), proceed: true };
+      const open = openSessions();
+      const locked = open.filter((s) => isSessionLocked(s.id)).length;
+      const count = open.length - locked;
+      if (open.length === 0) return { message: i18n.t("omni.commands.disconnectAllNone"), proceed: false };
+      if (count === 0) return { message: i18n.t("omni.commands.disconnectAllLocked", { count: locked }), proceed: false };
+      if (locked === 0) return { message: i18n.t("omni.commands.disconnectAllConfirm", { count }), proceed: true };
+      const kept = i18n.t("omni.commands.disconnectAllKept", { count: locked });
+      return { message: i18n.t("omni.commands.disconnectAllConfirmKept", { count, kept }), proceed: true };
     },
     execute: () => {
       closeSessionTabs(openSessions().map((s) => s.id), { reportKept: true });

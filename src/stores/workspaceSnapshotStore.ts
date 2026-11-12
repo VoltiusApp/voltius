@@ -93,23 +93,21 @@ export function startWorkspaceSnapshotSync(): void {
     write();
   };
 
-  // Structural changes (tab opened/closed) write immediately so a quit right
-  // after closing a tab can't race the debounce and restore a stale session;
-  // status/cwd/layout churn stays debounced.
-  const sessionSignature = () =>
-    useSessionStore.getState().sessions.map((s) => `${s.id}${s.locked ? ":locked" : ""}`).join("\n");
-  let lastSessionSignature = sessionSignature();
-
-  useSessionStore.subscribe(() => {
-    const sig = sessionSignature();
-    if (sig !== lastSessionSignature) {
-      lastSessionSignature = sig;
+  // Structural changes (tab opened/closed, lock, pin) write immediately so a quit right
+  // after can't race the debounce; status/cwd/layout churn stays debounced.
+  const writeOnSignatureChange = (subscribe: (listener: () => void) => unknown, signature: () => string) => {
+    let last = signature();
+    subscribe(() => {
+      const sig = signature();
+      if (sig === last) return schedule();
+      last = sig;
       writeNow();
-    } else {
-      schedule();
-    }
-  });
-  useLayoutStore.subscribe(schedule);
+    });
+  };
+  writeOnSignatureChange(useSessionStore.subscribe, () =>
+    useSessionStore.getState().sessions.map((s) => `${s.id}${s.locked ? ":locked" : ""}`).join("\n"),
+  );
+  writeOnSignatureChange(useLayoutStore.subscribe, () => useLayoutStore.getState().pinnedKeys.join("\n"));
   useTerminalCwdStore.subscribe(schedule);
   // Scroll position isn't in a store; terminals notify us so the persisted
   // offset tracks the viewport (debounced, like cwd/layout churn).

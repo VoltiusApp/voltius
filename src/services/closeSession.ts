@@ -8,10 +8,10 @@ import { useUIStore } from "@/stores/uiStore";
 import { isSessionLocked } from "@/services/tabLock";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 
-export interface CloseResult { closed: string[]; kept: string[] }
+export interface CloseResult { closed: string[]; kept: string[]; settled: Promise<void> }
 
 /** Tear down a session: leave/stop any multiplayer connection, then disconnect and drop it. */
-export function closeSession(sessionId: string): void {
+export function closeSession(sessionId: string): Promise<void> {
   const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
   const mpConn = useTeamSessionStore.getState().connections[sessionId];
   if (mpConn) {
@@ -19,19 +19,21 @@ export function closeSession(sessionId: string): void {
     else useTeamSessionStore.getState().leaveSession(sessionId);
   }
   // disconnect() is async; removeSession() drops it synchronously so it can't linger as an ungrouped tab
-  if (session?.type !== "multiplayer" && (session?.status === "connected" || session?.status === "connecting")) {
-    void useSessionStore.getState().disconnect(sessionId);
-  }
+  const disconnected = session?.type !== "multiplayer" && (session?.status === "connected" || session?.status === "connecting")
+    ? useSessionStore.getState().disconnect(sessionId)
+    : Promise.resolve();
   useSessionStore.getState().removeSession(sessionId);
+  return disconnected;
 }
 
 export function closeSessionTabs(sessionIds: string[], opts: { reportKept?: boolean } = {}): CloseResult {
   const kept = sessionIds.filter(isSessionLocked);
   const closed = sessionIds.filter((id) => !kept.includes(id));
-  for (const id of closed) {
-    closeSession(id);
+  const teardowns = closed.map((id) => {
+    const disconnected = closeSession(id);
     useLayoutStore.getState().removeSession(id);
-  }
+    return disconnected;
+  });
   if (kept.length > 0) {
     useLockNudgeStore.getState().nudge(kept);
     if (opts.reportKept) {
@@ -45,7 +47,7 @@ export function closeSessionTabs(sessionIds: string[], opts: { reportKept?: bool
     }
   }
   if (useSessionStore.getState().sessions.length === 0) useUIStore.getState().leaveTerminal();
-  return { closed, kept };
+  return { closed, kept, settled: Promise.allSettled(teardowns).then(() => undefined) };
 }
 
 export function closeSplitTabSessions(tabId: string): CloseResult {

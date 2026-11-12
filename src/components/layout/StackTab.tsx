@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -8,6 +8,7 @@ import { TitlebarTab, sessionTabIcon, buildSessionTabHandlers } from "@/componen
 import { HostStackMenu } from "@/components/layout/HostStackMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { useHoverIntent } from "@/hooks/useHoverIntent";
+import { useLockNudge } from "@/hooks/useLockNudge";
 import { useDragStore } from "@/stores/dragStore";
 import { closeSessionTabs } from "@/services/closeSession";
 import { pinHostList } from "@/services/hostStack";
@@ -43,6 +44,8 @@ export function StackTab({
   const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
   const dragBlocksHover = isDraggingTitlebarItem || isDraggingPane;
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
+  const lockCue = useLockNudge(memberIds);
 
   const closeList = useCallback(() => hover.setOpen(false), [hover.setOpen]);
 
@@ -62,7 +65,7 @@ export function StackTab({
   const extras: ContextMenuItem[] = [
     ...(newSession ? [newSession] : []),
     pinListExtra(t, panelShowsThisHost, () => (panelShowsThisHost ? setHostPanelPinned(false) : pinHostList(shown.id))),
-    { label: t("layout.titleBar.stack.closeAll", { count: members.length }), icon: "lucide:x", danger: true, onClick: () => closeSessionTabs(members.map((m) => m.id), { reportKept: true }) },
+    { label: t("layout.titleBar.stack.closeAll", { count: members.length }), icon: "lucide:x", danger: true, onClick: () => closeSessionTabs(memberIds, { reportKept: true }) },
   ];
   const handlers = buildHandlers(shown, itemKey, active, extras);
 
@@ -89,11 +92,23 @@ export function StackTab({
   const trailing = (
     <>
       <span
-        className={`inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] px-1.5 rounded-full text-[11px] font-bold tabular-nums ${
+        className={`relative inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] px-1.5 rounded-full text-[11px] font-bold tabular-nums ${
           active ? "bg-(--t-accent) text-(--t-bg-base)" : "bg-(--t-bg-elevated) text-(--t-text-secondary)"
         }`}
       >
-        {members.length}
+        <span className={lockCue.active ? "invisible" : undefined}>{members.length}</span>
+        {lockCue.active && (
+          <span
+            key={lockCue.key}
+            data-testid={`stack-lock-cue-${groupKey}`}
+            className="absolute inset-0 flex items-center justify-center animate-tab-lock-cue"
+            onAnimationEnd={(e) => { if (e.target === e.currentTarget) lockCue.end(); }}
+          >
+            <span className="inline-flex animate-tab-lock-wiggle">
+              <Icon icon="lucide:lock" width={12} />
+            </span>
+          </span>
+        )}
       </span>
       {!panelShowsThisHost && (
         <span

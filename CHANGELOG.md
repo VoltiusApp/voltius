@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Locked tabs: "Disconnect all" now counts only the tabs it will close and says how many locked tabs stay open, or that nothing can be disconnected when every tab is locked. Ctrl/Cmd+W on a locked tab grouped under a host briefly shows a lock on the host's tab. The lock wiggles again on every refused close, and a pin is saved right away. A plugin or AI agent closing a serial session now waits until the port is released, so reopening it straight away no longer fails as busy (#860)
 - Switching tabs and opening the right side panel no longer lag while the History panel holds a long history: rows no longer re-render on every tab switch, and rows out of view skip layout
 - The terminal minimap no longer redraws in background tabs, and resamples a terminal with streaming output at most five times a second instead of on every frame, cutting idle CPU use
 

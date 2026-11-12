@@ -49,6 +49,16 @@ describe("TabCloseControl", () => {
     expect(screen.getByTitle(UNLOCK).className).toContain("animate-tab-lock-wiggle");
   });
 
+  test("a second nudge during the wiggle restarts it on a fresh element", () => {
+    setup(["s1"]);
+    act(() => { useLockNudgeStore.getState().nudge(["s1"]); });
+    const first = screen.getByTitle(UNLOCK);
+    act(() => { useLockNudgeStore.getState().nudge(["s1"]); });
+    const second = screen.getByTitle(UNLOCK);
+    expect(second).not.toBe(first);
+    expect(second.className).toContain("animate-tab-lock-wiggle");
+  });
+
   test("a nudge for another session does not", () => {
     setup(["s1"]);
     act(() => { useLockNudgeStore.getState().nudge(["zz"]); });
