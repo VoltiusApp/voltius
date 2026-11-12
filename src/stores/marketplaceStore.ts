@@ -39,6 +39,8 @@ export interface MarketplacePlugin {
   /** Iconify name for the entry, e.g. `simple-icons:cloudflare`. */
   icon?: string;
   theme: boolean;
+  preview?: unknown;
+  desktopOnly?: boolean;
   sourceId: string;
   hash?: string;
   cssHash?: string;
@@ -289,6 +291,7 @@ interface MarketplaceState {
   catalog: MarketplacePlugin[];
   catalogLoading: boolean;
   catalogError: string | null;
+  sourceErrors: Record<string, string>;
   fetchCatalog: () => Promise<void>;
 
   // Installed externally (not bundled)
@@ -371,15 +374,17 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   catalog: [],
   catalogLoading: false,
   catalogError: null,
+  sourceErrors: {},
 
   async fetchCatalog() {
     const { sources } = get();
     set({ catalogLoading: true, catalogError: null });
     const results: MarketplacePlugin[] = [];
+    const sourceErrors: Record<string, string> = {};
     for (const source of sources.filter((s) => s.enabled)) {
       try {
         const res = await appFetch(source.url);
-        if (!res.ok) continue;
+        if (!res.ok) { sourceErrors[source.id] = `HTTP ${res.status}`; continue; }
         const data = await res.json();
         const list: MarketplacePlugin[] = Array.isArray(data) ? data : (data.plugins ?? []);
         // `builtin` is never trusted from a remote source — it routes installPlugin
@@ -390,9 +395,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         results.push(...plugins.filter((p) => !isRetiredPlugin(p.id)));
       } catch (e) {
         console.warn(`[marketplace] Failed to fetch source "${source.id}":`, e);
+        sourceErrors[source.id] = String(e);
       }
     }
-    set({ catalog: results, catalogLoading: false });
+    set({ catalog: results, catalogLoading: false, sourceErrors });
   },
 
   // ── Installed meta ────────────────────────────────────────────────────
