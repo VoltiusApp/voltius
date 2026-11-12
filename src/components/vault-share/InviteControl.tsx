@@ -100,7 +100,7 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
 
         {isEmail && (
           <button onClick={inviteEmail} className="px-3 py-1.5 rounded-lg text-[11px] border border-(--t-border) text-(--t-text-secondary) self-start">
-            {t("members.invite.sendInviteLabel")}
+            {t("members.invite.sendInviteLabel")} <span className="font-medium">{search.query.trim()}</span>
           </button>
         )}
 

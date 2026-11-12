@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   inviteUserById: vi.fn(),
   inviteByEmailAddress: vi.fn(),
   results: [] as unknown[],
+  query: "bob",
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -23,7 +24,7 @@ vi.mock("@/services/vaultShare", () => ({
 }));
 vi.mock("@/hooks/useUserSearch", () => ({
   useUserSearch: () => ({
-    query: "bob", setQuery: vi.fn(), results: h.results, searching: false,
+    query: h.query, setQuery: vi.fn(), results: h.results, searching: false,
     open: true, setOpen: vi.fn(), inputRef: { current: null }, dropdownRef: { current: null },
     reset: vi.fn(),
   }),
@@ -38,7 +39,7 @@ const roles = [
   { id: "r-editor", name: "editor", position: 2, is_builtin: true },
 ] as unknown as TeamRole[];
 
-beforeEach(() => { h.inviteUserById.mockReset(); h.results = []; h.multiOwner = false; h.viewerIsOwner = true; });
+beforeEach(() => { h.inviteUserById.mockReset(); h.results = []; h.query = "bob"; h.multiOwner = false; h.viewerIsOwner = true; });
 afterEach(cleanup);
 
 test("owner is not offered by a server without multiple owners", () => {
@@ -100,4 +101,10 @@ test("an Owner invite is sent only after the confirmation", async () => {
   await waitFor(() => expect(h.inviteUserById).toHaveBeenCalledWith(
     expect.objectContaining({ userId: "u1", roleName: "owner", roleId: "r-owner" }),
   ));
+});
+
+test("the email invite button names the address it sends to", () => {
+  h.query = "dave@acme.test";
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "members.invite.sendInviteLabel dave@acme.test" })).toBeTruthy();
 });
