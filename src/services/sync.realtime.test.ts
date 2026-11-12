@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
   connects: [] as AbortSignal[],
+  connectedAt: [] as number[],
   connect: undefined as unknown as Connect,
   events: new Map<string, () => void>(),
   chunk: (() => {}) as (text: string) => void,
@@ -26,6 +27,7 @@ vi.mock("@/services/teamDataManager", () => ({ onTeamLogin: vi.fn(async () => {}
 vi.mock("@/services/nativeSseStream", () => ({
   connectNativeSse: (_url: string, _headers: unknown, signal: AbortSignal, onChunk: (text: string) => void, onOpen: () => void) => {
     h.connects.push(signal);
+    h.connectedAt.push(Date.now());
     h.chunk = onChunk;
     return h.connect(signal, onOpen);
   },
@@ -75,6 +77,8 @@ async function runSync(forcePush = false) {
   await run;
 }
 
+const reconnectGaps = () => h.connectedAt.slice(1).map((t, i) => t - h.connectedAt[i]);
+
 const deviceListFetches = () => h.appFetch.mock.calls.filter(([url]) => String(url).endsWith("/v1/sync/devices")).length;
 
 let syncRuns = 0;
@@ -84,6 +88,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(Math, "random").mockReturnValue(0.5);
   h.connects.length = 0;
+  h.connectedAt.length = 0;
   h.settle.mockReset().mockResolvedValue(undefined);
   h.connect = unreachable;
   h.events.clear();
@@ -186,9 +191,9 @@ test("a sync the proxy answered for a down server shortens the retries too", asy
   h.appFetch.mockImplementation(async () => new Response("", { status: 504 }));
 
   startRealtimeSync();
-  await vi.advanceTimersByTimeAsync(5_000 + 10_000 + 20_000 + 30_000 + 30_000 + 1_000);
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
 
-  expect(h.connects).toHaveLength(6);
+  expect(Math.max(...reconnectGaps())).toBeLessThanOrEqual(40_000 + 30_000 + 2_000);
 });
 
 test("an edit made while the stream waits to retry tries the server right away", async () => {
@@ -468,29 +473,50 @@ test("a stream that keeps sending heartbeats is left alone", async () => {
   expect(h.connects[0].aborted).toBe(false);
 });
 
-test("a sync that cannot reach the server drops a stream that still looks open", async () => {
+async function failSyncWhileStreamOpen() {
   h.connect = staysOpen;
   serverAnswers();
   startRealtimeSync();
   await vi.advanceTimersByTimeAsync(1_000);
+  h.appFetch.mockRejectedValue("error sending request");
+  await runSync(true);
+  expect(getSyncState().status).toBe("offline");
+}
+
+test("a sync that cannot reach the server leaves a stream that keeps its heartbeat open (#782)", async () => {
+  await failSyncWhileStreamOpen();
+
+  for (let i = 0; i < 3; i++) {
+    await vi.advanceTimersByTimeAsync(30_000);
+    h.chunk(":heartbeat\n\n");
+  }
+
+  expect(h.connects).toHaveLength(1);
+  expect(h.connects[0].aborted).toBe(false);
+});
+
+test("a sync that cannot reach the server drops a stream that then misses its heartbeat", async () => {
+  await failSyncWhileStreamOpen();
+  h.connect = unreachable;
+
+  await vi.advanceTimersByTimeAsync(37_000);
   expect(h.connects[0].aborted).toBe(false);
 
-  h.appFetch.mockRejectedValue("error sending request");
-  h.connect = unreachable;
-  await runSync(true);
-
+  await vi.advanceTimersByTimeAsync(3_000);
   expect(h.connects[0].aborted).toBe(true);
   expect(getSyncState().status).toBe("offline");
 });
 
-test("a stream whose catch-up sync keeps failing is retried at a growing interval", async () => {
+test("a silent stream whose catch-up sync keeps failing is retried at a growing interval", async () => {
   h.connect = staysOpen;
   h.appFetch.mockRejectedValue("error sending request");
 
   startRealtimeSync();
-  await vi.advanceTimersByTimeAsync(34_000);
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
 
-  expect(h.connects).toHaveLength(3);
+  const gaps = reconnectGaps();
+  expect(gaps.length).toBeGreaterThanOrEqual(3);
+  gaps.slice(1).forEach((gap, i) => expect(gap).toBeGreaterThan(gaps[i]));
 });
 
 test("a login settles the vault before the Pro and teams branching", async () => {

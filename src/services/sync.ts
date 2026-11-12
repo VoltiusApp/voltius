@@ -125,8 +125,7 @@ function reportFailure(e: unknown): void {
     return;
   }
   setState("offline", msg);
-  // The stream cannot be healthy if a request just failed to reach the server.
-  _dropStream?.(e);
+  _doubtStream?.(e);
 }
 
 async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
@@ -918,7 +917,7 @@ export function isSyncPaused(): boolean {
 
 /** The realtime loop is retrying an unreachable server; it runs the owed sync once the stream opens. */
 function awaitingServer(): boolean {
-  return _status === "offline" && _sseAbort !== null && _dropStream === null;
+  return _status === "offline" && _sseAbort !== null && _doubtStream === null;
 }
 
 function cancelSyncRetry(): void {
@@ -1025,17 +1024,18 @@ const teamEventListeners = createListeners<[teamId: string]>();
 export const onTeamSseEvent = teamEventListeners.subscribe;
 
 let _sseAbort: AbortController | null = null;
-// Set while a stream is open: ends that one connection so the loop reconnects.
-let _dropStream: ((reason?: unknown) => void) | null = null;
+// Set while a stream is open: a request that failed to reach the server gives it one heartbeat to prove it is alive.
+let _doubtStream: ((reason: unknown) => void) | null = null;
 // The server sends a heartbeat every 30 s; a stream silent this long is dead.
 const STREAM_QUIET_MS = 75_000;
+const STREAM_DOUBTED_MS = 40_000;
 
 let _reconcileTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Catches a cross-device push whose event never arrived on a stream that still hears heartbeats.
 function armReconcile(): void {
   if (_reconcileTimer) clearTimeout(_reconcileTimer);
-  _reconcileTimer = _dropStream === null ? null : setTimeout(() => {
+  _reconcileTimer = _doubtStream === null ? null : setTimeout(() => {
     _reconcileTimer = null;
     syncInBackground().catch(logFailure("periodic reconcile"));
   }, jittered(RECONCILE_MS));
@@ -1095,6 +1095,7 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
     signal.addEventListener("abort", end, { once: true });
     let healthy = false;
     let quiet: ReturnType<typeof setTimeout> | undefined;
+    let doubted: ReturnType<typeof setTimeout> | undefined;
     let failure: unknown;
     const drop = (reason?: unknown) => {
       healthy = false;
@@ -1103,13 +1104,18 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
     };
     const heard = () => {
       clearTimeout(quiet);
+      clearTimeout(doubted);
+      doubted = undefined;
       quiet = setTimeout(drop, STREAM_QUIET_MS);
+    };
+    const doubt = (reason: unknown) => {
+      doubted ??= setTimeout(() => drop(reason), STREAM_DOUBTED_MS);
     };
     try {
       await _sseConnect(attempt.signal, {
         onOpen: () => {
           healthy = true;
-          _dropStream = drop;
+          _doubtStream = doubt;
           armReconcile();
           heard();
         },
@@ -1119,8 +1125,9 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
       failure = e;
     } finally {
       clearTimeout(quiet);
+      clearTimeout(doubted);
       signal.removeEventListener("abort", end);
-      _dropStream = null;
+      _doubtStream = null;
       armReconcile();
     }
     if (signal.aborted) return;
