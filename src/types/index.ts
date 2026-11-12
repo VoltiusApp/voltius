@@ -288,6 +288,7 @@ export interface TerminalSession {
   /** Serial only: port typed at quick-connect time, prefilled into the config overlay. */
   initialSerialPort?: string;
   containerExec?: ContainerExec;
+  locked?: boolean;
 }
 
 export type ContainerExec =

@@ -81,6 +81,7 @@ interface SessionStore {
   markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
   /** Name a tab. A blank name clears it, so the tab falls back to the connection. */
   renameSession: (sessionId: string, title: string | null) => void;
+  setSessionsLocked: (sessionIds: string[], locked: boolean) => void;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -851,6 +852,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId ? { ...sess, title: normalizeTabTitle(title) } : sess,
       ),
+    })),
+
+  setSessionsLocked: (sessionIds, locked) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) => (sessionIds.includes(sess.id) ? { ...sess, locked } : sess)),
     })),
 
   markDisconnected: (sessionId) => markSessionDisconnected(set, sessionId),
