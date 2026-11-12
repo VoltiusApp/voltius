@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching tabs and opening the right side panel no longer lag while the History panel holds a long history: rows no longer re-render on every tab switch, and rows out of view skip layout
+- The terminal minimap no longer redraws in background tabs, and resamples a terminal with streaming output at most five times a second instead of on every frame, cutting idle CPU use
+
 ## [0.68.0] - 2026-11-11
 
 ### Added
