@@ -62,6 +62,7 @@ export function startWorkspaceSnapshotSync(): void {
       activeSplitTabId: l.activeSplitTabId,
       splitTabActive: l.splitTabActive,
       titlebarOrder: l.titlebarOrder,
+      pinnedKeys: l.pinnedKeys,
     };
     const scrollOffsets: Record<string, number> = {};
     for (const s of sessions) {
@@ -96,7 +97,7 @@ export function startWorkspaceSnapshotSync(): void {
   // after closing a tab can't race the debounce and restore a stale session;
   // status/cwd/layout churn stays debounced.
   const sessionSignature = () =>
-    useSessionStore.getState().sessions.map((s) => s.id).join("\n");
+    useSessionStore.getState().sessions.map((s) => `${s.id}${s.locked ? ":locked" : ""}`).join("\n");
   let lastSessionSignature = sessionSignature();
 
   useSessionStore.subscribe(() => {

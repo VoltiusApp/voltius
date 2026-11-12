@@ -29,6 +29,7 @@ function toTerminalSession(s: SnapshotSession): TerminalSession {
     encoding: s.encoding,
     localShell: s.localShell,
     serialConfig: s.serialConfig as SerialConnectParams | undefined,
+    locked: s.locked,
   };
 }
 
@@ -73,6 +74,7 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
     activeSplitTabId: snapshot.layout.activeSplitTabId,
     splitTabActive: snapshot.layout.splitTabActive,
     titlebarOrder: snapshot.layout.titlebarOrder,
+    pinnedKeys: snapshot.layout.pinnedKeys,
   });
 
   // Prune layout leaves whose sessions weren't snapshotable (e.g. a
