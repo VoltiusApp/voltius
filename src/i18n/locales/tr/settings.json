@@ -1726,6 +1726,26 @@
           }
         }
       }
+    },
+    "search": {
+      "placeholder": "Ayarlarda ara",
+      "clear": "Aramayı temizle",
+      "changed": "Değiştirilenler",
+      "changedTitle": "Varsayılandan farklı olanlar",
+      "results_one": "{{count}} sonuç",
+      "results_other": "{{count}} sonuç",
+      "changedOnly": "Yalnızca değiştirilenler",
+      "open": "Aç",
+      "undo": "Geri al",
+      "resetAll": "Tümünü sıfırla",
+      "resetAllConfirm_one": "{{count}} ayar sıfırlansın mı? Ekibin yönettiği ayarlar ve güvenlik ayarları korunur.",
+      "resetAllConfirm_other": "{{count}} ayar sıfırlansın mı? Ekibin yönettiği ayarlar ve güvenlik ayarları korunur.",
+      "cancel": "İptal",
+      "emptyChanged": "Tüm ayarlar varsayılan değerinde.",
+      "emptyQuery": "“{{query}}” ile eşleşen ayar yok.",
+      "emptyQueryChanged": "“{{query}}” ile eşleşen değiştirilmiş ayar yok.",
+      "changedSub_one": "{{count}} ayar varsayılandan farklı",
+      "changedSub_other": "{{count}} ayar varsayılandan farklı"
     }
   }
 }

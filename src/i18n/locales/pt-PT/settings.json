@@ -1733,6 +1733,29 @@
           "desc": "Abrir notas do host no painel direito"
         }
       }
+    },
+    "search": {
+      "placeholder": "Pesquisar definições",
+      "clear": "Limpar pesquisa",
+      "changed": "Alteradas",
+      "changedTitle": "Alteradas em relação à predefinição",
+      "results_one": "{{count}} resultado",
+      "results_many": "{{count}} resultados",
+      "results_other": "{{count}} resultados",
+      "changedOnly": "Apenas alteradas",
+      "open": "Abrir",
+      "undo": "Anular",
+      "resetAll": "Repor tudo",
+      "resetAllConfirm_one": "Repor {{count}} definição? As definições geridas pela equipa e as de segurança mantêm-se.",
+      "resetAllConfirm_many": "Repor {{count}} definições? As definições geridas pela equipa e as de segurança mantêm-se.",
+      "resetAllConfirm_other": "Repor {{count}} definições? As definições geridas pela equipa e as de segurança mantêm-se.",
+      "cancel": "Cancelar",
+      "emptyChanged": "Todas as definições estão na predefinição.",
+      "emptyQuery": "Nenhuma definição corresponde a “{{query}}”.",
+      "emptyQueryChanged": "Nenhuma definição alterada corresponde a “{{query}}”.",
+      "changedSub_one": "{{count}} definição difere da predefinição",
+      "changedSub_many": "{{count}} definições diferem da predefinição",
+      "changedSub_other": "{{count}} definições diferem da predefinição"
     }
   }
 }

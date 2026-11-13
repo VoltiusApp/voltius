@@ -1417,6 +1417,26 @@
         "panelThemes":    { "label": "主题面板",     "desc": "在右侧面板打开主题" },
         "panelNotes":     { "label": "备注面板", "desc": "在右侧面板中打开主机备注" }
       }
+    },
+    "search": {
+      "placeholder": "搜索设置",
+      "clear": "清除搜索",
+      "changed": "已更改",
+      "changedTitle": "与默认值不同",
+      "results_one": "{{count}} 个结果",
+      "results_other": "{{count}} 个结果",
+      "changedOnly": "仅显示已更改",
+      "open": "打开",
+      "undo": "撤销",
+      "resetAll": "全部重置",
+      "resetAllConfirm_one": "重置 {{count}} 项设置？团队管理的设置和安全设置将保留。",
+      "resetAllConfirm_other": "重置 {{count}} 项设置？团队管理的设置和安全设置将保留。",
+      "cancel": "取消",
+      "emptyChanged": "所有设置均为默认值。",
+      "emptyQuery": "没有与“{{query}}”匹配的设置。",
+      "emptyQueryChanged": "没有与“{{query}}”匹配的已更改设置。",
+      "changedSub_one": "{{count}} 项设置与默认值不同",
+      "changedSub_other": "{{count}} 项设置与默认值不同"
     }
   }
 }
