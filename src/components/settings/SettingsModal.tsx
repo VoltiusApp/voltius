@@ -13,7 +13,7 @@ import MobileSettings from "@/components/settings/MobileSettings";
 import { usePluginNavChildren, useResolvedPluginPage } from "@/components/settings/usePluginNavChildren";
 import { SettingsSearchField } from "@/components/settings/SettingsSearchField";
 import { ResetAllButton, SettingsList, sectionOf, useSearchHits } from "@/components/settings/SettingsList";
-import { useChangedSettings } from "@/components/settings/useChangedSettings";
+import { ChangedSettingsProvider, useChangedSettings } from "@/components/settings/useChangedSettings";
 import { Toggle } from "@/components/shared/Toggle";
 
 export default function SettingsModal() {
@@ -21,7 +21,7 @@ export default function SettingsModal() {
   const isMobile = useIsMobile();
   if (isMobile) return <MobileSettings open={open} />;
   if (!open) return null;
-  return <DesktopSettings />;
+  return <ChangedSettingsProvider><DesktopSettings /></ChangedSettingsProvider>;
 }
 
 function DesktopSettings() {

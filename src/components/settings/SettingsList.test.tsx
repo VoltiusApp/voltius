@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rawRender, screen, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
@@ -14,12 +15,13 @@ import { useUIStore } from "@/stores/uiStore";
 import { settingDefs } from "./registry/entries";
 import { resetSetting } from "./registry/defaults";
 import { SettingsList, ResetAllButton } from "./SettingsList";
-import { useChangedSettings } from "./useChangedSettings";
+import { ChangedSettingsProvider, useChangedSettings } from "./useChangedSettings";
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined), isTauri: () => false }));
 
 const NONE = { policy: {}, defaults: {} };
+const render = (ui: ReactElement) => rawRender(<ChangedSettingsProvider>{ui}</ChangedSettingsProvider>);
 
 function resetEverything() {
   usePolicyStore.setState({ machine: NONE, server: NONE });
