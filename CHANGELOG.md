@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-11-13
+
+### Added
+
+- Settings has a search field that finds every setting across sections, on desktop and mobile. Results are ranked by how well they match, the UI language and English both match, and one typo is tolerated. `/` or Ctrl/Cmd+F focuses it (#870, #872)
+- A Changed view in Settings lists every setting that differs from its default, with live controls, per-row reset with Undo, and Reset all. Every settings row now shows the changed dot and a reset (#870)
+- OmniSearch finds every setting: each on/off setting is a quick toggle, and any other setting opens Settings filtered to it (#870)
+- Sign-up and Add account have a "Have an invitation link?" field. Paste a team invitation link to register with the invited email, even on a server with registration closed (#871)
+
+### Changed
+
+- Terminal scrollback defaults to 10,000 lines. A saved 50,000 (the old default) moves to 10,000 once; other values are kept (#870)
+
 ## [0.71.0] - 2026-11-13
 
 ### Added
