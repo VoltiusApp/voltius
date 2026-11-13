@@ -1,8 +1,6 @@
 name: perf-windows
 
 on:
-  push:
-    branches: [feat/perf-bench]
   workflow_dispatch:
     inputs:
       tag:
@@ -31,9 +29,9 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag || 'latest' }}
-          IDLE: ${{ inputs.idle_seconds || '90' }}
-          COMPETITORS: ${{ inputs.competitors || github.event_name == 'push' }}
+          TAG: ${{ inputs.tag }}
+          IDLE: ${{ inputs.idle_seconds }}
+          COMPETITORS: ${{ inputs.competitors }}
         run: ./scripts/perf/windows-idle.ps1 -VoltiusTag $env:TAG -IdleSeconds ([int]$env:IDLE) -Competitors:($env:COMPETITORS -eq 'true')
       - uses: actions/upload-artifact@v7
         if: always()
