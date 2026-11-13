@@ -9,11 +9,13 @@ mod policy_cmd;
 mod prompt;
 mod server_cmd;
 pub(crate) mod session;
+mod sessions_cmd;
 #[cfg(test)]
 mod testing;
 pub mod user;
 mod whoami_cmd;
 
+use crate::auth::{AuthError, ClientKind, DeviceInfo};
 use crate::cli_state::pending::{self, Change};
 use crate::policy::{self, Issue};
 use clap::{CommandFactory, Parser, Subcommand};
@@ -25,6 +27,7 @@ use path_cmd::PathCmd;
 use plugins_cmd::PluginsCmd;
 use policy_cmd::PolicyCmd;
 use server_cmd::ServerCmd;
+use sessions_cmd::SessionsArgs;
 use std::ffi::OsString;
 use std::fmt;
 use std::io::IsTerminal;
@@ -132,6 +135,38 @@ fn block_on_timeout_in<F: std::future::Future>(
     })
 }
 
+const NETWORK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
+
+// One runtime for a whole command: the client's pooled connections live on it between steps.
+#[derive(Default)]
+pub(crate) struct Net {
+    net: std::cell::OnceCell<(tokio::runtime::Runtime, reqwest::Client)>,
+}
+
+impl Net {
+    fn over_network<'a, T, F>(
+        &'a self,
+        work: impl FnOnce(&'a reqwest::Client) -> F,
+    ) -> Result<T, AuthError>
+    where
+        F: std::future::Future<Output = Result<T, AuthError>>,
+    {
+        let (runtime, client) = match self.net.get() {
+            Some(net) => net,
+            None => {
+                let runtime = runtime().map_err(AuthError::Network)?;
+                let client = crate::auth::client()?;
+                self.net.get_or_init(|| (runtime, client))
+            }
+        };
+        block_on_timeout_in(runtime, NETWORK_TIMEOUT, work(client)).map_err(AuthError::Network)?
+    }
+}
+
+fn cli_device() -> DeviceInfo {
+    DeviceInfo::this_device(ClientKind::Cli)
+}
+
 fn queue(dir: &Path, change: Change, out: &mut Output) -> Result<(), CliError> {
     let what = match &change {
         Change::Setting { key, value } => format!("set {key} = {value}"),
@@ -184,6 +219,8 @@ enum Command {
     Login(LoginArgs),
     /// Sign this user out and remove their Voltius data from this device
     Logout,
+    /// List the devices signed in to this account, or sign one out
+    Sessions(SessionsArgs),
     /// Show or set the sync server URL
     Server {
         #[command(subcommand)]
@@ -206,11 +243,12 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 9] = [
+const BARE_SUBCOMMANDS: [&str; 10] = [
     "policy",
     "whoami",
     "login",
     "logout",
+    "sessions",
     "config",
     "plugins",
     "server",
@@ -291,6 +329,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Whoami => whoami_cmd::run(&mut ctx),
         Command::Login(args) => login_cmd::run(args, &mut ctx),
         Command::Logout => logout_cmd::run(&mut ctx),
+        Command::Sessions(args) => sessions_cmd::run(args, &mut ctx),
         Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {

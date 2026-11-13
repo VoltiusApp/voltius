@@ -472,16 +472,17 @@ pub fn ssh_config_state_save(state: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn device_hostname() -> String {
+    host_name().unwrap_or_else(|| "Unknown device".to_string())
+}
+
+pub fn host_name() -> Option<String> {
     // Android's kernel hostname is always "localhost", so fall back to the
     // user-facing device model (e.g. "Pixel 8") via system properties.
     #[cfg(target_os = "android")]
     if let Some(name) = android_device_name() {
-        return name;
+        return Some(name);
     }
-    hostname::get()
-        .ok()
-        .and_then(|h| h.into_string().ok())
-        .unwrap_or_else(|| "Unknown device".to_string())
+    hostname::get().ok().and_then(|h| h.into_string().ok())
 }
 
 #[cfg(target_os = "android")]
