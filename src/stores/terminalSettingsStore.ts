@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { writeAndTouch, writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
-import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
+import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES, LEGACY_DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
 import { storeSetting } from "@/services/policy/effectiveCore";
 import { DEFAULT_KEYWORD_RULES, sanitizeKeywordRules, type KeywordRule } from "@/utils/keywordMatcher";
 
@@ -24,6 +24,12 @@ interface TerminalSettingsStore {
 const terminalKey = (key: keyof TerminalSettingsStore) => `appSettings.terminal.${key}`;
 const unlessLocked = (key: keyof TerminalSettingsStore, write: () => void) => writeAndTouchUnlessLocked(terminalKey(key), write);
 
+export function migrateTerminalSettings(persisted: unknown, version: number): unknown {
+  const state = (persisted ?? {}) as { scrollbackLines?: number };
+  if (version < 1 && state.scrollbackLines === LEGACY_DEFAULT_SCROLLBACK_LINES) state.scrollbackLines = DEFAULT_SCROLLBACK_LINES;
+  return state;
+}
+
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
   persist(
     (set) => ({
@@ -38,6 +44,8 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
     }),
     {
       name: "voltius-terminal-settings",
+      version: 1,
+      migrate: (persisted, version) => migrateTerminalSettings(persisted, version) as TerminalSettingsStore,
       merge: (persisted, current) => {
         const state = { ...current, ...(persisted as Partial<TerminalSettingsStore>) };
         state.scrollbackLines = clampScrollbackLines(state.scrollbackLines);

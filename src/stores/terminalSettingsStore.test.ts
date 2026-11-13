@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
-import { cursorStyleSetting, keywordRulesSetting, preferredShellSetting, useTerminalSettingsStore } from "./terminalSettingsStore";
+import { cursorStyleSetting, keywordRulesSetting, migrateTerminalSettings, preferredShellSetting, useTerminalSettingsStore } from "./terminalSettingsStore";
+import { DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
 import { resetPolicy, withPolicy } from "@/test/policy";
 const CURSOR = "appSettings.terminal.cursorStyle";
 
@@ -36,5 +37,25 @@ describe("terminal settings under policy", () => {
     withPolicy({ "appSettings.terminal.keywordRules": [admin] });
     useTerminalSettingsStore.getState().setKeywordRules([{ id: "u", color: "green", words: ["prod"], enabled: true }]);
     expect(keywordRulesSetting.get().map((r) => r.id)).toEqual(["a", "u"]);
+  });
+});
+
+describe("migrateTerminalSettings", () => {
+  it("moves the old 50k default to the new default", () => {
+    expect(migrateTerminalSettings({ scrollbackLines: 50_000 }, 0)).toEqual({ scrollbackLines: DEFAULT_SCROLLBACK_LINES });
+  });
+
+  it("keeps any other value and leaves current versions alone", () => {
+    expect(migrateTerminalSettings({ scrollbackLines: 100_000 }, 0)).toEqual({ scrollbackLines: 100_000 });
+    expect(migrateTerminalSettings({ scrollbackLines: 50_000 }, 1)).toEqual({ scrollbackLines: 50_000 });
+  });
+});
+
+describe("rehydrating a store saved by an older build", () => {
+  it("loads the old 50k default as the new default", async () => {
+    localStorage.setItem("voltius-terminal-settings", JSON.stringify({ state: { scrollbackLines: 50_000, cursorStyle: "block" }, version: 0 }));
+    await useTerminalSettingsStore.persist.rehydrate();
+    expect(useTerminalSettingsStore.getState().scrollbackLines).toBe(DEFAULT_SCROLLBACK_LINES);
+    expect(useTerminalSettingsStore.getState().cursorStyle).toBe("block");
   });
 });
