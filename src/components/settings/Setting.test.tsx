@@ -86,3 +86,18 @@ describe("<Setting>", () => {
     expect(useUIStore.getState().settingsSection).toBe("hosts");
   });
 });
+
+describe("<Setting> on mobile", () => {
+  test("the row keeps its plain name for the actions button", async () => {
+    vi.resetModules();
+    vi.doMock("@/utils/platform", async (orig) => ({
+      ...(await orig<typeof import("@/utils/platform")>()),
+      useIsMobile: () => true,
+      useIsAndroid: () => true,
+    }));
+    const { Setting: MobileSetting } = await import("./Setting");
+    const { container } = render(<MobileSetting id="toggles.select-to-copy" />);
+    expect(container.querySelector("[data-setting-actions]")?.getAttribute("aria-label")).toBe("Setting actions: Select to copy");
+    vi.doUnmock("@/utils/platform");
+  });
+});

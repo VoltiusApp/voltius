@@ -6,6 +6,8 @@ import { TOGGLE_DEFS } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useConnectivitySettingsStore, DEFAULT_DETACHED_TTL_HOURS } from "@/stores/connectivitySettingsStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { DEFAULT_KEYWORD_RULES } from "@/utils/keywordMatcher";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import { isSettingsSection } from "@/stores/uiStore";
 import { useLocaleStore } from "@/stores/localeStore";
@@ -252,5 +254,63 @@ describe("registry coverage", () => {
 
   test("system unlock cannot be reset from a list", () => {
     expect(settingDef("security.systemAuthUnlock")!.resettable).toBe(false);
+  });
+});
+
+describe("team defaults on compound and string entries", () => {
+  const team = (defaults: Record<string, unknown>) =>
+    usePolicyStore.setState({ machine: { policy: {}, defaults } });
+  afterEach(() => team({}));
+
+  test("detached TTL: a numeric team default is not a change", () => {
+    team({ "appSettings.detachedTtlHours": 72 });
+    const d = settingDef("connectivity.detachedTtlHours")!;
+    d.set!("72");
+    expect(isDirtyValue(d, d.get())).toBe(false);
+    d.set!("6");
+    resetSetting(d);
+    expect(d.get()).toBe("72");
+    expect(isDirtyValue(d, d.get())).toBe(false);
+    team({});
+    resetSetting(d);
+  });
+
+  test("proxy resets to the team default", () => {
+    team({ "appSettings.proxy": { mode: "system" } });
+    const d = settingDef("connectivity.proxy")!;
+    useConnectivitySettingsStore.getState().setProxy({ mode: "none" });
+    expect(isDirtyValue(d, d.get())).toBe(true);
+    resetSetting(d);
+    expect(useConnectivitySettingsStore.getState().proxy.mode).toBe("system");
+    expect(isDirtyValue(d, d.get())).toBe(false);
+    team({});
+    resetSetting(d);
+  });
+
+  test("preferred shell and location applied by the team are not changes", () => {
+    const spot = { lat: 1, lng: 2, label: "x", source: "manual" as const };
+    team({ "appSettings.terminal.preferredShell": "/bin/zsh", "themes.location": spot });
+    const shell = settingDef("terminal.preferredShell")!;
+    shell.set!("/bin/zsh");
+    expect(isDirtyValue(shell, shell.get())).toBe(false);
+    const loc = settingDef("themes.location")!;
+    useThemeStore.getState().setLocation(spot);
+    expect(isDirtyValue(loc, loc.get())).toBe(false);
+    team({});
+    resetSetting(shell);
+    resetSetting(loc);
+  });
+
+  test("keyword highlight resets to the team's rules", () => {
+    const rules = [{ ...DEFAULT_KEYWORD_RULES[0], words: ["boom"] }];
+    team({ "appSettings.terminal.keywordRules": rules });
+    const d = settingDef("toggles.keyword-highlight")!;
+    useTerminalSettingsStore.getState().setKeywordRules([]);
+    expect(isDirtyValue(d, d.get())).toBe(true);
+    resetSetting(d);
+    expect(useTerminalSettingsStore.getState().keywordRules[0]?.words).toEqual(["boom"]);
+    expect(isDirtyValue(d, d.get())).toBe(false);
+    team({});
+    resetSetting(d);
   });
 });

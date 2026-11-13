@@ -9,7 +9,7 @@ import { SETTINGS_ROW_BUTTON, SettingRow, SettingsGroup } from "./sections/share
 import { Highlight, Setting } from "./Setting";
 import { settingDef, settingDefs } from "./registry/entries";
 import { searchSettings, type SearchHit } from "./registry/search";
-import { resettableInBulk, useChangedSettings } from "./useChangedSettings";
+import { resettableInBulk, restorable, useChangedSettings } from "./useChangedSettings";
 
 interface UndoState {
   previous: Record<string, unknown>;
@@ -49,7 +49,7 @@ export function ResetAllButton() {
           className={`${SETTINGS_ROW_BUTTON} text-(--t-status-error)`}
           onClick={() => {
             for (const s of targets) {
-              if (s.def.set) useUndoStore.getState().remember(s.def.key, s.value);
+              useUndoStore.getState().remember(s.def.key, s.value);
               s.reset();
             }
             setConfirming(false);
@@ -157,14 +157,16 @@ export function SettingsList({ query, changedOnly }: { query: string; changedOnl
           key={section}
           divided
           title={
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5">
               {t(`settings.nav.${section}.label`)}
               <button
                 type="button"
-                onClick={() => useUIStore.getState().setSettingsSection(section)}
-                className="normal-case tracking-normal font-medium text-(--t-accent) hover:underline"
+                onClick={() => useUIStore.getState().openSettings(section)}
+                aria-label={t("settings.search.openSection", { section: t(`settings.nav.${section}.label`) })}
+                title={t("settings.search.openSection", { section: t(`settings.nav.${section}.label`) })}
+                className="p-0.5 rounded-sm text-(--t-text-dim) hover:text-(--t-accent)"
               >
-                {t("settings.search.open")}
+                <Icon icon="lucide:arrow-up-right" width={13} />
               </button>
             </span>
           }
@@ -178,7 +180,7 @@ export function SettingsList({ query, changedOnly }: { query: string; changedOnl
                 standalone
                 highlight={query}
                 resetAlwaysVisible={changedOnly}
-                beforeReset={(v) => h.def.set && useUndoStore.getState().remember(h.def.key, v)}
+                beforeReset={(v) => restorable(h.def) && useUndoStore.getState().remember(h.def.key, v)}
                 undo={changedOnly && h.def.key in previous && !changedKeys.has(h.def.key) ? { onUndo: () => undo(h.def.key) } : undefined}
               />
             ))}

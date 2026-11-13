@@ -12,6 +12,8 @@ import {
 } from "@/stores/terminalSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { DEFAULT_KEYWORD_RULES, sameKeywordRules } from "@/utils/keywordMatcher";
+import { adminDefault } from "@/stores/policyStore";
+import { sameValue } from "@/utils/sameValue";
 import {
   useSftpSettingsStore,
   DEFAULT_AUTO_REFRESH_INTERVAL_MS,
@@ -88,6 +90,8 @@ const options = (values: readonly string[], label: (v: string, t: Translate) => 
 type ToggleRow = Partial<Pick<SettingDef, "titleKey" | "descKey" | "platform" | "mobileHidden" | "useActive" | "isDirty" | "reset">> & { use?(): unknown };
 
 const whenToggle = (id: ToggleId) => () => useToggle(id)[0];
+const teamOr = <T,>(policyKey: string, builtIn: T): T => (adminDefault(policyKey) as T | undefined) ?? builtIn;
+const defaultKeywordRules = () => teamOr("appSettings.terminal.keywordRules", DEFAULT_KEYWORD_RULES);
 
 const TOGGLE_ROWS: Record<ToggleId, ToggleRow> = {
   "cursor-blink": { titleKey: "settings.terminal.cursorBlink.title", descKey: "settings.terminal.cursorBlink.desc" },
@@ -106,10 +110,10 @@ const TOGGLE_ROWS: Record<ToggleId, ToggleRow> = {
       useTerminalSettingsStore((st) => st.keywordRules);
       return useToggle("keyword-highlight")[0];
     },
-    isDirty: (v, d) => v !== d || !sameKeywordRules(useTerminalSettingsStore.getState().keywordRules, DEFAULT_KEYWORD_RULES),
+    isDirty: (v, d) => v !== d || !sameKeywordRules(useTerminalSettingsStore.getState().keywordRules, defaultKeywordRules()),
     reset: () => {
-      useToggleSettingsStore.getState().set("keyword-highlight", TOGGLE_DEFS["keyword-highlight"].default);
-      useTerminalSettingsStore.getState().setKeywordRules(DEFAULT_KEYWORD_RULES);
+      useToggleSettingsStore.getState().set("keyword-highlight", teamOr("appSettings.toggles.keyword-highlight", TOGGLE_DEFS["keyword-highlight"].default));
+      useTerminalSettingsStore.getState().setKeywordRules(defaultKeywordRules());
     },
   },
   "auto-forward": { titleKey: "settings.portForwarding.autoForward.title", descKey: "settings.portForwarding.autoForward.desc" },
@@ -281,7 +285,7 @@ function explicitDefs(): SettingDef[] {
       control: { kind: "value" },
       get: () => effectiveShell(preferredShellSetting.get()),
       use: () => effectiveShell(preferredShellSetting.use()),
-      isDirty: () => preferredShellSetting.get() != null,
+      isDirty: (_, d) => !sameValue(preferredShellSetting.get(), d),
       set: (v) => terminal().setPreferredShell(v === null ? null : String(v)),
     },
     {
@@ -354,6 +358,7 @@ function explicitDefs(): SettingDef[] {
       get: () => String(getGlobalDetachedTtlHours()),
       use: () => String(useDetachedTtlHours()[0]),
       useActive: whenToggle("detached-session-ttl"),
+      isDirty: (v, d) => String(v) !== String(d),
       set: (v) => useConnectivitySettingsStore.getState().setDetachedTtlHours(Number(v) as DetachedTtlHours),
     },
     {
@@ -546,8 +551,7 @@ function addedDefs(): SettingDef[] {
       get: () => locationSetting.get(),
       use: () => locationSetting.use(),
       useActive: whenThemeMode("sunset"),
-      isDirty: (v) => v != null,
-      reset: () => theme().setLocation(null),
+      reset: () => theme().setLocation(teamOr("themes.location", null)),
     },
     {
       key: "hosts.pollIntervalMs",
@@ -582,7 +586,7 @@ function addedDefs(): SettingDef[] {
       get: () => getGlobalProxy(),
       use: () => useGlobalProxy()[0],
       isDirty: (v, d) => (v as { mode?: string } | null)?.mode !== (d as { mode?: string } | null)?.mode,
-      reset: () => useConnectivitySettingsStore.getState().setProxy(DEFAULT_GLOBAL_PROXY),
+      reset: () => useConnectivitySettingsStore.getState().setProxy(teamOr("appSettings.proxy", DEFAULT_GLOBAL_PROXY)),
     },
     ...SYNC_SETTING_DOMAINS.map((dom): SettingDef => ({
       key: `sync.domain.${dom.id}`,

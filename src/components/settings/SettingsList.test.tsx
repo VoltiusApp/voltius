@@ -9,6 +9,8 @@ import { useConnectivitySettingsStore, DEFAULT_GLOBAL_PROXY } from "@/stores/con
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useThemeStore } from "@/stores/themeStore";
 import i18n from "@/i18n";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { useUIStore } from "@/stores/uiStore";
 import { settingDefs } from "./registry/entries";
 import { resetSetting } from "./registry/defaults";
 import { SettingsList, ResetAllButton } from "./SettingsList";
@@ -49,7 +51,7 @@ describe("search", () => {
     render(<SettingsList query="scrollback" changedOnly={false} />);
     expect(screen.getByText(fullText("Terminal scrollback"))).toBeTruthy();
     expect(screen.queryByText("Cursor style")).toBeNull();
-    expect(screen.getByText(fullText("TerminalOpen"))).toBeTruthy();
+    expect(screen.getByLabelText("Open Terminal")).toBeTruthy();
   });
 
   test("panels match by name and offer Open", () => {
@@ -139,7 +141,7 @@ describe("reset all", () => {
     usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.select-to-copy": false }, defaults: {} }, server: NONE });
     render(<ResetAllButton />);
     fireEvent.click(screen.getByText("Reset all"));
-    expect(screen.getByText("Reset 2 settings? Team-managed and security settings stay.")).toBeTruthy();
+    expect(screen.getByText("Reset 2 settings? Team-managed, security and sync settings stay.")).toBeTruthy();
     fireEvent.click(screen.getAllByText("Reset all").slice(-1)[0]);
     expect(useConnectivitySettingsStore.getState().keepalivePreset).not.toBe("fast");
     expect(useTerminalSettingsStore.getState().scrollbackLines).toBe(DEFAULT_SCROLLBACK_LINES);
@@ -153,5 +155,39 @@ describe("reset all", () => {
     fireEvent.click(screen.getByText("Reset all"));
     fireEvent.click(screen.getByText("Cancel"));
     expect(useTerminalSettingsStore.getState().scrollbackLines).toBe(100_000);
+  });
+});
+
+describe("review fixes", () => {
+  test("reset all leaves sync choices and entries it cannot undo alone", () => {
+    act(() => {
+      useTerminalSettingsStore.getState().setScrollbackLines(100_000);
+      useSyncPrefsStore.getState().setSyncType("connection", false);
+      useConnectivitySettingsStore.getState().setProxy({ mode: "system" });
+      useToggleSettingsStore.getState().set("keyword-highlight", false);
+    });
+    render(<ResetAllButton />);
+    fireEvent.click(screen.getByText("Reset all"));
+    expect(screen.getByText(/^Reset 1 setting\?/)).toBeTruthy();
+    fireEvent.click(screen.getAllByText("Reset all").slice(-1)[0]);
+    expect(useSyncPrefsStore.getState().isTypeSynced("connection")).toBe(false);
+    expect(useConnectivitySettingsStore.getState().proxy.mode).toBe("system");
+    expect(useToggleSettingsStore.getState().values["keyword-highlight"]).toBe(false);
+    act(() => useSyncPrefsStore.getState().setSyncType("connection", true));
+  });
+
+  test("no Undo is offered for a reset that cannot be fully undone", () => {
+    act(() => useToggleSettingsStore.getState().set("keyword-highlight", false));
+    render(<SettingsList query="" changedOnly />);
+    fireEvent.click(screen.getByTitle("Reset to default"));
+    expect(screen.queryByText("Undo")).toBeNull();
+  });
+
+  test("the section link opens the section on both shells", () => {
+    render(<SettingsList query="scrollback" changedOnly={false} />);
+    fireEvent.click(screen.getByLabelText("Open Terminal"));
+    expect(useUIStore.getState().settingsSection).toBe("terminal");
+    expect(useUIStore.getState().settingsSubPage).toBe("terminal");
+    expect(useUIStore.getState().settingsQuery).toBe("");
   });
 });

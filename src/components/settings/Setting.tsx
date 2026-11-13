@@ -83,7 +83,7 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
     <SettingRow
       variant={variant}
       className={className}
-      title={<Highlight text={title} query={highlight} />}
+      title={highlight ? <Highlight text={title} query={highlight} /> : title}
       desc={description}
       note={note ?? (range && !state.locked ? <RangeNote range={range} {...rangeFormat(def, t)} /> : undefined)}
       dimmed={!state.active}
