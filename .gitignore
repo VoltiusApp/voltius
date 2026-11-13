@@ -30,7 +30,7 @@ screenshots/
 # Untracked but previously unignored, so a `git add -A` swept 58k files into a commit.
 .cargo-home/
 disco.mjs
-wd.mjs
+/wd.mjs
 dist-plugin-types/
 packages/plugin-types/index.d.ts
 
