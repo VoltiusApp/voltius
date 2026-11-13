@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, test } from "vitest";
 import i18n, { ensureLocale } from "@/i18n";
 import { SETTINGS_PANELS } from "./panels";
-import { highlightRanges, searchSettings, type SearchHit } from "./search";
+import { highlightRanges, matchScore, searchSettings, type SearchHit } from "./search";
+import { SETTINGS_SECTIONS } from "@/stores/uiStore";
 
 const keys = (hits: SearchHit[]) => hits.map((h) => (h.kind === "setting" ? h.def.key : `panel:${h.panel.id}`));
 const everywhere = { isMobile: false, isAndroid: false };
@@ -102,5 +103,46 @@ describe("section keywords", () => {
     const hits = keys(searchSettings("scrollback", everywhere));
     expect(hits).toContain("terminal.scrollbackLines");
     expect(hits).not.toContain("terminal.cursorStyle");
+  });
+});
+
+describe("ranking", () => {
+  const order = (q: string) => keys(searchSettings(q, everywhere));
+
+  test("a title match ranks above a description-only match in the same section", () => {
+    const hits = order("scrollback");
+    expect(hits.indexOf("terminal.scrollbackLines")).toBeLessThan(hits.indexOf("toggles.scroll-minimap"));
+  });
+
+  test("a title that starts with the word ranks above one that only contains it", () => {
+    const hits = order("cursor");
+    expect(hits.indexOf("toggles.cursor-blink")).toBeLessThan(hits.indexOf("toggles.select-to-copy") === -1 ? Infinity : hits.indexOf("toggles.select-to-copy"));
+    expect(hits[0]?.startsWith("toggles.cursor") || hits[0] === "terminal.cursorStyle").toBe(true);
+  });
+
+  test("score tiers: title start < title word < keyword < description < one typo", () => {
+    const fields = (title: string, keywords: string[] = [], desc = "") => ({ titles: [title], keywords, descs: [desc], sections: ["Terminal"] });
+    const score = (q: string, f: ReturnType<typeof fields>) => matchScore(q, f);
+    const start = score("cursor", fields("Cursor style"));
+    const word = score("cursor", fields("Terminal cursor"));
+    const keyword = score("cursor", fields("Caret", ["cursor"]));
+    const desc = score("cursor", fields("Caret", [], "Shape of the cursor"));
+    const typo = score("cursor", fields("Curser"));
+    expect([start, word, keyword, desc, typo].every((n) => n !== null)).toBe(true);
+    expect(start!).toBeLessThan(word!);
+    expect(word!).toBeLessThan(keyword!);
+    expect(keyword!).toBeLessThan(desc!);
+    expect(desc!).toBeLessThan(typo!);
+    expect(score("zzz", fields("Cursor style"))).toBeNull();
+  });
+
+  test("sections keep the sidebar order", () => {
+    const sections = searchSettings("sync", everywhere).map((h) => (h.kind === "setting" ? h.def.section : h.panel.section));
+    const idx = sections.map((s) => SETTINGS_SECTIONS.indexOf(s));
+    expect(idx).toEqual([...idx].sort((a, b) => a - b));
+  });
+
+  test("the same query returns the same results without searching again", () => {
+    expect(searchSettings("proxy", everywhere)).toBe(searchSettings("proxy", everywhere));
   });
 });

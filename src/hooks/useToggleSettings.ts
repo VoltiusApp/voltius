@@ -48,20 +48,21 @@ export function useToggleSettings(): ToggleItem[] {
   const isMobile = useIsMobile();
   const isAndroid = useIsAndroid();
 
-  const settings = states
-    .filter((s) => s.def.control.kind === "toggle" && s.def.set && availableOn(s.def, { isMobile, isAndroid }))
-    .map((s): ToggleItem => ({
-      id: quickToggleId(s.def.key),
-      label: s.def.section === "sync"
-        ? t("settings.sync.quickToggleLabel", { label: t(s.def.labelKey) })
-        : t(s.def.labelKey),
-      icon: quickToggleIcon(s.def),
-      description: s.locked ? t("common.policy.managed") : t(`settings.nav.${s.def.section}.label`),
-      keywords: [...(s.def.keywords ?? [])],
-      value: !!s.value,
-      locked: s.locked,
-      onToggle: (v: boolean) => s.set(v),
-    }));
+  const toggles = states.filter((s) => s.def.control.kind === "toggle" && s.def.set && availableOn(s.def, { isMobile, isAndroid }));
+  // `toggles` is rebuilt every render; its signature is what changes the list.
+  const signature = toggles.map((s) => `${s.def.key}=${String(s.value)}:${s.locked}`).join("|");
+  const settings = useMemo(() => toggles.map((s): ToggleItem => ({
+    id: quickToggleId(s.def.key),
+    label: s.def.section === "sync"
+      ? t("settings.sync.quickToggleLabel", { label: t(s.def.labelKey) })
+      : t(s.def.labelKey),
+    icon: quickToggleIcon(s.def),
+    description: s.locked ? t("common.policy.managed") : t(`settings.nav.${s.def.section}.label`),
+    keywords: [...(s.def.keywords ?? [])],
+    value: !!s.value,
+    locked: s.locked,
+    onToggle: (v: boolean) => s.def.set?.(v),
+  })), [signature, t]);
 
   const plugins = useMemo<ToggleItem[]>(() => getLoadedPlugins().map((m) => {
     const lock = pluginLock(m.id);
@@ -77,5 +78,5 @@ export function useToggleSettings(): ToggleItem[] {
     };
   }), [t, pluginOverrides, installedMeta]);
 
-  return [...settings, ...plugins];
+  return useMemo(() => [...settings, ...plugins], [settings, plugins]);
 }

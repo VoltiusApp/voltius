@@ -17,7 +17,7 @@ import { APPBAR_TONAL } from "@/components/mobile/MobileHeader";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { SettingsSearchField } from "@/components/settings/SettingsSearchField";
 import { ResetAllButton, SettingsList } from "@/components/settings/SettingsList";
-import { useChangedSettings } from "@/components/settings/useChangedSettings";
+import { ChangedSettingsProvider, useChangedSettings } from "@/components/settings/useChangedSettings";
 
 const ROOT_BODY = "root";
 const CHANGED_BODY = "changed";
@@ -200,6 +200,7 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
 
   if (!mounted) return null;
   return (
+    <ChangedSettingsProvider>
     <div
       ref={ref}
       className="fixed inset-0 z-50 flex flex-col surface-modal-solid"
@@ -247,5 +248,6 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
         </div>
       </div>
     </div>
+    </ChangedSettingsProvider>
   );
 }
