@@ -178,11 +178,13 @@ on macOS and Windows after installation.
 
 ✅ yes · ❌ no · 🟡 partial or paid-tier · ? not tested · Checked against each project's source or official docs in November 2026
 
+¹ Idle on the first-run screen, 90 s after a cold start, on Windows Server 2025: private working set (the Task Manager figure) of the app and all its child processes, WebView2 included. ² Install folder on Windows, excluding the WebView2 runtime that Windows 10/11 already ship.
+
 | Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
 | --- | --- | --- | --- | --- | --- |
 | **Engine** | **Rust + Tauri** 🦀 | Electron (closed-source) | **Rust + Tauri** 🦀 | Web + Electron (React + Node.js) | Electron / Node.js |
-| **RAM Usage** | ~300MB | ~500MB+ | ~300MB | ? | ? |
-| **Installed Size** | ~40MB | ~1GB | ~40MB | ? | ? |
+| **RAM Usage**¹ | ~110MB | ~590MB | ~90MB | ~250MB | ~180MB |
+| **Installed Size**² | ~45MB | ~560MB | ~85MB | ~610MB | ~480MB |
 | **Sync** | Local network + Gist + Cloudflare + S3 (Free) / Voltius Cloud (Pro) | 🟡 Only Pro | 🟡 Via Turso (own account) | ✅ Through your self-hosted server | 🟡 Tabby Web server (E2EE opt-in) or community plugins |
 | **Import/Export** | ✅ Import from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC, `~/.ssh/config` (optional two-way sync), CSV; JSON/CSV Export | 🟡 Import from `~/.ssh/config`, CSV, PuTTY, MobaXterm, SecureCRT; no export | 🟡 `~/.ssh/config` import; own encrypted backup | 🟡 `~/.ssh/config` + JSON import; JSON export | 🟡 `~/.ssh/config` import only |
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | Encrypted at rest, server holds the key | Local; optional encrypted vault |
