@@ -428,6 +428,80 @@
       "saving": "正在保存锁定策略…",
       "saved": "锁定策略已保存"
     },
+    "keyHealth": {
+      "title": "保险库密钥状态",
+      "state": {
+        "upToDate": "最新",
+        "rotationPending": "待更换密钥",
+        "reencryptPending": "正在重新加密",
+        "attention": "需要处理",
+        "unavailable": "不可用"
+      },
+      "version": "密钥版本 {{version}} · {{time}}更换",
+      "versionNever": "密钥版本 {{version}} · 从未更换",
+      "uncovered_one": "{{count}} 位成员缺少当前密钥。",
+      "uncovered_other": "{{count}} 位成员缺少当前密钥。",
+      "requested": "有成员于{{time}}离开，需要更换新密钥。",
+      "remaining_one": "{{count}} 个项目仍在使用旧密钥。",
+      "remaining_other": "{{count}} 个项目仍在使用旧密钥。",
+      "remainingUnknown": "部分项目仍在使用旧密钥。",
+      "blocked": "在它们重新加密之前，无法生成新密钥。",
+      "fromServer": "由服务器报告。",
+      "device": {
+        "never": "此设备尚未尝试。",
+        "finished": "此设备于{{time}}完成了上次尝试。",
+        "failed_one": "此设备于{{time}}尝试：{{count}} 个项目失败。",
+        "failed_other": "此设备于{{time}}尝试：{{count}} 个项目失败。",
+        "stopped": "此设备于{{time}}尝试后停止：{{reason}}",
+        "skipped_one": "{{count}} 个项目需要有编辑权限的人处理。",
+        "skipped_other": "{{count}} 个项目需要有编辑权限的人处理。"
+      },
+      "step": {
+        "status": "无法连接服务器。",
+        "rotate": "服务器拒绝了新密钥。",
+        "drain": "无法重新加密保险库。"
+      },
+      "loadFailed": "无法读取密钥状态。请检查网络连接后刷新。",
+      "retry": "立即重试",
+      "retrying": "正在重试…",
+      "refresh": "刷新",
+      "retryDenied": "生成新密钥需要“查看密码”和“复制密码”权限。",
+      "stuck": {
+        "title": "仍使用旧密钥的项目",
+        "truncated": "仅显示前 {{count}} 个。",
+        "hidden_one": "还有 {{count}} 个项目对你隐藏。需要能看到它的人重试。",
+        "hidden_other": "还有 {{count}} 个项目对你隐藏。需要能看到它们的人重试。"
+      },
+      "reason": {
+        "orphan": "已删除项目的残留",
+        "undecryptable": "无法解密",
+        "uploadFailed": "无法保存，请重试。",
+        "needsEditor": "需要有编辑权限的人处理",
+        "waiting": "等待下次尝试"
+      },
+      "kind": {
+        "secret": "{{name}} 的密码或密钥",
+        "deleted": "已删除的项目",
+        "blob": "旧版保险库数据"
+      },
+      "unnamed": "未命名{{type}}",
+      "type": {
+        "connection": "主机",
+        "identity": "身份",
+        "key": "SSH 密钥",
+        "folder": "文件夹",
+        "snippet": "代码片段",
+        "snippet_folder": "代码片段文件夹",
+        "port_forwarding_rule": "端口转发规则"
+      },
+      "remove": "移除",
+      "removeTitle": "移除 {{name}}？",
+      "removeBody": "它无法解密，导致此保险库无法更换新密钥。移除后将对所有成员删除，且无法撤销。",
+      "removeOrphanBody": "它属于一个已不存在的项目。移除后，此保险库可以再次更换新密钥。",
+      "removing": "正在移除…",
+      "removed": "已移除",
+      "note": "新密钥保护从现在起保存的内容，无法收回前成员已经复制的任何内容。"
+    },
     "devicePolicy": {
       "title": "设备策略",
       "empty": "在每位成员的 Voltius 上锁定设置。格式与 policy.json 相同。",

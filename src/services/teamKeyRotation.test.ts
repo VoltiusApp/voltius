@@ -73,7 +73,7 @@ vi.mock("@/services/teamVaultSyncCore", () => ({
   base64ToByteArray: (_s: string) => [1, 2, 3],
 }));
 
-import { checkAndRotateTeamKey } from "./teamKeyRotation";
+import { checkAndRotateTeamKey, getLastRotationPass } from "./teamKeyRotation";
 import { getTeamVaultKeyAtVersion, getCachedTeamKeyVersion } from "@/services/teamVaultSync";
 import { PERM_BITS } from "@/services/permissions";
 
@@ -258,7 +258,62 @@ test("draining: a failing object batch write does not block the secrets batch th
   const { reencryptTeamObjects } = await import("@/services/teamObjects");
   vi.mocked(reencryptTeamObjects).mockRejectedValueOnce(new Error("PUT 500"));
 
-  await expect(checkAndRotateTeamKey("t1")).resolves.toBeUndefined();
+  const pass = await checkAndRotateTeamKey("t1");
 
+  expect(pass.failures).toEqual([{ kind: "object", id: "c1", stage: "upload" }]);
   expect(h.reencryptSecretCalls).toHaveLength(1);
+});
+
+test("draining: a secret that fails to decrypt is reported as a local failure and recorded as the last pass", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [{ object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 0 } }];
+  h.secrets = [{ secret_id: "s1", object_id: "c1", ciphertext: "b64(old-cipher)", key_version: 0 }];
+  vi.mocked(getTeamVaultKeyAtVersion).mockRejectedValueOnce(new Error("404"));
+
+  const pass = await checkAndRotateTeamKey("t1");
+
+  expect(pass).toMatchObject({ action: "drained", failures: [{ kind: "secret", id: "s1", stage: "local" }] });
+  expect(getLastRotationPass("t1")).toBe(pass);
+});
+
+test("draining: rows this device may not edit are counted as skipped, not failed", async () => {
+  h.status = { stale: false, draining: true };
+  h.objects = [
+    { object_id: "k1", object_type: "key", metadata: { v: 2, enc: "k1", kv: 0 } },
+    { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 1 } },
+  ];
+  h.secrets = [{ secret_id: "orphan", object_id: "gone", ciphertext: "x", key_version: 0 }];
+
+  const pass = await checkAndRotateTeamKey("t1");
+
+  expect(pass).toMatchObject({ action: "drained", failures: [], skipped: 2 });
+});
+
+test("stale: a refused rotation reports the rotate step and never drains", async () => {
+  h.status = { stale: true, draining: false };
+  h.members = [{ user_id: "me", public_key: "me-pk" }];
+  const { rotateVaultKey } = await import("@/services/teamService");
+  vi.mocked(rotateVaultKey).mockRejectedValueOnce(new Error("409"));
+
+  const pass = await checkAndRotateTeamKey("t1");
+
+  expect(pass).toMatchObject({ action: "none", error: "rotate" });
+  expect(h.deleteTeamKeyCalls).toHaveLength(0);
+});
+
+test("stale: a rotation drains in the same pass and reports rotated", async () => {
+  h.status = { stale: true, draining: false };
+  h.members = [{ user_id: "me", public_key: "me-pk" }];
+
+  const pass = await checkAndRotateTeamKey("t1");
+
+  expect(pass).toMatchObject({ action: "rotated", failures: [] });
+  expect(h.deleteTeamKeyCalls).toEqual(["t1"]);
+});
+
+test("an unreachable rotation-status reports the status step", async () => {
+  const { getRotationStatus } = await import("@/services/teamService");
+  vi.mocked(getRotationStatus).mockRejectedValueOnce(new Error("offline"));
+
+  await expect(checkAndRotateTeamKey("t1")).resolves.toMatchObject({ action: "none", error: "status" });
 });

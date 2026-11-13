@@ -4,6 +4,7 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
 import { BusinessLapseNotice, BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { DevicePolicyCard } from "@/components/members/panels/DevicePolicyCard";
+import { VaultKeyHealthCard } from "@/components/members/panels/VaultKeyHealthCard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import type { TeamLockPolicy } from "@/services/teamService";
@@ -35,11 +36,20 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
     }
   };
 
-  if (locked && !policy && !team?.policy) return <BusinessLockCard teamId={teamId} body={t("members.security.lockBody")} />;
+  const health = <VaultKeyHealthCard key={teamId} teamId={teamId} />;
+  if (locked && !policy && !team?.policy) {
+    return (
+      <div className="space-y-4">
+        {health}
+        <BusinessLockCard teamId={teamId} body={t("members.security.lockBody")} />
+      </div>
+    );
+  }
 
   const disabled = busy || locked;
   return (
     <div className="space-y-4">
+      {health}
       {policy && (
         <BusinessLapseNotice
           teamId={teamId}

@@ -11,6 +11,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked, isOwner: true }) }));
 vi.mock("@/services/teamActionFeedback", () => ({ runTeamAction: ({ run }: { run: () => Promise<unknown> }) => run() }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
+vi.mock("@/components/members/panels/VaultKeyHealthCard", () => ({ VaultKeyHealthCard: () => <p>key-health</p> }));
 
 import { SecurityPolicyPanel } from "./SecurityPolicyPanel";
 import { useTeamStore } from "@/stores/teamStore";
@@ -55,11 +56,12 @@ test("turning enforcement off clears the policy", () => {
   expect(h.setLockPolicy).toHaveBeenCalledWith("t", null);
 });
 
-test("below Business with no policy only the upsell card shows", () => {
+test("below Business with no policy only the upsell card shows, and key health stays free", () => {
   h.locked = true;
   setTeam(null);
   render(<SecurityPolicyPanel teamId="t" />);
   expect(screen.getByText("members.security.lockBody")).toBeTruthy();
+  expect(screen.getByText("key-health")).toBeTruthy();
   expect(screen.queryByRole("switch")).toBeNull();
 });
 
