@@ -812,6 +812,34 @@
         "deviceDefault": "device default",
         "yourChoice": "your choice",
         "resume": "Resume syncing"
+      },
+      "devices": {
+        "title": "Your devices",
+        "footer": "Each device uploads its own encrypted copy. This list shows whether this device could read the latest copy from each one.",
+        "empty": "No other device has synced yet.",
+        "unnamed": "Device {{id}}",
+        "state": {
+          "synced": "Synced",
+          "pending": "Waiting for the next sync",
+          "unavailable": "Couldn't download",
+          "unavailableStatus": "Couldn't download (HTTP {{status}})",
+          "undecryptable": "Can't decrypt: encrypted with a key this device doesn't have",
+          "unreadable": "Its copy is damaged and can't be read"
+        },
+        "hint": {
+          "unavailable": "Usually temporary. Voltius tries again on the next sync.",
+          "undecryptable": "That device may still use an older vault key. Open Voltius on it so it uploads a new copy, or remove it here if you no longer use it.",
+          "unreadable": "Open Voltius on that device so it uploads a new copy, or remove it here if you no longer use it."
+        },
+        "changed": "Changed {{time}}",
+        "lastSynced": "Last read {{time}}",
+        "neverSynced": "Never read",
+        "retry": "Retry",
+        "retryNone": "Nothing to retry",
+        "remove": "Remove",
+        "removeTitle": "Remove {{name}} from cloud sync?",
+        "removeBody": "Its encrypted copy is deleted from the server. What this device already synced from it stays. If you still use that device, it uploads a new copy the next time it syncs.",
+        "removeFailed": "Couldn't remove the device: {{error}}"
       }
     },
     "vaults": {

@@ -2226,7 +2226,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         storageGet<string>(id, `__sync__${key}`).then((v) => { lastKnownRaw = v; }).catch(() => {});
 
         const unsub = onSyncStateChange(async () => {
-          if (getSyncState().status !== "success") return;
+          const { status } = getSyncState();
+          if (status !== "success" && status !== "partial") return;
           try {
             const current = await storageGet<string>(id, `__sync__${key}`);
             if (current !== lastKnownRaw) {

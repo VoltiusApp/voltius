@@ -17,6 +17,9 @@ pub struct Mirror {
     pub plugins: Vec<MirrorPlugin>,
     #[serde(default)]
     pub built_ins: BTreeMap<String, Value>,
+    // Raw so a bad sync section can't hide settings and plugins from the other commands.
+    #[serde(default)]
+    pub sync: Option<Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

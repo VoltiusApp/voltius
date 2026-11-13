@@ -839,6 +839,34 @@
         "deviceDefault": "výchozí pro zařízení",
         "yourChoice": "vaše volba",
         "resume": "Obnovit synchronizaci"
+      },
+      "devices": {
+        "title": "Vaše zařízení",
+        "footer": "Každé zařízení nahrává vlastní šifrovanou kopii. Tento seznam ukazuje, zda toto zařízení dokázalo přečíst poslední kopii každého z nich.",
+        "empty": "Žádné jiné zařízení se zatím nesynchronizovalo.",
+        "unnamed": "Zařízení {{id}}",
+        "state": {
+          "synced": "Synchronizováno",
+          "pending": "Čeká na další synchronizaci",
+          "unavailable": "Nelze stáhnout",
+          "unavailableStatus": "Nelze stáhnout (HTTP {{status}})",
+          "undecryptable": "Nelze dešifrovat: zašifrováno klíčem, který toto zařízení nemá",
+          "unreadable": "Kopie je poškozená a nelze ji přečíst"
+        },
+        "hint": {
+          "unavailable": "Obvykle dočasné. Voltius to zkusí znovu při další synchronizaci.",
+          "undecryptable": "To zařízení možná stále používá starší klíč trezoru. Otevřete na něm Voltius, aby nahrálo novou kopii, nebo ho zde odeberte, pokud ho už nepoužíváte.",
+          "unreadable": "Otevřete na tom zařízení Voltius, aby nahrálo novou kopii, nebo ho zde odeberte, pokud ho už nepoužíváte."
+        },
+        "changed": "Změněno {{time}}",
+        "lastSynced": "Přečteno {{time}}",
+        "neverSynced": "Dosud nepřečteno",
+        "retry": "Zkusit znovu",
+        "retryNone": "Není co zkoušet znovu",
+        "remove": "Odebrat",
+        "removeTitle": "Odebrat {{name}} z cloudové synchronizace?",
+        "removeBody": "Jeho šifrovaná kopie bude smazána ze serveru. Co z něj toto zařízení už synchronizovalo, zůstane. Pokud to zařízení stále používáte, při další synchronizaci nahraje novou kopii.",
+        "removeFailed": "Zařízení nelze odebrat: {{error}}"
       }
     },
     "vaults": {

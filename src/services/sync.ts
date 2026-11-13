@@ -3,6 +3,7 @@ import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
 import { createSerialQueue } from "@/lib/serialQueue";
 import { forgetMergedRemoteBlobs, settledBlobs } from "@/services/settledBlobs";
+import { remoteSources, type RemoteSourceFailure } from "@/services/remoteSources";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
@@ -76,7 +77,7 @@ export const ENTITY_FILES = [
   "favorite_commands.json",
 ] as const;
 
-export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
+export type SyncStatus = "idle" | "syncing" | "success" | "partial" | "error" | "offline";
 
 // ─── Sync state (module-level, not a store) ──────────────────────────────────
 
@@ -115,8 +116,15 @@ export function onSyncStateChange(fn: () => void): () => void {
 function setState(status: SyncStatus, error?: string) {
   _status = status;
   _error = error ?? null;
-  if (status === "success") _lastSync = new Date();
+  if (status === "success" || status === "partial") _lastSync = new Date();
   _listeners.forEach((fn) => fn());
+}
+
+/** A sync that finished: partial while any remote device's latest blob is still unmerged. */
+function setSynced(): void {
+  const failing = remoteSources.failing().length;
+  if (failing === 0) setState("success");
+  else setState("partial", i18n.t("layout.sync.status.partialDetail", { count: failing }));
 }
 
 function reportFailure(e: unknown): void {
@@ -287,6 +295,19 @@ class BlobDecryptError extends Error {
     super("Sync blob could not be decrypted with any available key");
     this.name = "BlobDecryptError";
   }
+}
+
+class BlobFetchError extends Error {
+  constructor(readonly status: number | null, readonly underlying: unknown) {
+    super(status ? `Sync blob download failed: HTTP ${status}` : "Sync blob download failed");
+    this.name = "BlobFetchError";
+  }
+}
+
+function sourceFailure(e: unknown): [RemoteSourceFailure, number | null] {
+  if (e instanceof BlobFetchError) return ["unavailable", e.status];
+  if (e instanceof BlobDecryptError) return ["undecryptable", null];
+  return ["unreadable", null];
 }
 
 /**
@@ -496,6 +517,13 @@ async function listDevices(): Promise<DeviceInfo[]> {
   return devices ?? [];
 }
 
+/** Every device's blob, with the other devices tracked for the per-device sync results. */
+async function listTrackedDevices(): Promise<{ devices: DeviceInfo[]; localDeviceId: string }> {
+  const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
+  remoteSources.track(devices.filter((d) => d.device_id !== localDeviceId));
+  return { devices, localDeviceId };
+}
+
 /** Reload all in-memory stores from disk after a merge. */
 export async function reloadAllStores(): Promise<void> {
   await Promise.all([
@@ -611,15 +639,25 @@ export async function openRemoteBlob(
   return filterRemoteExcluded(await decryptBlob(candidates, blobBytes), excludedIds, ENTITY_FILES);
 }
 
-async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Promise<BlobPayload | null> {
-  const res = await fetchWithAuth(
-    `${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(remoteDeviceId)}`,
-    { method: "GET" },
-  );
-  if (res.status === 404) return null; // remote device has no blob yet
-  if (!res.ok) return null; // skip unreachable devices
+async function fetchRemoteBlob(serverUrl: string, remoteDeviceId: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetchWithAuth(`${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(remoteDeviceId)}`, { method: "GET" });
+  } catch (e) {
+    throw new BlobFetchError(isUnreachable(e) ? e.status ?? null : null, e);
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) throw new BlobFetchError(res.status, null);
+  try {
+    return (await res.json()).blob;
+  } catch (e) {
+    throw new BlobFetchError(null, e);
+  }
+}
 
-  const { blob: blobB64 } = await res.json();
+async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Promise<BlobPayload | null> {
+  const blobB64 = await fetchRemoteBlob(serverUrl, remoteDeviceId);
+  if (blobB64 === null) return null;
   return openRemoteBlob(sessionBlobKeys(), base64ToByteArray(blobB64));
 }
 
@@ -659,7 +697,7 @@ const deviceLabel = (device: DeviceInfo) => `device ${device.device_id}`;
 
 const PULL_CONCURRENCY = 4;
 
-/** Download and decrypt each device's blob, a few at once, in `devices` order; a device that fails is skipped. */
+/** Download and decrypt each device's blob, a few at once, in `devices` order; a device that fails is skipped and recorded. */
 async function pullRemotePayloads(devices: DeviceInfo[]): Promise<Array<[DeviceInfo, BlobPayload]>> {
   if (devices.length === 0) return [];
   const serverUrl = await getServerUrl();
@@ -669,8 +707,11 @@ async function pullRemotePayloads(devices: DeviceInfo[]): Promise<Array<[DeviceI
   await forEachRemoteBlob(indexed, ({ device }) => deviceLabel(device), async ({ device, i }) => {
     try {
       pulled[i] = await pullRemotePayload(serverUrl, device.device_id);
+      if (!pulled[i]) remoteSources.drop(device.device_id);
     } catch (e) {
-      if (e instanceof BlobDecryptError) settledBlobs.add(device);
+      const [failure, status] = sourceFailure(e);
+      if (failure !== "unavailable") settledBlobs.add(device);
+      remoteSources.failed(device, failure, status);
       throw e;
     }
   }, PULL_CONCURRENCY);
@@ -726,7 +767,10 @@ function settledBlobsForCurrentInputs(): typeof settledBlobs {
 async function pullAndMerge(devices: DeviceInfo[]): Promise<boolean> {
   const pulled = await pullRemotePayloads(devices);
   const changed = await mergeRemotePayloads(pulled.map(([device, payload]) => [device.device_id, payload]));
-  for (const [device] of pulled) settledBlobs.add(device);
+  for (const [device] of pulled) {
+    settledBlobs.add(device);
+    remoteSources.succeeded(device);
+  }
   return changed;
 }
 
@@ -765,10 +809,9 @@ export async function syncNow(forcePush = false): Promise<void> {
     // and the sidebar immediately reflects joins/removals (no blob change needed).
     await loadTeamsForCurrentUser();
 
-    const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
+    const { devices, localDeviceId } = await listTrackedDevices();
 
-    // A blob that fails to download or decrypt is skipped rather than surfacing a
-    // confusing "decryption failed" to the user.
+    // A blob that fails to download or decrypt is skipped and shown per device; the sync ends partial.
     const settled = settledBlobsForCurrentInputs();
     const anyPersonalChanged = await pullAndMerge(
       devices.filter((d) => d.device_id !== localDeviceId && !settled.has(d)),
@@ -785,7 +828,7 @@ export async function syncNow(forcePush = false): Promise<void> {
     }
 
     succeeded = true;
-    setState("success");
+    setSynced();
     armReconcile();
     if (wasOffline) wakeSseRetry();
   } catch (e) {
@@ -857,12 +900,13 @@ export async function syncOnLoginReplace(): Promise<void> {
 
     if (!(await getServerUrl())) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
-    const pulled = await pullRemotePayloads(await listDevices());
+    const pulled = await pullRemotePayloads((await listTrackedDevices()).devices);
     await replaceWithPayloads(pulled.map(([device, payload]) => [device.device_id, payload]));
+    for (const [device] of pulled) remoteSources.succeeded(device);
     await push();
     await completeTeamLoginSetup();
 
-    setState("success");
+    setSynced();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
@@ -889,7 +933,7 @@ export async function syncOnLogin(): Promise<void> {
     // Pull ALL devices including own — skipping self would prevent recovery
     // after a local wipe (single-user: own blob is the only source of truth).
     // CRDT merge is idempotent so pulling own blob on normal login is safe.
-    const devices = await listDevices();
+    const { devices } = await listTrackedDevices();
 
     settledBlobsForCurrentInputs();
     await pullAndMerge(devices);
@@ -898,7 +942,7 @@ export async function syncOnLogin(): Promise<void> {
     await push();
     await completeTeamLoginSetup();
 
-    setState("success");
+    setSynced();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
@@ -908,6 +952,25 @@ export async function syncOnLogin(): Promise<void> {
     _loginSyncOwed = isUnreachable(e);
     reportFailure(e);
   }
+}
+
+// ─── Per-device results ──────────────────────────────────────────────────────
+
+/** Downloads these devices' blobs again on a sync, even ones already merged or found undecryptable. */
+export function retryRemoteSources(deviceIds: string[]): Promise<void> {
+  for (const id of deviceIds) settledBlobs.forget(id);
+  return syncNow();
+}
+
+/** Deletes a device's blob from the server; a device still in use uploads a new one on its next sync. */
+export async function removeRemoteSource(deviceId: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(i18n.t("common.error.serverError", { status: res.status }));
+  settledBlobs.forget(deviceId);
+  remoteSources.drop(deviceId);
+  if (_status === "partial") setSynced();
 }
 
 // ─── Pause ───────────────────────────────────────────────────────────────────
@@ -1078,6 +1141,7 @@ export function stopRealtimeSync(): void {
 export function haltSync(): void {
   _halted = true;
   forgetMergedRemoteBlobs();
+  remoteSources.clear();
   forgetTeamDataSeen();
   _syncOwed = false;
   stopRealtimeSync();

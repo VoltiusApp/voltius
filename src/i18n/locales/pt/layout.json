@@ -276,8 +276,15 @@
         "notConfigured": "Sincronização não configurada",
         "paused": "Sincronização pausada",
         "default": "Sincronização",
-        "unknown": "desconhecido"
-      }
+        "unknown": "desconhecido",
+        "partial": "Sincronizado parcialmente",
+        "partialAt": "Sincronizado parcialmente · {{time}}",
+        "partialTooltip": "Sincronizado parcialmente: {{error}}",
+        "partialDetail_one": "{{count}} dispositivo não pôde ser sincronizado",
+        "partialDetail_many": "{{count}} dispositivos não puderam ser sincronizados",
+        "partialDetail_other": "{{count}} dispositivos não puderam ser sincronizados"
+      },
+      "showDevices": "Ver dispositivos →"
     },
     "titleBar": {
       "sftp": "SFTP",

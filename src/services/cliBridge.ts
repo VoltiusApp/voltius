@@ -22,6 +22,7 @@ interface Settled {
 }
 
 const cliPlugins = () => import("./cliPlugins");
+const cliSyncMirror = () => import("./cliSyncMirror");
 const INVALID = "invalid value";
 const UNKNOWN = "unknown setting";
 // Retrying cannot fix these, so the entry is dropped after one toast.
@@ -37,7 +38,11 @@ const asStored = (key: string, value: unknown): unknown => NORMALISED[key]?.(val
 let ready = false;
 
 export function markCliReady(): void {
+  if (ready) return;
   ready = true;
+  cliSyncMirror()
+    .then((m) => m.watchSyncForCli(writeCliMirror))
+    .catch((e) => console.warn("[cli] sync mirror watch failed:", e));
 }
 
 export async function applySetting(key: string, value: unknown): Promise<string | null> {
@@ -126,6 +131,7 @@ export async function writeCliMirror(): Promise<void> {
       builtIns,
       serverUrl: storedServerUrl() || null,
       plugins: await (await cliPlugins()).mirrorPlugins(),
+      sync: await cliSyncMirror().then((m) => m.syncMirror()).catch(() => null),
     };
     await invoke("cli_mirror_save", { mirror });
   } catch (e) {

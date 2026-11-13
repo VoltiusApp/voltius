@@ -272,8 +272,14 @@
         "notConfigured": "Eşitleme yapılandırılmadı",
         "paused": "Eşitleme duraklatıldı",
         "default": "Eşitleme",
-        "unknown": "bilinmiyor"
-      }
+        "unknown": "bilinmiyor",
+        "partial": "Kısmen eşitlendi",
+        "partialAt": "Kısmen eşitlendi · {{time}}",
+        "partialTooltip": "Kısmen eşitlendi: {{error}}",
+        "partialDetail_one": "{{count}} cihaz eşitlenemedi",
+        "partialDetail_other": "{{count}} cihaz eşitlenemedi"
+      },
+      "showDevices": "Cihazları göster →"
     },
     "titleBar": {
       "sftp": "SFTP",

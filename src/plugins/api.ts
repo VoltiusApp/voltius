@@ -177,7 +177,8 @@ export interface PluginTransfer {
   owner?: string;
 }
 
-export type SyncProviderStatus = "idle" | "syncing" | "success" | "error" | "offline";
+/** `partial`: the sync finished but some sources could not be read. */
+export type SyncProviderStatus = "idle" | "syncing" | "success" | "partial" | "error" | "offline";
 
 export type SyncProviderAvailability = "active" | "not_configured" | "disabled" | "locked" | "needs_upgrade" | "paused";
 

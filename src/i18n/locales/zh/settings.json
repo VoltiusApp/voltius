@@ -661,6 +661,34 @@
         "deviceDefault": "设备默认",
         "yourChoice": "您的选择",
         "resume": "恢复同步"
+      },
+      "devices": {
+        "title": "你的设备",
+        "footer": "每台设备都会上传自己的加密副本。此列表显示本设备能否读取每台设备的最新副本。",
+        "empty": "还没有其他设备同步过。",
+        "unnamed": "设备 {{id}}",
+        "state": {
+          "synced": "已同步",
+          "pending": "等待下次同步",
+          "unavailable": "无法下载",
+          "unavailableStatus": "无法下载（HTTP {{status}}）",
+          "undecryptable": "无法解密：使用了本设备没有的密钥加密",
+          "unreadable": "其副本已损坏，无法读取"
+        },
+        "hint": {
+          "unavailable": "通常是暂时的。Voltius 会在下次同步时重试。",
+          "undecryptable": "该设备可能仍在使用旧的保险库密钥。在该设备上打开 Voltius 以上传新副本；如果不再使用，可以在这里移除。",
+          "unreadable": "在该设备上打开 Voltius 以上传新副本；如果不再使用，可以在这里移除。"
+        },
+        "changed": "更新于 {{time}}",
+        "lastSynced": "读取于 {{time}}",
+        "neverSynced": "从未读取",
+        "retry": "重试",
+        "retryNone": "无需重试",
+        "remove": "移除",
+        "removeTitle": "要将 {{name}} 从云同步中移除吗？",
+        "removeBody": "它的加密副本将从服务器删除。本设备已从中同步的内容会保留。如果你仍在使用该设备，它会在下次同步时上传新副本。",
+        "removeFailed": "无法移除设备：{{error}}"
       }
     },
     "vaults": {

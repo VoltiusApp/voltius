@@ -17,7 +17,8 @@ import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
 import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
 import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
-import { SettingsGroup } from "./shared";
+import { SETTINGS_ROW_BUTTON, SettingsGroup } from "./shared";
+import { SyncDevicesGroup } from "./SyncDevicesGroup";
 import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
 import { formatTime } from "@/utils/localeFormat";
@@ -27,6 +28,7 @@ function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | n
     case "syncing": return t("settings.sync.active.syncing");
     case "error": return t("settings.sync.active.error", { error: s.error ?? "unknown" });
     case "success": return s.lastSync ? t("settings.sync.active.lastSync", { time: formatTime(s.lastSync) }) : "";
+    case "partial": return [syncStateLine(t, { ...s, status: "success" }), s.error ?? t("layout.sync.status.partial")].filter(Boolean).join(" · ");
     case "offline": return s.error ? t("settings.sync.active.offlineDetail", { error: s.error }) : t("settings.sync.active.offline");
     default: return t("settings.sync.active.idle");
   }
@@ -73,7 +75,7 @@ function PluginProviderRow({ provider }: { provider: SyncProviderView }) {
         {action && (
           <button
             onClick={() => runSyncProviderAction(action)}
-            className="text-xs px-2.5 py-1.5 rounded-lg font-medium bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75"
+            className={SETTINGS_ROW_BUTTON}
           >
             {t(availability === "disabled" ? "layout.sync.enableArrow" : "layout.sync.configureArrow")}
           </button>
@@ -246,7 +248,7 @@ function LocalNetworkGroup() {
           {fix && (
             <button
               onClick={fix.onTap}
-              className="text-xs px-2.5 py-1.5 rounded-lg font-medium shrink-0 bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75"
+              className={SETTINGS_ROW_BUTTON}
             >
               {fix.label}
             </button>
@@ -297,6 +299,8 @@ export default function SyncSection() {
       <SettingsGroup title={t("settings.sync.voltiusCloud")} divided>
         {voltiusProvider && <VoltiusSyncGroup provider={voltiusProvider} />}
       </SettingsGroup>
+
+      {(voltiusProvider?.availability === "active" || voltiusProvider?.availability === "paused") && <SyncDevicesGroup />}
 
       <LocalNetworkGroup />
 

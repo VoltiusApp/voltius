@@ -280,8 +280,16 @@
         "notConfigured": "Synchronizace není nastavena",
         "paused": "Synchronizace pozastavena",
         "default": "Synchronizace",
-        "unknown": "neznámé"
-      }
+        "unknown": "neznámé",
+        "partial": "Částečně synchronizováno",
+        "partialAt": "Částečně synchronizováno · {{time}}",
+        "partialTooltip": "Částečně synchronizováno: {{error}}",
+        "partialDetail_one": "{{count}} zařízení se nepodařilo synchronizovat",
+        "partialDetail_few": "{{count}} zařízení se nepodařilo synchronizovat",
+        "partialDetail_many": "{{count}} zařízení se nepodařilo synchronizovat",
+        "partialDetail_other": "{{count}} zařízení se nepodařilo synchronizovat"
+      },
+      "showDevices": "Zobrazit zařízení →"
     },
     "titleBar": {
       "sftp": "SFTP",

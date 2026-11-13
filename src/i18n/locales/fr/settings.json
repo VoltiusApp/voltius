@@ -818,6 +818,34 @@
         "deviceDefault": "par défaut sur l'appareil",
         "yourChoice": "votre choix",
         "resume": "Reprendre la synchronisation"
+      },
+      "devices": {
+        "title": "Vos appareils",
+        "footer": "Chaque appareil envoie sa propre copie chiffrée. Cette liste indique si cet appareil a pu lire la dernière copie de chacun.",
+        "empty": "Aucun autre appareil n'a encore synchronisé.",
+        "unnamed": "Appareil {{id}}",
+        "state": {
+          "synced": "Synchronisé",
+          "pending": "En attente de la prochaine synchronisation",
+          "unavailable": "Téléchargement impossible",
+          "unavailableStatus": "Téléchargement impossible (HTTP {{status}})",
+          "undecryptable": "Déchiffrement impossible : chiffré avec une clé que cet appareil n'a pas",
+          "unreadable": "Sa copie est endommagée et illisible"
+        },
+        "hint": {
+          "unavailable": "En général temporaire. Voltius réessaie à la prochaine synchronisation.",
+          "undecryptable": "Cet appareil utilise peut-être encore une ancienne clé de coffre. Ouvrez Voltius dessus pour qu'il envoie une nouvelle copie, ou retirez-le ici si vous ne l'utilisez plus.",
+          "unreadable": "Ouvrez Voltius sur cet appareil pour qu'il envoie une nouvelle copie, ou retirez-le ici si vous ne l'utilisez plus."
+        },
+        "changed": "Modifié {{time}}",
+        "lastSynced": "Lu {{time}}",
+        "neverSynced": "Jamais lu",
+        "retry": "Réessayer",
+        "retryNone": "Rien à réessayer",
+        "remove": "Retirer",
+        "removeTitle": "Retirer {{name}} de la synchronisation cloud ?",
+        "removeBody": "Sa copie chiffrée est supprimée du serveur. Ce que cet appareil en a déjà synchronisé est conservé. Si vous utilisez encore cet appareil, il enverra une nouvelle copie à sa prochaine synchronisation.",
+        "removeFailed": "Impossible de retirer l'appareil : {{error}}"
       }
     },
     "vaults": {
