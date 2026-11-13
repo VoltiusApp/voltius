@@ -435,6 +435,45 @@
         "changing": "Değiştiriliyor…",
         "changeBtn": "Parolayı değiştir"
       },
+      "sessions": {
+        "title": "Oturum açık cihazlar",
+        "loading": "Cihazlar yükleniyor…",
+        "empty": "Henüz gösterilecek cihaz yok.",
+        "unknownDevice": "Bilinmeyen cihaz",
+        "thisDevice": "Bu cihaz",
+        "cli": "CLI",
+        "signedIn": "Oturum açıldı: {{date}}",
+        "lastActive": "Etkin: {{ago}}",
+        "signOut": "Oturumu kapat",
+        "signOutNamed": "{{name}} oturumunu kapat",
+        "signOutOthers": "Diğer cihazlarda oturumu kapat",
+        "signOutEverywhere": "Her yerde oturumu kapat",
+        "working": "Oturum kapatılıyor…",
+        "retry": "Yeniden dene",
+        "note": "Bir cihazda oturumu kapatmak hesabınıza erişimini sonlandırır; üzerindeki veriler silinmez. Bu güncellemeden önce oturum açmış cihazlar, oturumlarını bir sonraki yenilemelerinden sonra burada görünür.",
+        "offline": "Çevrimdışısınız.",
+        "unsupported": "Sunucunuz bunu henüz desteklemiyor.",
+        "unavailable": "Cihaz listesi yüklenmedi.",
+        "ended": "Bu cihazda oturum kapatıldı. Cihazlarınızı yönetmek için yeniden oturum açın.",
+        "confirm": {
+          "one": {
+            "title": "{{name}} oturumu kapatılsın mı?",
+            "message": "{{name}} hesabınıza erişimini kaybeder ve yeniden oturum açması gerekir. Üzerindeki veriler silinmez."
+          },
+          "this": {
+            "title": "Bu cihazda oturum kapatılsın mı?",
+            "message": "Bu cihaz, yeniden oturum açana kadar eşitlemeyi durdurur. Verileri burada kalır."
+          },
+          "others": {
+            "title": "Diğer cihazlarda oturum kapatılsın mı?",
+            "message": "Henüz listede olmayanlar dahil diğer tüm cihazların yeniden oturum açması gerekir. Bu cihazda oturum açık kalır. Üzerlerindeki veriler silinmez."
+          },
+          "all": {
+            "title": "Her yerde oturum kapatılsın mı?",
+            "message": "Bu cihaz dahil tüm cihazların yeniden oturum açması gerekir. Üzerlerindeki veriler silinmez."
+          }
+        }
+      },
       "twoFactor": {
         "label": "İki adımlı doğrulama",
         "subOff": "Yeni bir cihazda oturum açarken kod veya geçiş anahtarı iste",

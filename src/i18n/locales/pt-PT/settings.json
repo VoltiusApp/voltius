@@ -431,6 +431,45 @@
         "changing": "A alterar…",
         "changeBtn": "Alterar palavra-passe"
       },
+      "sessions": {
+        "title": "Dispositivos com sessão iniciada",
+        "loading": "A carregar dispositivos…",
+        "empty": "Ainda não há dispositivos para mostrar.",
+        "unknownDevice": "Dispositivo desconhecido",
+        "thisDevice": "Este dispositivo",
+        "cli": "CLI",
+        "signedIn": "Sessão iniciada em {{date}}",
+        "lastActive": "Ativo {{ago}}",
+        "signOut": "Terminar sessão",
+        "signOutNamed": "Terminar sessão em {{name}}",
+        "signOutOthers": "Terminar sessão nos outros dispositivos",
+        "signOutEverywhere": "Terminar sessão em todo o lado",
+        "working": "A terminar sessão…",
+        "retry": "Tentar novamente",
+        "note": "Terminar a sessão de um dispositivo retira-lhe o acesso à sua conta; os dados que já lá estão não são apagados. Os dispositivos com sessão iniciada antes desta atualização aparecem aqui depois de renovarem a sessão.",
+        "offline": "Está offline.",
+        "unsupported": "O seu servidor ainda não suporta isto.",
+        "unavailable": "A lista de dispositivos não foi carregada.",
+        "ended": "Este dispositivo terminou a sessão. Inicie sessão novamente para gerir os seus dispositivos.",
+        "confirm": {
+          "one": {
+            "title": "Terminar sessão em {{name}}?",
+            "message": "{{name}} perde o acesso à sua conta e terá de iniciar sessão novamente. Os dados que já lá estão não são apagados."
+          },
+          "this": {
+            "title": "Terminar sessão neste dispositivo?",
+            "message": "Este dispositivo deixa de sincronizar até iniciar sessão novamente. Os seus dados ficam aqui."
+          },
+          "others": {
+            "title": "Terminar sessão nos outros dispositivos?",
+            "message": "Todos os outros dispositivos terão de iniciar sessão novamente, incluindo os que ainda não aparecem na lista. Este dispositivo mantém a sessão. Os dados que já lá estão não são apagados."
+          },
+          "all": {
+            "title": "Terminar sessão em todo o lado?",
+            "message": "Todos os dispositivos, incluindo este, terão de iniciar sessão novamente. Os dados que já lá estão não são apagados."
+          }
+        }
+      },
       "twoFactor": {
         "label": "Autenticação de dois fatores",
         "subOff": "Pedir um código ou uma passkey ao entrar em um novo dispositivo",

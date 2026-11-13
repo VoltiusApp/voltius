@@ -429,6 +429,45 @@
         "changing": "Changing…",
         "changeBtn": "Change password"
       },
+      "sessions": {
+        "title": "Signed-in devices",
+        "loading": "Loading devices…",
+        "empty": "No devices to show yet.",
+        "unknownDevice": "Unknown device",
+        "thisDevice": "This device",
+        "cli": "CLI",
+        "signedIn": "Signed in {{date}}",
+        "lastActive": "Active {{ago}}",
+        "signOut": "Sign out",
+        "signOutNamed": "Sign out {{name}}",
+        "signOutOthers": "Sign out other devices",
+        "signOutEverywhere": "Sign out everywhere",
+        "working": "Signing out…",
+        "retry": "Retry",
+        "note": "Signing a device out ends its access to your account; data already on it is not erased. Devices signed in before this update appear here after they next refresh their sign-in.",
+        "offline": "You're offline.",
+        "unsupported": "Your server doesn't support this yet.",
+        "unavailable": "The device list hasn't loaded.",
+        "ended": "This device is signed out. Sign in again to manage your devices.",
+        "confirm": {
+          "one": {
+            "title": "Sign out {{name}}?",
+            "message": "{{name}} loses access to your account and must sign in again. Data already on it is not erased."
+          },
+          "this": {
+            "title": "Sign out this device?",
+            "message": "This device stops syncing until you sign in again. Its data stays here."
+          },
+          "others": {
+            "title": "Sign out other devices?",
+            "message": "Every other device must sign in again, including ones not listed yet. This device stays signed in. Data already on them is not erased."
+          },
+          "all": {
+            "title": "Sign out everywhere?",
+            "message": "Every device, this one included, must sign in again. Data already on them is not erased."
+          }
+        }
+      },
       "twoFactor": {
         "label": "Two-factor authentication",
         "subOff": "Ask for a code or a passkey when signing in on a new device",

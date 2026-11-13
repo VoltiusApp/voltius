@@ -433,6 +433,45 @@
         "changing": "Změna…",
         "changeBtn": "Změnit heslo"
       },
+      "sessions": {
+        "title": "Přihlášená zařízení",
+        "loading": "Načítání zařízení…",
+        "empty": "Zatím žádná zařízení k zobrazení.",
+        "unknownDevice": "Neznámé zařízení",
+        "thisDevice": "Toto zařízení",
+        "cli": "CLI",
+        "signedIn": "Přihlášeno {{date}}",
+        "lastActive": "Aktivní {{ago}}",
+        "signOut": "Odhlásit",
+        "signOutNamed": "Odhlásit {{name}}",
+        "signOutOthers": "Odhlásit ostatní zařízení",
+        "signOutEverywhere": "Odhlásit všude",
+        "working": "Odhlašování…",
+        "retry": "Zkusit znovu",
+        "note": "Odhlášení zařízení ukončí jeho přístup k vašemu účtu; data, která už na něm jsou, se nesmažou. Zařízení přihlášená před touto aktualizací se zde objeví po příštím obnovení přihlášení.",
+        "offline": "Jste offline.",
+        "unsupported": "Váš server to zatím nepodporuje.",
+        "unavailable": "Seznam zařízení se nenačetl.",
+        "ended": "Toto zařízení je odhlášené. Přihlaste se znovu, abyste mohli spravovat svá zařízení.",
+        "confirm": {
+          "one": {
+            "title": "Odhlásit {{name}}?",
+            "message": "{{name}} ztratí přístup k vašemu účtu a bude se muset znovu přihlásit. Data, která už na něm jsou, se nesmažou."
+          },
+          "this": {
+            "title": "Odhlásit toto zařízení?",
+            "message": "Toto zařízení přestane synchronizovat, dokud se znovu nepřihlásíte. Jeho data tu zůstanou."
+          },
+          "others": {
+            "title": "Odhlásit ostatní zařízení?",
+            "message": "Všechna ostatní zařízení se budou muset znovu přihlásit, včetně těch, která zatím nejsou v seznamu. Toto zařízení zůstane přihlášené. Data, která už na nich jsou, se nesmažou."
+          },
+          "all": {
+            "title": "Odhlásit všude?",
+            "message": "Všechna zařízení včetně tohoto se budou muset znovu přihlásit. Data, která už na nich jsou, se nesmažou."
+          }
+        }
+      },
       "twoFactor": {
         "label": "Dvoufázové ověření",
         "subOff": "Při přihlášení na novém zařízení vyžadovat kód nebo přístupový klíč",

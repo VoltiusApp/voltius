@@ -431,6 +431,45 @@
         "changing": "Modification…",
         "changeBtn": "Changer le mot de passe"
       },
+      "sessions": {
+        "title": "Appareils connectés",
+        "loading": "Chargement des appareils…",
+        "empty": "Aucun appareil à afficher pour le moment.",
+        "unknownDevice": "Appareil inconnu",
+        "thisDevice": "Cet appareil",
+        "cli": "CLI",
+        "signedIn": "Connecté le {{date}}",
+        "lastActive": "Actif {{ago}}",
+        "signOut": "Déconnecter",
+        "signOutNamed": "Déconnecter {{name}}",
+        "signOutOthers": "Déconnecter les autres appareils",
+        "signOutEverywhere": "Déconnecter partout",
+        "working": "Déconnexion…",
+        "retry": "Réessayer",
+        "note": "Déconnecter un appareil met fin à son accès à votre compte ; les données déjà présentes dessus ne sont pas effacées. Les appareils connectés avant cette mise à jour apparaissent ici après le prochain renouvellement de leur connexion.",
+        "offline": "Vous êtes hors ligne.",
+        "unsupported": "Votre serveur ne prend pas encore cela en charge.",
+        "unavailable": "La liste des appareils n'est pas chargée.",
+        "ended": "Cet appareil est déconnecté. Reconnectez-vous pour gérer vos appareils.",
+        "confirm": {
+          "one": {
+            "title": "Déconnecter {{name}} ?",
+            "message": "{{name}} perd l'accès à votre compte et devra se reconnecter. Les données déjà présentes dessus ne sont pas effacées."
+          },
+          "this": {
+            "title": "Déconnecter cet appareil ?",
+            "message": "Cet appareil arrête de se synchroniser jusqu'à ce que vous vous reconnectiez. Ses données restent ici."
+          },
+          "others": {
+            "title": "Déconnecter les autres appareils ?",
+            "message": "Tous les autres appareils devront se reconnecter, y compris ceux qui ne sont pas encore listés. Cet appareil reste connecté. Les données déjà présentes dessus ne sont pas effacées."
+          },
+          "all": {
+            "title": "Déconnecter partout ?",
+            "message": "Tous les appareils, y compris celui-ci, devront se reconnecter. Les données déjà présentes dessus ne sont pas effacées."
+          }
+        }
+      },
       "twoFactor": {
         "label": "Authentification à deux facteurs",
         "subOff": "Demander un code ou une clé d'accès lors de la connexion sur un nouvel appareil",
