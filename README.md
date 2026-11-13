@@ -25,22 +25,30 @@
 
 No account required. Everything below is free, forever.
 
-- **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC Terminal or CSV — most in 1-click straight from the installed app. Your data is always exportable as open JSON, encrypted if you want.
-- **Local Network Sync** — Your devices sync directly with each other, end-to-end encrypted, on the same Wi-Fi or LAN and over Tailscale or another VPN. On by default; without an account, pair two devices once by comparing a 6-digit code. No server in between, so devices sync while both are online (Android while the app is open). Team vaults are not included.
-- **My Devices** — Browse and move files between your own devices from the SFTP host picker, over Wi-Fi, LAN or Tailscale. Needs a free Voltius account. A desktop shares only the folders you allow in Settings → Devices → File access (off by default); Android browses only.
-- **Gist, Cloudflare & S3 Sync** — E2EE device sync through storage you own: a private GitHub Gist, a Cloudflare Worker and R2 bucket deployed from Settings, or any S3-compatible bucket (AWS, R2, B2, Wasabi, Hetzner, Scaleway, MinIO and more). No central server, same zero-knowledge model.
-- **SFTP** — Easy file transfers and browsing, works for Host↔Host and Host↔Local with drag & drop support. [Accelerated SFTP →](https://voltius.app/blog/sftp-tar-acceleration)
-- **Persistent Sessions & Workspace Restore** — Sessions survive disconnects via tmux/screen on the host, and the whole workspace (tabs, splits, running processes, scrollback) survives full app restarts. With cloud sync, live sessions are shared across your devices — open the same terminal on a second device and both stay live, mirrored in real time. [Cross-device sessions →](https://voltius.app/blog/cross-device-session-pickup)
-- **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
-- **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
-- **MCP Server** — Let Claude Code, Claude Desktop, Cursor or VS Code drive your fleet: 94 tools covering hosts, keys, identities, sessions, panes, commands, files, transfers, port forwards, snippets, vaults, folders, team members, settings, the audit log and your plugins. Off by default, one toggle in Settings → Integrations, and it never leaves your machine. [How it works →](https://voltius.app/blog/mcp-server)
-- **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
-- **Command Line & Machine Policy** — `voltius-cli` sets up a machine from a terminal or Ansible: settings, plugins, server and sign-in. A machine policy file locks settings for everyone on that computer. On Mac, iPhone, iPad and Android, your MDM pushes the same policy and enrolment token. [Docs →](https://docs.voltius.app/reference/cli/)
-- **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
-- **Process Manager** — View and kill processes on connected hosts.
-- **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
+**Terminal**
+- **SSH, your way** — Jump hosts, agent forwarding, SOCKS/HTTP proxies, port knocking, keyword highlighting.
+- **Persistent sessions** — tmux/screen on the host; tabs, splits and scrollback survive app restarts. [More →](https://voltius.app/blog/cross-device-session-pickup)
+- **Split panes, snippets & command palette** — Broadcast input to every pane; reusable commands with variables and sequences.
+- **Port forwarding** — Local, remote and dynamic (SOCKS).
+- **Local terminal & serial console** — Bash, Zsh, Fish, PowerShell, WSL and more; serial ports on desktop.
+- **Containers & monitoring** — Docker and Proxmox LXC, live CPU/memory/disk stats, a process manager.
 
-> Full feature list at [docs.voltius.app](https://docs.voltius.app) · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
+**Files**
+- **SFTP, FTP & WebDAV** — Dual-pane, Host↔Host and Host↔Local, drag & drop, resumable transfers. [More →](https://voltius.app/blog/sftp-tar-acceleration)
+- **My Devices** — Move files between your own devices over LAN or Tailscale (free account).
+
+**Sync & data**
+- **Local network sync** — Device to device, end-to-end encrypted, over LAN or Tailscale/VPN. No server.
+- **Gist, Cloudflare & S3 sync** — End-to-end encrypted, through storage you own.
+- **Import & export** — From Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC or CSV; export as open JSON.
+
+**Security & automation**
+- **Encrypted vault, 2FA & app lock** — Authenticator app and passkeys; biometric lock on desktop and Android.
+- **MCP server** — 94 tools for Claude Code, Cursor or VS Code. Off by default, local only. [More →](https://voltius.app/blog/mcp-server)
+- **Plugins & themes** — [Official registry](https://github.com/VoltiusApp/marketplace) or your own repo; built-in theme editor.
+- **CLI & machine policy** — Script setup with `voltius-cli`, lock settings per machine, push policy via MDM. [Docs →](https://docs.voltius.app/reference/cli/)
+
+> Full feature list at [docs.voltius.app](https://docs.voltius.app) · **Pro · Teams · Business** add real-time Voltius Cloud sync, cross-device sessions, terminal sharing, team vaults with roles and permissions — see [voltius.app/#pricing](https://voltius.app/#pricing).
 
 ## 📸 Screenshots
 
@@ -177,6 +185,21 @@ on macOS and Windows after installation.
 | **Installed Size** | ~40MB | ~1GB | ~40MB | ? | ? |
 | **Sync** | Local network + Gist + Cloudflare + S3 (Free) / Voltius Cloud (Pro) | 🟡 Only Pro | 🟡 Via Turso (own account) | ✅ Through your self-hosted server | 🟡 Tabby Web server (E2EE opt-in) or community plugins |
 | **Import/Export** | ✅ Import from Termius, MobaXterm, PuTTY/KiTTY, SecureCRT, ZOC, `~/.ssh/config` (optional two-way sync), CSV; JSON/CSV Export | 🟡 Import from `~/.ssh/config`, CSV, PuTTY, MobaXterm, SecureCRT; no export | 🟡 `~/.ssh/config` import; own encrypted backup | 🟡 `~/.ssh/config` + JSON import; JSON export | 🟡 `~/.ssh/config` import only |
+| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | Encrypted at rest, server holds the key | Local; optional encrypted vault |
+| **Persistent sessions** | ✅ uses tmux/screen, default behavior | 🟡 (via Mosh, must be installed on the host; not built-in) | ❌ | ✅ Kept on the server, optional tmux | 🟡 (community plugin) |
+| **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ✅ Sessions run on the server | ❌ |
+| **MCP server (AI agents)** | ✅ Built in, 94 tools, off by default | ? | ✅ | ❌ | 🟡 (community plugin) |
+| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free, through your own Turso database | ✅ Self-hosted, share with users or roles | ❌ |
+| **Permissions** | ✅ Teams built-in roles / Business custom roles, per-member & per-object | 🟡 Business: can edit / can view per vault | 🟡 Roles not enforced | ✅ Roles, per-host sharing levels | ❌ |
+| **Plugins** | ✅ | ❌ | ✅ | ✅ | ✅ |
+| **Platforms** | Windows, Linux, macOS, Android, iOS | Windows, Linux, macOS, Android, iOS | Windows, Linux, macOS, Android | Web, Windows, Linux, macOS, Android, iOS | Windows, Linux, macOS, Web |
+| **License** | **AGPLv3** | Commercial / Paid | MIT | Apache 2.0 | MIT |
+
+<details>
+<summary>Full comparison (28 more features)</summary>
+
+| Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
+| --- | --- | --- | --- | --- | --- |
 | **Port Forwarding** | ✅ | ✅ | 🟡 Remote forwards only via `~/.ssh/config` | ✅ | ✅ |
 | **SOCKS / HTTP proxy** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Port knocking** | ✅ | ❌ (dropped) | ❌ | ✅ | ❌ |
@@ -184,12 +207,10 @@ on macOS and Windows after installation.
 | **Command Palette** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Split panes** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **X11 Forwarding** | ❌ | ? | ✅ | ❌ | ✅ |
-| **MCP server (AI agents)** | ✅ Built in, 94 tools, off by default | ? | ✅ | ❌ | 🟡 (community plugin) |
 | **Docker Integration** | ✅ | ? | ✅ | ✅ | 🟡 (community plugin) |
 | **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **System Monitoring** | ✅ | ? | ✅ | ✅ | 🟡 (community plugin) |
 | **Jump Hosts** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free, through your own Turso database | ✅ Self-hosted, share with users or roles | ❌ |
 | **Audit logs** | ✅ | 🟡 Teams plan | ❌ | ✅ | ❌ |
 | **Custom Themes** | ✅ | ? | ✅ | ✅ | ✅ |
 | **Keyword highlighting** | ✅ Editable rules | ✅ | ❌ | 🟡 Fixed categories | 🟡 (community plugin) |
@@ -197,23 +218,18 @@ on macOS and Windows after installation.
 | **Auto-Updates** | ✅ | 🟡 Manual on desktop | ✅ | ✅ | ✅ |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
 | **AI assistant** | ❌ | ✅ | ✅ | ✅ (plugin, bring your own model) | 🟡 (community plugin) |
-| **Permissions** | ✅ Teams built-in roles / Business custom roles, per-member & per-object | 🟡 Business: can edit / can view per vault | 🟡 Roles not enforced | ✅ Roles, per-host sharing levels | ❌ |
 | **Terminal sharing** | ✅ Pro (1 session · 1 guest) / Teams (5 · 10) / Business (20 · 50) | ✅ Every plan | ✅ Peer-to-peer | ✅ (plugin) | 🟡 (community plugin) |
-| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** | Encrypted at rest, server holds the key | Local; optional encrypted vault |
 | **Account 2FA** | ✅ Authenticator app + passkeys, free | ✅ Authenticator app; SAML SSO paid | — (no accounts) | ✅ Authenticator app, passkeys, OIDC | — (no accounts) |
 | **App lock (biometrics)** | ✅ Desktop + Android | 🟡 Mobile only | ✅ | 🟡 Mobile only | 🟡 Passphrase only |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ | ✅ | ❌ |
 | **FTP &amp; WebDAV** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Resumable transfers** | ✅ SFTP, FTP, WebDAV, Docker | ? | ❌ | 🟡 Host↔host only | ❌ |
 | **Serial Console** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Persistent sessions** | ✅ uses tmux/screen, default behavior | 🟡 (via Mosh, must be installed on the host; not built-in) | ❌ | ✅ Kept on the server, optional tmux | 🟡 (community plugin) |
-| **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ✅ Sessions run on the server | ❌ |
 | **Local-first** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Plugins** | ✅ | ❌ | ✅ | ✅ | ✅ |
-| **Platforms** | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | Web, Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Web |
 | **Languages** | 7 | English only | 9 | 42 | 24 |
-| **License** | **AGPLv3** | Commercial / Paid | MIT | Apache 2.0 | MIT |
 | **OS Detection** | ✅ | ✅ | ✅ | 🟡 Text only, in metrics | ❌ |
+
+</details>
 
 ## 🛡️ Architecture & Security
 Voltius is built on a **Local-First, Zero-Knowledge** architecture. Your sensitive data (private keys, passwords, and server metadata) is encrypted on your machine before it ever touches a disk or a network.
@@ -346,81 +362,68 @@ flowchart TD
 
 </details>
 
-## Prerequisites
+## 🛠️ Development & Build
+
+Early beta — PRs and issues are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+### Prerequisites
 
 - [Node.js](https://nodejs.org/) 24+
 - [pnpm](https://pnpm.io/) — `npm i -g pnpm`
 - [Rust](https://rustup.rs/) (stable toolchain)
 - Tauri prerequisites for your platform — see [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/)
 
-## 🛠️ Development & Build
+### Run and build
 
-Early beta — PRs and issues are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
-
-For dev, you simply need to run:
 ```bash
 pnpm i
-pnpm tauri dev
+pnpm tauri dev     # development
+pnpm tauri build   # installers in target/release/bundle/
 ```
 
-### Building in Docker (recommended)
+On WSL2, install the GTK/WebKit dependencies and use software rendering:
 
-I've made a Dockerfile that allows cross-compilation to Windows ARM64/x64; Linux ARM64/x64 without needing to set up a complex toolchain on your machine:
+```sh
+sudo apt install -y build-essential libssl-dev pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsecret-1-dev
+LIBGL_ALWAYS_SOFTWARE=1 pnpm tauri dev
+```
+
+### Cross-compiling in Docker
+
+`Dockerfile.cross-compile` builds Windows (x64/ARM64) and Linux (x64/ARM64) binaries without setting up a toolchain on your machine. Tauri requires `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_KEY_PASSWORD` to be set even without code signing; any non-empty value works.
 
 ```bash
-# Build the cross-compilation image
 docker build -f Dockerfile.cross-compile -t voltius-cross .
 
-# Run the build inside the container
 docker run --rm -it \
   -v "$(pwd):/project" \
+  -e TAURI_SIGNING_PRIVATE_KEY=dummy -e TAURI_SIGNING_KEY_PASSWORD=dummy \
   voltius-cross \
   bash -c 'pnpm tauri build --target aarch64-pc-windows-msvc --runner cargo-xwin --no-bundle'
 ```
 
-Build artifacts are automatically handed back to your host user on exit, so nothing under the mounted project is left root-owned.
+The binary lands in `target/<target>/release/` (here `voltius.exe`), owned by your host user. `--no-bundle` skips the installer, which cross-compilation can't build. Swap the target for one of:
 
-The `--no-bundle` flag skips NSIS installer creation (not supported in cross-compilation). The built executable is at:
-```
-target/aarch64-pc-windows-msvc/release/voltius.exe
-```
-
-You can replace `aarch64-pc-windows-msvc` with the appropriate target. Here's a quick reference for targets:
 - Windows x64: `x86_64-pc-windows-msvc`
 - Windows ARM64: `aarch64-pc-windows-msvc`
 - Linux x64: `x86_64-unknown-linux-gnu`
 - Linux ARM64: `aarch64-unknown-linux-gnu`
 
-If you want to build for other target, see `rustup target list` and add with `rustup target add <target>`. I have not tested other targets.
-
-> Note: build will work but throw an error except if you set TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_KEY_PASSWORD to dummy values, which is required by the Tauri build process even if you don't do code signing in cross-compilation. You can set them to any non-empty value to bypass the error.
-
-### 🐧WSL2 dev note
-
-```sh
-sudo apt install -y build-essential libssl-dev pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsecret-1-dev
-LIBGL_ALWAYS_SOFTWARE=1 && pnpm tauri dev
-```
-
-### Build
-
-```bash
-pnpm tauri build
-```
-
-Output installers are placed in `target/release/bundle/`.
+Other targets from `rustup target list` are untested.
 
 ## 🧰 Tech Stack
 
 | Layer       | Tech                               |
 |-------------|------------------------------------|
 | Frontend    | React 19, TypeScript, Tailwind CSS |
-| Desktop     | Rust, Tauri 2                      |
+| Desktop & mobile | Rust, Tauri 2 (Windows, macOS, Linux, Android, iOS) |
+| Web portal  | `voltius-crypto` compiled to WebAssembly |
 | Sync Server | Rust, Axum, PostgreSQL             |
 | Terminal    | xterm.js (WebGL Accelerated)       |
 | SSH/SFTP    | russh                              |
 | Security    | Argon2id, HKDF-SHA256, XChaCha20-Poly1305 (E2EE) |
 
 ## 📄 Licensing
+
 Voltius is licensed under the AGPLv3 for the core application and MIT for plugins. This means you can use and modify the core app for free, but if you distribute a modified version, you must also share your changes under the same license. Plugins can be used and shared with more flexibility under the MIT license.
-Copyright © 2026 Killian Pavy. All rights reserved.
+Copyright © 2026 Killian Pavy.
