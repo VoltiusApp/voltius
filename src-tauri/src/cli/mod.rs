@@ -10,6 +10,7 @@ mod prompt;
 mod server_cmd;
 pub(crate) mod session;
 mod sessions_cmd;
+mod sync_cmd;
 #[cfg(test)]
 mod testing;
 pub mod user;
@@ -33,6 +34,7 @@ use std::fmt;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use sync_cmd::SyncCmd;
 
 pub const CLI_MARKER: &str = "__voltius_cli";
 
@@ -233,6 +235,11 @@ enum Command {
         #[command(subcommand)]
         cmd: PluginsCmd,
     },
+    /// Show the app's last cloud sync result for each device
+    Sync {
+        #[command(subcommand)]
+        cmd: SyncCmd,
+    },
     /// Print a shell completion script
     Completions { shell: clap_complete::Shell },
     #[command(name = "__path", hide = true)]
@@ -243,7 +250,7 @@ enum Command {
 }
 
 #[cfg(target_os = "linux")]
-const BARE_SUBCOMMANDS: [&str; 10] = [
+const BARE_SUBCOMMANDS: [&str; 11] = [
     "policy",
     "whoami",
     "login",
@@ -253,6 +260,7 @@ const BARE_SUBCOMMANDS: [&str; 10] = [
     "plugins",
     "server",
     "enroll",
+    "sync",
     "completions",
 ];
 #[cfg(not(target_os = "linux"))]
@@ -332,6 +340,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
         Command::Sessions(args) => sessions_cmd::run(args, &mut ctx),
         Command::Enroll(args) => enroll_cmd::run(args, &mut ctx),
         Command::Plugins { cmd } => plugins_cmd::run(cmd, &mut ctx),
+        Command::Sync { cmd } => sync_cmd::run(cmd, &mut ctx),
         Command::Policy { cmd } => {
             policy_cmd::run(cmd, policy::machine_policy_path().as_deref(), ctx.out)
         }

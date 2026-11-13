@@ -6,6 +6,7 @@ import type { SyncStatus } from "./sync";
 import {
   NOT_CONFIGURED_SYNC_STATE,
   sanitizeSyncProviderState,
+  statusHasReason,
   warnPluginStateOnce,
   type SyncProviderSnapshot,
 } from "./syncStatus";
@@ -21,7 +22,8 @@ export type SyncProviderAction =
   | { kind: "pause" }
   | { kind: "resume" }
   | { kind: "enable" }
-  | { kind: "configure"; pageId: string | null };
+  | { kind: "configure"; pageId: string | null }
+  | { kind: "showDevices" };
 
 export interface SyncProviderView {
   id: string;
@@ -68,7 +70,7 @@ export interface EffectiveSync {
   nearby: number;
 }
 
-const STATUS_RANK: Record<SyncStatus, number> = { idle: 0, success: 1, syncing: 2, offline: 3, error: 4 };
+const STATUS_RANK: Record<SyncStatus, number> = { idle: 0, success: 1, partial: 2, syncing: 3, offline: 4, error: 5 };
 
 const VOLTIUS_ACTIONS: Partial<Record<SyncProviderAvailability, SyncProviderAction>> = {
   locked: { kind: "signIn" },
@@ -169,7 +171,7 @@ export function aggregateSyncStatus(providers: SyncProviderView[], nearby = 0): 
     paused: false,
     status: worst.state.status,
     lastSync,
-    error: failing || worst.state.status === "offline" ? worst.state.error : null,
+    error: statusHasReason(worst.state.status) ? worst.state.error : null,
     errorSource: failing ? worst.label : null,
     nearby,
   };

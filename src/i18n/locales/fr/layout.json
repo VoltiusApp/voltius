@@ -276,8 +276,15 @@
         "notConfigured": "Synchronisation non configurée",
         "paused": "Synchronisation en pause",
         "default": "Synchronisation",
-        "unknown": "inconnu"
-      }
+        "unknown": "inconnu",
+        "partial": "Synchronisation partielle",
+        "partialAt": "Synchronisation partielle · {{time}}",
+        "partialTooltip": "Synchronisation partielle : {{error}}",
+        "partialDetail_one": "{{count}} appareil n'a pas pu être synchronisé",
+        "partialDetail_many": "{{count}} appareils n'ont pas pu être synchronisés",
+        "partialDetail_other": "{{count}} appareils n'ont pas pu être synchronisés"
+      },
+      "showDevices": "Voir les appareils →"
     },
     "titleBar": {
       "sftp": "SFTP",

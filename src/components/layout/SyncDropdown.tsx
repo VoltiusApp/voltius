@@ -23,7 +23,7 @@ function formatBytes(bytes: number): string {
 
 function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
-  const { syncNow, inactive: inactiveRow, status, header } = useSyncProviderPanel(provider);
+  const { syncNow, inactive: inactiveRow, status, header, devices } = useSyncProviderPanel(provider);
 
   const act = () => {
     if (provider.action) onAction(provider.action);
@@ -66,6 +66,7 @@ function SyncSection({ provider, onAction }: { provider: SyncProviderView; onAct
               {status.reason}
             </p>
           )}
+          {devices && <SyncInlineAction slug="show-devices" onClick={() => onAction(devices)} label={t("layout.sync.showDevices")} />}
           {provider.state.blobSizeBytes !== null && (
             <div className="flex items-center gap-1" style={{ color: "var(--t-text-muted)" }}>
               <Icon icon="lucide:lock" width={10} />

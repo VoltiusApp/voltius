@@ -17,6 +17,7 @@ import { useLongPress } from "@/components/mobile/useLongPress";
 import { ROW_ATTR, ROW_CONTROL_ATTR } from "@/components/settings/settingsMobileCore";
 
 export const SETTINGS_SURFACE = "rounded-lg bg-(--t-bg-elevated) border border-(--t-border)";
+export const SETTINGS_ROW_BUTTON = "shrink-0 text-xs px-2.5 py-1.5 rounded-lg font-medium bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75 disabled:opacity-50";
 
 /** Android: rows inside a SettingsGroup already sit in a full-bleed list. */
 const InSettingsGroup = createContext(false);

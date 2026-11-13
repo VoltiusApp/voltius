@@ -22,5 +22,8 @@ export function runSyncProviderAction(action: SyncProviderAction): void {
     case "configure":
       ui.openSettings("plugins", action.pageId ?? undefined);
       return;
+    case "showDevices":
+      ui.openSettings("sync");
+      return;
   }
 }

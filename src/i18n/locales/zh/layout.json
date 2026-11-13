@@ -268,8 +268,13 @@
         "notConfigured": "同步未配置",
         "paused": "同步已暂停",
         "default": "同步",
-        "unknown": "未知"
-      }
+        "unknown": "未知",
+        "partial": "部分已同步",
+        "partialAt": "部分已同步 · {{time}}",
+        "partialTooltip": "部分已同步：{{error}}",
+        "partialDetail_other": "{{count}} 台设备未能同步"
+      },
+      "showDevices": "查看设备 →"
     },
     "titleBar": {
       "sftp": "SFTP",

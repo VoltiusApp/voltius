@@ -272,8 +272,14 @@
         "notConfigured": "Sync not configured",
         "paused": "Sync paused",
         "default": "Sync",
-        "unknown": "unknown"
-      }
+        "unknown": "unknown",
+        "partial": "Partly synced",
+        "partialAt": "Partly synced · {{time}}",
+        "partialTooltip": "Partly synced: {{error}}",
+        "partialDetail_one": "{{count}} device couldn't be synced",
+        "partialDetail_other": "{{count}} devices couldn't be synced"
+      },
+      "showDevices": "Show devices →"
     },
     "titleBar": {
       "sftp": "SFTP",

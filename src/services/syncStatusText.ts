@@ -3,6 +3,7 @@ import type { SyncProviderAvailability } from "@/plugins/api";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import type { SyncStatus } from "./sync";
 import { isNearbyOnly, type EffectiveSync } from "./syncProviders";
+import { statusHasReason } from "./syncStatus";
 
 export function syncStatusLabel(
   t: TFunction,
@@ -11,10 +12,11 @@ export function syncStatusLabel(
   formatLastSync: (d: Date) => string = (d) => formatTime(d, HOUR_MINUTE),
 ): string {
   if (status === "syncing") return t("layout.sync.status.syncing");
-  if (status === "success") {
+  if (status === "success" || status === "partial") {
+    const key = status === "success" ? "synced" : "partial";
     return lastSync
-      ? t("layout.sync.status.syncedAt", { time: formatLastSync(lastSync) })
-      : t("layout.sync.status.synced");
+      ? t(`layout.sync.status.${key}At`, { time: formatLastSync(lastSync) })
+      : t(`layout.sync.status.${key}`);
   }
   if (status === "error") return t("layout.sync.status.error");
   if (status === "offline") return t("layout.sync.status.offline");
@@ -22,7 +24,7 @@ export function syncStatusLabel(
 }
 
 export function syncFailureReason(status: SyncStatus, error: string | null): string | null {
-  return (status === "error" || status === "offline") && error ? error : null;
+  return statusHasReason(status) && error ? error : null;
 }
 
 export function effectiveSyncLabel(t: TFunction, sync: EffectiveSync): string {
@@ -42,6 +44,7 @@ export function syncStatusTooltip(t: TFunction, sync: EffectiveSync, status: Syn
       : t("layout.sync.status.errorDetail", { error });
   }
   if (status === "offline" && sync.error) return t("layout.sync.status.offlineDetail", { error: sync.error });
+  if (status === "partial" && sync.error) return t("layout.sync.status.partialTooltip", { error: sync.error });
   if (status === "idle") return t("layout.sync.status.default");
   return syncStatusLabel(t, status, sync.lastSync, formatTime);
 }

@@ -733,6 +733,34 @@
         "deviceDefault": "cihaz varsayılanı",
         "yourChoice": "seçiminiz",
         "resume": "Eşitlemeyi sürdür"
+      },
+      "devices": {
+        "title": "Cihazlarınız",
+        "footer": "Her cihaz kendi şifreli kopyasını yükler. Bu liste, bu cihazın her birinin son kopyasını okuyup okuyamadığını gösterir.",
+        "empty": "Henüz başka bir cihaz eşitlenmedi.",
+        "unnamed": "Cihaz {{id}}",
+        "state": {
+          "synced": "Eşitlendi",
+          "pending": "Sonraki eşitleme bekleniyor",
+          "unavailable": "İndirilemedi",
+          "unavailableStatus": "İndirilemedi (HTTP {{status}})",
+          "undecryptable": "Şifresi çözülemiyor: bu cihazda olmayan bir anahtarla şifrelenmiş",
+          "unreadable": "Kopyası bozuk ve okunamıyor"
+        },
+        "hint": {
+          "unavailable": "Genellikle geçicidir. Voltius sonraki eşitlemede yeniden dener.",
+          "undecryptable": "O cihaz hâlâ eski bir kasa anahtarı kullanıyor olabilir. Yeni bir kopya yüklemesi için o cihazda Voltius'u açın ya da artık kullanmıyorsanız buradan kaldırın.",
+          "unreadable": "Yeni bir kopya yüklemesi için o cihazda Voltius'u açın ya da artık kullanmıyorsanız buradan kaldırın."
+        },
+        "changed": "Değişti: {{time}}",
+        "lastSynced": "Okundu: {{time}}",
+        "neverSynced": "Hiç okunmadı",
+        "retry": "Yeniden dene",
+        "retryNone": "Yeniden denenecek bir şey yok",
+        "remove": "Kaldır",
+        "removeTitle": "{{name}} bulut eşitlemeden kaldırılsın mı?",
+        "removeBody": "Şifreli kopyası sunucudan silinir. Bu cihazın ondan zaten eşitlediği veriler kalır. O cihazı hâlâ kullanıyorsanız, bir sonraki eşitlemede yeni bir kopya yükler.",
+        "removeFailed": "Cihaz kaldırılamadı: {{error}}"
       }
     },
     "vaults": {

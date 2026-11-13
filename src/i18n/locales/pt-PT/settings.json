@@ -833,6 +833,34 @@
         "deviceDefault": "padrão do dispositivo",
         "yourChoice": "sua escolha",
         "resume": "Retomar sincronização"
+      },
+      "devices": {
+        "title": "Os seus dispositivos",
+        "footer": "Cada dispositivo envia a sua própria cópia encriptada. Esta lista mostra se este dispositivo conseguiu ler a cópia mais recente de cada um.",
+        "empty": "Ainda nenhum outro dispositivo sincronizou.",
+        "unnamed": "Dispositivo {{id}}",
+        "state": {
+          "synced": "Sincronizado",
+          "pending": "A aguardar a próxima sincronização",
+          "unavailable": "Não foi possível transferir",
+          "unavailableStatus": "Não foi possível transferir (HTTP {{status}})",
+          "undecryptable": "Não foi possível desencriptar: encriptado com uma chave que este dispositivo não tem",
+          "unreadable": "A cópia está danificada e não pode ser lida"
+        },
+        "hint": {
+          "unavailable": "Normalmente é temporário. O Voltius tenta novamente na próxima sincronização.",
+          "undecryptable": "Esse dispositivo pode ainda usar uma chave de cofre antiga. Abra o Voltius nele para enviar uma nova cópia, ou remova-o aqui se já não o usa.",
+          "unreadable": "Abra o Voltius nesse dispositivo para enviar uma nova cópia, ou remova-o aqui se já não o usa."
+        },
+        "changed": "Alterado {{time}}",
+        "lastSynced": "Lido {{time}}",
+        "neverSynced": "Nunca lido",
+        "retry": "Tentar novamente",
+        "retryNone": "Nada para tentar novamente",
+        "remove": "Remover",
+        "removeTitle": "Remover {{name}} da sincronização na nuvem?",
+        "removeBody": "A cópia encriptada é apagada do servidor. O que este dispositivo já sincronizou a partir dele mantém-se. Se ainda usa esse dispositivo, ele envia uma nova cópia na próxima sincronização.",
+        "removeFailed": "Não foi possível remover o dispositivo: {{error}}"
       }
     },
     "vaults": {
