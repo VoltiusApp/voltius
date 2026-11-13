@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import i18n from "@/i18n";
-import { GUARDED, settingDef, settingDefs } from "./settingsManifest";
+import { GUARDED, settingDef, settingDefs } from "./entries";
 import { TOGGLE_DEFS } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useConnectivitySettingsStore, DEFAULT_DETACHED_TTL_HOURS } from "@/stores/connectivitySettingsStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
+import { isSettingsSection } from "@/stores/uiStore";
+import { useLocaleStore } from "@/stores/localeStore";
+import { usePolicyStore } from "@/stores/policyStore";
+import { settingKey } from "@/services/user-data/settingKeys";
+import { effectiveDefault, isDirtyValue, resetSetting } from "./defaults";
 
 describe("settingsManifest", () => {
   test("génère une entrée par bascule, depuis TOGGLE_DEFS", () => {
@@ -154,5 +159,61 @@ describe("settingsManifest", () => {
       "terminal", "sftp", "portForwarding", "hosts", "shortcuts", "diagnostics", "about",
     ]);
     for (const d of settingDefs()) expect(sections.has(d.section)).toBe(true);
+  });
+});
+
+describe("settings registry", () => {
+  afterEach(() => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } }));
+
+  test("every entry has a control, a valid section and an en label", () => {
+    for (const d of settingDefs()) {
+      expect(d.control, d.key).toBeDefined();
+      expect(typeof d.use, d.key).toBe("function");
+      expect(isSettingsSection(d.section), d.key).toBe(true);
+      expect(i18n.exists(d.labelKey, { lng: "en" }), d.key).toBe(true);
+      if (d.descKey) expect(i18n.exists(d.descKey, { lng: "en" }), `${d.key} → ${d.descKey}`).toBe(true);
+    }
+  });
+
+  test("settingDefs is memoized", () => {
+    expect(settingDefs()).toBe(settingDefs());
+  });
+
+  test("locale default is the store's initial value", () => {
+    expect(settingDef("locale.language")!.default).toBe(useLocaleStore.getInitialState().locale);
+  });
+
+  test("reset clears dirty", () => {
+    for (const d of settingDefs()) {
+      if (!d.writable || !d.set || d.control.kind === "open" || d.resettable === false) continue;
+      const other = d.type === "boolean" ? !effectiveDefault(d)
+        : d.values?.find((v) => v !== String(effectiveDefault(d)))
+          ?? (typeof effectiveDefault(d) === "number" ? (d.min ?? 0) + 1 : undefined);
+      if (other === undefined) continue;
+      d.set(other);
+      expect(isDirtyValue(d, d.get()), d.key).toBe(true);
+      resetSetting(d);
+      expect(isDirtyValue(d, d.get()), d.key).toBe(false);
+    }
+  });
+
+  test("admin default counts as default", () => {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: { "appSettings.keepalivePreset": "tolerant" } } });
+    const d = settingDef("connectivity.keepalivePreset")!;
+    d.set!("tolerant");
+    expect(effectiveDefault(d)).toBe("tolerant");
+    expect(isDirtyValue(d, d.get())).toBe(false);
+    d.set!("fast");
+    expect(isDirtyValue(d, d.get())).toBe(true);
+    resetSetting(d);
+    expect(d.get()).toBe("tolerant");
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+    d.set!(effectiveDefault(d));
+  });
+
+  test("syncKey exists in SETTING_KEYS", () => {
+    for (const d of settingDefs()) {
+      if (d.syncKey) expect(settingKey(d.syncKey), `${d.key} → ${d.syncKey}`).toBeDefined();
+    }
   });
 });
