@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-11-13
+
 ### Added
 
 - Members › Security now shows a Vault key health card: the team key version, whether a new key is due after someone left, how many items still use an older key, and how this device's last try went. Items stuck on an older key are listed with the reason, and an item that can't be decrypted, or is left over from a deleted item, can be removed so the vault can get a new key again. Retry now runs the existing rotation on demand. Available on every team plan (#796)
