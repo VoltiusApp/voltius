@@ -1,15 +1,15 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { TOGGLE_DEFS, getToggle, toggleKey, useToggleSettingsStore, type ToggleDef, type ToggleId } from "@/stores/toggleSettingsStore";
-import { isLocked, usePolicyRefresh } from "@/stores/policyStore";
-import { useIsAndroid } from "@/utils/platform";
-import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
+import { TOGGLE_DEFS, type ToggleId } from "@/stores/toggleDefs";
+import { useIsAndroid, useIsMobile } from "@/utils/platform";
 import { pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { getLoadedPlugins } from "@/plugins/runtime";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
+import { availableOn } from "@/components/settings/registry/defaults";
+import { useSettingStates } from "@/components/settings/useChangedSettings";
+import type { SettingDef } from "@/components/settings/registry/types";
 
 export interface ToggleItem {
   id: string;
@@ -22,64 +22,60 @@ export interface ToggleItem {
   onToggle: (v: boolean) => void;
 }
 
+const TOGGLE_PREFIX = "toggles.";
+const SYNC_TYPE_PREFIX = "sync.type.";
+
+/** Ids OmniSearch already used for these toggles, so recents keep resolving. */
+function quickToggleId(key: string): string {
+  if (key.startsWith(TOGGLE_PREFIX)) return key.slice(TOGGLE_PREFIX.length);
+  if (key.startsWith(SYNC_TYPE_PREFIX)) return `sync-${key.slice(SYNC_TYPE_PREFIX.length)}`;
+  if (key === "updater.autoUpdate") return "auto-update";
+  return key;
+}
+
+function quickToggleIcon(def: SettingDef): string {
+  if (def.key.startsWith(TOGGLE_PREFIX)) return TOGGLE_DEFS[def.key.slice(TOGGLE_PREFIX.length) as ToggleId]?.icon ?? "lucide:toggle-right";
+  if (def.section === "sync") return "lucide:cloud";
+  if (def.key === "updater.autoUpdate") return "lucide:refresh-cw";
+  return "lucide:toggle-right";
+}
+
 export function useToggleSettings(): ToggleItem[] {
   const { t } = useTranslation();
-  const values = useToggleSettingsStore((s) => s.values);
-  const set = useToggleSettingsStore((s) => s.set);
-  const [machinePolicy, serverPolicy] = usePolicyRefresh();
-  const { syncTypes, setSyncType, isTypeSynced } = useSyncPrefsStore();
-  // Subscribe to overrides so plugin toggle values stay live as they're flipped.
+  const states = useSettingStates();
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
-  const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
-  const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
+  const isMobile = useIsMobile();
   const isAndroid = useIsAndroid();
 
-  return useMemo<ToggleItem[]>(() => [
-    {
-      id: "auto-update",
-      label: t("settings.about.autoDownload.title"),
-      icon: "lucide:refresh-cw",
-      description: t("settings.nav.about.label"),
-      keywords: ["update", "auto", "automatic", "background", "download", "version", "upgrade"],
-      value: autoUpdate,
-      onToggle: setAutoUpdate,
-    },
-    ...(Object.entries(TOGGLE_DEFS) as [ToggleId, ToggleDef][]).filter(([, def]) => isAndroid || !def.androidOnly).map(([id, def]) => {
-      const locked = isLocked(toggleKey(id));
-      return {
-        id,
-        label: t(def.labelKey),
-        icon: def.icon,
-        description: locked ? t("common.policy.managed") : t(`settings.nav.${def.section}.label`),
-        keywords: [...def.keywords],
-        value: getToggle(id),
-        locked,
-        onToggle: (v: boolean) => set(id, v),
-      };
-    }),
-    ...SYNC_OBJECT_TYPES.map((st) => ({
-      id: `sync-${st.id}`,
-      label: t("settings.sync.quickToggleLabel", { label: t(`settings.sync.objectType.${st.id}.label`) }),
-      icon: "lucide:cloud",
-      description: t("settings.nav.sync.label"),
-      keywords: ["sync", "cloud", "backup", st.id],
-      value: isTypeSynced(st.id),
-      locked: isLocked(`sync.types.${st.id}`),
-      onToggle: (v: boolean) => setSyncType(st.id, v),
-    })),
-    ...getLoadedPlugins().map((m) => {
-      const lock = pluginLock(m.id);
-      return {
-        id: `plugin:${m.id}`,
-        label: m.name,
-        icon: "lucide:puzzle",
-        description: lock === null ? t("settings.plugins.categoryLabel") : t("common.policy.managed"),
-        keywords: ["plugin", "extension", m.name.toLowerCase(), m.id],
-        value: lock ?? pluginOverrides[m.id] ?? pluginDefaultEnabled(m, installedMeta),
-        locked: lock !== null,
-        onToggle: (v: boolean) => void applyPluginEnabled(m.id, v),
-      };
-    }),
-  ], [t, values, set, machinePolicy, serverPolicy, syncTypes, setSyncType, isTypeSynced, pluginOverrides, installedMeta, autoUpdate, setAutoUpdate, isAndroid]);
+  const settings = states
+    .filter((s) => s.def.control.kind === "toggle" && s.def.set && availableOn(s.def, { isMobile, isAndroid }))
+    .map((s): ToggleItem => ({
+      id: quickToggleId(s.def.key),
+      label: s.def.section === "sync"
+        ? t("settings.sync.quickToggleLabel", { label: t(s.def.labelKey) })
+        : t(s.def.labelKey),
+      icon: quickToggleIcon(s.def),
+      description: s.locked ? t("common.policy.managed") : t(`settings.nav.${s.def.section}.label`),
+      keywords: [...(s.def.keywords ?? [])],
+      value: !!s.value,
+      locked: s.locked,
+      onToggle: (v: boolean) => s.set(v),
+    }));
+
+  const plugins = useMemo<ToggleItem[]>(() => getLoadedPlugins().map((m) => {
+    const lock = pluginLock(m.id);
+    return {
+      id: `plugin:${m.id}`,
+      label: m.name,
+      icon: "lucide:puzzle",
+      description: lock === null ? t("settings.plugins.categoryLabel") : t("common.policy.managed"),
+      keywords: ["plugin", "extension", m.name.toLowerCase(), m.id],
+      value: lock ?? pluginOverrides[m.id] ?? pluginDefaultEnabled(m, installedMeta),
+      locked: lock !== null,
+      onToggle: (v: boolean) => void applyPluginEnabled(m.id, v),
+    };
+  }), [t, pluginOverrides, installedMeta]);
+
+  return [...settings, ...plugins];
 }

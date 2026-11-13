@@ -30,7 +30,8 @@ import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionLabel, sessionMatchesQuery } from "@/utils/sessionLabel";
 import { getSettingsNav } from "@/components/settings/settingsNav";
 import { mobileSettingsNav } from "@/components/settings/settingsMobileCore";
-import { useIsAndroid } from "@/utils/platform";
+import { useIsAndroid, useIsMobile } from "@/utils/platform";
+import { searchSettings } from "@/components/settings/registry/search";
 import { useUiLanguage } from "@/i18n";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -124,7 +125,7 @@ function sectionOf(item: OmniItem): string {
     case "identity": return "keychain";
     case "snippet": return "snippets";
     case "toggle": return "quickSettings";
-    case "action": return item.id.startsWith("open-settings:") ? "settings" : "actions";
+    case "action": return item.id.startsWith("open-settings:") || item.id.startsWith(OPEN_SETTING) ? "settings" : "actions";
     case "plugin": return "availablePlugins";
   }
 }
@@ -139,6 +140,8 @@ function KeyHint({ keys, label }: { keys: string; label: string }) {
     </span>
   );
 }
+
+const OPEN_SETTING = "open-setting:";
 
 export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { t } = useTranslation();
@@ -220,6 +223,18 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const category = scope;
   const q = useMemo(() => query.toLowerCase().trim(), [query]);
+  const isMobile = useIsMobile();
+  const settingValueItems = useMemo<OmniItem[]>(() => (q
+    ? searchSettings(q, { isMobile, isAndroid }).flatMap((h): OmniItem[] => h.kind === "setting" && h.def.control.kind !== "toggle"
+      ? [{
+        kind: "action",
+        id: `${OPEN_SETTING}${h.def.key}`,
+        label: t(h.def.titleKey ?? h.def.labelKey),
+        icon: "lucide:sliders-horizontal",
+        description: t(`settings.nav.${h.def.section}.label`),
+      }]
+      : [])
+    : []), [q, isMobile, isAndroid, t, locale]);
 
   const activeSessions = useMemo(
     () => sessions.filter((s) => s.status === "connected" || s.status === "connecting"),
@@ -250,7 +265,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const toggleMatches = (a: OmniItem) => a.kind === "toggle" && match(a.label, ...(a.keywords ?? []));
 
     if (category === "settings") {
-      return [...settingsItems.filter((a) => !q || settingsMatches(a)), ...toggleItems.filter(toggleMatches)];
+      return [...settingsItems.filter((a) => !q || settingsMatches(a)), ...toggleItems.filter(toggleMatches), ...settingValueItems];
     }
     if (category === "snippets") {
       return snippets.filter(snippetMatches).map((s): OmniItem => ({ kind: "snippet", snippet: s }));
@@ -342,6 +357,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     result.push(...themeActions.filter((a) => a.kind === "action" && match(a.label, a.description)));
 
     if (q) result.push(...toggleItems.filter(toggleMatches));
+    if (q) result.push(...settingValueItems);
     if (q) result.push(...settingsItems.filter(settingsMatches));
 
     if (joinStrength === "weak") result.push({ kind: "join-code", code: query.trim() });
@@ -349,7 +365,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     result.push(...pluginItems(false));
 
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, pluginCatalog, takenPluginIds, appVersion, enrollToken, t]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, settingValueItems, shells, nav, pluginCatalog, takenPluginIds, appVersion, enrollToken, t]);
 
   const shellNeedsPath = useMemo(() => {
     const shown = items
@@ -403,6 +419,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             return;
           }
           cmd?.execute();
+        } else if (item.id.startsWith(OPEN_SETTING)) {
+          openSettings(undefined, undefined, { query: item.label });
         } else if (item.id.startsWith("open-settings:")) {
           const rest = item.id.slice("open-settings:".length);
           if (rest.startsWith("plugin:")) {
