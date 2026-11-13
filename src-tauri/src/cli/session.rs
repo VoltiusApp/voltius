@@ -1,9 +1,11 @@
 use super::CliError;
+use crate::auth::AuthError;
 use crate::commands::{keychain, vault_secret};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 pub(crate) const KEYCHAIN_UNREACHABLE: &str = "Can't reach this user's keychain. Run voltius-cli login in a terminal on the desktop, or sign in from the app.";
+const TOO_MANY_ATTEMPTS: &str = "Too many attempts — wait a minute and try again.";
 const APP_RUNNING: &str = "Quit Voltius first; it holds this account's keys.";
 pub(crate) const ACCOUNT_ID: &str = "account_id";
 
@@ -126,6 +128,15 @@ fn open_with(
 pub(crate) fn keychain_refused(e: impl std::fmt::Display) -> CliError {
     log::debug!("keychain refused: {e}");
     CliError::Denied(KEYCHAIN_UNREACHABLE.into())
+}
+
+pub(crate) fn server_failure(e: AuthError) -> CliError {
+    match e {
+        AuthError::Network(m) => CliError::io(format!("Network error — {m}")),
+        AuthError::BadAnswer => CliError::io("Unexpected answer from the server."),
+        AuthError::Status { status: 429, .. } => CliError::Refused(TOO_MANY_ATTEMPTS.into()),
+        AuthError::Status { status, .. } => CliError::io(format!("Server error: {status}")),
+    }
 }
 
 pub(crate) fn current_session(keys: &dyn Keys) -> Result<Option<SessionInfo>, CliError> {

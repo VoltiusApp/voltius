@@ -316,6 +316,7 @@ pub fn run() {
         .manage(device_files::link::DeviceLinks::default())
         .invoke_handler(tauri::generate_handler![
             auth::auth_challenge,
+            auth::auth_device,
             auth::auth_login,
             auth::auth_second_factor,
             auth::auth_passkey_start,

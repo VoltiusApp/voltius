@@ -431,6 +431,45 @@
         "changing": "Alterando…",
         "changeBtn": "Alterar senha"
       },
+      "sessions": {
+        "title": "Dispositivos conectados",
+        "loading": "Carregando dispositivos…",
+        "empty": "Ainda não há dispositivos para mostrar.",
+        "unknownDevice": "Dispositivo desconhecido",
+        "thisDevice": "Este dispositivo",
+        "cli": "CLI",
+        "signedIn": "Conectado em {{date}}",
+        "lastActive": "Ativo {{ago}}",
+        "signOut": "Desconectar",
+        "signOutNamed": "Desconectar {{name}}",
+        "signOutOthers": "Desconectar outros dispositivos",
+        "signOutEverywhere": "Desconectar de todos",
+        "working": "Desconectando…",
+        "retry": "Tentar novamente",
+        "note": "Desconectar um dispositivo encerra o acesso dele à sua conta; os dados que já estão nele não são apagados. Dispositivos conectados antes desta atualização aparecem aqui depois que renovarem o login.",
+        "offline": "Você está offline.",
+        "unsupported": "Seu servidor ainda não oferece suporte a isso.",
+        "unavailable": "A lista de dispositivos não foi carregada.",
+        "ended": "Este dispositivo foi desconectado. Entre novamente para gerenciar seus dispositivos.",
+        "confirm": {
+          "one": {
+            "title": "Desconectar {{name}}?",
+            "message": "{{name}} perde o acesso à sua conta e precisará entrar novamente. Os dados que já estão nele não são apagados."
+          },
+          "this": {
+            "title": "Desconectar este dispositivo?",
+            "message": "Este dispositivo para de sincronizar até você entrar novamente. Os dados dele continuam aqui."
+          },
+          "others": {
+            "title": "Desconectar outros dispositivos?",
+            "message": "Todos os outros dispositivos precisarão entrar novamente, inclusive os que ainda não aparecem na lista. Este dispositivo continua conectado. Os dados que já estão neles não são apagados."
+          },
+          "all": {
+            "title": "Desconectar de todos?",
+            "message": "Todos os dispositivos, inclusive este, precisarão entrar novamente. Os dados que já estão neles não são apagados."
+          }
+        }
+      },
       "twoFactor": {
         "label": "Autenticação de dois fatores",
         "subOff": "Pedir um código ou uma passkey ao entrar em um novo dispositivo",

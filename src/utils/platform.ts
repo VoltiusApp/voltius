@@ -82,3 +82,9 @@ export function useIsIOS(): boolean {
 export function useIsMobile(): boolean {
   return isMobilePlatform(usePlatform());
 }
+
+const PLATFORM_NAMES: Record<string, string> = { linux: "Linux", macos: "macOS", windows: "Windows", android: "Android", ios: "iOS" };
+
+export function platformName(platform: string): string {
+  return PLATFORM_NAMES[platform] ?? platform;
+}

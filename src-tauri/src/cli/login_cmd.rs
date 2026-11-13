@@ -2,9 +2,11 @@ use super::enroll_cmd::{host_of, refuse_locked_server, token_in};
 use super::output::Output;
 use super::policy_cmd::machine_doc;
 use super::prompt::{Prompt, Terminal};
-use super::session::{keychain_refused, Device, Keys, SecretStore, SessionInfo, ACCOUNT_ID};
+use super::session::{
+    keychain_refused, server_failure, Device, Keys, SecretStore, SessionInfo, ACCOUNT_ID,
+};
 use super::user::{confirm, CANCELLED};
-use super::{server_cmd, whoami_cmd, CliError, Ctx};
+use super::{cli_device, server_cmd, whoami_cmd, CliError, Ctx, Net};
 use crate::auth::keys::key_lists;
 use crate::auth::{self, AuthError, LoginStep, Proof, Session};
 use crate::commands::crypto::{unwrap_b64, DeriveKeysResult};
@@ -14,22 +16,17 @@ use crate::policy::{self, PolicyDoc};
 use crate::storage::secrets::SECRETS_FILE;
 use clap::Args;
 use serde_json::Value;
-use std::cell::OnceCell;
-use std::future::Future;
 use std::path::Path;
-use std::time::Duration;
 use zeroize::{Zeroize, Zeroizing};
 
 const DEFAULT_SERVER_URL: &str = "https://api.voltius.app";
 const SERVER_KEY: &str = "server.url";
 const MAX_CODES: usize = 3;
-const NETWORK_TIMEOUT: Duration = Duration::from_secs(45);
 
 const NOT_A_TERMINAL: &str = "voltius-cli login is interactive; run it in a terminal.";
 const LOCAL_ACCOUNT: &str = "This device has a local Voltius account. Sign in from the app to keep its data, or run voltius-cli logout to remove it.";
 const LEFTOVER: &str = "This device has Voltius data from an earlier sign-in that can't be opened any more. Remove it and continue?";
 const INVALID: &str = "Invalid email or password.";
-const TOO_MANY_ATTEMPTS: &str = "Too many attempts — wait a minute and try again.";
 const EXPIRED: &str = "This sign-in took too long. Start again.";
 const TOO_MANY_CODES: &str = "Three wrong codes. Run voltius-cli login again.";
 const PASSKEY_ONLY: &str = "This account signs in with a passkey. Finish in the Voltius app.";
@@ -81,7 +78,7 @@ pub fn run(args: LoginArgs, ctx: &mut Ctx) -> Result<(), CliError> {
     let machine = policy::machine_policy_path();
     let deps = LoginDeps {
         device: Device::this_user()?,
-        auth: &NetAuth::default(),
+        auth: &Net::default(),
         prompt: &Terminal,
         machine: machine.as_deref(),
     };
@@ -318,25 +315,24 @@ fn two_factor_text(code: &str) -> Option<&'static str> {
 
 fn refusal(e: AuthError, second: bool) -> CliError {
     let refused = |m: &str| CliError::Refused(m.into());
-    match e {
-        AuthError::Network(m) => CliError::io(format!("Network error — {m}")),
-        AuthError::BadAnswer => CliError::io("Server login failed."),
+    match &e {
+        AuthError::BadAnswer => return CliError::io("Server login failed."),
         AuthError::Status { status, code } => {
             if second {
                 if let Some(text) = code.as_deref().and_then(two_factor_text) {
                     return refused(text);
                 }
-                if status == 401 {
+                if *status == 401 {
                     return refused(EXPIRED);
                 }
             }
-            match status {
-                429 => refused(TOO_MANY_ATTEMPTS),
-                401 | 403 | 404 => refused(INVALID),
-                s => CliError::io(format!("Server error: {s}")),
+            if matches!(status, 401 | 403 | 404) {
+                return refused(INVALID);
             }
         }
+        AuthError::Network(_) => {}
     }
+    server_failure(e)
 }
 
 // account_id goes last: until it lands, the app and `current_session` see no sign-in.
@@ -395,34 +391,7 @@ fn write_session(
     })
 }
 
-// One runtime for the whole sign-in: the client's pooled connections live on it between steps.
-#[derive(Default)]
-struct NetAuth {
-    net: OnceCell<(tokio::runtime::Runtime, reqwest::Client)>,
-}
-
-impl NetAuth {
-    fn over_network<'a, T, F>(
-        &'a self,
-        work: impl FnOnce(&'a reqwest::Client) -> F,
-    ) -> Result<T, AuthError>
-    where
-        F: Future<Output = Result<T, AuthError>>,
-    {
-        let (runtime, client) = match self.net.get() {
-            Some(net) => net,
-            None => {
-                let runtime = super::runtime().map_err(AuthError::Network)?;
-                let client = auth::client()?;
-                self.net.get_or_init(|| (runtime, client))
-            }
-        };
-        super::block_on_timeout_in(runtime, NETWORK_TIMEOUT, work(client))
-            .map_err(AuthError::Network)?
-    }
-}
-
-impl Auth for NetAuth {
+impl Auth for Net {
     fn challenge(&self, server: &str, email: &str) -> Result<String, AuthError> {
         self.over_network(|c| auth::challenge(c, server, email))
     }
@@ -433,7 +402,8 @@ impl Auth for NetAuth {
         account_id: &str,
         auth_key: &str,
     ) -> Result<LoginStep, AuthError> {
-        self.over_network(|c| auth::login(c, server, account_id, auth_key))
+        let device = cli_device();
+        self.over_network(|c| auth::login(c, server, account_id, auth_key, &device))
     }
 
     fn second_factor(
@@ -442,7 +412,8 @@ impl Auth for NetAuth {
         pending_token: &str,
         proof: &Proof,
     ) -> Result<Session, AuthError> {
-        self.over_network(|c| auth::second_factor(c, server, pending_token, proof))
+        let device = cli_device();
+        self.over_network(|c| auth::second_factor(c, server, pending_token, proof, &device))
     }
 
     fn derive_keys(&self, password: &str, account_id: &str) -> Result<DeriveKeysResult, String> {
@@ -1127,7 +1098,7 @@ mod tests {
             vec![2; 32],
         )
         .unwrap();
-        let net = NetAuth::default();
+        let net = Net::default();
         assert!(net.opens(&GOOD_KEK, &wrapped));
         assert!(!net.opens(&[8; 32], &wrapped));
         assert!(!net.opens(&GOOD_KEK, "not base64!"));

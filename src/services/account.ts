@@ -24,8 +24,9 @@ import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
 import { joinRefusal, toEnrollmentOutcome, type EnrollmentCredential, type EnrollmentOutcome } from "./enrollment/enrollmentPublic";
 import { enrollmentErrorFrom } from "./enrollment/enrollmentApi";
-import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
+import { adoptSessionTokens, authDevice, refreshAccessToken } from "./authTokens";
 import { fetchAuth } from "./authFetch";
+export { adoptSessionTokens } from "./authTokens";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
 import {
   authChallenge, authErrorToError, authLogin, authPasskeyStart, authSecondFactor, type LoginData, type Refused,
@@ -77,7 +78,10 @@ async function registerOnServer(args: {
   wrappedUserSecrets: string;
   enrollment?: EnrollmentCredential;
 }): Promise<{ jwt_token: string; refresh_token: string; enrollment?: EnrollmentOutcome }> {
-  const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
+  const [machine_fingerprint, device] = await Promise.all([
+    invoke<string | null>("get_machine_fingerprint").catch(() => null),
+    authDevice(),
+  ]);
 
   const res = await fetchWithTimeout(`${args.serverUrl}/v1/auth/register`, {
     method: "POST",
@@ -89,6 +93,7 @@ async function registerOnServer(args: {
       public_key: args.publicKey,
       wrapped_user_secrets: args.wrappedUserSecrets,
       machine_fingerprint,
+      device,
       ...(args.enrollment && { enrollment: args.enrollment }),
     }),
   });
@@ -257,13 +262,6 @@ async function persistServerSession(session: {
     await adoptSessionTokens({ jwt_token: session.jwt, refresh_token: session.refreshToken });
   }
   rememberServer(session.serverUrl);
-}
-
-/** Store a token pair the server just issued; it supersedes whatever session was revoked. */
-export async function adoptSessionTokens(tokens: { jwt_token: string; refresh_token: string }): Promise<void> {
-  await keychainSet("jwt", tokens.jwt_token);
-  await keychainSet("refresh_token", tokens.refresh_token);
-  clearSessionRevoked();
 }
 
 function failWith(expected: string | Refused, step?: "second") {

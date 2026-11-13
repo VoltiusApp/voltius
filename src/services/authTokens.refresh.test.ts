@@ -94,3 +94,37 @@ test("concurrent token refreshes reload the subscription once", async () => {
   expect(await jwts).toEqual(Array(4).fill("fresh"));
   expect(h.loadSubscription).toHaveBeenCalledTimes(1);
 });
+
+test("a refresh names this device", async () => {
+  const device = { name: "box", platform: "linux", client: "app" };
+  h.invoke.mockImplementation(async (cmd: string, args: { key: string; value?: string }) => {
+    if (cmd === "auth_device") return device;
+    if (cmd === "keychain_get") return h.store[args.key] ?? null;
+    if (cmd === "keychain_set") h.store[args.key] = args.value as string;
+    return undefined;
+  });
+  const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => answer("fresh"));
+
+  await refreshAccessToken({ fetchImpl });
+
+  expect(JSON.parse(fetchImpl.mock.calls[0][1]!.body as string)).toEqual({ refresh_token: "session-one", device });
+});
+
+test("a refresh that upgrades the session stores the new refresh token with the access token", async () => {
+  const fetchImpl = vi.fn(async () =>
+    new Response(JSON.stringify({ jwt_token: "fresh", refresh_token: "session-two" }), { status: 200 }));
+
+  expect(await refreshAccessToken({ fetchImpl })).toEqual({ jwt: "fresh" });
+  expect(h.store).toMatchObject({ jwt: "fresh", refresh_token: "session-two" });
+});
+
+test("an upgrade answered after the session changed keeps the newer session", async () => {
+  const fetchImpl = vi.fn(async () => {
+    h.store.refresh_token = "adopted";
+    return new Response(JSON.stringify({ jwt_token: "stale", refresh_token: "upgraded" }), { status: 200 });
+  });
+
+  expect(await refreshAccessToken({ fetchImpl })).toBe("failed");
+  expect(h.store.refresh_token).toBe("adopted");
+  expect(h.store.jwt).toBeUndefined();
+});

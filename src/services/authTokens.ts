@@ -52,6 +52,23 @@ async function announceSessionRevoked(): Promise<void> {
   });
 }
 
+export interface AuthDevice {
+  name?: string;
+  platform: string;
+  client: "app" | "cli";
+}
+
+export function authDevice(): Promise<AuthDevice | undefined> {
+  return invoke<AuthDevice>("auth_device").catch(() => undefined);
+}
+
+/** Store a token pair the server just issued; it supersedes whatever session was revoked. */
+export async function adoptSessionTokens(tokens: { jwt_token: string; refresh_token: string }): Promise<void> {
+  await invoke("keychain_set", { key: "jwt", value: tokens.jwt_token });
+  await invoke("keychain_set", { key: "refresh_token", value: tokens.refresh_token });
+  clearSessionRevoked();
+}
+
 export type RefreshOutcome = { jwt: string } | "revoked" | "failed" | "no-session";
 
 const inFlight = new Map<string, Promise<unknown>>();
@@ -96,7 +113,7 @@ async function postRefresh(
   const res = await fetchImpl(`${serverUrl}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    body: JSON.stringify({ refresh_token: refreshToken, device: await authDevice() }),
   });
   // A pair adopted while this request was in flight (password change, two-factor, account switch) supersedes its answer.
   const superseded = async () =>
@@ -107,9 +124,10 @@ async function postRefresh(
     return "revoked";
   }
   if (!res.ok) return "failed";
-  const { jwt_token } = await res.json();
+  const { jwt_token, refresh_token } = await res.json();
   if (await superseded()) return "failed";
-  await invoke("keychain_set", { key: "jwt", value: jwt_token });
+  if (refresh_token) await adoptSessionTokens({ jwt_token, refresh_token });
+  else await invoke("keychain_set", { key: "jwt", value: jwt_token });
   return { jwt: jwt_token };
 }
 

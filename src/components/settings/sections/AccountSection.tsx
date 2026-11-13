@@ -24,6 +24,7 @@ import EditEmailModal from "./EditEmailModal";
 import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 import { TwoFactorSettings } from "./TwoFactorSettings";
+import { ActiveSessionsSettings } from "./ActiveSessionsSettings";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
 import { usePlatform } from "@/utils/platform";
@@ -405,6 +406,8 @@ export default function AccountSection() {
           />
         </div>
       )}
+
+      {step === "idle" && mode === "server" && <ActiveSessionsSettings />}
 
       {step === "idle" && (
         <div className="space-y-2">
