@@ -7,7 +7,7 @@ import { useIsAndroid, useIsMobile } from "@/utils/platform";
 import { useUiLanguage } from "@/i18n";
 import { SETTINGS_ROW_BUTTON, SettingRow, SettingsGroup } from "./sections/shared";
 import { Highlight, Setting } from "./Setting";
-import { settingDef } from "./registry/entries";
+import { settingDef, settingDefs } from "./registry/entries";
 import { searchSettings, type SearchHit } from "./registry/search";
 import { resettableInBulk, useChangedSettings } from "./useChangedSettings";
 
@@ -76,6 +76,8 @@ export function ResetAllButton() {
   );
 }
 
+const registryIndex = (h: SearchHit) => (h.kind === "setting" ? settingDefs().indexOf(h.def) : -1);
+
 export const sectionOf = (h: SearchHit) => (h.kind === "setting" ? h.def.section : h.panel.section);
 
 /** Text-search hits, narrowed to changed settings when asked; empty without a query. */
@@ -130,7 +132,7 @@ export function SettingsList({ query, changedOnly }: { query: string; changedOnl
       .map((k) => settingDef(k))
       .filter((d) => !!d)
       .map((def): SearchHit => ({ kind: "setting", def }))
-      .sort((a, b) => SETTINGS_SECTIONS.indexOf(sectionOf(a)) - SETTINGS_SECTIONS.indexOf(sectionOf(b)));
+      .sort((a, b) => SETTINGS_SECTIONS.indexOf(sectionOf(a)) - SETTINGS_SECTIONS.indexOf(sectionOf(b)) || registryIndex(a) - registryIndex(b));
   }, [query, changedOnly, changedKeys, sticky, searched]);
 
   if (!hits.length) {
@@ -173,6 +175,7 @@ export function SettingsList({ query, changedOnly }: { query: string; changedOnl
               <Setting
                 key={keyOf(h)}
                 id={h.def.key}
+                standalone
                 highlight={query}
                 resetAlwaysVisible={changedOnly}
                 beforeReset={(v) => h.def.set && useUndoStore.getState().remember(h.def.key, v)}

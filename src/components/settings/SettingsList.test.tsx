@@ -7,6 +7,8 @@ import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { useConnectivitySettingsStore, DEFAULT_GLOBAL_PROXY } from "@/stores/connectivitySettingsStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
+import { useThemeStore } from "@/stores/themeStore";
+import i18n from "@/i18n";
 import { settingDefs } from "./registry/entries";
 import { resetSetting } from "./registry/defaults";
 import { SettingsList, ResetAllButton } from "./SettingsList";
@@ -89,6 +91,25 @@ describe("changed view", () => {
     expect(screen.queryByText("Every setting is at its default.")).toBeNull();
     fireEvent.click(screen.getByText("Undo"));
     expect(useTerminalSettingsStore.getState().scrollbackLines).toBe(100_000);
+  });
+
+  test("rows keep their order after a reset", () => {
+    act(() => {
+      useTerminalSettingsStore.getState().setScrollbackLines(100_000);
+      useToggleSettingsStore.getState().set("select-to-copy", false);
+    });
+    const { container } = render(<SettingsList query="" changedOnly />);
+    const titles = () => [...container.querySelectorAll(".group .text-sm.font-medium")].map((el) => el.textContent);
+    const before = titles();
+    fireEvent.click(screen.getAllByTitle("Reset to default")[0]);
+    expect(titles()).toEqual(before);
+  });
+
+  test("lists name a setting on its own, not by its row title", () => {
+    act(() => useThemeStore.getState().setMode("system"));
+    render(<SettingsList query="" changedOnly />);
+    expect(screen.getByText(i18n.t("settings.appearance.automation.themeMode"))).toBeTruthy();
+    act(() => useThemeStore.getState().setMode("manual"));
   });
 
   test("reset buttons are visible without hover", () => {

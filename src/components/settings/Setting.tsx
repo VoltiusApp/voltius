@@ -56,7 +56,7 @@ export function UndoButton({ onUndo }: { onUndo: () => void }) {
   );
 }
 
-export function Setting({ id, variant, className, note, desc, highlight, resetAlwaysVisible, undo, beforeReset }: {
+export function Setting({ id, variant, className, note, desc, highlight, resetAlwaysVisible, undo, beforeReset, standalone }: {
   id: string;
   variant?: "list" | "card";
   className?: string;
@@ -67,6 +67,8 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
   resetAlwaysVisible?: boolean;
   undo?: { onUndo(): void };
   beforeReset?(previous: unknown): void;
+  /** Outside its section the row needs the setting's full name, e.g. "Theme mode" rather than "Mode". */
+  standalone?: boolean;
 }) {
   const { t } = useTranslation();
   const state = useSettingState(id);
@@ -75,7 +77,7 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
   const isAndroid = useIsAndroid();
   const range = usePolicyRange(def.policyKey ?? "");
   if (!availableOn(def, { isMobile, isAndroid })) return null;
-  const title = t(def.titleKey ?? def.labelKey);
+  const title = t(standalone ? def.labelKey : def.titleKey ?? def.labelKey);
   const description = desc === null ? undefined : desc ?? (def.descKey ? <Description descKey={def.descKey} query={highlight} /> : undefined);
   return (
     <SettingRow

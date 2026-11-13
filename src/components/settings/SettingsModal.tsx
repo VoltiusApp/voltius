@@ -181,7 +181,7 @@ function DesktopSettings() {
           <div
             className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-b-(--t-border)"
           >
-            <span className="text-sm font-semibold text-(--t-text-bright)">
+            <span className="text-sm font-semibold text-(--t-text-bright) whitespace-nowrap">
               {changedView
                 ? t("settings.search.changedTitle")
                 : searching
