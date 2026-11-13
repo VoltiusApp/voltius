@@ -24,7 +24,7 @@ const InSettingsGroup = createContext(false);
 
 /** A titled block of settings rows: the uppercase heading plus the row container. */
 export function SettingsGroup({ title, divided, className, children }: {
-  title: string;
+  title: ReactNode;
   /** Draw separators between rows. */
   divided?: boolean;
   className?: string;
@@ -63,7 +63,7 @@ export function SettingsGroup({ title, divided, className, children }: {
  * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
  * bordered card and stand alone.
  */
-export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, variant = "list", className, children }: {
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, variant = "list", className, resetAlwaysVisible, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -79,6 +79,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   note?: ReactNode;
   variant?: "list" | "card";
   className?: string;
+  resetAlwaysVisible?: boolean;
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
@@ -114,7 +115,7 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
       <div className="flex flex-col items-end gap-1.5 shrink-0">
         <div className="flex items-center gap-2">
           {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
-          {dirty && onReset && managed.resettable && <ResetButton onReset={onReset} />}
+          {dirty && onReset && managed.resettable && <ResetButton onReset={onReset} alwaysVisible={resetAlwaysVisible} />}
           {dirty && !managed.locked && <DirtyDot />}
           <RowControl managed={managed}>{children}</RowControl>
         </div>
@@ -232,7 +233,7 @@ export function DirtyDot() {
   );
 }
 
-export function ResetButton({ onReset }: { onReset: () => void }) {
+export function ResetButton({ onReset, alwaysVisible }: { onReset: () => void; alwaysVisible?: boolean }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   if (isMobile) {
@@ -252,7 +253,7 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       onClick={onReset}
-      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-(--t-text-muted)"
+      className={`p-1 rounded-sm transition-opacity ${alwaysVisible ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 "}text-(--t-text-muted)`}
       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
       title={t("settings.shared.resetToDefault")}

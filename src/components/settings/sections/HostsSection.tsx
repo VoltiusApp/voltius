@@ -1,58 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MIN_ACTIVE_POLL_INTERVAL_MS, MIN_POLL_INTERVAL_MS, useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import {
-  DEFAULT_ACTIVE_POLL_INTERVAL_MS,
-  DEFAULT_POLL_INTERVAL_MS,
-  MIN_ACTIVE_POLL_INTERVAL_MS,
-  MIN_POLL_INTERVAL_MS,
-  useHostPingStore,
-} from "@/stores/hostPingStore";
-import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
-import {
-  DEFAULT_DETACHED_TTL_HOURS,
-  DEFAULT_GLOBAL_PROXY,
-  DETACHED_TTL_HOURS,
   GLOBAL_PROXY_MODES,
   useConnectivitySettingsStore,
-  useDetachedTtlHours,
   useGlobalKeepalivePreset,
   useGlobalProxy,
-  type DetachedTtlHours,
   type GlobalProxy,
 } from "@/stores/connectivitySettingsStore";
 import { deleteSecret, getSecret, storeSecret } from "@/services/vault";
 import { detectSystemProxy, type DetectedProxy } from "@/services/proxy";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "@/components/connections/ProxyFields";
-import { DEFAULT_KEEPALIVE_PRESET, KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
-import { useKeepaliveSelect } from "@/hooks/useKeepaliveSelect";
-import { useRangeSelect } from "@/components/shared/ManagedNote";
-import { Toggle } from "@/components/shared/Toggle";
-import { FormSelect } from "@/components/shared/FormSelect";
+import { KEEPALIVE_PRESETS } from "@/utils/keepalive";
 import { SshConfigGroup } from "@/components/sshConfig/SshConfigGroup";
 import { SshConfigHostsDialog } from "@/components/sshConfig/SshConfigHostsDialog";
+import { Setting } from "@/components/settings/Setting";
+import { useSettingState } from "@/components/settings/registry/useSettingState";
 import { SettingRow, SettingsGroup } from "./shared";
-
-const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
-const PERSIST_SESSIONS_DEFAULT = TOGGLE_DEFS["persistent-sessions"].default;
-const DETACHED_TTL_DEFAULT = TOGGLE_DEFS["detached-session-ttl"].default;
-const HOURS_PER_DAY = 24;
 
 export default function HostsSection() {
   const { t } = useTranslation();
-  const keepalive = useKeepaliveSelect();
-  const [detachedTtlOn, setDetachedTtlOn] = useToggle("detached-session-ttl");
-  const [detachedTtlHours, setDetachedTtlHours] = useDetachedTtlHours();
-  const detachedTtl = useRangeSelect("appSettings.detachedTtlHours", DETACHED_TTL_HOURS, (h: number) =>
-    h > HOURS_PER_DAY && h % HOURS_PER_DAY === 0
-      ? t("settings.hosts.detachedTtl.days", { count: h / HOURS_PER_DAY })
-      : t("settings.hosts.detachedTtl.hours", { count: h }));
-  const [enabled, setEnabled] = useToggle("reachability");
-  const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
-  const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
-  const [keepalivePreset, setKeepalivePreset] = useGlobalKeepalivePreset();
-  const [persistSessions, setPersistSessions] = useToggle("persistent-sessions");
+  const [detachedTtlOn] = useToggle("detached-session-ttl");
+  const [enabled] = useToggle("reachability");
+  const [keepalivePreset] = useGlobalKeepalivePreset();
   const [globalProxy, setGlobalProxy] = useGlobalProxy();
+  const proxyState = useSettingState("connectivity.proxy");
+  const poll = useSettingState("hosts.pollIntervalMs");
+  const activePoll = useSettingState("hosts.activePollIntervalMs");
   const globalProxyModes = useMemo(
     () => GLOBAL_PROXY_MODES.map((m) => ({ value: m, label: t(`settings.hosts.proxy.modes.${m}`) })),
     [t],
@@ -126,25 +102,17 @@ export default function HostsSection() {
   return (
     <div className="p-6 space-y-6">
       <SettingsGroup title={t("settings.hosts.connectivityTitle")} divided>
-        <SettingRow
-          syncKey="appSettings.toggles.reachability"
-          title={t("settings.hosts.reachability.title")}
-          desc={t("settings.hosts.reachability.desc")}
-          dirty={enabled !== TOGGLE_DEFS.reachability.default}
-          onReset={() => setEnabled(TOGGLE_DEFS.reachability.default)}
-        >
-          <Toggle checked={enabled} onChange={setEnabled} />
-        </SettingRow>
+        <Setting id="toggles.reachability" />
         {enabled && (
           <>
             <SettingRow
               title={t("settings.hosts.pollInterval.title")}
               desc={t("settings.hosts.pollInterval.desc")}
-              dirty={pollIntervalMs !== DEFAULT_POLL_INTERVAL_MS}
-              onReset={() => {
-                setPollIntervalMs(DEFAULT_POLL_INTERVAL_MS);
-                setRaw(String(DEFAULT_POLL_INTERVAL_MS));
-              }}
+              dirty={poll.dirty}
+              onReset={poll.canReset ? () => {
+                poll.reset();
+                setRaw(String(useHostPingStore.getState().pollIntervalMs));
+              } : undefined}
             >
               <input
                 type="number"
@@ -160,11 +128,11 @@ export default function HostsSection() {
             <SettingRow
               title={t("settings.hosts.activeInterval.title")}
               desc={t("settings.hosts.activeInterval.desc")}
-              dirty={activePollIntervalMs !== DEFAULT_ACTIVE_POLL_INTERVAL_MS}
-              onReset={() => {
-                setActivePollIntervalMs(DEFAULT_ACTIVE_POLL_INTERVAL_MS);
-                setRawActive(String(DEFAULT_ACTIVE_POLL_INTERVAL_MS));
-              }}
+              dirty={activePoll.dirty}
+              onReset={activePoll.canReset ? () => {
+                activePoll.reset();
+                setRawActive(String(useHostPingStore.getState().activePollIntervalMs));
+              } : undefined}
             >
               <input
                 type="number"
@@ -179,21 +147,10 @@ export default function HostsSection() {
             </SettingRow>
           </>
         )}
-        <SettingRow
-          syncKey="appSettings.keepalivePreset"
-          title={t("settings.hosts.keepalive.title")}
+        <Setting
+          id="connectivity.keepalivePreset"
           desc={t("settings.hosts.keepalive.desc", { detail: t(KEEPALIVE_PRESETS[keepalivePreset].detailKey) })}
-          note={keepalive.note}
-          dirty={keepalivePreset !== DEFAULT_KEEPALIVE_PRESET}
-          onReset={() => setKeepalivePreset(DEFAULT_KEEPALIVE_PRESET)}
-        >
-          <FormSelect
-            className="w-36 shrink-0"
-            value={keepalivePreset}
-            options={keepalive.options}
-            onChange={(v) => setKeepalivePreset(v as KeepalivePreset)}
-          />
-        </SettingRow>
+        />
         <div>
           <ProxyFields
             modes={globalProxyModes}
@@ -211,8 +168,8 @@ export default function HostsSection() {
                 syncKey="appSettings.proxy"
                 title={t("settings.hosts.proxy.title")}
                 desc={t("settings.hosts.proxy.desc")}
-                dirty={globalProxy.mode !== DEFAULT_GLOBAL_PROXY.mode}
-                onReset={() => setGlobalProxy(DEFAULT_GLOBAL_PROXY)}
+                dirty={proxyState.dirty}
+                onReset={proxyState.canReset ? proxyState.reset : undefined}
               >
                 {select}
               </SettingRow>
@@ -230,66 +187,19 @@ export default function HostsSection() {
             </p>
           )}
         </div>
-        <SettingRow
-          syncKey="appSettings.toggles.persistent-sessions"
-          title={t("settings.hosts.persistentSessions.title")}
-          desc={t("settings.hosts.persistentSessions.desc")}
-          dirty={persistSessions !== PERSIST_SESSIONS_DEFAULT}
-          onReset={() => setPersistSessions(PERSIST_SESSIONS_DEFAULT)}
-        >
-          <Toggle checked={persistSessions} onChange={setPersistSessions} />
-        </SettingRow>
-        <SettingRow
-          syncKey="appSettings.toggles.detached-session-ttl"
-          title={t("settings.hosts.detachedTtl.title")}
-          desc={t("settings.hosts.detachedTtl.desc")}
-          dirty={detachedTtlOn !== DETACHED_TTL_DEFAULT}
-          onReset={() => setDetachedTtlOn(DETACHED_TTL_DEFAULT)}
-        >
-          <Toggle checked={detachedTtlOn} onChange={setDetachedTtlOn} />
-        </SettingRow>
-        {detachedTtlOn && (
-          <SettingRow
-            syncKey="appSettings.detachedTtlHours"
-            title={t("settings.hosts.detachedTtl.durationTitle")}
-            note={detachedTtl.note}
-            dirty={detachedTtlHours !== DEFAULT_DETACHED_TTL_HOURS}
-            onReset={() => setDetachedTtlHours(DEFAULT_DETACHED_TTL_HOURS)}
-          >
-            <FormSelect
-              className="w-36 shrink-0"
-              value={String(detachedTtlHours)}
-              options={detachedTtl.options}
-              onChange={(v) => setDetachedTtlHours(Number(v) as DetachedTtlHours)}
-            />
-          </SettingRow>
-        )}
+        <Setting id="toggles.persistent-sessions" />
+        <Setting id="toggles.detached-session-ttl" />
+        {detachedTtlOn && <Setting id="connectivity.detachedTtlHours" />}
       </SettingsGroup>
 
       <SshConfigGroup />
 
       <SettingsGroup title={t("settings.hosts.terminalTitle")}>
-        <SettingRow
-          syncKey="appSettings.toggles.shell-integration"
-          title={t("settings.hosts.shellIntegration.title")}
-          desc={t("settings.hosts.shellIntegration.desc")}
-          dirty={shellIntegration !== SHELL_INTEGRATION_DEFAULT}
-          onReset={() => setShellIntegration(SHELL_INTEGRATION_DEFAULT)}
-        >
-          <Toggle checked={shellIntegration} onChange={setShellIntegration} />
-        </SettingRow>
+        <Setting id="toggles.shell-integration" />
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.hosts.teamPresenceTitle")}>
-        <SettingRow
-          syncKey="appSettings.toggles.team-presence"
-          title={t("settings.hosts.teamPresence.title")}
-          desc={t("settings.hosts.teamPresence.desc")}
-          dirty={presenceEnabled !== TOGGLE_DEFS["team-presence"].default}
-          onReset={() => setPresenceEnabled(TOGGLE_DEFS["team-presence"].default)}
-        >
-          <Toggle checked={presenceEnabled} onChange={setPresenceEnabled} />
-        </SettingRow>
+        <Setting id="toggles.team-presence" />
       </SettingsGroup>
       <SshConfigHostsDialog />
     </div>

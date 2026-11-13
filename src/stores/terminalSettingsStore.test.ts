@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from "vitest";
-import { cursorStyleSetting, keywordRulesSetting, preferredShellSetting, useTerminalSettingsStore } from "./terminalSettingsStore";
+import { beforeEach, describe, expect, it, test } from "vitest";
+import { cursorStyleSetting, keywordRulesSetting, migrateTerminalSettings, preferredShellSetting, useTerminalSettingsStore } from "./terminalSettingsStore";
 import { resetPolicy, withPolicy } from "@/test/policy";
 const CURSOR = "appSettings.terminal.cursorStyle";
 
@@ -36,5 +36,21 @@ describe("terminal settings under policy", () => {
     withPolicy({ "appSettings.terminal.keywordRules": [admin] });
     useTerminalSettingsStore.getState().setKeywordRules([{ id: "u", color: "green", words: ["prod"], enabled: true }]);
     expect(keywordRulesSetting.get().map((r) => r.id)).toEqual(["a", "u"]);
+  });
+});
+
+describe("scrollback default migration", () => {
+  test("a saved 50,000 from the old default becomes the new 10,000 default", () => {
+    expect(migrateTerminalSettings({ scrollbackLines: 50_000 }, 0)).toMatchObject({ scrollbackLines: 10_000 });
+  });
+
+  test("any other saved value is kept", () => {
+    for (const lines of [1_000, 100_000, 250_000]) {
+      expect(migrateTerminalSettings({ scrollbackLines: lines }, 0)).toMatchObject({ scrollbackLines: lines });
+    }
+  });
+
+  test("runs once: a 50,000 saved after the migration is kept", () => {
+    expect(migrateTerminalSettings({ scrollbackLines: 50_000 }, 1)).toMatchObject({ scrollbackLines: 50_000 });
   });
 });

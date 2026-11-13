@@ -1502,6 +1502,30 @@
           "desc": "Ouvrir les notes de l'hôte dans le panneau latéral"
         }
       }
+    },
+    "search": {
+      "placeholder": "Rechercher dans les paramètres",
+      "clear": "Effacer la recherche",
+      "changed": "Modifiés",
+      "changedTitle": "Modifiés par rapport aux valeurs par défaut",
+      "results_one": "{{count}} résultat",
+      "results_many": "{{count}} résultats",
+      "results_other": "{{count}} résultats",
+      "changedOnly": "Modifiés uniquement",
+      "open": "Ouvrir",
+      "openSection": "Ouvrir {{section}}",
+      "undo": "Annuler",
+      "resetAll": "Tout réinitialiser",
+      "resetAllConfirm_one": "Réinitialiser {{count}} paramètre ? Les paramètres gérés par l’équipe, de sécurité et de synchronisation sont conservés.",
+      "resetAllConfirm_many": "Réinitialiser {{count}} paramètres ? Les paramètres gérés par l’équipe, de sécurité et de synchronisation sont conservés.",
+      "resetAllConfirm_other": "Réinitialiser {{count}} paramètres ? Les paramètres gérés par l’équipe, de sécurité et de synchronisation sont conservés.",
+      "cancel": "Annuler",
+      "emptyChanged": "Tous les paramètres sont à leur valeur par défaut.",
+      "emptyQuery": "Aucun paramètre ne correspond à « {{query}} ».",
+      "emptyQueryChanged": "Aucun paramètre modifié ne correspond à « {{query}} ».",
+      "changedSub_one": "{{count}} paramètre diffère de sa valeur par défaut",
+      "changedSub_many": "{{count}} paramètres diffèrent de leur valeur par défaut",
+      "changedSub_other": "{{count}} paramètres diffèrent de leur valeur par défaut"
     }
   }
 }

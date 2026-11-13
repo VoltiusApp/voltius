@@ -1489,6 +1489,27 @@
           "desc": "Open host notes in right panel"
         }
       }
+    },
+    "search": {
+      "placeholder": "Search settings",
+      "clear": "Clear search",
+      "changed": "Changed",
+      "changedTitle": "Changed from default",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "changedOnly": "Changed only",
+      "open": "Open",
+      "openSection": "Open {{section}}",
+      "undo": "Undo",
+      "resetAll": "Reset all",
+      "resetAllConfirm_one": "Reset {{count}} setting? Team-managed, security and sync settings stay.",
+      "resetAllConfirm_other": "Reset {{count}} settings? Team-managed, security and sync settings stay.",
+      "cancel": "Cancel",
+      "emptyChanged": "Every setting is at its default.",
+      "emptyQuery": "No setting matches “{{query}}”.",
+      "emptyQueryChanged": "No changed setting matches “{{query}}”.",
+      "changedSub_one": "{{count}} setting differs from default",
+      "changedSub_other": "{{count}} settings differ from default"
     }
   }
 }

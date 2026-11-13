@@ -14,8 +14,13 @@ import { pickLayers, stackLayers, useLayerTransition, useOverlayTransition } fro
 import { useBackPeekStore } from "@/hooks/predictiveBack";
 import { useCollapsingHeader } from "@/components/mobile/useCollapsingHeader";
 import { APPBAR_TONAL } from "@/components/mobile/MobileHeader";
+import { useBackInterceptor } from "@/hooks/useBackInterceptor";
+import { SettingsSearchField } from "@/components/settings/SettingsSearchField";
+import { ResetAllButton, SettingsList } from "@/components/settings/SettingsList";
+import { useChangedSettings } from "@/components/settings/useChangedSettings";
 
 const ROOT_BODY = "root";
+const CHANGED_BODY = "changed";
 const NO_TITLE = { current: null };
 
 /** Live one-line summaries for the root rows that have a current value worth showing. */
@@ -28,6 +33,25 @@ function useNavSummaries(): Partial<Record<string, string>> {
     appearance: themeName,
     terminal: `${t(`settings.terminal.cursorStyle.${cursorStyle}`)} · ${t("settings.terminal.scrollback.option", { count: scrollback })}`,
   };
+}
+
+function ChangedRow({ onOpen }: { onOpen: () => void }) {
+  const { t } = useTranslation();
+  const { count } = useChangedSettings();
+  return (
+    <button
+      data-mobile-settings-nav="changed"
+      onClick={onOpen}
+      className="w-full flex items-center gap-4 pl-4 pr-3 min-h-[72px] py-2 text-left"
+    >
+      <Icon icon="lucide:list-restart" width={24} className="shrink-0 text-(--t-accent)" />
+      <span className="flex-1 min-w-0 flex flex-col">
+        <span data-mobile-settings-nav-label className="text-base text-(--t-text-primary) truncate">{t("settings.search.changed")}</span>
+        <span className="text-sm text-(--t-text-dim) truncate">{t("settings.search.changedSub", { count })}</span>
+      </span>
+      <Icon icon="lucide:chevron-right" width={20} className="shrink-0 text-(--t-text-dim)" />
+    </button>
+  );
 }
 
 /**
@@ -52,6 +76,13 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
   const navExpanded = useUIStore((s) => s.pluginsNavExpanded);
   const setNavExpanded = useUIStore((s) => s.setPluginsNavExpanded);
   const showChildren = pluginChildren.length > 0 && (navExpanded || pluginPageId !== null);
+  const query = useUIStore((s) => s.settingsQuery);
+  const setQuery = useUIStore((s) => s.setSettingsQuery);
+  const changedOnly = useUIStore((s) => s.settingsChangedOnly);
+  const setChangedOnly = useUIStore((s) => s.setSettingsChangedOnly);
+  const searching = query.trim() !== "";
+  const changedView = changedOnly && !searching;
+  useBackInterceptor(open && (searching || changedView), () => (changedView ? setChangedOnly(false) : setQuery("")));
 
   const { mounted, ref } = useOverlayTransition(open);
   // Closing resets the sub-page: keep showing what was on screen while the overlay slides out.
@@ -60,7 +91,7 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
   const { subPage, activePluginPage } = view.current;
   const current = nav.find((n) => n.id === subPage);
 
-  const bodyKey = activePluginPage ? `plugin:${pluginPageId}` : (subPage ?? ROOT_BODY);
+  const bodyKey = activePluginPage ? `plugin:${pluginPageId}` : changedView ? CHANGED_BODY : (subPage ?? ROOT_BODY);
   const bodyStack = useMemo(() => (bodyKey === ROOT_BODY ? [ROOT_BODY] : [ROOT_BODY, bodyKey]), [bodyKey]);
   const bodyRef = useRef<HTMLDivElement>(null);
   const bodyTransition = useLayerTransition(bodyStack, bodyStack.length, (t) =>
@@ -73,7 +104,7 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
     <div className="p-6">
       <activePluginPage.component />
     </div>
-  ) : subPage ? renderSettingsSection(subPage) : null;
+  ) : changedView ? <SettingsList query="" changedOnly /> : subPage ? renderSettingsSection(subPage) : null;
   if (bodyKey !== ROOT_BODY) bodyCache.current.set(bodyKey, currentBody);
 
   // Top app bar: the list's large title folds into it; a sub-page only turns it tonal on scroll.
@@ -90,8 +121,10 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
     el.dataset.scrolled = "false";
   }, [bodyKey, mounted]);
 
-  const goBack = () => (onRoot ? setOpen(false) : setSubPage(null));
-  const title = activePluginPage ? resolveLabel(activePluginPage.label) : current ? current.label : t("settings.chrome.title");
+  const goBack = () => (onRoot ? setOpen(false) : changedView ? setChangedOnly(false) : setSubPage(null));
+  const title = activePluginPage
+    ? resolveLabel(activePluginPage.label)
+    : changedView ? t("settings.search.changedTitle") : current ? current.label : t("settings.chrome.title");
 
   // M3 rows act as one target: a tap on a row's text runs its switch / picker.
   const forwardRowTap = (e: MouseEvent) => {
@@ -104,6 +137,11 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
       <h1 ref={largeTitleRef} data-mobile-large-title className="px-4 pt-1 pb-4 text-3xl font-medium text-(--t-text-primary)" style={{ opacity: "calc(1 - var(--vt-fold, 0) * 0.6)" }}>
         {t("settings.chrome.title")}
       </h1>
+      <div className="px-4 pb-3">
+        <SettingsSearchField variant="mobile" />
+      </div>
+      {searching ? <SettingsList query={query} changedOnly={false} /> : <>
+      <ChangedRow onOpen={() => setChangedOnly(true)} />
       {nav.map((item) => {
         const isPlugins = item.id === "plugins";
         const hasGroup = isPlugins && pluginChildren.length > 0;
@@ -151,6 +189,7 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
           </div>
         );
       })}
+      </>}
     </div>
   );
   // Bodies other than the current one: the list, or a sub-page kept from when it was current.
@@ -189,6 +228,7 @@ export default function MobileSettings({ open = true }: { open?: boolean }) {
           >
             {title}
           </span>
+          {changedView && <ResetAllButton />}
         </header>
 
         {/* Body: one layer per level (list, sub-page), so a sub-page slides over the list and back. */}

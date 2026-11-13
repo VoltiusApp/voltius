@@ -27,6 +27,7 @@ import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 import { searchMatcher } from "@/utils/search";
 import { isThemeEntry, isThemeOnly, THEME_TAG } from "@/themes/marketplaceThemes";
+import { SettingMark } from "@/components/settings/Setting";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
@@ -779,7 +780,7 @@ function BrowseTab() {
             <Managed policyKey="appSettings.toggles.plugin-install-review">
               <Toggle checked={reviewInstalls} onChange={() => setReviewInstalls(!reviewInstalls)} />
             </Managed>
-            <span className="text-xs text-(--t-text-dim)">{t("settings.toggleDefs.pluginInstallReview.label")}</span>
+            <span className="text-xs text-(--t-text-dim)"><SettingMark id="toggles.plugin-install-review">{t("settings.toggleDefs.pluginInstallReview.label")}</SettingMark></span>
           </div>
         )}
       </div>

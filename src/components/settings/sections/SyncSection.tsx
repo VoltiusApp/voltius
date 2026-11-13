@@ -22,6 +22,7 @@ import { SyncDevicesGroup } from "./SyncDevicesGroup";
 import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
 import { formatTime } from "@/utils/localeFormat";
+import { SettingMark } from "@/components/settings/Setting";
 
 function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | null; error: string | null }): string {
   switch (s.status) {
@@ -150,10 +151,12 @@ function VoltiusSyncGroup({ provider }: { provider: SyncProviderView }) {
   );
 }
 
-function SyncToggleRow({ domain, policyKey, label, sub, ariaLabel, checked, onChange }: {
+function SyncToggleRow({ domain, policyKey, settingId, label, sub, ariaLabel, checked, onChange }: {
   /** Stable hook for tests and UI automation; also the handler key for settings rows. */
   domain: string;
   policyKey?: string;
+  /** Registry entry whose changed dot and reset sit next to the label. */
+  settingId?: string;
   label: string;
   sub: string;
   /** Defaults to "Sync <label>", which is wrong for a row that does not switch a kind of data. */
@@ -167,7 +170,7 @@ function SyncToggleRow({ domain, policyKey, label, sub, ariaLabel, checked, onCh
   return (
     <div data-sync-domain={domain} data-setting-row data-ripple className="relative flex items-center justify-between gap-3 px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-(--t-text-primary)">{label}</p>
+        <p className="text-sm font-medium text-(--t-text-primary)">{settingId ? <SettingMark id={settingId}>{label}</SettingMark> : label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
         {lock.locked && <ManagedNote className="mt-1" teams={lock.teams} />}
       </div>
@@ -327,6 +330,7 @@ export default function SyncSection() {
               key={id}
               domain={id}
               policyKey={`sync.types.${id}`}
+              settingId={`sync.type.${id}`}
               label={t(`settings.sync.objectType.${id}.label`)}
               sub={t(`settings.sync.objectType.${id}.sub`)}
               checked={isTypeSynced(id)}
@@ -346,6 +350,7 @@ export default function SyncSection() {
               <SyncToggleRow
                 domain={id}
                 policyKey={`sync.domains.${id}`}
+                settingId={`sync.domain.${id}`}
                 label={t(`settings.sync.settingDomain.${id}.label`)}
                 sub={t(`settings.sync.settingDomain.${id}.sub`)}
                 checked={isDomainSynced(id)}

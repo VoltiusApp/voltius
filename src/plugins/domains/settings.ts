@@ -1,5 +1,5 @@
 import i18n from "@/i18n";
-import { settingDef, settingDefs, type SettingDef } from "./settingsManifest";
+import { settingDef, settingDefs, type SettingDef } from "@/components/settings/registry/entries";
 import { failed, managedMessage, type DomainResult } from "./result";
 import { isEnforcedLock } from "@/stores/policyStore";
 import { unknownSetting } from "../settingMessages";

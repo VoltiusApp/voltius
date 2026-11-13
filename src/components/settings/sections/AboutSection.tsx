@@ -26,6 +26,7 @@ import { SETTINGS_SURFACE } from "./shared";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import LogoBadge from "@/components/layout/LogoBadge";
+import { SettingMark } from "@/components/settings/Setting";
 
 export default function AboutSection() {
   const { t } = useTranslation();
@@ -172,7 +173,7 @@ export default function AboutSection() {
             {/* Automatic updates toggle */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
               <div className="min-w-0">
-                <p className="text-sm text-(--t-text-primary)">{t("settings.about.autoDownload.title")}</p>
+                <p className="text-sm text-(--t-text-primary)"><SettingMark id="updater.autoUpdate">{t("settings.about.autoDownload.title")}</SettingMark></p>
                 <p className="text-xs mt-0.5 text-(--t-text-dim)">
                   {t("settings.about.autoDownload.desc")}
                 </p>
@@ -183,7 +184,7 @@ export default function AboutSection() {
             {/* What's new popup toggle */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
               <div className="min-w-0">
-                <p className="text-sm text-(--t-text-primary)">{t("settings.about.whatsNew.title")}</p>
+                <p className="text-sm text-(--t-text-primary)"><SettingMark id="toggles.changelog-popup">{t("settings.about.whatsNew.title")}</SettingMark></p>
                 <p className="text-xs mt-0.5 text-(--t-text-dim)">
                   {t("settings.about.whatsNew.desc")}
                 </p>

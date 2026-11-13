@@ -1746,6 +1746,33 @@
           "desc": "Otevřít poznámky k hostu v pravém panelu"
         }
       }
+    },
+    "search": {
+      "placeholder": "Hledat v nastavení",
+      "clear": "Vymazat hledání",
+      "changed": "Změněné",
+      "changedTitle": "Změněno oproti výchozímu",
+      "results_one": "{{count}} výsledek",
+      "results_few": "{{count}} výsledky",
+      "results_many": "{{count}} výsledku",
+      "results_other": "{{count}} výsledků",
+      "changedOnly": "Jen změněné",
+      "open": "Otevřít",
+      "openSection": "Otevřít sekci {{section}}",
+      "undo": "Vrátit",
+      "resetAll": "Obnovit vše",
+      "resetAllConfirm_one": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "resetAllConfirm_few": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "resetAllConfirm_many": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "resetAllConfirm_other": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "cancel": "Zrušit",
+      "emptyChanged": "Všechna nastavení mají výchozí hodnotu.",
+      "emptyQuery": "Žádné nastavení neodpovídá „{{query}}“.",
+      "emptyQueryChanged": "Žádné změněné nastavení neodpovídá „{{query}}“.",
+      "changedSub_one": "{{count}} nastavení se liší od výchozí hodnoty",
+      "changedSub_few": "{{count}} nastavení se liší od výchozí hodnoty",
+      "changedSub_many": "{{count}} nastavení se liší od výchozí hodnoty",
+      "changedSub_other": "{{count}} nastavení se liší od výchozí hodnoty"
     }
   }
 }

@@ -1502,6 +1502,30 @@
           "desc": "Abrir notas do host no painel direito"
         }
       }
+    },
+    "search": {
+      "placeholder": "Pesquisar configurações",
+      "clear": "Limpar pesquisa",
+      "changed": "Alteradas",
+      "changedTitle": "Alteradas em relação ao padrão",
+      "results_one": "{{count}} resultado",
+      "results_many": "{{count}} resultados",
+      "results_other": "{{count}} resultados",
+      "changedOnly": "Somente alteradas",
+      "open": "Abrir",
+      "openSection": "Abrir {{section}}",
+      "undo": "Desfazer",
+      "resetAll": "Redefinir tudo",
+      "resetAllConfirm_one": "Redefinir {{count}} configuração? As configurações gerenciadas pela equipe, de segurança e de sincronização são mantidas.",
+      "resetAllConfirm_many": "Redefinir {{count}} configurações? As configurações gerenciadas pela equipe, de segurança e de sincronização são mantidas.",
+      "resetAllConfirm_other": "Redefinir {{count}} configurações? As configurações gerenciadas pela equipe, de segurança e de sincronização são mantidas.",
+      "cancel": "Cancelar",
+      "emptyChanged": "Todas as configurações estão no padrão.",
+      "emptyQuery": "Nenhuma configuração corresponde a “{{query}}”.",
+      "emptyQueryChanged": "Nenhuma configuração alterada corresponde a “{{query}}”.",
+      "changedSub_one": "{{count}} configuração difere do padrão",
+      "changedSub_many": "{{count}} configurações diferem do padrão",
+      "changedSub_other": "{{count}} configurações diferem do padrão"
     }
   }
 }
