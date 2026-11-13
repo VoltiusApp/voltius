@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-11-13
+
+### Added
+
+- Settings › Appearance has a Time format setting: Automatic (follows the app language), 12-hour or 24-hour. It applies to every time the app shows (sync menu, audit logs, SFTP dates, vault backups, theme schedule) and syncs to your other devices (#865)
+
+### Fixed
+
+- On mobile, the two-key buttons in the terminal extra-keys row show their alternate in a bubble above the key when held or swiped up, and send it on release. Holding an arrow sends its alternate instead of repeating (#866)
+
 ## [0.70.0] - 2026-11-13
 
 ### Added
