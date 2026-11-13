@@ -53,7 +53,21 @@
       "vaultSetAsideLocalSub": "Mantém uma cópia de backup neste dispositivo",
       "addAccountLater": "Você pode criar uma conta depois e manter seus hosts.",
       "errorEmailRequired": "Digite seu e-mail",
-      "masterPasswordNote": "Esta senha criptografa seus dados. Ela não pode ser redefinida nem recuperada, então guarde-a em um lugar seguro."
+      "masterPasswordNote": "Esta senha criptografa seus dados. Ela não pode ser redefinida nem recuperada, então guarde-a em um lugar seguro.",
+      "invitation": {
+        "toggle": "Tem um link de convite?",
+        "placeholder": "Link do convite",
+        "use": "Usar",
+        "checking": "A verificar…",
+        "invalid": "Isto não é um link de convite. Cole o link completo do e-mail.",
+        "notFound": "Nenhum convite pendente em {{server}} corresponde a este link. Verifique o endereço do servidor ou peça um novo convite.",
+        "closedHint": "Este servidor só cria contas por convite. Cole o link do seu e-mail de convite.",
+        "joining": "Entrar em {{team}}",
+        "invitedBy": "{{inviter}} convidou-o como {{role}}",
+        "invitedAs": "Convidado como {{role}}",
+        "remove": "Remover convite",
+        "createAndJoin": "Criar conta e entrar"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Criar conta na nuvem",

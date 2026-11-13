@@ -240,7 +240,10 @@
       "teamPolicyConflict": "Outra pessoa alterou a política da equipe. Revise-a e importe novamente.",
       "teamPolicyRefused": "O servidor recusou esta política: {{reason}}",
       "failedToLoadTeamPolicy": "Falha ao carregar a política da equipe: {{status}}",
-      "failedToSaveTeamPolicy": "Falha ao salvar a política da equipe: {{status}}"
+      "failedToSaveTeamPolicy": "Falha ao salvar a política da equipe: {{status}}",
+      "invitationLookupFailed": "Não foi possível verificar este convite (HTTP {{status}}).",
+      "invitationNotFound": "Este convite expirou ou já foi usado. Peça um novo.",
+      "invitationEmailMismatch": "Este convite foi enviado para outro endereço de e-mail."
     },
     "clipboard": {
       "cut_one": "{{count}} item recortado",

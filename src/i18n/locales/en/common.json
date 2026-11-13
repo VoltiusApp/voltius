@@ -240,7 +240,10 @@
       "teamPolicyConflict": "Someone else changed the team policy. Review it and import again.",
       "teamPolicyRefused": "The server refused this policy: {{reason}}",
       "failedToLoadTeamPolicy": "Failed to load the team policy: {{status}}",
-      "failedToSaveTeamPolicy": "Failed to save the team policy: {{status}}"
+      "failedToSaveTeamPolicy": "Failed to save the team policy: {{status}}",
+      "invitationLookupFailed": "Could not check this invitation (HTTP {{status}}).",
+      "invitationNotFound": "This invitation has expired or was already used. Ask for a new one.",
+      "invitationEmailMismatch": "This invitation was sent to a different email address."
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",

@@ -240,7 +240,10 @@
       "teamPolicyConflict": "Кто-то другой изменил политику команды. Проверьте её и импортируйте снова.",
       "teamPolicyRefused": "Сервер отклонил эту политику: {{reason}}",
       "failedToLoadTeamPolicy": "Не удалось загрузить политику команды: {{status}}",
-      "failedToSaveTeamPolicy": "Не удалось сохранить политику команды: {{status}}"
+      "failedToSaveTeamPolicy": "Не удалось сохранить политику команды: {{status}}",
+      "invitationLookupFailed": "Не удалось проверить приглашение (HTTP {{status}}).",
+      "invitationNotFound": "Срок приглашения истёк или оно уже использовано. Попросите новое.",
+      "invitationEmailMismatch": "Это приглашение отправлено на другой адрес электронной почты."
     },
     "clipboard": {
       "cut_one": "Вырезан {{count}} элемент",

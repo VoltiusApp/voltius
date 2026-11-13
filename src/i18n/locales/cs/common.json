@@ -240,7 +240,10 @@
       "teamPolicyConflict": "Týmovou zásadu mezitím změnil někdo jiný. Zkontrolujte ji a importujte znovu.",
       "teamPolicyRefused": "Server tuto zásadu odmítl: {{reason}}",
       "failedToLoadTeamPolicy": "Týmovou zásadu se nepodařilo načíst: {{status}}",
-      "failedToSaveTeamPolicy": "Týmovou zásadu se nepodařilo uložit: {{status}}"
+      "failedToSaveTeamPolicy": "Týmovou zásadu se nepodařilo uložit: {{status}}",
+      "invitationLookupFailed": "Pozvánku se nepodařilo ověřit (HTTP {{status}}).",
+      "invitationNotFound": "Platnost pozvánky vypršela nebo už byla použita. Požádejte o novou.",
+      "invitationEmailMismatch": "Tato pozvánka byla odeslána na jinou e-mailovou adresu."
     },
     "clipboard": {
       "cut_one": "Vyjmuta {{count}} položka",

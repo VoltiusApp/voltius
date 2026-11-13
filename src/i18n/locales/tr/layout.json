@@ -53,7 +53,21 @@
       "vaultSetAsideLocalSub": "Bu cihazda bir yedek kopya saklanır",
       "addAccountLater": "Daha sonra hesap oluşturabilir ve sunucularınızı koruyabilirsiniz.",
       "errorEmailRequired": "E-posta adresinizi girin",
-      "masterPasswordNote": "Bu parola verilerinizi şifreler. Sıfırlanamaz veya kurtarılamaz, bu yüzden güvenli bir yerde saklayın."
+      "masterPasswordNote": "Bu parola verilerinizi şifreler. Sıfırlanamaz veya kurtarılamaz, bu yüzden güvenli bir yerde saklayın.",
+      "invitation": {
+        "toggle": "Davet bağlantınız var mı?",
+        "placeholder": "Davet bağlantısı",
+        "use": "Kullan",
+        "checking": "Denetleniyor…",
+        "invalid": "Bu bir davet bağlantısı değil. E-postadaki bağlantının tamamını yapıştırın.",
+        "notFound": "{{server}} üzerinde bu bağlantıyla eşleşen bekleyen davet yok. Sunucu adresini denetleyin ya da yeni bir davet isteyin.",
+        "closedHint": "Bu sunucu yalnızca davetle hesap oluşturur. Davet e-postanızdaki bağlantıyı yapıştırın.",
+        "joining": "{{team}} ekibine katıl",
+        "invitedBy": "{{inviter}} sizi {{role}} olarak davet etti",
+        "invitedAs": "{{role}} olarak davet edildiniz",
+        "remove": "Daveti kaldır",
+        "createAndJoin": "Hesap oluştur ve katıl"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Bulut hesabı oluştur",

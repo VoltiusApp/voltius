@@ -253,13 +253,13 @@ test("same-server account can use another account through the form", async () =>
   type("layout.auth.masterPasswordPlaceholder", PASSWORD);
   submit();
   await approvalShown();
-  expect(h.authenticateServerAccount).toHaveBeenCalledWith("signin", "jdoe@acme.com", PASSWORD, TOKEN.serverUrl, CREDENTIAL);
+  expect(h.authenticateServerAccount).toHaveBeenCalledWith("signin", "jdoe@acme.com", PASSWORD, TOKEN.serverUrl, { enrollment: CREDENTIAL });
   expect(h.redeemEnrollment).not.toHaveBeenCalled();
 });
 
 test("other-server account redeems before switching and switches on Continue", async () => {
   await createOnOtherServer();
-  expect(h.authenticateServerAccount).toHaveBeenCalledWith("register", "jdoe@acme.com", PASSWORD, TOKEN.serverUrl, CREDENTIAL);
+  expect(h.authenticateServerAccount).toHaveBeenCalledWith("register", "jdoe@acme.com", PASSWORD, TOKEN.serverUrl, { enrollment: CREDENTIAL });
   expect(h.redeemEnrollment).toHaveBeenCalledWith(TOKEN, { serverUrl: TOKEN.serverUrl, jwt: "JWT-2" });
   expect(h.addAccount).not.toHaveBeenCalled();
   expect(useEnrollmentStore.getState().records[`${TOKEN.id}|${accountKey(TOKEN.serverUrl, "acc-2")}`]?.outcome).toEqual(PENDING);
@@ -295,7 +295,7 @@ test("passwordless local account sets a master password then links with the cred
   await approvalShown();
   expect(h.order).toEqual(["setMasterPassword", "linkToCloud"]);
   expect(h.setMasterPassword).toHaveBeenCalledWith(PASSWORD);
-  expect(h.linkToCloud).toHaveBeenCalledWith("jdoe@acme.com", TOKEN.serverUrl, h.leaveLanGroup, PASSWORD, CREDENTIAL);
+  expect(h.linkToCloud).toHaveBeenCalledWith("jdoe@acme.com", TOKEN.serverUrl, h.leaveLanGroup, PASSWORD, { enrollment: CREDENTIAL });
   expect(h.redeemEnrollment).not.toHaveBeenCalled();
   expect(h.addAccount).not.toHaveBeenCalled();
 });
@@ -313,7 +313,7 @@ test("local account without stored password asks for the current master password
   submit();
   await approvalShown();
   expect(h.setMasterPassword).not.toHaveBeenCalled();
-  expect(h.linkToCloud).toHaveBeenCalledWith("jdoe@acme.com", TOKEN.serverUrl, h.leaveLanGroup, "old-pass", CREDENTIAL);
+  expect(h.linkToCloud).toHaveBeenCalledWith("jdoe@acme.com", TOKEN.serverUrl, h.leaveLanGroup, "old-pass", { enrollment: CREDENTIAL });
 });
 
 test("local account create uses linkToCloud with credential", async () => {
@@ -324,7 +324,7 @@ test("local account create uses linkToCloud with credential", async () => {
   expect(screen.queryByPlaceholderText(/PasswordPlaceholder|PasswordMinPlaceholder/)).toBeNull();
   submit();
   await approvalShown();
-  expect(h.linkToCloud).toHaveBeenCalledWith("jdoe@acme.com", TOKEN.serverUrl, h.leaveLanGroup, undefined, CREDENTIAL);
+  expect(h.linkToCloud).toHaveBeenCalledWith("jdoe@acme.com", TOKEN.serverUrl, h.leaveLanGroup, undefined, { enrollment: CREDENTIAL });
   expect(h.redeemEnrollment).toHaveBeenCalledWith(TOKEN, "active");
   expect(h.authenticateServerAccount).not.toHaveBeenCalled();
   expect(h.createServerAccount).not.toHaveBeenCalled();

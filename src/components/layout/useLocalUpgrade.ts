@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getAccountMode, linkToCloud, setMasterPassword, signInToCloud } from "@/services/account";
-import type { EnrollmentCredential, EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
+import { getAccountMode, linkToCloud, setMasterPassword, signInToCloud, type SignupCredential } from "@/services/account";
+import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
 import { leaveLanGroup, startSessionSync } from "@/services/lanSync";
 import { syncOnLogin, syncOnLoginReplace } from "@/services/sync";
 import { afterSecondFactor } from "@/services/twoFactorProof";
@@ -41,7 +41,7 @@ export function useLocalUpgrade(open: boolean) {
     await reloadSubscription().catch(() => {});
   };
 
-  const link = async (email: string, serverUrl: string, password: string, credential?: EnrollmentCredential): Promise<EnrollmentOutcome | null> => {
+  const link = async (email: string, serverUrl: string, password: string, credential?: SignupCredential): Promise<EnrollmentOutcome | null> => {
     if (passwordMode === "new") await setMasterPassword(password);
     const outcome = await linkToCloud(email, serverUrl, leaveLanGroup, passwordMode === "none" ? undefined : password, credential);
     await connected(syncOnLogin);

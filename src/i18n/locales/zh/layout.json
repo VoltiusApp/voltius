@@ -53,7 +53,21 @@
       "vaultSetAsideLocalSub": "在此设备上保留备份副本",
       "addAccountLater": "你可以稍后再创建账户，主机不会丢失。",
       "errorEmailRequired": "请输入邮箱",
-      "masterPasswordNote": "此密码用于加密你的数据，无法重置或找回，请妥善保管。"
+      "masterPasswordNote": "此密码用于加密你的数据，无法重置或找回，请妥善保管。",
+      "invitation": {
+        "toggle": "有邀请链接？",
+        "placeholder": "邀请链接",
+        "use": "使用",
+        "checking": "正在检查…",
+        "invalid": "这不是邀请链接。请粘贴邮件中的完整链接。",
+        "notFound": "{{server}} 上没有与此链接匹配的待处理邀请。请检查服务器地址，或请求新的邀请。",
+        "closedHint": "此服务器仅通过邀请创建账户。请粘贴邀请邮件中的链接。",
+        "joining": "加入 {{team}}",
+        "invitedBy": "{{inviter}} 邀请你担任 {{role}}",
+        "invitedAs": "受邀担任 {{role}}",
+        "remove": "移除邀请",
+        "createAndJoin": "创建账户并加入"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "创建云账户",

@@ -240,7 +240,10 @@
       "teamPolicyConflict": "Quelqu'un d'autre a modifié la règle d'équipe. Vérifiez-la et importez à nouveau.",
       "teamPolicyRefused": "Le serveur a refusé cette règle : {{reason}}",
       "failedToLoadTeamPolicy": "Échec du chargement de la règle d'équipe : {{status}}",
-      "failedToSaveTeamPolicy": "Échec de l'enregistrement de la règle d'équipe : {{status}}"
+      "failedToSaveTeamPolicy": "Échec de l'enregistrement de la règle d'équipe : {{status}}",
+      "invitationLookupFailed": "Impossible de vérifier cette invitation (HTTP {{status}}).",
+      "invitationNotFound": "Cette invitation a expiré ou a déjà été utilisée. Demandez-en une nouvelle.",
+      "invitationEmailMismatch": "Cette invitation a été envoyée à une autre adresse e-mail."
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",

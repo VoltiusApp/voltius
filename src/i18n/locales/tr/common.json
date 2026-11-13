@@ -240,7 +240,10 @@
       "teamPolicyConflict": "Ekip politikasını başka biri değiştirdi. Gözden geçirip yeniden içe aktarın.",
       "teamPolicyRefused": "Sunucu bu politikayı reddetti: {{reason}}",
       "failedToLoadTeamPolicy": "Ekip politikası yüklenemedi: {{status}}",
-      "failedToSaveTeamPolicy": "Ekip politikası kaydedilemedi: {{status}}"
+      "failedToSaveTeamPolicy": "Ekip politikası kaydedilemedi: {{status}}",
+      "invitationLookupFailed": "Bu davet denetlenemedi (HTTP {{status}}).",
+      "invitationNotFound": "Bu davetin süresi doldu ya da zaten kullanıldı. Yeni bir davet isteyin.",
+      "invitationEmailMismatch": "Bu davet başka bir e-posta adresine gönderildi."
     },
     "clipboard": {
       "cut_one": "{{count}} öğe kesildi",

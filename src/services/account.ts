@@ -24,6 +24,7 @@ import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
 import { joinRefusal, toEnrollmentOutcome, type EnrollmentCredential, type EnrollmentOutcome } from "./enrollment/enrollmentPublic";
 import { enrollmentErrorFrom } from "./enrollment/enrollmentApi";
+import { invitationRefusal, RegistrationClosedError } from "./teamInvitation";
 import { adoptSessionTokens, authDevice, refreshAccessToken } from "./authTokens";
 import { fetchAuth } from "./authFetch";
 export { adoptSessionTokens } from "./authTokens";
@@ -69,6 +70,12 @@ async function unwrapUserSecrets(kek: number[], wrappedB64: string): Promise<Unw
   return invoke<UnwrappedUserSecrets>("unwrap_user_secrets_cmd", { kek, wrappedB64 });
 }
 
+/** What lets a registration through besides open sign-up: an enrolment token or an emailed invitation. */
+export interface SignupCredential {
+  enrollment?: EnrollmentCredential;
+  invitation?: string;
+}
+
 async function registerOnServer(args: {
   serverUrl: string;
   email: string;
@@ -76,7 +83,7 @@ async function registerOnServer(args: {
   authKey: string;
   publicKey: string;
   wrappedUserSecrets: string;
-  enrollment?: EnrollmentCredential;
+  credential: SignupCredential;
 }): Promise<{ jwt_token: string; refresh_token: string; enrollment?: EnrollmentOutcome }> {
   const [machine_fingerprint, device] = await Promise.all([
     invoke<string | null>("get_machine_fingerprint").catch(() => null),
@@ -94,7 +101,8 @@ async function registerOnServer(args: {
       wrapped_user_secrets: args.wrappedUserSecrets,
       machine_fingerprint,
       device,
-      ...(args.enrollment && { enrollment: args.enrollment }),
+      ...(args.credential.enrollment && { enrollment: args.credential.enrollment }),
+      ...(args.credential.invitation && { invitation: args.credential.invitation }),
     }),
   });
 
@@ -102,8 +110,12 @@ async function registerOnServer(args: {
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     const failed = { status: res.status, headers: res.headers, json: async () => body };
-    const refused = args.enrollment ? await enrollmentErrorFrom(failed) : null;
+    const refused = args.credential.enrollment ? await enrollmentErrorFrom(failed) : null;
     if (joinRefusal(refused)) throw refused;
+    const code = (body as { error?: unknown } | null)?.error;
+    const invitationError = invitationRefusal(code);
+    if (invitationError) throw invitationError;
+    if (code === "REGISTRATION_DISABLED") throw new RegistrationClosedError(i18n.t("common.error.registrationDisabled"));
     throw (await featureDisabledError(failed)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
   }
   const data = await res.json();
@@ -354,7 +366,7 @@ export async function createLocalAccount(password: string): Promise<void> {
   await keychainSet("mode", "local");
 }
 
-async function registerServerAccount(email: string, password: string, serverUrl: string, enrollment?: EnrollmentCredential) {
+async function registerServerAccount(email: string, password: string, serverUrl: string, credential: SignupCredential) {
   const accountId = crypto.randomUUID();
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
@@ -365,7 +377,7 @@ async function registerServerAccount(email: string, password: string, serverUrl:
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets, enrollment,
+    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets, credential,
   });
   return { accountId, kek: enc_key, secrets, wrapped_user_secrets, data };
 }
@@ -375,11 +387,11 @@ export async function createServerAccount(
   email: string,
   password: string,
   serverUrl: string,
-  enrollment?: EnrollmentCredential,
+  credential: SignupCredential = {},
 ): Promise<EnrollmentOutcome | null> {
   serverUrl = normalizeServerUrl(serverUrl);
   const { accountId, kek, secrets, wrapped_user_secrets, data } =
-    await registerServerAccount(email, password, serverUrl, enrollment);
+    await registerServerAccount(email, password, serverUrl, credential);
 
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
   setVaultKey(secrets.dek);
@@ -831,7 +843,7 @@ export async function authenticateServerAccount(
   email: string,
   password: string,
   serverUrl: string,
-  enrollment?: EnrollmentCredential,
+  credential: SignupCredential = {},
 ): Promise<{ account: Omit<SavedAccount, "mode">; enrollment: EnrollmentOutcome | null }> {
   serverUrl = normalizeServerUrl(serverUrl);
   const saved = (accountId: string, data: { jwt_token: string; refresh_token: string }, wrapped: string | null) => {
@@ -847,7 +859,7 @@ export async function authenticateServerAccount(
     };
   };
   if (kind === "register") {
-    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl, enrollment);
+    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl, credential);
     return { account: saved(accountId, data, wrapped_user_secrets), enrollment: data.enrollment ?? null };
   }
   return signInServerAccount(email, password, serverUrl, async ({ accountId, data }) => ({
@@ -862,7 +874,7 @@ export async function linkToCloud(
   serverUrl: string,
   beforeKeyChange?: BeforeKeyChange,
   typedPassword?: string,
-  enrollment?: EnrollmentCredential,
+  credential: SignupCredential = {},
 ): Promise<EnrollmentOutcome | null> {
   serverUrl = normalizeServerUrl(serverUrl);
   const accountId = await keychainGet("account_id");
@@ -886,7 +898,7 @@ export async function linkToCloud(
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets, enrollment,
+    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets, credential,
   });
   await runBeforeKeyChange(beforeKeyChange);
 
