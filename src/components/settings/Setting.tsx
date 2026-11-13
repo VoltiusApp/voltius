@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { SettingRow } from "@/components/settings/sections/shared";
+import { DirtyDot, ResetButton, SettingRow } from "@/components/settings/sections/shared";
 import { useIsAndroid, useIsMobile } from "@/utils/platform";
 import { RangeNote } from "@/components/shared/ManagedNote";
 import { usePolicyRange } from "@/stores/policyStore";
@@ -93,5 +93,18 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
       {undo && <UndoButton onUndo={undo.onUndo} />}
       <SettingControl state={state} label={title} />
     </SettingRow>
+  );
+}
+
+/** Adds the changed dot and reset next to a bespoke label; renders the label untouched at default. */
+export function SettingMark({ id, children }: { id: string; children: ReactNode }) {
+  const state = useSettingState(id);
+  if (!state.dirty || state.locked) return <>{children}</>;
+  return (
+    <span className="group inline-flex items-center gap-1.5">
+      {children}
+      <DirtyDot />
+      {state.canReset && <ResetButton onReset={state.reset} />}
+    </span>
   );
 }

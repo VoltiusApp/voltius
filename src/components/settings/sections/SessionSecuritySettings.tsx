@@ -8,6 +8,8 @@ import { useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { canLockApp, canLockVault } from "@/utils/accountMode";
 import { useIsMobile, usePlatform } from "@/utils/platform";
 import { SETTINGS_SURFACE, SettingRow } from "./shared";
+import { SettingMark } from "@/components/settings/Setting";
+import { useSettingState } from "@/components/settings/registry/useSettingState";
 import { IMMEDIATELY, sessionTimeoutLabel, sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import { useEffectiveLockSettings } from "@/hooks/useEffectiveLockSettings";
 import { ManagedNote, ManagedWhen, RangeNote } from "@/components/shared/ManagedNote";
@@ -22,6 +24,8 @@ import { keepsPlainPassword } from "@/services/vaultSecret";
 import { BindPasswordDialog } from "./BindPasswordDialog";
 
 export function SessionSecuritySettings({ mode }: { mode: string | null }) {
+  const timeoutState = useSettingState("security.sessionTimeoutMinutes");
+  const actionState = useSettingState("security.lockAction");
   const { t } = useTranslation();
   const platform = usePlatform();
   const isMobile = useIsMobile();
@@ -126,12 +130,12 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
           );
           // Android: an M3 row with the value trailing (the picker opens as a sheet).
           return isMobile ? (
-            <SettingRow title={t("settings.account.sessionSecurity.autoLockLabel")} desc={t("settings.account.sessionSecurity.autoLockDesc")} dimmed={!lockable}>
+            <SettingRow title={t("settings.account.sessionSecurity.autoLockLabel")} desc={t("settings.account.sessionSecurity.autoLockDesc")} dimmed={!lockable} dirty={timeoutState.dirty} onReset={timeoutState.canReset ? timeoutState.reset : undefined}>
               {select}
             </SettingRow>
           ) : (
             <>
-              <p className="text-xs text-(--t-text-dim)">{t("settings.account.sessionSecurity.autoLockLabel")}</p>
+              <p className="text-xs text-(--t-text-dim)"><SettingMark id="security.sessionTimeoutMinutes">{t("settings.account.sessionSecurity.autoLockLabel")}</SettingMark></p>
               {select}
               <p className="text-xs text-(--t-text-dim)">{t("settings.account.sessionSecurity.autoLockDesc")}</p>
             </>
@@ -157,12 +161,12 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
             ? "settings.account.sessionSecurity.lockAction.screenDesc"
             : "settings.account.sessionSecurity.lockAction.vaultDesc");
           return isMobile ? (
-            <SettingRow title={t("settings.account.sessionSecurity.lockAction.label")} desc={desc} dimmed={!lockable}>
+            <SettingRow title={t("settings.account.sessionSecurity.lockAction.label")} desc={desc} dimmed={!lockable} dirty={actionState.dirty} onReset={actionState.canReset ? actionState.reset : undefined}>
               {select}
             </SettingRow>
           ) : (
             <>
-              <p className="text-xs text-(--t-text-dim)">{t("settings.account.sessionSecurity.lockAction.label")}</p>
+              <p className="text-xs text-(--t-text-dim)"><SettingMark id="security.lockAction">{t("settings.account.sessionSecurity.lockAction.label")}</SettingMark></p>
               {select}
               <p className="text-xs text-(--t-text-dim)">{desc}</p>
             </>
@@ -193,7 +197,7 @@ export function SessionSecuritySettings({ mode }: { mode: string | null }) {
 
       <div data-setting-row className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.sessionSecurity.systemAuth.toggle")}</p>
+          <p className="text-sm font-medium text-(--t-text-primary)"><SettingMark id="security.systemAuthUnlock">{t("settings.account.sessionSecurity.systemAuth.toggle")}</SettingMark></p>
           <p className="text-xs mt-0.5 text-(--t-text-dim)">
             {providerAvailable
               ? t("settings.account.sessionSecurity.systemAuth.desc", { method: t(systemAuthMethodKey(platform)) })

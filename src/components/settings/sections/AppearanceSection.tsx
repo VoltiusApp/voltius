@@ -14,18 +14,14 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import TerminalFontSizeSection from "./TerminalFontSizeSection";
-import {
-  localeSetting, timeFormatSetting, useLocaleStore, SUPPORTED_LOCALES, TIME_FORMATS, type Locale, type TimeFormat,
-} from "@/stores/localeStore";
-import { ManagedWhen, useRangeSelect } from "@/components/shared/ManagedNote";
+import { ManagedWhen } from "@/components/shared/ManagedNote";
+import { Setting, SettingMark } from "@/components/settings/Setting";
+import { useSettingState } from "@/components/settings/registry/useSettingState";
 import { useLocationFields } from "@/hooks/useLocationFields";
-import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
-import { Toggle } from "@/components/shared/Toggle";
 import { SETTINGS_SURFACE, SettingRow, SyncKeyButton } from "./shared";
 import { saveTextFile } from "@/services/saveFile";
 import { formatTime, HOUR_MINUTE } from "@/utils/localeFormat";
 import { useIsMobile } from "@/utils/platform";
-import { MOBILE_HIDDEN_TOGGLES } from "@/components/settings/settingsMobileCore";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
@@ -37,8 +33,6 @@ function exportTheme(theme: AppTheme) {
   );
 }
 
-const LOCALE_VALUES = SUPPORTED_LOCALES.map((l) => l.value);
-const localeLabel = (v: Locale) => SUPPORTED_LOCALES.find((l) => l.value === v)?.label ?? v;
 
 export default function AppearanceSection() {
   const {
@@ -47,17 +41,12 @@ export default function AppearanceSection() {
     scheduleLightStart, scheduleDarkStart, setSchedule,
   } = useThemeStore();
   const loc = useLocationFields();
+  const modeState = useSettingState("theme.mode");
+  const lightState = useSettingState("theme.lightThemeId");
+  const darkState = useSettingState("theme.darkThemeId");
   const { openThemeCreator, openThemeImportExport } = useUIStore();
 
   const { t } = useTranslation();
-  const locale = localeSetting.use();
-  const setLocale = useLocaleStore((s) => s.setLocale);
-  const localeSelect = useRangeSelect(localeSetting.key, LOCALE_VALUES, localeLabel);
-  const timeFormat = timeFormatSetting.use();
-  const setTimeFormat = useLocaleStore((s) => s.setTimeFormat);
-  const timeFormatSelect = useRangeSelect(timeFormatSetting.key, TIME_FORMATS, (v: TimeFormat) =>
-    t(`settings.appearance.timeFormat.${v}`));
-  const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
   const isMobile = useIsMobile();
   // Android: a custom theme's export / edit / delete live in a sheet (no hover there).
   const [themeMenu, setThemeMenu] = useState<AppTheme | null>(null);
@@ -79,40 +68,9 @@ export default function AppearanceSection() {
         <div className="mt-4">
           <TerminalFontSizeSection />
         </div>
-        <SettingRow variant="card" className="mt-4" syncKey={localeSetting.key} title={t("settings.appearance.language.title")} note={localeSelect.note}>
-          <FormSelect
-            className="w-44 shrink-0"
-            value={locale}
-            options={localeSelect.options}
-            onChange={(value) => setLocale(value as Locale)}
-          />
-        </SettingRow>
-        <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey={timeFormatSetting.key}
-          title={t("settings.appearance.timeFormat.title")}
-          desc={t("settings.appearance.timeFormat.desc")}
-          note={timeFormatSelect.note}
-        >
-          <FormSelect
-            className="w-44 shrink-0"
-            value={timeFormat}
-            options={timeFormatSelect.options}
-            onChange={(value) => setTimeFormat(value as TimeFormat)}
-          />
-        </SettingRow>
-        {!(isMobile && MOBILE_HIDDEN_TOGGLES.has("group-tabs-by-host")) && <SettingRow
-          variant="card"
-          className="mt-4"
-          syncKey="appSettings.toggles.group-tabs-by-host"
-          title={t("settings.appearance.groupTabsByHost.title")}
-          desc={t("settings.appearance.groupTabsByHost.desc")}
-          dirty={groupTabsByHost !== TOGGLE_DEFS["group-tabs-by-host"].default}
-          onReset={() => setGroupTabsByHost(TOGGLE_DEFS["group-tabs-by-host"].default)}
-        >
-          <Toggle checked={groupTabsByHost} onChange={setGroupTabsByHost} />
-        </SettingRow>}
+        <Setting id="locale.language" variant="card" className="mt-4" />
+        <Setting id="locale.timeFormat" variant="card" className="mt-4" />
+        <Setting id="toggles.group-tabs-by-host" variant="card" className="mt-4" />
       </div>
 
       {(() => {
@@ -136,30 +94,30 @@ export default function AppearanceSection() {
               {isMobile ? (
                 // M3 rows, the value trailing; each opens its picker sheet.
                 <>
-                  <SettingRow title={t("settings.appearance.automation.mode")}>
+                  <SettingRow title={t("settings.appearance.automation.mode")} dirty={modeState.dirty} onReset={modeState.canReset ? modeState.reset : undefined}>
                     <FormSelect value={mode} options={modeOptions} onChange={(v) => setMode(v as ThemeMode)} />
                   </SettingRow>
-                  <SettingRow title={t("settings.appearance.automation.lightTheme")}>
+                  <SettingRow title={t("settings.appearance.automation.lightTheme")} dirty={lightState.dirty} onReset={lightState.canReset ? lightState.reset : undefined}>
                     <FormSelect value={lightThemeId} options={themeOptions} onChange={setLightThemeId} />
                   </SettingRow>
-                  <SettingRow title={t("settings.appearance.automation.darkTheme")}>
+                  <SettingRow title={t("settings.appearance.automation.darkTheme")} dirty={darkState.dirty} onReset={darkState.canReset ? darkState.reset : undefined}>
                     <FormSelect value={darkThemeId} options={themeOptions} onChange={setDarkThemeId} />
                   </SettingRow>
                 </>
               ) : (<>
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
-                  {t("settings.appearance.automation.lightTheme")}
+                  <SettingMark id="theme.lightThemeId">{t("settings.appearance.automation.lightTheme")}</SettingMark>
                   <FormSelect value={lightThemeId} options={themeOptions} onChange={setLightThemeId} />
                 </label>
                 <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
-                  {t("settings.appearance.automation.darkTheme")}
+                  <SettingMark id="theme.darkThemeId">{t("settings.appearance.automation.darkTheme")}</SettingMark>
                   <FormSelect value={darkThemeId} options={themeOptions} onChange={setDarkThemeId} />
                 </label>
               </div>
 
               <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
-                {t("settings.appearance.automation.mode")}
+                <SettingMark id="theme.mode">{t("settings.appearance.automation.mode")}</SettingMark>
                 <FormSelect value={mode} options={modeOptions} onChange={(v) => setMode(v as ThemeMode)} />
               </label>
               </>)}
@@ -167,11 +125,11 @@ export default function AppearanceSection() {
               {mode === "schedule" && (
                 <div className="flex items-center gap-4">
                   <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
-                    {t("settings.appearance.automation.lightStarts")}
+                    <SettingMark id="theme.scheduleLightStart">{t("settings.appearance.automation.lightStarts")}</SettingMark>
                     <input type="time" value={scheduleLightStart} onChange={(e) => setSchedule(e.target.value, scheduleDarkStart)} className="px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
-                    {t("settings.appearance.automation.darkStarts")}
+                    <SettingMark id="theme.scheduleDarkStart">{t("settings.appearance.automation.darkStarts")}</SettingMark>
                     <input type="time" value={scheduleDarkStart} onChange={(e) => setSchedule(scheduleLightStart, e.target.value)} className="px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
                   </label>
                 </div>
@@ -206,7 +164,7 @@ export default function AppearanceSection() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-            {t("settings.appearance.colorTheme")}
+            <SettingMark id="theme.activeThemeId">{t("settings.appearance.colorTheme")}</SettingMark>
           </h3>
           <div className="flex gap-1">
             <button

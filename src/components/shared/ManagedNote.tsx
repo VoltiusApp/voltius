@@ -16,7 +16,7 @@ export function ManagedNote({ className = "", teams, children }: { className?: s
 
 type Format = (v: unknown) => string;
 
-function useRangeText(range: PolicyRange | undefined, format: Format = String, unit = ""): string | undefined {
+export function useRangeText(range: PolicyRange | undefined, format: Format = String, unit = ""): string | undefined {
   const { t } = useTranslation();
   if (!range) return undefined;
   const show = (v: unknown) => `${format(v)}${unit}`;

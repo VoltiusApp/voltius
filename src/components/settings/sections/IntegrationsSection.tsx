@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -14,6 +14,7 @@ import { contributionsByPlugin, onContributionsChanged } from "@/mcp/contributio
 import { useMcpContributionStore, setPluginExposed } from "@/stores/mcpContributionStore";
 import { getLoadedPlugins } from "@/plugins/runtime";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { useSettingState } from "@/components/settings/registry/useSettingState";
 
 /** The installed plugin's manifest name, falling back to its id: a contribution
  *  can outlive the plugin's load, and only the id is always available. */
@@ -100,6 +101,7 @@ const CLIENT_HELP_KEYS: Record<McpClientId, string> = {
 export default function IntegrationsSection() {
   const { t } = useTranslation();
   const [mcpServer, setMcpServer] = useToggle("mcp-server");
+  const mcpState = useSettingState("toggles.mcp-server");
   const mcpManaged = useRowManaged("appSettings.toggles.mcp-server");
   const [status, setStatus] = useState<{ enabled: boolean; exePath: string; socketPath: string } | null>(null);
   const [clientId, setClientId] = useState<McpClientId>("claude-code");
@@ -151,9 +153,9 @@ export default function IntegrationsSection() {
               <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.integrations.mcp.sub")}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {mcpServer !== TOGGLE_DEFS["mcp-server"].default && !mcpManaged.locked && (
+              {mcpState.dirty && !mcpManaged.locked && (
                 <>
-                  <ResetButton onReset={() => setMcpServer(TOGGLE_DEFS["mcp-server"].default)} />
+                  {mcpState.canReset && <ResetButton onReset={mcpState.reset} />}
                   <DirtyDot />
                 </>
               )}

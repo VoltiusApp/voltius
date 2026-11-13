@@ -6,6 +6,7 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { clampToRange, inPolicyRange, usePolicyRange } from "@/stores/policyStore";
 import { useUIStore } from "@/stores/uiStore";
 import { SETTINGS_ROW_BUTTON } from "@/components/settings/sections/shared";
+import { useRangeText } from "@/components/shared/ManagedNote";
 import type { SettingState } from "./registry/useSettingState";
 
 const STEP_BUTTON = "w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-input) text-(--t-text-muted) border border-(--t-border) disabled:opacity-40";
@@ -15,10 +16,15 @@ function SelectControl({ state, label }: { state: SettingState; label: string })
   const { t } = useTranslation();
   const control = state.def.control;
   const range = usePolicyRange(state.def.policyKey ?? "");
+  const all = control.kind === "select" ? control.options(t) : [];
+  const toOption = control.kind === "select" && control.toOption ? control.toOption : String;
+  const fromOption = control.kind === "select" && control.fromOption ? control.fromOption : (o: string) => o;
+  const rangeText = useRangeText(range, (v) => all.find((o) => o.value === toOption(v))?.label ?? String(v));
   if (control.kind !== "select") return null;
-  const toOption = control.toOption ?? String;
-  const fromOption = control.fromOption ?? ((o: string) => o);
-  const options = control.options(t).map((o) => ({ ...o, disabled: !inPolicyRange(range, fromOption(o.value)) }));
+  const options = all.map((o) => {
+    const disabled = !inPolicyRange(range, fromOption(o.value));
+    return { ...o, disabled, disabledTitle: disabled ? rangeText : undefined };
+  });
   return (
     <FormSelect
       className={`${control.width ?? "w-44"} shrink-0`}
@@ -84,7 +90,7 @@ function StepperControl({ state, label }: { state: SettingState; label: string }
       <span className="text-xs font-semibold px-2 py-1 rounded-md tabular-nums text-center min-w-14 bg-(--t-bg-input) text-(--t-text-secondary) border border-(--t-border)">
         {shown}{control.unit(t)}
       </span>
-      <button type="button" className={STEP_BUTTON} disabled={shown >= control.max} onClick={() => write(shown + control.step)} aria-label={t("settings.appearance.uiScale.zoomIn")}>
+      <button type="button" className={STEP_BUTTON} disabled={shown >= (control.max ?? Infinity)} onClick={() => write(shown + control.step)} aria-label={t("settings.appearance.uiScale.zoomIn")}>
         <Icon icon="lucide:plus" width={14} />
       </button>
     </div>

@@ -1,4 +1,5 @@
-import { TOGGLE_DEFS, getToggle, useToggle, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
+import { TOGGLE_DEFS, type ToggleId } from "@/stores/toggleDefs";
+import { getToggle, useToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES, useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import {

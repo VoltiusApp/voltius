@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useIsMobile } from "@/utils/platform";
-import { SETTINGS_SURFACE } from "./shared";
+import { DirtyDot, SETTINGS_SURFACE } from "./shared";
 
 export interface StepperCardProps {
   title: string;
@@ -130,7 +130,10 @@ export default function StepperCard({
     <div className={`${SETTINGS_SURFACE} px-4 py-3`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-(--t-text-primary)">{title}</p>
+          <p className="text-sm font-medium text-(--t-text-primary)">
+            {title}
+            {dirty && <span className="ml-2 inline-flex align-middle"><DirtyDot /></span>}
+          </p>
           <p className="text-xs mt-0.5 text-(--t-text-dim)">{desc}</p>
         </div>
         {editing ? (
