@@ -96,3 +96,11 @@ describe("highlightRanges", () => {
     expect(highlightRanges("cursor", "cur urs zzz")).toEqual([[0, 4]]);
   });
 });
+
+describe("section keywords", () => {
+  test("a section's keywords do not make every setting in it match", () => {
+    const hits = keys(searchSettings("scrollback", everywhere));
+    expect(hits).toContain("terminal.scrollbackLines");
+    expect(hits).not.toContain("terminal.cursorStyle");
+  });
+});

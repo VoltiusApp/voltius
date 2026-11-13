@@ -21,6 +21,8 @@ export type RightPanelSection = BuiltinRightPanelSection | (string & {});
 export const SETTINGS_SECTIONS = ["appearance", "account", "sync", "plugins", "integrations", "terminal", "sftp", "portForwarding", "hosts", "devices", "shortcuts", "diagnostics", "about"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
+const NO_SETTINGS_FILTER = { settingsQuery: "", settingsChangedOnly: false };
+
 export function isSettingsSection(value: string): value is SettingsSection {
   return (SETTINGS_SECTIONS as readonly string[]).includes(value);
 }
@@ -123,6 +125,8 @@ interface UIStore {
   /** Mobile drill-down page: null = section list, otherwise the open section. */
   settingsSubPage: SettingsSection | null;
   settingsPluginPageId: string | null;
+  settingsQuery: string;
+  settingsChangedOnly: boolean;
   /** Browse-tab search / tag a caller asked for; the Plugins section consumes it. */
   pluginBrowseRequest: PluginBrowseRequest | null;
   /** Whether the Plugins nav group is expanded. Persisted; a selected child force-expands regardless. */
@@ -185,7 +189,9 @@ interface UIStore {
   setPluginsNavExpanded: (expanded: boolean) => void;
   /** Select a plugin settings page as the current settings target (both shells). */
   selectPluginPage: (pageId: string) => void;
-  openSettings: (section?: SettingsSection, pluginPageId?: string) => void;
+  openSettings: (section?: SettingsSection, pluginPageId?: string, opts?: { query?: string }) => void;
+  setSettingsQuery: (query: string) => void;
+  setSettingsChangedOnly: (on: boolean) => void;
   setPluginBrowseRequest: (request: PluginBrowseRequest | null) => void;
   setRightPanelOpen: (open: boolean) => void;
   setRightPanelSection: (section: RightPanelSection) => void;
@@ -260,6 +266,8 @@ export const useUIStore = create<UIStore>()(
         cloudAuthMode: "signin" as CloudAuthMode,
         cloudAuthPurpose: "link" as CloudAuthPurpose,
         settingsSection: "appearance" as SettingsSection,
+        settingsQuery: "",
+        settingsChangedOnly: false,
         settingsSubPage: null as SettingsSection | null,
         settingsPluginPageId: null as string | null,
         pluginBrowseRequest: null as PluginBrowseRequest | null,
@@ -313,7 +321,7 @@ export const useUIStore = create<UIStore>()(
         setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
         toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
         setDockedPanelWidth: (width) => set({ dockedPanelWidth: width }),
-        setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
+        setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null, ...(open ? {} : NO_SETTINGS_FILTER) })),
         setNotificationCenterOpen: (open) => set((s) => ({ notificationCenterOpen: open, notificationFocusId: open ? s.notificationFocusId : null })),
         openNotificationCenter: (focusId) => set({ notificationCenterOpen: true, notificationFocusId: focusId ?? null }),
         clearNotificationFocus: () => set({ notificationFocusId: null }),
@@ -324,14 +332,16 @@ export const useUIStore = create<UIStore>()(
         setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
         // Selecting a builtin section must drop any plugin target, or
         // `settingsPluginPageId ?? settingsSection` would keep showing the plugin pane.
-        setSettingsSection: (section) => set({ settingsSection: section, settingsPluginPageId: null }),
-        setSettingsSubPage: (section) => set({ settingsSubPage: section, settingsPluginPageId: null }),
+        setSettingsSection: (section) => set({ settingsSection: section, settingsPluginPageId: null, ...NO_SETTINGS_FILTER }),
+        setSettingsSubPage: (section) => set({ settingsSubPage: section, settingsPluginPageId: null, ...NO_SETTINGS_FILTER }),
+        setSettingsQuery: (query) => set({ settingsQuery: query }),
+        setSettingsChangedOnly: (on) => set({ settingsChangedOnly: on }),
         setSettingsPluginPageId: (id) => set({ settingsPluginPageId: id }),
         setPluginsNavExpanded: (expanded) => set({ pluginsNavExpanded: expanded }),
         selectPluginPage: (pageId) =>
-          set({ settingsSection: "plugins", settingsSubPage: "plugins", settingsPluginPageId: pageId }),
+          set({ settingsSection: "plugins", settingsSubPage: "plugins", settingsPluginPageId: pageId, ...NO_SETTINGS_FILTER }),
         // section given = deep-link → mobile drills straight in; no section = plain open → mobile lands on the list.
-        openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null })),
+        openSettings: (section, pluginPageId, opts) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null, settingsQuery: opts?.query ?? "", settingsChangedOnly: false })),
         setPluginBrowseRequest: (request) => set({ pluginBrowseRequest: request }),
         setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
         setRightPanelSection: (section) => set({ rightPanelSection: section }),

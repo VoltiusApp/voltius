@@ -56,7 +56,7 @@ export function UndoButton({ onUndo }: { onUndo: () => void }) {
   );
 }
 
-export function Setting({ id, variant, className, note, desc, highlight, resetAlwaysVisible, undo }: {
+export function Setting({ id, variant, className, note, desc, highlight, resetAlwaysVisible, undo, beforeReset }: {
   id: string;
   variant?: "list" | "card";
   className?: string;
@@ -66,6 +66,7 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
   highlight?: string;
   resetAlwaysVisible?: boolean;
   undo?: { onUndo(): void };
+  beforeReset?(previous: unknown): void;
 }) {
   const { t } = useTranslation();
   const state = useSettingState(id);
@@ -87,7 +88,7 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
       syncKey={def.syncKey}
       policyKey={def.policyKey}
       dirty={state.dirty && !undo}
-      onReset={state.canReset ? state.reset : undefined}
+      onReset={state.canReset ? () => { beforeReset?.(state.value); state.reset(); } : undefined}
       resetAlwaysVisible={resetAlwaysVisible}
     >
       {undo && <UndoButton onUndo={undo.onUndo} />}

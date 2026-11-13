@@ -32,8 +32,7 @@ function matchesAll(tokens: string[], haystack: string): boolean {
 
 function sectionWords(section: SettingsSection): string[] {
   const en = i18n.getFixedT("en");
-  const keywords = i18n.t(`settings.nav.${section}.keywords`, { returnObjects: true, defaultValue: [] });
-  return [i18n.t(`settings.nav.${section}.label`), en(`settings.nav.${section}.label`), ...(Array.isArray(keywords) ? keywords : [])];
+  return [i18n.t(`settings.nav.${section}.label`), en(`settings.nav.${section}.label`)];
 }
 
 function texts(keys: (string | undefined)[]): string[] {

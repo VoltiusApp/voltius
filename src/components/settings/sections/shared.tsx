@@ -24,7 +24,7 @@ const InSettingsGroup = createContext(false);
 
 /** A titled block of settings rows: the uppercase heading plus the row container. */
 export function SettingsGroup({ title, divided, className, children }: {
-  title: string;
+  title: ReactNode;
   /** Draw separators between rows. */
   divided?: boolean;
   className?: string;
