@@ -14,6 +14,7 @@ import { usePolicyLock } from "@/stores/policyStore";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { Input, MasterPasswordNote, emailError, newPasswordProblem } from "./authParts";
 import { useLocalUpgrade } from "./useLocalUpgrade";
+import { InvitationEntry, useInvitationSignup } from "./InvitationEntry";
 
 const AUTH_INPUT_CLASS =
   "w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)";
@@ -35,6 +36,7 @@ export default function CloudAuthModal() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [serverUrl, setServerUrl] = useState(startingServerUrl);
+  const invite = useInvitationSignup(serverUrl);
   const serverLocked = usePolicyLock("server.url").locked;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,6 +55,7 @@ export default function CloudAuthModal() {
   // Adding creates an account from nothing, so it needs a password of its own.
   const needsNewPassword = isRegister && (isAdd || upgrade.passwordMode === "new");
   const needsCurrentPassword = isRegister && !isAdd && upgrade.passwordMode === "current";
+  const { value: accountEmail, locked: emailLocked } = invite.email(email, isRegister);
 
   const switchMode = (next: CloudAuthMode) => {
     setMode(next);
@@ -63,7 +66,7 @@ export default function CloudAuthModal() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const invalidEmail = emailError(email, t);
+    const invalidEmail = emailError(accountEmail, t);
     if (invalidEmail) { setError(invalidEmail); return; }
     const normalizedUrl = resolveServerUrl(serverUrl);
 
@@ -86,14 +89,15 @@ export default function CloudAuthModal() {
       } else if (isAdd) {
         // Nothing of the current session is touched until the server accepts these.
         await twoFactor.run(
-          () => authenticateServerAccount(isRegister ? "register" : "signin", email, password, normalizedUrl),
+          invite.askOnClosed(() =>
+            authenticateServerAccount(isRegister ? "register" : "signin", accountEmail, password, normalizedUrl, invite.credential)),
           async ({ account }) => {
             await addAccount(account);
             onClose();
           },
         );
       } else if (isRegister) {
-        await upgrade.link(email, normalizedUrl, password);
+        await invite.askOnClosed(() => upgrade.link(accountEmail, normalizedUrl, password, invite.credential))();
         finished();
       } else {
         await twoFactor.run(() => upgrade.signIn(email, normalizedUrl, password), finished);
@@ -159,8 +163,8 @@ export default function CloudAuthModal() {
         </div>}
 
         <form onSubmit={submit} className="space-y-2">
-          <AuthInput type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail}
-            autoFocus={!isReauth} disabled={isReauth} />
+          <AuthInput type="email" placeholder={t("layout.auth.emailPlaceholder")} value={accountEmail} onChange={setEmail}
+            autoFocus={!isReauth} disabled={isReauth || emailLocked} />
           {(!isRegister || needsCurrentPassword) && (
             <AuthInput type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password} onChange={setPassword}
               autoFocus={isReauth} />
@@ -174,6 +178,7 @@ export default function CloudAuthModal() {
           )}
 
           {!isReauth && <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={AUTH_INPUT_CLASS} locked={serverLocked} />}
+          {isRegister && <InvitationEntry state={invite.entry} inputClassName={AUTH_INPUT_CLASS} />}
 
           {error && <p role="alert" className="text-xs px-1 text-(--t-status-error)">{error}</p>}
 
@@ -182,7 +187,9 @@ export default function CloudAuthModal() {
             disabled={loading}
             className="btn btn-primary w-full py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
-            {loading ? t("layout.cloudAuthModal.pleaseWait") : isRegister ? t("layout.auth.createAccount") : t("layout.auth.signIn")}
+            {loading
+              ? t("layout.cloudAuthModal.pleaseWait")
+              : isRegister ? invite.createLabel : t("layout.auth.signIn")}
           </button>
           <button
             type="button"

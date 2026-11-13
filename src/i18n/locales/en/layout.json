@@ -53,7 +53,21 @@
       "vaultSetAsideLocalSub": "Keeps a backup copy on this device",
       "addAccountLater": "You can create an account later and keep your hosts.",
       "errorEmailRequired": "Enter your email",
-      "masterPasswordNote": "This password encrypts your data. It can't be reset or recovered, so keep it somewhere safe."
+      "masterPasswordNote": "This password encrypts your data. It can't be reset or recovered, so keep it somewhere safe.",
+      "invitation": {
+        "toggle": "Have an invitation link?",
+        "placeholder": "Invitation link",
+        "use": "Use",
+        "checking": "Checking…",
+        "invalid": "That is not an invitation link. Paste the whole link from the email.",
+        "notFound": "No pending invitation on {{server}} matches this link. Check the server address, or ask for a new invitation.",
+        "closedHint": "This server only creates accounts by invitation. Paste the link from your invitation email.",
+        "joining": "Join {{team}}",
+        "invitedBy": "{{inviter}} invited you as {{role}}",
+        "invitedAs": "Invited as {{role}}",
+        "remove": "Remove invitation",
+        "createAndJoin": "Create account and join"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Create cloud account",

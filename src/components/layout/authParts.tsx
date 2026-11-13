@@ -119,6 +119,22 @@ export function FormNote({ icon, children }: { icon: string; children: React.Rea
   );
 }
 
+export function DisclosureToggle({ open, onToggle, label, align = "center" }: {
+  open: boolean; onToggle: () => void; label: string; align?: "center" | "start";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className={`focus-ring flex items-center gap-1 w-full text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) ${align === "center" ? "justify-center" : "text-left"}`}
+    >
+      <Icon icon={open ? "lucide:chevron-down" : "lucide:chevron-right"} width={12} />
+      {label}
+    </button>
+  );
+}
+
 export function MasterPasswordNote() {
   const { t } = useTranslation();
   return <FormNote icon="lucide:key-round">{t("layout.auth.masterPasswordNote")}</FormNote>;

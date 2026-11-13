@@ -56,14 +56,14 @@ function EnrollModalBody({ target }: { target: EnrollTarget }) {
   const local = isNoAccountMode(upgrade.accountMode);
 
   const localAuth = activeAccountAuth({
-    create: ({ email, password, token }) => upgrade.link(email, token.serverUrl, password, enrollmentCredential(token)),
+    create: ({ email, password, token }) => upgrade.link(email, token.serverUrl, password, { enrollment: enrollmentCredential(token) }),
     signIn: ({ email, password, token }) => upgrade.signIn(email, token.serverUrl, password),
   });
 
   // The company account stays off this device until it has joined; the active one is untouched.
   const otherAccountAuth: EnrollAuth = ({ mode, email, password, token }) =>
     enrollAuthStep(
-      () => authenticateServerAccount(mode === "signup" ? "register" : "signin", email, password, token.serverUrl, enrollmentCredential(token)),
+      () => authenticateServerAccount(mode === "signup" ? "register" : "signin", email, password, token.serverUrl, { enrollment: enrollmentCredential(token) }),
       async ({ account, enrollment }) => {
         signedIn.current = account;
         return { outcome: enrollment, session: sessionOf(account), accountId: account.account_id ?? "" };

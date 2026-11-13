@@ -53,7 +53,21 @@
       "vaultSetAsideLocalSub": "Ponechá záložní kopii na tomto zařízení",
       "addAccountLater": "Účet si můžete vytvořit později a hosty vám zůstanou.",
       "errorEmailRequired": "Zadejte svůj e-mail",
-      "masterPasswordNote": "Toto heslo šifruje vaše data. Nelze ho resetovat ani obnovit, proto si ho bezpečně uložte."
+      "masterPasswordNote": "Toto heslo šifruje vaše data. Nelze ho resetovat ani obnovit, proto si ho bezpečně uložte.",
+      "invitation": {
+        "toggle": "Máte odkaz s pozvánkou?",
+        "placeholder": "Odkaz s pozvánkou",
+        "use": "Použít",
+        "checking": "Ověřuji…",
+        "invalid": "Toto není odkaz s pozvánkou. Vložte celý odkaz z e-mailu.",
+        "notFound": "Na {{server}} neexistuje žádná čekající pozvánka pro tento odkaz. Zkontrolujte adresu serveru nebo požádejte o novou pozvánku.",
+        "closedHint": "Tento server zakládá účty jen na pozvánku. Vložte odkaz z e-mailu s pozvánkou.",
+        "joining": "Připojit se k {{team}}",
+        "invitedBy": "{{inviter}} vás pozval(a) jako {{role}}",
+        "invitedAs": "Pozvánka s rolí {{role}}",
+        "remove": "Odebrat pozvánku",
+        "createAndJoin": "Vytvořit účet a připojit se"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Vytvořit cloudový účet",

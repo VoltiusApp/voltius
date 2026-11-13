@@ -25,6 +25,7 @@ import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBindi
 import { EnrollForm } from "@/components/enrollment/EnrollForm";
 import { EnrollOutcome } from "@/components/enrollment/EnrollOutcome";
 import { EnrollTokenEntry } from "@/components/enrollment/EnrollTokenEntry";
+import { InvitationEntry, useInvitationSignup } from "./InvitationEntry";
 import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
 import type { EnrollTarget } from "@/stores/uiStore";
 import { machineEnrollmentToken, takeEnrollLink } from "@/services/enrollment/machineToken";
@@ -70,6 +71,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
   const [serverUrl, setServerUrl] = useState(startingServerUrl);
+  const invite = useInvitationSignup(serverUrl);
   const serverLocked = usePolicyLock("server.url").locked;
   const addToast = useNotificationStore((s) => s.addToast);
 
@@ -323,17 +325,18 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
 
   if (view === "cloud") {
     const isSignup = cloudMode === "signup";
+    const { value: accountEmail, locked: emailLocked } = invite.email(email, isSignup);
 
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      const invalidEmail = emailError(email, t);
+      const invalidEmail = emailError(accountEmail, t);
       if (invalidEmail) { setError(invalidEmail); return; }
       const normalizedUrl = resolveServerUrl(serverUrl);
       if (isSignup) {
         const invalidPassword = newPasswordProblem(password, confirm, t);
         if (invalidPassword) { setError(invalidPassword); return; }
-        if (!addOnly) await wrap(async () => {
-          await createServerAccount(email, password, normalizedUrl);
+        if (!addOnly) await wrap(invite.askOnClosed(async () => {
+          await createServerAccount(accountEmail, password, normalizedUrl, invite.credential);
           addToast({
             source: APP_SOURCE,
             type: "toast",
@@ -341,13 +344,14 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
             severity: "info",
             duration: 5000,
           });
-        });
+        }));
       } else if (!addOnly) {
         await wrap(() => login(password, email, normalizedUrl));
       }
       if (addOnly) {
         await wrap(
-          () => authenticateServerAccount(isSignup ? "register" : "signin", email, password, normalizedUrl),
+          invite.askOnClosed(() =>
+            authenticateServerAccount(isSignup ? "register" : "signin", accountEmail, password, normalizedUrl, invite.credential)),
           ({ account }) => addAccount(account, pendingSecret.current),
           false,
         );
@@ -360,7 +364,8 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
           {isSignup ? t("layout.auth.signupPrompt", { context: lanContext }) : t("layout.auth.signinPrompt")}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
-          <Input type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail} autoFocus />
+          <Input type="email" placeholder={t("layout.auth.emailPlaceholder")} value={accountEmail}
+            onChange={setEmail} autoFocus disabled={emailLocked} />
           <Input type="password" placeholder={isSignup ? t("layout.auth.masterPasswordMinPlaceholder") : t("layout.auth.masterPasswordPlaceholder")}
             value={password} onChange={setPassword} />
           {isSignup && (
@@ -370,8 +375,10 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudO
             </>
           )}
           <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} locked={serverLocked} />
+          {isSignup && <InvitationEntry state={invite.entry} />}
           <ErrorMsg msg={error} />
-          <SubmitBtn loading={loading} label={isSignup ? t("layout.auth.createAccount") : t("layout.auth.signIn")} />
+          <SubmitBtn loading={loading}
+            label={isSignup ? invite.createLabel : t("layout.auth.signIn")} />
         </form>
 
         {isSignup

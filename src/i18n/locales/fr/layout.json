@@ -53,7 +53,21 @@
       "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil",
       "addAccountLater": "Vous pourrez créer un compte plus tard en conservant vos hôtes.",
       "errorEmailRequired": "Saisissez votre e-mail",
-      "masterPasswordNote": "Ce mot de passe chiffre vos données. Il ne peut être ni réinitialisé ni récupéré : conservez-le en lieu sûr."
+      "masterPasswordNote": "Ce mot de passe chiffre vos données. Il ne peut être ni réinitialisé ni récupéré : conservez-le en lieu sûr.",
+      "invitation": {
+        "toggle": "Vous avez un lien d'invitation ?",
+        "placeholder": "Lien d'invitation",
+        "use": "Utiliser",
+        "checking": "Vérification…",
+        "invalid": "Ce n'est pas un lien d'invitation. Collez le lien complet de l'e-mail.",
+        "notFound": "Aucune invitation en attente sur {{server}} ne correspond à ce lien. Vérifiez l'adresse du serveur ou demandez une nouvelle invitation.",
+        "closedHint": "Ce serveur ne crée de comptes que sur invitation. Collez le lien de votre e-mail d'invitation.",
+        "joining": "Rejoindre {{team}}",
+        "invitedBy": "{{inviter}} vous a invité en tant que {{role}}",
+        "invitedAs": "Invité en tant que {{role}}",
+        "remove": "Retirer l'invitation",
+        "createAndJoin": "Créer le compte et rejoindre"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Créer un compte cloud",

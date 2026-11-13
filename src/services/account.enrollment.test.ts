@@ -57,14 +57,14 @@ beforeEach(() => {
 
 test("register with token sends enrollment body and returns outcome with teamId", async () => {
   h.register = { ...h.register, enrollment: { status: "pending", reason: "approval", team_id: "t1" } };
-  const outcome = await createServerAccount("a@acme.com", "pw", S, CRED);
+  const outcome = await createServerAccount("a@acme.com", "pw", S, { enrollment: CRED });
   expect(h.sent[`${S}/v1/auth/register`].enrollment).toEqual(CRED);
   expect(outcome).toEqual({ status: "pending", reason: "approval", teamId: "t1" });
 });
 
 test("register without enrollment field falls back to redeem", async () => {
-  await expect(createServerAccount("a@acme.com", "pw", S, CRED)).resolves.toBeNull();
-  const session = await authenticateServerAccount("register", "b@acme.com", "pw", S, CRED);
+  await expect(createServerAccount("a@acme.com", "pw", S, { enrollment: CRED })).resolves.toBeNull();
+  const session = await authenticateServerAccount("register", "b@acme.com", "pw", S, { enrollment: CRED });
   expect(session.enrollment).toBeNull();
   expect(session.account.jwt).toBe("JWT");
 });
@@ -76,19 +76,19 @@ test("register without a credential sends no enrollment field", async () => {
 
 test("authenticateServerAccount register returns the outcome beside the account", async () => {
   h.register = { ...h.register, enrollment: { status: "member", team_id: "t1" } };
-  const { account, enrollment } = await authenticateServerAccount("register", "b@acme.com", "pw", S, CRED);
+  const { account, enrollment } = await authenticateServerAccount("register", "b@acme.com", "pw", S, { enrollment: CRED });
   expect(account).toMatchObject({ email: "b@acme.com", jwt: "JWT" });
   expect(enrollment).toEqual({ status: "member", teamId: "t1" });
 });
 
 test("register refused for the token throws the coded enrolment error", async () => {
   h.appFetch.mockImplementation(async () => ({ ok: false, status: 403, json: async () => ({ error: "ENROLLMENT_DOMAIN_MISMATCH" }) }));
-  await expect(createServerAccount("a@gmail.com", "pw", S, CRED)).rejects.toMatchObject({ code: "ENROLLMENT_DOMAIN_MISMATCH", status: 403 });
+  await expect(createServerAccount("a@gmail.com", "pw", S, { enrollment: CRED })).rejects.toMatchObject({ code: "ENROLLMENT_DOMAIN_MISMATCH", status: 403 });
 });
 
 test("register failing for another reason keeps the plain registration error", async () => {
   h.appFetch.mockImplementation(async () => ({ ok: false, status: 500, json: async () => null }));
-  await expect(createServerAccount("a@acme.com", "pw", S, CRED)).rejects.toThrow("common.error.registrationFailed");
+  await expect(createServerAccount("a@acme.com", "pw", S, { enrollment: CRED })).rejects.toThrow("common.error.registrationFailed");
 });
 
 test("an invitation the server could not honour at sign-up is named once the app has loaded", async () => {
@@ -116,4 +116,27 @@ test("a sign-up with every invitation honoured shows nothing", async () => {
   await createServerAccount("a@acme.com", "pw", S);
   await announceWithdrawnInvitations();
   expect(h.addToast).not.toHaveBeenCalled();
+});
+
+test("register with an invitation sends its token and no enrolment", async () => {
+  await createServerAccount("a@acme.com", "pw", S, { invitation: "a".repeat(64) });
+  expect(h.sent[`${S}/v1/auth/register`]).toMatchObject({ invitation: "a".repeat(64) });
+  expect(h.sent[`${S}/v1/auth/register`]).not.toHaveProperty("enrollment");
+});
+
+test.each([
+  ["INVITATION_NOT_FOUND", 404, "common.error.invitationNotFound"],
+  ["INVITATION_EMAIL_MISMATCH", 403, "common.error.invitationEmailMismatch"],
+  ["INVITATION_WITHDRAWN", 410, "common.error.invitationWithdrawn"],
+])("an invitation refused with %s reads as a sentence", async (code, status, message) => {
+  h.appFetch.mockImplementation(async () => ({ ok: false, status, json: async () => ({ error: code }) }));
+  await expect(createServerAccount("a@acme.com", "pw", S, { invitation: "a".repeat(64) })).rejects.toThrow(message);
+});
+
+test("closed registration is told apart so the form can ask for an invitation", async () => {
+  const { RegistrationClosedError } = await import("./teamInvitation");
+  h.appFetch.mockImplementation(async () => ({ ok: false, status: 403, json: async () => ({ error: "REGISTRATION_DISABLED" }) }));
+  const failure = createServerAccount("a@acme.com", "pw", S);
+  await expect(failure).rejects.toBeInstanceOf(RegistrationClosedError);
+  await expect(failure).rejects.toThrow("common.error.registrationDisabled");
 });

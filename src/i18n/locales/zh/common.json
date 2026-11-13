@@ -240,7 +240,10 @@
       "teamPolicyConflict": "其他人修改了团队策略。请查看后重新导入。",
       "teamPolicyRefused": "服务器拒绝了此策略：{{reason}}",
       "failedToLoadTeamPolicy": "加载团队策略失败：{{status}}",
-      "failedToSaveTeamPolicy": "保存团队策略失败：{{status}}"
+      "failedToSaveTeamPolicy": "保存团队策略失败：{{status}}",
+      "invitationLookupFailed": "无法检查此邀请（HTTP {{status}}）。",
+      "invitationNotFound": "此邀请已过期或已被使用。请请求新的邀请。",
+      "invitationEmailMismatch": "此邀请发送到了另一个电子邮件地址。"
     },
     "clipboard": {
       "cut_one": "已剪切 {{count}} 个项目",

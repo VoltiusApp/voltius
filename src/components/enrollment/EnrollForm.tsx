@@ -53,7 +53,7 @@ export const activeAccountAuth = ({ create, signIn }: {
     : enrollAuthStep(() => signIn(req), () => activeEnrollSession(null));
 
 const firstLaunchAuth = activeAccountAuth({
-  create: ({ email, password, token }) => createServerAccount(email, password, token.serverUrl, enrollmentCredential(token)),
+  create: ({ email, password, token }) => createServerAccount(email, password, token.serverUrl, { enrollment: enrollmentCredential(token) }),
   signIn: ({ email, password, token }) => login(password, email, token.serverUrl),
 });
 

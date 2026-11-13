@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
-import { ErrorMsg, INPUT_CLASS, Input, SubmitBtn } from "@/components/layout/authParts";
+import { DisclosureToggle, ErrorMsg, INPUT_CLASS, Input, SubmitBtn } from "@/components/layout/authParts";
 import { parseEnrollInput } from "@/services/deepLinkUrl";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 
@@ -20,15 +19,7 @@ export function EnrollTokenEntry({ onToken }: { onToken: (token: EnrollmentToken
 
   return (
     <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="focus-ring flex items-center justify-center gap-1 w-full text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-      >
-        <Icon icon={open ? "lucide:chevron-down" : "lucide:chevron-right"} width={12} />
-        {t("layout.enroll.tokenEntry.toggle")}
-      </button>
+      <DisclosureToggle open={open} onToggle={() => setOpen((v) => !v)} label={t("layout.enroll.tokenEntry.toggle")} />
       {open && (
         <form onSubmit={submit} className="mt-2 w-full space-y-2">
           <Input type="text" placeholder={t("layout.enroll.tokenEntry.placeholder")} value={text} autoFocus

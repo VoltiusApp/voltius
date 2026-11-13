@@ -215,7 +215,7 @@ test("create sends credential and shows pending approval outcome", async () => {
   await fillCreate();
   submit();
   await waitFor(() => expect(onDone).toHaveBeenCalledWith(outcome, { email: "jdoe@acme.com", teamName: "Acme" }));
-  expect(h.createServerAccount).toHaveBeenCalledWith("jdoe@acme.com", PASSWORD, TOKEN.serverUrl, CREDENTIAL);
+  expect(h.createServerAccount).toHaveBeenCalledWith("jdoe@acme.com", PASSWORD, TOKEN.serverUrl, { enrollment: CREDENTIAL });
   expect(h.redeemEnrollment).not.toHaveBeenCalled();
   expect(useEnrollmentStore.getState().records[`${TOKEN.id}|${accountKey(TOKEN.serverUrl, "acc-1")}`]?.outcome).toEqual(outcome);
 
