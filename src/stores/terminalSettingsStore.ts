@@ -24,6 +24,15 @@ interface TerminalSettingsStore {
 const terminalKey = (key: keyof TerminalSettingsStore) => `appSettings.terminal.${key}`;
 const unlessLocked = (key: keyof TerminalSettingsStore, write: () => void) => writeAndTouchUnlessLocked(terminalKey(key), write);
 
+const OLD_DEFAULT_SCROLLBACK_LINES = 50_000;
+
+// v0: a saved 50,000 is indistinguishable from the old default, so it follows the new one.
+export function migrateTerminalSettings(persisted: unknown, version: number): Partial<TerminalSettingsStore> {
+  const state = { ...(persisted as Partial<TerminalSettingsStore>) };
+  if (version < 1 && state.scrollbackLines === OLD_DEFAULT_SCROLLBACK_LINES) state.scrollbackLines = DEFAULT_SCROLLBACK_LINES;
+  return state;
+}
+
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
   persist(
     (set) => ({
@@ -38,6 +47,8 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
     }),
     {
       name: "voltius-terminal-settings",
+      version: 1,
+      migrate: (persisted, version) => migrateTerminalSettings(persisted, version) as TerminalSettingsStore,
       merge: (persisted, current) => {
         const state = { ...current, ...(persisted as Partial<TerminalSettingsStore>) };
         state.scrollbackLines = clampScrollbackLines(state.scrollbackLines);
