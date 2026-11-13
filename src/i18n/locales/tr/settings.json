@@ -79,6 +79,13 @@
       "language": {
         "title": "Dil"
       },
+      "timeFormat": {
+        "title": "Saat biçimi",
+        "desc": "Uygulama genelinde saatlerin nasıl gösterileceği.",
+        "auto": "Otomatik (dile göre)",
+        "12h": "12 saat",
+        "24h": "24 saat"
+      },
       "groupTabsByHost": {
         "title": "Sekmeleri ana makineye göre grupla",
         "desc": "Aynı ana makinedeki oturumlar tek bir sekmeyi paylaşır. Aralarında geçiş yapmak için üzerine gelin."

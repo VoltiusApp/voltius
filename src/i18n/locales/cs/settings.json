@@ -81,6 +81,13 @@
       "language": {
         "title": "Jazyk"
       },
+      "timeFormat": {
+        "title": "Formát času",
+        "desc": "Jak se v celé aplikaci zobrazuje čas.",
+        "auto": "Automaticky (podle jazyka)",
+        "12h": "12hodinový",
+        "24h": "24hodinový"
+      },
       "groupTabsByHost": {
         "title": "Seskupit karty podle hostu",
         "desc": "Relace na stejném hostu sdílejí jednu kartu. Najetím na ni mezi nimi přepínáte."

@@ -1,7 +1,10 @@
 import i18n from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
-import { localeSetting } from "@/stores/localeStore";
+import { localeSetting, timeFormatSetting } from "@/stores/localeStore";
 import { englishBundle, loadLocaleBundle } from "./bundles";
+
+// Formatted times are computed at render, so a format change re-renders like a language change.
+const TIME_FORMAT_CHANGED = "timeFormatChanged";
 
 // No async backend: i18n.changeLanguage() mutates i18n.language synchronously, which
 // non-component callers (e.g. getSettingsNav()) rely on. Only a locale not loaded yet switches late.
@@ -11,6 +14,7 @@ i18n.use(initReactI18next).init({
   fallbackLng: { "pt-BR": ["pt", "en"], "pt-PT": ["pt", "en"], default: ["en"] },
   interpolation: { escapeValue: false },
   returnNull: false,
+  react: { bindI18n: `languageChanged ${TIME_FORMAT_CHANGED}` },
 });
 
 const loaded = new Set<string>(["en"]);
@@ -48,6 +52,7 @@ function followLocale(locale: string) {
 }
 
 localeSetting.subscribe(followLocale);
+timeFormatSetting.subscribe(() => i18n.emit(TIME_FORMAT_CHANGED));
 
 /** The language the UI strings are in; trails the locale setting while its strings load. */
 export function useUiLanguage(): string {

@@ -1,7 +1,7 @@
 import { SETTING_KEYS, settingKey } from "@/services/user-data/settingKeys";
 import { SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
 import { CURSOR_STYLES } from "@/stores/terminalSettingsStore";
-import { SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { SUPPORTED_LOCALES, TIME_FORMATS } from "@/stores/localeStore";
 import { DETACHED_TTL_HOURS, GLOBAL_PROXY_MODES } from "@/stores/connectivitySettingsStore";
 import { KEEPALIVE_PRESETS } from "@/utils/keepalive";
 import { ANSI_SLOTS, MAX_KEYWORD_LENGTH, MAX_KEYWORD_RULES, MAX_KEYWORD_WORDS } from "@/utils/keywordMatcher";
@@ -36,6 +36,7 @@ type KeyExtras = Omit<PolicyKeyDef, "id" | "type">;
 const keyExtras = (): Record<string, KeyExtras> => ({
   "appSettings.terminal.cursorStyle": { domain: { values: [...CURSOR_STYLES] }, range: ["allowed"] },
   "appSettings.locale": { domain: { values: SUPPORTED_LOCALES.map((l) => l.value) }, range: ["allowed"] },
+  "appSettings.timeFormat": { domain: { values: [...TIME_FORMATS] }, range: ["allowed"] },
   "appSettings.keepalivePreset": { domain: { values: Object.keys(KEEPALIVE_PRESETS) }, range: ["allowed"] },
   "appSettings.detachedTtlHours": {
     domain: { values: [...DETACHED_TTL_HOURS] },
@@ -69,6 +70,7 @@ const SETTING_TYPES: Record<string, PolicyKeyType> = {
   "appSettings.keepalivePreset": "string",
   "appSettings.detachedTtlHours": "number",
   "appSettings.locale": "string",
+  "appSettings.timeFormat": "string",
   "appSettings.proxy": "json",
   "themes.location": "json",
 };
@@ -124,6 +126,7 @@ const ENFORCED_PREFIXES = ["appSettings.toggles.", "sync."];
 const ENFORCED_KEYS = new Set([
   "appSettings.terminal.cursorStyle",
   "appSettings.locale",
+  "appSettings.timeFormat",
   "appSettings.keepalivePreset",
   "appSettings.detachedTtlHours",
   "appSettings.sftp.autoRefreshIntervalMs",

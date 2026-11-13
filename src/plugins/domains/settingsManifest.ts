@@ -29,7 +29,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { effectiveShell } from "@/services/local";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/themes/presets";
 import { DYNAMIC_THEME_ID } from "@/themes/dynamic";
-import { localeSetting, useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { localeSetting, timeFormatSetting, useLocaleStore, SUPPORTED_LOCALES, TIME_FORMATS } from "@/stores/localeStore";
 import { lockActionSetting, sessionTimeoutSetting, useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { formatShortcut, useShortcutStore } from "@/stores/shortcutStore";
@@ -264,6 +264,14 @@ function explicitDefs(): SettingDef[] {
       policyKey: "appSettings.locale",
       get: () => localeSetting.get(),
       set: (v) => useLocaleStore.getState().setLocale(v as never),
+    },
+    {
+      key: "locale.timeFormat",
+      type: "enum", values: [...TIME_FORMATS], default: "auto",
+      section: "appearance", labelKey: "settings.appearance.timeFormat.title", writable: true,
+      policyKey: timeFormatSetting.key,
+      get: () => timeFormatSetting.get(),
+      set: (v) => useLocaleStore.getState().setTimeFormat(v as never),
     },
     {
       key: "security.sessionTimeoutMinutes",

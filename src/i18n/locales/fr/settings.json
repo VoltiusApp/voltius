@@ -80,6 +80,13 @@
       "language": {
         "title": "Langue"
       },
+      "timeFormat": {
+        "title": "Format de l'heure",
+        "desc": "Affichage des heures dans toute l'application.",
+        "auto": "Automatique (langue)",
+        "12h": "12 heures",
+        "24h": "24 heures"
+      },
       "groupTabsByHost": {
         "title": "Regrouper les onglets par hôte",
         "desc": "Les sessions d'un même hôte partagent un onglet. Survolez-le pour passer de l'une à l'autre."

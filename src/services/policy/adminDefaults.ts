@@ -21,6 +21,7 @@ const BUILT_IN: Record<string, () => unknown> = {
   "appSettings.keepalivePreset": () => useConnectivitySettingsStore.getInitialState().keepalivePreset,
   "appSettings.detachedTtlHours": () => useConnectivitySettingsStore.getInitialState().detachedTtlHours,
   "appSettings.locale": () => useLocaleStore.getInitialState().locale,
+  "appSettings.timeFormat": () => useLocaleStore.getInitialState().timeFormat,
   "appSettings.proxy": () => useConnectivitySettingsStore.getInitialState().proxy,
   "themes.location": () => useThemeStore.getInitialState().location,
 };

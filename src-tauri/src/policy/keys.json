@@ -206,6 +206,12 @@
     "defaultApplied": false
   },
   {
+    "id": "sync.settings.appSettings.timeFormat",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "sync.settings.appSettings.proxy",
     "type": "bool",
     "enforced": true,
@@ -494,6 +500,22 @@
         "pt",
         "pt-BR",
         "pt-PT"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.timeFormat",
+    "type": "string",
+    "domain": {
+      "values": [
+        "auto",
+        "12h",
+        "24h"
       ]
     },
     "range": [

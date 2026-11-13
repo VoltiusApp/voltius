@@ -61,6 +61,13 @@
       }
     },
     "appearance": {
+      "timeFormat": {
+        "title": "Formato da hora",
+        "desc": "Como as horas são mostradas em toda a aplicação.",
+        "auto": "Automático (idioma)",
+        "12h": "12 horas",
+        "24h": "24 horas"
+      },
       "marketplace": {
         "installedLabel": "Marketplace",
         "available": "Do marketplace",
