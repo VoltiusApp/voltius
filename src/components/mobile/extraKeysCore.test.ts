@@ -43,6 +43,15 @@ describe("keyGesture", () => {
     expect(keyGesture(0, -20)).toBe("alt");
     expect(keyGesture(12, -30)).toBe("alt");
   });
+  test("a hold without travel is the alternate", () => {
+    expect(keyGesture(0, 0, true)).toBe("alt");
+    expect(keyGesture(6, -6, true)).toBe("alt");
+    expect(keyGesture(0, -20, true)).toBe("alt");
+  });
+  test("a hold then sideways or down drag cancels", () => {
+    expect(keyGesture(40, -5, true)).toBe("none");
+    expect(keyGesture(0, 30, true)).toBe("none");
+  });
   test("sideways (row scroll), down, diagonal-sideways or too short is nothing", () => {
     expect(keyGesture(40, -5)).toBe("none");
     expect(keyGesture(0, 30)).toBe("none");

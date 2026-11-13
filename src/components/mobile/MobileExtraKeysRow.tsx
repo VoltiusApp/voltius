@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { isActive, type Modifier } from "@/stores/modifierLatchCore";
@@ -7,10 +8,9 @@ import { sendSpecialKey } from "@/services/terminalInput";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { useUIStore } from "@/stores/uiStore";
 import { haptic } from "@/lib/haptics";
-import { EXTRA_KEYS, keyForGesture, keyGesture, modTapAction, type ExtraKey } from "./extraKeysCore";
+import { EXTRA_KEYS, KEY_HOLD_MS, keyForGesture, keyGesture, modTapAction, type ExtraKey } from "./extraKeysCore";
 
 const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" }, { mod: "alt", label: "Alt" } ];
-const MOD_LOCK_HOLD_MS = 450;
 
 // 48 dp tall keys that share the width (all ten fit a 412 dp phone; wider screens stretch
 // them, and only the panels toggle sits past the edge), flat tonal surfaces like Termux.
@@ -28,11 +28,10 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
   const latch: Record<Modifier, typeof ctrl> = { ctrl, alt };
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastModTap = useRef<Record<Modifier, number | null>>({ ctrl: null, alt: null });
-  // Tap / swipe-up / scroll tracking for the keys: record the touch origin and only decide on
-  // touchend (extraKeysCore.keyGesture), so dragging the row sideways never fires a key.
-  const keyTouchStart = useRef<{ x: number; y: number } | null>(null);
-  // The key whose alternate a swipe up would send right now (its superscript lights up).
-  const [altArmed, setAltArmed] = useState<SpecialKey | null>(null);
+  // Tap / hold / swipe-up / scroll tracking for the keys: record the touch origin and only decide
+  // on touchend (extraKeysCore.keyGesture), so dragging the row sideways never fires a key.
+  const keyTouch = useRef<{ x: number; y: number; dx: number; dy: number; held: boolean; armed: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const [altArmed, setAltArmed] = useState<{ key: ExtraKey; rect: DOMRect } | null>(null);
 
   const press = (key: SpecialKey) => {
     if (!activeSessionId) return;
@@ -58,47 +57,65 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
   // When the keyboard is closed, blur the focused element on touch so the tap can't trigger it.
   // Keyboard open: leave focus alone so it stays open for continued typing.
   const keepKeyboardClosed = () => { if (!keyboardOpen) (document.activeElement as HTMLElement | null)?.blur(); };
-  const travel = (e: React.TouchEvent) => {
-    const start = keyTouchStart.current;
+  const gestureOf = (e: React.TouchEvent) => {
+    const kt = keyTouch.current;
     const t = e.changedTouches[0] ?? e.touches[0];
-    return start && t ? { dx: t.clientX - start.x, dy: t.clientY - start.y } : null;
+    if (!kt || !t) return null;
+    kt.dx = t.clientX - kt.x;
+    kt.dy = t.clientY - kt.y;
+    return keyGesture(kt.dx, kt.dy, kt.held);
+  };
+  const endKeyTouch = () => {
+    if (keyTouch.current) clearTimeout(keyTouch.current.timer);
+    keyTouch.current = null;
+    setAltArmed(null);
+  };
+  const armAlt = (k: ExtraKey, el: HTMLElement, on: boolean) => {
+    const kt = keyTouch.current;
+    if (!kt || !k.alt || kt.armed === on) return;
+    kt.armed = on;
+    if (on) haptic("tick");
+    setAltArmed(on ? { key: k, rect: el.getBoundingClientRect() } : null);
   };
 
   const renderKey = (k: ExtraKey) => (
     <button key={k.key} data-mobile-key={k.key} data-mobile-key-alt={k.alt}
-      data-alt-armed={altArmed === k.key ? "" : undefined}
+      data-alt-armed={altArmed?.key === k ? "" : undefined}
       onMouseDown={noFocusSteal}
       onTouchStart={(e) => {
         noFocusSteal(e);
+        endKeyTouch();
         const t = e.touches[0];
-        keyTouchStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+        if (!t) return;
+        const el = e.currentTarget;
+        const timer = setTimeout(() => {
+          const kt = keyTouch.current;
+          if (!kt) return;
+          kt.held = true;
+          armAlt(k, el, keyGesture(kt.dx, kt.dy, true) === "alt");
+        }, KEY_HOLD_MS);
+        keyTouch.current = { x: t.clientX, y: t.clientY, dx: 0, dy: 0, held: false, armed: false, timer };
       }}
-      onTouchMove={(e) => {
-        const d = travel(e);
-        const next = d && k.alt && keyGesture(d.dx, d.dy) === "alt" ? k.key : null;
-        if (next !== altArmed) setAltArmed(next);
-      }}
+      onTouchMove={(e) => armAlt(k, e.currentTarget, gestureOf(e) === "alt")}
       onTouchEnd={(e) => {
         noFocusSteal(e);
-        const d = travel(e);
-        keyTouchStart.current = null;
-        setAltArmed(null);
-        if (!d) return;
-        const key = keyForGesture(k, keyGesture(d.dx, d.dy));
+        const g = gestureOf(e);
+        endKeyTouch();
+        const key = g && keyForGesture(k, g);
         if (key) press(key);
       }}
-      onTouchCancel={() => { keyTouchStart.current = null; setAltArmed(null); }}
+      onTouchCancel={endKeyTouch}
       onClick={(e) => { noFocusSteal(e); if (!("ontouchstart" in window)) press(k.key); }}
       className={`${KEY_CLASS} font-medium`}
       style={{
-        background: altArmed === k.key ? "color-mix(in srgb, var(--t-accent) 25%, var(--t-bg-card))" : "var(--t-bg-card)",
+        background: altArmed?.key === k ? "color-mix(in srgb, var(--t-accent) 25%, var(--t-bg-card))" : "var(--t-bg-card)",
         color: "var(--t-text-primary)", border: "1px solid var(--t-border)",
       }}>
       {k.icon ? <Icon icon={k.icon} width={18} /> : k.label}
       {k.altLabel && (
         <sup data-mobile-key-alt-label aria-hidden
-          className="absolute top-0.5 right-1 text-[9px] leading-none font-medium pointer-events-none"
-          style={{ color: altArmed === k.key ? "var(--t-accent)" : "var(--t-text-dim)" }}>
+          className="absolute top-0.5 right-1 text-[10px] leading-none font-medium pointer-events-none"
+          style={{ color: altArmed?.key === k ? "var(--t-accent)" : "var(--t-text-secondary)" }}>
           {k.altLabel}
         </sup>
       )}
@@ -126,7 +143,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
               noFocusSteal(e);
               if (longPressTimer.current) clearTimeout(longPressTimer.current);
               // On fire, null the ref so touchend treats this as a completed lock (not a tap).
-              longPressTimer.current = setTimeout(() => { longPressTimer.current = null; lockMod(mod); }, MOD_LOCK_HOLD_MS);
+              longPressTimer.current = setTimeout(() => { longPressTimer.current = null; lockMod(mod); }, KEY_HOLD_MS);
             }}
             onTouchEnd={(e) => {
               noFocusSteal(e);
@@ -151,6 +168,18 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
         );
       })}
       {EXTRA_KEYS.map(renderKey)}
+      {altArmed && createPortal(
+        <div data-mobile-key-alt-popup aria-hidden
+          className="fixed z-[1000] pointer-events-none flex items-center justify-center h-14 px-3 rounded-xl text-xl font-semibold shadow-lg"
+          style={{
+            left: altArmed.rect.left + altArmed.rect.width / 2, top: altArmed.rect.top - 6,
+            minWidth: altArmed.rect.width + 8, transform: "translate(-50%, -100%)",
+            background: "var(--t-accent)", color: "var(--t-on-accent)",
+          }}>
+          {altArmed.key.altLabel}
+        </div>,
+        document.body,
+      )}
       <button data-mobile-panels-toggle
         onMouseDown={noFocusSteal}
         onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(); }}
