@@ -1,6 +1,9 @@
 import { adminDefault } from "@/stores/policyStore";
 import { sameValue } from "@/utils/sameValue";
+import { MOBILE_HIDDEN_SECTIONS } from "@/components/settings/settingsMobileCore";
 import type { SettingDef } from "./types";
+
+export interface PlatformEnv { isMobile: boolean; isAndroid: boolean }
 
 export function effectiveDefault(def: SettingDef): unknown {
   const team = def.policyKey ? adminDefault(def.policyKey) : undefined;
@@ -17,8 +20,8 @@ export function resetSetting(def: SettingDef): void {
   else def.set?.(effectiveDefault(def));
 }
 
-export function availableOn(def: Pick<SettingDef, "platform" | "mobileHidden">, env: { isMobile: boolean; isAndroid: boolean }): boolean {
-  if (env.isMobile && def.mobileHidden) return false;
+export function availableOn(def: Pick<SettingDef, "platform" | "mobileHidden" | "section">, env: PlatformEnv): boolean {
+  if (env.isMobile && (def.mobileHidden || MOBILE_HIDDEN_SECTIONS.has(def.section))) return false;
   switch (def.platform ?? "all") {
     case "desktop": return !env.isMobile;
     case "mobile": return env.isMobile;
