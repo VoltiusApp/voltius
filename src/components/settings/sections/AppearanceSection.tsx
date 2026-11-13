@@ -14,7 +14,9 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import TerminalFontSizeSection from "./TerminalFontSizeSection";
-import { localeSetting, useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
+import {
+  localeSetting, timeFormatSetting, useLocaleStore, SUPPORTED_LOCALES, TIME_FORMATS, type Locale, type TimeFormat,
+} from "@/stores/localeStore";
 import { ManagedWhen, useRangeSelect } from "@/components/shared/ManagedNote";
 import { useLocationFields } from "@/hooks/useLocationFields";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
@@ -51,6 +53,10 @@ export default function AppearanceSection() {
   const locale = localeSetting.use();
   const setLocale = useLocaleStore((s) => s.setLocale);
   const localeSelect = useRangeSelect(localeSetting.key, LOCALE_VALUES, localeLabel);
+  const timeFormat = timeFormatSetting.use();
+  const setTimeFormat = useLocaleStore((s) => s.setTimeFormat);
+  const timeFormatSelect = useRangeSelect(timeFormatSetting.key, TIME_FORMATS, (v: TimeFormat) =>
+    t(`settings.appearance.timeFormat.${v}`));
   const [groupTabsByHost, setGroupTabsByHost] = useToggle("group-tabs-by-host");
   const isMobile = useIsMobile();
   // Android: a custom theme's export / edit / delete live in a sheet (no hover there).
@@ -79,6 +85,21 @@ export default function AppearanceSection() {
             value={locale}
             options={localeSelect.options}
             onChange={(value) => setLocale(value as Locale)}
+          />
+        </SettingRow>
+        <SettingRow
+          variant="card"
+          className="mt-4"
+          syncKey={timeFormatSetting.key}
+          title={t("settings.appearance.timeFormat.title")}
+          desc={t("settings.appearance.timeFormat.desc")}
+          note={timeFormatSelect.note}
+        >
+          <FormSelect
+            className="w-44 shrink-0"
+            value={timeFormat}
+            options={timeFormatSelect.options}
+            onChange={(value) => setTimeFormat(value as TimeFormat)}
           />
         </SettingRow>
         {!(isMobile && MOBILE_HIDDEN_TOGGLES.has("group-tabs-by-host")) && <SettingRow

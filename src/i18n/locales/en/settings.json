@@ -79,6 +79,13 @@
       "language": {
         "title": "Language"
       },
+      "timeFormat": {
+        "title": "Time format",
+        "desc": "How times of day are shown across the app.",
+        "auto": "Automatic (language)",
+        "12h": "12-hour",
+        "24h": "24-hour"
+      },
       "groupTabsByHost": {
         "title": "Group tabs by host",
         "desc": "Sessions on the same host share one tab. Hover it to switch between them."

@@ -80,6 +80,13 @@
       "language": {
         "title": "Idioma"
       },
+      "timeFormat": {
+        "title": "Formato de hora",
+        "desc": "Como os horários são exibidos em todo o aplicativo.",
+        "auto": "Automático (idioma)",
+        "12h": "12 horas",
+        "24h": "24 horas"
+      },
       "groupTabsByHost": {
         "title": "Agrupar abas por host",
         "desc": "Sessões no mesmo host compartilham uma aba. Passe o mouse para alternar entre elas."

@@ -30,22 +30,32 @@ export function systemLocale(languages: readonly string[] = globalThis.navigator
   return "en";
 }
 
+export const TIME_FORMATS = ["auto", "12h", "24h"] as const;
+export type TimeFormat = (typeof TIME_FORMATS)[number];
+
 const LOCALE_KEY = "appSettings.locale";
+const TIME_FORMAT_KEY = "appSettings.timeFormat";
 
 interface LocaleStore {
   locale: Locale;
+  timeFormat: TimeFormat;
   setLocale: (locale: Locale) => void;
+  setTimeFormat: (timeFormat: TimeFormat) => void;
 }
 
 export const useLocaleStore = create<LocaleStore>()(
   persist(
     (set) => ({
       locale: systemLocale(),
+      timeFormat: "auto",
       setLocale: (locale) =>
         writeAndTouchUnlessLocked(LOCALE_KEY, () => set({ locale })),
+      setTimeFormat: (timeFormat) =>
+        writeAndTouchUnlessLocked(TIME_FORMAT_KEY, () => set({ timeFormat })),
     }),
     { name: "voltius-locale" },
   ),
 );
 
 export const localeSetting = storeSetting(useLocaleStore, "locale", LOCALE_KEY);
+export const timeFormatSetting = storeSetting(useLocaleStore, "timeFormat", TIME_FORMAT_KEY);
