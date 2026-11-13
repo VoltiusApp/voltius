@@ -3,25 +3,27 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
-import { inPolicyRange, usePolicyRange } from "@/stores/policyStore";
+import { clampToRange, inPolicyRange, usePolicyRange } from "@/stores/policyStore";
 import { useUIStore } from "@/stores/uiStore";
 import { SETTINGS_ROW_BUTTON } from "@/components/settings/sections/shared";
 import type { SettingState } from "./registry/useSettingState";
 
 const STEP_BUTTON = "w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-input) text-(--t-text-muted) border border-(--t-border) disabled:opacity-40";
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+const clamp = (v: number, min: number, max = Infinity) => Math.min(max, Math.max(min, v));
 
 function SelectControl({ state, label }: { state: SettingState; label: string }) {
+  const { t } = useTranslation();
   const control = state.def.control;
   const range = usePolicyRange(state.def.policyKey ?? "");
   if (control.kind !== "select") return null;
   const toOption = control.toOption ?? String;
   const fromOption = control.fromOption ?? ((o: string) => o);
-  const options = control.options().map((o) => ({ ...o, disabled: !inPolicyRange(range, fromOption(o.value)) }));
+  const options = control.options(t).map((o) => ({ ...o, disabled: !inPolicyRange(range, fromOption(o.value)) }));
   return (
     <FormSelect
-      className="w-44 shrink-0"
+      className={`${control.width ?? "w-44"} shrink-0`}
       ariaLabel={label}
+      disabled={!state.active}
       value={toOption(state.value)}
       options={options}
       onChange={(v) => state.set(fromOption(v))}
@@ -30,34 +32,37 @@ function SelectControl({ state, label }: { state: SettingState; label: string })
 }
 
 function NumberControl({ state, label }: { state: SettingState; label: string }) {
+  const { t } = useTranslation();
   const control = state.def.control;
+  const range = usePolicyRange(state.def.policyKey ?? "");
   const [draft, setDraft] = useState<string | null>(null);
   if (control.kind !== "number") return null;
-  const shown = control.toDisplay ? control.toDisplay(state.value) : Number(state.value);
+  const toDisplay = (v: unknown) => (control.toDisplay ? control.toDisplay(v) : Number(v));
+  const fromDisplay = (n: number) => (control.fromDisplay ? control.fromDisplay(n) : n);
   const commit = () => {
     if (draft === null) return;
-    const n = Number(draft);
+    const n = parseFloat(draft);
     setDraft(null);
-    if (draft.trim() === "" || !Number.isFinite(n)) return;
-    const display = clamp(n, control.min, control.max);
-    state.set(control.fromDisplay ? control.fromDisplay(display) : display);
+    if (!Number.isFinite(n) || n < control.min) return;
+    state.set(clampToRange(range, fromDisplay(clamp(n, control.min, control.max)) as number));
   };
   return (
     <>
       <input
         type="number"
         aria-label={label}
-        min={control.min}
-        max={control.max}
+        min={Math.max(control.min, range?.min === undefined ? 0 : toDisplay(range.min))}
+        max={range?.max === undefined ? control.max : toDisplay(range.max)}
         step={control.step}
-        value={draft ?? shown}
+        value={draft ?? toDisplay(state.value)}
         disabled={!state.active}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
         className="form-input w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+        style={{ opacity: state.active ? 1 : 0.45 }}
       />
-      <span className="text-xs text-(--t-text-dim)">{control.unit()}</span>
+      <span className="text-xs text-(--t-text-dim)">{control.unit(t)}</span>
     </>
   );
 }
@@ -77,7 +82,7 @@ function StepperControl({ state, label }: { state: SettingState; label: string }
         <Icon icon="lucide:minus" width={14} />
       </button>
       <span className="text-xs font-semibold px-2 py-1 rounded-md tabular-nums text-center min-w-14 bg-(--t-bg-input) text-(--t-text-secondary) border border-(--t-border)">
-        {shown}{control.unit()}
+        {shown}{control.unit(t)}
       </span>
       <button type="button" className={STEP_BUTTON} disabled={shown >= control.max} onClick={() => write(shown + control.step)} aria-label={t("settings.appearance.uiScale.zoomIn")}>
         <Icon icon="lucide:plus" width={14} />
@@ -91,7 +96,7 @@ export function SettingControl({ state, label }: { state: SettingState; label: s
   const control = state.def.control;
   switch (control.kind) {
     case "toggle":
-      return <Toggle checked={!!state.value} onChange={state.set} aria-label={label} />;
+      return <Toggle checked={!!state.value} onChange={state.set} disabled={!state.active} aria-label={label} />;
     case "select":
       return <SelectControl state={state} label={label} />;
     case "number":

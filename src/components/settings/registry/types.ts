@@ -12,18 +12,20 @@ export interface SettingConsequence {
 
 export interface SettingOption { value: string; label: string }
 
+export type Translate = (key: string, options?: Record<string, unknown>) => string;
+
 interface NumericControl {
   min: number;
-  max: number;
+  max?: number;
   step: number;
-  unit(): string;
+  unit(t: Translate): string;
   toDisplay?(value: unknown): number;
   fromDisplay?(display: number): unknown;
 }
 
 export type SettingControl =
   | { kind: "toggle" }
-  | { kind: "select"; options(): SettingOption[]; toOption?(value: unknown): string; fromOption?(option: string): unknown }
+  | { kind: "select"; width?: string; options(t: Translate): SettingOption[]; toOption?(value: unknown): string; fromOption?(option: string): unknown }
   | ({ kind: "stepper" } & NumericControl)
   | ({ kind: "number" } & NumericControl)
   | { kind: "time" }

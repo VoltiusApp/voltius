@@ -1,4 +1,3 @@
-import i18n from "@/i18n";
 import { TOGGLE_DEFS, getToggle, useToggle, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
 import { SYNC_OBJECT_TYPES, useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePluginStore } from "@/stores/pluginStore";
@@ -11,6 +10,7 @@ import {
   type TerminalCursorStyle,
 } from "@/stores/terminalSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
+import { DEFAULT_KEYWORD_RULES, sameKeywordRules } from "@/utils/keywordMatcher";
 import {
   useSftpSettingsStore,
   DEFAULT_AUTO_REFRESH_INTERVAL_MS,
@@ -45,7 +45,7 @@ import { SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
 import { setDomainSync } from "@/services/user-data/syncChoice";
 import { formatShortcut, getDefaultShortcut, useShortcutStore, type Shortcut } from "@/stores/shortcutStore";
 import { sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
-import type { SettingConsequence, SettingControl, SettingDef, SettingOption, SettingPlatform } from "./types";
+import type { SettingConsequence, SettingControl, SettingDef, SettingOption, Translate } from "./types";
 
 export type { SettingConsequence, SettingDef } from "./types";
 
@@ -80,12 +80,11 @@ export const GUARDED: Record<string, SettingConsequence> = {
 };
 
 
-const t = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts);
 const toggleControl: SettingControl = { kind: "toggle" };
-const options = (values: readonly string[], label: (v: string) => string) => (): SettingOption[] =>
-  values.map((value) => ({ value, label: label(value) }));
+const options = (values: readonly string[], label: (v: string, t: Translate) => string) => (t: Translate): SettingOption[] =>
+  values.map((value) => ({ value, label: label(value, t) }));
 
-interface ToggleRow { titleKey?: string; descKey?: string; platform?: SettingPlatform; mobileHidden?: boolean; useActive?(): boolean }
+type ToggleRow = Partial<Pick<SettingDef, "titleKey" | "descKey" | "platform" | "mobileHidden" | "useActive" | "isDirty" | "reset">> & { use?(): unknown };
 
 const whenToggle = (id: ToggleId) => () => useToggle(id)[0];
 
@@ -99,7 +98,19 @@ const TOGGLE_ROWS: Record<ToggleId, ToggleRow> = {
   "command-history": { titleKey: "settings.terminal.commandHistory.title", descKey: "settings.terminal.commandHistory.desc" },
   "paste-image-as-path": { titleKey: "settings.terminal.pasteImageAsPath.title", descKey: "settings.terminal.pasteImageAsPath.desc" },
   "volume-down-ctrl": { titleKey: "settings.terminal.volumeDownCtrl.title", descKey: "settings.terminal.volumeDownCtrl.desc", platform: "android" },
-  "keyword-highlight": { titleKey: "settings.terminal.keywordHighlight.title", descKey: "settings.terminal.keywordHighlight.desc" },
+  "keyword-highlight": {
+    titleKey: "settings.terminal.keywordHighlight.title",
+    descKey: "settings.terminal.keywordHighlight.desc",
+    use: () => {
+      useTerminalSettingsStore((st) => st.keywordRules);
+      return useToggle("keyword-highlight")[0];
+    },
+    isDirty: (v, d) => v !== d || !sameKeywordRules(useTerminalSettingsStore.getState().keywordRules, DEFAULT_KEYWORD_RULES),
+    reset: () => {
+      useToggleSettingsStore.getState().set("keyword-highlight", TOGGLE_DEFS["keyword-highlight"].default);
+      useTerminalSettingsStore.getState().setKeywordRules(DEFAULT_KEYWORD_RULES);
+    },
+  },
   "auto-forward": { titleKey: "settings.portForwarding.autoForward.title", descKey: "settings.portForwarding.autoForward.desc" },
   "forwarding-notifications": { titleKey: "settings.portForwarding.notifications.title", descKey: "settings.portForwarding.notifications.desc", useActive: whenToggle("auto-forward") },
   "sftp-tar": { titleKey: "settings.sftp.transfers.tarAcceleration.title", descKey: "settings.sftp.transfers.tarAcceleration.desc" },
@@ -134,13 +145,15 @@ function toggleDefs(): SettingDef[] {
       platform: row.platform,
       mobileHidden: row.mobileHidden,
       useActive: row.useActive,
+      isDirty: row.isDirty,
+      reset: row.reset,
       writable: true,
       policyKey,
       syncKey: policyKey,
       consequence: GUARDED[key],
       control: toggleControl,
       get: () => getToggle(id),
-      use: () => useToggle(id)[0],
+      use: row.use ?? (() => useToggle(id)[0]),
       set: (v: unknown) => useToggleSettingsStore.getState().set(id, v as boolean),
     };
   });
@@ -209,7 +222,7 @@ function themeOptions(): SettingOption[] {
 const SCROLLBACK_OPTIONS = [1_000, 10_000, 50_000, 100_000, 250_000]
   .filter((v) => v >= MIN_SCROLLBACK_LINES && v <= MAX_SCROLLBACK_LINES);
 const HOURS_PER_DAY = 24;
-const ttlLabel = (h: number) =>
+const ttlLabel = (h: number, t: Translate) =>
   h > HOURS_PER_DAY && h % HOURS_PER_DAY === 0
     ? t("settings.hosts.detachedTtl.days", { count: h / HOURS_PER_DAY })
     : t("settings.hosts.detachedTtl.hours", { count: h });
@@ -234,7 +247,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["history", "buffer", "lines"], writable: true,
       control: {
         kind: "select",
-        options: () => SCROLLBACK_OPTIONS.map((v) => ({ value: String(v), label: t("settings.terminal.scrollback.option", { count: v }) })),
+        options: (t) => SCROLLBACK_OPTIONS.map((v) => ({ value: String(v), label: t("settings.terminal.scrollback.option", { count: v }) })),
         toOption: String,
         fromOption: Number,
       },
@@ -250,7 +263,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["caret", "block", "bar", "underline"], writable: true,
       policyKey: "appSettings.terminal.cursorStyle",
       syncKey: "appSettings.terminal.cursorStyle",
-      control: { kind: "select", options: options(CURSOR_STYLES, (v) => t(`settings.terminal.cursorStyle.${v}`)) },
+      control: { kind: "select", options: options(CURSOR_STYLES, (v, t) => t(`settings.terminal.cursorStyle.${v}`)) },
       get: () => cursorStyleSetting.get(),
       use: () => cursorStyleSetting.use(),
       set: (v) => terminal().setCursorStyle(v as TerminalCursorStyle),
@@ -277,7 +290,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["refresh", "interval", "poll"], writable: true,
       policyKey: "appSettings.sftp.autoRefreshIntervalMs",
       syncKey: "appSettings.sftp.autoRefreshIntervalMs",
-      control: { kind: "number", min: 0.5, max: 60, step: 0.5, unit: () => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / 1000, fromDisplay: (n) => Math.round(n * 1000) },
+      control: { kind: "number", min: 0.5, step: 0.5, unit: (t) => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / 1000, fromDisplay: (n) => Math.round(n * 1000) },
       get: () => autoRefreshIntervalSetting.get(),
       use: () => autoRefreshIntervalSetting.use(),
       useActive: whenToggle("sftp-autorefresh"),
@@ -322,7 +335,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["keepalive", "timeout", "disconnect"], writable: true,
       policyKey: "appSettings.keepalivePreset",
       syncKey: "appSettings.keepalivePreset",
-      control: { kind: "select", options: options(Object.keys(KEEPALIVE_PRESETS), (v) => t(KEEPALIVE_PRESETS[v as KeepalivePreset].labelKey)) },
+      control: { kind: "select", width: "w-36", options: options(Object.keys(KEEPALIVE_PRESETS), (v, t) => t(KEEPALIVE_PRESETS[v as KeepalivePreset].labelKey)) },
       get: () => getGlobalKeepalivePreset(),
       use: () => useGlobalKeepalivePreset()[0],
       set: (v) => useConnectivitySettingsStore.getState().setKeepalivePreset(v as never),
@@ -335,7 +348,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["detached", "idle", "close"], writable: true,
       policyKey: "appSettings.detachedTtlHours",
       syncKey: "appSettings.detachedTtlHours",
-      control: { kind: "select", options: options(DETACHED_TTL_HOURS.map(String), (v) => ttlLabel(Number(v))) },
+      control: { kind: "select", width: "w-36", options: options(DETACHED_TTL_HOURS.map(String), (v, t) => ttlLabel(Number(v), t)), fromOption: Number },
       get: () => String(getGlobalDetachedTtlHours()),
       use: () => String(useDetachedTtlHours()[0]),
       useActive: whenToggle("detached-session-ttl"),
@@ -358,7 +371,7 @@ function explicitDefs(): SettingDef[] {
       default: "manual",
       section: "appearance", labelKey: "settings.appearance.automation.themeMode", titleKey: "settings.appearance.automation.mode",
       keywords: ["theme", "automatic", "schedule", "sunset", "dark"], writable: true,
-      control: { kind: "select", options: options(Object.keys(THEME_MODE_LABELS), (v) => t(THEME_MODE_LABELS[v])) },
+      control: { kind: "select", options: options(Object.keys(THEME_MODE_LABELS), (v, t) => t(THEME_MODE_LABELS[v])) },
       get: () => theme().mode,
       use: () => useThemeStore((st) => st.mode),
       set: (v) => theme().setMode(v as never),
@@ -402,7 +415,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["clock", "12h", "24h", "time"], writable: true,
       policyKey: timeFormatSetting.key,
       syncKey: timeFormatSetting.key,
-      control: { kind: "select", options: options(TIME_FORMATS, (v) => t(`settings.appearance.timeFormat.${v}`)) },
+      control: { kind: "select", options: options(TIME_FORMATS, (v, t) => t(`settings.appearance.timeFormat.${v}`)) },
       get: () => timeFormatSetting.get(),
       use: () => timeFormatSetting.use(),
       set: (v) => useLocaleStore.getState().setTimeFormat(v as never),
@@ -416,7 +429,7 @@ function explicitDefs(): SettingDef[] {
       policyKey: sessionTimeoutSetting.key,
       control: {
         kind: "select",
-        options: () => sessionTimeoutOptions(t),
+        options: (t) => sessionTimeoutOptions(t),
         toOption: (v) => sessionTimeoutValue(v as number | null),
         fromOption: (o) => (o === "never" ? null : Number(o)),
       },
@@ -431,7 +444,7 @@ function explicitDefs(): SettingDef[] {
       keywords: ["lock", "security", "screen", "vault"], writable: true,
       consequence: GUARDED["security.lockAction"],
       policyKey: lockActionSetting.key,
-      control: { kind: "select", options: options(["vault", "screen"], (v) => t(`settings.account.sessionSecurity.lockAction.${v}`)) },
+      control: { kind: "select", options: options(["vault", "screen"], (v, t) => t(`settings.account.sessionSecurity.lockAction.${v}`)) },
       get: () => lockActionSetting.get(),
       use: () => lockActionSetting.use(),
       set: (v) => useSecurityStore.getState().setLockAction(v as LockAction),
@@ -539,7 +552,7 @@ function addedDefs(): SettingDef[] {
       type: "number", min: MIN_POLL_INTERVAL_MS, default: DEFAULT_POLL_INTERVAL_MS,
       section: "hosts", labelKey: "settings.hosts.pollInterval.title", descKey: "settings.hosts.pollInterval.desc",
       keywords: ["ping", "reachability", "interval"], writable: true,
-      control: { kind: "number", min: MIN_POLL_INTERVAL_MS / SECOND, max: 3600, step: 1, unit: () => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / SECOND, fromDisplay: (n) => Math.round(n * SECOND) },
+      control: { kind: "number", min: MIN_POLL_INTERVAL_MS / SECOND, max: 3600, step: 1, unit: (t) => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / SECOND, fromDisplay: (n) => Math.round(n * SECOND) },
       get: () => ping().pollIntervalMs,
       use: () => useHostPingStore((st) => st.pollIntervalMs),
       useActive: whenReachable,
@@ -550,7 +563,7 @@ function addedDefs(): SettingDef[] {
       type: "number", min: MIN_ACTIVE_POLL_INTERVAL_MS, default: DEFAULT_ACTIVE_POLL_INTERVAL_MS,
       section: "hosts", labelKey: "settings.hosts.activeInterval.title", descKey: "settings.hosts.activeInterval.desc",
       keywords: ["ping", "latency", "interval"], writable: true,
-      control: { kind: "number", min: MIN_ACTIVE_POLL_INTERVAL_MS / SECOND, max: 600, step: 1, unit: () => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / SECOND, fromDisplay: (n) => Math.round(n * SECOND) },
+      control: { kind: "number", min: MIN_ACTIVE_POLL_INTERVAL_MS / SECOND, max: 600, step: 1, unit: (t) => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / SECOND, fromDisplay: (n) => Math.round(n * SECOND) },
       get: () => ping().activePollIntervalMs,
       use: () => useHostPingStore((st) => st.activePollIntervalMs),
       useActive: whenReachable,

@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { SettingRow } from "@/components/settings/sections/shared";
+import { useIsAndroid, useIsMobile } from "@/utils/platform";
+import { RangeNote } from "@/components/shared/ManagedNote";
+import { usePolicyRange } from "@/stores/policyStore";
+import { availableOn } from "./registry/defaults";
+import type { SettingDef, Translate } from "./registry/types";
 import { highlightRanges } from "./registry/search";
 import { useSettingState } from "./registry/useSettingState";
 import { SettingControl } from "./settingControls";
@@ -23,6 +28,25 @@ export function Highlight({ text, query }: { text: string; query?: string }) {
   return <>{parts}</>;
 }
 
+function rangeFormat(def: SettingDef, t: Translate): { format: (v: unknown) => string; unit?: string } {
+  const c = def.control;
+  if (c.kind === "select") {
+    const toOption = c.toOption ?? String;
+    return { format: (v) => c.options(t).find((o) => o.value === toOption(v))?.label ?? String(v) };
+  }
+  if (c.kind === "number" || c.kind === "stepper") return { format: (v) => String(c.toDisplay ? c.toDisplay(v) : v), unit: ` ${c.unit(t)}` };
+  return { format: String };
+}
+
+const MARKUP = /<\/?\w+>/;
+
+function Description({ descKey, query }: { descKey: string; query?: string }) {
+  const { t } = useTranslation();
+  const text = t(descKey);
+  if (MARKUP.test(text)) return <Trans i18nKey={descKey} components={{ code: <code className="font-mono" /> }} />;
+  return <Highlight text={text} query={query} />;
+}
+
 export function UndoButton({ onUndo }: { onUndo: () => void }) {
   const { t } = useTranslation();
   return (
@@ -37,8 +61,8 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
   variant?: "list" | "card";
   className?: string;
   note?: ReactNode;
-  /** Replaces the registry description, for a row whose text depends on live state. */
-  desc?: ReactNode;
+  /** Replaces the registry description; null hides it. */
+  desc?: ReactNode | null;
   highlight?: string;
   resetAlwaysVisible?: boolean;
   undo?: { onUndo(): void };
@@ -46,15 +70,19 @@ export function Setting({ id, variant, className, note, desc, highlight, resetAl
   const { t } = useTranslation();
   const state = useSettingState(id);
   const { def } = state;
+  const isMobile = useIsMobile();
+  const isAndroid = useIsAndroid();
+  const range = usePolicyRange(def.policyKey ?? "");
+  if (!availableOn(def, { isMobile, isAndroid })) return null;
   const title = t(def.titleKey ?? def.labelKey);
-  const description = desc !== undefined ? desc : def.descKey ? <Highlight text={t(def.descKey)} query={highlight} /> : undefined;
+  const description = desc === null ? undefined : desc ?? (def.descKey ? <Description descKey={def.descKey} query={highlight} /> : undefined);
   return (
     <SettingRow
       variant={variant}
       className={className}
       title={<Highlight text={title} query={highlight} />}
       desc={description}
-      note={note}
+      note={note ?? (range && !state.locked ? <RangeNote range={range} {...rangeFormat(def, t)} /> : undefined)}
       dimmed={!state.active}
       syncKey={def.syncKey}
       policyKey={def.policyKey}

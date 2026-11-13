@@ -1,28 +1,15 @@
 import { useEffect, useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { autoRefreshIntervalSetting, DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { clampToRange, usePolicyRange } from "@/stores/policyStore";
-import { policyKeyDef } from "@/services/policy/policyKeys";
-import { RangeNote } from "@/components/shared/ManagedNote";
-import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
-import { Toggle } from "@/components/shared/Toggle";
+import { useTranslation } from "react-i18next";
+import { autoRefreshIntervalSetting } from "@/stores/sftpSettingsStore";
+import { usePolicyRange } from "@/stores/policyStore";
+import { Setting } from "@/components/settings/Setting";
 import { SettingRow, SettingsGroup } from "./shared";
 import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, type DownloadDirInfo } from "@/services/downloads";
 
-const MIN_INTERVAL_SECONDS = (policyKeyDef(autoRefreshIntervalSetting.key)?.domain?.min ?? 0) / 1000;
-
 export default function SFTPSection() {
   const { t } = useTranslation();
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useToggle("sftp-autorefresh");
-  const [tarTransferEnabled, setTarTransferEnabled] = useToggle("sftp-tar");
-  const autoRefreshIntervalMs = autoRefreshIntervalSetting.use();
   const intervalRange = usePolicyRange(autoRefreshIntervalSetting.key);
-  const setAutoRefreshIntervalMs = useSftpSettingsStore((s) => s.setAutoRefreshIntervalMs);
-  const editorAutoSave = useSftpSettingsStore((s) => s.editorAutoSave);
-  const setEditorAutoSave = useSftpSettingsStore((s) => s.setEditorAutoSave);
-
-  const toSeconds = (ms: number) => ms / 1000;
 
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
@@ -33,14 +20,6 @@ export default function SFTPSection() {
   const changeDownloadDir = async () => {
     const picked = await downloadDirPick();
     if (picked) setDownloadDir(picked);
-  };
-
-  const [intervalDraft, setIntervalDraft] = useState<string | null>(null);
-  const commitInterval = () => {
-    if (intervalDraft === null) return;
-    const val = parseFloat(intervalDraft);
-    if (Number.isFinite(val) && val >= MIN_INTERVAL_SECONDS) setAutoRefreshIntervalMs(clampToRange(intervalRange, Math.round(val * 1000)));
-    setIntervalDraft(null);
   };
 
   return (
@@ -64,64 +43,15 @@ export default function SFTPSection() {
       )}
 
       <SettingsGroup title={t("settings.sftp.transfers.title")}>
-        <SettingRow
-          syncKey="appSettings.toggles.sftp-tar"
-          title={t("settings.sftp.transfers.tarAcceleration.title")}
-          desc={
-            <Trans i18nKey="settings.sftp.transfers.tarAcceleration.desc" components={{ code: <code className="font-mono" /> }} />
-          }
-          dirty={tarTransferEnabled !== TOGGLE_DEFS["sftp-tar"].default}
-          onReset={() => setTarTransferEnabled(TOGGLE_DEFS["sftp-tar"].default)}
-        >
-          <Toggle checked={tarTransferEnabled} onChange={setTarTransferEnabled} />
-        </SettingRow>
+        <Setting id="toggles.sftp-tar" />
       </SettingsGroup>
-
       <SettingsGroup title={t("settings.sftp.filePanel.title")} divided>
-        <SettingRow
-          syncKey="appSettings.toggles.sftp-autorefresh"
-          title={t("settings.sftp.filePanel.autoRefresh.title")}
-          desc={t("settings.sftp.filePanel.autoRefresh.desc")}
-          dirty={autoRefreshEnabled !== TOGGLE_DEFS["sftp-autorefresh"].default}
-          onReset={() => setAutoRefreshEnabled(TOGGLE_DEFS["sftp-autorefresh"].default)}
-        >
-          <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
-        </SettingRow>
-        <SettingRow
-          syncKey={autoRefreshIntervalSetting.key}
-          title={t("settings.sftp.filePanel.refreshInterval.title")}
-          desc={intervalRange ? undefined : t("settings.sftp.filePanel.refreshInterval.desc")}
-          dimmed={!autoRefreshEnabled}
-          note={intervalRange && <RangeNote range={intervalRange} format={(ms) => String(toSeconds(ms as number))} unit={` ${t("settings.sftp.filePanel.refreshInterval.unit")}`} />}
-          dirty={autoRefreshIntervalMs !== DEFAULT_AUTO_REFRESH_INTERVAL_MS}
-          onReset={() => setAutoRefreshIntervalMs(DEFAULT_AUTO_REFRESH_INTERVAL_MS)}
-        >
-          <input
-            type="number"
-            min={Math.max(MIN_INTERVAL_SECONDS, toSeconds(intervalRange?.min ?? 0))}
-            max={intervalRange?.max === undefined ? undefined : toSeconds(intervalRange.max)}
-            step={0.5}
-            value={intervalDraft ?? toSeconds(autoRefreshIntervalMs)}
-            disabled={!autoRefreshEnabled}
-            onChange={(e) => setIntervalDraft(e.target.value)}
-            onBlur={commitInterval}
-            onKeyDown={(e) => e.key === "Enter" && commitInterval()}
-            className="form-input w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-            style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
-          />
-          <span className="text-xs text-(--t-text-dim)">{t("settings.sftp.filePanel.refreshInterval.unit")}</span>
-        </SettingRow>
+        <Setting id="toggles.sftp-autorefresh" />
+        <Setting id="sftp.autoRefreshIntervalMs" desc={intervalRange ? null : undefined} />
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.sftp.editor.title")}>
-        <SettingRow
-          title={t("settings.sftp.editor.autoSave.title")}
-          desc={t("settings.sftp.editor.autoSave.desc")}
-          dirty={editorAutoSave}
-          onReset={() => setEditorAutoSave(false)}
-        >
-          <Toggle checked={editorAutoSave} onChange={setEditorAutoSave} />
-        </SettingRow>
+        <Setting id="sftp.editorAutoSave" />
       </SettingsGroup>
     </div>
   );
