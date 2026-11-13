@@ -12,6 +12,10 @@ import { useLocaleStore } from "@/stores/localeStore";
 import { usePolicyStore } from "@/stores/policyStore";
 import { settingKey } from "@/services/user-data/settingKeys";
 import { effectiveDefault, isDirtyValue, resetSetting } from "./defaults";
+import { renderHook } from "@testing-library/react";
+import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
+import { useSettingState } from "./useSettingState";
 
 describe("settingsManifest", () => {
   test("génère une entrée par bascule, depuis TOGGLE_DEFS", () => {
@@ -215,5 +219,38 @@ describe("settings registry", () => {
     for (const d of settingDefs()) {
       if (d.syncKey) expect(settingKey(d.syncKey), `${d.key} → ${d.syncKey}`).toBeDefined();
     }
+  });
+});
+
+describe("registry coverage", () => {
+  const NEW_KEYS = [
+    "appearance.uiScale", "appearance.terminalFontSize",
+    "theme.scheduleLightStart", "theme.scheduleDarkStart", "themes.location",
+    "hosts.pollIntervalMs", "hosts.activePollIntervalMs", "connectivity.proxy",
+    ...SYNC_SETTING_DOMAINS.map((d) => `sync.domain.${d.id}`),
+  ];
+
+  test("registers every value row in the inventory", () => {
+    for (const k of NEW_KEYS) expect(settingDef(k), k).toBeDefined();
+  });
+
+  test("dependent entries report inactive when their parent is off", () => {
+    useToggleSettingsStore.getState().set("reachability", false);
+    try {
+      const { result } = renderHook(() => useSettingState("hosts.pollIntervalMs"));
+      expect(result.current.active).toBe(false);
+    } finally {
+      useToggleSettingsStore.getState().set("reachability", true);
+    }
+  });
+
+  test("terminal font size override is dirty only when set", () => {
+    const d = settingDef("appearance.terminalFontSize")!;
+    expect(isDirtyValue(d, null)).toBe(false);
+    expect(isDirtyValue(d, 16)).toBe(true);
+  });
+
+  test("system unlock cannot be reset from a list", () => {
+    expect(settingDef("security.systemAuthUnlock")!.resettable).toBe(false);
   });
 });

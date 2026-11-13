@@ -16,7 +16,7 @@ interface NumericControl {
   min: number;
   max: number;
   step: number;
-  unit: string;
+  unit(): string;
   toDisplay?(value: unknown): number;
   fromDisplay?(display: number): unknown;
 }

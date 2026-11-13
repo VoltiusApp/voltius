@@ -25,6 +25,9 @@ import {
   useDetachedTtlHours,
   DETACHED_TTL_HOURS,
   DEFAULT_DETACHED_TTL_HOURS,
+  DEFAULT_GLOBAL_PROXY,
+  getGlobalProxy,
+  useGlobalProxy,
   type DetachedTtlHours,
 } from "@/stores/connectivitySettingsStore";
 import { KEEPALIVE_PRESETS, DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
@@ -35,6 +38,11 @@ import { DYNAMIC_THEME_ID, DYNAMIC_THEME_NAME } from "@/themes/dynamic";
 import { localeSetting, timeFormatSetting, useLocaleStore, SUPPORTED_LOCALES, TIME_FORMATS } from "@/stores/localeStore";
 import { lockActionSetting, sessionTimeoutSetting, useSecurityStore, type LockAction } from "@/stores/securityStore";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
+import { MAX_TERMINAL_FONT_SIZE, MAX_UI_SCALE, MIN_TERMINAL_FONT_SIZE, MIN_UI_SCALE, useUIStore } from "@/stores/uiStore";
+import { locationSetting } from "@/stores/themeStore";
+import { DEFAULT_ACTIVE_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS, MIN_ACTIVE_POLL_INTERVAL_MS, MIN_POLL_INTERVAL_MS, useHostPingStore } from "@/stores/hostPingStore";
+import { SYNC_SETTING_DOMAINS } from "@/stores/syncDomains";
+import { setDomainSync } from "@/services/user-data/syncChoice";
 import { formatShortcut, getDefaultShortcut, useShortcutStore, type Shortcut } from "@/stores/shortcutStore";
 import { sessionTimeoutOptions, sessionTimeoutValue } from "@/utils/sessionTimeout";
 import type { SettingConsequence, SettingControl, SettingDef, SettingOption, SettingPlatform } from "./types";
@@ -77,7 +85,9 @@ const toggleControl: SettingControl = { kind: "toggle" };
 const options = (values: readonly string[], label: (v: string) => string) => (): SettingOption[] =>
   values.map((value) => ({ value, label: label(value) }));
 
-interface ToggleRow { titleKey?: string; descKey?: string; platform?: SettingPlatform; mobileHidden?: boolean }
+interface ToggleRow { titleKey?: string; descKey?: string; platform?: SettingPlatform; mobileHidden?: boolean; useActive?(): boolean }
+
+const whenToggle = (id: ToggleId) => () => useToggle(id)[0];
 
 const TOGGLE_ROWS: Record<ToggleId, ToggleRow> = {
   "cursor-blink": { titleKey: "settings.terminal.cursorBlink.title", descKey: "settings.terminal.cursorBlink.desc" },
@@ -91,7 +101,7 @@ const TOGGLE_ROWS: Record<ToggleId, ToggleRow> = {
   "volume-down-ctrl": { titleKey: "settings.terminal.volumeDownCtrl.title", descKey: "settings.terminal.volumeDownCtrl.desc", platform: "android" },
   "keyword-highlight": { titleKey: "settings.terminal.keywordHighlight.title", descKey: "settings.terminal.keywordHighlight.desc" },
   "auto-forward": { titleKey: "settings.portForwarding.autoForward.title", descKey: "settings.portForwarding.autoForward.desc" },
-  "forwarding-notifications": { titleKey: "settings.portForwarding.notifications.title", descKey: "settings.portForwarding.notifications.desc" },
+  "forwarding-notifications": { titleKey: "settings.portForwarding.notifications.title", descKey: "settings.portForwarding.notifications.desc", useActive: whenToggle("auto-forward") },
   "sftp-tar": { titleKey: "settings.sftp.transfers.tarAcceleration.title", descKey: "settings.sftp.transfers.tarAcceleration.desc" },
   "sftp-autorefresh": { titleKey: "settings.sftp.filePanel.autoRefresh.title", descKey: "settings.sftp.filePanel.autoRefresh.desc" },
   "reachability": { titleKey: "settings.hosts.reachability.title", descKey: "settings.hosts.reachability.desc" },
@@ -123,6 +133,7 @@ function toggleDefs(): SettingDef[] {
       keywords: def.keywords,
       platform: row.platform,
       mobileHidden: row.mobileHidden,
+      useActive: row.useActive,
       writable: true,
       policyKey,
       syncKey: policyKey,
@@ -266,9 +277,10 @@ function explicitDefs(): SettingDef[] {
       keywords: ["refresh", "interval", "poll"], writable: true,
       policyKey: "appSettings.sftp.autoRefreshIntervalMs",
       syncKey: "appSettings.sftp.autoRefreshIntervalMs",
-      control: { kind: "number", min: 0.5, max: 60, step: 0.5, unit: "s", toDisplay: (v) => Number(v) / 1000, fromDisplay: (n) => Math.round(n * 1000) },
+      control: { kind: "number", min: 0.5, max: 60, step: 0.5, unit: () => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / 1000, fromDisplay: (n) => Math.round(n * 1000) },
       get: () => autoRefreshIntervalSetting.get(),
       use: () => autoRefreshIntervalSetting.use(),
+      useActive: whenToggle("sftp-autorefresh"),
       set: (v) => sftp().setAutoRefreshIntervalMs(v as number),
     },
     {
@@ -326,6 +338,7 @@ function explicitDefs(): SettingDef[] {
       control: { kind: "select", options: options(DETACHED_TTL_HOURS.map(String), (v) => ttlLabel(Number(v))) },
       get: () => String(getGlobalDetachedTtlHours()),
       use: () => String(useDetachedTtlHours()[0]),
+      useActive: whenToggle("detached-session-ttl"),
       set: (v) => useConnectivitySettingsStore.getState().setDetachedTtlHours(Number(v) as DetachedTtlHours),
     },
     {
@@ -450,11 +463,131 @@ function explicitDefs(): SettingDef[] {
   ];
 }
 
+const PERCENT = 100;
+const percent = (v: unknown) => Math.round(Number(v) * PERCENT);
+const activeThemeFontSize = () => useThemeStore.getState().getActiveTheme().terminalFontSize;
+const SECOND = 1000;
+
+function addedDefs(): SettingDef[] {
+  const ui = () => useUIStore.getState();
+  const theme = () => useThemeStore.getState();
+  const ping = () => useHostPingStore.getState();
+  const whenThemeMode = (mode: string) => () => useThemeStore((st) => st.mode) === mode;
+  const whenReachable = whenToggle("reachability");
+
+  return [
+    {
+      key: "appearance.uiScale",
+      type: "number", min: MIN_UI_SCALE, max: MAX_UI_SCALE, default: 1,
+      section: "appearance", labelKey: "settings.appearance.uiScale.title", descKey: "settings.appearance.uiScale.desc",
+      keywords: ["zoom", "scale", "size", "dpi"], writable: true,
+      control: { kind: "stepper", min: MIN_UI_SCALE * PERCENT, max: MAX_UI_SCALE * PERCENT, step: 5, unit: () => "%", toDisplay: percent, fromDisplay: (n) => n / PERCENT },
+      get: () => ui().uiScale,
+      use: () => useUIStore((st) => st.uiScale),
+      isDirty: (v, d) => percent(v) !== percent(d),
+      set: (v) => ui().setUiScale(v as number),
+    },
+    {
+      key: "appearance.terminalFontSize",
+      type: "number", min: MIN_TERMINAL_FONT_SIZE, max: MAX_TERMINAL_FONT_SIZE, default: null,
+      section: "appearance", labelKey: "settings.appearance.terminalFontSize.title", descKey: "settings.appearance.terminalFontSize.desc",
+      keywords: ["font", "text size", "zoom"], writable: true,
+      control: { kind: "stepper", min: MIN_TERMINAL_FONT_SIZE, max: MAX_TERMINAL_FONT_SIZE, step: 1, unit: () => "px", toDisplay: (v) => (v == null ? activeThemeFontSize() : Number(v)) },
+      get: () => ui().terminalFontSize,
+      use: () => useUIStore((st) => st.terminalFontSize),
+      isDirty: (v) => v != null,
+      set: (v) => ui().setTerminalFontSize(v === null ? null : (v as number)),
+    },
+    {
+      key: "theme.scheduleLightStart",
+      type: "string", default: "07:00",
+      section: "appearance", labelKey: "settings.appearance.automation.lightStarts",
+      keywords: ["schedule", "light", "morning"], writable: true,
+      control: { kind: "time" },
+      get: () => theme().scheduleLightStart,
+      use: () => useThemeStore((st) => st.scheduleLightStart),
+      useActive: whenThemeMode("schedule"),
+      set: (v) => theme().setSchedule(String(v), theme().scheduleDarkStart),
+    },
+    {
+      key: "theme.scheduleDarkStart",
+      type: "string", default: "19:00",
+      section: "appearance", labelKey: "settings.appearance.automation.darkStarts",
+      keywords: ["schedule", "dark", "evening", "night"], writable: true,
+      control: { kind: "time" },
+      get: () => theme().scheduleDarkStart,
+      use: () => useThemeStore((st) => st.scheduleDarkStart),
+      useActive: whenThemeMode("schedule"),
+      set: (v) => theme().setSchedule(theme().scheduleLightStart, String(v)),
+    },
+    {
+      key: "themes.location",
+      type: "structured", default: null,
+      section: "appearance", labelKey: "settings.sync.settingKey.themeLocation",
+      keywords: ["location", "sunset", "sunrise", "latitude", "longitude"], writable: false,
+      policyKey: "themes.location",
+      syncKey: "themes.location",
+      control: { kind: "open" },
+      get: () => locationSetting.get(),
+      use: () => locationSetting.use(),
+      useActive: whenThemeMode("sunset"),
+      isDirty: (v) => v != null,
+      reset: () => theme().setLocation(null),
+    },
+    {
+      key: "hosts.pollIntervalMs",
+      type: "number", min: MIN_POLL_INTERVAL_MS, default: DEFAULT_POLL_INTERVAL_MS,
+      section: "hosts", labelKey: "settings.hosts.pollInterval.title", descKey: "settings.hosts.pollInterval.desc",
+      keywords: ["ping", "reachability", "interval"], writable: true,
+      control: { kind: "number", min: MIN_POLL_INTERVAL_MS / SECOND, max: 3600, step: 1, unit: () => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / SECOND, fromDisplay: (n) => Math.round(n * SECOND) },
+      get: () => ping().pollIntervalMs,
+      use: () => useHostPingStore((st) => st.pollIntervalMs),
+      useActive: whenReachable,
+      set: (v) => ping().setPollIntervalMs(v as number),
+    },
+    {
+      key: "hosts.activePollIntervalMs",
+      type: "number", min: MIN_ACTIVE_POLL_INTERVAL_MS, default: DEFAULT_ACTIVE_POLL_INTERVAL_MS,
+      section: "hosts", labelKey: "settings.hosts.activeInterval.title", descKey: "settings.hosts.activeInterval.desc",
+      keywords: ["ping", "latency", "interval"], writable: true,
+      control: { kind: "number", min: MIN_ACTIVE_POLL_INTERVAL_MS / SECOND, max: 600, step: 1, unit: () => t("settings.sftp.filePanel.refreshInterval.unit"), toDisplay: (v) => Number(v) / SECOND, fromDisplay: (n) => Math.round(n * SECOND) },
+      get: () => ping().activePollIntervalMs,
+      use: () => useHostPingStore((st) => st.activePollIntervalMs),
+      useActive: whenReachable,
+      set: (v) => ping().setActivePollIntervalMs(v as number),
+    },
+    {
+      key: "connectivity.proxy",
+      type: "structured", default: DEFAULT_GLOBAL_PROXY,
+      section: "hosts", labelKey: "settings.hosts.proxy.title", descKey: "settings.hosts.proxy.desc",
+      keywords: ["proxy", "socks", "http", "network"], writable: false,
+      policyKey: "appSettings.proxy",
+      syncKey: "appSettings.proxy",
+      control: { kind: "open" },
+      get: () => getGlobalProxy(),
+      use: () => useGlobalProxy()[0],
+      isDirty: (v, d) => (v as { mode?: string } | null)?.mode !== (d as { mode?: string } | null)?.mode,
+      reset: () => useConnectivitySettingsStore.getState().setProxy(DEFAULT_GLOBAL_PROXY),
+    },
+    ...SYNC_SETTING_DOMAINS.map((dom): SettingDef => ({
+      key: `sync.domain.${dom.id}`,
+      type: "boolean", default: true,
+      section: "sync", labelKey: `settings.sync.settingDomain.${dom.id}.label`, descKey: `settings.sync.settingDomain.${dom.id}.sub`,
+      keywords: ["sync", "cloud"], writable: true,
+      policyKey: `sync.domains.${dom.id}`,
+      control: toggleControl,
+      get: () => useSyncPrefsStore.getState().isDomainSynced(dom.id),
+      use: () => useSyncPrefsStore((st) => st.isDomainSynced(dom.id)),
+      set: (v) => setDomainSync(dom.id, v as boolean),
+    })),
+  ];
+}
+
 let cached: { list: SettingDef[]; byKey: Map<string, SettingDef> } | undefined;
 
 function registry() {
   if (!cached) {
-    const list = [...toggleDefs(), ...syncDefs(), ...explicitDefs(), ...shortcutDefs()];
+    const list = [...toggleDefs(), ...syncDefs(), ...explicitDefs(), ...addedDefs(), ...shortcutDefs()];
     cached = { list, byKey: new Map(list.map((d) => [d.key, d])) };
   }
   return cached;
