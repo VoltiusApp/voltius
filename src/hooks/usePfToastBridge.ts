@@ -4,6 +4,8 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import i18n from "@/i18n";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { sessionToastHost } from "@/utils/toastHost";
 
 interface PfPortDetectedPayload {
   session_id: string;
@@ -31,7 +33,7 @@ export function usePfToastBridge(openPorts: () => void = openRightPortsPanel) {
 
   useEffect(() => {
     // Built per toast so the texts follow the current app language.
-    const source = () => ({ kind: "plugin" as const, id: "__pf__", name: i18n.t("layout.nav.port-forwarding") });
+    const source = () => ({ kind: "plugin" as const, id: "__pf__", name: i18n.t("layout.nav.port-forwarding"), icon: PORT_FORWARDING_ICON });
     const viewPorts = () => ({ label: i18n.t("terminal.ports.toast.viewPorts"), onClick: openPorts });
 
     function flush() {
@@ -45,16 +47,20 @@ export function usePfToastBridge(openPorts: () => void = openRightPortsPanel) {
         ports.length === 1
           ? i18n.t("terminal.ports.toast.forwardedOne", { port: ports[0].port, localPort: ports[0].tunnel_local_port })
           : i18n.t("terminal.ports.toast.forwardedMany", { count: ports.length });
+      const sessions = new Set(ports.map((p) => p.session_id));
+      const host = sessions.size === 1 ? sessionToastHost(ports[0].session_id) : undefined;
 
       if (toastIdRef.current) {
         updateToast(toastIdRef.current, {
           message,
+          host,
           duration: 5000,
           action: viewPorts(),
         });
       } else {
         const id = addToast({
           source: source(),
+          host,
           type: "toast",
           message,
           severity: "info",
@@ -69,6 +75,7 @@ export function usePfToastBridge(openPorts: () => void = openRightPortsPanel) {
       if (!getToggle("forwarding-notifications")) return;
       useNotificationStore.getState().addToast({
         source: source(),
+        host: sessionToastHost(payload.session_id),
         type: "toast",
         message: i18n.t("terminal.ports.toast.autoForwardCapped", { count: payload.cap }),
         severity: "warning",

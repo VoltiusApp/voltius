@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
@@ -9,7 +9,7 @@ import { formatRelative } from "@/utils/localeFormat";
 import { useAnchoredPopover } from "@/hooks/useAnchoredPopover";
 import { isMobileShell } from "@/utils/platform";
 import { MobileNotificationBell } from "@/components/mobile/MobileNotificationBell";
-import { SEVERITY_COLORS, SEVERITY_ICONS } from "./severity";
+import { NotificationBadge, NotificationSourceLabel } from "./NotificationBadge";
 
 // Which bell is on screen changes when bells mount and unmount: the mobile
 // shell swaps the foreground tab's bell while the SFTP tab's stays mounted
@@ -31,118 +31,105 @@ function subscribeMounts(listener: () => void) {
   };
 }
 
+const ROW_SURFACE = "var(--t-bg-elevated)";
+
+function RowButton({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="h-6 px-2.5 rounded-[7px] text-xs font-medium transition-colors disabled:opacity-50 bg-(--t-bg-input) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)"
+      style={{ boxShadow: "var(--t-ring)" }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ActionRow({ badge, message, footer, dismiss, dimmed = false, inboxId }: {
+  badge: ReactNode;
+  message: string;
+  footer: ReactNode;
+  dismiss?: ReactNode;
+  dimmed?: boolean;
+  inboxId?: string;
+}) {
+  return (
+    <div
+      data-inbox-id={inboxId}
+      className="flex items-start gap-2.5 px-2.5 py-2.5 rounded-lg"
+      style={{ background: ROW_SURFACE, opacity: dimmed ? 0.6 : 1 }}
+    >
+      <span className="flex items-center h-5">{badge}</span>
+      <div className="flex-1 min-w-0 grid gap-2">
+        <p className="text-sm text-(--t-text-primary) leading-5">{message}</p>
+        {footer}
+      </div>
+      {dismiss}
+    </div>
+  );
+}
+
 function InboxRow({ entry, onAction }: { entry: InboxEntry; onAction: (i: number) => void }) {
   const resolved = entry.state === "resolved";
   return (
-    <div
-      data-inbox-id={entry.id}
-      className="flex flex-col gap-1 px-3 py-2.5 rounded-lg"
-      style={{
-        background: "var(--t-bg-elevated)",
-        borderLeft: `2px solid ${resolved ? "var(--t-text-dim)" : "var(--t-accent)"}`,
-        opacity: resolved ? 0.6 : 1,
-      }}
-    >
-      <p className="text-sm text-(--t-text-primary) leading-snug">{entry.message}</p>
-      {resolved ? (
-        <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{entry.resolution}</span>
-      ) : (
-        entry.actions.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            {entry.actions.map((a, i) => (
-              <button
-                key={a.label}
-                disabled={entry.state === "acting"}
-                onClick={() => onAction(i)}
-                className="text-xs px-2 py-0.5 rounded-sm transition-colors"
-                style={{
-                  background: "var(--t-bg-input)",
-                  color: "var(--t-text-primary)",
-                  opacity: entry.state === "acting" ? 0.5 : 1,
-                }}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
-        )
+    <ActionRow
+      inboxId={entry.id}
+      dimmed={resolved}
+      badge={<NotificationBadge source={entry.source} severity={resolved ? undefined : "info"} halo={ROW_SURFACE} />}
+      message={entry.message}
+      footer={resolved ? (
+        <span className="text-xs text-(--t-text-dim)">{entry.resolution}</span>
+      ) : entry.actions.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          {entry.actions.map((a, i) => (
+            <RowButton key={a.label} label={a.label} disabled={entry.state === "acting"} onClick={() => onAction(i)} />
+          ))}
+        </div>
       )}
-    </div>
+    />
   );
 }
 
 function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () => void }) {
-  const color = SEVERITY_COLORS[banner.severity] ?? SEVERITY_COLORS.info;
-  const icon = SEVERITY_ICONS[banner.severity] ?? SEVERITY_ICONS.info;
-
+  const { t } = useTranslation();
   return (
-    <div
-      className="flex flex-col gap-1 px-3 py-2.5 rounded-lg"
-      style={{
-        background: "var(--t-bg-elevated)",
-        borderLeft: `2px solid ${color}`,
-      }}
-    >
-      <div className="flex items-start gap-2">
-        <Icon icon={icon} width={13} style={{ color, flexShrink: 0, marginTop: 2 }} />
-        <div className="flex-1 min-w-0">
-          {banner.source.kind === "plugin" && (
-            <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-              [{banner.source.name.slice(0, 20)}]
-            </span>
-          )}
-          <p className="text-sm text-(--t-text-primary) leading-snug">{banner.message}</p>
-        </div>
-        {banner.dismissable && (
-          <button
-            onClick={onDismiss}
-            className="w-4 h-4 flex items-center justify-center rounded-sm shrink-0"
-            style={{ color: "var(--t-text-dim)" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-          >
-            <Icon icon="lucide:x" width={11} />
-          </button>
-        )}
-      </div>
-      {banner.actions.length > 0 && (
-        <div className="flex items-center gap-1.5 pl-5">
+    <ActionRow
+      badge={<NotificationBadge source={banner.source} severity={banner.severity} halo={ROW_SURFACE} />}
+      message={banner.message}
+      footer={banner.actions.length > 0 && (
+        <div className="flex items-center gap-1.5">
           {banner.actions.map((a, i) => (
-            <button
-              key={i}
-              onClick={() => { a.onClick(); onDismiss(); }}
-              className="text-xs px-2 py-0.5 rounded-sm transition-colors"
-              style={{ background: "var(--t-bg-input)", color: "var(--t-text-primary)" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-input-hover)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-input)"; }}
-            >
-              {a.label}
-            </button>
+            <RowButton key={i} label={a.label} onClick={() => { a.onClick(); onDismiss(); }} />
           ))}
         </div>
       )}
-    </div>
+      dismiss={banner.dismissable && (
+        <button
+          onClick={onDismiss}
+          aria-label={t("common.action.dismiss")}
+          className="size-5 grid place-items-center rounded-sm shrink-0 text-(--t-text-dim) hover:text-(--t-text-muted)"
+        >
+          <Icon icon="lucide:x" width={11} />
+        </button>
+      )}
+    />
   );
 }
 
 function HistoryRow({ entry }: { entry: HistoryEntry }) {
-  const color = SEVERITY_COLORS[entry.severity] ?? SEVERITY_COLORS.info;
-  const icon = SEVERITY_ICONS[entry.severity] ?? SEVERITY_ICONS.info;
-
   return (
-    <div className="flex items-start gap-2 px-3 py-2 rounded-lg opacity-60">
-      <Icon icon={icon} width={12} style={{ color, flexShrink: 0, marginTop: 2 }} />
-      <div className="flex-1 min-w-0">
-        {entry.source.kind === "plugin" && (
-          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-            [{entry.source.name.slice(0, 20)}]
-          </span>
-        )}
-        <p className="text-xs text-(--t-text-secondary) truncate">{entry.message}</p>
-      </div>
-      <span className="text-xs shrink-0" style={{ color: "var(--t-text-dim)" }}>
-        {formatRelative(entry.dismissedAt)}
+    <div className="flex items-start gap-2.5 px-2.5 py-2 rounded-lg">
+      <span className="flex items-center h-5">
+        <NotificationBadge source={entry.source} host={entry.host} severity={entry.severity} halo="var(--t-bg-card)" />
       </span>
+      <div className="flex-1 min-w-0 grid gap-0.5">
+        <p className="text-xs leading-5 line-clamp-2 text-(--t-text-secondary)">{entry.message}</p>
+        <span className="flex items-center gap-3 min-w-0">
+          <NotificationSourceLabel source={entry.source} host={entry.host} className="min-w-0" />
+          <span className="text-[11.5px] shrink-0 ml-auto text-(--t-text-dim)">{formatRelative(entry.dismissedAt)}</span>
+        </span>
+      </div>
     </div>
   );
 }

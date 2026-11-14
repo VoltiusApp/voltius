@@ -6,7 +6,8 @@ import { sftpCancelTransfer, sftpClose, sftpDelete, sftpOpen } from "@/services/
 import { pasteToSession } from "@/services/terminalPaste";
 import { sessionAcceptsInput } from "@/hooks/useTerminal";
 import { broadcastActiveForSession } from "@/stores/layoutStore";
-import { APP_SOURCE, useNotificationStore, type ToastEntry } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore, type ToastEntry, type ToastHost } from "@/stores/notificationStore";
+import { sessionToastHost } from "@/utils/toastHost";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -44,14 +45,14 @@ function hostOf(sessionId: string): string {
 
 type ToastFields = Omit<Partial<ToastEntry>, "id" | "createdAt">;
 
-function toaster(thumbnail: string) {
+function toaster(thumbnail: string, host: ToastHost | undefined) {
   const store = useNotificationStore.getState();
   let id: string | null = null;
   return {
     get id() { return id; },
     show(fields: ToastFields) {
       if (id) store.updateToast(id, fields);
-      else id = store.addToast({ source: APP_SOURCE, type: "progress", severity: "info", duration: 0, message: "", thumbnail, ...fields });
+      else id = store.addToast({ source: APP_SOURCE, host, type: "progress", severity: "info", duration: 0, message: "", thumbnail, ...fields });
     },
     update(fields: ToastFields) {
       if (id) store.updateToast(id, fields);
@@ -79,7 +80,7 @@ async function upload(sessionId: string, image: ClipboardImage, retryOf?: string
   const t = i18n.t;
   const host = hostOf(sessionId);
   const transferId = crypto.randomUUID();
-  const toast = toaster(image.thumbnail);
+  const toast = toaster(image.thumbnail, sessionToastHost(sessionId));
   if (retryOf) toast.adopt(retryOf);
   let progress = 0;
   let cancelled = false;
@@ -143,7 +144,7 @@ export async function pasteClipboardImage(sessionId: string): Promise<void> {
   if (!getToggle("paste-image-as-path") || !sessionAcceptsInput(sessionId)) return;
   if (broadcastActiveForSession(sessionId)) {
     useNotificationStore.getState().addToast({
-      source: APP_SOURCE, type: "toast", severity: "info", duration: 5000,
+      source: APP_SOURCE, host: sessionToastHost(sessionId), type: "toast", severity: "info", duration: 5000,
       message: i18n.t("terminal.pasteImage.broadcast"),
     });
     return;
