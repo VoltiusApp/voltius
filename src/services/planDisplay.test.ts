@@ -65,7 +65,8 @@ describe("planDisplay", () => {
     expect(display({ tier: "pro", trial_ends_at: ends, trial_used: true })).toMatchObject({
       label: "Pro trial",
       line: "Pro trial — 3d left",
-      badge: "Pro trial — 3d left",
+      badge: "Pro · 3 days left",
+      trialEndingSoon: true,
       trialDaysLeft: 3,
       trial: true,
       ownBilled: false,
@@ -103,6 +104,16 @@ describe("planDisplay", () => {
     expect(display({ tier: "free" }).badge).toBe("Upgrade");
     expect(display({ tier: "pro" }, "active", "Acme", on).trialOffer).toBe(false);
     expect(display({ tier: "teams", billing_tier: "free", seat_team: acme }, null, "Acme", on).trialOffer).toBe(false);
+  });
+
+  test("trial_ending_soon_at_three_days", () => {
+    const at = (days: number, tier: "pro" | "teams" = "pro") =>
+      display({ tier, trial_ends_at: Math.floor(NOW.getTime() / 1000) + days * 86_400 });
+    expect(at(3)).toMatchObject({ trialEndingSoon: true, badge: "Pro · 3 days left" });
+    expect(at(1)).toMatchObject({ trialEndingSoon: true, badge: "Pro · 1 day left" });
+    expect(at(3, "teams")).toMatchObject({ trialEndingSoon: true, badge: "Teams · 3 days left" });
+    expect(at(4)).toMatchObject({ trialEndingSoon: false, badge: "Pro trial — 4d left" });
+    expect(display({ tier: "pro" }).trialEndingSoon).toBe(false);
   });
 
   test("teams_trial_counts_as_active_trial", () => {

@@ -368,7 +368,11 @@
       },
       "plan": {
         "upgradeTrial": "Aktivovat 14 dní Pro",
-        "upgrade": "Vyšší tarif"
+        "upgrade": "Vyšší tarif",
+        "endingSoon_one": "{{plan}} · zbývá {{count}} den",
+        "endingSoon_few": "{{plan}} · zbývají {{count}} dny",
+        "endingSoon_many": "{{plan}} · zbývá {{count}} dne",
+        "endingSoon_other": "{{plan}} · zbývá {{count}} dní"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

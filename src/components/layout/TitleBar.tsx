@@ -713,9 +713,11 @@ export function SubscriptionBadge() {
           padding: hovered ? "0 0.5rem" : "0 0.375rem",
           whiteSpace: "nowrap",
           transition: "max-width 250ms ease, padding 250ms ease, color 150ms ease",
-          color: hovered
-            ? plan.premium ? "#f59e0b" : "var(--t-accent)"
-            : plan.premium ? "#f59e0b" : "var(--t-text-secondary)",
+          color: plan.trialEndingSoon
+            ? "var(--t-status-warning)"
+            : hovered
+              ? plan.premium ? "#f59e0b" : "var(--t-accent)"
+              : plan.premium ? "#f59e0b" : "var(--t-text-secondary)",
           background: hovered ? "var(--t-bg-elevated)" : "transparent",
         }}
         title={plan.viaTooltip ?? plan.badge}

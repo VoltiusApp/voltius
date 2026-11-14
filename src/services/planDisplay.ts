@@ -22,6 +22,7 @@ export interface PlanDisplay {
   ownLine: string | null;
   trial: boolean;
   trialDaysLeft: number | null;
+  trialEndingSoon: boolean;
   ownBilled: boolean;
   showManageBilling: boolean;
   showAllPlans: boolean;
@@ -42,6 +43,7 @@ export type PlanDisplayInput = Pick<
 
 const NEXT_PLAN: Record<Tier, Tier | null> = { free: "pro", pro: "teams", teams: "business", business: null };
 const DAY_MS = 86_400_000;
+const TRIAL_ENDING_SOON_DAYS = 3;
 
 export function seatTeamName(teams: readonly { id: string; name: string }[], seatTeam: SeatTeam | null): string | null {
   return seatTeam ? (teams.find((t) => t.id === seatTeam.id)?.name ?? null) : null;
@@ -65,6 +67,7 @@ export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext
     ownTrial && !seatTeam && flags.trialEndsAt
       ? Math.max(0, Math.ceil((flags.trialEndsAt.getTime() - now.getTime()) / DAY_MS))
       : null;
+  const trialEndingSoon = trial && trialDaysLeft !== null && trialDaysLeft <= TRIAL_ENDING_SOON_DAYS;
   const ownPaid = billingTier !== "free" && !ownTrial;
   const ownBilled = ownPaid && billingEnabled;
   const canBuy = billingEnabled && CAN_OPEN_CHECKOUT && !seatTeam;
@@ -80,7 +83,8 @@ export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext
     premium,
     seat: seatTeam !== null,
     label,
-    badge: premium ? (seatTeam ? label : ownLabel)
+    badge: trialEndingSoon ? i18n.t("layout.titleBar.plan.endingSoon", { plan: name, count: trialDaysLeft })
+      : premium ? (seatTeam ? label : ownLabel)
       : trialOffer ? i18n.t("layout.titleBar.plan.upgradeTrial")
       : upgradeTo === "pro" ? i18n.t("layout.titleBar.plan.upgrade")
       : label,
@@ -95,6 +99,7 @@ export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext
         : null,
     trial,
     trialDaysLeft,
+    trialEndingSoon,
     ownBilled,
     showManageBilling: ownBilled && CAN_OPEN_CHECKOUT,
     showAllPlans: canBuy,

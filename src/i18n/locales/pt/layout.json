@@ -359,7 +359,10 @@
       },
       "plan": {
         "upgradeTrial": "Ativar 14 dias de Pro",
-        "upgrade": "Atualizar"
+        "upgrade": "Atualizar",
+        "endingSoon_one": "{{plan}} · {{count}} dia restante",
+        "endingSoon_many": "{{plan}} · {{count}} de dias restantes",
+        "endingSoon_other": "{{plan}} · {{count}} dias restantes"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

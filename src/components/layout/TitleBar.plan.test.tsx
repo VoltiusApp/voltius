@@ -83,8 +83,15 @@ test("the trial badge starts the trial instead of opening settings", () => {
 });
 
 test("an own Pro trial counts down", () => {
+  seed({ tier: "pro", trial_ends_at: Math.floor(Date.now() / 1000) + 5 * 86_400 - 60 });
+  expect(badge().textContent).toBe("Pro trial — 5d left");
+});
+
+test("an ending trial shows the warning badge", () => {
   seed({ tier: "pro", trial_ends_at: Math.floor(Date.now() / 1000) + 2 * 86_400 - 60 });
-  expect(badge().textContent).toBe("Pro trial — 2d left");
+  const b = badge();
+  expect(b.textContent).toBe("Pro · 2 days left");
+  expect(b.style.color).toBe("var(--t-status-warning)");
 });
 
 test("before the team list loads, a seat badge shows the plan name alone", () => {

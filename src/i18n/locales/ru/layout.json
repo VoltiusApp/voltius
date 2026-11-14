@@ -368,7 +368,11 @@
       },
       "plan": {
         "upgradeTrial": "Активировать 14 дней Pro",
-        "upgrade": "Улучшить"
+        "upgrade": "Улучшить",
+        "endingSoon_one": "{{plan}} · остался {{count}} день",
+        "endingSoon_few": "{{plan}} · осталось {{count}} дня",
+        "endingSoon_many": "{{plan}} · осталось {{count}} дней",
+        "endingSoon_other": "{{plan}} · осталось {{count}} дня"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {
