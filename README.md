@@ -48,7 +48,7 @@ No account required. Everything below is free, forever.
 - **Plugins & themes** — [Official registry](https://github.com/VoltiusApp/marketplace) or your own repo; built-in theme editor.
 - **CLI & machine policy** — Script setup with `voltius-cli`, lock settings per machine, push policy via MDM. [Docs →](https://docs.voltius.app/reference/cli/)
 
-> Full feature list at [docs.voltius.app](https://docs.voltius.app) · **Pro · Teams · Business** add real-time Voltius Cloud sync, cross-device sessions, terminal sharing, team vaults with roles and permissions — see [voltius.app/#pricing](https://voltius.app/#pricing).
+> Full feature list at [docs.voltius.app](https://docs.voltius.app) · **Pro · Teams · Business** add real-time Voltius Cloud sync, cross-device sessions, terminal sharing, team vaults with roles and permissions — see [voltius.app/#pricing](https://voltius.app/#pricing). Pro and Teams can be tried free for 14 days, no credit card.
 
 ## 📸 Screenshots
 
