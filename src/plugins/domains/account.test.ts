@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { subscription } from "./account";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useSubscriptionStore, type LoadSource } from "@/stores/subscriptionStore";
 import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 describe("domaine account", () => {
@@ -14,8 +14,9 @@ describe("domaine account", () => {
     });
   });
   test("rafraîchit avant de lire", async () => {
-    const load = vi.fn(async () => {
+    const load = vi.fn(async (): Promise<LoadSource> => {
       useSubscriptionStore.setState({ tier: "teams", usedSeats: 3, totalSeats: 5 });
+      return "jwt";
     });
     useSubscriptionStore.setState({ tier: "free", usedSeats: null, totalSeats: null, load });
 
@@ -28,7 +29,7 @@ describe("domaine account", () => {
   });
 
   test("plan propre : planSource own, sans équipe", async () => {
-    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "pro" });
+    useSubscriptionStore.setState({ load: vi.fn(async () => "jwt" as const), tier: "pro" });
 
     const view = await subscription();
 
@@ -37,7 +38,7 @@ describe("domaine account", () => {
 
   test("siège d'équipe : planSource seat, avec le nom de l'équipe", async () => {
     nameSeatTeam();
-    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "teams", billingTier: "free", seatTeam: acme });
+    useSubscriptionStore.setState({ load: vi.fn(async () => "jwt" as const), tier: "teams", billingTier: "free", seatTeam: acme });
 
     const view = await subscription();
     forgetTeams();
@@ -46,7 +47,7 @@ describe("domaine account", () => {
   });
 
   test("siège d'équipe pas encore chargée : planSource seat, nom null", async () => {
-    useSubscriptionStore.setState({ load: vi.fn(async () => {}), tier: "teams", billingTier: "free", seatTeam: acme });
+    useSubscriptionStore.setState({ load: vi.fn(async () => "jwt" as const), tier: "teams", billingTier: "free", seatTeam: acme });
 
     const view = await subscription();
 
@@ -54,8 +55,9 @@ describe("domaine account", () => {
   });
 
   test("un échec d'enrichissement facturation (pro) signale stale=true", async () => {
-    const load = vi.fn(async () => {
+    const load = vi.fn(async (): Promise<LoadSource> => {
       useSubscriptionStore.setState({ tier: "pro", billingLoadFailed: true });
+      return "jwt";
     });
     useSubscriptionStore.setState({ tier: "pro", load });
 
@@ -68,7 +70,7 @@ describe("domaine account", () => {
   test("les dates sortent en ISO, pas en objets Date", async () => {
     const when = new Date("2026-09-01T00:00:00.000Z");
     useSubscriptionStore.setState({
-      load: vi.fn(async () => {}),
+      load: vi.fn(async () => "jwt" as const),
       tier: "pro", trialEndsAt: when, renewsAt: when, endsAt: null,
     });
 
@@ -81,7 +83,7 @@ describe("domaine account", () => {
 
   test("free-tier account reports stale=false (pas d'enrichissement tenté)", async () => {
     useSubscriptionStore.setState({
-      load: vi.fn(async () => {}),
+      load: vi.fn(async () => "jwt" as const),
       tier: "free", billingLoadFailed: false,
     });
 
@@ -92,8 +94,9 @@ describe("domaine account", () => {
   });
 
   test("pro account avec enrichissement réussi signale stale=false", async () => {
-    const load = vi.fn(async () => {
+    const load = vi.fn(async (): Promise<LoadSource> => {
       useSubscriptionStore.setState({ tier: "pro", usedSeats: 2, totalSeats: 5, billingLoadFailed: false });
+      return "jwt";
     });
     useSubscriptionStore.setState({ tier: "pro", load });
 

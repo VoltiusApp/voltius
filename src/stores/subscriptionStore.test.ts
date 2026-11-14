@@ -125,3 +125,14 @@ test("own pro plus seat still loads billing", async () => {
   await get().load();
   expect(h.appFetch).toHaveBeenCalled();
 });
+
+test("load reports whether its state came from a decoded jwt", async () => {
+  keychain({ mode: "local" });
+  expect(await get().load()).toBe("cleared");
+  keychain({ mode: "server", jwt: null });
+  expect(await get().load()).toBe("cleared");
+  keychain({ mode: "server", jwt: "not-a-jwt" });
+  expect(await get().load()).toBe("cleared");
+  keychain({ mode: "server", jwt: makeJwt({ tier: "free" }) });
+  expect(await get().load()).toBe("jwt");
+});
