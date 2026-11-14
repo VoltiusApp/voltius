@@ -44,7 +44,7 @@ export function pickLaunchPromo(i: PickInput): PromoId | null {
   const proShown = shownAt("pro_redeem");
   const teamsShown = shownAt("teams_promo");
 
-  if (state.proTrialAvailable && proShown.length === 0) return "pro_redeem";
+  if (state.proTrialAvailable && i.billingTier === "free" && proShown.length === 0) return "pro_redeem";
 
   if (
     state.teamsTrialAvailable &&

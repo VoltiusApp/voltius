@@ -140,3 +140,11 @@ test("teams_not_repeated_once_shown", () => {
   });
   expect(pickLaunchPromo(input({ state: s }))).toBeNull();
 });
+
+test("pro_redeem_never_for_business_or_paid", () => {
+  const s = state({ proTrialAvailable: true });
+  expect(pickLaunchPromo(input({ state: s, billingTier: "business" }))).not.toBe("pro_redeem");
+  expect(pickLaunchPromo(input({ state: s, billingTier: "teams" }))).not.toBe("pro_redeem");
+  expect(pickLaunchPromo(input({ state: s, billingTier: "pro" }))).not.toBe("pro_redeem");
+  expect(pickLaunchPromo(input({ state: s, billingTier: "free" }))).toBe("pro_redeem");
+});
