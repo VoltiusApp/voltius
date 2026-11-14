@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-11-14
+
+### Changed
+
+- Notifications have a new look. Each one is a slim band in the status bar's style, all the same width, with a badge showing where it comes from: the host's icon and colour as on its tab, or the plugin's icon. The host or plugin name sits beside the message, and the notifications menu uses the same badges (#878)
+
 ## [0.73.1] - 2026-11-14
 
 ### Fixed
