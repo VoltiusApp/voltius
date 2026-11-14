@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-11-14
+
+### Added
+
+- Your 14-day Pro trial now starts when you choose. A one-time window offers it, and you can also start it from the title-bar badge, from Settings › Account, or when you reach a Pro limit such as a second vault or real-time sync. Accounts that already used their trial get a fresh one. Needs the matching server update (#876)
+- Teams can be tried free for 14 days, with up to 10 teammates and no credit card. Start it from Members, when you share a vault or invite someone, or from Settings › Account (#876)
+- When a trial or subscription ends, a one-time window shows what pauses and what stays free. If a payment fails, it shows how to update the payment method. Team members are told when their team's trial ends (#876)
+- In the last 3 days of a trial, the title-bar badge shows the days left (#876)
+- Nothing changes on self-hosted servers or in the store builds (#876)
+
+### Fixed
+
+- Ctrl+F focuses the settings search even when a page or a terminal had focus (#875)
+
 ## [0.72.0] - 2026-11-13
 
 ### Added
