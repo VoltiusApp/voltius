@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.73.1] - 2026-11-14
+
+### Fixed
+
+- The app no longer says your subscription has expired when it hasn't. The warning could appear when the app briefly failed to read your session after reconnecting to the server, even on a paid or Business plan. It now shows only once the change is confirmed (#877)
+
 ## [0.73.0] - 2026-11-14
 
 ### Added
