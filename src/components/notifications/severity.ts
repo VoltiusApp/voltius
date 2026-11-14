@@ -1,4 +1,6 @@
-/** Icon + colour per notification severity, shared by the desktop popover and the mobile sheet. */
+import type { StatusTone } from "@/utils/statusTone";
+
+/** Icon + colour per notification severity, used by the mobile notifications sheet. */
 export const SEVERITY_ICONS: Record<string, string> = {
   info: "lucide:info",
   success: "lucide:circle-check-big",
@@ -13,6 +15,14 @@ export const SEVERITY_COLORS: Record<string, string> = {
   error: "var(--t-status-error)",
 };
 
+const SEVERITY_TONES: Record<string, StatusTone> = {
+  info: "accent",
+  success: "connected",
+  warning: "warning",
+  error: "error",
+};
+
+export const severityTone = (s: string): StatusTone => SEVERITY_TONES[s] ?? "accent";
 export const severityIcon = (s: string) => SEVERITY_ICONS[s] ?? SEVERITY_ICONS.info;
 export const severityColor = (s: string) => SEVERITY_COLORS[s] ?? SEVERITY_COLORS.info;
 

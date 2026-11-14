@@ -178,6 +178,7 @@ export default function HostCard({
           source: APP_SOURCE,
           type: "toast",
           message: t("hosts.card.copiedHost", { host: connection.host }),
+          host: { connectionId: connection.id, name: displayName },
           severity: "success",
           duration: 2000,
         });

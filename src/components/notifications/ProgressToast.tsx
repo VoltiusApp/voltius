@@ -1,133 +1,50 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import type { ToastEntry } from "@/stores/notificationStore";
+import { NotificationBadge, NotificationSourceLabel } from "./NotificationBadge";
+import { STRIP_SURFACE, StripDismissButton, StripTextButton, ToastStrip } from "./ToastStrip";
 
 interface Props {
   toast: ToastEntry;
   onDismiss: () => void;
   pluginUnloaded: boolean;
+  leaving: boolean;
 }
 
-const SEVERITY_COLORS: Record<string, string> = {
-  info: "var(--t-accent)",
-  success: "var(--t-status-connected)",
-  warning: "var(--t-status-warning)",
-  error: "var(--t-status-error)",
-};
-
-export function ProgressToast({ toast, onDismiss, pluginUnloaded }: Props) {
+export function ProgressToast({ toast, onDismiss, pluginUnloaded, leaving }: Props) {
   const { t } = useTranslation();
-  const isFinished = toast.finished;
-  const displaySeverity = isFinished ? (toast.finishedSeverity ?? "success") : toast.severity;
-  const borderColor = SEVERITY_COLORS[displaySeverity] ?? SEVERITY_COLORS.info;
+  const isFinished = !!toast.finished;
+  const running = !isFinished && toast.progress !== undefined;
 
   return (
-    <div
-      className="pointer-events-auto flex flex-col gap-1.5 px-3 py-2.5 rounded-xl shadow-lg text-sm animate-fadeIn"
-      style={{
-        minWidth: "16rem",
-        maxWidth: "24rem",
-        background: "var(--t-bg-card)",
-        border: `1px solid var(--t-border)`,
-        borderLeft: `2px solid ${borderColor}`,
-      }}
-    >
-      <div className="flex items-center gap-2">
-        {isFinished ? (
-          <Icon
-            icon={displaySeverity === "error" ? "lucide:circle-x" : "lucide:circle-check-big"}
-            width={14}
-            style={{ color: borderColor, flexShrink: 0 }}
-          />
-        ) : (
-          <Icon
-            icon="lucide:loader-circle"
-            width={14}
-            className="animate-spin"
-            style={{ color: "var(--t-text-muted)", flexShrink: 0 }}
-          />
+    <ToastStrip leaving={leaving} progress={running ? toast.progress : undefined}>
+      <div className="flex items-center gap-2.5 min-h-6">
+        <NotificationBadge
+          source={toast.source}
+          host={toast.host}
+          severity={isFinished ? (toast.finishedSeverity ?? "success") : undefined}
+          busy={!isFinished}
+          halo={STRIP_SURFACE}
+        />
+        <span className="flex-1 min-w-0 truncate text-(--t-text-primary)" title={toast.message}>{toast.message}</span>
+        <NotificationSourceLabel source={toast.source} host={toast.host} className="shrink-0 max-w-[9rem]" />
+        {running && (
+          <span className="text-xs tabular-nums shrink-0 text-(--t-text-muted)">{Math.round(toast.progress!)}%</span>
         )}
-        {toast.source.kind === "plugin" && (
-          <span
-            className="text-xs shrink-0"
-            style={{ color: "var(--t-text-dim)" }}
-            title={toast.source.name}
-          >
-            [{toast.source.name.slice(0, 20)}]
-          </span>
+        {toast.cancellable && !isFinished && (
+          <StripTextButton label={t("common.action.cancel")} onClick={onDismiss} disabled={pluginUnloaded} tone="muted" />
         )}
-        <span className="flex-1 text-(--t-text-primary) font-medium truncate">{toast.message}</span>
-        {(isFinished || toast.cancellable) && (
-          <button
-            onClick={onDismiss}
-            disabled={pluginUnloaded && !isFinished}
-            className="w-4 h-4 flex items-center justify-center rounded-sm shrink-0 transition-colors"
-            style={{ color: "var(--t-text-dim)" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-          >
-            <Icon icon="lucide:x" width={11} />
-          </button>
-        )}
+        {isFinished && toast.action && <StripTextButton label={toast.action.label} onClick={toast.action.onClick} />}
+        {isFinished ? <StripDismissButton onClick={onDismiss} /> : !toast.cancellable && <span className="w-1 shrink-0" />}
       </div>
 
       {(toast.thumbnail || toast.detail) && (
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0 pl-7 pr-2 pb-1">
           {toast.thumbnail && (
-            <img src={toast.thumbnail} alt="" className="h-9 w-14 rounded-md object-cover shrink-0" style={{ border: "1px solid var(--t-border)" }} />
+            <img src={toast.thumbnail} alt="" className="h-7 w-11 rounded-[4px] object-cover shrink-0" style={{ boxShadow: "var(--t-ring)" }} />
           )}
-          {toast.detail && <span className="text-xs truncate min-w-0" style={{ color: "var(--t-text-muted)" }}>{toast.detail}</span>}
+          {toast.detail && <span className="text-[11.5px] truncate min-w-0 text-(--t-text-muted)">{toast.detail}</span>}
         </div>
       )}
-      {!isFinished && (
-        <div className="flex items-center gap-2">
-          {toast.progress !== undefined ? (
-            <>
-              <div
-                className="flex-1 h-1 rounded-full overflow-hidden"
-                style={{ background: "var(--t-bg-elevated)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${toast.progress}%`, background: borderColor }}
-                />
-              </div>
-              <span className="text-xs tabular-nums" style={{ color: "var(--t-text-muted)" }}>
-                {Math.round(toast.progress)}%
-              </span>
-            </>
-          ) : (
-            <div className="flex-1" />
-          )}
-          {toast.cancellable && !isFinished && (
-            <button
-              onClick={onDismiss}
-              disabled={pluginUnloaded}
-              className="text-xs px-1.5 py-0.5 rounded-sm transition-colors"
-              style={{
-                color: "var(--t-text-muted)",
-                opacity: pluginUnloaded ? 0.5 : 1,
-                pointerEvents: pluginUnloaded ? "none" : "auto",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-            >
-              {t("common.action.cancel")}
-            </button>
-          )}
-        </div>
-      )}
-      {isFinished && toast.action && (
-        <div className="flex justify-end">
-          <button
-            onClick={toast.action.onClick}
-            className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-medium transition-colors"
-            style={{ background: `color-mix(in srgb, ${borderColor} 15%, transparent)`, color: borderColor }}
-          >
-            {toast.action.label}
-          </button>
-        </div>
-      )}
-    </div>
+    </ToastStrip>
   );
 }

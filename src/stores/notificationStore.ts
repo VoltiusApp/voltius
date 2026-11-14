@@ -2,8 +2,14 @@ import { create } from "zustand";
 import type { ToastSeverity } from "@/plugins/api";
 
 export type NotificationSource =
-  | { kind: "plugin"; id: string; name: string }
+  | { kind: "plugin"; id: string; name: string; icon?: string }
   | { kind: "app" };
+
+/** The saved host a toast is about; its badge borrows that host's icon and colour. */
+export interface ToastHost {
+  connectionId: string;
+  name: string;
+}
 
 export const APP_SOURCE: NotificationSource = { kind: "app" };
 
@@ -19,6 +25,7 @@ export interface ToastEntry {
   severity: ToastSeverity;
   duration: number;
   action?: { label: string; onClick: () => void };
+  host?: ToastHost;
   // Progress fields
   progress?: number;
   thumbnail?: string;
@@ -53,6 +60,7 @@ export interface BannerEntry {
 export interface HistoryEntry {
   id: string;
   source: NotificationSource;
+  host?: ToastHost;
   message: string;
   severity: ToastSeverity;
   dismissedAt: number;
@@ -171,6 +179,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const historyEntry: HistoryEntry = {
         id: toast.id,
         source: toast.source,
+        host: toast.host,
         message: toast.message,
         severity: toast.finishedSeverity ?? toast.severity,
         dismissedAt: Date.now(),

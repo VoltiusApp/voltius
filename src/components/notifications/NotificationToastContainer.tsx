@@ -1,136 +1,44 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { ProgressToast } from "./ProgressToast";
+import { NotificationBadge, NotificationSourceLabel } from "./NotificationBadge";
+import { STRIP_SURFACE, StripDismissButton, StripTextButton, ToastStrip } from "./ToastStrip";
 import type { ToastEntry } from "@/stores/notificationStore";
 import { useIsMobile } from "@/utils/platform";
 import MobileSnackbarHost from "@/components/mobile/MobileSnackbar";
 
 type TimerInfo = { id: ReturnType<typeof setTimeout>; remaining: number; startedAt: number; original: number };
 
-const SEVERITY_ICONS: Record<string, string> = {
-  info: "lucide:info",
-  success: "lucide:circle-check-big",
-  warning: "lucide:triangle-alert",
-  error: "lucide:circle-x",
-};
-
-const SEVERITY_COLORS: Record<string, string> = {
-  info: "var(--t-accent)",
-  success: "var(--t-status-connected)",
-  warning: "var(--t-status-warning)",
-  error: "var(--t-status-error)",
-};
-
-const SEVERITY_BG: Record<string, string> = {
-  info: "color-mix(in srgb, var(--t-accent) 8%, transparent)",
-  success: "color-mix(in srgb, var(--t-status-connected) 8%, transparent)",
-  warning: "color-mix(in srgb, var(--t-status-warning) 8%, transparent)",
-  error: "color-mix(in srgb, var(--t-status-error) 8%, transparent)",
-};
-
 function RegularToast({
   toast,
   onDismiss,
   pluginUnloaded,
-  fading,
-  hovered,
-  timerBarKey,
+  leaving,
 }: {
   toast: ToastEntry;
   onDismiss: () => void;
   pluginUnloaded: boolean;
-  fading: boolean;
-  hovered: boolean;
-  timerBarKey: number;
+  leaving: boolean;
 }) {
-  const color = SEVERITY_COLORS[toast.severity] ?? SEVERITY_COLORS.info;
-  const bg = SEVERITY_BG[toast.severity] ?? SEVERITY_BG.info;
-  const icon = SEVERITY_ICONS[toast.severity] ?? SEVERITY_ICONS.info;
-  const hasDuration = toast.duration > 0;
-
   return (
-    <div
-      className={fading ? "animate-fadeOut" : "animate-fadeIn"}
-      style={{ pointerEvents: "auto" }}
-    >
-      <div
-        className="relative flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg text-sm overflow-hidden"
-        style={{
-          minWidth: "16rem",
-          maxWidth: "24rem",
-          background: `color-mix(in srgb, var(--t-bg-card) 92%, transparent)`,
-          border: `1px solid var(--t-border)`,
-          borderLeft: `2px solid ${color}`,
-          backdropFilter: "blur(4px)",
-        }}
-      >
-        <Icon icon={icon} width={14} style={{ color, flexShrink: 0 }} />
-        {toast.source.kind === "plugin" && (
-          <span
-            className="text-xs shrink-0 truncate"
-            style={{ color: "var(--t-text-dim)", maxWidth: "5rem" }}
-            title={toast.source.name}
-          >
-            [{toast.source.name.slice(0, 20)}]
-          </span>
-        )}
-        {/* Wraps rather than truncating: a refusal that explains itself is longer
-            than one line, and an ellipsis at 40 characters hides the reason. */}
+    <ToastStrip leaving={leaving}>
+      <div className="flex items-center gap-2.5">
+        <NotificationBadge source={toast.source} host={toast.host} severity={toast.severity} halo={STRIP_SURFACE} />
+        {/* Wraps rather than truncating: a refusal that explains itself is longer than one line. */}
         <span
-          className="flex-1 text-(--t-text-primary) break-words"
+          className="flex-1 min-w-0 leading-5 break-words text-(--t-text-primary)"
           style={{ display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" }}
           title={toast.message}
         >
           {toast.message}
         </span>
-        {toast.action && (
-          <button
-            onClick={toast.action.onClick}
-            disabled={pluginUnloaded}
-            className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-medium transition-colors"
-            style={{
-              background: bg,
-              color,
-              opacity: pluginUnloaded ? 0.5 : 1,
-              pointerEvents: pluginUnloaded ? "none" : "auto",
-            }}
-          >
-            {toast.action.label}
-          </button>
-        )}
-        <button
-          onClick={onDismiss}
-          className="w-4 h-4 flex items-center justify-center rounded-sm shrink-0 transition-colors"
-          style={{ color: "var(--t-text-dim)" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-        >
-          <Icon icon="lucide:x" width={11} />
-        </button>
-
-        {/* Timer drain bar — full while hovered, drains on mouse-leave */}
-        {hasDuration && !fading && (
-          <div
-            key={timerBarKey}
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: "2px",
-              transformOrigin: "left",
-              background: color,
-              opacity: 0.45,
-              animation: hovered ? "none" : `toast-timer-drain ${toast.duration}ms linear forwards`,
-              transform: hovered ? "scaleX(1)" : undefined,
-            }}
-          />
-        )}
+        <NotificationSourceLabel source={toast.source} host={toast.host} className="shrink-0 max-w-[9rem]" />
+        {toast.action && <StripTextButton label={toast.action.label} onClick={toast.action.onClick} disabled={pluginUnloaded} />}
+        <StripDismissButton onClick={onDismiss} />
       </div>
-    </div>
+    </ToastStrip>
   );
 }
 
@@ -152,9 +60,8 @@ function ToastStack({ only }: { only?: ToastEntry["type"] }) {
   const [hovered, setHovered] = useState(false);
   const [fadingIds, setFadingIds] = useState<Set<string>>(new Set());
   const fadingIdsRef = useRef<Set<string>>(new Set());
-  const [timerResetCounter, setTimerResetCounter] = useState(0);
 
-  const FADE_DURATION = 260;
+  const LEAVE_MS = 160;
 
   const dismissWithFade = (id: string) => {
     fadingIdsRef.current.add(id);
@@ -163,7 +70,7 @@ function ToastStack({ only }: { only?: ToastEntry["type"] }) {
       dismissToast(id);
       fadingIdsRef.current.delete(id);
       setFadingIds(new Set(fadingIdsRef.current));
-    }, FADE_DURATION);
+    }, LEAVE_MS);
   };
 
   const scheduleTimer = (id: string, remaining: number, original?: number) => {
@@ -201,7 +108,6 @@ function ToastStack({ only }: { only?: ToastEntry["type"] }) {
       }
     } else {
       // Reset all timers to their original full duration
-      setTimerResetCounter((c) => c + 1);
       for (const [id, info] of timers.current.entries()) {
         clearTimeout(info.id);
         scheduleTimer(id, info.original, info.original);
@@ -243,7 +149,8 @@ function ToastStack({ only }: { only?: ToastEntry["type"] }) {
 
   return (
     <div
-      className="fixed bottom-4 right-4 flex flex-col gap-2 z-50 pointer-events-none"
+      className="fixed bottom-8 right-3 flex flex-col items-end gap-1 z-50 pointer-events-none"
+      aria-live="polite"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -251,16 +158,16 @@ function ToastStack({ only }: { only?: ToastEntry["type"] }) {
         const fading = fadingIds.has(toast.id);
         if (toast.type === "progress") {
           return (
-            <div key={toast.id} className={fading ? "animate-fadeOut" : ""} style={{ pointerEvents: "auto" }}>
-              <ProgressToast
-                toast={toast}
-                onDismiss={() => {
-                  toast.onCancel?.();
-                  dismissWithFade(toast.id);
-                }}
-                pluginUnloaded={false}
-              />
-            </div>
+            <ProgressToast
+              key={toast.id}
+              toast={toast}
+              onDismiss={() => {
+                toast.onCancel?.();
+                dismissWithFade(toast.id);
+              }}
+              pluginUnloaded={false}
+              leaving={fading}
+            />
           );
         }
         return (
@@ -269,9 +176,7 @@ function ToastStack({ only }: { only?: ToastEntry["type"] }) {
             toast={toast}
             onDismiss={() => dismissWithFade(toast.id)}
             pluginUnloaded={false}
-            fading={fading}
-            hovered={hovered}
-            timerBarKey={timerResetCounter}
+            leaving={fading}
           />
         );
       })}
