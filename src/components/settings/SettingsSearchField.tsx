@@ -20,6 +20,7 @@ export function SettingsSearchField({ variant = "sidebar" }: { variant?: "sideba
       const find = primaryOnly(e) && e.key.toLowerCase() === "f";
       if (!slash && !find) return;
       e.preventDefault();
+      e.stopPropagation();
       ref.current?.focus();
       ref.current?.select();
     };

@@ -18,7 +18,9 @@ vi.mock("@/utils/platform", async (orig) => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined), isTauri: () => false }));
 
+import { useRef } from "react";
 import SettingsModal from "@/components/settings/SettingsModal";
+import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
@@ -67,6 +69,17 @@ test("slash and the primary modifier with F focus search", () => {
   expect(document.activeElement).toBe(search());
   search().blur();
   fireEvent.keyDown(document, { key: "f", ctrlKey: true });
+  expect(document.activeElement).toBe(search());
+});
+
+test("the primary modifier with F stays in settings over a page filter behind it", () => {
+  function PageFilter() {
+    const ref = useRef<HTMLInputElement>(null);
+    useFilterShortcut(ref);
+    return <input ref={ref} aria-label="page filter" />;
+  }
+  render(<><PageFilter /><SettingsModal /></>);
+  fireEvent.keyDown(document.body, { key: "f", ctrlKey: true });
   expect(document.activeElement).toBe(search());
 });
 
