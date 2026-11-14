@@ -6,6 +6,8 @@ import { deriveTierFlags, type SeatTeam, type Tier } from "@/stores/subscription
 
 export type { Tier };
 
+export type LoadSource = "jwt" | "cleared";
+
 interface JwtPayload {
   tier?: string;
   billing_tier?: string;
@@ -45,7 +47,8 @@ export interface SubscriptionState {
   endsAt: Date | null;
   emailVerified: boolean;
   billingLoadFailed: boolean;
-  load: () => Promise<void>;
+  /** Resolves "jwt" when the new state was decoded from a stored JWT, "cleared" when it fell back to free. */
+  load: () => Promise<LoadSource>;
 }
 
 /** Everything `load` derives from the server or the JWT, back to "nothing known".
@@ -82,19 +85,19 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     const mode = await keychainGet("mode").catch(() => null);
     if (mode !== "server") {
       set({ ...CLEARED, accountMode: mode });
-      return;
+      return "cleared";
     }
 
     const jwt = await keychainGet("jwt").catch(() => null);
     if (!jwt) {
       set({ ...CLEARED });
-      return;
+      return "cleared";
     }
 
     const payload = parseJwtPayload<JwtPayload>(jwt);
     if (!payload) {
       set({ ...CLEARED });
-      return;
+      return "cleared";
     }
 
     const now = new Date();
@@ -138,6 +141,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
         set({ billingLoadFailed: true });
       }
     }
+    return "jwt";
   },
 }));
 

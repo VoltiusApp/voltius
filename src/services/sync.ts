@@ -4,7 +4,7 @@ import { logFailure } from "@/lib/logger";
 import { createSerialQueue } from "@/lib/serialQueue";
 import { forgetMergedRemoteBlobs, settledBlobs } from "@/services/settledBlobs";
 import { remoteSources, type RemoteSourceFailure } from "@/services/remoteSources";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useSubscriptionStore, type LoadSource } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
@@ -172,6 +172,7 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 export { getServerUrl };
 
 const SEAT_REFRESH_DEBOUNCE_MS = 1_000;
+const PLAN_END_CONFIRM_MS = 2_000;
 // Spreads a whole team's refreshes so one office IP stays under the per-IP auth limit.
 const SEAT_REFRESH_JITTER_MS = 3_000;
 let seatRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -199,15 +200,27 @@ async function tryRefreshJwt(): Promise<string | null> {
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;
   const wasTierBefore = useSubscriptionStore.getState().tier;
-  await useSubscriptionStore.getState().load().catch(logFailure("subscription load"));
-  const isProNow = useSubscriptionStore.getState().isPro;
+  const loadSubscription = () =>
+    useSubscriptionStore.getState().load().catch((e: unknown): LoadSource => {
+      logFailure("subscription load")(e);
+      return "cleared";
+    });
+  let source = await loadSubscription();
+  let planEnded = false;
+  if (wasProBefore && !useSubscriptionStore.getState().isPro) {
+    // A keychain miss right after the refresh reads as free; only a JWT that still says free twice is a real downgrade.
+    await new Promise((resolve) => setTimeout(resolve, PLAN_END_CONFIRM_MS));
+    const firstFromJwt = source === "jwt";
+    source = await loadSubscription();
+    planEnded = firstFromJwt && source === "jwt" && !useSubscriptionStore.getState().isPro;
+  }
   const isTeamsNow = useSubscriptionStore.getState().isTeams;
   if (useSubscriptionStore.getState().tier !== wasTierBefore) {
     const { useTeamStore } = await import("@/stores/teamStore");
     void useTeamStore.getState().loadTeams().catch(logFailure("teams reload after tier change"));
   }
 
-  if (wasProBefore && !isProNow) {
+  if (planEnded) {
     const { APP_SOURCE, useNotificationStore } = await import("@/stores/notificationStore");
     const { useUIStore } = await import("@/stores/uiStore");
     useNotificationStore.getState().addToast({
