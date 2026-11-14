@@ -106,6 +106,12 @@ describe("PlanEndedModal", () => {
     expect(onClose).toHaveBeenCalledWith("dismissed");
   });
 
+  test("plan_ended_without_variant_closes", () => {
+    usePromoStore.setState({ state: baseState });
+    render(<PlanEndedModal source="launch" occurrence={900} onClose={onClose} />);
+    expect(onClose).toHaveBeenCalledWith("activated");
+  });
+
   test("payment_issue_variant_opens_portal", () => {
     useSubscriptionStore.setState({ billingTier: "teams" });
     usePromoStore.setState({

@@ -1,6 +1,7 @@
 import { test, expect, vi } from "vitest";
 
-vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
+const startTrialOrCheckout = vi.hoisted(() => vi.fn());
+vi.mock("@/services/promos", () => ({ startTrialOrCheckout }));
 vi.mock("@/stores/uiStore", () => ({ useUIStore: { getState: () => ({ openCloudAuth: vi.fn(), openSettings: vi.fn() }) } }));
 
 const setSyncPaused = vi.hoisted(() => vi.fn());
@@ -18,4 +19,10 @@ test("pausing a syncing provider sets the pause", () => {
   runSyncProviderAction({ kind: "pause" });
 
   expect(setSyncPaused).toHaveBeenCalledWith(true);
+});
+
+test("upgrading from a sync provider goes through the trial-or-checkout paywall", () => {
+  runSyncProviderAction({ kind: "upgrade" });
+
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("pro", "sync_provider", "sync");
 });

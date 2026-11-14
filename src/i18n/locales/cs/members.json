@@ -264,8 +264,9 @@
       "ownPlanTitle": "Převedení trezoru na tým vyžaduje vlastní tarif Teams",
       "upgradeDesc": "Zvěte členy, přiřazujte role a bezpečně sdílejte přihlašovací údaje se svým týmem.",
       "upgradeBtn": "Vyzkoušejte Teams zdarma na {{days}} dní →",
+      "upgradePlainBtn": "Přejít na Teams →",
       "ownPlanBtn": "Pořídit vlastní tarif Teams →",
-      "trialNote": "Vyžaduje kartu · během zkušební doby se nic neúčtuje"
+      "trialNote": "Bez platební karty · až 10 členů týmu"
     },
     "joinLinks": {
       "explainer": "Kdokoli s odkazem se připojí k tomuto trezoru v roli, kterou vyberete. Odkaz nikdy neobsahuje klíč trezoru — ten dorazí zvlášť, jakmile bude online někdo, kdo ho už má.",

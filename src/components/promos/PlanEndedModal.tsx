@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { openBillingCheckout } from "@/services/billingCheckout";
@@ -46,6 +46,12 @@ export function PlanEndedModal({ source, occurrence, onClose }: PromoModalProps 
   const billingTier = useSubscriptionStore((s) => s.billingTier);
   const variant = planEndVariant(state, occurrence);
   const dismiss = () => onClose("dismissed");
+
+  // The end notice can vanish when the state reloads; nothing to show means nothing to keep open.
+  // "activated" so no dismissal is recorded for a notice nobody saw.
+  useEffect(() => {
+    if (!variant) onClose("activated");
+  }, [variant, onClose]);
 
   if (!variant) return null;
 

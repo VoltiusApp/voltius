@@ -1,7 +1,8 @@
 import { test, expect, vi, beforeAll, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { deriveTierFlags, type TierFlagsInput } from "@/stores/subscriptionTier";
+import { usePromoStore } from "@/stores/promoStore";
 import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -14,6 +15,15 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+const startTrialOrCheckout = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/services/promos", async () => ({
+  ...(await vi.importActual<typeof import("@/services/promos")>("@/services/promos")),
+  startTrialOrCheckout,
+}));
+vi.mock("@/services/serverCapabilities", async () => ({
+  ...(await vi.importActual<typeof import("@/services/serverCapabilities")>("@/services/serverCapabilities")),
+  useServerBillingEnabled: () => true,
+}));
 
 let SubscriptionBadge: (typeof import("./TitleBar"))["SubscriptionBadge"];
 beforeAll(async () => {
@@ -26,7 +36,14 @@ afterEach(() => {
   cleanup();
   useSubscriptionStore.setState(initial, true);
   forgetTeams();
+  usePromoStore.setState({ state: null, current: null });
+  startTrialOrCheckout.mockClear();
 });
+
+const offerPro = (proTrialAvailable: boolean) =>
+  usePromoStore.setState({
+    state: { proTrialAvailable, teamsTrialAvailable: false, emailVerified: true, seen: [], planEnded: null, teamEnded: null, paymentIssue: null },
+  });
 
 const seed = (input: TierFlagsInput) => {
   nameSeatTeam();
@@ -46,9 +63,23 @@ test("own Pro plus a Business seat shows Business", () => {
   expect(badge().textContent).toBe("Business");
 });
 
-test("a free account is offered the trial", () => {
-  seed({ tier: "free", trial_used: false });
-  expect(badge().textContent).toBe("Upgrade · 14d Free Trial");
+test("a free account is offered the trial when the server says so", () => {
+  seed({ tier: "free" });
+  offerPro(true);
+  expect(badge().textContent).toBe("Activate 14 days of Pro");
+});
+
+test("without a trial on offer the badge is a plain upgrade", () => {
+  seed({ tier: "free" });
+  offerPro(false);
+  expect(badge().textContent).toBe("Upgrade");
+});
+
+test("the trial badge starts the trial instead of opening settings", () => {
+  seed({ tier: "free" });
+  offerPro(true);
+  fireEvent.click(badge());
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("pro", "titlebar");
 });
 
 test("an own Pro trial counts down", () => {

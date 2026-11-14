@@ -358,7 +358,7 @@
         "closeTab_other": "Fermer l'onglet ({{count}} sessions)"
       },
       "plan": {
-        "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
+        "upgradeTrial": "Activer 14 jours de Pro",
         "upgrade": "Mettre à niveau"
       },
       "splitLabelMore": "{{label}} + {{count}}",

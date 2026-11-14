@@ -260,8 +260,9 @@
       "ownPlanTitle": "Bir kasayı ekibe dönüştürmek için kendi Teams planınız gerekir",
       "upgradeDesc": "Üye davet edin, rol atayın ve kimlik bilgilerini ekibinizle güvenle paylaşın.",
       "upgradeBtn": "Teams'i {{days}} gün ücretsiz dene →",
+      "upgradePlainBtn": "Teams'e geç →",
       "ownPlanBtn": "Kendi Teams planınızı alın →",
-      "trialNote": "Kart gerekir · deneme süresince ücret alınmaz"
+      "trialNote": "Kredi kartı yok · 10 ekip arkadaşına kadar"
     },
     "joinLinks": {
       "explainer": "Bağlantıya sahip herkes bu kasaya seçtiğiniz rolle katılır. Bağlantı kasanın anahtarını hiçbir zaman taşımaz — anahtar, ona zaten sahip olan biri çevrimiçi olduğunda ayrıca iletilir.",

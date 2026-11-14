@@ -34,8 +34,12 @@ test("business tier unlocks pro + teams + business", () => {
 test("isTrialActive requires pro tier AND a future trial end", () => {
   expect(deriveTierFlags({ tier: "pro", trial_ends_at: soon }, NOW).isTrialActive).toBe(true);
   expect(deriveTierFlags({ tier: "pro", trial_ends_at: past }, NOW).isTrialActive).toBe(false);
-  // teams tier with a future trial date is NOT a "pro trial"
-  expect(deriveTierFlags({ tier: "teams", trial_ends_at: soon }, NOW).isTrialActive).toBe(false);
+  expect(deriveTierFlags({ tier: "business", trial_ends_at: soon }, NOW).isTrialActive).toBe(false);
+});
+
+test("teams_trial_counts_as_active_trial", () => {
+  expect(deriveTierFlags({ tier: "teams", trial_ends_at: soon }, NOW).isTrialActive).toBe(true);
+  expect(deriveTierFlags({ tier: "teams", trial_ends_at: past }, NOW).isTrialActive).toBe(false);
 });
 
 test("trialKnown reflects presence of trial fields; trialUsed defaults false", () => {

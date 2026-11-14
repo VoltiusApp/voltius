@@ -358,7 +358,7 @@
         "closeTab_many": "Fechar aba ({{count}} sessões)"
       },
       "plan": {
-        "upgradeTrial": "Atualizar · Avaliação Gratuita de 14d",
+        "upgradeTrial": "Ativar 14 dias de Pro",
         "upgrade": "Atualizar"
       },
       "splitLabelMore": "{{label}} + {{count}}",

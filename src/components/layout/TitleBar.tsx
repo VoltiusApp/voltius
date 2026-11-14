@@ -9,6 +9,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { syncStatusTooltip } from "@/services/syncStatusText";
 import type { EffectiveSync } from "@/services/syncProviders";
 import { usePlanDisplay } from "@/services/planDisplay";
+import { startTrialOrCheckout } from "@/services/promos";
 import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -703,7 +704,7 @@ export function SubscriptionBadge() {
   return (
     <div className="flex items-center px-1 shrink-0">
       <button
-        onClick={() => openSettings("account")}
+        onClick={() => (plan.trialOffer ? void startTrialOrCheckout("pro", "titlebar") : openSettings("account"))}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className="flex items-center gap-1.5 h-7 rounded-lg overflow-hidden transition-all"

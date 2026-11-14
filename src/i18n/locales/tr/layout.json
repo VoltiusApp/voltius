@@ -349,7 +349,7 @@
         "closeTab_other": "Sekmeyi kapat ({{count}} oturum)"
       },
       "plan": {
-        "upgradeTrial": "Yükselt · 14 gün ücretsiz deneme",
+        "upgradeTrial": "14 günlük Pro'yu etkinleştir",
         "upgrade": "Yükselt"
       },
       "splitLabelMore": "{{label}} + {{count}}",

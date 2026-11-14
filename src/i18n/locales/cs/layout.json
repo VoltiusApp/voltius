@@ -367,7 +367,7 @@
         "closeTab_other": "Zavřít kartu ({{count}} relací)"
       },
       "plan": {
-        "upgradeTrial": "Vyšší tarif · 14 dní na vyzkoušení zdarma",
+        "upgradeTrial": "Aktivovat 14 dní Pro",
         "upgrade": "Vyšší tarif"
       },
       "splitLabelMore": "{{label}} + {{count}}",

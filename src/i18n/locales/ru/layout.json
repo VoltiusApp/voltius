@@ -367,7 +367,7 @@
         "closeTab_other": "Закрыть вкладку ({{count}} сессии)"
       },
       "plan": {
-        "upgradeTrial": "Улучшить · 14 дней бесплатно",
+        "upgradeTrial": "Активировать 14 дней Pro",
         "upgrade": "Улучшить"
       },
       "splitLabelMore": "{{label}} + {{count}}",

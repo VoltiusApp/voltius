@@ -12,7 +12,7 @@ import { isNearbyOnly } from "@/services/syncProviders";
 import { effectiveSyncLabel } from "@/services/syncStatusText";
 import { getCurrentUserEmail } from "@/services/account";
 import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
@@ -51,7 +51,7 @@ export default function MobileAccountPage() {
   const checkout = async (plan: "pro" | "teams") => {
     if (checkoutBusy) return;
     setCheckoutBusy(true);
-    try { await openBillingCheckout(plan); } finally { setCheckoutBusy(false); }
+    try { await startTrialOrCheckout(plan, "mobile_account"); } finally { setCheckoutBusy(false); }
   };
 
   const Row = ({ icon, label, value, valueColor, sub, onTap }: { icon: string; label: string; value: string; valueColor?: string; sub?: string | null; onTap?: () => void }) => {
@@ -123,7 +123,7 @@ export default function MobileAccountPage() {
                 className="w-full h-11 rounded-xl text-sm font-semibold disabled:opacity-60"
                 style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
               >
-                {t("mobile.account.upgradeToPro")}
+                {t(plan.trialOffer ? "mobile.account.activateProTrial" : "mobile.account.upgradeToPro")}
               </button>
             )}
 
@@ -136,9 +136,9 @@ export default function MobileAccountPage() {
                   className="w-full h-11 rounded-xl text-sm font-semibold text-(--t-text-primary) disabled:opacity-60"
                   style={{ border: "1px solid var(--t-border)" }}
                 >
-                  {t("mobile.account.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
+                  {plan.teamsTrialOffer ? t("mobile.account.upgradeToTeams", { days: TEAMS_TRIAL_DAYS }) : t("mobile.account.upgradeTeamsPlain")}
                 </button>
-                <p className="-mt-1 text-center text-xs text-(--t-text-dim)">{t("mobile.account.teamsTrialNote")}</p>
+                {plan.teamsTrialOffer && <p className="-mt-1 text-center text-xs text-(--t-text-dim)">{t("mobile.account.teamsTrialNote")}</p>}
               </>
             )}
 

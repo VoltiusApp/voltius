@@ -10,33 +10,43 @@ vi.mock("@/services/distribution", () => ({
   },
 }));
 
-import { planDisplay } from "./planDisplay";
+import { planDisplay, type PlanDisplayContext } from "./planDisplay";
 
 const NOW = new Date();
 const acme = { id: "t1", trial: false };
 
-function display(input: TierFlagsInput, subscriptionStatus: string | null = null, teamName: string | null = "Acme") {
-  return planDisplay({ ...deriveTierFlags(input, NOW), subscriptionStatus }, { teamName, now: NOW });
+interface Offers {
+  proTrialAvailable?: boolean;
+  teamsTrialAvailable?: boolean;
+}
+
+function display(
+  input: TierFlagsInput,
+  subscriptionStatus: string | null = null,
+  teamName: string | null = "Acme",
+  offers: Offers = {},
+  context: PlanDisplayContext = {},
+) {
+  const { proTrialAvailable = false, teamsTrialAvailable = false } = offers;
+  return planDisplay(
+    { ...deriveTierFlags(input, NOW), subscriptionStatus, proTrialAvailable, teamsTrialAvailable },
+    { teamName, now: NOW, ...context },
+  );
 }
 
 describe("planDisplay", () => {
   test("free", () => {
-    expect(display({ tier: "free", trial_used: false })).toMatchObject({
+    expect(display({ tier: "free" }, null, "Acme", { proTrialAvailable: true })).toMatchObject({
       plan: "free",
       premium: false,
       seat: false,
-      badge: "Upgrade · 14d Free Trial",
+      badge: "Activate 14 days of Pro",
       label: "Free",
       via: null,
       trial: false,
       showManageBilling: false,
       showUpgrade: true,
-      showTrialEnded: false,
     });
-  });
-
-  test("free after an expired trial shows the trial-ended state", () => {
-    expect(display({ tier: "free", trial_used: true })).toMatchObject({ showTrialEnded: true, showUpgrade: true });
   });
 
   test("own Pro", () => {
@@ -47,7 +57,6 @@ describe("planDisplay", () => {
       ownBilled: true,
       showManageBilling: true,
       showUpgrade: false,
-      showTrialEnded: false,
     });
   });
 
@@ -74,7 +83,6 @@ describe("planDisplay", () => {
       trial: false,
       ownLine: null,
       showManageBilling: false,
-      showTrialEnded: false,
     });
   });
 
@@ -87,11 +95,52 @@ describe("planDisplay", () => {
     expect(display({ tier: "business", billing_tier: "pro", seat_team: acme }).upgradeTo).toBeNull();
   });
 
-  test("the free trial is offered only to a free account that never used it", () => {
-    expect(display({ tier: "free", trial_used: false }).trialOffer).toBe(true);
-    expect(display({ tier: "free", trial_used: true }).trialOffer).toBe(false);
+  test("trial_offer_follows_server_flag", () => {
+    const on = { proTrialAvailable: true };
+    expect(display({ tier: "free" }, null, "Acme", on).trialOffer).toBe(true);
+    expect(display({ tier: "free" }, null, "Acme", on).badge).toBe("Activate 14 days of Pro");
     expect(display({ tier: "free" }).trialOffer).toBe(false);
-    expect(display({ tier: "teams", billing_tier: "free", seat_team: acme, trial_used: false }).trialOffer).toBe(false);
+    expect(display({ tier: "free" }).badge).toBe("Upgrade");
+    expect(display({ tier: "pro" }, "active", "Acme", on).trialOffer).toBe(false);
+    expect(display({ tier: "teams", billing_tier: "free", seat_team: acme }, null, "Acme", on).trialOffer).toBe(false);
+  });
+
+  test("teams_trial_counts_as_active_trial", () => {
+    const ends = Math.floor(NOW.getTime() / 1000) + 5 * 86_400;
+    expect(display({ tier: "teams", trial_ends_at: ends })).toMatchObject({
+      label: "Teams trial",
+      trial: true,
+      trialDaysLeft: 5,
+      ownBilled: false,
+      showManageBilling: false,
+    });
+  });
+
+  test("teams_trial_offer_follows_server_flag", () => {
+    const on = { teamsTrialAvailable: true };
+    expect(display({ tier: "free" }, null, "Acme", on).teamsTrialOffer).toBe(true);
+    expect(display({ tier: "pro" }, "active", "Acme", on).teamsTrialOffer).toBe(true);
+    expect(display({ tier: "free" }).teamsTrialOffer).toBe(false);
+    expect(display({ tier: "teams" }, "active", "Acme", on).teamsTrialOffer).toBe(false);
+    expect(display({ tier: "business" }, "active", "Acme", on).teamsTrialOffer).toBe(false);
+  });
+
+  test("teams_trial_offer_hidden_for_seat_member", () => {
+    const on = { proTrialAvailable: true, teamsTrialAvailable: true };
+    expect(display({ tier: "teams", billing_tier: "free", seat_team: acme }, null, "Acme", on)).toMatchObject({
+      trialOffer: false,
+      teamsTrialOffer: false,
+    });
+  });
+
+  test("no_upgrade_when_billing_disabled", () => {
+    const on = { proTrialAvailable: true, teamsTrialAvailable: true };
+    expect(display({ tier: "free" }, null, "Acme", on, { billingEnabled: false })).toMatchObject({
+      upgradeTo: null,
+      showUpgrade: false,
+      trialOffer: false,
+      teamsTrialOffer: false,
+    });
   });
 
   test("seat only", () => {
@@ -111,7 +160,6 @@ describe("planDisplay", () => {
       ownBilled: false,
       showManageBilling: false,
       showUpgrade: false,
-      showTrialEnded: false,
     });
   });
 
@@ -127,7 +175,6 @@ describe("planDisplay", () => {
       line: "Teams trial · through your seat in Acme",
       trial: true,
       showManageBilling: false,
-      showTrialEnded: false,
     });
   });
 
@@ -144,7 +191,7 @@ describe("planDisplay", () => {
   });
 
   test("a server without billing describes and manages no subscription", () => {
-    const d = planDisplay({ ...deriveTierFlags({ tier: "pro" }, NOW) }, { billingEnabled: false, now: NOW });
+    const d = planDisplay({ ...deriveTierFlags({ tier: "pro" }, NOW), proTrialAvailable: false, teamsTrialAvailable: false }, { billingEnabled: false, now: NOW });
     expect(d).toMatchObject({ ownBilled: false, showManageBilling: false, showAllPlans: false });
   });
 
@@ -170,7 +217,10 @@ describe("planDisplay", () => {
       expect(display({ tier: "free" }).showUpgrade).toBe(false);
       expect(display({ tier: "pro" }, "active")).toMatchObject({ ownBilled: true, showManageBilling: false, showAllPlans: false });
       expect(display({ tier: "pro" }).upgradeTo).toBeNull();
-      expect(display({ tier: "free", trial_used: false }).trialOffer).toBe(false);
+      expect(display({ tier: "free" }, null, "Acme", { proTrialAvailable: true, teamsTrialAvailable: true })).toMatchObject({
+        trialOffer: false,
+        teamsTrialOffer: false,
+      });
     } finally {
       checkout.value = true;
     }
