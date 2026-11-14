@@ -98,6 +98,9 @@ type CapabilityFlag = { [K in keyof ServerCapabilities]: ServerCapabilities[K] e
 
 export const useServerCapability = (flag: CapabilityFlag): boolean => useCapabilities((s) => s[flag]);
 
+/** Non-hook read for service code; false until `/v1/meta` has answered. */
+export const getServerCapability = (flag: CapabilityFlag): boolean => useServerCapabilities.getState()[flag];
+
 export const useServerLacksSecretType = (type: TeamSecretType): boolean => useCapabilities((s) => lacks(s, type));
 
 /** Which second factors this server lets an account enrol; none until it says so. */
