@@ -159,8 +159,7 @@ jobs:
           TAG: ${{ inputs.tag }}
           BUILD: ${{ github.run_number }}.${{ github.run_attempt }}
         run: |
-          node scripts/store/release-notes.mjs "${TAG#v}" 4000 > "$RUNNER_TEMP/whats-new.txt"
-          node scripts/asc/release.mjs --version "${TAG#v}" --build "$BUILD" --notes "$RUNNER_TEMP/whats-new.txt"
+          node scripts/asc/release.mjs --version "${TAG#v}" --build "$BUILD"
 
       - name: Upload the package
         uses: actions/upload-artifact@v7
