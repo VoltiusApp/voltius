@@ -6,6 +6,7 @@ import { test, expect } from "vitest";
 const ALLOWED = [
   "/src/components/mobile/screens/MobileAccountPage.tsx",
   "/src/components/settings/sections/AccountSection.tsx",
+  "/src/components/promos/PlanEndedModal.tsx",
 ];
 
 const sources = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<

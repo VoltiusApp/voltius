@@ -349,8 +349,10 @@
         "closeTab_other": "Close tab ({{count}} sessions)"
       },
       "plan": {
-        "upgradeTrial": "Upgrade · 14d Free Trial",
-        "upgrade": "Upgrade"
+        "upgradeTrial": "Activate 14 days of Pro",
+        "upgrade": "Upgrade",
+        "endingSoon_one": "{{plan}} · {{count}} day left",
+        "endingSoon_other": "{{plan}} · {{count}} days left"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

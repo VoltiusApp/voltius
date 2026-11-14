@@ -4,7 +4,7 @@ import { Modal } from "@/components/shared/Modal";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { startTrialOrCheckout } from "@/services/promos";
 import { usePlanDisplay } from "@/services/planDisplay";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
 
@@ -22,7 +22,7 @@ export function VaultLimitModal({ onClose }: { onClose: () => void }) {
   const { showUpgrade } = usePlanDisplay();
 
   const upgrade = async () => {
-    if (await openBillingCheckout("pro")) onClose();
+    if (await startTrialOrCheckout("pro", "vault_limit", "vaults")) onClose();
   };
   const signIn = () => {
     onClose();

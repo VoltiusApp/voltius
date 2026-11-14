@@ -349,8 +349,10 @@
         "closeTab_other": "Sekmeyi kapat ({{count}} oturum)"
       },
       "plan": {
-        "upgradeTrial": "Yükselt · 14 gün ücretsiz deneme",
-        "upgrade": "Yükselt"
+        "upgradeTrial": "14 günlük Pro'yu etkinleştir",
+        "upgrade": "Yükselt",
+        "endingSoon_one": "{{plan}} · {{count}} gün kaldı",
+        "endingSoon_other": "{{plan}} · {{count}} gün kaldı"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

@@ -258,8 +258,9 @@
       "ownPlanTitle": "Convertir un coffre-fort en équipe nécessite votre propre forfait Teams",
       "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
       "upgradeBtn": "Essayer Teams gratuitement pendant {{days}} jours →",
+      "upgradePlainBtn": "Passer à Teams →",
       "ownPlanBtn": "Prendre votre propre forfait Teams →",
-      "trialNote": "Carte bancaire requise · aucun prélèvement pendant l'essai"
+      "trialNote": "Sans carte bancaire · jusqu'à 10 coéquipiers"
     },
     "joinLinks": {
       "explainer": "Toute personne disposant du lien rejoint ce coffre-fort avec le rôle que vous choisissez. Le lien ne transporte jamais la clé du coffre-fort : elle arrive séparément, lorsqu'une personne qui la détient déjà est en ligne.",

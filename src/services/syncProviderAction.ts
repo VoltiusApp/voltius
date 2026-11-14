@@ -1,4 +1,4 @@
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { startTrialOrCheckout } from "@/services/promos";
 import { setSyncPaused } from "@/services/sync";
 import { useUIStore } from "@/stores/uiStore";
 import type { SyncProviderAction } from "./syncProviders";
@@ -10,7 +10,7 @@ export function runSyncProviderAction(action: SyncProviderAction): void {
       ui.openCloudAuth("signin");
       return;
     case "upgrade":
-      void openBillingCheckout("pro");
+      void startTrialOrCheckout("pro", "sync_provider", "sync");
       return;
     case "pause":
     case "resume":

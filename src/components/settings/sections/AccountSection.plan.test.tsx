@@ -9,13 +9,16 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 vi.mock("@/utils/billing", () => ({ openPortal: vi.fn() }));
-vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn(async () => {}) }));
+const startTrialOrCheckout = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/services/promos", () => ({ startTrialOrCheckout }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => true }));
 
 await import("@/i18n");
 const { PlansSection } = await import("./AccountSection");
 const { useSubscriptionStore } = await import("@/stores/subscriptionStore");
 const { deriveTierFlags } = await import("@/stores/subscriptionTier");
+const { usePromoStore } = await import("@/stores/promoStore");
+const { fireEvent } = await import("@testing-library/react");
 const { acme, forgetTeams, nameSeatTeam } = await import("@/services/planDisplay.testHarness");
 
 const initial = useSubscriptionStore.getState();
@@ -23,7 +26,14 @@ afterEach(() => {
   cleanup();
   useSubscriptionStore.setState(initial, true);
   forgetTeams();
+  usePromoStore.setState({ state: null, current: null });
+  startTrialOrCheckout.mockClear();
 });
+
+const offers = (proTrialAvailable: boolean, teamsTrialAvailable: boolean) =>
+  usePromoStore.setState({
+    state: { proTrialAvailable, teamsTrialAvailable, emailVerified: true, seen: [], planEnded: null, teamEnded: null, paymentIssue: null },
+  });
 
 const seed = (input: Parameters<typeof deriveTierFlags>[0]) => {
   nameSeatTeam();
@@ -61,10 +71,36 @@ test("a seat member never sees the seat count of a plan they do not own", () => 
 
 test("own Pro keeps billing and the Teams offer", () => {
   seed({ tier: "pro" });
+  offers(false, true);
   const { container } = render(<PlansSection />);
   expect(container.querySelector("[data-plan-line]")!.textContent).toBe("Pro");
   expect(screen.getByText("settings.account.plan.manageBilling")).toBeTruthy();
   expect(screen.getByText("settings.account.plan.teamsButton")).toBeTruthy();
+});
+
+test("the Teams strip is a plain upgrade when no trial is on offer", () => {
+  seed({ tier: "pro" });
+  offers(false, false);
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.upgradeToTeamsPlain")).toBeTruthy();
+  expect(screen.queryByText("settings.account.plan.teamsButton")).toBeNull();
+});
+
+test("free with a Pro trial on offer activates it through the trial-or-checkout paywall", () => {
+  seed({ tier: "free" });
+  offers(true, false);
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.activateTrial")).toBeTruthy();
+  fireEvent.click(screen.getByText("settings.account.plan.activate"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("pro", "account");
+});
+
+test("the Teams trial button goes through the trial-or-checkout paywall", () => {
+  seed({ tier: "pro" });
+  offers(false, true);
+  render(<PlansSection />);
+  fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "account");
 });
 
 test("free is offered Pro", () => {
@@ -105,4 +141,12 @@ test("Free lists its own features and no separate free line", () => {
   expect(groupText(container, "included")).not.toContain("settings.account.plan.everythingIn");
   expect(groupText(container, "next")).toContain(`${F}cloudSync`);
   expect(container.querySelector("[data-free-features]")).toBeNull();
+});
+
+test("account_shows_teams_trial_strip_for_free_account", () => {
+  seed({ tier: "free" });
+  offers(false, true);
+  render(<PlansSection />);
+  fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "account");
 });

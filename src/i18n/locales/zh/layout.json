@@ -344,8 +344,9 @@
         "closeTab_other": "关闭标签页（{{count}} 个会话）"
       },
       "plan": {
-        "upgradeTrial": "升级 · 14 天免费试用",
-        "upgrade": "升级"
+        "upgradeTrial": "激活 14 天 Pro",
+        "upgrade": "升级",
+        "endingSoon_other": "{{plan}} · 剩余 {{count}} 天"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

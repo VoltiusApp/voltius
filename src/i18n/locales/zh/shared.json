@@ -25,12 +25,100 @@
     "errorBanner": {
       "dismiss": "关闭"
     },
-    "trialExpiredModal": {
-      "title": "您的 Pro 试用已结束",
-      "subtitle": "以下三项功能今天起停止工作：",
-      "teamsPrompt": "与他人协作？免费试用 Teams {{days}} 天（需绑定银行卡）。",
-      "upgradeButton": "升级到 Pro",
-      "laterButton": "稍后再说"
+    "promos": {
+      "close": "关闭",
+      "verifyCta": "验证邮箱以激活",
+      "activateFailed": "无法开始试用，请重试。",
+      "pro": {
+        "title": "14 天 Pro 正在等你",
+        "titleVaults": "无限保险库是 Pro 的一部分",
+        "titleSync": "实时同步是 Pro 的一部分",
+        "body": "你的主机、密钥和代码片段即时跟随你到每台设备。14 天从你激活时开始计算，不会提前。",
+        "benefits": {
+          "sync": "实时云同步",
+          "devices": "一个会话，所有设备通用",
+          "vaults": "无限私人保险库",
+          "share": "与 1 位访客共享实时终端"
+        },
+        "cta": "激活我的 14 天 Pro",
+        "note": "无需信用卡 · 无需取消 · 之后你的数据仍归你所有",
+        "later": "以后再说",
+        "install": "安装到其他设备",
+        "activated": "Pro 已激活，有效期 14 天",
+        "demo": {
+          "label": "在笔记本上添加的主机片刻后出现在手机上",
+          "laptop": "笔记本",
+          "phone": "手机",
+          "new": "新",
+          "encrypted": "已加密",
+          "caption": "通过 Voltius Cloud 实时同步 · 端到端加密，无需设置"
+        }
+      },
+      "teams": {
+        "title": "把你的团队带进 Voltius",
+        "titleTeam": "使用 Teams 与同事共享这些内容",
+        "body": "与同事共享主机、密钥和实时终端。端到端加密，实时同步。免费 14 天。",
+        "benefits": {
+          "vaults": {
+            "title": "团队保险库",
+            "desc": "主机、密钥和代码片段的统一共享空间"
+          },
+          "terminals": {
+            "title": "实时共享终端",
+            "desc": "一起排查生产问题，每个会话最多 10 人"
+          },
+          "roles": {
+            "title": "角色与审计日志",
+            "desc": "为新人提供仅连接权限，记录谁做了什么"
+          }
+        },
+        "cta": "开始我的 14 天 Teams 试用",
+        "note": "无需信用卡 · 最多 10 位队友 · 到期自动回到 Free",
+        "later": "以后再说",
+        "activated": "Teams 已激活，有效期 14 天",
+        "demo": {
+          "label": "循环演示：你和一位队友从两台机器在同一个实时终端中输入",
+          "you": "你 · 笔记本",
+          "shared": "已共享",
+          "teammate": "Maxime · 在家",
+          "joined": "已加入",
+          "fixed": "40 秒内共同修复",
+          "vault": "平台团队保险库",
+          "editor": "编辑者",
+          "connectOnly": "仅连接"
+        }
+      },
+      "ended": {
+        "titleProTrial": "你的 Pro 试用已结束",
+        "titleTeamsTrial": "你的 Teams 试用已结束",
+        "titleSubscription": "你的订阅已结束",
+        "titleMember": "{{team}} 的 Teams 试用已结束",
+        "bodyMember": "该团队的共享功能已暂停。请联系团队所有者保留 Teams。",
+        "body": "无论如何你的数据都是安全的：不会删除任何内容。",
+        "recapHosts": "台主机保持同步",
+        "paused": "从今天起暂停",
+        "pausedSync": "设备间实时同步",
+        "pausedSessions": "跨设备实时会话",
+        "pausedVaults": "第一个之外的保险库",
+        "pausedTeam": "团队保险库和团队实时会话",
+        "free": "永久免费",
+        "freeCore": "SSH、SFTP、Docker、插件",
+        "freeSync": "通过你自己的 Gist/S3 同步",
+        "freeExport": "导入和导出，无锁定",
+        "cta": "保留 {{plan}} · ${{annual}}/月，按年计费",
+        "ctaNote": "或按月计费 ${{monthly}} · 随时取消",
+        "ctaTeams": "保留 Teams · 每用户 ${{annual}}/月，按年计费",
+        "ctaNoteTeams": "或按月计费每用户 ${{monthly}} · 最少 3 个席位",
+        "continueFree": "继续使用 Free",
+        "tryTeams": "与他人协作？免费试用 Teams",
+        "gotIt": "知道了",
+        "payment": {
+          "title": "我们无法续订你的订阅",
+          "body": "你的付款未成功。请更新付款方式以保留 {{plan}} —— 在此之前一切不变。",
+          "cta": "更新付款方式",
+          "later": "稍后"
+        }
+      }
     },
     "createVaultModal": {
       "title": "新建保险库",

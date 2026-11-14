@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import { useServerBillingEnabled } from "@/services/serverCapabilities";
+import { usePromoStore } from "@/stores/promoStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import type { SeatTeam, Tier, TierFlags } from "@/stores/subscriptionTier";
@@ -21,24 +22,28 @@ export interface PlanDisplay {
   ownLine: string | null;
   trial: boolean;
   trialDaysLeft: number | null;
+  trialEndingSoon: boolean;
   ownBilled: boolean;
   showManageBilling: boolean;
   showAllPlans: boolean;
   showUpgrade: boolean;
   upgradeTo: Tier | null;
   trialOffer: boolean;
-  showTrialEnded: boolean;
+  teamsTrialOffer: boolean;
 }
 
 export type PlanDisplayInput = Pick<
   TierFlags,
-  "tier" | "billingTier" | "seatTeam" | "isTrialActive" | "trialEndsAt" | "trialKnown" | "trialUsed"
+  "tier" | "billingTier" | "seatTeam" | "isTrialActive" | "trialEndsAt"
 > & {
+  proTrialAvailable: boolean;
+  teamsTrialAvailable: boolean;
   subscriptionStatus?: string | null;
 };
 
 const NEXT_PLAN: Record<Tier, Tier | null> = { free: "pro", pro: "teams", teams: "business", business: null };
 const DAY_MS = 86_400_000;
+const TRIAL_ENDING_SOON_DAYS = 3;
 
 export function seatTeamName(teams: readonly { id: string; name: string }[], seatTeam: SeatTeam | null): string | null {
   return seatTeam ? (teams.find((t) => t.id === seatTeam.id)?.name ?? null) : null;
@@ -62,11 +67,14 @@ export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext
     ownTrial && !seatTeam && flags.trialEndsAt
       ? Math.max(0, Math.ceil((flags.trialEndsAt.getTime() - now.getTime()) / DAY_MS))
       : null;
+  const trialEndingSoon = trial && trialDaysLeft !== null && trialDaysLeft <= TRIAL_ENDING_SOON_DAYS;
   const ownPaid = billingTier !== "free" && !ownTrial;
   const ownBilled = ownPaid && billingEnabled;
-  const upgradeTo = CAN_OPEN_CHECKOUT && !seatTeam ? NEXT_PLAN[tier] : null;
+  const canBuy = billingEnabled && CAN_OPEN_CHECKOUT && !seatTeam;
+  const upgradeTo = canBuy ? NEXT_PLAN[tier] : null;
   const premium = tier !== "free";
-  const trialOffer = upgradeTo === "pro" && flags.trialKnown && !flags.trialUsed;
+  const trialOffer = upgradeTo === "pro" && flags.proTrialAvailable;
+  const teamsTrialOffer = canBuy && flags.teamsTrialAvailable && billingTier !== "teams" && billingTier !== "business";
   const ownLabel = trialDaysLeft !== null
     ? i18n.t("settings.account.plan.trialLeft", { plan: label, daysLeft: trialDaysLeft })
     : label;
@@ -75,7 +83,8 @@ export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext
     premium,
     seat: seatTeam !== null,
     label,
-    badge: premium ? (seatTeam ? label : ownLabel)
+    badge: trialEndingSoon ? i18n.t("layout.titleBar.plan.endingSoon", { plan: name, count: trialDaysLeft })
+      : premium ? (seatTeam ? label : ownLabel)
       : trialOffer ? i18n.t("layout.titleBar.plan.upgradeTrial")
       : upgradeTo === "pro" ? i18n.t("layout.titleBar.plan.upgrade")
       : label,
@@ -90,14 +99,21 @@ export function planDisplay(flags: PlanDisplayInput, context: PlanDisplayContext
         : null,
     trial,
     trialDaysLeft,
+    trialEndingSoon,
     ownBilled,
     showManageBilling: ownBilled && CAN_OPEN_CHECKOUT,
-    showAllPlans: billingEnabled && CAN_OPEN_CHECKOUT && !seatTeam,
+    showAllPlans: canBuy,
     showUpgrade: upgradeTo === "pro",
     upgradeTo,
     trialOffer,
-    showTrialEnded: tier === "free" && !seatTeam && !ownTrial && flags.trialUsed,
+    teamsTrialOffer,
   };
+}
+
+/** The trial flags for callers outside React; absent promo state offers nothing. */
+export function currentTrialOffers(): { proTrialAvailable: boolean; teamsTrialAvailable: boolean } {
+  const s = usePromoStore.getState().state;
+  return { proTrialAvailable: s?.proTrialAvailable === true, teamsTrialAvailable: s?.teamsTrialAvailable === true };
 }
 
 export function usePlanDisplay(): PlanDisplay {
@@ -109,12 +125,12 @@ export function usePlanDisplay(): PlanDisplay {
       seatTeam: s.seatTeam,
       isTrialActive: s.isTrialActive,
       trialEndsAt: s.trialEndsAt,
-      trialKnown: s.trialKnown,
-      trialUsed: s.trialUsed,
       subscriptionStatus: s.subscriptionStatus,
     })),
   );
   const teamName = useTeamStore((s) => seatTeamName(s.teams, flags.seatTeam));
   const billingEnabled = useServerBillingEnabled();
-  return planDisplay(flags, { teamName, billingEnabled });
+  const proTrialAvailable = usePromoStore((s) => s.state?.proTrialAvailable === true);
+  const teamsTrialAvailable = usePromoStore((s) => s.state?.teamsTrialAvailable === true);
+  return planDisplay({ ...flags, proTrialAvailable, teamsTrialAvailable }, { teamName, billingEnabled });
 }

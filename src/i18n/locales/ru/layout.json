@@ -367,8 +367,12 @@
         "closeTab_other": "Закрыть вкладку ({{count}} сессии)"
       },
       "plan": {
-        "upgradeTrial": "Улучшить · 14 дней бесплатно",
-        "upgrade": "Улучшить"
+        "upgradeTrial": "Активировать 14 дней Pro",
+        "upgrade": "Улучшить",
+        "endingSoon_one": "{{plan}} · остался {{count}} день",
+        "endingSoon_few": "{{plan}} · осталось {{count}} дня",
+        "endingSoon_many": "{{plan}} · осталось {{count}} дней",
+        "endingSoon_other": "{{plan}} · осталось {{count}} дня"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

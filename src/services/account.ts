@@ -100,6 +100,7 @@ async function registerOnServer(args: {
       public_key: args.publicKey,
       wrapped_user_secrets: args.wrappedUserSecrets,
       machine_fingerprint,
+      supports_trial_activation: true,
       device,
       ...(args.credential.enrollment && { enrollment: args.credential.enrollment }),
       ...(args.credential.invitation && { invitation: args.credential.invitation }),

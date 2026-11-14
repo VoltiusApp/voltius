@@ -9,12 +9,100 @@
     "errorBanner": {
       "dismiss": "dispensar"
     },
-    "trialExpiredModal": {
-      "title": "Seu teste Pro terminou",
-      "subtitle": "Estes três recursos param de funcionar hoje:",
-      "teamsPrompt": "Trabalha em equipe? Experimente o Teams grátis por {{days}} dias (cartão obrigatório).",
-      "upgradeButton": "Atualizar para Pro",
-      "laterButton": "Talvez depois"
+    "promos": {
+      "close": "Fechar",
+      "verifyCta": "Verifique o seu e-mail para ativar",
+      "activateFailed": "Não foi possível iniciar o período experimental. Tente novamente.",
+      "pro": {
+        "title": "14 dias de Pro estão à sua espera",
+        "titleVaults": "Os cofres ilimitados fazem parte do Pro",
+        "titleSync": "A sincronização em tempo real faz parte do Pro",
+        "body": "Os seus hosts, chaves e snippets acompanham-no em todos os dispositivos, instantaneamente. Os 14 dias começam quando os ativar, não antes.",
+        "benefits": {
+          "sync": "Sincronização na nuvem em tempo real",
+          "devices": "Uma sessão em todos os seus dispositivos",
+          "vaults": "Cofres privados ilimitados",
+          "share": "Partilhe um terminal em direto com 1 convidado"
+        },
+        "cta": "Ativar os meus 14 dias de Pro",
+        "note": "Sem cartão de crédito · nada para cancelar · os seus dados continuam seus depois",
+        "later": "Guardar para mais tarde",
+        "install": "Instalar noutro dispositivo",
+        "activated": "O Pro está ativo durante 14 dias",
+        "demo": {
+          "label": "Um host adicionado no portátil aparece no telemóvel um instante depois",
+          "laptop": "Portátil",
+          "phone": "Telemóvel",
+          "new": "novo",
+          "encrypted": "encriptado",
+          "caption": "Sincronização em tempo real através do Voltius Cloud · encriptação ponto a ponto, sem configuração"
+        }
+      },
+      "teams": {
+        "title": "Traga a sua equipa para o Voltius",
+        "titleTeam": "Com o Teams pode partilhar isto com os seus colegas",
+        "body": "Partilhe hosts, chaves e terminais em direto com os seus colegas. Encriptação ponto a ponto, sincronizado em tempo real. Grátis durante 14 dias.",
+        "benefits": {
+          "vaults": {
+            "title": "Cofres de equipa",
+            "desc": "Um único local partilhado para hosts, chaves e snippets"
+          },
+          "terminals": {
+            "title": "Terminais partilhados em direto",
+            "desc": "Depurem a produção em conjunto, até 10 pessoas por sessão"
+          },
+          "roles": {
+            "title": "Funções e registo de auditoria",
+            "desc": "Acesso apenas para ligar para os juniores, um registo de quem fez o quê"
+          }
+        },
+        "cta": "Iniciar o meu período experimental de 14 dias do Teams",
+        "note": "Sem cartão de crédito · até 10 colegas · regresso automático ao Free",
+        "later": "Talvez mais tarde",
+        "activated": "O Teams está ativo durante 14 dias",
+        "demo": {
+          "label": "Demonstração em ciclo: você e um colega a escrever no mesmo terminal em direto a partir de duas máquinas",
+          "you": "Você · portátil",
+          "shared": "partilhado",
+          "teammate": "Maxime · em casa",
+          "joined": "entrou",
+          "fixed": "Resolvido em conjunto em 40 segundos",
+          "vault": "Cofre da equipa de Plataforma",
+          "editor": "Editor",
+          "connectOnly": "Apenas-conectar"
+        }
+      },
+      "ended": {
+        "titleProTrial": "O seu período experimental do Pro terminou",
+        "titleTeamsTrial": "O seu período experimental do Teams terminou",
+        "titleSubscription": "A sua subscrição terminou",
+        "titleMember": "O período experimental do Teams de {{team}} terminou",
+        "bodyMember": "As funcionalidades partilhadas estão em pausa para esta equipa. Peça ao proprietário da equipa para manter o Teams.",
+        "body": "Os seus dados estão seguros em qualquer caso: nada é eliminado.",
+        "recapHosts": "hosts mantidos sincronizados",
+        "paused": "Em pausa a partir de hoje",
+        "pausedSync": "Sincronização em tempo real entre dispositivos",
+        "pausedSessions": "Sessões em direto entre dispositivos",
+        "pausedVaults": "Cofres além do primeiro",
+        "pausedTeam": "Cofres de equipa e sessões de equipa em direto",
+        "free": "Sempre grátis",
+        "freeCore": "SSH, SFTP, Docker, plugins",
+        "freeSync": "Sincronização através do seu próprio Gist/S3",
+        "freeExport": "Importação e exportação, sem dependência",
+        "cta": "Manter o {{plan}} · {{annual}} US$/mês, faturado anualmente",
+        "ctaNote": "ou {{monthly}} US$ faturado mensalmente · cancele quando quiser",
+        "ctaTeams": "Manter o Teams · {{annual}} US$/utilizador/mês, faturado anualmente",
+        "ctaNoteTeams": "ou {{monthly}} US$/utilizador faturado mensalmente · mínimo de 3 lugares",
+        "continueFree": "Continuar com o Free",
+        "tryTeams": "Trabalha com outras pessoas? Experimente o Teams grátis",
+        "gotIt": "Entendido",
+        "payment": {
+          "title": "Não conseguimos renovar a sua subscrição",
+          "body": "O seu pagamento não foi aceite. Atualize o seu método de pagamento para manter o {{plan}} — nada muda até lá.",
+          "cta": "Atualizar método de pagamento",
+          "later": "Mais tarde"
+        }
+      }
     },
     "createVaultModal": {
       "title": "Novo cofre",

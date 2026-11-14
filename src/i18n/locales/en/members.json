@@ -256,8 +256,9 @@
       "ownPlanTitle": "Converting a vault into a team needs your own Teams plan",
       "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
       "upgradeBtn": "Try Teams free for {{days}} days →",
+      "upgradePlainBtn": "Upgrade to Teams →",
       "ownPlanBtn": "Get your own Teams plan →",
-      "trialNote": "Card required · no charge during the trial"
+      "trialNote": "No credit card · up to 10 teammates"
     },
     "joinLinks": {
       "explainer": "Anyone with the link joins this vault in the role you pick. The link never carries the vault's key — that arrives separately, once someone who already has it is online.",

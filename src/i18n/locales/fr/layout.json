@@ -358,8 +358,11 @@
         "closeTab_other": "Fermer l'onglet ({{count}} sessions)"
       },
       "plan": {
-        "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
-        "upgrade": "Mettre à niveau"
+        "upgradeTrial": "Activer 14 jours de Pro",
+        "upgrade": "Mettre à niveau",
+        "endingSoon_one": "{{plan}} · {{count}} jour restant",
+        "endingSoon_many": "{{plan}} · {{count}} de jours restants",
+        "endingSoon_other": "{{plan}} · {{count}} jours restants"
       },
       "splitLabelMore": "{{label}} + {{count}}",
       "lock": {

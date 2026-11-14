@@ -25,12 +25,100 @@
     "errorBanner": {
       "dismiss": "zavřít"
     },
-    "trialExpiredModal": {
-      "title": "Vaše zkušební verze Pro skončila",
-      "subtitle": "Tyto tři funkce dnes přestanou fungovat:",
-      "teamsPrompt": "Pracujete s dalšími lidmi? Vyzkoušejte Teams zdarma na {{days}} dní (vyžaduje kartu).",
-      "upgradeButton": "Přejít na Pro",
-      "laterButton": "Možná později"
+    "promos": {
+      "close": "Zavřít",
+      "verifyCta": "Pro aktivaci ověřte svůj e-mail",
+      "activateFailed": "Zkušební verzi se nepodařilo spustit. Zkuste to prosím znovu.",
+      "pro": {
+        "title": "Čeká na vás 14 dní Pro",
+        "titleVaults": "Neomezené trezory jsou součástí Pro",
+        "titleSync": "Synchronizace v reálném čase je součástí Pro",
+        "body": "Vaše hosty, klíče a úryvky vás okamžitě následují na každé zařízení. 14 dní začne běžet až ve chvíli, kdy je aktivujete, ne dřív.",
+        "benefits": {
+          "sync": "Cloudová synchronizace v reálném čase",
+          "devices": "Jedna relace na všech vašich zařízeních",
+          "vaults": "Neomezené soukromé trezory",
+          "share": "Sdílení živého terminálu s 1 hostem"
+        },
+        "cta": "Aktivovat mých 14 dní Pro",
+        "note": "Bez platební karty · nic není třeba rušit · vaše data vám zůstanou i potom",
+        "later": "Nechat si na později",
+        "install": "Nainstalovat na další zařízení",
+        "activated": "Pro je aktivní na 14 dní",
+        "demo": {
+          "label": "Host přidaný na notebooku se za okamžik objeví v telefonu",
+          "laptop": "Notebook",
+          "phone": "Telefon",
+          "new": "nový",
+          "encrypted": "šifrováno",
+          "caption": "Synchronizace v reálném čase přes Voltius Cloud · end-to-end šifrování, bez nastavování"
+        }
+      },
+      "teams": {
+        "title": "Přiveďte svůj tým do Voltius",
+        "titleTeam": "S Teams to můžete sdílet s kolegy",
+        "body": "Sdílejte hosty, klíče a živé terminály s kolegy. End-to-end šifrováno, synchronizováno v reálném čase. 14 dní zdarma.",
+        "benefits": {
+          "vaults": {
+            "title": "Týmové trezory",
+            "desc": "Jedno sdílené místo pro hosty, klíče a úryvky"
+          },
+          "terminals": {
+            "title": "Sdílené živé terminály",
+            "desc": "Laďte produkci společně, až 10 lidí v jedné relaci"
+          },
+          "roles": {
+            "title": "Role a auditní protokol",
+            "desc": "Přístup jen pro připojení pro juniory, záznam o tom, kdo co udělal"
+          }
+        },
+        "cta": "Spustit mou 14denní zkušební verzi Teams",
+        "note": "Bez platební karty · až 10 členů týmu · automatický návrat na Free",
+        "later": "Možná později",
+        "activated": "Teams je aktivní na 14 dní",
+        "demo": {
+          "label": "Smyčková ukázka: vy a kolega píšete do stejného živého terminálu ze dvou počítačů",
+          "you": "Vy · notebook",
+          "shared": "sdíleno",
+          "teammate": "Maxime · z domova",
+          "joined": "připojil se",
+          "fixed": "Opraveno společně za 40 sekund",
+          "vault": "Trezor týmu Platforma",
+          "editor": "Editor",
+          "connectOnly": "Jen připojení"
+        }
+      },
+      "ended": {
+        "titleProTrial": "Vaše zkušební verze Pro skončila",
+        "titleTeamsTrial": "Vaše zkušební verze Teams skončila",
+        "titleSubscription": "Vaše předplatné skončilo",
+        "titleMember": "Zkušební verze Teams týmu {{team}} skončila",
+        "bodyMember": "Sdílené funkce jsou pro tento tým pozastaveny. Požádejte vlastníka týmu, aby si Teams ponechal.",
+        "body": "Vaše data jsou v každém případě v bezpečí: nic se nemaže.",
+        "recapHosts": "synchronizované hosty",
+        "paused": "Od dnešního dne pozastaveno",
+        "pausedSync": "Synchronizace mezi zařízeními v reálném čase",
+        "pausedSessions": "Živé relace napříč zařízeními",
+        "pausedVaults": "Trezory nad rámec prvního",
+        "pausedTeam": "Týmové trezory a živé týmové relace",
+        "free": "Stále zdarma, navždy",
+        "freeCore": "SSH, SFTP, Docker, pluginy",
+        "freeSync": "Synchronizace přes vlastní Gist/S3",
+        "freeExport": "Import a export, žádné uzamčení",
+        "cta": "Ponechat {{plan}} · ${{annual}}/měsíc při ročním placení",
+        "ctaNote": "nebo ${{monthly}} při měsíčním placení · zrušení kdykoli",
+        "ctaTeams": "Ponechat Teams · ${{annual}}/uživatel/měsíc při ročním placení",
+        "ctaNoteTeams": "nebo ${{monthly}}/uživatel při měsíčním placení · minimálně 3 místa",
+        "continueFree": "Pokračovat s Free",
+        "tryTeams": "Pracujete s ostatními? Vyzkoušejte Teams zdarma",
+        "gotIt": "Rozumím",
+        "payment": {
+          "title": "Vaše předplatné se nepodařilo obnovit",
+          "body": "Vaše platba neprošla. Aktualizujte platební metodu, abyste si ponechali {{plan}} — do té doby se nic nemění.",
+          "cta": "Aktualizovat platební metodu",
+          "later": "Později"
+        }
+      }
     },
     "createVaultModal": {
       "title": "Nový trezor",

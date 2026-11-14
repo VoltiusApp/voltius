@@ -13,7 +13,7 @@ import { usePlanDisplay } from "@/services/planDisplay";
 import { openPortal } from "@/utils/billing";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { seatsUsedText } from "@/services/seatMath";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
@@ -79,7 +79,7 @@ function useEditableField(
 }
 
 async function openCheckout(plan: "pro" | "teams") {
-  await openBillingCheckout(plan);
+  await startTrialOrCheckout(plan, "account");
 }
 
 /** Maps claimHandle's status-carrying error to the copy the server's per-status
@@ -577,17 +577,19 @@ export function PlansSection() {
 
         {plan.showUpgrade && (
           <UpgradeStrip
-            label={t("settings.account.plan.upgradeToPro")}
-            buttonLabel={t("settings.account.plan.upgrade")}
+            label={t(plan.trialOffer ? "settings.account.plan.activateTrial" : "settings.account.plan.upgradeToPro")}
+            buttonLabel={t(plan.trialOffer ? "settings.account.plan.activate" : "settings.account.plan.upgrade")}
             onClick={() => openCheckout("pro")}
           />
         )}
 
-        {plan.upgradeTo === "teams" && (
+        {(plan.upgradeTo === "teams" || plan.teamsTrialOffer) && (
           <UpgradeStrip
             variant="neutral"
-            label={t("settings.account.plan.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
-            buttonLabel={t("settings.account.plan.teamsButton")}
+            label={plan.teamsTrialOffer
+              ? t("settings.account.plan.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })
+              : t("settings.account.plan.upgradeToTeamsPlain")}
+            buttonLabel={t(plan.teamsTrialOffer ? "settings.account.plan.teamsButton" : "settings.account.plan.upgrade")}
             onClick={() => openCheckout("teams")}
           />
         )}

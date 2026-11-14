@@ -140,3 +140,8 @@ test("closed registration is told apart so the form can ask for an invitation", 
   await expect(failure).rejects.toBeInstanceOf(RegistrationClosedError);
   await expect(failure).rejects.toThrow("common.error.registrationDisabled");
 });
+
+test("register_sends_supports_trial_activation", async () => {
+  await createServerAccount("a@acme.com", "pw", S);
+  expect(h.sent[`${S}/v1/auth/register`].supports_trial_activation).toBe(true);
+});
