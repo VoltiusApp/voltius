@@ -1,5 +1,6 @@
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { getServerCapability } from "@/services/serverCapabilities";
 import { currentTrialOffers, planDisplay, seatTeamName } from "@/services/planDisplay";
 
 export interface SubscriptionView {
@@ -32,7 +33,7 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 export async function subscription(): Promise<SubscriptionView> {
   await useSubscriptionStore.getState().load();
   const s = useSubscriptionStore.getState();
-  const plan = planDisplay({ ...s, ...currentTrialOffers() }, { teamName: seatTeamName(useTeamStore.getState().teams, s.seatTeam) });
+  const plan = planDisplay({ ...s, ...currentTrialOffers() }, { teamName: seatTeamName(useTeamStore.getState().teams, s.seatTeam), billingEnabled: getServerCapability("billingEnabled") });
   return {
     tier: s.tier,
     planSource: plan.seat ? "seat" : "own",

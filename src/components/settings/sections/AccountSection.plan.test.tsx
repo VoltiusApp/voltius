@@ -142,3 +142,11 @@ test("Free lists its own features and no separate free line", () => {
   expect(groupText(container, "next")).toContain(`${F}cloudSync`);
   expect(container.querySelector("[data-free-features]")).toBeNull();
 });
+
+test("account_shows_teams_trial_strip_for_free_account", () => {
+  seed({ tier: "free" });
+  offers(false, true);
+  render(<PlansSection />);
+  fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "account");
+});

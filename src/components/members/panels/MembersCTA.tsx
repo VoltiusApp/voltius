@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import { openBillingCheckout } from "@/services/billingCheckout";
 import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
@@ -52,7 +53,7 @@ export function UpgradeToTeamsCTA({ compact = false }: { compact?: boolean }) {
       </div>
       {seat ? CAN_OPEN_CHECKOUT && (
       <button
-        onClick={() => void openCheckout()}
+        onClick={() => void openBillingCheckout("teams")}
         className="text-xs font-medium text-(--t-accent) hover:opacity-80 transition-opacity"
       >
         {t("members.cta.ownPlanBtn")}

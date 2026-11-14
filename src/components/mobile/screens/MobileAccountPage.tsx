@@ -127,7 +127,7 @@ export default function MobileAccountPage() {
               </button>
             )}
 
-            {plan.upgradeTo === "teams" && (
+            {(plan.upgradeTo === "teams" || plan.teamsTrialOffer) && (
               <>
                 <button
                   data-account-upgrade-teams

@@ -18,11 +18,14 @@ const account = vi.hoisted(() => ({ logout: vi.fn(async () => {}) }));
 vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), logout: account.logout, getCurrentUserEmail: async () => "me@example.com" }));
 
 const billing = vi.hoisted(() => ({ enabled: true }));
+const startTrialOrCheckout = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/services/promos", () => ({ startTrialOrCheckout }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => billing.enabled }));
 
 import "@/i18n";
 import MobileAccountPage from "./MobileAccountPage";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePromoStore } from "@/stores/promoStore";
 import { deriveTierFlags, type TierFlagsInput } from "@/stores/subscriptionTier";
 import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
 
@@ -33,6 +36,8 @@ afterEach(() => {
   useSubscriptionStore.setState(initialSubscription, true);
   forgetTeams();
   billing.enabled = true;
+  usePromoStore.setState({ state: null, current: null });
+  startTrialOrCheckout.mockClear();
 });
 
 const businessAccount = () =>
@@ -143,4 +148,14 @@ test("signing out reloads the app once the account is wiped, so the welcome scre
   } finally {
     Object.defineProperty(window, "location", { configurable: true, value: location });
   }
+});
+
+test("the Teams trial button routes through the trial-or-checkout paywall", () => {
+  useSubscriptionStore.setState({ ...deriveTierFlags({ tier: "free" }, new Date()), accountMode: "server" });
+  usePromoStore.setState({
+    state: { proTrialAvailable: false, teamsTrialAvailable: true, emailVerified: true, seen: [], planEnded: null, teamEnded: null, paymentIssue: null },
+  });
+  const { container } = render(<MobileAccountPage />);
+  fireEvent.click(container.querySelector("[data-account-upgrade-teams]")!);
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "mobile_account");
 });

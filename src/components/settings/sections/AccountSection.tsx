@@ -583,7 +583,7 @@ export function PlansSection() {
           />
         )}
 
-        {plan.upgradeTo === "teams" && (
+        {(plan.upgradeTo === "teams" || plan.teamsTrialOffer) && (
           <UpgradeStrip
             variant="neutral"
             label={plan.teamsTrialOffer

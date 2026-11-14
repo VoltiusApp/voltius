@@ -5,6 +5,7 @@ import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { currentTrialOffers, planDisplay } from "./planDisplay";
+import { getServerCapability } from "./serverCapabilities";
 import type { SyncProviderInputs } from "./syncProviders";
 
 export interface LoadedPluginSource {
@@ -23,7 +24,7 @@ export function readSyncProviderInputs(source: LoadedPluginSource): SyncProvider
       state: getSyncState(),
       accountMode,
       isPro,
-      canUpgrade: planDisplay({ ...subscription, ...currentTrialOffers() }).showUpgrade,
+      canUpgrade: planDisplay({ ...subscription, ...currentTrialOffers() }, { billingEnabled: getServerCapability("billingEnabled") }).showUpgrade,
       paused: isSyncPaused(),
       syncNow: () => syncNow(true),
     },
