@@ -177,3 +177,26 @@ test("record_promo_event_never_throws", async () => {
   const { recordPromoEvent } = await import("./promos");
   await expect(recordPromoEvent("pro_redeem", "clicked", "account")).resolves.toBeUndefined();
 });
+
+test("activate_ok_even_if_refresh_throws", async () => {
+  h.serverFetch.mockImplementation(async (path: string) =>
+    path === "/v1/billing/trial" ? json(200, { plan: "pro", trial_ends_at: 1 }) : json(200, SERVER),
+  );
+  h.refreshAccessToken.mockRejectedValue(new Error("refresh failed"));
+  h.subLoad.mockRejectedValue(new Error("load failed"));
+  expect(await activateTrial("pro", "account")).toBe("ok");
+});
+
+test("open_plan_ended_records_pending_occurrence", async () => {
+  seedState({
+    planEnded: { kind: "pro_trial", at: 100 },
+    teamEnded: { teamId: "t1", teamName: "Acme", at: 200 },
+    seen: [{ promo: "plan_ended", source: "launch", occurrence: 100, at: 101 }],
+  });
+  usePromoStore.getState().open("plan_ended", "launch");
+  expect(usePromoStore.getState().current).toEqual({ promo: "plan_ended", source: "launch", occurrence: 200 });
+  usePromoStore.getState().close("dismissed");
+  await Promise.resolve();
+  const bodies = h.serverFetch.mock.calls.map((c) => JSON.parse(c[1].body));
+  expect(bodies.map((b) => [b.event, b.occurrence])).toEqual([["shown", 200], ["dismissed", 200]]);
+});

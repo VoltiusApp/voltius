@@ -19,6 +19,7 @@ import { useImportExportContributions } from "@/hooks/useImportExportContributio
 import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
 import { useMcpServerSync } from "@/hooks/useMcpServerSync";
 import { useChangelogAutoOpen } from "@/hooks/useChangelogAutoOpen";
+import { useLaunchPromo } from "@/hooks/useLaunchPromo";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { injectPendingSnippet } from "@/services/snippetPendingInject";
 import { initUpdaterListener } from "@/services/updater";
@@ -68,6 +69,7 @@ function App() {
   useConnectionPresenceBroadcast();
   useMcpServerSync();
   useChangelogAutoOpen();
+  useLaunchPromo(ready);
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
   useEffect(() => startTeamInbox(), []);
   useEffect(() => startTeamVaultNames(), []);

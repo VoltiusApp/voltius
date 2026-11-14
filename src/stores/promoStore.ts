@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { pendingPlanEndOccurrence } from "@/services/promoPicker";
 import {
   fetchPromoState,
   recordPromoEvent,
@@ -10,7 +11,7 @@ import {
 
 interface PromoStore {
   state: PromoState | null;
-  current: { promo: PromoId; source: PromoSource; context?: PaywallContext } | null;
+  current: { promo: PromoId; source: PromoSource; context?: PaywallContext; occurrence?: number } | null;
   launchHandled: boolean;
   load(): Promise<void>;
   open(promo: PromoId, source: PromoSource, context?: PaywallContext): void;
@@ -19,7 +20,7 @@ interface PromoStore {
 
 function occurrenceFor(promo: PromoId, state: PromoState | null): number | undefined {
   if (promo !== "plan_ended" || !state) return undefined;
-  return (state.planEnded?.at ?? state.teamEnded?.at) ?? undefined;
+  return pendingPlanEndOccurrence(state) ?? undefined;
 }
 
 export const usePromoStore = create<PromoStore>((set, get) => ({
@@ -33,15 +34,16 @@ export const usePromoStore = create<PromoStore>((set, get) => ({
   },
 
   open(promo, source, context) {
-    set({ current: { promo, source, ...(context && { context }) } });
-    void recordPromoEvent(promo, "shown", source, occurrenceFor(promo, get().state));
+    const occurrence = occurrenceFor(promo, get().state);
+    set({ current: { promo, source, ...(context && { context }), ...(occurrence !== undefined && { occurrence }) } });
+    void recordPromoEvent(promo, "shown", source, occurrence);
   },
 
   close(reason) {
-    const { current, state } = get();
+    const { current } = get();
     set({ current: null });
     if (current && reason === "dismissed") {
-      void recordPromoEvent(current.promo, "dismissed", current.source, occurrenceFor(current.promo, state));
+      void recordPromoEvent(current.promo, "dismissed", current.source, current.occurrence);
     }
   },
 }));

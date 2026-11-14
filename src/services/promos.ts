@@ -90,9 +90,14 @@ export async function activateTrial(plan: "pro" | "teams", source: PromoSource):
       body: JSON.stringify({ plan, source }),
     });
     if (res.ok) {
-      await refreshAccessToken();
-      await useSubscriptionStore.getState().load();
-      await usePromoStore.getState().load();
+      // The trial is already active server-side; a failed refresh must not turn that into an error.
+      try {
+        await refreshAccessToken();
+        await useSubscriptionStore.getState().load();
+        await usePromoStore.getState().load();
+      } catch {
+        // best-effort resync
+      }
       return "ok";
     }
     const body = await res.json().catch(() => null);
