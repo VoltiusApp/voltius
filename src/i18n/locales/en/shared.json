@@ -25,12 +25,98 @@
     "errorBanner": {
       "dismiss": "dismiss"
     },
-    "trialExpiredModal": {
-      "title": "Your Pro trial has ended",
-      "subtitle": "These three stop working today:",
-      "teamsPrompt": "Working with others? Try Teams free for {{days}} days (card required).",
-      "upgradeButton": "Upgrade to Pro",
-      "laterButton": "Maybe later"
+    "promos": {
+      "close": "Close",
+      "verifyCta": "Verify your email to activate",
+      "activateFailed": "Couldn't start the trial. Please try again.",
+      "pro": {
+        "title": "14 days of Pro are waiting for you",
+        "titleVaults": "Unlimited vaults are part of Pro",
+        "titleSync": "Real-time sync is part of Pro",
+        "body": "Your hosts, keys and snippets follow you to every device, instantly. The 14 days start when you activate them, not before.",
+        "benefits": {
+          "sync": "Real-time cloud sync",
+          "devices": "One session on all your devices",
+          "vaults": "Unlimited private vaults",
+          "share": "Share a live terminal with 1 guest"
+        },
+        "cta": "Activate my 14 days of Pro",
+        "note": "No credit card · nothing to cancel · your data stays yours after",
+        "later": "Keep it for later",
+        "install": "Install on another device",
+        "activated": "Pro is active for 14 days",
+        "demo": {
+          "label": "A host added on the laptop appears on the phone a moment later",
+          "laptop": "Laptop",
+          "phone": "Phone",
+          "new": "new",
+          "encrypted": "encrypted",
+          "caption": "Real-time sync through Voltius Cloud · end-to-end encrypted, zero setup"
+        }
+      },
+      "teams": {
+        "title": "Bring your team into Voltius",
+        "titleTeam": "Teams lets you share this with colleagues",
+        "body": "Share hosts, keys and live terminals with your colleagues. End-to-end encrypted, synced in real time. Free for 14 days.",
+        "benefits": {
+          "vaults": {
+            "title": "Team vaults",
+            "desc": "One shared place for hosts, keys and snippets"
+          },
+          "terminals": {
+            "title": "Live shared terminals",
+            "desc": "Debug prod together, up to 10 people per session"
+          },
+          "roles": {
+            "title": "Roles & audit log",
+            "desc": "Connect-only access for juniors, a trail of who did what"
+          }
+        },
+        "cta": "Start my 14-day Teams trial",
+        "note": "No credit card · up to 10 teammates · back to Free automatically",
+        "later": "Maybe later",
+        "activated": "Teams is active for 14 days",
+        "demo": {
+          "label": "Looping demo: you and a teammate typing in the same live terminal from two machines",
+          "you": "You · laptop",
+          "shared": "shared",
+          "teammate": "Maxime · at home",
+          "joined": "joined",
+          "fixed": "Fixed together in 40 seconds",
+          "vault": "Platform team vault",
+          "editor": "Editor",
+          "connectOnly": "Connect-only"
+        }
+      },
+      "ended": {
+        "titleProTrial": "Your Pro trial has ended",
+        "titleTeamsTrial": "Your Teams trial has ended",
+        "titleSubscription": "Your subscription has ended",
+        "titleMember": "{{team}}'s Teams trial has ended",
+        "bodyMember": "Shared features are paused for this team. Ask the team owner to keep Teams.",
+        "body": "Your data is safe either way: nothing is deleted.",
+        "recapHosts": "hosts kept in sync",
+        "paused": "Paused from today",
+        "pausedSync": "Real-time sync between devices",
+        "pausedSessions": "Cross-device live sessions",
+        "pausedVaults": "Vaults beyond the first one",
+        "pausedTeam": "Team vaults and live team sessions",
+        "free": "Still free, forever",
+        "freeCore": "SSH, SFTP, Docker, plugins",
+        "freeSync": "Sync through your own Gist/S3",
+        "freeExport": "Import and export, no lock-in",
+        "cta": "Keep {{plan}} · ${{annual}}/month, billed yearly",
+        "ctaNote": "or ${{monthly}} billed monthly · cancel anytime",
+        "continueFree": "Continue with Free",
+        "tryTeams": "Working with others? Try Teams free",
+        "gotIt": "Got it",
+        "payment": {
+          "title": "We couldn't renew your subscription",
+          "body": "Your payment didn't go through. Update your payment method to keep {{plan}} — nothing changes until then.",
+          "cta": "Update payment method",
+          "later": "Later"
+        }
+      }
     },
     "createVaultModal": {
       "title": "New Vault",

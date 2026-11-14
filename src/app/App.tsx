@@ -35,7 +35,7 @@ import { startTeamDataScrub } from "@/services/teamDataScrub";
 import { startDeepLinks } from "@/services/deepLink";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
-import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
+import { PromoHost } from "@/components/promos/PromoHost";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import EnrollModal from "@/components/enrollment/EnrollModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
@@ -107,7 +107,7 @@ function App() {
       <NotificationToastContainer />
       {!isMobileShell && <FileAccessRequestModal />}
       <ThemeCreator />
-      <TrialExpiredModal />
+      <PromoHost />
       <CloudAuthModal />
       <EnrollModal />
       <WhatsNewModal />

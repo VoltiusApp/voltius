@@ -25,12 +25,98 @@
     "errorBanner": {
       "dismiss": "ignorer"
     },
-    "trialExpiredModal": {
-      "title": "Votre essai Pro est terminé",
-      "subtitle": "Ces trois fonctionnalités s'arrêtent aujourd'hui :",
-      "teamsPrompt": "Vous travaillez à plusieurs ? Essayez Teams gratuitement pendant {{days}} jours (carte bancaire requise).",
-      "upgradeButton": "Passer à Pro",
-      "laterButton": "Plus tard"
+    "promos": {
+      "close": "Fermer",
+      "verifyCta": "Vérifiez votre e-mail pour activer",
+      "activateFailed": "Impossible de démarrer l'essai. Veuillez réessayer.",
+      "pro": {
+        "title": "14 jours de Pro vous attendent",
+        "titleVaults": "Les coffres illimités font partie de Pro",
+        "titleSync": "La synchronisation en temps réel fait partie de Pro",
+        "body": "Vos hôtes, clés et snippets vous suivent sur tous vos appareils, instantanément. Les 14 jours commencent quand vous les activez, pas avant.",
+        "benefits": {
+          "sync": "Synchronisation cloud en temps réel",
+          "devices": "Une session sur tous vos appareils",
+          "vaults": "Coffres privés illimités",
+          "share": "Partagez un terminal en direct avec 1 invité"
+        },
+        "cta": "Activer mes 14 jours de Pro",
+        "note": "Sans carte bancaire · rien à résilier · vos données restent à vous ensuite",
+        "later": "Garder pour plus tard",
+        "install": "Installer sur un autre appareil",
+        "activated": "Pro est actif pour 14 jours",
+        "demo": {
+          "label": "Un hôte ajouté sur l'ordinateur portable apparaît sur le téléphone un instant plus tard",
+          "laptop": "Ordinateur portable",
+          "phone": "Téléphone",
+          "new": "nouveau",
+          "encrypted": "chiffré",
+          "caption": "Synchronisation en temps réel via Voltius Cloud · chiffrée de bout en bout, sans configuration"
+        }
+      },
+      "teams": {
+        "title": "Faites entrer votre équipe dans Voltius",
+        "titleTeam": "Teams vous permet de partager cela avec vos collègues",
+        "body": "Partagez hôtes, clés et terminaux en direct avec vos collègues. Chiffré de bout en bout, synchronisé en temps réel. Gratuit pendant 14 jours.",
+        "benefits": {
+          "vaults": {
+            "title": "Coffres d'équipe",
+            "desc": "Un seul endroit partagé pour les hôtes, clés et snippets"
+          },
+          "terminals": {
+            "title": "Terminaux partagés en direct",
+            "desc": "Déboguez la prod ensemble, jusqu'à 10 personnes par session"
+          },
+          "roles": {
+            "title": "Rôles et journal d'audit",
+            "desc": "Accès en connexion seule pour les juniors, une trace de qui a fait quoi"
+          }
+        },
+        "cta": "Démarrer mon essai Teams de 14 jours",
+        "note": "Sans carte bancaire · jusqu'à 10 coéquipiers · retour automatique à Free",
+        "later": "Plus tard",
+        "activated": "Teams est actif pour 14 jours",
+        "demo": {
+          "label": "Démo en boucle : vous et un coéquipier tapez dans le même terminal en direct depuis deux machines",
+          "you": "Vous · portable",
+          "shared": "partagé",
+          "teammate": "Maxime · à la maison",
+          "joined": "a rejoint",
+          "fixed": "Corrigé ensemble en 40 secondes",
+          "vault": "Coffre de l'équipe Plateforme",
+          "editor": "Éditeur",
+          "connectOnly": "Connexion seule"
+        }
+      },
+      "ended": {
+        "titleProTrial": "Votre essai Pro est terminé",
+        "titleTeamsTrial": "Votre essai Teams est terminé",
+        "titleSubscription": "Votre abonnement est terminé",
+        "titleMember": "L'essai Teams de {{team}} est terminé",
+        "bodyMember": "Les fonctionnalités partagées sont en pause pour cette équipe. Demandez au propriétaire de l'équipe de conserver Teams.",
+        "body": "Vos données sont en sécurité dans tous les cas : rien n'est supprimé.",
+        "recapHosts": "hôtes synchronisés",
+        "paused": "En pause dès aujourd'hui",
+        "pausedSync": "Synchronisation en temps réel entre appareils",
+        "pausedSessions": "Sessions en direct entre appareils",
+        "pausedVaults": "Coffres au-delà du premier",
+        "pausedTeam": "Coffres d'équipe et sessions d'équipe en direct",
+        "free": "Toujours gratuit, pour toujours",
+        "freeCore": "SSH, SFTP, Docker, plugins",
+        "freeSync": "Synchronisation via votre propre Gist/S3",
+        "freeExport": "Import et export, sans enfermement",
+        "cta": "Garder {{plan}} · {{annual}} $/mois, facturé annuellement",
+        "ctaNote": "ou {{monthly}} $ facturé mensuellement · résiliable à tout moment",
+        "continueFree": "Continuer avec Free",
+        "tryTeams": "Vous travaillez à plusieurs ? Essayez Teams gratuitement",
+        "gotIt": "Compris",
+        "payment": {
+          "title": "Nous n'avons pas pu renouveler votre abonnement",
+          "body": "Votre paiement n'est pas passé. Mettez à jour votre moyen de paiement pour garder {{plan}} — rien ne change d'ici là.",
+          "cta": "Mettre à jour le moyen de paiement",
+          "later": "Plus tard"
+        }
+      }
     },
     "createVaultModal": {
       "title": "Nouveau coffre",

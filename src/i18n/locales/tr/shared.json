@@ -25,12 +25,98 @@
     "errorBanner": {
       "dismiss": "kapat"
     },
-    "trialExpiredModal": {
-      "title": "Pro denemeniz sona erdi",
-      "subtitle": "Şu üç özellik bugün itibarıyla çalışmayı durduruyor:",
-      "teamsPrompt": "Başkalarıyla mı çalışıyorsunuz? Teams'i {{days}} gün ücretsiz deneyin (kart gerekir).",
-      "upgradeButton": "Pro'ya yükselt",
-      "laterButton": "Belki daha sonra"
+    "promos": {
+      "close": "Kapat",
+      "verifyCta": "Etkinleştirmek için e-postanızı doğrulayın",
+      "activateFailed": "Deneme başlatılamadı. Lütfen tekrar deneyin.",
+      "pro": {
+        "title": "14 günlük Pro sizi bekliyor",
+        "titleVaults": "Sınırsız kasa Pro'ya dahildir",
+        "titleSync": "Gerçek zamanlı senkronizasyon Pro'ya dahildir",
+        "body": "Sunucularınız, anahtarlarınız ve kod parçacıklarınız sizi anında her cihaza takip eder. 14 gün, siz etkinleştirdiğinizde başlar, öncesinde değil.",
+        "benefits": {
+          "sync": "Gerçek zamanlı bulut senkronizasyonu",
+          "devices": "Tüm cihazlarınızda tek oturum",
+          "vaults": "Sınırsız özel kasa",
+          "share": "Canlı bir terminali 1 misafirle paylaşın"
+        },
+        "cta": "14 günlük Pro'mu etkinleştir",
+        "note": "Kredi kartı yok · iptal edilecek bir şey yok · verileriniz sonrasında da sizin",
+        "later": "Sonraya sakla",
+        "install": "Başka bir cihaza yükle",
+        "activated": "Pro 14 gün boyunca etkin",
+        "demo": {
+          "label": "Dizüstü bilgisayarda eklenen bir sunucu kısa süre sonra telefonda görünür",
+          "laptop": "Dizüstü",
+          "phone": "Telefon",
+          "new": "yeni",
+          "encrypted": "şifreli",
+          "caption": "Voltius Cloud üzerinden gerçek zamanlı senkronizasyon · uçtan uca şifreli, kurulum gerektirmez"
+        }
+      },
+      "teams": {
+        "title": "Ekibinizi Voltius'a getirin",
+        "titleTeam": "Teams ile bunu iş arkadaşlarınızla paylaşabilirsiniz",
+        "body": "Sunucuları, anahtarları ve canlı terminalleri iş arkadaşlarınızla paylaşın. Uçtan uca şifreli, gerçek zamanlı senkronize. 14 gün ücretsiz.",
+        "benefits": {
+          "vaults": {
+            "title": "Ekip kasaları",
+            "desc": "Sunucular, anahtarlar ve kod parçacıkları için tek bir ortak yer"
+          },
+          "terminals": {
+            "title": "Canlı paylaşılan terminaller",
+            "desc": "Üretimdeki sorunları birlikte ayıklayın, oturum başına 10 kişiye kadar"
+          },
+          "roles": {
+            "title": "Roller ve denetim günlüğü",
+            "desc": "Yeni başlayanlar için yalnızca bağlantı erişimi, kimin ne yaptığının kaydı"
+          }
+        },
+        "cta": "14 günlük Teams denememi başlat",
+        "note": "Kredi kartı yok · 10 ekip arkadaşına kadar · otomatik olarak Free'ye döner",
+        "later": "Belki sonra",
+        "activated": "Teams 14 gün boyunca etkin",
+        "demo": {
+          "label": "Döngüsel demo: siz ve bir ekip arkadaşınız iki makineden aynı canlı terminale yazıyorsunuz",
+          "you": "Siz · dizüstü",
+          "shared": "paylaşılan",
+          "teammate": "Maxime · evden",
+          "joined": "katıldı",
+          "fixed": "40 saniyede birlikte düzeltildi",
+          "vault": "Platform ekibi kasası",
+          "editor": "Düzenleyici",
+          "connectOnly": "Yalnızca bağlantı"
+        }
+      },
+      "ended": {
+        "titleProTrial": "Pro denemeniz sona erdi",
+        "titleTeamsTrial": "Teams denemeniz sona erdi",
+        "titleSubscription": "Aboneliğiniz sona erdi",
+        "titleMember": "{{team}} ekibinin Teams denemesi sona erdi",
+        "bodyMember": "Bu ekip için paylaşılan özellikler duraklatıldı. Teams'i sürdürmesi için ekip sahibine danışın.",
+        "body": "Verileriniz her durumda güvende: hiçbir şey silinmez.",
+        "recapHosts": "senkronize tutulan sunucu",
+        "paused": "Bugünden itibaren duraklatıldı",
+        "pausedSync": "Cihazlar arasında gerçek zamanlı senkronizasyon",
+        "pausedSessions": "Cihazlar arası canlı oturumlar",
+        "pausedVaults": "İlkinden sonraki kasalar",
+        "pausedTeam": "Ekip kasaları ve canlı ekip oturumları",
+        "free": "Her zaman ücretsiz",
+        "freeCore": "SSH, SFTP, Docker, eklentiler",
+        "freeSync": "Kendi Gist/S3'ünüz üzerinden senkronizasyon",
+        "freeExport": "İçe ve dışa aktarma, bağımlılık yok",
+        "cta": "{{plan}} ile devam et · aylık ${{annual}}, yıllık faturalandırılır",
+        "ctaNote": "veya aylık faturalandırmayla ${{monthly}} · istediğiniz zaman iptal edin",
+        "continueFree": "Free ile devam et",
+        "tryTeams": "Başkalarıyla mı çalışıyorsunuz? Teams'i ücretsiz deneyin",
+        "gotIt": "Anladım",
+        "payment": {
+          "title": "Aboneliğinizi yenileyemedik",
+          "body": "Ödemeniz gerçekleşmedi. {{plan}} planını korumak için ödeme yönteminizi güncelleyin — o zamana kadar hiçbir şey değişmez.",
+          "cta": "Ödeme yöntemini güncelle",
+          "later": "Sonra"
+        }
+      }
     },
     "createVaultModal": {
       "title": "Yeni kasa",
