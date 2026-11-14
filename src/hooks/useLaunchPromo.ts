@@ -12,11 +12,18 @@ let inFlight = false;
 /**
  * Once per process, after the app is ready and no other launch modal is up:
  * load promo state, then open the promo the picker selects (if any). A modal
- * that is open (or opens while loading) defers the pick until it closes.
+ * that is open (or opens while loading) defers the pick until it closes, and a
+ * signed-out launch defers it until the first sign-in.
  */
 export function useLaunchPromo(ready: boolean) {
   const whatsNewOpen = useUIStore((s) => s.whatsNewOpen);
   const cloudAuthOpen = useUIStore((s) => s.cloudAuthOpen);
+  const accountMode = useSubscriptionStore((s) => s.accountMode);
+
+  useEffect(() => {
+    if (accountMode !== "server") usePromoStore.setState({ state: null });
+    else if (usePromoStore.getState().launchHandled) void usePromoStore.getState().load().catch(() => {});
+  }, [accountMode]);
 
   useEffect(() => {
     if (!ready || whatsNewOpen || cloudAuthOpen) return;
@@ -31,13 +38,15 @@ export function useLaunchPromo(ready: boolean) {
         ]);
         const ui = useUIStore.getState();
         if (ui.whatsNewOpen || ui.cloudAuthOpen) return;
-        usePromoStore.setState({ launchHandled: true });
         const sub = useSubscriptionStore.getState();
+        // Signed out: the pick waits for the first sign-in.
+        if (sub.accountMode !== "server") return;
+        usePromoStore.setState({ launchHandled: true });
         const promo = pickLaunchPromo({
           state: usePromoStore.getState().state,
           billingEnabled: getServerCapability("billingEnabled"),
           canCheckout: CAN_OPEN_CHECKOUT,
-          signedIn: sub.accountMode === "server",
+          signedIn: true,
           tier: sub.tier,
           billingTier: sub.billingTier,
           seatTeam: sub.seatTeam,
@@ -49,5 +58,5 @@ export function useLaunchPromo(ready: boolean) {
         inFlight = false;
       }
     })();
-  }, [ready, whatsNewOpen, cloudAuthOpen]);
+  }, [ready, whatsNewOpen, cloudAuthOpen, accountMode]);
 }

@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   activateTrial: vi.fn(),
   recordPromoEvent: vi.fn(async () => {}),
   fetchPromoState: vi.fn(async () => null),
+  openBillingCheckout: vi.fn(async () => true),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -23,7 +24,7 @@ vi.mock("@/services/promos", () => ({
 }));
 vi.mock("@/services/billingCheckout", () => ({
   EMAIL_VERIFICATION_REQUIRED_EVENT: "voltius:email-verification-required",
-  openBillingCheckout: vi.fn(async () => true),
+  openBillingCheckout: h.openBillingCheckout,
 }));
 vi.mock("@/utils/billing", () => ({ openPortal: vi.fn(async () => {}) }));
 vi.mock("@/stores/connectionStore", () => ({
@@ -48,6 +49,7 @@ const baseState: PromoState = {
 beforeEach(() => {
   h.activateTrial.mockReset();
   h.recordPromoEvent.mockClear();
+  h.openBillingCheckout.mockClear();
   usePromoStore.setState({ state: baseState, current: null });
 });
 
@@ -102,6 +104,15 @@ describe("PromoHost", () => {
     await waitFor(() => expect(usePromoStore.getState().current).toBeNull());
     expect(h.activateTrial).toHaveBeenCalledWith("teams", "teams_gate");
     expect(h.fetchPromoState).toHaveBeenCalled();
+  });
+
+  test("unavailable_falls_back_to_checkout", async () => {
+    h.activateTrial.mockResolvedValue("unavailable");
+    usePromoStore.setState({ current: { promo: "pro_redeem", source: "account" } });
+    render(<PromoHost />);
+    fireEvent.click(screen.getByText("shared.promos.pro.cta"));
+    await waitFor(() => expect(h.openBillingCheckout).toHaveBeenCalledWith("pro"));
+    expect(usePromoStore.getState().current).toBeNull();
   });
 
   test("unverified_email_shows_verify_cta", async () => {

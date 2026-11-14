@@ -107,6 +107,8 @@
         "freeExport": "Import et export, sans enfermement",
         "cta": "Garder {{plan}} · {{annual}} $/mois, facturé annuellement",
         "ctaNote": "ou {{monthly}} $ facturé mensuellement · résiliable à tout moment",
+        "ctaTeams": "Garder Teams · {{annual}} $/utilisateur/mois, facturé annuellement",
+        "ctaNoteTeams": "ou {{monthly}} $/utilisateur facturé mensuellement · 3 places minimum",
         "continueFree": "Continuer avec Free",
         "tryTeams": "Vous travaillez à plusieurs ? Essayez Teams gratuitement",
         "gotIt": "Compris",

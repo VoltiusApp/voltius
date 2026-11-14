@@ -107,6 +107,8 @@
         "freeExport": "İçe ve dışa aktarma, bağımlılık yok",
         "cta": "{{plan}} ile devam et · aylık ${{annual}}, yıllık faturalandırılır",
         "ctaNote": "veya aylık faturalandırmayla ${{monthly}} · istediğiniz zaman iptal edin",
+        "ctaTeams": "Teams ile devam et · kullanıcı başına aylık ${{annual}}, yıllık faturalandırılır",
+        "ctaNoteTeams": "veya aylık faturalandırmayla kullanıcı başına ${{monthly}} · en az 3 koltuk",
         "continueFree": "Free ile devam et",
         "tryTeams": "Başkalarıyla mı çalışıyorsunuz? Teams'i ücretsiz deneyin",
         "gotIt": "Anladım",

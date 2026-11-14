@@ -107,6 +107,8 @@
         "freeExport": "Import and export, no lock-in",
         "cta": "Keep {{plan}} · ${{annual}}/month, billed yearly",
         "ctaNote": "or ${{monthly}} billed monthly · cancel anytime",
+        "ctaTeams": "Keep Teams · ${{annual}}/user/month, billed yearly",
+        "ctaNoteTeams": "or ${{monthly}}/user billed monthly · 3-seat minimum",
         "continueFree": "Continue with Free",
         "tryTeams": "Working with others? Try Teams free",
         "gotIt": "Got it",

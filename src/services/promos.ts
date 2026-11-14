@@ -8,7 +8,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePromoStore } from "@/stores/promoStore";
 
 export type PromoId = "pro_redeem" | "teams_promo" | "plan_ended";
-export type PromoEvent = "shown" | "dismissed" | "clicked" | "activated";
+export type PromoEvent = "shown" | "dismissed" | "clicked";
 export type PromoSource =
   | "launch"
   | "vault_limit"

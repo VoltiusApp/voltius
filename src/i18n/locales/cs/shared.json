@@ -107,6 +107,8 @@
         "freeExport": "Import a export, žádné uzamčení",
         "cta": "Ponechat {{plan}} · ${{annual}}/měsíc při ročním placení",
         "ctaNote": "nebo ${{monthly}} při měsíčním placení · zrušení kdykoli",
+        "ctaTeams": "Ponechat Teams · ${{annual}}/uživatel/měsíc při ročním placení",
+        "ctaNoteTeams": "nebo ${{monthly}}/uživatel při měsíčním placení · minimálně 3 místa",
         "continueFree": "Pokračovat s Free",
         "tryTeams": "Pracujete s ostatními? Vyzkoušejte Teams zdarma",
         "gotIt": "Rozumím",

@@ -52,9 +52,29 @@ test("picks_nothing_when_signed_out_or_comped", () => {
   expect(pickLaunchPromo(input({ adminComped: true, state: s }))).toBeNull();
 });
 
+const FREE = { billingTier: "free" as const, seatTeam: null };
+const SEAT_TEAM = { id: "t" } as unknown as PickInput["seatTeam"];
+
 test("plan_ended_wins", () => {
-  const s = state({ proTrialAvailable: true, planEnded: { kind: "pro_trial", at: 100 } });
+  const s = state({ teamsTrialAvailable: true, planEnded: { kind: "teams_trial", at: 100 } });
   expect(pickLaunchPromo(input({ state: s }))).toBe("plan_ended");
+});
+
+test("plan_ended_skipped_when_already_upgraded", () => {
+  const s = state({ planEnded: { kind: "subscription", at: 100 } });
+  expect(pickLaunchPromo(input({ state: s, billingTier: "pro" }))).toBeNull();
+  expect(pickLaunchPromo(input({ state: s, billingTier: "business" }))).toBeNull();
+  expect(pickLaunchPromo(input({ state: s, seatTeam: SEAT_TEAM }))).toBeNull();
+  const withPayment = state({ ...s, paymentIssue: { status: "past_due", renewsAt: 300 } });
+  expect(pickLaunchPromo(input({ state: withPayment, billingTier: "pro" }))).toBe("plan_ended");
+  const withTeamEnd = state({ ...s, teamEnded: { teamId: "t", teamName: "Acme", at: 200 } });
+  expect(pendingPlanEndOccurrence(withTeamEnd, { billingTier: "pro", seatTeam: null })).toBe(200);
+});
+
+test("pro_trial_end_notice_suppressed_while_pro_offer_open", () => {
+  const s = state({ proTrialAvailable: true, planEnded: { kind: "pro_trial", at: 100 } });
+  expect(pickLaunchPromo(input({ state: s }))).toBe("pro_redeem");
+  expect(pickLaunchPromo(input({ state: state({ ...s, proTrialAvailable: false }) }))).toBe("plan_ended");
 });
 
 test("plan_ended_not_repeated_for_same_occurrence", () => {
@@ -87,7 +107,7 @@ test("pending_occurrence_prefers_unseen_payment_issue", () => {
     paymentIssue: { status: "unpaid", renewsAt: null },
     planEnded: { kind: "subscription", at: 100 },
   });
-  expect(pendingPlanEndOccurrence(s)).toBe(0);
+  expect(pendingPlanEndOccurrence(s, FREE)).toBe(0);
 });
 
 test("pending_occurrence_skips_seen_plan_end_to_team_end", () => {
@@ -96,8 +116,8 @@ test("pending_occurrence_skips_seen_plan_end_to_team_end", () => {
     teamEnded: { teamId: "t", teamName: "Acme", at: 200 },
     seen: [{ promo: "plan_ended", source: "launch", occurrence: 100, at: 101 }],
   });
-  expect(pendingPlanEndOccurrence(s)).toBe(200);
-  expect(pendingPlanEndOccurrence(state())).toBeNull();
+  expect(pendingPlanEndOccurrence(s, FREE)).toBe(200);
+  expect(pendingPlanEndOccurrence(state(), FREE)).toBeNull();
 });
 
 test("pro_redeem_when_available", () => {
@@ -147,4 +167,9 @@ test("pro_redeem_never_for_business_or_paid", () => {
   expect(pickLaunchPromo(input({ state: s, billingTier: "teams" }))).not.toBe("pro_redeem");
   expect(pickLaunchPromo(input({ state: s, billingTier: "pro" }))).not.toBe("pro_redeem");
   expect(pickLaunchPromo(input({ state: s, billingTier: "free" }))).toBe("pro_redeem");
+});
+
+test("pro_redeem_skipped_for_seat_team_member", () => {
+  const s = state({ proTrialAvailable: true });
+  expect(pickLaunchPromo(input({ state: s, seatTeam: SEAT_TEAM }))).toBeNull();
 });

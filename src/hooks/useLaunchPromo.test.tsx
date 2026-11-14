@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { beforeEach, expect, test, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, cleanup, renderHook } from "@testing-library/react";
 
 const h = vi.hoisted(() => {
   const ui = { whatsNewOpen: false, cloudAuthOpen: false };
@@ -15,6 +15,7 @@ const h = vi.hoisted(() => {
     billing: { value: false },
     promoState: { current: null as unknown },
     launchHandled: { value: false },
+    accountMode: { value: "server" as string | null },
   };
 });
 
@@ -33,11 +34,28 @@ vi.mock("@/stores/uiStore", async () => {
   );
   return { useUIStore };
 });
-vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: {
-    getState: () => ({ load: h.subLoad, accountMode: "server", tier: "free", billingTier: "free", seatTeam: null }),
-  },
-}));
+vi.mock("@/stores/subscriptionStore", async () => {
+  const React = await import("react");
+  const snap = () => ({
+    load: h.subLoad,
+    accountMode: h.accountMode.value,
+    tier: "free",
+    billingTier: "free",
+    seatTeam: null,
+  });
+  const useSubscriptionStore = Object.assign(
+    (sel: (s: ReturnType<typeof snap>) => unknown) => {
+      const [, force] = React.useReducer((x: number) => x + 1, 0);
+      React.useEffect(() => {
+        h.listeners.add(force as () => void);
+        return () => { h.listeners.delete(force as () => void); };
+      }, []);
+      return sel(snap());
+    },
+    { getState: snap },
+  );
+  return { useSubscriptionStore };
+});
 vi.mock("@/stores/promoStore", () => ({
   usePromoStore: {
     getState: () => ({
@@ -46,8 +64,9 @@ vi.mock("@/stores/promoStore", () => ({
       state: h.promoState.current,
       launchHandled: h.launchHandled.value,
     }),
-    setState: (p: { launchHandled?: boolean }) => {
+    setState: (p: { launchHandled?: boolean; state?: unknown }) => {
       if (p.launchHandled !== undefined) h.launchHandled.value = p.launchHandled;
+      if ("state" in p) h.promoState.current = p.state;
     },
   },
 }));
@@ -81,11 +100,14 @@ beforeEach(() => {
   h.ui.cloudAuthOpen = false;
   h.billing.value = true;
   h.launchHandled.value = false;
+  h.accountMode.value = "server";
   h.promoState.current = STATE;
   h.subLoad.mockResolvedValue(undefined);
   h.promoLoad.mockResolvedValue(undefined);
   h.refresh.mockResolvedValue(undefined);
 });
+
+afterEach(() => cleanup());
 
 test("waits_for_whats_new_then_picks", async () => {
   h.ui.whatsNewOpen = true;
@@ -111,6 +133,46 @@ test("modal_opening_mid_load_defers_pick", async () => {
   setUi({ whatsNewOpen: false });
   await flush();
   expect(h.open).toHaveBeenCalledTimes(1);
+});
+
+test("signs_in_mid_session_then_loads_and_picks", async () => {
+  h.accountMode.value = null;
+  h.promoState.current = { ...STATE, proTrialAvailable: false };
+  h.promoLoad.mockImplementation(async () => {
+    if (h.accountMode.value === "server") h.promoState.current = STATE;
+  });
+  renderHook(() => useLaunchPromo(true));
+  await flush();
+  expect(h.open).not.toHaveBeenCalled();
+  expect(h.launchHandled.value).toBe(false);
+  expect(h.promoState.current).toBeNull();
+
+  setUi({ cloudAuthOpen: true });
+  h.accountMode.value = "server";
+  setUi({});
+  await flush();
+  expect(h.open).not.toHaveBeenCalled();
+
+  setUi({ cloudAuthOpen: false });
+  await flush();
+  expect(h.promoState.current).toEqual(STATE);
+  expect(h.open).toHaveBeenCalledWith("pro_redeem", "launch");
+  expect(h.launchHandled.value).toBe(true);
+});
+
+test("reloads_promo_state_on_later_sign_in", async () => {
+  renderHook(() => useLaunchPromo(true));
+  await flush();
+  expect(h.launchHandled.value).toBe(true);
+  h.accountMode.value = "local";
+  setUi({});
+  await flush();
+  expect(h.promoState.current).toBeNull();
+  h.promoLoad.mockClear();
+  h.accountMode.value = "server";
+  setUi({});
+  await flush();
+  expect(h.promoLoad).toHaveBeenCalledTimes(1);
 });
 
 test("late_billing_meta_still_picks", async () => {

@@ -84,8 +84,9 @@ describe("PlanEndedModal", () => {
     render(<PlanEndedModal source="launch" occurrence={900} onClose={onClose} />);
     expect(screen.getByText("shared.promos.ended.titleTeamsTrial")).toBeTruthy();
     const { annual, monthly } = PLAN_PRICES.teams;
-    const cta = screen.getByText(`shared.promos.ended.cta plan=Teams annual=${annual}`);
-    expect(screen.getByText(`shared.promos.ended.ctaNote monthly=${monthly}`)).toBeTruthy();
+    // Teams is billed per seat, so its price reads per user with the seat minimum.
+    const cta = screen.getByText(`shared.promos.ended.ctaTeams annual=${annual}`);
+    expect(screen.getByText(`shared.promos.ended.ctaNoteTeams monthly=${monthly}`)).toBeTruthy();
     expect(screen.getByText("shared.promos.ended.pausedTeam")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
     // The Teams upsell is pointless when Teams is the plan being kept.

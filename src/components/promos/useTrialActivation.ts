@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { activateTrial, recordPromoEvent, type PromoSource } from "@/services/promos";
+import { openBillingCheckout } from "@/services/billingCheckout";
 import { usePromoStore } from "@/stores/promoStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 
@@ -42,9 +43,10 @@ export function useTrialActivation(plan: "pro" | "teams", source: PromoSource, o
         toast(t(`shared.promos.${plan}.activated`), "success");
         break;
       case "unavailable":
-        // The offer is gone (already used, or a plan started elsewhere): nothing was dismissed.
+        // The offer is gone (already used, or a plan started elsewhere): nothing was dismissed, checkout takes over.
         onClose("activated");
         void usePromoStore.getState().load();
+        void openBillingCheckout(plan);
         break;
       case "email_unverified":
         setRefused(true);

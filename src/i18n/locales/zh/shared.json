@@ -107,6 +107,8 @@
         "freeExport": "导入和导出，无锁定",
         "cta": "保留 {{plan}} · ${{annual}}/月，按年计费",
         "ctaNote": "或按月计费 ${{monthly}} · 随时取消",
+        "ctaTeams": "保留 Teams · 每用户 ${{annual}}/月，按年计费",
+        "ctaNoteTeams": "或按月计费每用户 ${{monthly}} · 最少 3 个席位",
         "continueFree": "继续使用 Free",
         "tryTeams": "与他人协作？免费试用 Teams",
         "gotIt": "知道了",

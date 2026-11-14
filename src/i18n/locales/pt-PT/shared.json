@@ -91,6 +91,8 @@
         "freeExport": "Importação e exportação, sem dependência",
         "cta": "Manter o {{plan}} · {{annual}} US$/mês, faturado anualmente",
         "ctaNote": "ou {{monthly}} US$ faturado mensalmente · cancele quando quiser",
+        "ctaTeams": "Manter o Teams · {{annual}} US$/utilizador/mês, faturado anualmente",
+        "ctaNoteTeams": "ou {{monthly}} US$/utilizador faturado mensalmente · mínimo de 3 lugares",
         "continueFree": "Continuar com o Free",
         "tryTeams": "Trabalha com outras pessoas? Experimente o Teams grátis",
         "gotIt": "Entendido",

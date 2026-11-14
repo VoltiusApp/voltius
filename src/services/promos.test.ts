@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   openBillingCheckout: vi.fn(),
   subLoad: vi.fn(),
   fetchServerMeta: vi.fn(),
+  billingTier: { value: "free" },
 }));
 
 vi.mock("@/services/teamService", () => ({ serverFetch: h.serverFetch }));
@@ -16,7 +17,7 @@ vi.mock("@/services/billingCheckout", () => ({
   EMAIL_VERIFICATION_REQUIRED_EVENT: "voltius:email-verification-required",
 }));
 vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: { getState: () => ({ load: h.subLoad }) },
+  useSubscriptionStore: { getState: () => ({ load: h.subLoad, billingTier: h.billingTier.value, seatTeam: null }) },
 }));
 vi.mock("@/services/teamObjects", () => ({ fetchServerMeta: h.fetchServerMeta }));
 
@@ -47,6 +48,7 @@ beforeEach(async () => {
   h.serverFetch.mockResolvedValue(json(204, null));
   h.refreshAccessToken.mockResolvedValue(undefined);
   h.subLoad.mockResolvedValue(undefined);
+  h.billingTier.value = "free";
   usePromoStore.setState({ state: null, current: null, launchHandled: false });
   await enableBilling(true);
 });
@@ -155,7 +157,7 @@ test("start_trial_falls_back_to_checkout_when_billing_disabled", async () => {
 });
 
 test("open_records_shown_with_occurrence", async () => {
-  seedState({ planEnded: { kind: "pro_trial", at: 100 } });
+  seedState({ planEnded: { kind: "subscription", at: 100 } });
   usePromoStore.getState().open("plan_ended", "launch");
   await Promise.resolve();
   const [path, init] = h.serverFetch.mock.calls[0];
@@ -185,6 +187,16 @@ test("activate_ok_even_if_refresh_throws", async () => {
   h.refreshAccessToken.mockRejectedValue(new Error("refresh failed"));
   h.subLoad.mockRejectedValue(new Error("load failed"));
   expect(await activateTrial("pro", "account")).toBe("ok");
+});
+
+test("open_plan_ended_skips_plan_end_once_upgraded", () => {
+  h.billingTier.value = "pro";
+  seedState({
+    planEnded: { kind: "subscription", at: 100 },
+    teamEnded: { teamId: "t1", teamName: "Acme", at: 200 },
+  });
+  usePromoStore.getState().open("plan_ended", "launch");
+  expect(usePromoStore.getState().current).toEqual({ promo: "plan_ended", source: "launch", occurrence: 200 });
 });
 
 test("open_plan_ended_records_pending_occurrence", async () => {

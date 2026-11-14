@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { pendingPlanEndOccurrence } from "@/services/promoPicker";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import {
   fetchPromoState,
   recordPromoEvent,
@@ -20,7 +21,8 @@ interface PromoStore {
 
 function occurrenceFor(promo: PromoId, state: PromoState | null): number | undefined {
   if (promo !== "plan_ended" || !state) return undefined;
-  return pendingPlanEndOccurrence(state) ?? undefined;
+  const { billingTier, seatTeam } = useSubscriptionStore.getState();
+  return pendingPlanEndOccurrence(state, { billingTier, seatTeam }) ?? undefined;
 }
 
 export const usePromoStore = create<PromoStore>((set, get) => ({

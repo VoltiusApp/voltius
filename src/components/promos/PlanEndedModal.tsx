@@ -110,13 +110,15 @@ export function PlanEndedModal({ source, occurrence, onClose }: PromoModalProps 
       </div>
       <div className="px-6 sm:px-9 pt-5.5 pb-5">
         <PromoFooter
-          cta={t("shared.promos.ended.cta", { plan: PLAN_NAME[plan], annual: prices.annual })}
+          cta={plan === "teams"
+            ? t("shared.promos.ended.ctaTeams", { annual: prices.annual })
+            : t("shared.promos.ended.cta", { plan: PLAN_NAME[plan], annual: prices.annual })}
           onCta={() => {
             recordPromoClick();
             void openBillingCheckout(plan);
             onClose("activated");
           }}
-          note={t("shared.promos.ended.ctaNote", { monthly: prices.monthly })}
+          note={t(plan === "teams" ? "shared.promos.ended.ctaNoteTeams" : "shared.promos.ended.ctaNote", { monthly: prices.monthly })}
           secondary={t("shared.promos.ended.continueFree")}
           onSecondary={dismiss}
           link={offerTeams ? {
