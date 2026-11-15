@@ -66,6 +66,15 @@ impl Shared {
     }
 }
 
+pub(crate) fn reject_modifiers(modifiers: Option<&HashMap<&str, &str>>) -> Result<()> {
+    if modifiers.is_some_and(|m| !m.is_empty()) {
+        return Err(Error::NotSupportedByStore(
+            "This store does not allow entry modifiers".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 fn decode(stored: &str) -> Result<Vec<u8>> {
     STANDARD
         .decode(stored)
@@ -215,11 +224,7 @@ impl CredentialStoreApi for Store {
         if !(self.bundled)(service) {
             return self.shared.inner.build(service, user, modifiers);
         }
-        if modifiers.is_some_and(|m| !m.is_empty()) {
-            return Err(Error::NotSupportedByStore(
-                "This store does not allow entry modifiers".to_string(),
-            ));
-        }
+        reject_modifiers(modifiers)?;
         if user == BUNDLE_USER {
             return Err(Error::Invalid(user.to_string(), "reserved".to_string()));
         }
