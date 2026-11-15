@@ -17,6 +17,7 @@ import {
   SecretInput,
   TagsAndFolderFields,
   useVaultObjectFormShell,
+  vaultPickHandler,
 } from "@/components/shared/vaultObjectForm";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { unlinkIdentityFromHost } from "@/services/keychainForm";
@@ -250,7 +251,7 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.identityForm.titleEdit") : t("keychain.toolbar.newIdentity")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => pickVault(id, markDirty) })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {

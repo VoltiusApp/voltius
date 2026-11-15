@@ -36,6 +36,11 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -448,7 +453,7 @@ test("a cut-paste leaves the refresh to updateSnippet instead of reloading again
 
 // Caller and callee are both snippets, so both sides are EDIT_SNIPPETS — the
 // refusal cannot be a permission. `can` stays fully permissive throughout.
-test("a cut is refused when a snippet-call step would point outside the destination vault", async () => {
+test("a cut carries the snippet a step calls into the destination", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.snippets = [
     snippet("caller", { steps: [{ kind: "snippet", snippet_id: "callee" }] }),
@@ -461,7 +466,8 @@ test("a cut is refused when a snippet-call step would point outside the destinat
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.updateSnippet).not.toHaveBeenCalled();
+  expect(h.updateSnippet).toHaveBeenCalledWith("callee", expect.objectContaining({ vault_id: "team-1", folder_id: undefined }));
+  expect(h.updateSnippet).toHaveBeenCalledWith("caller", expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }));
 });
 
 // Cutting both together resolves the reference inside the destination, so the

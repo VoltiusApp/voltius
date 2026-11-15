@@ -19,6 +19,7 @@ import {
   SecretInput,
   TagsAndFolderFields,
   useVaultObjectFormShell,
+  vaultPickHandler,
 } from "@/components/shared/vaultObjectForm";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import type { SshKey, SshKeyFormData } from "@/types";
@@ -194,7 +195,7 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.keyForm.titleEdit") : t("keychain.toolbar.newKey")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => pickVault(id, markDirty) })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {

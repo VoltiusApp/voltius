@@ -43,10 +43,6 @@
         "message_other": "Smaže se složka, její podsložky a {{count}} pravidel uvnitř. Tuto akci nelze vrátit zpět.",
         "messageEmpty": "Smaže se složka a vše, co obsahuje. Tuto akci nelze vrátit zpět."
       },
-      "vaultCascade": {
-        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tato pravidla:",
-        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tato pravidla:"
-      },
       "bulk": {
         "duplicateRules": "Duplikovat pravidla ({{count}})",
         "exportRules": "Exportovat pravidla ({{count}})",

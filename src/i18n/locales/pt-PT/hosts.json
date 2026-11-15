@@ -62,10 +62,6 @@
       "draft": {
         "unsaved": "Não guardado"
       },
-      "vaultCascade": {
-        "moveDescription": "Mover \"{{folderName}}\" também moverá os seguintes itens para {{targetVaultName}}:",
-        "copyDescription": "Copiar \"{{folderName}}\" também copiará os seguintes itens para {{targetVaultName}}:"
-      },
       "bulk": {
         "executeSnippetOn_one": "Executar Snippet em {{count}} host",
         "executeSnippetOn_other": "Executar Snippet em {{count}} hosts",

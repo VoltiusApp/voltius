@@ -32,12 +32,7 @@ export interface ClipboardAdapter {
    * which is not a permission question and must not be demanded of the source vault.
    */
   folderContentKinds: (folderId: string) => VaultClipboardKind[];
-  /**
-   * Kinds the pasted set REFERENCES but does not move, which would be left outside
-   * `destinationVaultId`. A separate refusal from a missing permission: nothing here
-   * is an authorization failure, and on Port Forwarding and Snippets the referenced
-   * kind shares a permission with the moved one, so it cannot be expressed as one.
-   */
+  /** Kinds the pasted set references but does not move, which would be left outside `destinationVaultId`. */
   danglingKinds?: (
     items: { id: string; kind: VaultClipboardKind }[],
     folderIds: string[],
@@ -46,9 +41,7 @@ export interface ClipboardAdapter {
   /**
    * The referenced objects a paste would carry into `destinationVaultId` so that
    * nothing dangles — named for the confirmation, before anything is written.
-   * An adapter that offers this resolves what `danglingKinds` reports instead of
-   * refusing over it; one that does not (Port Forwarding, Snippets, where the
-   * reference is a first-class object rather than a host's plumbing) still refuses.
+   * Without it, what `danglingKinds` reports refuses the paste.
    */
   planCascade?: (
     items: { id: string; kind: VaultClipboardKind }[],
@@ -81,9 +74,13 @@ export interface ClipboardAdapter {
    */
   moveItems: (ids: string[], folderId: string | null, vaultId: string | null) => Promise<void>;
   moveFolder: (id: string, parentFolderId: string | null, vaultId: string | null) => Promise<void>;
-  /** Returns the ids of the created duplicates, in the same order. */
-  duplicateItems: (ids: string[], folderId: string | null) => Promise<string[]>;
-  duplicateFolder: (id: string, parentFolderId: string | null) => Promise<string>;
+  /** Returns the ids of the created duplicates, in the same order. A null vault keeps each one's own. */
+  duplicateItems: (ids: string[], folderId: string | null, vaultId: string | null) => Promise<string[]>;
+  duplicateFolder: (id: string, parentFolderId: string | null, vaultId: string | null) => Promise<string>;
+  /** Opens a paste: forgets what the previous one copied. */
+  beginPaste?: () => void;
+  /** Closes a write phase: points copies at objects copied after them in the same paste. */
+  finishPaste?: () => Promise<void>;
   deleteItems: (ids: string[]) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   setSelection: (ids: string[]) => void;
@@ -98,7 +95,8 @@ export interface ClipboardAdapter {
  * them, and neither belongs in a paste the user aimed somewhere else.
  */
 export interface CascadeEntry {
-  type: "key" | "identity";
+  type: VaultClipboardKind;
+  id: string;
   label: string;
   action: "move" | "copy";
   /** Vault the object sits in now — a `move` needs that vault to authorize losing it. */
@@ -283,6 +281,7 @@ export async function pasteFromClipboard(
   if (liveItems.length === 0 && liveFolders.length === 0) {
     return { ...EMPTY, skipped };
   }
+  adapter.beginPaste?.();
 
   // The cascade writes objects of its own into the destination, so its kinds are
   // authorized alongside the paste's. Checked here rather than inside the cascade
@@ -369,6 +368,7 @@ export async function pasteFromClipboard(
     for (const id of folderIds) {
       await suppressed(() => adapter.moveFolder(id, target, targetVault));
     }
+    await adapter.finishPaste?.();
     const moved = itemIds.length + folderIds.length;
     if (moved === 0) return { moved: 0, created: 0, skipped, crossVaultAtRoot };
     adapter.setSelection([...itemIds, ...folderIds]);
@@ -401,12 +401,13 @@ export async function pasteFromClipboard(
   const duplicateAll = async () => {
     const items =
       liveItems.length > 0
-        ? await suppressed(() => adapter.duplicateItems(liveItems.map((i) => i.id), target))
+        ? await suppressed(() => adapter.duplicateItems(liveItems.map((i) => i.id), target, targetVault))
         : [];
     const folders: string[] = [];
     for (const id of liveFolders) {
-      folders.push(await suppressed(() => adapter.duplicateFolder(id, target)));
+      folders.push(await suppressed(() => adapter.duplicateFolder(id, target, targetVault)));
     }
+    await adapter.finishPaste?.();
     return { items, folders };
   };
 
@@ -440,6 +441,7 @@ export async function pasteFromClipboard(
           pasteMoves(clipboard, adapter, liveItems, liveFolders, targetVault),
         ),
       );
+      adapter.beginPaste?.();
       const again = await duplicateAll();
       createdItemIds = again.items;
       createdFolderIds = again.folders;

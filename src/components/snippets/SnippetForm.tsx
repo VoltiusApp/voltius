@@ -20,6 +20,7 @@ import {
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
 import { VaultPicker } from "@/components/shared/VaultPicker";
+import { vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { TagBadge } from "@/components/shared/TagBadge";
 import {
   PanelShell,
@@ -50,12 +51,13 @@ interface Props {
   onClose: () => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
+  onMoveToVault?: (vaultId: string) => void;
   isDirtyRef?: React.MutableRefObject<boolean>;
 }
 
 export const SnippetForm = withEditAccess("snippet", (p: Props) => p.initial, SnippetFormEditor);
 
-function SnippetFormEditor({ initial, draft, onSubmit, onClose, onDuplicate, onDelete, isDirtyRef, readOnly }: Props & EditAccessProps) {
+function SnippetFormEditor({ initial, draft, onSubmit, onClose, onDuplicate, onDelete, onMoveToVault, isDirtyRef, readOnly }: Props & EditAccessProps) {
   const { t } = useTranslation();
   const isNew = !initial;
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
@@ -162,7 +164,7 @@ function SnippetFormEditor({ initial, draft, onSubmit, onClose, onDuplicate, onD
         icon="lucide:braces"
         // "Untitled snippet" is the persisted default name when left blank; kept in English until all creation sites are localized together (see i18n issue #14)
         title={isNew ? t("snippets.toolbar.newSnippet") : (name.trim() || "Untitled snippet")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultTouched.current = true; if (id !== vaultId) setFolderId(null); setVaultId(id); markDirty(); }} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => { vaultTouched.current = true; if (id !== vaultId) setFolderId(null); setVaultId(id); markDirty(); } })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={

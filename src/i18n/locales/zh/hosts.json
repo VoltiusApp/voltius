@@ -61,10 +61,6 @@
       "draft": {
         "unsaved": "未保存"
       },
-      "vaultCascade": {
-        "moveDescription": "移动 \"{{folderName}}\" 也会将以下项目移动到 {{targetVaultName}}：",
-        "copyDescription": "复制 \"{{folderName}}\" 也会将以下项目复制到 {{targetVaultName}}："
-      },
       "bulk": {
         "executeSnippetOn_one": "在 {{count}} 台主机上执行代码片段",
         "executeSnippetOn_other": "在 {{count}} 台主机上执行代码片段",
