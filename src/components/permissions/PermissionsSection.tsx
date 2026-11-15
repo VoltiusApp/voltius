@@ -11,7 +11,7 @@ import { useRuleSet } from "@/hooks/useRuleSet";
 import { saveObjectRules, syncWithFolder, type RuleEdit } from "@/services/ruleSetEditing";
 import { isSynced, setOfParent } from "@/services/ruleSetPointers";
 import {
-  OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
+  OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, hasNarrowerException, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
   type OverrideState, type Permission, type RuleEntry, type RuleSubject,
 } from "@/services/permissions";
 import type { TeamObjectType } from "@/services/teamObjects";
@@ -162,18 +162,20 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const sourceOf = (from: string[]) =>
     from.length > 2 ? [t("shared.permissions.section.roleCount", { count: from.length })] : from;
 
-  const preview = (permission: Permission): { from: string[]; grants: boolean } => {
+  const preview = (permission: Permission, state: OverrideState): { from: string[]; grants: boolean; exceptions: boolean } => {
     const bit = PERM_BITS[permission];
     if (selected.type === "member") {
       const member = members.find((m) => m.user_id === selected.id);
-      const others = draft.filter((e) => !(e.subject_type === "member" && e.subject_id === selected.id));
       return {
         from: sourceOf(rolesGranting(bit, member?.role_ids ?? [])),
-        grants: member ? (resolveObjectPermissions(member, roles, others, locked) & bit) !== 0 : false,
+        grants: member ? (resolveObjectPermissions(member, roles, draft, locked) & bit) !== 0 : false,
+        exceptions: false,
       };
     }
     const from = rolesGranting(bit, selected.type === "role" ? [selected.id] : undefined);
-    return { from: sourceOf(from), grants: from.length > 0 };
+    // A business lock drops object-rule allows but keeps denies.
+    const grants = state === "deny" ? false : state === "allow" && !locked ? true : from.length > 0;
+    return { from: sourceOf(from), grants, exceptions: hasNarrowerException(draft, selected, bit, grants, locked, members) };
   };
 
   const save = (edit: RuleEdit) => {
@@ -212,8 +214,9 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     ? (parentName ? t("shared.permissions.section.syncedWith", { folder: parentName }) : t("shared.permissions.section.syncedTeam"))
     : t(parentSet === null ? "shared.permissions.section.ownPermissions" : "shared.permissions.section.notSynced");
   const current = entryFor(draft, selected);
-  const connectState = overrideStateOf("CONNECT", current?.allow ?? 0, current?.deny ?? 0);
-  const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT").grants);
+  const stateOf = (permission: Permission) => overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0);
+  const connectState = stateOf("CONNECT");
+  const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT", connectState).grants);
   const connectLabel = isCredential ? t("shared.permissions.section.use") : permissionLabel(t, "CONNECT");
 
   const hasRules = draft.length > 0 || ruleSet.status !== "ok";
@@ -254,7 +257,8 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
           />
           <div>
             {OBJECT_RULE_ROWS[type].map((permission) => {
-              const p = preview(permission);
+              const state = stateOf(permission);
+              const p = preview(permission, state);
               const needsConnect = connectDenied && (permission === "VIEW_SECRETS" || permission === "COPY_SECRETS");
               return (
                 <PermissionOverrideRow
@@ -262,9 +266,10 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
                   permission={permission}
                   label={isCredential && permission === "CONNECT" ? connectLabel : undefined}
                   note={needsConnect ? t("shared.permissions.section.requiresConnect", { connect: connectLabel }) : undefined}
-                  state={overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0)}
+                  state={state}
                   inheritedFrom={p.from}
-                  inheritedGrants={p.grants && !needsConnect}
+                  granted={p.grants && !needsConnect}
+                  exceptions={p.exceptions}
                   disabled={locked || ruleSet.status !== "ok" || needsConnect}
                   onChange={(next) => change(permission, next)}
                 />

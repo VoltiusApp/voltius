@@ -166,6 +166,7 @@ export function MemberDetailPanel({
   const allow = member.permission_allow ?? 0;
   const deny = member.permission_deny ?? 0;
   const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles, locked) : 0;
+  const memberEffective = effectivePermissions(member, teamRoles, locked);
 
   // A server predating overrides omits both masks; a zero mask serializes as 0.
   const serverSupportsOverrides =
@@ -420,14 +421,13 @@ export function MemberDetailPanel({
                     {t(`members.permissions.group.${g.key}`)}
                   </p>
                   {g.permissions.map((permission) => {
-                    const granting = rolesGranting(permission);
                     return (
                       <PermissionOverrideRow
                         key={permission}
                         permission={permission}
                         state={overrideStateOf(permission, allow, deny)}
-                        inheritedFrom={granting}
-                        inheritedGrants={granting.length > 0}
+                        inheritedFrom={rolesGranting(permission)}
+                        granted={(memberEffective & PERM_BITS[permission]) !== 0}
                         disabled={rowDisabled(permission)}
                         onChange={(next) => void handleOverride(permission, next)}
                       />

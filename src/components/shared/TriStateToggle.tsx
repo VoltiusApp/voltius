@@ -2,10 +2,16 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { OverrideState } from "@/services/permissions";
 
-const STATES: { value: OverrideState; icon: string; color: string }[] = [
-  { value: "deny", icon: "lucide:x", color: "var(--t-status-error)" },
-  { value: "inherit", icon: "lucide:minus", color: "var(--t-text-dim)" },
-  { value: "allow", icon: "lucide:check", color: "#34d399" },
+export const OVERRIDE_STATE_COLOR: Record<OverrideState, string> = {
+  deny: "var(--t-status-error)",
+  inherit: "var(--t-text-dim)",
+  allow: "var(--t-status-connected)",
+};
+
+const STATES: { value: OverrideState; icon: string }[] = [
+  { value: "deny", icon: "lucide:x" },
+  { value: "inherit", icon: "lucide:minus" },
+  { value: "allow", icon: "lucide:check" },
 ];
 
 export function TriStateToggle({ value, onChange, label, disabled = false }: {
@@ -35,7 +41,7 @@ export function TriStateToggle({ value, onChange, label, disabled = false }: {
             className="px-2.5 py-1 transition-colors"
             style={{
               background: active ? "var(--t-bg-elevated)" : "transparent",
-              color: active ? s.color : "var(--t-text-dim)",
+              color: active ? OVERRIDE_STATE_COLOR[s.value] : "var(--t-text-dim)",
               opacity: disabled ? 0.5 : 1,
               cursor: disabled ? "not-allowed" : "pointer",
             }}
