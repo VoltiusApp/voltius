@@ -126,7 +126,10 @@
       "keyLabel": "Метка ключа",
       "keyLabelPlaceholder": "Мой SSH-ключ (необязательно)",
       "editHostTitle": "Изменить хост",
-      "unlinkTitle": "Отвязать — скопировать учётные данные напрямую в хост"
+      "unlinkTitle": "Отвязать — скопировать учётные данные напрямую в хост",
+      "editIdentityTitle": "Изменить личность",
+      "unlinkNoPermission": "У вас нет прав отвязать этот хост",
+      "unlinkFailed": "Не удалось отвязать «{{name}}»: {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Экспорт",

@@ -1,6 +1,6 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act, fireEvent, screen } from "@testing-library/react";
-import type { Identity, SshKey } from "@/types";
+import type { Connection, Identity, SshKey } from "@/types";
 
 const h = vi.hoisted(() => ({
   folders: [] as unknown[],
@@ -18,6 +18,11 @@ const h = vi.hoisted(() => ({
   secrets: {} as Record<string, string>,
   reportAuditClientEvent: vi.fn(),
   derivePublicKey: vi.fn(async (..._a: unknown[]) => ({ error: "invalid" as const })),
+  connections: [] as unknown[],
+  teamConnections: {} as Record<string, unknown[]>,
+  identities: [] as unknown[],
+  teamIdentities: {} as Record<string, unknown[]>,
+  setKeychainPendingAction: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -37,19 +42,19 @@ vi.mock("@/stores/keyStore", () => ({
 }));
 vi.mock("@/stores/identityStore", () => ({
   useIdentityStore: (sel?: (s: unknown) => unknown) => {
-    const state = { pinIdentity: h.pinIdentity };
+    const state = { pinIdentity: h.pinIdentity, identities: h.identities, teamIdentities: h.teamIdentities };
     return sel ? sel(state) : state;
   },
 }));
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: (sel?: (s: unknown) => unknown) => {
-    const state = { connections: [], loadConnections: vi.fn(async () => {}), updateConnection: vi.fn(async () => {}) };
+    const state = { connections: h.connections, teamConnections: h.teamConnections, loadConnections: vi.fn(async () => {}), updateConnection: vi.fn(async () => {}) };
     return sel ? sel(state) : state;
   },
 }));
 vi.mock("@/stores/uiStore", () => ({
   useUIStore: (sel?: (s: unknown) => unknown) => {
-    const state = { setActiveNav: vi.fn(), setHomePendingAction: vi.fn() };
+    const state = { setActiveNav: vi.fn(), setHomePendingAction: vi.fn(), setKeychainPendingAction: h.setKeychainPendingAction };
     return sel ? sel(state) : state;
   },
 }));
@@ -152,6 +157,10 @@ beforeEach(() => {
   h.secrets = {};
   h.contributions = [];
   h.defaultVaultId = "personal";
+  h.connections = [];
+  h.teamConnections = {};
+  h.identities = [];
+  h.teamIdentities = {};
   vi.clearAllMocks();
   h.isObjectSynced.mockReturnValue(true);
   h.derivePublicKey.mockResolvedValue({ error: "invalid" as const });
@@ -163,6 +172,10 @@ function key(over: Partial<SshKey> = {}): SshKey {
 }
 function identity(over: Partial<Identity> = {}): Identity {
   return { id: "i1", name: "Ident", username: "root", tags: [], vault_id: "personal", created_at: "", updated_at: "", clocks: {}, ...over } as Identity;
+}
+
+function conn(over: Partial<Connection> = {}): Connection {
+  return { id: "c1", name: "Web", host: "10.0.0.1", port: 22, username: "root", auth_type: "key", tags: [], vault_id: "personal", created_at: "", last_used_at: null, ...over } as Connection;
 }
 
 function renderKey(props: Partial<Parameters<typeof KeyForm>[0]> = {}) {
@@ -463,4 +476,51 @@ test("the key form hides its key material without View secrets and still saves a
   expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: "Renamed" });
   expect(onSubmit.mock.calls[0][1]).toBeNull();
   useTeamObjectAccessStore.getState().clearAll();
+});
+
+test("the identity form lists team hosts linked to a team identity", () => {
+  h.teams = [{ id: "team-1" }];
+  h.teamConnections = { "team-1": [conn({ id: "c1", name: "Team web", vault_id: "team-1", identity_id: "i1" }), conn({ id: "c2", name: "Other", vault_id: "team-1" })] };
+  renderIdentity({ initial: identity({ vault_id: "team-1" }) });
+  expect(screen.getByText("keychain.identityForm.sectionLinkedTo")).toBeTruthy();
+  expect(screen.getByText("Team web")).toBeTruthy();
+  expect(screen.queryByText("Other")).toBeNull();
+});
+
+test("the identity form greys out unlink on a host the member may not edit", () => {
+  h.teams = [{ id: "team-1" }];
+  h.teamConnections = { "team-1": [conn({ id: "c1", vault_id: "team-1", identity_id: "i1" }), conn({ id: "c2", name: "Locked", vault_id: "team-1", identity_id: "i1" })] };
+  const view = PERM_BITS.VIEW | PERM_BITS.VIEW_SECRETS;
+  useTeamObjectAccessStore.getState().replaceTeam("team-1", {
+    i1: { type: "identity", ruleSetId: "s1", myPermissions: view | PERM_BITS.EDIT_IDENTITIES, parentId: null, deleted: false },
+    c1: { type: "connection", ruleSetId: "s1", myPermissions: view | PERM_BITS.EDIT_CONNECTIONS, parentId: null, deleted: false },
+    c2: { type: "connection", ruleSetId: "s1", myPermissions: view, parentId: null, deleted: false },
+  }, true);
+  renderIdentity({ initial: identity({ vault_id: "team-1" }) });
+  const unlinks = screen.getAllByTitle(/keychain\.identityForm\.unlink/) as HTMLButtonElement[];
+  expect(unlinks.map((b) => [b.title, b.disabled])).toEqual([
+    ["keychain.identityForm.unlinkTitle", false],
+    ["keychain.identityForm.unlinkNoPermission", true],
+  ]);
+  useTeamObjectAccessStore.getState().clearAll();
+});
+
+test("the key form lists the hosts and identities that use the key", () => {
+  h.teams = [{ id: "team-1" }];
+  h.connections = [conn({ id: "c1", name: "Direct", key_id: "k1" }), conn({ id: "c2", name: "Unrelated" })];
+  h.teamConnections = { "team-1": [conn({ id: "c3", name: "Team direct", vault_id: "team-1", key_id: "k1" })] };
+  h.teamIdentities = { "team-1": [identity({ id: "i2", name: "Deploy", vault_id: "team-1", key_id: "k1" })] };
+  renderKey({ initial: key() });
+  expect(screen.getByText("Direct")).toBeTruthy();
+  expect(screen.getByText("Team direct")).toBeTruthy();
+  expect(screen.queryByText("Unrelated")).toBeNull();
+  expect(screen.queryByTitle("keychain.identityForm.unlinkTitle")).toBeNull();
+
+  fireEvent.click(screen.getByTitle("keychain.identityForm.editIdentityTitle"));
+  expect(h.setKeychainPendingAction).toHaveBeenCalledWith({ action: "edit-identity", id: "i2" });
+});
+
+test("the key form shows no linked section for an unused key", () => {
+  renderKey({ initial: key() });
+  expect(screen.queryByText("keychain.identityForm.sectionLinkedTo")).toBeNull();
 });

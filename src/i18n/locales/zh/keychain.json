@@ -110,7 +110,10 @@
       "keyLabel": "密钥标签",
       "keyLabelPlaceholder": "我的 SSH 密钥（可选）",
       "editHostTitle": "编辑主机",
-      "unlinkTitle": "取消链接——将凭据内联复制到主机"
+      "unlinkTitle": "取消链接——将凭据内联复制到主机",
+      "editIdentityTitle": "编辑身份",
+      "unlinkNoPermission": "你没有取消链接此主机的权限",
+      "unlinkFailed": "无法取消链接“{{name}}”：{{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "导出",
