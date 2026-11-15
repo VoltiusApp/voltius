@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
+import { connectionTarget, refuseWhilePreviewing } from "@/services/previewGuard";
+import type { TeamObjectType } from "@/services/teamObjects";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
 export type PageNavItem = Exclude<NavItem, "terminal">;
@@ -91,6 +93,9 @@ export type KeychainPendingAction =
   | { action: "edit-key"; id: string }
   | { action: "edit-identity"; id: string }
   | null;
+const refusePending = (action: { action: string; id?: string } | null, type: TeamObjectType): boolean =>
+  action !== null && refuseWhilePreviewing(action.id ? { type, objectId: action.id } : undefined);
+
 export type EnrollSource = "machine" | "link" | "paste";
 export type EnrollTarget = { token: EnrollmentTokenParts; source: EnrollSource };
 export type CloudAuthMode = "signin" | "register";
@@ -352,7 +357,7 @@ export const useUIStore = create<UIStore>()(
             rightPanelSection: section ?? s.rightPanelSection,
           })),
         setSftpPanelOpen: (open) => set({ sftpPanelOpen: open }),
-        openSftpWith: (connectionId) => set({ sftpPanelOpen: true, pendingSftpConnectionId: connectionId }),
+        openSftpWith: (connectionId) => refuseWhilePreviewing(connectionTarget(connectionId)) || set({ sftpPanelOpen: true, pendingSftpConnectionId: connectionId }),
         clearPendingSftpConnection: () => set({ pendingSftpConnectionId: null }),
         setUiScale: (value) => setPref({ uiScale: clampUiScale(value) }),
         setTerminalFontSize: (value) => setPref({ terminalFontSize: value === null ? null : clampTerminalFontSize(value) }),
@@ -360,17 +365,18 @@ export const useUIStore = create<UIStore>()(
         setHomeSortMode: (v) => setPref({ homeSortMode: v }),
         setKeychainLayoutMode: (v) => setPref({ keychainLayoutMode: v }),
         setKeychainSortMode: (v) => setPref({ keychainSortMode: v }),
-        setHomePendingAction: (action) => set({ homePendingAction: action }),
+        setHomePendingAction: (action) => refusePending(action, "connection") || set({ homePendingAction: action }),
         setPortForwardingLayoutMode: (v) => setPref({ portForwardingLayoutMode: v }),
         toggleActiveTunnelsCollapsed: () => set((s) => ({ activeTunnelsCollapsed: !s.activeTunnelsCollapsed })),
         setPortForwardingSortMode: (v) => setPref({ portForwardingSortMode: v }),
-        setPortForwardingPendingAction: (action) => set({ portForwardingPendingAction: action }),
-        setKeychainPendingAction: (action) => set({ keychainPendingAction: action }),
+        setPortForwardingPendingAction: (action) => refusePending(action, "port_forwarding_rule") || set({ portForwardingPendingAction: action }),
+        setKeychainPendingAction: (action) =>
+          refusePending(action, action?.action === "edit-identity" ? "identity" : "key") || set({ keychainPendingAction: action }),
         setMembersLayoutMode: (v) => setPref({ membersLayoutMode: v }),
         setMembersSortMode: (v) => setPref({ membersSortMode: v }),
         setSnippetsLayoutMode: (v) => setPref({ snippetsLayoutMode: v }),
         setKnownHostsLayoutMode: (v) => setPref({ knownHostsLayoutMode: v }),
-        setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
+        setSnippetsPendingAction: (action) => refusePending(action, "snippet") || set({ snippetsPendingAction: action }),
         openMembersPanel: (panel) => set({ ...navTo("members"), homeView: false, membersPanelPending: panel }),
         clearMembersPanelPending: () => set({ membersPanelPending: null }),
         openMembersNav: () => set({ ...navTo("members"), homeView: false }),

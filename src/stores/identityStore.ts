@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { Identity, IdentityFormData } from "@/types";
 import * as api from "@/services/identities";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
@@ -50,6 +51,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     set((s) => ({ teamIdentities: clearTeamMapEntry(s.teamIdentities, teamId) })),
 
   saveIdentity: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const identity: Identity = {
@@ -95,6 +97,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   },
 
   updateIdentity: async (id, data) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -164,6 +167,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   },
 
   pinIdentity: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -180,6 +184,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   },
 
   pinIdentityForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;
@@ -188,6 +193,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   },
 
   deleteIdentity: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;

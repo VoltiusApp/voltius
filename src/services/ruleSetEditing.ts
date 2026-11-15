@@ -3,6 +3,7 @@ import { findTeamItem, saveTeamVaultObject } from "@/services/teamObjectPersiste
 import { isFolderType, isSynced, setOfParent, syncedSubtree } from "@/services/ruleSetPointers";
 import type { RuleEntry } from "@/services/permissions";
 import { teamAccessEntries, type TeamAccessEntries } from "@/stores/teamObjectAccessStore";
+import { assertNotPreviewing } from "@/services/previewGuard";
 
 export type RuleEdit = (entries: RuleEntry[]) => RuleEntry[];
 
@@ -26,6 +27,7 @@ function sharedBeyond(all: TeamAccessEntries, target: RuleTarget, ruleSetId: str
 }
 
 export async function saveObjectRules(target: RuleTarget, edit: RuleEdit): Promise<RuleEntry[] | null> {
+  assertNotPreviewing();
   for (let attempt = 0; ; attempt++) {
     const all = teamAccessEntries(target.teamId);
     const current = all[target.objectId];
@@ -47,6 +49,7 @@ export async function saveObjectRules(target: RuleTarget, edit: RuleEdit): Promi
 }
 
 export async function syncWithFolder(target: RuleTarget): Promise<void> {
+  assertNotPreviewing();
   const all = teamAccessEntries(target.teamId);
   const current = all[target.objectId];
   if (current) await repoint(target, setOfParent(all, current.parentId));

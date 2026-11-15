@@ -597,7 +597,8 @@
       "noPermission": "Vous n'avez pas la permission d'afficher cet aperçu",
       "ended": "L'aperçu est terminé : ce membre ou ce rôle n'est plus disponible",
       "failed": "Impossible de charger l'aperçu",
-      "needsBusiness": "« Voir en tant que » fait partie du forfait Business"
+      "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
+      "readOnly": "Aperçu en lecture seule"
     }
   }
 }

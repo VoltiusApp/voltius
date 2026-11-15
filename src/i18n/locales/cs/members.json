@@ -618,7 +618,8 @@
       "noPermission": "Nemáte oprávnění k tomuto náhledu",
       "ended": "Náhled skončil: tento člen nebo role již není k dispozici",
       "failed": "Náhled se nepodařilo načíst",
-      "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business"
+      "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business",
+      "readOnly": "Náhled jen pro čtení"
     }
   }
 }

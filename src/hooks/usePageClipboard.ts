@@ -11,6 +11,7 @@ import {
   type PasteResult,
 } from "@/services/vaultClipboard";
 import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 export interface PageClipboardAdapter extends ClipboardAdapter {
   getSelection: () => string[];
@@ -124,6 +125,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
         else if (kind) items.push({ id, kind });
       }
       if (items.length === 0 && folderIds.length === 0) return;
+      if (refuseWhilePreviewing()) return;
 
       useVaultClipboardStore.getState().setClipboard({
         tab: navItem,

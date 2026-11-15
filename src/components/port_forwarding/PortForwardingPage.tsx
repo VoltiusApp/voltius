@@ -518,8 +518,10 @@ export function PortForwardingPage() {
     ];
   }, [selectedRules, selectedFolders, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
 
-  const createFolder = () =>
-    void saveFolder(newFolder(t("portForwarding.toolbar.newFolder"))).then((f) => { closeForm(); setEditingFolderId(f.id); });
+  const createFolder = () => {
+    const data = newFolder(t("portForwarding.toolbar.newFolder"));
+    if (data) void saveFolder(data).then((f) => { closeForm(); setEditingFolderId(f.id); });
+  };
 
   return (
     <>

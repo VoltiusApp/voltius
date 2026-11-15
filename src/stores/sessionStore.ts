@@ -38,6 +38,7 @@ import { notifyError } from "@/utils/notifyError";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
 import { onConnectionsRevoked } from "@/services/connectionRevocations";
 import { appToast } from "@/services/appToast";
+import { connectionTarget, refuseOrThrow, refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** `background: true` opens the session without taking the user's active tab. */
 export type OpenOptions = { background?: boolean };
@@ -226,6 +227,7 @@ export async function settleLocalSpawn(sessionId: string, spawn: Promise<unknown
 }
 
 async function startLocalSession(set: SessionSetter, cwd?: string): Promise<void> {
+  if (refuseWhilePreviewing()) return;
   const sessionId = crypto.randomUUID();
   const shell = await policyShell(preferredShellSetting.get() ?? undefined);
   addSession(set, localSessionDraft(sessionId, shell));
@@ -666,12 +668,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   activeSessionId: null,
 
   connect: async (connectionId, options) => {
+    refuseOrThrow(connectionTarget(connectionId));
     return connectConnection(set as SessionSetter, connectionId, options);
   },
 
-  beginSession: (connectionId, initialCwd) => beginConnection(set as SessionSetter, connectionId, initialCwd),
+  beginSession: (connectionId, initialCwd) => {
+    refuseOrThrow(connectionTarget(connectionId));
+    return beginConnection(set as SessionSetter, connectionId, initialCwd);
+  },
 
   connectMany: async (connectionIds) => {
+    refuseOrThrow();
     const uniqueIds = [...new Set(connectionIds)];
     const sessionIds = uniqueIds.map((id) => beginConnection(set as SessionSetter, id));
     if (sessionIds.length === 0) throw new Error(i18n.t("common.error.noConnectionsSelected"));
@@ -679,6 +686,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectDirect: async (connection) => {
+    if (refuseWhilePreviewing()) return;
     const sessionId = crypto.randomUUID();
     ephemeralConnections.set(connection.id, connection);
     await startSession(set as SessionSetter, connection, sessionId);
@@ -689,6 +697,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   connectLocalAt: (cwd: string) => startLocalSession(set as SessionSetter, cwd),
 
   beginLocalSession: (shell, cwd) => {
+    refuseOrThrow();
     const sessionId = crypto.randomUUID();
     addSession(set as SessionSetter, localSessionDraft(sessionId, shell));
     settleLocalSpawn(sessionId, spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"))).catch(() => {});
@@ -696,6 +705,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectAt: async (connectionId, cwd) => {
+    if (refuseWhilePreviewing(connectionTarget(connectionId))) return;
     await get().connect(connectionId);
     const session = get().sessions.find((s) => s.id === get().activeSessionId);
     if (session) {
@@ -708,6 +718,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectSerial: async (connectionId) => {
+    if (refuseWhilePreviewing(connectionTarget(connectionId))) return;
     const connection = findConnection(connectionId);
     if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
@@ -718,6 +729,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectSerialEphemeral: async (initialPort?: string) => {
+    if (refuseWhilePreviewing()) return;
     const sessionId = crypto.randomUUID();
     const session: TerminalSession = {
       id: sessionId,

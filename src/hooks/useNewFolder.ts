@@ -4,6 +4,7 @@ import { usePermissions } from "@/hooks/usePermission";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useVaultStore } from "@/stores/vaultStore";
 import { newFolderData } from "@/utils/folderTree";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** New folder for a desktop page: inside the open folder and its vault, else at the root in the default vault. */
 export function useNewFolder(objectType: Folder["object_type"], folderPath: Folder[]) {
@@ -18,6 +19,6 @@ export function useNewFolder(objectType: Folder["object_type"], folderPath: Fold
   return {
     /** Why New folder is greyed out here, or undefined when it is allowed. */
     folderBlocked: allowed ? undefined : t("folders.noPermissionCreate"),
-    newFolder: (name: string) => newFolderData(objectType, parent, defaultVaultId, name),
+    newFolder: (name: string) => (refuseWhilePreviewing() ? null : newFolderData(objectType, parent, defaultVaultId, name)),
   };
 }

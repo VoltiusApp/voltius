@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import {
   isAliveVaultRow,
   pruneVaultTombstones,
@@ -62,6 +63,7 @@ export const useVaultStore = create<VaultStore>()(
         return vault;
       },
       renameVault: (id, name) => {
+        assertNotPreviewing();
         set((s) => ({
           vaults: s.vaults.map((v) => v.id === id ? { ...v, name, updatedAt: settingsStamp() } : v),
         }));

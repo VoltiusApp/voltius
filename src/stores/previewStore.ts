@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
+import { bindPreviewGuard } from "@/services/previewGuard";
 
 export type { PreviewSession };
 
@@ -176,3 +177,5 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
 }));
 
 export const isPreviewing = (): boolean => usePreviewStore.getState().session !== null;
+
+bindPreviewGuard({ active: isPreviewing, showWhy: (type, objectId) => usePreviewStore.getState().showWhy(type, objectId) });

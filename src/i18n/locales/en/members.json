@@ -580,7 +580,8 @@
       "noPermission": "You don't have permission to preview this",
       "ended": "The preview ended: this member or role is no longer available",
       "failed": "Could not load the preview",
-      "needsBusiness": "View as is part of Business"
+      "needsBusiness": "View as is part of Business",
+      "readOnly": "Read-only preview"
     }
   }
 }

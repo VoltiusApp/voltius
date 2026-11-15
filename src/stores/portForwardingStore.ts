@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import * as api from "@/services/portForwardingRules";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
@@ -60,6 +61,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
     set((s) => ({ teamRules: clearTeamMapEntry(s.teamRules, teamId) })),
 
   createRule: async (data, id) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const rule: PortForwardingRule = {
@@ -107,6 +109,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   },
 
   updateRule: async (id, data) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -174,6 +177,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   },
 
   deleteRule: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
       await removeTeamVaultObject(teamEntry.teamId, id);
@@ -191,6 +195,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   },
 
   duplicateRule: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
       return get().createRule(copyingRulesOf({ ...toFormData(teamEntry.item), name: `${teamEntry.item.name} (copy)` }, teamEntry.item.id));
@@ -204,6 +209,7 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
   },
 
   moveRuleFolder: async (id, folderId) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamRules, id);
     if (teamEntry) {
       await get().updateRule(id, { ...toFormData(teamEntry.item), folder_id: folderId ?? undefined });

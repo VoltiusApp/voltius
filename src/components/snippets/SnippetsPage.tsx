@@ -74,6 +74,7 @@ import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -289,8 +290,8 @@ export function SnippetsPage() {
   const [showAllRecent, setShowAllRecent] = useState(false);
 
   // Editing state
-  const ep = useEditPanel<Snippet>();
-  const folderEp = useEditPanel<Folder>();
+  const ep = useEditPanel<Snippet>("snippet");
+  const folderEp = useEditPanel<Folder>("snippet_folder");
   const editingFolder = folderEp.editing !== null && folderEp.editing !== "new" ? folderEp.editing : null;
 
   const snippetIsDirtyRef = useRef(false);
@@ -670,6 +671,7 @@ export function SnippetsPage() {
   }
 
   async function handleReplay(entry: RecentSnippetExecution) {
+    if (refuseWhilePreviewing(snippetTarget(entry.snippetId))) return;
     const snippet = snippets.find((s) => s.id === entry.snippetId);
     if (!snippet) return;
 
@@ -839,8 +841,10 @@ export function SnippetsPage() {
   }
 
   async function handleCreateFolder() {
+    const data = newFolder(t("snippets.toolbar.newFolder"));
+    if (!data) return;
     ep.closeEdit();
-    const folder = await saveFolder(newFolder(t("snippets.toolbar.newFolder")));
+    const folder = await saveFolder(data);
     folderEp.transitionToExisting(folder);
   }
 

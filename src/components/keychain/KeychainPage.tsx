@@ -850,8 +850,10 @@ export default function KeychainPage() {
   const editFolderRef = useRef(editFolder);
   editFolderRef.current = editFolder;
 
-  const createFolder = () =>
-    void saveFolder(newFolder(t("keychain.toolbar.newFolder")));
+  const createFolder = () => {
+    const data = newFolder(t("keychain.toolbar.newFolder"));
+    if (data) void saveFolder(data);
+  };
 
   // Inside a folder only the types it holds are listed; the per-type "none yet" states are for the root.
   const inFolderView = !!activeFolderId && !q;

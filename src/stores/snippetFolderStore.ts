@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { Folder, FolderFormData } from "@/types";
 import * as api from "@/services/snippets";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
@@ -43,6 +44,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     set((s) => ({ teamSnippetFolders: clearTeamMapEntry(s.teamSnippetFolders, teamId) })),
 
   saveFolder: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const folder: Folder = {
@@ -71,6 +73,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   },
 
   updateFolder: async (id, input) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     const data = overStoredFolder(teamEntry?.item ?? get().folders.find((f) => f.id === id), input);
     if (teamEntry) {
@@ -136,6 +139,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   // Cascade: the folder, its subfolders, and every snippet filed in them —
   // matching folderStore.deleteFolder. Not undoable.
   deleteFolder: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       const { teamId } = teamEntry;
@@ -171,6 +175,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   },
 
   moveFolder: async (id, parentFolderId) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       const { teamId, item: folder } = teamEntry;
@@ -194,6 +199,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   },
 
   pinSnippetFolder: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -214,6 +220,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   },
 
   pinSnippetFolderForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;

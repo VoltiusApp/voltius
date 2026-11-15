@@ -7,6 +7,7 @@ import { encodeSessionText, getSessionTransportType } from "@/stores/sessionStor
 import type { TeamMember } from "@/services/teamService";
 import type { InviteTarget } from "@/services/teamSharing";
 import { appendOutputBuffer, drainOutputBuffer, type OutputBuffers } from "@/utils/outputBuffer";
+import { refuseOrThrow, refuseWhilePreviewing } from "@/services/previewGuard";
 export type { ActiveSession, Participant };
 
 interface TeamSessionStore {
@@ -235,26 +236,33 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
   },
 
   startSharing: async (localSessionId, vaultIds, allowedRoles, connectionName, members, vaultOwnerTier) => {
+    refuseOrThrow();
     const { sessionId, sessionKey, sessionKeyBytes } = await mp.createVaultSession(vaultIds, allowedRoles, connectionName, members, await teamConnectionIdOf(localSessionId, vaultIds));
     await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { vaultOwnerTier, sessionKeyBytes });
     return sessionId;
   },
 
   startSharingInviteLink: async (localSessionId, connectionName) => {
+    refuseOrThrow();
     const { sessionId, sessionKey, sessionKeyBytes, inviteToken } = await mp.createInviteLinkSession(connectionName);
     await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { inviteToken, sessionKeyBytes });
     return { multiplayerSessionId: sessionId, inviteToken };
   },
 
   startSharingDirect: async (localSessionId, connectionName, invitees) => {
+    refuseOrThrow();
     const { sessionId, sessionKey, sessionKeyBytes } = await mp.createDirectSession(connectionName, invitees);
     await attachAsHost(localSessionId, sessionId, sessionKey, set, get, { sessionKeyBytes });
     return sessionId;
   },
 
-  inviteToActiveSession: (localSessionId, target) => wrapKeyForUser(get, localSessionId, target.user_id),
+  inviteToActiveSession: async (localSessionId, target) => {
+    if (refuseWhilePreviewing()) return;
+    await wrapKeyForUser(get, localSessionId, target.user_id);
+  },
 
   joinSession: async (multiplayerSessionId, onControlUpdate, inviteToken) => {
+    refuseOrThrow();
     const myKey = await mp.getMySessionKey(multiplayerSessionId, inviteToken);
     let keyReady = () => {};
     const sessionKey = myKey === "pending"

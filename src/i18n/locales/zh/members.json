@@ -580,7 +580,8 @@
       "noPermission": "你没有预览此内容的权限",
       "ended": "预览已结束：该成员或角色已不可用",
       "failed": "无法加载预览",
-      "needsBusiness": "“以成员身份查看”是 Business 套餐的功能"
+      "needsBusiness": "“以成员身份查看”是 Business 套餐的功能",
+      "readOnly": "只读预览"
     }
   }
 }

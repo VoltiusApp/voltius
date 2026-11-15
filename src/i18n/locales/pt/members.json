@@ -597,7 +597,8 @@
       "noPermission": "Não tem permissão para pré-visualizar isto",
       "ended": "A pré-visualização terminou: este membro ou função já não está disponível",
       "failed": "Não foi possível carregar a pré-visualização",
-      "needsBusiness": "«Ver como» faz parte do plano Business"
+      "needsBusiness": "«Ver como» faz parte do plano Business",
+      "readOnly": "Pré-visualização só de leitura"
     }
   }
 }

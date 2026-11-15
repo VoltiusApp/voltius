@@ -79,6 +79,7 @@ import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
+import { connectionTarget, folderTarget, refuseWhilePreviewing } from "@/services/previewGuard";
 
 
 export default function HostsPage() {
@@ -132,6 +133,7 @@ export default function HostsPage() {
   }, [loadConnections, loadFolders]);
 
   const openEdit = (conn: { id: string; connection_type?: string }) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     hostFormSessionKeyRef.current = conn.id;
     setEditingId(conn.id);
     setEditingFolderId(null);
@@ -145,6 +147,7 @@ export default function HostsPage() {
   };
 
   const openNew = (serial = false, inOpenFolder = true) => {
+    if (refuseWhilePreviewing()) return;
     hostFormSessionKeyRef.current = `new-${Date.now()}`;
     const openFolder = inOpenFolder ? folders.find((f) => f.id === activeFolderId) : undefined;
     setNewPlacement(openFolder && can("EDIT_CONNECTIONS", openFolder.vault_id) ? placementIn(openFolder) : undefined);
@@ -154,10 +157,13 @@ export default function HostsPage() {
     setEditingFolderId(null);
   };
 
-  const createFolder = () =>
-    void saveFolder(newFolder(t("hosts.toolbar.newFolder"))).then((f) => {
+  const createFolder = () => {
+    const data = newFolder(t("hosts.toolbar.newFolder"));
+    if (!data) return;
+    void saveFolder(data).then((f) => {
       setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id);
     });
+  };
 
   useEffect(() => {
     if (!homePendingAction) return;
@@ -277,6 +283,7 @@ export default function HostsPage() {
   );
 
   const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(folder.id);
   };
   const panelOpen = showForm || showSerialForm || editingFolderId !== null;
@@ -432,6 +439,7 @@ export default function HostsPage() {
   }
 
   const handleDuplicate = async (conn: Connection) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     try {
       await handleDuplicateInto(conn, conn.folder_id ?? null);
     } catch (err) {
@@ -451,6 +459,7 @@ export default function HostsPage() {
   const syncTypes = useSyncPrefsStore((s) => s.syncTypes);
 
   const handleBulkConnect = useCallback(async (conns: Connection[]) => {
+    if (refuseWhilePreviewing()) return;
     const connectionIds = conns.map((c) => c.id);
     if (connectionIds.length === 0) return;
     setError(null);
@@ -464,6 +473,7 @@ export default function HostsPage() {
   }, [connectMany, openSessions, setActiveNav]);
 
   const handleConnect = useCallback(async (conn: Connection) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     if (selectedIdSet.size > 1 && selectedIdSet.has(conn.id) && selectedConnections.length > 1) {
       await handleBulkConnect(selectedConnections);
       return;
@@ -482,6 +492,7 @@ export default function HostsPage() {
   }, [connect, handleBulkConnect, selectedConnections, selectedIdSet, setActiveNav]);
 
   const handleDeleteConnection = useCallback((id: string) => {
+    if (refuseWhilePreviewing(connectionTarget(id))) return;
     const targetIds = getHostDeleteTargetIds(id, selectedIdSet, selectedConnections.map((c) => c.id));
     if (targetIds.length > 1) {
       setConfirmDeleteIds(targetIds);
@@ -604,6 +615,7 @@ export default function HostsPage() {
   };
 
   const handleMoveConnectionToVault = (conn: Connection, vaultId: string) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     const identity = conn.identity_id ? identities.find((i) => i.id === conn.identity_id) : undefined;
     const key = identity?.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
     const identityNeedsMove = identity && (identity.vault_id ?? "personal") !== vaultId;
@@ -632,6 +644,7 @@ export default function HostsPage() {
   };
 
   const handleCopyConnectionToVault = (conn: Connection, vaultId: string) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     const identity = conn.identity_id ? identities.find((i) => i.id === conn.identity_id) : undefined;
     const key = identity?.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
     const identityNeedsCopy = identity && (identity.vault_id ?? "personal") !== vaultId;
@@ -698,6 +711,7 @@ export default function HostsPage() {
   });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     const allConns = getConnectionsInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
 
@@ -737,6 +751,7 @@ export default function HostsPage() {
   };
 
   const handleCopyFolderToVault = (folder: Folder, vaultId: string) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     const subFolders = getAllSubFolders(folder.id);
     const allConns = getConnectionsInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;

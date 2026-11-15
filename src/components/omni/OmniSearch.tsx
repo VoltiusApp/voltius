@@ -67,6 +67,7 @@ import { useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 import { resolveFailure, tokenHost } from "@/services/enrollment/enrollmentPublic";
 import { parseEnrollInput } from "@/services/deepLinkUrl";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -431,6 +432,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         }
         onClose();
       } else if (item.kind === "snippet") {
+        if (refuseWhilePreviewing(snippetTarget(item.snippet.id))) return;
         const activeSession = getActiveRunnableSession();
         if (!activeSession) {
           setNotice({ key: itemKey(item), text: t("omni.snippetNeedsSession"), tone: "info", armed: false });

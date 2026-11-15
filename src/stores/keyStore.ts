@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { SshKey, SshKeyFormData } from "@/types";
 import * as api from "@/services/keys";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
@@ -50,6 +51,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     set((s) => ({ teamKeys: clearTeamMapEntry(s.teamKeys, teamId) })),
 
   saveKey: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const key: SshKey = {
@@ -94,6 +96,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   },
 
   updateKey: async (id, data) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -163,6 +166,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   },
 
   pinKey: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -179,6 +183,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   },
 
   pinKeyForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;
@@ -187,6 +192,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   },
 
   deleteKey: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;

@@ -3,6 +3,7 @@ import type { NavItem } from "@/stores/uiStore";
 import type { VaultClipboard, VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import i18n from "@/i18n";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 export interface ClipboardAdapter {
   navItem: NavItem;
@@ -271,7 +272,7 @@ export async function pasteFromClipboard(
   clipboard: VaultClipboard,
   adapter: ClipboardAdapter,
 ): Promise<PasteResult> {
-  if (!clipboard || clipboard.tab !== adapter.navItem) return EMPTY;
+  if (!clipboard || clipboard.tab !== adapter.navItem || refuseWhilePreviewing()) return EMPTY;
 
   const target = adapter.targetFolderId();
   const targetVault = adapter.targetVaultId();

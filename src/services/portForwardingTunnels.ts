@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { ActiveTunnel, PortForwardingRule, TunnelType } from "../types";
+import { refuseOrThrow } from "@/services/previewGuard";
 
 export interface PfSessionState {
   tunnels: ActiveTunnel[];
@@ -20,7 +21,7 @@ export function onPfStateChanged(
   });
 }
 
-export function openPfTunnel(opts: {
+export async function openPfTunnel(opts: {
   sessionId: string;
   localPort: number;
   remotePort?: number;
@@ -31,6 +32,7 @@ export function openPfTunnel(opts: {
   ruleId?: string;
   ruleName?: string;
 }): Promise<ActiveTunnel> {
+  refuseOrThrow(opts.ruleId ? { type: "port_forwarding_rule", objectId: opts.ruleId } : undefined);
   return invoke("pf_tunnel_open", {
     sessionId: opts.sessionId,
     localPort: opts.localPort,
@@ -62,6 +64,7 @@ export function closePfTunnel(sessionId: string, tunnelId: string): Promise<void
   return invoke("pf_tunnel_close", { sessionId, tunnelId });
 }
 
-export function resumeAutoPort(sessionId: string, port: number): Promise<ActiveTunnel> {
+export async function resumeAutoPort(sessionId: string, port: number): Promise<ActiveTunnel> {
+  refuseOrThrow();
   return invoke("pf_tunnel_resume_auto", { sessionId, port });
 }

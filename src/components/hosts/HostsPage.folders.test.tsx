@@ -25,6 +25,7 @@ const h = vi.hoisted(() => ({
   teams: [] as unknown[],
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
+  folderEditPanels: 0,
   hostCardProps: [] as Record<string, unknown>[],
   formProps: [] as { kind: string; placement?: unknown }[],
   toolbarProps: {} as Record<string, unknown>,
@@ -71,7 +72,7 @@ vi.mock("@/components/shared/DragSelectSurface", () => ({
 vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
-vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
+vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => { h.folderEditPanels++; return null; } }));
 vi.mock("./HostCard", () => ({
   default: (props: Record<string, unknown>) => { h.hostCardProps.push(props); return null; },
 }));
@@ -254,6 +255,10 @@ vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: 
 vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));
 
 import HostsPage from "./HostsPage";
+import { usePreviewStore } from "@/stores/previewStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -267,6 +272,7 @@ beforeEach(() => {
   h.teams = [];
   h.visibleFolders = [];
   h.folderCardProps = [];
+  h.folderEditPanels = 0;
   h.hostCardProps = [];
   h.formProps = [];
   h.navFolders = [];
@@ -278,7 +284,10 @@ beforeEach(() => {
   h.can.mockReturnValue(true);
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePreviewStore.setState({ session: null, side: null });
+});
 
 function lastModal(): Record<string, unknown> {
   return h.confirmModals[h.confirmModals.length - 1];
@@ -574,4 +583,55 @@ test("New folder is greyed out inside a folder whose vault the user cannot edit 
   render(<HostsPage />);
 
   expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
+});
+
+test("host and folder actions refuse while previewing a member and open why for the item", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.connections = [conn("c1")];
+  h.folders = [folder("root")];
+  h.visibleFolders = [folder("root")];
+  render(<HostsPage />);
+  usePreviewStore.setState({ session: { teamId: "team-1", vaultId: "team-1", subject: { type: "member", user_id: "bob" } }, side: null });
+  const host = h.hostCardProps[h.hostCardProps.length - 1];
+  const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  const why = () => usePreviewStore.getState().side;
+  const c1 = h.connections[0] as Connection;
+  const root = h.folders[0] as Folder;
+
+  const hostActions: [string, () => unknown][] = [
+    ["edit", () => (host.onEdit as (c: Connection) => void)(c1)],
+    ["connect", () => (host.onConnect as (c: Connection) => Promise<void>)(c1)],
+    ["delete", () => (host.onDelete as (id: string) => void)("c1")],
+    ["duplicate", () => (host.onDuplicate as (c: Connection) => Promise<void>)(c1)],
+    ["move to vault", () => (host.onMoveToVault as (c: Connection, v: string) => void)(c1, "team-1")],
+    ["copy to vault", () => (host.onCopyToVault as (c: Connection, v: string) => void)(c1, "team-1")],
+  ];
+  for (const [name, run] of hostActions) {
+    usePreviewStore.setState({ side: null });
+    await act(async () => { await run(); });
+    expect(why(), name).toEqual({ kind: "why", type: "connection", objectId: "c1" });
+  }
+
+  const folderActions: [string, () => unknown][] = [
+    ["edit", () => (card.onEdit as () => void)()],
+    ["move to vault", () => (card.onMoveToVault as (v: string) => void)("team-1")],
+    ["copy to vault", () => (card.onCopyToVault as (v: string) => void)("team-1")],
+  ];
+  for (const [name, run] of folderActions) {
+    usePreviewStore.setState({ side: null });
+    act(() => { run(); });
+    expect(why(), name).toEqual({ kind: "why", type: "folder", objectId: root.id });
+  }
+
+  act(() => { (h.toolbarProps.onCreateHost as () => void)(); });
+  await act(async () => { (h.toolbarProps.onCreateFolder as () => void)(); });
+
+  expect(h.formProps).toEqual([]);
+  expect(h.folderEditPanels).toBe(0);
+  expect(h.cascades).toEqual([]);
+  expect(h.saveFolder).not.toHaveBeenCalled();
+  expect(h.saveConnection).not.toHaveBeenCalled();
+  expect(useSessionStore.getState().connect).not.toHaveBeenCalled();
+  expect(useUIStore.getState().setActiveNav).not.toHaveBeenCalled();
+  expect(useConnectionStore.getState().deleteConnection).not.toHaveBeenCalled();
 });
