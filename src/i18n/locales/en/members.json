@@ -574,6 +574,10 @@
           "failed": "Couldn't deny the request — {{reason}}"
         }
       }
+    },
+    "viewAs": {
+      "serverTooOld": "Update your server to use View as",
+      "noPermission": "You don't have permission to preview this"
     }
   }
 }

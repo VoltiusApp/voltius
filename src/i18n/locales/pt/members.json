@@ -591,6 +591,10 @@
           "failed": "Não foi possível recusar o pedido — {{reason}}"
         }
       }
+    },
+    "viewAs": {
+      "serverTooOld": "Atualize o seu servidor para usar Ver como",
+      "noPermission": "Não tem permissão para pré-visualizar isto"
     }
   }
 }

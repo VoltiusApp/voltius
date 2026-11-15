@@ -591,6 +591,10 @@
           "failed": "Impossible de refuser la demande — {{reason}}"
         }
       }
+    },
+    "viewAs": {
+      "serverTooOld": "Mettez à jour votre serveur pour utiliser Voir en tant que",
+      "noPermission": "Vous n'avez pas la permission d'afficher cet aperçu"
     }
   }
 }

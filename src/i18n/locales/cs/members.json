@@ -612,6 +612,10 @@
           "failed": "Žádost se nepodařilo zamítnout — {{reason}}"
         }
       }
+    },
+    "viewAs": {
+      "serverTooOld": "Aktualizujte server, abyste mohli použít Zobrazit jako",
+      "noPermission": "Nemáte oprávnění k tomuto náhledu"
     }
   }
 }

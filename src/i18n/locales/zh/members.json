@@ -574,6 +574,10 @@
           "failed": "无法拒绝请求 — {{reason}}"
         }
       }
+    },
+    "viewAs": {
+      "serverTooOld": "请更新服务器以使用“以成员身份查看”",
+      "noPermission": "你没有预览此内容的权限"
     }
   }
 }

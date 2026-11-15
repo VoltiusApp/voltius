@@ -578,6 +578,10 @@
           "failed": "İstek reddedilemedi — {{reason}}"
         }
       }
+    },
+    "viewAs": {
+      "serverTooOld": "\"Şu olarak görüntüle\" özelliğini kullanmak için sunucunuzu güncelleyin",
+      "noPermission": "Bunu önizleme izniniz yok"
     }
   }
 }
