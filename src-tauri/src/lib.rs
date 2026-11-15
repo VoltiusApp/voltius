@@ -22,6 +22,8 @@ mod ios_native;
 mod keychain_android;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod keychain_bundle;
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+mod keychain_chunked;
 mod knock;
 mod known_hosts;
 mod lan_sync;
@@ -117,9 +119,16 @@ pub(crate) fn desktop_keychain_store(allow_volatile: bool) -> keyring_core::Resu
         |service| service == commands::keychain::service(),
     ));
     #[cfg(target_os = "windows")]
-    keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
-        &std::collections::HashMap::<&str, &str>::new(),
-    )?);
+    {
+        let native = windows_native_keyring_store::Store::new_with_configuration(
+            &std::collections::HashMap::<&str, &str>::new(),
+        )?;
+        keyring_core::set_default_store(keychain_chunked::Store::new(
+            native,
+            |service| service == commands::keychain::service(),
+            keychain_chunked::WINDOWS_MAX_UNITS,
+        ));
+    }
     Ok(())
 }
 
