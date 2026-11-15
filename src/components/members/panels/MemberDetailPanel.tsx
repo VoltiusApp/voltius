@@ -129,16 +129,16 @@ export function MemberDetailPanel({
       if (getServerCapability("permissionPreview")) {
         try {
           return await losesVaultKey(teamId, member.user_id, next);
-        } catch { /* fall through to the local check */ }
+        } catch {}
       }
-      return !locked && dropsConnectSource(member, teamRoles, next);
+      return dropsConnectSource(member, teamRoles, next, locked);
     } finally {
       busy(false);
     }
   };
 
-  const applyRoleToggle = async (role: TeamRole, rotate: boolean) => {
-    const hasRole = member.role_ids.includes(role.id);
+  const applyRoleToggle = async (role: TeamRole, add: boolean, rotate: boolean) => {
+    const hasRole = !add;
     const store = useTeamStore.getState();
     const assign = () => store.assignMemberRole(teamId, member.user_id, role.id);
     const remove = () => store.removeMemberRole(teamId, member.user_id, role.id);
@@ -194,7 +194,7 @@ export function MemberDetailPanel({
         return;
       }
     }
-    await applyRoleToggle(role, false);
+    await applyRoleToggle(role, !hasRole, false);
   };
 
   const allow = member.permission_allow ?? 0;
@@ -603,7 +603,7 @@ export function MemberDetailPanel({
           if (pending === "clear") void applyMasks({ allow: 0, deny: 0 }, true);
           else if ("kind" in pending) {
             const role = teamRoles.find((r) => r.id === pending.roleId);
-            if (role) void applyRoleToggle(role, true);
+            if (role) void applyRoleToggle(role, pending.add, true);
           } else void commitOverride(pending.permission, pending.next, true);
         }}
       />

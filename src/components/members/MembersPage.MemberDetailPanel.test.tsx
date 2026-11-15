@@ -734,3 +734,25 @@ test("falls back to the connect check when the server call fails", async () => {
   fireEvent.click(denyRow("CONNECT"));
   expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
 });
+
+test("locked with an old server: removing a CONNECT-carrying role still warns", async () => {
+  lock.value = { locked: true, isOwner: true };
+  const builtinKey = { ...keyRole, is_builtin: true };
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, builtinKey] })} />);
+  fireEvent.click(screen.getByRole("button", { name: "key-role" }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(h.remove).not.toHaveBeenCalled();
+});
+
+test("clearing overrides asks the server and warns when the key is lost", async () => {
+  gate.capable.value = true;
+  gate.losesVaultKey.mockResolvedValue(true);
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...gateClearProps()} />);
+  clearRules();
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).toHaveBeenCalledWith("t1", "u2", { role_ids: [], allow: 0, deny: 0 });
+  expect(h.setPerms).not.toHaveBeenCalled();
+});

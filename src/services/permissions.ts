@@ -222,11 +222,11 @@ export function effectivePermissions(member: Masks, roles: TeamRole[], locked: b
 
 const VAULT_KEY_GATE = PERM_BITS.CONNECT;
 
-export function dropsConnectSource(member: Masks, roles: TeamRole[], next: MemberDraft): boolean {
+export function dropsConnectSource(member: Masks, roles: TeamRole[], next: MemberDraft, locked: boolean): boolean {
   const removesRoleBit = member.role_ids.some((id) =>
     !next.role_ids.includes(id) && ((roles.find((r) => r.id === id)?.permissions ?? 0) & VAULT_KEY_GATE) !== 0);
   const newDeny = (next.deny & ~(member.permission_deny ?? 0) & VAULT_KEY_GATE) !== 0;
-  const lostAllow = (((member.permission_allow ?? 0) & ~next.allow) & VAULT_KEY_GATE) !== 0;
+  const lostAllow = !locked && (((member.permission_allow ?? 0) & ~next.allow) & VAULT_KEY_GATE) !== 0;
   return removesRoleBit || newDeny || lostAllow;
 }
 

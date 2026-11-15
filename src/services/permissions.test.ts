@@ -128,28 +128,35 @@ describe("dropsConnectSource", () => {
   const held = { ...member("u1", ["r1", "r2"]), permission_allow: 0, permission_deny: 0 };
 
   it("is true when a held role carrying CONNECT is removed", () => {
-    expect(dropsConnectSource(held, roles, { role_ids: ["r2"], allow: 0, deny: 0 })).toBe(true);
+    expect(dropsConnectSource(held, roles, { role_ids: ["r2"], allow: 0, deny: 0 }, false)).toBe(true);
   });
 
   it("is false when a role without CONNECT is removed", () => {
-    expect(dropsConnectSource(held, roles, { role_ids: ["r1"], allow: 0, deny: 0 })).toBe(false);
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1"], allow: 0, deny: 0 }, false)).toBe(false);
   });
 
   it("is true when CONNECT is newly denied, false when already denied", () => {
-    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT })).toBe(true);
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT }, false)).toBe(true);
     const denied = { ...held, permission_deny: PERM_BITS.CONNECT };
-    expect(dropsConnectSource(denied, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT })).toBe(false);
+    expect(dropsConnectSource(denied, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT }, false)).toBe(false);
   });
 
   it("is true when CONNECT leaves the allow mask", () => {
     const allowed = { ...member("u1", []), permission_allow: PERM_BITS.CONNECT, permission_deny: 0 };
-    expect(dropsConnectSource(allowed, roles, { role_ids: [], allow: 0, deny: 0 })).toBe(true);
+    expect(dropsConnectSource(allowed, roles, { role_ids: [], allow: 0, deny: 0 }, false)).toBe(true);
+  });
+
+  it("locked: allow is ignored, but a removed role or a new deny still counts", () => {
+    const allowed = { ...member("u1", []), permission_allow: PERM_BITS.CONNECT, permission_deny: 0 };
+    expect(dropsConnectSource(allowed, roles, { role_ids: [], allow: 0, deny: 0 }, true)).toBe(false);
+    expect(dropsConnectSource(held, roles, { role_ids: ["r2"], allow: 0, deny: 0 }, true)).toBe(true);
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT }, true)).toBe(true);
   });
 
   it("is false for unrelated bits and for adding a role", () => {
-    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.EDIT_KEYS })).toBe(false);
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.EDIT_KEYS }, false)).toBe(false);
     const bare = member("u1", []);
-    expect(dropsConnectSource(bare, roles, { role_ids: ["r1"], allow: 0, deny: 0 })).toBe(false);
+    expect(dropsConnectSource(bare, roles, { role_ids: ["r1"], allow: 0, deny: 0 }, false)).toBe(false);
   });
 });
 
