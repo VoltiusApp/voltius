@@ -3,6 +3,7 @@ import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
+import type { RuleLayers } from "@/services/permissionPreview";
 import { isBusinessLocked, teamLocked } from "@/stores/subscriptionTier";
 
 export type Permission =
@@ -101,22 +102,58 @@ export interface RuleEntry {
 type Masks = { role_ids: string[]; permission_allow?: number; permission_deny?: number };
 type MemberMasks = Masks & { user_id?: string };
 
-// Preview only; decisions read the server's my_permissions. Keep in sync with object_permissions() in server/src/permissions.rs.
-export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null, locked: boolean): number {
-  const teamDeny = member.permission_deny ?? 0;
-  const base = effectivePermissions(member, roles, locked);
-  if (base & PERM_BITS.ADMINISTRATOR) return withDependencies(ALL_PERMISSION_BITS & ~teamDeny);
-  if (!entries) return base;
+export const RULE_LAYER_ORDER = [
+  { kind: "everyoneDeny", field: "everyone_deny", op: "remove" },
+  { kind: "everyoneAllow", field: "everyone_allow", op: "add" },
+  { kind: "rolesDeny", field: "roles_deny", op: "remove" },
+  { kind: "rolesAllow", field: "roles_allow", op: "add" },
+  { kind: "memberDeny", field: "member_deny", op: "remove" },
+  { kind: "memberAllow", field: "member_allow", op: "add" },
+  { kind: "teamDenyLast", field: "team_deny", op: "remove" },
+] as const;
+export type RuleLayerDef = (typeof RULE_LAYER_ORDER)[number];
+
+export function layersFromEntries(member: { role_ids: string[]; user_id?: string }, entries: RuleEntry[]): RuleLayers {
   const layer = (match: (e: RuleEntry) => boolean) => entries.filter(match).reduce(
     (acc, e) => ({ allow: acc.allow | e.allow, deny: acc.deny | e.deny }), { allow: 0, deny: 0 });
   const every = layer((e) => e.subject_type === "everyone");
   const byRole = layer((e) => e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? ""));
   const mine = layer((e) => e.subject_type === "member" && e.subject_id === member.user_id);
-  let p = locked
-    ? base & ~(every.deny | byRole.deny | mine.deny)
-    : (((((base & ~every.deny) | every.allow) & ~byRole.deny) | byRole.allow) & ~mine.deny) | mine.allow;
-  p &= ~teamDeny;
+  return {
+    everyone_allow: every.allow, everyone_deny: every.deny,
+    roles_allow: byRole.allow, roles_deny: byRole.deny,
+    member_allow: mine.allow, member_deny: mine.deny,
+  };
+}
+
+export function foldRuleLayers(
+  start: number, layers: RuleLayers, teamDeny: number, locked: boolean,
+  observe?: (layer: RuleLayerDef, before: number, after: number) => void,
+): number {
+  return RULE_LAYER_ORDER.reduce((p, l) => {
+    if (locked && l.op === "add") return p;
+    const bits = l.field === "team_deny" ? teamDeny : layers[l.field];
+    const next = l.op === "add" ? p | bits : p & ~bits;
+    observe?.(l, p, next);
+    return next;
+  }, start);
+}
+
+// Preview only; decisions read the server's my_permissions. Keep in sync with object_permissions() in server/src/permissions.rs.
+export function maskFromLayers(base: number, layers: RuleLayers | null, teamDeny: number, locked: boolean): number {
+  if (base & PERM_BITS.ADMINISTRATOR) return withDependencies(ALL_PERMISSION_BITS & ~teamDeny);
+  if (!layers) return withDependencies(base);
+  const p = foldRuleLayers(base, layers, teamDeny, locked);
   return p & PERM_BITS.VIEW ? withDependencies(p) : 0;
+}
+
+export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null, locked: boolean): number {
+  return maskFromLayers(
+    effectivePermissions(member, roles, locked),
+    entries && layersFromEntries(member, entries),
+    member.permission_deny ?? 0,
+    locked,
+  );
 }
 
 // Mirrors the layer order of resolveObjectPermissions: role allows beat role denies, member rules beat both.
