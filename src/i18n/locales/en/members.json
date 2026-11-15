@@ -85,6 +85,7 @@
       "notGranted": "No role grants this",
       "effectiveAllowed": "allowed",
       "effectiveDenied": "denied",
+      "withExceptions": "with exceptions",
       "state": { "deny": "Deny", "inherit": "Inherit", "allow": "Allow" },
       "readOnlyNoManage": "You need the Manage members permission",
       "readOnlyOwner": "An owner's permissions cannot be overridden",

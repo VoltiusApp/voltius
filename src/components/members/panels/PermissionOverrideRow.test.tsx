@@ -53,7 +53,7 @@ describe("PermissionOverrideRow", () => {
     permission: "CONNECT" as const,
     state: "inherit" as const,
     inheritedFrom: ["editor"],
-    inheritedGrants: true,
+    granted: true,
     disabled: false,
   };
 
@@ -67,6 +67,22 @@ describe("PermissionOverrideRow", () => {
     render(<PermissionOverrideRow {...base} onChange={onChange} />);
     fireEvent.click(screen.getByRole("radio", { name: /deny/i }));
     expect(onChange).toHaveBeenCalledWith("deny");
+  });
+
+  it("shows the colored result for an explicit override too", () => {
+    render(<PermissionOverrideRow {...base} state="deny" granted={false} onChange={vi.fn()} />);
+    const result = screen.getByText("members.permissions.effectiveDenied");
+    expect(result.style.color).toBe("var(--t-status-error)");
+  });
+
+  it("colors an allowed result as success", () => {
+    render(<PermissionOverrideRow {...base} state="allow" onChange={vi.fn()} />);
+    expect(screen.getByText("members.permissions.effectiveAllowed").style.color).toBe("var(--t-status-connected)");
+  });
+
+  it("notes narrower exceptions after the result", () => {
+    render(<PermissionOverrideRow {...base} state="deny" granted={false} exceptions onChange={vi.fn()} />);
+    expect(screen.getByText(/members\.permissions\.withExceptions/)).toBeTruthy();
   });
 
   it("does not emit while disabled", () => {

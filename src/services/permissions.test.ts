@@ -2,7 +2,7 @@ import { test, expect, describe, it } from "vitest";
 import {
   resolveCan, PERM_BITS, effectivePermissions, isPrimaryOwner, crossesVaultKeyGate, resolveMemberReadOnlyReason,
   PERMISSION_GROUPS, resolveObjectPermissions, ALL_PERMISSION_BITS, OBJECT_RULE_BITS, OBJECT_RULE_ROWS,
-  lostAccessToLapse, canEditConnectionsIn, planLapsedFor,
+  lostAccessToLapse, canEditConnectionsIn, planLapsedFor, hasNarrowerException,
   type Permission, type PermissionSnapshot, type RuleEntry,
 } from "./permissions.ts";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
@@ -431,5 +431,56 @@ describe("lapse principle (mirror of server lapse math)", () => {
   it("canEditConnectionsIn always allows the personal vault", () => {
     const s = { teams: [], membersByTeam: { personal: [member("u1", [])] }, rolesByTeam: { personal: [role("x", 0)] } };
     expect(canEditConnectionsIn("personal", "u1", s)).toBe(true);
+  });
+});
+
+describe("hasNarrowerException", () => {
+  const C = PERM_BITS.CONNECT;
+  const rule = (subject_type: RuleEntry["subject_type"], subject_id: string | null, allow: number, deny: number): RuleEntry =>
+    ({ subject_type, subject_id, allow, deny });
+  const members = [
+    { user_id: "a", role_ids: ["r1"] },
+    { user_id: "b", role_ids: ["r1", "r2"] },
+    { user_id: "c", role_ids: ["r3"] },
+  ];
+
+  it("flags an everyone deny that a role allow reopens", () => {
+    const entries = [rule("everyone", null, 0, C), rule("role", "r3", C, 0)];
+    expect(hasNarrowerException(entries, { type: "everyone" }, C, false, false, members)).toBe(true);
+  });
+
+  it("ignores rules on other permissions", () => {
+    const entries = [rule("everyone", null, 0, C), rule("role", "r3", PERM_BITS.EDIT_KEYS, 0)];
+    expect(hasNarrowerException(entries, { type: "everyone" }, C, false, false, members)).toBe(false);
+  });
+
+  it("ignores allows under a business lock, which drops them", () => {
+    const entries = [rule("everyone", null, 0, C), rule("member", "c", C, 0)];
+    expect(hasNarrowerException(entries, { type: "everyone" }, C, false, true, members)).toBe(false);
+  });
+
+  it("flags a role allow undone by a deny on one of its members", () => {
+    const entries = [rule("role", "r1", C, 0), rule("member", "a", 0, C)];
+    expect(hasNarrowerException(entries, { type: "role", id: "r1" }, C, true, false, members)).toBe(true);
+  });
+
+  it("ignores member rules for people outside the role", () => {
+    const entries = [rule("role", "r1", C, 0), rule("member", "c", 0, C)];
+    expect(hasNarrowerException(entries, { type: "role", id: "r1" }, C, true, false, members)).toBe(false);
+  });
+
+  it("flags a role deny reopened by another role a member also holds", () => {
+    const entries = [rule("role", "r1", 0, C), rule("role", "r2", C, 0)];
+    expect(hasNarrowerException(entries, { type: "role", id: "r1" }, C, false, false, members)).toBe(true);
+  });
+
+  it("does not flag a role allow over another role's deny, since role allows win", () => {
+    const entries = [rule("role", "r1", C, 0), rule("role", "r2", 0, C)];
+    expect(hasNarrowerException(entries, { type: "role", id: "r1" }, C, true, false, members)).toBe(false);
+  });
+
+  it("never flags the member tab, which already shows the resolved result", () => {
+    const entries = [rule("member", "a", 0, C)];
+    expect(hasNarrowerException(entries, { type: "member", id: "a" }, C, true, false, members)).toBe(false);
   });
 });

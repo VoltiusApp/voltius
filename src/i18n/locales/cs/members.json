@@ -85,6 +85,7 @@
       "notGranted": "Žádná role toto oprávnění neuděluje",
       "effectiveAllowed": "povoleno",
       "effectiveDenied": "zakázáno",
+      "withExceptions": "s výjimkami",
       "state": {
         "deny": "Zakázat",
         "inherit": "Zdědit",

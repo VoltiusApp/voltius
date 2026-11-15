@@ -85,6 +85,7 @@
       "notGranted": "Hiçbir rol bu izni vermiyor",
       "effectiveAllowed": "izin verildi",
       "effectiveDenied": "reddedildi",
+      "withExceptions": "istisnalarla",
       "state": {
         "deny": "Reddet",
         "inherit": "Devral",

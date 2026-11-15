@@ -85,6 +85,7 @@
       "notGranted": "没有角色授予此权限",
       "effectiveAllowed": "已允许",
       "effectiveDenied": "已拒绝",
+      "withExceptions": "有例外",
       "state": { "deny": "拒绝", "inherit": "继承", "allow": "允许" },
       "readOnlyNoManage": "需要「管理成员」权限",
       "readOnlyOwner": "无法覆盖所有者的权限",

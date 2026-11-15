@@ -119,6 +119,21 @@ export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[],
   return p & PERM_BITS.VIEW ? withDependencies(p) : 0;
 }
 
+// Mirrors the layer order of resolveObjectPermissions: role allows beat role denies, member rules beat both.
+export function hasNarrowerException(
+  entries: RuleEntry[], subject: RuleSubject, bit: number, granted: boolean, locked: boolean, members: MemberMasks[],
+): boolean {
+  if (subject.type === "member") return false;
+  const flips = (e: RuleEntry) => ((granted ? e.deny : locked ? 0 : e.allow) & bit) !== 0;
+  if (subject.type === "everyone") return entries.some((e) => e.subject_type !== "everyone" && flips(e));
+  const inRole = members.filter((m) => m.role_ids.includes(subject.id));
+  return entries.some((e) => {
+    if (e.subject_type === "member") return inRole.some((m) => m.user_id === e.subject_id) && flips(e);
+    return e.subject_type === "role" && e.subject_id !== subject.id && !granted
+      && inRole.some((m) => m.role_ids.includes(e.subject_id ?? "")) && flips(e);
+  });
+}
+
 /** A secret that can be read can be used, so reading one requires Connect (or Administrator). Mirrors the server. */
 export function withDependencies(p: number): number {
   if (p & (PERM_BITS.CONNECT | PERM_BITS.ADMINISTRATOR)) return p;

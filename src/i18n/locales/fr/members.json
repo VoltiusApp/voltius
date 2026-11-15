@@ -85,6 +85,7 @@
       "notGranted": "Aucun rôle ne l'accorde",
       "effectiveAllowed": "autorisé",
       "effectiveDenied": "refusé",
+      "withExceptions": "sauf exceptions",
       "state": { "deny": "Refuser", "inherit": "Hériter", "allow": "Autoriser" },
       "readOnlyNoManage": "Vous avez besoin de la permission Gérer les membres",
       "readOnlyOwner": "Les permissions d'un propriétaire ne peuvent pas être modifiées",

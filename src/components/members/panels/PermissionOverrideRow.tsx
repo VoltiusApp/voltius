@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { type Permission, type OverrideState } from "@/services/permissions";
 import { permissionLabel } from "@/components/members/roleChips";
-import { TriStateToggle } from "@/components/shared/TriStateToggle";
+import { OVERRIDE_STATE_COLOR, TriStateToggle } from "@/components/shared/TriStateToggle";
 
 export { overrideStateOf, applyOverrideState, type OverrideState } from "@/services/permissions";
 
@@ -9,7 +9,8 @@ export interface PermissionOverrideRowProps {
   permission: Permission;
   state: OverrideState;
   inheritedFrom: string[];
-  inheritedGrants: boolean;
+  granted: boolean;
+  exceptions?: boolean;
   disabled: boolean;
   onChange: (next: OverrideState) => void;
   label?: string;
@@ -17,7 +18,7 @@ export interface PermissionOverrideRowProps {
 }
 
 export function PermissionOverrideRow({
-  permission, state, inheritedFrom, inheritedGrants, disabled, onChange, label, note,
+  permission, state, inheritedFrom, granted, exceptions = false, disabled, onChange, label, note,
 }: PermissionOverrideRowProps) {
   const { t } = useTranslation();
   const shown = label ?? permissionLabel(t, permission);
@@ -32,8 +33,10 @@ export function PermissionOverrideRow({
         <p className="text-xs text-(--t-text-primary) truncate">{shown}</p>
         <p className="text-[10px] text-(--t-text-dim) truncate">
           {note ?? source}
-          {!note && state === "inherit" && (
-            <> · {inheritedGrants ? t("members.permissions.effectiveAllowed") : t("members.permissions.effectiveDenied")}</>
+          {!note && (
+            <> · <span className="font-medium" style={{ color: OVERRIDE_STATE_COLOR[granted ? "allow" : "deny"] }}>
+              {granted ? t("members.permissions.effectiveAllowed") : t("members.permissions.effectiveDenied")}
+            </span>{exceptions && <> {t("members.permissions.withExceptions")}</>}</>
           )}
         </p>
       </div>

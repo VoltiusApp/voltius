@@ -85,6 +85,7 @@
       "notGranted": "Ни одна роль не даёт этого",
       "effectiveAllowed": "разрешено",
       "effectiveDenied": "запрещено",
+      "withExceptions": "с исключениями",
       "state": { "deny": "Запретить", "inherit": "Наследовать", "allow": "Разрешить" },
       "readOnlyNoManage": "Требуется разрешение «Управление участниками»",
       "readOnlyOwner": "Разрешения владельца изменить нельзя",

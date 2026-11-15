@@ -85,6 +85,7 @@
       "notGranted": "Nenhuma função concede isto",
       "effectiveAllowed": "permitido",
       "effectiveDenied": "negado",
+      "withExceptions": "com exceções",
       "state": { "deny": "Negar", "inherit": "Herdar", "allow": "Permitir" },
       "readOnlyNoManage": "Você precisa da permissão Gerenciar membros",
       "readOnlyOwner": "As permissões de um proprietário não podem ser sobrescritas",
