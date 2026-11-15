@@ -24,7 +24,7 @@ import { wrapSessionKeyForUser, unwrapSessionKey, publishMyPublicKey } from "@/s
 import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
-import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { purgeLocalSecrets } from "@/services/vault";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { logFailure } from "@/lib/logger";
@@ -450,7 +450,18 @@ export async function fetchTeamData(teamId: string, options: TeamVaultRefreshOpt
   if (await _teamRefreshQueue.run(teamId, options, (merged) => _fetchTeamData(teamId, merged))) noteTeamDataSeen(teamId, listed);
 }
 
+const ANSWERED_STATUSES = new Set<TeamVaultStatus>(["loaded", "forbidden", "plan_lapsed", "payment_required"]);
+
 async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions): Promise<boolean> {
+  const { beginTeamAnswer, closeConnectionsLost } = await import("@/services/revokedConnections");
+  const before = beginTeamAnswer(teamId);
+  const ok = await _loadTeamData(teamId, options);
+  const status = useTeamVaultStateStore.getState().statusByTeamId[teamId];
+  if (status && ANSWERED_STATUSES.has(status)) closeConnectionsLost(teamId, before);
+  return ok;
+}
+
+async function _loadTeamData(teamId: string, options: TeamVaultRefreshOptions): Promise<boolean> {
   const stateStore = useTeamVaultStateStore.getState();
   const blockingLoad = shouldShowBlockingTeamVaultLoad(options);
   if (blockingLoad) stateStore.setStatus(teamId, "loading");
@@ -466,6 +477,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   let objectListFailed = false;
   try {
     const objects = await listTeamObjects(teamId);
+    (await import("@/services/revokedConnections")).noteListedConnections(teamId, objects);
     if (objects.length > 0) {
       await _hydrateTeamObjectStores(teamId, objects);
       // Background migration of rows predating #229. Never blocks the load, and

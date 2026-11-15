@@ -63,6 +63,7 @@
     },
     "toast": {
       "invitationWithdrawnAtSignup": "Your invitation to {{team}} is no longer valid, so you were not added to it. Ask the team to send you a new one.",
+      "hostAccessRevoked": "Your access to {{hosts}} was revoked, so its open sessions were closed.",
       "proSubscriptionEnded": "Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network.",
       "proSubscriptionEnded_ios": "Your Pro subscription has ended — sync has been paused.",
       "seatEnded": "Your seat in {{team}} ended — cloud sync is paused. Your devices still sync on the same network.",

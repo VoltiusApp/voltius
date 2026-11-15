@@ -192,3 +192,19 @@ test("a read-only device refuses writes into it and follows the backend's flips"
   expect(left().phase).toMatchObject({ tag: "connected", readOnly: false });
   alert.mockRestore();
 });
+
+test("revoking a side's host closes that side and does not retry it", async () => {
+  const { closeConnectionsLost } = await import("@/services/revokedConnections");
+  h.connectFileBackend.mockResolvedValueOnce("s1").mockResolvedValueOnce("s2");
+  render(<SFTPPage />);
+  await act(async () => { left().onPick(remote("c1")); });
+  await act(async () => { h.panes.right.onPick(remote("c2")); });
+
+  await act(async () => { closeConnectionsLost("t1", ["c1"]); });
+
+  expect(closedIds()).toEqual(["s1"]);
+  expect(left().phase).toMatchObject({ tag: "error", final: true });
+  expect(h.panes.right.phase).toMatchObject({ tag: "connected", sftpId: "s2" });
+  await runRetry();
+  expect(h.connectFileBackend).toHaveBeenCalledTimes(2);
+});

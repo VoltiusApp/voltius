@@ -63,6 +63,7 @@
     },
     "toast": {
       "invitationWithdrawnAtSignup": "Vaše pozvánka do {{team}} už neplatí, takže jste nebyli přidáni. Požádejte tým o novou.",
+      "hostAccessRevoked": "Váš přístup k {{hosts}} byl odebrán, proto byly jeho otevřené relace zavřeny.",
       "proSubscriptionEnded": "Vaše předplatné Pro skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
       "proSubscriptionEnded_ios": "Vaše předplatné Pro skončilo — synchronizace byla pozastavena.",
       "seatEnded": "Vaše místo v týmu {{team}} skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
