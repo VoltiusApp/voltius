@@ -460,7 +460,7 @@ export function SnippetsPage() {
   const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
     navItem: "snippets",
     entities: [{ kind: "snippet", items: snippets }],
-    folders: scopedFolders,
+    folders,
     selectedIdSet,
     focusedId,
     activeFolderId,
@@ -806,7 +806,7 @@ export function SnippetsPage() {
 
   /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
   async function copyFolderInto(folderId: string, parentFolderId: string | null, vaultId?: string, opts: { keepName?: boolean } = {}) {
-    const folder = scopedFolders.find((f) => f.id === folderId);
+    const folder = folders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
     const targetVaultId = vaultId ?? folder.vault_id;
     const { root, folderIdMap } = await cloneFolderTree({

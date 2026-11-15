@@ -22,7 +22,7 @@ interface ClipboardEntity {
 interface VaultClipboardBaseInput {
   navItem: NavItem;
   entities: ClipboardEntity[];
-  /** The folders the page can see. */
+  /** The page's folders in every vault, not only those on screen: a clipboard taken in one vault is pasted after switching to another. */
   folders: Folder[];
   selectedIdSet: Set<string>;
   focusedId: string | null;
