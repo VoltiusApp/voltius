@@ -141,6 +141,7 @@ export const useTeamStore = create<TeamStore>()(
           t.data_version === prev[i].data_version &&
           t.joined_at === prev[i].joined_at &&
           sameValue(t.policy, prev[i].policy) &&
+          sameValue(t.ownerSeats, prev[i].ownerSeats) &&
           sameValue(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
       set({ teams, loading: false, teamsLoaded: true });

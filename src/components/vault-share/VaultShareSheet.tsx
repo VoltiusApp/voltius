@@ -5,7 +5,7 @@ import { memberLabel } from "@/services/memberLabel";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { useSeatReadout } from "@/hooks/useSeatReadout";
+import { useTeamSeatReadout } from "@/hooks/useTeamSeatReadout";
 import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
 import { InviteControl } from "./InviteControl";
@@ -42,7 +42,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
   const membersByTeam = useTeamStore((s) => s.membersByTeam);
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
   const pendingInvitationsByTeam = useTeamStore((s) => s.pendingInvitationsByTeam);
-  const seats = useSeatReadout();
+  const { seats } = useTeamSeatReadout(teamId);
 
   const [tab, setTab] = useState<Tab>(initialTab);
   // Owned by the sheet, never by a tab: the bug this component replaces was an

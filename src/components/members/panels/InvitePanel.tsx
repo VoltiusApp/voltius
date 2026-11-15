@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { TeamRole } from "@/stores/teamStore";
+import { useTeamStore, type TeamRole } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { UserSearchField } from "@/components/shared/UserSearchField";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
@@ -47,7 +47,11 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
   // Against the *enforced* cap, not the purchased one: during a trial the server
   // caps at 10 however many seats were bought, and pre-checking the purchased
   // number sends invites it then rejects with 402.
-  const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, effectiveSeats);
+  // The team's owner seats, when the server reports them, are what the invite counts against.
+  const ownerSeats = useTeamStore((s) => s.teams.find((tm) => tm.id === teamId)?.ownerSeats);
+  const { atLimit: isAtSeatLimit } = ownerSeats
+    ? seatAvailability(ownerSeats.used, ownerSeats.total)
+    : seatAvailability(usedSeats, effectiveSeats);
 
   const onSeatLimit = (user: UserSearchResult | null) => {
     setOpen(false);
@@ -194,7 +198,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Seats usage */}
           <FormSection label={t("members.invite.seatsLabel")}>
-            <SeatsMeter onBuySeats={canBuySeats ? () => setBuySeatsFor(null) : undefined} />
+            <SeatsMeter teamId={teamId} onBuySeats={canBuySeats ? () => setBuySeatsFor(null) : undefined} />
           </FormSection>
 
           {/* Role selector */}

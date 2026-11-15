@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   grantVaultKeyToMember: vi.fn().mockResolvedValue(undefined),
   writeClipboard: vi.fn().mockResolvedValue(undefined),
   keyHolders: [] as string[],
+  teams: [] as Array<{ id: string; owner_id: string; ownerSeats: { used: number; total: number | null } | null }>,
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -52,7 +53,14 @@ vi.mock("@/services/vaultShare", () => ({
   addressedInviteLink: (id: string) => `voltius://notification?n=invite%3A${id}`,
 }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
-vi.mock("./InviteControl", () => ({ InviteControl: () => <div>invite-control</div> }));
+vi.mock("./InviteControl", () => ({
+  InviteControl: ({ seats }: { seats: unknown }) => (
+    <>
+      <div>invite-control</div>
+      <div data-testid="invite-seats">{JSON.stringify(seats)}</div>
+    </>
+  ),
+}));
 vi.mock("./ConvertToTeamGate", () => ({ ConvertToTeamGate: () => <div>convert-gate</div> }));
 vi.mock("@/stores/vaultStore", () => ({
   useVaultStore: Object.assign((sel: (s: unknown) => unknown) => sel({ vaults: [h.vault] }), {
@@ -63,6 +71,7 @@ vi.mock("@/stores/teamStore", () => ({
   useTeamStore: Object.assign(
     (sel: (s: unknown) => unknown) =>
       sel({
+        teams: h.teams,
         membersByTeam: { t1: h.members },
         rolesByTeam: { t1: h.roles },
         pendingInvitationsByTeam: { t1: h.pending },
@@ -95,6 +104,7 @@ afterEach(() => {
   h.members = [];
   h.pending = [];
   h.keyHolders = [];
+  h.teams = [];
   vi.clearAllMocks();
 });
 
@@ -189,4 +199,20 @@ test("the addressed invite link is copied for a pending invitation only", () => 
 
   fireEvent.click(screen.getByText("link:inv1"));
   expect(h.writeClipboard).toHaveBeenCalledWith("voltius://notification?n=invite%3Ainv1");
+});
+
+test("the invite tab counts the seats of the team being shared into, unlimited included", () => {
+  h.vault.teamId = "t1";
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 3, total: null } }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  fireEvent.click(screen.getByText("members.share.tabInvite"));
+  expect(JSON.parse(screen.getByTestId("invite-seats").textContent ?? "")).toEqual({ kind: "unlimited", used: 3 });
+});
+
+test("the invite tab falls back to the viewer's own seats when the server omits owner seats", () => {
+  h.vault.teamId = "t1";
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: null }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  fireEvent.click(screen.getByText("members.share.tabInvite"));
+  expect(JSON.parse(screen.getByTestId("invite-seats").textContent ?? "")).toMatchObject({ kind: "known", used: 1, total: 10 });
 });

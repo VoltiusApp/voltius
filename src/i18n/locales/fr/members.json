@@ -152,7 +152,7 @@
       "inviteArrow": "Inviter →",
       "handleRule": "Seuls les pseudos personnalisés se retrouvent avec une partie du nom. Pour un pseudo généré comme rapid-violet-8884, saisissez-le en entier ou utilisez son e-mail.",
       "seatsUnknown": "Nombre de postes indisponible — vérifiez votre connexion au serveur de synchronisation",
-      "seatsUnlimited": "{{used}} utilisés · illimité",
+      "seatsUnlimited": "{{used}} / ∞ postes utilisés",
       "inviteAction": "Inviter",
       "joinsAs": "Ils rejoignent en tant que",
       "selectRoleHint": "Sélectionnez au moins un rôle avant d'inviter",

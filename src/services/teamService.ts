@@ -4,6 +4,7 @@ import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { refuseIfPlanRequired } from "@/services/planRequired";
 import { getJwt, getServerUrl } from "@/services/authTokens";
 import { parseJwtPayload } from "@/utils/jwtPayload";
+import type { OwnerSeats } from "@/services/seatMath";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,8 @@ export interface Team {
   policy_revision?: number;
   data_version?: number;
   joined_at?: string;
+  /** The team owner's seats; null when an older server omits `owner_seats`. */
+  ownerSeats?: OwnerSeats | null;
 }
 
 export type CreatedTeam = Pick<Team, "id" | "name" | "owner_id" | "created_at">;
@@ -151,12 +154,18 @@ export function deleteTeamPolicy(teamId: string): Promise<void> {
   return changeTeamPolicy(teamId, { method: "DELETE" });
 }
 
+function toOwnerSeats(s: OwnerSeats | null | undefined): OwnerSeats | null {
+  if (!s || typeof s.used !== "number") return null;
+  return { used: s.used, total: typeof s.total === "number" ? s.total : null };
+}
+
 export async function listTeams(): Promise<Team[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
   const res = await fetchAuth(`${serverUrl}/v1/teams`);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeams", { status: res.status }));
-  return res.json();
+  const raw = (await res.json()) as Array<Team & { owner_seats?: OwnerSeats | null }>;
+  return raw.map(({ owner_seats, ...team }) => ({ ...team, ownerSeats: toOwnerSeats(owner_seats) }));
 }
 
 const fetchMembers = (teamId: string) => serverFetch(`/v1/teams/${teamId}/members`);

@@ -6,11 +6,14 @@ type Seats = {
   effectiveSeats: number | null;
   totalSeats: number | null;
   isTrialActive: boolean;
+  ownsTeamsPlan?: boolean;
 };
+type TeamStub = { id: string; owner_id: string; ownerSeats: { used: number; total: number | null } | null };
 const DEFAULT_SEATS: Seats = { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false };
 const h = vi.hoisted(() => ({
   seats: { usedSeats: 2, effectiveSeats: 5, totalSeats: 5, isTrialActive: false } as Seats,
   billingEnabled: true,
+  teams: [] as TeamStub[],
 }));
 
 vi.mock("react-i18next", () => ({
@@ -23,12 +26,16 @@ vi.mock("@/stores/subscriptionStore", () => ({
     { getState: () => h.seats },
   ),
 }));
+vi.mock("@/stores/teamStore", () => ({
+  useTeamStore: (sel: (s: { teams: TeamStub[] }) => unknown) => sel({ teams: h.teams }),
+}));
+vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "me" }));
 
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => h.billingEnabled }));
 
 import { SeatsMeter } from "./SeatsMeter";
 
-afterEach(() => { cleanup(); h.seats = { ...DEFAULT_SEATS }; h.billingEnabled = true; });
+afterEach(() => { cleanup(); h.seats = { ...DEFAULT_SEATS }; h.billingEnabled = true; h.teams = []; });
 
 const bar = () => document.querySelector(".h-1\\.5 > div") as HTMLElement;
 
@@ -114,4 +121,44 @@ test("a server without billing reads an uncapped account as unlimited, not the 3
   expect(screen.getByText(/seatsUnlimited/).textContent).toContain('"used":1');
   expect(screen.queryByText(/seatsSummary/)).toBeNull();
   expect(bar()).toBeNull();
+});
+
+test("a billed Teams owner with no cap at all reads as unlimited, not unknown", () => {
+  h.seats = { usedSeats: 4, effectiveSeats: null, totalSeats: null, isTrialActive: false, ownsTeamsPlan: true };
+  render(<SeatsMeter />);
+  expect(screen.getByText(/seatsUnlimited/).textContent).toContain('"used":4');
+  expect(screen.queryByText("members.invite.seatsUnknown")).toBeNull();
+});
+
+test("a team with unlimited owner seats shows unlimited, whatever the viewer's own plan says", () => {
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 3, total: null } }];
+  h.seats = { usedSeats: null, effectiveSeats: null, totalSeats: null, isTrialActive: false };
+  render(<SeatsMeter teamId="t1" />);
+  expect(screen.getByText(/seatsUnlimited/).textContent).toContain('"used":3');
+  expect(bar()).toBeNull();
+});
+
+test("a team with capped owner seats shows the owner's numbers, not the viewer's", () => {
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 2, total: 5 } }];
+  h.seats = { usedSeats: 9, effectiveSeats: 10, totalSeats: 25, isTrialActive: true };
+  render(<SeatsMeter teamId="t1" />);
+  const summary = screen.getByText(/seatsSummary/).textContent ?? "";
+  expect(summary).toContain('"used":2');
+  expect(summary).toContain('"total":5');
+  expect(bar().style.width).toBe("40%");
+  // The viewer's own trial clamp and "teams you own" scope say nothing about someone else's team.
+  expect(screen.queryByText(/seatsTrialClamp/)).toBeNull();
+  expect(screen.queryByText("members.invite.seatsScope")).toBeNull();
+});
+
+test("the owner of the team still sees the cross-team scope note", () => {
+  h.teams = [{ id: "t1", owner_id: "me", ownerSeats: { used: 2, total: 5 } }];
+  render(<SeatsMeter teamId="t1" />);
+  expect(screen.getByText("members.invite.seatsScope")).toBeTruthy();
+});
+
+test("a team without owner seats (older server) falls back to the viewer's own readout", () => {
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: null }];
+  render(<SeatsMeter teamId="t1" />);
+  expect(screen.getByText(/seatsSummary/).textContent).toContain('"total":5');
 });

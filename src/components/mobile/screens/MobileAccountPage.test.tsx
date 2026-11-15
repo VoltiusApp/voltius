@@ -5,7 +5,9 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, o?: { used?: unknown; total?: unknown }) => (key.endsWith(".seatsUsed") && o ? `${key}:${o.used}/${o.total}` : key),
+  }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
@@ -86,15 +88,14 @@ test("a self-hosted business account shows no billing link and an unlimited seat
   const { container, queryByText } = render(<MobileAccountPage />);
   expect(container.querySelector("[data-account-manage-billing]")).toBeNull();
   expect(queryByText("mobile.account.subscriptionActive")).toBeNull();
-  expect(queryByText("members.invite.seatsUnlimited")).not.toBeNull();
-  expect(queryByText("mobile.account.seatsUsed")).toBeNull();
+  expect(queryByText("mobile.account.seatsUsed:1/∞")).not.toBeNull();
 });
 
 test("a billed business account keeps its billing link and seat count", () => {
   businessAccount();
   const { container, queryByText } = render(<MobileAccountPage />);
   expect(container.querySelector("[data-account-manage-billing]")).not.toBeNull();
-  expect(queryByText("mobile.account.seatsUsed")).not.toBeNull();
+  expect(queryByText("mobile.account.seatsUsed:1/3")).not.toBeNull();
 });
 
 const signedIn = (input: TierFlagsInput) => {
@@ -158,4 +159,11 @@ test("the Teams trial button routes through the trial-or-checkout paywall", () =
   const { container } = render(<MobileAccountPage />);
   fireEvent.click(container.querySelector("[data-account-upgrade-teams]")!);
   expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "mobile_account");
+});
+
+test("a billed business owner with no seat cap reads as unlimited, not as a missing count", () => {
+  businessAccount();
+  useSubscriptionStore.setState({ usedSeats: 4, totalSeats: null, effectiveSeats: null });
+  const { queryByText } = render(<MobileAccountPage />);
+  expect(queryByText("mobile.account.seatsUsed:4/∞")).not.toBeNull();
 });
