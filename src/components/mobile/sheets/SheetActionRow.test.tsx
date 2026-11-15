@@ -4,6 +4,12 @@ import type { Folder } from "@/types";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
+vi.mock("@/components/permissions/PermissionsSection", () => ({
+  PermissionsSection: ({ objectId, type }: { objectId: string; type: string }) => (
+    <div data-test-permissions={`${type}:${objectId}`} />
+  ),
 }));
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <i data-icon={icon} />,
@@ -92,5 +98,15 @@ describe("sheets using the shared row", () => {
     const del = document.querySelector<HTMLButtonElement>("[data-folder-action='delete']");
     expect(del).not.toBeNull();
     expect(del!.style.color).toContain("--t-danger");
+  });
+
+  test("FolderActionsSheet edit shows the folder's Permissions section with its access type", () => {
+    const folder = {
+      id: "f2", name: "Ops", object_type: "snippet", vault_id: "team-1",
+      created_at: "", updated_at: "", clocks: {},
+    } as unknown as Folder;
+    render(<FolderActionsSheet folder={folder} onSave={() => {}} onDelete={() => {}} onClose={() => {}} />);
+    fireEvent.click(document.querySelector("[data-folder-action='rename']")!);
+    expect(document.querySelector("[data-test-permissions='snippet_folder:f2']")).not.toBeNull();
   });
 });

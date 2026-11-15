@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { FolderAppearanceFields, type FolderAppearance } from "@/components/folders/folderAppearance";
@@ -6,7 +6,7 @@ import { FolderAppearanceFields, type FolderAppearance } from "@/components/fold
 export type FolderEdit = { name: string } & FolderAppearance;
 
 export default function FolderFormSheet({
-  title, initialName = "", initialAppearance = {}, submitLabel, onSubmit, onClose,
+  title, initialName = "", initialAppearance = {}, submitLabel, onSubmit, onClose, children,
 }: {
   title: string;
   initialName?: string;
@@ -14,6 +14,7 @@ export default function FolderFormSheet({
   submitLabel?: string;
   onSubmit: (edit: FolderEdit) => void;
   onClose: () => void;
+  children?: ReactNode;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initialName);
@@ -41,6 +42,7 @@ export default function FolderFormSheet({
         >
           {submitLabel ?? t("common.action.save")}
         </button>
+        {children}
       </div>
     </BottomSheet>
   );

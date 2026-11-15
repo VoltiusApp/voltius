@@ -10,10 +10,14 @@ import {
 } from "@/hooks/useEffectivePinned";
 import type { Folder } from "@/types";
 
+export function folderAccessType(folder: Folder): "folder" | "snippet_folder" {
+  return folder.object_type === "snippet" || folder.object_type === "snippet_folder" ? "snippet_folder" : "folder";
+}
+
 export function useFolderPin(folder: Folder, canEdit?: boolean) {
   const { t } = useTranslation();
-  const isSnippetFolder = folder.object_type === "snippet" || folder.object_type === "snippet_folder";
-  const folderType: "folder" | "snippet_folder" = isSnippetFolder ? "snippet_folder" : "folder";
+  const folderType = folderAccessType(folder);
+  const isSnippetFolder = folderType === "snippet_folder";
   const pinFolder = useFolderStore((s) => s.pinFolder);
   const pinFolderForTeam = useFolderStore((s) => s.pinFolderForTeam);
   const pinSnippetFolder = useSnippetFolderStore((s) => s.pinSnippetFolder);

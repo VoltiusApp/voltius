@@ -14,6 +14,7 @@ import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { ScriptEditor } from "@/components/snippets/ScriptEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 import { FieldError, useRequiredField } from "@/components/shared/fieldValidation";
 import { formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
 import type { NewObjectPlacement, Snippet, SnippetFormData, SnippetStep } from "@/types";
@@ -173,6 +174,11 @@ function MobileSnippetEditorFields({ editing, placement, draft, readOnly }: Edit
           </button>
         )}
       </ReadOnlyFields>
+      {editing && (
+        <div className="px-4 pb-4 empty:hidden">
+          <PermissionsSection objectId={editing.id} vaultId={editing.vault_id} type="snippet" />
+        </div>
+      )}
     </MobileEditScreen>
   );
 }
