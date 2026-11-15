@@ -1,13 +1,12 @@
 import { test, expect, vi, beforeEach, describe } from "vitest";
 
-const h = vi.hoisted(() => ({ serverFetch: vi.fn(), getServerUrl: vi.fn(), loadTeams: vi.fn() }));
+const h = vi.hoisted(() => ({ serverFetch: vi.fn(), loadTeams: vi.fn() }));
 vi.mock("@/services/teamService", () => ({ serverFetch: h.serverFetch }));
-vi.mock("@/services/authTokens", () => ({ getServerUrl: h.getServerUrl }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ loadTeams: h.loadTeams }) } }));
 
 import {
-  previewPermissions, losesVaultKey, isPreviewRouteKnownMissing, PreviewUnsupportedError,
+  previewPermissions, losesVaultKey, PreviewSubjectGoneError,
   type PreviewResponse, type Preview,
 } from "./permissionPreview";
 
@@ -21,7 +20,6 @@ const sentBody = () => JSON.parse(h.serverFetch.mock.calls[0][1].body);
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
-  h.getServerUrl.mockResolvedValue("https://a");
 });
 
 describe("previewPermissions", () => {
@@ -41,16 +39,11 @@ describe("previewPermissions", () => {
       .rejects.toMatchObject({ code: 402 });
   });
 
-  test("a_404_throws_unsupported_and_is_remembered", async () => {
+  test("a_404_throws_subject_gone", async () => {
     h.serverFetch.mockResolvedValue(fail(404));
-    expect(isPreviewRouteKnownMissing()).toBe(false);
-    await expect(previewPermissions("t1", { subject: { type: "member", user_id: "u1" } }))
-      .rejects.toBeInstanceOf(PreviewUnsupportedError);
-    expect(isPreviewRouteKnownMissing()).toBe(true);
-    h.getServerUrl.mockResolvedValue("https://b");
-    isPreviewRouteKnownMissing();
-    await Promise.resolve();
-    expect(isPreviewRouteKnownMissing()).toBe(false);
+    const err = await previewPermissions("t1", { subject: { type: "member", user_id: "u1" } }).catch((e) => e);
+    expect(err).toBeInstanceOf(PreviewSubjectGoneError);
+    expect(err.message).toBe("members.viewAs.ended");
   });
 
   test("403 and other statuses throw plain errors", async () => {
@@ -59,7 +52,7 @@ describe("previewPermissions", () => {
       .rejects.toThrow("members.viewAs.noPermission");
     h.serverFetch.mockResolvedValue(fail(500));
     await expect(previewPermissions("t1", { subject: { type: "member", user_id: "u1" } }))
-      .rejects.toThrow("common.error.failedToLoadRuleSet");
+      .rejects.toThrow("members.viewAs.failed");
   });
 });
 

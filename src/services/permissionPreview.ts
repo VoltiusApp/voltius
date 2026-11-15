@@ -1,5 +1,4 @@
 import i18n from "@/i18n";
-import { getServerUrl } from "@/services/authTokens";
 import { refuseIfPlanRequired } from "@/services/planRequired";
 import { serverFetch } from "@/services/teamService";
 
@@ -37,20 +36,11 @@ export interface PreviewResponse {
   affected: { changed: string[]; lose_vault_key: string[] } | null;
 }
 
-export class PreviewUnsupportedError extends Error {
+export class PreviewSubjectGoneError extends Error {
   constructor() {
-    super(i18n.t("members.viewAs.serverTooOld"));
-    this.name = "PreviewUnsupportedError";
+    super(i18n.t("members.viewAs.ended"));
+    this.name = "PreviewSubjectGoneError";
   }
-}
-
-let missingOnServer: string | null = null;
-
-export function isPreviewRouteKnownMissing(): boolean {
-  void getServerUrl().then((url) => {
-    if (url !== missingOnServer) missingOnServer = null;
-  });
-  return missingOnServer !== null;
 }
 
 export async function previewPermissions(teamId: string, req: PreviewRequest): Promise<PreviewResponse> {
@@ -65,12 +55,9 @@ export async function previewPermissions(teamId: string, req: PreviewRequest): P
   });
   if (res.ok) return res.json();
   refuseIfPlanRequired(res);
-  if (res.status === 404) {
-    missingOnServer = await getServerUrl();
-    throw new PreviewUnsupportedError();
-  }
+  if (res.status === 404) throw new PreviewSubjectGoneError();
   if (res.status === 403) throw new Error(i18n.t("members.viewAs.noPermission"));
-  throw new Error(i18n.t("common.error.failedToLoadRuleSet", { status: res.status }));
+  throw new Error(i18n.t("members.viewAs.failed"));
 }
 
 export async function losesVaultKey(teamId: string, userId: string, next: MemberDraft): Promise<boolean> {
