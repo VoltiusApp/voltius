@@ -14,7 +14,7 @@ import {
 } from "@/services/permissions";
 import { previewSnapshot, previewSubjectUserId } from "@/services/previewSnapshot";
 import { usePreviewStore } from "@/stores/previewStore";
-import { usePreviewActive } from "@/components/preview/PreviewScope";
+import { useInPreviewContent, usePreviewActive } from "@/hooks/previewScope";
 import type { TeamObjectType } from "@/services/teamObjects";
 
 export { PERM_BITS, effectivePermissions, hasBuiltinRole };
@@ -22,6 +22,7 @@ export type { Permission };
 
 type Can = (permission: Permission, vaultId: string, objectId?: string) => boolean;
 type PermissionInputs = Omit<PermissionSnapshot, "vaults">;
+const denyAll: Can = () => false;
 
 function usePermissionInputs(): PermissionInputs {
   const teams = useTeamStore((s) => s.teams);
@@ -65,18 +66,20 @@ export function useOwnPermissions(): Can {
  * - "personal" always returns true.
  * - Team vaults: OR all assigned role bits and check the requested bit.
  * - Returns false (pessimistic) when data is not yet loaded.
- * - Inside the preview content scope, resolves as the previewed subject.
+ * - Inside the preview content scope, resolves as the previewed subject, denying all until its first result.
  */
 export function usePermissions(): Can {
   const own = usePermissionInputs();
+  const inContent = useInPreviewContent();
   const session = usePreviewActive();
-  const draft = usePreviewStore((s) => s.draft);
-  const result = usePreviewStore((s) => s.result);
+  const result = usePreviewStore((s) => (inContent ? s.result : null));
+  const resultDraft = usePreviewStore((s) => (inContent ? s.resultDraft : null));
   const inputs = useMemo(
-    () => (session && result ? previewSnapshot(own, session, draft, result) : own),
-    [own, session, draft, result],
+    () => (session && result ? previewSnapshot(own, session, resultDraft, result) : own),
+    [own, session, resultDraft, result],
   );
-  return useCanOver(inputs);
+  const can = useCanOver(inputs);
+  return session && !result ? denyAll : can;
 }
 
 export function usePermissionSubjectId(): string {

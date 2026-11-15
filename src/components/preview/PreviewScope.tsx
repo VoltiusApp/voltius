@@ -1,23 +1,12 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { usePreviewStore, type PreviewSession } from "@/stores/previewStore";
+import { usePreviewStore } from "@/stores/previewStore";
+import { usePreviewActive } from "@/hooks/previewScope";
 import { useTeamStore } from "@/stores/teamStore";
 import { PERM_BITS } from "@/services/permissions";
 import { ruleSubjectLabel } from "@/components/members/roleChips";
 
-const PreviewContentContext = createContext(false);
-
-export function PreviewContentScope({ children }: { children: ReactNode }) {
-  return <PreviewContentContext.Provider value>{children}</PreviewContentContext.Provider>;
-}
-
-export const useInPreviewContent = (): boolean => useContext(PreviewContentContext);
-
-export function usePreviewActive(): PreviewSession | null {
-  const inContent = useInPreviewContent();
-  const session = usePreviewStore((s) => s.session);
-  return inContent ? session : null;
-}
+export { PreviewContentScope, useInPreviewContent, usePreviewActive } from "@/hooks/previewScope";
 
 export interface PreviewObject {
   hidden: boolean;

@@ -305,6 +305,7 @@ export interface PermissionSnapshot {
   rolesByTeam: Record<string, TeamRole[]>;
   vaults: Vault[];
   objectAccess?: ObjectAccessIndex;
+  teamBits?: Record<string, number>;
 }
 
 /**
@@ -328,6 +329,9 @@ export function resolveCan(
 
   const objectMask = objectId === undefined ? undefined : snapshot.objectAccess?.[teamId]?.[objectId]?.myPermissions;
   if (objectMask !== undefined) return (objectMask & PERM_BITS[permission]) !== 0;
+
+  const teamBits = snapshot.teamBits?.[teamId];
+  if (teamBits !== undefined) return (teamBits & PERM_BITS[permission]) !== 0;
 
   const roles = snapshot.rolesByTeam[teamId] ?? [];
   const members = snapshot.membersByTeam[teamId];

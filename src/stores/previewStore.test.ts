@@ -25,7 +25,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { PreviewSubjectGoneError } from "@/services/permissionPreview";
-import type { Team } from "@/services/teamService";
+import { makeTeam } from "@/test/team";
 
 const session = { teamId: "t1", vaultId: "v1", subject: { type: "member" as const, user_id: "bob" } };
 const preview = (mask: number, gate = true) => ({
@@ -48,7 +48,7 @@ beforeEach(() => {
   useNotificationStore.setState({ toasts: [] });
   useVaultStore.setState({ selectedVaultIds: ["personal", "v1"] });
   useUIStore.setState({ homeView: false, activeNav: "members", sftpPanelOpen: true, settingsOpen: false });
-  useTeamStore.setState({ teams: [{ id: "t1" } as Team], membersByTeam: { t1: [] }, rolesByTeam: { t1: [] } });
+  useTeamStore.setState({ teams: [makeTeam("t1")], membersByTeam: { t1: [] }, rolesByTeam: { t1: [] } });
 });
 
 afterEach(() => {
@@ -77,6 +77,13 @@ test.each([
   usePreviewStore.getState().enter(session);
   useUIStore.setState(patch);
   expect(usePreviewStore.getState().session).toBeNull();
+});
+
+test("entering_while_outside_the_content_exits_at_once", () => {
+  useUIStore.setState({ settingsOpen: true });
+  usePreviewStore.getState().enter(session);
+  expect(usePreviewStore.getState().session).toBeNull();
+  expect(h.preview).not.toHaveBeenCalled();
 });
 
 test("the_team_leaving_the_roster_exits_and_exit_is_idempotent", () => {
@@ -119,11 +126,48 @@ test("draft_changes_refetch_once_after_250ms", async () => {
 
   expect(h.preview).toHaveBeenCalledTimes(1);
   expect(h.preview).toHaveBeenCalledWith("t1", { subject: session.subject, draft });
+  vi.useRealTimers();
+  await flush();
+  expect(usePreviewStore.getState().resultDraft).toEqual(draft);
+});
+
+test("a_pending_draft_refetch_is_cancelled_by_exit", async () => {
+  usePreviewStore.getState().enter(session);
+  await flush();
+  vi.useFakeTimers();
+  h.preview.mockClear();
+  usePreviewStore.getState().setDraft({ role_ids: [], allow: 0, deny: 0 });
+  usePreviewStore.getState().exit();
+  vi.advanceTimersByTime(250);
+  await vi.dynamicImportSettled();
+  expect(h.preview).not.toHaveBeenCalled();
+});
+
+test("a_response_after_exit_is_dropped", async () => {
+  const pending = deferred<PreviewResponse>();
+  h.preview.mockReturnValueOnce(pending.promise);
+  usePreviewStore.getState().enter(session);
+  await vi.dynamicImportSettled();
+  usePreviewStore.getState().exit();
+  pending.resolve(response(1));
+  await flush();
+  expect(usePreviewStore.getState().result).toBeNull();
+  expect(usePreviewStore.getState().session).toBeNull();
+});
+
+test("enter_exit_enter_subscribes_to_sse_once", async () => {
+  usePreviewStore.getState().enter(session);
+  usePreviewStore.getState().exit();
+  usePreviewStore.getState().enter(session);
+  await vi.waitFor(() => expect(h.sse.size).toBe(1));
+  await vi.dynamicImportSettled();
+  await flush();
+  expect(h.sse.size).toBe(1);
 });
 
 test.each([
   ["404", () => new PreviewSubjectGoneError(), "members.viewAs.ended"],
-  ["403", () => Object.assign(new Error("x"), { status: 403 }), "members.viewAs.ended"],
+  ["403", () => Object.assign(new Error("members.viewAs.noPermission"), { status: 403 }), "members.viewAs.noPermission"],
   ["402", () => Object.assign(new Error("x"), { code: 402, status: 402 }), "members.viewAs.needsBusiness"],
 ])("a_%s_on_refetch_exits_with_a_toast", async (_, error, key) => {
   usePreviewStore.getState().enter(session);
@@ -147,6 +191,7 @@ test("any_other_error_keeps_the_session_and_stores_the_message", async () => {
 
 test("a_team_sse_event_refetches", async () => {
   usePreviewStore.getState().enter(session);
+  await vi.waitFor(() => expect(h.sse.size).toBe(1));
   await flush();
   h.preview.mockClear();
 

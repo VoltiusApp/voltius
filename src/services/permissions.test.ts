@@ -5,19 +5,12 @@ import {
   lostAccessToLapse, canEditConnectionsIn, planLapsedFor, hasNarrowerException,
   type Permission, type PermissionSnapshot, type RuleEntry,
 } from "./permissions.ts";
-import type { Team, TeamMember, TeamRole } from "@/services/teamService";
+import type { Team, TeamRole } from "@/services/teamService";
 import type { Vault } from "@/stores/vaultStore";
-import { makeTeam } from "@/test/team";
+import { makeMember, makeRole, makeTeam } from "@/test/team";
 
-function role(id: string, permissions: number, extra: Partial<TeamRole> = {}): TeamRole {
-  return { id, team_id: "t1", name: id, permissions, is_builtin: false, ...extra } as TeamRole;
-}
-function member(user_id: string, role_ids: string[]): TeamMember {
-  return {
-    team_id: "t1", user_id, handle: "", public_key: "",
-    invited_by_display_name: null, joined_at: "", role_ids,
-  };
-}
+const role = makeRole;
+const member = makeMember;
 const team = (id: string, role_ids: string[]): Team => makeTeam(id, { role_ids });
 function vault(id: string, teamId?: string): Vault {
   return teamId ? { id, name: id, teamId } : { id, name: id };
@@ -324,6 +317,13 @@ describe("resolveCan with an object id", () => {
   });
   it("falls back to the team mask for an object with no entry", () => {
     expect(resolveCan(base, "EDIT_CONNECTIONS", "t1", "unknown")).toBe(true);
+  });
+  it("reads given team bits instead of the roster at team level", () => {
+    const s = { ...base, teamBits: { t1: PERM_BITS.EDIT_SNIPPETS } };
+    expect(resolveCan(s, "EDIT_SNIPPETS", "t1")).toBe(true);
+    expect(resolveCan(s, "EDIT_CONNECTIONS", "t1")).toBe(false);
+    expect(resolveCan(s, "CONNECT", "t1", "opened")).toBe(true);
+    expect(resolveCan(s, "EDIT_CONNECTIONS", "t1", "unknown")).toBe(false);
   });
   it("ignores the object id in a personal vault", () => {
     expect(resolveCan(snap({ objectAccess: base.objectAccess }), "EDIT_CONNECTIONS", "personal", "locked")).toBe(true);

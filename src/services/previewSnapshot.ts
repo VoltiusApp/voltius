@@ -49,5 +49,6 @@ export function previewSnapshot<S extends Omit<PermissionSnapshot, "vaults">>(
         : roles,
     },
     objectAccess: { ...base.objectAccess, [teamId]: access },
+    teamBits: { ...base.teamBits, [teamId]: shown.team_bits },
   };
 }

@@ -17,6 +17,7 @@ interface PreviewState {
   session: PreviewSession | null;
   draft: PreviewDraft | null;
   result: PreviewResponse | null;
+  resultDraft: PreviewDraft | null;
   status: "idle" | "loading" | "ready" | "error";
   error: string | null;
   side: SidePanel;
@@ -37,17 +38,13 @@ interface PreviewState {
 }
 
 const IDLE = {
-  session: null, draft: null, result: null, status: "idle", error: null, side: null,
+  session: null, draft: null, result: null, resultDraft: null, status: "idle", error: null, side: null,
   saving: false, saveError: null, pendingConfirm: null,
 } as const satisfies Partial<PreviewState>;
 
 const DRAFT_DEBOUNCE_MS = 250;
 
-const ENDING_KEY: Record<number, string> = {
-  404: "members.viewAs.ended",
-  403: "members.viewAs.ended",
-  402: "members.viewAs.needsBusiness",
-};
+const ENDING_STATUSES = new Set([402, 403, 404]);
 
 export function saveNeedsConfirm(result: PreviewResponse | null): SaveConfirm | null {
   if (!result) return null;
@@ -61,27 +58,36 @@ let draftTimer: ReturnType<typeof setTimeout> | undefined;
 let sentSeq = 0;
 let appliedSeq = 0;
 
+function leftContent({ teamId, vaultId }: PreviewSession): boolean {
+  const ids = useVaultStore.getState().selectedVaultIds;
+  const ui = useUIStore.getState();
+  return ids.length !== 1 || ids[0] !== vaultId
+    || ui.homeView || ui.activeNav === "terminal" || ui.sftpPanelOpen || ui.settingsOpen
+    || !useTeamStore.getState().teams.some((t) => t.id === teamId);
+}
+
 // Dynamic imports: usePermissions loads this store, and its consumers must not pull in i18n, sync or key rotation.
+let syncModule: Promise<typeof import("@/services/sync")> | undefined;
+const loadSync = () => (syncModule ??= import("@/services/sync"));
+
 function watchSession(session: PreviewSession): (() => void)[] {
-  const { teamId, vaultId } = session;
-  const exit = () => usePreviewStore.getState().exit();
-  const refetch = () => void usePreviewStore.getState().refetch();
-  void import("@/services/sync").then(({ onTeamSseEvent }) => {
-    if (usePreviewStore.getState().session !== session) return;
-    unwatch.push(onTeamSseEvent((id) => { if (id === teamId) refetch(); }));
-  });
-  return [
-    useVaultStore.subscribe(({ selectedVaultIds: ids }) => {
-      if (ids.length !== 1 || ids[0] !== vaultId) exit();
-    }),
-    useUIStore.subscribe((s) => {
-      if (s.homeView || s.activeNav === "terminal" || s.sftpPanelOpen || s.settingsOpen) exit();
-    }),
+  const { teamId } = session;
+  const store = () => usePreviewStore.getState();
+  const exitIfLeft = () => { if (leftContent(session)) store().exit(); };
+  const refetch = () => void store().refetch();
+  const list = [
+    useVaultStore.subscribe(exitIfLeft),
+    useUIStore.subscribe(exitIfLeft),
     useTeamStore.subscribe((s, prev) => {
-      if (!s.teams.some((t) => t.id === teamId)) exit();
-      else if (s.membersByTeam[teamId] !== prev.membersByTeam[teamId] || s.rolesByTeam[teamId] !== prev.rolesByTeam[teamId]) refetch();
+      exitIfLeft();
+      if (store().session !== session) return;
+      if (s.membersByTeam[teamId] !== prev.membersByTeam[teamId] || s.rolesByTeam[teamId] !== prev.rolesByTeam[teamId]) refetch();
     }),
   ];
+  void loadSync().then(({ onTeamSseEvent }) => {
+    if (unwatch === list) list.push(onTeamSseEvent((id) => { if (id === teamId) refetch(); }));
+  });
+  return list;
 }
 
 export const usePreviewStore = create<PreviewState>((set, get) => ({
@@ -94,7 +100,8 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     useUIStore.getState().setSftpPanelOpen(false);
     set({ session, side: { kind: "access" } });
     unwatch = watchSession(session);
-    void get().refetch();
+    if (leftContent(session)) get().exit();
+    else void get().refetch();
   },
 
   exit: () => {
@@ -126,18 +133,20 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     try {
       const { previewPermissions } = await import("@/services/permissionPreview");
       const result = await previewPermissions(session.teamId, { subject: session.subject, ...(draft && { draft }) });
-      if (settle()) set({ result, status: seq === sentSeq ? "ready" : "loading", error: null });
+      if (settle()) set({ result, resultDraft: draft, status: seq === sentSeq ? "ready" : "loading", error: null });
     } catch (e) {
       if (!settle()) return;
-      const ending = ENDING_KEY[(e as { status?: number }).status ?? 0];
-      if (!ending) {
-        set({ status: "error", error: e instanceof Error ? e.message : String(e) });
+      const status = (e as { status?: number }).status ?? 0;
+      const message = e instanceof Error ? e.message : String(e);
+      if (!ENDING_STATUSES.has(status)) {
+        set({ status: "error", error: message });
         return;
       }
       get().exit();
       const { default: i18n } = await import("@/i18n");
       useNotificationStore.getState().addToast({
-        source: APP_SOURCE, type: "toast", message: i18n.t(ending), severity: "warning", duration: 5000,
+        source: APP_SOURCE, type: "toast", severity: "warning", duration: 5000,
+        message: status === 402 ? i18n.t("members.viewAs.needsBusiness") : message,
       });
     }
   },
