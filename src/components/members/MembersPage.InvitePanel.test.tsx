@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   billingEnabled: true,
   multiOwner: true,
   myRoleIds: ["r-owner"] as string[],
+  teams: [{ id: "t1", owner_id: "me" }] as Array<Record<string, unknown>>,
 }));
 
 // Looks up the real English copy so the interpolating t below reproduces what
@@ -62,7 +63,7 @@ vi.mock("@/services/teamActionFeedback", () => ({
 vi.mock("@/stores/teamStore", () => {
   const state = {
     assignMemberRole: h.assign,
-    teams: [{ id: "t1", owner_id: "me" }],
+    get teams() { return h.teams; },
     get membersByTeam() { return { t1: [{ user_id: "me", role_ids: h.myRoleIds }] }; },
   };
   const useTeamStore = Object.assign(
@@ -134,6 +135,7 @@ beforeEach(() => {
   h.billingEnabled = true;
   h.multiOwner = true;
   h.myRoleIds = ["r-owner"];
+  h.teams = [{ id: "t1", owner_id: "me" }];
   baseProps.onClose = vi.fn();
   baseProps.onMemberAdded = vi.fn();
 });
@@ -585,4 +587,38 @@ test("picking another role after Owner drops Owner", () => {
   fireEvent.click(screen.getByText("members.roleName.owner"));
   fireEvent.click(screen.getByText("members.roleName.editor"));
   expect(screen.getByText("members.roleName.owner").closest("button")!.style.background).toBe("var(--t-bg-elevated)");
+});
+
+test("a member inviting into someone else's unlimited team sees ∞, not their own plan, and no buy-seats", () => {
+  h.t.mockImplementation(interpolatingT);
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 3, total: null } }];
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.getByText("3 / ∞ seats used")).toBeTruthy();
+  expect(screen.queryByText(/available/)).toBeNull();
+  expect(screen.queryByText(membersEn.members.invite.buySeats)).toBeNull();
+});
+
+test("a member inviting into someone else's capped team sees the owner's 2 / 5", () => {
+  h.t.mockImplementation(interpolatingT);
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 2, total: 5 } }];
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.getByText("2 used · 3 available · 5 total")).toBeTruthy();
+  expect(screen.queryByText(membersEn.members.invite.buySeats)).toBeNull();
+});
+
+test("the team's own seats drive the limit pre-check, not the viewer's full plan", async () => {
+  h.usedSeats = 3;
+  h.effectiveSeats = 3;
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 1, total: null } }];
+  h.inviteUserWithRoles.mockResolvedValue({ status: "pending" });
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  await waitFor(() => expect(h.inviteUserWithRoles).toHaveBeenCalled());
+  expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
 });

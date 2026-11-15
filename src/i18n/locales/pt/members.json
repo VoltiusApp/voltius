@@ -153,7 +153,7 @@
       "inviteArrow": "Convidar →",
       "handleRule": "Apenas identificadores personalizados correspondem a parte de um nome. Para um identificador gerado como rapid-violet-8884, digite-o completo ou use o e-mail deles.",
       "seatsUnknown": "Contagem de vagas indisponível — verifique sua conexão com o servidor de sincronização",
-      "seatsUnlimited": "{{used}} usadas · ilimitado",
+      "seatsUnlimited": "{{used}} / ∞ vagas usadas",
       "inviteAction": "Convidar",
       "joinsAs": "Eles entram como",
       "selectRoleHint": "Selecione pelo menos uma função antes de convidar",

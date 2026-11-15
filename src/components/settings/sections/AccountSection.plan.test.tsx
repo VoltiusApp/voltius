@@ -2,7 +2,9 @@ import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, o?: { used?: unknown; total?: unknown }) => (k.endsWith(".seatsUsed") && o ? `${k}:${o.used}/${o.total}` : k),
+  }),
   initReactI18next: { type: "3rdParty", init: () => {} },
   Trans: () => null,
 }));
@@ -149,4 +151,18 @@ test("account_shows_teams_trial_strip_for_free_account", () => {
   render(<PlansSection />);
   fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
   expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "account");
+});
+
+test("an own Teams plan with no seat cap on a billed server reads as unlimited, not unknown", () => {
+  seed({ tier: "teams" });
+  useSubscriptionStore.setState({ usedSeats: 4, totalSeats: null, effectiveSeats: null });
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.seatsUsed:4/∞")).toBeTruthy();
+});
+
+test("an own Teams plan with a cap keeps its used / total", () => {
+  seed({ tier: "teams" });
+  useSubscriptionStore.setState({ usedSeats: 2, totalSeats: 5, effectiveSeats: 5 });
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.seatsUsed:2/5")).toBeTruthy();
 });

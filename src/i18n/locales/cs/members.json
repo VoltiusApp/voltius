@@ -157,7 +157,7 @@
       "inviteArrow": "Pozvat →",
       "handleRule": "Podle části jména se hledají jen vlastní přezdívky. Vygenerovanou přezdívku jako rapid-violet-8884 zadejte celou, nebo použijte e-mail.",
       "seatsUnknown": "Počet míst není dostupný — zkontrolujte připojení k synchronizačnímu serveru",
-      "seatsUnlimited": "Využito {{used}} · neomezeně",
+      "seatsUnlimited": "Využito {{used}} / ∞ míst",
       "inviteAction": "Pozvat",
       "joinsAs": "Připojí se jako",
       "selectRoleHint": "Před pozváním vyberte alespoň jednu roli",

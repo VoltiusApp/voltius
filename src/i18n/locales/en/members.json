@@ -153,7 +153,7 @@
       "inviteArrow": "Invite →",
       "handleRule": "Only custom handles match on part of a name. For a generated handle like rapid-violet-8884, type it in full or use their email.",
       "seatsUnknown": "Seat count unavailable — check your connection to the sync server",
-      "seatsUnlimited": "{{used}} used · unlimited",
+      "seatsUnlimited": "{{used}} / ∞ seats used",
       "inviteAction": "Invite",
       "joinsAs": "They join as",
       "selectRoleHint": "Select at least one role before inviting",

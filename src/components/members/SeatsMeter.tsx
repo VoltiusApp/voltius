@@ -1,22 +1,32 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { useSeatReadout } from "@/hooks/useSeatReadout";
+import { useTeamStore } from "@/stores/teamStore";
+import { useMyUserId } from "@/hooks/useMyUserId";
+import { useTeamSeatReadout } from "@/hooks/useTeamSeatReadout";
 import { seatsSummaryText } from "@/services/seatMath";
 
-/** Seat usage bar for the invite surfaces, with a "buy seats" action on servers that sell them. */
-export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
+/** Seat usage bar for the invite surfaces, with a "buy seats" action on servers that sell them.
+ *  With a `teamId`, it shows the seats of that team's owner when the server reports them. */
+export function SeatsMeter({ teamId, onBuySeats }: { teamId?: string; onBuySeats?: () => void }) {
   const { t } = useTranslation();
   const { effectiveSeats, totalSeats, isTrialActive } = useSubscriptionStore();
-  const seats = useSeatReadout();
+  const { seats, fromTeam } = useTeamSeatReadout(teamId);
+  const myUserId = useMyUserId();
+  const ownerId = useTeamStore((s) => (teamId ? s.teams.find((tm) => tm.id === teamId)?.owner_id : undefined));
+  // The trial clamp and the "every team you own" scope describe the viewer's own plan.
+  const ownPlan = !fromTeam || (!!myUserId && ownerId === myUserId);
   // A trial clamps the cap below what was purchased; without this the meter is a
   // number nothing on screen explains.
   const trialClamped =
-    isTrialActive && effectiveSeats != null && totalSeats != null && effectiveSeats < totalSeats;
+    ownPlan && isTrialActive && effectiveSeats != null && totalSeats != null && effectiveSeats < totalSeats;
   const atLimit = seats.kind === "known" && seats.atLimit;
   const barWidth = seats.kind === "known" && seats.total > 0
     ? `${Math.min(100, (seats.used / seats.total) * 100)}%`
     : "0%";
+  const note = trialClamped && seats.kind === "known"
+    ? t("members.invite.seatsTrialClamp", { cap: seats.total, purchased: totalSeats })
+    : ownPlan ? t("members.invite.seatsScope") : null;
 
   return (
     <div className="flex items-center gap-3">
@@ -36,11 +46,9 @@ export function SeatsMeter({ onBuySeats }: { onBuySeats?: () => void }) {
             <p className="text-[11px] tabular-nums" style={{ color: atLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
               {seatsSummaryText(t, seats)}
             </p>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--t-text-dim)" }}>
-              {trialClamped && seats.kind === "known"
-                ? t("members.invite.seatsTrialClamp", { cap: seats.total, purchased: totalSeats })
-                : t("members.invite.seatsScope")}
-            </p>
+            {note && (
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--t-text-dim)" }}>{note}</p>
+            )}
           </>
         )}
       </div>
