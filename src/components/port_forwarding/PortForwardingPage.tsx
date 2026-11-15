@@ -135,6 +135,8 @@ export function PortForwardingPage() {
   const vaultOptions = useVaultOptions({ includeUnlinkedTeams: false });
 
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "port_forwarding");
+  // Every vault's, not only those on screen: the clipboard outlives a vault switch.
+  const ruleFolders = useMemo(() => folders.filter((f) => f.object_type === "port_forwarding"), [folders]);
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
   useCloseWhenGone(editingRuleId, editingRule !== null, closeForm);
@@ -228,10 +230,10 @@ export function PortForwardingPage() {
   // ── Vault move / copy for folders ─────────────────────────────────────────
 
   /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
+  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(ruleFolders, folderId);
 
   const getRulesInFolderTree = (folderId: string): PortForwardingRule[] =>
-    itemsInFolderSubtree(rules, scopedFolders, folderId);
+    itemsInFolderSubtree(rules, ruleFolders, folderId);
 
   const { folderDeleteMessage } = folderDeleteMessages({
     t,
@@ -308,7 +310,7 @@ export function PortForwardingPage() {
     vaultId?: string,
     opts: { keepName?: boolean } = {},
   ) => {
-    const folder = scopedFolders.find((f) => f.id === folderId);
+    const folder = ruleFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
     const targetVaultId = vaultId ?? folder.vault_id;
     const { root, folderIdMap } = await cloneFolderTree({
@@ -393,7 +395,7 @@ export function PortForwardingPage() {
   const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
     navItem: "port-forwarding",
     entities: [{ kind: "port_forward", items: rules }],
-    folders: scopedFolders,
+    folders: ruleFolders,
     selectedIdSet,
     focusedId,
     activeFolderId,

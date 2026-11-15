@@ -204,6 +204,8 @@ export default function HostsPage() {
   }, [scopedConnections]);
 
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "connection");
+  // Every vault's, not only those on screen: the clipboard outlives a vault switch.
+  const connectionFolders = useMemo(() => folders.filter((f) => f.object_type === "connection"), [folders]);
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
   useCloseWhenGone(editingId, editing !== null, () => { setShowForm(false); setShowSerialForm(false); setEditingId(null); });
@@ -328,7 +330,7 @@ export default function HostsPage() {
   const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
     navItem: "hosts",
     entities: [{ kind: "connection", items: connections }],
-    folders: scopedFolders,
+    folders: connectionFolders,
     selectedIdSet,
     focusedId,
     activeFolderId,
@@ -681,11 +683,11 @@ export default function HostsPage() {
   // ── Folder vault move / copy ──────────────────────────────────────────────
 
   /** Returns all folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
+  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(connectionFolders, folderId);
 
   /** Returns all connections nested anywhere under folderId. */
   function getConnectionsInFolderTree(folderId: string): Connection[] {
-    return itemsInFolderSubtree(connections, scopedFolders, folderId);
+    return itemsInFolderSubtree(connections, connectionFolders, folderId);
   }
 
   const { folderDeleteMessage, bulkDeleteMessage } = folderDeleteMessages({
@@ -822,7 +824,7 @@ export default function HostsPage() {
     vaultId?: string,
     opts: { keepName?: boolean } = {},
   ) => {
-    const folder = scopedFolders.find((f) => f.id === folderId);
+    const folder = connectionFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
     const targetVaultId = vaultId ?? folder.vault_id;
     const { root, folderIdMap } = await cloneFolderTree({

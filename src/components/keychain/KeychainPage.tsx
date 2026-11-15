@@ -124,6 +124,8 @@ export default function KeychainPage() {
   const q = search.trim();
   const match = useSearchMatcher(q);
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "keychain");
+  // Every vault's, not only those on screen: the clipboard outlives a vault switch.
+  const keychainFolders = useMemo(() => folders.filter((f) => f.object_type === "keychain"), [folders]);
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
   useCloseWhenGone(editingKeyId, editingKey !== null, () => closePanel());
@@ -399,7 +401,7 @@ export default function KeychainPage() {
       { kind: "key", items: keys },
       { kind: "identity", items: identities },
     ],
-    folders: scopedFolders,
+    folders: keychainFolders,
     selectedIdSet,
     focusedId,
     activeFolderId,
@@ -626,16 +628,16 @@ export default function KeychainPage() {
   // ── Folder vault move / copy ──────────────────────────────────────────────
 
   /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
+  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(keychainFolders, folderId);
 
   /** Keys nested anywhere under folderId. */
   function keysInFolderTree(folderId: string): SshKey[] {
-    return itemsInFolderSubtree(keys, scopedFolders, folderId);
+    return itemsInFolderSubtree(keys, keychainFolders, folderId);
   }
 
   /** Identities nested anywhere under folderId. */
   function identitiesInFolderTree(folderId: string): Identity[] {
-    return itemsInFolderSubtree(identities, scopedFolders, folderId);
+    return itemsInFolderSubtree(identities, keychainFolders, folderId);
   }
 
   /** Keys and identities nested anywhere under folderId. */
@@ -779,7 +781,7 @@ export default function KeychainPage() {
     vaultId?: string,
     opts: { keepName?: boolean } = {},
   ) => {
-    const folder = scopedFolders.find((f) => f.id === folderId);
+    const folder = keychainFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
     const targetVaultId = vaultId ?? folder.vault_id;
     const { root, folderIdMap } = await cloneFolderTree({

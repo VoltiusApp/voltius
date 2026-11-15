@@ -625,3 +625,25 @@ test("a root cut migrates into the one vault the view is scoped to", async () =>
 
   expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
 });
+
+// The clipboard outlives a change of the vault filter: a folder copied in one
+// vault is off screen once the view switches to another, but it still exists.
+test("a folder copied before switching vaults pastes with its nested folders and contents", async () => {
+  h.folders = [folder("f1", { name: "Prod" }), folder("f2", { name: "Inner", parent_folder_id: "f1" })];
+  h.keys = [key("k1", { name: "nested", folder_id: "f2" })];
+  h.selected = ["f1"];
+  h.accessibleVaultIds = ["personal"];
+  h.scopedVaultId = "personal";
+  const { rerender } = render(<KeychainPage />);
+  await dispatch("voltius:clipboard-copy");
+
+  h.selected = [];
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  rerender(<KeychainPage />);
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod", vault_id: "team-1" }));
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Inner", vault_id: "team-1" }));
+  expect(h.saveKey).toHaveBeenCalledWith(expect.objectContaining({ name: "nested", vault_id: "team-1" }));
+});

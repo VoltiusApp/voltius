@@ -919,3 +919,63 @@ test("a cross-vault copy is suffixed when the destination already has the name",
 
   expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web-1 (copy)" }));
 });
+
+// ── Paste after switching the vault filter ────────────────────────────────────
+// The clipboard outlives a change of the vault filter: a folder copied in one
+// vault is off screen once the view switches to another, but it still exists.
+
+async function copyThenSwitchToTeamVault(mode: "copy" | "cut") {
+  h.selected = ["nas"];
+  h.accessibleVaultIds = ["personal"];
+  h.scopedVaultId = "personal";
+  const { rerender } = render(<HostsPage />);
+  await dispatch(`voltius:clipboard-${mode}`);
+
+  h.selected = [];
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  rerender(<HostsPage />);
+  await dispatch("voltius:clipboard-paste");
+}
+
+test("a folder copied before switching vaults pastes with its nested folders and hosts", async () => {
+  h.folders = [
+    folder("nas", { name: "NAS" }),
+    folder("disks", { name: "Disks", parent_folder_id: "nas" }),
+    folder("raid", { name: "RAID", parent_folder_id: "disks" }),
+  ];
+  h.connections = [
+    conn("c1", { name: "nas-1", folder_id: "nas" }),
+    conn("c2", { name: "nas-2", folder_id: "disks" }),
+    conn("c3", { name: "nas-3", folder_id: "raid" }),
+  ];
+
+  await copyThenSwitchToTeamVault("copy");
+
+  for (const name of ["NAS", "Disks", "RAID"]) {
+    expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name, vault_id: "team-1" }));
+  }
+  for (const name of ["nas-1", "nas-2", "nas-3"]) {
+    expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name, vault_id: "team-1" }));
+  }
+});
+
+test("an empty folder copied before switching vaults still pastes", async () => {
+  h.folders = [folder("nas", { name: "NAS" })];
+
+  await copyThenSwitchToTeamVault("copy");
+
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "NAS", vault_id: "team-1" }));
+});
+
+test("a folder cut before switching vaults migrates its whole subtree", async () => {
+  h.folders = [folder("nas", { name: "NAS" }), folder("disks", { name: "Disks", parent_folder_id: "nas" })];
+  h.connections = [conn("c1", { folder_id: "nas" }), conn("c2", { folder_id: "disks" })];
+
+  await copyThenSwitchToTeamVault("cut");
+
+  expect(h.updateFolder).toHaveBeenCalledWith("nas", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateFolder).toHaveBeenCalledWith("disks", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateConnection).toHaveBeenCalledWith("c2", expect.objectContaining({ vault_id: "team-1" }));
+});
