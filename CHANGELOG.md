@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.75.1] - 2026-11-15
+
+### Fixed
+
+- A copied folder keeps its icon and colour, along with those of its subfolders, whether pasted in the same vault or another one (#885)
+
 ## [0.75.0] - 2026-11-15
 
 ### Added
