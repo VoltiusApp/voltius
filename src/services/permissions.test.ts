@@ -1,6 +1,6 @@
 import { test, expect, describe, it } from "vitest";
 import {
-  resolveCan, PERM_BITS, effectivePermissions, isPrimaryOwner, crossesVaultKeyGate, resolveMemberReadOnlyReason,
+  resolveCan, PERM_BITS, effectivePermissions, isPrimaryOwner, dropsConnectSource, resolveMemberReadOnlyReason,
   PERMISSION_GROUPS, resolveObjectPermissions, ALL_PERMISSION_BITS, OBJECT_RULE_BITS, OBJECT_RULE_ROWS,
   lostAccessToLapse, canEditConnectionsIn, planLapsedFor, hasNarrowerException,
   type Permission, type PermissionSnapshot, type RuleEntry,
@@ -123,40 +123,33 @@ describe("effectivePermissions with member overrides", () => {
   });
 });
 
-describe("crossesVaultKeyGate", () => {
-  it("role grants CONNECT only; deny CONNECT crosses the gate", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.CONNECT }, false)).toBe(true);
+describe("dropsConnectSource", () => {
+  const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT), role("r2", PERM_BITS.EDIT_KEYS)];
+  const held = { ...member("u1", ["r1", "r2"]), permission_allow: 0, permission_deny: 0 };
+
+  it("is true when a held role carrying CONNECT is removed", () => {
+    expect(dropsConnectSource(held, roles, { role_ids: ["r2"], allow: 0, deny: 0 })).toBe(true);
   });
 
-  it("already denying CONNECT; submitting the identical deny again does not cross", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: PERM_BITS.CONNECT };
-    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.CONNECT }, false)).toBe(false);
+  it("is false when a role without CONNECT is removed", () => {
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1"], allow: 0, deny: 0 })).toBe(false);
   });
 
-  it("role grants VIEW_SECRETS and CONNECT; deny VIEW_SECRETS only does not cross", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.CONNECT)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.VIEW_SECRETS }, false)).toBe(false);
+  it("is true when CONNECT is newly denied, false when already denied", () => {
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT })).toBe(true);
+    const denied = { ...held, permission_deny: PERM_BITS.CONNECT };
+    expect(dropsConnectSource(denied, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.CONNECT })).toBe(false);
   });
 
-  it("role grants VIEW_SECRETS and CONNECT; deny CONNECT crosses, since secrets depend on it", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.VIEW_SECRETS | PERM_BITS.CONNECT)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.CONNECT }, false)).toBe(true);
+  it("is true when CONNECT leaves the allow mask", () => {
+    const allowed = { ...member("u1", []), permission_allow: PERM_BITS.CONNECT, permission_deny: 0 };
+    expect(dropsConnectSource(allowed, roles, { role_ids: [], allow: 0, deny: 0 })).toBe(true);
   });
 
-  it("roleless member with allow CONNECT; clearing to inherit crosses", () => {
-    const m = { ...member("u1", []), permission_allow: PERM_BITS.CONNECT, permission_deny: 0 };
-    expect(crossesVaultKeyGate(m, [], { allow: 0, deny: 0 }, false)).toBe(true);
-  });
-
-  it("role grants CONNECT; deny EDIT_KEYS does not cross", () => {
-    const roles: TeamRole[] = [role("r1", PERM_BITS.CONNECT)];
-    const m = { ...member("u1", ["r1"]), permission_allow: 0, permission_deny: 0 };
-    expect(crossesVaultKeyGate(m, roles, { allow: 0, deny: PERM_BITS.EDIT_KEYS }, false)).toBe(false);
+  it("is false for unrelated bits and for adding a role", () => {
+    expect(dropsConnectSource(held, roles, { role_ids: ["r1", "r2"], allow: 0, deny: PERM_BITS.EDIT_KEYS })).toBe(false);
+    const bare = member("u1", []);
+    expect(dropsConnectSource(bare, roles, { role_ids: ["r1"], allow: 0, deny: 0 })).toBe(false);
   });
 });
 
@@ -395,11 +388,6 @@ describe("lapse principle (mirror of server lapse math)", () => {
         }
       }
     }
-  });
-
-  it("clearing overrides never crosses the key gate on a locked team", () => {
-    const mem = { role_ids: ["member"], permission_allow: B.CONNECT, permission_deny: 0 };
-    expect(crossesVaultKeyGate(mem, roles, { allow: 0, deny: 0 }, true)).toBe(false);
   });
 
   it("lostAccessToLapse is true only when a Business grant carried Connect", () => {

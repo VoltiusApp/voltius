@@ -64,6 +64,13 @@ vi.mock("@/services/teamKeyRotation", () => ({
   checkAndRotateTeamKey: (...a: unknown[]) => h.rotate(...a),
 }));
 
+const gate = vi.hoisted(() => ({ losesVaultKey: vi.fn(), capable: { value: false } }));
+vi.mock("@/services/permissionPreview", () => ({ losesVaultKey: (...a: unknown[]) => gate.losesVaultKey(...a) }));
+vi.mock("@/services/serverCapabilities", async (orig) => ({
+  ...(await orig<typeof import("@/services/serverCapabilities")>()),
+  getServerCapability: () => gate.capable.value,
+}));
+
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
@@ -106,6 +113,8 @@ const baseProps = {
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
+  gate.losesVaultKey.mockReset();
+  gate.capable.value = false;
   h.assign.mockResolvedValue(undefined);
   h.remove.mockResolvedValue(undefined);
   h.removeMember.mockResolvedValue(undefined);
@@ -667,4 +676,61 @@ test("Invited by shows the inviter's member name from the roster", () => {
   render(<MemberDetailPanel {...baseProps} member={{ ...baseMember, invited_by_display_name: "quiet-otter-1" }} />);
   expect(screen.getByText("Jan")).toBeTruthy();
   expect(screen.queryByText("quiet-otter-1")).toBeNull();
+});
+
+const serverGateProps = () => {
+  gate.capable.value = true;
+  return permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] });
+};
+const denyRow = (perm: string) =>
+  within(screen.getByRole("radiogroup", { name: `members.permission.${perm}` })).getByRole("radio", { name: /deny/i });
+
+test("warns_when_the_server_says_the_key_is_lost", async () => {
+  gate.losesVaultKey.mockResolvedValue(true);
+  render(<MemberDetailPanel {...serverGateProps()} />);
+  fireEvent.click(denyRow("EDIT_KEYS"));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).toHaveBeenCalledWith("t1", "u2", { role_ids: ["r-key"], allow: 0, deny: PERM_BITS.EDIT_KEYS });
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+test("no_warning_when_an_object_rule_keeps_connect", async () => {
+  gate.losesVaultKey.mockResolvedValue(false);
+  render(<MemberDetailPanel {...serverGateProps()} />);
+  fireEvent.click(denyRow("CONNECT"));
+
+  await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.CONNECT));
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("warns_on_removing_a_role_that_carried_connect", async () => {
+  gate.capable.value = true;
+  gate.losesVaultKey.mockResolvedValue(true);
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+  fireEvent.click(screen.getByRole("button", { name: "key-role" }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).toHaveBeenCalledWith("t1", "u2", { role_ids: [], allow: 0, deny: 0 });
+  expect(h.remove).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+  await waitFor(() => expect(h.remove).toHaveBeenCalledWith("t1", "u2", "r-key"));
+  await waitFor(() => expect(h.rotate).toHaveBeenCalledWith("t1"));
+});
+
+test("falls_back_to_a_connect_check_when_the_server_is_too_old", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+  fireEvent.click(screen.getByRole("button", { name: "key-role" }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).not.toHaveBeenCalled();
+});
+
+test("falls back to the connect check when the server call fails", async () => {
+  gate.losesVaultKey.mockRejectedValue(new Error("5xx"));
+  render(<MemberDetailPanel {...serverGateProps()} />);
+  fireEvent.click(denyRow("CONNECT"));
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
 });

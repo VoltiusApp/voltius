@@ -18,10 +18,12 @@ import { OwnershipConfirm } from "@/components/members/ownerInvite";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
-  PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, crossesVaultKeyGate,
+  PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, dropsConnectSource,
   resolveMemberReadOnlyReason, type Permission, type MemberReadOnlyReason,
 } from "@/services/permissions";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
+import { losesVaultKey, type MemberDraft } from "@/services/permissionPreview";
+import { getServerCapability } from "@/services/serverCapabilities";
 import {
   PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
 } from "./PermissionOverrideRow";
@@ -95,7 +97,7 @@ export function MemberDetailPanel({
   const [permissionFilter, setPermissionFilter] = useState("");
   // Stores the intent, not the computed masks — commitOverride recomputes them
   // from the render current at confirm time, in case member state changed meanwhile.
-  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | "clear" | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | { kind: "role"; roleId: string; add: boolean } | "clear" | null>(null);
   const [pendingOwnerRole, setPendingOwnerRole] = useState<TeamRole | null>(null);
   const [confirmingPrimary, setConfirmingPrimary] = useState(false);
 
@@ -121,16 +123,22 @@ export function MemberDetailPanel({
     });
   };
 
-  const handleToggleRole = async (role: TeamRole, confirmed = false) => {
+  const wouldLoseKey = async (next: MemberDraft, busy: (on: boolean) => void) => {
+    busy(true);
+    try {
+      if (getServerCapability("permissionPreview")) {
+        try {
+          return await losesVaultKey(teamId, member.user_id, next);
+        } catch { /* fall through to the local check */ }
+      }
+      return !locked && dropsConnectSource(member, teamRoles, next);
+    } finally {
+      busy(false);
+    }
+  };
+
+  const applyRoleToggle = async (role: TeamRole, rotate: boolean) => {
     const hasRole = member.role_ids.includes(role.id);
-    if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
-      setError(t("members.error.cannotRemoveOwnerRole"));
-      return;
-    }
-    if (isOwnerRole(role) && !confirmed) {
-      setPendingOwnerRole(role);
-      return;
-    }
     const store = useTeamStore.getState();
     const assign = () => store.assignMemberRole(teamId, member.user_id, role.id);
     const remove = () => store.removeMemberRole(teamId, member.user_id, role.id);
@@ -154,6 +162,7 @@ export function MemberDetailPanel({
             },
       );
       onUpdated();
+      if (rotate) void checkAndRotateTeamKey(teamId);
       setJustToggled(role.id);
       setTimeout(() => setJustToggled(null), 700);
     } catch (e) {
@@ -161,6 +170,31 @@ export function MemberDetailPanel({
     } finally {
       setToggling(null);
     }
+  };
+
+  const handleToggleRole = async (role: TeamRole, confirmed = false) => {
+    const hasRole = member.role_ids.includes(role.id);
+    if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
+      setError(t("members.error.cannotRemoveOwnerRole"));
+      return;
+    }
+    if (isOwnerRole(role) && !confirmed) {
+      setPendingOwnerRole(role);
+      return;
+    }
+    if (!isOwnerRole(role)) {
+      setError("");
+      const role_ids = hasRole ? member.role_ids.filter((id) => id !== role.id) : [...member.role_ids, role.id];
+      const loses = await wouldLoseKey(
+        { role_ids, allow: member.permission_allow ?? 0, deny: member.permission_deny ?? 0 },
+        (on) => setToggling(on ? role.id : null),
+      );
+      if (loses) {
+        setPendingRevoke({ kind: "role", roleId: role.id, add: !hasRole });
+        return;
+      }
+    }
+    await applyRoleToggle(role, false);
   };
 
   const allow = member.permission_allow ?? 0;
@@ -235,7 +269,7 @@ export function MemberDetailPanel({
 
   const clearOverrides = async () => {
     const cleared = { allow: 0, deny: 0 };
-    if (crossesVaultKeyGate(member, teamRoles, cleared, locked)) {
+    if (await wouldLoseKey({ role_ids: member.role_ids, ...cleared }, setOverriding)) {
       setPendingRevoke("clear");
       return;
     }
@@ -268,7 +302,7 @@ export function MemberDetailPanel({
       return;
     }
     const updated = applyOverrideState(permission, allow, deny, next);
-    if (crossesVaultKeyGate(member, teamRoles, updated, locked)) {
+    if (await wouldLoseKey({ role_ids: member.role_ids, ...updated }, setOverriding)) {
       setPendingRevoke({ permission, next });
       return;
     }
@@ -567,7 +601,10 @@ export function MemberDetailPanel({
           const pending = pendingRevoke;
           setPendingRevoke(null);
           if (pending === "clear") void applyMasks({ allow: 0, deny: 0 }, true);
-          else void commitOverride(pending.permission, pending.next, true);
+          else if ("kind" in pending) {
+            const role = teamRoles.find((r) => r.id === pending.roleId);
+            if (role) void applyRoleToggle(role, true);
+          } else void commitOverride(pending.permission, pending.next, true);
         }}
       />
     )}

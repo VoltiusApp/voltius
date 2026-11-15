@@ -3,7 +3,7 @@ import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
-import type { RuleLayers } from "@/services/permissionPreview";
+import type { MemberDraft, RuleLayers } from "@/services/permissionPreview";
 import { isBusinessLocked, teamLocked } from "@/stores/subscriptionTier";
 
 export type Permission =
@@ -222,14 +222,12 @@ export function effectivePermissions(member: Masks, roles: TeamRole[], locked: b
 
 const VAULT_KEY_GATE = PERM_BITS.CONNECT;
 
-export function crossesVaultKeyGate(member: Masks, roles: TeamRole[], next: { allow: number; deny: number }, locked: boolean): boolean {
-  const before = effectivePermissions(member, roles, locked) & VAULT_KEY_GATE;
-  const after = effectivePermissions(
-    { role_ids: member.role_ids, permission_allow: next.allow, permission_deny: next.deny },
-    roles,
-    locked,
-  ) & VAULT_KEY_GATE;
-  return before !== 0 && after === 0;
+export function dropsConnectSource(member: Masks, roles: TeamRole[], next: MemberDraft): boolean {
+  const removesRoleBit = member.role_ids.some((id) =>
+    !next.role_ids.includes(id) && ((roles.find((r) => r.id === id)?.permissions ?? 0) & VAULT_KEY_GATE) !== 0);
+  const newDeny = (next.deny & ~(member.permission_deny ?? 0) & VAULT_KEY_GATE) !== 0;
+  const lostAllow = (((member.permission_allow ?? 0) & ~next.allow) & VAULT_KEY_GATE) !== 0;
+  return removesRoleBit || newDeny || lostAllow;
 }
 
 export function lostAccessToLapse(member: Masks, roles: TeamRole[]): boolean {
