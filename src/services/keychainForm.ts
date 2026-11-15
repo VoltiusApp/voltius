@@ -68,8 +68,11 @@ export async function unlinkIdentityFromHost(
   conn: Connection,
   updateConnection: (id: string, data: ConnectionFormData) => Promise<unknown>,
 ): Promise<void> {
-  const password = await getSecret(`identity:${identity.id}:password`).catch(() => null);
-  const privateKey = identity.key_id ? await getSecret(`key:${identity.key_id}:private`).catch(() => null) : null;
+  const password = await getSecret(`identity:${identity.id}:password`);
+  const privateKey = identity.key_id ? await getSecret(`key:${identity.key_id}:private`) : null;
+  const keepCached = reportUploadFailure("IdentityForm unlink");
+  if (password) await storeSecret(`password:${conn.id}`, password).catch(keepCached);
+  if (privateKey) await storeSecret(`key:${conn.id}`, privateKey).catch(keepCached);
   const authType: AuthType = privateKey ? "key" : "password";
   await updateConnection(conn.id, {
     ...connectionToFormData(conn),
@@ -78,7 +81,4 @@ export async function unlinkIdentityFromHost(
     identity_id: undefined,
     key_id: undefined,
   });
-  const keepCached = reportUploadFailure("IdentityForm unlink");
-  if (password) await storeSecret(`password:${conn.id}`, password).catch(keepCached);
-  if (privateKey) await storeSecret(`key:${conn.id}`, privateKey).catch(keepCached);
 }

@@ -157,9 +157,22 @@ describe("unlinkIdentityFromHost", () => {
     expect(updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ port_knock, proxy, identity_id: undefined }));
   });
 
-  test("any other storage failure still reaches the caller", async () => {
+  test("any other storage failure still reaches the caller and leaves the host linked", async () => {
     h.getSecret.mockResolvedValue("pw");
     h.storeSecret.mockRejectedValue(new Error("vault locked"));
-    await expect(unlinkIdentityFromHost(identity, host, vi.fn(async () => {}))).rejects.toThrow("vault locked");
+    const updateConnection = vi.fn(async () => {});
+    await expect(unlinkIdentityFromHost(identity, host, updateConnection)).rejects.toThrow("vault locked");
+    expect(updateConnection).not.toHaveBeenCalled();
+  });
+
+  test("a credential that cannot be read leaves the host linked", async () => {
+    h.getSecret.mockImplementation(async (k: string) => {
+      if (k === "key:k1:private") throw new Error("team vault unavailable");
+      return "pw";
+    });
+    const updateConnection = vi.fn(async () => {});
+    await expect(unlinkIdentityFromHost(identity, host, updateConnection)).rejects.toThrow("team vault unavailable");
+    expect(updateConnection).not.toHaveBeenCalled();
+    expect(h.storeSecret).not.toHaveBeenCalled();
   });
 });

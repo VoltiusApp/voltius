@@ -110,7 +110,10 @@
       "keyLabel": "Key Label",
       "keyLabelPlaceholder": "My SSH Key (optional)",
       "editHostTitle": "Edit host",
-      "unlinkTitle": "Unlink — copy credentials inline to host"
+      "unlinkTitle": "Unlink — copy credentials inline to host",
+      "editIdentityTitle": "Edit identity",
+      "unlinkNoPermission": "You don't have permission to unlink this host",
+      "unlinkFailed": "Couldn't unlink “{{name}}”: {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Export",

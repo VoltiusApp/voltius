@@ -30,6 +30,9 @@ import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { useDerivedPublicKey } from "./useDerivedPublicKey";
 import { formatDate } from "@/utils/localeFormat";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { useAllConnections } from "@/hooks/useAllConnections";
+import { useAllIdentities } from "@/hooks/useAllIdentities";
+import { LinkedToSection } from "./LinkedToSection";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
 
 // Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
@@ -167,6 +170,10 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
   });
 
   const handleClose = () => flushAndClose(onClose);
+  const allConnections = useAllConnections();
+  const allIdentities = useAllIdentities();
+  const linkedHosts = useMemo(() => (initial ? allConnections.filter((c) => c.key_id === initial.id) : []), [allConnections, initial?.id]);
+  const linkedIdentities = useMemo(() => (initial ? allIdentities.filter((i) => i.key_id === initial.id) : []), [allIdentities, initial?.id]);
 
   // Generated material flows in here; reveal it in the import view and let
   // autosave persist it like any other key.
@@ -334,6 +341,7 @@ function KeyFormEditor({ initial, initialMode, onSubmit, onClose, onExport, onDe
             </div>
           </div>
         )}
+        {initial && <LinkedToSection hosts={linkedHosts} identities={linkedIdentities} onLeave={handleClose} />}
         {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="key" />}
       </div>
     </PanelShell>

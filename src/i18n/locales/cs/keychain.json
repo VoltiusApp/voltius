@@ -126,7 +126,10 @@
       "keyLabel": "Označení klíče",
       "keyLabelPlaceholder": "Můj SSH klíč (volitelné)",
       "editHostTitle": "Upravit host",
-      "unlinkTitle": "Zrušit propojení — zkopírovat přihlašovací údaje přímo do nastavení hostu"
+      "unlinkTitle": "Zrušit propojení — zkopírovat přihlašovací údaje přímo do nastavení hostu",
+      "editIdentityTitle": "Upravit identitu",
+      "unlinkNoPermission": "Nemáte oprávnění zrušit propojení tohoto hostu",
+      "unlinkFailed": "Propojení s „{{name}}“ se nepodařilo zrušit: {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Export",
