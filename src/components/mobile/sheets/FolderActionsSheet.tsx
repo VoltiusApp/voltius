@@ -4,6 +4,8 @@ import BottomSheet from "./BottomSheet";
 import FolderFormSheet, { type FolderEdit } from "./FolderFormSheet";
 import type { Folder } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { folderAccessType } from "@/components/folders/useFolderPin";
 
 type Mode = "menu" | "edit" | "confirm-delete";
 
@@ -28,7 +30,9 @@ export default function FolderActionsSheet({
         initialAppearance={{ color: folder.color, icon: folder.icon }}
         onSubmit={onSave}
         onClose={onClose}
-      />
+      >
+        <PermissionsSection objectId={folder.id} vaultId={folder.vault_id} type={folderAccessType(folder)} />
+      </FolderFormSheet>
     );
   }
 

@@ -12,6 +12,11 @@ vi.mock("@/components/snippets/ScriptEditor", () => ({
     <textarea data-test-script value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
+vi.mock("@/components/permissions/PermissionsSection", () => ({
+  PermissionsSection: ({ objectId, type }: { objectId: string; type: string }) => (
+    <div data-test-permissions={`${type}:${objectId}`} />
+  ),
+}));
 vi.mock("@/services/teamService", async (io) => ({
   ...(await io<Record<string, unknown>>()),
   getMyUserId: async () => "u1",
@@ -115,4 +120,10 @@ test("a new snippet started inside a folder is saved in that folder and its vaul
   await act(async () => (document.querySelector("[data-mobile-snippet-save]") as HTMLButtonElement).click());
 
   expect(createSnippet).toHaveBeenCalledWith(expect.objectContaining({ name: "Build", folder_id: "f1", vault_id: "team-1" }));
+});
+
+test("shows the snippet's Permissions section", () => {
+  grantOnS1(PERM_BITS.VIEW | PERM_BITS.EDIT_SNIPPETS);
+  mount();
+  expect(document.querySelector("[data-test-permissions='snippet:s1']")).not.toBeNull();
 });
