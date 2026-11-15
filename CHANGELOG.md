@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-11-15
+
+### Added
+
+- Invite screens show the seats of the team you are inviting into, and ∞ when that team has no seat cap. An own Teams or Business plan with no cap now reads as unlimited in Settings › Account. Needs the matching server update (#882)
+
+### Changed
+
+- Permission rows show the effective result in colour, green for allowed and red for denied, including when an explicit Allow or Deny is set. On an object's Everyone and role tabs, "with exceptions" appears when a more specific role or member rule changes the result (#883)
+
+### Fixed
+
+- On mobile, snippets and folders have a Permissions section, as on desktop (#884)
+- A folder copied in one vault can be pasted after switching to another vault. It was reported as gone and skipped, and its nested folders and their contents were dropped (#880)
+
 ## [0.74.0] - 2026-11-14
 
 ### Changed
