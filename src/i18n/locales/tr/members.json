@@ -583,7 +583,8 @@
       "serverTooOld": "\"Şu olarak görüntüle\" özelliğini kullanmak için sunucunuzu güncelleyin",
       "noPermission": "Bunu önizleme izniniz yok",
       "ended": "Önizleme sona erdi: bu üye veya rol artık mevcut değil",
-      "failed": "Önizleme yüklenemedi"
+      "failed": "Önizleme yüklenemedi",
+      "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir"
     }
   }
 }

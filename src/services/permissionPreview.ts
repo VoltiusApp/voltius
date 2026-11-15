@@ -37,6 +37,7 @@ export interface PreviewResponse {
 }
 
 export class PreviewSubjectGoneError extends Error {
+  readonly status = 404;
   constructor() {
     super(i18n.t("members.viewAs.ended"));
     this.name = "PreviewSubjectGoneError";
@@ -56,7 +57,7 @@ export async function previewPermissions(teamId: string, req: PreviewRequest): P
   if (res.ok) return res.json();
   refuseIfPlanRequired(res);
   if (res.status === 404) throw new PreviewSubjectGoneError();
-  if (res.status === 403) throw new Error(i18n.t("members.viewAs.noPermission"));
+  if (res.status === 403) throw Object.assign(new Error(i18n.t("members.viewAs.noPermission")), { status: 403 });
   throw new Error(i18n.t("members.viewAs.failed"));
 }
 

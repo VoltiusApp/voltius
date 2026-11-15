@@ -579,7 +579,8 @@
       "serverTooOld": "Update your server to use View as",
       "noPermission": "You don't have permission to preview this",
       "ended": "The preview ended: this member or role is no longer available",
-      "failed": "Could not load the preview"
+      "failed": "Could not load the preview",
+      "needsBusiness": "View as is part of Business"
     }
   }
 }

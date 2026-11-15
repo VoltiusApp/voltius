@@ -600,7 +600,8 @@
       "serverTooOld": "Atualize o seu servidor para usar Ver como",
       "noPermission": "Não tem permissão para pré-visualizar isto",
       "ended": "A pré-visualização terminou: este membro ou função já não está disponível",
-      "failed": "Não foi possível carregar a pré-visualização"
+      "failed": "Não foi possível carregar a pré-visualização",
+      "needsBusiness": "«Ver como» faz parte do plano Business"
     }
   }
 }
