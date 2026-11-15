@@ -1,5 +1,6 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act } from "@testing-library/react";
+import { runPaste } from "@/services/vaultClipboard";
 import type { Folder, Snippet } from "@/types";
 
 function folder(id: string, over: Partial<Folder> = {}): Folder {
@@ -40,6 +41,11 @@ const h = vi.hoisted(() => ({
   bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -208,6 +214,8 @@ vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: 
 
 import { SnippetsPage } from "./SnippetsPage";
 
+const settle = () => act(async () => { await runPaste(async () => {}); });
+
 beforeEach(() => {
   vi.clearAllMocks();
   h.confirmModals = [];
@@ -291,7 +299,7 @@ test("the eject zone appears only inside a folder and names the parent when ther
   render(<SnippetsPage />).getByText('snippets.page.ejectMoveTo:{"name":"Parent"}');
 });
 
-test("moving a folder to a vault runs straight away — snippets have no cascade prompt", async () => {
+test("moving a folder to a vault carries its whole subtree", async () => {
   h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
   h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" }), folder("leaf", { parent_folder_id: "mid" })];
   h.snippets = [snippet("s-root", { folder_id: "root" }), snippet("s-leaf", { folder_id: "leaf" }), snippet("s-outside")];
@@ -299,7 +307,8 @@ test("moving a folder to a vault runs straight away — snippets have no cascade
   render(<SnippetsPage />);
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
-  await act(async () => { await (card.onMoveToVault as (v: string) => void | Promise<void>)("team-1"); });
+  act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
+  await settle();
 
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
   expect(h.updateFolder.mock.calls.every((c) => (c[1] as { vault_id: string }).vault_id === "team-1")).toBe(true);
@@ -314,7 +323,8 @@ test("copying a folder to a vault recreates the subtree and re-parents the snipp
   render(<SnippetsPage />);
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
-  await act(async () => { await (card.onCopyToVault as (v: string) => void | Promise<void>)("team-1"); });
+  act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
+  await settle();
 
   expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
   expect((h.saveFolder.mock.calls[1][0] as { parent_folder_id: string }).parent_folder_id).toBe("new-root");

@@ -97,6 +97,10 @@ function FolderEditPanelEditor({
   const handleClose = () => flushAndClose(onClose);
 
   const handleVaultChange = (id: string) => {
+    if (onMoveToVault) {
+      onMoveToVault(id);
+      return false;
+    }
     setVaultId(id);
     // Vault changes save immediately (not autosaved) to avoid race with folder.id
     onUpdate(folder.id, buildFormData({ vault_id: id }));

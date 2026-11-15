@@ -41,10 +41,6 @@
         "message_other": "Папка, её подпапки и {{count}} правил внутри будут удалены. Это действие нельзя отменить.",
         "messageEmpty": "Папка и всё её содержимое будут удалены. Это действие нельзя отменить."
       },
-      "vaultCascade": {
-        "moveDescription": "При перемещении \"{{folderName}}\" также будут перемещены следующие правила в {{targetVaultName}}:",
-        "copyDescription": "При копировании \"{{folderName}}\" также будут скопированы следующие правила в {{targetVaultName}}:"
-      },
       "bulk": {
         "duplicateRules_one": "Дублировать {{count}} правило",
         "duplicateRules_few": "Дублировать {{count}} правила",

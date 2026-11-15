@@ -61,10 +61,6 @@
       "draft": {
         "unsaved": "Unsaved"
       },
-      "vaultCascade": {
-        "moveDescription": "Moving \"{{folderName}}\" will also move the following items to {{targetVaultName}}:",
-        "copyDescription": "Copying \"{{folderName}}\" will also copy the following items to {{targetVaultName}}:"
-      },
       "bulk": {
         "executeSnippetOn_one": "Execute Snippet on {{count}} host",
         "executeSnippetOn_other": "Execute Snippet on {{count}} hosts",

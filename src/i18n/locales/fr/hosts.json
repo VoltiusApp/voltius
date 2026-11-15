@@ -62,10 +62,6 @@
       "draft": {
         "unsaved": "Non enregistré"
       },
-      "vaultCascade": {
-        "moveDescription": "Déplacer \"{{folderName}}\" déplacera aussi les éléments suivants vers {{targetVaultName}} :",
-        "copyDescription": "Copier \"{{folderName}}\" copiera aussi les éléments suivants vers {{targetVaultName}} :"
-      },
       "bulk": {
         "executeSnippetOn_one": "Exécuter un snippet sur {{count}} hôte",
         "executeSnippetOn_many": "Exécuter un snippet sur {{count}} hôtes",

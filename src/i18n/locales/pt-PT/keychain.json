@@ -59,10 +59,6 @@
         "folderCascade_one": "{{count}} item arquivado nas pastas selecionadas também será eliminado.",
         "folderCascade_other": "{{count}} itens arquivados nas pastas selecionadas também serão eliminados.",
         "folderCascade_many": "{{count}} itens arquivados nas pastas selecionadas também serão eliminados."
-      },
-      "vaultCascade": {
-        "moveDescription": "Mover \"{{folderName}}\" também moverá os seguintes itens para {{targetVaultName}}:",
-        "copyDescription": "Copiar \"{{folderName}}\" também copiará os seguintes itens para {{targetVaultName}}:"
       }
     },
     "cards": {

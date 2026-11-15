@@ -15,16 +15,6 @@ interface CloneFolderTreeInput<T extends { id: string }> {
   saveFolder: SaveFolder<T>;
 }
 
-interface CopyFolderSubtreeInput<T extends { id: string }> {
-  root: Folder;
-  /** `root`'s descendants, breadth-first — a parent must exist before its child. */
-  subFolders: Folder[];
-  vaultId: string;
-  /** Every folder already in the app, to spot a name clash in the destination. */
-  existingFolders: Folder[];
-  saveFolder: SaveFolder<T>;
-}
-
 /**
  * Recreates a folder and its subtree under `parentFolderId`, returning the new
  * root and old id → new id for every folder created, so the caller can re-file
@@ -61,32 +51,4 @@ export async function cloneFolderTree<T extends { id: string }>({
   }
 
   return { root: newRoot, folderIdMap };
-}
-
-/**
- * Recreates a folder and its subtree in another vault, returning old id → new id
- * for every folder created, so the caller can re-file the items underneath.
- *
- * Only the root takes a "(copy)" suffix, and only when the destination already
- * holds a folder of that name — the subfolders keep theirs.
- */
-export async function copyFolderSubtree<T extends { id: string }>({
-  root,
-  subFolders,
-  vaultId,
-  existingFolders,
-  saveFolder,
-}: CopyFolderSubtreeInput<T>): Promise<Map<string, string>> {
-  const destHasName = existingFolders.some(
-    (f) => (f.vault_id ?? "personal") === vaultId && f.object_type === root.object_type && f.name === root.name,
-  );
-  const { folderIdMap } = await cloneFolderTree({
-    root,
-    subFolders,
-    parentFolderId: root.parent_folder_id ?? null,
-    vaultId,
-    keepName: !destHasName,
-    saveFolder,
-  });
-  return folderIdMap;
 }

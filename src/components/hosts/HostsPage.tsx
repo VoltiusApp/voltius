@@ -9,7 +9,6 @@ import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
-import { duplicateConnection, duplicateFormData, copyConnectionSecrets, moveConnectionToVault } from "@/services/connectionDuplicate";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -17,9 +16,8 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { useShortcutHint } from "@/stores/shortcutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useFolderStore } from "@/stores/folderStore";
-import { storeSecret, getSecret } from "@/services/vault";
 import { useUIContributions } from "@/hooks/useUIContributions";
-import type { Connection, ConnectionFormData, Folder, SshKey, Identity, NewObjectPlacement } from "@/types";
+import type { Connection, ConnectionFormData, Folder, NewObjectPlacement } from "@/types";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
@@ -31,16 +29,15 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
-import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { usePermissions } from "@/hooks/usePermission";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
-import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
-import { connectionsClipboardHalf } from "@/services/clipboard/connections";
+import { useVaultObjectsClipboard } from "@/hooks/useVaultObjectsClipboard";
+import { storeObjectPorts } from "@/services/vaultObjectStores";
+import { duplicateInPlace } from "@/services/vaultObjectWrites";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
@@ -64,32 +61,26 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
-import { reportUploadFailure } from "@/services/secretRouting";
-import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm, type HostFormSecrets } from "@/services/hostForm";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
+import { foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
-import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
-import { moveFolderTreeToVault } from "@/utils/folderMove";
-import { copyingRulesOf } from "@/services/ruleSetIntent";
-import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
+import { passMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
 
 
 export default function HostsPage() {
   const { t } = useTranslation();
   const omniHint = useShortcutHint("omni");
-  const { loadConnections, saveConnection, updateConnection, deleteConnection, renameTag, deleteTag } =
+  const { loadConnections, updateConnection, deleteConnection, renameTag, deleteTag } =
     useConnectionStore();
   const connections = useAllConnections();
-  const { identities, updateIdentity } = useIdentityStore();
-  const { keys, updateKey } = useKeyStore();
-  const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
+  const { identities } = useIdentityStore();
+  const { keys } = useKeyStore();
   const crossVaultPaste = useCrossVaultPasteConfirm();
   const { connect, connectMany, connectLocal, connectSerialEphemeral, sessions } = useSessionStore();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
@@ -114,7 +105,6 @@ export default function HostsPage() {
   const editing = editingId ? (connections.find((c) => c.id === editingId) ?? null) : null;
   const isEditingSerial = editing?.connection_type === "serial";
   const [error, setError] = useState<string | null>(null);
-  const reportError = unlessMoveCancelled(setError);
   const reportSaveError = passMoveCancelled(setError);
   const formRef = useRef<ConnectionFormHandle>(null);
   const serialFormRef = useRef<ConnectionFormHandle>(null);
@@ -327,10 +317,7 @@ export default function HostsPage() {
     [clipboard],
   );
 
-  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
-    navItem: "hosts",
-    entities: [{ kind: "connection", items: connections }],
-    folders: connectionFolders,
+  const { transferToVault, moveToVault: handleMoveToVault, copyToVault: handleCopyToVault } = useVaultObjectsClipboard("hosts", {
     selectedIdSet,
     focusedId,
     activeFolderId,
@@ -340,54 +327,6 @@ export default function HostsPage() {
     can,
     confirmCrossVault: crossVaultPaste.confirmCrossVault,
     setSelection,
-    // Wrapped, not passed: both are declared further down the component.
-    migrateFolderTreeToVault: (folder, parentFolderId, vaultId) =>
-      migrateFolderTreeToVault(folder, parentFolderId, vaultId),
-    moveFolder,
-    copyFolderInto: (id, parentFolderId, vaultId, opts) =>
-      handleCopyFolderInto(id, parentFolderId, vaultId, opts),
-    deleteFolder,
-  });
-
-  // Both stores are only filled by a sync or by opening Keychain, and the paste
-  // cascade reads them to decide what a host's references need. Empty ones made it
-  // decide there was nothing to carry — pasting a host across vaults and silently
-  // leaving its key behind, which is exactly what the check exists to prevent.
-  useEffect(() => {
-    if (keys.length === 0) void useKeyStore.getState().loadKeys();
-    if (identities.length === 0) void useIdentityStore.getState().loadIdentities();
-  }, []);
-
-  // Owned by the page, not the factory: usePageClipboard dereferences the adapter
-  // through a ref, so a store write mid-`applyCascade` can re-render the page and
-  // rebuild `connectionsClipboard` before the paste reaches duplicateItems/moveItems.
-  // A remap living inside the factory call would be discarded by that re-render.
-  const cascadeRemap = useRef<{ identities: Map<string, string>; keys: Map<string, string> }>({
-    identities: new Map(),
-    keys: new Map(),
-  });
-
-  const connectionsClipboard = connectionsClipboardHalf({
-    connections,
-    keys,
-    identities,
-    getConnectionsInFolderTree,
-    vaultForFolder,
-    updateConnection,
-    deleteConnection,
-    loadConnections,
-    moveObjectsToFolder,
-    duplicateInto: handleDuplicateInto,
-    updateKey,
-    saveKey: (form) => useKeyStore.getState().saveKey(form),
-    updateIdentity,
-    saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
-  }, cascadeRemap.current);
-
-  // Every mutation below goes through a store method so vault permission checks apply.
-  usePageClipboard({
-    ...clipboardBase,
-    ...connectionsClipboard,
   });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
@@ -418,22 +357,9 @@ export default function HostsPage() {
     }),
   });
 
-  /**
-   * Duplicates `conn` into `folderId`, optionally into another vault. `keepName`
-   * is for members of a subtree being cloned wholesale — only the root of such a
-   * clone carries the "(copy)" suffix. Throws; callers surface the error.
-   */
-  function handleDuplicateInto(
-    conn: Connection,
-    folderId: string | null,
-    opts: { vaultId?: string; keepName?: boolean; identityId?: string; keyId?: string } = {},
-  ) {
-    return duplicateConnection(conn, folderId, opts, saveConnection);
-  }
-
   const handleDuplicate = async (conn: Connection) => {
     try {
-      await handleDuplicateInto(conn, conn.folder_id ?? null);
+      await duplicateInPlace(storeObjectPorts, "connection", conn);
     } catch (err) {
       setError(describeError(err, t));
     }
@@ -517,15 +443,7 @@ export default function HostsPage() {
       .map((v) => ({
         label: v.name,
         icon: operation === "move" ? "lucide:vault" : "lucide:copy-plus",
-        onClick: () => {
-          if (operation === "move") {
-            for (const folder of selectedFolders) handleMoveFolderToVault(folder, v.id);
-            for (const conn of selectedConns) handleMoveConnectionToVault(conn, v.id);
-          } else {
-            for (const folder of selectedFolders) handleCopyFolderToVault(folder, v.id);
-            for (const conn of selectedConns) handleCopyConnectionToVault(conn, v.id);
-          }
-        },
+        onClick: () => transferToVault([...folderIds, ...ids], v.id, operation === "move" ? "cut" : "copy"),
       }));
     const moveChildren = bulkVaultChildren("move");
     const copyChildren = bulkVaultChildren("copy");
@@ -603,87 +521,7 @@ export default function HostsPage() {
     }
   };
 
-  const handleMoveConnectionToVault = (conn: Connection, vaultId: string) => {
-    const identity = conn.identity_id ? identities.find((i) => i.id === conn.identity_id) : undefined;
-    const key = identity?.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
-    const identityNeedsMove = identity && (identity.vault_id ?? "personal") !== vaultId;
-    const keyNeedsMove = key && (key.vault_id ?? "personal") !== vaultId;
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    requestCascade({
-      operation: "move",
-      targetVaultName,
-      items: [
-        ...(keyNeedsMove ? [{ type: "key" as const, label: key.name ?? "Unnamed key" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */ }] : []),
-        ...(identityNeedsMove ? [{ type: "identity" as const, label: identity.name || identity.username }] : []),
-      ],
-      execute: async () => {
-        try {
-          if (keyNeedsMove) {
-            await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
-          }
-          if (identityNeedsMove) {
-            await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
-          }
-          await moveConnectionToVault(conn, vaultId, updateConnection);
-        } catch (err) { reportError(err); }
-      },
-    });
-  };
-
-  const handleCopyConnectionToVault = (conn: Connection, vaultId: string) => {
-    const identity = conn.identity_id ? identities.find((i) => i.id === conn.identity_id) : undefined;
-    const key = identity?.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
-    const identityNeedsCopy = identity && (identity.vault_id ?? "personal") !== vaultId;
-    const keyNeedsCopy = key && (key.vault_id ?? "personal") !== vaultId;
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    requestCascade({
-      operation: "copy",
-      targetVaultName,
-      items: [
-        ...(keyNeedsCopy ? [{ type: "key" as const, label: key.name ?? "Unnamed key" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */ }] : []),
-        ...(identityNeedsCopy ? [{ type: "identity" as const, label: identity.name || identity.username }] : []),
-      ],
-      execute: async () => {
-        try {
-          let newKeyId = identity?.key_id;
-          let newIdentityId = conn.identity_id;
-
-          if (keyNeedsCopy) {
-            const newKey = await useKeyStore.getState().saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
-            const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`),
-              getSecret(`key:${key.id}:public`),
-            ]);
-            if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("HostsPage: copy key to vault"));
-            if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("HostsPage: copy key to vault"));
-            newKeyId = newKey.id;
-          }
-
-          if (identityNeedsCopy) {
-            const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
-            const pwd = await getSecret(`identity:${identity.id}:password`);
-            if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(reportUploadFailure("HostsPage: copy identity to vault"));
-            newIdentityId = newIdentity.id;
-          }
-
-          const destHasConnName = conn.name && connections.some((c) => (c.vault_id ?? "personal") === vaultId && c.name === conn.name);
-          const newConn = await saveConnection(duplicateFormData(conn, conn.folder_id ?? null, {
-            vaultId, keepName: !destHasConnName, identityId: newIdentityId,
-          }));
-          if (newConn) {
-            await copyConnectionSecrets(conn.id, newConn.id, { copyKey: !conn.key_id });
-          }
-        } catch (err) { setError(describeError(err, t)); }
-      },
-    });
-  };
-
   // ── Folder vault move / copy ──────────────────────────────────────────────
-
-  /** Returns all folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(connectionFolders, folderId);
 
   /** Returns all connections nested anywhere under folderId. */
   function getConnectionsInFolderTree(folderId: string): Connection[] {
@@ -696,169 +534,6 @@ export default function HostsPage() {
     folders: scopedFolders,
     itemIdsInFolderTree: (id) => getConnectionsInFolderTree(id).map((c) => c.id),
   });
-
-  const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
-    const allConns = getConnectionsInFolderTree(folder.id);
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    // Collect unique linked identities and keys that need to move
-    const identityMap = new Map<string, Identity>();
-    const keyMap = new Map<string, SshKey>();
-    for (const conn of allConns) {
-      const identity = conn.identity_id ? identities.find((i) => i.id === conn.identity_id) : undefined;
-      const key = identity?.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
-      if (identity && (identity.vault_id ?? "personal") !== vaultId) identityMap.set(identity.id, identity);
-      if (key && (key.vault_id ?? "personal") !== vaultId) keyMap.set(key.id, key);
-    }
-
-    const cascadeItems = [
-      ...allConns.map((c) => ({ type: "connection" as const, label: c.name ?? c.host })),
-      ...[...keyMap.values()].map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */ })),
-      ...[...identityMap.values()].map((i) => ({ type: "identity" as const, label: i.name || i.username })),
-    ];
-
-    requestCascade({
-      operation: "move",
-      targetVaultName,
-      description: t("hosts.page.vaultCascade.moveDescription", { folderName: folder.name, targetVaultName }),
-      items: cascadeItems,
-      execute: async () => {
-        try {
-          for (const key of keyMap.values()) {
-            await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
-          }
-          for (const identity of identityMap.values()) {
-            await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
-          }
-          await migrateFolderTreeToVault(folder, folder.parent_folder_id ?? null, vaultId);
-        } catch (err) { reportError(err); }
-      },
-    });
-  };
-
-  const handleCopyFolderToVault = (folder: Folder, vaultId: string) => {
-    const subFolders = getAllSubFolders(folder.id);
-    const allConns = getConnectionsInFolderTree(folder.id);
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    // Collect unique linked identities/keys that need to be copied (not already in target vault)
-    const identityMap = new Map<string, Identity>();
-    const keyMap = new Map<string, SshKey>();
-    for (const conn of allConns) {
-      const identity = conn.identity_id ? identities.find((i) => i.id === conn.identity_id) : undefined;
-      const key = identity?.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
-      if (identity && (identity.vault_id ?? "personal") !== vaultId) identityMap.set(identity.id, identity);
-      if (key && (key.vault_id ?? "personal") !== vaultId) keyMap.set(key.id, key);
-    }
-
-    const cascadeItems = [
-      ...allConns.map((c) => ({ type: "connection" as const, label: c.name ?? c.host })),
-      ...[...keyMap.values()].map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */ })),
-      ...[...identityMap.values()].map((i) => ({ type: "identity" as const, label: i.name || i.username })),
-    ];
-
-    requestCascade({
-      operation: "copy",
-      targetVaultName,
-      description: t("hosts.page.vaultCascade.copyDescription", { folderName: folder.name, targetVaultName }),
-      items: cascadeItems,
-      execute: async () => {
-        try {
-          // Create root folder + sub-folders (BFS order ensures parent exists before child)
-          const folderIdMap = await copyFolderSubtree({
-            root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
-          });
-          const newRootId = folderIdMap.get(folder.id)!;
-
-          // Copy keys
-          const keyIdMap = new Map<string, string>();
-          for (const key of keyMap.values()) {
-            const newKey = await useKeyStore.getState().saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
-            const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`),
-              getSecret(`key:${key.id}:public`),
-            ]);
-            if (priv) {
-              await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("HostsPage: copy folder key"));
-            }
-            if (pub) {
-              await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("HostsPage: copy folder key"));
-            }
-            keyIdMap.set(key.id, newKey.id);
-          }
-
-          // Copy identities
-          const identityIdMap = new Map<string, string>();
-          for (const identity of identityMap.values()) {
-            const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
-            const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
-            const pwd = await getSecret(`identity:${identity.id}:password`);
-            if (pwd) {
-              await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(reportUploadFailure("HostsPage: copy folder identity"));
-            }
-            identityIdMap.set(identity.id, newIdentity.id);
-          }
-
-          // Copy connections
-          for (const conn of allConns) {
-            const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newRootId) : newRootId;
-            const newConn = await saveConnection(duplicateFormData(conn, newFolderId, {
-              vaultId,
-              keepName: true,
-              identityId: identityIdMap.get(conn.identity_id ?? ""),
-              keyId: keyIdMap.get(conn.key_id ?? ""),
-            }));
-            if (newConn) {
-              await copyConnectionSecrets(conn.id, newConn.id, { copyKey: !conn.key_id });
-            }
-          }
-        } catch (err) { setError(describeError(err, t)); }
-      },
-    });
-  };
-
-  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
-  const handleCopyFolderInto = async (
-    folderId: string,
-    parentFolderId: string | null,
-    vaultId?: string,
-    opts: { keepName?: boolean } = {},
-  ) => {
-    const folder = connectionFolders.find((f) => f.id === folderId);
-    if (!folder) throw new Error(`Unknown folder ${folderId}`);
-    const targetVaultId = vaultId ?? folder.vault_id;
-    const { root, folderIdMap } = await cloneFolderTree({
-      root: folder,
-      subFolders: getAllSubFolders(folder.id),
-      parentFolderId,
-      vaultId: targetVaultId,
-      keepName: opts.keepName ?? false,
-      saveFolder,
-    });
-    for (const conn of getConnectionsInFolderTree(folder.id)) {
-      await handleDuplicateInto(conn, folderIdMap.get(conn.folder_id ?? "") ?? root.id, {
-        vaultId: targetVaultId,
-        keepName: true,
-      });
-    }
-    return root;
-  };
-
-  /**
-   * Moves a folder subtree into `vaultId`, reparenting the root at the same time.
-   * Same updateFolder/updateConnection path handleMoveFolderToVault uses, so the
-   * team-vault migration logic in the stores applies.
-   */
-  const migrateFolderTreeToVault = async (
-    folder: Folder,
-    parentFolderId: string | null,
-    vaultId: string,
-  ) => {
-    await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
-    for (const conn of getConnectionsInFolderTree(folder.id)) {
-      await moveConnectionToVault(conn, vaultId, updateConnection);
-    }
-  };
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
@@ -884,8 +559,8 @@ export default function HostsPage() {
         onDuplicate={handleDuplicate}
         onExecuteSnippet={(c) => openSnippetPicker([c.id])}
         onDelete={handleDeleteConnection}
-        onMoveToVault={handleMoveConnectionToVault}
-        onCopyToVault={handleCopyConnectionToVault}
+        onMoveToVault={handleMoveToVault}
+        onCopyToVault={handleCopyToVault}
         bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
         onPointerDown={(e) => handleDragStart(e, conn.id)}
       />
@@ -902,8 +577,8 @@ export default function HostsPage() {
     onConnect: editing ? () => void handleConnect(editing) : undefined,
     onDelete: editing ? () => { deleteConnection(editing.id); closeHostForm(); } : undefined,
     vaults: editing ? vaultOptions.filter((v) => v.id !== (editing.vault_id ?? "personal")) : [],
-    onMoveToVault: editing ? (vaultId: string) => { void handleMoveConnectionToVault(editing, vaultId); } : undefined,
-    onCopyToVault: editing ? (vaultId: string) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined,
+    onMoveToVault: editing ? (vaultId: string) => handleMoveToVault(editing, vaultId) : undefined,
+    onCopyToVault: editing ? (vaultId: string) => handleCopyToVault(editing, vaultId) : undefined,
   };
 
   return (
@@ -931,8 +606,8 @@ export default function HostsPage() {
               onSelectSelf={() => selectSingle(editingFolder.id)}
               parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
-              onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
+              onMoveToVault={(vaultId) => handleMoveToVault(editingFolder, vaultId)}
+              onCopyToVault={(vaultId) => handleCopyToVault(editingFolder, vaultId)}
             />
           )}
           {!showSnippetPicker && showSerialForm && (
@@ -1058,8 +733,8 @@ export default function HostsPage() {
                           {...(canEditFolder ? folderDropProps(folder.id) : {})}
                           vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                           canEdit={canEditFolder}
-                          onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
-                          onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
+                          onMoveToVault={(vaultId) => handleMoveToVault(folder, vaultId)}
+                          onCopyToVault={(vaultId) => handleCopyToVault(folder, vaultId)}
                           bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                         />
                       );
@@ -1179,14 +854,6 @@ export default function HostsPage() {
           cascade={crossVaultPaste.pending}
           onConfirm={crossVaultPaste.accept}
           onCancel={crossVaultPaste.cancel}
-        />
-      )}
-
-      {cascadePending && (
-        <VaultCascadeModal
-          cascade={cascadePending}
-          onConfirm={() => { void confirmCascade(); }}
-          onCancel={cancelCascade}
         />
       )}
 

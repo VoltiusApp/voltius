@@ -36,9 +36,7 @@ import {
 import { snippetMatcher, snippetScriptText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
-import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
-import { snippetsClipboardHalf } from "@/services/clipboard/snippets";
+import { useVaultObjectsClipboard } from "@/hooks/useVaultObjectsClipboard";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
@@ -63,15 +61,13 @@ import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
+import { foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { exceptItems, folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
-import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
-import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
 
@@ -457,10 +453,7 @@ export function SnippetsPage() {
 
   const crossVaultPaste = useCrossVaultPasteConfirm();
 
-  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
-    navItem: "snippets",
-    entities: [{ kind: "snippet", items: snippets }],
-    folders,
+  const { transferToVault, moveToVault: handleMoveToVault, copyToVault: handleCopyToVault } = useVaultObjectsClipboard("snippets", {
     selectedIdSet,
     focusedId,
     activeFolderId,
@@ -470,24 +463,6 @@ export function SnippetsPage() {
     can,
     confirmCrossVault: crossVaultPaste.confirmCrossVault,
     setSelection,
-    migrateFolderTreeToVault,
-    moveFolder,
-    copyFolderInto,
-    deleteFolder,
-  });
-
-  // Every mutation below goes through a store method so vault permission checks apply.
-  // Snippets own no secrets, so nothing has to be republished on a cross-vault write.
-  usePageClipboard({
-    ...clipboardBase,
-    ...snippetsClipboardHalf({
-      snippets,
-      getSnippetsInFolderTree,
-      vaultForFolder,
-      updateSnippet,
-      duplicateSnippetInto,
-      deleteSnippet,
-    }),
   });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
@@ -547,11 +522,9 @@ export function SnippetsPage() {
         icon: operation === "move" ? "lucide:vault" : "lucide:copy-plus",
         onClick: () => {
           if (operation === "move") {
-            for (const folder of selectedFolders) void handleMoveFolderToVault(folder, v.id);
-            for (const snippet of selectedSnippets) void handleMoveToVault(snippet, v.id);
+            transferToVault([...selectedFolders, ...selectedSnippets].map((o) => o.id), v.id, "cut");
           } else {
-            for (const folder of selectedFolders) void handleCopyFolderToVault(folder, v.id);
-            for (const snippet of selectedSnippets) void handleCopyToVault(snippet, v.id);
+            transferToVault([...selectedFolders, ...selectedSnippets].map((o) => o.id), v.id, "copy");
           }
         },
       }));
@@ -723,26 +696,7 @@ export function SnippetsPage() {
     }
   }
 
-  async function handleMoveToVault(snippet: Snippet, vaultId: string) {
-    await updateSnippet(snippet.id, { ...snippetToForm(snippet), vault_id: vaultId });
-  }
-
-  async function handleCopyToVault(snippet: Snippet, vaultId: string) {
-    const destHasName = snippets.some((s) => (s.vault_id ?? "personal") === vaultId && s.name === snippet.name);
-    await createSnippet(copyingRulesOf({
-      ...snippetToForm(snippet),
-      name: destHasName ? `${snippet.name} (copy)` : snippet.name,
-      vault_id: vaultId,
-      favorite: false,
-    }, snippet.id));
-  }
-
   // ── Folder vault move / copy ──────────────────────────────────────────────
-
-  /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  function getAllSubFolders(folderId: string): Folder[] {
-    return descendantFolders(folders, folderId);
-  }
 
   function getSnippetsInFolderTree(folderId: string): Snippet[] {
     return itemsInFolderSubtree(snippets, folders, folderId);
@@ -754,89 +708,6 @@ export function SnippetsPage() {
     folders,
     itemIdsInFolderTree: (id) => getSnippetsInFolderTree(id).map((s) => s.id),
   });
-
-  async function handleMoveFolderToVault(folder: Folder, vaultId: string) {
-    try {
-      const subFolders = getAllSubFolders(folder.id);
-      const treeSnippets = getSnippetsInFolderTree(folder.id);
-      await moveFolderTreeToVault({ root: folder, subFolders, parentFolderId: folder.parent_folder_id ?? null, vaultId, updateFolder });
-      for (const s of treeSnippets) {
-        await updateSnippet(s.id, { ...snippetToForm(s), vault_id: vaultId });
-      }
-    } catch (err) { console.error(err); }
-  }
-
-  async function handleCopyFolderToVault(folder: Folder, vaultId: string) {
-    try {
-      const subFolders = getAllSubFolders(folder.id);
-      const treeSnippets = getSnippetsInFolderTree(folder.id);
-      const folderIdMap = await copyFolderSubtree({
-        root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
-      });
-      const newRootId = folderIdMap.get(folder.id)!;
-      for (const s of treeSnippets) {
-        const newFolderId = s.folder_id ? (folderIdMap.get(s.folder_id) ?? newRootId) : newRootId;
-        const destHasSnippetName = snippets.some((x) => (x.vault_id ?? "personal") === vaultId && x.name === s.name);
-        await createSnippet(copyingRulesOf({ ...snippetToForm(s), name: destHasSnippetName ? `${s.name} (copy)` : s.name, folder_id: newFolderId, vault_id: vaultId, favorite: false }, s.id));
-      }
-    } catch (err) { console.error(err); }
-  }
-
-  // ── Clipboard paste helpers ───────────────────────────────────────────────
-
-  /**
-   * Duplicates `snippet` into `folderId`, optionally into another vault. `keepName`
-   * is for members of a subtree being cloned wholesale — only the root of such a
-   * clone carries the "(copy)" suffix.
-   */
-  async function duplicateSnippetInto(
-    snippet: Snippet,
-    folderId: string | null,
-    opts: { vaultId?: string; keepName?: boolean } = {},
-  ) {
-    return createSnippet(copyingRulesOf({
-      ...snippetToForm(snippet),
-      // default name suffix kept in English until all creation sites are localized together (see i18n issue #14)
-      name: opts.keepName ? snippet.name : `${snippet.name} (copy)`,
-      folder_id: folderId ?? undefined,
-      vault_id: opts.vaultId ?? snippet.vault_id,
-      favorite: false,
-    }, snippet.id));
-  }
-
-  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
-  async function copyFolderInto(folderId: string, parentFolderId: string | null, vaultId?: string, opts: { keepName?: boolean } = {}) {
-    const folder = folders.find((f) => f.id === folderId);
-    if (!folder) throw new Error(`Unknown folder ${folderId}`);
-    const targetVaultId = vaultId ?? folder.vault_id;
-    const { root, folderIdMap } = await cloneFolderTree({
-      root: folder,
-      subFolders: getAllSubFolders(folder.id),
-      parentFolderId,
-      vaultId: targetVaultId,
-      keepName: opts.keepName ?? false,
-      saveFolder,
-    });
-    for (const s of getSnippetsInFolderTree(folder.id)) {
-      await duplicateSnippetInto(s, folderIdMap.get(s.folder_id ?? "") ?? root.id, {
-        vaultId: targetVaultId,
-        keepName: true,
-      });
-    }
-    return root;
-  }
-
-  /** Moves a folder subtree into `vaultId`, reparenting the root at the same time. */
-  async function migrateFolderTreeToVault(
-    folder: Folder,
-    parentFolderId: string | null,
-    vaultId: string,
-  ) {
-    await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
-    for (const s of getSnippetsInFolderTree(folder.id)) {
-      await updateSnippet(s.id, { ...snippetToForm(s), vault_id: vaultId });
-    }
-  }
 
   async function handleCreateFolder() {
     ep.closeEdit();
@@ -878,8 +749,8 @@ export function SnippetsPage() {
         bulkContextMenuItems={bulkContextMenuItems}
         vaults={otherVaults}
         canEdit={canEdit}
-        onMoveToVault={canEdit ? (vaultId) => void handleMoveToVault(s, vaultId) : undefined}
-        onCopyToVault={canEdit ? (vaultId) => void handleCopyToVault(s, vaultId) : undefined}
+        onMoveToVault={canEdit ? (vaultId) => handleMoveToVault(s, vaultId) : undefined}
+        onCopyToVault={canEdit ? (vaultId) => handleCopyToVault(s, vaultId) : undefined}
         syncEnabled={syncEnabled}
         onToggleSync={() => useSyncPrefsStore.getState().toggleExcluded(s.id)}
         onPointerDown={(e) => handleDragStart(e, s.id)}
@@ -904,8 +775,8 @@ export function SnippetsPage() {
             onSelectSelf={() => selectSingle(editingFolder.id)}
             parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
             vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-            onMoveToVault={(vaultId) => void handleMoveFolderToVault(editingFolder, vaultId)}
-            onCopyToVault={(vaultId) => void handleCopyFolderToVault(editingFolder, vaultId)}
+            onMoveToVault={(vaultId) => handleMoveToVault(editingFolder, vaultId)}
+            onCopyToVault={(vaultId) => handleCopyToVault(editingFolder, vaultId)}
             onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === editingFolder.id).map((s) => s.id) } })}
             onShare={() => setSharing({ snippets: snippets.filter((s) => s.folder_id === editingFolder.id && !s.deleted_at), packName: editingFolder.name })}
           />
@@ -918,6 +789,7 @@ export function SnippetsPage() {
             onDuplicate={ep.editing !== "new" ? () => { void handleDuplicate(ep.editing as Snippet); ep.closeEdit(); } : undefined}
             onDelete={ep.editing !== "new" ? () => { void deleteSnippet((ep.editing as Snippet).id); ep.closeEdit(); } : undefined}
             isDirtyRef={snippetIsDirtyRef}
+            onMoveToVault={liveEditingSnippet && ep.editing !== "new" ? (vaultId) => handleMoveToVault(liveEditingSnippet, vaultId) : undefined}
           />
         ) : null
       }
@@ -1061,8 +933,8 @@ export function SnippetsPage() {
                         onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                         {...folderDropProps(folder.id)}
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
-                        onMoveToVault={(vaultId) => void handleMoveFolderToVault(folder, vaultId)}
-                        onCopyToVault={(vaultId) => void handleCopyFolderToVault(folder, vaultId)}
+                        onMoveToVault={(vaultId) => handleMoveToVault(folder, vaultId)}
+                        onCopyToVault={(vaultId) => handleCopyToVault(folder, vaultId)}
                         onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === folder.id).map((s) => s.id) } })}
                         onShare={() => setSharing({ snippets: snippets.filter((s) => s.folder_id === folder.id && !s.deleted_at), packName: folder.name })}
                         bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}

@@ -61,10 +61,6 @@
       "draft": {
         "unsaved": "Kaydedilmedi"
       },
-      "vaultCascade": {
-        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki öğeler de {{targetVaultName}} kasasına taşınacak:",
-        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} kasasına kopyalanacak:"
-      },
       "bulk": {
         "executeSnippetOn_one": "{{count}} sunucuda kod parçacığı çalıştır",
         "executeSnippetOn_other": "{{count}} sunucuda kod parçacığı çalıştır",

@@ -15,11 +15,17 @@ export interface SnippetChooserListProps {
   /** Recents duplicate rows already in the list below; drop them where vertical
    *  space is tight (the host-command picker float). */
   showRecents?: boolean;
+  /** Only this vault's snippets: what references them must resolve in the same vault. */
+  vaultId?: string;
 }
 
-export function SnippetChooserList({ search, onPick, renderActions, emptyAction, showRecents = true }: SnippetChooserListProps) {
+export function SnippetChooserList({ search, onPick, renderActions, emptyAction, showRecents = true, vaultId }: SnippetChooserListProps) {
   const { t } = useTranslation();
-  const snippets = useAllSnippets();
+  const allSnippets = useAllSnippets();
+  const snippets = useMemo(
+    () => (vaultId ? allSnippets.filter((s) => (s.vault_id ?? "personal") === vaultId) : allSnippets),
+    [allSnippets, vaultId],
+  );
   const recentSnippetIds = useSnippetStore((s) => s.recentSnippetIds);
   const q = search.trim();
 

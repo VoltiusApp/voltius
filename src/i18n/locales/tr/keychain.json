@@ -51,10 +51,6 @@
         "message_other": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
         "folderCascade_one": "Seçili klasörlerdeki {{count}} öğe de silinecek.",
         "folderCascade_other": "Seçili klasörlerdeki {{count}} öğe de silinecek."
-      },
-      "vaultCascade": {
-        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki öğeler de {{targetVaultName}} adlı kasaya taşınacak:",
-        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} adlı kasaya kopyalanacak:"
       }
     },
     "cards": {

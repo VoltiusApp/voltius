@@ -59,10 +59,6 @@
         "folderCascade_one": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} élément).",
         "folderCascade_many": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} éléments).",
         "folderCascade_other": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} éléments)."
-      },
-      "vaultCascade": {
-        "moveDescription": "Déplacer \"{{folderName}}\" déplacera aussi les éléments suivants vers {{targetVaultName}} :",
-        "copyDescription": "Copier \"{{folderName}}\" copiera aussi les éléments suivants vers {{targetVaultName}} :"
       }
     },
     "cards": {

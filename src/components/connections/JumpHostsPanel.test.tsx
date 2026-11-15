@@ -11,7 +11,10 @@ vi.mock("@/stores/connectionStore", () => {
   return { useConnectionStore: (sel?: (s: unknown) => unknown) => (sel ? sel(state) : state) };
 });
 vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
-vi.mock("@/components/shared/HostPickerPanel", () => ({ HostPickerPanel: () => null }));
+const picker = vi.hoisted(() => ({ props: [] as { vaultId?: string; excludeId?: string }[] }));
+vi.mock("@/components/shared/HostPickerPanel", () => ({
+  HostPickerPanel: (p: { vaultId?: string; excludeId?: string }) => { picker.props.push(p); return null; },
+}));
 
 import JumpHostsPanel from "./JumpHostsPanel";
 
@@ -21,7 +24,7 @@ const rows = [{ id: "j1", connection_id: "a" }, { id: "j2", connection_id: "b" }
 
 test("dragging the first row after the second swaps them", () => {
   const onChange = vi.fn();
-  render(<JumpHostsPanel jumpHosts={rows} onChange={onChange} onBack={() => {}} />);
+  render(<JumpHostsPanel jumpHosts={rows} onChange={onChange} onBack={() => {}} vaultId="personal" />);
   const handles = screen.getAllByLabelText("connections.jumpHostsPanel.dragToReorderAriaLabel");
   fireEvent.mouseDown(handles[0]);
   fireEvent.mouseMove(screen.getByText("B").closest("[class*='rounded-lg']")!, { clientY: 10 });
@@ -31,7 +34,12 @@ test("dragging the first row after the second swaps them", () => {
 
 test("remove drops the row", () => {
   const onChange = vi.fn();
-  render(<JumpHostsPanel jumpHosts={rows} onChange={onChange} onBack={() => {}} />);
+  render(<JumpHostsPanel jumpHosts={rows} onChange={onChange} onBack={() => {}} vaultId="personal" />);
   fireEvent.click(screen.getAllByLabelText("connections.jumpHostsPanel.removeAriaLabel")[0]);
   expect(onChange).toHaveBeenCalledWith([rows[1]]);
+});
+
+test("offers only the host's own vault as jump candidates, never the host itself", () => {
+  render(<JumpHostsPanel jumpHosts={[]} onChange={() => {}} onBack={() => {}} vaultId="team-1" hostId="web" />);
+  expect(picker.props[picker.props.length - 1]).toMatchObject({ vaultId: "team-1", excludeId: "web" });
 });
