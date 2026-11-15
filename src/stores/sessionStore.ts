@@ -36,6 +36,8 @@ import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostComm
 import { runHostCommand } from "@/services/hostCommandRun";
 import { notifyError } from "@/utils/notifyError";
 import { isFileOnlyProtocol } from "@/utils/connectionType";
+import { onConnectionsRevoked } from "@/services/connectionRevocations";
+import { appToast } from "@/services/appToast";
 
 /** `background: true` opens the session without taking the user's active tab. */
 export type OpenOptions = { background?: boolean };
@@ -61,7 +63,8 @@ interface SessionStore {
   closeSerialPort: (sessionId: string) => Promise<void>;
   setSerialAutoReconnect: (sessionId: string, enabled: boolean) => Promise<void>;
   setSerialLine: (sessionId: string, line: SerialLine, level: boolean) => Promise<void>;
-  disconnect: (sessionId: string) => Promise<void>;
+  /** `detach`: leave a persistent session running on the host instead of killing it. */
+  disconnect: (sessionId: string, options?: { detach?: boolean }) => Promise<void>;
   setActive: (sessionId: string) => void;
   markDisconnected: (sessionId: string) => void;
   markConnecting: (sessionId: string) => void;
@@ -769,7 +772,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     patchSession(set, sessionId, { serialLines });
   },
 
-  disconnect: async (sessionId) => {
+  disconnect: async (sessionId, options) => {
     cancelBackoff(sessionId);
     const session = get().sessions.find((s) => s.id === sessionId);
     // Awaited below, after the session row is removed: the tab closes immediately
@@ -804,8 +807,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           }
         } finally {
           try {
-            let kill = true;
-            if (persist) {
+            let kill = !options?.detach;
+            if (persist && kill) {
               const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
               kill = !otherDeviceListsSession(sessionId);
             }
@@ -1188,3 +1191,13 @@ export function getSessionTransportType(sessionId: string): TerminalSession["typ
 export function encodeSessionText(sessionId: string, text: string): Uint8Array {
   return encodeTerminalInput(text, useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.encoding);
 }
+
+onConnectionsRevoked((revoked) => {
+  const closing = useSessionStore.getState().sessions.filter(
+    (s) => revoked.has(s.connectionId) && s.type !== "local" && s.type !== "multiplayer",
+  );
+  if (closing.length === 0) return;
+  for (const s of closing) void useSessionStore.getState().disconnect(s.id, { detach: true });
+  const hosts = [...new Set(closing.map((s) => s.connectionName))].join(", ");
+  appToast("warning", i18n.t("common.toast.hostAccessRevoked", { hosts }), { duration: 10000 });
+});

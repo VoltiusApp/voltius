@@ -1291,9 +1291,15 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   // keys (#216).
   // undefined means the wipe never ran, so the key names are unknown and
   // unrecoverable; an empty array means it ran clean.
+  const teamHosts = await step("list the team's hosts", async () =>
+    (await import("@/services/revokedConnections")).teamConnectionIds(tid));
   const leftoverSecrets = await step("wipe the team's secrets", async () => {
     const { clearTeamStoresAndSecrets } = await import("@/services/teamVaultSync");
     return clearTeamStoresAndSecrets(tid);
+  });
+
+  await step("close open sessions to the team's hosts", async () => {
+    (await import("@/services/revokedConnections")).closeConnectionsLost(tid, teamHosts ?? []);
   });
 
   const survivors = leftoverSecrets ?? [];

@@ -80,3 +80,17 @@ test("a device connect sets read-only on that session's open editor tabs", async
   await connectTarget({ device }, "c2", { relink: "sftp-re" });
   expect(setSftpReadOnly).toHaveBeenLastCalledWith("sftp-re", false);
 });
+
+test("revoking the host closes the browser's connection for good", async () => {
+  const { sftpClose } = await import("@/services/sftp");
+  const { closeConnectionsLost } = await import("@/services/revokedConnections");
+  vi.mocked(sftpClose).mockClear();
+  const conn = { id: "c-revoked", host: "box", port: 22, username: "u" } as Connection;
+  const { result } = renderHook(() => useSftpDir(conn));
+  await waitFor(() => expect(result.current.phase.tag).toBe("connected"));
+
+  act(() => closeConnectionsLost("t1", ["c-revoked"]));
+
+  expect(sftpClose).toHaveBeenCalledWith("sftp-1");
+  expect(result.current.phase).toMatchObject({ tag: "error", final: true });
+});

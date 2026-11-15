@@ -170,3 +170,16 @@ test("a list that omits a team the server still confirms keeps its secrets", asy
   expect(h.deleted).toEqual([]);
   expect(useConnectionStore.getState().teamConnections.t1).toHaveLength(1);
 });
+
+test("removal from a team revokes every host in it", async () => {
+  const { onConnectionsRevoked } = await import("@/services/connectionRevocations");
+  const revoked: string[][] = [];
+  const stop = onConnectionsRevoked((ids) => revoked.push([...ids]));
+  useTeamStore.setState({ teams: [{ id: "t1", name: "Ops", role_ids: [] } as never] });
+  seedTeamObjects();
+
+  await handleRealtimeEvent("membership_changed", "device-1");
+
+  await vi.waitFor(() => expect(revoked).toEqual([["c1"]]));
+  stop();
+});
