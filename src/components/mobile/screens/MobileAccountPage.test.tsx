@@ -93,6 +93,7 @@ test("a self-hosted business account shows no billing link and an unlimited seat
 
 test("a billed business account keeps its billing link and seat count", () => {
   businessAccount();
+  useSubscriptionStore.setState({ effectiveSeats: 3 });
   const { container, queryByText } = render(<MobileAccountPage />);
   expect(container.querySelector("[data-account-manage-billing]")).not.toBeNull();
   expect(queryByText("mobile.account.seatsUsed:1/3")).not.toBeNull();

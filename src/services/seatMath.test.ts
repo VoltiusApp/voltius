@@ -65,13 +65,18 @@ test("seatReadout: a billed Teams/Business owner with no cap at all is unlimited
   expect(seatReadout(4, null, null, true, true)).toEqual({ kind: "unlimited", used: 4 });
 });
 
+test("seatReadout: a billed owner with no enforced cap is unlimited whatever seats reports", () => {
+  // Servers before the fix send a purchased fallback of 3 for an uncapped owner.
+  expect(seatReadout(4, null, 3, true, true)).toEqual({ kind: "unlimited", used: 4 });
+});
+
 test("seatReadout: billed without a seat plan of one's own, no cap stays unknown", () => {
   expect(seatReadout(4, null, null, true, false)).toEqual({ kind: "unknown" });
   expect(seatReadout(null, null, null, true, true)).toEqual({ kind: "unknown" });
 });
 
 test("seatReadout: a billed seat-plan owner with a cap still reads it", () => {
-  expect(seatReadout(2, null, 5, true, true)).toMatchObject({ kind: "known", total: 5 });
+  expect(seatReadout(2, 5, 5, true, true)).toMatchObject({ kind: "known", total: 5 });
   expect(seatReadout(2, 10, 25, true, true)).toMatchObject({ kind: "known", total: 10 });
 });
 

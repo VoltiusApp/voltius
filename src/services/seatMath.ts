@@ -47,9 +47,8 @@ export function seatState(
   return { kind: "known", used, total, available, atLimit: available <= 0 };
 }
 
-// Billed servers fall back to the purchased count (grandfathered accounts show 3, enforce none);
-// unbilled ones sold nothing, so no enforced cap means unlimited. A billed seat-plan owner
-// with neither an enforced nor a purchased count is uncapped too.
+// No enforced cap means unlimited for a seat-plan owner or an unbilled server; only a billed
+// non-owner falls back to the purchased count.
 export function seatReadout(
   used: number | null,
   effectiveSeats: number | null,
@@ -57,12 +56,7 @@ export function seatReadout(
   billingEnabled: boolean,
   ownsSeatPlan = false,
 ): SeatState {
-  if (billingEnabled) {
-    if (ownsSeatPlan && used != null && effectiveSeats == null && totalSeats == null) {
-      return { kind: "unlimited", used };
-    }
-    return seatState(used, effectiveSeats ?? totalSeats);
-  }
+  if (billingEnabled && !ownsSeatPlan) return seatState(used, effectiveSeats ?? totalSeats);
   if (effectiveSeats == null && used != null) return { kind: "unlimited", used };
   return seatState(used, effectiveSeats);
 }
