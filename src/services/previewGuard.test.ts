@@ -30,7 +30,15 @@ const h = vi.hoisted(() => {
       removeMemberRole: vi.fn(stop),
       transferBillingOwner: vi.fn(stop),
       setMemberPermissions: vi.fn(stop),
+      inviteByEmail: vi.fn(stop),
+      revokePendingInvitation: vi.fn(stop),
     },
+    serverUrl: vi.fn(stop),
+    rotate: vi.fn(stop),
+    vaultKey: vi.fn(stop),
+    deleteTeamObject: vi.fn(stop),
+    joinRemote: vi.fn(async () => {}),
+    killRemote: vi.fn(async () => ({ ok: true })),
     getRuleSet: vi.fn(stop),
     findTeamItem: vi.fn(stop),
   };
@@ -58,6 +66,25 @@ vi.mock("@/services/teamService", async (orig) => ({
 vi.mock("@/services/teamObjects", async (orig) => ({
   ...(await orig<typeof import("@/services/teamObjects")>()),
   getRuleSet: h.getRuleSet,
+  deleteTeamObject: h.deleteTeamObject,
+}));
+vi.mock("@/services/authTokens", async (orig) => ({
+  ...(await orig<typeof import("@/services/authTokens")>()),
+  getServerUrl: h.serverUrl,
+}));
+vi.mock("@/services/teamKeyRotation", async (orig) => ({
+  ...(await orig<typeof import("@/services/teamKeyRotation")>()),
+  checkAndRotateTeamKey: h.rotate,
+}));
+vi.mock("@/services/teamVaultSync", async (orig) => ({
+  ...(await orig<typeof import("@/services/teamVaultSync")>()),
+  getTeamVaultKey: h.vaultKey,
+}));
+vi.mock("@/services/crossDeviceSessions", async (orig) => ({
+  ...(await orig<typeof import("@/services/crossDeviceSessions")>()),
+  getJoinableSessions: () => [remoteSession],
+  joinRemoteSession: h.joinRemote,
+  killRemoteSession: h.killRemote,
 }));
 vi.mock("@/services/teamObjectPersistence", async (orig) => ({
   ...(await orig<typeof import("@/services/teamObjectPersistence")>()),
@@ -96,6 +123,11 @@ import { openPfTunnel, openRuleTunnel, resumeAutoPort, closePfTunnel } from "@/s
 import { joinSessionByCode } from "@/services/teamSessionJoin";
 import { saveObjectRules, syncWithFolder } from "@/services/ruleSetEditing";
 import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
+import { useRemoteSessionCards } from "@/hooks/useRemoteSessionCards";
+import { grantVaultKeyToMember, inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
+import { enrollmentApi } from "@/services/enrollment/enrollmentApi";
+import { deleteTeamPolicy, putTeamPolicy } from "@/services/teamService";
+import { removeStaleItem, rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import {
   PreviewReadOnlyError,
   assertNotPreviewing,
@@ -104,6 +136,7 @@ import {
   type PreviewTarget,
 } from "@/services/previewGuard";
 
+const remoteSession = { sessionId: "rs1", connectionId: "c1", connectionName: "web", deviceId: "d2", deviceName: "Laptop", openedAt: "" };
 const SESSION = { teamId: "t1", vaultId: "v1", subject: { type: "member" as const, user_id: "bob" } };
 const conn = (id: string, over: Partial<Connection> = {}) =>
   ({ id, name: id, host: `${id}.example`, port: 22, username: "root", auth_type: "password", tags: [], vault_id: "personal", connection_type: "ssh", created_at: "", updated_at: "", clocks: {}, ...over }) as Connection;
@@ -144,6 +177,7 @@ const onDropToFolder = vi.fn(async () => {});
 const onEject = vi.fn(async () => {});
 const renamed = vi.fn();
 const resolvedTargets = vi.fn();
+const savedFolder = vi.fn(async () => ({ id: "f9" }) as never);
 const duplicateItems = vi.fn(async () => ["c2"]);
 
 function dragAndDrop(drag: ReturnType<typeof useDragToFolder>, attr: string) {
@@ -201,10 +235,7 @@ const rows: Row[] = [
 
   hookRow("useEditPanel.openEdit", () => useEditPanel<{ id: string }>("snippet"), (p) => p.openEdit({ id: "sn1" }), (p) => p.editing !== null, { type: "snippet", objectId: "sn1" }),
   hookRow("useEditPanel create", () => useEditPanel<{ id: string }>("snippet"), (p) => p.openEdit("new"), (p) => p.editing !== null),
-  (() => {
-    let made: unknown = null;
-    return { ...hookRow("useNewFolder.newFolder", () => useNewFolder("connection", []), (f) => { made = f.newFolder("New"); }, () => made !== null), setup: () => { made = null; } };
-  })(),
+  hookRow("useNewFolder.addFolder", () => useNewFolder("connection", [], savedFolder), (f) => void f.addFolder("New"), () => savedFolder.mock.calls.length > 0),
   hookRow(
     "usePageBulkActions delete",
     () => usePageBulkActions({ navItem: "hosts", filteredIds: ["c1"], selectedIdSet: new Set(["c1"]), setSelection: vi.fn(), onDelete }),
@@ -248,6 +279,8 @@ const rows: Row[] = [
     run: () => useTeamSessionStore.getState().inviteToActiveSession("s1", { user_id: "u2" } as never),
     effect: () => h.mp.inviteUserToSession.mock.calls.length > 0,
   },
+  hookRow("useRemoteSessionCards.join", () => useRemoteSessionCards(), (c) => c.join(remoteSession as never), () => h.joinRemote.mock.calls.length > 0, { type: "connection", objectId: "c1" }),
+  hookRow("useRemoteSessionCards.kill", () => useRemoteSessionCards(), (c) => c.kill("rs1"), (c) => c.stateOf("rs1") === "pending"),
   { name: "teamSessionJoin.joinSessionByCode", run: () => joinSessionByCode("abc"), effect: () => h.joinInput.mock.calls.length > 0 },
 ];
 
@@ -395,6 +428,8 @@ test("store_backstop_throws_on_writes_but_not_on_sync_apply", async () => {
     expect(await refusedError(write), name).toBeInstanceOf(PreviewReadOnlyError);
   }
   expect(h.invoke).not.toHaveBeenCalled();
+  await flush();
+  expect(toasts()).toContain("members.viewAs.readOnly");
 
   for (const [name, apply] of syncApply) {
     expect(await refusedError(apply), name).not.toBeInstanceOf(PreviewReadOnlyError);
@@ -416,6 +451,17 @@ const teamWrites: [string, () => Promise<unknown>, () => number][] = [
   ["setMemberPermissions", () => useTeamStore.getState().setMemberPermissions("t1", "u2", 1, 0), () => h.team.setMemberPermissions.mock.calls.length],
   ["saveObjectRules", () => saveObjectRules({ teamId: "t1", objectId: "c1", type: "connection" }, (e) => e), () => h.getRuleSet.mock.calls.length],
   ["syncWithFolder", () => syncWithFolder({ teamId: "t1", objectId: "c1", type: "connection" }), () => h.findTeamItem.mock.calls.length],
+  ["vaultShare.inviteByEmailAddress", () => inviteByEmailAddress({ teamId: "t1", email: "a@b.c", roleName: "member" }), () => h.team.inviteByEmail.mock.calls.length],
+  ["vaultShare.revokeInvitation", () => revokeInvitation({ teamId: "t1", invitationId: "i1", name: "a@b.c" }), () => h.team.revokePendingInvitation.mock.calls.length],
+  ["vaultShare.grantVaultKeyToMember", () => grantVaultKeyToMember({ teamId: "t1", userId: "u2", label: "Bob", publicKey: "pk" }), () => h.vaultKey.mock.calls.length],
+  ["enrollmentApi.approveJoinRequest", () => enrollmentApi.approveJoinRequest("t1", "jr1"), () => h.serverUrl.mock.calls.length],
+  ["enrollmentApi.denyJoinRequest", () => enrollmentApi.denyJoinRequest("t1", "jr1"), () => h.serverUrl.mock.calls.length],
+  ["enrollmentApi.createToken", () => enrollmentApi.createToken("t1", {} as never), () => h.serverUrl.mock.calls.length],
+  ["enrollmentApi.revokeToken", () => enrollmentApi.revokeToken("t1"), () => h.serverUrl.mock.calls.length],
+  ["teamService.putTeamPolicy", () => putTeamPolicy("t1", {}, 1), () => h.serverUrl.mock.calls.length],
+  ["teamService.deleteTeamPolicy", () => deleteTeamPolicy("t1"), () => h.serverUrl.mock.calls.length],
+  ["vaultKeyActions.rotateTeamKeyNow", () => rotateTeamKeyNow("t1"), () => h.rotate.mock.calls.length],
+  ["vaultKeyActions.removeStaleItem", () => removeStaleItem("t1", { kind: "object", object_id: "o1" } as never), () => h.deleteTeamObject.mock.calls.length],
   ["vaultStore.renameVault", async () => useVaultStore.getState().renameVault("v1", "Renamed"), () => (useVaultStore.getState().vaults.some((v) => v.name === "Renamed") ? 1 : 0)],
 ];
 
@@ -429,6 +475,7 @@ test("team_writes_throw_while_previewing_but_pass_inside_withControlAuthority", 
   }
 
   for (const [name, write, reached] of teamWrites) {
+    vi.clearAllMocks();
     const error = await refusedError(() => withControlAuthority(() => withControlAuthority(write)));
     expect(error, name).not.toBeInstanceOf(PreviewReadOnlyError);
     expect(reached(), name).toBe(1);

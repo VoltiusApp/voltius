@@ -157,13 +157,10 @@ export default function HostsPage() {
     setEditingFolderId(null);
   };
 
-  const createFolder = () => {
-    const data = newFolder(t("hosts.toolbar.newFolder"));
-    if (!data) return;
-    void saveFolder(data).then((f) => {
+  const createFolder = () =>
+    void addFolder(t("hosts.toolbar.newFolder"))?.then((f) => {
       setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id);
     });
-  };
 
   useEffect(() => {
     if (!homePendingAction) return;
@@ -227,7 +224,7 @@ export default function HostsPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "connection");
-  const { folderBlocked, newFolder } = useNewFolder("connection", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("connection", folderPath, saveFolder);
 
   // When inside a folder, show only that folder's items; otherwise show unfoldered items
   const filtered = useMemo(() => {

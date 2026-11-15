@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { TeamObjectType } from "@/services/teamObjects";
-import { refuseWhilePreviewing } from "@/services/previewGuard";
+import { refuseWhilePreviewing, targetOf } from "@/services/previewGuard";
 
 interface EditPanel<T extends { id: string }> {
   editing: T | "new" | null;
@@ -41,7 +41,7 @@ export function useEditPanel<T extends { id: string }>(objectType: TeamObjectTyp
     editing,
     panelOpen: editing !== null,
     openEdit: (item) => {
-      if (refuseWhilePreviewing(item === "new" ? undefined : { type: objectType, objectId: item.id })) return;
+      if (refuseWhilePreviewing(targetOf(objectType)(item === "new" ? undefined : item.id))) return;
       setEditing(item);
     },
     closeEdit: () => setEditing(null),

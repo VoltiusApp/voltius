@@ -21,6 +21,11 @@ const h = vi.hoisted(() => ({
   teams: [] as unknown[],
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
+  keySectionProps: [] as Record<string, unknown>[],
+  identitySectionProps: [] as Record<string, unknown>[],
+  panels: [] as string[],
+  deleteKey: vi.fn(async () => {}),
+  deleteIdentity: vi.fn(async () => {}),
   navFolders: [] as unknown[],
   folderPath: [] as unknown[],
   toolbarProps: {} as Record<string, unknown>,
@@ -65,17 +70,17 @@ vi.mock("@/components/shared/DragSelectSurface", () => ({
 vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
-vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
+vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => { h.panels.push("folder"); return null; } }));
 vi.mock("./KeychainToolbar", () => ({
   KeychainToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
 }));
 vi.mock("./KeyCards", () => ({
-  KeySection: () => <div data-test-keys />,
-  IdentitySection: () => <div data-test-identities />,
+  KeySection: (p: Record<string, unknown>) => { h.keySectionProps.push(p); return <div data-test-keys />; },
+  IdentitySection: (p: Record<string, unknown>) => { h.identitySectionProps.push(p); return <div data-test-identities />; },
 }));
-vi.mock("./KeyForm", () => ({ KeyForm: () => null }));
-vi.mock("./IdentityForm", () => ({ IdentityForm: () => null }));
-vi.mock("./KeyExportPanel", () => ({ KeyExportPanel: () => null, sortByMode: <T,>(items: T[]) => items }));
+vi.mock("./KeyForm", () => ({ KeyForm: () => { h.panels.push("key"); return null; } }));
+vi.mock("./IdentityForm", () => ({ IdentityForm: () => { h.panels.push("identity"); return null; } }));
+vi.mock("./KeyExportPanel", () => ({ KeyExportPanel: () => { h.panels.push("export"); return null; }, sortByMode: <T,>(items: T[]) => items }));
 vi.mock("@/components/shared/ConfirmModal", () => ({
   ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
 }));
@@ -167,7 +172,7 @@ vi.mock("@/stores/keyStore", () => ({
     loadKeys: vi.fn(async () => {}),
     saveKey: h.saveKey,
     updateKey: h.updateKey,
-    deleteKey: vi.fn(async () => {}),
+    deleteKey: h.deleteKey,
     get keys() { return h.keys; },
   }),
 }));
@@ -176,7 +181,7 @@ vi.mock("@/stores/identityStore", () => ({
     loadIdentities: vi.fn(async () => {}),
     saveIdentity: h.saveIdentity,
     updateIdentity: h.updateIdentity,
-    deleteIdentity: vi.fn(async () => {}),
+    deleteIdentity: h.deleteIdentity,
     get identities() { return h.identities; },
   }),
 }));
@@ -229,6 +234,7 @@ vi.mock("@/services/vaultObjectSecrets", () => ({
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
 import KeychainPage from "./KeychainPage";
+import { callProp, expectEachRefused, startPreview, stopPreview } from "@/test/preview";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -241,6 +247,9 @@ beforeEach(() => {
   h.teams = [];
   h.visibleFolders = [];
   h.folderCardProps = [];
+  h.keySectionProps = [];
+  h.identitySectionProps = [];
+  h.panels = [];
   h.navFolders = [];
   h.folderPath = [];
   h.ejectTargetFolderId = null;
@@ -252,7 +261,10 @@ beforeEach(() => {
   h.saveIdentity.mockImplementation(async (d: { name?: string }) => ({ id: `new-${d.name}` }));
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
 
 function lastModal(): Record<string, unknown> {
   return h.confirmModals[h.confirmModals.length - 1];
@@ -421,4 +433,47 @@ test("at the root the per-type sections keep their own empty states", () => {
   expect(queryByText("folders.empty")).toBeNull();
   expect(container.querySelector("[data-test-keys]")).not.toBeNull();
   expect(container.querySelector("[data-test-identities]")).not.toBeNull();
+});
+
+test("key, identity and folder actions refuse while previewing a member and open why for the item", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.keys = [key("k1")];
+  h.identities = [identity("i1")];
+  h.folders = [folder("root")];
+  h.visibleFolders = [folder("root")];
+  render(<KeychainPage />);
+  startPreview();
+  const keys = h.keySectionProps[h.keySectionProps.length - 1];
+  const ids = h.identitySectionProps[h.identitySectionProps.length - 1];
+  const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  const k1 = h.keys[0] as SshKey;
+  const i1 = h.identities[0] as Identity;
+  const keyTarget = { type: "key" as const, objectId: "k1" };
+  const identityTarget = { type: "identity" as const, objectId: "i1" };
+  const folderTarget = { type: "folder" as const, objectId: "root" };
+
+  await expectEachRefused([
+    ["edit key", callProp(keys, "onEdit", k1), keyTarget],
+    ["delete key", callProp(keys, "onDelete", "k1"), keyTarget],
+    ["export key", callProp(keys, "onExport", k1), keyTarget],
+    ["move key to vault", callProp(keys, "onMoveToVault", k1, "team-1"), keyTarget],
+    ["copy key to vault", callProp(keys, "onCopyToVault", k1, "team-1"), keyTarget],
+    ["edit identity", callProp(ids, "onEdit", i1), identityTarget],
+    ["delete identity", callProp(ids, "onDelete", "i1"), identityTarget],
+    ["move identity to vault", callProp(ids, "onMoveToVault", i1, "team-1"), identityTarget],
+    ["copy identity to vault", callProp(ids, "onCopyToVault", i1, "team-1"), identityTarget],
+    ["edit folder", callProp(card, "onEdit"), folderTarget],
+    ["move folder to vault", callProp(card, "onMoveToVault", "team-1"), folderTarget],
+    ["copy folder to vault", callProp(card, "onCopyToVault", "team-1"), folderTarget],
+    ["import key", callProp(h.toolbarProps, "onImportKey"), undefined],
+    ["generate key", callProp(h.toolbarProps, "onGenerateKey"), undefined],
+    ["new identity", callProp(h.toolbarProps, "onNewIdentity"), undefined],
+    ["new folder", callProp(h.toolbarProps, "onNewFolder"), undefined],
+  ]);
+
+  expect(h.panels).toEqual([]);
+  expect(h.cascades).toEqual([]);
+  for (const write of [h.saveKey, h.saveIdentity, h.saveFolder, h.updateKey, h.updateIdentity, h.deleteKey, h.deleteIdentity, h.moveKeyToVault, h.moveIdentityToVault]) {
+    expect(write).not.toHaveBeenCalled();
+  }
 });

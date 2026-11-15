@@ -6,10 +6,14 @@ export interface PreviewTarget {
   objectId: string;
 }
 
-const targetOf = (type: TeamObjectType) => (objectId: string): PreviewTarget => ({ type, objectId });
+export const targetOf = (type: TeamObjectType) => (objectId: string | undefined): PreviewTarget | undefined =>
+  objectId === undefined ? undefined : { type, objectId };
 export const connectionTarget = targetOf("connection");
 export const folderTarget = targetOf("folder");
 export const snippetTarget = targetOf("snippet");
+export const keyTarget = targetOf("key");
+export const identityTarget = targetOf("identity");
+export const ruleTarget = targetOf("port_forwarding_rule");
 
 interface PreviewBinding {
   active: () => boolean;
@@ -33,10 +37,16 @@ export function bindPreviewGuard(next: PreviewBinding): void {
 
 const previewing = (): boolean => binding?.active() ?? false;
 
+function toastReadOnly(): void {
+  void import("@/i18n")
+    .then(({ default: i18n }) => appToast("info", i18n.t("members.viewAs.readOnly")))
+    .catch(console.error);
+}
+
 export function refuseWhilePreviewing(target?: PreviewTarget): boolean {
   if (!binding || !previewing()) return false;
   if (target) binding.showWhy(target.type, target.objectId);
-  else void import("@/i18n").then(({ default: i18n }) => appToast("info", i18n.t("members.viewAs.readOnly")));
+  else toastReadOnly();
   return true;
 }
 
@@ -45,7 +55,9 @@ export function refuseOrThrow(target?: PreviewTarget): void {
 }
 
 export function assertNotPreviewing(): void {
-  if (authorityDepth === 0 && previewing()) throw new PreviewReadOnlyError();
+  if (authorityDepth > 0 || !previewing()) return;
+  toastReadOnly();
+  throw new PreviewReadOnlyError();
 }
 
 export async function withControlAuthority<T>(fn: () => Promise<T>): Promise<T> {

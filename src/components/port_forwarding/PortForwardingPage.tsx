@@ -61,6 +61,7 @@ import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { folderTarget, refuseWhilePreviewing, ruleTarget } from "@/services/previewGuard";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -152,7 +153,7 @@ export function PortForwardingPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "port_forwarding");
-  const { folderBlocked, newFolder } = useNewFolder("port_forwarding", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("port_forwarding", folderPath, saveFolder);
 
   const q = search.trim();
   const match = useSearchMatcher(q);
@@ -176,6 +177,7 @@ export function PortForwardingPage() {
   const folderCount = useMemo(() => folderItemCounter(rules, scopedFolders), [rules, scopedFolders]);
 
   function openNew(type: TunnelType = "local") {
+    if (refuseWhilePreviewing()) return;
     setNewRuleType(type);
     ruleDirtyRef.current = false;
     ruleFormSessionKeyRef.current = `new-rule-${Date.now()}`;
@@ -185,6 +187,7 @@ export function PortForwardingPage() {
   }
 
   function openEdit(rule: PortForwardingRule) {
+    if (refuseWhilePreviewing(ruleTarget(rule.id))) return;
     ruleDirtyRef.current = false;
     ruleFormSessionKeyRef.current = rule.id;
     setEditingRuleId(rule.id);
@@ -216,10 +219,12 @@ export function PortForwardingPage() {
   // ── Vault move / copy for rules ───────────────────────────────────────────
 
   const handleMoveRuleToVault = (rule: PortForwardingRule, vaultId: string) => {
+    if (refuseWhilePreviewing(ruleTarget(rule.id))) return;
     void updateRule(rule.id, ruleToForm(rule, { vault_id: vaultId }));
   };
 
   const handleCopyRuleToVault = (rule: PortForwardingRule, vaultId: string) => {
+    if (refuseWhilePreviewing(ruleTarget(rule.id))) return;
     const destHasName = rules.some((r) => (r.vault_id ?? "personal") === vaultId && r.name === rule.name);
     void createRule(copyingRulesOf(ruleToForm(rule, {
       name: destHasName ? `${rule.name} (copy)` : rule.name,
@@ -243,6 +248,7 @@ export function PortForwardingPage() {
   });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     const subFolders = getAllSubFolders(folder.id);
     const treeRules = getRulesInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
@@ -262,6 +268,7 @@ export function PortForwardingPage() {
   };
 
   const handleCopyFolderToVault = (folder: Folder, vaultId: string) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     const subFolders = getAllSubFolders(folder.id);
     const treeRules = getRulesInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
@@ -356,7 +363,11 @@ export function PortForwardingPage() {
   } = useDragSelection(filteredIds);
 
   const editRule = (id: string) => { const r = filtered.find((r) => r.id === id); if (r) openEdit(r); };
-  const editFolder = (folder: Folder) => { closeForm(); setEditingFolderId(folder.id); };
+  const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
+    closeForm();
+    setEditingFolderId(folder.id);
+  };
   const panelOpen = showForm || editingFolderId !== null;
 
   const { focusedId, setFocusedId } = useListKeyNav({
@@ -474,6 +485,7 @@ export function PortForwardingPage() {
   );
 
   const handleDeleteRule = useCallback((id: string) => {
+    if (refuseWhilePreviewing(ruleTarget(id))) return;
     if (selectedIdSet.has(id) && selectedRules.length > 1) {
       setConfirmDeleteIds(selectedRules.map((r) => r.id));
     } else {
@@ -518,10 +530,8 @@ export function PortForwardingPage() {
     ];
   }, [selectedRules, selectedFolders, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
 
-  const createFolder = () => {
-    const data = newFolder(t("portForwarding.toolbar.newFolder"));
-    if (data) void saveFolder(data).then((f) => { closeForm(); setEditingFolderId(f.id); });
-  };
+  const createFolder = () =>
+    void addFolder(t("portForwarding.toolbar.newFolder"))?.then((f) => { closeForm(); setEditingFolderId(f.id); });
 
   return (
     <>
@@ -698,7 +708,7 @@ export function PortForwardingPage() {
                         vaults={vaultOptions.filter((v) => v.id !== (rule.vault_id ?? "personal"))}
                         onSelect={selectFollowing(handleItemSelect, panelOpen, () => openEdit(rule))}
                         onEdit={openEdit}
-                        onDuplicate={(id) => void duplicateRule(id)}
+                        onDuplicate={(id) => { if (!refuseWhilePreviewing(ruleTarget(id))) void duplicateRule(id); }}
                         onDelete={handleDeleteRule}
                         onStart={(r) => void startRule(r)}
                         onStop={(r) => void stopRule(r)}

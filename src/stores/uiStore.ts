@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
-import { connectionTarget, refuseWhilePreviewing } from "@/services/previewGuard";
+import { connectionTarget, refuseWhilePreviewing, targetOf } from "@/services/previewGuard";
 import type { TeamObjectType } from "@/services/teamObjects";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
@@ -94,7 +94,7 @@ export type KeychainPendingAction =
   | { action: "edit-identity"; id: string }
   | null;
 const refusePending = (action: { action: string; id?: string } | null, type: TeamObjectType): boolean =>
-  action !== null && refuseWhilePreviewing(action.id ? { type, objectId: action.id } : undefined);
+  action !== null && refuseWhilePreviewing(targetOf(type)(action.id));
 
 export type EnrollSource = "machine" | "link" | "paste";
 export type EnrollTarget = { token: EnrollmentTokenParts; source: EnrollSource };

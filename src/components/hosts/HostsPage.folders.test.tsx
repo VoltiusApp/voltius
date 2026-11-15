@@ -255,7 +255,7 @@ vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: 
 vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));
 
 import HostsPage from "./HostsPage";
-import { usePreviewStore } from "@/stores/previewStore";
+import { expectEachRefused, startPreview, stopPreview } from "@/test/preview";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -286,7 +286,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  usePreviewStore.setState({ session: null, side: null });
+  stopPreview();
 });
 
 function lastModal(): Record<string, unknown> {
@@ -591,40 +591,26 @@ test("host and folder actions refuse while previewing a member and open why for 
   h.folders = [folder("root")];
   h.visibleFolders = [folder("root")];
   render(<HostsPage />);
-  usePreviewStore.setState({ session: { teamId: "team-1", vaultId: "team-1", subject: { type: "member", user_id: "bob" } }, side: null });
+  startPreview();
   const host = h.hostCardProps[h.hostCardProps.length - 1];
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
-  const why = () => usePreviewStore.getState().side;
   const c1 = h.connections[0] as Connection;
-  const root = h.folders[0] as Folder;
+  const hostTarget = { type: "connection" as const, objectId: "c1" };
+  const folderTarget = { type: "folder" as const, objectId: "root" };
 
-  const hostActions: [string, () => unknown][] = [
-    ["edit", () => (host.onEdit as (c: Connection) => void)(c1)],
-    ["connect", () => (host.onConnect as (c: Connection) => Promise<void>)(c1)],
-    ["delete", () => (host.onDelete as (id: string) => void)("c1")],
-    ["duplicate", () => (host.onDuplicate as (c: Connection) => Promise<void>)(c1)],
-    ["move to vault", () => (host.onMoveToVault as (c: Connection, v: string) => void)(c1, "team-1")],
-    ["copy to vault", () => (host.onCopyToVault as (c: Connection, v: string) => void)(c1, "team-1")],
-  ];
-  for (const [name, run] of hostActions) {
-    usePreviewStore.setState({ side: null });
-    await act(async () => { await run(); });
-    expect(why(), name).toEqual({ kind: "why", type: "connection", objectId: "c1" });
-  }
-
-  const folderActions: [string, () => unknown][] = [
-    ["edit", () => (card.onEdit as () => void)()],
-    ["move to vault", () => (card.onMoveToVault as (v: string) => void)("team-1")],
-    ["copy to vault", () => (card.onCopyToVault as (v: string) => void)("team-1")],
-  ];
-  for (const [name, run] of folderActions) {
-    usePreviewStore.setState({ side: null });
-    act(() => { run(); });
-    expect(why(), name).toEqual({ kind: "why", type: "folder", objectId: root.id });
-  }
-
-  act(() => { (h.toolbarProps.onCreateHost as () => void)(); });
-  await act(async () => { (h.toolbarProps.onCreateFolder as () => void)(); });
+  await expectEachRefused([
+    ["edit host", () => (host.onEdit as (c: Connection) => void)(c1), hostTarget],
+    ["connect", () => (host.onConnect as (c: Connection) => Promise<void>)(c1), hostTarget],
+    ["delete host", () => (host.onDelete as (id: string) => void)("c1"), hostTarget],
+    ["duplicate host", () => (host.onDuplicate as (c: Connection) => Promise<void>)(c1), hostTarget],
+    ["move host to vault", () => (host.onMoveToVault as (c: Connection, v: string) => void)(c1, "team-1"), hostTarget],
+    ["copy host to vault", () => (host.onCopyToVault as (c: Connection, v: string) => void)(c1, "team-1"), hostTarget],
+    ["edit folder", () => (card.onEdit as () => void)(), folderTarget],
+    ["move folder to vault", () => (card.onMoveToVault as (v: string) => void)("team-1"), folderTarget],
+    ["copy folder to vault", () => (card.onCopyToVault as (v: string) => void)("team-1"), folderTarget],
+    ["new host", () => (h.toolbarProps.onCreateHost as () => void)(), undefined],
+    ["new folder", () => (h.toolbarProps.onCreateFolder as () => void)(), undefined],
+  ]);
 
   expect(h.formProps).toEqual([]);
   expect(h.folderEditPanels).toBe(0);

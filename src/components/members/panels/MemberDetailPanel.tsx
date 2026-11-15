@@ -21,7 +21,7 @@ import {
   PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, dropsConnectSource,
   resolveMemberReadOnlyReason, type Permission, type MemberReadOnlyReason,
 } from "@/services/permissions";
-import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
+import { rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import { losesVaultKey, type MemberDraft } from "@/services/permissionPreview";
 import { getServerCapability } from "@/services/serverCapabilities";
 import {
@@ -162,7 +162,7 @@ export function MemberDetailPanel({
             },
       );
       onUpdated();
-      if (rotate) void checkAndRotateTeamKey(teamId);
+      if (rotate) void rotateTeamKeyNow(teamId);
       setJustToggled(role.id);
       setTimeout(() => setJustToggled(null), 700);
     } catch (e) {
@@ -259,7 +259,7 @@ export function MemberDetailPanel({
       await write(masks)();
       if (history) push(history);
       onUpdated();
-      if (rotate) void checkAndRotateTeamKey(teamId);
+      if (rotate) void rotateTeamKeyNow(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
     } finally {

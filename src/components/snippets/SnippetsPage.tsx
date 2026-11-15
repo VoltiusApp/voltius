@@ -339,7 +339,7 @@ export function SnippetsPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "snippet");
-  const { folderBlocked, newFolder } = useNewFolder("snippet", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("snippet", folderPath, saveFolder);
 
   useEffect(() => {
     void loadSnippets();
@@ -841,11 +841,9 @@ export function SnippetsPage() {
   }
 
   async function handleCreateFolder() {
-    const data = newFolder(t("snippets.toolbar.newFolder"));
-    if (!data) return;
     ep.closeEdit();
-    const folder = await saveFolder(data);
-    folderEp.transitionToExisting(folder);
+    const folder = await addFolder(t("snippets.toolbar.newFolder"));
+    if (folder) folderEp.transitionToExisting(folder);
   }
 
   async function handleDeleteFolder(folder: Folder) {

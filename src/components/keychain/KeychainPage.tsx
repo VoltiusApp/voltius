@@ -67,6 +67,7 @@ import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useSearchMatcher } from "@/utils/search";
 import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
+import { folderTarget, identityTarget, keyTarget, refuseWhilePreviewing } from "@/services/previewGuard";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -143,7 +144,7 @@ export default function KeychainPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "keychain");
-  const { folderBlocked, newFolder } = useNewFolder("keychain", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("keychain", folderPath, saveFolder);
 
   const availableTags = useMemo(
     () => [...new Set([...keys.flatMap((k) => k.tags), ...identities.flatMap((i) => i.tags)])].sort(),
@@ -488,6 +489,7 @@ export default function KeychainPage() {
   };
 
   const handleDeleteKey = async (id: string) => {
+    if (refuseWhilePreviewing(keyTarget(id))) return;
     try {
       await deleteKey(id);
       if (editingKey?.id === id) { setEditingKeyId(null); setShowKeyForm(false); }
@@ -495,6 +497,7 @@ export default function KeychainPage() {
   };
 
   const handleDeleteIdentity = async (id: string) => {
+    if (refuseWhilePreviewing(identityTarget(id))) return;
     try {
       await deleteIdentity(id);
       if (editingIdentity?.id === id) { setEditingIdentityId(null); setShowIdentityForm(false); }
@@ -502,6 +505,7 @@ export default function KeychainPage() {
   };
 
   const openKeyForm = (key: SshKey | null, mode: "import" | "generate" = "import") => {
+    if (refuseWhilePreviewing(keyTarget(key?.id))) return;
     keyFormIsDirtyRef.current = false;
     keyFormSessionKeyRef.current = key?.id ?? `new-key-${Date.now()}`;
     setKeyFormMode(key ? "import" : mode);
@@ -516,6 +520,7 @@ export default function KeychainPage() {
   const openKeyGenForm = () => openKeyForm(null, "generate");
 
   const openIdentityForm = (identity: Identity | null) => {
+    if (refuseWhilePreviewing(identityTarget(identity?.id))) return;
     identityFormIsDirtyRef.current = false;
     identityFormSessionKeyRef.current = identity?.id ?? `new-identity-${Date.now()}`;
     setEditingIdentityId(identity?.id ?? null);
@@ -531,6 +536,7 @@ export default function KeychainPage() {
   );
 
   const openExportPanel = (key: SshKey) => {
+    if (refuseWhilePreviewing(keyTarget(key.id))) return;
     setExportingKey(key);
     setShowKeyForm(false);
     setShowIdentityForm(false);
@@ -548,6 +554,7 @@ export default function KeychainPage() {
   };
 
   const handleMoveKeyToVault = async (key: SshKey, vaultId: string) => {
+    if (refuseWhilePreviewing(keyTarget(key.id))) return;
     try {
       await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
     }
@@ -555,6 +562,7 @@ export default function KeychainPage() {
   };
 
   const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
+    if (refuseWhilePreviewing(keyTarget(key.id))) return;
     try {
       const newKey = await saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
       const [priv, pub, pass] = await Promise.all([
@@ -569,6 +577,7 @@ export default function KeychainPage() {
   };
 
   const handleMoveIdentityToVault = (identity: Identity, vaultId: string) => {
+    if (refuseWhilePreviewing(identityTarget(identity.id))) return;
     const key = identity.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
     const keyNeedsMove = key && (key.vault_id ?? "personal") !== vaultId;
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
@@ -593,6 +602,7 @@ export default function KeychainPage() {
   };
 
   const handleCopyIdentityToVault = (identity: Identity, vaultId: string) => {
+    if (refuseWhilePreviewing(identityTarget(identity.id))) return;
     const key = identity.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
     const keyNeedsCopy = key && (key.vault_id ?? "personal") !== vaultId;
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
@@ -654,6 +664,7 @@ export default function KeychainPage() {
   });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     const treeKeys = keysInFolderTree(folder.id);
     const treeIdentities = identitiesInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
@@ -676,6 +687,7 @@ export default function KeychainPage() {
   };
 
   const handleCopyFolderToVault = (folder: Folder, vaultId: string) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     const subFolders = getAllSubFolders(folder.id);
     const treeKeys = keysInFolderTree(folder.id);
     const treeIdentities = identitiesInFolderTree(folder.id);
@@ -846,14 +858,15 @@ export default function KeychainPage() {
       if (identity) openIdentityFormRef.current(identity);
     })(id, e), [handleItemSelect]);
 
-  const editFolder = (folder: Folder) => { closePanel(); setEditingFolderId(folder.id); };
+  const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
+    closePanel();
+    setEditingFolderId(folder.id);
+  };
   const editFolderRef = useRef(editFolder);
   editFolderRef.current = editFolder;
 
-  const createFolder = () => {
-    const data = newFolder(t("keychain.toolbar.newFolder"));
-    if (data) void saveFolder(data);
-  };
+  const createFolder = () => void addFolder(t("keychain.toolbar.newFolder"));
 
   // Inside a folder only the types it holds are listed; the per-type "none yet" states are for the root.
   const inFolderView = !!activeFolderId && !q;
