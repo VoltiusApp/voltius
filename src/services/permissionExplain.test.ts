@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { explainBit } from "./permissionExplain";
-import { ALL_PERMISSION_BITS, PERM_BITS as B, withDependencies, type RuleEntry } from "./permissions";
+import { ALL_PERMISSION_BITS, maskFromLayers, PERM_BITS as B, type RuleEntry } from "./permissions";
 import type { RuleLayers } from "./permissionPreview";
 import type { TeamRole } from "./teamService";
 
@@ -102,21 +102,37 @@ describe("explainBit", () => {
   });
 
   it("matches_server_object_permissions_cases: administrator_satisfies_the_connect_dependency", () => {
-    const p = B.ADMINISTRATOR | B.VIEW_SECRETS | B.COPY_SECRETS;
-    expect(withDependencies(p)).toBe(p);
+    const base = B.ADMINISTRATOR | B.VIEW_SECRETS | B.COPY_SECRETS;
+    expect(maskFromLayers(base, null, 0, false)).toBe(ALL_PERMISSION_BITS);
+    expect(explain(B.VIEW_SECRETS, base, 0, null, false).allowed).toBe(true);
+    expect(explain(B.COPY_SECRETS, base, 0, rules({ everyone_deny: B.CONNECT }), false).allowed).toBe(true);
+  });
+
+  it("secrets_held_without_connect_survive_a_rule_that_adds_connect", () => {
+    const r = rules({ member_allow: B.CONNECT });
+    const base = B.VIEW | B.VIEW_SECRETS;
+    expect(maskFromLayers(base, r, 0, false)).toBe(B.VIEW | B.CONNECT | B.VIEW_SECRETS);
+    expect(explain(B.VIEW_SECRETS, base, 0, r, false).allowed).toBe(true);
+    expect(explain(B.VIEW_SECRETS, base, 0, null, false).decidedBy?.kind).toBe("needsConnect");
   });
 
   it("matches_server_object_permissions_cases: locked_is_never_wider_than_business", () => {
     const pool = [B.VIEW, B.CONNECT, B.VIEW_SECRETS, B.COPY_SECRETS, B.EDIT_CONNECTIONS];
     const masks = Array.from({ length: 1 << pool.length }, (_, i) => pool.reduce((a, v, b) => (i & (1 << b) ? a | v : a), 0));
-    for (const base of masks) for (const allow of masks) for (const deny of masks) {
-      const r = rules({
-        everyone_allow: allow, everyone_deny: deny, roles_allow: deny, roles_deny: allow, member_allow: allow, member_deny: deny,
-      });
-      for (const bit of pool) {
-        const locked = explain(bit, base, 0, r, true).allowed;
-        const business = explain(bit, base, 0, r, false).allowed;
-        if (locked && !business) throw new Error(`base=${base} allow=${allow} deny=${deny} bit=${bit}`);
+    for (const teamDeny of [0, B.CONNECT | B.EDIT_CONNECTIONS]) {
+      for (const base of masks) for (const allow of masks) for (const deny of masks) {
+        const r = rules({
+          everyone_allow: allow, everyone_deny: deny, roles_allow: deny, roles_deny: allow, member_allow: allow, member_deny: deny,
+        });
+        for (const bit of pool) {
+          const result = (locked: boolean) => {
+            const allowed = explain(bit, base, teamDeny, r, locked).allowed;
+            const mask = maskFromLayers(base & ~teamDeny, r, teamDeny, locked);
+            if (allowed !== ((mask & bit) !== 0)) throw new Error(`explain!=mask base=${base} allow=${allow} deny=${deny} td=${teamDeny} bit=${bit} locked=${locked}`);
+            return allowed;
+          };
+          if (result(true) && !result(false)) throw new Error(`base=${base} allow=${allow} deny=${deny} bit=${bit}`);
+        }
       }
     }
   });
@@ -166,6 +182,14 @@ describe("explainBit", () => {
     expect(e.decidedBy).toEqual({ kind: "needsConnect", effect: "remove" });
   });
 
+  it("notShown_is_silent_when_the_bit_was_never_granted", () => {
+    const e = explainBit(B.EDIT_KEYS, {
+      roles: [role("dev", MEMBER)], member: { role_ids: ["dev"] }, layers: "notShown", locked: false,
+    });
+    expect(e.steps).toEqual([]);
+    expect(e.decidedBy).toBeNull();
+  });
+
   it("secrets_need_connect after rules strip Connect", () => {
     const e = explain(B.VIEW_SECRETS, MEMBER, 0, rules({ everyone_deny: B.CONNECT }), false);
     expect(e.allowed).toBe(false);
@@ -180,6 +204,7 @@ describe("explainBit", () => {
 
   it("names_the_denying_role_from_entries", () => {
     const entries: RuleEntry[] = [
+      { subject_type: "role", subject_id: "contractor", allow: 0, deny: B.CONNECT },
       { subject_type: "role", subject_id: "contractor", allow: 0, deny: B.CONNECT },
       { subject_type: "role", subject_id: "other", allow: 0, deny: B.CONNECT },
       { subject_type: "role", subject_id: "dev", allow: 0, deny: B.EDIT_KEYS },

@@ -1,5 +1,5 @@
 import type { RuleLayers } from "@/services/permissionPreview";
-import { effectivePermissions, foldRuleLayers, PERM_BITS, type RuleEntry, type RuleLayerDef } from "@/services/permissions";
+import { appliesViaRole, basePermissions, foldRuleLayers, PERM_BITS, type RuleEntry, type RuleLayerDef } from "@/services/permissions";
 import type { TeamRole } from "@/services/teamService";
 
 export type StepKind =
@@ -36,32 +36,32 @@ export function explainBit(bit: number, input: ExplainInput): Explanation {
   if (!locked && !on && ((member.permission_allow ?? 0) & bit)) set("teamAllow", true);
   if (on && (teamDeny & bit)) set("teamDeny", false);
 
-  const teamMask = effectivePermissions(member, roles, locked);
-  if (teamMask & PERM_BITS.ADMINISTRATOR) {
+  const base = basePermissions(member, roles, locked);
+  if (base & PERM_BITS.ADMINISTRATOR) {
     if (!on && !(teamDeny & bit)) set("administrator", true);
     return done();
   }
-  if (on && (bit & SECRET_BITS) && !(teamMask & PERM_BITS.CONNECT)) set("needsConnect", false);
 
   if (layers === "notShown") {
-    steps.push({ kind: "ruleNotShown", effect: "remove" });
+    if (on) steps.push({ kind: "ruleNotShown", effect: "remove" });
     return done();
   }
-  if (!layers) return done();
 
   const roleIdsCarryingBit = (kind: StepKind) => {
     if (!entries || (kind !== "rolesDeny" && kind !== "rolesAllow")) return undefined;
-    return entries
-      .filter((e) => e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? "")
-        && ((kind === "rolesDeny" ? e.deny : e.allow) & bit))
+    const ids = entries
+      .filter((e) => appliesViaRole(member, e) && ((kind === "rolesDeny" ? e.deny : e.allow) & bit))
       .map((e) => e.subject_id!);
+    return [...new Set(ids)];
   };
   const probe = bit | PERM_BITS.VIEW | PERM_BITS.CONNECT;
-  const p = foldRuleLayers(teamMask & probe, layers, teamDeny, locked, (layer, before, after) => {
-    if ((before ^ after) & bit) set(layer.kind, (after & bit) !== 0, roleIdsCarryingBit(layer.kind));
-  });
+  const p = layers
+    ? foldRuleLayers(base & probe, layers, teamDeny, locked, (layer, before, after) => {
+      if ((before ^ after) & bit) set(layer.kind, (after & bit) !== 0, roleIdsCarryingBit(layer.kind));
+    })
+    : base & probe;
 
-  if (!(p & PERM_BITS.VIEW)) {
+  if (layers && !(p & PERM_BITS.VIEW)) {
     if (on) set("noView", false);
   } else if (on && (bit & SECRET_BITS) && !(p & PERM_BITS.CONNECT)) {
     set("needsConnect", false);

@@ -113,11 +113,14 @@ export const RULE_LAYER_ORDER = [
 ] as const;
 export type RuleLayerDef = (typeof RULE_LAYER_ORDER)[number];
 
+export const appliesViaRole = (member: { role_ids: string[] }, e: RuleEntry) =>
+  e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? "");
+
 export function layersFromEntries(member: { role_ids: string[]; user_id?: string }, entries: RuleEntry[]): RuleLayers {
   const layer = (match: (e: RuleEntry) => boolean) => entries.filter(match).reduce(
     (acc, e) => ({ allow: acc.allow | e.allow, deny: acc.deny | e.deny }), { allow: 0, deny: 0 });
   const every = layer((e) => e.subject_type === "everyone");
-  const byRole = layer((e) => e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? ""));
+  const byRole = layer((e) => appliesViaRole(member, e));
   const mine = layer((e) => e.subject_type === "member" && e.subject_id === member.user_id);
   return {
     everyone_allow: every.allow, everyone_deny: every.deny,
@@ -149,7 +152,7 @@ export function maskFromLayers(base: number, layers: RuleLayers | null, teamDeny
 
 export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null, locked: boolean): number {
   return maskFromLayers(
-    effectivePermissions(member, roles, locked),
+    basePermissions(member, roles, locked),
     entries && layersFromEntries(member, entries),
     member.permission_deny ?? 0,
     locked,
@@ -203,14 +206,18 @@ export function isPrimaryOwner(team: { owner_id: string } | undefined, myUserId:
   return !!myUserId && team?.owner_id === myUserId;
 }
 
-export function effectivePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
+export function basePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
   const allow = member.permission_allow ?? 0;
   const deny = member.permission_deny ?? 0;
   const union = member.role_ids.reduce((acc, rid) => {
     const role = roles.find((r) => r.id === rid);
     return !role || (locked && !role.is_builtin) ? acc : acc | role.permissions;
   }, 0);
-  return withDependencies(locked ? union & ~deny : (union | allow) & ~deny);
+  return locked ? union & ~deny : (union | allow) & ~deny;
+}
+
+export function effectivePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
+  return withDependencies(basePermissions(member, roles, locked));
 }
 
 const VAULT_KEY_GATE = PERM_BITS.CONNECT;
