@@ -74,7 +74,7 @@ import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
-import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
+import { refuseWhilePreviewing, snippetTarget, whenWritable } from "@/services/previewGuard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -597,7 +597,7 @@ export function SnippetsPage() {
       {
         label: t("snippets.page.bulk.deleteSnippets", { count: ids.length }),
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds(ids),
+        onClick: whenWritable(() => setConfirmDeleteIds(ids)),
         danger: true,
         divider: true,
       },
@@ -1158,7 +1158,7 @@ export function SnippetsPage() {
         title={t("snippets.page.confirmDelete.title", { count: confirmDeleteIds.length })}
         message={bulkDeleteMessage(confirmDeleteIds)}
         confirmLabel={t("common.action.delete")}
-        onConfirm={() => {
+        onConfirm={whenWritable(() => {
           for (const id of confirmDeleteIds) {
             const folder = folders.find((f) => f.id === id);
             if (folder) void handleDeleteFolder(folder);
@@ -1166,7 +1166,7 @@ export function SnippetsPage() {
           }
           setSelection([]);
           setConfirmDeleteIds(null);
-        }}
+        })}
         onCancel={() => setConfirmDeleteIds(null)}
       />
     )}

@@ -620,6 +620,20 @@
         "title": "Retirer l'accès à la clé du coffre ?",
         "body": "{{names}} perdra la clé du coffre. La clé est renouvelée pour tous les autres.",
         "confirm": "Enregistrer et renouveler la clé"
+      },
+      "hiddenFrom": "Masqué pour {{name}}",
+      "cannotEdit": "Le rôle de ce membre ne permet pas la modification",
+      "draftBadge": "Brouillon",
+      "draftChange": "Brouillon : {{from}} → {{to}}",
+      "level": {
+        "hidden": "Masqué",
+        "view": "Lecture seule",
+        "connect": "Peut se connecter",
+        "edit": "Peut modifier"
+      },
+      "secrets": {
+        "yes": "Secrets visibles",
+        "no": "Secrets masqués"
       }
     }
   }

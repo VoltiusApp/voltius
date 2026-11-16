@@ -61,7 +61,7 @@ import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
-import { folderTarget, refuseWhilePreviewing, ruleTarget } from "@/services/previewGuard";
+import { folderTarget, refuseWhilePreviewing, ruleTarget, whenWritable } from "@/services/previewGuard";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -523,7 +523,7 @@ export function PortForwardingPage() {
       ...(n > 0 ? [{
         label: t("portForwarding.page.bulk.deleteRules", { count: n }),
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds(selectedRules.map((r) => r.id)),
+        onClick: whenWritable(() => setConfirmDeleteIds(selectedRules.map((r) => r.id))),
         danger: true,
         divider: true,
       }] : []),
@@ -757,11 +757,11 @@ export function PortForwardingPage() {
         title={t("portForwarding.page.confirmDeleteBulk.title", { count: confirmDeleteIds.length })}
         message={t("portForwarding.page.confirmDeleteBulk.message", { count: confirmDeleteIds.length })}
         confirmLabel={t("common.action.delete")}
-        onConfirm={async () => {
+        onConfirm={whenWritable(async () => {
           for (const id of confirmDeleteIds) await deleteRule(id);
           setConfirmDeleteIds(null);
           setSelection([]);
-        }}
+        })}
         onCancel={() => setConfirmDeleteIds(null)}
       />
     )}

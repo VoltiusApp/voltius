@@ -624,6 +624,20 @@
         "title": "Remover o acesso à chave do cofre?",
         "body": "{{names}} perderá a chave do cofre. A chave é renovada para todos os outros.",
         "confirm": "Guardar e renovar a chave"
+      },
+      "hiddenFrom": "Oculto para {{name}}",
+      "cannotEdit": "A função deste membro não permite editar",
+      "draftBadge": "Rascunho",
+      "draftChange": "Rascunho: {{from}} → {{to}}",
+      "level": {
+        "hidden": "Oculto",
+        "view": "Apenas visualização",
+        "connect": "Pode ligar",
+        "edit": "Pode editar"
+      },
+      "secrets": {
+        "yes": "Segredos visíveis",
+        "no": "Segredos ocultos"
       }
     }
   }

@@ -5,6 +5,10 @@ import { SectionHeader } from "@/components/shared/SectionHeader";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { dashedCardClass } from "@/components/shared/dashedCard";
+import { withGhost } from "@/components/preview/GhostCard";
+import { PreviewHint } from "@/components/preview/PreviewHint";
+import { identityTarget, keyTarget, whenWritableOn } from "@/services/previewGuard";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { CardActionButton, CardMenuButton } from "@/components/shared/CardActionButton";
 import { TagBadge } from "@/components/shared/TagBadge";
@@ -34,9 +38,7 @@ import { formatDate, SHORT_DATE } from "@/utils/localeFormat";
 
 export function DraftCard({ icon, label }: { icon: string; label: string }) {
   return (
-    <div
-      className="flex items-center gap-4 px-4 py-4 rounded-2xl border-2 border-dashed border-(--t-accent) opacity-50"
-    >
+    <div className={`${dashedCardClass("grid")} border-(--t-accent) opacity-50`}>
       <AvatarTile icon={icon} iconSize={24} className="rounded-lg w-[3.2rem] h-[3.2rem]" iconClassName="text-(--t-text-dim)" />
       <p className="text-sm font-medium text-(--t-text-dim)">{label}</p>
     </div>
@@ -99,7 +101,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize, isList, name = ss
   );
 }
 
-function KeyCard({
+function KeyCardBody({
   sshKey, canEdit, vaults, isEditing, isSelected, isFocused, dimmed, layoutMode,
   onEdit, onDelete, onSelect, onExport, onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onSectionPointerDown,
@@ -153,19 +155,15 @@ function KeyCard({
       icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
         ? "lucide:pin-off"
         : "lucide:pin",
-      onClick: () => {
-        if (!isTeamVault) {
-          pinKey(sshKey.id, !effPinned).catch(() => {});
-        } else {
-          pinKey(sshKey.id, nextPersonalPinValue(pinSource)).catch(() => {});
-        }
-      },
+      onClick: whenWritableOn(keyTarget(sshKey.id), () => {
+        pinKey(sshKey.id, isTeamVault ? nextPersonalPinValue(pinSource) : !effPinned).catch(() => {});
+      }),
       divider: true as const,
     },
     ...(canEdit && isTeamVault ? [{
       label: sshKey.pinned ? t("keychain.cards.pin.unpinForTeam") : t("keychain.cards.pin.pinForTeam"),
       icon: "lucide:users",
-      onClick: () => pinKeyForTeam(sshKey.id, !sshKey.pinned).catch(() => {}),
+      onClick: whenWritableOn(keyTarget(sshKey.id), () => pinKeyForTeam(sshKey.id, !sshKey.pinned).catch(() => {})),
     }] : []),
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit,
@@ -208,6 +206,7 @@ function KeyCard({
         <>
           <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList name={rename.editor ?? sshKey.name} />
           <div className="flex items-center gap-1 shrink-0">
+            <PreviewHint type="key" id={sshKey.id} layout="list" />
             {!isSynced && (
               <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
                 <Icon icon="lucide:cloud-off" width={18} />
@@ -232,6 +231,7 @@ function KeyCard({
                     {sshKey.key_type}
                   </span>
                 )}
+                <PreviewHint type="key" id={sshKey.id} layout="grid" />
                 {!isSynced && (
                   <span title={t("common.objectSync.notSynced")} className="shrink-0 text-(--t-text-dim) flex items-center">
                     <Icon icon="lucide:cloud-off" width={14} />
@@ -261,6 +261,10 @@ function KeyCard({
     </BaseCard>
   );
 }
+
+const KeyCard = withGhost(KeyCardBody, (p) => ({
+  type: "key", id: p.sshKey.id, icon: "lucide:key-round", name: p.sshKey.name ?? "", layout: p.layoutMode,
+}));
 
 export function KeySection({
   keys, showDraft, editingId, selectedIdSet, focusedId, dimmedIds, layoutMode,
@@ -355,7 +359,7 @@ export function KeySection({
 // Identity cards
 // ─────────────────────────────────────────────────────────────────
 
-function IdentityCard({
+function IdentityCardBody({
   identity, linkedKey, canEdit, vaults,
   isEditing, isSelected, isFocused, dimmed, layoutMode,
   onEdit, onDelete, onSelect, onMoveToVault, onCopyToVault,
@@ -411,19 +415,15 @@ function IdentityCard({
       icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
         ? "lucide:pin-off"
         : "lucide:pin",
-      onClick: () => {
-        if (!isTeamVault) {
-          pinIdentity(identity.id, !effPinned).catch(() => {});
-        } else {
-          pinIdentity(identity.id, nextPersonalPinValue(pinSource)).catch(() => {});
-        }
-      },
+      onClick: whenWritableOn(identityTarget(identity.id), () => {
+        pinIdentity(identity.id, isTeamVault ? nextPersonalPinValue(pinSource) : !effPinned).catch(() => {});
+      }),
       divider: true as const,
     },
     ...(canEdit && isTeamVault ? [{
       label: identity.pinned ? t("keychain.cards.pin.unpinForTeam") : t("keychain.cards.pin.pinForTeam"),
       icon: "lucide:users",
-      onClick: () => pinIdentityForTeam(identity.id, !identity.pinned).catch(() => {}),
+      onClick: whenWritableOn(identityTarget(identity.id), () => pinIdentityForTeam(identity.id, !identity.pinned).catch(() => {})),
     }] : []),
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit,
@@ -492,6 +492,7 @@ function IdentityCard({
             </div>
           )}
           <div className="flex items-center gap-1 shrink-0">
+            <PreviewHint type="identity" id={identity.id} layout="list" />
             {!isSynced && (
               <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
                 <Icon icon="lucide:cloud-off" width={18} />
@@ -521,6 +522,7 @@ function IdentityCard({
                     {t("keychain.cards.passwordBadge")}
                   </span>
                 )}
+                <PreviewHint type="identity" id={identity.id} layout="grid" />
                 {!isSynced && (
                   <span title={t("common.objectSync.notSynced")} className="shrink-0 text-(--t-text-dim) flex items-center">
                     <Icon icon="lucide:cloud-off" width={14} />
@@ -554,6 +556,10 @@ function IdentityCard({
     </BaseCard>
   );
 }
+
+const IdentityCard = withGhost(IdentityCardBody, (p) => ({
+  type: "identity", id: p.identity.id, icon: "lucide:id-card", name: p.identity.name || p.identity.username, layout: p.layoutMode,
+}));
 
 export function IdentitySection({
   identities, keys, showDraft, editingId, selectedIdSet, focusedId, dimmedIds, layoutMode,

@@ -643,6 +643,20 @@
         "title": "Odebrat přístup ke klíči trezoru?",
         "body": "{{names}} ztratí klíč trezoru. Klíč se obmění pro všechny ostatní.",
         "confirm": "Uložit a obměnit klíč"
+      },
+      "hiddenFrom": "Skryto před {{name}}",
+      "cannotEdit": "Role tohoto člena úpravy nepovoluje",
+      "draftBadge": "Koncept",
+      "draftChange": "Koncept: {{from}} → {{to}}",
+      "level": {
+        "hidden": "Skryto",
+        "view": "Pouze zobrazení",
+        "connect": "Může se připojit",
+        "edit": "Může upravovat"
+      },
+      "secrets": {
+        "yes": "Tajné údaje viditelné",
+        "no": "Tajné údaje skryté"
       }
     }
   }

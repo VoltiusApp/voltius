@@ -601,6 +601,20 @@
         "title": "移除保险库密钥访问权限？",
         "body": "{{names}} 将失去保险库密钥。密钥将为其他所有人轮换。",
         "confirm": "保存并轮换密钥"
+      },
+      "hiddenFrom": "对 {{name}} 隐藏",
+      "cannotEdit": "该成员的角色不允许编辑",
+      "draftBadge": "草稿",
+      "draftChange": "草稿：{{from}} → {{to}}",
+      "level": {
+        "hidden": "已隐藏",
+        "view": "仅查看",
+        "connect": "可连接",
+        "edit": "可编辑"
+      },
+      "secrets": {
+        "yes": "可见密钥",
+        "no": "密钥已隐藏"
       }
     }
   }

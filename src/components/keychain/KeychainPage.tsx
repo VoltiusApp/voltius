@@ -67,7 +67,7 @@ import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useSearchMatcher } from "@/utils/search";
 import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
-import { folderTarget, identityTarget, keyTarget, refuseWhilePreviewing } from "@/services/previewGuard";
+import { folderTarget, identityTarget, keyTarget, refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -361,7 +361,7 @@ export default function KeychainPage() {
     items.push({
       label: t("keychain.page.bulk.deleteItems", { count: allIds.length }),
       icon: "lucide:trash-2",
-      onClick: () => setConfirmDeleteIds(allIds),
+      onClick: whenWritable(() => setConfirmDeleteIds(allIds)),
       danger: true,
       divider: true,
     });
@@ -1171,7 +1171,7 @@ export default function KeychainPage() {
           title={t("keychain.page.confirmDelete.title", { count: confirmDeleteIds.length })}
           message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
-          onConfirm={async () => {
+          onConfirm={whenWritable(async () => {
             for (const id of confirmDeleteIds) {
               if (selectedKeyIds.includes(id)) await handleDeleteKey(id);
               else if (selectedIdentityIds.includes(id)) await handleDeleteIdentity(id);
@@ -1179,7 +1179,7 @@ export default function KeychainPage() {
             }
             setSelection([]);
             setConfirmDeleteIds(null);
-          }}
+          })}
           onCancel={() => setConfirmDeleteIds(null)}
         />
       )}

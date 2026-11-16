@@ -79,7 +79,7 @@ import { moveFolderTreeToVault } from "@/utils/folderMove";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
-import { connectionTarget, folderTarget, refuseWhilePreviewing } from "@/services/previewGuard";
+import { connectionTarget, folderTarget, refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 
 export default function HostsPage() {
@@ -596,7 +596,7 @@ export default function HostsPage() {
       {
         label: t("hosts.page.bulk.deleteItems", { count: totalSelected }),
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds([...ids, ...folderIds]),
+        onClick: whenWritable(() => setConfirmDeleteIds([...ids, ...folderIds])),
         danger: true,
         divider: true,
       },
@@ -1159,14 +1159,14 @@ export default function HostsPage() {
           title={t("hosts.page.confirmDelete.title", { count: confirmDeleteIds.length })}
           message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
-          onConfirm={() => {
+          onConfirm={whenWritable(() => {
             for (const id of confirmDeleteIds) {
               if (scopedFolders.some((f) => f.id === id)) void deleteFolder(id);
               else void deleteConnection(id);
             }
             setSelection([]);
             setConfirmDeleteIds(null);
-          }}
+          })}
           onCancel={() => setConfirmDeleteIds(null)}
         />
       )}

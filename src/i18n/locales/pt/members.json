@@ -620,6 +620,20 @@
         "title": "Remover o acesso à chave do cofre?",
         "body": "{{names}} perderá a chave do cofre. A chave é rotacionada para todos os outros.",
         "confirm": "Salvar e rotacionar a chave"
+      },
+      "hiddenFrom": "Oculto para {{name}}",
+      "cannotEdit": "A função deste membro não permite editar",
+      "draftBadge": "Rascunho",
+      "draftChange": "Rascunho: {{from}} → {{to}}",
+      "level": {
+        "hidden": "Oculto",
+        "view": "Somente visualização",
+        "connect": "Pode conectar",
+        "edit": "Pode editar"
+      },
+      "secrets": {
+        "yes": "Segredos visíveis",
+        "no": "Segredos ocultos"
       }
     }
   }

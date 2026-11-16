@@ -605,6 +605,20 @@
         "title": "Kasa anahtarı erişimi kaldırılsın mı?",
         "body": "{{names}} kasa anahtarını kaybedecek. Anahtar diğer herkes için yenilenir.",
         "confirm": "Kaydet ve anahtarı yenile"
+      },
+      "hiddenFrom": "{{name}} için gizli",
+      "cannotEdit": "Bu üyenin rolü düzenlemeye izin vermiyor",
+      "draftBadge": "Taslak",
+      "draftChange": "Taslak: {{from}} → {{to}}",
+      "level": {
+        "hidden": "Gizli",
+        "view": "Salt görüntüleme",
+        "connect": "Bağlanabilir",
+        "edit": "Düzenleyebilir"
+      },
+      "secrets": {
+        "yes": "Gizli bilgiler görünür",
+        "no": "Gizli bilgiler gizli"
       }
     }
   }
