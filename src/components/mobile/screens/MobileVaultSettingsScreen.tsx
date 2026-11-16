@@ -27,6 +27,7 @@ import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
 import type { VaultSettingsPage } from "@/stores/mobileNavCore";
+import MobileMembersScreen from "./MobileMembersScreen";
 import { vaultSettingsSections, type VaultSettingsRow } from "./vaultSettingsCore";
 
 const NO_TITLE = { current: null };
@@ -49,6 +50,8 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
   const scroll = useCollapsingHeader(appbarRef, page ? NO_TITLE : largeTitleRef);
 
   const title = page ? t(`mobile.vaultSettings.rows.${page}`) : (target?.name ?? t("mobile.vaultSettings.title"));
+
+  if (page === "members") return <MobileMembersScreen vaultId={vaultId} />;
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)" data-mobile-vault-settings={page ?? "root"}>
@@ -85,13 +88,20 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
 function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
   vaultId: string; target: VaultAdminTarget; page: VaultSettingsPage; onLeave: () => void;
 }) {
+  const push = useMobileNavStore((s) => s.push);
   const teamId = target.teamId;
   // These panels were laid out for a 320 px desktop side panel: every button inside
   // gets a 48 dp hit area on the phone (C7).
   return (
-    <div data-vault-settings-page={page} data-vt-hit-scope className={page === "share" || page === "members" ? "" : "p-4"}>
-      {(page === "share" || page === "members") && (
-        <VaultShareSheet vaultId={vaultId} variant="page" initialTab={page === "members" ? "people" : "invite"} onRequestFull={onLeave} />
+    <div data-vault-settings-page={page} data-vt-hit-scope className={page === "share" ? "" : "p-4"}>
+      {page === "share" && (
+        <VaultShareSheet
+          vaultId={vaultId}
+          variant="page"
+          initialTab="invite"
+          onRequestFull={onLeave}
+          onOpenPeople={() => push({ kind: "vault-settings", vaultId, page: "members" })}
+        />
       )}
       {page === "roles" && teamId && <TeamRolesPanel teamId={teamId} />}
       {page === "security" && teamId && <SecurityPolicyPanel teamId={teamId} />}

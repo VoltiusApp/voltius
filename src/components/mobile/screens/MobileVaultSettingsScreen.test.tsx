@@ -34,7 +34,12 @@ vi.mock("@/components/vault-admin/VaultAdminDialogs", () => ({
     return dialog ? <div data-test-dialog={dialog} /> : null;
   },
 }));
-vi.mock("@/components/vault-share/VaultShareSheet", () => ({ VaultShareSheet: ({ initialTab }: { initialTab: string }) => <div data-test-share={initialTab} /> }));
+vi.mock("@/components/vault-share/VaultShareSheet", () => ({
+  VaultShareSheet: ({ initialTab, onOpenPeople }: { initialTab: string; onOpenPeople?: () => void }) => (
+    <div data-test-share={initialTab}><button data-test-open-people onClick={onOpenPeople} /></div>
+  ),
+}));
+vi.mock("./MobileMembersScreen", () => ({ default: ({ vaultId }: { vaultId: string }) => <div data-test-members={vaultId} /> }));
 vi.mock("@/components/members/panels/RolesPanel", () => ({ TeamRolesPanel: () => <div data-test-roles /> }));
 vi.mock("@/components/members/panels/SecurityPolicyPanel", () => ({ SecurityPolicyPanel: () => <div data-test-security /> }));
 
@@ -102,12 +107,10 @@ test("delete opens the confirm dialog; once deleted the page closes", () => {
   expect(useMobileNavStore.getState().stack).toEqual([]);
 });
 
-test("sub-pages wrap the existing panels; Members opens the people tab", () => {
+test("sub-pages wrap the existing panels", () => {
   h.vaults = [{ id: "v2", name: "Work", teamId: "t1" }];
   const share = render(<MobileVaultSettingsScreen vaultId="v2" page="share" />);
   expect(share.container.querySelector('[data-test-share="invite"]')).not.toBeNull();
-  cleanup();
-  expect(render(<MobileVaultSettingsScreen vaultId="v2" page="members" />).container.querySelector('[data-test-share="people"]')).not.toBeNull();
   cleanup();
   expect(render(<MobileVaultSettingsScreen vaultId="v2" page="roles" />).container.querySelector("[data-test-roles]")).not.toBeNull();
   cleanup();
@@ -117,4 +120,19 @@ test("sub-pages wrap the existing panels; Members opens the people tab", () => {
 test("a vault that is gone says so", () => {
   const { container } = render(<MobileVaultSettingsScreen vaultId="nope" />);
   expect(container.querySelector("[data-vault-settings-gone]")).not.toBeNull();
+});
+
+test("the Members page is the native members screen, as the whole page", () => {
+  h.vaults = [{ id: "v2", name: "Work", teamId: "t1" }];
+  const { container } = render(<MobileVaultSettingsScreen vaultId="v2" page="members" />);
+  expect(container.querySelector('[data-test-members="v2"]')).not.toBeNull();
+  expect(container.querySelector("[data-test-share]")).toBeNull();
+  expect(container.querySelector("[data-mobile-appbar]")).toBeNull();
+});
+
+test("the Share page pushes the Members page from its People tab", () => {
+  h.vaults = [{ id: "v2", name: "Work", teamId: "t1" }];
+  const { container } = render(<MobileVaultSettingsScreen vaultId="v2" page="share" />);
+  fireEvent.click(container.querySelector("[data-test-open-people]")!);
+  expect(useMobileNavStore.getState().stack.slice(-1)[0]).toEqual({ kind: "vault-settings", vaultId: "v2", page: "members" });
 });

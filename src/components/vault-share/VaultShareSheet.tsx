@@ -28,9 +28,11 @@ interface Props {
   variant: "popover" | "full" | "page";
   onRequestFull?: () => void;
   initialTab?: Tab;
+  /** Mobile: the People tab opens the native Members list instead of switching tabs. */
+  onOpenPeople?: () => void;
 }
 
-export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = "people" }: Props) {
+export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = "people", onOpenPeople }: Props) {
   const { t } = useTranslation();
   const vault = useVaultStore((s) => s.vaults.find((v) => v.id === vaultId));
   const teams = useTeamStore((s) => s.teams);
@@ -44,7 +46,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
   const pendingInvitationsByTeam = useTeamStore((s) => s.pendingInvitationsByTeam);
   const { seats } = useTeamSeatReadout(teamId);
 
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(onOpenPeople && initialTab === "people" ? "invite" : initialTab);
   // Owned by the sheet, never by a tab: the bug this component replaces was an
   // error written to a panel the same handler had just unmounted.
   const [error, setError] = useState("");
@@ -203,7 +205,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
           return (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => (key === "people" && onOpenPeople ? onOpenPeople() : setTab(key))}
               aria-current={active}
               className="pb-2 text-xs transition-colors"
               style={{

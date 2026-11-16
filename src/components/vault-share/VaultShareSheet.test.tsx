@@ -216,3 +216,26 @@ test("the invite tab falls back to the viewer's own seats when the server omits 
   fireEvent.click(screen.getByText("members.share.tabInvite"));
   expect(JSON.parse(screen.getByTestId("invite-seats").textContent ?? "")).toMatchObject({ kind: "known", used: 1, total: 10 });
 });
+
+test("share_people_tab_pushes_the_members_list_for_a_team_vault", () => {
+  h.vault.teamId = "t1";
+  const onOpenPeople = vi.fn();
+  render(<VaultShareSheet vaultId="v1" variant="page" initialTab="invite" onOpenPeople={onOpenPeople} />);
+  fireEvent.click(screen.getByText("members.share.tabPeople"));
+  expect(onOpenPeople).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("invite-control")).toBeTruthy();
+  expect(screen.queryByText("people:0")).toBeNull();
+});
+
+test("onOpenPeople turns an initial People tab into Invite", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="page" initialTab="people" onOpenPeople={() => {}} />);
+  expect(screen.getByText("invite-control")).toBeTruthy();
+});
+
+test("share_people_tab_switches_locally_on_desktop", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="popover" initialTab="invite" />);
+  fireEvent.click(screen.getByText("members.share.tabPeople"));
+  expect(screen.getByText("people:0")).toBeTruthy();
+});

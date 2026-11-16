@@ -9,9 +9,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore, type MembersPanel } from "@/stores/uiStore";
-import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { isMobileShell } from "@/utils/platform";
-import { membersPanelPage } from "@/components/mobile/screens/vaultSettingsCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { getMyHandle } from "@/services/account";
@@ -69,11 +67,6 @@ export default function MembersPage() {
   const [panel, setPanel] = useState<MembersPanel | "detail" | null>(null);
   const togglePanel = (next: MembersPanel) => {
     if (next === "invite" && refuseWhilePreviewing()) return;
-    // Android: a 320 px side panel is most of the phone; the vault settings sub-page is the same panel full-screen.
-    if (isMobileShell() && primaryVaultId) {
-      useMobileNavStore.getState().push({ kind: "vault-settings", vaultId: primaryVaultId, page: membersPanelPage(next) });
-      return;
-    }
     setPanel((cur) => (cur === next ? null : next));
   };
   const closeTransientPanel = () => setPanel((cur) => (cur === "detail" || cur === "invite" ? null : cur));
