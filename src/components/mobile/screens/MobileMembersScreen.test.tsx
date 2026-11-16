@@ -15,7 +15,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 globalThis.ResizeObserver ??= class {
   observe() {}
   unobserve() {}
@@ -137,6 +137,32 @@ describe("MobileMembersScreen", () => {
     expect(h.model.changeRole).toHaveBeenCalledWith([ANA], EDITOR, "assign", { bulk: false });
     expect(q(container, "[data-members-selection-bar]")).toBeNull();
     expect(document.querySelector("[data-role-pick]")).toBeNull();
+  });
+
+  test("role_sheets_mark_roles_already_held_or_not_held_by_the_selection", () => {
+    const { container } = render(<MobileMembersScreen vaultId="t1" />);
+    fireEvent.contextMenu(rowButton(container, "ana"));
+    const pick = (id: string) => document.querySelector<HTMLButtonElement>(`[data-role-pick='${id}']`)!;
+
+    fireEvent.click(q(container, "[data-members-sel-assign]")!);
+    expect(pick("r-member").disabled).toBe(true);
+    expect(pick("r-member").textContent).toContain("mobile.members.alreadyAssigned");
+    expect(pick("r-member").querySelector("[data-icon='lucide:check']")).not.toBeNull();
+    expect(pick("r-editor").disabled).toBe(false);
+    expect(pick("r-editor").querySelector("[data-icon='lucide:check']")).toBeNull();
+    fireEvent.click(pick("r-member"));
+    expect(h.model.changeRole).not.toHaveBeenCalled();
+  });
+
+  test("remove_sheet_disables_roles_nobody_selected_has", () => {
+    const { container } = render(<MobileMembersScreen vaultId="t1" />);
+    fireEvent.contextMenu(rowButton(container, "ana"));
+    fireEvent.click(q(container, "[data-members-sel-remove]")!);
+    const pick = (id: string) => document.querySelector<HTMLButtonElement>(`[data-role-pick='${id}']`)!;
+    expect(pick("r-editor").disabled).toBe(true);
+    expect(pick("r-editor").textContent).toContain("mobile.members.notAssigned");
+    expect(pick("r-member").disabled).toBe(false);
+    expect(pick("r-member").querySelector("[data-icon='lucide:check']")).toBeNull();
   });
 
   test("a_role_change_on_several_members_uses_the_bulk_copy", () => {

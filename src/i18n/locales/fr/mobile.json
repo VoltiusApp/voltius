@@ -301,6 +301,8 @@
       "pickRole": "Choisir un rôle",
       "keyHeld": "A la clé du coffre-fort",
       "keyAwaiting": "En attente de la clé du coffre-fort",
+      "alreadyAssigned": "Déjà attribué",
+      "notAssigned": "Non attribué",
       "invite": {
         "resend": "Renvoyer l'invitation",
         "revoke": "Révoquer l'invitation"

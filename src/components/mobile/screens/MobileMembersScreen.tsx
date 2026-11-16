@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { TeamMember } from "@/stores/teamStore";
+import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import type { PendingInvitation } from "@/services/teamService";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -99,6 +99,11 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
       onLong={() => toggle(m)} />
   );
   const security = greyed(canManageVault);
+  const holders = (r: TeamRole) => selected.filter((m) => m.role_ids.includes(r.id)).length;
+  const heldByAll = (r: TeamRole) => holders(r) === selected.length;
+  const pickReason = (r: TeamRole) =>
+    picker === "assign" ? (heldByAll(r) ? t("mobile.members.alreadyAssigned") : null)
+      : holders(r) === 0 ? t("mobile.members.notAssigned") : null;
 
   return shell(
     <>
@@ -141,6 +146,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
       )}
       {picker && (
         <RolePickerSheet title={t("mobile.members.pickRole")} roles={model.roleOptions(selected, picker)} mode="pick"
+          selectedIds={picker === "assign" ? roles.filter(heldByAll).map((r) => r.id) : []} disabledReason={pickReason}
           onPick={(r) => { void model.changeRole(selected, r, picker, { bulk: selected.length > 1 }); clear(); }}
           onClose={() => setPicker(null)} />
       )}

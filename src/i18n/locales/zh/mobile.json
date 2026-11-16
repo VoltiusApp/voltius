@@ -296,6 +296,8 @@
       "pickRole": "选择角色",
       "keyHeld": "已持有保险库密钥",
       "keyAwaiting": "正在等待保险库密钥",
+      "alreadyAssigned": "已分配",
+      "notAssigned": "未分配",
       "invite": {
         "resend": "重新发送邀请",
         "revoke": "撤销邀请"

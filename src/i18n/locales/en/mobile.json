@@ -297,6 +297,8 @@
       "pickRole": "Choose a role",
       "keyHeld": "Has the vault key",
       "keyAwaiting": "Waiting for the vault key",
+      "alreadyAssigned": "Already assigned",
+      "notAssigned": "Not assigned",
       "invite": {
         "resend": "Resend invitation",
         "revoke": "Revoke invitation"

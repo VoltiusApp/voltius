@@ -305,6 +305,8 @@
       "pickRole": "Vyberte roli",
       "keyHeld": "Má klíč k trezoru",
       "keyAwaiting": "Čeká na klíč k trezoru",
+      "alreadyAssigned": "Již přiřazeno",
+      "notAssigned": "Nepřiřazeno",
       "invite": {
         "resend": "Poslat pozvánku znovu",
         "revoke": "Zrušit pozvánku"
