@@ -14,6 +14,8 @@ export type SheetAction = {
   onTap: () => void;
 };
 
+export const isSheetActionDisabled = (it: SheetAction): boolean => !!it.disabled || it.disabledReason !== undefined;
+
 /**
  * One tappable row of a bottom sheet's action list. `attr` is the sheet's own
  * data attribute suffix (`data-host-action`, `data-folder-action`, …) — every
@@ -24,7 +26,7 @@ export function SheetActionRow({ attr, it }: { attr: string; it: SheetAction }) 
   return (
     <button
       {...{ [`data-${attr}`]: slug }}
-      disabled={it.disabled || it.disabledReason !== undefined}
+      disabled={isSheetActionDisabled(it)}
       className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-50"
       style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
       onClick={() => {

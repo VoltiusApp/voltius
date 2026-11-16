@@ -13,9 +13,11 @@ test("guarded_actions_refuse_and_reads_pass_through", () => {
   const write = action();
   const read = action({ reads: true });
   const disabled = action({ disabled: true });
-  const [w, r, d] = previewGuarded([write, read, disabled], { type: "connection", objectId: "c1" });
+  const reasoned = action({ disabledReason: "why" });
+  const [w, r, d, dr] = previewGuarded([write, read, disabled, reasoned], { type: "connection", objectId: "c1" });
   expect(r).toBe(read);
   expect(d).toBe(disabled);
+  expect(dr).toBe(reasoned);
 
   startPreview();
   explainable("c1");
