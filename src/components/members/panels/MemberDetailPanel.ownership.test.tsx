@@ -39,6 +39,7 @@ vi.mock("@/stores/teamStore", () => {
 vi.mock("@/services/serverCapabilities", () => ({
   useServerMultiOwner: () => h.caps.multiOwner,
   useServerBillingEnabled: () => h.caps.billingEnabled,
+  useServerPermissionPreview: () => false,
 }));
 vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => h.myUserId }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
@@ -54,6 +55,12 @@ vi.mock("@/services/teamActionFeedback", () => ({
 vi.mock("@/services/teamKeyRotation", () => ({ checkAndRotateTeamKey: vi.fn() }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: false, isOwner: false }) }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
+
+vi.mock("@/hooks/usePermission", async (orig) => ({
+  ...(await orig<typeof import("@/hooks/usePermission")>()),
+  useOwnPermissions: () => () => true,
+  useHeldPermissionBits: () => 0,
+}));
 
 import { MemberDetailPanel } from "./MemberDetailPanel";
 
@@ -113,7 +120,7 @@ test("an old server hides the Owner role even from an Owner", () => {
 test("the primary owner cannot be removed, and no transfer is offered on them", () => {
   renderPanel(person("primary", ["r-owner"]), ownerViewer);
   expect(screen.getByText("members.ownership.primary")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expect((screen.getByRole("button", { name: "members.removeFromTeam" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByRole("button", { name: "members.ownership.makePrimary" })).toBeNull();
 });
 

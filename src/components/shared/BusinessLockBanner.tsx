@@ -3,12 +3,13 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { whenWritable } from "@/services/previewGuard";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 
 export function UpgradeAction({ teamId, look }: { teamId: string; look: "button" | "link" }) {
   const { t } = useTranslation();
   const { isOwner } = useBusinessLock(teamId);
-  const upgrade = () => void openBillingCheckout("business");
+  const upgrade = whenWritable(() => void openBillingCheckout("business"));
   if (isOwner === false) {
     return look === "link" ? null : <p className="text-xs text-(--t-text-dim)">{t("shared.businessLock.ownerOnly")}</p>;
   }
@@ -27,7 +28,7 @@ export function UpgradeAction({ teamId, look }: { teamId: string; look: "button"
 }
 
 export function BusinessLapseNotice({ teamId, message, removeLabel, onRemove }: {
-  teamId: string; message: string; removeLabel: string; onRemove?: () => Promise<void>;
+  teamId: string; message: string; removeLabel: string; onRemove?: () => unknown;
 }) {
   const { t } = useTranslation();
   const { locked } = useBusinessLock(teamId);
@@ -73,6 +74,22 @@ export function BusinessLockLine({ teamId, label, compact = false }: { teamId: s
       <Icon icon="lucide:lock" width={compact ? 11 : 12} className="inline align-[-1px] mr-1.5" />
       {label} <UpgradeAction teamId={teamId} look="link" />
     </p>
+  );
+}
+
+export function MemberPermissionsLock({ teamId, name, hasOverrides, onRemove }: {
+  teamId: string; name: string; hasOverrides: boolean; onRemove?: () => unknown;
+}) {
+  const { t } = useTranslation();
+  const { locked } = useBusinessLock(teamId);
+  if (locked && !hasOverrides) return <BusinessLockLine teamId={teamId} label={t("shared.businessLock.memberLine")} />;
+  return (
+    <BusinessLapseNotice
+      teamId={teamId}
+      message={t("shared.businessLock.memberLapsed", { name })}
+      removeLabel={t("shared.businessLock.removeOverrides")}
+      onRemove={onRemove}
+    />
   );
 }
 

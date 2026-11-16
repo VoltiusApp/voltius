@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { withGhost } from "@/components/preview/GhostCard";
+import { PreviewHint } from "@/components/preview/PreviewHint";
 import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/components/shared/BaseCard";
 import { CardActionButton, CardMenuButton, CardMenuContext, CardPinButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -9,7 +11,7 @@ import { buildFolderMenuItems } from "@/utils/folderMenuItems";
 import { isPlainClick } from "@/utils/cardInteraction";
 import { useInlineRename } from "@/hooks/useInlineRename";
 import { folderIcon } from "./folderAppearance";
-import { useFolderPin } from "./useFolderPin";
+import { folderAccessType, useFolderPin } from "./useFolderPin";
 import { useFolderSync } from "./useFolderSync";
 import type { Folder, VaultOption } from "@/types";
 
@@ -38,7 +40,7 @@ interface FolderCardProps {
   "data-drop-folder"?: string;
 }
 
-export function FolderCard({
+function FolderCardBody({
   folder,
   itemCount,
   layout,
@@ -67,7 +69,7 @@ export function FolderCard({
   const iconSize = isList ? 14 : 22;
   const { pos: ctxPos, open: openCtx, openAt: openCtxAt, close: closeCtx } = useContextMenu();
   const sync = useFolderSync(folder);
-  const { pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
+  const { folderType, pinColor, pinAlwaysVisible, togglePin, pinItem, pinTeamItem } = useFolderPin(folder, canEdit);
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
   const rename = useInlineRename(folder.id, !!canEdit, folder.name, (name) => onRename(folder, name));
@@ -170,6 +172,7 @@ export function FolderCard({
         )}
 
         <div className="flex items-center gap-1 shrink-0">
+          <PreviewHint type={folderType} id={folder.id} layout={layout} />
           {pinAlwaysVisible && <CardPinButton color={pinColor} title={t("folders.card.unpin")} onClick={togglePin} width={16} />}
           {!sync.isSynced && (
             <span title={t("common.objectSync.notSynced")} className="text-(--t-text-dim) flex items-center">
@@ -212,3 +215,7 @@ export function FolderCard({
     </>
   );
 }
+
+export const FolderCard = withGhost(FolderCardBody, (p) => ({
+  type: folderAccessType(p.folder), id: p.folder.id, icon: folderIcon(p.folder), name: p.folder.name, layout: p.layout,
+}));

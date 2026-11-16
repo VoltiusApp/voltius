@@ -11,6 +11,7 @@ import {
   type PasteResult,
 } from "@/services/vaultClipboard";
 import { RuleSetMoveCancelled } from "@/services/teamObjectPersistence";
+import { refuseWhilePreviewing, type PreviewTarget } from "@/services/previewGuard";
 
 export interface PageClipboardAdapter extends ClipboardAdapter {
   getSelection: () => string[];
@@ -146,6 +147,26 @@ export function clipboardOf(
   };
 }
 
+const PREVIEW_TYPE: Record<VaultClipboardKind, PreviewTarget["type"]> = {
+  connection: "connection",
+  key: "key",
+  identity: "identity",
+  snippet: "snippet",
+  port_forward: "port_forwarding_rule",
+};
+
+/** Opens Why when the clipboard holds a single object, else toasts. */
+export function refuseClipboardWhilePreviewing(c: NonNullable<VaultClipboard>): boolean {
+  const [item] = c.items;
+  const single = c.items.length + c.folderIds.length === 1;
+  const target: PreviewTarget | undefined = !single
+    ? undefined
+    : item
+      ? { type: PREVIEW_TYPE[item.kind], objectId: item.id }
+      : { type: "folder", objectId: c.folderIds[0] };
+  return refuseWhilePreviewing(target);
+}
+
 function queuePaste(
   ref: { current: PageClipboardAdapter },
   readClipboard: () => VaultClipboard,
@@ -223,11 +244,12 @@ export function usePageClipboard(adapter: PageClipboardAdapter): TransferToVault
       const selection = a.getSelection();
       const ids = selection.length > 0 ? selection : [a.getFocusedId()].filter((x): x is string => !!x);
       const clipboard = clipboardOf(a, ids, mode);
-      if (clipboard) useVaultClipboardStore.getState().setClipboard(clipboard);
+      if (!clipboard || refuseClipboardWhilePreviewing(clipboard)) return;
+      useVaultClipboardStore.getState().setClipboard(clipboard);
     };
 
     const handlePaste = () => {
-      if (!isActive()) return;
+      if (!isActive() || refuseWhilePreviewing()) return;
       queuePaste(ref, () => useVaultClipboardStore.getState().clipboard, aborted, { fromStore: true });
     };
 
@@ -246,7 +268,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): TransferToVault
 
   return useCallback<TransferToVault>((ids, vaultId, mode) => {
     const clipboard = clipboardOf(ref.current, ids, mode);
-    if (clipboard) {
+    if (clipboard && !refuseClipboardWhilePreviewing(clipboard)) {
       queuePaste(ref, () => clipboard, abortedRef.current, { target: { folderId: null, vaultId }, fromStore: false });
     }
   }, []);

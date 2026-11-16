@@ -3,10 +3,14 @@ import { persist } from "zustand/middleware";
 import { domainOf, settingKey } from "@/services/user-data/settingKeys";
 import { isLocked, lockedBool } from "./policyStore";
 import { SYNC_SETTING_DOMAINS } from "./syncDomains";
+import { whenWritable } from "@/services/previewGuard";
 
 export * from "./syncDomains";
 
 const TOGGLEABLE_DOMAINS = new Set(SYNC_SETTING_DOMAINS.map((d) => d.id));
+
+const flipExcluded = (excluded: string[], id: string): string[] =>
+  excluded.includes(id) ? excluded.filter((x) => x !== id) : [...excluded, id];
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +29,7 @@ interface SyncPrefsStore {
 
   setSyncType: (typeId: string, v: boolean) => void;
   toggleExcluded: (id: string) => void;
+  setObjectsSynced: (objects: { id: string; typeId: string }[], synced: boolean) => void;
   isExcluded: (id: string) => boolean;
   isTypeSynced: (typeId: string) => boolean;
   isObjectSynced: (id: string, typeId: string) => boolean;
@@ -48,12 +53,13 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
         !isLocked(`sync.types.${typeId}`) &&
         set((s) => ({ syncTypes: { ...s.syncTypes, [typeId]: v } })),
 
-      toggleExcluded: (id) =>
-        set((s) => ({
-          excludedIds: s.excludedIds.includes(id)
-            ? s.excludedIds.filter((x) => x !== id)
-            : [...s.excludedIds, id],
-        })),
+      toggleExcluded: whenWritable((id: string) => set((s) => ({ excludedIds: flipExcluded(s.excludedIds, id) }))),
+
+      setObjectsSynced: whenWritable((objects: { id: string; typeId: string }[], synced: boolean) => {
+        const s = get();
+        const flips = objects.filter(({ id, typeId }) => s.isObjectSynced(id, typeId) !== synced);
+        set({ excludedIds: flips.reduce((excluded, { id }) => flipExcluded(excluded, id), s.excludedIds) });
+      }),
 
       isExcluded: (id) => get().excludedIds.includes(id),
 

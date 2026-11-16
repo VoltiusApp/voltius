@@ -4,13 +4,17 @@ import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
-import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
+import { PanelShell, PanelHeader, PanelHeaderIconButton, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
-import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { permissionLabel, readOnlyReasonText, roleLabel, rolesGranting } from "@/components/members/roleChips";
+import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
+import { AccessSummaryCard } from "@/components/members/panels/AccessSummaryCard";
+import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
+import { isMobileShell } from "@/utils/platform";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useAutosave } from "@/hooks/useAutosave";
-import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/BusinessLockBanner";
+import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -18,10 +22,12 @@ import { OwnershipConfirm } from "@/components/members/ownerInvite";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
-  PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, crossesVaultKeyGate,
-  resolveMemberReadOnlyReason, type Permission, type MemberReadOnlyReason,
+  PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, dropsConnectSource,
+  memberReadOnly, overrideRowLocked, isEditablePermission, type Permission,
 } from "@/services/permissions";
-import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
+import { rotateTeamKeyNow } from "@/services/vaultKeyActions";
+import { losesVaultKey, type MemberDraft } from "@/services/permissionPreview";
+import { getServerCapability } from "@/services/serverCapabilities";
 import {
   PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState,
 } from "./PermissionOverrideRow";
@@ -31,6 +37,10 @@ import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { inviterLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 import { memberOwnership } from "@/services/teamOwnership";
 import { useOwnershipContext } from "@/hooks/useOwnershipContext";
+import { useHeldPermissionBits } from "@/hooks/usePermission";
+import { usePreviewActive } from "@/hooks/previewScope";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
+import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -39,26 +49,23 @@ export interface MemberDetailPanelProps {
   teamRoles: TeamRole[];
   canManageMembers: boolean;
   canNameMembers: boolean;
+  namingSupported?: boolean;
   isTargetOwner: boolean;
   viewer?: TeamMember;
   onClose: () => void;
   onUpdated: () => void;
 }
 
-const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
-  noManage: "members.permissions.readOnlyNoManage",
-  owner: "members.permissions.readOnlyOwner",
-  self: "members.permissions.readOnlySelf",
-  higherRole: "members.permissions.readOnlyHigherRole",
-  notHeld: "members.permissions.readOnlyNotHeld",
-};
-
 export function MemberDetailPanel({
-  member, isMe, teamId, teamRoles, canManageMembers, canNameMembers, isTargetOwner, viewer, onClose, onUpdated,
+  member, isMe, teamId, teamRoles, canManageMembers, canNameMembers, namingSupported = canNameMembers, isTargetOwner, viewer, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
   const push = useHistoryStore((s) => s.push);
   const { locked } = useBusinessLock(teamId);
+  const previewing = usePreviewActive() !== null;
+  const greyedUnless = useGreyedUnless();
+  const viewAs = useViewAsEntry(teamId, { type: "member", user_id: member.user_id });
+  const showViewAs = !isMobileShell();
 
   const setStoredName = useTeamStore((s) => s.setMemberName);
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
@@ -95,13 +102,12 @@ export function MemberDetailPanel({
   const [permissionFilter, setPermissionFilter] = useState("");
   // Stores the intent, not the computed masks — commitOverride recomputes them
   // from the render current at confirm time, in case member state changed meanwhile.
-  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | "clear" | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<{ permission: Permission; next: OverrideState } | { kind: "role"; roleId: string; add: boolean } | "clear" | null>(null);
   const [pendingOwnerRole, setPendingOwnerRole] = useState<TeamRole | null>(null);
   const [confirmingPrimary, setConfirmingPrimary] = useState(false);
 
   const ownershipCtx = useOwnershipContext(teamId, viewer, teamRoles);
   const ownership = memberOwnership(ownershipCtx, { userId: member.user_id, isMe, isOwner: isTargetOwner });
-  const canChangeRoles = canManageMembers && !isMe;
   const canRemove = canManageMembers && !ownership.protectedFromViewer && !isMe;
   const canLeave = ownership.canLeave;
 
@@ -121,16 +127,22 @@ export function MemberDetailPanel({
     });
   };
 
-  const handleToggleRole = async (role: TeamRole, confirmed = false) => {
-    const hasRole = member.role_ids.includes(role.id);
-    if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
-      setError(t("members.error.cannotRemoveOwnerRole"));
-      return;
+  const wouldLoseKey = async (next: MemberDraft, busy: (on: boolean) => void) => {
+    busy(true);
+    try {
+      if (getServerCapability("permissionPreview")) {
+        try {
+          return await losesVaultKey(teamId, member.user_id, next);
+        } catch {}
+      }
+      return dropsConnectSource(member, teamRoles, next, locked);
+    } finally {
+      busy(false);
     }
-    if (isOwnerRole(role) && !confirmed) {
-      setPendingOwnerRole(role);
-      return;
-    }
+  };
+
+  const applyRoleToggle = async (role: TeamRole, add: boolean, rotate: boolean) => {
+    const hasRole = !add;
     const store = useTeamStore.getState();
     const assign = () => store.assignMemberRole(teamId, member.user_id, role.id);
     const remove = () => store.removeMemberRole(teamId, member.user_id, role.id);
@@ -154,6 +166,7 @@ export function MemberDetailPanel({
             },
       );
       onUpdated();
+      if (rotate) void rotateTeamKeyNow(teamId);
       setJustToggled(role.id);
       setTimeout(() => setJustToggled(null), 700);
     } catch (e) {
@@ -163,9 +176,34 @@ export function MemberDetailPanel({
     }
   };
 
+  const handleToggleRole = whenWritable(async (role: TeamRole, confirmed = false) => {
+    const hasRole = member.role_ids.includes(role.id);
+    if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
+      setError(t("members.error.cannotRemoveOwnerRole"));
+      return;
+    }
+    if (isOwnerRole(role) && !confirmed) {
+      setPendingOwnerRole(role);
+      return;
+    }
+    if (!isOwnerRole(role)) {
+      setError("");
+      const role_ids = hasRole ? member.role_ids.filter((id) => id !== role.id) : [...member.role_ids, role.id];
+      const loses = await wouldLoseKey(
+        { role_ids, allow: member.permission_allow ?? 0, deny: member.permission_deny ?? 0 },
+        (on) => setToggling(on ? role.id : null),
+      );
+      if (loses) {
+        setPendingRevoke({ kind: "role", roleId: role.id, add: !hasRole });
+        return;
+      }
+    }
+    await applyRoleToggle(role, !hasRole, false);
+  });
+
   const allow = member.permission_allow ?? 0;
   const deny = member.permission_deny ?? 0;
-  const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles, locked) : 0;
+  const viewerEffective = useHeldPermissionBits(teamId);
   const memberEffective = effectivePermissions(member, teamRoles, locked);
 
   // A server predating overrides omits both masks; a zero mask serializes as 0.
@@ -174,8 +212,7 @@ export function MemberDetailPanel({
 
   // Retired, but shown when set: otherwise no row can clear it as an offending bit.
   const editablePermissions = (Object.keys(PERM_META) as Permission[])
-    .filter((p) => p !== "CREATE_CUSTOM_ROLES"
-      || ((allow | deny) & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0);
+    .filter((p) => isEditablePermission(p, allow | deny));
 
   const matchesFilter = searchMatcher(permissionFilter);
   const filteredGroups = PERMISSION_GROUPS
@@ -186,30 +223,23 @@ export function MemberDetailPanel({
     }))
     .filter((g) => g.permissions.length > 0);
 
-  const rolesGranting = (permission: Permission) =>
-    teamRoles
-      .filter((r) => (!locked || r.is_builtin) && member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
-      .map((r) => roleLabel(t, r.name));
+  const grantingRoles = (permission: Permission) => rolesGranting(t, teamRoles, member.role_ids, locked, permission);
 
-  const offendingBits = allow & ~viewerEffective;
-
-  const readOnlyReasonKind = resolveMemberReadOnlyReason({
+  const { kind: readOnlyReasonKind, roleBlock, offendingBits, lockedEmpty } = memberReadOnly({
+    member,
+    viewerRoleIds: viewer ? viewer.role_ids : null,
+    viewerBits: viewerEffective,
     canManageMembers,
     isTargetOwner,
     isMe,
-    viewerRoleIds: viewer ? viewer.role_ids : null,
-    targetRoleIds: member.role_ids,
     teamRoles,
-    offendingBits,
+    locked,
   });
+  const readOnlyReason = readOnlyReasonText(t, readOnlyReasonKind);
+  const roleReadOnlyReason = readOnlyReasonText(t, roleBlock);
 
-  const readOnlyReason: string | null = readOnlyReasonKind ? t(READONLY_REASON_KEYS[readOnlyReasonKind]) : null;
-
-  // A whole-mask notHeld lock still lets the admin clear the very bit that
-  // caused it — clearing it produces a mask the server accepts.
   const rowDisabled = (permission: Permission) =>
-    locked || overriding || pendingRevoke !== null || (readOnlyReasonKind !== null &&
-      (readOnlyReasonKind !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0));
+    locked || overriding || pendingRevoke !== null || overrideRowLocked(readOnlyReasonKind, permission, offendingBits);
 
   const write = (masks: { allow: number; deny: number }) => () =>
     useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
@@ -225,7 +255,7 @@ export function MemberDetailPanel({
       await write(masks)();
       if (history) push(history);
       onUpdated();
-      if (rotate) void checkAndRotateTeamKey(teamId);
+      if (rotate) void rotateTeamKeyNow(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
     } finally {
@@ -233,14 +263,14 @@ export function MemberDetailPanel({
     }
   };
 
-  const clearOverrides = async () => {
+  const clearOverrides = whenWritable(async () => {
     const cleared = { allow: 0, deny: 0 };
-    if (crossesVaultKeyGate(member, teamRoles, cleared, locked)) {
+    if (await wouldLoseKey({ role_ids: member.role_ids, ...cleared }, setOverriding)) {
       setPendingRevoke("clear");
       return;
     }
     await applyMasks(cleared, false);
-  };
+  });
 
   const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
     const updated = applyOverrideState(permission, allow, deny, next);
@@ -262,18 +292,18 @@ export function MemberDetailPanel({
     });
   };
 
-  const handleOverride = async (permission: Permission, next: OverrideState) => {
+  const handleOverride = whenWritable(async (permission: Permission, next: OverrideState) => {
     if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
       setError(t("members.permissions.readOnlyNotHeld"));
       return;
     }
     const updated = applyOverrideState(permission, allow, deny, next);
-    if (crossesVaultKeyGate(member, teamRoles, updated, locked)) {
+    if (await wouldLoseKey({ role_ids: member.role_ids, ...updated }, setOverriding)) {
       setPendingRevoke({ permission, next });
       return;
     }
     await commitOverride(permission, next, false);
-  };
+  });
 
   const joinedDate = formatDate(member.joined_at, { year: "numeric", month: "long", day: "numeric" });
 
@@ -292,16 +322,27 @@ export function MemberDetailPanel({
         title={memberLabel(member)}
         subtitle={<>{secondaryHandle(member) && <span className="mr-2">{secondaryHandle(member)}</span>}<RoleBadges member={member} roles={teamRoles} /></>}
         saveState={canNameMembers ? saveState : undefined}
+        actions={showViewAs && (
+          <PanelHeaderIconButton
+            icon="lucide:scan-eye"
+            {...viewAs.button}
+            title={viewAs.button.title ?? t("members.viewAs.viewAs")}
+          />
+        )}
         onClose={onClose}
       />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {canNameMembers && (
+        {showViewAs && <AccessSummaryCard teamId={teamId} member={member} />}
+        {namingSupported && (
           <FormSection label={t("members.detail.nameLabel")}>
             <MemberNameInput
               aria-label={t("members.detail.nameLabel")}
               value={draftName}
               placeholder={member.handle ? `@${member.handle}` : ""}
+              readOnly={!canNameMembers || previewing}
+              title={greyedUnless(canNameMembers).title}
+              onFocus={() => { refuseWhilePreviewing(); }}
               onChange={(e) => { markDirty(); setDraftName(e.target.value); }}
               onBlur={flush}
               onKeyDown={(e) => {
@@ -316,81 +357,44 @@ export function MemberDetailPanel({
 
         {/* Roles */}
         <FormSection label={t("members.roles")}>
-          {canChangeRoles ? (
-            <div className="flex flex-wrap items-start gap-2">
-              {[...teamRoles]
-                .filter((r) => !isOwnerRole(r) || ownership.canGrantOwner)
-                .sort((a, b) => a.position - b.position).map((role) => {
-
-                const hasRole = member.role_ids.includes(role.id);
-                const lockedOut = locked && !role.is_builtin && !hasRole;
-                const meta = ROLE_META[role.name];
-                const color = role.color ?? meta?.color ?? "var(--t-accent)";
-                const bg = meta?.bg ?? `${color}1a`;
-                return (
-                  <div key={role.id} className="flex flex-col gap-1">
-                  <button
-                    onClick={() => void handleToggleRole(role)}
-                    disabled={toggling === role.id || lockedOut}
-                    title={lockedOut ? t("shared.businessLock.title") : undefined}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
-                      color: justToggled === role.id ? "#34d399" : hasRole ? color : "var(--t-text-dim)",
-                      border: `1px solid ${justToggled === role.id ? "#34d39944" : hasRole ? `${color}44` : "var(--t-border)"}`,
-                      opacity: toggling === role.id ? 0.6 : 1,
-                      transition: "background 0.3s, color 0.3s, border-color 0.3s",
-                    }}
-                  >
-                    {toggling === role.id
-                      ? <Icon icon="lucide:loader-circle" width={10} className="animate-spin" />
-                      : justToggled === role.id
-                        ? <Icon icon="lucide:check-check" width={10} />
-                        : hasRole
-                          ? <Icon icon="lucide:check" width={10} />
-                          : null
-                    }
-                    {roleLabel(t, role.name)}
-                    {role.is_builtin
-                      ? <Icon icon="lucide:lock" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.6 }} />
-                      : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />
-                    }
-                  </button>
-                  {hasRole && <RoleBlurb name={role.name} />}
-                  </div>
-                );
-              })}
-              {!locked && (
-              <button
-                onClick={() => setCreatingRole(true)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ color: "var(--t-accent)", border: "1px dashed var(--t-accent)", background: "transparent", opacity: 0.7 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
-              >
-                <Icon icon="lucide:plus" width={10} />
-                {t("members.newRole")}
-              </button>
-              )}
-            </div>
-          ) : (
-            <RoleBadges member={member} roles={teamRoles} />
-          )}
+          <MemberRoleChips
+            teamId={teamId}
+            roles={teamRoles}
+            roleIds={member.role_ids}
+            readOnlyReason={roleReadOnlyReason}
+            onToggle={(role) => void handleToggleRole(role)}
+            showOwner={ownership.canGrantOwner}
+            busyRoleId={toggling}
+            flashRoleId={justToggled}
+          >
+            {!locked && (
+            <button
+              onClick={whenWritable(() => setCreatingRole(true))}
+              disabled={roleBlock !== null}
+              title={roleReadOnlyReason ?? undefined}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{ color: "var(--t-accent)", border: "1px dashed var(--t-accent)", background: "transparent", opacity: 0.7 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+            >
+              <Icon icon="lucide:plus" width={10} />
+              {t("members.newRole")}
+            </button>
+            )}
+          </MemberRoleChips>
         </FormSection>
 
         {/* Permissions */}
         {serverSupportsOverrides && (
         <FormSection label={t("members.permissions.title")}>
-          {locked && (allow | deny) === 0 ? (
-            <BusinessLockLine teamId={teamId} label={t("shared.businessLock.memberLine")} />
-          ) : (
+          <MemberPermissionsLock
+            teamId={teamId}
+            name={memberLabel(member)}
+            hasOverrides={(allow | deny) !== 0}
+            onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
+          />
+          {!lockedEmpty && (
             <>
-            <BusinessLapseNotice
-              teamId={teamId}
-              message={t("shared.businessLock.memberLapsed", { name: memberLabel(member) })}
-              removeLabel={t("shared.businessLock.removeOverrides")}
-              onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
-            />
             {readOnlyReason && (
               <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
             )}
@@ -426,7 +430,7 @@ export function MemberDetailPanel({
                         key={permission}
                         permission={permission}
                         state={overrideStateOf(permission, allow, deny)}
-                        inheritedFrom={rolesGranting(permission)}
+                        inheritedFrom={grantingRoles(permission)}
                         granted={(memberEffective & PERM_BITS[permission]) !== 0}
                         disabled={rowDisabled(permission)}
                         onChange={(next) => void handleOverride(permission, next)}
@@ -455,7 +459,7 @@ export function MemberDetailPanel({
               </div>
             ) : (
               <button
-                onClick={() => setConfirmingPrimary(true)}
+                onClick={whenWritable(() => setConfirmingPrimary(true))}
                 className="btn btn-secondary w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
               >
                 <Icon icon="lucide:crown" width={13} />
@@ -486,24 +490,23 @@ export function MemberDetailPanel({
         )}
 
         {/* Danger zone */}
-        {(canRemove || canLeave) && (
-          <FormSection label={t("members.dangerZone")}>
-            <button
-              onClick={() => setOffboarding(canLeave ? "leave" : "remove")}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-              style={{
-                background: "var(--t-bg-elevated)",
-                color: "var(--t-status-error)",
-                border: "1px solid rgba(239,68,68,0.3)",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
-            >
-              <Icon icon={canLeave ? "lucide:log-out" : "lucide:user-minus"} width={13} />
-              {canLeave ? t("members.leaveTeam") : t("members.removeFromTeam")}
-            </button>
-          </FormSection>
-        )}
+        <FormSection label={t("members.dangerZone")}>
+          <button
+            onClick={whenWritable(() => setOffboarding(canLeave ? "leave" : "remove"))}
+            {...greyedUnless(canRemove || canLeave)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: "var(--t-bg-elevated)",
+              color: "var(--t-status-error)",
+              border: "1px solid rgba(239,68,68,0.3)",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
+          >
+            <Icon icon={canLeave ? "lucide:log-out" : "lucide:user-minus"} width={13} />
+            {canLeave ? t("members.leaveTeam") : t("members.removeFromTeam")}
+          </button>
+        </FormSection>
 
         {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
       </div>
@@ -567,7 +570,10 @@ export function MemberDetailPanel({
           const pending = pendingRevoke;
           setPendingRevoke(null);
           if (pending === "clear") void applyMasks({ allow: 0, deny: 0 }, true);
-          else void commitOverride(pending.permission, pending.next, true);
+          else if ("kind" in pending) {
+            const role = teamRoles.find((r) => r.id === pending.roleId);
+            if (role) void applyRoleToggle(role, pending.add, true);
+          } else void commitOverride(pending.permission, pending.next, true);
         }}
       />
     )}

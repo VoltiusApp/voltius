@@ -97,11 +97,10 @@ vi.mock("@/components/members/panels/RolesPanel", () => ({
   TeamRolesPanel: () => null,
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: () => {} }) }));
-vi.mock("@/hooks/usePermission", () => ({
-  PERM_BITS: { MANAGE_MEMBERS: 1, MANAGE_ROLES: 2, INVITE_MEMBERS: 4 },
-  effectivePermissions: () => 7,
-  hasBuiltinRole: (m: { role_ids: string[] }) => m.role_ids.includes("r-owner"),
-}));
+vi.mock("@/hooks/usePermission", async () =>
+  (await import("@/test/memberPermissions")).memberPermissions(() => 7, {
+    hasBuiltinRole: (m: { role_ids: string[] }) => m.role_ids.includes("r-owner"),
+  }));
 vi.mock("@/services/teamService", () => ({
   searchUsers: vi.fn(),
   getMyUserId: h.getMyUserId,

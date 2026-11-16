@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/shared/SectionHeader";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { enrollmentApi, type ApproveOutcome, type JoinRequest } from "@/services/enrollment/enrollmentApi";
 import { runEnrollmentAction } from "@/services/enrollment/enrollmentAction";
+import { whenWritable } from "@/services/previewGuard";
 import { useTeamStore } from "@/stores/teamStore";
 import { isMobileShell } from "@/utils/platform";
 
@@ -106,7 +107,7 @@ export function JoinRequestsSection({ teamId }: { teamId: string }) {
     loadJoinRequests(teamId).catch(() => {});
   }, [teamId, loadJoinRequests]);
 
-  const act = async (r: JoinRequest, kind: "approve" | "deny") => {
+  const act = whenWritable(async (r: JoinRequest, kind: "approve" | "deny") => {
     setBusyId(r.id);
     await runEnrollmentAction<ApproveOutcome | null>(t, {
       toast: `members.joinRequests.toast.${kind}`,
@@ -124,7 +125,7 @@ export function JoinRequestsSection({ teamId }: { teamId: string }) {
     });
     await loadJoinRequests(teamId).catch(() => {});
     setBusyId(null);
-  };
+  });
 
   if (requests.length === 0) return null;
   return (

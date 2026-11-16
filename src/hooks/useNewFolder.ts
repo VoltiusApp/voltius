@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
-import type { Folder } from "@/types";
+import type { Folder, FolderFormData } from "@/types";
 import { usePermissions } from "@/hooks/usePermission";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useVaultStore } from "@/stores/vaultStore";
 import { newFolderData } from "@/utils/folderTree";
+import { whenWritable } from "@/services/previewGuard";
 
 /** New folder for a desktop page: inside the open folder and its vault, else at the root in the default vault. */
-export function useNewFolder(objectType: Folder["object_type"], folderPath: Folder[]) {
+export function useNewFolder(objectType: Folder["object_type"], folderPath: Folder[], save: (data: FolderFormData) => Promise<Folder>) {
   const { t } = useTranslation();
   const can = usePermissions();
   const defaultVaultId = useDefaultVaultId();
@@ -18,6 +19,7 @@ export function useNewFolder(objectType: Folder["object_type"], folderPath: Fold
   return {
     /** Why New folder is greyed out here, or undefined when it is allowed. */
     folderBlocked: allowed ? undefined : t("folders.noPermissionCreate"),
-    newFolder: (name: string) => newFolderData(objectType, parent, defaultVaultId, name),
+    /** Saves the new folder; undefined when refused. */
+    addFolder: whenWritable((name: string): Promise<Folder> => save(newFolderData(objectType, parent, defaultVaultId, name))),
   };
 }

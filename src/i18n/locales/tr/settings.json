@@ -615,7 +615,7 @@
           "teamVaults": "Paylaşılan ekip kasaları ve davetler",
           "builtInRoles": "Yerleşik roller",
           "teamAuditLogs": "Ekip denetim günlükleri",
-          "granularPermissions": "Özel roller, üye ve nesne bazlı izinler",
+          "granularPermissions": "Özel roller, üye ve nesne bazlı izinler, Şu olarak görüntüle önizlemesiyle",
           "teamPolicy": "Ekip politikası: herhangi bir ayarı tüm üyeler için kilitleyin",
           "enrolment": "Toplu dağıtımlar için cihaz kayıt belirteçleri",
           "commercialLicense": "Kendi sunucunuzda barındırma için ticari lisans",

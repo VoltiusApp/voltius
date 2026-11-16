@@ -612,7 +612,7 @@
           "teamVaults": "Cofres de equipe compartilhados e convites",
           "builtInRoles": "Funções integradas",
           "teamAuditLogs": "Registros de auditoria da equipe",
-          "granularPermissions": "Funções personalizadas, permissões por membro e por objeto",
+          "granularPermissions": "Funções personalizadas, permissões por membro e por objeto, com a prévia Ver como",
           "teamPolicy": "Política da equipe: trave qualquer configuração para todos os membros",
           "enrolment": "Tokens de inscrição de dispositivos para implantações em frota",
           "commercialLicense": "Licença comercial para auto-hospedagem",

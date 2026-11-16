@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/usePermission";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
+import { whenWritable } from "@/services/previewGuard";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -99,10 +100,7 @@ export default function KnownHostsPage() {
     onDelete: (ids) => setConfirmDeleteIds(ids),
   });
 
-  const handleDelete = useCallback(
-    (ids: string[]) => setConfirmDeleteIds(ids),
-    [],
-  );
+  const handleDelete = useCallback(whenWritable((ids: string[]) => setConfirmDeleteIds(ids)), []);
 
   const confirmDelete = async () => {
     if (!confirmDeleteIds) return;
@@ -158,8 +156,8 @@ export default function KnownHostsPage() {
                     otherVaults={otherVaultsFor(host)}
                     onSelect={(e) => handleItemSelect(host.id, e as React.MouseEvent<HTMLDivElement>)}
                     onDelete={() => handleDelete([host.id])}
-                    onMoveVault={(vaultId) => moveKnownHostVault(host.id, vaultId)}
-                    onCopyVault={(vaultId) => copyKnownHostVault(host.id, vaultId)}
+                    onMoveVault={whenWritable((vaultId: string) => moveKnownHostVault(host.id, vaultId))}
+                    onCopyVault={whenWritable((vaultId: string) => copyKnownHostVault(host.id, vaultId))}
                   />
                 ))}
               </div>

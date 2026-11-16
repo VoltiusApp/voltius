@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { withGhost } from "@/components/preview/GhostCard";
+import { PreviewHint } from "@/components/preview/PreviewHint";
+import { snippetTarget, whenWritableOn } from "@/services/previewGuard";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { CardActionButton, CardMenuButton, CardPinButton } from "@/components/shared/CardActionButton";
 import { TagBadge } from "@/components/shared/TagBadge";
@@ -49,7 +52,7 @@ interface Props {
   onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
-export function SnippetCard({
+function SnippetCardBody({
   snippet,
   onShare,
   folders,
@@ -84,13 +87,9 @@ export function SnippetCard({
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === snippet.vault_id));
   const updateSnippet = useSnippetStore((s) => s.updateSnippet);
   const rename = useInlineRename(snippet.id, !!canEdit, snippet.name, (name) => { void updateSnippet(snippet.id, { ...snippetToFormData(snippet), name }); });
-  const handlePinClick = () => {
-    if (!isTeamVault) {
-      pinSnippet(snippet.id, !effPinned).catch(() => {});
-    } else {
-      pinSnippet(snippet.id, nextPersonalPinValue(pinSource)).catch(() => {});
-    }
-  };
+  const handlePinClick = whenWritableOn(snippetTarget(snippet.id), () => {
+    pinSnippet(snippet.id, isTeamVault ? nextPersonalPinValue(pinSource) : !effPinned).catch(() => {});
+  });
   const pinColor =
     pinSource === "personal" || pinSource === "team+personal"
       ? "var(--t-accent)"
@@ -129,7 +128,7 @@ export function SnippetCard({
     ...(canEdit && isTeamVault ? [{
       label: snippet.favorite ? t("snippets.card.unpinForTeam") : t("snippets.card.pinForTeam"),
       icon: "lucide:users",
-      onClick: () => pinSnippetForTeam(snippet.id, !snippet.favorite).catch(() => {}),
+      onClick: whenWritableOn(snippetTarget(snippet.id), () => pinSnippetForTeam(snippet.id, !snippet.favorite).catch(() => {})),
     }] : []),
     ...(onToggleSync ? [{
       label: syncEnabled ? t("common.objectSync.disable") : t("common.objectSync.enable"),
@@ -182,6 +181,7 @@ export function SnippetCard({
                     {rename.editor ?? snippet.name}
                   </p>
                   {pinAlwaysVisible && <CardPinButton color={pinColor} title={pinLabel} onClick={handlePinClick} />}
+                  <PreviewHint type="snippet" id={snippet.id} layout="grid" />
                   {snippet.tags.slice(0, 2).map((tag) => (
                     <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
                   ))}
@@ -273,6 +273,7 @@ export function SnippetCard({
         {snippet.tags.length > 0 && <OverflowTagList tags={snippet.tags} className="max-w-32 flex-1" />}
 
         <div className="flex items-center gap-0.5 shrink-0">
+          <PreviewHint type="snippet" id={snippet.id} layout="list" />
           {pinAlwaysVisible && <span className="px-1.5 flex"><CardPinButton color={pinColor} title={pinLabel} onClick={handlePinClick} width={16} /></span>}
           {runButtons(16)}
           <CardMenuButton width={16} />
@@ -292,3 +293,7 @@ export function SnippetCard({
     </>
   );
 }
+
+export const SnippetCard = withGhost(SnippetCardBody, (p) => ({
+  type: "snippet", id: p.snippet.id, icon: "lucide:braces", name: p.snippet.name, layout: p.layout ?? "list",
+}));

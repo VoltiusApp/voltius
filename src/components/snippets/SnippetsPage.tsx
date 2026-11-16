@@ -70,6 +70,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
+import { refuseWhilePreviewing, snippetTarget, whenWritable } from "@/services/previewGuard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -285,8 +286,8 @@ export function SnippetsPage() {
   const [showAllRecent, setShowAllRecent] = useState(false);
 
   // Editing state
-  const ep = useEditPanel<Snippet>();
-  const folderEp = useEditPanel<Folder>();
+  const ep = useEditPanel<Snippet>("snippet");
+  const folderEp = useEditPanel<Folder>("snippet_folder");
   const editingFolder = folderEp.editing !== null && folderEp.editing !== "new" ? folderEp.editing : null;
 
   const snippetIsDirtyRef = useRef(false);
@@ -334,7 +335,7 @@ export function SnippetsPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "snippet");
-  const { folderBlocked, newFolder } = useNewFolder("snippet", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("snippet", folderPath, saveFolder);
 
   useEffect(() => {
     void loadSnippets();
@@ -550,14 +551,7 @@ export function SnippetsPage() {
       {
         label: allSynced ? t("common.objectSync.disableCount", { count: ids.length }) : t("common.objectSync.enableCount", { count: ids.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const s of selectedSnippets) {
-            const isSynced = store.isObjectSynced(s.id, "snippet");
-            if (allSynced && isSynced) store.toggleExcluded(s.id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(s.id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(selectedSnippets.map((s) => ({ id: s.id, typeId: "snippet" })), !allSynced),
         divider: true,
       },
       {
@@ -569,7 +563,7 @@ export function SnippetsPage() {
       {
         label: t("snippets.page.bulk.deleteSnippets", { count: ids.length }),
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds(ids),
+        onClick: whenWritable(() => setConfirmDeleteIds(ids)),
         danger: true,
         divider: true,
       },
@@ -643,6 +637,7 @@ export function SnippetsPage() {
   }
 
   async function handleReplay(entry: RecentSnippetExecution) {
+    if (refuseWhilePreviewing(snippetTarget(entry.snippetId))) return;
     const snippet = snippets.find((s) => s.id === entry.snippetId);
     if (!snippet) return;
 
@@ -711,8 +706,8 @@ export function SnippetsPage() {
 
   async function handleCreateFolder() {
     ep.closeEdit();
-    const folder = await saveFolder(newFolder(t("snippets.toolbar.newFolder")));
-    folderEp.transitionToExisting(folder);
+    const folder = await addFolder(t("snippets.toolbar.newFolder"));
+    if (folder) folderEp.transitionToExisting(folder);
   }
 
   async function handleDeleteFolder(folder: Folder) {
@@ -1028,7 +1023,7 @@ export function SnippetsPage() {
         title={t("snippets.page.confirmDelete.title", { count: confirmDeleteIds.length })}
         message={bulkDeleteMessage(confirmDeleteIds)}
         confirmLabel={t("common.action.delete")}
-        onConfirm={() => {
+        onConfirm={whenWritable(() => {
           for (const id of confirmDeleteIds) {
             const folder = folders.find((f) => f.id === id);
             if (folder) void handleDeleteFolder(folder);
@@ -1036,7 +1031,7 @@ export function SnippetsPage() {
           }
           setSelection([]);
           setConfirmDeleteIds(null);
-        }}
+        })}
         onCancel={() => setConfirmDeleteIds(null)}
       />
     )}

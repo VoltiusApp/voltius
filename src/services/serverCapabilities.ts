@@ -18,6 +18,7 @@ interface ServerCapabilities {
   wrappedSecretsCas: boolean;
   billingEnabled: boolean;
   multiOwner: boolean;
+  permissionPreview: boolean;
   emailDelivery: boolean;
 }
 
@@ -29,6 +30,7 @@ const UNKNOWN: ServerCapabilities = {
   wrappedSecretsCas: false,
   billingEnabled: false,
   multiOwner: false,
+  permissionPreview: false,
   emailDelivery: true,
 };
 const useServerCapabilities = create<ServerCapabilities>(() => UNKNOWN);
@@ -38,7 +40,7 @@ let inFlight: Promise<void> | null = null;
 
 async function loadCapabilities(): Promise<void> {
   try {
-    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner, email_delivery } = await fetchServerMeta(
+    const { team_secret_types: types, two_factor, passkeys, wrapped_secrets_cas, billing_enabled, multi_owner, permission_preview, email_delivery } = await fetchServerMeta(
       "common.error.failedToLoadServerCapabilities",
     );
     fetchedAt = Date.now();
@@ -48,6 +50,7 @@ async function loadCapabilities(): Promise<void> {
       wrappedSecretsCas: wrapped_secrets_cas === true,
       billingEnabled: billing_enabled === true,
       multiOwner: multi_owner === true,
+      permissionPreview: permission_preview === true,
       emailDelivery: email_delivery !== false,
       ...(Array.isArray(types)
         ? { advertisedSecretTypes: types.filter((t): t is string => typeof t === "string"), refusedSecretTypes: [] }
@@ -114,6 +117,9 @@ export const useServerBillingEnabled = (): boolean => useServerCapability("billi
 
 /** Whether this server lets several members hold Owner and hand billing between them. */
 export const useServerMultiOwner = (): boolean => useServerCapability("multiOwner");
+
+/** Whether this server answers the permission preview endpoint. */
+export const useServerPermissionPreview = (): boolean => useServerCapability("permissionPreview");
 
 /** Whether this server can send email; servers that predate the flag are assumed to. */
 export const useServerEmailDelivery = (): boolean => useServerCapability("emailDelivery");

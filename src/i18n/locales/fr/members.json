@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrateur"
     },
     "permissions": {
+      "youLack": "Vous n'avez pas la permission de faire ceci",
+      "youCannotEdit": "Vous n'avez pas la permission de modifier ceci",
       "title": "Permissions",
       "inheritedFrom": "Via {{roles}}",
       "notGranted": "Aucun rôle ne l'accorde",
@@ -590,6 +592,126 @@
           "done": "Demande refusée",
           "failed": "Impossible de refuser la demande — {{reason}}"
         }
+      }
+    },
+    "viewAs": {
+      "loading": "Vérification de l'accès…",
+      "discardDraft": {
+        "title": "Abandonner les modifications non enregistrées ?",
+        "body": "Quitter l'aperçu abandonne vos modifications non enregistrées de l'accès de {{name}}.",
+        "confirm": "Abandonner et quitter"
+      },
+      "reason": {
+        "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
+        "needsManage": "Vous avez besoin de la permission Gérer les membres ou Gérer les rôles pour utiliser « Voir en tant que »",
+        "self": "Vous ne pouvez pas utiliser « Voir en tant que » sur vous-même",
+        "serverTooOld": "Mettez à jour votre serveur pour utiliser Voir en tant que",
+        "previewing": "Quittez d'abord l'aperçu en cours"
+      },
+      "noPermission": "Vous n'avez pas la permission d'afficher cet aperçu",
+      "ended": "L'aperçu est terminé : ce membre ou ce rôle n'est plus disponible",
+      "failed": "Impossible de charger l'aperçu",
+      "readOnly": "Aperçu en lecture seule",
+      "lacksPermission": "Le rôle de ce membre ne l'autorise pas",
+      "locked": {
+        "auditLog": "Journal d'audit verrouillé pour ce membre",
+        "sessions": "Sessions de terminal verrouillées pour ce membre"
+      },
+      "viewingAs": "Vue en tant que {{name}}",
+      "viewingAsReadOnly": "Vue en tant que {{name}} · lecture seule",
+      "unsaved_one": "{{count}} modification non enregistrée",
+      "unsaved_many": "{{count}} modifications non enregistrées",
+      "unsaved_other": "{{count}} modifications non enregistrées",
+      "discard": "Abandonner",
+      "save": "Enregistrer",
+      "saveConfirm": "Enregistrer…",
+      "exit": "Quitter",
+      "changesAccess_one": "Modifie l'accès de {{count}} membre",
+      "changesAccess_many": "Modifie l'accès de {{count}} membres",
+      "changesAccess_other": "Modifie l'accès de {{count}} membres",
+      "roleTitle": "Rôle {{name}}",
+      "manageRolesRequired": "Il faut l'autorisation Gérer les rôles",
+      "builtinReadOnly": "Les rôles intégrés ne sont pas modifiables",
+      "affects_one": "Concerne {{count}} membre",
+      "affects_other": "Concerne {{count}} membres",
+      "affects_many": "Concerne {{count}} membres",
+      "roleKeyLoss": {
+        "title": "Retirer l'accès à la clé du coffre ?",
+        "body": "{{names}} perdra la clé du coffre. La clé est renouvelée pour tous les autres.",
+        "confirm": "Enregistrer et renouveler la clé"
+      },
+      "hiddenFrom": "Masqué pour {{name}}",
+      "cannotEdit": "Le rôle de ce membre ne permet pas la modification",
+      "draftBadge": "Brouillon",
+      "draftTag": "(brouillon)",
+      "draftChange": "Brouillon : {{from}} → {{to}}",
+      "ownerElsewhere": "Les changements de propriétaire se font ailleurs",
+      "keyLoss": "À l'enregistrement, {{name}} perd la clé du coffre et la clé est renouvelée pour les autres membres.",
+      "saveFailed": "{{failed}} modification(s) sur {{total}} non appliquée(s)",
+      "access": {
+        "title": "Accès de {{name}}",
+        "subtitle": "Les modifications s'affichent à gauche. Rien n'est encore enregistré.",
+        "can": "{{name}} peut",
+        "allPermissions": "Toutes les permissions…"
+      },
+      "step": {
+        "overrides": "Permissions personnalisées",
+        "addRole": "Ajouter {{role}}",
+        "removeRole": "Retirer {{role}}"
+      },
+      "level": {
+        "hidden": "Masqué",
+        "view": "Lecture seule",
+        "connect": "Peut se connecter",
+        "edit": "Peut modifier"
+      },
+      "secrets": {
+        "yes": "Secrets visibles",
+        "no": "Secrets masqués"
+      },
+      "why": {
+        "noVaultKey": "{{name}} n'a pas la clé du coffre, donc rien dans ce coffre ne peut être ouvert",
+        "as": "En tant que {{name}}",
+        "gets": "Ce que {{name}} obtient ici",
+        "addsUp": "Comment ça s'additionne",
+        "order": "Appliqué dans l'ordre : tout le monde, puis les rôles de {{name}}, puis {{name}}. À chaque étape, une autorisation peut annuler le refus qui la précède ; le refus propre à {{name}} pour toute l'équipe l'emporte toujours.",
+        "decidedByServer": "Décidé par le serveur",
+        "notGranted": "Aucun rôle de {{name}} ne l'autorise",
+        "someRole": "Un de ses rôles",
+        "thisItem": "cet élément",
+        "editRules": "Modifier les règles de {{folder}}",
+        "editRulesLocked": "Il vous faut Gérer les rôles sur {{folder}} pour modifier ses règles",
+        "editRulesUnavailable": "Les règles de {{folder}} ne peuvent pas être modifiées ici",
+        "editAccess": "Modifier l'accès de {{name}}",
+        "step": {
+          "roles_one": "Autorisé par le rôle {{roles}}",
+          "roles_other": "Autorisé par les rôles {{roles}}",
+          "roles_many": "Autorisé par les rôles {{roles}}",
+          "teamAllow": "{{name}} y est autorisé pour toute l'équipe",
+          "teamDeny": "{{name}} en est privé pour toute l'équipe",
+          "administrator": "{{name}} a Administrateur",
+          "everyoneDeny": "Tout le monde est refusé sur {{folder}}",
+          "everyoneAllow": "Tout le monde est autorisé sur {{folder}}",
+          "rolesDeny_one": "{{roles}} est refusé sur {{folder}}",
+          "rolesDeny_other": "{{roles}} sont refusés sur {{folder}}",
+          "rolesDeny_many": "{{roles}} sont refusés sur {{folder}}",
+          "rolesAllow_one": "{{roles}} est autorisé sur {{folder}}",
+          "rolesAllow_other": "{{roles}} sont autorisés sur {{folder}}",
+          "rolesAllow_many": "{{roles}} sont autorisés sur {{folder}}",
+          "memberDeny": "{{name}} est refusé sur {{folder}}",
+          "memberAllow": "{{name}} est autorisé sur {{folder}}",
+          "teamDenyLast": "Le refus propre à {{name}} pour toute l'équipe l'emporte sur {{folder}}",
+          "noView": "Masqué pour {{name}}, donc rien d'autre ne s'applique",
+          "needsConnect": "Les secrets exigent Se connecter, que {{name}} n'a pas ici",
+          "ruleNotShown": "Décidé par une règle sur {{folder}}"
+        }
+      },
+      "viewAs": "Voir en tant que",
+      "previewAsRole": "Aperçu en tant que rôle",
+      "menuItem": "Voir en tant que {{name}}",
+      "summary": {
+        "title": "Voir à quoi {{name}} a accès",
+        "counts": "{{hosts}} hôtes · {{snippets}} snippets · {{keys}} clés · {{hidden}} masqués"
       }
     }
   }

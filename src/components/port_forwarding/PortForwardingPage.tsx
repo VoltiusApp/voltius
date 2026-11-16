@@ -53,6 +53,7 @@ import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { compareStrings } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { folderTarget, refuseWhilePreviewing, ruleTarget, whenWritable } from "@/services/previewGuard";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -142,7 +143,7 @@ export function PortForwardingPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "port_forwarding");
-  const { folderBlocked, newFolder } = useNewFolder("port_forwarding", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("port_forwarding", folderPath, saveFolder);
 
   const q = search.trim();
   const match = useSearchMatcher(q);
@@ -166,6 +167,7 @@ export function PortForwardingPage() {
   const folderCount = useMemo(() => folderItemCounter(rules, scopedFolders), [rules, scopedFolders]);
 
   function openNew(type: TunnelType = "local") {
+    if (refuseWhilePreviewing()) return;
     setNewRuleType(type);
     ruleDirtyRef.current = false;
     ruleFormSessionKeyRef.current = `new-rule-${Date.now()}`;
@@ -175,6 +177,7 @@ export function PortForwardingPage() {
   }
 
   function openEdit(rule: PortForwardingRule) {
+    if (refuseWhilePreviewing(ruleTarget(rule.id))) return;
     ruleDirtyRef.current = false;
     ruleFormSessionKeyRef.current = rule.id;
     setEditingRuleId(rule.id);
@@ -231,7 +234,11 @@ export function PortForwardingPage() {
   } = useDragSelection(filteredIds);
 
   const editRule = (id: string) => { const r = filtered.find((r) => r.id === id); if (r) openEdit(r); };
-  const editFolder = (folder: Folder) => { closeForm(); setEditingFolderId(folder.id); };
+  const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
+    closeForm();
+    setEditingFolderId(folder.id);
+  };
   const panelOpen = showForm || editingFolderId !== null;
 
   const { focusedId, setFocusedId } = useListKeyNav({
@@ -332,6 +339,7 @@ export function PortForwardingPage() {
   );
 
   const handleDeleteRule = useCallback((id: string) => {
+    if (refuseWhilePreviewing(ruleTarget(id))) return;
     if (selectedIdSet.has(id) && selectedRules.length > 1) {
       setConfirmDeleteIds(selectedRules.map((r) => r.id));
     } else {
@@ -369,7 +377,7 @@ export function PortForwardingPage() {
       ...(n > 0 ? [{
         label: t("portForwarding.page.bulk.deleteRules", { count: n }),
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds(selectedRules.map((r) => r.id)),
+        onClick: whenWritable(() => setConfirmDeleteIds(selectedRules.map((r) => r.id))),
         danger: true,
         divider: true,
       }] : []),
@@ -377,7 +385,7 @@ export function PortForwardingPage() {
   }, [selectedRules, selectedFolders, canEdit, vaultOptions, duplicateRule, transferToVault, t]);
 
   const createFolder = () =>
-    void saveFolder(newFolder(t("portForwarding.toolbar.newFolder"))).then((f) => { closeForm(); setEditingFolderId(f.id); });
+    void addFolder(t("portForwarding.toolbar.newFolder"))?.then((f) => { closeForm(); setEditingFolderId(f.id); });
 
   return (
     <>
@@ -555,7 +563,7 @@ export function PortForwardingPage() {
                         vaults={vaultOptions.filter((v) => v.id !== (rule.vault_id ?? "personal"))}
                         onSelect={selectFollowing(handleItemSelect, panelOpen, () => openEdit(rule))}
                         onEdit={openEdit}
-                        onDuplicate={(id) => void duplicateRule(id)}
+                        onDuplicate={(id) => { if (!refuseWhilePreviewing(ruleTarget(id))) void duplicateRule(id); }}
                         onDelete={handleDeleteRule}
                         onStart={(r) => void startRule(r)}
                         onStop={(r) => void stopRule(r)}
@@ -604,11 +612,11 @@ export function PortForwardingPage() {
         title={t("portForwarding.page.confirmDeleteBulk.title", { count: confirmDeleteIds.length })}
         message={t("portForwarding.page.confirmDeleteBulk.message", { count: confirmDeleteIds.length })}
         confirmLabel={t("common.action.delete")}
-        onConfirm={async () => {
+        onConfirm={whenWritable(async () => {
           for (const id of confirmDeleteIds) await deleteRule(id);
           setConfirmDeleteIds(null);
           setSelection([]);
-        }}
+        })}
         onCancel={() => setConfirmDeleteIds(null)}
       />
     )}

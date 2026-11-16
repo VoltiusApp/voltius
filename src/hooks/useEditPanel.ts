@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { TeamObjectType } from "@/services/teamObjects";
+import { refuseWhilePreviewing, targetOf } from "@/services/previewGuard";
 
 interface EditPanel<T extends { id: string }> {
   editing: T | "new" | null;
@@ -20,7 +22,7 @@ interface EditPanel<T extends { id: string }> {
  * pattern shared across HomePage, KeychainPage and SnippetsPage.
  *
  * Usage:
- *   const ep = useEditPanel<Snippet>();
+ *   const ep = useEditPanel<Snippet>("snippet");
  *   <SnippetCard isEditing={ep.isEditing(s)} onClick={() => ep.openEdit(s)} />
  *   <SnippetForm
  *     key={ep.editing === "new" ? "__new__" : ep.editing?.id}
@@ -32,13 +34,16 @@ interface EditPanel<T extends { id: string }> {
  *     onClose={ep.closeEdit}
  *   />
  */
-export function useEditPanel<T extends { id: string }>(): EditPanel<T> {
+export function useEditPanel<T extends { id: string }>(objectType: TeamObjectType): EditPanel<T> {
   const [editing, setEditing] = useState<T | "new" | null>(null);
 
   return {
     editing,
     panelOpen: editing !== null,
-    openEdit:  (item) => setEditing(item),
+    openEdit: (item) => {
+      if (refuseWhilePreviewing(targetOf(objectType)(item === "new" ? undefined : item.id))) return;
+      setEditing(item);
+    },
     closeEdit: () => setEditing(null),
     isEditing: (item) => editing !== null && editing !== "new" && editing.id === item.id,
     transitionToExisting: (item) => setEditing(item),

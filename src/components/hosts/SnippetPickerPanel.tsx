@@ -25,6 +25,7 @@ import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { SnippetChooserList } from "@/components/snippets/SnippetChooserList";
 import type { Snippet, SnippetFormData } from "@/types";
 import { shouldOpenSnippetTargetsInSplitTab } from "./hostSelection";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 interface PendingInject {
   snippet: Snippet;
@@ -123,6 +124,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
   }, [connectionIds, connections, sessions, connectMany, openSessions, setActive, setActiveNav, trackUsed, onClose]);
 
   const handleTrigger = useCallback((snippet: Snippet, execute: boolean) => {
+    if (refuseWhilePreviewing(snippetTarget(snippet.id))) return;
     if (snippet.steps.some((s) => s.kind !== "script")) {
       const targets: RunTarget[] = connectionIds.flatMap((connId) => {
         const conn = connections.find((c) => c.id === connId);

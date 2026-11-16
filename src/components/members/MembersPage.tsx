@@ -15,7 +15,6 @@ import { membersPanelPage } from "@/components/mobile/screens/vaultSettingsCore"
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
-import { useMyUserId } from "@/hooks/useMyUserId";
 import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -23,13 +22,14 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
-import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
+import { hasBuiltinRole, usePermissionSubjectId, usePermissions } from "@/hooks/usePermission";
+import { useLackReason } from "@/hooks/useGreyedUnless";
+import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
-import { VAULT_MANAGER_BITS } from "@/services/permissions";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
@@ -48,6 +48,7 @@ import { searchMatcher } from "@/utils/search";
 import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
 import { memberOwnership } from "@/services/teamOwnership";
 import { useOwnershipContext } from "@/hooks/useOwnershipContext";
+import { useViewAsGate } from "@/components/preview/useViewAsEntry";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -70,13 +71,16 @@ export default function MembersPage() {
   const clearMembersPanelPending = useUIStore((s) => s.clearMembersPanelPending);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
-  const myUserId = useMyUserId();
+  const myUserId = usePermissionSubjectId();
+  const can = usePermissions();
+  const noPermission = useLackReason();
   const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
   const [panel, setPanel] = useState<MembersPanel | "detail" | null>(null);
   const togglePanel = (next: MembersPanel) => {
+    if (next === "invite" && refuseWhilePreviewing()) return;
     // Android: a 320 px side panel is most of the phone; the vault settings sub-page is the same panel full-screen.
     if (isMobileShell() && primaryVaultId) {
       useMobileNavStore.getState().push({ kind: "vault-settings", vaultId: primaryVaultId, page: membersPanelPage(next) });
@@ -115,19 +119,19 @@ export default function MembersPage() {
   const standaloneTeam = !localVault && primaryVaultId ? teams.find((t) => t.id === primaryVaultId) : null;
   const teamId = localVault?.teamId ?? standaloneTeam?.id ?? null;
   const pendingInvites = pendingInvitationsByTeam[teamId ?? ""] ?? [];
+  const viewAsGate = useViewAsGate(teamId ?? "");
 
   const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
   const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
   const { locked: businessLocked } = useBusinessLock(teamId);
   const myMember = members.find((m) => m.user_id === myUserId);
 
-  // Compute effective permissions from role bits
-  const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles, businessLocked) : 0;
-  const canManageMembers = (myEffectivePerms & PERM_BITS.MANAGE_MEMBERS) !== 0;
+  const gateVaultId = primaryVaultId ?? "";
+  const canManageMembers = can("MANAGE_MEMBERS", gateVaultId);
   const canNameMembers = canManageMembers && memberNamingSupported(members);
-  const canManageRoles = (myEffectivePerms & PERM_BITS.MANAGE_ROLES) !== 0;
-  const canManageVault = (myEffectivePerms & VAULT_MANAGER_BITS) !== 0;
-  const canInvite = (myEffectivePerms & PERM_BITS.INVITE_MEMBERS) !== 0;
+  const canManageRoles = can("MANAGE_ROLES", gateVaultId);
+  const canManageVault = can("MANAGE_VAULT", gateVaultId) || can("ADMINISTRATOR", gateVaultId);
+  const canInvite = can("INVITE_MEMBERS", gateVaultId);
 
   const isOwnerMember = (member: TeamMember) =>
     hasBuiltinRole(member, "owner", teamRoles);
@@ -226,9 +230,9 @@ export default function MembersPage() {
     }), [connections, activeSessions, tier]);
 
   type RoleOp = (teamId: string, userId: string, roleId: string) => Promise<unknown>;
-  const runRoleChange = (
+  const runRoleChange = whenWritable((
     targets: TeamMember[], roleId: string, apply: RoleOp, revert: RoleOp,
-    label: string, toast = { pending: label, success: label },
+    label: string, toast: { pending: string; success: string } = { pending: label, success: label },
   ) => {
     const each = (op: RoleOp) => Promise.all(targets.map((m) => op(teamId!, m.user_id, roleId)));
     void runTeamAction({ ...toast, run: () => each(apply) }).then(() => {
@@ -239,7 +243,8 @@ export default function MembersPage() {
       });
       reload();
     }).catch(() => { /* toast already reports the failure */ });
-  };
+  });
+  const askOffboarding = whenWritable(setOffboardingMembers);
 
   // Context menu builders
   const buildContextMenuItems = (member: TeamMember): ContextMenuItem[] => {
@@ -250,7 +255,9 @@ export default function MembersPage() {
       onClick: () => openDetail(member.user_id),
     }];
 
-    if (canActOnMember && teamRoles.length > 0) {
+    if (!canManageMembers) {
+      items.push({ label: t("members.roles"), icon: "lucide:shield", disabledReason: noPermission, onClick: () => {} });
+    } else if (canActOnMember && teamRoles.length > 0) {
       const sortedRoles = [...teamRoles]
         .filter((r) => !isOwnerRole(r))
         .sort((a, b) => a.position - b.position);
@@ -303,13 +310,13 @@ export default function MembersPage() {
         children: invitable.length > 0
           ? invitable.map(({ localSessionId, connectionName }) => ({
               label: connectionName,
-              onClick: () => {
+              onClick: whenWritable(() => {
                 void runTeamAction({
                   pending: t("members.toast.invitingToSession", { name: memberLabel(member) }),
                   success: t("members.toast.invitedToSession", { name: memberLabel(member) }),
                   run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, { ...member, handle: member.handle ?? "" }),
                 }).catch(() => { /* toast already reports the failure */ });
-              },
+              }),
             }))
           : [{
               label: t(hostedSessions.length > 0 ? "members.contextMenu.noInvitableSessions" : "members.contextMenu.noActiveSessions"),
@@ -318,13 +325,25 @@ export default function MembersPage() {
       });
     }
 
-    if (canActOnMember) {
+    if (canActOnMember || !canManageMembers) {
       items.push({
         label: t("members.kick"),
         icon: "lucide:user-minus",
         danger: true,
         divider: true,
-        onClick: () => setOffboardingMembers([member]),
+        disabledReason: canManageMembers ? undefined : noPermission,
+        onClick: () => askOffboarding([member]),
+      });
+    }
+
+    if (!isMobileShell()) {
+      const viewAs = viewAsGate({ type: "member", user_id: member.user_id });
+      const afterRoles = Math.max(items.findIndex((i) => i.label === t("members.roles")), 0) + 1;
+      items.splice(afterRoles, 0, {
+        label: t("members.viewAs.menuItem", { name: memberLabel(member) }),
+        icon: "lucide:scan-eye",
+        disabledReason: viewAs.reasonText ?? undefined,
+        onClick: viewAs.enter,
       });
     }
 
@@ -341,7 +360,11 @@ export default function MembersPage() {
 
     const items: ContextMenuItem[] = [];
 
-    if (canManageMembers && teamRoles.length > 0) {
+    if (!canManageMembers) {
+      for (const [label, icon] of [["assignRoleBulk", "lucide:shield"], ["removeRoleBulk", "lucide:shield-off"]]) {
+        items.push({ label: t(`members.contextMenu.${label}`, { count: selectedMembers.length }), icon, disabledReason: noPermission, onClick: () => {} });
+      }
+    } else if (teamRoles.length > 0) {
       const sortedBulkRoles = [...teamRoles]
         .filter((r) => !isOwnerRole(r))
         .sort((a, b) => a.position - b.position);
@@ -374,19 +397,18 @@ export default function MembersPage() {
       });
     }
 
-    if (canManageMembers) {
-      items.push({
-        label: t("members.contextMenu.kickBulk", { count: selectedMembers.length }),
-        icon: "lucide:user-minus",
-        danger: true,
-        divider: items.length > 0,
-        onClick: () => setOffboardingMembers(selectedMembers),
-      });
-    }
+    items.push({
+      label: t("members.contextMenu.kickBulk", { count: selectedMembers.length }),
+      icon: "lucide:user-minus",
+      danger: true,
+      divider: items.length > 0,
+      disabledReason: canManageMembers ? undefined : noPermission,
+      onClick: () => askOffboarding(selectedMembers),
+    });
 
     return items.length > 0 ? items : undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
+  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, noPermission, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
 
 const vaultTabs = selectedVaultIds.length > 1
     ? selectedVaultIds.map((vid) => {
@@ -534,6 +556,7 @@ const vaultTabs = selectedVaultIds.length > 1
               teamRoles={teamRoles}
               canManageMembers={canManageMembers}
               canNameMembers={canNameMembers}
+              namingSupported={memberNamingSupported(members)}
               isTargetOwner={isOwnerMember(detailMember)}
               viewer={myMember}
               onClose={() => setPanel(null)}
@@ -551,8 +574,8 @@ const vaultTabs = selectedVaultIds.length > 1
                 onMemberAdded={reload}
               />
             )
-            : shownPanel === "roles" && myUserId
-              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} myUserId={myUserId} />)
+            : shownPanel === "roles"
+              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} />)
               : shownPanel === "security"
                 ? toolbarPanel(t("members.security.title"), "lucide:shield-check", <SecurityPolicyPanel teamId={teamId} />)
                 : null

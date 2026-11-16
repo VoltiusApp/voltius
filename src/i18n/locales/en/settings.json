@@ -609,7 +609,7 @@
           "teamVaults": "Shared team vaults & invites",
           "builtInRoles": "Built-in roles",
           "teamAuditLogs": "Team audit logs",
-          "granularPermissions": "Custom roles, per-member & per-object permissions",
+          "granularPermissions": "Custom roles, per-member & per-object permissions, with View as preview",
           "teamPolicy": "Team policy: lock any setting for every member",
           "enrolment": "Device enrolment tokens for fleet rollouts",
           "commercialLicense": "Commercial license for self-hosting",

@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrator"
     },
     "permissions": {
+      "youLack": "You don't have permission to do this",
+      "youCannotEdit": "You don't have permission to edit this",
       "title": "Permissions",
       "inheritedFrom": "From {{roles}}",
       "notGranted": "No role grants this",
@@ -573,6 +575,120 @@
           "done": "Join request denied",
           "failed": "Couldn't deny the request — {{reason}}"
         }
+      }
+    },
+    "viewAs": {
+      "loading": "Checking access…",
+      "discardDraft": {
+        "title": "Discard unsaved changes?",
+        "body": "Leaving the preview drops your unsaved changes to {{name}}'s access.",
+        "confirm": "Discard and exit"
+      },
+      "reason": {
+        "needsBusiness": "View as is part of Business",
+        "needsManage": "You need the Manage members or Manage roles permission to use View as",
+        "self": "You can't use View as on yourself",
+        "serverTooOld": "Update your server to use View as",
+        "previewing": "Exit the current preview first"
+      },
+      "noPermission": "You don't have permission to preview this",
+      "ended": "The preview ended: this member or role is no longer available",
+      "failed": "Could not load the preview",
+      "readOnly": "Read-only preview",
+      "lacksPermission": "This member's role does not allow this",
+      "locked": {
+        "auditLog": "Audit log locked for this member",
+        "sessions": "Terminal sessions locked for this member"
+      },
+      "viewingAs": "Viewing as {{name}}",
+      "viewingAsReadOnly": "Viewing as {{name}} · read-only",
+      "unsaved_one": "{{count}} unsaved change",
+      "unsaved_other": "{{count}} unsaved changes",
+      "discard": "Discard",
+      "save": "Save",
+      "saveConfirm": "Save…",
+      "exit": "Exit",
+      "changesAccess_one": "Changes access for {{count}} member",
+      "changesAccess_other": "Changes access for {{count}} members",
+      "roleTitle": "Role {{name}}",
+      "manageRolesRequired": "You need the Manage roles permission",
+      "builtinReadOnly": "Built-in roles can't be edited",
+      "affects_one": "Affects {{count}} member",
+      "affects_other": "Affects {{count}} members",
+      "roleKeyLoss": {
+        "title": "Remove vault key access?",
+        "body": "{{names}} will lose the vault key. The key is rotated for everyone else.",
+        "confirm": "Save and rotate key"
+      },
+      "hiddenFrom": "Hidden from {{name}}",
+      "cannotEdit": "This member's role does not allow editing",
+      "draftBadge": "Draft",
+      "draftTag": "(draft)",
+      "draftChange": "Draft: {{from}} → {{to}}",
+      "ownerElsewhere": "Owner changes are made elsewhere",
+      "keyLoss": "On save, {{name}} loses the vault key and the key is rotated for the other members.",
+      "saveFailed": "{{failed}} of {{total}} changes did not apply",
+      "access": {
+        "title": "{{name}}'s access",
+        "subtitle": "Edits preview on the left. Nothing is saved yet.",
+        "can": "{{name}} can",
+        "allPermissions": "All permissions…"
+      },
+      "step": {
+        "overrides": "Permission overrides",
+        "addRole": "Add {{role}}",
+        "removeRole": "Remove {{role}}"
+      },
+      "level": {
+        "hidden": "Hidden",
+        "view": "View only",
+        "connect": "Can connect",
+        "edit": "Can edit"
+      },
+      "secrets": {
+        "yes": "Secrets visible",
+        "no": "Secrets hidden"
+      },
+      "why": {
+        "noVaultKey": "{{name}} has no vault key, so nothing in this vault can be opened",
+        "as": "As {{name}}",
+        "gets": "What {{name}} gets here",
+        "addsUp": "How it adds up",
+        "order": "Applied in order: everyone, then {{name}}'s roles, then {{name}}. At each step an allow can undo the deny before it; {{name}}'s own team-wide deny always wins.",
+        "decidedByServer": "Decided by the server",
+        "notGranted": "None of {{name}}'s roles allow it",
+        "someRole": "One of their roles",
+        "thisItem": "this item",
+        "editRules": "Edit rules on {{folder}}",
+        "editRulesLocked": "You need Manage roles on {{folder}} to edit its rules",
+        "editRulesUnavailable": "Rules on {{folder}} can't be edited here",
+        "editAccess": "Edit {{name}}'s access",
+        "step": {
+          "roles_one": "Allowed by the role {{roles}}",
+          "roles_other": "Allowed by the roles {{roles}}",
+          "teamAllow": "{{name}} is allowed it team-wide",
+          "teamDeny": "{{name}} is denied it team-wide",
+          "administrator": "{{name}} has Administrator",
+          "everyoneDeny": "Everyone is denied on {{folder}}",
+          "everyoneAllow": "Everyone is allowed on {{folder}}",
+          "rolesDeny_one": "{{roles}} is denied on {{folder}}",
+          "rolesDeny_other": "{{roles}} are denied on {{folder}}",
+          "rolesAllow_one": "{{roles}} is allowed on {{folder}}",
+          "rolesAllow_other": "{{roles}} are allowed on {{folder}}",
+          "memberDeny": "{{name}} is denied on {{folder}}",
+          "memberAllow": "{{name}} is allowed on {{folder}}",
+          "teamDenyLast": "{{name}}'s own team-wide deny wins over {{folder}}",
+          "noView": "Hidden from {{name}}, so nothing else applies",
+          "needsConnect": "Secrets need Connect, which {{name}} doesn't have here",
+          "ruleNotShown": "Decided by a rule on {{folder}}"
+        }
+      },
+      "viewAs": "View as",
+      "previewAsRole": "Preview as role",
+      "menuItem": "View as {{name}}",
+      "summary": {
+        "title": "See what {{name}} can access",
+        "counts": "{{hosts}} hosts · {{snippets}} snippets · {{keys}} keys · {{hidden}} hidden"
       }
     }
   }

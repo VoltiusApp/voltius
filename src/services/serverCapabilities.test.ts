@@ -6,7 +6,7 @@ vi.mock("@/lib/logger", () => ({ logFailure: () => h.logged }));
 
 import {
   refreshServerCapabilities, resetServerCapabilities, serverLacksSecretType, noteRefusedSecretType,
-  serverSupportsWrappedSecretsCas,
+  serverSupportsWrappedSecretsCas, getServerCapability,
 } from "./serverCapabilities";
 
 beforeEach(() => {
@@ -93,4 +93,16 @@ test("a server that predates wrapped-secrets compare-and-swap, or cannot be reac
   resetServerCapabilities();
   h.fetchServerMeta.mockRejectedValue(new Error("offline"));
   expect(await serverSupportsWrappedSecretsCas()).toBe(false);
+});
+
+test("reads_permission_preview_from_meta", async () => {
+  h.fetchServerMeta.mockResolvedValue({ permission_preview: true });
+  await refreshServerCapabilities();
+  expect(getServerCapability("permissionPreview")).toBe(true);
+  for (const meta of [{}, { permission_preview: "true" }, { permission_preview: false }]) {
+    resetServerCapabilities();
+    h.fetchServerMeta.mockResolvedValue(meta);
+    await refreshServerCapabilities();
+    expect(getServerCapability("permissionPreview")).toBe(false);
+  }
 });

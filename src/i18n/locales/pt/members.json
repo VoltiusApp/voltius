@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrador"
     },
     "permissions": {
+      "youLack": "Você não tem permissão para fazer isso",
+      "youCannotEdit": "Você não tem permissão para editar isso",
       "title": "Permissões",
       "inheritedFrom": "De {{roles}}",
       "notGranted": "Nenhuma função concede isto",
@@ -590,6 +592,126 @@
           "done": "Pedido recusado",
           "failed": "Não foi possível recusar o pedido — {{reason}}"
         }
+      }
+    },
+    "viewAs": {
+      "loading": "Verificando o acesso…",
+      "discardDraft": {
+        "title": "Descartar alterações não salvas?",
+        "body": "Sair da pré-visualização descarta suas alterações não salvas no acesso de {{name}}.",
+        "confirm": "Descartar e sair"
+      },
+      "reason": {
+        "needsBusiness": "«Ver como» faz parte do plano Business",
+        "needsManage": "Você precisa da permissão Gerenciar membros ou Gerenciar funções para usar «Ver como»",
+        "self": "Você não pode usar «Ver como» em si mesmo",
+        "serverTooOld": "Atualize o seu servidor para usar Ver como",
+        "previewing": "Saia primeiro da pré-visualização atual"
+      },
+      "noPermission": "Não tem permissão para pré-visualizar isto",
+      "ended": "A pré-visualização terminou: este membro ou função já não está disponível",
+      "failed": "Não foi possível carregar a pré-visualização",
+      "readOnly": "Pré-visualização só de leitura",
+      "lacksPermission": "A função deste membro não permite isto",
+      "locked": {
+        "auditLog": "Registo de auditoria bloqueado para este membro",
+        "sessions": "Sessões de terminal bloqueadas para este membro"
+      },
+      "viewingAs": "Vendo como {{name}}",
+      "viewingAsReadOnly": "Vendo como {{name}} · somente leitura",
+      "unsaved_one": "{{count}} alteração não salva",
+      "unsaved_many": "{{count}} alterações não salvas",
+      "unsaved_other": "{{count}} alterações não salvas",
+      "discard": "Descartar",
+      "save": "Salvar",
+      "saveConfirm": "Salvar…",
+      "exit": "Sair",
+      "changesAccess_one": "Altera o acesso de {{count}} membro",
+      "changesAccess_many": "Altera o acesso de {{count}} membros",
+      "changesAccess_other": "Altera o acesso de {{count}} membros",
+      "roleTitle": "Função {{name}}",
+      "manageRolesRequired": "É necessária a permissão Gerir funções",
+      "builtinReadOnly": "As funções integradas não podem ser editadas",
+      "affects_one": "Afeta {{count}} membro",
+      "affects_other": "Afeta {{count}} membros",
+      "affects_many": "Afeta {{count}} membros",
+      "roleKeyLoss": {
+        "title": "Remover o acesso à chave do cofre?",
+        "body": "{{names}} perderá a chave do cofre. A chave é rotacionada para todos os outros.",
+        "confirm": "Salvar e rotacionar a chave"
+      },
+      "hiddenFrom": "Oculto para {{name}}",
+      "cannotEdit": "A função deste membro não permite editar",
+      "draftBadge": "Rascunho",
+      "draftTag": "(rascunho)",
+      "draftChange": "Rascunho: {{from}} → {{to}}",
+      "ownerElsewhere": "Alterações de proprietário são feitas em outro lugar",
+      "keyLoss": "Ao salvar, {{name}} perde a chave do cofre e a chave é rotacionada para os outros membros.",
+      "saveFailed": "{{failed}} de {{total}} alterações não foram aplicadas",
+      "access": {
+        "title": "Acesso de {{name}}",
+        "subtitle": "As edições aparecem à esquerda. Nada foi salvo ainda.",
+        "can": "{{name}} pode",
+        "allPermissions": "Todas as permissões…"
+      },
+      "step": {
+        "overrides": "Substituições de permissão",
+        "addRole": "Adicionar {{role}}",
+        "removeRole": "Remover {{role}}"
+      },
+      "level": {
+        "hidden": "Oculto",
+        "view": "Somente visualização",
+        "connect": "Pode conectar",
+        "edit": "Pode editar"
+      },
+      "secrets": {
+        "yes": "Segredos visíveis",
+        "no": "Segredos ocultos"
+      },
+      "why": {
+        "noVaultKey": "{{name}} não tem a chave do cofre, então nada neste cofre pode ser aberto",
+        "as": "Como {{name}}",
+        "gets": "O que {{name}} recebe aqui",
+        "addsUp": "Como isso se soma",
+        "order": "Aplicado em ordem: todos, depois as funções de {{name}}, depois {{name}}. Em cada etapa, uma permissão pode desfazer a negação anterior; a negação própria de {{name}} em toda a equipe sempre prevalece.",
+        "decidedByServer": "Decidido pelo servidor",
+        "notGranted": "Nenhuma função de {{name}} permite isso",
+        "someRole": "Uma das funções dele",
+        "thisItem": "este item",
+        "editRules": "Editar regras em {{folder}}",
+        "editRulesLocked": "Você precisa da permissão Gerenciar funções em {{folder}} para editar as regras",
+        "editRulesUnavailable": "As regras de {{folder}} não podem ser editadas aqui",
+        "editAccess": "Editar o acesso de {{name}}",
+        "step": {
+          "roles_one": "Permitido pela função {{roles}}",
+          "roles_other": "Permitido pelas funções {{roles}}",
+          "roles_many": "Permitido pelas funções {{roles}}",
+          "teamAllow": "{{name}} tem permissão em toda a equipe",
+          "teamDeny": "{{name}} tem negação em toda a equipe",
+          "administrator": "{{name}} tem Administrador",
+          "everyoneDeny": "Todos são negados em {{folder}}",
+          "everyoneAllow": "Todos são permitidos em {{folder}}",
+          "rolesDeny_one": "{{roles}} é negado em {{folder}}",
+          "rolesDeny_other": "{{roles}} são negados em {{folder}}",
+          "rolesDeny_many": "{{roles}} são negados em {{folder}}",
+          "rolesAllow_one": "{{roles}} é permitido em {{folder}}",
+          "rolesAllow_other": "{{roles}} são permitidos em {{folder}}",
+          "rolesAllow_many": "{{roles}} são permitidos em {{folder}}",
+          "memberDeny": "{{name}} é negado em {{folder}}",
+          "memberAllow": "{{name}} é permitido em {{folder}}",
+          "teamDenyLast": "A negação própria de {{name}} em toda a equipe prevalece sobre {{folder}}",
+          "noView": "Oculto para {{name}}, então nada mais se aplica",
+          "needsConnect": "Os segredos exigem Conectar, que {{name}} não tem aqui",
+          "ruleNotShown": "Decidido por uma regra em {{folder}}"
+        }
+      },
+      "viewAs": "Ver como",
+      "previewAsRole": "Pré-visualizar como função",
+      "menuItem": "Ver como {{name}}",
+      "summary": {
+        "title": "Veja o que {{name}} pode acessar",
+        "counts": "{{hosts}} hosts · {{snippets}} snippets · {{keys}} chaves · {{hidden}} ocultos"
       }
     }
   }

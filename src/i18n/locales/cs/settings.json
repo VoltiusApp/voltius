@@ -615,7 +615,7 @@
           "teamVaults": "Sdílené týmové trezory a pozvánky",
           "builtInRoles": "Vestavěné role",
           "teamAuditLogs": "Týmové auditní logy",
-          "granularPermissions": "Vlastní role, oprávnění pro jednotlivé členy a objekty",
+          "granularPermissions": "Vlastní role, oprávnění pro jednotlivé členy a objekty, s náhledem Zobrazit jako",
           "teamPolicy": "Týmové zásady: uzamkněte libovolné nastavení všem členům",
           "enrolment": "Registrační tokeny zařízení pro hromadné nasazení",
           "commercialLicense": "Komerční licence pro vlastní hosting",

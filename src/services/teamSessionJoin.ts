@@ -3,6 +3,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import i18n from "@/i18n";
 import { resolveJoinInput } from "@/services/resolveJoinInput";
+import { refuseOrThrow } from "@/services/previewGuard";
 
 export interface JoinTeamSessionParams {
   sessionId: string;
@@ -45,6 +46,7 @@ export async function joinTeamSessionAndOpenTab(params: JoinTeamSessionParams): 
 }
 
 export async function joinSessionByCode(code: string): Promise<string> {
+  refuseOrThrow();
   const { sessionId, inviteToken } = await resolveJoinInput(code);
   return joinTeamSessionAndOpenTab({ sessionId, inviteToken, connectionName: i18n.t("hosts.teamSessions.sharedTerminalFallback") });
 }

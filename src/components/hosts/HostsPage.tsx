@@ -71,6 +71,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { passMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
+import { connectionTarget, folderTarget, refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 
 export default function HostsPage() {
@@ -122,6 +123,7 @@ export default function HostsPage() {
   }, [loadConnections, loadFolders]);
 
   const openEdit = (conn: { id: string; connection_type?: string }) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     hostFormSessionKeyRef.current = conn.id;
     setEditingId(conn.id);
     setEditingFolderId(null);
@@ -135,6 +137,7 @@ export default function HostsPage() {
   };
 
   const openNew = (serial = false, inOpenFolder = true) => {
+    if (refuseWhilePreviewing()) return;
     hostFormSessionKeyRef.current = `new-${Date.now()}`;
     const openFolder = inOpenFolder ? folders.find((f) => f.id === activeFolderId) : undefined;
     setNewPlacement(openFolder && can("EDIT_CONNECTIONS", openFolder.vault_id) ? placementIn(openFolder) : undefined);
@@ -145,7 +148,7 @@ export default function HostsPage() {
   };
 
   const createFolder = () =>
-    void saveFolder(newFolder(t("hosts.toolbar.newFolder"))).then((f) => {
+    void addFolder(t("hosts.toolbar.newFolder"))?.then((f) => {
       setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id);
     });
 
@@ -211,7 +214,7 @@ export default function HostsPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "connection");
-  const { folderBlocked, newFolder } = useNewFolder("connection", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("connection", folderPath, saveFolder);
 
   // When inside a folder, show only that folder's items; otherwise show unfoldered items
   const filtered = useMemo(() => {
@@ -267,6 +270,7 @@ export default function HostsPage() {
   );
 
   const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
     setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(folder.id);
   };
   const panelOpen = showForm || showSerialForm || editingFolderId !== null;
@@ -358,6 +362,7 @@ export default function HostsPage() {
   });
 
   const handleDuplicate = async (conn: Connection) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     try {
       await duplicateInPlace(storeObjectPorts, "connection", conn);
     } catch (err) {
@@ -377,6 +382,7 @@ export default function HostsPage() {
   const syncTypes = useSyncPrefsStore((s) => s.syncTypes);
 
   const handleBulkConnect = useCallback(async (conns: Connection[]) => {
+    if (refuseWhilePreviewing()) return;
     const connectionIds = conns.map((c) => c.id);
     if (connectionIds.length === 0) return;
     setError(null);
@@ -390,6 +396,7 @@ export default function HostsPage() {
   }, [connectMany, openSessions, setActiveNav]);
 
   const handleConnect = useCallback(async (conn: Connection) => {
+    if (refuseWhilePreviewing(connectionTarget(conn.id))) return;
     if (selectedIdSet.size > 1 && selectedIdSet.has(conn.id) && selectedConnections.length > 1) {
       await handleBulkConnect(selectedConnections);
       return;
@@ -408,6 +415,7 @@ export default function HostsPage() {
   }, [connect, handleBulkConnect, selectedConnections, selectedIdSet, setActiveNav]);
 
   const handleDeleteConnection = useCallback((id: string) => {
+    if (refuseWhilePreviewing(connectionTarget(id))) return;
     const targetIds = getHostDeleteTargetIds(id, selectedIdSet, selectedConnections.map((c) => c.id));
     if (targetIds.length > 1) {
       setConfirmDeleteIds(targetIds);
@@ -479,14 +487,7 @@ export default function HostsPage() {
       {
         label: allSynced ? t("common.objectSync.disableCount", { count: ids.length }) : t("common.objectSync.enableCount", { count: ids.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const c of selectedConns) {
-            const isSynced = store.isObjectSynced(c.id, "connection");
-            if (allSynced && isSynced) store.toggleExcluded(c.id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(c.id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(selectedConns.map((c) => ({ id: c.id, typeId: "connection" })), !allSynced),
         divider: true,
       },
       {
@@ -506,7 +507,7 @@ export default function HostsPage() {
       {
         label: t("hosts.page.bulk.deleteItems", { count: totalSelected }),
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds([...ids, ...folderIds]),
+        onClick: whenWritable(() => setConfirmDeleteIds([...ids, ...folderIds])),
         danger: true,
         divider: true,
       },
@@ -822,14 +823,14 @@ export default function HostsPage() {
           title={t("hosts.page.confirmDelete.title", { count: confirmDeleteIds.length })}
           message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
-          onConfirm={() => {
+          onConfirm={whenWritable(() => {
             for (const id of confirmDeleteIds) {
               if (scopedFolders.some((f) => f.id === id)) void deleteFolder(id);
               else void deleteConnection(id);
             }
             setSelection([]);
             setConfirmDeleteIds(null);
-          }}
+          })}
           onCancel={() => setConfirmDeleteIds(null)}
         />
       )}

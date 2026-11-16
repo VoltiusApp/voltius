@@ -1,7 +1,9 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
-import { PERM_BITS } from "@/services/permissions";
+import { PERM_BITS, effectivePermissions } from "@/services/permissions";
+import { PreviewContentScope } from "@/hooks/previewScope";
+import { startPreview, stopPreview } from "@/test/preview";
 
 const h = vi.hoisted(() => ({
   assign: vi.fn(),
@@ -64,9 +66,25 @@ vi.mock("@/services/teamKeyRotation", () => ({
   checkAndRotateTeamKey: (...a: unknown[]) => h.rotate(...a),
 }));
 
+const gate = vi.hoisted(() => ({ losesVaultKey: vi.fn(), capable: { value: false } }));
+vi.mock("@/services/permissionPreview", () => ({ losesVaultKey: (...a: unknown[]) => gate.losesVaultKey(...a) }));
+vi.mock("@/services/serverCapabilities", async (orig) => ({
+  ...(await orig<typeof import("@/services/serverCapabilities")>()),
+  getServerCapability: () => gate.capable.value,
+}));
+
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
+const held = vi.hoisted(() => ({ value: 0 }));
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("@/services/appToast", () => ({ appToast: toast }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
+
+vi.mock("@/hooks/usePermission", async (orig) => ({
+  ...(await orig<typeof import("@/hooks/usePermission")>()),
+  useOwnPermissions: () => () => true,
+  useHeldPermissionBits: () => held.value,
+}));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 import { useTeamStore } from "@/stores/teamStore";
@@ -106,6 +124,8 @@ const baseProps = {
 
 beforeEach(() => {
   Object.values(h).forEach((m) => m.mockReset());
+  gate.losesVaultKey.mockReset();
+  gate.capable.value = false;
   h.assign.mockResolvedValue(undefined);
   h.remove.mockResolvedValue(undefined);
   h.removeMember.mockResolvedValue(undefined);
@@ -116,23 +136,51 @@ beforeEach(() => {
   mockStore.membersByTeam = {};
   mockStore.rolesByTeam = { t1: teamRoles };
   lock.value = { locked: false, isOwner: true };
+  held.value = 0;
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
 });
 afterEach(() => cleanup());
 
-test("canManageMembers=false: no role-toggle buttons and no remove button", () => {
+const expectGreyed = (name: string, reason = "members.permissions.youLack") => {
+  const button = screen.getByRole("button", { name }) as HTMLButtonElement;
+  expect(button.disabled, name).toBe(true);
+  expect(button.title, name).toBe(reason);
+};
+
+test("canManageMembers=false: role-toggle and remove buttons are greyed with a reason", () => {
   render(<MemberDetailPanel {...baseProps} canManageMembers={false} />);
-  expect(screen.queryByRole("button", { name: "members.roleName.editor" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.roleName.member" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expectGreyed("members.roleName.editor", "members.permissions.readOnlyNoManage");
+  expectGreyed("members.roleName.member", "members.permissions.readOnlyNoManage");
+  expectGreyed("members.removeFromTeam");
 });
 
-test("isMe=true: role-toggle buttons and remove button absent even though canManageMembers=true", () => {
+test("a name field the subject cannot edit stays visible, read-only, with the reason", () => {
+  render(<MemberDetailPanel {...baseProps} canNameMembers={false} namingSupported />);
+  const input = screen.getByLabelText("members.detail.nameLabel") as HTMLInputElement;
+  expect(input.readOnly).toBe(true);
+  expect(input.title).toBe("members.permissions.youLack");
+});
+
+test("a name field is read-only while previewing and refuses once per focus, not per keystroke", async () => {
+  toast.mockReset();
+  startPreview();
+  render(<PreviewContentScope><MemberDetailPanel {...baseProps} canNameMembers namingSupported /></PreviewContentScope>);
+  const input = screen.getByLabelText("members.detail.nameLabel") as HTMLInputElement;
+  expect(input.readOnly).toBe(true);
+  fireEvent.focus(input);
+  await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+  fireEvent.change(input, { target: { value: "x" } });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(toast).toHaveBeenCalledTimes(1);
+  stopPreview();
+});
+
+test("isMe=true: role-toggle buttons are greyed even though canManageMembers=true", () => {
   render(<MemberDetailPanel {...baseProps} isMe={true} />);
-  expect(screen.queryByRole("button", { name: "members.roleName.editor" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.roleName.member" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expectGreyed("members.roleName.editor", "members.permissions.readOnlySelf");
+  expectGreyed("members.roleName.member", "members.permissions.readOnlySelf");
+  expectGreyed("members.newRole", "members.permissions.readOnlySelf");
 });
 
 // The JSX filters `r.is_builtin && r.name === "owner"` out of the toggle list entirely
@@ -141,10 +189,10 @@ test("isMe=true: role-toggle buttons and remove button absent even though canMan
 // cannotRemoveOwnerRole guard is unreachable via the UI as currently written — there is no
 // button to click that would exercise it. We assert the (real, reachable) guarantee that
 // actually protects the owner role here: it never renders as a toggle, for anyone.
-test("isTargetOwner=true with owner role: remove button absent; owner role never renders as a toggle", () => {
+test("isTargetOwner=true with owner role: remove button greyed; owner role never renders as a toggle", () => {
   const ownerMember = { ...baseMember, role_ids: ["r-owner"] };
   render(<MemberDetailPanel {...baseProps} member={ownerMember} isTargetOwner={true} />);
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expectGreyed("members.removeFromTeam");
   expect(screen.queryByRole("button", { name: "members.roleName.owner" })).toBeNull();
   expect(h.remove).not.toHaveBeenCalled();
 });
@@ -258,7 +306,7 @@ function permProps(overrides: Partial<{
   canManageMembers: boolean; isTargetOwner: boolean; viewer: TeamMember;
   onUpdated: () => void;
 }> = {}) {
-  return {
+  const props = {
     member: targetMember,
     isMe: false,
     teamId: "t1",
@@ -271,6 +319,8 @@ function permProps(overrides: Partial<{
     onUpdated: vi.fn(),
     ...overrides,
   };
+  held.value = props.viewer ? effectivePermissions(props.viewer, props.teamRoles, lock.value.locked) : 0;
+  return props;
 }
 
 test("permission overrides: renders one row per permission and sends the new masks", async () => {
@@ -667,4 +717,83 @@ test("Invited by shows the inviter's member name from the roster", () => {
   render(<MemberDetailPanel {...baseProps} member={{ ...baseMember, invited_by_display_name: "quiet-otter-1" }} />);
   expect(screen.getByText("Jan")).toBeTruthy();
   expect(screen.queryByText("quiet-otter-1")).toBeNull();
+});
+
+const serverGateProps = () => {
+  gate.capable.value = true;
+  return permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] });
+};
+const denyRow = (perm: string) =>
+  within(screen.getByRole("radiogroup", { name: `members.permission.${perm}` })).getByRole("radio", { name: /deny/i });
+
+test("warns_when_the_server_says_the_key_is_lost", async () => {
+  gate.losesVaultKey.mockResolvedValue(true);
+  render(<MemberDetailPanel {...serverGateProps()} />);
+  fireEvent.click(denyRow("EDIT_KEYS"));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).toHaveBeenCalledWith("t1", "u2", { role_ids: ["r-key"], allow: 0, deny: PERM_BITS.EDIT_KEYS });
+  expect(h.setPerms).not.toHaveBeenCalled();
+});
+
+test("no_warning_when_an_object_rule_keeps_connect", async () => {
+  gate.losesVaultKey.mockResolvedValue(false);
+  render(<MemberDetailPanel {...serverGateProps()} />);
+  fireEvent.click(denyRow("CONNECT"));
+
+  await waitFor(() => expect(h.setPerms).toHaveBeenCalledWith("t1", "u2", 0, PERM_BITS.CONNECT));
+  expect(screen.queryByText("members.revokeKeyAccess.title")).toBeNull();
+  expect(h.rotate).not.toHaveBeenCalled();
+});
+
+test("warns_on_removing_a_role_that_carried_connect", async () => {
+  gate.capable.value = true;
+  gate.losesVaultKey.mockResolvedValue(true);
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+  fireEvent.click(screen.getByRole("button", { name: "key-role" }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).toHaveBeenCalledWith("t1", "u2", { role_ids: [], allow: 0, deny: 0 });
+  expect(h.remove).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "members.revokeKeyAccess.confirm" }));
+  await waitFor(() => expect(h.remove).toHaveBeenCalledWith("t1", "u2", "r-key"));
+  await waitFor(() => expect(h.rotate).toHaveBeenCalledWith("t1"));
+});
+
+test("falls_back_to_a_connect_check_when_the_server_is_too_old", async () => {
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, keyRole] })} />);
+  fireEvent.click(screen.getByRole("button", { name: "key-role" }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).not.toHaveBeenCalled();
+});
+
+test("falls back to the connect check when the server call fails", async () => {
+  gate.losesVaultKey.mockRejectedValue(new Error("5xx"));
+  render(<MemberDetailPanel {...serverGateProps()} />);
+  fireEvent.click(denyRow("CONNECT"));
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+});
+
+test("locked with an old server: removing a CONNECT-carrying role still warns", async () => {
+  lock.value = { locked: true, isOwner: true };
+  const builtinKey = { ...keyRole, is_builtin: true };
+  render(<MemberDetailPanel {...permProps({ member: keyMember, teamRoles: [viewerRole, builtinKey] })} />);
+  fireEvent.click(screen.getByRole("button", { name: "key-role" }));
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(h.remove).not.toHaveBeenCalled();
+});
+
+test("clearing overrides asks the server and warns when the key is lost", async () => {
+  gate.capable.value = true;
+  gate.losesVaultKey.mockResolvedValue(true);
+  lock.value = { locked: true, isOwner: true };
+  render(<MemberDetailPanel {...gateClearProps()} />);
+  clearRules();
+
+  expect(await screen.findByText("members.revokeKeyAccess.title")).toBeTruthy();
+  expect(gate.losesVaultKey).toHaveBeenCalledWith("t1", "u2", { role_ids: [], allow: 0, deny: 0 });
+  expect(h.setPerms).not.toHaveBeenCalled();
 });

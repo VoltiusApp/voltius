@@ -26,6 +26,7 @@ const h = vi.hoisted(() => ({
   teams: [] as unknown[],
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
+  folderEditPanels: 0,
   hostCardProps: [] as Record<string, unknown>[],
   formProps: [] as { kind: string; placement?: unknown }[],
   toolbarProps: {} as Record<string, unknown>,
@@ -79,7 +80,7 @@ vi.mock("@/components/shared/DragSelectSurface", () => ({
 vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
-vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
+vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => { h.folderEditPanels++; return null; } }));
 vi.mock("./HostCard", () => ({
   default: (props: Record<string, unknown>) => { h.hostCardProps.push(props); return null; },
 }));
@@ -252,6 +253,10 @@ vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: 
 vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));
 
 import HostsPage from "./HostsPage";
+import { expectEachRefused, startPreview, stopPreview } from "@/test/preview";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 
 const settle = () => act(async () => { await runPaste(async () => {}); });
 
@@ -267,6 +272,7 @@ beforeEach(() => {
   h.teams = [];
   h.visibleFolders = [];
   h.folderCardProps = [];
+  h.folderEditPanels = 0;
   h.hostCardProps = [];
   h.formProps = [];
   h.navFolders = [];
@@ -278,7 +284,10 @@ beforeEach(() => {
   h.can.mockReturnValue(true);
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
 
 function lastModal(): Record<string, unknown> {
   return h.confirmModals[h.confirmModals.length - 1];
@@ -565,4 +574,43 @@ test("New folder is greyed out inside a folder whose vault the user cannot edit 
   render(<HostsPage />);
 
   expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
+});
+
+test("host and folder actions refuse while previewing a member and open why for the item", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.connections = [conn("c1")];
+  h.folders = [folder("root")];
+  h.visibleFolders = [folder("root")];
+  render(<HostsPage />);
+  startPreview();
+  const host = h.hostCardProps[h.hostCardProps.length - 1];
+  const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  const c1 = h.connections[0] as Connection;
+  const hostTarget = { type: "connection" as const, objectId: "c1" };
+  const folderTarget = { type: "folder" as const, objectId: "root" };
+
+  await expectEachRefused([
+    ["edit host", () => (host.onEdit as (c: Connection) => void)(c1), hostTarget],
+    ["connect", () => (host.onConnect as (c: Connection) => Promise<void>)(c1), hostTarget],
+    ["delete host", () => (host.onDelete as (id: string) => void)("c1"), hostTarget],
+    ["duplicate host", () => (host.onDuplicate as (c: Connection) => Promise<void>)(c1), hostTarget],
+    ["move host to vault", () => (host.onMoveToVault as (c: Connection, v: string) => void)(c1, "team-1"), hostTarget],
+    ["copy host to vault", () => (host.onCopyToVault as (c: Connection, v: string) => void)(c1, "team-1"), hostTarget],
+    ["edit folder", () => (card.onEdit as () => void)(), folderTarget],
+    ["move folder to vault", () => (card.onMoveToVault as (v: string) => void)("team-1"), folderTarget],
+    ["copy folder to vault", () => (card.onCopyToVault as (v: string) => void)("team-1"), folderTarget],
+    ["new host", () => (h.toolbarProps.onCreateHost as () => void)(), undefined],
+    ["new folder", () => (h.toolbarProps.onCreateFolder as () => void)(), undefined],
+  ]);
+
+  await settle();
+  expect(h.formProps).toEqual([]);
+  expect(h.folderEditPanels).toBe(0);
+  expect(h.cascades).toEqual([]);
+  for (const write of [h.saveFolder, h.saveConnection, h.updateFolder, h.updateConnection]) {
+    expect(write).not.toHaveBeenCalled();
+  }
+  expect(useSessionStore.getState().connect).not.toHaveBeenCalled();
+  expect(useUIStore.getState().setActiveNav).not.toHaveBeenCalled();
+  expect(useConnectionStore.getState().deleteConnection).not.toHaveBeenCalled();
 });

@@ -13,6 +13,7 @@ import { checkTeamDocText } from "@/services/policy/teamPolicy";
 import { saveTextFile } from "@/services/saveFile";
 import { pickWithFileInput } from "@/services/systemDialog";
 import { runTeamAction } from "@/services/teamActionFeedback";
+import { whenWritable } from "@/services/previewGuard";
 import {
   deleteTeamPolicy,
   getTeamPolicy,
@@ -208,7 +209,7 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
 
       <div className="flex flex-wrap items-center gap-2">
         {!lapsed && (
-          <button type="button" className={BTN} disabled={busy} onClick={() => input.current && pickWithFileInput(input.current)}>
+          <button type="button" className={BTN} disabled={busy} onClick={whenWritable(() => input.current && pickWithFileInput(input.current))}>
             <Icon icon="lucide:upload" width={13} />
             {t("members.devicePolicy.import")}
           </button>
@@ -222,7 +223,7 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
             <button
               type="button"
               disabled={busy}
-              onClick={() => setClearing(true)}
+              onClick={whenWritable(() => setClearing(true))}
               className="ml-auto text-xs px-2 py-1.5 text-(--t-status-error) disabled:opacity-40"
             >
               {t("members.devicePolicy.clear")}

@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { startTrialOrCheckout } from "@/services/promos";
+import { whenWritable } from "@/services/previewGuard";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
@@ -34,9 +35,9 @@ export function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
 export function UpgradeToTeamsCTA({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
   const { seat, teamsTrialOffer } = usePlanDisplay();
-  const openCheckout = async () => {
+  const openCheckout = whenWritable(async () => {
     await startTrialOrCheckout("teams", "teams_gate", "team");
-  };
+  });
 
   return (
     <div className={`flex flex-col items-center justify-center ${compact ? "gap-3 py-2" : "h-full min-h-[320px] gap-5"}`}>
@@ -53,7 +54,7 @@ export function UpgradeToTeamsCTA({ compact = false }: { compact?: boolean }) {
       </div>
       {seat ? CAN_OPEN_CHECKOUT && (
       <button
-        onClick={() => void openBillingCheckout("teams")}
+        onClick={whenWritable(() => void openBillingCheckout("teams"))}
         className="text-xs font-medium text-(--t-accent) hover:opacity-80 transition-opacity"
       >
         {t("members.cta.ownPlanBtn")}

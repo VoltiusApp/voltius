@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import i18n from "@/i18n";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 // HTML5 drag-and-drop is unreliable inside the Tauri WebView2 on Windows when
 // `dragDropEnabled: true` is set in tauri.conf.json — Tauri's OLE drop target
@@ -320,14 +321,15 @@ export function useDragToFolder({
       const itemIds = [...draggingItemIdsRef.current];
       cleanup();
 
-      if (folder) {
+      const dropped = (folder !== null || eject !== null) && !refuseWhilePreviewing();
+      if (dropped && folder) {
         const folderId = folder.getAttribute("data-drop-folder")!;
         if (folderDragIds.length > 0 && !folderDragIds.includes(folderId)) {
           void optsRef.current.onMoveFolders?.(folderDragIds, folderId);
         } else if (itemIds.length > 0) {
           void optsRef.current.onDropToFolder(itemIds, folderId);
         }
-      } else if (eject) {
+      } else if (dropped && eject) {
         const raw = eject.getAttribute("data-drop-eject");
         const targetFolderId = raw && raw.length > 0 ? raw : null;
         if (folderDragIds.length > 0) {

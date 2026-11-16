@@ -3,6 +3,10 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { Connection, VaultOption } from "@/types";
 import { BaseCard } from "@/components/shared/BaseCard";
+import { withGhost } from "@/components/preview/GhostCard";
+import { PreviewHint, usePreviewLevel } from "@/components/preview/PreviewHint";
+import { useLackReason } from "@/hooks/useGreyedUnless";
+import { connectionTarget, whenWritableOn } from "@/services/previewGuard";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { CardActionButton, CardMenuButton, CardPinButton } from "@/components/shared/CardActionButton";
 import { OverflowTagList } from "@/components/shared/OverflowTagList";
@@ -67,7 +71,7 @@ interface Props {
   onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
-export default function HostCard({
+function HostCardBody({
   connection, isActive, isSelected, isEditing, isFocused, dimmed, canEdit = true,
   vaults = [], layout = "grid",
   onSelect, onConnect, onEdit, onDuplicate, onExecuteSnippet, onDelete,
@@ -84,7 +88,19 @@ export default function HostCard({
   const credential = useCredentialPlan(connection);
   const connectAs = useConnectAsMenuItem(connection, credential, () => onConnect(connection));
   const shownUsername = effectiveUsername(connection, credential.plan);
-  const connectTitle = !canConnect ? t("common.error.connectNotAllowed") : fileOnly ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle");
+  const viewOnly = usePreviewLevel("connection", connection.id) === "view";
+  const cannotEditReason = useLackReason("edit");
+  const connectTitle = viewOnly ? t("members.viewAs.level.view") : !canConnect ? t("common.error.connectNotAllowed") : fileOnly ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle");
+  const connectDisabled = !canConnect || viewOnly;
+  const editButton = (reveal: boolean) => (
+    <CardActionButton
+      icon="lucide:pencil"
+      title={canEdit ? t("common.action.edit") : cannotEditReason}
+      disabled={!canEdit}
+      reveal={reveal}
+      onClick={() => onEdit(connection)}
+    />
+  );
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(connection.id, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const pinConnectionForTeam = useConnectionStore((s) => s.pinConnectionForTeam);
@@ -103,14 +119,9 @@ export default function HostCard({
     const member = updatedBy ? teamMembers.find((m) => m.user_id === updatedBy) : undefined;
     return member ? memberLabel(member) : t("hosts.card.teamMemberFallback");
   })();
-  const handlePinClick = () => {
-    if (!isTeamVault) {
-      pinConnection(connection.id, !effectivePinned).catch(() => {});
-      return;
-    }
-    const next = nextPersonalPinValue(pinSource);
-    pinConnection(connection.id, next).catch(() => {});
-  };
+  const handlePinClick = whenWritableOn(connectionTarget(connection.id), () => {
+    pinConnection(connection.id, isTeamVault ? nextPersonalPinValue(pinSource) : !effectivePinned).catch(() => {});
+  });
   const pinTooltip = (() => {
     if (!isTeamVault) return effectivePinned ? t("hosts.card.unpin") : t("hosts.card.pin");
     switch (pinSource) {
@@ -223,7 +234,7 @@ export default function HostCard({
         ...(canEdit && isTeamVault ? [{
           label: (connection.pinned === true) ? t("hosts.card.unpinForTeam") : t("hosts.card.pinForTeam"),
           icon: "lucide:users",
-          onClick: () => pinConnectionForTeam(connection.id, !(connection.pinned === true)).catch(() => {}),
+          onClick: whenWritableOn(connectionTarget(connection.id), () => pinConnectionForTeam(connection.id, !(connection.pinned === true)).catch(() => {})),
         }] : []),
       ],
     }),
@@ -304,11 +315,12 @@ export default function HostCard({
           <div className="flex items-center gap-1 shrink-0">
             {presenceAvatar}
             {syncIcon}
-            {canEdit && <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} onClick={() => onEdit(connection)} />}
+            <PreviewHint type="connection" id={connection.id} layout="list" />
+            {editButton(true)}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(connection.id)} danger />}
             {canConnect && !isSerial && !fileOnly && <CardActionButton icon={SFTP_ICON} title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
-              disabled={!canConnect}
+              disabled={connectDisabled}
               onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
               className="flex items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-accent) disabled:opacity-40 disabled:cursor-not-allowed"
               onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--t-accent) 16%, transparent)")}
@@ -335,6 +347,7 @@ export default function HostCard({
                   </span>
                   <ManagedBadge id={connection.id} />
                   {pinAlwaysVisible && <CardPinButton color={pinColor} title={pinTooltip} onClick={handlePinClick} />}
+                  <PreviewHint type="connection" id={connection.id} layout="grid" />
                   {(showPingDot || syncIcon || presenceAvatar) && (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">
                       {presenceAvatar}
@@ -365,9 +378,7 @@ export default function HostCard({
 
             <div className="flex items-end">
               <div className="flex items-center gap-1 flex-1 -mb-1.5">
-                {canEdit && (
-                  <CardActionButton icon="lucide:pencil" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
-                )}
+                {editButton(false)}
                 {canConnect && !isSerial && !fileOnly && (
                   <CardActionButton icon={SFTP_ICON} title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
                 )}
@@ -377,16 +388,17 @@ export default function HostCard({
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
                 ref={terminalBtnRef}
-                disabled={!canConnect}
+                disabled={connectDisabled}
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
                 className="terminal-connect-btn disabled:opacity-40 disabled:cursor-not-allowed -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-(--t-bg-terminal) text-(--t-terminal-foreground) hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 1px 0 0 rgba(255,255,255,0.07)" }}
                 title={connectTitle}
               >
-                <div className="flex gap-1 mb-1.5 shrink-0">
+                <div className="flex items-center gap-1 mb-1.5 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />
                   <span className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
                   <span className="w-2 h-2 rounded-full bg-[#27c93f]" />
+                  {viewOnly && <span className="ml-1 text-[10px] leading-2 font-sans font-semibold">{t("members.viewAs.level.view")}</span>}
                 </div>
                 <div className="flex items-center min-w-0 w-full">
                   {fileOnly ? (
@@ -418,3 +430,7 @@ export default function HostCard({
     </BaseCard>
   );
 }
+
+export default withGhost(HostCardBody, (p) => ({
+  type: "connection", id: p.connection.id, icon: "lucide:server", name: connectionDisplayName(p.connection), layout: p.layout ?? "grid",
+}));

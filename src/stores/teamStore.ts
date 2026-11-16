@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import { invoke } from "@/lib/invoke";
 import { sameValue } from "@/utils/sameValue";
 import * as api from "@/services/teamService";
@@ -162,6 +163,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   setLockPolicy: async (teamId, policy) => {
+    assertNotPreviewing();
     await api.setTeamLockPolicy(teamId, policy);
     await get().loadTeams();
   },
@@ -188,11 +190,13 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   addMember: async (teamId, email, role) => {
+    assertNotPreviewing();
     await api.addMember(teamId, email, role);
     await get().loadMembers(teamId);
   },
 
   addMemberById: async (teamId, userId, role, name, roleIds) => {
+    assertNotPreviewing();
     const result = await api.addMemberById(teamId, userId, role, name, roleIds);
     // Pending invites don't appear in the members list yet; reload to pick up any state changes
     await get().loadMembers(teamId);
@@ -200,6 +204,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   removeMember: async (teamId, userId) => {
+    assertNotPreviewing();
     await api.removeMember(teamId, userId);
     set((s) => ({
       membersByTeam: {
@@ -267,6 +272,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   createRole: async (teamId, name, permissions, color) => {
+    assertNotPreviewing();
     const role = await api.createRole(teamId, name, permissions, color);
     set((s) => ({
       rolesByTeam: {
@@ -278,6 +284,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   updateRole: async (teamId, roleId, updates) => {
+    assertNotPreviewing();
     await api.updateRole(teamId, roleId, updates);
     set((s) => ({
       rolesByTeam: {
@@ -290,6 +297,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   deleteRole: async (teamId, roleId) => {
+    assertNotPreviewing();
     await api.deleteRole(teamId, roleId);
     set((s) => ({
       rolesByTeam: {
@@ -300,6 +308,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   assignMemberRole: async (teamId, userId, roleId) => {
+    assertNotPreviewing();
     await api.assignMemberRole(teamId, userId, roleId);
     set((s) => ({
       membersByTeam: {
@@ -314,6 +323,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   removeMemberRole: async (teamId, userId, roleId) => {
+    assertNotPreviewing();
     await api.removeMemberRole(teamId, userId, roleId);
     set((s) => ({
       membersByTeam: {
@@ -328,17 +338,20 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   transferBillingOwner: async (teamId, userId) => {
+    assertNotPreviewing();
     await api.transferBillingOwner(teamId, userId);
     set((s) => ({ teams: s.teams.map((t) => (t.id === teamId ? { ...t, owner_id: userId } : t)) }));
     await get().loadTeams();
   },
 
   setMemberName: async (teamId, userId, name) => {
+    assertNotPreviewing();
     await api.setMemberName(teamId, userId, name);
     await get().loadMembers(teamId);
   },
 
   setMemberPermissions: async (teamId, userId, allow, deny) => {
+    assertNotPreviewing();
     await api.setMemberPermissions(teamId, userId, allow, deny);
     set((s) => ({
       membersByTeam: {

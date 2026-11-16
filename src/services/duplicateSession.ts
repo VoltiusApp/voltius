@@ -4,6 +4,7 @@ import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { goToTerminal } from "@/services/launch";
 import type { TerminalSession } from "@/types";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 export type DuplicateTarget = "tab" | SplitPosition;
 
@@ -45,7 +46,7 @@ function inheritedCwd(sessionId: string): string | undefined {
 export function duplicateSession(sessionId: string, target: DuplicateTarget, anchor?: DuplicateAnchor): string | null {
   const store = useSessionStore.getState();
   const session = store.sessions.find((s) => s.id === sessionId);
-  if (!session || !canDuplicateSession(session)) return null;
+  if (!session || !canDuplicateSession(session) || refuseWhilePreviewing()) return null;
 
   const cwd = inheritedCwd(sessionId);
 

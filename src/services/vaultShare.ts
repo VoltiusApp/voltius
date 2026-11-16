@@ -6,6 +6,7 @@ import { buildDeepLink } from "@/services/deepLinkUrl";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { invitationRoleName } from "@/components/vault-share/vaultShareModel";
 import { userFacingReason } from "@/services/errorReason";
+import { assertNotPreviewing } from "@/services/previewGuard";
 
 /** Invite-side name for the shared URL-stripping reason. */
 export const inviteFailureReason = userFacingReason;
@@ -97,6 +98,7 @@ export async function inviteByEmailAddress(args: {
   memberName?: string;
 }): Promise<EmailInviteResult> {
   const { teamId, email, roleName, roleIds, memberName } = args;
+  assertNotPreviewing();
   return runTeamAction({
     pending: i18n.t("members.toast.invitingUser", { name: email }),
     success: i18n.t("members.toast.invitationSentToUser", { name: email }),
@@ -126,6 +128,7 @@ export async function revokeInvitation(args: {
   name: string;
 }): Promise<void> {
   const { teamId, invitationId, name } = args;
+  assertNotPreviewing();
   await runTeamAction({
     pending: i18n.t("members.toast.revokingInvitation", { name }),
     success: i18n.t("members.toast.invitationRevoked", { name }),
@@ -143,6 +146,7 @@ export async function grantVaultKeyToMember(args: {
   publicKey: string;
 }): Promise<void> {
   const { teamId, userId, label, publicKey } = args;
+  assertNotPreviewing();
   await runTeamAction({
     pending: i18n.t("members.toast.grantingKey", { name: label }),
     success: i18n.t("members.toast.keyGranted", { name: label }),

@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrátor"
     },
     "permissions": {
+      "youLack": "K této akci nemáte oprávnění",
+      "youCannotEdit": "K úpravě nemáte oprávnění",
       "title": "Oprávnění",
       "inheritedFrom": "Z rolí: {{roles}}",
       "notGranted": "Žádná role toto oprávnění neuděluje",
@@ -611,6 +613,132 @@
           "done": "Žádost zamítnuta",
           "failed": "Žádost se nepodařilo zamítnout — {{reason}}"
         }
+      }
+    },
+    "viewAs": {
+      "loading": "Ověřování přístupu…",
+      "discardDraft": {
+        "title": "Zahodit neuložené změny?",
+        "body": "Ukončením náhledu zahodíte neuložené změny přístupu pro {{name}}.",
+        "confirm": "Zahodit a ukončit"
+      },
+      "reason": {
+        "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business",
+        "needsManage": "Pro použití Zobrazit jako potřebujete oprávnění Spravovat členy nebo Spravovat role",
+        "self": "Zobrazit jako nelze použít na sebe",
+        "serverTooOld": "Aktualizujte server, abyste mohli použít Zobrazit jako",
+        "previewing": "Nejprve ukončete aktuální náhled"
+      },
+      "noPermission": "Nemáte oprávnění k tomuto náhledu",
+      "ended": "Náhled skončil: tento člen nebo role již není k dispozici",
+      "failed": "Náhled se nepodařilo načíst",
+      "readOnly": "Náhled jen pro čtení",
+      "lacksPermission": "Role tohoto člena to neumožňuje",
+      "locked": {
+        "auditLog": "Protokol auditu je pro tohoto člena uzamčen",
+        "sessions": "Relace terminálu jsou pro tohoto člena uzamčeny"
+      },
+      "viewingAs": "Zobrazení jako {{name}}",
+      "viewingAsReadOnly": "Zobrazení jako {{name}} · jen pro čtení",
+      "unsaved_one": "{{count}} neuložená změna",
+      "unsaved_few": "{{count}} neuložené změny",
+      "unsaved_many": "{{count}} neuložených změn",
+      "unsaved_other": "{{count}} neuložených změn",
+      "discard": "Zahodit",
+      "save": "Uložit",
+      "saveConfirm": "Uložit…",
+      "exit": "Ukončit",
+      "changesAccess_one": "Mění přístup pro {{count}} člena",
+      "changesAccess_few": "Mění přístup pro {{count}} členy",
+      "changesAccess_many": "Mění přístup pro {{count}} členů",
+      "changesAccess_other": "Mění přístup pro {{count}} členů",
+      "roleTitle": "Role {{name}}",
+      "manageRolesRequired": "Je potřeba oprávnění Spravovat role",
+      "builtinReadOnly": "Vestavěné role nelze upravovat",
+      "affects_one": "Ovlivní {{count}} člena",
+      "affects_few": "Ovlivní {{count}} členy",
+      "affects_many": "Ovlivní {{count}} členů",
+      "affects_other": "Ovlivní {{count}} členů",
+      "roleKeyLoss": {
+        "title": "Odebrat přístup ke klíči trezoru?",
+        "body": "{{names}} ztratí klíč trezoru. Klíč se obmění pro všechny ostatní.",
+        "confirm": "Uložit a obměnit klíč"
+      },
+      "hiddenFrom": "Skryto před {{name}}",
+      "cannotEdit": "Role tohoto člena úpravy nepovoluje",
+      "draftBadge": "Koncept",
+      "draftTag": "(koncept)",
+      "draftChange": "Koncept: {{from}} → {{to}}",
+      "ownerElsewhere": "Změny vlastníka se provádějí jinde",
+      "keyLoss": "Po uložení {{name}} ztratí klíč trezoru a klíč se pro ostatní členy obnoví.",
+      "saveFailed": "Nepodařilo se použít {{failed}} z {{total}} změn",
+      "access": {
+        "title": "Přístup uživatele {{name}}",
+        "subtitle": "Úpravy se zobrazují vlevo. Zatím nic není uloženo.",
+        "can": "{{name}} může",
+        "allPermissions": "Všechna oprávnění…"
+      },
+      "step": {
+        "overrides": "Přepsání oprávnění",
+        "addRole": "Přidat {{role}}",
+        "removeRole": "Odebrat {{role}}"
+      },
+      "level": {
+        "hidden": "Skryto",
+        "view": "Pouze zobrazení",
+        "connect": "Může se připojit",
+        "edit": "Může upravovat"
+      },
+      "secrets": {
+        "yes": "Tajné údaje viditelné",
+        "no": "Tajné údaje skryté"
+      },
+      "why": {
+        "noVaultKey": "{{name}} nemá klíč trezoru, takže v tomto trezoru nelze nic otevřít",
+        "as": "Jako {{name}}",
+        "gets": "Co zde {{name}} získá",
+        "addsUp": "Jak se to sčítá",
+        "order": "Použito v pořadí: všichni, pak role uživatele {{name}}, pak {{name}}. V každém kroku může povolení zrušit předchozí zákaz; vlastní celotýmový zákaz uživatele {{name}} vždy vyhrává.",
+        "decidedByServer": "Rozhodl server",
+        "notGranted": "Žádná role uživatele {{name}} to nepovoluje",
+        "someRole": "Jedna z jeho rolí",
+        "thisItem": "tato položka",
+        "editRules": "Upravit pravidla na {{folder}}",
+        "editRulesLocked": "K úpravě pravidel na {{folder}} potřebujete oprávnění Spravovat role",
+        "editRulesUnavailable": "Pravidla na {{folder}} zde nelze upravit",
+        "editAccess": "Upravit přístup uživatele {{name}}",
+        "step": {
+          "roles_one": "Povoleno rolí {{roles}}",
+          "roles_few": "Povoleno rolemi {{roles}}",
+          "roles_many": "Povoleno rolemi {{roles}}",
+          "roles_other": "Povoleno rolemi {{roles}}",
+          "teamAllow": "{{name}} to má povoleno v celém týmu",
+          "teamDeny": "{{name}} to má zakázáno v celém týmu",
+          "administrator": "{{name}} má Administrátora",
+          "everyoneDeny": "Všem je to zakázáno na {{folder}}",
+          "everyoneAllow": "Všem je to povoleno na {{folder}}",
+          "rolesDeny_one": "{{roles}} má zákaz na {{folder}}",
+          "rolesDeny_few": "{{roles}} mají zákaz na {{folder}}",
+          "rolesDeny_many": "{{roles}} mají zákaz na {{folder}}",
+          "rolesDeny_other": "{{roles}} mají zákaz na {{folder}}",
+          "rolesAllow_one": "{{roles}} má povolení na {{folder}}",
+          "rolesAllow_few": "{{roles}} mají povolení na {{folder}}",
+          "rolesAllow_many": "{{roles}} mají povolení na {{folder}}",
+          "rolesAllow_other": "{{roles}} mají povolení na {{folder}}",
+          "memberDeny": "{{name}} má zákaz na {{folder}}",
+          "memberAllow": "{{name}} má povolení na {{folder}}",
+          "teamDenyLast": "Vlastní celotýmový zákaz uživatele {{name}} má přednost před {{folder}}",
+          "noView": "Skryto před {{name}}, takže nic jiného neplatí",
+          "needsConnect": "Tajné údaje vyžadují Připojovat se, které zde {{name}} nemá",
+          "ruleNotShown": "Rozhodlo pravidlo na {{folder}}"
+        }
+      },
+      "viewAs": "Zobrazit jako",
+      "previewAsRole": "Náhled jako role",
+      "menuItem": "Zobrazit jako {{name}}",
+      "summary": {
+        "title": "Zjistěte, k čemu má {{name}} přístup",
+        "counts": "{{hosts}} hostitelů · {{snippets}} úryvků · {{keys}} klíčů · {{hidden}} skrytých"
       }
     }
   }

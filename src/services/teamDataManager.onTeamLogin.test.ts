@@ -35,6 +35,7 @@ vi.mock("@/stores/teamStore", () => ({
   },
 }));
 
+vi.mock("@/services/teamInbox", () => ({ resetTeamInboxState: vi.fn() }));
 vi.mock("@/stores/identityPickStore", () => ({
   useIdentityPickStore: { getState: () => ({ load: h.loadPicks, status: h.pickStatus }) },
 }));

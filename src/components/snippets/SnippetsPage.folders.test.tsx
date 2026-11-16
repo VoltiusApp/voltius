@@ -39,6 +39,10 @@ const h = vi.hoisted(() => ({
   can: vi.fn((_permission: string, _vaultId: string) => true),
   confirmModals: [] as Record<string, unknown>[],
   bulkOnDelete: null as ((ids: string[]) => void) | null,
+  sessions: [] as unknown[],
+  recent: [] as unknown[],
+  run: vi.fn(async () => true),
+  beginLocal: vi.fn(() => "local-1"),
 }));
 
 vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
@@ -176,10 +180,17 @@ vi.mock("@/stores/snippetFolderStore", () => ({
   }),
 }));
 vi.mock("@/stores/sessionStore", () => ({
-  useSessionStore: selectorStore({ sessions: [], activeSessionId: null }),
+  useSessionStore: selectorStore({
+    get sessions() { return h.sessions; },
+    activeSessionId: null,
+    connectMany: vi.fn(async () => []),
+    beginLocalSession: h.beginLocal,
+    setActive: vi.fn(),
+  }),
 }));
+vi.mock("@/services/snippetRun", () => ({ runSnippetIntoSessions: h.run }));
 vi.mock("@/stores/layoutStore", () => ({
-  useLayoutStore: selectorStore({ root: null, broadcastActive: false, splitTabActive: false }),
+  useLayoutStore: selectorStore({ root: null, broadcastActive: false, splitTabActive: false, openSessions: vi.fn() }),
 }));
 vi.mock("@/stores/uiStore", () => ({
   useUIStore: selectorStore({
@@ -208,11 +219,13 @@ vi.mock("@/stores/syncPrefsStore", () => ({
   }),
 }));
 vi.mock("@/stores/snippetRecentStore", () => ({
-  useSnippetRecentStore: selectorStore({ entries: [], add: vi.fn(), remove: vi.fn(), clear: vi.fn() }),
+  useSnippetRecentStore: selectorStore({ get entries() { return h.recent; }, add: vi.fn(), remove: vi.fn(), clear: vi.fn() }),
 }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
 import { SnippetsPage } from "./SnippetsPage";
+import { usePreviewStore } from "@/stores/previewStore";
+import { callProp, expectEachRefused, explainable, startPreview, stopPreview } from "@/test/preview";
 
 const settle = () => act(async () => { await runPaste(async () => {}); });
 
@@ -233,10 +246,15 @@ beforeEach(() => {
   h.activeFolderId = null;
   h.accessibleVaultIds = [];
   h.defaultVaultId = "personal";
+  h.sessions = [];
+  h.recent = [];
   h.can.mockReturnValue(true);
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
 
 function lastModal(): Record<string, unknown> {
   return h.confirmModals[h.confirmModals.length - 1];
@@ -313,6 +331,27 @@ test("moving a folder to a vault carries its whole subtree", async () => {
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
   expect(h.updateFolder.mock.calls.every((c) => (c[1] as { vault_id: string }).vault_id === "team-1")).toBe(true);
   expect(h.updateSnippet.mock.calls.map((c) => c[0])).toEqual(["s-root", "s-leaf"]);
+});
+
+test("moving or copying a folder to a vault while previewing a member opens why and writes nothing", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.folders = [folder("root")];
+  h.snippets = [snippet("s-root", { folder_id: "root" })];
+  h.visibleFolders = [folder("root")];
+  render(<SnippetsPage />);
+  startPreview();
+  const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  const folderTarget = { type: "folder" as const, objectId: "root" };
+
+  await expectEachRefused([
+    ["move folder to vault", callProp(card, "onMoveToVault", "team-1"), folderTarget],
+    ["copy folder to vault", callProp(card, "onCopyToVault", "team-1"), folderTarget],
+  ]);
+
+  await settle();
+  for (const write of [h.saveFolder, h.updateFolder, h.createSnippet, h.updateSnippet]) {
+    expect(write).not.toHaveBeenCalled();
+  }
 });
 
 test("copying a folder to a vault recreates the subtree and re-parents the snippets", async () => {
@@ -392,4 +431,30 @@ test("an open folder with no snippets shows the folder-empty state, even when th
   const { getByText } = render(<SnippetsPage />);
 
   getByText("folders.empty");
+});
+
+async function replayRecent() {
+  h.snippets = [snippet("sn1", { steps: [{ kind: "script", content: "ls" }] })];
+  h.sessions = [{ id: "s1", connectionId: "c1", connectionName: "c1", status: "connected", type: "ssh" }];
+  h.recent = [{
+    id: "e1", snippetId: "sn1", execute: true, timestamp: 1,
+    targets: [{ connectionId: "c1", connectionName: "c1", sessionType: "ssh" }, { sessionType: "local", localShell: "" }],
+  }];
+  const { getByTitle } = render(<SnippetsPage />);
+  await act(async () => { getByTitle("snippets.page.recent.replay").click(); });
+}
+
+test("replaying a recent run injects into the open session and opens the missing local shell", async () => {
+  await replayRecent();
+  expect(h.run).toHaveBeenCalledWith(expect.objectContaining({ id: "sn1" }), ["s1"], true, expect.anything());
+  expect(h.beginLocal).toHaveBeenCalled();
+});
+
+test("replaying a recent run while previewing a member runs and opens nothing and opens why for the snippet", async () => {
+  startPreview();
+  explainable("sn1");
+  await replayRecent();
+  expect(h.run).not.toHaveBeenCalled();
+  expect(h.beginLocal).not.toHaveBeenCalled();
+  expect(usePreviewStore.getState().side).toEqual({ kind: "why", type: "snippet", objectId: "sn1" });
 });

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { NavItem } from "@/stores/uiStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { FloatingPill, escapeIsFree } from "@/components/shared/FloatingPill";
 
 const EXIT_MS = 140;
 
@@ -25,23 +26,10 @@ export function ClipboardPill({ navItem }: { navItem: NavItem }) {
     return () => clearTimeout(timer);
   }, [mine, visible]);
 
-  // Escape is the app's universal "back out of what I'm doing" key, and this
-  // listener is on the window, so it used to discard the clipboard while the user
-  // was cancelling something else entirely — a rename, a modal, a search box.
-  // Escape only reaches the clipboard when nothing nearer has claimed it.
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.isContentEditable) return;
-      const tag = target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      // A dialog or menu on screen owns Escape; dismissing it must not also
-      // silently cost the user their clipboard.
-      if (document.querySelector('[role="dialog"], [data-modal], [class*="z-100"]')) return;
-      if (useVaultClipboardStore.getState().clipboard) {
-        useVaultClipboardStore.getState().clear();
-      }
+      if (e.key !== "Escape" || !escapeIsFree(e)) return;
+      if (useVaultClipboardStore.getState().clipboard) useVaultClipboardStore.getState().clear();
     };
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
@@ -55,11 +43,7 @@ export function ClipboardPill({ navItem }: { navItem: NavItem }) {
   countRef.current = count;
 
   return (
-    <div
-      data-testid="clipboard-pill"
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2 rounded-xl border text-xs shadow-lg ${exiting ? "clipboard-pill-exit" : "clipboard-pill-enter"}`}
-      style={{ background: "var(--t-bg-elevated)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" }}
-    >
+    <FloatingPill testId="clipboard-pill" exiting={exiting}>
       <Icon icon={isCut ? "lucide:scissors" : "lucide:copy"} width={14} />
       <span className={popped ? "clipboard-count-pop" : undefined}>
         {isCut ? t("common.clipboard.cut", { count }) : t("common.clipboard.copied", { count })}
@@ -78,6 +62,6 @@ export function ClipboardPill({ navItem }: { navItem: NavItem }) {
       >
         <Icon icon="lucide:x" width={12} />
       </button>
-    </div>
+    </FloatingPill>
   );
 }

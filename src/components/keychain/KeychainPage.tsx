@@ -58,6 +58,7 @@ import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { useSearchMatcher } from "@/utils/search";
 import { passMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
+import { folderTarget, identityTarget, keyTarget, refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -131,7 +132,7 @@ export default function KeychainPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "keychain");
-  const { folderBlocked, newFolder } = useNewFolder("keychain", folderPath);
+  const { folderBlocked, addFolder } = useNewFolder("keychain", folderPath, saveFolder);
 
   const availableTags = useMemo(
     () => [...new Set([...keys.flatMap((k) => k.tags), ...identities.flatMap((i) => i.tags)])].sort(),
@@ -320,15 +321,10 @@ export default function KeychainPage() {
           ? t("common.objectSync.disableCount", { count: allIds.length })
           : t("common.objectSync.enableCount", { count: allIds.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const id of allIds) {
-            const typeId = selectedKeyIds.includes(id) ? "key" : "identity";
-            const isSynced = store.isObjectSynced(id, typeId);
-            if (allSynced && isSynced) store.toggleExcluded(id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(
+          allIds.map((id) => ({ id, typeId: selectedKeyIds.includes(id) ? "key" : "identity" })),
+          !allSynced,
+        ),
       },
     ];
     if (selectedKeyIds.length > 0) {
@@ -342,7 +338,7 @@ export default function KeychainPage() {
     items.push({
       label: t("keychain.page.bulk.deleteItems", { count: allIds.length }),
       icon: "lucide:trash-2",
-      onClick: () => setConfirmDeleteIds(allIds),
+      onClick: whenWritable(() => setConfirmDeleteIds(allIds)),
       danger: true,
       divider: true,
     });
@@ -436,6 +432,7 @@ export default function KeychainPage() {
   };
 
   const handleDeleteKey = async (id: string) => {
+    if (refuseWhilePreviewing(keyTarget(id))) return;
     try {
       await deleteKey(id);
       if (editingKey?.id === id) { setEditingKeyId(null); setShowKeyForm(false); }
@@ -443,6 +440,7 @@ export default function KeychainPage() {
   };
 
   const handleDeleteIdentity = async (id: string) => {
+    if (refuseWhilePreviewing(identityTarget(id))) return;
     try {
       await deleteIdentity(id);
       if (editingIdentity?.id === id) { setEditingIdentityId(null); setShowIdentityForm(false); }
@@ -450,6 +448,7 @@ export default function KeychainPage() {
   };
 
   const openKeyForm = (key: SshKey | null, mode: "import" | "generate" = "import") => {
+    if (refuseWhilePreviewing(keyTarget(key?.id))) return;
     keyFormIsDirtyRef.current = false;
     keyFormSessionKeyRef.current = key?.id ?? `new-key-${Date.now()}`;
     setKeyFormMode(key ? "import" : mode);
@@ -464,6 +463,7 @@ export default function KeychainPage() {
   const openKeyGenForm = () => openKeyForm(null, "generate");
 
   const openIdentityForm = (identity: Identity | null) => {
+    if (refuseWhilePreviewing(identityTarget(identity?.id))) return;
     identityFormIsDirtyRef.current = false;
     identityFormSessionKeyRef.current = identity?.id ?? `new-identity-${Date.now()}`;
     setEditingIdentityId(identity?.id ?? null);
@@ -479,6 +479,7 @@ export default function KeychainPage() {
   );
 
   const openExportPanel = (key: SshKey) => {
+    if (refuseWhilePreviewing(keyTarget(key.id))) return;
     setExportingKey(key);
     setShowKeyForm(false);
     setShowIdentityForm(false);
@@ -540,12 +541,15 @@ export default function KeychainPage() {
       if (identity) openIdentityFormRef.current(identity);
     })(id, e), [handleItemSelect]);
 
-  const editFolder = (folder: Folder) => { closePanel(); setEditingFolderId(folder.id); };
+  const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
+    closePanel();
+    setEditingFolderId(folder.id);
+  };
   const editFolderRef = useRef(editFolder);
   editFolderRef.current = editFolder;
 
-  const createFolder = () =>
-    void saveFolder(newFolder(t("keychain.toolbar.newFolder")));
+  const createFolder = () => void addFolder(t("keychain.toolbar.newFolder"));
 
   // Inside a folder only the types it holds are listed; the per-type "none yet" states are for the root.
   const inFolderView = !!activeFolderId && !q;
@@ -850,7 +854,7 @@ export default function KeychainPage() {
           title={t("keychain.page.confirmDelete.title", { count: confirmDeleteIds.length })}
           message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
-          onConfirm={async () => {
+          onConfirm={whenWritable(async () => {
             for (const id of confirmDeleteIds) {
               if (selectedKeyIds.includes(id)) await handleDeleteKey(id);
               else if (selectedIdentityIds.includes(id)) await handleDeleteIdentity(id);
@@ -858,7 +862,7 @@ export default function KeychainPage() {
             }
             setSelection([]);
             setConfirmDeleteIds(null);
-          }}
+          })}
           onCancel={() => setConfirmDeleteIds(null)}
         />
       )}

@@ -5,7 +5,7 @@ import type { TeamMember, TeamRole } from "@/services/teamService";
 // Both from the service, not the hook: @/hooks/usePermission pulls teamService
 // and i18n in at runtime, which every consumer of this leaf module would then
 // have to mock.
-import { PERM_BITS, PERM_META, type Permission, type RuleSubject } from "@/services/permissions";
+import { PERM_BITS, PERM_META, type MemberReadOnlyReason, type Permission, type RuleSubject } from "@/services/permissions";
 import { memberLabel } from "@/services/memberLabel";
 
 export const ROLE_META: Record<string, { color: string; bg: string }> = {
@@ -16,6 +16,17 @@ export const ROLE_META: Record<string, { color: string; bg: string }> = {
   "connect-only": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
 };
 
+export const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
+  noManage: "members.permissions.readOnlyNoManage",
+  owner: "members.permissions.readOnlyOwner",
+  self: "members.permissions.readOnlySelf",
+  higherRole: "members.permissions.readOnlyHigherRole",
+  notHeld: "members.permissions.readOnlyNotHeld",
+};
+
+export const readOnlyReasonText = (t: TFunction, kind: MemberReadOnlyReason | null): string | null =>
+  kind ? t(READONLY_REASON_KEYS[kind]) : null;
+
 /**
  * A role's display name. The built-in roles arrive from the server as fixed
  * English ids ("owner", "connect-only") and are translated; a custom role's
@@ -23,6 +34,12 @@ export const ROLE_META: Record<string, { color: string; bg: string }> = {
  */
 export function roleLabel(t: TFunction, name: string): string {
   return Object.prototype.hasOwnProperty.call(ROLE_META, name) ? t(`members.roleName.${name}`) : name;
+}
+
+export function rolesGranting(t: TFunction, roles: TeamRole[], roleIds: string[], locked: boolean, permission: Permission): string[] {
+  return roles
+    .filter((r) => (!locked || r.is_builtin) && roleIds.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
+    .map((r) => roleLabel(t, r.name));
 }
 
 export function ruleSubjectLabel(t: TFunction, s: RuleSubject, roles: TeamRole[], members: TeamMember[]): string {

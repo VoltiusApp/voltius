@@ -1,6 +1,6 @@
 import { pasteFromClipboard, runPaste, type CascadeEntry, type PasteResult } from "@/services/vaultClipboard";
 import type { Permission } from "@/hooks/usePermission";
-import { clipboardOf } from "@/hooks/usePageClipboard";
+import { clipboardOf, refuseClipboardWhilePreviewing } from "@/hooks/usePageClipboard";
 import { headlessVaultObjectsAdapter, type VaultObjectTab } from "@/services/clipboard/vaultObjectsAdapter";
 import type { VaultObjectPorts } from "@/services/vaultObjectWrites";
 
@@ -22,7 +22,7 @@ export function prepareVaultTransfer(input: {
     tab: input.tab, ports: input.ports, can: input.can, folderId: null, vaultId: input.vaultId,
   });
   const clipboard = clipboardOf(adapter, input.ids, input.mode);
-  if (!clipboard) return null;
+  if (!clipboard || refuseClipboardWhilePreviewing(clipboard)) return null;
   return {
     cascade: adapter.planCascade?.(clipboard.items, clipboard.folderIds, input.vaultId, input.mode) ?? [],
     run: () => runPaste(() => pasteFromClipboard(clipboard, adapter)),

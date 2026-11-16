@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import { featureDisabledError } from "@/services/featureDisabled";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { refuseIfPlanRequired } from "@/services/planRequired";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import { getJwt, getServerUrl } from "@/services/authTokens";
 import { parseJwtPayload } from "@/utils/jwtPayload";
 import type { OwnerSeats } from "@/services/seatMath";
@@ -84,11 +85,13 @@ export async function createTeam(name: string): Promise<CreatedTeam> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
+  assertNotPreviewing();
   const res = await serverFetch(`/v1/teams/${teamId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeam", { status: res.status }));
 }
 
 export async function renameTeam(teamId: string, name: string): Promise<void> {
+  assertNotPreviewing();
   const res = await serverFetch(`/v1/teams/${teamId}`, {
     method: "PATCH",
     body: JSON.stringify({ name }),
@@ -136,6 +139,7 @@ export async function getTeamPolicy(teamId: string): Promise<StoredTeamPolicy | 
 }
 
 async function changeTeamPolicy(teamId: string, init: RequestInit): Promise<void> {
+  assertNotPreviewing();
   const res = await serverFetch(policyPath(teamId), init);
   refuseIfPlanRequired(res);
   if (res.status === 409) throw new PolicyRevisionMismatch();

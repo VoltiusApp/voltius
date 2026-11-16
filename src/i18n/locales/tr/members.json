@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Yönetici"
     },
     "permissions": {
+      "youLack": "Bunu yapma izniniz yok",
+      "youCannotEdit": "Bunu düzenleme izniniz yok",
       "title": "İzinler",
       "inheritedFrom": "Kaynak rol: {{roles}}",
       "notGranted": "Hiçbir rol bu izni vermiyor",
@@ -577,6 +579,120 @@
           "done": "İstek reddedildi",
           "failed": "İstek reddedilemedi — {{reason}}"
         }
+      }
+    },
+    "viewAs": {
+      "loading": "Erişim denetleniyor…",
+      "discardDraft": {
+        "title": "Kaydedilmemiş değişiklikler atılsın mı?",
+        "body": "Önizlemeden çıkmak, {{name}} erişiminde kaydedilmemiş değişikliklerinizi atar.",
+        "confirm": "At ve çık"
+      },
+      "reason": {
+        "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir",
+        "needsManage": "\"Şu olarak görüntüle\" için Üyeleri yönet veya Rolleri yönet izni gerekir",
+        "self": "\"Şu olarak görüntüle\" kendiniz için kullanılamaz",
+        "serverTooOld": "\"Şu olarak görüntüle\" özelliğini kullanmak için sunucunuzu güncelleyin",
+        "previewing": "Önce mevcut önizlemeden çıkın"
+      },
+      "noPermission": "Bunu önizleme izniniz yok",
+      "ended": "Önizleme sona erdi: bu üye veya rol artık mevcut değil",
+      "failed": "Önizleme yüklenemedi",
+      "readOnly": "Salt okunur önizleme",
+      "lacksPermission": "Bu üyenin rolü buna izin vermiyor",
+      "locked": {
+        "auditLog": "Denetim günlüğü bu üye için kilitli",
+        "sessions": "Terminal oturumları bu üye için kilitli"
+      },
+      "viewingAs": "{{name}} olarak görüntüleniyor",
+      "viewingAsReadOnly": "{{name}} olarak görüntüleniyor · salt okunur",
+      "unsaved_one": "{{count}} kaydedilmemiş değişiklik",
+      "unsaved_other": "{{count}} kaydedilmemiş değişiklik",
+      "discard": "Vazgeç",
+      "save": "Kaydet",
+      "saveConfirm": "Kaydet…",
+      "exit": "Çık",
+      "changesAccess_one": "{{count}} üyenin erişimini değiştirir",
+      "changesAccess_other": "{{count}} üyenin erişimini değiştirir",
+      "roleTitle": "Rol {{name}}",
+      "manageRolesRequired": "Rolleri yönetme izni gerekir",
+      "builtinReadOnly": "Yerleşik roller düzenlenemez",
+      "affects_one": "{{count}} üyeyi etkiler",
+      "affects_other": "{{count}} üyeyi etkiler",
+      "roleKeyLoss": {
+        "title": "Kasa anahtarı erişimi kaldırılsın mı?",
+        "body": "{{names}} kasa anahtarını kaybedecek. Anahtar diğer herkes için yenilenir.",
+        "confirm": "Kaydet ve anahtarı yenile"
+      },
+      "hiddenFrom": "{{name}} için gizli",
+      "cannotEdit": "Bu üyenin rolü düzenlemeye izin vermiyor",
+      "draftBadge": "Taslak",
+      "draftTag": "(taslak)",
+      "draftChange": "Taslak: {{from}} → {{to}}",
+      "ownerElsewhere": "Sahip değişiklikleri başka yerde yapılır",
+      "keyLoss": "Kaydedildiğinde {{name}} kasa anahtarını kaybeder ve anahtar diğer üyeler için yenilenir.",
+      "saveFailed": "{{total}} değişikliğin {{failed}} tanesi uygulanamadı",
+      "access": {
+        "title": "{{name}} erişimi",
+        "subtitle": "Düzenlemeler solda önizlenir. Henüz hiçbir şey kaydedilmedi.",
+        "can": "{{name}} şunları yapabilir",
+        "allPermissions": "Tüm izinler…"
+      },
+      "step": {
+        "overrides": "İzin geçersiz kılmaları",
+        "addRole": "{{role}} ekle",
+        "removeRole": "{{role}} kaldır"
+      },
+      "level": {
+        "hidden": "Gizli",
+        "view": "Salt görüntüleme",
+        "connect": "Bağlanabilir",
+        "edit": "Düzenleyebilir"
+      },
+      "secrets": {
+        "yes": "Gizli bilgiler görünür",
+        "no": "Gizli bilgiler gizli"
+      },
+      "why": {
+        "noVaultKey": "{{name}} kasa anahtarına sahip değil, bu yüzden bu kasadaki hiçbir şey açılamaz",
+        "as": "{{name}} olarak",
+        "gets": "{{name}} burada neler alıyor",
+        "addsUp": "Nasıl toplanıyor",
+        "order": "Sırayla uygulanır: herkes, sonra {{name}} kullanıcısının rolleri, sonra {{name}}. Her adımda bir izin, önceki reddi geri alabilir; {{name}} kullanıcısının kendi ekip genelindeki reddi her zaman kazanır.",
+        "decidedByServer": "Sunucu tarafından belirlendi",
+        "notGranted": "{{name}} kullanıcısının hiçbir rolü buna izin vermiyor",
+        "someRole": "Rollerinden biri",
+        "thisItem": "bu öğe",
+        "editRules": "{{folder}} kurallarını düzenle",
+        "editRulesLocked": "{{folder}} kurallarını düzenlemek için Rolleri yönet izni gerekir",
+        "editRulesUnavailable": "{{folder}} kuralları burada düzenlenemez",
+        "editAccess": "{{name}} erişimini düzenle",
+        "step": {
+          "roles_one": "{{roles}} rolüyle izin verildi",
+          "roles_other": "{{roles}} rolleriyle izin verildi",
+          "teamAllow": "{{name}} için ekip genelinde izinli",
+          "teamDeny": "{{name}} için ekip genelinde reddedildi",
+          "administrator": "{{name}} Yönetici iznine sahip",
+          "everyoneDeny": "{{folder}} üzerinde herkes reddedildi",
+          "everyoneAllow": "{{folder}} üzerinde herkese izin verildi",
+          "rolesDeny_one": "{{folder}} üzerinde {{roles}} reddedildi",
+          "rolesDeny_other": "{{folder}} üzerinde {{roles}} reddedildi",
+          "rolesAllow_one": "{{folder}} üzerinde {{roles}} için izin verildi",
+          "rolesAllow_other": "{{folder}} üzerinde {{roles}} için izin verildi",
+          "memberDeny": "{{folder}} üzerinde {{name}} reddedildi",
+          "memberAllow": "{{folder}} üzerinde {{name}} için izin verildi",
+          "teamDenyLast": "{{name}} kullanıcısının kendi ekip genelindeki reddi {{folder}} kuralına üstün gelir",
+          "noView": "{{name}} için gizli, bu yüzden başka hiçbir şey uygulanmaz",
+          "needsConnect": "Gizli bilgiler Bağlan gerektirir; {{name}} burada buna sahip değil",
+          "ruleNotShown": "{{folder}} üzerindeki bir kuralla belirlendi"
+        }
+      },
+      "viewAs": "Şu olarak görüntüle",
+      "previewAsRole": "Rol olarak önizle",
+      "menuItem": "{{name}} olarak görüntüle",
+      "summary": {
+        "title": "{{name}} kullanıcısının nelere erişebildiğini görün",
+        "counts": "{{hosts}} sunucu · {{snippets}} snippet · {{keys}} anahtar · {{hidden}} gizli"
       }
     }
   }

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { Snippet, SnippetFormData } from "@/types";
 import type { SnippetPendingInject } from "@/services/snippetRunCore";
 import type { SequencePrompt } from "@/services/snippetSequence";
@@ -86,6 +87,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     set((s) => ({ teamSnippets: clearTeamMapEntry(s.teamSnippets, teamId) })),
 
   createSnippet: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const snippet: Snippet = {
@@ -133,6 +135,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   updateSnippet: async (id, data) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -214,6 +217,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   deleteSnippet: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -253,6 +257,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   pinSnippet: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -268,6 +273,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   pinSnippetForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;

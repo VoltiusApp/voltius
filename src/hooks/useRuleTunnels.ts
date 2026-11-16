@@ -6,6 +6,7 @@ import { closePfTunnel } from "@/services/portForwardingTunnels";
 import { useRuleStartErrors } from "@/hooks/useRuleStartErrors";
 import { getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule, TerminalSession } from "@/types";
+import { refuseWhilePreviewing, ruleTarget } from "@/services/previewGuard";
 
 export interface RuleTunnelState {
   sessionId: string;
@@ -91,6 +92,7 @@ export function useRuleTunnels(): {
   }
 
   async function startRule(rule: PortForwardingRule) {
+    if (refuseWhilePreviewing(ruleTarget(rule.id))) return;
     const session = pickSessionForRule(rule);
     if (!session) return;
     setRuleBusy(rule.id, true);

@@ -8,6 +8,7 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
+import { targetOf, whenWritableOn } from "@/services/previewGuard";
 import type { Folder } from "@/types";
 
 export function folderAccessType(folder: Folder): "folder" | "snippet_folder" {
@@ -33,13 +34,10 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
     if (isSnippetFolder) pinSnippetFolderForTeam(folder.id, pinned).catch(() => {});
     else pinFolderForTeam(folder.id, pinned).catch(() => {});
   };
-  const togglePin = () => {
-    if (!isTeamVault) {
-      pinPersonal(!effPinned);
-    } else {
-      pinPersonal(nextPersonalPinValue(pinSource));
-    }
-  };
+  const target = targetOf(folderType)(folder.id);
+  const togglePin = whenWritableOn(target, () => {
+    pinPersonal(isTeamVault ? nextPersonalPinValue(pinSource) : !effPinned);
+  });
   const pinColor =
     pinSource === "personal" || pinSource === "team+personal"
       ? "var(--t-accent)"
@@ -68,7 +66,7 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
     ? {
       label: folder.pinned ? t("folders.card.unpinForTeam") : t("folders.card.pinForTeam"),
       icon: "lucide:users",
-      onClick: () => pinTeam(!folder.pinned),
+      onClick: whenWritableOn(target, () => pinTeam(!folder.pinned)),
     }
     : null;
 

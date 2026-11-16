@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { getServerUrl } from "@/services/authTokens";
 import { featureDisabledError } from "@/services/featureDisabled";
+import { assertNotPreviewing } from "@/services/previewGuard";
 
 // A grant confers team membership, never vault access: the vault key is wrapped
 // per member with X25519, so it follows separately and the redeemer sits in
@@ -98,6 +99,7 @@ export async function createJoinGrant(
   teamId: string,
   opts: { role: GrantableRole; maxUses: number; expiresInSecs: number },
 ): Promise<MintedJoinGrant> {
+  assertNotPreviewing();
   const base = await serverUrl();
   const res = await fetchAuth(`${base}/v1/teams/${teamId}/grants`, {
     method: "POST",
@@ -123,6 +125,7 @@ export async function listJoinGrants(teamId: string): Promise<JoinGrant[]> {
 }
 
 export async function revokeJoinGrant(teamId: string, grantId: string): Promise<void> {
+  assertNotPreviewing();
   const base = await serverUrl();
   const res = await fetchAuth(`${base}/v1/teams/${teamId}/grants/${grantId}`, { method: "DELETE" });
   if (!res.ok) throw grantError(res.status, false);

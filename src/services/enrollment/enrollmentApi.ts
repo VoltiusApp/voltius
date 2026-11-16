@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import { userFacingReason } from "@/services/errorReason";
 import { featureDisabledError } from "@/services/featureDisabled";
 import { serverFetch } from "@/services/teamService";
+import { assertNotPreviewing } from "@/services/previewGuard";
 
 export class EnrollmentError extends Error {
   constructor(public code: string | null, public status: number, message?: string, public retryAfterMs?: number) {
@@ -111,15 +112,20 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
+async function write<T>(path: string, init: RequestInit): Promise<T> {
+  assertNotPreviewing();
+  return call<T>(path, init);
+}
+
 export const enrollmentApi = {
   getToken: async (teamId: string) =>
     (await call<{ token: EnrollmentTokenInfo | null }>(tokenPath(teamId))).token,
   createToken: (teamId: string, body: EnrollmentTokenBody) =>
-    call<CreatedEnrollmentToken>(tokenPath(teamId), { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }),
-  revokeToken: (teamId: string) => call<void>(tokenPath(teamId), { method: "DELETE" }),
+    write<CreatedEnrollmentToken>(tokenPath(teamId), { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }),
+  revokeToken: (teamId: string) => write<void>(tokenPath(teamId), { method: "DELETE" }),
   listJoinRequests: (teamId: string) => call<JoinRequest[]>(`${requestsPath(teamId)}?status=pending`),
   approveJoinRequest: (teamId: string, rid: string) =>
-    call<ApproveOutcome>(`${requestsPath(teamId)}/${rid}/approve`, { method: "POST" }),
+    write<ApproveOutcome>(`${requestsPath(teamId)}/${rid}/approve`, { method: "POST" }),
   denyJoinRequest: (teamId: string, rid: string) =>
-    call<void>(`${requestsPath(teamId)}/${rid}/deny`, { method: "POST" }),
+    write<void>(`${requestsPath(teamId)}/${rid}/deny`, { method: "POST" }),
 };

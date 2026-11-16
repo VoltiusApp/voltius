@@ -7,10 +7,10 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { SETTINGS_SURFACE } from "@/components/settings/sections/shared";
 import { usePermissions } from "@/hooks/usePermission";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import {
-  checkAndRotateTeamKey, getLastRotationPass, subscribeRotationPasses, type RotationPass,
-} from "@/services/teamKeyRotation";
-import { deleteTeamObject, deleteTeamSecret, listTeamObjects } from "@/services/teamObjects";
+import { whenWritable } from "@/services/previewGuard";
+import { getLastRotationPass, subscribeRotationPasses, type RotationPass } from "@/services/teamKeyRotation";
+import { listTeamObjects } from "@/services/teamObjects";
+import { removeStaleItem, rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import { decodeTeamObject } from "@/services/teamObjectRows";
 import { getRotationStatus, getStaleItems, type RotationStatus, type StaleItem, type StaleItems } from "@/services/teamService";
 import {
@@ -92,14 +92,14 @@ export function VaultKeyHealthCard({ teamId }: { teamId: string }) {
 
   useEffect(() => { void reload(); }, [reload, pass]);
 
-  const retry = async () => {
+  const retry = whenWritable(async () => {
     setBusy(true);
     try {
-      await checkAndRotateTeamKey(teamId);
+      await rotateTeamKeyNow(teamId);
     } finally {
       setBusy(false);
     }
-  };
+  });
 
   const remove = async (item: StaleItem) => {
     setBusy(true);
@@ -107,7 +107,7 @@ export function VaultKeyHealthCard({ teamId }: { teamId: string }) {
       await runTeamAction({
         pending: t(`${P}.removing`),
         success: t(`${P}.removed`),
-        run: () => (item.kind === "secret" ? deleteTeamSecret(teamId, item.secret_id!) : deleteTeamObject(teamId, item.object_id!)),
+        run: () => removeStaleItem(teamId, item),
       });
       setRemoving(null);
     } catch {
@@ -186,7 +186,7 @@ export function VaultKeyHealthCard({ teamId }: { teamId: string }) {
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => setRemoving(item)}
+                      onClick={whenWritable(() => setRemoving(item))}
                       className="shrink-0 px-2 py-1 text-(--t-status-error) disabled:opacity-40"
                     >
                       {t(`${P}.remove`)}

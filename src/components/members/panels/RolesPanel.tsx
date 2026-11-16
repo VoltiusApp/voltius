@@ -4,12 +4,16 @@ import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { ColorSwatches } from "@/components/shared/ColorSwatches";
-import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
+import { type Permission, PERM_BITS, usePermissions } from "@/hooks/usePermission";
+import { whenWritable } from "@/services/previewGuard";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
 import { BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
+import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
+import { isMobileShell } from "@/utils/platform";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -60,7 +64,7 @@ function PermissionRow({
   );
 }
 
-function PermissionGrid({
+export function PermissionGrid({
   value,
   onChange,
   readOnly = false,
@@ -233,9 +237,31 @@ export function RoleModal({
   );
 }
 
+const ROLE_NAME_BUTTON = "flex items-center gap-3 flex-1 min-w-0 text-left";
+const ROLE_NAME = "flex-1 min-w-0 truncate text-sm font-medium";
+
+function PreviewAsRoleButton({ teamId, roleId, compact = false }: { teamId: string; roleId: string; compact?: boolean }) {
+  const { t } = useTranslation();
+  const entry = useViewAsEntry(teamId, { type: "role", role_id: roleId });
+  if (isMobileShell()) return null;
+  const label = t("members.viewAs.previewAsRole");
+  return (
+    <button
+      type="button"
+      {...entry.button}
+      title={entry.button.title ?? (compact ? label : undefined)}
+      aria-label={compact ? label : undefined}
+      className={`flex items-center gap-1.5 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40 ${compact ? "shrink-0 p-1.5" : "mb-2 px-2 py-1"}`}
+    >
+      <Icon icon="lucide:scan-eye" width={compact ? 13 : 12} />
+      {!compact && label}
+    </button>
+  );
+}
+
 // ─── Built-in role card (read-only) ──────────────────────────────────────────
 
-function BuiltinRoleCard({ name, permissions }: { name: string; permissions: number }) {
+function BuiltinRoleCard({ teamId, roleId, name, permissions }: { teamId: string; roleId: string; name: string; permissions: number }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   return (
@@ -243,18 +269,20 @@ function BuiltinRoleCard({ name, permissions }: { name: string; permissions: num
       className="rounded-xl overflow-hidden"
       style={{ border: "1px solid var(--t-border)" }}
     >
-      <button
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
-        style={{ background: "var(--t-bg-elevated)" }}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <Icon icon="lucide:lock" width={13} style={{ color: "var(--t-text-dim)" }} />
-        <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
-        <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
-      </button>
+      <div className="flex items-center gap-3 px-4 py-3" style={{ background: "var(--t-bg-elevated)" }}>
+        <button className={ROLE_NAME_BUTTON} onClick={() => setExpanded((v) => !v)}>
+          <Icon icon="lucide:lock" width={13} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
+          <span className={`${ROLE_NAME} capitalize`} style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
+          <span className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
+        </button>
+        <PreviewAsRoleButton teamId={teamId} roleId={roleId} compact />
+        <button onClick={() => setExpanded((v) => !v)}>
+          <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
+        </button>
+      </div>
       {expanded && (
         <div className="px-4 py-3 border-t border-t-(--t-border)">
+          <PreviewAsRoleButton teamId={teamId} roleId={roleId} />
           <PermissionGrid value={permissions} readOnly />
         </div>
       )}
@@ -269,6 +297,7 @@ function RoleCard({
   role,
   canEdit,
   canDelete,
+  editLocked,
   dragHandleProps,
   isDragOver,
 }: {
@@ -276,18 +305,20 @@ function RoleCard({
   role: TeamRole;
   canEdit: boolean;
   canDelete: boolean;
+  editLocked: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragOver?: boolean;
 }) {
   const { t } = useTranslation();
   const { deleteRole } = useTeamStore();
+  const greyedUnless = useGreyedUnless();
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [editing, setEditing] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = whenWritable(async () => {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeleting(true); setDeleteError("");
     try {
@@ -297,7 +328,7 @@ function RoleCard({
       setDeleting(false);
       setConfirmDelete(false);
     }
-  };
+  });
 
   return (
     <>
@@ -322,41 +353,41 @@ function RoleCard({
             </div>
           )}
           <button
-            className="flex items-center gap-3 flex-1 text-left min-w-0"
+            className={ROLE_NAME_BUTTON}
             onClick={() => setExpanded((v) => !v)}
           >
-            <Icon icon="lucide:shield" width={13} style={{ color: "var(--t-accent)" }} />
-            <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{role.name}</span>
+            <Icon icon="lucide:shield" width={13} className="shrink-0" style={{ color: "var(--t-accent)" }} />
+            <span className={ROLE_NAME} style={{ color: "var(--t-text-primary)" }}>{role.name}</span>
           </button>
-          {canEdit && (
+          <PreviewAsRoleButton teamId={teamId} roleId={role.id} compact />
+          {!editLocked && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={whenWritable(() => setEditing(true))}
+              {...greyedUnless(canEdit)}
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: "var(--t-text-dim)" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-              title={t("settings.vaults.rolesPanel.editRole")}
+              title={greyedUnless(canEdit).title ?? t("settings.vaults.rolesPanel.editRole")}
             >
               <Icon icon="lucide:pencil" width={13} />
             </button>
           )}
-          {canDelete && (
-            <button
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)"; }}
-              onBlur={() => setConfirmDelete(false)}
-              title={confirmDelete ? t("settings.vaults.rolesPanel.clickToConfirm") : t("settings.vaults.rolesPanel.deleteRoleTitle")}
-            >
-              {deleting
-                ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                : <Icon icon={confirmDelete ? "lucide:triangle-alert" : "lucide:trash-2"} width={13} />
-              }
-            </button>
-          )}
+          <button
+            onClick={() => void handleDelete()}
+            disabled={deleting || greyedUnless(canDelete).disabled}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)"; }}
+            onBlur={() => setConfirmDelete(false)}
+            title={greyedUnless(canDelete).title ?? (confirmDelete ? t("settings.vaults.rolesPanel.clickToConfirm") : t("settings.vaults.rolesPanel.deleteRoleTitle"))}
+          >
+            {deleting
+              ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
+              : <Icon icon={confirmDelete ? "lucide:triangle-alert" : "lucide:trash-2"} width={13} />
+            }
+          </button>
           <button onClick={() => setExpanded((v) => !v)}>
             <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
           </button>
@@ -366,6 +397,7 @@ function RoleCard({
         )}
         {expanded && (
           <div className="px-4 py-3 border-t border-t-(--t-border)">
+            <PreviewAsRoleButton teamId={teamId} roleId={role.id} />
             <PermissionGrid value={role.permissions} readOnly />
           </div>
         )}
@@ -376,9 +408,10 @@ function RoleCard({
 
 // ─── Team roles panel ─────────────────────────────────────────────────────────
 
-export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId: string }) {
+export function TeamRolesPanel({ teamId }: { teamId: string }) {
   const { t } = useTranslation();
-  const { rolesByTeam, loadRoles, membersByTeam, loadMembers, updateRole } = useTeamStore();
+  const { rolesByTeam, loadRoles, loadMembers, updateRole } = useTeamStore();
+  const can = usePermissions();
   const { locked } = useBusinessLock(teamId);
   const [creating, setCreating] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -387,12 +420,8 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
   const dragCounter = useRef(0);
 
   const roles = rolesByTeam[teamId] ?? [];
-  const members = membersByTeam[teamId] ?? [];
-  const myMember = members.find((m) => m.user_id === myUserId);
-
-  const canEdit = myMember
-    ? (effectivePermissions(myMember, roles, locked) & PERM_BITS.MANAGE_ROLES) !== 0
-    : false;
+  const canEdit = can("MANAGE_ROLES", teamId);
+  const greyedUnless = useGreyedUnless();
 
   const editable = canEdit && !locked;
 
@@ -402,11 +431,11 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
     ? localOrder.map((id) => rawCustomRoles.find((r) => r.id === id)).filter(Boolean) as typeof rawCustomRoles
     : rawCustomRoles;
 
-  function handleDragStart(idx: number) {
+  const handleDragStart = whenWritable((idx: number) => {
     setDragIdx(idx);
     setDropIdx(idx);
     setLocalOrder(customRoles.map((r) => r.id));
-  }
+  });
 
   function handleDragOver(e: React.DragEvent, idx: number) {
     e.preventDefault();
@@ -450,7 +479,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
         </h4>
         <div className="space-y-2">
           {builtinRoles.map((role) => (
-            <BuiltinRoleCard key={role.id} name={role.name} permissions={role.permissions} />
+            <BuiltinRoleCard key={role.id} teamId={teamId} roleId={role.id} name={role.name} permissions={role.permissions} />
           ))}
         </div>
       </div>
@@ -461,9 +490,10 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           <h4 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
             {t("settings.vaults.rolesPanel.customRoles")}
           </h4>
-          {editable && (
+          {!locked && (
             <button
-              onClick={() => setCreating(true)}
+              onClick={whenWritable(() => setCreating(true))}
+              {...greyedUnless(canEdit)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors"
               style={{ color: "var(--t-accent)", border: "1px solid var(--t-accent)", background: "transparent" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(var(--t-accent-rgb, 99,102,241), 0.1)"; }}
@@ -494,7 +524,8 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
                 key={role.id}
                 teamId={teamId}
                 role={role}
-                canEdit={editable}
+                canEdit={canEdit}
+                editLocked={locked}
                 canDelete={canEdit}
                 isDragOver={dropIdx === idx && dragIdx !== null && dragIdx !== idx}
                 dragHandleProps={editable ? {

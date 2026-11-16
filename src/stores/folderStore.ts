@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { Folder, FolderFormData } from "@/types";
 import * as api from "@/services/folders";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
@@ -56,6 +57,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     set((s) => ({ teamFolders: clearTeamMapEntry(s.teamFolders, teamId) })),
 
   saveFolder: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const folder: Folder = {
@@ -102,6 +104,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   },
 
   updateFolder: async (id, input) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamFolders, id);
     const data = overStoredFolder(teamEntry?.item ?? get().folders.find((f) => f.id === id), input);
     if (teamEntry) {
@@ -186,6 +189,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   // and deliberately not undoable — restoring would have to recreate items under new
   // ids, breaking the key/identity/connection references that point at them.
   deleteFolder: async (id, opts) => {
+    assertNotPreviewing();
     const cascade = opts?.cascade !== false;
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (teamEntry) {
@@ -251,6 +255,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   },
 
   moveObjectsToFolder: async (objectIds, objectType, folderId) => {
+    assertNotPreviewing();
     const prevFolderIds = new Map<string, string | null>();
     // Partition objects into personal (local DB) vs team-vault (server-backed)
     const personalIds: string[] = [];
@@ -360,6 +365,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   },
 
   moveFolder: async (id, parentFolderId) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (teamEntry) {
       const { teamId, item: folder } = teamEntry;
@@ -396,6 +402,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   },
 
   pinFolder: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -417,6 +424,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   },
 
   pinFolderForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;

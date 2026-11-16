@@ -612,7 +612,7 @@
           "teamVaults": "Coffres-forts d'équipe partagés et invitations",
           "builtInRoles": "Rôles intégrés",
           "teamAuditLogs": "Journaux d'audit d'équipe",
-          "granularPermissions": "Rôles personnalisés, permissions par membre et par objet",
+          "granularPermissions": "Rôles personnalisés, permissions par membre et par objet, avec l'aperçu Voir en tant que",
           "teamPolicy": "Règle d'équipe : imposer n'importe quel réglage à tous les membres",
           "enrolment": "Jetons d'enrôlement d'appareils pour les déploiements de parc",
           "commercialLicense": "Licence commerciale pour l'auto-hébergement",

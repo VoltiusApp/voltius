@@ -22,6 +22,9 @@ const h = vi.hoisted(() => ({
   vaults: [] as unknown[],
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
+  ruleCardProps: [] as Record<string, unknown>[],
+  panels: [] as string[],
+  duplicateRule: vi.fn(async () => {}),
   navFolders: [] as unknown[],
   folderPath: [] as unknown[],
   toolbarProps: {} as Record<string, unknown>,
@@ -73,13 +76,13 @@ vi.mock("@/components/shared/DragSelectSurface", () => ({
 vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
-vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
+vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => { h.panels.push("folder"); return null; } }));
 vi.mock("./PortForwardingToolbar", () => ({
   PortForwardingToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
 }));
 vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => null }));
-vi.mock("./RuleCard", () => ({ RuleCard: () => null }));
-vi.mock("./RuleForm", () => ({ RuleForm: () => null }));
+vi.mock("./RuleCard", () => ({ RuleCard: (p: Record<string, unknown>) => { h.ruleCardProps.push(p); return null; } }));
+vi.mock("./RuleForm", () => ({ RuleForm: () => { h.panels.push("rule"); return null; } }));
 vi.mock("@/components/shared/ConfirmModal", () => ({
   ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
 }));
@@ -164,7 +167,7 @@ vi.mock("@/stores/portForwardingStore", () => ({
     createRule: h.createRule,
     updateRule: h.updateRule,
     deleteRule: vi.fn(async () => {}),
-    duplicateRule: vi.fn(async () => {}),
+    duplicateRule: h.duplicateRule,
     moveRuleFolder: vi.fn(async () => {}),
     get rules() { return h.rules; },
   }),
@@ -200,6 +203,7 @@ vi.mock("@/stores/vaultStore", () => ({
 }));
 
 import { PortForwardingPage } from "./PortForwardingPage";
+import { callProp, expectEachRefused, startPreview, stopPreview } from "@/test/preview";
 
 const settle = () => act(async () => { await runPaste(async () => {}); });
 
@@ -212,6 +216,8 @@ beforeEach(() => {
   h.vaults = [];
   h.visibleFolders = [];
   h.folderCardProps = [];
+  h.ruleCardProps = [];
+  h.panels = [];
   h.navFolders = [];
   h.folderPath = [];
   h.ejectTargetFolderId = null;
@@ -222,7 +228,10 @@ beforeEach(() => {
   h.can.mockReturnValue(true);
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
 
 function lastModal(): Record<string, unknown> {
   return h.confirmModals[h.confirmModals.length - 1];
@@ -360,4 +369,39 @@ test("New folder is greyed out inside a folder whose vault the user cannot edit 
   render(<PortForwardingPage />);
 
   expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
+});
+
+test("rule and folder actions refuse while previewing a member and open why for the item", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.rules = [rule("r1")];
+  h.folders = [folder("root")];
+  h.visibleFolders = [folder("root")];
+  render(<PortForwardingPage />);
+  startPreview();
+  const card = h.ruleCardProps[h.ruleCardProps.length - 1];
+  const folderCard = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  const r1 = h.rules[0] as PortForwardingRule;
+  const ruleTarget = { type: "port_forwarding_rule" as const, objectId: "r1" };
+  const folderTarget = { type: "folder" as const, objectId: "root" };
+
+  await expectEachRefused([
+    ["edit rule", callProp(card, "onEdit", r1), ruleTarget],
+    ["duplicate rule", callProp(card, "onDuplicate", "r1"), ruleTarget],
+    ["delete rule", callProp(card, "onDelete", "r1"), ruleTarget],
+    ["move rule to vault", callProp(card, "onMoveToVault", r1, "team-1"), ruleTarget],
+    ["copy rule to vault", callProp(card, "onCopyToVault", r1, "team-1"), ruleTarget],
+    ["edit folder", callProp(folderCard, "onEdit"), folderTarget],
+    ["move folder to vault", callProp(folderCard, "onMoveToVault", "team-1"), folderTarget],
+    ["copy folder to vault", callProp(folderCard, "onCopyToVault", "team-1"), folderTarget],
+    ["new rule", callProp(h.toolbarProps, "onNewRule"), undefined],
+    ["new folder", callProp(h.toolbarProps, "onNewFolder"), undefined],
+  ]);
+
+  await settle();
+  expect(h.panels).toEqual([]);
+  expect(h.cascades).toEqual([]);
+  expect(h.confirmModals).toEqual([]);
+  for (const write of [h.createRule, h.updateRule, h.duplicateRule, h.saveFolder, h.updateFolder]) {
+    expect(write).not.toHaveBeenCalled();
+  }
 });

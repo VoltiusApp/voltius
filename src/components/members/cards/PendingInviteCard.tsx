@@ -9,6 +9,7 @@ import { ROLE_META, roleLabel } from "@/components/members/roleChips";
 import { RoleChip } from "@/components/members/roleBadges";
 import { useTeamStore } from "@/stores/teamStore";
 import { inviterLabel } from "@/services/memberLabel";
+import { whenWritable } from "@/services/previewGuard";
 import { formatDate, MONTH_DAY } from "@/utils/localeFormat";
 
 const DAY_MS = 86_400_000;
@@ -32,7 +33,7 @@ export function PendingInviteCard({
   const isExpired = inv.status === "expired";
   const daysLeft = Math.ceil((new Date(inv.expires_at).getTime() - Date.now()) / DAY_MS);
 
-  const handleRevoke = async () => {
+  const handleRevoke = whenWritable(async () => {
     setRevoking(true);
     try {
       // Shared helper rather than a local runTeamAction: it carries the
@@ -41,9 +42,9 @@ export function PendingInviteCard({
       onRevoked(inv.id);
     } catch { /* toast already reports the failure */ }
     finally { setRevoking(false); }
-  };
+  });
 
-  const handleResend = async () => {
+  const handleResend = whenWritable(async () => {
     setResending(true);
     try {
       // Upserts the existing row and pushes expires_at out another seven days
@@ -53,7 +54,7 @@ export function PendingInviteCard({
       onResent?.();
     } catch { /* toast already reports the failure */ }
     finally { setResending(false); }
-  };
+  });
 
   const invitedRoles = (inv.role_ids?.length ? inv.role_ids : [])
     .map((id) => roles.find((r) => r.id === id))
