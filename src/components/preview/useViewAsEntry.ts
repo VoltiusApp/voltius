@@ -14,6 +14,7 @@ export interface ViewAsEntry {
   reason: ViewAsReason | null;
   reasonText: string | null;
   enter: () => void;
+  button: { disabled: boolean; title: string | undefined; onClick: () => void };
 }
 
 export function useViewAsGate(teamId: string): (subject: PreviewSubject) => ViewAsEntry {
@@ -33,14 +34,18 @@ export function useViewAsGate(teamId: string): (subject: PreviewSubject) => View
       : !capable ? "serverTooOld"
       : previewing ? "previewing"
       : null;
+    const reasonText = reason && t(`members.viewAs.reason.${reason}`);
+    const enter = () => {
+      if (reason !== null) return;
+      const vault = useVaultStore.getState().vaults.find((v) => v.teamId === teamId);
+      usePreviewStore.getState().enter({ teamId, vaultId: vault?.id ?? teamId, subject });
+    };
     return {
       enabled: reason === null,
       reason,
-      reasonText: reason && t(`members.viewAs.reason.${reason}`),
-      enter: () => {
-        const vault = useVaultStore.getState().vaults.find((v) => v.teamId === teamId);
-        if (reason === null && vault) usePreviewStore.getState().enter({ teamId, vaultId: vault.id, subject });
-      },
+      reasonText,
+      enter,
+      button: { disabled: reason !== null, title: reasonText ?? undefined, onClick: enter },
     };
   };
 }

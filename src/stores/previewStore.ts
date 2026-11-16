@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { PreviewDraft, PreviewResponse } from "@/services/permissionPreview";
-import type { PreviewSession } from "@/services/previewSnapshot";
+import { subjectRecord, type PreviewSession } from "@/services/previewSnapshot";
 import type { TeamObjectType } from "@/services/teamObjects";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -118,21 +118,23 @@ interface SavePlan {
   reload: () => Promise<unknown>;
 }
 
-function planSave({ teamId, subject }: PreviewSession, draft: PreviewDraft): SavePlan | null {
+function planSave(session: PreviewSession, draft: PreviewDraft): SavePlan | null {
+  const { teamId } = session;
   const team = useTeamStore.getState();
-  if (subject.type === "member") {
-    const member = team.membersByTeam[teamId]?.find((m) => m.user_id === subject.user_id);
-    if (!member || !("role_ids" in draft)) return null;
+  const record = subjectRecord(team, session);
+  if (!record) return null;
+  if ("user_id" in record) {
+    if (!("role_ids" in draft)) return null;
     return {
-      total: memberDraftStepCount(teamId, member, draft),
-      run: () => saveMemberDraft(teamId, member, draft),
+      total: memberDraftStepCount(teamId, record, draft),
+      run: () => saveMemberDraft(teamId, record, draft),
       reload: () => team.loadMembers(teamId),
     };
   }
   if (!("permissions" in draft)) return null;
   return {
     total: 1,
-    run: () => saveRoleDraft(teamId, subject.role_id, draft),
+    run: () => saveRoleDraft(teamId, record.id, draft),
     reload: () => team.loadRoles(teamId),
   };
 }
@@ -226,8 +228,11 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     if (!session || !plan) return;
     set({ saving: true, saveError: null, saveFailures: [] });
     try {
-      const { failed } = await plan.run();
-      await withControlAuthority(plan.reload).catch(() => {});
+      const { failed } = await withControlAuthority(async () => {
+        const outcome = await plan.run();
+        await plan.reload().catch(() => {});
+        return outcome;
+      });
       if (get().session !== session) return;
       if (failed.length === 0) set({ draft: null });
       else {

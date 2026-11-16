@@ -325,9 +325,8 @@ export function MemberDetailPanel({
         actions={showViewAs && (
           <PanelHeaderIconButton
             icon="lucide:scan-eye"
-            title={viewAs.reasonText ?? t("members.viewAs.viewAs")}
-            disabled={!viewAs.enabled}
-            onClick={viewAs.enter}
+            {...viewAs.button}
+            title={viewAs.button.title ?? t("members.viewAs.viewAs")}
           />
         )}
         onClose={onClose}

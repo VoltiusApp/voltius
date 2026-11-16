@@ -10,6 +10,7 @@ import { memberLabel } from "@/services/memberLabel";
 import { useTeamStore } from "@/stores/teamStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount } from "@/services/viewAsSave";
+import { subjectRecord } from "@/services/previewSnapshot";
 
 export function RoleAccessPanel() {
   const { t } = useTranslation();
@@ -17,8 +18,8 @@ export function RoleAccessPanel() {
   const result = usePreviewStore((s) => s.result);
   const draft = usePreviewStore((s) => s.draft);
   const teamId = session?.teamId ?? "";
-  const roleId = session?.subject.type === "role" ? session.subject.role_id : "";
-  const role = useTeamStore((s) => s.rolesByTeam[teamId])?.find((r) => r.id === roleId);
+  const record = useTeamStore((s) => subjectRecord(s, session));
+  const role = record && "permissions" in record ? record : undefined;
   const members = useTeamStore((s) => s.membersByTeam[teamId]);
   const can = useOwnPermissions();
   const { locked } = useBusinessLock(teamId);

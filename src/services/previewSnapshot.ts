@@ -25,6 +25,17 @@ export function previewSideOf(result: PreviewResponse, objectId: string): Previe
   return shown.objects[objectId] ? shown : result.current;
 }
 
+export function subjectRecord(
+  team: { membersByTeam: Record<string, TeamMember[]>; rolesByTeam: Record<string, TeamRole[]> },
+  session: PreviewSession | null,
+): TeamMember | TeamRole | undefined {
+  if (!session) return undefined;
+  const { teamId, subject } = session;
+  return subject.type === "member"
+    ? team.membersByTeam[teamId]?.find((m) => m.user_id === subject.user_id)
+    : team.rolesByTeam[teamId]?.find((r) => r.id === subject.role_id);
+}
+
 export function subjectMembers(teamId: string, members: TeamMember[], subject: PreviewSubject, draft: PreviewDraft | null): TeamMember[] {
   if (subject.type === "role") {
     return [...members, {

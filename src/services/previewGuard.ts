@@ -57,6 +57,7 @@ export const whenWritableOn =
 
 export const whenWritable = <A extends unknown[], R>(fn: (...args: A) => R) => whenWritableOn(undefined, fn);
 
+// Unlike assertNotPreviewing: can open Why for a target, and ignores withControlAuthority.
 export function refuseOrThrow(target?: PreviewTarget): void {
   if (refuseWhilePreviewing(target)) throw new PreviewReadOnlyError();
 }

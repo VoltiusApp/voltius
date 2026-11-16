@@ -1,6 +1,5 @@
 import { useTeamStore, type TeamMember, type TeamRole } from "@/stores/teamStore";
 import type { MemberDraft, PreviewDraft, RoleDraft } from "@/services/permissionPreview";
-import { withControlAuthority } from "@/services/previewGuard";
 
 export interface SaveFailure {
   step: "overrides" | "addRole" | "removeRole";
@@ -53,19 +52,17 @@ export const memberDraftStepCount = (teamId: string, member: TeamMember, draft: 
 
 export async function saveMemberDraft(teamId: string, member: TeamMember, draft: MemberDraft): Promise<{ failed: SaveFailure[] }> {
   const failed: SaveFailure[] = [];
-  await withControlAuthority(async () => {
-    for (const { run, ...step } of draftSteps(teamId, member, draft)) {
-      try {
-        await run();
-      } catch (e) {
-        failed.push({ ...step, message: e instanceof Error ? e.message : String(e) });
-      }
+  for (const { run, ...step } of draftSteps(teamId, member, draft)) {
+    try {
+      await run();
+    } catch (e) {
+      failed.push({ ...step, message: e instanceof Error ? e.message : String(e) });
     }
-  });
+  }
   return { failed };
 }
 
 export async function saveRoleDraft(teamId: string, roleId: string, draft: RoleDraft): Promise<{ failed: SaveFailure[] }> {
-  await withControlAuthority(() => useTeamStore.getState().updateRole(teamId, roleId, { permissions: draft.permissions }));
+  await useTeamStore.getState().updateRole(teamId, roleId, { permissions: draft.permissions });
   return { failed: [] };
 }

@@ -20,7 +20,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { saveNeedsConfirm, usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount, type SaveFailure } from "@/services/viewAsSave";
-import { shownPreview } from "@/services/previewSnapshot";
+import { shownPreview, subjectRecord } from "@/services/previewSnapshot";
 
 const NO_ROLES: TeamRole[] = [];
 
@@ -53,10 +53,10 @@ export function MemberAccessPanel() {
   const failures = usePreviewStore((s) => s.saveFailures);
   const name = useSubjectLabel();
   const teamId = session?.teamId ?? "";
-  const subjectId = session?.subject.type === "member" ? session.subject.user_id : "";
   const members = useTeamStore((s) => s.membersByTeam[teamId]);
   const roles = useTeamStore((s) => s.rolesByTeam[teamId]) ?? NO_ROLES;
-  const member = members?.find((m) => m.user_id === subjectId);
+  const record = useTeamStore((s) => subjectRecord(s, session));
+  const member = record && "user_id" in record ? record : undefined;
   const myUserId = useMyUserId();
   const can = useOwnPermissions();
   const { locked } = useBusinessLock(teamId);

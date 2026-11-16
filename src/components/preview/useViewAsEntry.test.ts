@@ -93,6 +93,21 @@ test("enter_selects_the_team_vault_and_starts_the_session", async () => {
   expect(h.enter).toHaveBeenCalledWith({ teamId: "t1", vaultId: "v1", subject: MEMBER });
 });
 
+test("a_team_with_no_local_vault_row_enters_on_the_team_id", async () => {
+  setup();
+  useVaultStore.setState({ vaults: [] } as never);
+  const result = await run(MEMBER, null);
+  result.current.button.onClick();
+  expect(h.enter).toHaveBeenCalledWith({ teamId: "t1", vaultId: "t1", subject: MEMBER });
+});
+
+test("button_props_carry_the_reason_when_disabled", async () => {
+  setup({ capable: false });
+  const result = await run(MEMBER, "serverTooOld");
+  expect(result.current.button.disabled).toBe(true);
+  expect(result.current.button.title).toBe("members.viewAs.reason.serverTooOld");
+});
+
 test("enter_does_nothing_when_disabled", async () => {
   setup({ capable: false });
   const result = await run(MEMBER, "serverTooOld");

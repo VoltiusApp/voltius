@@ -37,9 +37,7 @@ export function AccessSummaryCard({ teamId, member }: { teamId: string; member: 
       <button
         type="button"
         data-testid="access-summary-card"
-        onClick={entry.enter}
-        disabled={!entry.enabled}
-        title={entry.reasonText ?? undefined}
+        {...entry.button}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-[var(--r-md)] text-left bg-(--t-bg-card) disabled:opacity-60"
         style={{ boxShadow: "var(--t-ring)" }}
       >

@@ -8,17 +8,12 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { memberLabel } from "@/services/memberLabel";
 import { unsavedChangeCount } from "@/services/viewAsSave";
+import { subjectRecord } from "@/services/previewSnapshot";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 
 function useSubjectRecord(): TeamMember | TeamRole | undefined {
   const session = usePreviewStore((s) => s.session);
-  return useTeamStore((s) => {
-    if (!session) return undefined;
-    const { subject, teamId } = session;
-    return subject.type === "member"
-      ? s.membersByTeam[teamId]?.find((m) => m.user_id === subject.user_id)
-      : s.rolesByTeam[teamId]?.find((r) => r.id === subject.role_id);
-  });
+  return useTeamStore((s) => subjectRecord(s, session));
 }
 
 function ViewAsSaveConfirm() {
