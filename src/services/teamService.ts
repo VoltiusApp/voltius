@@ -85,11 +85,13 @@ export async function createTeam(name: string): Promise<CreatedTeam> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
+  assertNotPreviewing();
   const res = await serverFetch(`/v1/teams/${teamId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeam", { status: res.status }));
 }
 
 export async function renameTeam(teamId: string, name: string): Promise<void> {
+  assertNotPreviewing();
   const res = await serverFetch(`/v1/teams/${teamId}`, {
     method: "PATCH",
     body: JSON.stringify({ name }),

@@ -13,6 +13,8 @@ import { PickerSurface } from "@/components/shared/PickerSurface";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { usePreviewStore } from "@/stores/previewStore";
+import { whenWritable } from "@/services/previewGuard";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
 import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
@@ -45,6 +47,7 @@ export function MembersStack({
 }) {
   const { t } = useTranslation();
   const openMembersPanel = useUIStore((s) => s.openMembersPanel);
+  const previewing = usePreviewStore((s) => s.session !== null);
   const [invHovered, setInvHovered] = useState(false);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = openProp ?? uncontrolledOpen;
@@ -62,7 +65,7 @@ export function MembersStack({
   // fires the stack's mouseleave. Defer the close so the popover's own
   // mouseenter can cancel it.
   const openPopover = () => {
-    if (!hasTeam) return;
+    if (!hasTeam || previewing) return;
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
     setOpen(true);
@@ -76,7 +79,7 @@ export function MembersStack({
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
   }, []);
 
-  const toggleOpen = () => setOpen((o) => !o);
+  const toggleOpen = whenWritable(() => setOpen((o) => !o));
   const handleTriggerKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();

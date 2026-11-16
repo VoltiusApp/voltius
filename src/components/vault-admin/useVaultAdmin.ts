@@ -5,9 +5,12 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useMyUserId } from "@/hooks/useMyUserId";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 import { vaultAdminCapabilities, type VaultAdminCapabilities, type VaultAdminTarget } from "./vaultAdminTarget";
-import { vaultMenuItems } from "./vaultMenuItems";
+import { vaultMenuItems, type VaultMenuAction } from "./vaultMenuItems";
 import type { VaultDialog } from "./VaultAdminDialogs";
+
+const NAVIGATION_ACTIONS: ReadonlySet<VaultMenuAction> = new Set(["members", "roles", "security"]);
 
 const NO_CAPS: VaultAdminCapabilities = {
   isTeam: false, isOwner: false, canRename: false, canSetLockPolicy: false, canDelete: false, canMakePrivate: false, canLeave: false,
@@ -42,6 +45,7 @@ export function useVaultAdmin(
     ? vaultMenuItems({
         caps, memberCount, canShare, t,
         on: (action) => {
+          if (!NAVIGATION_ACTIONS.has(action) && refuseWhilePreviewing()) return;
           switch (action) {
             case "share": opts?.onShare ? opts.onShare() : setShareOpen(true); return;
             case "members": opts?.onActivate?.(); openMembersNav(); return;

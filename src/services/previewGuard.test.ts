@@ -107,6 +107,8 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useKnownHostStore } from "@/stores/knownHostStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -126,7 +128,8 @@ import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
 import { useRemoteSessionCards } from "@/hooks/useRemoteSessionCards";
 import { grantVaultKeyToMember, inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { enrollmentApi } from "@/services/enrollment/enrollmentApi";
-import { deleteTeamPolicy, putTeamPolicy } from "@/services/teamService";
+import { deleteTeam, deleteTeamPolicy, putTeamPolicy, renameTeam } from "@/services/teamService";
+import { createJoinGrant, revokeJoinGrant } from "@/services/teamJoinGrants";
 import { removeStaleItem, rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import {
   PreviewReadOnlyError,
@@ -281,6 +284,8 @@ const rows: Row[] = [
   },
   hookRow("useRemoteSessionCards.join", () => useRemoteSessionCards(), (c) => c.join(remoteSession as never), () => h.joinRemote.mock.calls.length > 0, { type: "connection", objectId: "c1" }),
   hookRow("useRemoteSessionCards.kill", () => useRemoteSessionCards(), (c) => c.kill("rs1"), (c) => c.stateOf("rs1") === "pending"),
+  { name: "syncPrefs.toggleExcluded", run: () => useSyncPrefsStore.getState().toggleExcluded("c1"), effect: () => useSyncPrefsStore.getState().excludedIds.includes("c1") },
+  { name: "syncPrefs.setObjectsSynced", run: () => useSyncPrefsStore.getState().setObjectsSynced([{ id: "c1", typeId: "connection" }], false), effect: () => useSyncPrefsStore.getState().excludedIds.includes("c1") },
   { name: "teamSessionJoin.joinSessionByCode", run: () => joinSessionByCode("abc"), effect: () => h.joinInput.mock.calls.length > 0 },
 ];
 
@@ -296,6 +301,7 @@ beforeEach(() => {
   });
   useVaultClipboardStore.setState({ clipboard: null });
   useTeamSessionStore.setState({ connections: {} });
+  useSyncPrefsStore.setState({ excludedIds: [], syncTypes: {} });
   window.addEventListener("voltius:rename-item", renamed);
 });
 
@@ -401,6 +407,9 @@ const storeWrites: [string, () => unknown][] = [
   ["pf.deleteRule", () => usePortForwardingStore.getState().deleteRule("r1")],
   ["pf.duplicateRule", () => usePortForwardingStore.getState().duplicateRule("r1")],
   ["pf.moveRuleFolder", () => usePortForwardingStore.getState().moveRuleFolder("r1", null)],
+  ["knownHost.removeKnownHost", () => useKnownHostStore.getState().removeKnownHost("kh1")],
+  ["knownHost.moveKnownHostVault", () => useKnownHostStore.getState().moveKnownHostVault("kh1", "v2")],
+  ["knownHost.copyKnownHostVault", () => useKnownHostStore.getState().copyKnownHostVault("kh1", "v2")],
 ];
 
 const syncApply: [string, () => unknown][] = [
@@ -460,6 +469,10 @@ const teamWrites: [string, () => Promise<unknown>, () => number][] = [
   ["enrollmentApi.revokeToken", () => enrollmentApi.revokeToken("t1"), () => h.serverUrl.mock.calls.length],
   ["teamService.putTeamPolicy", () => putTeamPolicy("t1", {}, 1), () => h.serverUrl.mock.calls.length],
   ["teamService.deleteTeamPolicy", () => deleteTeamPolicy("t1"), () => h.serverUrl.mock.calls.length],
+  ["teamService.deleteTeam", () => deleteTeam("t1"), () => h.serverUrl.mock.calls.length],
+  ["teamService.renameTeam", () => renameTeam("t1", "Renamed"), () => h.serverUrl.mock.calls.length],
+  ["teamJoinGrants.createJoinGrant", () => createJoinGrant("t1", { role: "member", maxUses: 1, expiresInSecs: 60 }), () => h.serverUrl.mock.calls.length],
+  ["teamJoinGrants.revokeJoinGrant", () => revokeJoinGrant("t1", "g1"), () => h.serverUrl.mock.calls.length],
   ["vaultKeyActions.rotateTeamKeyNow", () => rotateTeamKeyNow("t1"), () => h.rotate.mock.calls.length],
   ["vaultKeyActions.removeStaleItem", () => removeStaleItem("t1", { kind: "object", object_id: "o1" } as never), () => h.deleteTeamObject.mock.calls.length],
   ["vaultStore.renameVault", async () => useVaultStore.getState().renameVault("v1", "Renamed"), () => (useVaultStore.getState().vaults.some((v) => v.name === "Renamed") ? 1 : 0)],
