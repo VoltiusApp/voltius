@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 
 const h = vi.hoisted(() => ({ mobile: false, capable: true, enter: vi.fn() }));
@@ -85,10 +85,8 @@ test("the_expanded_card_offers_the_labelled_button_with_the_same_entry", async (
   expect(labelled.title).toBe("members.viewAs.reason.serverTooOld");
 });
 
-test("no_preview_as_role_on_the_mobile_shell", async () => {
+test("preview_as_role_renders_on_mobile", async () => {
   h.mobile = true;
   render(<TeamRolesPanel teamId="t1" />);
-  await screen.findByText("custom1");
-  fireEvent.click(screen.getByText("custom1"));
-  await waitFor(() => expect(screen.queryAllByRole("button", { name: "members.viewAs.previewAsRole" })).toHaveLength(0));
+  expect((await buttons()).length).toBeGreaterThan(0);
 });

@@ -34,10 +34,15 @@ vi.mock("@/services/teamActionFeedback", () => ({
 vi.mock("@/services/serverCapabilities", async (orig) => ({
   ...(await orig<typeof import("@/services/serverCapabilities")>()),
   getServerCapability: (flag: string) => flag === "permissionPreview" && h.preview,
+  useServerPermissionPreview: () => h.preview,
   useServerMultiOwner: () => false,
   useServerBillingEnabled: () => false,
 }));
-vi.mock("@/services/permissionPreview", () => ({ losesVaultKey: h.losesVaultKey, holdsVaultKeyGate: h.holdsGate }));
+vi.mock("@/services/permissionPreview", () => ({
+  losesVaultKey: h.losesVaultKey,
+  holdsVaultKeyGate: h.holdsGate,
+  previewPermissions: vi.fn(() => new Promise(() => {})),
+}));
 vi.mock("@/services/vaultKeyActions", () => ({ rotateTeamKeyNow: vi.fn(async () => ({})) }));
 vi.mock("@/services/teamService", async (orig) => ({
   ...(await orig<typeof import("@/services/teamService")>()),
@@ -56,6 +61,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { PERM_BITS } from "@/services/permissions";
+import { usePreviewStore } from "@/stores/previewStore";
 
 const OWNER = makeRole("r-owner", 0, { name: "owner", is_builtin: true, position: 0 });
 const MEMBER = makeRole("r-mem", PERM_BITS.CONNECT | PERM_BITS.VIEW, { name: "member", is_builtin: true, position: 1 });
@@ -116,6 +122,32 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("MobileMemberScreen", () => {
+  test("member_screen_shows_the_access_card_and_it_enters", async () => {
+    const enter = vi.fn();
+    usePreviewStore.setState({ enter } as never);
+    h.bits |= 1;
+    renderScreen();
+    const card = await screen.findByTestId("access-summary-card");
+    expect(card.closest("[data-vt-hit-scope]")!.firstElementChild!.contains(card)).toBe(true);
+    await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(card);
+    expect(enter).toHaveBeenCalledWith(expect.objectContaining({ teamId: "t1", subject: { type: "member", user_id: "ana" } }));
+    expect(useMobileNavStore.getState().tab).toBe("hosts");
+  });
+
+  test("entry_greyed_below_business", async () => {
+    const enter = vi.fn();
+    usePreviewStore.setState({ enter } as never);
+    h.bits |= 1;
+    useTeamStore.setState({ teams: [makeTeam("t1", { owner_id: "boss", owner_tier: "free" })] });
+    renderScreen();
+    const card = (await screen.findByTestId("access-summary-card")) as HTMLButtonElement;
+    await waitFor(() => expect(screen.getByText("members.viewAs.reason.needsBusiness")).toBeTruthy());
+    expect(card.disabled).toBe(true);
+    fireEvent.click(card);
+    expect(enter).not.toHaveBeenCalled();
+  });
+
   test("shows_name_roles_permissions_key_info_and_danger_in_order", async () => {
     renderScreen();
     await keyRow();

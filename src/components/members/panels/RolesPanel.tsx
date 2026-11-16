@@ -13,7 +13,6 @@ import { CheckboxBox } from "@/components/shared/Checkbox";
 import { BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
-import { isMobileShell } from "@/utils/platform";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -243,7 +242,6 @@ const ROLE_NAME = "flex-1 min-w-0 truncate text-sm font-medium";
 function PreviewAsRoleButton({ teamId, roleId, compact = false }: { teamId: string; roleId: string; compact?: boolean }) {
   const { t } = useTranslation();
   const entry = useViewAsEntry(teamId, { type: "role", role_id: roleId });
-  if (isMobileShell()) return null;
   const label = t("members.viewAs.previewAsRole");
   return (
     <button

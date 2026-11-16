@@ -10,6 +10,8 @@ interface MobileNavStore extends MobileNavState {
   /** Hosts-screen search query, kept here so it survives the screen unmounting on tab switch. Store-only. */
   hostSearch: string;
   setHostSearch: (q: string) => void;
+  previewReturn: { tab: MobileTab; stack: MobileScreen[] } | null;
+  setPreviewReturn: (v: { tab: MobileTab; stack: MobileScreen[] } | null) => void;
   setTab: (tab: MobileTab) => void;
   push: (screen: MobileScreen) => void;
   pop: () => void;
@@ -24,6 +26,8 @@ export const useMobileNavStore = create<MobileNavStore>()((set, get) => ({
   lastNonTerminalTab: "hosts",
   hostSearch: "",
   setHostSearch: (q) => set({ hostSearch: q }),
+  previewReturn: null,
+  setPreviewReturn: (v) => set({ previewReturn: v }),
   setTab: (tab) => set((s) => ({
     tab,
     stack: [],

@@ -5,12 +5,13 @@ import { PERM_BITS } from "@/services/permissions";
 import { makeMember, makeRole, makeTeam } from "@/test/team";
 import { startPreview, stopPreview } from "@/test/preview";
 
-const h = vi.hoisted(() => ({ getMyUserId: vi.fn(async () => "me" as string | null), enter: vi.fn(), capable: true }));
+const h = vi.hoisted(() => ({ getMyUserId: vi.fn(async () => "me" as string | null), enter: vi.fn(), capable: true, mobile: false }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
+vi.mock("@/utils/platform", async (io) => ({ ...(await io<Record<string, unknown>>()), isMobileShell: () => h.mobile }));
 vi.mock("@/services/serverCapabilities", async (io) => ({
   ...(await io<Record<string, unknown>>()),
   useServerPermissionPreview: () => h.capable,
@@ -21,6 +22,7 @@ import { useViewAsEntry } from "./useViewAsEntry";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePreviewStore } from "@/stores/previewStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import type { PreviewSubject } from "@/services/permissionPreview";
 
 const MEMBER: PreviewSubject = { type: "member", user_id: "bob" };
@@ -51,6 +53,8 @@ beforeEach(() => {
   h.getMyUserId.mockResolvedValue("me");
   usePreviewStore.setState({ enter: h.enter } as never);
   h.enter.mockReset();
+  h.mobile = false;
+  useMobileNavStore.setState({ tab: "more", stack: [{ kind: "member", teamId: "t1", userId: "bob" }], previewReturn: null } as never);
 });
 afterEach(() => { cleanup(); stopPreview(); });
 
@@ -113,4 +117,33 @@ test("enter_does_nothing_when_disabled", async () => {
   const result = await run(MEMBER, "serverTooOld");
   result.current.enter();
   expect(h.enter).not.toHaveBeenCalled();
+});
+
+test("mobile_enter_captures_return_and_switches_to_hosts", async () => {
+  setup();
+  h.mobile = true;
+  const stack = useMobileNavStore.getState().stack;
+  const order: string[] = [];
+  h.enter.mockImplementation(() => order.push("enter"));
+  const unsub = useMobileNavStore.subscribe((s, prev) => { if (s.tab !== prev.tab) order.push(`tab:${s.tab}`); });
+  const result = await run(MEMBER, null);
+  result.current.enter();
+  unsub();
+  const nav = useMobileNavStore.getState();
+  expect(nav.previewReturn).toEqual({ tab: "more", stack });
+  expect(nav.tab).toBe("hosts");
+  expect(nav.stack).toEqual([]);
+  expect(order).toEqual(["enter", "tab:hosts"]);
+});
+
+test("desktop_enter_does_not_touch_mobile_nav", async () => {
+  setup();
+  const before = useMobileNavStore.getState();
+  const result = await run(MEMBER, null);
+  result.current.enter();
+  const after = useMobileNavStore.getState();
+  expect(h.enter).toHaveBeenCalled();
+  expect(after.tab).toBe(before.tab);
+  expect(after.stack).toBe(before.stack);
+  expect(after.previewReturn).toBeNull();
 });
