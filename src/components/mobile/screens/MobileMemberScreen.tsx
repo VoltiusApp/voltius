@@ -94,7 +94,7 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
   const { t } = useTranslation();
   const greyed = useGreyedUnless();
   const keys = useVaultKeyHolders(teamId);
-  const keyGate = useVaultKeyGate(teamId, member, team.roles);
+  const keyGate = useVaultKeyGate(teamId, member, team.roles, team.canManageMembers);
   const [picking, setPicking] = useState(false);
   const model = useMemberDetailModel({
     member,

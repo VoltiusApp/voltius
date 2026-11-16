@@ -239,6 +239,14 @@ describe("MobileMemberScreen", () => {
     expect(q("[data-member-grant-key]")).not.toBeNull();
   });
 
+  test("the_gate_is_not_asked_without_manage_members", async () => {
+    h.model = makeModel({ canManageMembers: false });
+    h.holders.mockResolvedValue(["boss", "ana"]);
+    renderScreen();
+    await waitFor(() => expect(q("[data-member-vault-key]")?.getAttribute("data-member-vault-key")).toBe("held"));
+    expect(h.holdsGate).not.toHaveBeenCalled();
+  });
+
   test("the_gate_is_asked_again_when_the_member_reloads", async () => {
     const { rerender } = renderScreen();
     await keyRow();
