@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamObjectType } from "@/services/teamObjects";
 import { accessLevel, hasSecrets, isCredentialType, type AccessLevel } from "./accessSummary";
@@ -34,5 +35,14 @@ export function PreviewHint({ type, id, layout }: { type: TeamObjectType; id: st
         </span>
       )}
     </>
+  );
+}
+
+export function PreviewSubtitle({ type, id, children }: { type: TeamObjectType; id: string; children: ReactNode }) {
+  if (!usePreviewObject(id)) return <>{children}</>;
+  return (
+    <span className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+      <PreviewHint type={type} id={id} layout="list" />
+    </span>
   );
 }

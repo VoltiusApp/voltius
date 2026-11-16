@@ -1,13 +1,13 @@
 import type { ComponentType, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AvatarTile } from "@/components/shared/AvatarTile";
-import { dashedCardClass } from "@/components/shared/dashedCard";
+import { dashedCardClass, type CardLayout } from "@/components/shared/dashedCard";
 import { usePreviewStore } from "@/stores/previewStore";
 import type { TeamObjectType } from "@/services/teamObjects";
 import { usePreviewObject, useSubjectLabel } from "./PreviewScope";
 
 interface GhostCardProps {
-  layout: "grid" | "list";
+  layout: CardLayout;
   icon: string;
   name: string;
   onClick: () => void;
@@ -16,7 +16,7 @@ interface GhostCardProps {
 export function GhostCard({ layout, icon, name, onClick }: GhostCardProps) {
   const { t } = useTranslation();
   const subject = useSubjectLabel();
-  const isList = layout === "list";
+  const [tile, glyph] = { grid: [48, 24], list: [28, 14], row: [40, 20] }[layout];
   return (
     <div
       role="button"
@@ -28,8 +28,8 @@ export function GhostCard({ layout, icon, name, onClick }: GhostCardProps) {
     >
       <AvatarTile
         icon={icon}
-        iconSize={isList ? 14 : 24}
-        size={isList ? 28 : 48}
+        iconSize={glyph}
+        size={tile}
         className="rounded-lg"
         iconClassName="text-(--t-text-dim)"
       />
@@ -46,7 +46,7 @@ export interface GhostTarget {
   id: string;
   icon: string;
   name: string;
-  layout: "grid" | "list";
+  layout: CardLayout;
 }
 
 export function GhostOr({ type, id, icon, name, layout, children }: GhostTarget & { children: ReactNode }) {

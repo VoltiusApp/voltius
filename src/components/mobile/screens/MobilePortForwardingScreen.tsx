@@ -16,6 +16,8 @@ import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/Fol
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import MobileRuleEditScreen from "./MobileRuleEditScreen";
 import { tunnelTypeChoices } from "@/components/port_forwarding/tunnelTypeChoices";
@@ -87,7 +89,8 @@ export default function MobilePortForwardingScreen() {
         {rules.map((rule) => {
           const st = statusFor(rule);
           return (
-            <div key={rule.id} data-pf-rule className="w-full flex items-center gap-3 px-4 py-2.5">
+            <GhostOr key={rule.id} type="port_forwarding_rule" id={rule.id} icon={PORT_FORWARDING_ICON} name={rule.name} layout="row">
+            <div data-pf-rule className="w-full flex items-center gap-3 px-4 py-2.5">
               <AvatarTile icon={PORT_FORWARDING_ICON} className="w-9 h-9 rounded-lg" iconSize={18} />
               <button className="flex-1 min-w-0 text-left" onClick={() => setSheetRule(rule)}>
                 <div className="flex items-center gap-2">
@@ -95,12 +98,15 @@ export default function MobilePortForwardingScreen() {
                   <span lang="en" className="shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{rule.tunnel_type}</span>
                 </div>
                 <div className={`text-[11px] truncate ${st.status === "error" ? "text-red-400" : "text-(--t-text-dim)"}`}>{st.statusLabel}</div>
-                <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>
+                <PreviewSubtitle type="port_forwarding_rule" id={rule.id}>
+                  <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>
+                </PreviewSubtitle>
               </button>
               <button data-pf-toggle className="shrink-0 p-2 text-(--t-text-primary)" onClick={(e) => { e.stopPropagation(); if (st.status === "active") void stopRule(rule); else void startRule(rule); }}>
                 <Icon icon={st.isBusy ? "lucide:loader-circle" : st.status === "active" ? "lucide:pause" : "lucide:play"} width={18} className={st.isBusy ? "animate-spin" : undefined} />
               </button>
             </div>
+            </GhostOr>
           );
         })}
 

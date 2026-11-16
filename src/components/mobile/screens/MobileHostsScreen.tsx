@@ -30,6 +30,8 @@ import RowActionsButton from "../RowActionsButton";
 import { useLongPress } from "../useLongPress";
 import { useCollapsingHeader } from "../useCollapsingHeader";
 import { usePreviewActive } from "@/hooks/previewScope";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
@@ -85,7 +87,9 @@ function MobileHostRow({
             {pinned && <Icon icon="lucide:pin" width={14} className="shrink-0 text-(--t-accent)" />}
             <ManagedBadge id={c.id} compact />
           </span>
-          {subtitle && <span className="text-sm text-(--t-text-dim) truncate">{subtitle}</span>}
+          <PreviewSubtitle type="connection" id={c.id}>
+            {subtitle && <span className="text-sm text-(--t-text-dim) truncate">{subtitle}</span>}
+          </PreviewSubtitle>
         </span>
         {latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
       </button>
@@ -181,14 +185,15 @@ export default function MobileHostsScreen() {
             </div>
           )}
           {visible.map((c) => (
-            <MobileHostRow
-              key={c.id}
-              c={c}
-              pinned={isPinnedFn(c, "connection")}
-              pingEnabled={pingEnabled}
-              onConnect={openHost}
-              onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
-            />
+            <GhostOr key={c.id} type="connection" id={c.id} icon="lucide:server" name={connectionDisplayName(c)} layout="row">
+              <MobileHostRow
+                c={c}
+                pinned={isPinnedFn(c, "connection")}
+                pingEnabled={pingEnabled}
+                onConnect={openHost}
+                onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
+              />
+            </GhostOr>
           ))}
           {/* Clearance so the last row can scroll out from under the FAB. */}
           {canAdd && <div aria-hidden className="h-24" />}
