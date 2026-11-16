@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import type { VaultAdminCapabilities } from "@/components/vault-admin/vaultAdminTarget";
 
@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   state: { caps: {} as VaultAdminCapabilities, memberCount: null as number | null, canShare: false },
   vaults: [{ id: "personal", name: "Personal" }, { id: "v2", name: "Work", teamId: undefined as string | undefined }],
   dialogDone: null as null | (() => void),
+  selected: ["personal"],
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -21,7 +22,7 @@ vi.mock("@/services/memberLabel", () => ({ memberAvatarLabel: () => "M" }));
 vi.mock("@/hooks/useMyUserId",() => ({ useMyUserId: () => "me" }));
 vi.mock("@/services/sync", () => ({ getSyncState: () => ({ cloudActive: false, lastSync: null }), onSyncStateChange: () => () => {} }));
 vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: (sel: (s: object) => unknown) => sel({ accountMode: "local" }) }));
-vi.mock("@/stores/vaultStore", () => ({ useVaultStore: (sel: (s: object) => unknown) => sel({ vaults: h.vaults }) }));
+vi.mock("@/stores/vaultStore", () => ({ useVaultStore: (sel: (s: object) => unknown) => sel({ vaults: h.vaults, selectedVaultIds: h.selected }) }));
 vi.mock("@/stores/teamStore", () => {
   const state = { teams: [], membersByTeam: {}, rolesByTeam: {}, loadMembers: async () => {}, loadRoles: async () => {} };
   return { useTeamStore: Object.assign((sel: (s: object) => unknown) => sel(state), { getState: () => state }) };
@@ -45,9 +46,11 @@ vi.mock("@/components/members/panels/SecurityPolicyPanel", () => ({ SecurityPoli
 
 import MobileVaultSettingsScreen from "./MobileVaultSettingsScreen";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import type { MobileScreen } from "@/stores/mobileNavCore";
 
 beforeEach(() => {
   h.rename.mockReset();
+  h.selected = ["personal"];
   useMobileNavStore.setState({ stack: [{ kind: "vault-settings", vaultId: "v2" }], sheet: null });
 });
 afterEach(cleanup);
@@ -130,9 +133,32 @@ test("the Members page is the native members screen, as the whole page", () => {
   expect(container.querySelector("[data-mobile-appbar]")).toBeNull();
 });
 
-test("the Share page pushes the Members page from its People tab", () => {
-  h.vaults = [{ id: "v2", name: "Work", teamId: "t1" }];
-  const { container } = render(<MobileVaultSettingsScreen vaultId="v2" page="share" />);
-  fireEvent.click(container.querySelector("[data-test-open-people]")!);
-  expect(useMobileNavStore.getState().stack.slice(-1)[0]).toEqual({ kind: "vault-settings", vaultId: "v2", page: "members" });
+describe("the Share page's People tab", () => {
+  const SHARE = { kind: "vault-settings" as const, vaultId: "v2", page: "share" as const };
+  const MEMBERS = { kind: "vault-settings" as const, vaultId: "v2", page: "members" as const };
+  const MORE_MEMBERS = { kind: "more-page" as const, page: "members" as const };
+  const openPeople = (below: MobileScreen) => {
+    h.vaults = [{ id: "v2", name: "Work", teamId: "t1" }];
+    useMobileNavStore.setState({ stack: [below, SHARE] });
+    const { container } = render(<MobileVaultSettingsScreen vaultId="v2" page="share" />);
+    fireEvent.click(container.querySelector("[data-test-open-people]")!);
+    return useMobileNavStore.getState().stack;
+  };
+
+  test("pushes the Members page from vault settings", () => {
+    expect(openPeople({ kind: "vault-settings", vaultId: "v2" })).toEqual([{ kind: "vault-settings", vaultId: "v2" }, SHARE, MEMBERS]);
+  });
+
+  test("pops back to this vault's Members page instead of stacking another", () => {
+    expect(openPeople(MEMBERS)).toEqual([MEMBERS]);
+  });
+
+  test("pops back to the More Members page when it lists this vault", () => {
+    h.selected = ["v2"];
+    expect(openPeople(MORE_MEMBERS)).toEqual([MORE_MEMBERS]);
+  });
+
+  test("pushes when the More Members page lists another vault", () => {
+    expect(openPeople(MORE_MEMBERS)).toEqual([MORE_MEMBERS, SHARE, MEMBERS]);
+  });
 });

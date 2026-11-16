@@ -27,7 +27,7 @@ import { VAULT_ACTION_ICONS, vaultMenuActions } from "@/components/vault-admin/v
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
-import type { VaultSettingsPage } from "@/stores/mobileNavCore";
+import type { MobileScreen, VaultSettingsPage } from "@/stores/mobileNavCore";
 import MobileMembersScreen from "./MobileMembersScreen";
 import { vaultSettingsSections, type VaultSettingsRow } from "./vaultSettingsCore";
 
@@ -85,11 +85,22 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
   );
 }
 
+const listsMembersOf = (screen: MobileScreen | undefined, vaultId: string, selectedVaultId: string | undefined) =>
+  screen?.kind === "more-page"
+    ? screen.page === "members" && selectedVaultId === vaultId
+    : screen?.kind === "vault-settings" && screen.page === "members" && screen.vaultId === vaultId;
+
 function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
   vaultId: string; target: VaultAdminTarget; page: VaultSettingsPage; onLeave: () => void;
 }) {
   const push = useMobileNavStore((s) => s.push);
+  const selectedVaultId = useVaultStore((s) => s.selectedVaultIds[0]);
   const teamId = target.teamId;
+  const openPeople = () => {
+    const { stack, pop } = useMobileNavStore.getState();
+    if (listsMembersOf(stack[stack.length - 2], vaultId, selectedVaultId)) pop();
+    else push({ kind: "vault-settings", vaultId, page: "members" });
+  };
   // These panels were laid out for a 320 px desktop side panel: every button inside
   // gets a 48 dp hit area on the phone (C7).
   return (
@@ -100,7 +111,7 @@ function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
           variant="page"
           initialTab="invite"
           onRequestFull={onLeave}
-          onOpenPeople={() => push({ kind: "vault-settings", vaultId, page: "members" })}
+          onOpenPeople={openPeople}
         />
       )}
       {page === "roles" && teamId && <TeamRolesPanel teamId={teamId} />}
