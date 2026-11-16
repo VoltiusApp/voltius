@@ -6,6 +6,7 @@ describe("@voltius/ui public surface", () => {
     expect(Object.keys(VoltiusUI).sort()).toEqual([
       "BottomSheet", "ConfirmModal", "ConnectionAvatar", "FormSelect", "Icon", "InfoTooltip",
       "MobileScreenHeader", "StatusDot", "useActiveSession", "useAutosave", "useCopiedFlash", "useSessionById", "useT",
+      "writeClipboard",
     ]);
   });
 });

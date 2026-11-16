@@ -1109,6 +1109,7 @@
             "label": "Zapisovat a přesouvat soubory",
             "description": "Vytvářet, přejmenovávat, přepisovat a mazat soubory na uložených SSH/FTP hostech a na tomto počítači a kopírovat soubory mezi nimi. Může to trvale zničit data."
           },
+          "hostExec": { "label": "Spouštět libovolné příkazy na vašich hostitelích", "description": "Spouštět vaším jménem libovolné příkazy na kterémkoli otevřeném hostiteli i na tomto počítači a číst jejich výstup. Jde o plný přístup k shellu: může číst tajné údaje, měnit konfiguraci a trvale zničit data." },
           "audit": {
             "label": "Zaznamenávat auditní události",
             "description": "Přidávat do auditního logu záznamy o tom, co udělal. U hostu v týmovém trezoru se tyto záznamy posílají také na server daného týmu."

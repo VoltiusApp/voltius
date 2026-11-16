@@ -12,6 +12,7 @@ pub mod folders;
 pub mod fonts;
 pub mod fs;
 pub mod host_command;
+pub mod host_exec;
 pub mod http;
 pub mod identities;
 pub mod keychain;

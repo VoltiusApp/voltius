@@ -1511,6 +1511,7 @@
             "label": "Dosya yaz ve taşı",
             "description": "Kayıtlı SSH/FTP sunucularınızda ve bu bilgisayarda dosya oluşturur, yeniden adlandırır, üzerine yazar ve siler; bunlar arasında dosya kopyalar. Bu, verileri kalıcı olarak yok edebilir."
           },
+          "hostExec": { "label": "Sunucularınızda herhangi bir komut çalıştırma", "description": "Açık olan herhangi bir sunucuda ve bu bilgisayarda sizin adınıza herhangi bir komut çalıştırır ve çıktısını okur. Bu tam kabuk erişimidir: gizli bilgileri okuyabilir, yapılandırmayı değiştirebilir ve verileri kalıcı olarak silebilir." },
           "audit": {
             "label": "Denetim olayları kaydet",
             "description": "Denetim günlüğünüze, yaptığı işlemleri açıklayan kayıtlar ekler. Ekip kasasındaki bir sunucu için bu kayıtlar o ekibin sunucusuna da gönderilir."

@@ -315,6 +315,7 @@ pub fn run() {
         .manage(HttpSseStreamManager::new())
         .manage(MetricsStreamManager::new())
         .manage(ProcessStreamManager::new())
+        .manage(commands::host_exec::HostExecs::default())
         .manage(SessionManager::new())
         .manage(LocalSessionManager::new())
         .manage(terminal_output::TerminalOutputs::default())
@@ -632,6 +633,8 @@ pub fn run() {
             commands::processes::processes_start,
             commands::processes::processes_stop,
             commands::processes::process_kill,
+            commands::host_exec::host_exec,
+            commands::host_exec::host_exec_cancel,
             commands::sysinfo::get_system_info,
             commands::sysinfo::get_connected_system_info,
             commands::fonts::list_system_fonts,

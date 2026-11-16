@@ -21,6 +21,7 @@ declare module "@voltius/ui" {
   }>;
   export function useAutosave<T>(value: T, save: (v: T) => void | Promise<void>, delayMs?: number): void;
   export function useCopiedFlash(durationMs: number): { copied: boolean; flash: (persist?: boolean) => void };
+  export function writeClipboard(text: string): Promise<void>;
   export function useT(api: PluginAPI): PluginAPI["i18n"]["t"];
   export function useSessionById(api: PluginAPI, sessionId: string): PluginSession | null;
   export function useActiveSession(api: PluginAPI | null): PluginSession | null;
