@@ -4,7 +4,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { readOnlyReasonText, roleLabel, rolesGranting } from "@/components/members/roleChips";
+import { readOnlyReasonText, roleChangeCopy, rolesGranting } from "@/components/members/roleChips";
 import { roleChipBlockReason } from "@/components/members/panels/MemberRoleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useAutosave, type SaveState } from "@/hooks/useAutosave";
@@ -167,29 +167,15 @@ export function useMemberDetailModel({
   };
 
   const applyRoleToggle = async (role: TeamRole, add: boolean, rotate: boolean) => {
-    const hasRole = !add;
     const store = useTeamStore.getState();
     const assign = () => store.assignMemberRole(teamId, member.user_id, role.id);
     const remove = () => store.removeMemberRole(teamId, member.user_id, role.id);
+    const [apply, revert] = add ? [assign, remove] : [remove, assign];
 
     setToggling(role.id);
     setError("");
     try {
-      await runReversible(
-        hasRole
-          ? {
-              pending: t("members.toast.removingRoleFrom", { role: roleLabel(t, role.name), name: memberLabel(member) }),
-              success: t("members.toast.roleRemovedFrom", { role: roleLabel(t, role.name), name: memberLabel(member) }),
-              label: t("members.history.removeRole", { name: memberLabel(member) }),
-              run: remove, undo: assign, redo: remove,
-            }
-          : {
-              pending: t("members.toast.assigningRoleTo", { role: roleLabel(t, role.name), name: memberLabel(member) }),
-              success: t("members.toast.roleAssignedTo", { role: roleLabel(t, role.name), name: memberLabel(member) }),
-              label: t("members.history.assignRole", { name: memberLabel(member) }),
-              run: assign, undo: remove, redo: assign,
-            },
-      );
+      await runReversible({ ...roleChangeCopy(t, role, member, add), run: apply, undo: revert, redo: apply });
       onUpdated();
       if (rotate) void rotateTeamKeyNow(teamId);
       setJustToggled(role.id);

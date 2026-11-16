@@ -36,7 +36,7 @@ import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState"
 import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel";
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { memberLabel, memberNamingSupported } from "@/services/memberLabel";
-import { useMembersModel } from "@/components/members/useMembersModel";
+import { ROLE_MODE_ICONS, useMembersModel } from "@/components/members/useMembersModel";
 import { useViewAsGate } from "@/components/preview/useViewAsEntry";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -241,19 +241,19 @@ export default function MembersPage() {
 
     const items: ContextMenuItem[] = [];
 
-    if (!canManageMembers) {
-      for (const [label, icon] of [["assignRoleBulk", "lucide:shield"], ["removeRoleBulk", "lucide:shield-off"]]) {
-        items.push({ label: t(`members.contextMenu.${label}`, { count: selectedMembers.length }), icon, disabledReason: noPermission, onClick: () => {} });
-      }
-    } else if (teamRoles.length > 0) {
-      for (const [mode, icon] of [["assign", "lucide:shield"], ["remove", "lucide:shield-off"]] as const) {
+    if (!canManageMembers || teamRoles.length > 0) {
+      for (const mode of ["assign", "remove"] as const) {
         items.push({
           label: t(`members.contextMenu.${mode}RoleBulk`, { count: selectedMembers.length }),
-          icon,
-          children: model.roleOptions(selectedMembers, mode).map((r) => ({
-            label: roleLabel(t, r.name),
-            onClick: () => void model.changeRole(selectedMembers, r, mode, { bulk: true }),
-          })),
+          icon: ROLE_MODE_ICONS[mode],
+          ...(canManageMembers
+            ? {
+                children: model.roleOptions(selectedMembers, mode).map((r) => ({
+                  label: roleLabel(t, r.name),
+                  onClick: () => void model.changeRole(selectedMembers, r, mode, { bulk: true }),
+                })),
+              }
+            : { disabledReason: noPermission, onClick: () => {} }),
         });
       }
     }

@@ -12,13 +12,15 @@ import { refuseWhilePreviewing } from "@/services/previewGuard";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import { resolveVaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
-import { roleLabel } from "@/components/members/roleChips";
+import { roleChangeCopy } from "@/components/members/roleChips";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
+import { memberSortKey, memberNamingSupported } from "@/services/memberLabel";
 import { memberOwnership } from "@/services/teamOwnership";
 
 export type RoleChangeMode = "assign" | "remove";
+
+export const ROLE_MODE_ICONS: Record<RoleChangeMode, string> = { assign: "lucide:shield", remove: "lucide:shield-off" };
 
 export interface MembersModel {
   teamId: string | null;
@@ -146,23 +148,16 @@ export function useMembersModel(vaultId: string | null): MembersModel {
       Promise.all(targets.filter((m) => m.role_ids.includes(role.id) !== assigning).map((m) => op(teamId, m.user_id, role.id)));
 
     const single = !opts?.bulk && targets.length === 1 ? targets[0] : null;
-    const vars = { role: roleLabel(t, role.name), name: single ? memberLabel(single) : "" };
-    const label = single
-      ? t(assigning ? "members.history.assignRole" : "members.history.removeRole", { name: vars.name })
-      : t(assigning ? "members.history.assignRoleBulk" : "members.history.removeRoleBulk", { count: targets.length });
-    const toast = single
-      ? assigning
-        ? { pending: t("members.toast.assigningRoleTo", vars), success: t("members.toast.roleAssignedTo", vars) }
-        : { pending: t("members.toast.removingRoleFrom", vars), success: t("members.toast.roleRemovedFrom", vars) }
-      : { pending: label, success: label };
+    const bulkLabel = t(assigning ? "members.history.assignRoleBulk" : "members.history.removeRoleBulk", { count: targets.length });
+    const copy = single ? roleChangeCopy(t, role, single, assigning) : { pending: bulkLabel, success: bulkLabel, label: bulkLabel };
 
     try {
-      await runTeamAction({ ...toast, run: () => each(apply) });
+      await runTeamAction({ pending: copy.pending, success: copy.success, run: () => each(apply) });
     } catch {
       return;
     }
     push({
-      label,
+      label: copy.label,
       undo: async () => { await each(revert); await reload(); },
       redo: async () => { await each(apply); await reload(); },
     });

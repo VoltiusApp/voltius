@@ -7,7 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { useGreyedUnless, useLackReason } from "@/hooks/useGreyedUnless";
 import { whenWritable } from "@/services/previewGuard";
-import { useMembersModel, type RoleChangeMode } from "@/components/members/useMembersModel";
+import { ROLE_MODE_ICONS, useMembersModel, type RoleChangeMode } from "@/components/members/useMembersModel";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState";
@@ -25,7 +25,6 @@ import PendingInviteActionsSheet from "../sheets/PendingInviteActionsSheet";
 import { InviteRow, MemberRow, NavRow } from "./members/MembersRows";
 
 const byId = (id: string) => id;
-const ROLE_MODE_ICONS: Record<RoleChangeMode, string> = { assign: "lucide:shield", remove: "lucide:shield-off" };
 
 export default function MobileMembersScreen({ vaultId }: { vaultId: string | null }) {
   const { t } = useTranslation();

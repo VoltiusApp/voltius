@@ -16,7 +16,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("@/components/members/useMembersModel", () => ({ useMembersModel: () => h.model }));
+vi.mock("@/components/members/useMembersModel", async (orig) => ({
+  ...(await orig<typeof import("@/components/members/useMembersModel")>()),
+  useMembersModel: () => h.model,
+}));
 vi.mock("@/services/account", () => ({ getMyHandle: async () => "merry-quartz-2597" }));
 vi.mock("@/services/vaultShare", () => ({ revokeInvitation: h.revoke, inviteByEmailAddress: h.invite }));
 vi.mock("@/components/members/cards/JoinRequests", () => ({ JoinRequestsSection: () => <div data-test-join-requests /> }));
