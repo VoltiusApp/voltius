@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./sheets/BottomSheet";
+import { tapOrExplain } from "./tapOrExplain";
 
 export interface BarAction {
   attr: string;
@@ -15,9 +16,9 @@ export interface BarAction {
 function BarButton({ action, pressed }: { action: BarAction; pressed?: boolean }) {
   const { attr, icon, label, onTap, danger, disabledReason } = action;
   return (
-    <button {...{ [attr]: "" }} onClick={onTap} aria-label={disabledReason ?? label} title={disabledReason ?? label} aria-pressed={pressed}
-      disabled={!!disabledReason}
-      className="w-12 h-12 shrink-0 flex items-center justify-center rounded-full disabled:opacity-35"
+    <button {...{ [attr]: "" }} onClick={tapOrExplain(disabledReason, onTap)} aria-label={disabledReason ?? label} title={disabledReason ?? label}
+      aria-pressed={pressed} aria-disabled={!!disabledReason || undefined}
+      className="w-12 h-12 shrink-0 flex items-center justify-center rounded-full aria-disabled:opacity-35"
       style={{ color: danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
       <Icon icon={icon} width={20} />
     </button>
@@ -55,9 +56,9 @@ export default function MobileSelectionBar({ attr, count, allSelected, onClose, 
       {moreOpen && more && (
         <BottomSheet title={countLabel} onClose={() => setMoreOpen(false)}>
           {more.map((a) => (
-            <button key={a.attr} {...{ [a.attr]: "" }} disabled={!!a.disabledReason} title={a.disabledReason ?? undefined}
-              onClick={() => { setMoreOpen(false); a.onTap(); }}
-              className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-35"
+            <button key={a.attr} {...{ [a.attr]: "" }} aria-disabled={!!a.disabledReason || undefined} title={a.disabledReason ?? undefined}
+              onClick={tapOrExplain(a.disabledReason, () => { setMoreOpen(false); a.onTap(); })}
+              className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) aria-disabled:opacity-35"
               style={{ color: a.danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
               <Icon icon={a.icon} width={18} /><span className="text-sm font-medium">{a.label}</span>
             </button>

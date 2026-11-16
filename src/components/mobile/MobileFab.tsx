@@ -1,18 +1,19 @@
 import { Icon } from "@iconify/react";
+import { tapOrExplain } from "./tapOrExplain";
 
 export default function MobileFab({
-  attr, icon, label, extended, onTap, disabled, title,
-}: { attr: string; icon: string; label: string; extended: boolean; onTap: () => void; disabled?: boolean; title?: string }) {
+  attr, icon, label, extended, onTap, disabledReason,
+}: { attr: string; icon: string; label: string; extended: boolean; onTap: () => void; disabledReason?: string | null }) {
   return (
     <button
       {...{ [`data-${attr}`]: "" }}
       data-mobile-fab={extended ? "extended" : "collapsed"}
       data-snackbar-avoid
       aria-label={label}
-      title={title}
-      disabled={disabled}
-      onClick={onTap}
-      className="absolute right-4 bottom-4 z-10 h-14 flex items-center pl-4 rounded-2xl text-sm font-medium shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-[padding] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized) disabled:opacity-45"
+      title={disabledReason ?? undefined}
+      aria-disabled={!!disabledReason || undefined}
+      onClick={tapOrExplain(disabledReason, onTap)}
+      className="absolute right-4 bottom-4 z-10 h-14 flex items-center pl-4 rounded-2xl text-sm font-medium shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-[padding] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized) aria-disabled:opacity-45"
       style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)", paddingRight: extended ? 20 : 16 }}
     >
       <Icon icon={icon} width={24} className="shrink-0" />

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import MobileSelectionBar from "./MobileSelectionBar";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: { count?: number }) => (o?.count !== undefined ? `${k}:${o.count}` : k) }) }));
 
@@ -44,13 +45,21 @@ describe("MobileSelectionBar", () => {
     expect(onTap).toHaveBeenCalledTimes(1);
   });
 
-  test("disabled action shows its reason and does not fire", () => {
+  test("disabled action explains its reason on tap and does not fire", () => {
+    useNotificationStore.setState({ toasts: [] });
     const onTap = vi.fn();
-    setup({ actions: [{ attr: "data-x-del", icon: "lucide:trash-2", label: "Delete", onTap, disabledReason: "Read only" }] });
+    const action = { attr: "data-x-del", icon: "lucide:trash-2", label: "Delete", onTap, disabledReason: "Read only" };
+    setup({ actions: [action], more: [{ ...action, attr: "data-x-more-del" }] });
     const btn = screen.getByRole("button", { name: "Read only" });
     expect(btn.getAttribute("title")).toBe("Read only");
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(btn);
+    fireEvent.click(screen.getByRole("button", { name: "mobile.selection.moreActions" }));
+    const sheetRow = document.querySelector<HTMLElement>("[data-x-more-del]")!;
+    expect(sheetRow.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(sheetRow);
     expect(onTap).not.toHaveBeenCalled();
+    expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["Read only", "Read only"]);
   });
 
   test("more actions open a sheet whose rows fire and close it", () => {

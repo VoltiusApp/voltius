@@ -121,10 +121,14 @@ describe("MobileMembersScreen", () => {
     const { container } = render(<MobileMembersScreen vaultId="t1" />);
     fireEvent.contextMenu(rowButton(container, "ana"));
     for (const a of ["assign", "remove", "kick"]) {
-      const btn = q(container, `[data-members-sel-${a}]`) as HTMLButtonElement;
-      expect(btn.disabled).toBe(true);
+      const btn = q(container, `[data-members-sel-${a}]`)!;
+      expect(btn.getAttribute("aria-disabled")).toBe("true");
       expect(btn.title).toBe("members.permissions.youLack");
+      fireEvent.click(btn);
     }
+    expect(document.querySelector("[data-role-pick]")).toBeNull();
+    expect(q(container, "[data-test-offboarding]")).toBeNull();
+    expect(toastMessages()).toEqual(Array(3).fill("members.permissions.youLack"));
   });
 
   test("long_press_on_an_out_of_reach_member_shows_the_reason_and_selects_nothing", () => {
@@ -167,9 +171,12 @@ describe("MobileMembersScreen", () => {
   test("invite_fab_greyed_without_invite_permission", () => {
     h.model = makeModel({ canInvite: false });
     const { container, unmount } = render(<MobileMembersScreen vaultId="t1" />);
-    const fab = q(container, "[data-members-invite]") as HTMLButtonElement;
-    expect(fab.disabled).toBe(true);
+    const fab = q(container, "[data-members-invite]")!;
+    expect(fab.getAttribute("aria-disabled")).toBe("true");
     expect(fab.title).toBe("members.permissions.youLack");
+    fireEvent.click(fab);
+    expect(useMobileNavStore.getState().stack).toEqual([ROOT]);
+    expect(toastMessages()).toEqual(["members.permissions.youLack"]);
     unmount();
 
     h.model = makeModel();

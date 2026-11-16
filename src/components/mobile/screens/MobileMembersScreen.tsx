@@ -136,7 +136,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
 
       {!selecting && (
         <MobileFab attr="members-invite" icon="lucide:user-plus" label={t("members.toolbar.inviteBtn")} extended={fabExtended}
-          disabled={!canInvite} title={greyed(canInvite).title} onTap={whenWritable(() => openPage("share"))} />
+          disabledReason={greyed(canInvite).title} onTap={whenWritable(() => openPage("share"))} />
       )}
       {picker && (
         <RolePickerSheet title={t("mobile.members.pickRole")} roles={model.roleOptions(selected, picker)} mode="pick"

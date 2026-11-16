@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import MobileFab from "./MobileFab";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 afterEach(cleanup);
 
@@ -18,12 +19,15 @@ describe("MobileFab", () => {
     expect(btn.getAttribute("data-mobile-fab")).toBe("collapsed");
   });
 
-  test("disabled fab shows title and does not call onTap", () => {
+  test("disabled fab explains its reason on tap and does not call onTap", () => {
+    useNotificationStore.setState({ toasts: [] });
     const onTap = vi.fn();
-    render(<MobileFab attr="mobile-add" icon="lucide:plus" label="New" extended onTap={onTap} disabled title="Not allowed" />);
+    render(<MobileFab attr="mobile-add" icon="lucide:plus" label="New" extended onTap={onTap} disabledReason="Not allowed" />);
     const btn = screen.getByRole("button", { name: "New" });
     expect(btn.getAttribute("title")).toBe("Not allowed");
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(btn);
     expect(onTap).not.toHaveBeenCalled();
+    expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["Not allowed"]);
   });
 });
