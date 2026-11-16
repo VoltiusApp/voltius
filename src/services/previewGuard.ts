@@ -17,7 +17,8 @@ export const ruleTarget = targetOf("port_forwarding_rule");
 
 interface PreviewBinding {
   active: () => boolean;
-  showWhy: (type: TeamObjectType, objectId: string) => void;
+  /** Opens Why for an object the current result explains; false when it has none. */
+  explain: (type: TeamObjectType, objectId: string) => boolean;
 }
 
 // Bound by previewStore at load: it imports the stores guarded here, so a static import would cycle.
@@ -45,8 +46,7 @@ function toastReadOnly(): void {
 
 export function refuseWhilePreviewing(target?: PreviewTarget): boolean {
   if (!binding || !previewing()) return false;
-  if (target) binding.showWhy(target.type, target.objectId);
-  else toastReadOnly();
+  if (!target || !binding.explain(target.type, target.objectId)) toastReadOnly();
   return true;
 }
 

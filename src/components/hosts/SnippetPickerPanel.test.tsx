@@ -24,7 +24,7 @@ vi.mock("@/components/snippets/SnippetChooserList", () => ({
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePreviewStore } from "@/stores/previewStore";
-import { startPreview, stopPreview } from "@/test/preview";
+import { explainable, startPreview, stopPreview } from "@/test/preview";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -48,6 +48,7 @@ test("executing a snippet on a host injects it into the host's open session", as
 
 test("executing a snippet while previewing a member injects nothing and opens why for the snippet", async () => {
   startPreview();
+  explainable("sn1");
   await execute();
   expect(h.inject).not.toHaveBeenCalled();
   expect(usePreviewStore.getState().side).toEqual({ kind: "why", type: "snippet", objectId: "sn1" });

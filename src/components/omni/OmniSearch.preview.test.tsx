@@ -21,7 +21,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { usePreviewStore } from "@/stores/previewStore";
-import { startPreview, stopPreview } from "@/test/preview";
+import { explainable, startPreview, stopPreview } from "@/test/preview";
 import type { Snippet } from "@/types";
 import OmniSearch from "./OmniSearch";
 
@@ -49,6 +49,7 @@ test("picking a snippet runs it in the active session", async () => {
 
 test("picking a snippet while previewing a member runs nothing and opens why for the snippet", async () => {
   startPreview();
+  explainable("sn1");
   await pickSnippet();
   expect(h.inject).not.toHaveBeenCalled();
   expect(usePreviewStore.getState().side).toEqual({ kind: "why", type: "snippet", objectId: "sn1" });

@@ -245,4 +245,12 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
 
 export const isPreviewing = (): boolean => usePreviewStore.getState().session !== null;
 
-bindPreviewGuard({ active: isPreviewing, showWhy: (type, objectId) => usePreviewStore.getState().showWhy(type, objectId) });
+bindPreviewGuard({
+  active: isPreviewing,
+  explain: (type, objectId) => {
+    const { result, showWhy } = usePreviewStore.getState();
+    if (!result?.current.objects[objectId]) return false;
+    showWhy(type, objectId);
+    return true;
+  },
+});

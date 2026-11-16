@@ -7,12 +7,12 @@ vi.mock("@/services/appToast", () => ({ appToast: toast }));
 import { bindPreviewGuard, whenWritable, whenWritableOn } from "./previewGuard";
 
 let previewing = false;
-const showWhy = vi.fn();
+const explain = vi.fn((_type: string, _objectId: string) => true);
 beforeEach(() => {
   toast.mockReset();
-  showWhy.mockReset();
+  explain.mockClear();
   previewing = false;
-  bindPreviewGuard({ active: () => previewing, showWhy });
+  bindPreviewGuard({ active: () => previewing, explain });
 });
 
 test("whenWritable runs the handler with its arguments and result outside a preview", () => {
@@ -37,5 +37,6 @@ test("whenWritableOn opens Why for its target and skips the handler while previe
   previewing = true;
   whenWritableOn({ type: "key", objectId: "k1" }, run)();
   expect(run).toHaveBeenCalledTimes(1);
-  expect(showWhy).toHaveBeenCalledWith("key", "k1");
+  expect(explain).toHaveBeenCalledWith("key", "k1");
+  expect(toast).not.toHaveBeenCalled();
 });

@@ -138,6 +138,7 @@ import {
   withControlAuthority,
   type PreviewTarget,
 } from "@/services/previewGuard";
+import { explainable } from "@/test/preview";
 
 const remoteSession = { sessionId: "rs1", connectionId: "c1", connectionName: "web", deviceId: "d2", deviceName: "Laptop", openedAt: "" };
 const SESSION = { teamId: "t1", vaultId: "v1", subject: { type: "member" as const, user_id: "bob" } };
@@ -150,7 +151,10 @@ const connected = { id: "s1", connectionId: "c1", connectionName: "c1", status: 
 const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)); };
 const swallow = async (fn: () => unknown) => { try { await fn(); } catch { /* refused or side effect stopped */ } };
 const toasts = () => useNotificationStore.getState().toasts.map((t) => t.message);
-const startPreview = () => usePreviewStore.setState({ session: SESSION, side: null });
+const startPreview = () => {
+  usePreviewStore.setState({ session: SESSION, side: null });
+  explainable("c1", "serial1", "i1", "r1", "sn1");
+};
 const invoked = (cmd: string) => h.invoke.mock.calls.some(([c]) => c === cmd);
 const sessionsOpened = () => useSessionStore.getState().sessions.length > 0;
 
@@ -354,6 +358,17 @@ test("connect_on_a_host_opens_why_for_that_host", async () => {
   expect(usePreviewStore.getState().side).toEqual({ kind: "why", type: "connection", objectId: "c1" });
   expect(useSessionStore.getState().sessions).toEqual([]);
   expect(h.invoke).not.toHaveBeenCalled();
+});
+
+test("a_target_the_result_does_not_explain_toasts_instead_of_opening_an_empty_why", async () => {
+  usePreviewStore.setState({ session: SESSION, side: null, result: null });
+  expect(refuseWhilePreviewing({ type: "connection", objectId: "c1" })).toBe(true);
+  explainable("other");
+  expect(refuseWhilePreviewing({ type: "connection", objectId: "c1" })).toBe(true);
+  await flush();
+
+  expect(usePreviewStore.getState().side).toBeNull();
+  expect(toasts()).toContain("members.viewAs.readOnly");
 });
 
 const refusedError = async (fn: () => unknown) => {

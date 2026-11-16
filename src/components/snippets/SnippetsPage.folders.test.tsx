@@ -219,7 +219,7 @@ vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: 
 
 import { SnippetsPage } from "./SnippetsPage";
 import { usePreviewStore } from "@/stores/previewStore";
-import { startPreview, stopPreview } from "@/test/preview";
+import { explainable, startPreview, stopPreview } from "@/test/preview";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -421,6 +421,7 @@ test("replaying a recent run injects into the open session and opens the missing
 
 test("replaying a recent run while previewing a member runs and opens nothing and opens why for the snippet", async () => {
   startPreview();
+  explainable("sn1");
   await replayRecent();
   expect(h.run).not.toHaveBeenCalled();
   expect(h.beginLocal).not.toHaveBeenCalled();
