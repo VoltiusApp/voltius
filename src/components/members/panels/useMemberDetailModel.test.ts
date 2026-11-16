@@ -46,7 +46,7 @@ const removeMemberRole = vi.fn(async () => {});
 const setMemberPermissions = vi.fn(async () => {});
 const onUpdated = vi.fn();
 
-const model = (member: TeamMember) => renderHook(() => useMemberDetailModel({
+const renderModel = (member: TeamMember) => renderHook(() => useMemberDetailModel({
   member,
   isMe: false,
   teamId: "t1",
@@ -56,7 +56,8 @@ const model = (member: TeamMember) => renderHook(() => useMemberDetailModel({
   isTargetOwner: member.role_ids.includes("r-owner"),
   viewer: BOSS,
   onUpdated,
-})).result;
+}));
+const model = (member: TeamMember) => renderModel(member).result;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -131,4 +132,24 @@ test("toggle_is_refused_while_previewing", async () => {
   expect(removeMemberRole).not.toHaveBeenCalled();
   expect(result.current.dialogs.ownerRole).toBeNull();
   expect(result.current.dialogs.revokeKey).toBeNull();
+});
+
+test("role_disabled_reason_names_the_business_lock_for_a_custom_role_the_member_lacks", () => {
+  useTeamStore.setState({ teams: [makeTeam("t1", { owner_id: "boss", owner_tier: "team" })] });
+  const result = model(makeMember("u2", ["r-mem"], { permission_allow: 0, permission_deny: 0 }));
+  expect(result.current.roles.disabledReason(EDITOR)).toBe("shared.businessLock.title");
+  expect(result.current.roles.disabledReason(MEMBER)).toBeNull();
+});
+
+test("role_flash_timer_is_cleared_on_unmount", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const { result, unmount } = renderModel(U1);
+    await act(async () => { result.current.roles.toggle(EDITOR); });
+    expect(result.current.roles.flashRoleId).toBe("r-ed");
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
 });

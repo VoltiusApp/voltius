@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
@@ -114,6 +114,8 @@ export function useMemberDetailModel({
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
   const [justToggled, setJustToggled] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
   const [offboarding, setOffboarding] = useState<DepartMode | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
   const [overriding, setOverriding] = useState(false);
@@ -184,7 +186,8 @@ export function useMemberDetailModel({
       onUpdated();
       if (rotate) void rotateTeamKeyNow(teamId);
       setJustToggled(role.id);
-      setTimeout(() => setJustToggled(null), 700);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setJustToggled(null), 700);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("members.error.failedToUpdateRole"));
     } finally {
