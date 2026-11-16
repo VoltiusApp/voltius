@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   model: null as unknown as MembersModel,
   bits: 0,
   losesVaultKey: vi.fn(async () => false),
+  holdsGate: vi.fn(async () => true),
+  preview: true,
   holders: vi.fn(async () => ["boss"]),
   grant: vi.fn(async () => {}),
   mobile: true,
@@ -31,11 +33,11 @@ vi.mock("@/services/teamActionFeedback", () => ({
 }));
 vi.mock("@/services/serverCapabilities", async (orig) => ({
   ...(await orig<typeof import("@/services/serverCapabilities")>()),
-  getServerCapability: (flag: string) => flag === "permissionPreview",
+  getServerCapability: (flag: string) => flag === "permissionPreview" && h.preview,
   useServerMultiOwner: () => false,
   useServerBillingEnabled: () => false,
 }));
-vi.mock("@/services/permissionPreview", () => ({ losesVaultKey: h.losesVaultKey }));
+vi.mock("@/services/permissionPreview", () => ({ losesVaultKey: h.losesVaultKey, holdsVaultKeyGate: h.holdsGate }));
 vi.mock("@/services/vaultKeyActions", () => ({ rotateTeamKeyNow: vi.fn(async () => ({})) }));
 vi.mock("@/services/teamService", async (orig) => ({
   ...(await orig<typeof import("@/services/teamService")>()),
@@ -98,6 +100,8 @@ beforeEach(() => {
   h.model = makeModel();
   h.bits = PERM_BITS.ADMINISTRATOR | PERM_BITS.MANAGE_MEMBERS | PERM_BITS.CONNECT | PERM_BITS.VIEW;
   h.losesVaultKey.mockResolvedValue(false);
+  h.holdsGate.mockResolvedValue(true);
+  h.preview = true;
   h.holders.mockResolvedValue(["boss"]);
   useTeamStore.setState({
     teams: [makeTeam("t1", { owner_id: "boss" })],
@@ -201,6 +205,50 @@ describe("MobileMemberScreen", () => {
     expect(h.grant).toHaveBeenCalledWith({ teamId: "t1", userId: "ana", label: "Ana", publicKey: "pk-ana" });
     await waitFor(() => expect(q("[data-member-vault-key]")!.textContent).toContain("mobile.members.keyHeld"));
     expect(q("[data-member-grant-key]")).toBeNull();
+  });
+
+  test("a_key_holder_who_passes_the_gate_has_the_key", async () => {
+    h.holders.mockResolvedValue(["boss", "ana"]);
+    renderScreen();
+    await waitFor(() => expect(q("[data-member-vault-key]")?.getAttribute("data-member-vault-key")).toBe("held"));
+    expect(q("[data-member-vault-key]")!.textContent).toContain("mobile.members.keyHeld");
+    expect(h.holdsGate).toHaveBeenCalledWith("t1", "ana");
+  });
+
+  test("a_member_failing_the_gate_has_no_access_even_with_a_wrapped_key", async () => {
+    h.holders.mockResolvedValue(["boss", "ana"]);
+    h.holdsGate.mockResolvedValue(false);
+    renderScreen();
+    await waitFor(() => expect(q("[data-member-vault-key]")?.getAttribute("data-member-vault-key")).toBe("none"));
+    expect(q("[data-member-vault-key]")!.textContent).toContain("mobile.members.keyNoAccess");
+    expect(q("[data-member-grant-key]")).toBeNull();
+  });
+
+  test("without_the_preview_capability_the_row_falls_back_to_the_key_list", async () => {
+    h.preview = false;
+    h.holders.mockResolvedValue(["boss", "ana"]);
+    renderScreen();
+    await waitFor(() => expect(q("[data-member-vault-key]")?.getAttribute("data-member-vault-key")).toBe("held"));
+    expect(h.holdsGate).not.toHaveBeenCalled();
+  });
+
+  test("a_failed_gate_check_falls_back_to_the_key_list", async () => {
+    h.holdsGate.mockRejectedValue(new Error("x"));
+    renderScreen();
+    await waitFor(() => expect(q("[data-member-vault-key]")?.getAttribute("data-member-vault-key")).toBe("awaiting"));
+    expect(q("[data-member-grant-key]")).not.toBeNull();
+  });
+
+  test("the_gate_is_asked_again_when_the_member_reloads", async () => {
+    const { rerender } = renderScreen();
+    await keyRow();
+    expect(h.holdsGate).toHaveBeenCalledTimes(1);
+    h.holdsGate.mockResolvedValue(false);
+    const reloaded = { ...ANA, role_ids: [] };
+    h.model = makeModel({ members: [BOSS, reloaded] });
+    rerender(<MobileMemberScreen teamId="t1" userId="ana" />);
+    await waitFor(() => expect(q("[data-member-vault-key]")?.getAttribute("data-member-vault-key")).toBe("none"));
+    expect(h.holdsGate).toHaveBeenCalledTimes(2);
   });
 
   test("grant_greyed_without_manage_members", async () => {

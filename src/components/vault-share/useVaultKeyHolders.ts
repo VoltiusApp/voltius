@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getVaultKeyHolders } from "@/services/teamService";
+import { getVaultKeyHolders, type TeamMember, type TeamRole } from "@/services/teamService";
 import { grantVaultKeyToMember } from "@/services/vaultShare";
+import { holdsVaultKeyGate } from "@/services/permissionPreview";
+import { getServerCapability } from "@/services/serverCapabilities";
 
 export interface VaultKeyHolders {
   holders: Set<string> | null;
@@ -38,4 +40,21 @@ export function useVaultKeyHolders(teamId: string | null): VaultKeyHolders {
   }, [teamId, reload]);
 
   return { holders, reload, grant };
+}
+
+/** Whether `member` may fetch the vault key: undefined while asking, null when the server cannot say. */
+export function useVaultKeyGate(teamId: string, member: TeamMember, roles: TeamRole[]): boolean | null | undefined {
+  const [gate, setGate] = useState<boolean | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!getServerCapability("permissionPreview")) { setGate(null); return; }
+    let live = true;
+    holdsVaultKeyGate(teamId, member.user_id).then(
+      (held) => { if (live) setGate(held); },
+      () => { if (live) setGate(null); },
+    );
+    return () => { live = false; };
+  }, [teamId, member, roles]);
+
+  return gate;
 }

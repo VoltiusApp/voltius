@@ -303,6 +303,7 @@
       "keyAwaiting": "A aguardar a chave do cofre",
       "alreadyAssigned": "Já atribuída",
       "notAssigned": "Não atribuída",
+      "keyNoAccess": "Sem acesso à chave do cofre: sem a permissão Conectar",
       "invite": {
         "resend": "Reenviar convite",
         "revoke": "Revogar convite"

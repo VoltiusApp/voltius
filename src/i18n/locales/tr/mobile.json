@@ -299,6 +299,7 @@
       "keyAwaiting": "Kasa anahtarını bekliyor",
       "alreadyAssigned": "Zaten atanmış",
       "notAssigned": "Atanmamış",
+      "keyNoAccess": "Kasa anahtarına erişim yok: Bağlan izni yok",
       "invite": {
         "resend": "Daveti yeniden gönder",
         "revoke": "Daveti iptal et"

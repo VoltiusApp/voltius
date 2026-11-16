@@ -303,6 +303,7 @@
       "keyAwaiting": "En attente de la clé du coffre-fort",
       "alreadyAssigned": "Déjà attribué",
       "notAssigned": "Non attribué",
+      "keyNoAccess": "Pas d'accès à la clé du coffre-fort : aucune permission Se connecter",
       "invite": {
         "resend": "Renvoyer l'invitation",
         "revoke": "Révoquer l'invitation"

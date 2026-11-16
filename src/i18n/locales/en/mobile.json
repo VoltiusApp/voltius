@@ -299,6 +299,7 @@
       "keyAwaiting": "Waiting for the vault key",
       "alreadyAssigned": "Already assigned",
       "notAssigned": "Not assigned",
+      "keyNoAccess": "No vault key access: no Connect permission",
       "invite": {
         "resend": "Resend invitation",
         "revoke": "Revoke invitation"

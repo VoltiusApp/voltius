@@ -13,7 +13,7 @@ import { MemberNameField } from "@/components/members/MemberNameInput";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { readOnlyReasonText } from "@/components/members/roleChips";
 import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
-import { useVaultKeyHolders } from "@/components/vault-share/useVaultKeyHolders";
+import { useVaultKeyGate, useVaultKeyHolders } from "@/components/vault-share/useVaultKeyHolders";
 import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { whenWritable } from "@/services/previewGuard";
 import { inviterLabel, memberLabel, memberNamingSupported, secondaryHandle } from "@/services/memberLabel";
@@ -26,6 +26,11 @@ import { NavRow } from "./members/MembersRows";
 
 const PAGE = "absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)";
 const ACTION = "min-h-12 flex items-center justify-center gap-2 px-4 rounded-xl text-sm font-medium aria-disabled:opacity-45";
+const KEY_STATES = {
+  held: { icon: "lucide:key-round", label: "mobile.members.keyHeld" },
+  awaiting: { icon: "lucide:hourglass", label: "mobile.members.keyAwaiting" },
+  none: { icon: "lucide:lock", label: "mobile.members.keyNoAccess" },
+} as const;
 
 // The leaving page stays mounted through the pop transition, so only pop while this page is on top.
 function popIfTop(teamId: string, userId: string) {
@@ -88,6 +93,7 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
   const { t } = useTranslation();
   const greyed = useGreyedUnless();
   const keys = useVaultKeyHolders(teamId);
+  const keyGate = useVaultKeyGate(teamId, member, team.roles);
   const [picking, setPicking] = useState(false);
   const model = useMemberDetailModel({
     member,
@@ -104,7 +110,7 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
 
   const label = memberLabel(member);
   const readOnlyReason = readOnlyReasonText(t, model.readOnly.kind);
-  const hasKey = keys.holders?.has(member.user_id) ?? false;
+  const keyState = keyGate === false ? "none" : keys.holders?.has(member.user_id) ? "held" : "awaiting";
   const grantReason = greyed(team.canManageMembers).title;
   const removeReason = remove.disabled ? remove.title : null;
   const grant = whenWritable(() => void keys.grant({ userId: member.user_id, label, publicKey: member.public_key }));
@@ -140,14 +146,14 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
         )}
 
         <Section id="info" label={t("members.info")}>
-          {keys.holders && (
-            <div data-member-vault-key={hasKey ? "held" : "awaiting"} className="min-h-12 flex items-center gap-3 px-4 py-2">
-              <Icon icon={hasKey ? "lucide:key-round" : "lucide:hourglass"} width={20} className="shrink-0 text-(--t-text-dim)" />
+          {keys.holders && keyGate !== undefined && (
+            <div data-member-vault-key={keyState} className="min-h-12 flex items-center gap-3 px-4 py-2">
+              <Icon icon={KEY_STATES[keyState].icon} width={20} className="shrink-0 text-(--t-text-dim)" />
               <span className="flex-1 min-w-0 flex flex-col">
-                <span className="text-sm text-(--t-text-primary)">{t(hasKey ? "mobile.members.keyHeld" : "mobile.members.keyAwaiting")}</span>
-                {!hasKey && <ReasonLine attr="member-grant-key" reason={grantReason} />}
+                <span className="text-sm text-(--t-text-primary)">{t(KEY_STATES[keyState].label)}</span>
+                {keyState === "awaiting" && <ReasonLine attr="member-grant-key" reason={grantReason} />}
               </span>
-              {!hasKey && (
+              {keyState === "awaiting" && (
                 <GreyedButton attr="member-grant-key" reason={grantReason} onTap={grant} className="btn btn-secondary shrink-0">
                   {t("members.people.grantKey")}
                 </GreyedButton>

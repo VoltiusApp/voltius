@@ -298,6 +298,7 @@
       "keyAwaiting": "正在等待保险库密钥",
       "alreadyAssigned": "已分配",
       "notAssigned": "未分配",
+      "keyNoAccess": "无保险库密钥访问权限：没有“连接”权限",
       "invite": {
         "resend": "重新发送邀请",
         "revoke": "撤销邀请"
