@@ -54,6 +54,7 @@ import { compareStrings } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 import { folderTarget, refuseWhilePreviewing, ruleTarget, whenWritable } from "@/services/previewGuard";
+import { usePreviewActive } from "@/hooks/previewScope";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -88,6 +89,7 @@ export function PortForwardingPage() {
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
   const can = usePermissions();
+  const previewing = usePreviewActive() !== null;
 
   const [search, setSearch] = useState("");
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -454,7 +456,7 @@ export function PortForwardingPage() {
             openBgMenu(e);
           }}
         >
-          <ActiveTunnelsSection />
+          {!previewing && <ActiveTunnelsSection />}
 
           <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6 mt-4">
 

@@ -80,7 +80,7 @@ vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => 
 vi.mock("./PortForwardingToolbar", () => ({
   PortForwardingToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
 }));
-vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => null }));
+vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => <div data-test-active-tunnels /> }));
 vi.mock("./RuleCard", () => ({ RuleCard: (p: Record<string, unknown>) => { h.ruleCardProps.push(p); return null; } }));
 vi.mock("./RuleForm", () => ({ RuleForm: () => { h.panels.push("rule"); return null; } }));
 vi.mock("@/components/shared/ConfirmModal", () => ({
@@ -204,6 +204,7 @@ vi.mock("@/stores/vaultStore", () => ({
 
 import { PortForwardingPage } from "./PortForwardingPage";
 import { callProp, expectEachRefused, startPreview, stopPreview } from "@/test/preview";
+import { PreviewContentScope } from "@/components/preview/PreviewScope";
 
 const settle = () => act(async () => { await runPaste(async () => {}); });
 
@@ -404,4 +405,15 @@ test("rule and folder actions refuse while previewing a member and open why for 
   for (const write of [h.createRule, h.updateRule, h.duplicateRule, h.saveFolder, h.updateFolder]) {
     expect(write).not.toHaveBeenCalled();
   }
+});
+
+test("active_tunnels_are_hidden_while_previewing_and_shown_outside", () => {
+  const tunnels = () => document.querySelector("[data-test-active-tunnels]");
+  startPreview();
+  render(<PreviewContentScope><PortForwardingPage /></PreviewContentScope>);
+  expect(tunnels()).toBeNull();
+  cleanup();
+  stopPreview();
+  render(<PreviewContentScope><PortForwardingPage /></PreviewContentScope>);
+  expect(tunnels()).not.toBeNull();
 });
