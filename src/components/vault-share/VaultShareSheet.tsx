@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { memberLabel } from "@/services/memberLabel";
+import { inviteLabel, memberLabel } from "@/services/memberLabel";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamSeatReadout } from "@/hooks/useTeamSeatReadout";
-import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
+import { getMyUserId } from "@/services/teamService";
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
 import { InviteControl } from "./InviteControl";
 import { JoinLinksTab } from "./JoinLinksTab";
 import { PeopleList, type Person } from "./PeopleList";
 import { canManageShare, canMintLink } from "./vaultShareModel";
+import { useVaultKeyHolders } from "./useVaultKeyHolders";
 import {
   addressedInviteLink,
-  grantVaultKeyToMember,
   removeTeamMember,
   revokeInvitation,
 } from "@/services/vaultShare";
@@ -28,9 +28,11 @@ interface Props {
   variant: "popover" | "full" | "page";
   onRequestFull?: () => void;
   initialTab?: Tab;
+  /** Mobile: the People tab opens the native Members list instead of switching tabs. */
+  onOpenPeople?: () => void;
 }
 
-export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = "people" }: Props) {
+export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = "people", onOpenPeople }: Props) {
   const { t } = useTranslation();
   const vault = useVaultStore((s) => s.vaults.find((v) => v.id === vaultId));
   const teams = useTeamStore((s) => s.teams);
@@ -44,7 +46,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
   const pendingInvitationsByTeam = useTeamStore((s) => s.pendingInvitationsByTeam);
   const { seats } = useTeamSeatReadout(teamId);
 
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(onOpenPeople && initialTab === "people" ? "invite" : initialTab);
   // Owned by the sheet, never by a tab: the bug this component replaces was an
   // error written to a panel the same handler had just unmounted.
   const [error, setError] = useState("");
@@ -61,27 +63,19 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
     return () => { cancelled = true; };
   }, []);
 
-  // Null while unknown. `statusByTeamId` is the *viewer's* own status, so it
-  // cannot say who is waiting.
-  const [keyHolders, setKeyHolders] = useState<Set<string> | null>(null);
+  // `statusByTeamId` is the *viewer's* own status, so it cannot say who is waiting.
+  const { holders: keyHolders, reload: reloadKeyHolders, grant: grantKey } = useVaultKeyHolders(teamId);
 
   useEffect(() => {
     if (!teamId) return;
     setError("");
-    setKeyHolders(null);
     const { loadMembers, loadRoles, loadPendingInvitations } = useTeamStore.getState();
     void Promise.allSettled([loadMembers(teamId), loadRoles(teamId), loadPendingInvitations(teamId)]).then(
       (results) => {
         if (results.some((r) => r.status === "rejected")) setError(t("members.share.loadFailed"));
       },
     );
-    // Best-effort: a member without MANAGE permission is refused this list.
-    let cancelled = false;
-    void getVaultKeyHolders(teamId)
-      .then((ids) => { if (!cancelled) setKeyHolders(new Set(ids)); })
-      .catch(() => {});
     void useSubscriptionStore.getState().load();
-    return () => { cancelled = true; };
     // t intentionally omitted: this loads once per teamId, not once per render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
@@ -100,7 +94,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
     }));
     const pending: Person[] = (pendingInvitationsByTeam[teamId] ?? []).map((inv) => ({
       userId: inv.id,
-      label: inv.member_name ?? inv.display_name,
+      label: inviteLabel(inv),
       roleNames: [inv.role],
       online: false,
       state: "pending",
@@ -143,8 +137,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
   const reloadMembers = () => {
     void useTeamStore.getState().loadMembers(teamId);
     void useTeamStore.getState().loadPendingInvitations(teamId);
-    // So a member who just received their key stops reading as waiting.
-    void getVaultKeyHolders(teamId).then((ids) => setKeyHolders(new Set(ids))).catch(() => {});
+    reloadKeyHolders();
   };
 
   const handleRemove = (p: Person) =>
@@ -159,19 +152,14 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
       .catch(() => {});
 
   const handleGrantKey = (p: Person) =>
-    void grantVaultKeyToMember({
-      teamId,
-      userId: p.userId,
-      label: p.label,
-      publicKey: p.publicKey ?? "",
-    })
-      .then(reloadMembers)
-      .catch(() => {});
+    void grantKey({ userId: p.userId, label: p.label, publicKey: p.publicKey ?? "" });
 
   const handleCopyInviteLink = (p: Person) => {
     if (!p.invitationId) return;
     void writeClipboard(addressedInviteLink(p.invitationId)).then(() => setCopiedInvite(p.invitationId!));
   };
+
+  const openPeople = () => (onOpenPeople ? onOpenPeople() : setTab("people"));
 
   const teamName = vault?.name ?? standaloneTeam?.name ?? "";
   const tabs: { key: Tab; label: string }[] = [
@@ -203,7 +191,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
           return (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => (key === "people" ? openPeople() : setTab(key))}
               aria-current={active}
               className="pb-2 text-xs transition-colors"
               style={{
@@ -257,7 +245,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
           roles={rolesByTeam[teamId] ?? []}
           existingIds={new Set(people.map((p) => p.userId))}
           seats={seats}
-          onInvited={() => setTab("people")}
+          onInvited={openPeople}
         />
       )}
 

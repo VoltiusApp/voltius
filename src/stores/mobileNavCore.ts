@@ -18,6 +18,7 @@ export type MobileScreen =
   | { kind: "more-page"; page: MorePage }
   /** `vaultId`: a local vault id, or a team id for a team with no local row (as the vault list names it). */
   | { kind: "vault-settings"; vaultId: string; page?: VaultSettingsPage }
+  | { kind: "member"; teamId: string; userId: string }
   | { kind: "panel-sftp"; connectionId: string }
   /** A terminal side panel (`useTerminalPanels` id), for the session it was opened from. */
   | { kind: "panel"; section: string; sessionId: string }

@@ -61,11 +61,14 @@ export async function previewPermissions(teamId: string, req: PreviewRequest): P
   throw new Error(i18n.t("members.viewAs.failed"));
 }
 
+const vaultKeyGatePreview = (teamId: string, userId: string, draft?: MemberDraft) =>
+  previewPermissions(teamId, { subject: { type: "member", user_id: userId }, draft, scope: "vault_key_gate" });
+
+export async function holdsVaultKeyGate(teamId: string, userId: string): Promise<boolean> {
+  return (await vaultKeyGatePreview(teamId, userId)).current.holds_vault_key_gate;
+}
+
 export async function losesVaultKey(teamId: string, userId: string, next: MemberDraft): Promise<boolean> {
-  const { current, draft } = await previewPermissions(teamId, {
-    subject: { type: "member", user_id: userId },
-    draft: next,
-    scope: "vault_key_gate",
-  });
+  const { current, draft } = await vaultKeyGatePreview(teamId, userId, next);
   return current.holds_vault_key_gate && !draft?.holds_vault_key_gate;
 }

@@ -27,8 +27,8 @@ import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
 import type { Connection, Folder } from "@/types";
 import { APPBAR_TONAL, MobileLargeTitle, MobileLargeTopBar } from "../MobileHeader";
 import MobileFilterBar from "../MobileFilterBar";
-import RowActionsButton from "../RowActionsButton";
-import { useLongPress } from "../useLongPress";
+import MobileListRow from "../MobileListRow";
+import MobileFab from "../MobileFab";
 import { useCollapsingHeader } from "../useCollapsingHeader";
 import { usePreviewActive } from "@/hooks/previewScope";
 import { GhostOr } from "@/components/preview/GhostCard";
@@ -56,8 +56,6 @@ function MobileHostRow({
   const { t } = useTranslation();
   const pingStatus = useHostPingStore((s) => s.statuses[c.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[c.id]);
-  // Tap connects; long-press opens the host actions sheet (M3: no ⋮ on every row).
-  const press = useLongPress(() => onActions(c.id), () => onConnect(c.id));
 
   const isSerial = c.connection_type === "serial";
   const showPingDot = !isSerial && pingEnabled && !c.ping_disabled;
@@ -69,8 +67,15 @@ function MobileHostRow({
   const latency = showPingDot && pingStatus === "up" && pingLatency !== undefined ? `${pingLatency} ms` : null;
 
   return (
-    <div className="relative flex items-center" data-mobile-host={c.id}>
-      <button className="flex-1 flex items-center gap-4 min-h-[72px] px-4 py-2 text-left min-w-0" aria-haspopup="menu" {...press}>
+    <MobileListRow
+      attr="mobile-host"
+      id={c.id}
+      name={name}
+      onTap={() => onConnect(c.id)}
+      onLong={() => onActions(c.id)}
+      actionsLabel={t("common.action.moreOptions")}
+      onActions={() => onActions(c.id)}
+      leading={
         <span className="relative shrink-0">
           <ConnectionAvatar connection={c} size={40} />
           {showPingDot && (
@@ -82,20 +87,17 @@ function MobileHostRow({
             />
           )}
         </span>
-        <span className="flex-1 flex flex-col min-w-0">
-          <span className="flex items-center gap-1.5 min-w-0">
-            <span className="text-base font-medium text-(--t-text-primary) truncate">{name}</span>
-            {pinned && <Icon icon="lucide:pin" width={14} className="shrink-0 text-(--t-accent)" />}
-            <ManagedBadge id={c.id} compact />
-          </span>
-          <PreviewSubtitle type="connection" id={c.id}>
-            {subtitle && <span className="text-sm text-(--t-text-dim) truncate">{subtitle}</span>}
-          </PreviewSubtitle>
-        </span>
-        {latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
-      </button>
-      <RowActionsButton attr="data-mobile-host-actions" value={c.id} label={t("common.action.moreOptions")} name={name} onTap={() => onActions(c.id)} />
-    </div>
+      }
+      title={
+        <>
+          <span className="truncate">{name}</span>
+          {pinned && <Icon icon="lucide:pin" width={14} className="shrink-0 text-(--t-accent)" />}
+          <ManagedBadge id={c.id} compact />
+        </>
+      }
+      subtitle={<PreviewSubtitle type="connection" id={c.id}>{subtitle}</PreviewSubtitle>}
+      trailing={latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
+    />
   );
 }
 
@@ -201,24 +203,7 @@ export default function MobileHostsScreen() {
         </div>
       </div>
       {canAdd && (
-        <button
-          data-mobile-add
-          data-mobile-fab={fabExtended ? "extended" : "collapsed"}
-          data-snackbar-avoid
-          aria-label={fabLabel}
-          onClick={whenWritable(() => setAddMode("menu"))}
-          className="absolute right-4 bottom-4 z-10 h-14 flex items-center pl-4 rounded-2xl text-sm font-medium shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-[padding] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized)"
-          style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)", paddingRight: fabExtended ? 20 : 16 }}
-        >
-          <Icon icon="lucide:plus" width={24} className="shrink-0" />
-          <span
-            aria-hidden
-            className="overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin-left] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized)"
-            style={{ maxWidth: fabExtended ? 200 : 0, opacity: fabExtended ? 1 : 0, marginLeft: fabExtended ? 12 : 0 }}
-          >
-            {fabLabel}
-          </span>
-        </button>
+        <MobileFab attr="mobile-add" icon="lucide:plus" label={fabLabel} extended={fabExtended} onTap={whenWritable(() => setAddMode("menu"))} />
       )}
 
       {addMode === "menu" && (

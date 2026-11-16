@@ -6,7 +6,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ loadTeams: h.loadTeams }) } }));
 
 import {
-  previewPermissions, losesVaultKey, PreviewSubjectGoneError,
+  previewPermissions, losesVaultKey, holdsVaultKeyGate, PreviewSubjectGoneError,
   type PreviewResponse, type Preview,
 } from "./permissionPreview";
 
@@ -64,5 +64,13 @@ describe("losesVaultKey", () => {
     expect(sentBody()).toEqual({ subject: { type: "member", user_id: "u1" }, draft, scope: "vault_key_gate" });
     h.serverFetch.mockResolvedValue(ok(response(true, true)));
     expect(await losesVaultKey("t1", "u1", draft)).toBe(false);
+  });
+});
+
+describe("holdsVaultKeyGate", () => {
+  test("asks_the_vault_key_gate_scope_with_no_draft", async () => {
+    h.serverFetch.mockResolvedValue(ok(response(false, null)));
+    expect(await holdsVaultKeyGate("t1", "u1")).toBe(false);
+    expect(sentBody()).toEqual({ subject: { type: "member", user_id: "u1" }, scope: "vault_key_gate" });
   });
 });

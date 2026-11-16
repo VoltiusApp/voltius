@@ -135,10 +135,8 @@
       "permissionDenied": "Permission refusée",
       "goUp": "Remonter",
       "emptyFolder": "Dossier vide",
-      "selectedCount": "{{count}} sélectionné(s)",
       "downloadSelectedAriaLabel": "Télécharger la sélection",
       "deleteSelectedAriaLabel": "Supprimer la sélection",
-      "clearSelectionAriaLabel": "Effacer la sélection",
       "copyToOtherPane": "Copier vers l'autre volet",
       "download": "Télécharger",
       "details": "Détails",
@@ -160,10 +158,8 @@
       "newFileOption": "Nouveau fichier",
       "folderNamePlaceholder": "Nom du dossier",
       "fileNamePlaceholder": "Nom du fichier",
-      "selectAll": "Tout sélectionner",
       "onePane": "Un seul panneau",
       "twoPanes": "Deux panneaux",
-      "moreActions": "Plus d'actions",
       "itemActions": "Actions pour {{name}}"
     },
     "folders": {
@@ -300,6 +296,28 @@
         "sessions": "Sessions",
         "members": "Membres",
         "logs": "Journal d'audit"
+      }
+    },
+    "selection": {
+      "selectedCount": "{{count}} sélectionné(s)",
+      "clearSelectionAriaLabel": "Effacer la sélection",
+      "selectAll": "Tout sélectionner",
+      "moreActions": "Plus d'actions"
+    },
+    "members": {
+      "selectSelf": "Vous ne pouvez pas vous sélectionner vous-même",
+      "selectOwner": "Vous ne pouvez pas modifier les rôles d'un propriétaire ni le retirer",
+      "assignRole": "Attribuer un rôle",
+      "removeRole": "Retirer un rôle",
+      "pickRole": "Choisir un rôle",
+      "keyHeld": "A la clé du coffre-fort",
+      "keyAwaiting": "En attente de la clé du coffre-fort",
+      "alreadyAssigned": "Déjà attribué",
+      "notAssigned": "Non attribué",
+      "keyNoAccess": "Pas d'accès à la clé du coffre-fort : aucune permission Se connecter",
+      "invite": {
+        "resend": "Renvoyer l'invitation",
+        "revoke": "Révoquer l'invitation"
       }
     }
   }

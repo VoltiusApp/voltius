@@ -6,7 +6,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { CopyButton, CopySecretField } from "@/components/shared/CopySecretField";
 import { BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { Toggle } from "@/components/shared/Toggle";
-import { roleChipColors, roleLabel } from "@/components/members/roleChips";
+import { RoleNamePill, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { whenWritable } from "@/services/previewGuard";
 import { enrollmentApi, enrollmentRefusal, type CreatedEnrollmentToken, type EnrollmentTokenInfo } from "@/services/enrollment/enrollmentApi";
@@ -243,7 +243,7 @@ function CreateForm({ roles, teamName, noEmail, busy, onCreate }: CreateFormProp
         <span className={LABEL}>{t("members.joinLinks.joinsAs")}</span>
         <div className="flex flex-wrap gap-1.5">
           {roles.filter((r) => !isOwnerRole(r)).map((r) => (
-            <ChoiceChip key={r.id} label={roleLabel(t, r.name)} capitalize selected={r.name === role} onClick={() => setRole(r.name)} />
+            <ChoiceChip key={r.id} label={roleLabel(t, r.name)} selected={r.name === role} onClick={() => setRole(r.name)} />
           ))}
         </div>
       </div>
@@ -319,7 +319,6 @@ interface TokenCardProps {
 
 function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardProps) {
   const { t } = useTranslation();
-  const { color, bg } = roleChipColors(info.role);
   const created = formatDateTime(info.created_at, SHORT_DATE);
   const isExpired = expired(info.expires_at);
   const expiry = info.expires_at
@@ -334,9 +333,7 @@ function TokenCard({ info, fresh, locked, busy, onRotate, onRevoke }: TokenCardP
   return (
     <div className="flex flex-col gap-1.5 px-3 py-2 rounded-lg bg-(--t-bg-card)">
       <div className="flex items-start gap-2">
-        <span className="text-[10px] px-2 py-0.5 rounded-full capitalize shrink-0" style={{ color, background: bg }}>
-          {roleLabel(t, info.role)}
-        </span>
+        <RoleNamePill name={info.role} />
         <span className="text-[11px] text-(--t-text-secondary) flex-1 min-w-0 break-words">{summary}</span>
       </div>
 

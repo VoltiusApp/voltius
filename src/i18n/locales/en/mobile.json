@@ -135,10 +135,8 @@
       "permissionDenied": "Permission denied",
       "goUp": "Go up",
       "emptyFolder": "Empty folder",
-      "selectedCount": "{{count}} selected",
       "downloadSelectedAriaLabel": "Download selected",
       "deleteSelectedAriaLabel": "Delete selected",
-      "clearSelectionAriaLabel": "Clear selection",
       "copyToOtherPane": "Copy to other pane",
       "download": "Download",
       "details": "Details",
@@ -159,10 +157,8 @@
       "newFileOption": "New file",
       "folderNamePlaceholder": "Folder name",
       "fileNamePlaceholder": "File name",
-      "selectAll": "Select all",
       "onePane": "One pane",
       "twoPanes": "Two panes",
-      "moreActions": "More actions",
       "itemActions": "Actions for {{name}}"
     },
     "folders": {
@@ -296,6 +292,28 @@
         "sessions": "Sessions",
         "members": "Members",
         "logs": "Audit log"
+      }
+    },
+    "selection": {
+      "selectedCount": "{{count}} selected",
+      "clearSelectionAriaLabel": "Clear selection",
+      "selectAll": "Select all",
+      "moreActions": "More actions"
+    },
+    "members": {
+      "selectSelf": "You can't select yourself",
+      "selectOwner": "You can't change an owner's roles or remove them",
+      "assignRole": "Assign role",
+      "removeRole": "Remove role",
+      "pickRole": "Choose a role",
+      "keyHeld": "Has the vault key",
+      "keyAwaiting": "Waiting for the vault key",
+      "alreadyAssigned": "Already assigned",
+      "notAssigned": "Not assigned",
+      "keyNoAccess": "No vault key access: no Connect permission",
+      "invite": {
+        "resend": "Resend invitation",
+        "revoke": "Revoke invitation"
       }
     }
   }

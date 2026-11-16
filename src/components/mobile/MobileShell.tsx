@@ -15,7 +15,6 @@ import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import MobileExtraKeysRow from "./MobileExtraKeysRow";
 import MobileTerminalPanelsRow from "./MobileTerminalPanelsRow";
-import MembersPage from "@/components/members/MembersPage";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobileKeyEditScreen from "./screens/MobileKeyEditScreen";
 import MobileIdentityEditScreen from "./screens/MobileIdentityEditScreen";
@@ -31,25 +30,18 @@ import MobileViewAsBar from "./viewAs/MobileViewAsBar";
 import MobileViewAsAreas from "./viewAs/MobileViewAsAreas";
 import { TeamSessions } from "@/components/hosts/TeamSessions";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
+import MobileMembersScreen from "./screens/MobileMembersScreen";
+import MobileMemberScreen from "./screens/MobileMemberScreen";
 import MobileHeader from "./MobileHeader";
 import TeamVaultStatePanel from "@/components/team/TeamVaultStatePanel";
 import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
 import MobileSnippetActionsSheet from "./sheets/MobileSnippetActionsSheet";
 import MobileSnippetsSheet from "./sheets/MobileSnippetsSheet";
-import type { MobileScreen, MorePage } from "@/stores/mobileNavCore";
+import type { MobileScreen } from "@/stores/mobileNavCore";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 
-function getMorePageTitles(t: TFunction): Record<MorePage, string> {
-  return {
-    "keychain": t("mobile.morePages.keychain"),
-    "port-forwarding": t("mobile.morePages.portForwarding"),
-    "known-hosts": t("mobile.morePages.knownHosts"),
-    "members": t("mobile.morePages.members"),
-    "logs": t("mobile.morePages.logs"),
-    "sessions": t("mobile.viewAs.areas.sessions"),
-  };
-}
+
+import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -69,7 +61,7 @@ import { useLauncherShortcuts } from "./useLauncherShortcuts";
 
 export default function MobileShell() {
   const { t } = useTranslation();
-  const MORE_PAGE_TITLES = getMorePageTitles(t);
+  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   useAndroidBack();
   useHostPingPolling(); // desktop mounts this in MainPanel; the mobile shell doesn't
   // Touch feedback on every row / button / key, delegated from the document (Android only).
@@ -160,16 +152,12 @@ export default function MobileShell() {
         {screen.kind === "more-page" && screen.page === "logs" && <MobileLogsScreen />}
         {screen.kind === "more-page" && screen.page === "sessions" && (
           <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-            <MobilePanelHeader title={MORE_PAGE_TITLES.sessions} />
+            <MobilePanelHeader title={t("mobile.viewAs.areas.sessions")} />
             <div data-vt-hit-scope className="flex-1 overflow-y-auto"><TeamSessions /></div>
           </div>
         )}
-        {screen.kind === "more-page" && screen.page === "members" && (
-          <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-            <MobilePanelHeader title={MORE_PAGE_TITLES.members} />
-            <div className="flex-1 overflow-hidden flex flex-col"><MembersPage /></div>
-          </div>
-        )}
+        {screen.kind === "more-page" && screen.page === "members" && <MobileMembersScreen vaultId={selectedVaultIds[0] ?? null} />}
+        {screen.kind === "member" && <MobileMemberScreen teamId={screen.teamId} userId={screen.userId} />}
         {panel && renderMobileScreen(panel.screenKind, panel.props)}
         {screen.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={screen.connectionId} />}
         {screen.kind === "panel" && <MobileTerminalPanelScreen section={screen.section} sessionId={screen.sessionId} />}

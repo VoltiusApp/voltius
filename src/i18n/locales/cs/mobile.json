@@ -135,10 +135,8 @@
       "permissionDenied": "Přístup odepřen",
       "goUp": "O úroveň výš",
       "emptyFolder": "Prázdná složka",
-      "selectedCount": "Vybráno: {{count}}",
       "downloadSelectedAriaLabel": "Stáhnout vybrané",
       "deleteSelectedAriaLabel": "Smazat vybrané",
-      "clearSelectionAriaLabel": "Zrušit výběr",
       "copyToOtherPane": "Kopírovat do druhého panelu",
       "download": "Stáhnout",
       "details": "Podrobnosti",
@@ -161,10 +159,8 @@
       "newFileOption": "Nový soubor",
       "folderNamePlaceholder": "Název složky",
       "fileNamePlaceholder": "Název souboru",
-      "selectAll": "Vybrat vše",
       "onePane": "Jeden panel",
       "twoPanes": "Dva panely",
-      "moreActions": "Další akce",
       "itemActions": "Akce pro {{name}}"
     },
     "folders": {
@@ -304,6 +300,28 @@
         "sessions": "Relace",
         "members": "Členové",
         "logs": "Auditní log"
+      }
+    },
+    "selection": {
+      "selectedCount": "Vybráno: {{count}}",
+      "clearSelectionAriaLabel": "Zrušit výběr",
+      "selectAll": "Vybrat vše",
+      "moreActions": "Další akce"
+    },
+    "members": {
+      "selectSelf": "Sebe vybrat nelze",
+      "selectOwner": "Role vlastníka nelze měnit a vlastníka nelze odebrat",
+      "assignRole": "Přiřadit roli",
+      "removeRole": "Odebrat roli",
+      "pickRole": "Vyberte roli",
+      "keyHeld": "Má klíč k trezoru",
+      "keyAwaiting": "Čeká na klíč k trezoru",
+      "alreadyAssigned": "Již přiřazeno",
+      "notAssigned": "Nepřiřazeno",
+      "keyNoAccess": "Bez přístupu ke klíči trezoru: chybí oprávnění Připojovat se",
+      "invite": {
+        "resend": "Poslat pozvánku znovu",
+        "revoke": "Zrušit pozvánku"
       }
     }
   }

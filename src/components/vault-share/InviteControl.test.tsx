@@ -108,3 +108,9 @@ test("the email invite button names the address it sends to", () => {
   render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
   expect(screen.getByRole("button", { name: "members.invite.sendInviteLabel dave@acme.test" })).toBeTruthy();
 });
+
+test("role choices show the translated role name with no case transform", () => {
+  const { container } = render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
+  expect(container.querySelector("[aria-pressed]")).not.toBeNull();
+  expect(container.querySelector(".capitalize")).toBeNull();
+});

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { vaultSettingsSections, membersPanelPage } from "./vaultSettingsCore";
+import { vaultSettingsSections } from "./vaultSettingsCore";
 import { vaultMenuActions } from "@/components/vault-admin/vaultMenuItems";
 import { vaultAdminCapabilities, localVaultTarget, cloudVaultTarget, resolveVaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 import { VAULT_MANAGER_BITS } from "@/services/permissions";
@@ -45,12 +45,6 @@ test("a plain member: read-only name, no security policy, leave", () => {
   expect(page(v, [team("boss", ["r-member"])], true)).toEqual([
     "general:name(ro)", "people:share", "people:members", "people:roles", "danger:leave",
   ]);
-});
-
-test("Members panels map onto the vault settings sub-pages", () => {
-  expect(membersPanelPage("invite")).toBe("share");
-  expect(membersPanelPage("roles")).toBe("roles");
-  expect(membersPanelPage("security")).toBe("security");
 });
 
 test("vault ids resolve like the vault list: local first, then a standalone team, else nothing", () => {

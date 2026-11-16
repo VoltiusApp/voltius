@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { FAB_SCROLL_THRESHOLD, fabExtended, foldProgress } from "./collapsingHeaderCore";
 
+/** For a pushed page with no large title: only the FAB and the scrolled app bar follow the scroll. */
+export const NO_LARGE_TITLE: RefObject<HTMLElement | null> = { current: null };
+
 /**
  * Scroll-linked large title + extended FAB for an Android root list. Attach `onScroll`
  * to the scroller. Once per frame it only writes `--vt-fold` (0–1) and `data-folded` /

@@ -13,7 +13,7 @@ import {
   type JoinGrant,
 } from "@/services/teamJoinGrants";
 import { clampMaxUses, clampTtlSecs, expiresIn, TTL_PRESETS, USES_PRESETS, usesRemaining } from "./joinLinkModel";
-import { roleChipColors, roleLabel } from "@/components/members/roleChips";
+import { RoleNamePill, roleLabel } from "@/components/members/roleChips";
 import { CopySecretField } from "@/components/shared/CopySecretField";
 import { ChoiceChip } from "./ChoiceChip";
 import { EnrolmentSection } from "./EnrolmentSection";
@@ -122,17 +122,11 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
       <div className="flex flex-col gap-1.5">
         {(grants ?? []).map((grant) => {
           const expiry = expiresIn(grant.expires_at);
-          const { color, bg } = roleChipColors(grant.role);
           const url = freshLinks[grant.id];
           return (
             <div key={grant.id} className="flex flex-col gap-1.5 px-3 py-2 rounded-lg bg-(--t-bg-card)">
               <div className="flex items-center gap-2">
-                <span
-                  className="text-[10px] px-2 py-0.5 rounded-full capitalize shrink-0"
-                  style={{ color, background: bg }}
-                >
-                  {grant.role}
-                </span>
+                <RoleNamePill name={grant.role} />
                 <span
                   className="text-[11px] text-(--t-text-secondary) flex-1 min-w-0"
                   title={formatDateTime(grant.expires_at)}
@@ -194,7 +188,6 @@ export function JoinLinksTab({ teamId, roles, canMint }: Props) {
                 <ChoiceChip
                   key={r.id}
                   label={roleLabel(t, r.name)}
-                  capitalize
                   selected={r.name === role}
                   onClick={() => setRole(r.name as GrantableRole)}
                 />

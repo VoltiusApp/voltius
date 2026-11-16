@@ -275,17 +275,25 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       reset();
     };
 
+    // A WebView long-press fires contextmenu, which the terminal container turns into a paste.
+    const onContextMenu = (e: Event) => {
+      e.stopPropagation();
+      if (!(e.target as Element | null)?.closest?.("[data-native-selection]")) e.preventDefault();
+    };
+
     const opts: AddEventListenerOptions = { capture: true, passive: false };
     container.addEventListener("touchstart", onTouchStart, opts);
     container.addEventListener("touchmove", onTouchMove, opts);
     container.addEventListener("touchend", onTouchEnd, opts);
     container.addEventListener("touchcancel", onTouchCancel, opts);
+    container.addEventListener("contextmenu", onContextMenu, true);
     return () => {
       const rm: EventListenerOptions = { capture: true };
       container.removeEventListener("touchstart", onTouchStart, rm);
       container.removeEventListener("touchmove", onTouchMove, rm);
       container.removeEventListener("touchend", onTouchEnd, rm);
       container.removeEventListener("touchcancel", onTouchCancel, rm);
+      container.removeEventListener("contextmenu", onContextMenu, rm);
       clearLongPress();
       lastTap.current = null;
       sel.dispose();

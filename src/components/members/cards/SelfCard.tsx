@@ -4,6 +4,18 @@ import { BaseCard } from "@/components/shared/BaseCard";
 import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { YouBadge } from "./MemberCard";
 
+export function OwnerChip() {
+  const { t } = useTranslation();
+  return (
+    <span
+      className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+      style={{ color: "#a78bfa", background: "rgba(167,139,250,0.12)" }}
+    >
+      {t("members.ownerRoleLabel")}
+    </span>
+  );
+}
+
 /**
  * The "you" row on a private vault that has no team yet — the only member there
  * is, and always its owner. `handle` is null while it is still loading, "" when
@@ -24,14 +36,7 @@ export function SelfCard({ handle, layoutMode }: { handle: string | null; layout
 
   const youBadge = <YouBadge grid={isGrid} />;
 
-  const ownerChip = (
-    <span
-      className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-      style={{ color: "#a78bfa", background: "rgba(167,139,250,0.12)" }}
-    >
-      {t("members.ownerRoleLabel")}
-    </span>
-  );
+  const ownerChip = <OwnerChip />;
 
   if (isGrid) {
     return (

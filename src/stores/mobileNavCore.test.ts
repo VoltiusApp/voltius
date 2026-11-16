@@ -87,6 +87,18 @@ assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
   assertEqual(r.state.stack.length, 0, "panel-sftp stack popped");
 }
 
+// back from a member screen returns to the list
+{
+  const s: MobileNavState = {
+    tab: "more",
+    stack: [{ kind: "more-page", page: "members" }, { kind: "member", teamId: "t1", userId: "u1" }],
+    sheet: null,
+  };
+  const r = handleBack(s);
+  assertEqual(r.handled, true, "member back handled");
+  assertEqual(r.state.stack, [{ kind: "more-page", page: "members" }], "member popped, list remains");
+}
+
 // back from the sftp tab returns to hosts
 {
   const s: MobileNavState = { tab: "sftp", stack: [], sheet: null };

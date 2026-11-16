@@ -34,6 +34,7 @@ import { appToast } from "@/services/appToast";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { sharedAxisPlan, useSwapThrough } from "@/hooks/pageTransition";
 import { PullIndicator, usePullToRefresh } from "../usePullToRefresh";
+import MobileSelectionBar from "../MobileSelectionBar";
 import { allSelected, pruneSelection, toggleAll, toggleItem } from "./sftpSelectionCore";
 import { canShareFiles as canShareStagedFiles, shareFiles, shareStageId, shareTotalBytes, shareableFiles, SHARE_CONFIRM_BYTES } from "@/services/share";
 import { SFTP_ICON } from "@/lib/conceptIcons";
@@ -223,23 +224,15 @@ export default function MobileSftpPane({
 
   const single = selected.length === 1 ? selected[0] : null;
   const everything = allSelected(selected, visible);
-  // M3 contextual top bar: close, count, then the selection's actions (the rarer ones under ⋮).
   const selectionBar = selecting && headerSlot && createPortal(
-    <header data-sftp-selection-bar className="shrink-0 flex items-center h-12 pr-1 border-b"
-      style={{ background: "color-mix(in srgb, var(--t-accent) 16%, var(--t-bg-chrome))", borderColor: "var(--t-border)" }}>
-      <BarButton attr="data-sftp-sel-clear" icon="lucide:x" label={t("mobile.sftp.clearSelectionAriaLabel")} onTap={clearSelection} />
-      <span data-sftp-sel-count className="flex-1 min-w-0 truncate text-base font-medium text-(--t-text-primary) tabular-nums">
-        {t("mobile.sftp.selectedCount", { count: selected.length })}
-      </span>
-      <BarButton attr="data-sftp-sel-all" icon={everything ? "lucide:list-x" : "lucide:list-checks"} label={t("mobile.sftp.selectAll")}
-        pressed={everything} onTap={() => onSelectionChange(toggleAll(selected, visible))} />
-      {otherConnected && (
-        <BarButton attr="data-sftp-sel-copy" icon="lucide:arrow-right-left" label={t("mobile.sftp.copyToOtherPane")} onTap={() => onCopyToOther(selected)} />
-      )}
-      <BarButton attr="data-sftp-sel-download" icon="lucide:download" label={t("mobile.sftp.downloadSelectedAriaLabel")} onTap={() => void downloadSelected()} />
-      <BarButton attr="data-sftp-sel-delete" icon="lucide:trash-2" label={t("mobile.sftp.deleteSelectedAriaLabel")} danger disabledReason={readOnlyTip} onTap={() => setConfirmBatchDelete(true)} />
-      <BarButton attr="data-sftp-sel-more" icon="lucide:ellipsis-vertical" label={t("mobile.sftp.moreActions")} onTap={() => setSelectionMore(true)} />
-    </header>,
+    <MobileSelectionBar attr="sftp-selection-bar" count={selected.length} allSelected={everything}
+      onClose={clearSelection} onToggleAll={() => onSelectionChange(toggleAll(selected, visible))}
+      actions={[
+        ...(otherConnected ? [{ attr: "data-sftp-sel-copy", icon: "lucide:arrow-right-left", label: t("mobile.sftp.copyToOtherPane"), onTap: () => onCopyToOther(selected) }] : []),
+        { attr: "data-sftp-sel-download", icon: "lucide:download", label: t("mobile.sftp.downloadSelectedAriaLabel"), onTap: () => void downloadSelected() },
+        { attr: "data-sftp-sel-delete", icon: "lucide:trash-2", label: t("mobile.sftp.deleteSelectedAriaLabel"), danger: true, disabledReason: readOnlyTip, onTap: () => setConfirmBatchDelete(true) },
+        { attr: "data-sftp-sel-more", icon: "lucide:ellipsis-vertical", label: t("mobile.selection.moreActions"), onTap: () => setSelectionMore(true) },
+      ]} />,
     headerSlot,
   );
 
@@ -346,7 +339,7 @@ export default function MobileSftpPane({
         </BottomSheet>
       )}
       {selectionMore && (
-        <BottomSheet title={t("mobile.sftp.selectedCount", { count: selected.length })} onClose={() => setSelectionMore(false)}>
+        <BottomSheet title={t("mobile.selection.selectedCount", { count: selected.length })} onClose={() => setSelectionMore(false)}>
           {canShareFiles && selected.every((f) => !f.isDir) && (
             <SheetItem attr="share" icon="lucide:share-2" label={t("mobile.share.action")} onTap={() => { const items = selected; setSelectionMore(false); clearSelection(); void share(items); }} />
           )}
@@ -478,17 +471,6 @@ function FileRow({ file, checked, selecting, moreLabel, onTap, onLong, onToggle,
         </button>
       )}
     </div>
-  );
-}
-
-function BarButton({ attr, icon, label, onTap, danger, pressed, disabledReason }: { attr: string; icon: string; label: string; onTap: () => void; danger?: boolean; pressed?: boolean; disabledReason?: string }) {
-  return (
-    <button {...{ [attr]: "" }} onClick={onTap} aria-label={disabledReason ?? label} title={disabledReason ?? label} aria-pressed={pressed}
-      disabled={!!disabledReason}
-      className="w-12 h-12 shrink-0 flex items-center justify-center rounded-full disabled:opacity-35"
-      style={{ color: danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
-      <Icon icon={icon} width={20} />
-    </button>
   );
 }
 
