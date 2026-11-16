@@ -28,6 +28,9 @@ export function roleChipBlockReason(t: TFunction, role: TeamRole, o: {
   return o.readOnlyReason;
 }
 
+export const visibleMemberRoles = (roles: TeamRole[], showOwner: boolean) =>
+  roles.filter((r) => !isOwnerRole(r) || showOwner).sort((a, b) => a.position - b.position);
+
 export function MemberRoleChips({
   teamId, roles, roleIds, readOnlyReason, onToggle, showOwner, ownerReason, busyRoleId = null, flashRoleId = null, children,
 }: MemberRoleChipsProps) {
@@ -36,9 +39,7 @@ export function MemberRoleChips({
 
   return (
     <div className="flex flex-wrap items-start gap-2">
-      {[...roles]
-        .filter((r) => !isOwnerRole(r) || showOwner)
-        .sort((a, b) => a.position - b.position).map((role) => {
+      {visibleMemberRoles(roles, showOwner).map((role) => {
           const hasRole = roleIds.includes(role.id);
           const blockReason = roleChipBlockReason(t, role, { hasRole, locked, readOnlyReason, ownerReason });
           const meta = ROLE_META[role.name];

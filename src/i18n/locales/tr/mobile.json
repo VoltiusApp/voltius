@@ -294,6 +294,8 @@
       "assignRole": "Rol ata",
       "removeRole": "Rolü kaldır",
       "pickRole": "Bir rol seçin",
+      "keyHeld": "Kasa anahtarı var",
+      "keyAwaiting": "Kasa anahtarını bekliyor",
       "invite": {
         "resend": "Daveti yeniden gönder",
         "revoke": "Daveti iptal et"

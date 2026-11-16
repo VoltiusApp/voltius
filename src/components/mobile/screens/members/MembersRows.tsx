@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
@@ -63,19 +64,22 @@ export function InviteRow({ inv, onTap }: { inv: PendingInvitation; onTap: () =>
   );
 }
 
-export function NavRow({ id, icon, label, disabledReason, onTap }: {
+export function NavRow({ attr = "members-nav", id, icon, label, subtitle, disabledReason, onTap }: {
+  attr?: string;
   id: string;
   icon: string;
-  label: string;
+  label: ReactNode;
+  subtitle?: ReactNode;
   disabledReason?: string;
   onTap: () => void;
 }) {
   return (
     <MobileListRow
-      attr="members-nav"
+      attr={attr}
       id={id}
       leading={<span className="w-10 h-10 shrink-0 flex items-center justify-center text-(--t-text-dim)"><Icon icon={icon} width={24} /></span>}
       title={label}
+      subtitle={subtitle}
       trailing={<Icon icon="lucide:chevron-right" width={20} className="shrink-0 text-(--t-text-dim)" />}
       disabled={!!disabledReason}
       disabledReason={disabledReason}

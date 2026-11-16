@@ -298,6 +298,8 @@
       "assignRole": "Atribuir função",
       "removeRole": "Remover função",
       "pickRole": "Escolha uma função",
+      "keyHeld": "Tem a chave do cofre",
+      "keyAwaiting": "A aguardar a chave do cofre",
       "invite": {
         "resend": "Reenviar convite",
         "revoke": "Revogar convite"

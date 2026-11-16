@@ -298,6 +298,8 @@
       "assignRole": "Attribuer un rôle",
       "removeRole": "Retirer un rôle",
       "pickRole": "Choisir un rôle",
+      "keyHeld": "A la clé du coffre-fort",
+      "keyAwaiting": "En attente de la clé du coffre-fort",
       "invite": {
         "resend": "Renvoyer l'invitation",
         "revoke": "Révoquer l'invitation"

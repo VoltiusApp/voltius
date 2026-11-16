@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { type Permission, type OverrideState } from "@/services/permissions";
 import { permissionLabel } from "@/components/members/roleChips";
-import { OVERRIDE_STATE_COLOR, TriStateToggle } from "@/components/shared/TriStateToggle";
+import { OVERRIDE_STATE_COLOR, TriStateToggle, type TriStateToggleSize } from "@/components/shared/TriStateToggle";
 
 export { overrideStateOf, applyOverrideState, type OverrideState } from "@/services/permissions";
 
@@ -15,10 +15,11 @@ export interface PermissionOverrideRowProps {
   onChange: (next: OverrideState) => void;
   label?: string;
   note?: string;
+  toggleSize?: TriStateToggleSize;
 }
 
 export function PermissionOverrideRow({
-  permission, state, inheritedFrom, granted, exceptions = false, disabled, onChange, label, note,
+  permission, state, inheritedFrom, granted, exceptions = false, disabled, onChange, label, note, toggleSize,
 }: PermissionOverrideRowProps) {
   const { t } = useTranslation();
   const shown = label ?? permissionLabel(t, permission);
@@ -40,7 +41,34 @@ export function PermissionOverrideRow({
           )}
         </p>
       </div>
-      <TriStateToggle value={state} onChange={onChange} label={shown} disabled={disabled} />
+      <TriStateToggle value={state} onChange={onChange} label={shown} disabled={disabled} size={toggleSize} />
+    </div>
+  );
+}
+
+export function PermissionOverrideGroups({ groups, onChange, toggleSize }: {
+  groups: { key: string; rows: Omit<PermissionOverrideRowProps, "onChange">[] }[];
+  onChange: (permission: Permission, next: OverrideState) => void;
+  toggleSize?: TriStateToggleSize;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim) opacity-70 mb-0.5">
+            {t(`members.permissions.group.${g.key}`)}
+          </p>
+          {g.rows.map((row) => (
+            <PermissionOverrideRow
+              key={row.permission}
+              {...row}
+              toggleSize={toggleSize}
+              onChange={(next) => onChange(row.permission, next)}
+            />
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

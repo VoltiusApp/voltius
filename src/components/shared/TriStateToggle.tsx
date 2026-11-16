@@ -19,12 +19,14 @@ const SIZES = {
   touch: { segment: "w-11 h-10 flex items-center justify-center", icon: 16 },
 } as const;
 
+export type TriStateToggleSize = keyof typeof SIZES;
+
 export function TriStateToggle({ value, onChange, label, disabled = false, size = "sm" }: {
   value: OverrideState;
   onChange: (next: OverrideState) => void;
   label: string;
   disabled?: boolean;
-  size?: keyof typeof SIZES;
+  size?: TriStateToggleSize;
 }) {
   const { t } = useTranslation();
   return (

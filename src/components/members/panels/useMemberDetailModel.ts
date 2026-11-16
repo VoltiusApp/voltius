@@ -29,7 +29,7 @@ import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { whenWritable } from "@/services/previewGuard";
 import type { MemberDetailPanelProps } from "./MemberDetailPanel";
 
-export type OverrideRowModel = Omit<PermissionOverrideRowProps, "onChange" | "label" | "note">;
+export type OverrideRowModel = Omit<PermissionOverrideRowProps, "onChange" | "label" | "note" | "toggleSize">;
 
 interface Confirm {
   confirm(): void;

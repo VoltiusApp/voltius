@@ -49,6 +49,8 @@ const TIME: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", s
 
 /** "Mar 4, 2026" */
 export const SHORT_DATE: Intl.DateTimeFormatOptions = { year: "numeric", month: "short", day: "numeric" };
+/** "March 4, 2026" */
+export const LONG_DATE: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
 /** "Mar 4" */
 export const MONTH_DAY: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
 /** "14:05" / "02:05 PM" */

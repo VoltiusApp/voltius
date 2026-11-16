@@ -11,13 +11,12 @@ import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
 import { isMobileShell } from "@/utils/platform";
 import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
-import { PermissionOverrideRow } from "./PermissionOverrideRow";
-import { formatDate } from "@/utils/localeFormat";
+import { PermissionOverrideGroups } from "./PermissionOverrideRow";
+import { formatDate, LONG_DATE } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
-import { MemberNameInput } from "@/components/members/MemberNameInput";
+import { MemberNameField } from "@/components/members/MemberNameInput";
 import { inviterLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
-import { refuseWhilePreviewing } from "@/services/previewGuard";
-import { groupOverrideRows, useMemberDetailModel } from "./useMemberDetailModel";
+import { groupOverrideRows, useMemberDetailModel, type MemberDetailModel } from "./useMemberDetailModel";
 import { MemberDetailDialogs } from "./MemberDetailDialogs";
 
 export interface MemberDetailPanelProps {
@@ -34,6 +33,36 @@ export interface MemberDetailPanelProps {
   onUpdated: () => void;
 }
 
+const PRIMARY_OWNER_LOOK = {
+  desktop: { note: "text-xs", hint: "text-[11px]", button: "px-3 py-2 rounded-lg text-xs", icon: 13 },
+  touch: { note: "text-sm", hint: "text-xs", button: "min-h-12 px-4 rounded-xl text-sm", icon: 16 },
+};
+
+export function PrimaryOwnerControl({ primaryOwner, touch = false }: { primaryOwner: MemberDetailModel["primaryOwner"]; touch?: boolean }) {
+  const { t } = useTranslation();
+  const look = PRIMARY_OWNER_LOOK[touch ? "touch" : "desktop"];
+  return primaryOwner.isPrimary ? (
+    <div className={look.note}>
+      <p className="flex items-center gap-1.5 font-medium text-(--t-text-primary)">
+        <Icon icon="lucide:crown" width={look.icon} />
+        {t("members.ownership.primary")}
+      </p>
+      <p className={`${look.hint} mt-1 text-(--t-text-secondary)`}>
+        {t(primaryOwner.billingEnabled ? "members.ownership.primaryHintBilling" : "members.ownership.primaryHintSelfHosted")}
+      </p>
+    </div>
+  ) : (
+    <button
+      data-member-make-primary
+      onClick={primaryOwner.make}
+      className={`btn btn-secondary w-full flex items-center justify-center gap-2 font-medium ${look.button}`}
+    >
+      <Icon icon="lucide:crown" width={look.icon} />
+      {t("members.ownership.makePrimary")}
+    </button>
+  );
+}
+
 export function MemberDetailPanel({ onClose, ...props }: MemberDetailPanelProps) {
   const { member, teamId, teamRoles, canNameMembers, namingSupported = canNameMembers } = props;
   const { t } = useTranslation();
@@ -47,7 +76,7 @@ export function MemberDetailPanel({ onClose, ...props }: MemberDetailPanelProps)
   const matchesFilter = searchMatcher(permissionFilter);
   const filteredGroups = groupOverrideRows(overrides.rows, (p) => matchesFilter(permissionLabel(t, p)));
   const readOnlyReason = readOnlyReasonText(t, model.readOnly.kind);
-  const joinedDate = formatDate(member.joined_at, { year: "numeric", month: "long", day: "numeric" });
+  const joinedDate = formatDate(member.joined_at, LONG_DATE);
 
   return (
     <>
@@ -71,22 +100,7 @@ export function MemberDetailPanel({ onClose, ...props }: MemberDetailPanelProps)
         {showViewAs && <AccessSummaryCard teamId={teamId} member={member} />}
         {namingSupported && (
           <FormSection label={t("members.detail.nameLabel")}>
-            <MemberNameInput
-              aria-label={t("members.detail.nameLabel")}
-              value={name.value}
-              placeholder={member.handle ? `@${member.handle}` : ""}
-              readOnly={name.readOnly}
-              title={name.title}
-              onFocus={() => { refuseWhilePreviewing(); }}
-              onChange={(e) => name.setValue(e.target.value)}
-              onBlur={name.commit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") name.commit();
-                if (e.key === "Escape") name.revert();
-              }}
-            />
-            {name.error && <p className="text-[11px] mt-1.5" style={{ color: "var(--t-status-error)" }}>{name.error}</p>}
-            <p className="text-[11px] mt-1.5" style={{ color: "var(--t-text-secondary)" }}>{t("members.detail.nameHint")}</p>
+            <MemberNameField name={name} handle={member.handle} />
           </FormSection>
         )}
 
@@ -153,22 +167,7 @@ export function MemberDetailPanel({ onClose, ...props }: MemberDetailPanelProps)
             {filteredGroups.length === 0 && (
               <p className="text-xs text-(--t-text-dim) px-1 py-2">{t("common.state.noResults")}</p>
             )}
-            <div className="space-y-4">
-              {filteredGroups.map((g) => (
-                <div key={g.key}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim) opacity-70 mb-0.5">
-                    {t(`members.permissions.group.${g.key}`)}
-                  </p>
-                  {g.rows.map((row) => (
-                    <PermissionOverrideRow
-                      key={row.permission}
-                      {...row}
-                      onChange={(next) => overrides.setState(row.permission, next)}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
+            <PermissionOverrideGroups groups={filteredGroups} onChange={overrides.setState} />
             </>
           )}
         </FormSection>
@@ -176,25 +175,7 @@ export function MemberDetailPanel({ onClose, ...props }: MemberDetailPanelProps)
 
         {primaryOwner.shown && (
           <FormSection label={t("members.ownership.title")}>
-            {primaryOwner.isPrimary ? (
-              <div className="text-xs">
-                <p className="flex items-center gap-1.5 font-medium text-(--t-text-primary)">
-                  <Icon icon="lucide:crown" width={12} />
-                  {t("members.ownership.primary")}
-                </p>
-                <p className="text-[11px] mt-1 text-(--t-text-secondary)">
-                  {t(primaryOwner.billingEnabled ? "members.ownership.primaryHintBilling" : "members.ownership.primaryHintSelfHosted")}
-                </p>
-              </div>
-            ) : (
-              <button
-                onClick={primaryOwner.make}
-                className="btn btn-secondary w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
-              >
-                <Icon icon="lucide:crown" width={13} />
-                {t("members.ownership.makePrimary")}
-              </button>
-            )}
+            <PrimaryOwnerControl primaryOwner={primaryOwner} />
           </FormSection>
         )}
 

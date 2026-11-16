@@ -293,6 +293,8 @@
       "assignRole": "分配角色",
       "removeRole": "移除角色",
       "pickRole": "选择角色",
+      "keyHeld": "已持有保险库密钥",
+      "keyAwaiting": "正在等待保险库密钥",
       "invite": {
         "resend": "重新发送邀请",
         "revoke": "撤销邀请"
