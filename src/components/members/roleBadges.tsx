@@ -20,7 +20,7 @@ export function RoleChip({ role }: { role: TeamRole }) {
   return (
     <span className="relative inline-flex items-center" style={{ verticalAlign: "middle" }}>
       <span
-        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full capitalize shrink-0 cursor-default"
+        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 cursor-default"
         style={{ color, background: bg }}
         onMouseEnter={() => setShowTip(true)}
         onMouseLeave={() => setShowTip(false)}

@@ -65,6 +65,16 @@ export function roleChipColors(name: string, override?: string | null, fallback 
   return { meta, color, bg: meta?.bg ?? `${color}1a` };
 }
 
+export function RoleNamePill({ name }: { name: string }) {
+  const { t } = useTranslation();
+  const { color, bg } = roleChipColors(name);
+  return (
+    <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full" style={{ color, background: bg }}>
+      {roleLabel(t, name)}
+    </span>
+  );
+}
+
 export function permissionLabel(t: TFunction, permission: Permission): string {
   return t(`members.permission.${permission}`, { defaultValue: PERM_META[permission]?.label ?? permission });
 }
@@ -91,7 +101,7 @@ export function RolePermissionTooltip({ role, color }: { role: TeamRole; color: 
         color: "var(--t-text-primary)",
       }}
     >
-      <p className="font-semibold mb-1 capitalize">{roleLabel(t, role.name)}</p>
+      <p className="font-semibold mb-1">{roleLabel(t, role.name)}</p>
       <ul className="space-y-0.5">
         {permLabels.slice(0, 8).map((l) => (
           <li key={l} className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>

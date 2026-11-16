@@ -72,3 +72,9 @@ test("member with a resolvable role and no overrides shows no marker", () => {
   render(<RoleBadges member={member(0, 0, ["r1"])} roles={[role]} />);
   expect(screen.queryByTestId("override-marker")).toBeNull();
 });
+
+test("a role chip shows the translated role name as written, with no case transform", () => {
+  const { container } = render(<RoleBadges member={member(0, 0, ["r1"])} roles={[{ ...role, name: "connect-only" }]} />);
+  expect(screen.getByText("members.roleName.connect-only")).toBeTruthy();
+  expect(container.querySelector(".capitalize")).toBeNull();
+});

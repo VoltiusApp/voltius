@@ -15,6 +15,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { InviteCodeField } from "./InviteCodeField";
 import { CheckboxBox } from "@/components/shared/Checkbox";
 import { SpokenCodeRow } from "./SpokenCodeRow";
+import { roleLabel } from "@/components/members/roleChips";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
@@ -586,7 +587,7 @@ function TeamTab({
                       return (
                         <button
                           key={role}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full capitalize transition-colors"
+                          className="text-[10px] px-1.5 py-0.5 rounded-full transition-colors"
                           style={{
                             background: active
                               ? "color-mix(in srgb, var(--t-accent) 18%, transparent)"
@@ -596,7 +597,7 @@ function TeamTab({
                           }}
                           onClick={(e) => { e.stopPropagation(); onToggleRole(team.id, role); }}
                         >
-                          {role}
+                          {roleLabel(t, role)}
                         </button>
                       );
                     })}

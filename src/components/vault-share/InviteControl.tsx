@@ -116,7 +116,6 @@ export function InviteControl({ teamId, roles, existingIds, seats, onInvited }: 
             <ChoiceChip
               key={r.id}
               label={roleLabel(t, r.name)}
-              capitalize
               selected={r.id === roleId}
               onClick={() => setRoleId(r.id)}
               disabledReason={isOwnerRole(r) ? ownerLockedReason : undefined}
