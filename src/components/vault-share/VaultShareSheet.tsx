@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { memberLabel } from "@/services/memberLabel";
+import { inviteLabel, memberLabel } from "@/services/memberLabel";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -102,7 +102,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
     }));
     const pending: Person[] = (pendingInvitationsByTeam[teamId] ?? []).map((inv) => ({
       userId: inv.id,
-      label: inv.member_name ?? inv.display_name,
+      label: inviteLabel(inv),
       roleNames: [inv.role],
       online: false,
       state: "pending",

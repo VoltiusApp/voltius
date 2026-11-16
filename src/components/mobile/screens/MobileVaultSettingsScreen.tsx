@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { APPBAR_TONAL } from "../MobileHeader";
-import { useCollapsingHeader } from "../useCollapsingHeader";
+import { NO_LARGE_TITLE, useCollapsingHeader } from "../useCollapsingHeader";
+import MobileSectionHeading from "../MobileSectionHeading";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -30,7 +31,6 @@ import type { VaultSettingsPage } from "@/stores/mobileNavCore";
 import MobileMembersScreen from "./MobileMembersScreen";
 import { vaultSettingsSections, type VaultSettingsRow } from "./vaultSettingsCore";
 
-const NO_TITLE = { current: null };
 const MAX_AVATARS = 3;
 
 /**
@@ -47,7 +47,7 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
 
   const appbarRef = useRef<HTMLDivElement>(null);
   const largeTitleRef = useRef<HTMLDivElement>(null);
-  const scroll = useCollapsingHeader(appbarRef, page ? NO_TITLE : largeTitleRef);
+  const scroll = useCollapsingHeader(appbarRef, page ? NO_LARGE_TITLE : largeTitleRef);
 
   const title = page ? t(`mobile.vaultSettings.rows.${page}`) : (target?.name ?? t("mobile.vaultSettings.title"));
 
@@ -154,9 +154,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
 
       {sections.map((section) => (
         <section key={section.id} data-vault-settings-section={section.id} className="mb-2">
-          <h2 className="px-4 pt-4 pb-2 text-sm font-medium" style={{ color: section.id === "danger" ? "var(--t-danger, #e5484d)" : "var(--t-accent)" }}>
-            {t(`mobile.vaultSettings.sections.${section.id}`)}
-          </h2>
+          <MobileSectionHeading label={t(`mobile.vaultSettings.sections.${section.id}`)} danger={section.id === "danger"} />
           {section.rows.map((row) =>
             row.id === "name" ? (
               <VaultNameRow key="name" target={target} editable={row.editable} />

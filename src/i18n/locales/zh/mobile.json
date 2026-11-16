@@ -287,6 +287,16 @@
       "clearSelectionAriaLabel": "清除选择",
       "selectAll": "全选",
       "moreActions": "更多操作"
+    },
+    "members": {
+      "selectSelf": "不能选择自己",
+      "assignRole": "分配角色",
+      "removeRole": "移除角色",
+      "pickRole": "选择角色",
+      "invite": {
+        "resend": "重新发送邀请",
+        "revoke": "撤销邀请"
+      }
     }
   }
 }

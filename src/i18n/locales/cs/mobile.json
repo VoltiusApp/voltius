@@ -296,6 +296,16 @@
       "clearSelectionAriaLabel": "Zrušit výběr",
       "selectAll": "Vybrat vše",
       "moreActions": "Další akce"
+    },
+    "members": {
+      "selectSelf": "Sebe vybrat nelze",
+      "assignRole": "Přiřadit roli",
+      "removeRole": "Odebrat roli",
+      "pickRole": "Vyberte roli",
+      "invite": {
+        "resend": "Poslat pozvánku znovu",
+        "revoke": "Zrušit pozvánku"
+      }
     }
   }
 }

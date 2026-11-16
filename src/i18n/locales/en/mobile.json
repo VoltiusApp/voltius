@@ -288,6 +288,16 @@
       "clearSelectionAriaLabel": "Clear selection",
       "selectAll": "Select all",
       "moreActions": "More actions"
+    },
+    "members": {
+      "selectSelf": "You can't select yourself",
+      "assignRole": "Assign role",
+      "removeRole": "Remove role",
+      "pickRole": "Choose a role",
+      "invite": {
+        "resend": "Resend invitation",
+        "revoke": "Revoke invitation"
+      }
     }
   }
 }

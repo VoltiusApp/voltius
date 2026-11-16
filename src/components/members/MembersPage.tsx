@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { selectFollowing } from "@/utils/cardInteraction";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -12,7 +11,6 @@ import { useUIStore, type MembersPanel } from "@/stores/uiStore";
 import { isMobileShell } from "@/utils/platform";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
-import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
@@ -33,10 +31,10 @@ import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersToolbar } from "@/components/members/MembersToolbar";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { MemberCard, memberOpenAction } from "@/components/members/cards/MemberCard";
-import { SelfCard } from "@/components/members/cards/SelfCard";
+import { PrivateVaultMembers, privateVaultGate, useMyHandle } from "@/components/members/cards/PrivateVaultMembers";
+import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState";
 import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel";
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
-import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
 import { memberLabel, memberNamingSupported } from "@/services/memberLabel";
 import { useMembersModel } from "@/components/members/useMembersModel";
 import { useViewAsGate } from "@/components/preview/useViewAsEntry";
@@ -57,10 +55,9 @@ export default function MembersPage() {
   const setSortMode = useUIStore((s) => s.setMembersSortMode);
   const membersPanelPending = useUIStore((s) => s.membersPanelPending);
   const clearMembersPanelPending = useUIStore((s) => s.clearMembersPanelPending);
-  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const noPermission = useLackReason();
-  const [myHandle, setMyHandle] = useState<string | null>(null);
+  const myHandle = useMyHandle();
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
@@ -78,12 +75,6 @@ export default function MembersPage() {
     clearMembersPanelPending();
   }, [membersPanelPending, clearMembersPanelPending]);
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // getMyHandle() resolves to "" (never rejects) on a keychain miss with no
-    // server to fall back to, so this always settles the loading skeleton.
-    getMyHandle().then(setMyHandle).catch(() => setMyHandle(""));
-  }, []);
 
   useEffect(() => {
     if (selectedVaultIds.length > 0) {
@@ -287,84 +278,14 @@ const vaultTabs = selectedVaultIds.length > 1
       })
     : undefined;
 
-  // ── No vault selected ──────────────────────────────────────────────────────
-  if (!primaryVaultId) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-(--t-bg-base)">
-        <div
-          className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
-          style={{
-            background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
-            border: "1px solid var(--t-border)",
-          }}
-        >
-          <Icon icon="lucide:users-round" width={36} />
-        </div>
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="text-base font-semibold text-(--t-text-primary)">{t("members.empty.noVaultTitle")}</span>
-          <span className="text-sm text-(--t-text-dim) max-w-[18.667rem]">
-            {t("members.empty.noVaultDesc")}
-          </span>
-        </div>
-      </div>
-    );
-  }
+  if (!primaryVaultId) return <MembersEmptyState kind="noVault" />;
 
   // ── Private vault (no team yet) ────────────────────────────────────────────
   if (localVault && !teamId) {
-    const isCloudAccount = accountMode === "server";
-    const canPrivateInvite = isCloudAccount && ownsTeamsPlan && !!myUserId;
-
-    const toolbar = (
-      <MembersToolbar
-        search={search}
-        onSearchChange={setSearch}
-        layoutMode={layoutMode}
-        onLayoutModeChange={setLayoutMode}
-        sortMode={sortMode}
-        onSortModeChange={setSortMode}
-        canInvite={canPrivateInvite}
-        activePanel={panel}
-        onTogglePanel={togglePanel}
-        selectedCount={0}
-        vaultTabs={vaultTabs}
-        primaryVaultId={primaryVaultId}
-        onSelectVault={setPrimaryVaultId}
-      />
-    );
-
-    if (!isCloudAccount) {
-      return (
-        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
-          {toolbar}
-          <SignInToCloudCTA onSignIn={() => openCloudAuth("signin")} />
-        </div>
-      );
-    }
-
-    if (!ownsTeamsPlan) {
-      return (
-        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
-          {toolbar}
-          <UpgradeToTeamsCTA />
-        </div>
-      );
-    }
-    if (!myUserId) {
-      return (
-        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
-          {toolbar}
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <Icon icon="lucide:users-round" width={28} style={{ color: "var(--t-text-dim)" }} />
-            <p className="text-sm text-(--t-text-dim)">{t("members.empty.signInToInvite")}</p>
-          </div>
-        </div>
-      );
-    }
-
+    const privateReady = privateVaultGate({ accountMode, ownsTeamsPlan, myUserId }) === "ready";
     return (
       <>
-        {panel === "invite" && (
+        {panel === "invite" && privateReady && (
           <ConvertToTeamGate
             vaultId={primaryVaultId}
             vaultName={localVault.name}
@@ -372,32 +293,33 @@ const vaultTabs = selectedVaultIds.length > 1
             onConverted={() => {}}
           />
         )}
-        <div className="flex-1 flex flex-col chrome-canvas">
-          {toolbar}
-          <div className="flex-1 overflow-y-auto px-9 pt-5 pb-9">
-          <div className="mb-6">
-            <SectionHeader label={t("members.heading.members")} count={1} />
-            <div
-              {...cardGridProps(layoutMode, "compact")}
-            >
-              <SelfCard handle={myHandle} layoutMode={layoutMode} />
-            </div>
-          </div>
-        </div>
-        </div>
+        <PrivateVaultMembers
+          handle={myHandle}
+          myUserId={myUserId}
+          layoutMode={layoutMode}
+          header={
+            <MembersToolbar
+              search={search}
+              onSearchChange={setSearch}
+              layoutMode={layoutMode}
+              onLayoutModeChange={setLayoutMode}
+              sortMode={sortMode}
+              onSortModeChange={setSortMode}
+              canInvite={privateReady}
+              activePanel={panel}
+              onTogglePanel={togglePanel}
+              selectedCount={0}
+              vaultTabs={vaultTabs}
+              primaryVaultId={primaryVaultId}
+              onSelectVault={setPrimaryVaultId}
+            />
+          }
+        />
       </>
     );
   }
 
-  // ── Vault not found ────────────────────────────────────────────────────────
-  if (!teamId) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center bg-(--t-bg-base)">
-        <Icon icon="lucide:vault" width={28} style={{ color: "var(--t-text-dim)" }} />
-        <p className="text-sm text-(--t-text-dim)">{t("members.empty.vaultNotFound")}</p>
-      </div>
-    );
-  }
+  if (!teamId) return <MembersEmptyState kind="vaultNotFound" />;
 
   // ── Team vault ─────────────────────────────────────────────────────────────
   // Hidden, not cleared: a deep link opens it before this team's members (and so our permissions) load.

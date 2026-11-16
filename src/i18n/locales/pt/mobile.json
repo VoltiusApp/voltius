@@ -292,6 +292,16 @@
       "clearSelectionAriaLabel": "Limpar seleção",
       "selectAll": "Selecionar tudo",
       "moreActions": "Mais ações"
+    },
+    "members": {
+      "selectSelf": "Você não pode selecionar a si mesmo",
+      "assignRole": "Atribuir função",
+      "removeRole": "Remover função",
+      "pickRole": "Escolha uma função",
+      "invite": {
+        "resend": "Reenviar convite",
+        "revoke": "Revogar convite"
+      }
     }
   }
 }

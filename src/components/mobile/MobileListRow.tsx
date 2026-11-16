@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import RowActionsButton from "./RowActionsButton";
 import { useLongPress } from "./useLongPress";
+import { appToast } from "@/services/appToast";
 
 const noop = () => {};
 
@@ -30,7 +31,8 @@ export default function MobileListRow({
 }: MobileListRowProps) {
   const selectBlocked = !!selecting && !!selectDisabledReason;
   const blocked = !!disabled || selectBlocked;
-  const press = useLongPress(onLong ?? noop, blocked ? undefined : onTap);
+  const long = disabled ? noop : selectDisabledReason ? () => appToast("info", selectDisabledReason) : onLong ?? noop;
+  const press = useLongPress(long, blocked ? undefined : onTap);
   const subLine = selectBlocked ? selectDisabledReason : disabled ? disabledReason : subtitle;
   const checked = !!selecting && !!selected;
 

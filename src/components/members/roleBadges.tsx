@@ -7,12 +7,15 @@ import { ROLE_META, RolePermissionTooltip, roleLabel } from "@/components/member
 
 const INLINE_WRAPPER_CLASS = "inline-flex items-center gap-1";
 
+export function roleColor(role: Pick<TeamRole, "name" | "color">): string {
+  return role.color ?? ROLE_META[role.name]?.color ?? avatarColor(role.name);
+}
+
 export function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
   const [showTip, setShowTip] = useState(false);
-  const meta = ROLE_META[role.name];
-  const color = role.color ?? meta?.color ?? avatarColor(role.name);
-  const bg = meta?.bg ?? `${color}1a`;
+  const color = roleColor(role);
+  const bg = ROLE_META[role.name]?.bg ?? `${color}1a`;
 
   return (
     <span className="relative inline-flex items-center" style={{ verticalAlign: "middle" }}>

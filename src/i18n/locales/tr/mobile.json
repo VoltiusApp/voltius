@@ -288,6 +288,16 @@
       "clearSelectionAriaLabel": "Seçimi temizle",
       "selectAll": "Tümünü seç",
       "moreActions": "Diğer işlemler"
+    },
+    "members": {
+      "selectSelf": "Kendinizi seçemezsiniz",
+      "assignRole": "Rol ata",
+      "removeRole": "Rolü kaldır",
+      "pickRole": "Bir rol seçin",
+      "invite": {
+        "resend": "Daveti yeniden gönder",
+        "revoke": "Daveti iptal et"
+      }
     }
   }
 }

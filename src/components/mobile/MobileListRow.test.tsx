@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import MobileListRow from "./MobileListRow";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 const base = { attr: "mobile-thing", id: "a1", leading: <i />, title: "Alice", onTap: () => {} };
 
@@ -45,5 +46,21 @@ describe("MobileListRow", () => {
     expect(screen.getByText("Owner can't be removed")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox"));
     expect(onTap).not.toHaveBeenCalled();
+  });
+
+  test("a long-press on a row that cannot be selected shows the reason instead of calling onLong", () => {
+    useNotificationStore.setState({ toasts: [] });
+    const onLong = vi.fn();
+    render(<MobileListRow {...base} onLong={onLong} selectDisabledReason="Owner can't be removed" />);
+    fireEvent.contextMenu(screen.getByText("Alice").closest("button")!);
+    expect(onLong).not.toHaveBeenCalled();
+    expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["Owner can't be removed"]);
+  });
+
+  test("a disabled row ignores a long-press", () => {
+    const onLong = vi.fn();
+    render(<MobileListRow {...base} onLong={onLong} disabled disabledReason="No access" />);
+    fireEvent.contextMenu(screen.getByText("Alice").closest("button")!);
+    expect(onLong).not.toHaveBeenCalled();
   });
 });

@@ -296,6 +296,16 @@
       "clearSelectionAriaLabel": "Очистить выбор",
       "selectAll": "Выбрать все",
       "moreActions": "Другие действия"
+    },
+    "members": {
+      "selectSelf": "Нельзя выбрать себя",
+      "assignRole": "Назначить роль",
+      "removeRole": "Удалить роль",
+      "pickRole": "Выберите роль",
+      "invite": {
+        "resend": "Отправить приглашение ещё раз",
+        "revoke": "Отозвать приглашение"
+      }
     }
   }
 }
