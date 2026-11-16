@@ -47,6 +47,7 @@ vi.mock("@/services/vaultKeyActions", () => ({ rotateTeamKeyNow: vi.fn(async () 
 vi.mock("@/services/teamService", async (orig) => ({
   ...(await orig<typeof import("@/services/teamService")>()),
   getVaultKeyHolders: h.holders,
+  getMyUserId: async () => "boss",
 }));
 vi.mock("@/services/vaultShare", () => ({ grantVaultKeyToMember: h.grant }));
 vi.mock("@/components/members/panels/RolesPanel", () => ({ RoleModal: () => null }));
@@ -119,11 +120,14 @@ beforeEach(() => {
   useMobileNavStore.setState({ stack: [LIST, SELF], sheet: null });
   useNotificationStore.setState({ toasts: [] });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePreviewStore.setState({ session: null, side: null });
+});
 
 describe("MobileMemberScreen", () => {
   test("member_screen_shows_the_access_card_and_it_enters", async () => {
-    const enter = vi.fn();
+    const enter = vi.fn((session) => usePreviewStore.setState({ session }));
     usePreviewStore.setState({ enter } as never);
     h.bits |= 1;
     renderScreen();
@@ -146,6 +150,7 @@ describe("MobileMemberScreen", () => {
     expect(card.disabled).toBe(true);
     fireEvent.click(card);
     expect(enter).not.toHaveBeenCalled();
+    expect((await within(card.parentElement!).findByText("shared.businessLock.upgrade")).className).toContain("min-h-12");
   });
 
   test("shows_name_roles_permissions_key_info_and_danger_in_order", async () => {

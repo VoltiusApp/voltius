@@ -17,14 +17,21 @@ vi.mock("@/services/serverCapabilities", async (io) => ({
   useServerPermissionPreview: () => h.capable,
 }));
 vi.mock("@/services/teamService", async (io) => ({ ...(await io<Record<string, unknown>>()), getMyUserId: h.getMyUserId }));
+vi.mock("@/services/sync", () => ({ onTeamSseEvent: () => () => {} }));
+vi.mock("@/services/permissionPreview", async (io) => ({
+  ...(await io<Record<string, unknown>>()),
+  previewPermissions: vi.fn(() => new Promise(() => {})),
+}));
 
 import { useViewAsEntry } from "./useViewAsEntry";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useUIStore } from "@/stores/uiStore";
 import type { PreviewSubject } from "@/services/permissionPreview";
 
+const realEnter = usePreviewStore.getState().enter;
 const MEMBER: PreviewSubject = { type: "member", user_id: "bob" };
 const ROLE: PreviewSubject = { type: "role", role_id: "r1" };
 
@@ -56,7 +63,7 @@ beforeEach(() => {
   h.mobile = false;
   useMobileNavStore.setState({ tab: "more", stack: [{ kind: "member", teamId: "t1", userId: "bob" }], previewReturn: null } as never);
 });
-afterEach(() => { cleanup(); stopPreview(); });
+afterEach(() => { cleanup(); usePreviewStore.getState().exit(); stopPreview(); });
 
 test("enabled_when_nothing_blocks", async () => {
   setup();
@@ -124,7 +131,7 @@ test("mobile_enter_captures_return_and_switches_to_hosts", async () => {
   h.mobile = true;
   const stack = useMobileNavStore.getState().stack;
   const order: string[] = [];
-  h.enter.mockImplementation(() => order.push("enter"));
+  h.enter.mockImplementation((session) => { order.push("enter"); usePreviewStore.setState({ session }); });
   const unsub = useMobileNavStore.subscribe((s, prev) => { if (s.tab !== prev.tab) order.push(`tab:${s.tab}`); });
   const result = await run(MEMBER, null);
   result.current.enter();
@@ -146,4 +153,32 @@ test("desktop_enter_does_not_touch_mobile_nav", async () => {
   expect(after.tab).toBe(before.tab);
   expect(after.stack).toBe(before.stack);
   expect(after.previewReturn).toBeNull();
+});
+
+test("a_failed_mobile_enter_stays_put_and_drops_the_return_point", async () => {
+  setup();
+  h.mobile = true;
+  const before = useMobileNavStore.getState();
+  const result = await run(MEMBER, null);
+  result.current.enter();
+  const nav = useMobileNavStore.getState();
+  expect(h.enter).toHaveBeenCalled();
+  expect(nav.tab).toBe(before.tab);
+  expect(nav.stack).toBe(before.stack);
+  expect(nav.previewReturn).toBeNull();
+});
+
+test.each([
+  ["mobile", true, null],
+  ["desktop", false, { kind: "access" }],
+] as const)("%s_enter_leaves_the_access_side_as_the_shell_wants", async (_, mobile, side) => {
+  setup();
+  h.mobile = mobile;
+  usePreviewStore.setState({ enter: realEnter });
+  useMobileNavStore.setState({ tab: "hosts", stack: [] });
+  useUIStore.setState({ homeView: false });
+  const result = await run(MEMBER, null);
+  result.current.enter();
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(usePreviewStore.getState().side).toEqual(side);
 });

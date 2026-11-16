@@ -43,8 +43,15 @@ export function useViewAsGate(teamId: string): (subject: PreviewSubject) => View
       const nav = useMobileNavStore.getState();
       const mobile = isMobileShell();
       if (mobile) nav.setPreviewReturn({ tab: nav.tab, stack: nav.stack });
-      usePreviewStore.getState().enter({ teamId, vaultId: vault?.id ?? teamId, subject });
-      if (mobile) nav.setTab("hosts");
+      const preview = usePreviewStore.getState();
+      preview.enter({ teamId, vaultId: vault?.id ?? teamId, subject });
+      if (!mobile) return;
+      if (!usePreviewStore.getState().session) {
+        nav.setPreviewReturn(null);
+        return;
+      }
+      preview.closeSide();
+      nav.setTab("hosts");
     };
     return {
       enabled: reason === null,

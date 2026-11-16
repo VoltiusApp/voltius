@@ -82,7 +82,7 @@ test("access_side_opens_member_access_panel_for_a_member", () => {
   render(<MobileViewAsSheets />);
   const sheet = document.querySelector("[data-mobile-sheet]")!;
   expect(sheet.querySelector("[data-vt-hit-scope] [data-testid=member-access-panel]")).not.toBeNull();
-  expect(sheet.textContent).toContain("members.viewAs.access.title");
+  expect(sheet.textContent!.split("members.viewAs.access.title").length - 1).toBe(1);
 });
 
 test("access_side_opens_role_access_panel_for_a_role", () => {
