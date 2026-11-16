@@ -5,11 +5,12 @@ import { roleLabel } from "@/components/members/roleChips";
 import { roleColor } from "@/components/members/roleBadges";
 import BottomSheet from "./BottomSheet";
 
-export default function RolePickerSheet({ title, roles, mode, selectedIds = [], disabledReason, onPick, onClose }: {
+export default function RolePickerSheet({ title, roles, mode, selectedIds = [], busyId, disabledReason, onPick, onClose }: {
   title: string;
   roles: TeamRole[];
   mode: "pick" | "toggle";
   selectedIds?: string[];
+  busyId?: string | null;
   disabledReason?: (r: TeamRole) => string | null;
   onPick: (r: TeamRole) => void;
   onClose: () => void;
@@ -20,13 +21,15 @@ export default function RolePickerSheet({ title, roles, mode, selectedIds = [], 
       {roles.map((r) => {
         const reason = disabledReason?.(r) ?? null;
         const checked = selectedIds.includes(r.id);
+        const busy = r.id === busyId;
         return (
           <button
             key={r.id}
             data-role-pick={r.id}
             role={mode === "toggle" ? "menuitemcheckbox" : "menuitem"}
             aria-checked={mode === "toggle" ? checked : undefined}
-            disabled={!!reason}
+            aria-busy={busy || undefined}
+            disabled={!!reason || busy}
             className="w-full min-h-12 flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-50"
             onClick={() => { onPick(r); if (mode === "pick") onClose(); }}
           >

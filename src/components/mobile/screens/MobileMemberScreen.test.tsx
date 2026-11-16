@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { MembersModel } from "@/components/members/useMembersModel";
 import type { TeamMember } from "@/stores/teamStore";
 import { makeMember, makeRole, makeTeam } from "@/test/team";
@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   losesVaultKey: vi.fn(async () => false),
   holders: vi.fn(async () => ["boss"]),
   grant: vi.fn(async () => {}),
+  mobile: true,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -18,6 +19,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/utils/platform", async (orig) => ({
+  ...(await orig<typeof import("@/utils/platform")>()),
+  isMobileShell: () => h.mobile,
+}));
 vi.mock("@/components/members/useMembersModel", () => ({ useMembersModel: () => h.model }));
 vi.mock("@/hooks/usePermission", async () =>
   (await import("@/test/memberPermissions")).memberPermissions(() => h.bits, { subject: "boss" }));
@@ -133,6 +138,37 @@ describe("MobileMemberScreen", () => {
     await act(async () => { fireEvent.click(editor); });
     expect(assignMemberRole).toHaveBeenCalledWith("t1", "ana", "r-ed");
     expect(q("[data-role-pick='r-ed']")).not.toBeNull();
+  });
+
+  test("allow_on_a_bit_the_viewer_lacks_toasts_the_reason_on_every_tap", async () => {
+    h.bits = PERM_BITS.ADMINISTRATOR | PERM_BITS.MANAGE_MEMBERS;
+    renderScreen();
+    const allow = within(screen.getByRole("radiogroup", { name: "members.permission.EDIT_SNIPPETS" }))
+      .getByRole("radio", { name: "members.permissions.state.allow" });
+    await act(async () => { fireEvent.click(allow); });
+    await act(async () => { fireEvent.click(allow); });
+    expect(useNotificationStore.getState().toasts.map((x) => [x.severity, x.message])).toEqual(
+      Array(2).fill(["error", "members.permissions.readOnlyNotHeld"]),
+    );
+  });
+
+  test("a_role_tap_in_flight_disables_that_row_until_it_lands", async () => {
+    let land = () => {};
+    assignMemberRole.mockImplementationOnce(() => new Promise<void>((r) => { land = r; }));
+    renderScreen();
+    fireEvent.click(q("[data-member-roles] button")!);
+    await act(async () => { fireEvent.click(q("[data-role-pick='r-ed']")!); });
+    const editor = q("[data-role-pick='r-ed']") as HTMLButtonElement;
+    expect(editor.disabled).toBe(true);
+    fireEvent.click(editor);
+    expect(assignMemberRole).toHaveBeenCalledTimes(1);
+    await act(async () => { land(); });
+    expect((q("[data-role-pick='r-ed']") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  test("name_field_has_a_touch_height", () => {
+    renderScreen();
+    expect(screen.getByRole("textbox", { name: "members.detail.nameLabel" }).className).toContain("h-12");
   });
 
   test("read_only_roles_row_shows_the_reason_and_every_role_is_disabled", () => {

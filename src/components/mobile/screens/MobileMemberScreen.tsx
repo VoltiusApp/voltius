@@ -117,7 +117,7 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
         style={{ overscrollBehavior: "contain", paddingBottom: "calc(var(--vt-safe-bottom) + 24px)" }}>
         {memberNamingSupported(team.members) && (
           <Section id="name" label={t("members.detail.nameLabel")}>
-            <div className="px-4"><MemberNameField name={name} handle={member.handle} /></div>
+            <div className="px-4"><MemberNameField name={name} handle={member.handle} touch /></div>
           </Section>
         )}
 
@@ -177,13 +177,12 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
             </GreyedButton>
             <ReasonLine attr="member-remove" reason={removeReason} />
           </div>
-          {model.error && <p className="px-4 pt-2 text-sm" style={{ color: "var(--t-status-error)" }}>{model.error}</p>}
         </Section>
       </div>
 
       {picking && (
         <RolePickerSheet title={t("members.roles")} roles={visibleMemberRoles(roles.list, roles.showOwner)} mode="toggle"
-          selectedIds={member.role_ids} disabledReason={roles.disabledReason} onPick={roles.toggle} onClose={() => setPicking(false)} />
+          selectedIds={member.role_ids} busyId={roles.busyRoleId} disabledReason={roles.disabledReason} onPick={roles.toggle} onClose={() => setPicking(false)} />
       )}
       <MemberDetailDialogs model={model} member={member} teamId={teamId} onDone={onLeave} />
     </div>

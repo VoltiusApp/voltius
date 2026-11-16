@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   bits: 0,
   losesVaultKey: vi.fn(async () => false),
   rotate: vi.fn(async () => ({})),
+  mobile: false,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -26,8 +27,13 @@ vi.mock("@/services/serverCapabilities", async (orig) => ({
 vi.mock("@/services/permissionPreview", () => ({ losesVaultKey: h.losesVaultKey }));
 vi.mock("@/services/vaultKeyActions", () => ({ rotateTeamKeyNow: h.rotate }));
 vi.mock("@/services/appToast", () => ({ appToast: vi.fn() }));
+vi.mock("@/utils/platform", async (orig) => ({
+  ...(await orig<typeof import("@/utils/platform")>()),
+  isMobileShell: () => h.mobile,
+}));
 
 import { useMemberDetailModel } from "./useMemberDetailModel";
+import { appToast } from "@/services/appToast";
 import { useTeamStore, type TeamMember } from "@/stores/teamStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { PERM_BITS } from "@/services/permissions";
@@ -63,6 +69,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.bits = PERM_BITS.ADMINISTRATOR | PERM_BITS.MANAGE_MEMBERS | PERM_BITS.CONNECT | PERM_BITS.VIEW;
   h.losesVaultKey.mockResolvedValue(false);
+  h.mobile = false;
   useHistoryStore.setState({ past: [], future: [] } as never);
   useTeamStore.setState({
     teams: [makeTeam("t1", { owner_id: "boss" })],
@@ -119,6 +126,25 @@ test("override_allow_refused_when_viewer_lacks_the_bit", async () => {
   expect(result.current.error).toBe("members.permissions.readOnlyNotHeld");
   expect(h.losesVaultKey).not.toHaveBeenCalled();
   expect(setMemberPermissions).not.toHaveBeenCalled();
+});
+
+test("refusals_toast_on_mobile_and_stay_inline_only_on_desktop", async () => {
+  const result = model(BOSS);
+  await act(async () => { result.current.roles.toggle(OWNER); });
+  expect(appToast).not.toHaveBeenCalled();
+  h.mobile = true;
+  await act(async () => { result.current.roles.toggle(OWNER); });
+  expect(result.current.error).toBe("members.error.cannotRemoveOwnerRole");
+  expect(appToast).toHaveBeenCalledWith("error", "members.error.cannotRemoveOwnerRole");
+});
+
+test("a_failed_mask_write_toasts_on_mobile", async () => {
+  h.mobile = true;
+  setMemberPermissions.mockRejectedValueOnce(new Error("boom"));
+  const result = model(U1);
+  await act(async () => { result.current.overrides.setState("CONNECT", "deny"); });
+  expect(result.current.error).toBe("boom");
+  expect(appToast).toHaveBeenCalledWith("error", "boom");
 });
 
 test("toggle_is_refused_while_previewing", async () => {

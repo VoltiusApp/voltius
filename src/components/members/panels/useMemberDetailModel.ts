@@ -27,6 +27,8 @@ import { useHeldPermissionBits } from "@/hooks/usePermission";
 import { usePreviewActive } from "@/hooks/previewScope";
 import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { whenWritable } from "@/services/previewGuard";
+import { appToast } from "@/services/appToast";
+import { isMobileShell } from "@/utils/platform";
 import type { MemberDetailPanelProps } from "./MemberDetailPanel";
 
 export type OverrideRowModel = Omit<PermissionOverrideRowProps, "onChange" | "label" | "note" | "toggleSize">;
@@ -112,6 +114,11 @@ export function useMemberDetailModel({
   useEffect(() => schedule(), [draftName]);
 
   const [error, setError] = useState("");
+  // runTeamAction failures already toast, so those paths keep a plain setError.
+  const fail = (message: string) => {
+    setError(message);
+    if (isMobileShell()) appToast("error", message);
+  };
   const [toggling, setToggling] = useState<string | null>(null);
   const [justToggled, setJustToggled] = useState<string | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -198,7 +205,7 @@ export function useMemberDetailModel({
   const handleToggleRole = whenWritable(async (role: TeamRole, confirmed = false) => {
     const hasRole = member.role_ids.includes(role.id);
     if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
-      setError(t("members.error.cannotRemoveOwnerRole"));
+      fail(t("members.error.cannotRemoveOwnerRole"));
       return;
     }
     if (isOwnerRole(role) && !confirmed) {
@@ -264,7 +271,7 @@ export function useMemberDetailModel({
       onUpdated();
       if (rotate) void rotateTeamKeyNow(teamId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
+      fail(e instanceof Error ? e.message : t("members.error.failedToUpdatePermissions"));
     } finally {
       setOverriding(false);
     }
@@ -297,7 +304,7 @@ export function useMemberDetailModel({
 
   const handleOverride = whenWritable(async (permission: Permission, next: OverrideState) => {
     if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
-      setError(t("members.permissions.readOnlyNotHeld"));
+      fail(t("members.permissions.readOnlyNotHeld"));
       return;
     }
     const updated = applyOverrideState(permission, allow, deny, next);

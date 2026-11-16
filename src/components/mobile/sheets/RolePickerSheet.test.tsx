@@ -46,4 +46,14 @@ describe("RolePickerSheet", () => {
     fireEvent.click(row("r-editor"));
     expect(onPick).not.toHaveBeenCalled();
   });
+
+  test("the busy role is disabled while its change is in flight", () => {
+    const onPick = vi.fn();
+    render(<RolePickerSheet title="Roles" roles={[EDITOR, VIEWER]} mode="toggle" busyId="r-viewer" onPick={onPick} onClose={() => {}} />);
+    expect(row("r-viewer").disabled).toBe(true);
+    expect(row("r-viewer").getAttribute("aria-busy")).toBe("true");
+    expect(row("r-editor").disabled).toBe(false);
+    fireEvent.click(row("r-viewer"));
+    expect(onPick).not.toHaveBeenCalled();
+  });
 });
