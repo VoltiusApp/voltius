@@ -1,3 +1,4 @@
+import { whenWritable } from "@/services/previewGuard";
 import { useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -205,7 +206,7 @@ export default function MobileHostsScreen() {
           data-mobile-fab={fabExtended ? "extended" : "collapsed"}
           data-snackbar-avoid
           aria-label={fabLabel}
-          onClick={() => setAddMode("menu")}
+          onClick={whenWritable(() => setAddMode("menu"))}
           className="absolute right-4 bottom-4 z-10 h-14 flex items-center pl-4 rounded-2xl text-sm font-medium shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-[padding] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized)"
           style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)", paddingRight: fabExtended ? 20 : 16 }}
         >

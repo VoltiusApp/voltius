@@ -16,6 +16,8 @@ import { usePermissions } from "@/hooks/usePermission";
 import { compareStrings } from "@/utils/localeFormat";
 import type { SshKey, Identity } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { identityTarget, keyTarget } from "@/services/previewGuard";
+import { previewGuarded } from "./previewGuardedActions";
 
 type Mode = "menu" | "confirm-delete" | "move-folder";
 
@@ -74,25 +76,25 @@ export default function KeychainItemActionsSheet(props: Props) {
     );
   }
 
-  const items: SheetAction[] = [
+  const items: SheetAction[] = previewGuarded([
     ...(canEdit ? [{ icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => {
       push(kind === "key" ? { kind: "key-edit", keyId: item.id } : { kind: "identity-edit", identityId: item.id });
       onClose();
     } }] : []),
     kind === "key"
-      ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", onTap: async () => {
+      ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", reads: true, onTap: async () => {
           const pub = await ensurePublicKey(item as SshKey);
           if (pub) { await writeClipboard(pub); toast(t("mobile.sheets.keychainActions.copiedPublicKey"), "success"); }
           else { toast(t("mobile.sheets.keychainActions.noPublicKeyStored"), "error"); }
           onClose();
         } }
-      : { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyUsername"), slug: "copy-username", onTap: async () => {
+      : { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyUsername"), slug: "copy-username", reads: true, onTap: async () => {
           await writeClipboard((item as Identity).username);
           toast(t("mobile.sheets.keychainActions.copiedUsername"), "success");
           onClose();
         } },
     // The public line only: publicKeyShareText refuses anything else, the private half included.
-    ...(kind === "key" && canShare() ? [{ icon: "lucide:share-2", label: t("mobile.share.publicKey"), slug: "share-public-key", onTap: async () => {
+    ...(kind === "key" && canShare() ? [{ icon: "lucide:share-2", label: t("mobile.share.publicKey"), slug: "share-public-key", reads: true, onTap: async () => {
       const pub = publicKeyShareText(await ensurePublicKey(item as SshKey).catch(() => null));
       onClose();
       if (!pub) toast(t("mobile.sheets.keychainActions.noPublicKeyStored"), "error");
@@ -102,7 +104,7 @@ export default function KeychainItemActionsSheet(props: Props) {
       { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
       { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
     ] : []),
-  ];
+  ], (kind === "key" ? keyTarget : identityTarget)(item.id));
 
   return (
     <BottomSheet title={name} onClose={onClose}>

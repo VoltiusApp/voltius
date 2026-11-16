@@ -1,3 +1,4 @@
+import { whenWritable } from "@/services/previewGuard";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -51,7 +52,7 @@ export default function MobileSnippetsScreen() {
   const showAdd = tab === "mine" && (canCreateSnippet || canCreateFolder);
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <MobileHeader onAdd={showAdd ? () => setAddMenu(true) : undefined} />
+      <MobileHeader onAdd={showAdd ? whenWritable(() => setAddMenu(true)) : undefined} />
       <SnippetsTabs value={tab} onChange={setTab} />
       {tab === "mine" ? (
         <MobileSnippetList scope={scope} addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />

@@ -22,6 +22,7 @@ import type { Snippet, Folder } from "@/types";
 import { snippetMatcher } from "@/services/snippetSteps";
 import { SnippetPreview } from "@/components/snippets/HighlightedScript";
 import { compareStrings } from "@/utils/localeFormat";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 export function useMobileSnippetScope() {
   return useMobileFolderScope(useAllSnippetFolders(), "snippet");
@@ -82,7 +83,7 @@ function SnippetList({
     void saveFolder({ ...edit, object_type: "snippet", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   function runCurrent(sn: Snippet, execute: boolean) {
-    if (!currentSessionId) return;
+    if (!currentSessionId || refuseWhilePreviewing(snippetTarget(sn.id))) return;
     void runSnippetIntoSessions(sn, [currentSessionId], execute, {
       onNeedVars: (pi) => useSnippetStore.getState().setGlobalPendingInject(pi),
     });
@@ -90,6 +91,7 @@ function SnippetList({
     closeSheet();
   }
   function openPicker(snippetId: string, mode: "insert" | "execute") {
+    if (refuseWhilePreviewing(snippetTarget(snippetId))) return;
     openSheet({ kind: "snippet-target", snippetId, mode, preselectSessionId: currentSessionId });
   }
   const onInsert = (sn: Snippet) => currentSessionId ? runCurrent(sn, false) : openPicker(sn.id, "insert");

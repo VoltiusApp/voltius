@@ -1,3 +1,4 @@
+import { whenWritable } from "@/services/previewGuard";
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -90,7 +91,7 @@ export default function MobileKeychainScreen() {
       <MobilePanelHeader
         title={t("mobile.morePages.keychain")}
         right={canCreateKey || canCreateIdentity || canCreateFolder ? (
-          <button data-keychain-add onClick={() => setAddMenuOpen(true)} className="vt-icon-btn text-(--t-text-primary)">
+          <button data-keychain-add onClick={whenWritable(() => setAddMenuOpen(true))} className="vt-icon-btn text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={20} />
           </button>
         ) : undefined}

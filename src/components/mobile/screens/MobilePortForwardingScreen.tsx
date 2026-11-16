@@ -1,3 +1,4 @@
+import { ruleTarget, whenWritable, whenWritableOn } from "@/services/previewGuard";
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -71,7 +72,7 @@ export default function MobilePortForwardingScreen() {
       <MobilePanelHeader
         title={t("mobile.morePages.portForwarding")}
         right={canCreateRule || canCreateFolder ? (
-          <button data-pf-add onClick={() => setAddMode("menu")} className="vt-icon-btn text-(--t-text-primary)">
+          <button data-pf-add onClick={whenWritable(() => setAddMode("menu"))} className="vt-icon-btn text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={22} />
           </button>
         ) : undefined}
@@ -102,7 +103,7 @@ export default function MobilePortForwardingScreen() {
                   <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>
                 </PreviewSubtitle>
               </button>
-              <button data-pf-toggle className="shrink-0 p-2 text-(--t-text-primary)" onClick={(e) => { e.stopPropagation(); if (st.status === "active") void stopRule(rule); else void startRule(rule); }}>
+              <button data-pf-toggle className="shrink-0 p-2 text-(--t-text-primary)" onClick={(e) => { e.stopPropagation(); whenWritableOn(ruleTarget(rule.id), () => { if (st.status === "active") void stopRule(rule); else void startRule(rule); })(); }}>
                 <Icon icon={st.isBusy ? "lucide:loader-circle" : st.status === "active" ? "lucide:pause" : "lucide:play"} width={18} className={st.isBusy ? "animate-spin" : undefined} />
               </button>
             </div>

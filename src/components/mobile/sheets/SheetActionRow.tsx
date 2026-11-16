@@ -9,6 +9,8 @@ export type SheetAction = {
   danger?: boolean;
   disabled?: boolean;
   disabledReason?: string;
+  /** Copies or shares data the previewing admin can already read; stays allowed in a preview. */
+  reads?: boolean;
   onTap: () => void;
 };
 
