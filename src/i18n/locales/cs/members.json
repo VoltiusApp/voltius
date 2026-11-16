@@ -665,6 +665,7 @@
         "confirm": "Uložit a obměnit klíč"
       },
       "hiddenFrom": "Skryto před {{name}}",
+      "hiddenNoKey": "{{name}} nemá klíč trezoru",
       "cannotEdit": "Role tohoto člena úpravy nepovoluje",
       "draftBadge": "Koncept",
       "draftTag": "(koncept)",

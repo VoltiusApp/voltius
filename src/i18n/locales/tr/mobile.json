@@ -285,6 +285,7 @@
     },
     "viewAs": {
       "editAccess": "Erişimi düzenle",
+      "accessSubtitle": "Değişiklikler bu panelin arkasında önizlenir. Henüz hiçbir şey kaydedilmedi.",
       "areas": {
         "hosts": "Sunucular",
         "keychain": "Anahtar zinciri",

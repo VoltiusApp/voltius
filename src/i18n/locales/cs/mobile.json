@@ -293,6 +293,7 @@
     },
     "viewAs": {
       "editAccess": "Upravit přístup",
+      "accessSubtitle": "Změny se zobrazují za tímto panelem. Zatím nic není uloženo.",
       "areas": {
         "hosts": "Hosty",
         "keychain": "Klíčenka",

@@ -289,6 +289,7 @@
     },
     "viewAs": {
       "editAccess": "Editar acesso",
+      "accessSubtitle": "As alterações aparecem atrás deste painel. Ainda nada foi guardado.",
       "areas": {
         "hosts": "Hosts",
         "keychain": "Keychain",

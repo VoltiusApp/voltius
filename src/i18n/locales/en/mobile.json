@@ -285,6 +285,7 @@
     },
     "viewAs": {
       "editAccess": "Edit access",
+      "accessSubtitle": "Changes preview behind this sheet. Nothing is saved yet.",
       "areas": {
         "hosts": "Hosts",
         "keychain": "Keychain",

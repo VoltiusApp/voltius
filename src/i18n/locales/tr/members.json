@@ -625,6 +625,7 @@
         "confirm": "Kaydet ve anahtarı yenile"
       },
       "hiddenFrom": "{{name}} için gizli",
+      "hiddenNoKey": "{{name}} kasa anahtarına sahip değil",
       "cannotEdit": "Bu üyenin rolü düzenlemeye izin vermiyor",
       "draftBadge": "Taslak",
       "draftTag": "(taslak)",

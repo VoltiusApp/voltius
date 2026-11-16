@@ -641,6 +641,7 @@
         "confirm": "Enregistrer et renouveler la clé"
       },
       "hiddenFrom": "Masqué pour {{name}}",
+      "hiddenNoKey": "{{name}} n'a pas la clé du coffre",
       "cannotEdit": "Le rôle de ce membre ne permet pas la modification",
       "draftBadge": "Brouillon",
       "draftTag": "(brouillon)",

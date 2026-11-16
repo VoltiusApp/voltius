@@ -284,6 +284,7 @@
     },
     "viewAs": {
       "editAccess": "编辑访问权限",
+      "accessSubtitle": "此面板后方预览你的修改。尚未保存任何内容。",
       "areas": {
         "hosts": "主机",
         "keychain": "密钥链",
