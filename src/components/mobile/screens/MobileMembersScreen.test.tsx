@@ -135,7 +135,7 @@ describe("MobileMembersScreen", () => {
     const { container } = render(<MobileMembersScreen vaultId="t1" />);
     fireEvent.contextMenu(rowButton(container, "boss"));
     expect(q(container, "[data-members-selection-bar]")).toBeNull();
-    expect(toastMessages()).toEqual(["members.permissions.readOnlyOwner"]);
+    expect(toastMessages()).toEqual(["mobile.members.selectOwner"]);
 
     fireEvent.contextMenu(rowButton(container, "me"));
     expect(q(container, "[data-members-selection-bar]")).toBeNull();
@@ -143,7 +143,7 @@ describe("MobileMembersScreen", () => {
 
     fireEvent.contextMenu(rowButton(container, "ana"));
     expect(q(container, "[data-members-selection-bar]")).not.toBeNull();
-    expect(q(container, "[data-mobile-member='boss']")!.textContent).toContain("members.permissions.readOnlyOwner");
+    expect(q(container, "[data-mobile-member='boss']")!.textContent).toContain("mobile.members.selectOwner");
     fireEvent.click(rowButton(container, "boss"));
     expect(q(container, "[data-mobile-member='boss'] [role=checkbox]")!.getAttribute("aria-checked")).toBe("false");
     expect(q(container, "[data-mobile-member='ana'] [role=checkbox]")!.getAttribute("aria-checked")).toBe("true");

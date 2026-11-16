@@ -291,6 +291,7 @@
     },
     "members": {
       "selectSelf": "You can't select yourself",
+      "selectOwner": "You can't change an owner's roles or remove them",
       "assignRole": "Assign role",
       "removeRole": "Remove role",
       "pickRole": "Choose a role",

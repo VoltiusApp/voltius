@@ -295,6 +295,7 @@
     },
     "members": {
       "selectSelf": "Você não pode selecionar a si mesmo",
+      "selectOwner": "Você não pode alterar as funções de um proprietário nem removê-lo",
       "assignRole": "Atribuir função",
       "removeRole": "Remover função",
       "pickRole": "Escolha uma função",

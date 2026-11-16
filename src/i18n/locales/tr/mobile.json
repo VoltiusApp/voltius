@@ -291,6 +291,7 @@
     },
     "members": {
       "selectSelf": "Kendinizi seçemezsiniz",
+      "selectOwner": "Bir sahibin rollerini değiştiremez veya onu kaldıramazsınız",
       "assignRole": "Rol ata",
       "removeRole": "Rolü kaldır",
       "pickRole": "Bir rol seçin",

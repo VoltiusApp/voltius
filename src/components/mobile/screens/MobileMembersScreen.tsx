@@ -8,7 +8,6 @@ import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { useGreyedUnless, useLackReason } from "@/hooks/useGreyedUnless";
 import { whenWritable } from "@/services/previewGuard";
 import { useMembersModel, type RoleChangeMode } from "@/components/members/useMembersModel";
-import { readOnlyReasonText } from "@/components/members/roleChips";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState";
@@ -79,7 +78,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
     canActOn(m) ? null
       : m.user_id === myUserId ? t("mobile.members.selectSelf")
       : !canManageMembers ? lackReason
-      : readOnlyReasonText(t, "owner");
+      : t("mobile.members.selectOwner");
   const openPage = (page: "roles" | "security" | "share") => push({ kind: "vault-settings", vaultId, page });
 
   const blockedReason = canManageMembers ? null : lackReason;

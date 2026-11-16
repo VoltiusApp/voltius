@@ -299,6 +299,7 @@
     },
     "members": {
       "selectSelf": "Sebe vybrat nelze",
+      "selectOwner": "Role vlastníka nelze měnit a vlastníka nelze odebrat",
       "assignRole": "Přiřadit roli",
       "removeRole": "Odebrat roli",
       "pickRole": "Vyberte roli",

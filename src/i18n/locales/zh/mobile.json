@@ -290,6 +290,7 @@
     },
     "members": {
       "selectSelf": "不能选择自己",
+      "selectOwner": "无法更改所有者的角色或将其移除",
       "assignRole": "分配角色",
       "removeRole": "移除角色",
       "pickRole": "选择角色",
