@@ -54,9 +54,10 @@ vi.mock("@/services/vaultShare", () => ({
 }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
 vi.mock("./InviteControl", () => ({
-  InviteControl: ({ seats }: { seats: unknown }) => (
+  InviteControl: ({ seats, onInvited }: { seats: unknown; onInvited: () => void }) => (
     <>
       <div>invite-control</div>
+      <button onClick={onInvited}>invited</button>
       <div data-testid="invite-seats">{JSON.stringify(seats)}</div>
     </>
   ),
@@ -237,5 +238,21 @@ test("share_people_tab_switches_locally_on_desktop", () => {
   h.vault.teamId = "t1";
   render(<VaultShareSheet vaultId="v1" variant="popover" initialTab="invite" />);
   fireEvent.click(screen.getByText("members.share.tabPeople"));
+  expect(screen.getByText("people:0")).toBeTruthy();
+});
+
+test("a successful invite opens the Members list when onOpenPeople is set", () => {
+  h.vault.teamId = "t1";
+  const onOpenPeople = vi.fn();
+  render(<VaultShareSheet vaultId="v1" variant="page" initialTab="invite" onOpenPeople={onOpenPeople} />);
+  fireEvent.click(screen.getByText("invited"));
+  expect(onOpenPeople).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("invite-control")).toBeTruthy();
+});
+
+test("a successful invite switches to People locally without onOpenPeople", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="popover" initialTab="invite" />);
+  fireEvent.click(screen.getByText("invited"));
   expect(screen.getByText("people:0")).toBeTruthy();
 });

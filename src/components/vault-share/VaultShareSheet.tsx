@@ -175,6 +175,8 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
     void writeClipboard(addressedInviteLink(p.invitationId)).then(() => setCopiedInvite(p.invitationId!));
   };
 
+  const openPeople = () => (onOpenPeople ? onOpenPeople() : setTab("people"));
+
   const teamName = vault?.name ?? standaloneTeam?.name ?? "";
   const tabs: { key: Tab; label: string }[] = [
     { key: "people", label: t("members.share.tabPeople") },
@@ -205,7 +207,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
           return (
             <button
               key={key}
-              onClick={() => (key === "people" && onOpenPeople ? onOpenPeople() : setTab(key))}
+              onClick={() => (key === "people" ? openPeople() : setTab(key))}
               aria-current={active}
               className="pb-2 text-xs transition-colors"
               style={{
@@ -259,7 +261,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
           roles={rolesByTeam[teamId] ?? []}
           existingIds={new Set(people.map((p) => p.userId))}
           seats={seats}
-          onInvited={() => setTab("people")}
+          onInvited={openPeople}
         />
       )}
 
