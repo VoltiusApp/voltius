@@ -151,7 +151,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
           onClose={() => setPicker(null)} />
       )}
       {inviteFor && (
-        <PendingInviteActionsSheet teamId={teamId} inv={inviteFor} onDone={() => void model.reload()} onClose={() => setInviteFor(null)} />
+        <PendingInviteActionsSheet teamId={teamId} inv={inviteFor} canInvite={canInvite} onDone={() => void model.reload()} onClose={() => setInviteFor(null)} />
       )}
       {offboarding && (
         <OffboardingDialog members={offboarding} teamId={teamId} mode="remove"

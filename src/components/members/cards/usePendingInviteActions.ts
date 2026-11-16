@@ -2,15 +2,18 @@ import { useState } from "react";
 import type { PendingInvitation } from "@/services/teamService";
 import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { whenWritable } from "@/services/previewGuard";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 
-export function usePendingInviteActions(
-  teamId: string,
-  inv: PendingInvitation,
-  onRevoked: (id: string) => void,
-  onResent?: () => void,
-) {
+export function usePendingInviteActions({ teamId, inv, canInvite, onRevoked, onResent }: {
+  teamId: string;
+  inv: PendingInvitation;
+  canInvite: boolean;
+  onRevoked: (id: string) => void;
+  onResent?: () => void;
+}) {
   const [revoking, setRevoking] = useState(false);
   const [resending, setResending] = useState(false);
+  const disabledReason = useGreyedUnless()(canInvite).title;
 
   const revoke = whenWritable(async () => {
     setRevoking(true);
@@ -34,5 +37,5 @@ export function usePendingInviteActions(
     finally { setResending(false); }
   });
 
-  return { revoke: () => void revoke(), resend: () => void resend(), revoking, resending };
+  return { revoke: () => void revoke(), resend: () => void resend(), revoking, resending, disabledReason };
 }

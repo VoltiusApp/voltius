@@ -7,6 +7,7 @@ import { BaseCard } from "@/components/shared/BaseCard";
 import { ROLE_META, roleLabel } from "@/components/members/roleChips";
 import { RoleChip } from "@/components/members/roleBadges";
 import { useTeamStore } from "@/stores/teamStore";
+import { GREYED_CLASS } from "@/hooks/useGreyedUnless";
 import { inviteLabel, inviterLabel } from "@/services/memberLabel";
 import { formatDate, MONTH_DAY } from "@/utils/localeFormat";
 import { usePendingInviteActions } from "./usePendingInviteActions";
@@ -27,18 +28,43 @@ export function inviteExpiry(t: TFunction, inv: PendingInvitation): { isExpired:
   return { isExpired, label };
 }
 
+function InviteActionButton({ title, icon, hoverColor, busy, disabledReason, onClick }: {
+  title: string;
+  icon: string;
+  hoverColor: string;
+  busy: boolean;
+  disabledReason: string | undefined;
+  onClick: () => void;
+}) {
+  const disabled = busy || !!disabledReason;
+  return (
+    <button
+      title={disabledReason ?? title}
+      disabled={disabled}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={`p-1.5 flex rounded-lg transition-colors ${GREYED_CLASS}`}
+      style={{ color: "var(--t-text-dim)", opacity: busy ? 0.4 : undefined }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.color = hoverColor; }}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+    >
+      <Icon icon={busy ? "lucide:loader-circle" : icon} width={16} className={busy ? "animate-spin" : undefined} />
+    </button>
+  );
+}
+
 export function PendingInviteCard({
-  inv, teamId, roles, onRevoked, onResent,
+  inv, teamId, roles, canInvite, onRevoked, onResent,
 }: {
   inv: PendingInvitation;
   teamId: string;
   roles: TeamRole[];
+  canInvite: boolean;
   onRevoked: (id: string) => void;
   onResent?: () => void;
 }) {
   const { t } = useTranslation();
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
-  const { revoke, resend, revoking, resending } = usePendingInviteActions(teamId, inv, onRevoked, onResent);
+  const { revoke, resend, revoking, resending, disabledReason } = usePendingInviteActions({ teamId, inv, canInvite, onRevoked, onResent });
   const { isExpired, label: expiryLabel } = inviteExpiry(t, inv);
 
   const invitedRoles = (inv.role_ids?.length ? inv.role_ids : [])
@@ -76,34 +102,10 @@ export function PendingInviteCard({
           </span>
         )}
 
-      <button
-        title={t("members.invite.resendTitle")}
-        disabled={resending}
-        onClick={(e) => { e.stopPropagation(); resend(); }}
-        className="p-1.5 flex rounded-lg transition-colors"
-        style={{ color: "var(--t-text-dim)", opacity: resending ? 0.4 : 1 }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
-      >
-        {resending
-          ? <Icon icon="lucide:loader-circle" width={16} className="animate-spin" />
-          : <Icon icon="lucide:send" width={16} />
-        }
-      </button>
-      <button
-        title={t("members.revokeInvitationTitle")}
-        disabled={revoking}
-        onClick={(e) => { e.stopPropagation(); revoke(); }}
-        className="p-1.5 flex rounded-lg transition-colors"
-        style={{ color: "var(--t-text-dim)", opacity: revoking ? 0.4 : 1 }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
-      >
-        {revoking
-          ? <Icon icon="lucide:loader-circle" width={16} className="animate-spin" />
-          : <Icon icon="lucide:x" width={16} />
-        }
-      </button>
+      <InviteActionButton title={t("members.invite.resendTitle")} icon="lucide:send" hoverColor="var(--t-accent)"
+        busy={resending} disabledReason={disabledReason} onClick={resend} />
+      <InviteActionButton title={t("members.revokeInvitationTitle")} icon="lucide:x" hoverColor="var(--t-status-error)"
+        busy={revoking} disabledReason={disabledReason} onClick={revoke} />
     </BaseCard>
   );
 }

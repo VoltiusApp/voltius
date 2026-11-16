@@ -481,6 +481,7 @@ const vaultTabs = selectedVaultIds.length > 1
                       inv={inv}
                       teamId={teamId}
                       roles={teamRoles}
+                      canInvite={canInvite}
                       onRevoked={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
                       onResent={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
                     />

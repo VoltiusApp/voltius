@@ -310,4 +310,18 @@ describe("MobileMembersScreen", () => {
     await waitFor(() => expect(h.model.reload).toHaveBeenCalled());
     expect(document.querySelector("[data-invite-action]")).toBeNull();
   });
+
+  test("pending_actions_are_greyed_with_the_reason_without_invite_permission", () => {
+    h.model = makeModel({ canInvite: false });
+    const { container } = render(<MobileMembersScreen vaultId="t1" />);
+    fireEvent.click(q(container, "[data-mobile-invite='inv1'] button")!);
+    for (const slug of ["resend", "revoke"]) {
+      const btn = document.querySelector<HTMLButtonElement>(`[data-invite-action='${slug}']`)!;
+      expect(btn.disabled).toBe(true);
+      expect(btn.textContent).toContain("members.permissions.youLack");
+      fireEvent.click(btn);
+    }
+    expect(h.revoke).not.toHaveBeenCalled();
+    expect(h.invite).not.toHaveBeenCalled();
+  });
 });
