@@ -141,7 +141,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
       )}
       {picker && (
         <RolePickerSheet title={t("mobile.members.pickRole")} roles={model.roleOptions(selected, picker)} mode="pick"
-          onPick={(r) => { void model.changeRole(selected, r, picker, { bulk: true }); clear(); }}
+          onPick={(r) => { void model.changeRole(selected, r, picker, { bulk: selected.length > 1 }); clear(); }}
           onClose={() => setPicker(null)} />
       )}
       {inviteFor && (

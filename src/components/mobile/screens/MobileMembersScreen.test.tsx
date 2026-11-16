@@ -134,9 +134,19 @@ describe("MobileMembersScreen", () => {
     fireEvent.click(q(container, "[data-members-sel-assign]")!);
     fireEvent.click(document.querySelector("[data-role-pick='r-editor']")!);
 
-    expect(h.model.changeRole).toHaveBeenCalledWith([ANA], EDITOR, "assign", { bulk: true });
+    expect(h.model.changeRole).toHaveBeenCalledWith([ANA], EDITOR, "assign", { bulk: false });
     expect(q(container, "[data-members-selection-bar]")).toBeNull();
     expect(document.querySelector("[data-role-pick]")).toBeNull();
+  });
+
+  test("a_role_change_on_several_members_uses_the_bulk_copy", () => {
+    h.model = makeModel({ canActOn: (m) => m.user_id !== "me" });
+    const { container } = render(<MobileMembersScreen vaultId="t1" />);
+    fireEvent.contextMenu(rowButton(container, "ana"));
+    fireEvent.click(rowButton(container, "boss"));
+    fireEvent.click(q(container, "[data-members-sel-remove]")!);
+    fireEvent.click(document.querySelector("[data-role-pick='r-member']")!);
+    expect(h.model.changeRole).toHaveBeenCalledWith([ANA, BOSS], MEMBER, "remove", { bulk: true });
   });
 
   test("kick opens the offboarding dialog for the selection", () => {
