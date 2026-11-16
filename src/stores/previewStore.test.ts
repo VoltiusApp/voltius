@@ -25,7 +25,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { PreviewSubjectGoneError } from "@/services/permissionPreview";
-import { makeTeam } from "@/test/team";
+import { makeMember, makeRole, makeTeam } from "@/test/team";
 
 const session = { teamId: "t1", vaultId: "v1", subject: { type: "member" as const, user_id: "bob" } };
 const preview = (mask: number, gate = true) => ({
@@ -40,7 +40,10 @@ const deferred = <T,>() => {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 const toasts = () => useNotificationStore.getState().toasts.map((t) => t.message);
 
+const realSave = usePreviewStore.getState().save;
+
 beforeEach(() => {
+  usePreviewStore.setState({ save: realSave });
   h.preview.mockReset().mockResolvedValue(response(1));
   h.rotate.mockClear();
   h.sse.clear();
@@ -189,25 +192,48 @@ test("any_other_error_keeps_the_session_and_stores_the_message", async () => {
   expect(usePreviewStore.getState().error).toBe("members.viewAs.failed");
 });
 
-test("a_team_sse_event_refetches", async () => {
+const settleDebounce = async () => {
+  vi.advanceTimersByTime(250);
+  await vi.dynamicImportSettled();
+};
+
+test("team_sse_events_refetch_once_after_the_debounce", async () => {
   usePreviewStore.getState().enter(session);
   await vi.waitFor(() => expect(h.sse.size).toBe(1));
   await flush();
+  vi.useFakeTimers();
   h.preview.mockClear();
 
   h.sse.forEach((fn) => fn("t2"));
-  await flush();
+  await settleDebounce();
   expect(h.preview).not.toHaveBeenCalled();
-  h.sse.forEach((fn) => fn("t1"));
-  await flush();
+  h.sse.forEach((fn) => { fn("t1"); fn("t1"); fn("t1"); });
+  vi.advanceTimersByTime(249);
+  await vi.dynamicImportSettled();
+  expect(h.preview).not.toHaveBeenCalled();
+  await settleDebounce();
   expect(h.preview).toHaveBeenCalledTimes(1);
-
-  useTeamStore.setState({ membersByTeam: { t1: [] } });
-  await flush();
-  expect(h.preview).toHaveBeenCalledTimes(2);
 
   usePreviewStore.getState().exit();
   expect(h.sse.size).toBe(0);
+});
+
+test("only_permission_relevant_roster_changes_refetch", async () => {
+  useTeamStore.setState({ membersByTeam: { t1: [makeMember("bob", ["r1"])] }, rolesByTeam: { t1: [makeRole("r1", 1)] } });
+  usePreviewStore.getState().enter(session);
+  await flush();
+  vi.useFakeTimers();
+  h.preview.mockClear();
+
+  useTeamStore.setState({ membersByTeam: { t1: [makeMember("bob", ["r1"], { is_online: true })] } });
+  useTeamStore.setState({ rolesByTeam: { t1: [makeRole("r1", 1, { name: "renamed" })] } });
+  await settleDebounce();
+  expect(h.preview).not.toHaveBeenCalled();
+
+  useTeamStore.setState({ membersByTeam: { t1: [makeMember("bob", ["r1"], { permission_deny: 4 })] } });
+  useTeamStore.setState({ rolesByTeam: { t1: [makeRole("r1", 3)] } });
+  await settleDebounce();
+  expect(h.preview).toHaveBeenCalledTimes(1);
 });
 
 test("enter_clears_the_vault_clipboard", () => {
@@ -218,6 +244,24 @@ test("enter_clears_the_vault_clipboard", () => {
   expect(useVaultClipboardStore.getState().clipboard).toBeNull();
 });
 
+const DRAFT = { role_ids: [], allow: 0, deny: 0 };
+
+test.each([
+  ["no result for the draft yet", { resultDraft: null, status: "ready" as const }],
+  ["the draft refetch still loading", { resultDraft: DRAFT, status: "loading" as const }],
+  ["the draft refetch failed", { resultDraft: DRAFT, status: "error" as const }],
+])("save_does_nothing_with_%s", async (_, state) => {
+  const save = vi.fn(async () => {});
+  usePreviewStore.getState().enter(session);
+  await flush();
+  usePreviewStore.setState({ result: { ...response(1), draft: preview(1, false) }, draft: DRAFT, save, ...state });
+
+  await usePreviewStore.getState().requestSave();
+
+  expect(usePreviewStore.getState().pendingConfirm).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+});
+
 test("save_asks_to_confirm_a_key_loss_then_rotates", async () => {
   const losing: PreviewResponse = { ...response(1), draft: preview(1, false) };
   expect(saveNeedsConfirm(losing)).toBe("memberKeyLoss");
@@ -226,7 +270,7 @@ test("save_asks_to_confirm_a_key_loss_then_rotates", async () => {
 
   usePreviewStore.getState().enter(session);
   await flush();
-  usePreviewStore.setState({ result: losing });
+  usePreviewStore.setState({ result: losing, draft: DRAFT, resultDraft: DRAFT, status: "ready" });
   await usePreviewStore.getState().requestSave();
   expect(usePreviewStore.getState().pendingConfirm).toBe("memberKeyLoss");
 

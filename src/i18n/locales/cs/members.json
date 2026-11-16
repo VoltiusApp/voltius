@@ -614,6 +614,12 @@
       }
     },
     "viewAs": {
+      "loading": "Ověřování přístupu…",
+      "discardDraft": {
+        "title": "Zahodit neuložené změny?",
+        "body": "Ukončením náhledu zahodíte neuložené změny přístupu pro {{name}}.",
+        "confirm": "Zahodit a ukončit"
+      },
       "reason": {
         "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business",
         "needsManage": "Pro použití Zobrazit jako potřebujete oprávnění Spravovat členy nebo Spravovat role",

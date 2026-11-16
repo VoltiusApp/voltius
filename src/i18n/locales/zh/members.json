@@ -576,6 +576,12 @@
       }
     },
     "viewAs": {
+      "loading": "正在检查访问权限…",
+      "discardDraft": {
+        "title": "放弃未保存的更改？",
+        "body": "退出预览将丢弃你对 {{name}} 访问权限的未保存更改。",
+        "confirm": "放弃并退出"
+      },
       "reason": {
         "needsBusiness": "“以成员身份查看”是 Business 套餐的功能",
         "needsManage": "使用“以成员身份查看”需要“管理成员”或“管理角色”权限",

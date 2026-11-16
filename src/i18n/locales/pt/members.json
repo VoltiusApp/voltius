@@ -593,6 +593,12 @@
       }
     },
     "viewAs": {
+      "loading": "Verificando o acesso…",
+      "discardDraft": {
+        "title": "Descartar alterações não salvas?",
+        "body": "Sair da pré-visualização descarta suas alterações não salvas no acesso de {{name}}.",
+        "confirm": "Descartar e sair"
+      },
       "reason": {
         "needsBusiness": "«Ver como» faz parte do plano Business",
         "needsManage": "Você precisa da permissão Gerenciar membros ou Gerenciar funções para usar «Ver como»",

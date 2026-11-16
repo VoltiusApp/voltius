@@ -4,7 +4,7 @@ import type { PreviewSession } from "@/services/previewSnapshot";
 import type { TeamObjectType } from "@/services/teamObjects";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTeamStore } from "@/stores/teamStore";
+import { useTeamStore, type TeamMember, type TeamRole } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { bindPreviewGuard, withControlAuthority } from "@/services/previewGuard";
@@ -45,9 +45,12 @@ const IDLE = {
   saving: false, saveError: null, saveFailures: [], pendingConfirm: null,
 } as const satisfies Partial<PreviewState>;
 
-const DRAFT_DEBOUNCE_MS = 250;
+const REFETCH_DEBOUNCE_MS = 250;
 
 const ENDING_STATUSES = new Set([402, 403, 404]);
+
+export const saveReady = ({ draft, resultDraft, status }: Pick<PreviewState, "draft" | "resultDraft" | "status">): boolean =>
+  draft !== null && status === "ready" && resultDraft === draft;
 
 export function saveNeedsConfirm(result: PreviewResponse | null): SaveConfirm | null {
   if (!result) return null;
@@ -57,7 +60,7 @@ export function saveNeedsConfirm(result: PreviewResponse | null): SaveConfirm | 
 }
 
 let unwatch: (() => void)[] = [];
-let draftTimer: ReturnType<typeof setTimeout> | undefined;
+let refetchTimer: ReturnType<typeof setTimeout> | undefined;
 let sentSeq = 0;
 let appliedSeq = 0;
 
@@ -69,6 +72,16 @@ function leftContent({ teamId, vaultId }: PreviewSession): boolean {
     || !useTeamStore.getState().teams.some((t) => t.id === teamId);
 }
 
+function scheduleRefetch(): void {
+  clearTimeout(refetchTimer);
+  refetchTimer = setTimeout(() => void usePreviewStore.getState().refetch(), REFETCH_DEBOUNCE_MS);
+}
+
+const accessKey = (members: TeamMember[] | undefined, roles: TeamRole[] | undefined): string => JSON.stringify([
+  members?.map((m) => [m.user_id, m.role_ids, m.permission_allow ?? 0, m.permission_deny ?? 0]),
+  roles?.map((r) => [r.id, r.permissions]),
+]);
+
 // Dynamic imports: usePermissions loads this store, and its consumers must not pull in i18n, sync or key rotation.
 let syncModule: Promise<typeof import("@/services/sync")> | undefined;
 const loadSync = () => (syncModule ??= import("@/services/sync"));
@@ -77,18 +90,24 @@ function watchSession(session: PreviewSession): (() => void)[] {
   const { teamId } = session;
   const store = () => usePreviewStore.getState();
   const exitIfLeft = () => { if (leftContent(session)) store().exit(); };
-  const refetch = () => void store().refetch();
+  const refetchUnlessSaving = () => { if (!store().saving) scheduleRefetch(); };
+  const keyOf = (s: ReturnType<typeof useTeamStore.getState>) => accessKey(s.membersByTeam[teamId], s.rolesByTeam[teamId]);
+  let key = keyOf(useTeamStore.getState());
   const list = [
     useVaultStore.subscribe(exitIfLeft),
     useUIStore.subscribe(exitIfLeft),
     useTeamStore.subscribe((s, prev) => {
       exitIfLeft();
       if (store().session !== session) return;
-      if (s.membersByTeam[teamId] !== prev.membersByTeam[teamId] || s.rolesByTeam[teamId] !== prev.rolesByTeam[teamId]) refetch();
+      if (s.membersByTeam[teamId] === prev.membersByTeam[teamId] && s.rolesByTeam[teamId] === prev.rolesByTeam[teamId]) return;
+      const next = keyOf(s);
+      if (next === key) return;
+      key = next;
+      refetchUnlessSaving();
     }),
   ];
   void loadSync().then(({ onTeamSseEvent }) => {
-    if (unwatch === list) list.push(onTeamSseEvent((id) => { if (id === teamId) refetch(); }));
+    if (unwatch === list) list.push(onTeamSseEvent((id) => { if (id === teamId) refetchUnlessSaving(); }));
   });
   return list;
 }
@@ -136,7 +155,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     if (!get().session) return;
     unwatch.forEach((stop) => stop());
     unwatch = [];
-    clearTimeout(draftTimer);
+    clearTimeout(refetchTimer);
     appliedSeq = sentSeq;
     set(IDLE);
   },
@@ -144,13 +163,13 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
   setDraft: (draft) => {
     if (!get().session) return;
     set({ draft, saveError: null, saveFailures: [] });
-    clearTimeout(draftTimer);
-    draftTimer = setTimeout(() => void get().refetch(), DRAFT_DEBOUNCE_MS);
+    scheduleRefetch();
   },
 
   refetch: async () => {
     const { session, draft } = get();
     if (!session) return;
+    clearTimeout(refetchTimer);
     const seq = ++sentSeq;
     set({ status: "loading" });
     const settle = () => {
@@ -184,6 +203,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
   closeSide: () => set({ side: null }),
 
   requestSave: async () => {
+    if (!saveReady(get())) return;
     const confirm = saveNeedsConfirm(get().result);
     if (confirm) set({ pendingConfirm: confirm });
     else await get().save();

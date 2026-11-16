@@ -576,6 +576,12 @@
       }
     },
     "viewAs": {
+      "loading": "Checking access…",
+      "discardDraft": {
+        "title": "Discard unsaved changes?",
+        "body": "Leaving the preview drops your unsaved changes to {{name}}'s access.",
+        "confirm": "Discard and exit"
+      },
       "reason": {
         "needsBusiness": "View as is part of Business",
         "needsManage": "You need the Manage members or Manage roles permission to use View as",

@@ -580,6 +580,12 @@
       }
     },
     "viewAs": {
+      "loading": "Erişim denetleniyor…",
+      "discardDraft": {
+        "title": "Kaydedilmemiş değişiklikler atılsın mı?",
+        "body": "Önizlemeden çıkmak, {{name}} erişiminde kaydedilmemiş değişikliklerinizi atar.",
+        "confirm": "At ve çık"
+      },
       "reason": {
         "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir",
         "needsManage": "\"Şu olarak görüntüle\" için Üyeleri yönet veya Rolleri yönet izni gerekir",

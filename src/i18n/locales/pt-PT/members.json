@@ -597,6 +597,12 @@
       }
     },
     "viewAs": {
+      "loading": "A verificar o acesso…",
+      "discardDraft": {
+        "title": "Descartar alterações não guardadas?",
+        "body": "Sair da pré-visualização descarta as suas alterações não guardadas ao acesso de {{name}}.",
+        "confirm": "Descartar e sair"
+      },
       "reason": {
         "needsBusiness": "«Ver como» faz parte do plano Business",
         "needsManage": "Precisa da permissão Gerir membros ou Gerir funções para usar «Ver como»",

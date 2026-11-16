@@ -21,6 +21,7 @@ const response = (over: Partial<PreviewResponse> = {}): PreviewResponse => ({
 });
 const MEMBER_DRAFT = { role_ids: ["r1"], allow: 1, deny: 0 };
 const ROLE_SESSION = { ...PREVIEW_SESSION, subject: { type: "role" as const, role_id: "r1" } };
+const checked = <D,>(draft: D, result: PreviewResponse) => ({ draft, resultDraft: draft, result, status: "ready" as const });
 
 beforeEach(() => {
   useTeamStore.setState({
@@ -29,7 +30,11 @@ beforeEach(() => {
   });
   startPreview();
 });
-afterEach(() => { cleanup(); stopPreview(); usePreviewStore.setState({ draft: null, result: null, pendingConfirm: null, saving: false, saveError: null }); });
+afterEach(() => {
+  cleanup();
+  stopPreview();
+  usePreviewStore.setState({ draft: null, resultDraft: null, result: null, status: "idle", error: null, pendingConfirm: null, saving: false, saveError: null });
+});
 
 const press = (init: KeyboardEventInit = {}) => act(async () => {
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, ...init }));
@@ -44,13 +49,58 @@ test("shows_name_and_exit_without_a_draft", () => {
 });
 
 test("counts_unsaved_changes", () => {
-  usePreviewStore.setState({ draft: MEMBER_DRAFT, result: response() });
+  usePreviewStore.setState(checked(MEMBER_DRAFT, response()));
   render(<ViewAsPill />);
   expect(screen.getByTestId("view-as-pill").textContent).toContain('"count":2');
   fireEvent.click(screen.getByTestId("view-as-discard"));
   expect(usePreviewStore.getState().draft).toBeNull();
   expect(unsavedChangeCount({ role_ids: ["r1"], allow: 0b11, deny: 0b100 }, makeMember("bob", ["r2"], { permission_allow: 0b01 }))).toBe(4);
   expect(unsavedChangeCount({ permissions: 0b110 }, makeRole("r1", 0b011))).toBe(2);
+});
+
+test("save_is_disabled_until_the_result_matches_the_draft", () => {
+  usePreviewStore.setState({ draft: MEMBER_DRAFT, resultDraft: null, result: response(), status: "loading" });
+  const { rerender } = render(<ViewAsPill />);
+  expect((screen.getByTestId("view-as-save") as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByTestId("view-as-save").title).toBe("members.viewAs.loading");
+  act(() => usePreviewStore.setState({ resultDraft: MEMBER_DRAFT, status: "error" }));
+  rerender(<ViewAsPill />);
+  expect((screen.getByTestId("view-as-save") as HTMLButtonElement).disabled).toBe(true);
+  act(() => usePreviewStore.setState({ status: "ready" }));
+  rerender(<ViewAsPill />);
+  expect((screen.getByTestId("view-as-save") as HTMLButtonElement).disabled).toBe(false);
+});
+
+test("shows_loading_then_the_error_with_a_retry", async () => {
+  const refetch = vi.fn(async () => {});
+  usePreviewStore.setState({ status: "loading", refetch });
+  const { rerender } = render(<ViewAsPill />);
+  expect(screen.getByTestId("view-as-loading").textContent).toBe("members.viewAs.loading");
+  expect(screen.queryByTestId("view-as-retry")).toBeNull();
+
+  act(() => usePreviewStore.setState({ status: "error", error: "network down" }));
+  rerender(<ViewAsPill />);
+  expect(screen.queryByTestId("view-as-loading")).toBeNull();
+  expect(screen.getByTestId("view-as-error").textContent).toBe("network down");
+  fireEvent.click(screen.getByTestId("view-as-retry"));
+  expect(refetch).toHaveBeenCalledOnce();
+});
+
+test.each([
+  ["the Exit button", () => fireEvent.click(screen.getByTestId("view-as-exit"))],
+  ["Escape", () => press()],
+])("%s_asks_before_dropping_a_draft", async (_, leave) => {
+  usePreviewStore.setState(checked(MEMBER_DRAFT, response()));
+  render(<ViewAsPill />);
+  await act(async () => { await leave(); });
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  fireEvent.click(screen.getByText("common.action.cancel"));
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(usePreviewStore.getState().draft).toEqual(MEMBER_DRAFT);
+
+  await act(async () => { await leave(); });
+  fireEvent.click(screen.getByText("members.viewAs.discardDraft.confirm"));
+  expect(usePreviewStore.getState().session).toBeNull();
 });
 
 test("escape_exits_only_when_free", async () => {
@@ -66,7 +116,7 @@ test("escape_exits_only_when_free", async () => {
 });
 
 test("save_turns_warning_when_the_key_gate_is_crossed", () => {
-  usePreviewStore.setState({ draft: MEMBER_DRAFT, result: response() });
+  usePreviewStore.setState(checked(MEMBER_DRAFT, response()));
   const { rerender } = render(<ViewAsPill />);
   expect(screen.getByTestId("view-as-save").className).not.toContain("btn-warning");
   expect(screen.getByTestId("view-as-save").textContent).toBe("members.viewAs.save");
@@ -78,9 +128,7 @@ test("save_turns_warning_when_the_key_gate_is_crossed", () => {
 
 test("member_key_loss_opens_the_revoke_confirm_and_confirm_rotates", async () => {
   const confirmSave = vi.fn(async () => {});
-  usePreviewStore.setState({
-    draft: MEMBER_DRAFT, result: response({ draft: { ...preview, holds_vault_key_gate: false } }), confirmSave,
-  });
+  usePreviewStore.setState({ ...checked(MEMBER_DRAFT, response({ draft: { ...preview, holds_vault_key_gate: false } })), confirmSave });
   render(<ViewAsPill />);
   await act(async () => { fireEvent.click(screen.getByTestId("view-as-save")); });
   expect(usePreviewStore.getState().pendingConfirm).toBe("memberKeyLoss");
@@ -92,8 +140,8 @@ test("member_key_loss_opens_the_revoke_confirm_and_confirm_rotates", async () =>
 test("role_key_loss_lists_names", async () => {
   const cancelSave = vi.fn(() => usePreviewStore.setState({ pendingConfirm: null }));
   usePreviewStore.setState({
-    session: ROLE_SESSION, draft: { permissions: 0 }, cancelSave,
-    result: response({ affected: { changed: ["amy", "cy"], lose_vault_key: ["amy", "cy"] } }),
+    session: ROLE_SESSION, cancelSave,
+    ...checked({ permissions: 0 }, response({ affected: { changed: ["amy", "cy"], lose_vault_key: ["amy", "cy"] } })),
   });
   render(<ViewAsPill />);
   expect(screen.queryByText(/changesAccess/)).toBeNull();
@@ -109,8 +157,8 @@ test("role_key_loss_lists_names", async () => {
 test("changed_only_shows_the_inline_count_without_a_modal", async () => {
   const save = vi.fn(async () => {});
   usePreviewStore.setState({
-    session: ROLE_SESSION, draft: { permissions: 0 }, save,
-    result: response({ affected: { changed: ["amy", "cy"], lose_vault_key: [] } }),
+    session: ROLE_SESSION, save,
+    ...checked({ permissions: 0 }, response({ affected: { changed: ["amy", "cy"], lose_vault_key: [] } })),
   });
   render(<ViewAsPill />);
   expect(screen.getByText('members.viewAs.changesAccess{"count":2}')).toBeTruthy();

@@ -593,6 +593,12 @@
       }
     },
     "viewAs": {
+      "loading": "Vérification de l'accès…",
+      "discardDraft": {
+        "title": "Abandonner les modifications non enregistrées ?",
+        "body": "Quitter l'aperçu abandonne vos modifications non enregistrées de l'accès de {{name}}.",
+        "confirm": "Abandonner et quitter"
+      },
       "reason": {
         "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
         "needsManage": "Vous avez besoin de la permission Gérer les membres ou Gérer les rôles pour utiliser « Voir en tant que »",
