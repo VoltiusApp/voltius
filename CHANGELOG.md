@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-11-16
+
+### Added
+
+- View as member and Preview as role, on Business teams. An admin sees a team vault exactly as a member or a role sees it, read-only. Items they cannot see show as faded placeholders, Why explains any item, and access changes can be tried as a draft, then saved or discarded. On desktop it opens from a member's panel, the Members list menu or a role card. On mobile it opens from the member screen or vault settings › Roles. Needs the matching server update (#891, #895)
+- Native Members screens on mobile: a members list with search, a selection mode for changing roles or removing several people at once, an Invite button, and a member screen with roles, permission overrides and the member's vault key. More › Members and vault settings › Members now open the same list (#893)
+- Moving or copying an item to another vault brings what it references with it: a host's jump hosts and startup snippets, a snippet's nested snippets and a rule's hosts (#890)
+- Plugins can run a command on a session's host and read its output, behind a new "Run any command on your hosts" permission (#894)
+
+### Fixed
+
+- When a team vault loses a host or your Connect permission, or you leave the team, open terminals, port forwards and SFTP browsers on that host now close (#888)
+- On Windows, accounts no longer fail to save to the account switcher with a "longer than the platform limit" error (#887)
+- "Linked to" now appears for identities in team vaults, and on keys (#886)
+- A Teams or Business owner with no seat cap now sees unlimited seats in Settings › Account instead of 3 (#889)
+- On mobile, a long-press in the terminal no longer pastes the clipboard, and the Paste button now appears when you long-press an empty cell (#892)
+
 ## [0.75.1] - 2026-11-15
 
 ### Fixed
