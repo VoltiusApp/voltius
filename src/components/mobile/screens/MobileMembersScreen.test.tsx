@@ -31,6 +31,10 @@ vi.mock("@/components/members/cards/JoinRequests", () => ({ JoinRequestsSection:
 vi.mock("@/components/members/OffboardingDialog", () => ({
   OffboardingDialog: ({ members }: { members: { user_id: string }[] }) => <div data-test-offboarding={members.map((m) => m.user_id).join(",")} />,
 }));
+vi.mock("@/components/vault-share/ConvertToTeamGate", () => ({
+  ConvertToTeamGate: ({ vaultId, inline, onCancel }: { vaultId: string; inline?: boolean; onCancel?: () => void }) =>
+    <div data-test-convert={vaultId} data-inline={String(!!inline)} data-cancel={String(!!onCancel)} />,
+}));
 vi.mock("@/components/members/panels/MembersCTA", () => ({
   SignInToCloudCTA: () => <div data-test-sign-in-cta />,
   UpgradeToTeamsCTA: () => <div data-test-upgrade-cta />,
@@ -273,8 +277,16 @@ describe("MobileMembersScreen", () => {
     unmount();
 
     useSubscriptionStore.setState({ accountMode: "server", ownsTeamsPlan: true });
-    render(<MobileMembersScreen vaultId="v1" />);
+    const ready = render(<MobileMembersScreen vaultId="v1" />);
     expect(await screen.findByText("merry-quartz-2597")).toBeTruthy();
+    const self = q(ready.container, "[data-members-section='you'] [data-mobile-self='me']")!;
+    expect(self).not.toBeNull();
+    expect(self.textContent).toContain("members.ownerRoleLabel");
+    expect(self.textContent).not.toContain("members.youBadge");
+    const convert = q(ready.container, "[data-test-convert='v1']")!;
+    expect(convert.dataset.inline).toBe("true");
+    expect(convert.dataset.cancel).toBe("false");
+    expect(ready.container.textContent).not.toContain("members.heading.members");
   });
 
   test("no vault and a stale vault id show the empty states", () => {

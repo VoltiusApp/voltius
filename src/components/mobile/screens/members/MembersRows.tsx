@@ -5,6 +5,7 @@ import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import type { PendingInvitation } from "@/services/teamService";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { MemberAvatar } from "@/components/members/cards/MemberCard";
+import { OwnerChip } from "@/components/members/cards/SelfCard";
 import { inviteExpiry } from "@/components/members/cards/PendingInviteCard";
 import { OverrideMarker, RoleBadges, RoleChip, sortedMemberRoles } from "@/components/members/roleBadges";
 import { roleLabel } from "@/components/members/roleChips";
@@ -54,6 +55,20 @@ export function MemberRow({ member, roles, selecting, selected, selectDisabledRe
       selectDisabledReason={selectDisabledReason}
       onTap={onTap}
       onLong={onLong}
+    />
+  );
+}
+
+export function SelfRow({ userId, handle }: { userId: string; handle: string | null }) {
+  const { t } = useTranslation();
+  return (
+    <MobileListRow
+      attr="mobile-self"
+      id={userId}
+      leading={<MiniAvatar name={handle || "?"} size={40} />}
+      title={handle || t("members.you")}
+      subtitle={<OwnerChip />}
+      onTap={() => {}}
     />
   );
 }

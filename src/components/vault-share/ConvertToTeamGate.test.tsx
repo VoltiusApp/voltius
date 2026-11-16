@@ -107,3 +107,9 @@ test("the vault name is interpolated into every placeholder, not left as {{vault
   expect(document.body.textContent).toContain("Personal");
   expect(document.body.textContent).not.toContain("{{");
 });
+
+test("inline without a cancel handler offers only the convert action", () => {
+  render(<ConvertToTeamGate vaultName="Personal" vaultId="v1" onConverted={vi.fn()} inline />);
+  expect(screen.getByText("members.convert.confirm")).toBeTruthy();
+  expect(screen.queryByText("members.convert.cancel")).toBeNull();
+});

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import type { PendingInvitation } from "@/services/teamService";
@@ -14,6 +14,7 @@ import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState";
 import { PrivateVaultMembers, useMyHandle } from "@/components/members/cards/PrivateVaultMembers";
 import { VAULT_ACTION_ICONS } from "@/components/vault-admin/vaultMenuItems";
+import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import MobilePanelHeader from "../panels/MobilePanelHeader";
 import MobileFilterBar from "../MobileFilterBar";
 import MobileFab from "../MobileFab";
@@ -23,9 +24,11 @@ import { NO_LARGE_TITLE, useCollapsingHeader } from "../useCollapsingHeader";
 import { allKeysSelected, pruneKeys, toggleAllKeys, toggleKey } from "../selectionCore";
 import RolePickerSheet from "../sheets/RolePickerSheet";
 import PendingInviteActionsSheet from "../sheets/PendingInviteActionsSheet";
-import { InviteRow, MemberRow, NavRow } from "./members/MembersRows";
+import { InviteRow, MemberRow, NavRow, SelfRow } from "./members/MembersRows";
 
 const byId = (id: string) => id;
+const SCROLL_BODY = "flex-1 overflow-y-auto overflow-x-hidden scrollbar-none";
+const SCROLL_STYLE: CSSProperties = { overscrollBehavior: "contain", paddingBottom: "var(--vt-safe-bottom)" };
 
 export default function MobileMembersScreen({ vaultId }: { vaultId: string | null }) {
   const { t } = useTranslation();
@@ -64,7 +67,19 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
 
   if (!vaultId) return shell(<>{header}<MembersEmptyState kind="noVault" /></>);
   if (localVault && !teamId) {
-    return shell(<PrivateVaultMembers header={header} handle={myHandle} myUserId={myUserId} layoutMode="list" bodyClassName="px-4 pt-2 pb-4" />);
+    return shell(
+      <PrivateVaultMembers header={header} handle={myHandle} myUserId={myUserId} layoutMode="list">
+        <div className={SCROLL_BODY} style={SCROLL_STYLE}>
+          <section data-members-section="you">
+            <MobileSectionHeading label={t("members.you")} />
+            <SelfRow userId={myUserId} handle={myHandle} />
+          </section>
+          <div className="px-4 pt-4">
+            <ConvertToTeamGate vaultId={localVault.id} vaultName={localVault.name} onConverted={() => {}} inline />
+          </div>
+        </div>
+      </PrivateVaultMembers>,
+    );
   }
   if (!teamId) return shell(<>{header}<MembersEmptyState kind="vaultNotFound" /></>);
 
@@ -111,7 +126,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
         <MobileSelectionBar attr="members-selection-bar" count={selIds.length} allSelected={allKeysSelected(selIds, selectableIds, byId)}
           onClose={clear} onToggleAll={() => setSelIds((s) => toggleAllKeys(s, selectableIds, byId))} actions={actions} />
       ) : header}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none" style={{ overscrollBehavior: "contain", paddingBottom: "var(--vt-safe-bottom)" }} onScroll={onScroll}>
+      <div className={SCROLL_BODY} style={SCROLL_STYLE} onScroll={onScroll}>
         <MobileFilterBar attr="members-filter" value={search} onChange={setSearch}
           placeholder={t("members.toolbar.filterPlaceholder")} className="sticky top-0 z-[1] bg-(--t-bg-base)" />
         <NavRow id="roles" icon={VAULT_ACTION_ICONS.roles} label={t("mobile.vaultSettings.rows.roles")} onTap={() => openPage("roles")} />

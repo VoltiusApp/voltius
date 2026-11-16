@@ -9,7 +9,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 interface Props {
   vaultId: string;
   vaultName: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onConverted: (teamId: string) => void;
   /** Renders as plain content sized for a small anchored popover instead of a
    *  centered `Modal` — for the header's share popover, which is already its
@@ -67,13 +67,15 @@ export function ConvertToTeamGate({ vaultId, vaultName, onCancel, onConverted, i
       </ul>
 
       <div className="flex gap-2 justify-end">
-        <button
-          onClick={onCancel}
-          disabled={busy}
-          className={`btn btn-secondary rounded-lg font-medium ${inline ? "flex-1 px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"}`}
-        >
-          {t("members.convert.cancel")}
-        </button>
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className={`btn btn-secondary rounded-lg font-medium ${inline ? "flex-1 px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"}`}
+          >
+            {t("members.convert.cancel")}
+          </button>
+        )}
         <button
           onClick={() => void go()}
           disabled={busy}
@@ -91,7 +93,7 @@ export function ConvertToTeamGate({ vaultId, vaultName, onCancel, onConverted, i
   }
 
   return (
-    <Modal onClose={onCancel} onEnter={() => void go()}>
+    <Modal onClose={() => onCancel?.()} onEnter={() => void go()}>
       <ModalCard className="p-6 flex flex-col gap-4 min-w-[21.333rem] max-w-[35rem]">
         {content}
       </ModalCard>

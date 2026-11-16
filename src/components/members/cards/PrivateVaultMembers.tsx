@@ -27,12 +27,12 @@ export function useMyHandle(): string | null {
   return handle;
 }
 
-export function PrivateVaultMembers({ header, handle, myUserId, layoutMode, bodyClassName = "px-9 pt-5 pb-9" }: {
+export function PrivateVaultMembers({ header, handle, myUserId, layoutMode, children }: {
   header?: ReactNode;
+  children?: ReactNode;
   handle: string | null;
   myUserId: string;
   layoutMode: LayoutMode;
-  bodyClassName?: string;
 }) {
   const { t } = useTranslation();
   const { ownsTeamsPlan, accountMode } = useSubscriptionStore();
@@ -55,10 +55,12 @@ export function PrivateVaultMembers({ header, handle, myUserId, layoutMode, body
     );
   }
 
+  if (children) return <>{header}{children}</>;
+
   return (
     <div className="flex-1 flex flex-col chrome-canvas">
       {header}
-      <div className={`flex-1 overflow-y-auto ${bodyClassName}`}>
+      <div className="flex-1 overflow-y-auto px-9 pt-5 pb-9">
         <div className="mb-6">
           <SectionHeader label={t("members.heading.members")} count={1} />
           <div {...cardGridProps(layoutMode, "compact")}>
