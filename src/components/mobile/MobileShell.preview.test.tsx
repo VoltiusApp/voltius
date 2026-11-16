@@ -1,0 +1,71 @@
+import { test, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
+vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/services/teamVaultSync", () => ({ fetchTeamData: vi.fn(async () => {}) }));
+
+vi.mock("./MobileSessionLayer", () => ({ default: () => null }));
+vi.mock("@/hooks/usePfToastBridge", () => ({ usePfToastBridge: () => {} }));
+vi.mock("./screens/MobileHostsScreen", () => ({ default: () => <Probe id="hosts" /> }));
+vi.mock("./screens/MobileKeychainScreen", () => ({ default: () => <Probe id="keychain" /> }));
+vi.mock("./sheets/HostActionsSheet", () => ({ default: () => <Probe id="host-actions" /> }));
+vi.mock("./sheets/VaultSwitcherSheet", () => ({ default: () => <Probe id="vault-switcher" /> }));
+vi.mock("./panels/MobileSftpScreen", () => ({ default: () => null }));
+vi.mock("./MobileRemoteDeviceSessions", () => ({ default: () => <div>remote-sessions</div> }));
+
+import { usePreviewActive } from "@/hooks/previewScope";
+import MobileShell from "./MobileShell";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { startPreview, stopPreview } from "@/test/preview";
+
+function Probe({ id }: { id: string }) {
+  return <div data-testid={id}>{String(usePreviewActive() !== null)}</div>;
+}
+
+beforeEach(() => {
+  useMobileNavStore.setState({ tab: "hosts", stack: [], sheet: null });
+  useSessionStore.setState({ sessions: [] });
+  startPreview();
+});
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
+
+test("tab_screens_and_pushed_pages_are_in_the_content_scope", () => {
+  useMobileNavStore.setState({ stack: [{ kind: "more-page", page: "keychain" }] });
+  render(<MobileShell />);
+  expect(screen.getByTestId("keychain").textContent).toBe("true");
+});
+
+test("tab screens are in the content scope", () => {
+  render(<MobileShell />);
+  expect(screen.getByTestId("hosts").textContent).toBe("true");
+});
+
+test("content_sheets_are_in_the_content_scope", () => {
+  useMobileNavStore.setState({ sheet: { kind: "host-actions", hostId: "h1" } });
+  render(<MobileShell />);
+  expect(screen.getByTestId("host-actions").textContent).toBe("true");
+});
+
+test("vault_switcher_is_outside_the_content_scope", () => {
+  useMobileNavStore.setState({ sheet: { kind: "vault-switcher" } });
+  render(<MobileShell />);
+  expect(screen.getByTestId("vault-switcher").textContent).toBe("false");
+});
+
+test("remote_device_sessions_not_rendered_while_previewing", async () => {
+  const { default: Real } = await vi.importActual<typeof import("./screens/MobileHostsScreen")>("./screens/MobileHostsScreen");
+  const { PreviewContentScope } = await import("@/hooks/previewScope");
+  const view = render(<PreviewContentScope><Real /></PreviewContentScope>);
+  expect(view.queryByText("remote-sessions")).toBeNull();
+  stopPreview();
+  view.rerender(<PreviewContentScope><Real /></PreviewContentScope>);
+  expect(view.queryByText("remote-sessions")).not.toBeNull();
+});

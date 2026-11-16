@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { PreviewContentScope } from "@/hooks/previewScope";
 import BottomTabBar from "./BottomTabBar";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import SyncSheet from "./sheets/SyncSheet";
@@ -181,51 +182,53 @@ export default function MobileShell() {
         style={{ overflow: "clip" }}
         data-mobile-tab-content
       >
-        {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
-        {terminalVisible && <MobileTerminalScreen />}
-        <div className="flex-1 relative" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
-          {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
-          <MobileSessionLayer visible={terminalVisible && hasSessions} />
-          {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
-          {/* Not while the vault is blocked: these screens list vault objects, and the
-              panel covers them anyway. The session and SFTP layers below stay mounted —
-              unmounting them would drop a live terminal or an SFTP connection. */}
-          {!terminalVisible && tab !== "sftp" && !blockedTeamVault && (
-            <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }} data-mobile-tab-screen>
-              {tab === "hosts" && tabScreen && <MobileHostsScreen />}
-              {tab === "snippets" && tabScreen && <MobileSnippetsScreen />}
-              {tab === "more" && tabScreen && <MobileMoreScreen />}
+        <PreviewContentScope>
+          {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
+          {terminalVisible && <MobileTerminalScreen />}
+          <div className="flex-1 relative" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
+            {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
+            <MobileSessionLayer visible={terminalVisible && hasSessions} />
+            {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
+            {/* Not while the vault is blocked: these screens list vault objects, and the
+                panel covers them anyway. The session and SFTP layers below stay mounted —
+                unmounting them would drop a live terminal or an SFTP connection. */}
+            {!terminalVisible && tab !== "sftp" && !blockedTeamVault && (
+              <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }} data-mobile-tab-screen>
+                {tab === "hosts" && tabScreen && <MobileHostsScreen />}
+                {tab === "snippets" && tabScreen && <MobileSnippetsScreen />}
+                {tab === "more" && tabScreen && <MobileMoreScreen />}
+              </div>
+            )}
+            {/* Always-mounted SFTP tab; visibility toggled so connections + cwd survive tab switches.
+                MobileSftpScreen's own root is absolute inset-0 z-30 — it stacks above the overlay above. */}
+            <div className={sftpVisible ? "contents" : "invisible pointer-events-none"}>
+              <MobileSftpScreen asTab visible={sftpVisible} />
+            </div>
+            <PendingConflictDialog />
+          </div>
+          {/* Extra-keys row: always present while the terminal is foreground with a session — usable
+              even when the keyboard is closed (keys write to the PTY without needing input focus).
+              When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
+          {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
+          {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
+          {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
+              (display: contents); transitions and predictive back animate its first child. */}
+          {pages.map(({ item, index, role }) => (
+            <div key={`${index}:${item.kind}`} className="contents" data-mobile-stack-page={role}>
+              {renderPage(item)}
+            </div>
+          ))}
+          {/* Above every screen and pushed page — all of them read vault objects this
+              member cannot see yet. MobileHeader rides along because it owns the vault
+              switcher: desktop leaves its sidebar uncovered, and this is the mobile
+              equivalent of that escape route. */}
+          {blockedTeamVault && (
+            <div className="absolute inset-0 z-40 flex flex-col bg-(--t-bg-base)">
+              <MobileHeader />
+              <TeamVaultStatePanel status={blockedTeamVault.status} teamId={blockedTeamVault.teamId} />
             </div>
           )}
-          {/* Always-mounted SFTP tab; visibility toggled so connections + cwd survive tab switches.
-              MobileSftpScreen's own root is absolute inset-0 z-30 — it stacks above the overlay above. */}
-          <div className={sftpVisible ? "contents" : "invisible pointer-events-none"}>
-            <MobileSftpScreen asTab visible={sftpVisible} />
-          </div>
-          <PendingConflictDialog />
-        </div>
-        {/* Extra-keys row: always present while the terminal is foreground with a session — usable
-            even when the keyboard is closed (keys write to the PTY without needing input focus).
-            When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
-        {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
-        {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
-        {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
-            (display: contents); transitions and predictive back animate its first child. */}
-        {pages.map(({ item, index, role }) => (
-          <div key={`${index}:${item.kind}`} className="contents" data-mobile-stack-page={role}>
-            {renderPage(item)}
-          </div>
-        ))}
-        {/* Above every screen and pushed page — all of them read vault objects this
-            member cannot see yet. MobileHeader rides along because it owns the vault
-            switcher: desktop leaves its sidebar uncovered, and this is the mobile
-            equivalent of that escape route. */}
-        {blockedTeamVault && (
-          <div className="absolute inset-0 z-40 flex flex-col bg-(--t-bg-base)">
-            <MobileHeader />
-            <TeamVaultStatePanel status={blockedTeamVault.status} teamId={blockedTeamVault.teamId} />
-          </div>
-        )}
+        </PreviewContentScope>
       </div>
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
           visible-but-covered under the overlay, and tapping a tab silently clears the stack.
@@ -233,12 +236,14 @@ export default function MobileShell() {
       <BottomTabBar visible={!immersive && !top} />
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "sync" && <SyncSheet />}
-      {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} fromEditor={sheet.fromEditor} />}
-      {sheet?.kind === "snippet-target" && (
-        <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />
-      )}
-      {sheet?.kind === "snippet-actions" && <MobileSnippetActionsSheet snippetId={sheet.snippetId} />}
-      {sheet?.kind === "snippets" && <MobileSnippetsSheet sessionId={sheet.sessionId} />}
+      <PreviewContentScope>
+        {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} fromEditor={sheet.fromEditor} />}
+        {sheet?.kind === "snippet-target" && (
+          <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />
+        )}
+        {sheet?.kind === "snippet-actions" && <MobileSnippetActionsSheet snippetId={sheet.snippetId} />}
+        {sheet?.kind === "snippets" && <MobileSnippetsSheet sessionId={sheet.sessionId} />}
+      </PreviewContentScope>
       {/* The bells only toggle this; one sheet, whichever tab (or deep link) opened it. */}
       {notificationsOpen && <NotificationsSheet />}
     </div>

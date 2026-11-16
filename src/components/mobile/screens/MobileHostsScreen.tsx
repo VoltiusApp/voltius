@@ -29,6 +29,7 @@ import MobileFilterBar from "../MobileFilterBar";
 import RowActionsButton from "../RowActionsButton";
 import { useLongPress } from "../useLongPress";
 import { useCollapsingHeader } from "../useCollapsingHeader";
+import { usePreviewActive } from "@/hooks/previewScope";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
@@ -96,6 +97,7 @@ function MobileHostRow({
 type AddMode = null | "menu" | "new-folder";
 
 export default function MobileHostsScreen() {
+  const previewing = usePreviewActive() !== null;
   const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
@@ -162,7 +164,7 @@ export default function MobileHostsScreen() {
         <div ref={axisRef} data-mobile-folder-level>
           <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
           {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
-          {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
+          {!nav.activeFolderId && !previewing && <MobileRemoteDeviceSessions />}
           {!search && subFolders.map((f) => (
             <MobileFolderRow
               key={f.id}
