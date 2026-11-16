@@ -8,7 +8,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { bindPreviewGuard, withControlAuthority } from "@/services/previewGuard";
-import { memberDraftStepCount, saveMemberDraft, type SaveFailure } from "@/services/viewAsSave";
+import { memberDraftStepCount, saveMemberDraft, saveRoleDraft, type SaveFailure } from "@/services/viewAsSave";
 
 export type { PreviewSession };
 
@@ -91,6 +91,31 @@ function watchSession(session: PreviewSession): (() => void)[] {
     if (unwatch === list) list.push(onTeamSseEvent((id) => { if (id === teamId) refetch(); }));
   });
   return list;
+}
+
+interface SavePlan {
+  total: number;
+  run: () => Promise<{ failed: SaveFailure[] }>;
+  reload: () => Promise<unknown>;
+}
+
+function planSave({ teamId, subject }: PreviewSession, draft: PreviewDraft): SavePlan | null {
+  const team = useTeamStore.getState();
+  if (subject.type === "member") {
+    const member = team.membersByTeam[teamId]?.find((m) => m.user_id === subject.user_id);
+    if (!member || !("role_ids" in draft)) return null;
+    return {
+      total: memberDraftStepCount(teamId, member, draft),
+      run: () => saveMemberDraft(teamId, member, draft),
+      reload: () => team.loadMembers(teamId),
+    };
+  }
+  if (!("permissions" in draft)) return null;
+  return {
+    total: 1,
+    run: () => saveRoleDraft(teamId, subject.role_id, draft),
+    reload: () => team.loadRoles(teamId),
+  };
 }
 
 export const usePreviewStore = create<PreviewState>((set, get) => ({
@@ -177,20 +202,17 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
 
   save: async () => {
     const { session, draft } = get();
-    if (!session || !draft || !("role_ids" in draft) || session.subject.type !== "member") return;
-    const { teamId, subject } = session;
-    const member = useTeamStore.getState().membersByTeam[teamId]?.find((m) => m.user_id === subject.user_id);
-    if (!member) return;
+    const plan = session && draft && planSave(session, draft);
+    if (!session || !plan) return;
     set({ saving: true, saveError: null, saveFailures: [] });
     try {
-      const total = memberDraftStepCount(teamId, member, draft);
-      const { failed } = await saveMemberDraft(teamId, member, draft);
-      await useTeamStore.getState().loadMembers(teamId).catch(() => {});
+      const { failed } = await plan.run();
+      await withControlAuthority(plan.reload).catch(() => {});
       if (get().session !== session) return;
       if (failed.length === 0) set({ draft: null });
       else {
         const { default: i18n } = await import("@/i18n");
-        set({ saveFailures: failed, saveError: i18n.t("members.viewAs.saveFailed", { failed: failed.length, total }) });
+        set({ saveFailures: failed, saveError: i18n.t("members.viewAs.saveFailed", { failed: failed.length, total: plan.total }) });
       }
       await get().refetch();
     } catch (e) {

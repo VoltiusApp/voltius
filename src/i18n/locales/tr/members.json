@@ -601,6 +601,11 @@
       "exit": "Çık",
       "changesAccess_one": "{{count}} üyenin erişimini değiştirir",
       "changesAccess_other": "{{count}} üyenin erişimini değiştirir",
+      "roleTitle": "Rol {{name}}",
+      "manageRolesRequired": "Rolleri yönetme izni gerekir",
+      "builtinReadOnly": "Yerleşik roller düzenlenemez",
+      "affects_one": "{{count}} üyeyi etkiler",
+      "affects_other": "{{count}} üyeyi etkiler",
       "roleKeyLoss": {
         "title": "Kasa anahtarı erişimi kaldırılsın mı?",
         "body": "{{names}} kasa anahtarını kaybedecek. Anahtar diğer herkes için yenilenir.",

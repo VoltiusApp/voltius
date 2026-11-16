@@ -616,6 +616,12 @@
       "changesAccess_one": "Altera o acesso de {{count}} membro",
       "changesAccess_many": "Altera o acesso de {{count}} membros",
       "changesAccess_other": "Altera o acesso de {{count}} membros",
+      "roleTitle": "Função {{name}}",
+      "manageRolesRequired": "É necessária a permissão Gerir funções",
+      "builtinReadOnly": "As funções integradas não podem ser editadas",
+      "affects_one": "Afeta {{count}} membro",
+      "affects_other": "Afeta {{count}} membros",
+      "affects_many": "Afeta {{count}} membros",
       "roleKeyLoss": {
         "title": "Remover o acesso à chave do cofre?",
         "body": "{{names}} perderá a chave do cofre. A chave é rotacionada para todos os outros.",

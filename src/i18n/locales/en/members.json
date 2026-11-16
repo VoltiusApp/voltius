@@ -597,6 +597,11 @@
       "exit": "Exit",
       "changesAccess_one": "Changes access for {{count}} member",
       "changesAccess_other": "Changes access for {{count}} members",
+      "roleTitle": "Role {{name}}",
+      "manageRolesRequired": "You need the Manage roles permission",
+      "builtinReadOnly": "Built-in roles can't be edited",
+      "affects_one": "Affects {{count}} member",
+      "affects_other": "Affects {{count}} members",
       "roleKeyLoss": {
         "title": "Remove vault key access?",
         "body": "{{names}} will lose the vault key. The key is rotated for everyone else.",

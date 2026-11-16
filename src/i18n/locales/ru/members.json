@@ -635,6 +635,13 @@
       "changesAccess_few": "Меняет доступ для {{count}} участников",
       "changesAccess_many": "Меняет доступ для {{count}} участников",
       "changesAccess_other": "Меняет доступ для {{count}} участников",
+      "roleTitle": "Роль {{name}}",
+      "manageRolesRequired": "Требуется разрешение «Управление ролями»",
+      "builtinReadOnly": "Встроенные роли нельзя изменять",
+      "affects_one": "Затрагивает {{count}} участника",
+      "affects_few": "Затрагивает {{count}} участников",
+      "affects_many": "Затрагивает {{count}} участников",
+      "affects_other": "Затрагивает {{count}} участников",
       "roleKeyLoss": {
         "title": "Убрать доступ к ключу хранилища?",
         "body": "{{names}} потеряет ключ хранилища. Ключ будет заменён для всех остальных.",

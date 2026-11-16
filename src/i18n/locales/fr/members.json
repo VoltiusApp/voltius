@@ -616,6 +616,12 @@
       "changesAccess_one": "Modifie l'accès de {{count}} membre",
       "changesAccess_many": "Modifie l'accès de {{count}} membres",
       "changesAccess_other": "Modifie l'accès de {{count}} membres",
+      "roleTitle": "Rôle {{name}}",
+      "manageRolesRequired": "Il faut l'autorisation Gérer les rôles",
+      "builtinReadOnly": "Les rôles intégrés ne sont pas modifiables",
+      "affects_one": "Concerne {{count}} membre",
+      "affects_other": "Concerne {{count}} membres",
+      "affects_many": "Concerne {{count}} membres",
       "roleKeyLoss": {
         "title": "Retirer l'accès à la clé du coffre ?",
         "body": "{{names}} perdra la clé du coffre. La clé est renouvelée pour tous les autres.",

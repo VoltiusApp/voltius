@@ -2,10 +2,12 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { usePreviewStore } from "@/stores/previewStore";
 import { MemberAccessPanel } from "@/components/preview/MemberAccessPanel";
+import { RoleAccessPanel } from "@/components/preview/RoleAccessPanel";
 
 function AccessSlot() {
   const subjectType = usePreviewStore((s) => s.session?.subject.type);
-  return subjectType === "member" ? <MemberAccessPanel /> : null;
+  if (!subjectType) return null;
+  return subjectType === "member" ? <MemberAccessPanel /> : <RoleAccessPanel />;
 }
 
 function WhySlot() {

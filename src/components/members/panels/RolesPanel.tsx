@@ -62,7 +62,7 @@ function PermissionRow({
   );
 }
 
-function PermissionGrid({
+export function PermissionGrid({
   value,
   onChange,
   readOnly = false,
